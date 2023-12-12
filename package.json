@@ -1,19 +1,15 @@
 {
   "name": "yarn-workspace-electron",
-  "version": "1.0.0",
-  "main": "index.js",
-  "private": "true",
-  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "start": "yarn workspace electron-app start",
     "make": "yarn workspace electron-app make"
   },
-  "workspaces": {
-    "packages": [
-      "packages/*"
-    ],
-    "nohoist": [
-      "**"
-    ]
+  "packageManager": "yarn@4.0.2",
+  "engines": {
+    "node": "18.19.0",
+    "yarn": "4.0.2"
   }
 }
