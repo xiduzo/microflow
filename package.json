@@ -1,11 +1,12 @@
 {
   "name": "yarn-workspace-electron",
   "workspaces": [
+    "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "start": "yarn workspace electron-app start",
-    "make": "yarn workspace electron-app make"
+    "start": "yarn workspace @fhb/electron-app start",
+    "make": "yarn workspace @fhb/electron-app make"
   },
   "packageManager": "yarn@4.0.2",
   "engines": {

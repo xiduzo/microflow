@@ -26,8 +26,7 @@
  * ```
  */
 
+import '@fhb/ui/global.css';
+import './app';
 import "./index.css";
 
-import { test } from "test-package";
-
-test();

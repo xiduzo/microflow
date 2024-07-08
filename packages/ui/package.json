@@ -1,0 +1,22 @@
+{
+  "name": "@fhb/ui",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-select": "^2.1.1",
+    "@radix-ui/react-slot": "^1.1.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.400.0",
+    "react": "^18.3.1",
+    "tailwind-merge": "^2.3.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/johnny-five": "^2.1.9",
+    "@types/react": "^18.3.3",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.4"
+  }
+}
