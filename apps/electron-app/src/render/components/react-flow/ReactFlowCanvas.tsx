@@ -8,7 +8,7 @@ import {
 } from "@xyflow/react";
 import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
-import useStore, { AppState } from "../../render/store";
+import useStore, { AppState } from "../../store";
 import { Button } from "./components/Button";
 
 export function ReactFlowCanvas() {

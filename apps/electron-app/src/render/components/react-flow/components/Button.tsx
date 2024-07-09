@@ -1,3 +1,4 @@
+import { ContextMenuContent, ContextMenuItem } from "@ui/index";
 import { Handle, Position } from "@xyflow/react";
 import { useCallback } from "react";
 import { Node } from "./Node";
@@ -8,7 +9,14 @@ export function Button({ data }: Props) {
   }, []);
 
   return (
-    <Node>
+    <Node
+      contextMenu={
+        <ContextMenuContent>
+          <ContextMenuItem>foo</ContextMenuItem>
+          <ContextMenuItem>bar</ContextMenuItem>
+        </ContextMenuContent>
+      }
+    >
       <Handle
         type="target"
         position={Position.Top}

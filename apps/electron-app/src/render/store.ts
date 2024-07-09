@@ -1,5 +1,6 @@
 import {
   Edge,
+  MarkerType,
   Node,
   OnConnect,
   OnEdgesChange,
@@ -20,7 +21,7 @@ export type AppState = {
   addNode: (node: Node) => void;
 };
 
-const initialNodes = [
+const initialNodes: Node[] = [
   {
     id: "1",
     type: "button",
@@ -31,7 +32,9 @@ const initialNodes = [
 ];
 
 
-const initialEdges = [{ id: "e1-2", source: "1", target: "2" }];
+const initialEdges: Edge[] = [
+  { id: "e1-2", source: "1", target: "2", markerEnd: { type: MarkerType.Arrow }, }
+];
 
 
 // this is our useStore hook that we can use in our components to get parts of the store and call actions

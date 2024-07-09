@@ -21,7 +21,7 @@ import {
 } from "@fhb/ui";
 import { type KnownBoard } from "avrgirl-arduino";
 import { useEffect, useState } from "react";
-import { type BoardCheckResult, type BoardFlashResult } from "../main/ipc";
+import { type BoardCheckResult, type BoardFlashResult } from "../../main/ipc";
 
 const SUPPORTED_BOARDS: [KnownBoard, string][] = [
   ["uno", "Arduino uno"],
