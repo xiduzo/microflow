@@ -81,7 +81,10 @@ export function AutomaticSerialConnector() {
 
   if (checkResult.type === "ready") {
     return (
-      <Badge className="bg-green-400 text-green-900 hover:bg-green-400 hover:text-green-900">
+      <Badge
+        className="bg-green-400 text-green-900 hover:bg-green-400 hover:text-green-900"
+        aria-label="connected"
+      >
         Connected
       </Badge>
     );

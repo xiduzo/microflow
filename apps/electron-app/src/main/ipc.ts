@@ -1,7 +1,7 @@
 import Avrgirl, { type KnownBoard, type Port } from 'avrgirl-arduino';
 import { ipcMain, IpcMainEvent, utilityProcess, UtilityProcess } from 'electron';
 import log from 'electron-log/node';
-import { readdir, writeFile } from 'fs';
+import { readdir } from 'fs';
 import { dirname, join, resolve } from 'path';
 
 let childProcess: UtilityProcess | null = null
@@ -27,82 +27,29 @@ const KNOWN_BOARD_PRODUCT_IDS: [KnownBoard, string[]][] = [
 ipcMain.on('ipc-fhb-check-board', (event) => {
   childProcess?.kill()
 
-  const code = `
-const JohnnyFive = require("johnny-five");
-const log = require('electron-log/node');
+  const filePath = join(__dirname, "check.js")
 
-try {
-  const board = new JohnnyFive.Board({
-    repl: false,
-    debug: true,
-  });
-  log.debug("Board is being checked", board.port);
+  childProcess = utilityProcess.fork(filePath)
+  childProcess.on('message', async (message: BoardCheckResult) => {
+    log.log({ message })
 
-  board.on("info", (event) => {
-    process.parentPort.postMessage({type: "info", message: event.message, class: event.class });
-  });
-
-  board.on("ready", () => { // When board is connected and Firmata is flashed
-    process.parentPort.postMessage({ type: "ready", port: board.port });
-  });
-
-  board.on("error", (error) => { // When board is found but no Firmata is flashed
-    process.parentPort.postMessage({ type: "error", message: error.message, port: board.port });
-  });
-
-  board.on("fail", (event) => { // When board is not found
-    process.parentPort.postMessage({type: "fail", message: event.message, class: event.class });
-  })
-
-  board.on("warn", (event) => { // TODO: find out when this fires
-    process.parentPort.postMessage({type: "warn", message: event.message, class: event.class });
-  });
-
-  board.on("exit", () => { // TODO: find out when this fires
-    process.parentPort.postMessage({ type: "exit" });
-  });
-
-  board.on("close", () => { // TODO: find out when this fires
-    process.parentPort.postMessage({ type: "close" });
-  });
-} catch (error) {
-  log.error("something went wrong", { error });
-  process.parentPort.postMessage({ type: "error", message: error.message, port: board.port });
-}
-  `
-
-  const fileName = "board-check.js"
-  const filePath = join(__dirname, fileName)
-
-  writeFile(filePath, code, { encoding: 'utf-8' }, (error) => {
-    if (error) {
-      log.warn({ error })
-      event.reply('ipc-fhb-check-board', { type: "fail", message: error.message } satisfies BoardCheckResult)
-      return
+    if (message.type !== 'info') {
+      childProcess?.kill() // Free up the port again
     }
 
-    childProcess = utilityProcess.fork(filePath)
-    childProcess.on('message', async (message: BoardCheckResult) => {
-      log.log({ message })
-
-      if (message.type !== 'info') {
-        childProcess?.kill() // Free up the port again
-      }
-
-      if (message.type !== 'error') {
+    if (message.type !== 'error') {
+      event.reply('ipc-fhb-check-board', message satisfies BoardCheckResult)
+    } else {
+      try {
+        await forceFlashBoard()
+        event.reply('ipc-fhb-check-board', { type: "ready" } satisfies BoardCheckResult) // We know the board can run Firmata now
+      } catch (error) {
+        log.warn({ error })
         event.reply('ipc-fhb-check-board', message satisfies BoardCheckResult)
-      } else {
-        try {
-          await forceFlashBoard()
-          event.reply('ipc-fhb-check-board', { type: "ready" } satisfies BoardCheckResult) // We know the board can run Firmata now
-        } catch (error) {
-          log.warn({ error })
-          event.reply('ipc-fhb-check-board', message satisfies BoardCheckResult)
-        }
       }
+    }
 
-      message.port && sniffPorts(message.port, event)
-    })
+    message.port && sniffPorts(message.port, event)
   })
 });
 
@@ -117,6 +64,10 @@ ipcMain.on('ipc-fhb-flash-firmata', async (event, board: KnownBoard) => {
     log.warn({ error })
     event.reply('ipc-fhb-flash-firmata', { type: "error", message: error.message } satisfies BoardFlashResult)
   }
+})
+
+ipcMain.on('ipc-fhb-data', (event, data) => {
+  console.log(data)
 })
 
 async function forceFlashBoard(): Promise<void> {
