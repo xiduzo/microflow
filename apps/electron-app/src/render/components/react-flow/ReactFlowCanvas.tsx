@@ -2,6 +2,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
@@ -10,6 +11,10 @@ import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import useStore, { AppState } from "../../store";
 import { Button } from "./components/Button";
+import { Led } from "./components/Led";
+import { AutomaticSerialConnector } from "./panels/AutomaticSerialConnector";
+import { CodeUploader } from "./panels/CodeUploader";
+import { ComponentTabs } from "./panels/ComponentsTabs";
 
 export function ReactFlowCanvas() {
   return (
@@ -21,6 +26,7 @@ export function ReactFlowCanvas() {
 
 const nodeTypes = {
   button: Button,
+  led: Led,
 };
 
 const selector = (state: AppState) => ({
@@ -48,18 +54,13 @@ function ReactFlowComponent() {
 
       const type = event.dataTransfer.getData("application/reactflow");
 
-      // check if the dropped element is valid
-      if (typeof type === "undefined" || !type) {
-        return;
-      }
-
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
       const newNode = {
-        id: Math.floor(Math.random() * 100000).toString(),
+        id: Math.random().toString(36).substring(2, 8),
         type,
         position,
         data: { label: `${type} node` },
@@ -85,6 +86,18 @@ function ReactFlowComponent() {
       <Controls />
       <MiniMap />
       <Background gap={32} />
+
+      <Panel position="top-left">
+        <ComponentTabs />
+      </Panel>
+
+      <Panel position="top-center">
+        <AutomaticSerialConnector />
+      </Panel>
+
+      <Panel position="bottom-center">
+        <CodeUploader />
+      </Panel>
     </ReactFlow>
   );
 }

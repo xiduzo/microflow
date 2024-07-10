@@ -11,24 +11,48 @@ try {
     debug: true,
   });
 
-  const button = new JohnnyFive.Button(2);
-
-  button.on("hold", (holdTime) => {});
-
-  board.on("close", (event) => {});
-
   board.on("ready", (event) => {
-    console.log(board.pins);
+    const button = new JohnnyFive.Button({
+      pin: 8,
+      holdtime: 1000,
+    });
+    const button2 = new JohnnyFive.Button({
+      pin: 8,
+      // isPullup: true,
+      holdtime: 666,
+    });
+    console.log("Board ready");
+    button.on("down", () => {
+      console.log("Button down");
+      led.toggle();
+    });
+
+    button.on("press", () => {
+      console.log("Button press");
+    });
+
+    button.on("release", () => {
+      console.log("Button release");
+    });
+
+    button.on("up", () => {
+      console.log("Button up");
+      led.toggle();
+    });
+
+    button.on("hold", (holdtime) => {
+      console.log("Button hold", holdtime);
+    });
+
+    button2.on("hold", (holdtime) => {
+      console.log("Button2 hold", holdtime);
+    });
+
     led = new JohnnyFive.Led(13);
 
     // board.repl.inject({
     //   led,
     // });
-  });
-
-  process.parentPort.on("message", (data) => {
-    console.log("message received", data);
-    led.toggle();
   });
 } catch (error) {
   console.error(error);

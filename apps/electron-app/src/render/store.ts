@@ -26,14 +26,14 @@ const initialNodes: Node[] = [
     id: "1",
     type: "button",
     position: { x: 200, y: 200 },
-    data: { label: "1" },
+    data: { pin: 8 },
   },
-  { id: "2", position: { x: 400, y: 400 }, data: { label: "2" } },
+  { id: "2", type: "led", position: { x: 400, y: 400 }, data: { pin: 13 } },
 ];
 
 
 const initialEdges: Edge[] = [
-  { id: "e1-2", source: "1", target: "2", markerEnd: { type: MarkerType.Arrow }, }
+  { id: "e1-2", source: "1", sourceHandle: "down", targetHandle: "toggle", target: "2", markerEnd: { type: MarkerType.Arrow, } }
 ];
 
 
@@ -52,8 +52,9 @@ const useStore = create<AppState>((set, get) => ({
     });
   },
   onConnect: (connection) => {
+    console.log('onConnect', connection);
     set({
-      edges: addEdge(connection, get().edges),
+      edges: addEdge(connection, get().edges).map(edge => ({ ...edge, markerEnd: { type: MarkerType.Arrow } })),
     });
   },
   setNodes: (nodes) => {

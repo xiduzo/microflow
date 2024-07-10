@@ -1,7 +1,7 @@
 import Avrgirl, { type KnownBoard, type Port } from 'avrgirl-arduino';
 import { ipcMain, IpcMainEvent, utilityProcess, UtilityProcess } from 'electron';
 import log from 'electron-log/node';
-import { readdir } from 'fs';
+import { readdir, writeFile } from 'fs';
 import { dirname, join, resolve } from 'path';
 
 let childProcess: UtilityProcess | null = null
@@ -66,8 +66,21 @@ ipcMain.on('ipc-fhb-flash-firmata', async (event, board: KnownBoard) => {
   }
 })
 
-ipcMain.on('ipc-fhb-data', (event, data) => {
-  console.log(data)
+ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
+  childProcess?.kill()
+
+  log.debug("uploading code...", { code })
+  event.reply('ipc-fhb-upload-code', { type: 'done' } satisfies UploadCodeResult)
+  const filePath = join(__dirname, 'temp.js')
+  writeFile(filePath, code, (error) => {
+    if (error) {
+      log.error({ error })
+      event.reply('ipc-fhb-upload-code', { type: 'error', message: error.message } satisfies UploadCodeResult)
+      return
+    }
+
+    childProcess = utilityProcess.fork(filePath)
+  })
 })
 
 async function forceFlashBoard(): Promise<void> {
@@ -186,5 +199,10 @@ export type BoardCheckResult = {
 
 export type BoardFlashResult = {
   type: "done" | "error" | "flashing"
+  message?: string
+}
+
+export type UploadCodeResult = {
+  type: "done" | "error",
   message?: string
 }

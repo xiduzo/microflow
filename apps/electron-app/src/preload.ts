@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 
-type Channels = 'ipc-fhb-flash-firmata' | 'ipc-fhb-check-board' | 'ipc-fhb-upload-code' | 'ipc-fhb-data';
+type Channels = 'ipc-fhb-flash-firmata' | 'ipc-fhb-check-board' | 'ipc-fhb-upload-code';
 export const electronHandler = {
   ipcRenderer: {
     send(channel: Channels, ...args: unknown[]) {
