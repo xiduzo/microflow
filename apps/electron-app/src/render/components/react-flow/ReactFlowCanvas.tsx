@@ -9,9 +9,10 @@ import {
 } from "@xyflow/react";
 import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
-import useStore, { AppState } from "../../store";
-import { Button } from "./components/Button";
-import { Led } from "./components/Led";
+import useNodesEdgesStore, { AppState } from "../../store";
+import { Button, ButtonData } from "./components/Button";
+import { Led, LedData } from "./components/Led";
+import { ConnectionLine } from "./ConnectionLine";
 import { AutomaticSerialConnector } from "./panels/AutomaticSerialConnector";
 import { CodeUploader } from "./panels/CodeUploader";
 import { ComponentTabs } from "./panels/ComponentsTabs";
@@ -25,9 +26,11 @@ export function ReactFlowCanvas() {
 }
 
 const nodeTypes = {
-  button: Button,
-  led: Led,
+  Button: Button,
+  Led: Led,
 };
+
+export type NodeType = keyof typeof nodeTypes;
 
 const selector = (state: AppState) => ({
   nodes: state.nodes,
@@ -40,7 +43,7 @@ const selector = (state: AppState) => ({
 
 function ReactFlowComponent() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } =
-    useStore(useShallow(selector));
+    useNodesEdgesStore(useShallow(selector));
   const { screenToFlowPosition } = useReactFlow();
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -52,18 +55,31 @@ function ReactFlowComponent() {
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      const type = event.dataTransfer.getData("application/reactflow");
+      const type = event.dataTransfer.getData(
+        "application/reactflow",
+      ) as keyof typeof nodeTypes;
 
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
+      let data: ButtonData | LedData;
+
+      switch (type) {
+        case "Button":
+          data = { pin: 1 } satisfies ButtonData;
+          break;
+        case "Led":
+          data = { pin: 13 } satisfies LedData;
+          break;
+      }
+
       const newNode = {
         id: Math.random().toString(36).substring(2, 8),
         type,
         position,
-        data: { label: `${type} node` },
+        data,
       };
 
       addNode(newNode);
@@ -77,6 +93,7 @@ function ReactFlowComponent() {
       colorMode="dark"
       nodes={nodes}
       edges={edges}
+      connectionLineComponent={ConnectionLine}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
@@ -84,7 +101,11 @@ function ReactFlowComponent() {
       onDragOver={onDragOver}
     >
       <Controls />
-      <MiniMap />
+      <MiniMap
+        nodeColor={(node) => {
+          if (node.selected) return "#22c55e";
+        }}
+      />
       <Background gap={32} />
 
       <Panel position="top-left">

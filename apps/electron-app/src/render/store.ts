@@ -10,35 +10,31 @@ import {
 
 import { create } from 'zustand';
 
-export type AppState = {
-  nodes: Node[];
+export type AppState<NodeData extends Record<string, unknown> = {}> = {
+  nodes: Node<NodeData>[];
   edges: Edge[];
-  onNodesChange: OnNodesChange<Node>;
+  onNodesChange: OnNodesChange<Node<NodeData>>;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  setNodes: (nodes: Node[]) => void;
+  setNodes: (nodes: Node<NodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
-  addNode: (node: Node) => void;
+  addNode: (node: Node<NodeData>) => void;
 };
 
 const initialNodes: Node[] = [
-  {
-    id: "1",
-    type: "button",
-    position: { x: 200, y: 200 },
-    data: { pin: 8 },
-  },
-  { id: "2", type: "led", position: { x: 400, y: 400 }, data: { pin: 13 } },
+  { id: "1", type: "Button", data: { pin: 8 }, position: { x: 600, y: 200 } },
+  { id: "2", type: "Led", data: { pin: 13 }, position: { x: 600, y: 600 } }
 ];
 
 
 const initialEdges: Edge[] = [
-  { id: "e1-2", source: "1", sourceHandle: "down", targetHandle: "toggle", target: "2", markerEnd: { type: MarkerType.Arrow, } }
 ];
 
+const defaultEdgeStyle: Partial<Edge> = {
+  style: { strokeWidth: 2 }, markerEnd: { type: MarkerType.Arrow }
+}
 
-// this is our useStore hook that we can use in our components to get parts of the store and call actions
-const useStore = create<AppState>((set, get) => ({
+const useNodesEdgesStore = create<AppState>((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
   onNodesChange: (changes) => {
@@ -52,9 +48,8 @@ const useStore = create<AppState>((set, get) => ({
     });
   },
   onConnect: (connection) => {
-    console.log('onConnect', connection);
     set({
-      edges: addEdge(connection, get().edges).map(edge => ({ ...edge, markerEnd: { type: MarkerType.Arrow } })),
+      edges: addEdge(connection, get().edges).map(edge => ({ ...defaultEdgeStyle, ...edge })),
     });
   },
   setNodes: (nodes) => {
@@ -70,4 +65,8 @@ const useStore = create<AppState>((set, get) => ({
   }
 }));
 
-export default useStore;
+export const nodeSelector = <T extends Record<string, unknown> = {}>(nodeId: string) => (state: AppState<T>) => ({
+  node: state.nodes.find((node) => node.id === nodeId),
+});
+
+export default useNodesEdgesStore;

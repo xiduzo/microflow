@@ -6,6 +6,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@fhb/ui";
+import { NodeType } from "../ReactFlowCanvas";
 
 export function ComponentTabs() {
   return (
@@ -24,7 +25,7 @@ export function ComponentTabs() {
       <TabsContent value="figma" className="space-y-2">
         <Draggable
           title="Variable"
-          type="button"
+          type="Button"
           description="Interact with figma variables"
           icon={<Icons.Variable />}
           tags={["Input", "Output"]}
@@ -33,14 +34,14 @@ export function ComponentTabs() {
       <TabsContent value="hardware" className="space-y-2">
         <Draggable
           title="button"
-          type="button"
+          type="Button"
           description="Buttons are the very basic inputs used everywhere."
           icon={<Icons.SquarePower />}
           tags={["Analog", "Input"]}
         />
         <Draggable
           title="LED"
-          type="led"
+          type="Led"
           description="LEDs are very tiny light sources"
           icon={<Icons.Lightbulb />}
           tags={["Digital", "Output"]}
@@ -49,31 +50,31 @@ export function ComponentTabs() {
       <TabsContent value="flow" className="space-y-2">
         <Draggable
           title="Map"
-          type="button"
+          type="Button"
           description="Map a value from one range to another"
           icon={<Icons.Sigma />}
         />
         <Draggable
           title="If/else"
-          type="button"
+          type="Button"
           description="Control logic"
           icon={<Icons.Split />}
         />
         <Draggable
           title="And"
-          type="button"
+          type="Button"
           description="Control logic"
           icon={<Icons.Merge />}
         />
         <Draggable
           title="Interval"
-          type="button"
+          type="Button"
           description="Do something on a regular interval"
           icon={<Icons.Clock />}
         />
         <Draggable
           title="Counter"
-          type="button"
+          type="Button"
           description="Keep count of things"
           icon={<Icons.Hash />}
         />
@@ -113,7 +114,7 @@ function Draggable(props: DraggableProps) {
 }
 
 type DraggableProps = {
-  type: string;
+  type: NodeType;
   title: string;
   description: string;
   icon: JSX.Element;

@@ -70,7 +70,6 @@ ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
   childProcess?.kill()
 
   log.debug("uploading code...", { code })
-  event.reply('ipc-fhb-upload-code', { type: 'done' } satisfies UploadCodeResult)
   const filePath = join(__dirname, 'temp.js')
   writeFile(filePath, code, (error) => {
     if (error) {
@@ -80,6 +79,16 @@ ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
     }
 
     childProcess = utilityProcess.fork(filePath)
+    childProcess.on("message", (message: UploadedCodeMessage | UploadCodeResult) => {
+      log.debug({ message })
+
+      if ('type' in message) {
+        event.reply('ipc-fhb-upload-code', message)
+        return
+      }
+
+      event.reply('ipc-fhb-uploaded-code', message)
+    })
   })
 })
 
@@ -203,6 +212,11 @@ export type BoardFlashResult = {
 }
 
 export type UploadCodeResult = {
-  type: "done" | "error",
+  type: "info" | "ready" | "fail" | "warn" | "exit" | "close" | "error",
   message?: string
+}
+
+export type UploadedCodeMessage = {
+  id: string,
+  action: string
 }

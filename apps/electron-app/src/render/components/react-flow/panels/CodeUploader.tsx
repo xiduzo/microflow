@@ -1,6 +1,6 @@
 import { Button } from "@fhb/ui";
 import { useShallow } from "zustand/react/shallow";
-import useStore, { AppState } from "../../../store";
+import useNodesEdgesStore, { AppState } from "../../../store";
 
 const selector = (state: AppState) => ({
   nodes: state.nodes,
@@ -8,18 +8,7 @@ const selector = (state: AppState) => ({
 });
 
 export function CodeUploader() {
-  const { nodes, edges } = useStore(useShallow(selector));
-
-  function nodeTypeToJohnnyFiveComponent(type: string) {
-    switch (type) {
-      case "button":
-        return "Button";
-      case "led":
-        return "Led";
-      default:
-        return null;
-    }
-  }
+  const { nodes, edges } = useNodesEdgesStore(useShallow(selector));
 
   function uploadCode() {
     let code = `
@@ -29,30 +18,48 @@ export function CodeUploader() {
       try {
         const board = new JohnnyFive.Board({
           repl: false,
-          debug: true,
+          debug: false,
+        });
+    `;
+
+    code += `
+        board.on("error", (error) => {
+          process.parentPort.postMessage({ type: "error", message: error.message });
+        });
+
+        board.on("fail", (event) => {
+          process.parentPort.postMessage({ type: "fail", message: event.message });
+        });
+
+        board.on("warn", (event) => {
+          process.parentPort.postMessage({ type: "warn", message: event.message });
+        });
+
+        board.on("exit", () => {
+          process.parentPort.postMessage({ type: "exit" });
+        });
+
+        board.on("close", () => {
+          process.parentPort.postMessage({ type: "close" });
         });
     `;
 
     code += `
         board.on("ready", () => {
+          process.parentPort.postMessage({ type: "ready" });
           log.info("board is ready");
     `;
 
-    // edge: { source: "node-1", target: "node-2" }
-    // node: { id: "node-1" }
-    const startingNodes = nodes.filter((node) => {
-      return !edges.some((edge) => edge.target === node.id);
-    });
-
     nodes.forEach((node) => {
-      const johnnyFiveType = nodeTypeToJohnnyFiveComponent(node.type);
-      if (!johnnyFiveType) return;
+      if (node.type !== "Button" && node.type !== "Led") return;
 
       code += `
-          const ${node.type}_${node.id} = new JohnnyFive.${johnnyFiveType}({
-            pin: ${node.data.pin},
-          });
+          const ${node.type}_${node.id} = new JohnnyFive.${node.type}(${JSON.stringify(node.data)});
       `;
+    });
+
+    const startingNodes = nodes.filter((node) => {
+      return !edges.some((edge) => edge.target === node.id);
     });
 
     startingNodes.forEach((node) => {
@@ -63,6 +70,8 @@ export function CodeUploader() {
 
         code += `
           ${node.type}_${node.id}.on("${action.sourceHandle}", () => {
+            log.info("${node.type}_${node.id} - ${action.sourceHandle}");
+            process.parentPort.postMessage({ id: "${node.id}", action: "${action.sourceHandle}" });
         `;
 
         targetNodes.forEach((targetNode) => {
@@ -72,20 +81,20 @@ export function CodeUploader() {
         });
 
         code += `
-          }) // ${node.type}_${node.id} - ${action.sourceHandle};
+          }); // ${node.type}_${node.id} - ${action.sourceHandle}
         `;
       });
     });
 
     code += `
-        }) // board - ready;
+        }); // board - ready;
       } catch (error) {
         log.error("something went wrong", { error });
       }
     `;
 
-    console.log(code.toString());
-    window.electron.ipcRenderer.send("ipc-fhb-upload-code", code.toString());
+    console.log(code);
+    window.electron.ipcRenderer.send("ipc-fhb-upload-code", code);
   }
 
   return <Button onClick={uploadCode}>Upload code</Button>;
