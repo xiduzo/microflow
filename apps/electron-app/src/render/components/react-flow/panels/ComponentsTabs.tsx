@@ -1,10 +1,10 @@
 import {
-  Badge,
-  Icons,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+    Badge,
+    Icons,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
 } from "@fhb/ui";
 import { NodeType } from "../ReactFlowCanvas";
 
@@ -74,7 +74,7 @@ export function ComponentTabs() {
         />
         <Draggable
           title="Counter"
-          type="Button"
+          type="Counter"
           description="Keep count of things"
           icon={<Icons.Hash />}
         />

@@ -11,7 +11,7 @@ import { Node, Position, useReactFlow } from "@xyflow/react";
 import { LedOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
 import useNodesEdgesStore, { nodeSelector } from "../../../store";
-import { BaseComponent } from "./BaseComponent";
+import { NodeContainer, NodeContent, NodeHeader } from "./BaseComponent";
 import { Handle } from "./Handle";
 
 export function Led(props: Props) {
@@ -27,19 +27,19 @@ export function Led(props: Props) {
   }
 
   return (
-    <BaseComponent {...props}>
-      <section className="flex flex-col space-y-4">
-        <section className="flex p-12 justify-center items-center h-11 bg-zinc-700 rounded-md">
+    <NodeContainer {...props}>
+      <NodeContent>
+        <NodeHeader>
           <Switch className="scale-150" />
-        </section>
+        </NodeHeader>
         <Select
           value={node.data.pin.toString()}
           onValueChange={handleValueChange}
         >
-          <SelectTrigger>Pin ({node.data.pin.toString()})</SelectTrigger>
+          <SelectTrigger>Pin {node.data.pin}</SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectLabel>Set button pin</SelectLabel>
+              <SelectLabel>Set led pin</SelectLabel>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pin) => (
                 <SelectItem key={pin} value={pin.toString()}>
                   {pin}
@@ -48,13 +48,12 @@ export function Led(props: Props) {
             </SelectGroup>
           </SelectContent>
         </Select>
-      </section>
-      <section className="flex justify-between">
-        <Handle index={-1} type="target" position={Position.Top} id="on" />
-        <Handle type="target" position={Position.Top} id="toggle" />
-        <Handle index={1} type="target" position={Position.Top} id="off" />
-      </section>
-    </BaseComponent>
+      </NodeContent>
+      <Handle index={-1} type="target" position={Position.Top} id="on" />
+      <Handle type="target" position={Position.Top} id="toggle" />
+      <Handle index={1} type="target" position={Position.Top} id="off" />
+      <Handle type="source" position={Position.Right} id="change" />
+    </NodeContainer>
   );
 }
 

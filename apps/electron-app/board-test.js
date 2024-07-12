@@ -1,76 +1,139 @@
 const JohnnyFive = require("johnny-five");
+const log = require("electron-log/node");
+const EventEmitter = require("events");
 
 try {
-  /**
-   * @type {JohnnyFive.Led}
-   */
-  let led;
-
   const board = new JohnnyFive.Board({
     repl: false,
-    debug: true,
+    debug: false,
   });
 
-  board.on("ready", (event) => {
-    const button = new JohnnyFive.Button({
-      pin: 8,
-      holdtime: 1000,
-    });
-    const button2 = new JohnnyFive.Button({
-      pin: 8,
-      // isPullup: true,
-      holdtime: 666,
-    });
-    console.log("Board ready");
-    button.on("down", () => {
-      console.log("Button down");
-      led.toggle();
-    });
+  board.on("ready", () => {
+    log.info("board is ready");
+    process.parentPort.postMessage({ type: "ready" });
 
-    button.on("press", () => {
-      console.log("Button press");
-    });
+    /*
+     * Create nodes
+     */
+    const Button_1 = new CustomJohnnyFiveButton({ pin: 8 });
+    const Counter_2 = new Counter();
+    const Led_3 = new CustomJohnnyFiveLed({ pin: 13 });
 
-    button.on("release", () => {
-      console.log("Button release");
-    });
+    /*
+     * Node handlers
+     */
+    Button_1.on("up", () => {
+      // Inform main process
+      process.parentPort.postMessage({ id: "1", action: "up" });
 
-    button.on("up", () => {
-      console.log("Button up");
-      led.toggle();
-    });
+      Counter_2.increment();
+      Led_3.toggle();
+    }); // Button_1 - up
+  }); // board - ready;
 
-    button.on("hold", (holdtime) => {
-      console.log("Button hold", holdtime);
-    });
+  /*
+   * Board events in order to communicate with the main process
+   */
+  board.on("error", (error) => {
+    log.error("board error", { error });
+    process.parentPort.postMessage({ type: "error", message: error.message });
+  }); // board - error
 
-    button2.on("hold", (holdtime) => {
-      console.log("Button2 hold", holdtime);
-    });
+  board.on("fail", (event) => {
+    log.warn("board fail", { event });
+    process.parentPort.postMessage({ type: "fail", message: event.message });
+  }); // board - fail
 
-    led = new JohnnyFive.Led(13);
+  board.on("warn", (event) => {
+    log.warn("board warn", { event });
+    process.parentPort.postMessage({ type: "warn", message: event.message });
+  }); // board - warn
 
-    // board.repl.inject({
-    //   led,
-    // });
-  });
+  board.on("exit", () => {
+    log.info("board exit");
+    process.parentPort.postMessage({ type: "exit" });
+  }); // board - exit
+
+  board.on("close", () => {
+    log.info("board close");
+    process.parentPort.postMessage({ type: "close" });
+  }); // board - close
 } catch (error) {
-  console.error(error);
+  log.error("something went wrong", { error });
 }
 
-// MODES: {
-//     INPUT: 0,
-//     OUTPUT: 1,
-//     ANALOG: 2,
-//     PWM: 3,
-//     SERVO: 4,
-//     SHIFT: 5,
-//     I2C: 6,
-//     ONEWIRE: 7,
-//     STEPPER: 8,
-//     SERIAL: 10,
-//     PULLUP: 11,
-//     IGNORE: 127,
-//     PING_READ: 117,
-//     UNKOWN: 16
-//   }
+class Counter extends EventEmitter {
+  #count = 0;
+
+  set count(value) {
+    this.#count = value;
+    this.emit("change", value);
+  }
+
+  get count() {
+    return this.#count;
+  }
+
+  increment(amount = 1) {
+    this.count += parseInt(amount);
+  }
+
+  decrement(amount = 1) {
+    this.count -= parseInt(amount);
+  }
+
+  reset() {
+    this.count = 0;
+  }
+
+  set(value) {
+    this.count = parseInt(value);
+  }
+}
+
+class CustomJohnnyFiveButton extends JohnnyFive.Button {
+  constructor(options) {
+    super(options);
+
+    this.on("up", () => {
+      super.emit("change");
+    });
+
+    this.on("down", () => {
+      super.emit("change");
+    });
+
+    this.on("hold", () => {
+      super.emit("change");
+    });
+  }
+}
+
+class CustomJohnnyFiveLed extends JohnnyFive.Led {
+  #previousIsOn = false;
+  #eventEmitter = new EventEmitter();
+
+  constructor(options) {
+    super(options);
+    this.#interval();
+  }
+
+  #interval() {
+    setInterval(() => {
+      if (this.#previousIsOn !== this.isOn) {
+        this.#eventEmitter.emit("change");
+      }
+
+      this.#previousIsOn = this.isOn;
+    }, 25);
+  }
+
+  on(event, callback) {
+    if (!event) {
+      super.on();
+      return;
+    }
+
+    this.#eventEmitter.on(event, callback);
+  }
+}

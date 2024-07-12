@@ -11,6 +11,7 @@ import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import useNodesEdgesStore, { AppState } from "../../store";
 import { Button, ButtonData } from "./components/Button";
+import { Counter } from "./components/Counter";
 import { Led, LedData } from "./components/Led";
 import { ConnectionLine } from "./ConnectionLine";
 import { AutomaticSerialConnector } from "./panels/AutomaticSerialConnector";
@@ -28,6 +29,7 @@ export function ReactFlowCanvas() {
 const nodeTypes = {
   Button: Button,
   Led: Led,
+  Counter: Counter,
 };
 
 export type NodeType = keyof typeof nodeTypes;

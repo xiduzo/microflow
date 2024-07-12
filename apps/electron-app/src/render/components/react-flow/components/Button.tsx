@@ -1,12 +1,15 @@
 import {
+  Badge,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
-  ContextMenuItem,
+  ContextMenuSeparator,
   Label,
   Select,
   SelectContent,
   SelectItem,
   SelectLabel,
   SelectTrigger,
+  Separator,
   Slider,
   Button as UiButton,
 } from "@fhb/ui";
@@ -15,7 +18,7 @@ import { ButtonOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
 import { SelectGroup } from "../../../../../out/Figma hardware bridge-darwin-arm64/Figma hardware bridge.app/Contents/Resources/app/packages/ui";
 import useNodesEdgesStore, { nodeSelector } from "../../../store";
-import { BaseComponent } from "./BaseComponent";
+import { NodeContainer, NodeContent, NodeHeader } from "./BaseComponent";
 import { Handle } from "./Handle";
 
 export function Button(props: Props) {
@@ -26,27 +29,59 @@ export function Button(props: Props) {
 
   if (!node) return null;
 
+  const hasMetadata =
+    node.data.invert || node.data.isPullup || node.data.isPulldown;
+
   return (
-    <BaseComponent
+    <NodeContainer
       {...props}
       contextMenu={
         <ContextMenuContent>
-          <ContextMenuItem>foo</ContextMenuItem>
-          <ContextMenuItem>bar</ContextMenuItem>
+          <ContextMenuCheckboxItem
+            checked={node.data.invert}
+            onClick={() =>
+              updateNodeData(props.id, { invert: !node.data.invert })
+            }
+          >
+            Invert
+          </ContextMenuCheckboxItem>
+          <ContextMenuSeparator />
+          <ContextMenuCheckboxItem
+            checked={node.data.isPullup}
+            onClick={() =>
+              updateNodeData(props.id, {
+                isPullup: !node.data.isPullup,
+                isPulldown: false,
+              })
+            }
+          >
+            Initialize as a pullup button
+          </ContextMenuCheckboxItem>
+          <ContextMenuCheckboxItem
+            checked={node.data.isPulldown}
+            onClick={() =>
+              updateNodeData(props.id, {
+                isPulldown: !node.data.isPulldown,
+                isPullup: false,
+              })
+            }
+          >
+            Initialize as a pulldown button
+          </ContextMenuCheckboxItem>
         </ContextMenuContent>
       }
     >
-      <section className="flex flex-col space-y-4 mb-6">
-        <section className="flex p-12 justify-center items-center h-11 bg-zinc-700 rounded-md">
+      <NodeContent>
+        <NodeHeader>
           <UiButton>Click me</UiButton>
-        </section>
+        </NodeHeader>
         <Select
           value={node.data.pin.toString()}
           onValueChange={(value) =>
             updateNodeData(props.id, { pin: parseInt(value) })
           }
         >
-          <SelectTrigger>Pin ({node.data.pin.toString()})</SelectTrigger>
+          <SelectTrigger>Pin {node.data.pin}</SelectTrigger>
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Set button pin</SelectLabel>
@@ -61,11 +96,12 @@ export function Button(props: Props) {
         <Label htmlFor="holdtime" className="flex justify-between">
           Hold time
           <span className="opacity-40 font-light">
-            {node.data?.holdtime ?? 500}
+            {node.data?.holdtime ?? 500} ms
           </span>
         </Label>
         <Slider
           id="holdtime"
+          className="pb-2"
           defaultValue={[node.data?.holdtime ?? 500]}
           min={100}
           max={2000}
@@ -74,11 +110,20 @@ export function Button(props: Props) {
             updateNodeData(props.id, { holdtime: value[0] })
           }
         />
-      </section>
+        {hasMetadata && <Separator className="my-3" />}
+        {hasMetadata && (
+          <section className="flex space-x-2">
+            {node.data.invert && <Badge>Inverted</Badge>}
+            {node.data.isPullup && <Badge>Pull up</Badge>}
+            {node.data.isPulldown && <Badge>Pull down</Badge>}
+          </section>
+        )}
+      </NodeContent>
       <Handle type="source" index={-1} position={Position.Bottom} id="up" />
       <Handle type="source" position={Position.Bottom} id="hold" />
       <Handle type="source" index={1} position={Position.Bottom} id="down" />
-    </BaseComponent>
+      <Handle type="source" position={Position.Right} id="change" />
+    </NodeContainer>
   );
 }
 

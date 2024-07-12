@@ -1,6 +1,5 @@
 import {
   Edge,
-  MarkerType,
   Node,
   OnConnect,
   OnEdgesChange,
@@ -23,15 +22,18 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 
 const initialNodes: Node[] = [
   { id: "1", type: "Button", data: { pin: 8 }, position: { x: 600, y: 200 } },
-  { id: "2", type: "Led", data: { pin: 13 }, position: { x: 600, y: 600 } }
+  { id: "2", type: "Counter", data: { count: 5 }, position: { x: 600, y: 600 } },
+  { id: "3", type: "Led", data: { pin: 13 }, position: { x: 900, y: 600 } },
 ];
 
 
 const initialEdges: Edge[] = [
+  { id: "1", source: "1", sourceHandle: "up", target: "2", targetHandle: "increment" },
+  { id: "2", source: "1", sourceHandle: "up", target: "3", targetHandle: "toggle" },
 ];
 
 const defaultEdgeStyle: Partial<Edge> = {
-  style: { strokeWidth: 2 }, markerEnd: { type: MarkerType.Arrow }
+  style: { strokeWidth: 2 }
 }
 
 const useNodesEdgesStore = create<AppState>((set, get) => ({

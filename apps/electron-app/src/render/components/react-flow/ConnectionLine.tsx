@@ -4,6 +4,38 @@ import {
   Position,
 } from "@xyflow/react";
 
+function getTargetPosition({
+  toHandle,
+  fromY,
+  toY,
+  fromX,
+  toX,
+}: Pick<
+  ConnectionLineComponentProps,
+  "fromX" | "fromY" | "toX" | "toY" | "toHandle"
+>) {
+  if (toHandle?.position) {
+    return toHandle.position;
+  }
+
+  const xDiff = Math.abs(fromX - toX);
+  const yDiff = Math.abs(fromY - toY);
+
+  if (xDiff > yDiff) {
+    if (fromX > toX) {
+      return Position.Right;
+    }
+
+    return Position.Left;
+  }
+
+  if (fromY > toY) {
+    return Position.Bottom;
+  }
+
+  return Position.Top;
+}
+
 export function ConnectionLine({
   fromX,
   fromY,
@@ -12,43 +44,33 @@ export function ConnectionLine({
   fromHandle,
   toHandle,
 }: ConnectionLineComponentProps) {
-  const path = toHandle
-    ? getBezierPath({
-        sourceX: fromX,
-        sourceY: fromY,
-        targetX: toX,
-        targetY: toY,
-        sourcePosition: fromHandle?.position ?? Position.Top,
-        targetPosition: toHandle?.position ?? Position.Bottom,
-      })[0]
-    : generateBezierPath({ fromX, fromY, toX, toY });
+  const targetPosition = getTargetPosition({
+    fromX,
+    fromY,
+    toX,
+    toY,
+    toHandle,
+  });
+
+  const [path] = getBezierPath({
+    sourceX: fromX,
+    sourceY: fromY,
+    targetX: toX,
+    targetY: toY,
+    sourcePosition: fromHandle?.position ?? Position.Top,
+    targetPosition: targetPosition,
+  });
+
   return (
     <g>
       <path
         fill="none"
-        stroke="#0ea5e9"
+        stroke={toHandle ? "#22c55e" : "#0ea5e9"}
         strokeWidth={2}
         className="animated"
-        // d={`M${fromX},${fromY} C ${fromX} ${toY} ${fromX} ${toY} ${toX},${toY}`}
         d={path}
       />
       <circle cx={toX} cy={toY} fill="#fff" r={6} />
     </g>
   );
-}
-
-function generateBezierPath(
-  pos: Pick<ConnectionLineComponentProps, "fromX" | "fromY" | "toX" | "toY">,
-): string {
-  const { fromX, fromY, toX, toY } = pos;
-
-  // Calculate control points
-  const controlX1 = fromX;
-  const controlY1 = (fromY + toY) / 2;
-  const controlX2 = toX;
-  const controlY2 = (fromY + toY) / 2;
-
-  // Construct the path
-  const path = `M${fromX},${fromY} C${controlX1},${controlY1} ${controlX2},${controlY2} ${toX},${toY}`;
-  return path;
 }
