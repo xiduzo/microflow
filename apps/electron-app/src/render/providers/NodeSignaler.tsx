@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { UploadedCodeMessage } from "../../main/ipc";
+import { UploadedCodeMessage } from "../../common/types";
 
 const Signaler = createContext({});
 
@@ -17,7 +17,6 @@ export function SignalerProvider({ children }: PropsWithChildren) {
   const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
-    console.log("registering ipc");
     return window.electron.ipcRenderer.on(
       "ipc-fhb-uploaded-code",
       (message: UploadedCodeMessage) => {

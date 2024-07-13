@@ -13,9 +13,10 @@ import { Button, ButtonData } from "./components/Button";
 import { Counter } from "./components/Counter";
 import { Led, LedData } from "./components/Led";
 import { ConnectionLine } from "./ConnectionLine";
-import { AutomaticSerialConnector } from "./panels/AutomaticSerialConnector";
 import { CodeUploader } from "./panels/CodeUploader";
 import { ComponentTabs } from "./panels/ComponentsTabs";
+import { SaveButton } from "./panels/SaveButton";
+import { SerialConnectionStatus } from "./panels/SerialConnectionStatus";
 
 const nodeTypes = {
   Button: Button,
@@ -108,7 +109,11 @@ export function ReactFlowComponent() {
       </Panel>
 
       <Panel position="top-center">
-        <AutomaticSerialConnector />
+        <SerialConnectionStatus />
+      </Panel>
+
+      <Panel position="top-right">
+        <SaveButton />
       </Panel>
 
       <Panel position="bottom-center">

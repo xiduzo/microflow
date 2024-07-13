@@ -9,6 +9,7 @@ try {
   });
 
   board.on("ready", () => {
+    console.log(board);
     log.info("board is ready");
     process.parentPort.postMessage({ type: "ready" });
 

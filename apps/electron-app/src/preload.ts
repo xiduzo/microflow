@@ -9,12 +9,10 @@ export const electronHandler = {
       ipcRenderer.send(channel, ...args);
     },
     on(channel: Channels, func: (...args: unknown[]) => void): () => void {
-      console.log('Adding listener', channel);
       const subscription = (_event: IpcRendererEvent, ...args: unknown[]) => func(...args);
       ipcRenderer.on(channel, subscription);
 
       return () => {
-        console.log('Removing listener');
         ipcRenderer.removeListener(channel, subscription);
       };
     },

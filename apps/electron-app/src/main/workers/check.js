@@ -18,7 +18,17 @@ try {
 
   board.on("ready", () => {
     // When board is connected and Firmata is flashed
-    process.parentPort.postMessage({ type: "ready", port: board.port });
+    process.parentPort.postMessage({
+      type: "ready",
+      port: board.port,
+      pins: Object.entries(board.pins).reduce((acc, [key, value]) => {
+        acc.push({
+          pin: Number(key),
+          ...value,
+        });
+        return acc;
+      }, []),
+    });
   });
 
   board.on("error", (error) => {

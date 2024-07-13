@@ -3,6 +3,7 @@ import { ipcMain, IpcMainEvent, utilityProcess, UtilityProcess } from 'electron'
 import log from 'electron-log/node';
 import { readdir, writeFile } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { BoardCheckResult, BoardFlashResult, UploadCodeResult, UploadedCodeMessage } from '../common/types';
 
 let childProcess: UtilityProcess | null = null
 let portSniffer: NodeJS.Timeout | null = null
@@ -87,7 +88,6 @@ ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
         return
       }
 
-      console.log("sending ipc-fhb-uploaded-code", message)
       event.reply('ipc-fhb-uploaded-code', message)
     })
   })
@@ -198,27 +198,4 @@ async function getConnectedDevices(): Promise<Port[]> {
       resolve(ports)
     })
   })
-}
-
-export type BoardCheckResult = {
-  type: "info" | "ready" | "fail" | "warn" | "exit" | "close" | "error",
-  port?: string,
-  message?: string,
-  class?: "Available" | "Connected" | "Board"
-}
-
-export type BoardFlashResult = {
-  type: "done" | "error" | "flashing"
-  message?: string
-}
-
-export type UploadCodeResult = {
-  type: "info" | "ready" | "fail" | "warn" | "exit" | "close" | "error",
-  message?: string
-}
-
-export type UploadedCodeMessage = {
-  nodeId: string,
-  action: string,
-  value?: unknown
 }

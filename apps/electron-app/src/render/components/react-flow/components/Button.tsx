@@ -7,7 +7,6 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   Separator,
   Slider,
@@ -16,7 +15,8 @@ import {
 import { Position, useReactFlow } from "@xyflow/react";
 import { ButtonOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
-import { SelectGroup } from "../../../../../out/Figma hardware bridge-darwin-arm64/Figma hardware bridge.app/Contents/Resources/app/packages/ui";
+import { MODES } from "../../../../common/types";
+import { useBoard } from "../../../providers/BoardProvider";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
@@ -25,6 +25,8 @@ export function Button(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
+
+  const { checkResult } = useBoard();
 
   const { updateNodeData } = useReactFlow();
 
@@ -86,14 +88,13 @@ export function Button(props: Props) {
         >
           <SelectTrigger>Pin {node.data.pin}</SelectTrigger>
           <SelectContent>
-            <SelectGroup>
-              <SelectLabel>Set button pin</SelectLabel>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pin) => (
-                <SelectItem key={pin} value={pin.toString()}>
-                  {pin}
+            {checkResult.pins
+              ?.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
+              .map((pin) => (
+                <SelectItem key={pin.pin} value={pin.pin.toString()}>
+                  Pin {pin.pin}
                 </SelectItem>
               ))}
-            </SelectGroup>
           </SelectContent>
         </Select>
         <Label htmlFor="holdtime" className="flex justify-between">
@@ -106,9 +107,9 @@ export function Button(props: Props) {
           id="holdtime"
           className="pb-2"
           defaultValue={[node.data?.holdtime ?? 500]}
-          min={100}
-          max={2000}
-          step={25}
+          min={500}
+          max={2500}
+          step={50}
           onValueChange={(value) =>
             updateNodeData(props.id, { holdtime: value[0] })
           }

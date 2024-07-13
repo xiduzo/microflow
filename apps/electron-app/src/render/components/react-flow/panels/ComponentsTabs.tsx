@@ -1,17 +1,17 @@
 import {
-    Badge,
-    Icons,
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
+  Badge,
+  Icons,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@fhb/ui";
 import { NodeType } from "../ReactFlowCanvas";
 
 export function ComponentTabs() {
   return (
     <Tabs
-      defaultValue="figma"
+      defaultValue="closed"
       className="bg-neutral-950/5 backdrop-blur-sm rounded-md p-2 z-50 w-[280px]"
     >
       <TabsList>

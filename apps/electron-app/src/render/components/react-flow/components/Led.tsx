@@ -10,6 +10,8 @@ import {
 import { Position, useReactFlow } from "@xyflow/react";
 import { LedOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
+import { MODES } from "../../../../common/types";
+import { useBoard } from "../../../providers/BoardProvider";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
@@ -19,6 +21,7 @@ export function Led(props: Props) {
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
   const { updateNodeData } = useReactFlow();
+  const { checkResult } = useBoard();
 
   if (!node) return null;
 
@@ -44,11 +47,13 @@ export function Led(props: Props) {
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Set led pin</SelectLabel>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pin) => (
-                <SelectItem key={pin} value={pin.toString()}>
-                  {pin}
-                </SelectItem>
-              ))}
+              {checkResult.pins
+                ?.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
+                .map((pin) => (
+                  <SelectItem key={pin.pin} value={pin.pin.toString()}>
+                    Pin {pin.pin}
+                  </SelectItem>
+                ))}
             </SelectGroup>
           </SelectContent>
         </Select>

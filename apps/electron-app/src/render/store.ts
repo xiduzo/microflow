@@ -20,24 +20,13 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
   addNode: (node: Node<NodeData>) => void;
 };
 
-const initialNodes: Node[] = [
-  { id: "button_1", type: "Button", data: { pin: 8 }, position: { x: 600, y: 200 } },
-  { id: "counter_1", type: "Counter", data: { count: 5 }, position: { x: 600, y: 600 } },
-  { id: "led_1", type: "Led", data: { pin: 13 }, position: { x: 900, y: 600 } },
-];
-
 export const baseEdgeConfig: Partial<Edge> = {
-  style: { strokeWidth: 4, stroke: "#404040" }
+  style: { strokeWidth: 4 }
 }
 
-const initialEdges: Edge[] = [
-  { id: "1", source: "button_1", sourceHandle: "up", target: "counter_1", targetHandle: "increment", ...baseEdgeConfig },
-  { id: "2", source: "button_1", sourceHandle: "up", target: "led_1", targetHandle: "toggle", ...baseEdgeConfig },
-];
-
 export const useNodesEdgesStore = create<AppState>((set, get) => ({
-  nodes: initialNodes,
-  edges: initialEdges,
+  nodes: [],
+  edges: [],
   onNodesChange: (changes) => {
     set({
       nodes: applyNodeChanges(changes, get().nodes),
@@ -76,12 +65,10 @@ export const edgeSelector = (edgeId: string) => (state: AppState) => ({
   edge: state.edges.find((edge) => edge.id === edgeId),
 })
 
-export const incommingEdgeSelector = (nodeId: string, handle: string) => (state: AppState) => ({
-  incommingEdges: state.edges.filter((edge) => edge.target === nodeId && edge.targetHandle === handle),
-  outgoingEdges: state.edges.filter((edge) => edge.source === nodeId && edge.sourceHandle === handle),
-})
-
 export const nodesAndEdgesSelector = (state: AppState) => ({
   nodes: state.nodes,
   edges: state.edges,
 })
+
+
+export const outgoingEdgeIdSelector = (nodeId: string, handle: string) => (state: AppState) => state.edges.filter(edge => edge.source === nodeId && edge.sourceHandle === handle).map(edge => edge.id);

@@ -10,66 +10,47 @@ import {
   useReactFlow,
   Handle as XyFlowHandle,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  baseEdgeConfig,
-  incommingEdgeSelector,
-  useNodesEdgesStore,
-} from "../../../store";
+import { outgoingEdgeIdSelector, useNodesEdgesStore } from "../../../store";
 import { useNode } from "./Node";
 
 const HANDLE_SPACING = 40;
 
 export function Handle(props: Props) {
   const { id, data } = useNode();
-
-  const { outgoingEdges } = useNodesEdgesStore(
-    useShallow(incommingEdgeSelector(id, props.id)),
+  const outgoingEdgeIds = useNodesEdgesStore(
+    useShallow(outgoingEdgeIdSelector(id, props.id)),
   );
+
   const { updateEdge } = useReactFlow();
 
-  const [isTriggered, setIsTriggered] = useState(false);
-
-  const timeout = useRef<NodeJS.Timeout>();
-
-  const triggerHandle = useCallback(() => {
-    setIsTriggered(true);
-    if (timeout.current) clearTimeout(timeout.current);
-
-    timeout.current = setTimeout(() => {
-      setIsTriggered(false);
-    }, 150);
-  }, []);
+  const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     if (props.type !== "source") return;
     if (!data.animated) return;
     if (props.id !== data.animated) return;
 
-    triggerHandle();
+    outgoingEdgeIds.map((edgeId) => {
+      const timeout = timeouts.current.get(edgeId);
+      if (timeout) clearTimeout(timeout);
 
-    outgoingEdges.forEach((edge) => {
-      updateEdge(edge.id, {
+      updateEdge(edgeId, {
         animated: true,
-        style: { ...baseEdgeConfig.style, stroke: "#f97316" },
       });
 
-      setTimeout(() => {
-        updateEdge(edge.id, {
-          animated: false,
-          style: baseEdgeConfig.style,
-        });
-      }, 75);
+      timeouts.current.set(
+        edgeId,
+        setTimeout(() => {
+          console.log("untriggering edge", edgeId);
+          updateEdge(edgeId, {
+            animated: false,
+          });
+        }, 150),
+      );
     });
-  }, [props.type, props.id, data.animated, triggerHandle, outgoingEdges]);
-
-  useEffect(() => {
-    if (props.type !== "target") return;
-    if (props.id !== data.animated) return;
-
-    triggerHandle();
-  }, [props.type, props.id, data.animated]);
+  }, [props.type, props.id, data.animated, outgoingEdgeIds, updateEdge]);
 
   return (
     <TooltipProvider>
@@ -91,7 +72,7 @@ export function Handle(props: Props) {
                 ? HANDLE_SPACING * (props.index ?? 0)
                 : 0,
               borderWidth: 2,
-              borderColor: isTriggered ? "#f59e0b" : "white",
+              borderColor: "white",
               backgroundColor: "#09090b",
               ...props.style,
             }}

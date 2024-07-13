@@ -66,7 +66,7 @@ export function ConnectionLine({
       <path
         fill="none"
         stroke={toHandle ? "#22c55e" : "#0ea5e9"}
-        strokeWidth={2}
+        strokeWidth={4}
         className="animated"
         d={path}
       />

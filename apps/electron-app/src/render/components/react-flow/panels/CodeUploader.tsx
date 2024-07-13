@@ -1,6 +1,7 @@
 import { Button } from "@fhb/ui";
 import { Node } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
+import { useBoard } from "../../../providers/BoardProvider";
 import { AppState, useNodesEdgesStore } from "../../../store";
 import { NodeType } from "../ReactFlowCanvas";
 
@@ -11,6 +12,8 @@ const selector = (state: AppState) => ({
 
 export function CodeUploader() {
   const { nodes, edges } = useNodesEdgesStore(useShallow(selector));
+
+  const { checkResult, flashResult } = useBoard();
 
   function createNode(node: Node) {
     switch (node.type as NodeType) {
@@ -119,8 +122,16 @@ export function CodeUploader() {
     window.electron.ipcRenderer.send("ipc-fhb-upload-code", code);
   }
 
-  return <Button onClick={uploadCode}>Upload code</Button>;
+  return (
+    <Button
+      disabled={flashResult.type !== "done" || checkResult.type !== "ready"}
+      onClick={uploadCode}
+    >
+      Upload code
+    </Button>
+  );
 }
+
 function createBoardHandlers() {
   return `
         /*
@@ -203,6 +214,7 @@ function customJohnnyFiveButton() {
       class CustomJohnnyFiveButton extends JohnnyFive.Button {
         constructor(options) {
           super(options)
+
 
           this.on("up", () => {
             process.parentPort.postMessage({ nodeId: this.id, action: "up" });
