@@ -13,18 +13,19 @@ import {
   Slider,
   Button as UiButton,
 } from "@fhb/ui";
-import { Position, useReactFlow, type Node } from "@xyflow/react";
+import { Position, useReactFlow } from "@xyflow/react";
 import { ButtonOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
 import { SelectGroup } from "../../../../../out/Figma hardware bridge-darwin-arm64/Figma hardware bridge.app/Contents/Resources/app/packages/ui";
-import useNodesEdgesStore, { nodeSelector } from "../../../store";
-import { NodeContainer, NodeContent, NodeHeader } from "./BaseComponent";
+import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
+import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
 export function Button(props: Props) {
   const { node } = useNodesEdgesStore(
-    useShallow(nodeSelector<ButtonData>(props.id)),
+    useShallow(nodeSelector<Props["data"]>(props.id)),
   );
+
   const { updateNodeData } = useReactFlow();
 
   if (!node) return null;
@@ -73,7 +74,9 @@ export function Button(props: Props) {
     >
       <NodeContent>
         <NodeHeader>
-          <UiButton>Click me</UiButton>
+          <UiButton disabled variant={props.data.value ? "default" : "outline"}>
+            {props.id}
+          </UiButton>
         </NodeHeader>
         <Select
           value={node.data.pin.toString()}
@@ -128,4 +131,4 @@ export function Button(props: Props) {
 }
 
 export type ButtonData = Omit<ButtonOption, "board">;
-type Props = Node<ButtonData>;
+type Props = AnimatedNode<ButtonData, boolean>;

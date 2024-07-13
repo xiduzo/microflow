@@ -87,6 +87,7 @@ ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
         return
       }
 
+      console.log("sending ipc-fhb-uploaded-code", message)
       event.reply('ipc-fhb-uploaded-code', message)
     })
   })
@@ -217,6 +218,7 @@ export type UploadCodeResult = {
 }
 
 export type UploadedCodeMessage = {
-  id: string,
-  action: string
+  nodeId: string,
+  action: string,
+  value?: unknown
 }

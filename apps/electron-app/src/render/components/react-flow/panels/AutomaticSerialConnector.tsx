@@ -92,7 +92,7 @@ export function AutomaticSerialConnector() {
 
   if (checkResult.type === "info" && checkResult.class === "Connected") {
     return (
-      <Badge className="flex items-center justify-center">
+      <Badge>
         Validating firmware
         <Icons.Zap className="ml-2 h-3 w-3 animate-pulse" />
       </Badge>
@@ -101,7 +101,7 @@ export function AutomaticSerialConnector() {
 
   if (checkResult.type === "fail") {
     return (
-      <Badge variant="destructive" className="flex items-center justify-center">
+      <Badge variant="destructive">
         {checkResult.message ?? "Unknown error occurred"}
         <Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
       </Badge>

@@ -64,6 +64,13 @@ try {
 
 class Counter extends EventEmitter {
   #count = 0;
+  id = null;
+
+  constructor(id) {
+    super();
+
+    this.id = id;
+  }
 
   set count(value) {
     this.#count = value;

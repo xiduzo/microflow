@@ -1,7 +1,7 @@
 import { Button } from "@fhb/ui";
 import { Node } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
-import useNodesEdgesStore, { AppState } from "../../../store";
+import { AppState, useNodesEdgesStore } from "../../../store";
 import { NodeType } from "../ReactFlowCanvas";
 
 const selector = (state: AppState) => ({
@@ -16,11 +16,12 @@ export function CodeUploader() {
     switch (node.type as NodeType) {
       case "Button":
       case "Led":
+        node.data.id = node.id;
         return `
           const ${node.type}_${node.id} = new CustomJohnnyFive${node.type}(${JSON.stringify(node.data)})`;
       case "Counter":
         return `
-          const ${node.type}_${node.id} = new Counter();`;
+          const ${node.type}_${node.id} = new Counter("${node.id}");`;
       default:
         console.warn(`Unknown node type: ${node.type}`);
         return ``;
@@ -83,8 +84,6 @@ export function CodeUploader() {
       Object.entries(actionsGroupedByHandle).forEach(([action, edges]) => {
         code += `
           ${node.type}_${node.id}.on("${action}", () => {
-            // Inform main process
-            process.parentPort.postMessage({ id: "${node.id}", action: "${action}" });
         `;
 
         edges.forEach((edge) => {
@@ -158,10 +157,18 @@ function createCounterClass() {
   return `
       class Counter extends EventEmitter {
         #count = 0;
+        id = null;
+
+        constructor(id) {
+          super();
+
+          this.id = id;
+        }
 
         set count(value) {
           this.#count = value;
           this.emit("change", value);
+          process.parentPort.postMessage({ nodeId: this.id, action: "change", value });
         }
 
         get count() {
@@ -170,18 +177,22 @@ function createCounterClass() {
 
         increment(amount = 1) {
           this.count += parseInt(amount);
+          process.parentPort.postMessage({ nodeId: this.id, action: "increment" });
         }
 
         decrement(amount = 1) {
           this.count -= parseInt(amount);
+          process.parentPort.postMessage({ nodeId: this.id, action: "decrement" });
         }
 
         reset() {
           this.count = 0;
+          process.parentPort.postMessage({ nodeId: this.id, action: "reset" });
         }
 
         set(value) {
           this.count = parseInt(value);
+          process.parentPort.postMessage({ nodeId: this.id, action: "set" });
         }
       }
   `;
@@ -194,11 +205,22 @@ function customJohnnyFiveButton() {
           super(options)
 
           this.on("up", () => {
-            this.emit("change");
+            process.parentPort.postMessage({ nodeId: this.id, action: "up" });
+            this.emit("change", false);
           })
 
           this.on("down", () => {
-            this.emit("change");
+            process.parentPort.postMessage({ nodeId: this.id, action: "down" });
+            this.emit("change", true);
+          })
+
+          this.on("hold", () => {
+            process.parentPort.postMessage({ nodeId: this.id, action: "hold" });
+            this.emit("change", true);
+          })
+
+          this.on("change", (value) => {
+            process.parentPort.postMessage({ nodeId: this.id, action: "change", value });
           })
         }
       }
@@ -220,6 +242,7 @@ function customJohnnyFiveLed() {
           setInterval(() => {
             if (this.#previousIsOn !== this.isOn) {
               this.#eventEmitter.emit("change");
+              process.parentPort.postMessage({ nodeId: this.id, action: "change", value: this.isOn });
             }
 
             this.#previousIsOn = this.isOn;
@@ -229,10 +252,21 @@ function customJohnnyFiveLed() {
         on(event, callback) {
           if (!event) {
             super.on();
+            process.parentPort.postMessage({ nodeId: this.id, action: "on" });
             return;
           }
 
           this.#eventEmitter.on(event, callback);
+        }
+
+        off() {
+          super.off();
+          process.parentPort.postMessage({ nodeId: this.id, action: "off" });
+        }
+
+        toggle() {
+          super.toggle();
+          process.parentPort.postMessage({ nodeId: this.id, action: "toggle" });
         }
       }
   `;

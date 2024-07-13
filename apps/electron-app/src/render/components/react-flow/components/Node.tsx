@@ -7,7 +7,12 @@ import {
   VariantProps,
 } from "@fhb/ui";
 import { Node } from "@xyflow/react";
-import { PropsWithChildren, ReactElement } from "react";
+import {
+  createContext,
+  PropsWithChildren,
+  ReactElement,
+  useContext,
+} from "react";
 
 export function NodeContainer(props: Props) {
   if (props.contextMenu) {
@@ -25,10 +30,15 @@ export function NodeContainer(props: Props) {
 }
 
 export function NodeHeader(props: NodeHeaderProps) {
+  const { data } = useNode();
+
   return (
     <section
       className={cn(
-        nodeHeader({ className: props.className, active: props.active }),
+        nodeHeader({
+          className: props.className,
+          active: props.active || !!data.animated,
+        }),
       )}
     >
       {props.children}
@@ -44,12 +54,13 @@ export function NodeContent(props: PropsWithChildren) {
 
 type NodeHeaderProps = PropsWithChildren &
   VariantProps<typeof nodeHeader> & { className?: string };
+
 const nodeHeader = cva(
-  "flex p-12 justify-center items-center h-11 rounded-md",
+  "flex p-12 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-44 pointer-events-none",
   {
     variants: {
       active: {
-        true: "bg-green-800",
+        true: "bg-yellow-700",
         false: "bg-zinc-700",
       },
     },
@@ -59,22 +70,27 @@ const nodeHeader = cva(
   },
 );
 
-function BaseNode(props: PropsWithChildren & Node) {
+const NodeContainerContext = createContext<AnimatedNode>({} as AnimatedNode);
+export const useNode = () => useContext(NodeContainerContext);
+
+function BaseNode(props: PropsWithChildren & AnimatedNode) {
   return (
-    <div
-      className={cn(
-        node({
-          className: props.className,
-          deletabled: props.deletable,
-          draggable: props.draggable,
-          dragging: props.dragging,
-          selectable: props.selectable,
-          selected: props.selected,
-        }),
-      )}
-    >
-      {props.children}
-    </div>
+    <NodeContainerContext.Provider value={props}>
+      <div
+        className={cn(
+          node({
+            className: props.className,
+            deletabled: props.deletable,
+            draggable: props.draggable,
+            dragging: props.dragging,
+            selectable: props.selectable,
+            selected: props.selected,
+          }),
+        )}
+      >
+        {props.children}
+      </div>
+    </NodeContainerContext.Provider>
   );
 }
 
@@ -120,7 +136,12 @@ const node = cva(
   },
 );
 
+export type AnimatedNode<
+  DataType extends Record<string, unknown> = {},
+  ValueType = undefined,
+> = Node<DataType & { animated?: string; value?: ValueType }>;
+
 type Props = PropsWithChildren &
-  Node & {
+  AnimatedNode<{}, any> & {
     contextMenu?: ReactElement<typeof ContextMenuContent>;
   };

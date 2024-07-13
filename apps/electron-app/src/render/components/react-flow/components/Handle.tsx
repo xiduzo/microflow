@@ -4,11 +4,73 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@fhb/ui";
-import { HandleProps, Position, Handle as XyFlowHandle } from "@xyflow/react";
+import {
+  HandleProps,
+  Position,
+  useReactFlow,
+  Handle as XyFlowHandle,
+} from "@xyflow/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import {
+  baseEdgeConfig,
+  incommingEdgeSelector,
+  useNodesEdgesStore,
+} from "../../../store";
+import { useNode } from "./Node";
 
 const HANDLE_SPACING = 40;
 
 export function Handle(props: Props) {
+  const { id, data } = useNode();
+
+  const { outgoingEdges } = useNodesEdgesStore(
+    useShallow(incommingEdgeSelector(id, props.id)),
+  );
+  const { updateEdge } = useReactFlow();
+
+  const [isTriggered, setIsTriggered] = useState(false);
+
+  const timeout = useRef<NodeJS.Timeout>();
+
+  const triggerHandle = useCallback(() => {
+    setIsTriggered(true);
+    if (timeout.current) clearTimeout(timeout.current);
+
+    timeout.current = setTimeout(() => {
+      setIsTriggered(false);
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    if (props.type !== "source") return;
+    if (!data.animated) return;
+    if (props.id !== data.animated) return;
+
+    triggerHandle();
+
+    outgoingEdges.forEach((edge) => {
+      updateEdge(edge.id, {
+        animated: true,
+        style: { ...baseEdgeConfig.style, stroke: "#f97316" },
+      });
+
+      setTimeout(() => {
+        updateEdge(edge.id, {
+          animated: false,
+          style: baseEdgeConfig.style,
+        });
+      }, 75);
+    });
+  }, [props.type, props.id, data.animated, triggerHandle, outgoingEdges]);
+
+  useEffect(() => {
+    if (props.type !== "target") return;
+    if (props.id !== data.animated) return;
+
+    triggerHandle();
+  }, [props.type, props.id, data.animated]);
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -29,7 +91,7 @@ export function Handle(props: Props) {
                 ? HANDLE_SPACING * (props.index ?? 0)
                 : 0,
               borderWidth: 2,
-              borderColor: "white",
+              borderColor: isTriggered ? "#f59e0b" : "white",
               backgroundColor: "#09090b",
               ...props.style,
             }}

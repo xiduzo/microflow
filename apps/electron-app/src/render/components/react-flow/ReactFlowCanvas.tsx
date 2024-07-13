@@ -4,12 +4,11 @@ import {
   MiniMap,
   Panel,
   ReactFlow,
-  ReactFlowProvider,
   useReactFlow,
 } from "@xyflow/react";
 import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
-import useNodesEdgesStore, { AppState } from "../../store";
+import { AppState, useNodesEdgesStore } from "../../store";
 import { Button, ButtonData } from "./components/Button";
 import { Counter } from "./components/Counter";
 import { Led, LedData } from "./components/Led";
@@ -17,14 +16,6 @@ import { ConnectionLine } from "./ConnectionLine";
 import { AutomaticSerialConnector } from "./panels/AutomaticSerialConnector";
 import { CodeUploader } from "./panels/CodeUploader";
 import { ComponentTabs } from "./panels/ComponentsTabs";
-
-export function ReactFlowCanvas() {
-  return (
-    <ReactFlowProvider>
-      <ReactFlowComponent />
-    </ReactFlowProvider>
-  );
-}
 
 const nodeTypes = {
   Button: Button,
@@ -43,7 +34,7 @@ const selector = (state: AppState) => ({
   addNode: state.addNode,
 });
 
-function ReactFlowComponent() {
+export function ReactFlowComponent() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } =
     useNodesEdgesStore(useShallow(selector));
   const { screenToFlowPosition } = useReactFlow();
@@ -62,8 +53,8 @@ function ReactFlowComponent() {
       ) as keyof typeof nodeTypes;
 
       const position = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
+        x: event.clientX - 120,
+        y: event.clientY - 75,
       });
 
       let data: ButtonData | LedData;
@@ -106,7 +97,9 @@ function ReactFlowComponent() {
       <MiniMap
         nodeColor={(node) => {
           if (node.selected) return "#22c55e";
+          if (node.data.animated !== undefined) return "#f97316";
         }}
+        nodeBorderRadius={12}
       />
       <Background gap={32} />
 

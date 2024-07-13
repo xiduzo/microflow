@@ -1,12 +1,12 @@
-import { Node, Position, useReactFlow } from "@xyflow/react";
+import { Position, useReactFlow } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
-import useNodesEdgesStore, { nodeSelector } from "../../../store";
-import { NodeContainer, NodeContent, NodeHeader } from "./BaseComponent";
+import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
+import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
 export function Counter(props: Props) {
   const { node } = useNodesEdgesStore(
-    useShallow(nodeSelector<CounterData>(props.id)),
+    useShallow(nodeSelector<Props["data"]>(props.id)),
   );
   const { updateNodeData } = useReactFlow();
 
@@ -19,7 +19,7 @@ export function Counter(props: Props) {
   return (
     <NodeContainer {...props}>
       <NodeContent>
-        <NodeHeader className="text-4xl">{node.data?.count ?? 0}</NodeHeader>
+        <NodeHeader className="text-4xl">{node.data.value ?? 0}</NodeHeader>
       </NodeContent>
       <Handle
         index={-0.5}
@@ -40,5 +40,5 @@ export function Counter(props: Props) {
   );
 }
 
-type CounterData = { count?: number };
-type Props = Node<CounterData>;
+type CounterData = {};
+type Props = AnimatedNode<CounterData, number>;

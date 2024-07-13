@@ -7,16 +7,16 @@ import {
   SelectTrigger,
   Switch,
 } from "@fhb/ui";
-import { Node, Position, useReactFlow } from "@xyflow/react";
+import { Position, useReactFlow } from "@xyflow/react";
 import { LedOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
-import useNodesEdgesStore, { nodeSelector } from "../../../store";
-import { NodeContainer, NodeContent, NodeHeader } from "./BaseComponent";
+import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
+import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
 export function Led(props: Props) {
   const { node } = useNodesEdgesStore(
-    useShallow(nodeSelector<LedData>(props.id)),
+    useShallow(nodeSelector<Props["data"]>(props.id)),
   );
   const { updateNodeData } = useReactFlow();
 
@@ -30,7 +30,11 @@ export function Led(props: Props) {
     <NodeContainer {...props}>
       <NodeContent>
         <NodeHeader>
-          <Switch className="scale-150" />
+          <Switch
+            className="scale-150"
+            disabled
+            checked={node.data.value === true}
+          />
         </NodeHeader>
         <Select
           value={node.data.pin.toString()}
@@ -58,4 +62,4 @@ export function Led(props: Props) {
 }
 
 export type LedData = Omit<LedOption, "board">;
-type Props = Node<LedData>;
+type Props = AnimatedNode<LedData, boolean>;
