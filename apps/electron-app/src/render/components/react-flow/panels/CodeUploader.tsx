@@ -1,135 +1,154 @@
-import { Button } from "@fhb/ui";
-import { Node } from "@xyflow/react";
-import { useShallow } from "zustand/react/shallow";
-import { useBoard } from "../../../providers/BoardProvider";
-import { AppState, useNodesEdgesStore } from "../../../store";
+import { Icons } from "@ui/index";
+import { Edge, Node, useReactFlow } from "@xyflow/react";
+import { useCallback, useEffect, useState } from "react";
+import { UploadCodeResult } from "../../../../common/types";
 import { NodeType } from "../ReactFlowCanvas";
 
-const selector = (state: AppState) => ({
-  nodes: state.nodes,
-  edges: state.edges,
-});
-
 export function CodeUploader() {
-  const { nodes, edges } = useNodesEdgesStore(useShallow(selector));
+  const [uploadCodeResult, setUploadCodeResult] = useState<UploadCodeResult>({
+    type: "close",
+  });
 
-  const { checkResult, flashResult } = useBoard();
+  const { updateNodeData, getNodes, getEdges } = useReactFlow();
 
-  function createNode(node: Node) {
-    switch (node.type as NodeType) {
-      case "Button":
-      case "Led":
-        node.data.id = node.id;
-        return `
-          const ${node.type}_${node.id} = new CustomJohnnyFive${node.type}(${JSON.stringify(node.data)})`;
-      case "Counter":
-        return `
-          const ${node.type}_${node.id} = new Counter("${node.id}");`;
-      default:
-        console.warn(`Unknown node type: ${node.type}`);
-        return ``;
-    }
-  }
+  const uploadCode = useCallback(() => {
+    setUploadCodeResult({ type: "info" });
+    const code = createCode(getNodes(), getEdges());
 
-  function uploadCode() {
-    let code = `
-      const EventEmitter = require("events");
-      const JohnnyFive = require("johnny-five");
-      const log = require("electron-log/node");
+    const off = window.electron.ipcRenderer.on(
+      "ipc-fhb-upload-code",
+      (message: UploadCodeResult) => {
+        setUploadCodeResult(message);
 
-      try {
-        const board = new JohnnyFive.Board({
-          repl: false,
-          debug: false,
-        });
-    `;
+        if (message.type === "ready") {
+          off();
+        }
+      },
+    );
 
-    code += `
-        board.on("ready", () => {
-          log.info("board is ready");
-          process.parentPort.postMessage({ type: "ready" });
-    `;
-
-    code += `
-          /*
-           * Create nodes
-           */`;
-    nodes.forEach((node) => {
-      code += createNode(node);
+    getNodes().forEach((node) => {
+      updateNodeData(node.id, { value: undefined });
     });
 
-    code += `
-
-          /*
-           * Node handlers
-           */`;
-
-    const nodeWithChildren = nodes.filter((node) => {
-      return edges.some((edge) => edge.source === node.id);
-    });
-
-    nodeWithChildren.forEach((node) => {
-      const actions = edges.filter((edge) => edge.source === node.id);
-
-      const actionsGroupedByHandle = actions.reduce(
-        (acc, action) => {
-          if (!acc[action.sourceHandle]) {
-            acc[action.sourceHandle] = [];
-          }
-
-          acc[action.sourceHandle].push(action);
-
-          return acc;
-        },
-        {} as Record<string, typeof actions>,
-      );
-
-      Object.entries(actionsGroupedByHandle).forEach(([action, edges]) => {
-        code += `
-          ${node.type}_${node.id}.on("${action}", () => {
-        `;
-
-        edges.forEach((edge) => {
-          const target = nodes.find((node) => node.id === edge.target);
-          code += `
-            ${target.type}_${target.id}.${edge.targetHandle}(${edge.data ? JSON.stringify(edge.data) : ""});`;
-        });
-
-        code += `
-          }); // ${node.type}_${node.id} - ${action}
-        `;
-      });
-    });
-
-    code += `
-        }); // board - ready;
-    `;
-    code += createBoardHandlers();
-    code += `
-      } catch (error) {
-        log.error("something went wrong", { error });
-      }
-    `;
-
-    if (nodes.find((node) => node.type === "Counter")) {
-      code += createCounterClass();
-    }
-
-    code += customJohnnyFiveButton();
-    code += customJohnnyFiveLed();
-
-    console.log(code);
     window.electron.ipcRenderer.send("ipc-fhb-upload-code", code);
+  }, [getNodes, getEdges, updateNodeData]);
+
+  useEffect(() => {
+    console.log("trigger");
+    uploadCode();
+  }, [uploadCode]);
+
+  if (uploadCodeResult.type === "info") {
+    return <Icons.Loader2 className="w-2 h-2 ml-2 animate-spin" />;
   }
 
-  return (
-    <Button
-      disabled={flashResult.type !== "done" || checkResult.type !== "ready"}
-      onClick={uploadCode}
-    >
-      Upload code
-    </Button>
-  );
+  return null;
+}
+
+function createCode(nodes: Node[], edges: Edge[]) {
+  let code = `
+    const EventEmitter = require("events");
+    const JohnnyFive = require("johnny-five");
+    const log = require("electron-log/node");
+
+    try {
+      const board = new JohnnyFive.Board({
+        repl: false,
+        debug: false,
+      });
+  `;
+
+  code += `
+      board.on("ready", () => {
+        log.info("board is ready");
+        process.parentPort.postMessage({ type: "ready" });
+  `;
+
+  code += `
+        /*
+         * Create nodes
+         */`;
+  nodes.forEach((node) => {
+    code += createNode(node);
+  });
+
+  code += `
+
+        /*
+         * Node handlers
+         */`;
+
+  const nodeWithChildren = nodes.filter((node) => {
+    return edges.some((edge) => edge.source === node.id);
+  });
+
+  nodeWithChildren.forEach((node) => {
+    const actions = edges.filter((edge) => edge.source === node.id);
+
+    const actionsGroupedByHandle = actions.reduce(
+      (acc, action) => {
+        if (!acc[action.sourceHandle]) {
+          acc[action.sourceHandle] = [];
+        }
+
+        acc[action.sourceHandle].push(action);
+
+        return acc;
+      },
+      {} as Record<string, typeof actions>,
+    );
+
+    Object.entries(actionsGroupedByHandle).forEach(([action, edges]) => {
+      code += `
+        ${node.type}_${node.id}.on("${action}", () => {
+      `;
+
+      edges.forEach((edge) => {
+        const target = nodes.find((node) => node.id === edge.target);
+        code += `
+          ${target.type}_${target.id}.${edge.targetHandle}(${edge.data ? JSON.stringify(edge.data) : ""});`;
+      });
+
+      code += `
+        }); // ${node.type}_${node.id} - ${action}
+      `;
+    });
+  });
+
+  code += `
+      }); // board - ready;
+  `;
+  code += createBoardHandlers();
+  code += `
+    } catch (error) {
+      log.error("something went wrong", { error });
+    }
+  `;
+
+  if (nodes.find((node) => node.type === "Counter")) {
+    code += createCounterClass();
+  }
+
+  code += customJohnnyFiveButton();
+  code += customJohnnyFiveLed();
+
+  return code;
+}
+
+function createNode(node: Node) {
+  switch (node.type as NodeType) {
+    case "Button":
+    case "Led":
+      node.data.id = node.id;
+      return `
+        const ${node.type}_${node.id} = new CustomJohnnyFive${node.type}(${JSON.stringify(node.data)})`;
+    case "Counter":
+      return `
+        const ${node.type}_${node.id} = new Counter("${node.id}");`;
+    default:
+      console.warn(`Unknown node type: ${node.type}`);
+      return ``;
+  }
 }
 
 function createBoardHandlers() {
@@ -161,6 +180,11 @@ function createBoardHandlers() {
           log.info("board close");
           process.parentPort.postMessage({ type: "close" });
         }); // board - close
+
+        board.on("info", (event) => {
+          log.info("board info");
+          process.parentPort.postMessage({ type: "info", message: event.message });
+        }); // board - info
   `;
 }
 

@@ -8,6 +8,11 @@ try {
     debug: false,
   });
 
+  board.on("info", (event) => {
+    log.info("board info");
+    process.parentPort.postMessage({ type: "info", message: event.message });
+  }); // board - info
+
   board.on("ready", () => {
     console.log(board);
     log.info("board is ready");

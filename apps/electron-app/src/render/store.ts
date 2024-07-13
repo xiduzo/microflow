@@ -38,8 +38,11 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
     });
   },
   onConnect: (connection) => {
+    const currentEdges = get().edges;
+    const newEdges = addEdge(connection, currentEdges);
+
     set({
-      edges: addEdge(connection, get().edges).map(edge => ({ ...baseEdgeConfig, ...edge })),
+      edges: newEdges.map(edge => ({ ...baseEdgeConfig, ...edge })),
     });
   },
   setNodes: (nodes) => {
@@ -51,6 +54,7 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
   addNode: (node) => {
     if (!node.data) node.data = {}
 
+    console.log('addNode', node.id)
     set({
       nodes: [...get().nodes, node],
     });
@@ -69,6 +73,5 @@ export const nodesAndEdgesSelector = (state: AppState) => ({
   nodes: state.nodes,
   edges: state.edges,
 })
-
 
 export const outgoingEdgeIdSelector = (nodeId: string, handle: string) => (state: AppState) => state.edges.filter(edge => edge.source === nodeId && edge.sourceHandle === handle).map(edge => edge.id);

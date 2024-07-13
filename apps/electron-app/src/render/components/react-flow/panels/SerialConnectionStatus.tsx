@@ -1,17 +1,20 @@
 import { Badge, Icons } from "@fhb/ui";
 import { useBoard } from "../../../providers/BoardProvider";
+import { CodeUploader } from "./CodeUploader";
 import { FlashFirmata } from "./FlashFirmata";
 
 export function SerialConnectionStatus() {
   const { checkResult } = useBoard();
 
+  if (checkResult.type === "error") {
+    return <FlashFirmata message={checkResult.message} />;
+  }
+
   if (checkResult.type === "ready") {
     return (
-      <Badge
-        className="bg-green-400 text-green-900 hover:bg-green-400 hover:text-green-900"
-        aria-label="connected"
-      >
+      <Badge className="bg-green-400 backdrop-blur-md bg-opacity-5 text-green-900 pointer-events-none">
         Connected
+        <CodeUploader />
       </Badge>
     );
   }
@@ -32,10 +35,6 @@ export function SerialConnectionStatus() {
         <Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
       </Badge>
     );
-  }
-
-  if (checkResult.type === "error") {
-    return <FlashFirmata />;
   }
 
   return (

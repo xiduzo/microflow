@@ -13,7 +13,6 @@ import { Button, ButtonData } from "./components/Button";
 import { Counter } from "./components/Counter";
 import { Led, LedData } from "./components/Led";
 import { ConnectionLine } from "./ConnectionLine";
-import { CodeUploader } from "./panels/CodeUploader";
 import { ComponentTabs } from "./panels/ComponentsTabs";
 import { SaveButton } from "./panels/SaveButton";
 import { SerialConnectionStatus } from "./panels/SerialConnectionStatus";
@@ -114,10 +113,6 @@ export function ReactFlowComponent() {
 
       <Panel position="top-right">
         <SaveButton />
-      </Panel>
-
-      <Panel position="bottom-center">
-        <CodeUploader />
       </Panel>
     </ReactFlow>
   );

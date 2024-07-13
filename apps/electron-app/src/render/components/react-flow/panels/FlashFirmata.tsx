@@ -1,24 +1,4 @@
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  Icons,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@fhb/ui";
+import { Badge } from "@fhb/ui";
 import { KnownBoard } from "avrgirl-arduino";
 import { useState } from "react";
 import { useBoard } from "../../../providers/BoardProvider";
@@ -50,7 +30,7 @@ export function FlashFirmata(props: Props) {
       <Badge variant={props.message ? "destructive" : "secondary"}>
         {props.message?.split("\n")[0].trim() ?? "Unknown error occurred"}
       </Badge>
-      <Dialog>
+      {/* <Dialog>
         <DialogTrigger asChild>
           <Button variant="ghost" size="icon">
             <Icons.ArrowBigRight className="h-4 w-4" />
@@ -97,7 +77,7 @@ export function FlashFirmata(props: Props) {
             </Button>
           </section>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </section>
   );
 }
