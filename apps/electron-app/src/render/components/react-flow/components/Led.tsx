@@ -1,16 +1,17 @@
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  Switch,
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    Switch,
 } from "@fhb/ui";
 import { Position, useReactFlow } from "@xyflow/react";
 import { LedOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
 import { MODES } from "../../../../common/types";
+import { useCodeUploader } from "../../../hooks/codeUploader";
 import { useBoard } from "../../../providers/BoardProvider";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
@@ -20,14 +21,18 @@ export function Led(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
-  const { updateNodeData } = useReactFlow();
-  const { checkResult } = useBoard();
+  const uploadCode = useCodeUploader();
 
-  if (!node) return null;
+  const { updateNodeData } = useReactFlow();
+
+  const { checkResult } = useBoard();
 
   function handleValueChange(pin: string) {
     updateNodeData(props.id, { pin: parseInt(pin) });
+    uploadCode();
   }
+
+  if (!node) return null;
 
   return (
     <NodeContainer {...props}>
@@ -36,7 +41,7 @@ export function Led(props: Props) {
           <Switch
             className="scale-150"
             disabled
-            checked={node.data.value === true}
+            checked={node.data.value === 255}
           />
         </NodeHeader>
         <Select
@@ -67,4 +72,4 @@ export function Led(props: Props) {
 }
 
 export type LedData = Omit<LedOption, "board">;
-type Props = AnimatedNode<LedData, boolean>;
+type Props = AnimatedNode<LedData, number>;

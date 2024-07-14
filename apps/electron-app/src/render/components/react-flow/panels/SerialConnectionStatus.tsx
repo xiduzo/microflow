@@ -1,10 +1,10 @@
 import { Badge, Icons } from "@fhb/ui";
+import { useAutoCodeUploader } from "../../../hooks/codeUploader";
 import { useBoard } from "../../../providers/BoardProvider";
-import { CodeUploader } from "./CodeUploader";
 import { FlashFirmata } from "./FlashFirmata";
 
 export function SerialConnectionStatus() {
-  const { checkResult } = useBoard();
+  const { checkResult, uploadResult } = useBoard();
 
   if (checkResult.type === "error") {
     return <FlashFirmata message={checkResult.message} />;
@@ -14,7 +14,13 @@ export function SerialConnectionStatus() {
     return (
       <Badge className="bg-green-400 text-green-900 pointer-events-none">
         Connected
-        <CodeUploader />
+        <AutoCodeUploader />
+        {uploadResult.type === "ready" && (
+          <Icons.Check className="ml-2 h-3 w-3" />
+        )}
+        {uploadResult.type === "info" && (
+          <Icons.Loader2 className="w-2 h-2 ml-2 animate-spin" />
+        )}
       </Badge>
     );
   }
@@ -44,4 +50,10 @@ export function SerialConnectionStatus() {
       <Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
     </Badge>
   );
+}
+
+function AutoCodeUploader() {
+  useAutoCodeUploader();
+
+  return null;
 }

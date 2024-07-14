@@ -1,16 +1,25 @@
 import { KnownBoard } from "avrgirl-arduino";
 import {
-  createContext,
-  PropsWithChildren,
-  useContext,
-  useEffect,
-  useState,
+    createContext,
+    PropsWithChildren,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
 } from "react";
-import { BoardCheckResult, BoardFlashResult } from "../../common/types";
+import {
+    BoardCheckResult,
+    BoardFlashResult,
+    UploadCodeResult,
+} from "../../common/types";
 
 const BoardContext = createContext({
   checkResult: {} as BoardCheckResult,
   flashResult: {} as BoardFlashResult,
+  uploadResult: {} as UploadCodeResult,
+  uploadCode: (code: string) => {
+    console.log("uploading code", code);
+  },
   flashBoard: (board: KnownBoard) => {
     console.log("flashing board", board);
   },
@@ -23,6 +32,9 @@ export function BoardProvider({ children }: PropsWithChildren) {
   });
   const [flashResult, setFlashResult] = useState<BoardFlashResult>({
     type: "done",
+  });
+  const [uploadResult, setUploadResult] = useState<UploadCodeResult>({
+    type: "close",
   });
 
   function flashBoard(board: KnownBoard) {
@@ -40,6 +52,24 @@ export function BoardProvider({ children }: PropsWithChildren) {
     );
     window.electron.ipcRenderer.send("ipc-fhb-flash-firmata", board);
   }
+
+  const uploadCode = useCallback((code: string) => {
+    setUploadResult({ type: "info" });
+
+    const off = window.electron.ipcRenderer.on(
+      "ipc-fhb-upload-code",
+      (message: UploadCodeResult) => {
+        console.log("ipc-fhb-upload-code", message);
+        setUploadResult(message);
+
+        if (message.type === "ready") {
+          off();
+        }
+      },
+    );
+
+    window.electron.ipcRenderer.send("ipc-fhb-upload-code", code);
+  }, []);
 
   useEffect(() => {
     window.electron.ipcRenderer.send("ipc-fhb-check-board");
@@ -61,7 +91,9 @@ export function BoardProvider({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <BoardContext.Provider value={{ checkResult, flashResult, flashBoard }}>
+    <BoardContext.Provider
+      value={{ checkResult, flashResult, uploadResult, flashBoard, uploadCode }}
+    >
       {children}
     </BoardContext.Provider>
   );

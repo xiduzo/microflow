@@ -104,76 +104,76 @@ class Counter extends EventEmitter {
 }
 
 class CustomJohnnyFiveButton extends JohnnyFive.Button {
+  get value() {
+    return this.value;
+  }
+
   constructor(options) {
     super(options);
 
-    this.on("up", () => {
-      super.emit("change");
-    });
+    this.on("up", this.#postMessage.bind(this, "up"));
+    this.on("down", this.#postMessage.bind(this, "down"));
+    this.on("hold", this.#postMessage.bind(this, "hold"));
+    this.on("change", this.#postMessage.bind(this, "change"));
+  }
 
-    this.on("down", () => {
-      super.emit("change");
-    });
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
 
-    this.on("hold", () => {
-      super.emit("change");
+    process.parentPort.postMessage({
+      nodeId: this.id,
+      action,
+      value: this.value,
     });
   }
 }
 
+const test = new CustomJohnnyFiveButton({ pin: 8 });
+
 class CustomJohnnyFiveLed extends JohnnyFive.Led {
-  #previousIsOn = false;
+  #previousValue = 0;
   #eventEmitter = new EventEmitter();
 
   constructor(options) {
     super(options);
-    this.#interval();
-  }
 
-  #interval() {
     setInterval(() => {
-      if (this.#previousIsOn !== this.isOn) {
+      if (this.#previousValue !== this.value) {
         this.#eventEmitter.emit("change");
+        this.#postMessage("change");
       }
 
-      this.#previousIsOn = this.isOn;
+      this.#previousValue = this.value;
     }, 25);
   }
 
-  on(event, callback) {
-    if (!event) {
+  on(action, callback) {
+    if (!action) {
       super.on();
+      this.#postMessage("on");
       return;
     }
 
-    this.#eventEmitter.on(event, callback);
-  }
-}
-
-class Interval extends EventEmitter {
-  #minIntervalInMs = 500;
-
-  id = null;
-
-  constructor(id, interval) {
-    super();
-
-    this.id = id;
-
-    setInterval(() => {
-      this.emit("change");
-      process.parentPort.postMessage({ nodeId: this.id, type: "change" });
-    }, this.#interval(interval));
+    this.#eventEmitter.on(action, callback);
   }
 
-  #interval(interval) {
-    const parsed = parseInt(interval);
-    const isNumber = !isNaN(parsed);
+  off() {
+    super.off();
+    this.#postMessage("off");
+  }
 
-    if (!isNumber) {
-      return this.#minIntervalInMs;
-    }
+  toggle() {
+    super.toggle();
+    this.#postMessage("toggle");
+  }
 
-    return Math.max(this.#minIntervalInMs, parsed);
+  #postMessage(action) {
+    process.parentPort.postMessage({
+      nodeId: this.id,
+      action,
+      value: this.value,
+    });
   }
 }

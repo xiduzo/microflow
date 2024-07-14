@@ -20,6 +20,7 @@ export function SignalerProvider({ children }: PropsWithChildren) {
     return window.electron.ipcRenderer.on(
       "ipc-fhb-uploaded-code",
       (message: UploadedCodeMessage) => {
+        console.log(message);
         if (timeouts.current.get(message.nodeId)) {
           clearTimeout(timeouts.current.get(message.nodeId));
         }
@@ -28,7 +29,11 @@ export function SignalerProvider({ children }: PropsWithChildren) {
           animated: message.action,
         };
 
-        if (message.action === "change" && message.value !== undefined) {
+        if (
+          message.action === "change" &&
+          message.value !== undefined &&
+          message.value !== null
+        ) {
           update.value = message.value;
         }
 

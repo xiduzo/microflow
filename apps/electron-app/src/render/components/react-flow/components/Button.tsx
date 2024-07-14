@@ -16,6 +16,7 @@ import { Position, useReactFlow } from "@xyflow/react";
 import { ButtonOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
 import { MODES } from "../../../../common/types";
+import { useCodeUploader } from "../../../hooks/codeUploader";
 import { useBoard } from "../../../providers/BoardProvider";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
@@ -25,10 +26,16 @@ export function Button(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
+  const uploadCode = useCodeUploader();
 
   const { checkResult } = useBoard();
 
   const { updateNodeData } = useReactFlow();
+
+  function handleNodeUpdate(data: Partial<Props["data"]>) {
+    updateNodeData(props.id, data);
+    uploadCode();
+  }
 
   if (!node) return null;
 
@@ -42,9 +49,7 @@ export function Button(props: Props) {
         <ContextMenuContent>
           <ContextMenuCheckboxItem
             checked={node.data.invert}
-            onClick={() =>
-              updateNodeData(props.id, { invert: !node.data.invert })
-            }
+            onClick={() => handleNodeUpdate({ invert: !node.data.invert })}
           >
             Invert
           </ContextMenuCheckboxItem>
@@ -52,7 +57,7 @@ export function Button(props: Props) {
           <ContextMenuCheckboxItem
             checked={node.data.isPullup}
             onClick={() =>
-              updateNodeData(props.id, {
+              handleNodeUpdate({
                 isPullup: !node.data.isPullup,
                 isPulldown: false,
               })
@@ -63,7 +68,7 @@ export function Button(props: Props) {
           <ContextMenuCheckboxItem
             checked={node.data.isPulldown}
             onClick={() =>
-              updateNodeData(props.id, {
+              handleNodeUpdate({
                 isPulldown: !node.data.isPulldown,
                 isPullup: false,
               })
@@ -82,9 +87,7 @@ export function Button(props: Props) {
         </NodeHeader>
         <Select
           value={node.data.pin.toString()}
-          onValueChange={(value) =>
-            updateNodeData(props.id, { pin: parseInt(value) })
-          }
+          onValueChange={(value) => handleNodeUpdate({ pin: parseInt(value) })}
         >
           <SelectTrigger>Pin {node.data.pin}</SelectTrigger>
           <SelectContent>
@@ -123,9 +126,9 @@ export function Button(props: Props) {
           </section>
         )}
       </NodeContent>
-      <Handle type="source" index={-1} position={Position.Bottom} id="up" />
+      <Handle type="source" index={-1} position={Position.Bottom} id="down" />
       <Handle type="source" position={Position.Bottom} id="hold" />
-      <Handle type="source" index={1} position={Position.Bottom} id="down" />
+      <Handle type="source" index={1} position={Position.Bottom} id="up" />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

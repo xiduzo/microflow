@@ -1,6 +1,7 @@
 import { Label, Slider } from "@fhb/ui";
 import { Position, useReactFlow } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
+import { useCodeUploader } from "../../../hooks/codeUploader";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
@@ -9,8 +10,14 @@ export function Interval(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
+  const uploadCode = useCodeUploader();
 
   const { updateNodeData } = useReactFlow();
+
+  function handleNodeUpdate(data: Partial<Props["data"]>) {
+    updateNodeData(props.id, data);
+    uploadCode();
+  }
 
   if (!node) return null;
 
@@ -33,9 +40,7 @@ export function Interval(props: Props) {
           min={500}
           max={5000}
           step={100}
-          onValueChange={(value) =>
-            updateNodeData(props.id, { interval: value[0] })
-          }
+          onValueChange={(value) => handleNodeUpdate({ interval: value[0] })}
         />
       </NodeContent>
       <Handle type="source" position={Position.Right} id="change" />
