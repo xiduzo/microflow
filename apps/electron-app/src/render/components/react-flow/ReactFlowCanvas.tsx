@@ -11,6 +11,8 @@ import { useShallow } from "zustand/react/shallow";
 import { AppState, useNodesEdgesStore } from "../../store";
 import { Button, ButtonData } from "./components/Button";
 import { Counter } from "./components/Counter";
+import { Figma } from "./components/Figma";
+import { Interval } from "./components/Interval";
 import { Led, LedData } from "./components/Led";
 import { ConnectionLine } from "./ConnectionLine";
 import { ComponentTabs } from "./panels/ComponentsTabs";
@@ -21,6 +23,8 @@ const nodeTypes = {
   Button: Button,
   Led: Led,
   Counter: Counter,
+  Figma: Figma,
+  Interval: Interval,
 };
 
 export type NodeType = keyof typeof nodeTypes;

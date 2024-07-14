@@ -1,0 +1,47 @@
+import { Label, Slider } from "@fhb/ui";
+import { Position, useReactFlow } from "@xyflow/react";
+import { useShallow } from "zustand/react/shallow";
+import { nodeSelector, useNodesEdgesStore } from "../../../store";
+import { Handle } from "./Handle";
+import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+
+export function Interval(props: Props) {
+  const { node } = useNodesEdgesStore(
+    useShallow(nodeSelector<Props["data"]>(props.id)),
+  );
+
+  const { updateNodeData } = useReactFlow();
+
+  if (!node) return null;
+
+  return (
+    <NodeContainer {...props}>
+      <NodeContent>
+        <NodeHeader className="text-xs">
+          {Math.round(props.data.value ?? 0)}ms
+        </NodeHeader>
+        <Label htmlFor="interval" className="flex justify-between">
+          Interval
+          <span className="opacity-40 font-light">
+            {node.data.interval ?? 500}ms
+          </span>
+        </Label>
+        <Slider
+          id="interval"
+          className="pb-2"
+          defaultValue={[node.data.interval ?? 500]}
+          min={500}
+          max={5000}
+          step={100}
+          onValueChange={(value) =>
+            updateNodeData(props.id, { interval: value[0] })
+          }
+        />
+      </NodeContent>
+      <Handle type="source" position={Position.Right} id="change" />
+    </NodeContainer>
+  );
+}
+
+type IntervalData = { interval?: number };
+type Props = AnimatedNode<IntervalData, number>;

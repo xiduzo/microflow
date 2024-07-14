@@ -28,7 +28,6 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
   nodes: [],
   edges: [],
   onNodesChange: (changes) => {
-    console.log(changes)
     set({
       nodes: applyNodeChanges(changes, get().nodes),
     });

@@ -25,7 +25,7 @@ export function ComponentTabs() {
       <TabsContent value="figma" className="space-y-2">
         <Draggable
           title="Variable"
-          type="Button"
+          type="Figma"
           description="Interact with figma variables"
           icon={<Icons.Variable />}
           tags={["Input", "Output"]}
@@ -48,7 +48,7 @@ export function ComponentTabs() {
         />
       </TabsContent>
       <TabsContent value="flow" className="space-y-2">
-        <Draggable
+        {/* <Draggable
           title="Map"
           type="Button"
           description="Map a value from one range to another"
@@ -65,10 +65,10 @@ export function ComponentTabs() {
           type="Button"
           description="Control logic"
           icon={<Icons.Merge />}
-        />
+        /> */}
         <Draggable
           title="Interval"
-          type="Button"
+          type="Interval"
           description="Do something on a regular interval"
           icon={<Icons.Clock />}
         />

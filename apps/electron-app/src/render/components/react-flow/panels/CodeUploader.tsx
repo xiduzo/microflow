@@ -138,8 +138,14 @@ function createCode(nodes: Node[], edges: Edge[]) {
     code += createCounterClass();
   }
 
+  if (nodes.find((node) => node.type === "Interval")) {
+    code += createIntervalClass();
+  }
+
   code += customJohnnyFiveButton();
   code += customJohnnyFiveLed();
+
+  console.log(code);
 
   return code;
 }
@@ -154,6 +160,10 @@ function createNode(node: Node) {
     case "Counter":
       return `
         const ${node.type}_${node.id} = new Counter("${node.id}");`;
+    case "Interval":
+      return `
+        const ${node.type}_${node.id} = new Interval("${node.id}", ${node.data.interval});
+       `;
     default:
       console.warn(`Unknown node type: ${node.type}`);
       return ``;
@@ -194,6 +204,40 @@ function createBoardHandlers() {
           log.info("board info");
           process.parentPort.postMessage({ type: "info", message: event.message });
         }); // board - info
+  `;
+}
+
+function createIntervalClass() {
+  return `
+      class Interval extends EventEmitter {
+        #minIntervalInMs = 500;
+        #timestamp = null;
+
+        id = null;
+
+        constructor(id, interval) {
+          super();
+
+          this.id = id;
+
+          setInterval(() => {
+            this.#timestamp = performance.now();
+            this.emit("change", this.#timestamp);
+            process.parentPort.postMessage({ nodeId: this.id, action: "change", value: this.#timestamp });
+          }, this.#interval(interval));
+        }
+
+        #interval(interval) {
+          const parsed = parseInt(interval);
+          const isNumber = !isNaN(parsed);
+
+          if (!isNumber) {
+            return this.#minIntervalInMs;
+          }
+
+          return Math.max(this.#minIntervalInMs, parsed);
+        }
+      }
   `;
 }
 
@@ -286,7 +330,7 @@ function customJohnnyFiveLed() {
         #interval() {
           setInterval(() => {
             if (this.#previousIsOn !== this.isOn) {
-              this.#eventEmitter.emit("change");
+              this.#eventEmitter.emit("change", this.isOn);
               process.parentPort.postMessage({ nodeId: this.id, action: "change", value: this.isOn });
             }
 

@@ -10,7 +10,15 @@ export function SaveButton() {
 
   function handleClick() {
     setDisabled(true);
-    localStorage.setItem("nodes", JSON.stringify(getNodes()));
+    localStorage.setItem(
+      "nodes",
+      JSON.stringify(
+        getNodes().map((node) => {
+          node.data.value = undefined;
+          return node;
+        }),
+      ),
+    );
     localStorage.setItem("edges", JSON.stringify(getEdges()));
     setDisabled(false);
   }

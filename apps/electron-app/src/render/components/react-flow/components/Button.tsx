@@ -100,13 +100,13 @@ export function Button(props: Props) {
         <Label htmlFor="holdtime" className="flex justify-between">
           Hold time
           <span className="opacity-40 font-light">
-            {node.data?.holdtime ?? 500} ms
+            {node.data.holdtime ?? 500} ms
           </span>
         </Label>
         <Slider
           id="holdtime"
           className="pb-2"
-          defaultValue={[node.data?.holdtime ?? 500]}
+          defaultValue={[node.data.holdtime ?? 500]}
           min={500}
           max={2500}
           step={50}

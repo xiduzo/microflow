@@ -1,4 +1,4 @@
-import { Position, useReactFlow } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 import { useShallow } from "zustand/react/shallow";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
@@ -8,13 +8,8 @@ export function Counter(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
-  const { updateNodeData } = useReactFlow();
 
   if (!node) return null;
-
-  function handleValueChange(pin: string) {
-    updateNodeData(props.id, { pin: parseInt(pin) });
-  }
 
   return (
     <NodeContainer {...props}>

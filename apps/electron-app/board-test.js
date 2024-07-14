@@ -149,3 +149,31 @@ class CustomJohnnyFiveLed extends JohnnyFive.Led {
     this.#eventEmitter.on(event, callback);
   }
 }
+
+class Interval extends EventEmitter {
+  #minIntervalInMs = 500;
+
+  id = null;
+
+  constructor(id, interval) {
+    super();
+
+    this.id = id;
+
+    setInterval(() => {
+      this.emit("change");
+      process.parentPort.postMessage({ nodeId: this.id, type: "change" });
+    }, this.#interval(interval));
+  }
+
+  #interval(interval) {
+    const parsed = parseInt(interval);
+    const isNumber = !isNaN(parsed);
+
+    if (!isNumber) {
+      return this.#minIntervalInMs;
+    }
+
+    return Math.max(this.#minIntervalInMs, parsed);
+  }
+}
