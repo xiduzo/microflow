@@ -3,6 +3,7 @@ import {
   getBezierPath,
   Position,
 } from "@xyflow/react";
+import { useMemo } from "react";
 
 function getTargetPosition({
   toHandle,
@@ -43,6 +44,7 @@ export function ConnectionLine({
   toY,
   fromHandle,
   toHandle,
+  connectionStatus,
 }: ConnectionLineComponentProps) {
   const targetPosition = getTargetPosition({
     fromX,
@@ -61,11 +63,19 @@ export function ConnectionLine({
     targetPosition: targetPosition,
   });
 
+  const stroke = useMemo(() => {
+    if (connectionStatus) {
+      return connectionStatus === "valid" ? "#0ea5e9" : "#ef4444";
+    }
+
+    return "#71717a";
+  }, [connectionStatus]);
+
   return (
     <g>
       <path
         fill="none"
-        stroke={toHandle ? "#22c55e" : "#0ea5e9"}
+        stroke={stroke}
         strokeWidth={4}
         className="animated"
         d={path}

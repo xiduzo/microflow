@@ -43,7 +43,6 @@ export function Handle(props: Props) {
       timeouts.current.set(
         edgeId,
         setTimeout(() => {
-          console.log("untriggering edge", edgeId);
           updateEdge(edgeId, {
             animated: false,
           });

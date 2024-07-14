@@ -1,7 +1,12 @@
 import { Icons } from "@ui/index";
 import { Edge, Node, useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { UploadCodeResult } from "../../../../common/types";
+import {
+  nodesAndEdgesCountsSelector,
+  useNodesEdgesStore,
+} from "../../../store";
 import { NodeType } from "../ReactFlowCanvas";
 
 export function CodeUploader() {
@@ -11,6 +16,10 @@ export function CodeUploader() {
 
   const { updateNodeData, getNodes, getEdges } = useReactFlow();
 
+  const { nodesCount, edgesCount } = useNodesEdgesStore(
+    useShallow(nodesAndEdgesCountsSelector),
+  );
+
   const uploadCode = useCallback(() => {
     setUploadCodeResult({ type: "info" });
     const code = createCode(getNodes(), getEdges());
@@ -18,6 +27,7 @@ export function CodeUploader() {
     const off = window.electron.ipcRenderer.on(
       "ipc-fhb-upload-code",
       (message: UploadCodeResult) => {
+        console.log("ipc-fhb-upload-code", message);
         setUploadCodeResult(message);
 
         if (message.type === "ready") {
@@ -34,15 +44,14 @@ export function CodeUploader() {
   }, [getNodes, getEdges, updateNodeData]);
 
   useEffect(() => {
-    console.log("trigger");
     uploadCode();
-  }, [uploadCode]);
+  }, [nodesCount, edgesCount, uploadCode]);
 
   if (uploadCodeResult.type === "info") {
     return <Icons.Loader2 className="w-2 h-2 ml-2 animate-spin" />;
   }
 
-  return null;
+  return <Icons.Check className="w-2 h-2 ml-2" />;
 }
 
 function createCode(nodes: Node[], edges: Edge[]) {

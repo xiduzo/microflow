@@ -12,7 +12,7 @@ export function SerialConnectionStatus() {
 
   if (checkResult.type === "ready") {
     return (
-      <Badge className="bg-green-400 backdrop-blur-md bg-opacity-5 text-green-900 pointer-events-none">
+      <Badge className="bg-green-400 text-green-900 pointer-events-none">
         Connected
         <CodeUploader />
       </Badge>
@@ -21,7 +21,7 @@ export function SerialConnectionStatus() {
 
   if (checkResult.type === "info" && checkResult.class === "Connected") {
     return (
-      <Badge>
+      <Badge className="pointer-events-none">
         Validating firmware
         <Icons.Zap className="ml-2 h-3 w-3 animate-pulse" />
       </Badge>
@@ -30,7 +30,7 @@ export function SerialConnectionStatus() {
 
   if (checkResult.type === "fail") {
     return (
-      <Badge variant="destructive">
+      <Badge variant="destructive" className="pointer-events-none">
         {checkResult.message ?? "Unknown error occurred"}
         <Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
       </Badge>
@@ -38,7 +38,7 @@ export function SerialConnectionStatus() {
   }
 
   return (
-    <Badge>
+    <Badge className="pointer-events-none">
       {checkResult.message?.split("\n")[0].trim() ??
         "Looking for connected device"}
       <Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />

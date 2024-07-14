@@ -21,20 +21,37 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 };
 
 export const baseEdgeConfig: Partial<Edge> = {
-  style: { strokeWidth: 4 }
+  style: { strokeWidth: 4, stroke: '#4b5563' }
 }
 
 export const useNodesEdgesStore = create<AppState>((set, get) => ({
   nodes: [],
   edges: [],
   onNodesChange: (changes) => {
+    console.log(changes)
     set({
       nodes: applyNodeChanges(changes, get().nodes),
     });
   },
   onEdgesChange: (changes) => {
     set({
-      edges: applyEdgeChanges(changes, get().edges),
+      edges: applyEdgeChanges(changes, get().edges).map(edge => {
+        if (edge.selected) {
+          edge.style = {
+            ...baseEdgeConfig.style,
+            stroke: '#22c55e',
+          }
+        } else if (edge.animated) {
+          edge.style = {
+            ...baseEdgeConfig.style,
+            stroke: '#eab308',
+          }
+        } else {
+          edge.style = baseEdgeConfig.style
+        }
+
+        return edge
+      })
     });
   },
   onConnect: (connection) => {
@@ -54,7 +71,6 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
   addNode: (node) => {
     if (!node.data) node.data = {}
 
-    console.log('addNode', node.id)
     set({
       nodes: [...get().nodes, node],
     });
@@ -72,6 +88,11 @@ export const edgeSelector = (edgeId: string) => (state: AppState) => ({
 export const nodesAndEdgesSelector = (state: AppState) => ({
   nodes: state.nodes,
   edges: state.edges,
+})
+
+export const nodesAndEdgesCountsSelector = (state: AppState) => ({
+  nodesCount: state.nodes.length,
+  edgesCount: state.edges.length,
 })
 
 export const outgoingEdgeIdSelector = (nodeId: string, handle: string) => (state: AppState) => state.edges.filter(edge => edge.source === nodeId && edge.sourceHandle === handle).map(edge => edge.id);

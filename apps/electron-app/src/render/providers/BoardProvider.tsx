@@ -47,7 +47,6 @@ export function BoardProvider({ children }: PropsWithChildren) {
     return window.electron.ipcRenderer.on(
       "ipc-fhb-check-board",
       (result: BoardCheckResult) => {
-        console.log(result);
         setCheckResult(result);
 
         switch (result.type) {
