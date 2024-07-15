@@ -12,5 +12,11 @@
   "engines": {
     "node": "18.19.0",
     "yarn": "4.0.2"
-  }
+  },
+  "author": {
+    "name": "Sander Boer",
+    "email": "mail@sanderboer.nl",
+    "url": "https://sanderboer.nl"
+  },
+  "license": "GPL-3.0-only"
 }
