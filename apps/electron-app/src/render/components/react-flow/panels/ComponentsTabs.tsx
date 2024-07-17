@@ -12,19 +12,19 @@ export function ComponentTabs() {
   return (
     <Tabs
       defaultValue="closed"
-      className="bg-neutral-950/5 backdrop-blur-sm rounded-md p-2 z-50 w-[280px]"
+      className="bg-neutral-950/5 backdrop-blur-sm rounded-md p-2 z-50 w-[320px]"
     >
-      <TabsList>
+      <TabsList className="w-full">
         <TabsTrigger value="closed">
           <Icons.Dot />
         </TabsTrigger>
-        <TabsTrigger value="figma">Figma</TabsTrigger>
-        <TabsTrigger value="hardware">Hardware</TabsTrigger>
         <TabsTrigger value="flow">Flow</TabsTrigger>
+        <TabsTrigger value="hardware">Hardware</TabsTrigger>
+        <TabsTrigger value="external">External</TabsTrigger>
       </TabsList>
-      <TabsContent value="figma" className="space-y-2">
+      <TabsContent value="external" className="space-y-2">
         <Draggable
-          title="Variable"
+          title="Figma variable"
           type="Figma"
           description="Interact with figma variables"
           icon={<Icons.Variable />}

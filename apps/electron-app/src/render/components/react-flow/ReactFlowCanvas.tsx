@@ -100,7 +100,7 @@ export function ReactFlowComponent() {
       <Controls />
       <MiniMap
         nodeColor={(node) => {
-          if (node.selected) return "#22c55e";
+          if (node.selected) return "#3b82f6";
           if (node.data.animated !== undefined) return "#f97316";
         }}
         nodeBorderRadius={12}

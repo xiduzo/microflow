@@ -3,3 +3,8 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
         Helvetica, Arial, sans-serif;
 }
+
+#root {
+    @apply w-screen h-screen;
+    background: var(--figma-color-bg);
+}

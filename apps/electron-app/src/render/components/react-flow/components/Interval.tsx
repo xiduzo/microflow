@@ -6,6 +6,8 @@ import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
+const numberFormat = new Intl.NumberFormat();
+
 export function Interval(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
@@ -24,8 +26,8 @@ export function Interval(props: Props) {
   return (
     <NodeContainer {...props}>
       <NodeContent>
-        <NodeHeader className="text-xs">
-          {Math.round(props.data.value ?? 0)}ms
+        <NodeHeader className="text tabular-nums">
+          {numberFormat.format(Math.round(props.data.value ?? 0))}
         </NodeHeader>
         <Label htmlFor="interval" className="flex justify-between">
           Interval

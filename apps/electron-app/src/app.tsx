@@ -1,3 +1,4 @@
+import { FigmaProvider, MqttProvider } from "@fhb/mqtt/client";
 import { ReactFlowProvider } from "@xyflow/react";
 import { createRoot } from "react-dom/client";
 import { ReactFlowComponent } from "./render/components/react-flow/ReactFlowCanvas";
@@ -6,12 +7,16 @@ import { SignalerProvider } from "./render/providers/NodeSignaler";
 
 export function App() {
   return (
-    <BoardProvider>
-      <ReactFlowProvider>
-        <SignalerProvider />
-        <ReactFlowComponent />
-      </ReactFlowProvider>
-    </BoardProvider>
+    <MqttProvider appName="app">
+      <FigmaProvider>
+        <BoardProvider>
+          <ReactFlowProvider>
+            <SignalerProvider />
+            <ReactFlowComponent />
+          </ReactFlowProvider>
+        </BoardProvider>
+      </FigmaProvider>
+    </MqttProvider>
   );
 }
 

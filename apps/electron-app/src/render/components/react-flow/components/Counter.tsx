@@ -14,7 +14,9 @@ export function Counter(props: Props) {
   return (
     <NodeContainer {...props}>
       <NodeContent>
-        <NodeHeader className="text-4xl">{node.data.value ?? 0}</NodeHeader>
+        <NodeHeader className="text-4xl tabular-nums">
+          {node.data.value ?? 0}
+        </NodeHeader>
       </NodeContent>
       <Handle
         index={-0.5}
@@ -28,8 +30,8 @@ export function Counter(props: Props) {
         position={Position.Top}
         id="decrement"
       />
-      <Handle index={-0.5} type="target" position={Position.Left} id="set" />
-      <Handle index={0.5} type="target" position={Position.Left} id="reset" />
+      <Handle type="target" position={Position.Left} id="set" index={-0.5} />
+      <Handle type="target" position={Position.Left} id="reset" index={0.5} />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

@@ -11,45 +11,40 @@ import {
   Handle as XyFlowHandle,
 } from "@xyflow/react";
 import { useEffect, useRef } from "react";
-import { useShallow } from "zustand/react/shallow";
-import { outgoingEdgeIdSelector, useNodesEdgesStore } from "../../../store";
 import { useNode } from "./Node";
 
 const HANDLE_SPACING = 40;
 
 export function Handle(props: Props) {
   const { id, data } = useNode();
-  const outgoingEdgeIds = useNodesEdgesStore(
-    useShallow(outgoingEdgeIdSelector(id, props.id)),
-  );
 
-  const { updateEdge } = useReactFlow();
+  const { updateEdge, getEdges } = useReactFlow();
 
   const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     if (props.type !== "source") return;
+
     if (!data.animated) return;
     if (props.id !== data.animated) return;
 
-    outgoingEdgeIds.map((edgeId) => {
-      const timeout = timeouts.current.get(edgeId);
+    const edges = getEdges().filter(
+      (edge) => edge.source === id && edge.sourceHandle === props.id,
+    );
+    edges.map((edge) => {
+      const timeout = timeouts.current.get(edge.id);
       if (timeout) clearTimeout(timeout);
 
-      updateEdge(edgeId, {
-        animated: true,
-      });
+      updateEdge(edge.id, { animated: true });
 
       timeouts.current.set(
-        edgeId,
+        edge.id,
         setTimeout(() => {
-          updateEdge(edgeId, {
-            animated: false,
-          });
+          updateEdge(edge.id, { animated: false });
         }, 150),
       );
     });
-  }, [props.type, props.id, data.animated, outgoingEdgeIds, updateEdge]);
+  }, [id, props.type, props.id, data.animated, getEdges, updateEdge]);
 
   return (
     <TooltipProvider>

@@ -38,7 +38,7 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
         if (edge.selected) {
           edge.style = {
             ...baseEdgeConfig.style,
-            stroke: '#22c55e',
+            stroke: '#3b82f6',
           }
         } else if (edge.animated) {
           edge.style = {

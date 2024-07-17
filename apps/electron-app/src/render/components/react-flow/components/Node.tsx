@@ -30,7 +30,7 @@ export function NodeContainer(props: Props) {
 }
 
 export function NodeHeader(props: NodeHeaderProps) {
-  const { data } = useNode();
+  const { data, id, type } = useNode();
 
   return (
     <section
@@ -95,7 +95,7 @@ function BaseNode(props: PropsWithChildren & AnimatedNode) {
 }
 
 const node = cva(
-  "bg-neutral-950/5 outline -outline-offset-2 outline-neutral-500/25 backdrop-blur-sm rounded-md p-4 transition-all min-w-60",
+  "bg-neutral-950/5 outline -outline-offset-2 outline-neutral-500/25 backdrop-blur-sm rounded-md p-4 min-w-60",
   {
     variants: {
       selectable: {
@@ -103,7 +103,7 @@ const node = cva(
         false: "",
       },
       selected: {
-        true: "outline-green-500",
+        true: "outline-blue-500",
         false: "",
       },
       draggable: {
@@ -126,13 +126,6 @@ const node = cva(
       dragging: false,
       deletabled: false,
     },
-    compoundVariants: [
-      {
-        selectable: true,
-        selected: false,
-        className: "hover:outline-green-500/25",
-      },
-    ],
   },
 );
 

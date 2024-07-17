@@ -225,7 +225,7 @@ class Led extends JohnnyFive.Led {
 function defineCounter() {
   return `
 class Counter extends EventEmitter {
-  #count = 0;
+  #value = 0;
   id = null;
 
   constructor(options) {
@@ -234,34 +234,40 @@ class Counter extends EventEmitter {
     this.id = options.id;
   }
 
-  set count(value) {
-    this.#count = value;
-    this.emit("change", value);
-    process.parentPort.postMessage({ nodeId: this.id, action: "change", value });
+  set value(value) {
+    this.#value = parseInt(value);
+    this.emit("change", parseInt(value));
+    setTimeout(() => {
+      this.#postMessage("change");
+    }, 25)
   }
 
-  get count() {
-    return this.#count;
+  get value() {
+    return this.#value;
   }
 
   increment(amount = 1) {
-    this.count += parseInt(amount);
-    process.parentPort.postMessage({ nodeId: this.id, action: "increment" });
+    this.value += parseInt(amount);
+    this.#postMessage("increment");
   }
 
   decrement(amount = 1) {
-    this.count -= parseInt(amount);
-    process.parentPort.postMessage({ nodeId: this.id, action: "decrement" });
+    this.value -= parseInt(amount);
+    this.#postMessage("decrement");
   }
 
   reset() {
-    this.count = 0;
-    process.parentPort.postMessage({ nodeId: this.id, action: "reset" });
+    this.value = 0;
+    this.#postMessage("reset");
   }
 
   set(value) {
-    this.count = parseInt(value);
-    process.parentPort.postMessage({ nodeId: this.id, action: "set" });
+    this.value = parseInt(value);
+    this.#postMessage("set");
+  }
+
+  #postMessage(action) {
+    process.parentPort.postMessage({ nodeId: this.id, action, value: this.value });
   }
 }
 `

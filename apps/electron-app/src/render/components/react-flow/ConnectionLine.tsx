@@ -63,9 +63,9 @@ export function ConnectionLine({
     targetPosition: targetPosition,
   });
 
-  const stroke = useMemo(() => {
+  const color = useMemo(() => {
     if (connectionStatus) {
-      return connectionStatus === "valid" ? "#0ea5e9" : "#ef4444";
+      return connectionStatus === "valid" ? "#22c55e" : "#ef4444";
     }
 
     return "#71717a";
@@ -75,12 +75,12 @@ export function ConnectionLine({
     <g>
       <path
         fill="none"
-        stroke={stroke}
+        stroke={color}
         strokeWidth={4}
         className="animated"
         d={path}
       />
-      <circle cx={toX} cy={toY} fill="#fff" r={6} />
+      <circle cx={toX} cy={toY} fill={color} r={10} />
     </g>
   );
 }

@@ -1,11 +1,11 @@
 import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    Switch,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  Switch,
 } from "@fhb/ui";
 import { Position, useReactFlow } from "@xyflow/react";
 import { LedOption } from "johnny-five";
@@ -41,7 +41,7 @@ export function Led(props: Props) {
           <Switch
             className="scale-150"
             disabled
-            checked={node.data.value === 255}
+            checked={Boolean(node.data.value)}
           />
         </NodeHeader>
         <Select
@@ -63,9 +63,9 @@ export function Led(props: Props) {
           </SelectContent>
         </Select>
       </NodeContent>
-      <Handle index={-1} type="target" position={Position.Top} id="on" />
+      <Handle type="target" position={Position.Top} id="on" index={-1} />
       <Handle type="target" position={Position.Top} id="toggle" />
-      <Handle index={1} type="target" position={Position.Top} id="off" />
+      <Handle type="target" position={Position.Top} id="off" index={1} />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

@@ -18,5 +18,8 @@
     "email": "mail@sanderboer.nl",
     "url": "https://sanderboer.nl"
   },
-  "license": "GPL-3.0-only"
+  "license": "GPL-3.0-only",
+  "devDependencies": {
+    "@total-typescript/ts-reset": "^0.5.1"
+  }
 }

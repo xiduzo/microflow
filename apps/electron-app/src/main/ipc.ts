@@ -32,8 +32,6 @@ ipcMain.on('ipc-fhb-check-board', (event) => {
 
   childProcess = utilityProcess.fork(filePath)
   childProcess.on('message', async (message: BoardCheckResult) => {
-    log.log({ message })
-
     if (message.type !== 'info') {
       childProcess?.kill() // Free up the port again
     }
@@ -81,8 +79,6 @@ ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
 
     childProcess = utilityProcess.fork(filePath)
     childProcess.on("message", (message: UploadedCodeMessage | UploadCodeResult) => {
-      log.debug({ message })
-
       if ('type' in message) {
         event.reply('ipc-fhb-upload-code', message)
         return
