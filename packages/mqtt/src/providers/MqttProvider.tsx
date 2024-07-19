@@ -9,6 +9,7 @@ export type Client = (typeof clients)[number];
 type UseMqttClientProps = ReturnType<typeof useMqttClient>;
 type MqttProviderContextProps = {
   connectedClients: Map<Client, ConnectionStatus>;
+  appName: Client;
 };
 
 const MqttProviderContext = createContext<
@@ -24,6 +25,7 @@ const MqttProviderContext = createContext<
   subscriptions: {
     current: new Map(),
   },
+  appName: "app",
 } as UseMqttClientProps & MqttProviderContextProps);
 
 export function MqttProvider(props: PropsWithChildren & Props) {
@@ -94,6 +96,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
       value={{
         ...mqttClient,
         connectedClients,
+        appName: props.appName,
       }}
     >
       {props.children}

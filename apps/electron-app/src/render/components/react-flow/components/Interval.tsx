@@ -29,14 +29,17 @@ export function Interval(props: Props) {
         <NodeHeader className="text tabular-nums">
           {numberFormat.format(Math.round(props.data.value ?? 0))}
         </NodeHeader>
-        <Label htmlFor="interval" className="flex justify-between">
+        <Label
+          htmlFor={`interval-${props.id}`}
+          className="flex justify-between"
+        >
           Interval
           <span className="opacity-40 font-light">
             {node.data.interval ?? 500}ms
           </span>
         </Label>
         <Slider
-          id="interval"
+          id={`interval-${props.id}`}
           className="pb-2"
           defaultValue={[node.data.interval ?? 500]}
           min={500}

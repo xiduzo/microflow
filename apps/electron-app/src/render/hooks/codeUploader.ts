@@ -11,11 +11,16 @@ import {
 let timeout: NodeJS.Timeout | undefined;
 
 export function useCodeUploader() {
-  const { uploadCode: boardUpload } = useBoard();
+  const { checkResult, uploadCode: boardUpload } = useBoard();
 
   const { updateNodeData, getNodes, getEdges } = useReactFlow();
 
   const uploadCode = useCallback(() => {
+    if (checkResult.type !== 'ready') {
+      // TODO: add notification to user?
+      return
+    }
+
     timeout && clearTimeout(timeout)
 
     timeout = setTimeout(() => {
@@ -29,7 +34,7 @@ export function useCodeUploader() {
 
       boardUpload(code);
     }, 1000)
-  }, [getNodes, getEdges, updateNodeData]);
+  }, [getNodes, getEdges, updateNodeData, checkResult]);
 
   return uploadCode;
 }

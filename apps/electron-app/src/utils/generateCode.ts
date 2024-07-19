@@ -6,7 +6,7 @@ const defintions: Record<NodeType, () => string> = {
   Counter: defineCounter,
   Interval: defineInterval,
   Led: defineLed,
-  Figma: () => ``
+  Figma: defineFigma
 }
 
 export function generateCode(nodes: Node[], edges: Edge[]) {
@@ -30,11 +30,14 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
   })
 
   innerCode += addBoardListener("ready", false)
-
   nodes.forEach((node) => {
     innerCode += `  ${createNode(node)}`
     innerCode += addEnter()
   })
+  innerCode += addEnter()
+
+  innerCode += `  const nodes = [${nodes.map(node => `{ id: "${node.type}_${node.id}", variable: ${node.type}_${node.id} }`)}]`
+  innerCode += addEnter()
   innerCode += addEnter()
 
   const nodesWithActionListener = nodes.filter(node => edges.some((edge) => edge.source === node.id))
@@ -71,6 +74,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
     })
   })
 
+  innerCode += addNodeProcessListener()
   innerCode += `}); // board - ready`
 
   code += wrapInTryCatch(innerCode)
@@ -118,6 +122,24 @@ ${selfClosing ? `}); // board - ${type}` : ``}
 `
 }
 
+function addNodeProcessListener() {
+  let code = `
+process.parentPort.on('message', (e) => {`
+
+  let innerCode = ``
+
+  innerCode += "const node = nodes.find((node) => node.id === \`${e.data.nodeType}_${e.data.nodeId}\`);"
+  innerCode += addEnter()
+  innerCode += "node?.variable.set(e.data.value)"
+
+  code += wrapInTryCatch(innerCode)
+
+  code += `
+}); // process.parentPort.on - 'message'`
+  code += addEnter()
+  return code
+}
+
 function wrapInTryCatch(code: string) {
   return `
 try {
@@ -136,6 +158,7 @@ function createNode(node: Node) {
     case "Led":
     case "Counter":
     case "Interval":
+    case "Figma":
       return `const ${node.type}_${node.id} = new ${node.type}(${JSON.stringify(node.data)});`;
     default:
       console.warn(`Unknown node type: ${node.type}`);
@@ -312,4 +335,44 @@ class Interval extends EventEmitter {
   }
 }
 `
+}
+
+function defineFigma() {
+  return `
+class Figma extends EventEmitter {
+  #value = 0;
+  id = null;
+
+  constructor(options) {
+    super();
+
+    this.id = options.id;
+  }
+
+  set value(value) {
+    this.#value = value;
+    this.emit("change", value);
+    setTimeout(() => {
+      this.#postMessage("change");
+    }, 25);
+  }
+
+  get value() {
+    return this.#value;
+  }
+
+  set(value) {
+    this.value = value;
+    this.#postMessage("set");
+  }
+
+  #postMessage(action) {
+    process.parentPort.postMessage({
+      nodeId: this.id,
+      action,
+      value: this.value,
+    });
+  }
+}
+  `
 }

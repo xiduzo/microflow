@@ -19,6 +19,9 @@ export function SerialConnectionStatus() {
           <Icons.Check className="ml-2 h-3 w-3" />
         )}
         {uploadResult.type === "info" && (
+          <Icons.Zap className="w-2 h-2 ml-2 animate-pulse" />
+        )}
+        {uploadResult.type === "close" && (
           <Icons.Loader2 className="w-2 h-2 ml-2 animate-spin" />
         )}
       </Badge>
@@ -29,7 +32,7 @@ export function SerialConnectionStatus() {
     return (
       <Badge className="pointer-events-none">
         Validating firmware
-        <Icons.Zap className="ml-2 h-3 w-3 animate-pulse" />
+        <Icons.Bot className="ml-2 h-3 w-3 animate-pulse" />
       </Badge>
     );
   }

@@ -89,6 +89,11 @@ ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
   })
 })
 
+ipcMain.on("ipc-fhb-value-changed", (_event, nodeType: string, nodeId: string, value: unknown) => {
+  console.log("Value changed", { nodeType, nodeId, value })
+  childProcess?.postMessage({ nodeType, nodeId, value })
+})
+
 async function forceFlashBoard(): Promise<void> {
   return new Promise(async (resolve, reject) => {
     try {

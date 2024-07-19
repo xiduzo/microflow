@@ -13,6 +13,7 @@ import {
   ReactElement,
   useContext,
 } from "react";
+import { useBoard } from "../../../providers/BoardProvider";
 
 export function NodeContainer(props: Props) {
   if (props.contextMenu) {
@@ -30,14 +31,16 @@ export function NodeContainer(props: Props) {
 }
 
 export function NodeHeader(props: NodeHeaderProps) {
-  const { data, id, type } = useNode();
+  const { data } = useNode();
+  const { uploadResult } = useBoard();
 
   return (
     <section
       className={cn(
         nodeHeader({
           className: props.className,
-          active: props.active || !!data.animated,
+          active: props.active || (!!data.animated && !!data.value),
+          codeIsUploaded: uploadResult.type === "ready",
         }),
       )}
     >
@@ -63,9 +66,13 @@ const nodeHeader = cva(
         true: "bg-yellow-700",
         false: "bg-zinc-700",
       },
-    },
-    defaultVariants: {
-      active: false,
+      codeIsUploaded: {
+        true: "",
+        false: "opacity-20",
+      },
+      defaultVariants: {
+        active: false,
+      },
     },
   },
 );

@@ -19,7 +19,7 @@ const FigmaContext = createContext({
 });
 
 export function FigmaProvider(props: PropsWithChildren) {
-  const { status, subscribe } = useMqtt();
+  const { status, subscribe, publish, appName } = useMqtt();
   const [variableValues, setVariableValues] = useState<Record<string, unknown>>(
     {},
   );
@@ -30,28 +30,49 @@ export function FigmaProvider(props: PropsWithChildren) {
   useEffect(() => {
     if (status !== "connected") return;
 
-    subscribe("fhb/v1/xiduzo/variables", (topic, message) => {
-      const next = Array.from(
-        JSON.parse(message.toString()) as FigmaVariable[],
-      ).reduce(
-        (acc, curr) => {
-          acc[curr.id] = curr;
-          return acc;
-        },
-        {} as Record<string, FigmaVariable>,
-      );
-      setVariableTypes(next);
-    });
+    function handleVariablesUpdate(_topic: string, message: Buffer) {
+      const variables = JSON.parse(message.toString()) as Record<
+        string,
+        FigmaVariable
+      >;
+      setVariableTypes(variables);
+    }
 
-    subscribe("fhb/v1/xiduzo/variable/+/figma", (topic, message) => {
-      const [_prefix, _version, _id, _topic, variableId] = topic.split("/");
+    function handleVariableUpdaet(topic: string, message: Buffer) {
+      const [_prefix, _version, _id, _app, _topic, variableId] =
+        topic.split("/");
       setVariableValues((prev) => {
         const next = { ...prev };
         next[variableId] = JSON.parse(message.toString());
         return next;
       });
-    });
-  }, [status, subscribe]);
+    }
+
+    subscribe("fhb/v1/xiduzo/plugin/variables", handleVariablesUpdate);
+    subscribe(
+      `fhb/v1/xiduzo/${appName}/variables/response`,
+      handleVariablesUpdate,
+    );
+
+    subscribe("fhb/v1/xiduzo/plugin/variable/+", handleVariableUpdaet);
+    subscribe(`fhb/v1/xiduzo/${appName}/variable/+`, handleVariableUpdaet);
+  }, [status, subscribe, appName]);
+
+  useEffect(() => {
+    if (
+      Object.values(variableValues).length &&
+      Object.values(variableTypes).length
+    ) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      console.log("Requesting variables");
+      publish(`fhb/v1/xiduzo/${appName}/variables/request`, "");
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [variableValues, variableTypes]);
 
   return (
     <FigmaContext.Provider value={{ variableValues, variableTypes }}>
