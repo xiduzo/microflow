@@ -40,13 +40,15 @@ export function Figma(props: Props) {
   }
 
   useEffect(() => {
+    if (!node?.id) return;
+
     window.electron.ipcRenderer.send(
       "ipc-fhb-value-changed",
       props.type,
       node.id,
       value,
     );
-  }, [value, node.id, props.type]);
+  }, [value, node?.id, props.type]);
 
   useEffect(() => {
     if (status !== "connected") return;
@@ -61,9 +63,10 @@ export function Figma(props: Props) {
 
   useEffect(() => {
     if (!variable?.resolvedType) return;
+    if (!node?.id) return;
 
-    updateNodeInternals(node.id);
-  }, [variable?.resolvedType, node.id]);
+    updateNodeInternals(node?.id);
+  }, [variable?.resolvedType, node?.id]);
 
   if (!node) return null;
 

@@ -55,12 +55,6 @@ export function ComponentTabs() {
           icon={<Icons.Sigma />}
         />
         <Draggable
-          title="If/else"
-          type="Button"
-          description="Control logic"
-          icon={<Icons.Split />}
-        />
-        <Draggable
           title="And"
           type="Button"
           description="Control logic"
@@ -77,6 +71,12 @@ export function ComponentTabs() {
           type="Counter"
           description="Keep count of things"
           icon={<Icons.Hash />}
+        />
+        <Draggable
+          title="If/Else"
+          type="IfElse"
+          description="Control logic"
+          icon={<Icons.Split />}
         />
       </TabsContent>
     </Tabs>

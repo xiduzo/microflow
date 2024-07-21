@@ -6,7 +6,8 @@ const defintions: Record<NodeType, () => string> = {
   Counter: defineCounter,
   Interval: defineInterval,
   Led: defineLed,
-  Figma: defineFigma
+  Figma: defineFigma,
+  IfElse: defineIfElse,
 }
 
 export function generateCode(nodes: Node[], edges: Edge[]) {
@@ -64,7 +65,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
-        const value = ["set", "red", "green", "blue", "opacity"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+        const value = ["set", "check", "red", "green", "blue", "opacity"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
         // TODO: add support for increment and decrement bigger than 1
         innerCode += `    ${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`
         innerCode += addEnter()
@@ -161,6 +162,7 @@ function createNode(node: Node) {
     case "Counter":
     case "Interval":
     case "Figma":
+    case "IfElse":
       return `const ${node.type}_${node.id} = new ${node.type}(${JSON.stringify(node.data)});`;
     default:
       console.warn(`Unknown node type: ${node.type}`);
@@ -171,12 +173,9 @@ function createNode(node: Node) {
 function defineButton() {
   return `
 class Button extends JohnnyFive.Button {
-  get value() {
-    return this.value;
-  }
-
   constructor(options) {
     super(options);
+    this.options = options
 
     this.on("up", this.#postMessage.bind(this, "up"));
     this.on("down", this.#postMessage.bind(this, "down"));
@@ -184,12 +183,16 @@ class Button extends JohnnyFive.Button {
     this.on("change", this.#postMessage.bind(this, "change"));
   }
 
+  get value() {
+    return this.value;
+  }
+
   #postMessage(action) {
     if (action !== "change") {
       this.emit("change", this.value);
     }
 
-    process.parentPort.postMessage({ nodeId: this.id, action, value: this.value });
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
   }
 }
 `
@@ -203,10 +206,9 @@ class Led extends JohnnyFive.Led {
 
   constructor(options) {
     super(options);
+    this.options = options
 
-    this.#eventEmitter.on("change", () => {
-      process.parentPort.postMessage({ nodeId: this.id, action: "change", value: this.value });
-    })
+    this.#eventEmitter.on("change", this.#postMessage.bind(this, "change"));
 
     setInterval(() => {
       if(this.#value !== null && this.#value !== this.value) {
@@ -226,6 +228,14 @@ class Led extends JohnnyFive.Led {
 
     this.#eventEmitter.on(action, callback);
   }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
 }
 `
 }
@@ -237,10 +247,9 @@ class Counter extends EventEmitter {
 
   constructor(options) {
     super();
+    this.options = options
 
-    this.on("change", () => {
-      process.parentPort.postMessage({ nodeId: options.id, action: "change", value: this.value });
-    })
+    this.on("change", this.#postMessage.bind(this, "change"));
   }
 
   set value(value) {
@@ -267,6 +276,14 @@ class Counter extends EventEmitter {
   set(value) {
     this.value = value;
   }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
 }
 `
 }
@@ -280,10 +297,9 @@ class Interval extends EventEmitter {
 
   constructor(options) {
     super();
+    this.options = options
 
-    this.on("change", () => {
-      process.parentPort.postMessage({ nodeId: options.id, action: "change", value: this.value });
-    });
+    this.on("change", this.#postMessage.bind(this, "change"));
 
     setInterval(() => {
       this.value = performance.now()
@@ -309,6 +325,14 @@ class Interval extends EventEmitter {
 
     return Math.max(this.#minIntervalInMs, parsed);
   }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
 }
 `
 }
@@ -321,10 +345,9 @@ class Figma extends EventEmitter {
 
   constructor(options) {
     super();
+    this.options = options
 
-    this.on("change", () => {
-      process.parentPort.postMessage({ nodeId: options.id, action: "change", value: this.value });
-    });
+    this.on("change", this.#postMessage.bind(this, "change"));
   }
 
   set value(value) {
@@ -379,6 +402,100 @@ class Figma extends EventEmitter {
   opacity(value) {
     this.value = { ...this.#defaultRGBA, ...this.#value, a: Math.min(1, value / 100) };
   }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
 }
   `
+}
+
+
+function defineIfElse() {
+  return `
+class IfElse extends EventEmitter {
+  #value = null
+
+  constructor(options) {
+    super();
+    this.options = options;
+
+    this.on("change", this.#postMessage.bind(this, "change"));
+    this.on("true", this.#postMessage.bind(this, "true"));
+    this.on("false", this.#postMessage.bind(this, "false"));
+  }
+
+  get value() {
+    return this.#value;
+  }
+
+  set value(value) {
+    console.log(value, this.#value)
+    const hasChanged = this.#value !== value;
+    this.#value = value;
+
+    if(hasChanged) {
+      this.emit("change");
+    }
+
+    this.emit(value ? "true" : "false", value)
+  }
+
+  check(input) {
+    const validator = this.#validator();
+    this.value = validator(input, ...this.options.validatorArgs);
+  }
+
+  #validator() {
+    switch (this.options.validator) {
+      case "boolean":
+        return (input) => input === true || ["1", "true", "on", "yes"].includes(String(input).toLowerCase());
+      case "number":
+        switch (this.options.subValidator) {
+          case "equal to":
+            return (input, expected) => input == expected;
+          case "greater than":
+            return (input, expected) => input > expected;
+          case "less than":
+            return (input, expected) => input < expected;
+          case "inside":
+            return (input, min, max) => input > min && input < max;
+          case "outside":
+            return (input, min, max) => input < min && input > max;
+          case "is even":
+            return (input) => input % 2 === 0;
+          case "is odd":
+            return (input) => input % 2 !== 0;
+          default:
+            return () => false;
+        }
+      case "text":
+        switch (this.options.subValidator) {
+          case "equal to":
+            return (input, expected) => input === expected;
+          case "includes":
+            return (input, expected) => input.includes(expected);
+          case "starts with":
+            return (input, expected) => input.startsWith(expected);
+          case "ends with":
+            return (input, expected) => input.endsWith(expected);
+          default:
+            return () => false;
+        }
+    }
+  }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
+}
+`
 }

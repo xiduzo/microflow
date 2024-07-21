@@ -12,6 +12,7 @@ import { AppState, useNodesEdgesStore } from "../../store";
 import { Button, ButtonData } from "./components/Button";
 import { Counter } from "./components/Counter";
 import { Figma } from "./components/Figma";
+import { IfElse } from "./components/IfElse";
 import { Interval } from "./components/Interval";
 import { Led, LedData } from "./components/Led";
 import { ConnectionLine } from "./ConnectionLine";
@@ -25,6 +26,7 @@ const nodeTypes = {
   Counter: Counter,
   Figma: Figma,
   Interval: Interval,
+  IfElse: IfElse,
 };
 
 export type NodeType = keyof typeof nodeTypes;
