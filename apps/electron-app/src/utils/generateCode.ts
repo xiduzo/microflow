@@ -64,7 +64,9 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
-        innerCode += `    ${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${edge.data ? JSON.stringify(edge.data) : ""});`
+        const value = ["set", "red", "green", "blue", "opacity"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+        // TODO: add support for increment and decrement bigger than 1
+        innerCode += `    ${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`
         innerCode += addEnter()
       })
 
@@ -130,7 +132,7 @@ process.parentPort.on('message', (e) => {`
 
   innerCode += "const node = nodes.find((node) => node.id === \`${e.data.nodeType}_${e.data.nodeId}\`);"
   innerCode += addEnter()
-  innerCode += "node?.variable.set(e.data.value)"
+  innerCode += "node?.variable.setExternal(e.data.value)"
 
   code += wrapInTryCatch(innerCode)
 
@@ -187,11 +189,7 @@ class Button extends JohnnyFive.Button {
       this.emit("change", this.value);
     }
 
-    process.parentPort.postMessage({
-      nodeId: this.id,
-      action,
-      value: this.value,
-    });
+    process.parentPort.postMessage({ nodeId: this.id, action, value: this.value });
   }
 }
 `
@@ -200,46 +198,33 @@ class Button extends JohnnyFive.Button {
 function defineLed() {
   return `
 class Led extends JohnnyFive.Led {
-  #previousValue = 0;
   #eventEmitter = new EventEmitter();
+  #value = null
 
   constructor(options) {
     super(options);
 
-    setInterval(() => {
-      if (this.#previousValue !== this.value) {
-        this.#eventEmitter.emit("change");
-        if(this.value !== null) {
-          this.#postMessage("change");
-        }
-      }
+    this.#eventEmitter.on("change", () => {
+      process.parentPort.postMessage({ nodeId: this.id, action: "change", value: this.value });
+    })
 
-      this.#previousValue = this.value;
-    }, 25);
+    setInterval(() => {
+      if(this.#value !== null && this.#value !== this.value) {
+        this.#eventEmitter.emit("change");
+      }
+      this.#value = this.value;
+    }, 7)
   }
 
+  // Highjack the on method
+  // to allow for a custom actions
   on(action, callback) {
     if (!action) {
       super.on();
-      this.#postMessage("on");
       return;
     }
 
     this.#eventEmitter.on(action, callback);
-  }
-
-  off() {
-    super.off();
-    this.#postMessage("off");
-  }
-
-  toggle() {
-    super.toggle();
-    this.#postMessage("toggle");
-  }
-
-  #postMessage(action) {
-    process.parentPort.postMessage({ nodeId: this.id, action, value: this.value });
   }
 }
 `
@@ -249,20 +234,18 @@ function defineCounter() {
   return `
 class Counter extends EventEmitter {
   #value = 0;
-  id = null;
 
   constructor(options) {
     super();
 
-    this.id = options.id;
+    this.on("change", () => {
+      process.parentPort.postMessage({ nodeId: options.id, action: "change", value: this.value });
+    })
   }
 
   set value(value) {
     this.#value = parseInt(value);
-    this.emit("change", parseInt(value));
-    setTimeout(() => {
-      this.#postMessage("change");
-    }, 25)
+    this.emit("change", this.value);
   }
 
   get value() {
@@ -270,27 +253,19 @@ class Counter extends EventEmitter {
   }
 
   increment(amount = 1) {
-    this.value += parseInt(amount);
-    this.#postMessage("increment");
+    this.value += amount;
   }
 
   decrement(amount = 1) {
-    this.value -= parseInt(amount);
-    this.#postMessage("decrement");
+    this.value -= amount;
   }
 
   reset() {
     this.value = 0;
-    this.#postMessage("reset");
   }
 
   set(value) {
-    this.value = parseInt(value);
-    this.#postMessage("set");
-  }
-
-  #postMessage(action) {
-    process.parentPort.postMessage({ nodeId: this.id, action, value: this.value });
+    this.value = value;
   }
 }
 `
@@ -303,24 +278,25 @@ class Interval extends EventEmitter {
   #minIntervalInMs = 500;
   #value = 0;
 
-  set value(value) {
-    this.#value = value;
-    this.emit("change", value);
-    process.parentPort.postMessage({ nodeId: this.id, action: "change", value: this.value });
-  }
-
-  get value() {
-    return this.#value;
-  }
-
   constructor(options) {
     super();
 
-    this.id = options.id;
+    this.on("change", () => {
+      process.parentPort.postMessage({ nodeId: options.id, action: "change", value: this.value });
+    });
 
     setInterval(() => {
       this.value = performance.now()
     }, this.#interval(options.interval));
+  }
+
+  set value(value) {
+    this.#value = value;
+    this.emit("change", value);
+  }
+
+  get value() {
+    return this.#value;
   }
 
   #interval(interval) {
@@ -340,38 +316,68 @@ class Interval extends EventEmitter {
 function defineFigma() {
   return `
 class Figma extends EventEmitter {
-  #value = 0;
-  id = null;
+  #value = null;
+  #defaultRGBA = { r: 0, g: 0, b: 0, a: 0 }
 
   constructor(options) {
     super();
 
-    this.id = options.id;
+    this.on("change", () => {
+      process.parentPort.postMessage({ nodeId: options.id, action: "change", value: this.value });
+    });
   }
 
   set value(value) {
     this.#value = value;
     this.emit("change", value);
-    setTimeout(() => {
-      this.#postMessage("change");
-    }, 25);
   }
 
   get value() {
     return this.#value;
   }
 
-  set(value) {
-    this.value = value;
-    this.#postMessage("set");
+  increment(amount = 1) {
+    this.value += amount;
   }
 
-  #postMessage(action) {
-    process.parentPort.postMessage({
-      nodeId: this.id,
-      action,
-      value: this.value,
-    });
+  decrement(amount = 1) {
+    this.value -= amount;
+  }
+
+  true() {
+    this.value = true;
+  }
+
+  false() {
+    this.value = false;
+  }
+
+  toggle() {
+    this.value = !this.value;
+  }
+
+  set(value) {
+    this.value = value;
+  }
+
+  setExternal(value) {
+    this.#value = value;
+  }
+
+  red(value) {
+    this.value = { ...this.#defaultRGBA, ...this.#value, r: Math.min(1, value / 255) };
+  }
+
+  green(value) {
+    this.value = { ...this.#defaultRGBA, ...this.#value, g: Math.min(1, value / 255) };
+  }
+
+  blue(value) {
+    this.value = { ...this.#defaultRGBA, ...this.#value, b: Math.min(1, value / 255) };
+  }
+
+  opacity(value) {
+    this.value = { ...this.#defaultRGBA, ...this.#value, a: Math.min(1, value / 100) };
   }
 }
   `

@@ -1,9 +1,10 @@
 import {
-  createContext,
-  PropsWithChildren,
-  useContext,
-  useEffect,
-  useState,
+    createContext,
+    PropsWithChildren,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
 } from "react";
 import { useMqtt } from "./MqttProvider";
 
@@ -59,6 +60,8 @@ export function FigmaProvider(props: PropsWithChildren) {
   }, [status, subscribe, appName]);
 
   useEffect(() => {
+    if (status !== "connected") return;
+
     if (
       Object.values(variableValues).length &&
       Object.values(variableTypes).length
@@ -66,13 +69,14 @@ export function FigmaProvider(props: PropsWithChildren) {
       return;
     }
 
+    publish(`fhb/v1/xiduzo/${appName}/variables/request`, "");
+
     const interval = setInterval(() => {
-      console.log("Requesting variables");
       publish(`fhb/v1/xiduzo/${appName}/variables/request`, "");
-    }, 1000);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [variableValues, variableTypes]);
+  }, [variableValues, variableTypes, status]);
 
   return (
     <FigmaContext.Provider value={{ variableValues, variableTypes }}>
@@ -82,3 +86,25 @@ export function FigmaProvider(props: PropsWithChildren) {
 }
 
 export const useFigma = () => useContext(FigmaContext);
+
+export function useFigmaVariable(variableId?: string) {
+  const { variableTypes, variableValues } = useFigma();
+
+  const variable = useMemo(() => {
+    if (!variableId) return;
+
+    return variableTypes[variableId];
+  }, [variableTypes, variableId]);
+
+  const value = useMemo(() => {
+    if (!variableId) return;
+
+    return variableValues[variableId];
+  }, [variableValues, variableId]);
+
+  return {
+    variable,
+    value,
+    variables: variableTypes,
+  };
+}

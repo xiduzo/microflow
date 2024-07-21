@@ -129,9 +129,9 @@ export function Button(props: Props) {
           </section>
         )}
       </NodeContent>
-      <Handle type="source" position={Position.Bottom} id="down" index={-1} />
+      <Handle type="source" position={Position.Bottom} id="down" offset={-1} />
       <Handle type="source" position={Position.Bottom} id="hold" />
-      <Handle type="source" position={Position.Bottom} id="up" index={1} />
+      <Handle type="source" position={Position.Bottom} id="up" offset={1} />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

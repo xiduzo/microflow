@@ -63,9 +63,9 @@ export function Led(props: Props) {
           </SelectContent>
         </Select>
       </NodeContent>
-      <Handle type="target" position={Position.Top} id="on" index={-1} />
+      <Handle type="target" position={Position.Top} id="on" offset={-1} />
       <Handle type="target" position={Position.Top} id="toggle" />
-      <Handle type="target" position={Position.Top} id="off" index={1} />
+      <Handle type="target" position={Position.Top} id="off" offset={1} />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

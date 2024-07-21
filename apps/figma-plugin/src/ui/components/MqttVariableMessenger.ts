@@ -1,7 +1,8 @@
 import { useMqtt } from "@fhb/mqtt/client";
 import { useEffect, useRef } from "react";
-import { MESSAGE_TYPE } from "../../common/types/Message";
+import { MESSAGE_TYPE, SetLocalValiable } from "../../common/types/Message";
 import { useMessageListener } from "../hooks/useMessageListener";
+import { sendMessageToFigma } from "../utils/sendMessageToFigma";
 
 type KnownVariable = Pick<Variable, "name" | "resolvedType" | "id">;
 
@@ -63,13 +64,21 @@ export function MqttVariableMessenger() {
         publish(`fhb/v1/xiduzo/${app}/variable/${id}`, value);
       });
     });
+
+    subscribe("fhb/v1/xiduzo/+/variable/+/set", async (topic, message) => {
+      const [, , , app, , variableId] = topic.split("/");
+      const value = JSON.parse(message.toString());
+
+      console.log("Received set variable", app, variableId, value);
+      sendMessageToFigma(SetLocalValiable(variableId, value as VariableValue))
+    })
   }, [status, subscribe, publish]);
 
   useMessageListener<Variable[] | undefined>(
     MESSAGE_TYPE.GET_LOCAL_VARIABLES,
     publishVariables,
     {
-      intervalInMs: 500,
+      intervalInMs: 100,
       shouldSendInitialMessage: true,
     },
   );

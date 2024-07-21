@@ -19,19 +19,19 @@ export function Counter(props: Props) {
         </NodeHeader>
       </NodeContent>
       <Handle
-        index={-0.5}
+        offset={-0.5}
         type="target"
         position={Position.Top}
         id="increment"
       />
       <Handle
-        index={0.5}
+        offset={0.5}
         type="target"
         position={Position.Top}
         id="decrement"
       />
-      <Handle type="target" position={Position.Left} id="set" index={-0.5} />
-      <Handle type="target" position={Position.Left} id="reset" index={0.5} />
+      <Handle type="target" position={Position.Left} id="set" offset={-0.5} />
+      <Handle type="target" position={Position.Left} id="reset" offset={0.5} />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

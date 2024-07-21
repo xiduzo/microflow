@@ -1,6 +1,6 @@
 import { Message, MESSAGE_TYPE } from "../common/types/Message";
 import { setUiOptions } from "./handlers/ui";
-import { getLocalVariables } from "./handlers/variables";
+import { getLocalVariables, setLocalvariable } from "./handlers/variables";
 
 figma.showUI(__html__, {
   themeColors: true,
@@ -43,7 +43,7 @@ figma.ui.onmessage = <T>(message: Message<T>) => {
       break;
     }
     case MESSAGE_TYPE.SET_LOCAL_VARIABLE: {
-      // void setLocalvariable(payload.id, payload.value as VariableValue);
+      void setLocalvariable(payload.id, payload.value as VariableValue);
       break;
     }
     case MESSAGE_TYPE.SET_UI_OPTIONS: {

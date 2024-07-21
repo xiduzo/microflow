@@ -2,22 +2,24 @@ const JohnnyFive = require("johnny-five");
 const log = require("electron-log/node");
 const EventEmitter = require("events");
 
-class Counter extends EventEmitter {
-  #value = 0;
-  id = null;
+class Figma extends EventEmitter {
+  #value = null;
 
   constructor(options) {
     super();
 
-    this.id = options.id;
+    this.on("change", () => {
+      process.parentPort.postMessage({
+        nodeId: options.id,
+        action: "change",
+        value: this.value,
+      });
+    });
   }
 
   set value(value) {
-    this.#value = parseInt(value);
-    this.emit("change", parseInt(value));
-    setTimeout(() => {
-      this.#postMessage("change");
-    }, 25);
+    this.#value = value;
+    this.emit("change", value);
   }
 
   get value() {
@@ -25,30 +27,44 @@ class Counter extends EventEmitter {
   }
 
   increment(amount = 1) {
-    this.value += parseInt(amount);
-    this.#postMessage("increment");
+    this.value += amount;
   }
 
   decrement(amount = 1) {
-    this.value -= parseInt(amount);
-    this.#postMessage("decrement");
+    this.value -= amount;
   }
 
-  reset() {
-    this.value = 0;
-    this.#postMessage("reset");
+  true() {
+    this.value = true;
+  }
+
+  false() {
+    this.value = false;
+  }
+
+  toggle() {
+    this.value = !this.value;
   }
 
   set(value) {
-    this.value = parseInt(value);
-    this.#postMessage("set");
+    this.value = value;
   }
 
-  #postMessage(action) {
-    process.parentPort.postMessage({
-      nodeId: this.id,
-      action,
-      value: this.value,
-    });
+  red(value) {
+    this.value = { ...this.#value, r: value / 255 };
+  }
+
+  green(value) {
+    this.value = { ...this.#value, g: value / 255 };
+  }
+
+  blue(value) {
+    this.value = { ...this.#value, b: value / 255 };
+  }
+
+  opacity(value) {
+    this.value = { ...this.#value, a: value / 100 };
   }
 }
+
+const led = new Figma();

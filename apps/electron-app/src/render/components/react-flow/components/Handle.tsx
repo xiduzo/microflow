@@ -58,12 +58,12 @@ export function Handle(props: Props) {
               marginLeft: [Position.Top, Position.Bottom].includes(
                 props.position,
               )
-                ? HANDLE_SPACING * (props.index ?? 0)
+                ? HANDLE_SPACING * (props.offset ?? 0)
                 : 0,
               marginTop: [Position.Left, Position.Right].includes(
                 props.position,
               )
-                ? HANDLE_SPACING * (props.index ?? 0)
+                ? HANDLE_SPACING * (props.offset ?? 0)
                 : 0,
               borderWidth: 2,
               borderColor: "white",
@@ -72,8 +72,9 @@ export function Handle(props: Props) {
             }}
           />
         </TooltipTrigger>
-        <TooltipContent>
+        <TooltipContent className="text-center">
           <p>{props.title ?? props.id}</p>
+          {props.hint && <p className="opacity-60">{props.hint}</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -81,5 +82,6 @@ export function Handle(props: Props) {
 }
 
 type Props = HandleProps & {
-  index?: number;
+  offset?: number;
+  hint?: string;
 };

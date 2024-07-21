@@ -119,6 +119,14 @@ function unknownToRgbaOrNull(value: unknown) {
     }
   }
 
+  if (typeof value === 'object') {
+    try {
+      return figma.util.rgba(value as RGB | RGBA);
+    } catch (error) {
+      console.log({ error });
+    }
+  }
+
   return null;
 }
 
