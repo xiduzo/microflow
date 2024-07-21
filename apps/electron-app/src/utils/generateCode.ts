@@ -434,14 +434,7 @@ class IfElse extends EventEmitter {
   }
 
   set value(value) {
-    console.log(value, this.#value)
-    const hasChanged = this.#value !== value;
     this.#value = value;
-
-    if(hasChanged) {
-      this.emit("change");
-    }
-
     this.emit(value ? "true" : "false", value)
   }
 
@@ -462,7 +455,7 @@ class IfElse extends EventEmitter {
             return (input, expected) => input > expected;
           case "less than":
             return (input, expected) => input < expected;
-          case "inside":
+          case "between":
             return (input, min, max) => input > min && input < max;
           case "outside":
             return (input, min, max) => input < min && input > max;
@@ -486,6 +479,8 @@ class IfElse extends EventEmitter {
           default:
             return () => false;
         }
+      default:
+        return () => false;
     }
   }
 

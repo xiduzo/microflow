@@ -25,7 +25,7 @@ const subValidators = {
     "equal to",
     "greater than",
     "less than",
-    "inside",
+    "between",
     "outside",
     "is even",
     "is odd",
@@ -34,7 +34,7 @@ const subValidators = {
 };
 type Validator = (typeof validators)[number];
 
-const MAX_NUMERIC_VALUE = 1024;
+const MAX_NUMERIC_VALUE = 1023;
 
 export function IfElse(props: Props) {
   const { node } = useNodesEdgesStore(
@@ -54,16 +54,18 @@ export function IfElse(props: Props) {
     if (!node?.data) return;
 
     if (node.data.validator === "number") {
-      const isRange = ["inside", "outside"].includes(node.data.subValidator);
-      const currentValue = Number(node.data.validatorArgs[0] ?? 0);
+      const isRange = ["between", "outside"].includes(node.data.subValidator);
+      const currentValue = Number(node.data.validatorArgs?.[0] ?? 0);
       const validatorArgs = [currentValue];
       if (isRange) {
-        const increment = MAX_NUMERIC_VALUE * 0.25;
+        const increment = (MAX_NUMERIC_VALUE + 1) * 0.25;
         const nextValueBackup =
           currentValue + increment >= MAX_NUMERIC_VALUE
             ? currentValue - increment
             : currentValue + increment;
-        const nextValue = Number(node.data.validatorArgs[1] ?? nextValueBackup);
+        const nextValue = Number(
+          node.data.validatorArgs?.[1] ?? nextValueBackup,
+        );
         if (nextValue > currentValue) {
           validatorArgs.push(nextValue);
         } else {
@@ -71,7 +73,7 @@ export function IfElse(props: Props) {
         }
       }
 
-      if (node.data.validatorArgs.length === validatorArgs.length) {
+      if (node.data.validatorArgs?.length === validatorArgs?.length) {
         return;
       }
 
@@ -156,7 +158,7 @@ export function IfElse(props: Props) {
                 htmlFor={`slider-numeric-${node.id}`}
                 className="flex justify-between"
               >
-                {node.data.validatorArgs.map((value, index) => (
+                {node.data.validatorArgs?.map((value, index) => (
                   <span key={index} className="opacity-40 font-light">
                     {String(value)}
                   </span>
@@ -164,16 +166,15 @@ export function IfElse(props: Props) {
               </Label>
               <Slider
                 id={`slider-if-else-${node.id}`}
-                key={node.data.validatorArgs.length}
+                key={node.data.validatorArgs?.length ?? 0}
                 defaultValue={
-                  [
-                    node.data.validatorArgs[0],
-                    node.data.validatorArgs[1],
-                  ].filter((v) => v !== undefined) as number[]
+                  (node.data.validatorArgs?.filter(
+                    (arg) => arg !== undefined,
+                  ) as number[]) ?? [0]
                 }
                 min={0}
                 max={MAX_NUMERIC_VALUE}
-                step={4}
+                step={1}
                 onValueChange={(values) =>
                   handleNodeUpdate({ validatorArgs: values })
                 }

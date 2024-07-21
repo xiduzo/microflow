@@ -37,7 +37,7 @@ export function NodeHeader(props: NodeHeaderProps) {
       className={cn(
         nodeHeader({
           className: props.className,
-          active: props.active || (!!data.animated && !!data.value),
+          active: props.active || (!!data.animated && data.value !== undefined),
         }),
       )}
     >
