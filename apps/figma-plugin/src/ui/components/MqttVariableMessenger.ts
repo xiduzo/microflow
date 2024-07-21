@@ -54,7 +54,6 @@ export function MqttVariableMessenger() {
     if (status !== "connected") return;
 
     subscribe("fhb/v1/xiduzo/+/variables/request", (topic) => {
-      console.log("Received request for variables", topic);
       const app = topic.split("/")[3];
       publish(
         `fhb/v1/xiduzo/${app}/variables/response`,
@@ -69,7 +68,6 @@ export function MqttVariableMessenger() {
       const [, , , app, , variableId] = topic.split("/");
       const value = JSON.parse(message.toString());
 
-      console.log("Received set variable", app, variableId, value);
       sendMessageToFigma(SetLocalValiable(variableId, value as VariableValue))
     })
   }, [status, subscribe, publish]);

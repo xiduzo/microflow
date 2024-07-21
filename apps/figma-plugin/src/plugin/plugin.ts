@@ -9,7 +9,6 @@ figma.showUI(__html__, {
 });
 
 figma.ui.onmessage = <T>(message: Message<T>) => {
-  // console.info("received message", { message });
   const { type, payload } = message;
 
   switch (type) {

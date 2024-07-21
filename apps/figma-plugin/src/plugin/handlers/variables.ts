@@ -106,6 +106,7 @@ function unknownToFloatOrNull(value: unknown): number | null {
 
 function unknownToStringOrNull(value: unknown): string | null {
   if (typeof value === "string") return value;
+  if (typeof value === "number") return value.toString();
 
   return null;
 }
@@ -115,7 +116,7 @@ function unknownToRgbaOrNull(value: unknown) {
     try {
       return figma.util.rgba(value);
     } catch (error) {
-      console.log({ error });
+      console.error({ error });
     }
   }
 
@@ -123,7 +124,7 @@ function unknownToRgbaOrNull(value: unknown) {
     try {
       return figma.util.rgba(value as RGB | RGBA);
     } catch (error) {
-      console.log({ error });
+      console.error({ error });
     }
   }
 
@@ -146,7 +147,7 @@ export function mapValueToFigmaValue(
         return unknownToStringOrNull(value);
     }
   } catch (error) {
-    console.log("unable to map value", { error })
+    console.error("unable to map value", { error })
     return null
   }
 }

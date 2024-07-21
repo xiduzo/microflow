@@ -53,9 +53,6 @@ export function Figma(props: Props) {
     if (node?.data?.value === undefined) return;
     if (!variable) return;
 
-    // TODO send message to figma to update variable value
-    console.log("send to figma", node?.data?.value, variable);
-
     publish(
       `fhb/v1/xiduzo/${appName}/variable/${variable.id}/set`,
       JSON.stringify(node.data.value),
