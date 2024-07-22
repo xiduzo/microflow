@@ -38,7 +38,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
   })
   innerCode += addEnter()
 
-  innerCode += `  const nodes = [${nodes.map(node => `{ id: "${node.type}_${node.id}", variable: ${node.type}_${node.id} }`)}]`
+  innerCode += `  const nodes = [${nodes.map(node => `{ id: "${node.type}_${node.id}", variable: ${node.type}_${node.id} }`)}];`
   innerCode += addEnter()
   innerCode += addEnter()
 
@@ -67,7 +67,13 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
         // TODO: maybe be a bit more specific about the value and also include the type?
-        const value = ["set", "check", "red", "green", "blue", "opacity", "from"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+        let value = ["set", "check", "red", "green", "blue", "opacity", "from"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+
+        if (node.type === "Map" && action === "to") {
+          // Mapper node
+          innerCode += addEnter()
+          value = `${node.type}_${node.id}.value[1]`
+        }
         // TODO: add support for increment and decrement bigger than 1
         // TODO: add support for multiple values
         innerCode += `    ${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`
@@ -507,6 +513,8 @@ class Map extends EventEmitter {
   constructor(options) {
     super();
     this.options = options;
+
+    this.on("to", this.#postMessage.bind(this, "to"));
   }
 
   get value() {
@@ -515,7 +523,7 @@ class Map extends EventEmitter {
 
   set value(value) {
     this.#value = value;
-    this.#postMessage("to", value);
+    this.emit("to", value);
   }
 
   from(input) {
