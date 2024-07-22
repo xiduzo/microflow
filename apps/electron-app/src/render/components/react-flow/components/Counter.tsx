@@ -37,5 +37,5 @@ export function Counter(props: Props) {
   );
 }
 
-type CounterData = {};
+export type CounterData = {};
 type Props = AnimatedNode<CounterData, number>;

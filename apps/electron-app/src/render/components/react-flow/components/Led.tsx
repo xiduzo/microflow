@@ -7,11 +7,11 @@ import {
   SelectTrigger,
   Switch,
 } from "@fhb/ui";
-import { Position, useReactFlow } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 import { LedOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
 import { MODES } from "../../../../common/types";
-import { useCodeUploader } from "../../../hooks/codeUploader";
+import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { useBoard } from "../../../providers/BoardProvider";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
@@ -21,16 +21,10 @@ export function Led(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
-  const uploadCode = useCodeUploader();
 
-  const { updateNodeData } = useReactFlow();
+  const { updateNodeData } = useUpdateNodeData<LedData>(props.id);
 
   const { checkResult } = useBoard();
-
-  function handleValueChange(pin: string) {
-    updateNodeData(props.id, { pin: parseInt(pin) });
-    uploadCode();
-  }
 
   if (!node) return null;
 
@@ -46,7 +40,9 @@ export function Led(props: Props) {
         </NodeHeader>
         <Select
           value={node.data.pin.toString()}
-          onValueChange={handleValueChange}
+          onValueChange={value => {
+            updateNodeData({ pin: parseInt(value) });
+          }}
         >
           <SelectTrigger>Pin {node.data.pin}</SelectTrigger>
           <SelectContent>

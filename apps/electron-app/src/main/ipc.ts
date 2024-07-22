@@ -68,7 +68,6 @@ ipcMain.on('ipc-fhb-flash-firmata', async (event, board: KnownBoard) => {
 ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
   childProcess?.kill()
 
-  log.debug("uploading code...", { code })
   const filePath = join(__dirname, 'temp.js')
   writeFile(filePath, code, (error) => {
     if (error) {

@@ -1,7 +1,8 @@
 import { Button, cva, Icons } from "@fhb/ui";
-import { PageContent, PageHeader } from "../../components/Page";
+import { PageContent } from "../../components/Page";
 
 import { ConnectionStatus, useMqtt } from "@fhb/mqtt/client";
+import { Link } from "react-router-dom";
 import { useSetWindowSize } from "../../hooks/useSetWindowSize";
 
 function ConnectionStatusBadge({
@@ -39,21 +40,19 @@ const connectionStatusBadge = cva(
 
 export function Home() {
   const { status, connectedClients } = useMqtt();
-  useSetWindowSize({ width: 250, height: 250 });
+  useSetWindowSize({ width: 250, height: 160 });
 
   console.log("home", connectedClients);
   return (
     <>
-      <PageHeader title="Home" />
-      <PageContent className="flex flex-col space-y-3">
-        <Button variant="outline">Manage Figma variables</Button>
+      <PageContent>
         <section className="flex items-center justify-between">
           <ConnectionStatusBadge title="Mqtt" status={status} />
-          <div>
-            <Button variant="ghost" title="Mqtt settings">
+          <Button variant="ghost" size="icon" title="Mqtt settings" asChild>
+            <Link to="/mqtt">
               <Icons.ServerCog className="w-4 h-4" opacity="80%" />
-            </Button>
-          </div>
+            </Link>
+          </Button>
         </section>
         <section className="flex items-center justify-between">
           <div className="flex items-center">
@@ -63,15 +62,17 @@ export function Home() {
             />
           </div>
           <div className="space-x-1">
-            <Button variant="ghost" title="How to use">
+            <Button variant="ghost" size="icon" title="How to use">
               <Icons.ExternalLink className="w-4 h-4" opacity="80%" />
             </Button>
-            <Button variant="ghost" title="Serial settings">
+            <Button variant="ghost" size="icon" title="Serial settings">
               <Icons.Cog className="w-4 h-4" opacity="80%" />
             </Button>
           </div>
         </section>
-        <h2 className="py-2 text-center opacity-60">made with ♥️ by xiduzo</h2>
+        <a href="https://www.sanderboer.nl" target="_blank" className="py-2 text-center opacity-60 transition-all hover:opacity-100 hover:underline text-gray-50/40">
+          Made with ♥ by Xiduzo
+        </a>
       </PageContent>
     </>
   );

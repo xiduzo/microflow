@@ -10,11 +10,12 @@ import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AppState, useNodesEdgesStore } from "../../store";
 import { Button, ButtonData } from "./components/Button";
-import { Counter } from "./components/Counter";
-import { Figma } from "./components/Figma";
-import { IfElse } from "./components/IfElse";
-import { Interval } from "./components/Interval";
+import { Counter, CounterData } from "./components/Counter";
+import { Figma, FigmaData } from "./components/Figma";
+import { IfElse, IfElseData } from "./components/IfElse";
+import { Interval, IntervalData } from "./components/Interval";
 import { Led, LedData } from "./components/Led";
+import { Map, MapData } from "./components/Map";
 import { ConnectionLine } from "./ConnectionLine";
 import { ComponentTabs } from "./panels/ComponentsTabs";
 import { SaveButton } from "./panels/SaveButton";
@@ -27,6 +28,7 @@ const nodeTypes = {
   Figma: Figma,
   Interval: Interval,
   IfElse: IfElse,
+  Map: Map
 };
 
 export type NodeType = keyof typeof nodeTypes;
@@ -63,16 +65,33 @@ export function ReactFlowComponent() {
         y: event.clientY - 75,
       });
 
-      let data: ButtonData | LedData;
+      let data: Record<string, any> = {};
 
       switch (type) {
         case "Button":
           data = { pin: 1 } satisfies ButtonData;
           break;
+        case "Counter":
+          data = {} satisfies CounterData;
+          break;
+        case "Figma":
+          data = {} satisfies FigmaData;
+          break;
+        case "IfElse":
+          data = { validator: 'boolean', subValidator: "", validatorArgs: [] } satisfies IfElseData;
+          break;
+        case "Interval":
+          data = { interval: 500 } satisfies IntervalData;
+          break;
         case "Led":
           data = { pin: 13 } satisfies LedData;
           break;
+        case "Map":
+          data = { from: [0, 1023], to: [0, 1023] } satisfies MapData;
+          break;
       }
+
+      console.log(data);
 
       const newNode = {
         id: Math.random().toString(36).substring(2, 8),
@@ -124,6 +143,15 @@ export function ReactFlowComponent() {
 
       <Panel position="top-right">
         <SaveButton />
+      </Panel>
+
+      <Panel
+        position="bottom-center"
+        className="text-gray-50/20 bg-neutral-950/5 backdrop-blur-sm rounded-md p-2"
+      >
+        <a href="https://www.sanderboer.nl" target="_blank" className="py-2 text-center opacity-60 transition-all hover:opacity-100 hover:underline">
+          Made with ♥ by Xiduzo
+        </a>
       </Panel>
     </ReactFlow>
   );

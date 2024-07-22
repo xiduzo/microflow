@@ -4,8 +4,13 @@ import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { MqttVariableMessenger } from "./components/MqttVariableMessenger";
 import "./index.css";
 import { Home } from "./pages/home";
+import { Mqtt } from "./pages/mqtt";
 
-const router = createMemoryRouter([{ path: "/", Component: Home }]);
+const router = createMemoryRouter([
+  // { path: "/", Component: Mqtt },
+  { path: "/", Component: Home },
+  { path: "/mqtt", Component: Mqtt },
+]);
 
 export function App() {
   return (

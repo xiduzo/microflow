@@ -9,10 +9,10 @@ import {
   SelectValue,
   Slider,
 } from "@fhb/ui";
-import { Position, useReactFlow } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 import { useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useCodeUploader } from "../../../hooks/codeUploader";
+import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
@@ -41,21 +41,15 @@ export function IfElse(props: Props) {
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
 
-  const uploadCode = useCodeUploader();
+  const { updateNodeData } = useUpdateNodeData<IfElseData>(props.id);
 
-  const { updateNodeData } = useReactFlow();
-
-  function handleNodeUpdate(data: Partial<Props["data"]>) {
-    updateNodeData(props.id, data);
-    uploadCode();
-  }
 
   useEffect(() => {
     if (!node?.data) return;
 
     if (node.data.validator === "number") {
       const isRange = ["between", "outside"].includes(node.data.subValidator);
-      const currentValue = Number(node.data.validatorArgs?.[0] ?? 0);
+      const currentValue = Number(node.data.validatorArgs[0] ?? 0);
       const validatorArgs = [currentValue];
       if (isRange) {
         const increment = (MAX_NUMERIC_VALUE + 1) * 0.25;
@@ -64,7 +58,7 @@ export function IfElse(props: Props) {
             ? currentValue - increment
             : currentValue + increment;
         const nextValue = Number(
-          node.data.validatorArgs?.[1] ?? nextValueBackup,
+          node.data.validatorArgs[1] ?? nextValueBackup,
         );
         if (nextValue > currentValue) {
           validatorArgs.push(nextValue);
@@ -73,11 +67,11 @@ export function IfElse(props: Props) {
         }
       }
 
-      if (node.data.validatorArgs?.length === validatorArgs?.length) {
+      if (node.data.validatorArgs.length === validatorArgs.length) {
         return;
       }
 
-      handleNodeUpdate({ validatorArgs });
+      updateNodeData({ validatorArgs });
     }
   }, [node?.data.validator, node?.data.subValidator, node?.data.validatorArgs]);
 
@@ -101,7 +95,7 @@ export function IfElse(props: Props) {
         <Select
           value={node.data.validator}
           onValueChange={(value) =>
-            handleNodeUpdate({
+            updateNodeData({
               validator: value as Validator,
               subValidator: subValidators[value][0],
             })
@@ -123,7 +117,7 @@ export function IfElse(props: Props) {
             disabled={!node.data.validator}
             value={node.data.subValidator}
             onValueChange={(value) =>
-              handleNodeUpdate({
+              updateNodeData({
                 validator: node.data.validator,
                 subValidator: value,
               })
@@ -143,11 +137,11 @@ export function IfElse(props: Props) {
         )}
         {node.data.validator === "text" && (
           <Input
-            value={(node.data.validatorArgs?.[0] as string) ?? ""}
+            value={(node.data.validatorArgs[0] as string) ?? ""}
             type="text"
             placeholder="Expected value"
             onChange={(e) =>
-              handleNodeUpdate({ validatorArgs: [e.target.value] })
+              updateNodeData({ validatorArgs: [e.target.value] })
             }
           />
         )}
@@ -166,9 +160,9 @@ export function IfElse(props: Props) {
               </Label>
               <Slider
                 id={`slider-if-else-${node.id}`}
-                key={node.data.validatorArgs?.length ?? 0}
+                key={node.data.validatorArgs.length ?? 0}
                 defaultValue={
-                  (node.data.validatorArgs?.filter(
+                  (node.data.validatorArgs.filter(
                     (arg) => arg !== undefined,
                   ) as number[]) ?? [0]
                 }
@@ -176,7 +170,7 @@ export function IfElse(props: Props) {
                 max={MAX_NUMERIC_VALUE}
                 step={1}
                 onValueChange={(values) =>
-                  handleNodeUpdate({ validatorArgs: values })
+                  updateNodeData({ validatorArgs: values })
                 }
               />
             </>
@@ -200,7 +194,7 @@ export function IfElse(props: Props) {
   );
 }
 
-type IfElseData = {
+export type IfElseData = {
   validatorArgs: unknown[];
   validator: Validator;
   subValidator: string;

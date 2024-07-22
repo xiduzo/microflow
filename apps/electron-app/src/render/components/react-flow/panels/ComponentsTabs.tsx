@@ -48,18 +48,19 @@ export function ComponentTabs() {
         />
       </TabsContent>
       <TabsContent value="flow" className="space-y-2">
-        {/* <Draggable
-          title="Map"
-          type="Button"
-          description="Map a value from one range to another"
-          icon={<Icons.Sigma />}
-        />
+        {/*
         <Draggable
           title="And"
           type="Button"
           description="Control logic"
           icon={<Icons.Merge />}
         /> */}
+        <Draggable
+          title="Map"
+          type="Map"
+          description="Re-maps a number from one range to another"
+          icon={<Icons.Sigma />}
+        />
         <Draggable
           title="Interval"
           type="Interval"
@@ -75,7 +76,7 @@ export function ComponentTabs() {
         <Draggable
           title="If/Else"
           type="IfElse"
-          description="Control logic"
+          description="Control the flow of your code"
           icon={<Icons.Split />}
         />
       </TabsContent>

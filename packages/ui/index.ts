@@ -4,6 +4,7 @@ export * from './components/ui/button';
 export * from './components/ui/checkbox';
 export * from './components/ui/context-menu';
 export * from './components/ui/dialog';
+export * from './components/ui/form';
 export * from './components/ui/input';
 export * from './components/ui/label';
 export * from './components/ui/select';
@@ -13,7 +14,10 @@ export * from './components/ui/switch';
 export * from './components/ui/tabs';
 export * from './components/ui/tooltip';
 
+export { zodResolver } from '@hookform/resolvers/zod';
 export * from 'class-variance-authority';
 export * as Icons from 'lucide-react';
+export { useForm } from 'react-hook-form';
+export * as Zod from 'zod';
 export * from './lib/utils';
 

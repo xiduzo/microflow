@@ -8,6 +8,7 @@ const defintions: Record<NodeType, () => string> = {
   Led: defineLed,
   Figma: defineFigma,
   IfElse: defineIfElse,
+  Map: defineMap,
 }
 
 export function generateCode(nodes: Node[], edges: Edge[]) {
@@ -65,8 +66,10 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
-        const value = ["set", "check", "red", "green", "blue", "opacity"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+        // TODO: maybe be a bit more specific about the value and also include the type?
+        const value = ["set", "check", "red", "green", "blue", "opacity", "from"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
         // TODO: add support for increment and decrement bigger than 1
+        // TODO: add support for multiple values
         innerCode += `    ${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`
         innerCode += addEnter()
       })
@@ -163,6 +166,7 @@ function createNode(node: Node) {
     case "Interval":
     case "Figma":
     case "IfElse":
+    case "Map":
       return `const ${node.type}_${node.id} = new ${node.type}(${JSON.stringify(node.data)});`;
     default:
       console.warn(`Unknown node type: ${node.type}`);
@@ -482,6 +486,46 @@ class IfElse extends EventEmitter {
       default:
         return () => false;
     }
+  }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
+}
+`
+}
+
+function defineMap() {
+  return `
+class Map extends EventEmitter {
+  #value = [0,0];
+
+  constructor(options) {
+    super();
+    this.options = options;
+  }
+
+  get value() {
+    return this.#value;
+  }
+
+  set value(value) {
+    this.#value = value;
+    this.#postMessage("to", value);
+  }
+
+  from(input) {
+    const inMin = this.options.from[0] ?? 0;
+    const inMax = this.options.from[1] ?? 1023;
+    const outMin = this.options.to[0] ?? 0;
+    const outMax = this.options.to[1] ?? 1023;
+
+    const output = ((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+    this.value = [input, Math.round(output)]
   }
 
   #postMessage(action) {

@@ -11,10 +11,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@fhb/ui";
-import { Position, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
+import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useCodeUploader } from "../../../hooks/codeUploader";
+import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
@@ -25,19 +25,13 @@ export function Figma(props: Props) {
   );
   const updateNodeInternals = useUpdateNodeInternals();
 
-  const uploadCode = useCodeUploader();
   const { status, publish, appName } = useMqtt();
 
-  const { updateNodeData } = useReactFlow();
+  const { updateNodeData } = useUpdateNodeData<FigmaData>(props.id);
 
   const { variables, variable, value } = useFigmaVariable(
     node?.data?.variableId,
   );
-
-  function handleNodeUpdate(data: Partial<Props["data"]>) {
-    updateNodeData(props.id, data);
-    uploadCode();
-  }
 
   useEffect(() => {
     if (!node?.id) return;
@@ -83,7 +77,7 @@ export function Figma(props: Props) {
         <Select
           disabled={!Array.from(Object.values(variables)).length}
           value={node.data.variableId}
-          onValueChange={(value) => handleNodeUpdate({ variableId: value })}
+          onValueChange={(variableId) => updateNodeData({ variableId })}
         >
           <SelectTrigger>{variable?.name ?? "Select variable"}</SelectTrigger>
           <SelectContent>
@@ -217,7 +211,7 @@ function FigmaHeaderContent(props: {
   }
 }
 
-type FigmaData = {
+export type FigmaData = {
   variableId?: string;
 };
 type Props = AnimatedNode<FigmaData, string | number | boolean>;

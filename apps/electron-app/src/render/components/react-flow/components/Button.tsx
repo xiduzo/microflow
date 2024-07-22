@@ -12,11 +12,11 @@ import {
   Slider,
   Button as UiButton,
 } from "@fhb/ui";
-import { Position, useReactFlow } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 import { ButtonOption } from "johnny-five";
 import { useShallow } from "zustand/react/shallow";
 import { MODES } from "../../../../common/types";
-import { useCodeUploader } from "../../../hooks/codeUploader";
+import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { useBoard } from "../../../providers/BoardProvider";
 import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
@@ -26,16 +26,10 @@ export function Button(props: Props) {
   const { node } = useNodesEdgesStore(
     useShallow(nodeSelector<Props["data"]>(props.id)),
   );
-  const uploadCode = useCodeUploader();
 
   const { checkResult } = useBoard();
 
-  const { updateNodeData } = useReactFlow();
-
-  function handleNodeUpdate(data: Partial<Props["data"]>) {
-    updateNodeData(props.id, data);
-    uploadCode();
-  }
+  const { updateNodeData } = useUpdateNodeData<ButtonData>(props.id);
 
   if (!node) return null;
 
@@ -49,7 +43,7 @@ export function Button(props: Props) {
         <ContextMenuContent>
           <ContextMenuCheckboxItem
             checked={node.data.invert}
-            onClick={() => handleNodeUpdate({ invert: !node.data.invert })}
+            onClick={() => updateNodeData({ invert: !node.data.invert })}
           >
             Invert
           </ContextMenuCheckboxItem>
@@ -57,7 +51,7 @@ export function Button(props: Props) {
           <ContextMenuCheckboxItem
             checked={node.data.isPullup}
             onClick={() =>
-              handleNodeUpdate({
+              updateNodeData({
                 isPullup: !node.data.isPullup,
                 isPulldown: false,
               })
@@ -68,7 +62,7 @@ export function Button(props: Props) {
           <ContextMenuCheckboxItem
             checked={node.data.isPulldown}
             onClick={() =>
-              handleNodeUpdate({
+              updateNodeData({
                 isPulldown: !node.data.isPulldown,
                 isPullup: false,
               })
@@ -87,7 +81,7 @@ export function Button(props: Props) {
         </NodeHeader>
         <Select
           value={node.data.pin.toString()}
-          onValueChange={(value) => handleNodeUpdate({ pin: parseInt(value) })}
+          onValueChange={(value) => updateNodeData({ pin: parseInt(value) })}
         >
           <SelectTrigger>Pin {node.data.pin}</SelectTrigger>
           <SelectContent>
@@ -117,7 +111,7 @@ export function Button(props: Props) {
           max={2500}
           step={50}
           onValueChange={(value) =>
-            updateNodeData(props.id, { holdtime: value[0] })
+            updateNodeData({ holdtime: value[0] })
           }
         />
         {hasMetadata && <Separator className="my-3" />}
