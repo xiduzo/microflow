@@ -1,5 +1,6 @@
 import { FigmaVariable, useFigmaVariable, useMqtt } from "@fhb/mqtt/client";
 import {
+  Badge,
   Icons,
   Select,
   SelectContent,
@@ -25,13 +26,15 @@ export function Figma(props: Props) {
   );
   const updateNodeInternals = useUpdateNodeInternals();
 
-  const { status, publish, appName } = useMqtt();
+  const { status, publish, appName, connectedClients } = useMqtt();
 
   const { updateNodeData } = useUpdateNodeData<FigmaData>(props.id);
 
   const { variables, variable, value } = useFigmaVariable(
     node?.data?.variableId,
   );
+
+  const isConnectedToPlugin = status === 'connected' && connectedClients.get("plugin") === 'connected';
 
   useEffect(() => {
     if (!node?.id) return;
@@ -67,6 +70,7 @@ export function Figma(props: Props) {
   return (
     <NodeContainer {...props}>
       <NodeContent>
+        {!isConnectedToPlugin && <Badge variant="destructive">Figma plugin not connected</Badge>}
         <NodeHeader>
           <FigmaHeaderContent
             variable={variable}

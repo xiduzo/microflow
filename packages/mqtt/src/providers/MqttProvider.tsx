@@ -17,11 +17,11 @@ const MqttProviderContext = createContext<
 >({
   status: "disconnected",
   connectedClients: new Map<Client, ConnectionStatus>(),
-  connect: () => {},
-  disconnect: () => {},
-  subscribe: (...args) => {},
-  unsubscribe: (...args) => {},
-  publish: (...args) => {},
+  connect: () => { },
+  disconnect: () => { },
+  subscribe: (...args) => { },
+  unsubscribe: (...args) => { },
+  publish: (...args) => { },
   subscriptions: {
     current: new Map(),
   },
@@ -46,6 +46,11 @@ export function MqttProvider(props: PropsWithChildren & Props) {
     const unsubFromPing = subscribe("fhb/v1/xiduzo/+/ping", (topic) => {
       const from = topic.split("/")[3].toString();
       if (from === props.appName) return; // No need to pong to self
+      // if we received a ping it is connected
+      setConnectedClients((prev) => {
+        prev.set(from as Client, "connected");
+        return new Map(prev);
+      });
       publish(`fhb/v1/xiduzo/${from}/pong`, props.appName);
     });
 
