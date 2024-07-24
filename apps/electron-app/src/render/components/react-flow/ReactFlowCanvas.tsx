@@ -15,8 +15,9 @@ import { Figma, FigmaData } from "./components/Figma";
 import { IfElse, IfElseData } from "./components/IfElse";
 import { Interval, IntervalData } from "./components/Interval";
 import { Led, LedData } from "./components/Led";
-import { Mqtt } from "./components/Mqtt";
+import { Mqtt, MqttData } from "./components/Mqtt";
 import { RangeMap, RangeMapData } from "./components/RangeMap";
+import { Sensor, SensorData } from "./components/Sensor";
 import { ConnectionLine } from "./ConnectionLine";
 import { ComponentTabs } from "./panels/ComponentsTabs";
 import { SaveButton } from "./panels/SaveButton";
@@ -30,7 +31,8 @@ const nodeTypes = {
   Interval: Interval,
   IfElse: IfElse,
   RangeMap: RangeMap,
-  Mqtt: Mqtt
+  Mqtt: Mqtt,
+  Sensor: Sensor
 };
 
 export type NodeType = keyof typeof nodeTypes;
@@ -90,6 +92,12 @@ export function ReactFlowComponent() {
           break;
         case "RangeMap":
           data = { from: [0, 1023], to: [0, 1023] } satisfies RangeMapData;
+          break;
+        case "Mqtt":
+          data = { topic: "" } satisfies MqttData;
+          break;
+        case "Sensor":
+          data = { pin: "A0" } satisfies SensorData;
           break;
       }
 

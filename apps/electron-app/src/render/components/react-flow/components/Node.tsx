@@ -12,6 +12,8 @@ import {
   PropsWithChildren,
   ReactElement,
   useContext,
+  useEffect,
+  useRef,
 } from "react";
 
 export function NodeContainer(props: Props) {
@@ -31,13 +33,20 @@ export function NodeContainer(props: Props) {
 
 export function NodeHeader(props: NodeHeaderProps) {
   const { data } = useNode();
+  const prevValue = useRef(props.valueOverride ?? data.value);
+
+  useEffect(() => {
+    if (data.animated) return
+
+    prevValue.current = props.valueOverride ?? data.value
+  }, [data.animated, data.value, props.valueOverride])
 
   return (
     <section
       className={cn(
         nodeHeader({
           className: props.className,
-          active: props.active || (!!data.animated && data.value !== undefined),
+          active: props.active || (!!data.animated && (props.valueOverride ?? data.value) !== prevValue.current),
         }),
       )}
     >
@@ -53,7 +62,7 @@ export function NodeContent(props: PropsWithChildren) {
 }
 
 type NodeHeaderProps = PropsWithChildren &
-  VariantProps<typeof nodeHeader> & { className?: string };
+  VariantProps<typeof nodeHeader> & { className?: string, valueOverride?: unknown };
 
 const nodeHeader = cva(
   "flex p-12 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-44 pointer-events-none",

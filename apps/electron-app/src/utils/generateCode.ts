@@ -10,6 +10,7 @@ const defintions: Record<NodeType, () => string> = {
   IfElse: defineIfElse,
   RangeMap: defineRangeMap,
   Mqtt: defineMqtt,
+  Sensor: defineSensor,
 }
 
 export function generateCode(nodes: Node[], edges: Edge[]) {
@@ -69,7 +70,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
         // TODO: maybe be a bit more specific about the value and also include the type?
-        let value = ["set", "check", "red", "green", "blue", "opacity", "from"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+        let value = ["set", "check", "red", "green", "blue", "opacity", "from", "send"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
 
         if (node.type === "RangeMap" && action === "to") {
           // Mapper node
@@ -499,6 +500,7 @@ class RangeMap extends EventEmitter {
     this.options = options;
 
     this.on("to", this.#postMessage.bind(this, "to"));
+    this.on("change", this.#postMessage.bind(this, "change"));
   }
 
   get value() {
@@ -506,8 +508,14 @@ class RangeMap extends EventEmitter {
   }
 
   set value(value) {
+    const previousValue = this.#value;
+
     this.#value = value;
     this.#postMessage("change");
+
+    if(previousValue[1] !== value[1]) {
+      this.emit("to", value[1]);
+    }
   }
 
   from(input) {
@@ -517,8 +525,8 @@ class RangeMap extends EventEmitter {
     const outMax = this.options.to[1] ?? 1023;
 
     const output = ((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
-    this.value = [input, Math.round(output)]
-    this.emit("to", this.value);
+    const normalizedOutput = Math.round(output);
+    this.value = [input, normalizedOutput];
   }
 
   #postMessage(action) {
@@ -541,6 +549,8 @@ class Mqtt extends EventEmitter {
   constructor(options) {
     super();
     this.options = options;
+
+    this.on("change", this.#postMessage.bind(this, "change"));
   }
 
   get value() {
@@ -551,6 +561,11 @@ class Mqtt extends EventEmitter {
     this.#value = value;
   }
 
+  send(message) {
+    this.#value = message;
+    this.#postMessage("change");
+  }
+
   #postMessage(action) {
     if (action !== "change") {
       this.emit("change", this.value);
@@ -559,4 +574,34 @@ class Mqtt extends EventEmitter {
     process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
   }
 }`
+}
+
+function defineSensor() {
+  return `
+class Sensor extends JohnnyFive.Sensor {
+  #value = 0;
+
+  constructor(options) {
+    super(options);
+    this.options = options;
+
+    this.on("change", () => {
+      this.#value = this.raw;
+      this.#postMessage("change");
+    })
+  }
+
+  get value() {
+    return this.#value;
+  }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
+}
+`
 }

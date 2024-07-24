@@ -26,21 +26,21 @@ export function ComponentTabs() {
         <Draggable
           title="Figma variable"
           type="Figma"
-          description="Interact with figma variables"
+          description="Interact with Figma variables"
           icon={<Icons.Variable />}
           tags={["Input", "Output"]}
         />
         <Draggable
           title="MQTT"
           type="Mqtt"
-          description="Interact with figma variables"
-          icon={<Icons.Variable />}
+          description="Send or receive messages"
+          icon={<Icons.RadioTower />}
           tags={["Input", "Output"]}
         />
       </TabsContent>
       <TabsContent value="hardware" className="space-y-2">
         <Draggable
-          title="button"
+          title="Button"
           type="Button"
           description="Buttons are the very basic inputs used everywhere."
           icon={<Icons.SquarePower />}
@@ -52,6 +52,13 @@ export function ComponentTabs() {
           description="LEDs are very tiny light sources"
           icon={<Icons.Lightbulb />}
           tags={["Digital", "Output"]}
+        />
+        <Draggable
+          title="Potentiometer"
+          type="Sensor"
+          description="Generic analog sensor node"
+          icon={<Icons.RefreshCcwDot />}
+          tags={["Analog", "Output"]}
         />
       </TabsContent>
       <TabsContent value="flow" className="space-y-2">
@@ -66,7 +73,8 @@ export function ComponentTabs() {
           title="Map"
           type="RangeMap"
           description="Re-maps a number from one range to another"
-          icon={<Icons.Sigma />}
+          icon={<Icons.ArrowsUpFromLine className="rotate-180" />}
+          tags={["Transformation"]}
         />
         <Draggable
           title="Interval"
@@ -77,7 +85,7 @@ export function ComponentTabs() {
         <Draggable
           title="Counter"
           type="Counter"
-          description="Keep count of things"
+          description="You know, to keep count of things..."
           icon={<Icons.Hash />}
         />
         <Draggable
@@ -85,6 +93,7 @@ export function ComponentTabs() {
           type="IfElse"
           description="Control the flow of your code"
           icon={<Icons.Split />}
+          tags={["Validation"]}
         />
       </TabsContent>
     </Tabs>

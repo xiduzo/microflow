@@ -12,7 +12,7 @@ export function Interval(props: Props) {
   return (
     <NodeContainer {...props}>
       <NodeContent>
-        <NodeHeader className="text tabular-nums">
+        <NodeHeader className="tabular-nums">
           {numberFormat.format(Math.round(props.data.value ?? 0))}
         </NodeHeader>
         <Label

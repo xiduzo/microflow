@@ -12,13 +12,16 @@ export function Mqtt(props: Props) {
   const { publish } = useMqtt()
 
   useEffect(() => {
-    console.log(props.data.value)
-  }, [props.data.value])
+    if (!props.data.topic.length) return
+
+    publish(props.data.topic, JSON.stringify(props.data.value))
+
+  }, [props.data.value, props.data.topic, publish])
 
   return (
     <NodeContainer {...props}>
       <NodeContent>
-        <NodeHeader className="text tabular-nums">
+        <NodeHeader className="tabular-nums">
           {JSON.stringify(props.data.value)}
         </NodeHeader>
         <Label
@@ -27,11 +30,11 @@ export function Mqtt(props: Props) {
         >
           Topic
         </Label>
-        <Input id={`mqtt-${props.id}`} placeholder="your/+/topic/#" onChange={event => updateNodeData({
+        <Input id={`mqtt-${props.id}`} defaultValue={props.data.topic} placeholder="your/+/topic/#" onChange={event => updateNodeData({
           topic: event.target.value,
         })} />
       </NodeContent>
-      <Handle type="target" position={Position.Top} id="set" />
+      <Handle type="target" position={Position.Top} id="send" />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

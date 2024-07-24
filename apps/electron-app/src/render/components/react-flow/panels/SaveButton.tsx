@@ -10,6 +10,7 @@ export function SaveButton() {
 
   function handleClick() {
     setDisabled(true);
+    console.log(getNodes())
     localStorage.setItem(
       "nodes",
       JSON.stringify(
@@ -19,7 +20,7 @@ export function SaveButton() {
         }),
       ),
     );
-    localStorage.setItem("edges", JSON.stringify(getEdges()));
+    localStorage.setItem("edges", JSON.stringify(getEdges().map(edge => ({ ...edge, animated: undefined }))));
     setDisabled(false);
   }
 
