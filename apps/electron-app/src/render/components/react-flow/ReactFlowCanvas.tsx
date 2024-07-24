@@ -15,8 +15,8 @@ import { Figma, FigmaData } from "./components/Figma";
 import { IfElse, IfElseData } from "./components/IfElse";
 import { Interval, IntervalData } from "./components/Interval";
 import { Led, LedData } from "./components/Led";
-import { Map, MapData } from "./components/Map";
 import { Mqtt } from "./components/Mqtt";
+import { RangeMap, RangeMapData } from "./components/RangeMap";
 import { ConnectionLine } from "./ConnectionLine";
 import { ComponentTabs } from "./panels/ComponentsTabs";
 import { SaveButton } from "./panels/SaveButton";
@@ -29,7 +29,7 @@ const nodeTypes = {
   Figma: Figma,
   Interval: Interval,
   IfElse: IfElse,
-  Map: Map,
+  RangeMap: RangeMap,
   Mqtt: Mqtt
 };
 
@@ -88,12 +88,10 @@ export function ReactFlowComponent() {
         case "Led":
           data = { pin: 13 } satisfies LedData;
           break;
-        case "Map":
-          data = { from: [0, 1023], to: [0, 1023] } satisfies MapData;
+        case "RangeMap":
+          data = { from: [0, 1023], to: [0, 1023] } satisfies RangeMapData;
           break;
       }
-
-      console.log(data);
 
       const newNode = {
         id: Math.random().toString(36).substring(2, 8),
@@ -109,6 +107,7 @@ export function ReactFlowComponent() {
 
   return (
     <ReactFlow
+      // @ts-expect-error
       nodeTypes={nodeTypes}
       colorMode="dark"
       nodes={nodes}
@@ -119,6 +118,8 @@ export function ReactFlowComponent() {
       onConnect={onConnect}
       onDrop={onDrop}
       onDragOver={onDragOver}
+      minZoom={0.2}
+      maxZoom={1.25}
     >
       <Controls />
       <MiniMap

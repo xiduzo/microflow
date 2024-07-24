@@ -8,7 +8,8 @@ const defintions: Record<NodeType, () => string> = {
   Led: defineLed,
   Figma: defineFigma,
   IfElse: defineIfElse,
-  Map: defineMap,
+  RangeMap: defineRangeMap,
+  Mqtt: defineMqtt,
 }
 
 export function generateCode(nodes: Node[], edges: Edge[]) {
@@ -33,7 +34,8 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
   innerCode += addBoardListener("ready", false)
   nodes.forEach((node) => {
-    innerCode += `  ${createNode(node)}`
+    node.data.id = node.id // Expose the Id to the options
+    innerCode += `  const ${node.type}_${node.id} = new ${node.type}(${JSON.stringify(node.data)});`
     innerCode += addEnter()
   })
   innerCode += addEnter()
@@ -69,7 +71,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
         // TODO: maybe be a bit more specific about the value and also include the type?
         let value = ["set", "check", "red", "green", "blue", "opacity", "from"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
 
-        if (node.type === "Map" && action === "to") {
+        if (node.type === "RangeMap" && action === "to") {
           // Mapper node
           innerCode += addEnter()
           value = `${node.type}_${node.id}.value[1]`
@@ -160,24 +162,6 @@ try {
   log.error("something went wrong", { error });
 }
 `
-}
-
-function createNode(node: Node) {
-  node.data.id = node.id;
-
-  switch (node.type as NodeType) {
-    case "Button":
-    case "Led":
-    case "Counter":
-    case "Interval":
-    case "Figma":
-    case "IfElse":
-    case "Map":
-      return `const ${node.type}_${node.id} = new ${node.type}(${JSON.stringify(node.data)});`;
-    default:
-      console.warn(`Unknown node type: ${node.type}`);
-      return ``;
-  }
 }
 
 function defineButton() {
@@ -505,9 +489,9 @@ class IfElse extends EventEmitter {
 `
 }
 
-function defineMap() {
+function defineRangeMap() {
   return `
-class Map extends EventEmitter {
+class RangeMap extends EventEmitter {
   #value = [0,0];
 
   constructor(options) {
@@ -523,7 +507,7 @@ class Map extends EventEmitter {
 
   set value(value) {
     this.#value = value;
-    this.emit("to", value);
+    this.#postMessage("change");
   }
 
   from(input) {
@@ -534,6 +518,7 @@ class Map extends EventEmitter {
 
     const output = ((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
     this.value = [input, Math.round(output)]
+    this.emit("to", this.value);
   }
 
   #postMessage(action) {
@@ -545,4 +530,33 @@ class Map extends EventEmitter {
   }
 }
 `
+}
+
+
+function defineMqtt() {
+  return `
+class Mqtt extends EventEmitter {
+  #value = null;
+
+  constructor(options) {
+    super();
+    this.options = options;
+  }
+
+  get value() {
+    return this.#value;
+  }
+
+  set value(value) {
+    this.#value = value;
+  }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
+}`
 }

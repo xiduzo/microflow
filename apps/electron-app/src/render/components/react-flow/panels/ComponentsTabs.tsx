@@ -64,7 +64,7 @@ export function ComponentTabs() {
         /> */}
         <Draggable
           title="Map"
-          type="Map"
+          type="RangeMap"
           description="Re-maps a number from one range to another"
           icon={<Icons.Sigma />}
         />

@@ -32,11 +32,7 @@ export function SignalerProvider({ children }: PropsWithChildren) {
         updateNodeData(message.nodeId, update);
 
         getEdges()
-          .filter(
-            (edge) =>
-              edge.source === message.nodeId &&
-              edge.sourceHandle === message.action,
-          )
+          .filter(({ source, sourceHandle }) => source === message.nodeId && sourceHandle === message.action)
           .map((edge) => {
             const timeout = timeouts.current.get(edge.id);
             if (timeout) clearTimeout(timeout);
