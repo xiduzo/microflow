@@ -16,6 +16,7 @@ import { IfElse, IfElseData } from "./components/IfElse";
 import { Interval, IntervalData } from "./components/Interval";
 import { Led, LedData } from "./components/Led";
 import { Map, MapData } from "./components/Map";
+import { Mqtt } from "./components/Mqtt";
 import { ConnectionLine } from "./ConnectionLine";
 import { ComponentTabs } from "./panels/ComponentsTabs";
 import { SaveButton } from "./panels/SaveButton";
@@ -28,7 +29,8 @@ const nodeTypes = {
   Figma: Figma,
   Interval: Interval,
   IfElse: IfElse,
-  Map: Map
+  Map: Map,
+  Mqtt: Mqtt
 };
 
 export type NodeType = keyof typeof nodeTypes;

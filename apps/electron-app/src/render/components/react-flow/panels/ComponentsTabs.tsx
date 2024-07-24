@@ -30,6 +30,13 @@ export function ComponentTabs() {
           icon={<Icons.Variable />}
           tags={["Input", "Output"]}
         />
+        <Draggable
+          title="MQTT"
+          type="Mqtt"
+          description="Interact with figma variables"
+          icon={<Icons.Variable />}
+          tags={["Input", "Output"]}
+        />
       </TabsContent>
       <TabsContent value="hardware" className="space-y-2">
         <Draggable

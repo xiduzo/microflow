@@ -14,58 +14,46 @@ import {
 } from "@fhb/ui";
 import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
-import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
 export function Figma(props: Props) {
-  const { node } = useNodesEdgesStore(
-    useShallow(nodeSelector<Props["data"]>(props.id)),
-  );
   const updateNodeInternals = useUpdateNodeInternals();
 
   const { status, publish, appName, connectedClients } = useMqtt();
 
   const { updateNodeData } = useUpdateNodeData<FigmaData>(props.id);
 
-  const { variables, variable, value } = useFigmaVariable(
-    node?.data?.variableId,
-  );
+  const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
 
   const isConnectedToPlugin = status === 'connected' && connectedClients.get("plugin") === 'connected';
 
   useEffect(() => {
-    if (!node?.id) return;
-
     window.electron.ipcRenderer.send(
       "ipc-fhb-value-changed",
       props.type,
-      node.id,
+      props.id,
       value,
     );
-  }, [value, node?.id, props.type]);
+  }, [value, props.id, props.type]);
 
   useEffect(() => {
     if (status !== "connected") return;
-    if (node?.data?.value === undefined) return;
+    if (props.data?.value === undefined) return;
     if (!variable) return;
 
     publish(
       `fhb/v1/xiduzo/${appName}/variable/${variable.id}/set`,
-      JSON.stringify(node.data.value),
+      JSON.stringify(props.data.value),
     );
-  }, [node?.data?.value, variable, publish, status, appName]);
+  }, [props.data?.value, variable, publish, status, appName]);
 
   useEffect(() => {
     if (!variable?.resolvedType) return;
-    if (!node?.id) return;
 
-    updateNodeInternals(node?.id);
-  }, [variable?.resolvedType, node?.id]);
-
-  if (!node) return null;
+    updateNodeInternals(props.id);
+  }, [variable?.resolvedType, props.id]);
 
   return (
     <NodeContainer {...props}>
@@ -75,12 +63,12 @@ export function Figma(props: Props) {
           <FigmaHeaderContent
             variable={variable}
             hasVariables={!!Array.from(Object.values(variables)).length}
-            value={node.data.value ?? value}
+            value={props.data.value ?? value}
           />
         </NodeHeader>
         <Select
           disabled={!Array.from(Object.values(variables)).length}
-          value={node.data.variableId}
+          value={props.data.variableId}
           onValueChange={(variableId) => updateNodeData({ variableId })}
         >
           <SelectTrigger>{variable?.name ?? "Select variable"}</SelectTrigger>

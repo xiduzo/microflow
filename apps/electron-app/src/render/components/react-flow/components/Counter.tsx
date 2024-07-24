@@ -1,21 +1,13 @@
 import { Position } from "@xyflow/react";
-import { useShallow } from "zustand/react/shallow";
-import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
 export function Counter(props: Props) {
-  const { node } = useNodesEdgesStore(
-    useShallow(nodeSelector<Props["data"]>(props.id)),
-  );
-
-  if (!node) return null;
-
   return (
     <NodeContainer {...props}>
       <NodeContent>
         <NodeHeader className="text-4xl tabular-nums">
-          {node.data.value ?? 0}
+          {props.data.value ?? 0}
         </NodeHeader>
       </NodeContent>
       <Handle

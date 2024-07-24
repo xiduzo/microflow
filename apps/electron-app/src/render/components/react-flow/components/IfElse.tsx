@@ -11,9 +11,7 @@ import {
 } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { useEffect } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
-import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
@@ -37,19 +35,14 @@ type Validator = (typeof validators)[number];
 const MAX_NUMERIC_VALUE = 1023;
 
 export function IfElse(props: Props) {
-  const { node } = useNodesEdgesStore(
-    useShallow(nodeSelector<Props["data"]>(props.id)),
-  );
-
   const { updateNodeData } = useUpdateNodeData<IfElseData>(props.id);
 
-
   useEffect(() => {
-    if (!node?.data) return;
+    if (!props?.data) return;
 
-    if (node.data.validator === "number") {
-      const isRange = ["between", "outside"].includes(node.data.subValidator);
-      const currentValue = Number(node.data.validatorArgs[0] ?? 0);
+    if (props.data.validator === "number") {
+      const isRange = ["between", "outside"].includes(props.data.subValidator);
+      const currentValue = Number(props.data.validatorArgs[0] ?? 0);
       const validatorArgs = [currentValue];
       if (isRange) {
         const increment = (MAX_NUMERIC_VALUE + 1) * 0.25;
@@ -58,7 +51,7 @@ export function IfElse(props: Props) {
             ? currentValue - increment
             : currentValue + increment;
         const nextValue = Number(
-          node.data.validatorArgs[1] ?? nextValueBackup,
+          props.data.validatorArgs[1] ?? nextValueBackup,
         );
         if (nextValue > currentValue) {
           validatorArgs.push(nextValue);
@@ -67,33 +60,31 @@ export function IfElse(props: Props) {
         }
       }
 
-      if (node.data.validatorArgs.length === validatorArgs.length) {
+      if (props.data.validatorArgs.length === validatorArgs.length) {
         return;
       }
 
       updateNodeData({ validatorArgs });
     }
-  }, [node?.data.validator, node?.data.subValidator, node?.data.validatorArgs]);
-
-  if (!node) return null;
+  }, [props.data.validator, props.data.subValidator, props.data.validatorArgs]);
 
   return (
     <NodeContainer {...props}>
       <NodeContent>
         <NodeHeader>
-          {node.data.value === true && (
+          {props.data.value === true && (
             <Icons.Check className="w-12 h-12 text-green-500" />
           )}
-          {node.data.value === false && (
+          {props.data.value === false && (
             <Icons.X className="w-12 h-12 text-red-500" />
           )}
-          {node.data.value === null ||
-            (node.data.value === undefined && (
+          {props.data.value === null ||
+            (props.data.value === undefined && (
               <Icons.Dot className="w-12 h-12 text-gray-500" />
             ))}
         </NodeHeader>
         <Select
-          value={node.data.validator}
+          value={props.data.validator}
           onValueChange={(value) =>
             updateNodeData({
               validator: value as Validator,
@@ -112,13 +103,13 @@ export function IfElse(props: Props) {
             ))}
           </SelectContent>
         </Select>
-        {subValidators[node.data.validator]?.length > 0 && (
+        {subValidators[props.data.validator]?.length > 0 && (
           <Select
-            disabled={!node.data.validator}
-            value={node.data.subValidator}
+            disabled={!props.data.validator}
+            value={props.data.subValidator}
             onValueChange={(value) =>
               updateNodeData({
-                validator: node.data.validator,
+                validator: props.data.validator,
                 subValidator: value,
               })
             }
@@ -127,7 +118,7 @@ export function IfElse(props: Props) {
               <SelectValue placeholder="Validate with" />
             </SelectTrigger>
             <SelectContent>
-              {subValidators[node.data.validator]?.map((subvalidator) => (
+              {subValidators[props.data.validator]?.map((subvalidator) => (
                 <SelectItem key={subvalidator} value={subvalidator}>
                   {subvalidator}
                 </SelectItem>
@@ -135,9 +126,9 @@ export function IfElse(props: Props) {
             </SelectContent>
           </Select>
         )}
-        {node.data.validator === "text" && (
+        {props.data.validator === "text" && (
           <Input
-            value={(node.data.validatorArgs[0] as string) ?? ""}
+            value={(props.data.validatorArgs[0] as string) ?? ""}
             type="text"
             placeholder="Expected value"
             onChange={(e) =>
@@ -145,24 +136,24 @@ export function IfElse(props: Props) {
             }
           />
         )}
-        {node.data.validator === "number" &&
-          !["is even", "is odd"].includes(node.data.subValidator) && (
+        {props.data.validator === "number" &&
+          !["is even", "is odd"].includes(props.data.subValidator) && (
             <>
               <Label
-                htmlFor={`slider-numeric-${node.id}`}
+                htmlFor={`slider-numeric-${props.id}`}
                 className="flex justify-between"
               >
-                {node.data.validatorArgs?.map((value, index) => (
+                {props.data.validatorArgs?.map((value, index) => (
                   <span key={index} className="opacity-40 font-light">
                     {String(value)}
                   </span>
                 ))}
               </Label>
               <Slider
-                id={`slider-if-else-${node.id}`}
-                key={node.data.validatorArgs.length ?? 0}
+                id={`slider-if-else-${props.id}`}
+                key={props.data.validatorArgs.length ?? 0}
                 defaultValue={
-                  (node.data.validatorArgs.filter(
+                  (props.data.validatorArgs.filter(
                     (arg) => arg !== undefined,
                   ) as number[]) ?? [0]
                 }

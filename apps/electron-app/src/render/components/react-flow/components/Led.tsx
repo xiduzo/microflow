@@ -9,24 +9,16 @@ import {
 } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { LedOption } from "johnny-five";
-import { useShallow } from "zustand/react/shallow";
 import { MODES } from "../../../../common/types";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { useBoard } from "../../../providers/BoardProvider";
-import { nodeSelector, useNodesEdgesStore } from "../../../store";
 import { Handle } from "./Handle";
 import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 
 export function Led(props: Props) {
-  const { node } = useNodesEdgesStore(
-    useShallow(nodeSelector<Props["data"]>(props.id)),
-  );
-
   const { updateNodeData } = useUpdateNodeData<LedData>(props.id);
 
   const { checkResult } = useBoard();
-
-  if (!node) return null;
 
   return (
     <NodeContainer {...props}>
@@ -35,16 +27,16 @@ export function Led(props: Props) {
           <Switch
             className="scale-150"
             disabled
-            checked={Boolean(node.data.value)}
+            checked={Boolean(props.data.value)}
           />
         </NodeHeader>
         <Select
-          value={node.data.pin.toString()}
+          value={props.data.pin.toString()}
           onValueChange={value => {
             updateNodeData({ pin: parseInt(value) });
           }}
         >
-          <SelectTrigger>Pin {node.data.pin}</SelectTrigger>
+          <SelectTrigger>Pin {props.data.pin}</SelectTrigger>
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Set led pin</SelectLabel>
