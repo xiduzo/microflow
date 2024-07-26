@@ -53,8 +53,6 @@ export function Mqtt(props: Props) {
     }
   }, [props.id, props.type, props.data.topic, props.data.direction, subscribe])
 
-  console.log(props.data.value)
-
   return (
     <NodeContainer {...props}>
       <NodeContent>

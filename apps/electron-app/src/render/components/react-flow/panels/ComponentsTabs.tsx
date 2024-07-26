@@ -27,14 +27,12 @@ export function ComponentTabs() {
           title="Figma variable"
           type="Figma"
           description="Interact with Figma variables"
-          icon={<Icons.Variable />}
           tags={["Input", "Output"]}
         />
         <Draggable
           title="MQTT"
           type="Mqtt"
           description="Send or receive messages"
-          icon={<Icons.RadioTower />}
           tags={["Input", "Output"]}
         />
       </TabsContent>
@@ -43,21 +41,24 @@ export function ComponentTabs() {
           title="Button"
           type="Button"
           description="Buttons are the very basic inputs used everywhere."
-          icon={<Icons.SquarePower />}
-          tags={["Analog", "Input"]}
+          tags={["Digital", "Input"]}
         />
         <Draggable
           title="LED"
           type="Led"
           description="LEDs are very tiny light sources"
-          icon={<Icons.Lightbulb />}
           tags={["Digital", "Output"]}
         />
         <Draggable
           title="Potentiometer"
           type="Sensor"
-          description="Generic analog sensor node"
-          icon={<Icons.RefreshCcwDot />}
+          description="A turning knob to control things"
+          tags={["Analog", "Input"]}
+        />
+        <Draggable
+          title="Servo motor"
+          type="Servo"
+          description="Turn things around"
           tags={["Analog", "Output"]}
         />
       </TabsContent>
@@ -73,26 +74,22 @@ export function ComponentTabs() {
           title="Map"
           type="RangeMap"
           description="Re-maps a number from one range to another"
-          icon={<Icons.ArrowsUpFromLine className="rotate-180" />}
           tags={["Transformation"]}
         />
         <Draggable
           title="Interval"
           type="Interval"
           description="Do something on a regular interval"
-          icon={<Icons.Clock />}
         />
         <Draggable
           title="Counter"
           type="Counter"
           description="You know, to keep count of things..."
-          icon={<Icons.Hash />}
         />
         <Draggable
           title="If/Else"
           type="IfElse"
           description="Control the flow of your code"
-          icon={<Icons.Split />}
           tags={["Validation"]}
         />
       </TabsContent>
@@ -113,7 +110,6 @@ function Draggable(props: DraggableProps) {
       onDragStart={onDragStart(props.type)}
     >
       <section className="flex space-x-2 items-center">
-        {props.icon}
         <h1 className="font-bold text-lg">{props.title}</h1>
       </section>
       <p className="font-light mt-2">{props.description}</p>
@@ -134,6 +130,5 @@ type DraggableProps = {
   type: NodeType;
   title: string;
   description: string;
-  icon: JSX.Element;
   tags?: string[];
 };

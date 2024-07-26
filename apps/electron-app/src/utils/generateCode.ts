@@ -11,6 +11,7 @@ const defintions: Record<NodeType, () => string> = {
   RangeMap: defineRangeMap,
   Mqtt: defineMqtt,
   Sensor: defineSensor,
+  Servo: defineServo,
 }
 
 export function generateCode(nodes: Node[], edges: Edge[]) {
@@ -600,6 +601,38 @@ class Sensor extends JohnnyFive.Sensor {
 
   get value() {
     return this.#value;
+  }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
+}
+`
+}
+
+function defineServo() {
+  return `
+class Servo extends JohnnyFive.Servo {
+  constructor(options) {
+    super(options);
+    log.info("servo created", options);
+    this.options = options;
+
+    this.on("move:complete", this.#postMessage.bind(this, "complete"))
+    this.center();
+  }
+  min() {
+    super.min()
+    log.info("servo min");
+  }
+
+  max() {
+    super.max();
+    log.info("servo max");
   }
 
   #postMessage(action) {

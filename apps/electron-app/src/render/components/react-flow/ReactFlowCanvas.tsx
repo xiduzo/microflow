@@ -9,16 +9,17 @@ import {
 import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AppState, useNodesEdgesStore } from "../../store";
-import { Button, ButtonData } from "./components/Button";
-import { Counter, CounterData } from "./components/Counter";
-import { Figma, FigmaData } from "./components/Figma";
-import { IfElse, IfElseData } from "./components/IfElse";
-import { Interval, IntervalData } from "./components/Interval";
-import { Led, LedData } from "./components/Led";
-import { Mqtt, MqttData } from "./components/Mqtt";
-import { RangeMap, RangeMapData } from "./components/RangeMap";
-import { Sensor, SensorData } from "./components/Sensor";
 import { ConnectionLine } from "./ConnectionLine";
+import { Button, ButtonData } from "./nodes/Button";
+import { Counter, CounterData } from "./nodes/Counter";
+import { Figma, FigmaData } from "./nodes/Figma";
+import { IfElse, IfElseData } from "./nodes/IfElse";
+import { Interval, IntervalData } from "./nodes/Interval";
+import { Led, LedData } from "./nodes/Led";
+import { Mqtt, MqttData } from "./nodes/Mqtt";
+import { RangeMap, RangeMapData } from "./nodes/RangeMap";
+import { Sensor, SensorData } from "./nodes/Sensor";
+import { Servo, ServoData } from "./nodes/Servo";
 import { ComponentTabs } from "./panels/ComponentsTabs";
 import { SaveButton } from "./panels/SaveButton";
 import { SerialConnectionStatus } from "./panels/SerialConnectionStatus";
@@ -32,7 +33,8 @@ const nodeTypes = {
   IfElse: IfElse,
   RangeMap: RangeMap,
   Mqtt: Mqtt,
-  Sensor: Sensor
+  Sensor: Sensor,
+  Servo: Servo
 };
 
 export type NodeType = keyof typeof nodeTypes;
@@ -98,6 +100,9 @@ export function ReactFlowComponent() {
           break;
         case "Sensor":
           data = { pin: "A0" } satisfies SensorData;
+          break;
+        case "Servo":
+          data = { pin: 9, range: [0, 180] } satisfies ServoData;
           break;
       }
 
