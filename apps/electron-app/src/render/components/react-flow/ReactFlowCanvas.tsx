@@ -94,7 +94,7 @@ export function ReactFlowComponent() {
           data = { from: [0, 1023], to: [0, 1023] } satisfies RangeMapData;
           break;
         case "Mqtt":
-          data = { topic: "" } satisfies MqttData;
+          data = { topic: "", direction: "publish" } satisfies MqttData;
           break;
         case "Sensor":
           data = { pin: "A0" } satisfies SensorData;

@@ -18,6 +18,7 @@
     "email": "mail@sanderboer.nl",
     "url": "https://sanderboer.nl"
   },
+  "description": "A way to easily connect your hardware devices to the internet",
   "license": "GPL-3.0-only",
   "devDependencies": {
     "@total-typescript/ts-reset": "^0.5.1"

@@ -38,3 +38,28 @@ class Map extends EventEmitter {
     process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
   }
 }
+
+class Sensor extends JohnnyFive.Sensor {
+  #value = 0;
+
+  constructor(options) {
+    super(options);
+
+    this.on("change", () => {
+      this.#value = this.raw;
+      this.#postMessage("change");
+    })
+  }
+
+  get value() {
+    return this.#value;
+  }
+
+  #postMessage(action) {
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
+}

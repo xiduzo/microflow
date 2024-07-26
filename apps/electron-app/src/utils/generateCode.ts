@@ -551,6 +551,7 @@ class Mqtt extends EventEmitter {
     this.options = options;
 
     this.on("change", this.#postMessage.bind(this, "change"));
+    this.on("receive", this.#postMessage.bind(this, "receive"));
   }
 
   get value() {
@@ -559,6 +560,11 @@ class Mqtt extends EventEmitter {
 
   set value(value) {
     this.#value = value;
+  }
+
+  setExternal(value) {
+    this.#value = value;
+    this.emit("receive", value);
   }
 
   send(message) {
