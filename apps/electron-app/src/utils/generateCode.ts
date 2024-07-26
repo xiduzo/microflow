@@ -560,6 +560,7 @@ class Mqtt extends EventEmitter {
 
   set value(value) {
     this.#value = value;
+    this.#postMessage("change");
   }
 
   setExternal(value) {
@@ -569,7 +570,7 @@ class Mqtt extends EventEmitter {
 
   send(message) {
     this.#value = message;
-    this.#postMessage("change");
+    this.emit("change", this.value);
   }
 
   #postMessage(action) {
