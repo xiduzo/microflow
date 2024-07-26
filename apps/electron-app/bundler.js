@@ -45,11 +45,26 @@ const getWorkspaceByPath = (node, realPath) =>
     .find((depNode) => depNode.realpath === realPath);
 
 /** @type {(node: Node) => Node[]} */
-const collectProdDeps = (node) =>
-  [...node.edgesOut.values()]
-    .filter((depEdge) => depEdge.type === "prod")
-    .map((depEdge) => resolveLink(depEdge.to))
-    .flatMap((depNode) => [depNode, ...collectProdDeps(depNode)]);
+const collectProdDeps = (node) => {
+  const stack = [node];
+  const result = new Set();  // Using a set to avoid duplicates and track visited nodes
+
+  while (stack.length > 0) {
+    const currentNode = stack.pop();
+    const depEdges = [...currentNode.edgesOut.values()].filter((depEdge) => depEdge.type === "prod");
+
+    for (const depEdge of depEdges) {
+      const depNode = resolveLink(depEdge.to);
+
+      if (!result.has(depNode)) {
+        result.add(depNode);
+        stack.push(depNode);
+      }
+    }
+  }
+
+  return Array.from(result);  // Convert the set to an array if necessary
+};
 
 /** @type {(source: string, destination: string) => Promise<void>} */
 const bundle = async (source, destination) => {
