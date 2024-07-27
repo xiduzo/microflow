@@ -3,6 +3,7 @@ const { bundle } = require("./bundler");
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
   packagerConfig: {
+    executableName: "figma-hardware-bridge",
     prune: false,
     protocols: [
       {
