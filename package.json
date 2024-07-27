@@ -6,7 +6,8 @@
   ],
   "scripts": {
     "start": "yarn workspace @fhb/electron-app start",
-    "make": "yarn workspace @fhb/electron-app make"
+    "make": "yarn workspace @fhb/electron-app make",
+    "publish": "yarn workspace @fhb/electron-app publish"
   },
   "packageManager": "yarn@3.3.0",
   "engines": {
