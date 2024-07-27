@@ -521,6 +521,9 @@ class RangeMap extends EventEmitter {
   }
 
   from(input) {
+    if(typeof input === 'boolean') {
+      input = input ? 1 : 0;
+    }
     const inMin = this.options.from[0] ?? 0;
     const inMax = this.options.from[1] ?? 1023;
     const outMin = this.options.to[0] ?? 0;

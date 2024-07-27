@@ -47,14 +47,30 @@ export function Servo(props: Props) {
               {props.data.value ?? 0}<span className="font-extralight">°</span>
             </div>
           )}
-          <div className={`w-24 h-24 flex absolute ${isStandard ? 'transition-all' : 'animate-spin'}`} style={{
-            rotate: `${isStandard ? props.data.value ?? 0 : 0}deg`,
-            animationDuration: `${animationDuration}s`,
-            animationDirection: !isStandard && props.data.value < ROTATING_SERVO_STOP_DEGREES ? 'reverse' : 'normal'
-          }}>
-            <div className={`h-12 w-0.5 bg-gradient-to-b from-primary to-primary/0 to-${isStandard ? '60' : '95'}% left-[47px] absolute`}></div>
-            <Icons.Dot className={`w-8 h-8 absolute -top-4 left-8`} />
-          </div>
+          {isStandard && (
+            <>
+              <div className="w-24 h-24 flex absolute" style={{
+                rotate: `${props.data.range[0]}deg`,
+              }}>
+                <div className={`h-12 w-0.5 bg-gradient-to-b from-red-500/30 to-red-500/0 to-30% left-[47px] absolute`}></div>
+              </div>
+              <div className="w-24 h-24 flex absolute" style={{
+                rotate: `${props.data.range[1]}deg`,
+              }}>
+                <div className={`h-12 w-0.5 bg-gradient-to-b from-green-500/30 to-green-500/0 to-30% left-[47px] absolute`}></div>
+              </div>
+            </>
+          )}
+          {props.data.value !== null && props.data.value !== undefined && (
+            <div className={`w-24 h-24 flex absolute ${isStandard ? 'transition-all' : 'animate-spin'}`} style={{
+              rotate: `${isStandard ? props.data.value : 0}deg`,
+              animationDuration: `${animationDuration}s`,
+              animationDirection: !isStandard && props.data.value < ROTATING_SERVO_STOP_DEGREES ? 'reverse' : 'normal'
+            }}>
+              <div className={`h-12 w-0.5 bg-gradient-to-b from-primary to-primary/0 to-${isStandard ? '60' : '95'}% left-[47px] absolute`}></div>
+              <Icons.Dot className={`w-8 h-8 absolute -top-4 left-8`} />
+            </div>
+          )}
         </NodeHeader>
         {checkResult.type === "ready" && !hasValidPin && (
           <div className="text-red-500 text-sm">Pin is not valid for a servo</div>
@@ -91,9 +107,9 @@ export function Servo(props: Props) {
         {
           isStandard && (
             <section className="flex space-x-2 justify-between items-center">
-              <Input type="number" className="w-20" defaultValue={0} onChange={event => updateNodeData({ range: [Number(event.target.value), props.data.range[1]] })} />
+              <Input type="number" className="w-20" defaultValue={props.data.range[0]} onChange={event => updateNodeData({ range: [Number(event.target.value), props.data.range[1]] })} />
               <span className="text-gray-800">-</span>
-              <Input type="number" className="w-20" defaultValue={180} onChange={event => updateNodeData({ range: [props.data.range[0], Number(event.target.value)] })} />
+              <Input type="number" className="w-20" defaultValue={props.data.range[1]} onChange={event => updateNodeData({ range: [props.data.range[0], Number(event.target.value)] })} />
             </section>
           )
         }
