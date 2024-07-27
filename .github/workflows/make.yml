@@ -1,4 +1,4 @@
-name: Build/build
+name: Electron/make
 
 on: push
 
