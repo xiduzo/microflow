@@ -8,10 +8,10 @@
     "start": "yarn workspace @fhb/electron-app start",
     "make": "yarn workspace @fhb/electron-app make"
   },
-  "packageManager": "yarn@4.0.2",
+  "packageManager": "yarn@3.3.0",
   "engines": {
     "node": "18.19.0",
-    "yarn": "4.0.2"
+    "yarn": "3.3.0"
   },
   "author": {
     "name": "Sander Boer",

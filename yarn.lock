@@ -1139,11 +1139,11 @@ __metadata:
     "@types/react-dom": ^18.3.0
     "@xyflow/react": ^12.0.0
     autoprefixer: ^10.4.19
-    avrgirl-arduino: "git@github.com:blokdots/avrgirl-arduino.git"
+    avrgirl-arduino: "https://github.com/blokdots/avrgirl-arduino.git"
     electron: 28.0.0
     electron-log: ^5.1.5
-    firmata: "git@github.com:blokdots/firmata.js.git"
-    johnny-five: "git@github.com:blokdots/johnny-five.git"
+    firmata: "https://github.com/blokdots/firmata.js.git"
+    johnny-five: "https://github.com/blokdots/johnny-five.git"
     mqtt: ^5.8.0
     postcss: ^8.4.39
     react: ^18.3.1
@@ -3487,9 +3487,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"avrgirl-arduino@git@github.com:blokdots/avrgirl-arduino.git":
+"avrgirl-arduino@https://github.com/blokdots/avrgirl-arduino.git":
   version: 5.0.1
-  resolution: "avrgirl-arduino@git@github.com:blokdots/avrgirl-arduino.git#commit=213f5a825cd3e639a1511be0c81addf2282ad960"
+  resolution: "avrgirl-arduino@https://github.com/blokdots/avrgirl-arduino.git#commit=213f5a825cd3e639a1511be0c81addf2282ad960"
   dependencies:
     async: ^2.6.3
     awty: ^0.1.0
@@ -5226,16 +5226,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"firmata@git@github.com:blokdots/firmata.js.git":
-  version: 2.3.0
-  resolution: "firmata@git@github.com:blokdots/firmata.js.git#commit=d70f2c139e6e4623c5754a83dfb812f8144f4b78"
-  dependencies:
-    serialport: ^10.4.0
-  checksum: 3a95998b594876bc3445febfcc578469f1f43254a22e9df18219fa845a156ed1c0ed58be14714cde2220cce080168155744b1c122118f2ea1adc3d75282a6b53
-  languageName: node
-  linkType: hard
-
-"firmata@https://github.com/blokdots/firmata.js":
+"firmata@https://github.com/blokdots/firmata.js, firmata@https://github.com/blokdots/firmata.js.git":
   version: 2.3.0
   resolution: "firmata@https://github.com/blokdots/firmata.js.git#commit=d70f2c139e6e4623c5754a83dfb812f8144f4b78"
   dependencies:
@@ -6170,9 +6161,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"johnny-five@git@github.com:blokdots/johnny-five.git":
+"johnny-five@https://github.com/blokdots/johnny-five.git":
   version: 2.1.0
-  resolution: "johnny-five@git@github.com:blokdots/johnny-five.git#commit=ce860b7f0531794f8cd5a0e6208809f0a47f89a7"
+  resolution: "johnny-five@https://github.com/blokdots/johnny-five.git#commit=ce860b7f0531794f8cd5a0e6208809f0a47f89a7"
   dependencies:
     browser-serialport: latest
     chalk: 2.1.0
