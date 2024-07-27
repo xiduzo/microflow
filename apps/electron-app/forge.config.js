@@ -38,6 +38,7 @@ module.exports = {
     },
     {
       name: "@electron-forge/maker-deb",
+      executableName: "figma-hardware-bridge",
       config: {
         mimeType: [
           "x-scheme-handler/fhb",
@@ -50,6 +51,7 @@ module.exports = {
       config: {},
     },
   ],
+  buildIdentifier: "figma-hardware-bridge",
   plugins: [
     {
       name: "@electron-forge/plugin-vite",
