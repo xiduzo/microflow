@@ -16,11 +16,11 @@ export function RangeMap(props: Props) {
         </NodeHeader>
         <section className="flex flex-col space-y-3">
           <section className="flex space-x-2 justify-between items-center">
-            <Input type="number" defaultValue={props.data.from[0]} onChange={event => updateNodeData({
+            <Input type="number" className="w-20" defaultValue={props.data.from[0]} onChange={event => updateNodeData({
               from: [Number(event.target.value), props.data.from[1]]
             })} />
             <span className="text-gray-800">-</span>
-            <Input type="number" defaultValue={props.data.from[1]} onChange={event => updateNodeData({
+            <Input type="number" className="w-20" defaultValue={props.data.from[1]} onChange={event => updateNodeData({
               from: [props.data.from[0], Number(event.target.value)]
             })} />
           </section>
@@ -28,11 +28,11 @@ export function RangeMap(props: Props) {
             <Icons.ArrowsUpFromLine className="rotate-180" />
           </span>
           <section className="flex space-x-2 justify-between items-center">
-            <Input type="number" defaultValue={props.data.to[0]} onChange={event => updateNodeData({
+            <Input type="number" className="w-20" defaultValue={props.data.to[0]} onChange={event => updateNodeData({
               to: [Number(event.target.value), props.data.to[1]]
             })} />
             <span className="text-gray-800">-</span>
-            <Input type="number" defaultValue={props.data.to[1]} onChange={event => updateNodeData({
+            <Input type="number" className="w-20" defaultValue={props.data.to[1]} onChange={event => updateNodeData({
               to: [props.data.to[0], Number(event.target.value)]
             })} />
           </section>

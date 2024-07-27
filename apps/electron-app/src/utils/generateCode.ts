@@ -71,13 +71,14 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
         // TODO: maybe be a bit more specific about the value and also include the type?
-        let value = ["set", "check", "red", "green", "blue", "opacity", "from", "send"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+        let value = ["set", "check", "red", "green", "blue", "opacity", "from", "send", "rotate"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
 
         if (node.type === "RangeMap" && action === "to") {
           // Mapper node
           innerCode += addEnter()
           value = `${node.type}_${node.id}.value[1]`
         }
+
         // TODO: add support for increment and decrement bigger than 1
         // TODO: add support for multiple values
         innerCode += `    ${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`
@@ -526,7 +527,8 @@ class RangeMap extends EventEmitter {
     const outMax = this.options.to[1] ?? 1023;
 
     const output = ((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
-    const normalizedOutput = Math.round(output);
+    const distance = outMax - outMin;
+    const normalizedOutput = parseFloat(output).toFixed(distance <= 10 ? 1 : 0);
     this.value = [input, normalizedOutput];
   }
 
@@ -619,26 +621,50 @@ function defineServo() {
 class Servo extends JohnnyFive.Servo {
   constructor(options) {
     super(options);
-    log.info("servo created", options);
     this.options = options;
 
-    this.on("move:complete", this.#postMessage.bind(this, "complete"))
-    this.center();
+    this.on("move:complete", this.postMessage.bind(this, "complete"));
   }
+
   min() {
     super.min()
-    log.info("servo min");
+    this.postMessage("change");
   }
 
   max() {
     super.max();
-    log.info("servo max");
+    this.postMessage("change");
   }
 
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
+  to(position) {
+    super.to(position);
+    this.postMessage("change");
+  }
+
+  rotate(speed = 0) {
+    if(typeof speed === 'boolean') {
+      speed = speed ? 1 : -1;
     }
+
+    if(speed < 0.05 && speed > -0.05) {
+      this.stop();
+      return;
+    }
+
+    this.cw(speed);
+
+
+    this.postMessage("change");
+  }
+
+  stop() {
+    super.stop();
+    this.postMessage("change");
+  }
+
+  postMessage(action) {
+    if(!this.options) return;
+    this.emit("change", this.value);
 
     process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
   }

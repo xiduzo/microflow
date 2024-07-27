@@ -2,40 +2,12 @@ const JohnnyFive = require("johnny-five");
 const log = require("electron-log/node");
 const EventEmitter = require("events");
 
-class Servo extends JohnnyFive.Servo {
-  constructor(options) {
-    super(options);
-    log.info("servo created", options);
-    this.options = options;
-
-    this.on("move:complete", this.#postMessage.bind(this, "complete"))
-    this.center();
-  }
-  min() {
-    super.max()
-    log.info("servo min");
-  }
-
-  max() {
-    super.max();
-    log.info("servo max");
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-
 const board = new JohnnyFive.Board({
   repl: true
 });
 
 board.on("ready", () => {
-  const servo = new JohnnyFive.Servo({ pin: 5, id: "servo", range: [5, 175] });
+  const servo = new Servo({ pin: 9, id: "servo", range: [5, 175], type: "continuous" });
   servo.on("move:complete", () => {
     console.log("move:complete", servo.value);
   })
@@ -48,7 +20,7 @@ board.on("ready", () => {
       servo.cw(speed);
     },
     ccw: function (speed = 1) {
-      console.log("ccw", servo.last);
+      console.log("ccw", servo.position);
       servo.ccw(speed);
     },
     stop: function () {
@@ -77,3 +49,55 @@ board.on("ready", () => {
     }
   });
 })
+
+class Servo extends JohnnyFive.Servo {
+  constructor(options) {
+    log.debug("creating servo", options);
+    super(options);
+    log.info("servo created", options);
+    this.options = options;
+
+    this.on("move:complete", this.postMessage.bind(this, "complete"));
+  }
+
+  min() {
+    super.min()
+    this.postMessage("change");
+  }
+
+  max() {
+    super.max();
+    this.postMessage("change");
+  }
+
+  to(position) {
+    super.to(position);
+    this.postMessage("change");
+  }
+
+  cw(speed = 1) {
+    log.info("cw", speed);
+    super.cw(speed);
+    this.postMessage("change");
+  }
+
+  ccw(speed = 1) {
+    log.info("ccw", speed);
+    super.ccw(speed);
+    this.postMessage("change");
+  }
+
+  stop() {
+    super.stop();
+    this.postMessage("change");
+  }
+
+  postMessage(action) {
+    if (!this.options) return;
+    log.info(action);
+    if (action !== "change") {
+      this.emit("change", this.value);
+    }
+
+  }
+}

@@ -22,7 +22,7 @@ export function Sensor(props: Props) {
     <NodeContainer {...props}>
       <NodeContent>
         {checkResult.type === "ready" && !hasValidPin && (
-          <div className="text-red-500 text-sm">Pin is not valid for a servo</div>
+          <div className="text-red-500 text-sm">Pin is not valid for a {props.type}</div>
         )}
         <NodeHeader className="text-4xl tabular-nums">
           {props.data.value ?? 0}

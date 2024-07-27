@@ -102,7 +102,7 @@ export function ReactFlowComponent() {
           data = { pin: "A0" } satisfies SensorData;
           break;
         case "Servo":
-          data = { pin: 9, range: [0, 180] } satisfies ServoData;
+          data = { pin: 9, range: [0, 180], type: "standard" } satisfies ServoData;
           break;
       }
 

@@ -16,11 +16,22 @@ export function SaveButton() {
       JSON.stringify(
         getNodes().map((node) => {
           node.data.value = undefined;
+          node.selected = false;
           return node;
         }),
       ),
     );
-    localStorage.setItem("edges", JSON.stringify(getEdges().map(edge => ({ ...edge, animated: undefined }))));
+    localStorage.setItem(
+      "edges",
+      JSON.stringify(
+        getEdges().map(edge => {
+          edge.selected = false;
+          edge.animated = false;
+          return edge;
+        })
+      )
+    );
+
     setDisabled(false);
   }
 

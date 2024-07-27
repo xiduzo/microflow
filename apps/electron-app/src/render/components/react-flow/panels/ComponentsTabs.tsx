@@ -4,7 +4,7 @@ import {
   Tabs,
   TabsContent,
   TabsList,
-  TabsTrigger,
+  TabsTrigger
 } from "@fhb/ui";
 import { NodeType } from "../ReactFlowCanvas";
 
@@ -105,13 +105,11 @@ function Draggable(props: DraggableProps) {
 
   return (
     <article
-      className="hover:cursor-grab active:cursor-grabbing p-4 border rounded-md"
+      className="hover:cursor-grab active:cursor-grabbing p-4 border rounded-md hover:bg-primary/5 transition-all hover:border-primary/10"
       draggable
       onDragStart={onDragStart(props.type)}
     >
-      <section className="flex space-x-2 items-center">
-        <h1 className="font-bold text-lg">{props.title}</h1>
-      </section>
+      <h1 className="font-bold text-lg">{props.title}</h1>
       <p className="font-light mt-2">{props.description}</p>
       {props.tags?.length && (
         <section className="mt-3 flex space-x-2 text-xs">
@@ -131,4 +129,5 @@ type DraggableProps = {
   title: string;
   description: string;
   tags?: string[];
+  documentationLink?: string;
 };
