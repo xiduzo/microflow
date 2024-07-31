@@ -28,7 +28,6 @@ export function App() {
 
   const [brokerSettings] = useLocalStorage<MqttConfig | undefined>(LOCAL_STORAGE_KEYS.MQTT_CONNECTION)
 
-
   return (
     <section className="dark">
       <MqttProvider appName="plugin" uniqueId={uniqueId} config={brokerSettings}>

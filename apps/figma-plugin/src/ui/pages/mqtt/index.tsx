@@ -9,16 +9,22 @@ import { sendMessageToFigma } from "../../utils/sendMessageToFigma";
 
 const schema = Zod.object({
   host: Zod.string().optional(),
-  port: Zod.number().optional(),
+  port: Zod.number({ coerce: true }).optional(),
   username: Zod.string().optional(),
   password: Zod.string().optional(),
 });
 
 type Schema = Zod.infer<typeof schema>;
 
+const defaultValues: Schema = {
+  host: "test.mosquitto.org",
+  port: 8081,
+}
+
 export function Mqtt() {
   const form = useForm<Schema>({
     resolver: zodResolver(schema),
+    defaultValues: defaultValues
   })
 
   const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>(LOCAL_STORAGE_KEYS.MQTT_CONNECTION)
@@ -32,7 +38,10 @@ export function Mqtt() {
 
   useEffect(() => {
     if (!mqttConfig) return;
-    form.reset(mqttConfig as Schema)
+    form.reset({
+      ...defaultValues,
+      ...mqttConfig as Schema,
+    })
   }, [mqttConfig, form.reset])
 
   return (

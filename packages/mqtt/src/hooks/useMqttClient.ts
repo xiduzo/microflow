@@ -92,7 +92,9 @@ export function useMqttClient() {
         })
       });
 
-    return () => disconnect();
+    return () => {
+      disconnect();
+    }
   }, [resubscribe, disconnect])
 
   return {

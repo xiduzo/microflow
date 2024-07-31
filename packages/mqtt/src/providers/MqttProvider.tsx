@@ -40,7 +40,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
   const disconnectedIntervals = useRef<Map<Client, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
-    connect(props.config);
+    return connect(props.config);
   }, [connect, props.config]);
 
   useEffect(() => {
