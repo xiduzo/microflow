@@ -109,7 +109,7 @@ type NodeHeaderProps = PropsWithChildren &
   VariantProps<typeof nodeHeader> & { className?: string, valueOverride?: unknown };
 
 const nodeHeader = cva(
-  "flex p-12 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 pointer-events-none",
+  "flex p-10 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 pointer-events-none",
   {
     variants: {
       active: {

@@ -71,9 +71,10 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
         // TODO: maybe be a bit more specific about the value and also include the type?
-        let value = ["set", "check", "red", "green", "blue", "opacity", "from", "send", "rotate"].includes(edge.targetHandle) ? `${node.type}_${node.id}.value` : undefined
+        const shouldSetValue = ["set", "check", "red", "green", "blue", "opacity", "from", "send", "rotate", "to"].includes(edge.targetHandle)
+        let value = shouldSetValue ? `${node.type}_${node.id}.value` : undefined
 
-        if (node.type === "RangeMap" && action === "to") {
+        if (node.type === "RangeMap" && shouldSetValue) {
           // Mapper node
           innerCode += addEnter()
           value = `${node.type}_${node.id}.value[1]`
@@ -640,6 +641,8 @@ class Servo extends JohnnyFive.Servo {
   }
 
   to(position) {
+    if(isNaN(position)) return;
+
     super.to(position);
     this.postMessage("change");
   }

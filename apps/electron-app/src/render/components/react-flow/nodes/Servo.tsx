@@ -1,5 +1,5 @@
 import { Icons, Input, Select, SelectContent, SelectItem, SelectTrigger } from "@fhb/ui";
-import { Position } from "@xyflow/react";
+import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { ServoGeneralOption } from "johnny-five";
 import { useMemo } from "react";
 import { BoardCheckResult, MODES } from "../../../../common/types";
@@ -15,6 +15,7 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 }
 
 export function Servo(props: Props) {
+  const updateNodeInternals = useUpdateNodeInternals();
   const { checkResult } = useBoard();
 
   const { updateNodeData } = useUpdateNodeData<ServoData>(props.id);
@@ -41,7 +42,7 @@ export function Servo(props: Props) {
   return (
     <NodeContainer {...props}>
       <NodeContent>
-        <NodeHeader className="text-4xl flex items-center justify-center rounded-full w-24 h-24 p-0 min-w-[10px] m-auto">
+        <NodeHeader className="text-2xl flex items-center justify-center rounded-full w-24 h-24 p-0 min-w-[10px] m-auto">
           {isStandard && (
             <div className="flex items-start z-10">
               {props.data.value ?? 0}<span className="font-extralight">°</span>
@@ -94,7 +95,10 @@ export function Servo(props: Props) {
         </Select>
         <Select
           value={props.data.type}
-          onValueChange={(value) => updateNodeData({ type: value })}
+          onValueChange={(value) => {
+            updateNodeData({ type: value })
+            updateNodeInternals(props.id)
+          }}
         >
           <SelectTrigger className="first-letter:uppercase">{props.data.type}</SelectTrigger>
           <SelectContent>
