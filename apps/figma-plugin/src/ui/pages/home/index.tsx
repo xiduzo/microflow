@@ -1,5 +1,5 @@
 import { Button, cva, Icons } from "@fhb/ui";
-import { PageContent } from "../../components/Page";
+import { PageContent, PageHeader } from "../../components/Page";
 
 import { ConnectionStatus, useMqtt } from "@fhb/mqtt/client";
 import { Link } from "react-router-dom";
@@ -40,11 +40,23 @@ const connectionStatusBadge = cva(
 
 export function Home() {
   const { status, connectedClients } = useMqtt();
-  useSetWindowSize({ width: 250, height: 160 });
+  useSetWindowSize({ width: 250, height: 220 });
 
   console.log("home", connectedClients);
   return (
     <>
+      <PageHeader title="" end={<div className="space-x-1">
+        <Button variant="ghost" size="icon" title="Variables and topics" asChild>
+          <Link to="/variables">
+            <Icons.Settings2 className="w-4 h-4 rotate-90" opacity="80%" />
+          </Link>
+        </Button>
+        <Button variant="ghost" size="icon" title="Config" asChild>
+          <Link to="/config">
+            <Icons.Cog className="w-4 h-4" opacity="80%" />
+          </Link>
+        </Button>
+      </div>} />
       <PageContent>
         <section className="flex items-center justify-between">
           <ConnectionStatusBadge title="Mqtt" status={status} />
@@ -55,20 +67,13 @@ export function Home() {
           </Button>
         </section>
         <section className="flex items-center justify-between">
-          <div className="flex items-center">
-            <ConnectionStatusBadge
-              title="App"
-              status={connectedClients.get("app")}
-            />
-          </div>
+          <ConnectionStatusBadge
+            title="Companion app"
+            status={connectedClients.get("app")}
+          />
           <div className="space-x-1">
-            <Button variant="ghost" size="icon" title="How to use">
+            <Button variant="ghost" size="icon" title="Get the companion app">
               <Icons.ExternalLink className="w-4 h-4" opacity="80%" />
-            </Button>
-            <Button variant="ghost" size="icon" title="Plugin settings" asChild>
-              <Link to="/config">
-                <Icons.LucideCog className="w-4 h-4" opacity="80%" />
-              </Link>
             </Button>
           </div>
         </section>

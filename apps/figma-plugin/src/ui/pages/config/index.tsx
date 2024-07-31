@@ -56,7 +56,7 @@ export function Config() {
                   </Button>
                 </section>
                 <FormDescription>
-                  This identifier allows you to share messages between the Figma harware bridge and other MQTT clients.
+                  This identifier allows you to send and receive variable values between this plugin and other MQTT clients.
                 </FormDescription>
                 <FormMessage />
               </FormItem>)} />

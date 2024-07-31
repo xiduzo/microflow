@@ -9,12 +9,16 @@ import "./index.css";
 import { Config } from "./pages/config";
 import { Home } from "./pages/home";
 import { Mqtt } from "./pages/mqtt";
+import { Variables } from "./pages/variables";
+import { VariablesHelp } from "./pages/variables/help";
 
 
 const router = createMemoryRouter([
   { path: "/", Component: Home },
   { path: "/mqtt", Component: Mqtt },
   { path: "/config", Component: Config },
+  { path: "/variables", Component: Variables },
+  { path: "/variables/help", Component: VariablesHelp },
 ]);
 
 export function App() {
