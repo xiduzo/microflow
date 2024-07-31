@@ -1,13 +1,15 @@
 import { Position } from "@xyflow/react";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
+
+const numberFormat = new Intl.NumberFormat();
 
 export function Counter(props: Props) {
   return (
     <NodeContainer {...props}>
       <NodeContent>
         <NodeHeader className="text-4xl tabular-nums">
-          {props.data.value ?? 0}
+          {numberFormat.format(props.data.value ?? 0)}
         </NodeHeader>
       </NodeContent>
       <Handle
@@ -16,6 +18,8 @@ export function Counter(props: Props) {
         position={Position.Top}
         id="increment"
       />
+      <NodeSettings>
+      </NodeSettings>
       <Handle
         offset={0.5}
         type="target"
@@ -30,4 +34,4 @@ export function Counter(props: Props) {
 }
 
 export type CounterData = {};
-type Props = AnimatedNode<CounterData, number>;
+type Props = BaseNode<CounterData, number>;

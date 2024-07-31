@@ -2,7 +2,7 @@ import { Label, Slider } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -15,6 +15,9 @@ export function Interval(props: Props) {
         <NodeHeader className="tabular-nums">
           {numberFormat.format(Math.round(props.data.value ?? 0))}
         </NodeHeader>
+      </NodeContent>
+
+      <NodeSettings>
         <Label
           htmlFor={`interval-${props.id}`}
           className="flex justify-between"
@@ -33,11 +36,11 @@ export function Interval(props: Props) {
           step={100}
           onValueChange={(value) => updateNodeData({ interval: value[0] })}
         />
-      </NodeContent>
+      </NodeSettings>
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );
 }
 
 export type IntervalData = { interval?: number };
-type Props = AnimatedNode<IntervalData, number>;
+type Props = BaseNode<IntervalData, number>;

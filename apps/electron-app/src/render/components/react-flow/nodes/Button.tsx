@@ -1,16 +1,14 @@
 import {
-  Badge,
-  ContextMenuCheckboxItem,
-  ContextMenuContent,
-  ContextMenuSeparator,
+  Checkbox,
   Label,
+  RadioGroup,
+  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  Separator,
   Slider,
-  Button as UiButton,
+  Switch
 } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { ButtonOption } from "johnny-five";
@@ -18,59 +16,26 @@ import { MODES } from "../../../../common/types";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { useBoard } from "../../../providers/BoardProvider";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 export function Button(props: Props) {
   const { checkResult } = useBoard();
 
   const { updateNodeData } = useUpdateNodeData<ButtonData>(props.id);
 
-  const hasMetadata =
-    props.data.invert || props.data.isPullup || props.data.isPulldown;
-
   return (
     <NodeContainer
-      {...props}
-      contextMenu={
-        <ContextMenuContent>
-          <ContextMenuCheckboxItem
-            checked={props.data.invert}
-            onClick={() => updateNodeData({ invert: !props.data.invert })}
-          >
-            Invert
-          </ContextMenuCheckboxItem>
-          <ContextMenuSeparator />
-          <ContextMenuCheckboxItem
-            checked={props.data.isPullup}
-            onClick={() =>
-              updateNodeData({
-                isPullup: !props.data.isPullup,
-                isPulldown: false,
-              })
-            }
-          >
-            Initialize as a pullup button
-          </ContextMenuCheckboxItem>
-          <ContextMenuCheckboxItem
-            checked={props.data.isPulldown}
-            onClick={() =>
-              updateNodeData({
-                isPulldown: !props.data.isPulldown,
-                isPullup: false,
-              })
-            }
-          >
-            Initialize as a pulldown button
-          </ContextMenuCheckboxItem>
-        </ContextMenuContent>
-      }
-    >
+      {...props}>
       <NodeContent>
         <NodeHeader>
-          <UiButton disabled variant={props.data.value ? "default" : "outline"}>
-            {props.id}
-          </UiButton>
+          <Switch
+            className="scale-150"
+            disabled
+            checked={Boolean(props.data.value)}
+          />
         </NodeHeader>
+      </NodeContent>
+      <NodeSettings>
         <Select
           value={props.data.pin.toString()}
           onValueChange={(value) => updateNodeData({ pin: parseInt(value) })}
@@ -106,15 +71,46 @@ export function Button(props: Props) {
             updateNodeData({ holdtime: value[0] })
           }
         />
-        {hasMetadata && <Separator className="my-3" />}
-        {hasMetadata && (
-          <section className="flex space-x-2">
-            {props.data.invert && <Badge>Inverted</Badge>}
-            {props.data.isPullup && <Badge>Pull up</Badge>}
-            {props.data.isPulldown && <Badge>Pull down</Badge>}
-          </section>
-        )}
-      </NodeContent>
+        <hr />
+        <section className="flex justify-between items-start">
+          <div className="flex items-center space-x-2"
+            onClick={() => updateNodeData({ invert: !props.data.invert })}
+          >
+            <Checkbox id="inverted" checked={props.data.invert} onChange={console.log} />
+            <span
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Invert button
+            </span>
+          </div>
+          <RadioGroup defaultValue="default" onValueChange={value => {
+            switch (value) {
+              case "default":
+                updateNodeData({ isPullup: false, isPulldown: false });
+                break;
+              case "pullup":
+                updateNodeData({ isPullup: true, isPulldown: false });
+                break;
+              case "pulldown":
+                updateNodeData({ isPullup: false, isPulldown: true });
+                break;
+            }
+          }}>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="default" id="default" />
+              <Label htmlFor="default">Normal button</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="pullup" id="pullup" />
+              <Label htmlFor="pullup">Pullup button</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="pulldown" id="pulldown" />
+              <Label htmlFor="pulldown">Pulldown button</Label>
+            </div>
+          </RadioGroup>
+        </section>
+      </NodeSettings>
       <Handle type="source" position={Position.Bottom} id="down" offset={-1} />
       <Handle type="source" position={Position.Bottom} id="hold" />
       <Handle type="source" position={Position.Bottom} id="up" offset={1} />
@@ -124,4 +120,4 @@ export function Button(props: Props) {
 }
 
 export type ButtonData = Omit<ButtonOption, "board">;
-type Props = AnimatedNode<ButtonData, boolean>;
+type Props = BaseNode<ButtonData, boolean>;

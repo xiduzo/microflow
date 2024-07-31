@@ -4,7 +4,7 @@ import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect } from "react";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 export function Mqtt(props: Props) {
   const updateNodeInternals = useUpdateNodeInternals();
@@ -59,6 +59,8 @@ export function Mqtt(props: Props) {
         <NodeHeader className="tabular-nums">
           {JSON.stringify(props.data.value)}
         </NodeHeader>
+      </NodeContent>
+      <NodeSettings>
         <Select
           value={props.data.direction}
           onValueChange={(value: Direction) => {
@@ -85,7 +87,7 @@ export function Mqtt(props: Props) {
         <Input id={`mqtt-${props.id}`} defaultValue={props.data.topic} placeholder="your/+/topic/#" onChange={event => updateNodeData({
           topic: event.target.value,
         })} />
-      </NodeContent>
+      </NodeSettings>
       {props.data.direction === 'publish' && <Handle type="target" position={Position.Top} id="send" />}
       {props.data.direction === 'subscribe' && <Handle type="source" position={Position.Bottom} id="receive" />}
       <Handle type="source" position={Position.Right} id="change" />
@@ -95,4 +97,4 @@ export function Mqtt(props: Props) {
 type Direction = "publish" | "subscribe";
 
 export type MqttData = { direction: Direction, topic?: string };
-type Props = AnimatedNode<MqttData, unknown>;
+type Props = BaseNode<MqttData, unknown>;

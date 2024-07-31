@@ -6,7 +6,7 @@ import { BoardCheckResult, MODES } from "../../../../common/types";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { useBoard } from "../../../providers/BoardProvider";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 const ROTATING_SERVO_STOP_DEGREES = 90
 
@@ -75,6 +75,8 @@ export function Servo(props: Props) {
         {checkResult.type === "ready" && !hasValidPin && (
           <div className="text-red-500 text-sm">Pin is not valid for a servo</div>
         )}
+      </NodeContent>
+      <NodeSettings>
         <Select
           value={props.data.pin.toString()}
           onValueChange={(value) => updateNodeData({ pin: value })}
@@ -106,14 +108,17 @@ export function Servo(props: Props) {
         </Select>
         {
           isStandard && (
-            <section className="flex space-x-2 justify-between items-center">
-              <Input type="number" className="w-20" defaultValue={props.data.range[0]} onChange={event => updateNodeData({ range: [Number(event.target.value), props.data.range[1]] })} />
-              <span className="text-gray-800">-</span>
-              <Input type="number" className="w-20" defaultValue={props.data.range[1]} onChange={event => updateNodeData({ range: [props.data.range[0], Number(event.target.value)] })} />
-            </section>
+            <>
+              <div>Servo range</div>
+              <section className="flex space-x-2 justify-between items-center">
+                <Input type="number" defaultValue={props.data.range[0]} onChange={event => updateNodeData({ range: [Number(event.target.value), props.data.range[1]] })} />
+                <span className="text-gray-800">-</span>
+                <Input type="number" defaultValue={props.data.range[1]} onChange={event => updateNodeData({ range: [props.data.range[0], Number(event.target.value)] })} />
+              </section>
+            </>
           )
         }
-      </NodeContent>
+      </NodeSettings>
       {props.data.type === "standard" && <Handle type="target" position={Position.Top} id="min" offset={-1} />}
       {props.data.type === "standard" && <Handle type="target" position={Position.Top} id="to" />}
       {props.data.type === "standard" && <Handle type="target" position={Position.Top} id="max" offset={1} />}
@@ -125,4 +130,4 @@ export function Servo(props: Props) {
 }
 
 export type ServoData = Omit<ServoGeneralOption, "board">;
-type Props = AnimatedNode<ServoData, number>;
+type Props = BaseNode<ServoData, number>;

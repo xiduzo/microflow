@@ -13,7 +13,7 @@ import { MODES } from "../../../../common/types";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { useBoard } from "../../../providers/BoardProvider";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 export function Led(props: Props) {
   const { updateNodeData } = useUpdateNodeData<LedData>(props.id);
@@ -30,26 +30,28 @@ export function Led(props: Props) {
             checked={Boolean(props.data.value)}
           />
         </NodeHeader>
-        <Select
-          value={props.data.pin.toString()}
-          onValueChange={value => {
-            updateNodeData({ pin: parseInt(value) });
-          }}
-        >
-          <SelectTrigger>Pin {props.data.pin}</SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectLabel>Set led pin</SelectLabel>
-              {checkResult.pins
-                ?.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
-                .map((pin) => (
-                  <SelectItem key={pin.pin} value={pin.pin.toString()}>
-                    Pin {pin.pin}
-                  </SelectItem>
-                ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        <NodeSettings>
+          <Select
+            value={props.data.pin.toString()}
+            onValueChange={value => {
+              updateNodeData({ pin: parseInt(value) });
+            }}
+          >
+            <SelectTrigger>Pin {props.data.pin}</SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Set led pin</SelectLabel>
+                {checkResult.pins
+                  ?.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
+                  .map((pin) => (
+                    <SelectItem key={pin.pin} value={pin.pin.toString()}>
+                      Pin {pin.pin}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </NodeSettings>
       </NodeContent>
       <Handle type="target" position={Position.Top} id="on" offset={-1} />
       <Handle type="target" position={Position.Top} id="toggle" />
@@ -60,4 +62,4 @@ export function Led(props: Props) {
 }
 
 export type LedData = Omit<LedOption, "board">;
-type Props = AnimatedNode<LedData, number>;
+type Props = BaseNode<LedData, number>;

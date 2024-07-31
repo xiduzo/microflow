@@ -16,7 +16,7 @@ import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect } from "react";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 export function Figma(props: Props) {
   const updateNodeInternals = useUpdateNodeInternals();
@@ -66,6 +66,8 @@ export function Figma(props: Props) {
             value={props.data.value ?? value}
           />
         </NodeHeader>
+      </NodeContent>
+      <NodeSettings>
         <Select
           disabled={!Array.from(Object.values(variables)).length}
           value={props.data.variableId}
@@ -82,7 +84,7 @@ export function Figma(props: Props) {
             )}
           </SelectContent>
         </Select>
-      </NodeContent>
+      </NodeSettings>
       {variable?.resolvedType === "BOOLEAN" && (
         <>
           <Handle type="target" position={Position.Top} id="true" offset={-1} />
@@ -206,4 +208,4 @@ function FigmaHeaderContent(props: {
 export type FigmaData = {
   variableId?: string;
 };
-type Props = AnimatedNode<FigmaData, string | number | boolean>;
+type Props = BaseNode<FigmaData, string | number | boolean>;

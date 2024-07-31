@@ -1,12 +1,21 @@
 import {
+  Button,
   cn,
   ContextMenu,
   ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuShortcut,
   ContextMenuTrigger,
   cva,
-  VariantProps,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  VariantProps
 } from "@fhb/ui";
-import { Node } from "@xyflow/react";
+import { Node, useReactFlow } from "@xyflow/react";
 import {
   createContext,
   PropsWithChildren,
@@ -16,23 +25,58 @@ import {
   useRef,
 } from "react";
 
-export function NodeContainer(props: Props) {
-  if (props.contextMenu) {
-    return (
-      <ContextMenu>
-        <ContextMenuTrigger>
-          <BaseNode {...props} />
-        </ContextMenuTrigger>
-        {props.contextMenu}
-      </ContextMenu>
-    );
+export function NodeSettings(props: NodeContainerProps) {
+  const node = useNode();
+  const { updateNodeData, deleteElements } = useReactFlow<BaseNode>();
+
+  function closeDrawer() {
+    updateNodeData(node.id, { settingsOpen: false })
   }
 
-  return <BaseNode {...props} className="min-w-48" />;
+  return (
+    <Drawer open={node.data.settingsOpen} nested onOpenChange={(update) => {
+      if (update === true) return
+      closeDrawer()
+    }}>
+      <DrawerContent>
+        <DrawerHeader className="max-w-md w-full m-auto mt-6">
+          <DrawerTitle className="flex items-center justify-between">
+            Edit {node.type} node
+            <span className="text-xs font-light text-neutral-500">id: {node.id}</span>
+          </DrawerTitle>
+          <DrawerDescription>Updates will be automatically applied</DrawerDescription>
+        </DrawerHeader>
+        <section className="max-w-md w-full m-auto flex flex-col space-y-4 mb-8 p-4">
+          {props.children}
+        </section>
+        <DrawerFooter className="max-w-md w-full m-auto">
+          <Button variant="outline" onClick={closeDrawer}>Close</Button>
+          <Button variant="destructive" onClick={() => deleteElements({ nodes: [node] })}>Delete node</Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+type NodeContainerProps = PropsWithChildren & {
+  className?: string
+}
+
+export function NodeContainer(props: Props) {
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger>
+        <BaseNode {...props}>
+          {props.children}
+          {props.contextMenu ?? <BaseContextMenu />}
+        </BaseNode>
+      </ContextMenuTrigger>
+    </ContextMenu>
+  );
 }
 
 export function NodeHeader(props: NodeHeaderProps) {
-  const { data } = useNode();
+  const { data, type } = useNode();
   const prevValue = useRef(props.valueOverride ?? data.value);
 
   useEffect(() => {
@@ -79,10 +123,10 @@ const nodeHeader = cva(
   },
 );
 
-const NodeContainerContext = createContext<AnimatedNode>({} as AnimatedNode);
+const NodeContainerContext = createContext<BaseNode>({} as BaseNode);
 export const useNode = () => useContext(NodeContainerContext);
 
-function BaseNode(props: PropsWithChildren & AnimatedNode) {
+function BaseNode(props: PropsWithChildren & BaseNode) {
   return (
     <NodeContainerContext.Provider value={props}>
       <div
@@ -138,12 +182,37 @@ const node = cva(
   },
 );
 
-export type AnimatedNode<
+function BaseContextMenuItems() {
+  const node = useNode();
+  const { deleteElements, updateNodeData } = useReactFlow<BaseNode>();
+
+  return (
+    <>
+      <ContextMenuItem onClick={() => updateNodeData(node.id, { settingsOpen: true })}>
+        Settings
+      </ContextMenuItem>
+      <ContextMenuItem className="text-red-500" onClick={() => deleteElements({ nodes: [node] })}>
+        Delete
+        <ContextMenuShortcut>⌫</ContextMenuShortcut>
+      </ContextMenuItem>
+    </>
+  );
+}
+
+function BaseContextMenu() {
+  return (
+    <ContextMenuContent>
+      <BaseContextMenuItems />
+    </ContextMenuContent>
+  )
+}
+
+export type BaseNode<
   DataType extends Record<string, unknown> = {},
   ValueType = undefined,
-> = Node<DataType & { animated?: string; value?: ValueType }>;
+> = Node<DataType & { animated?: string; value?: ValueType, settingsOpen?: boolean }>;
 
 type Props = PropsWithChildren &
-  AnimatedNode<{}, any> & {
+  BaseNode<{}, any> & {
     contextMenu?: ReactElement<typeof ContextMenuContent>;
   };

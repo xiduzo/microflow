@@ -13,7 +13,7 @@ import { Position } from "@xyflow/react";
 import { useEffect } from "react";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { Handle } from "./Handle";
-import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
+import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 // TODO: add custom method validator
 const validators = ["boolean", "number", "text"] as const;
@@ -83,49 +83,53 @@ export function IfElse(props: Props) {
               <Icons.Dot className="w-12 h-12 text-gray-500" />
             ))}
         </NodeHeader>
-        <Select
-          value={props.data.validator}
-          onValueChange={(value) =>
-            updateNodeData({
-              validator: value as Validator,
-              subValidator: subValidators[value][0],
-            })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Validator" />
-          </SelectTrigger>
-          <SelectContent>
-            {validators.map((validator) => (
-              <SelectItem key={validator} value={validator}>
-                {validator}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {subValidators[props.data.validator]?.length > 0 && (
+      </NodeContent>
+      <NodeSettings>
+        <section className="flex space-x-2 justify-between">
           <Select
-            disabled={!props.data.validator}
-            value={props.data.subValidator}
+            value={props.data.validator}
             onValueChange={(value) =>
               updateNodeData({
-                validator: props.data.validator,
-                subValidator: value,
+                validator: value as Validator,
+                subValidator: subValidators[value][0],
               })
             }
           >
             <SelectTrigger>
-              <SelectValue placeholder="Validate with" />
+              <SelectValue placeholder="Validator" />
             </SelectTrigger>
             <SelectContent>
-              {subValidators[props.data.validator]?.map((subvalidator) => (
-                <SelectItem key={subvalidator} value={subvalidator}>
-                  {subvalidator}
+              {validators.map((validator) => (
+                <SelectItem key={validator} value={validator}>
+                  {validator}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        )}
+          {subValidators[props.data.validator]?.length > 0 && (
+            <Select
+              disabled={!props.data.validator}
+              value={props.data.subValidator}
+              onValueChange={(value) =>
+                updateNodeData({
+                  validator: props.data.validator,
+                  subValidator: value,
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Validate with" />
+              </SelectTrigger>
+              <SelectContent>
+                {subValidators[props.data.validator]?.map((subvalidator) => (
+                  <SelectItem key={subvalidator} value={subvalidator}>
+                    {subvalidator}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </section>
         {props.data.validator === "text" && (
           <Input
             value={(props.data.validatorArgs[0] as string) ?? ""}
@@ -166,7 +170,8 @@ export function IfElse(props: Props) {
               />
             </>
           )}
-      </NodeContent>
+
+      </NodeSettings>
       <Handle type="target" position={Position.Top} id="check" />
       <Handle type="source" position={Position.Right} id="change" />
       <Handle
@@ -190,4 +195,4 @@ export type IfElseData = {
   validator: Validator;
   subValidator: string;
 };
-type Props = AnimatedNode<IfElseData, boolean>;
+type Props = BaseNode<IfElseData, boolean>;

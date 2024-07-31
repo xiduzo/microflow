@@ -17,6 +17,7 @@ import { IfElse, IfElseData } from "./nodes/IfElse";
 import { Interval, IntervalData } from "./nodes/Interval";
 import { Led, LedData } from "./nodes/Led";
 import { Mqtt, MqttData } from "./nodes/Mqtt";
+import { BaseNode } from "./nodes/Node";
 import { RangeMap, RangeMapData } from "./nodes/RangeMap";
 import { Sensor, SensorData } from "./nodes/Sensor";
 import { Servo, ServoData } from "./nodes/Servo";
@@ -51,7 +52,7 @@ const selector = (state: AppState) => ({
 export function ReactFlowComponent() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } =
     useNodesEdgesStore(useShallow(selector));
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, updateNodeData } = useReactFlow<BaseNode>();
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -133,6 +134,9 @@ export function ReactFlowComponent() {
       onDragOver={onDragOver}
       minZoom={0.2}
       maxZoom={1.25}
+      onNodeDoubleClick={(_event, node) => {
+        updateNodeData(node.id, { settingsOpen: true });
+      }}
     >
       <Controls />
       <MiniMap
@@ -169,6 +173,6 @@ export function ReactFlowComponent() {
           Made with ♥ by Xiduzo
         </a>
       </Panel>
-    </ReactFlow>
+    </ReactFlow >
   );
 }
