@@ -7,7 +7,7 @@ import { sendMessageToFigma } from "../utils/sendMessageToFigma";
 type KnownVariable = Pick<Variable, "name" | "resolvedType" | "id">;
 
 export function MqttVariableMessenger() {
-  const { status, publish, subscribe } = useMqtt();
+  const { status, publish, subscribe, uniqueId } = useMqtt();
   const publishedVariableValues = useRef<Map<string, any | undefined>>(
     new Map(),
   );
@@ -29,7 +29,7 @@ export function MqttVariableMessenger() {
 
     const newVariablesAsJson = JSON.stringify(newVariables);
     if (newVariablesAsJson !== JSON.stringify(knownVariables.current)) {
-      await publish(`fhb/v1/xiduzo/plugin/variables`, newVariablesAsJson);
+      await publish(`fhb/v1/${uniqueId}/plugin/variables`, newVariablesAsJson);
     }
 
     knownVariables.current = newVariables;
@@ -43,7 +43,7 @@ export function MqttVariableMessenger() {
       }
 
       await publish(
-        `fhb/v1/xiduzo/plugin/variable/${variable.id}`,
+        `fhb/v1/${uniqueId}/plugin/variable/${variable.id}`,
         JSON.stringify(value),
       );
       publishedVariableValues.current.set(variable.id, valueAsJson);
@@ -53,24 +53,24 @@ export function MqttVariableMessenger() {
   useEffect(() => {
     if (status !== "connected") return;
 
-    subscribe("fhb/v1/xiduzo/+/variables/request", (topic) => {
+    subscribe(`fhb/v1/${uniqueId}/+/variables/request`, (topic) => {
       const app = topic.split("/")[3];
       publish(
-        `fhb/v1/xiduzo/${app}/variables/response`,
+        `fhb/v1/${uniqueId}/${app}/variables/response`,
         JSON.stringify(knownVariables.current),
       );
       publishedVariableValues.current.forEach((value, id) => {
-        publish(`fhb/v1/xiduzo/${app}/variable/${id}`, value);
+        publish(`fhb/v1/${uniqueId}/${app}/variable/${id}`, value);
       });
     });
 
-    subscribe("fhb/v1/xiduzo/+/variable/+/set", async (topic, message) => {
+    subscribe(`fhb/v1/${uniqueId}/+/variable/+/set`, async (topic, message) => {
       const [, , , app, , variableId] = topic.split("/");
       const value = JSON.parse(message.toString());
 
       sendMessageToFigma(SetLocalValiable(variableId, value as VariableValue))
     })
-  }, [status, subscribe, publish]);
+  }, [status, subscribe, publish, uniqueId]);
 
   useMessageListener<Variable[] | undefined>(
     MESSAGE_TYPE.GET_LOCAL_VARIABLES,

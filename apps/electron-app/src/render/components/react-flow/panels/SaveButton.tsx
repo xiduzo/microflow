@@ -1,47 +1,38 @@
 import { Button, Icons } from "@fhb/ui";
-import { useReactFlow } from "@xyflow/react";
+import { Edge, Node, useReactFlow } from "@xyflow/react";
 import { useEffect, useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
 import { useNodesEdgesStore } from "../../../store";
 
 export function SaveButton() {
   const [disabled, setDisabled] = useState(false);
   const { getNodes, getEdges } = useReactFlow();
   const { setNodes, setEdges } = useNodesEdgesStore();
+  const [localNodes, setLocalNodes] = useLocalStorage<Node[]>("nodes", [])
+  const [localEdges, setLocalEdges] = useLocalStorage<Edge[]>("edges", [])
 
   function handleClick() {
     setDisabled(true);
-    console.log(getNodes())
-    localStorage.setItem(
-      "nodes",
-      JSON.stringify(
-        getNodes().map((node) => {
-          node.data.value = undefined;
-          node.selected = false;
-          return node;
-        }),
-      ),
-    );
-    localStorage.setItem(
-      "edges",
-      JSON.stringify(
-        getEdges().map(edge => {
-          edge.selected = false;
-          edge.animated = false;
-          return edge;
-        })
-      )
-    );
+
+    setLocalNodes(getNodes().map((node) => {
+      node.data.value = undefined;
+      node.selected = false;
+      return node;
+    }))
+
+    setLocalEdges(getEdges().map(edge => {
+      edge.selected = false;
+      edge.animated = false;
+      return edge;
+    }))
 
     setDisabled(false);
   }
 
   useEffect(() => {
-    const nodes = JSON.parse(localStorage.getItem("nodes") || "[]");
-    const edges = JSON.parse(localStorage.getItem("edges") || "[]");
-
-    setNodes(nodes);
-    setEdges(edges);
-  }, [setNodes, setEdges]);
+    setNodes(localNodes);
+    setEdges(localEdges);
+  }, [setNodes, localNodes, setEdges, localEdges]);
 
   return (
     <Button onClick={handleClick} variant="ghost" disabled={disabled}>

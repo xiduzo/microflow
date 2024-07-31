@@ -21,13 +21,13 @@ import { AnimatedNode, NodeContainer, NodeContent, NodeHeader } from "./Node";
 export function Figma(props: Props) {
   const updateNodeInternals = useUpdateNodeInternals();
 
-  const { status, publish, appName, connectedClients } = useMqtt();
+  const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
 
   const { updateNodeData } = useUpdateNodeData<FigmaData>(props.id);
 
   const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
 
-  const isConnectedToPlugin = status === 'connected' && connectedClients.get("plugin") === 'connected';
+  const isConnectedToPlugin = status === 'connected' && connectedClients.get("plugin") !== 'disconnected';
 
   useEffect(() => {
     window.electron.ipcRenderer.send(
@@ -44,10 +44,10 @@ export function Figma(props: Props) {
     if (!variable) return;
 
     publish(
-      `fhb/v1/xiduzo/${appName}/variable/${variable.id}/set`,
+      `fhb/v1/${uniqueId}/${appName}/variable/${variable.id}/set`,
       JSON.stringify(props.data.value),
     );
-  }, [props.data?.value, variable, publish, status, appName]);
+  }, [props.data?.value, variable, publish, status, appName, uniqueId]);
 
   useEffect(() => {
     if (!variable?.resolvedType) return;

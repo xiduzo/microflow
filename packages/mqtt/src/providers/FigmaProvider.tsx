@@ -1,10 +1,10 @@
 import {
-    createContext,
-    PropsWithChildren,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 import { useMqtt } from "./MqttProvider";
 
@@ -20,7 +20,7 @@ const FigmaContext = createContext({
 });
 
 export function FigmaProvider(props: PropsWithChildren) {
-  const { status, subscribe, publish, appName } = useMqtt();
+  const { status, subscribe, publish, appName, uniqueId } = useMqtt();
   const [variableValues, setVariableValues] = useState<Record<string, unknown>>(
     {},
   );
@@ -39,7 +39,7 @@ export function FigmaProvider(props: PropsWithChildren) {
       setVariableTypes(variables);
     }
 
-    function handleVariableUpdaet(topic: string, message: Buffer) {
+    function handleVariableUpdate(topic: string, message: Buffer) {
       const [_prefix, _version, _id, _app, _topic, variableId] =
         topic.split("/");
       setVariableValues((prev) => {
@@ -49,15 +49,15 @@ export function FigmaProvider(props: PropsWithChildren) {
       });
     }
 
-    subscribe("fhb/v1/xiduzo/plugin/variables", handleVariablesUpdate);
+    subscribe(`fhb/v1/${uniqueId}/plugin/variables`, handleVariablesUpdate);
     subscribe(
-      `fhb/v1/xiduzo/${appName}/variables/response`,
+      `fhb/v1/${uniqueId}/${appName}/variables/response`,
       handleVariablesUpdate,
     );
 
-    subscribe("fhb/v1/xiduzo/plugin/variable/+", handleVariableUpdaet);
-    subscribe(`fhb/v1/xiduzo/${appName}/variable/+`, handleVariableUpdaet);
-  }, [status, subscribe, appName]);
+    subscribe(`fhb/v1/${uniqueId}/plugin/variable/+`, handleVariableUpdate);
+    subscribe(`fhb/v1/${uniqueId}/${appName}/variable/+`, handleVariableUpdate);
+  }, [status, subscribe, appName, uniqueId]);
 
   useEffect(() => {
     if (status !== "connected") return;
@@ -69,13 +69,15 @@ export function FigmaProvider(props: PropsWithChildren) {
       return;
     }
 
-    publish(`fhb/v1/xiduzo/${appName}/variables/request`, "");
+    publish(`fhb/v1/${uniqueId}/${appName}/variables/request`, "");
 
     const interval = setInterval(() => {
-      publish(`fhb/v1/xiduzo/${appName}/variables/request`, "");
+      publish(`fhb/v1/${uniqueId}/${appName}/variables/request`, "");
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval)
+    };
   }, [variableValues, variableTypes, status]);
 
   return (

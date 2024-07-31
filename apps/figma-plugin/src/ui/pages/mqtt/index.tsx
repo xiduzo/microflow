@@ -1,10 +1,15 @@
-import { Button, Form, FormControl, FormField, FormItem, FormLabel, FormMessage, Icons, Input, Label, useForm, Zod, zodResolver } from "@fhb/ui";
+import { MqttConfig } from "@fhb/mqtt/client";
+import { Button, Form, FormControl, FormField, FormItem, FormLabel, FormMessage, Icons, Input, useForm, Zod, zodResolver } from "@fhb/ui";
+import { useEffect } from "react";
+import { LOCAL_STORAGE_KEYS, ShowToast } from "../../../common/types/Message";
 import { PageContent, PageHeader } from "../../components/Page";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useSetWindowSize } from "../../hooks/useSetWindowSize";
+import { sendMessageToFigma } from "../../utils/sendMessageToFigma";
 
 const schema = Zod.object({
-  host: Zod.string(),
-  port: Zod.number(),
+  host: Zod.string().optional(),
+  port: Zod.number().optional(),
   username: Zod.string().optional(),
   password: Zod.string().optional(),
 });
@@ -16,16 +21,24 @@ export function Mqtt() {
     resolver: zodResolver(schema),
   })
 
-  useSetWindowSize({ width: 400, height: 530 + Object.keys(form.formState.errors).length * 20 });
+  const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>(LOCAL_STORAGE_KEYS.MQTT_CONNECTION)
+
+  useSetWindowSize({ width: 400, height: 450 + Object.keys(form.formState.errors).length * 28 });
 
   function onSubmit(data: Schema) {
-    console.log(data);
+    setMqttConfig(data)
+    sendMessageToFigma(ShowToast("Broker settings saved!"))
   }
+
+  useEffect(() => {
+    if (!mqttConfig) return;
+    form.reset(mqttConfig as Schema)
+  }, [mqttConfig, form.reset])
 
   return (
     <>
       <PageHeader title="MQTT settings" />
-      <PageContent>
+      <PageContent className="px-2">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
             <FormField control={form.control} name="host" render={({ field }) => (
@@ -67,15 +80,6 @@ export function Mqtt() {
             </div>
           </form>
         </Form>
-        <section className="flex flex-col space-y-2">
-          <Label htmlFor="name">Your unique name</Label>
-          <div className="flex space-x-2">
-            <Input id="name" placeholder="xiduzo-the-labrador" className="grow" />
-            <Button variant="ghost">
-              <Icons.Dices className="w-4 h-4" />
-            </Button>
-          </div>
-        </section>
       </PageContent>
     </>
   )

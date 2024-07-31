@@ -1183,6 +1183,8 @@ __metadata:
     tailwindcss: ^3.4.4
     ts-node: ^10.9.2
     typescript: ^5.5.3
+    unique-names-generator: ^4.7.1
+    usehooks-ts: ^3.1.0
     zustand: ^4.5.4
   languageName: unknown
   linkType: soft
@@ -1210,6 +1212,7 @@ __metadata:
     rollup: ^4.19.1
     tailwindcss: ^3.4.5
     typescript: ^5.3.0
+    unique-names-generator: ^4.7.1
     usehooks-ts: ^3.1.0
     vite: ^5.0.11
     vite-plugin-generate-file: ^0.1.1
@@ -9879,6 +9882,13 @@ __metadata:
   dependencies:
     unique-slug: "npm:^4.0.0"
   checksum: 8e2f59b356cb2e54aab14ff98a51ac6c45781d15ceaab6d4f1c2228b780193dc70fae4463ce9e1df4479cb9d3304d7c2043a3fb905bdeca71cc7e8ce27e063df
+  languageName: node
+  linkType: hard
+
+"unique-names-generator@npm:^4.7.1":
+  version: 4.7.1
+  resolution: "unique-names-generator@npm:4.7.1"
+  checksum: 81b58efee72458fd0c84f54a89d731b2570305d331ce62c4156273e54ece77b6488fc6c607169f4b8f6644fa48b42aef8689dbe7e310ae2c4bafbd5c0a625354
   languageName: node
   linkType: hard
 

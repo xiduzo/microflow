@@ -1,4 +1,5 @@
 import { Message, MESSAGE_TYPE } from "../common/types/Message";
+import { getLocalValue, setLocalValue } from "./handlers/clientStorage";
 import { setUiOptions } from "./handlers/ui";
 import { getLocalVariables, setLocalvariable } from "./handlers/variables";
 
@@ -17,11 +18,11 @@ figma.ui.onmessage = <T>(message: Message<T>) => {
       break;
     }
     case MESSAGE_TYPE.SET_LOCAL_STATE_VALUE: {
-      // void setLocalValue(payload.key, payload.value);
+      void setLocalValue(payload.key, payload.value);
       break;
     }
     case MESSAGE_TYPE.GET_LOCAL_STATE_VALUE: {
-      // void getLocalValue(payload.key, payload.value);
+      void getLocalValue(payload.key, payload.value);
       break;
     }
     case MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES:

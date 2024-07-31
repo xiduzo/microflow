@@ -65,8 +65,10 @@ export function Home() {
             <Button variant="ghost" size="icon" title="How to use">
               <Icons.ExternalLink className="w-4 h-4" opacity="80%" />
             </Button>
-            <Button variant="ghost" size="icon" title="Serial settings">
-              <Icons.Cog className="w-4 h-4" opacity="80%" />
+            <Button variant="ghost" size="icon" title="Plugin settings" asChild>
+              <Link to="/config">
+                <Icons.LucideCog className="w-4 h-4" opacity="80%" />
+              </Link>
             </Button>
           </div>
         </section>
