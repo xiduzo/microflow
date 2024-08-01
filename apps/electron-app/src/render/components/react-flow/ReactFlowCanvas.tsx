@@ -1,10 +1,10 @@
 import {
-  Background,
-  Controls,
-  MiniMap,
-  Panel,
-  ReactFlow,
-  useReactFlow,
+    Background,
+    Controls,
+    MiniMap,
+    Panel,
+    ReactFlow,
+    useReactFlow,
 } from "@xyflow/react";
 import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -22,7 +22,7 @@ import { RangeMap, RangeMapData } from "./nodes/RangeMap";
 import { Sensor, SensorData } from "./nodes/Sensor";
 import { Servo, ServoData } from "./nodes/Servo";
 import { ComponentTabs } from "./panels/ComponentsTabs";
-import { SaveButton } from "./panels/SaveButton";
+import { MenuButton } from "./panels/MenuButton";
 import { SerialConnectionStatus } from "./panels/SerialConnectionStatus";
 
 const nodeTypes = {
@@ -162,7 +162,7 @@ export function ReactFlowComponent() {
       </Panel>
 
       <Panel position="top-right">
-        <SaveButton />
+        <MenuButton />
       </Panel>
 
       <Panel

@@ -71,7 +71,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
       edges.forEach((edge) => {
         const targetNode = nodes.find((node) => node.id === edge.target);
         // TODO: maybe be a bit more specific about the value and also include the type?
-        const shouldSetValue = ["set", "check", "red", "green", "blue", "opacity", "from", "send", "rotate", "to"].includes(edge.targetHandle)
+        const shouldSetValue = ["set", "check", "red", "green", "blue", "opacity", "from", "publish", "rotate", "to"].includes(edge.targetHandle)
         let value = shouldSetValue ? `${node.type}_${node.id}.value` : undefined
 
         if (node.type === "RangeMap" && shouldSetValue) {
@@ -97,13 +97,23 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
   code += wrapInTryCatch(innerCode)
 
-  Object.keys(defintions).forEach((type) => {
-    if (!nodes.find(node => node.type === type)) {
-      return
-    }
+  const classDefinitions = [
+    defineButton,
+    defineCounter,
+    defineFigma,
+    defineIfElse,
+    defineInterval,
+    defineLed,
+    defineMqtt,
+    defineRangeMap,
+    defineSensor,
+    defineServo
+  ]
+
+  classDefinitions.forEach((defineClass) => {
 
     code += addEnter()
-    code += defintions[type as NodeType]()
+    code += defineClass()
   })
 
   return code
@@ -575,7 +585,7 @@ class Mqtt extends EventEmitter {
     this.emit("receive", value);
   }
 
-  send(message) {
+  publish(message) {
     this.#value = message;
     this.emit("change", this.value);
   }

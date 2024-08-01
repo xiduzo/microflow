@@ -1,16 +1,16 @@
 import { KnownBoard } from "avrgirl-arduino";
 import {
-  createContext,
-  PropsWithChildren,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
+    createContext,
+    PropsWithChildren,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
 } from "react";
 import {
-  BoardCheckResult,
-  BoardFlashResult,
-  UploadCodeResult,
+    BoardCheckResult,
+    BoardFlashResult,
+    UploadCodeResult,
 } from "../../common/types";
 
 const BoardContext = createContext({
@@ -77,6 +77,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
       "ipc-fhb-check-board",
       (result: BoardCheckResult) => {
         setCheckResult(result);
+        console.log(result)
 
         switch (result.type) {
           case "exit":

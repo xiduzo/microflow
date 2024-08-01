@@ -1,5 +1,5 @@
 import { useMqtt } from "@fhb/mqtt/client";
-import { Input, Label, Select, SelectContent, SelectItem, SelectTrigger } from "@fhb/ui";
+import { Badge, Icons, Input, Label, Select, SelectContent, SelectItem, SelectTrigger } from "@fhb/ui";
 import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect } from "react";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
@@ -11,7 +11,7 @@ export function Mqtt(props: Props) {
 
   const { updateNodeData } = useUpdateNodeData<MqttData>(props.id);
 
-  const { publish, subscribe } = useMqtt()
+  const { publish, subscribe, status } = useMqtt()
 
   useEffect(() => {
     if (props.data.direction !== 'publish') return
@@ -25,9 +25,7 @@ export function Mqtt(props: Props) {
     if (props.data.direction !== 'subscribe') return
     if (!props.data.topic.length) return
 
-    let off: null | Function = null
-
-    subscribe(props.data.topic, (_topic, message) => {
+    const unsubFromTopic = subscribe(props.data.topic, (_topic, message) => {
       let value: unknown
       try {
         value = JSON.parse(message.toString())
@@ -46,18 +44,20 @@ export function Mqtt(props: Props) {
         props.id,
         value,
       );
-    }).then((unsub) => { off = unsub })
+    })
 
     return () => {
-      off?.()
+      unsubFromTopic?.then((unsub) => unsub?.());
     }
+
   }, [props.id, props.type, props.data.topic, props.data.direction, subscribe])
 
   return (
     <NodeContainer {...props}>
       <NodeContent>
+        {status !== 'connected' && <Badge variant="destructive">MQTT not connected</Badge>}
         <NodeHeader className="tabular-nums">
-          {JSON.stringify(props.data.value)}
+          {props.data.direction === "publish" ? <Icons.RadioTower className="w-8 h-8" /> : <Icons.Antenna className="w-8 h-8" />}
         </NodeHeader>
       </NodeContent>
       <NodeSettings>
@@ -88,8 +88,8 @@ export function Mqtt(props: Props) {
           topic: event.target.value,
         })} />
       </NodeSettings>
-      {props.data.direction === 'publish' && <Handle type="target" position={Position.Top} id="send" />}
-      {props.data.direction === 'subscribe' && <Handle type="source" position={Position.Bottom} id="receive" />}
+      {props.data.direction === 'publish' && <Handle type="target" position={Position.Top} id="publish" />}
+      {props.data.direction === 'subscribe' && <Handle type="source" position={Position.Bottom} id="subscribe" />}
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
   );

@@ -43,7 +43,7 @@ export function Variables() {
             <Button
               variant="ghost"
               size="icon"
-              title="Copy send topic"
+              title="Copy publish topic"
               className="hover:cursor-copy"
               onClick={() => { copy(`fhb/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`) }}>
               <Icons.RadioTower className={copyButtonIcon({ hasCopiedValue: copiedValue === `fhb/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set` })} opacity="80%" />
@@ -51,7 +51,7 @@ export function Variables() {
             <Button
               variant="ghost"
               size="icon"
-              title="Copy receive topic"
+              title="Copy subscribe topic"
               className="hover:cursor-copy"
               onClick={() => { copy(`fhb/v1/${uniqueId}/plugin/variable/${variable.id}`) }}>
               <Icons.Antenna className={copyButtonIcon({ hasCopiedValue: copiedValue === `fhb/v1/${uniqueId}/plugin/variable/${variable.id}` })} opacity="80%" />

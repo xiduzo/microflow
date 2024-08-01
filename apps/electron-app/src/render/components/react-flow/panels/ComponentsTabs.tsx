@@ -1,10 +1,10 @@
 import {
-  Badge,
-  Icons,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger
+    Badge,
+    Icons,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger
 } from "@fhb/ui";
 import { NodeType } from "../ReactFlowCanvas";
 
@@ -14,7 +14,7 @@ export function ComponentTabs() {
       defaultValue="closed"
       className="bg-neutral-950/5 backdrop-blur-sm rounded-md p-2 z-50 w-[320px]"
     >
-      <TabsList className="w-full">
+      <TabsList className="w-full" tabIndex={1}>
         <TabsTrigger value="closed">
           <Icons.Dot />
         </TabsTrigger>
@@ -53,6 +53,12 @@ export function ComponentTabs() {
           title="Potentiometer"
           type="Sensor"
           description="A turning knob to control things"
+          tags={["Analog", "Input"]}
+        />
+        <Draggable
+          title="Luminosity sensor"
+          type="Sensor"
+          description="Measure ambient or direct light intensity"
           tags={["Analog", "Input"]}
         />
         <Draggable

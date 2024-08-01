@@ -1,18 +1,11 @@
 import { useReactFlow } from "@xyflow/react";
 import {
-  createContext,
-  PropsWithChildren,
-  useContext,
   useEffect,
-  useRef,
-  useState,
+  useRef
 } from "react";
 import { UploadedCodeMessage } from "../../common/types";
 
-const Signaler = createContext({});
-
-export function SignalerProvider({ children }: PropsWithChildren) {
-  const [signaler, setSignaler] = useState(false);
+export function useSignalNodesAndEdges() {
   const { updateNodeData, getEdges, updateEdge } = useReactFlow();
   const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -57,11 +50,5 @@ export function SignalerProvider({ children }: PropsWithChildren) {
     );
   }, [updateNodeData, getEdges, updateEdge]);
 
-  return (
-    <Signaler.Provider value={{ signaler, setSignaler }}>
-      {children}
-    </Signaler.Provider>
-  );
+  return null;
 }
-
-export const useSignaler = () => useContext(Signaler);

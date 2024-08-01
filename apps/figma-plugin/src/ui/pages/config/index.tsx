@@ -22,7 +22,6 @@ export function Config() {
 
   useSetWindowSize({ width: 400, height: 240 + Object.keys(form.formState.errors).length * 28 });
 
-
   function setRandomUniqueName() {
     form.clearErrors('identifier');
     form.setValue('identifier', uniqueNamesGenerator({ dictionaries: [adjectives, animals] }));

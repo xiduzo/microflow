@@ -1,28 +1,28 @@
 import {
-  Button,
-  cn,
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-  cva,
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  VariantProps
+    Button,
+    cn,
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuShortcut,
+    ContextMenuTrigger,
+    cva,
+    Drawer,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    VariantProps
 } from "@fhb/ui";
 import { Node, useReactFlow } from "@xyflow/react";
 import {
-  createContext,
-  PropsWithChildren,
-  ReactElement,
-  useContext,
-  useEffect,
-  useRef,
+    createContext,
+    PropsWithChildren,
+    ReactElement,
+    useContext,
+    useEffect,
+    useRef,
 } from "react";
 
 export function NodeSettings(props: NodeContainerProps) {
@@ -41,7 +41,7 @@ export function NodeSettings(props: NodeContainerProps) {
       <DrawerContent>
         <DrawerHeader className="max-w-md w-full m-auto mt-6">
           <DrawerTitle className="flex items-center justify-between">
-            Edit {node.type} node
+            Configure node
             <span className="text-xs font-light text-neutral-500">id: {node.id}</span>
           </DrawerTitle>
           <DrawerDescription>Updates will be automatically applied</DrawerDescription>

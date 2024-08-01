@@ -1,16 +1,16 @@
 import { FigmaVariable, useFigmaVariable, useMqtt } from "@fhb/mqtt/client";
 import {
-  Badge,
-  Icons,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  Switch,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Badge,
+    Icons,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    Switch,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@fhb/ui";
 import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect } from "react";
@@ -27,7 +27,7 @@ export function Figma(props: Props) {
 
   const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
 
-  const isConnectedToPlugin = status === 'connected' && connectedClients.get("plugin") !== 'disconnected';
+  const isConnectedToPlugin = connectedClients.get("plugin") === 'connected' || connectedClients.get("plugin") === 'connecting';
 
   useEffect(() => {
     window.electron.ipcRenderer.send(

@@ -47,7 +47,9 @@ export function MqttProvider(props: PropsWithChildren & Props) {
     Object.keys(subscriptions.current).forEach((topic) => {
       unsubscribe(topic);
     });
-  }, [props.uniqueId, unsubscribe])
+    setConnectedClients(new Map());
+    publish(`fhb/v1/${props.uniqueId}/${props.appName}/ping`, "");
+  }, [props.uniqueId, props.appName, unsubscribe])
 
   useEffect(() => {
     if (status !== "connected") return;
@@ -104,6 +106,8 @@ export function MqttProvider(props: PropsWithChildren & Props) {
       unsubFromPong?.then((unsub) => unsub?.());
     };
   }, [status, subscribe, publish, props.appName, props.uniqueId]);
+
+  console.log(connectedClients)
 
   return (
     <MqttProviderContext.Provider
