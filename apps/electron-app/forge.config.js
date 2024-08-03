@@ -3,7 +3,7 @@ const { bundle } = require("./bundler");
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
   packagerConfig: {
-    executableName: "figma-hardware-bridge",
+    executableName: "@fhb/electron-app",
     prune: false,
     protocols: [
       {
@@ -38,7 +38,6 @@ module.exports = {
     },
     {
       name: "@electron-forge/maker-deb",
-      executableName: "figma-hardware-bridge",
       config: {
         mimeType: [
           "x-scheme-handler/fhb",
