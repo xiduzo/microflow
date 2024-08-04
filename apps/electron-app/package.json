@@ -4,6 +4,11 @@
   "license": "GPL-3.0-only",
   "version": "1.0.0",
   "description": "An application which allows you to create flow-based logic for microcontrollers",
+  "author": {
+    "name": "Sander Boer",
+    "email": "mail@sanderboer.nl",
+    "url": "https://sanderboer.nl"
+  },
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",

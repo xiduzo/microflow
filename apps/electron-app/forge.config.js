@@ -8,8 +8,8 @@ module.exports = {
     prune: false,
     protocols: [
       {
-        name: "Figma hardware bridge",
-        schemes: ["fhb", "figma-hardware-bridge"],
+        name: "microflow-studio",
+        schemes: ["mfs", "microflow-studio"],
       },
     ],
   },
@@ -31,7 +31,8 @@ module.exports = {
   makers: [
     {
       name: "@electron-forge/maker-squirrel",
-      config: {},
+      config: {
+      }
     },
     {
       name: "@electron-forge/maker-zip",
@@ -41,17 +42,22 @@ module.exports = {
       name: "@electron-forge/maker-deb",
       config: {
         mimeType: [
-          "x-scheme-handler/fhb",
-          "x-scheme-handler/figma-hardware-bridge",
+          "x-scheme-handler/mfs",
+          "x-scheme-handler/microflow-studio",
         ],
       },
     },
     {
       name: "@electron-forge/maker-rpm",
-      config: {},
+      config: {
+        mimeType: [
+          "x-scheme-handler/mfs",
+          "x-scheme-handler/microflow-studio",
+        ],
+      },
     },
   ],
-  buildIdentifier: "figma-hardware-bridge",
+  buildIdentifier: "microflow-studio",
   plugins: [
     {
       name: "@electron-forge/plugin-vite",
@@ -90,7 +96,7 @@ module.exports = {
       config: {
         repository: {
           owner: 'Xiduzo',
-          name: 'Figma-Hardware-Bridge'
+          name: 'microflow-studio'
         },
         prerelease: true
       }
