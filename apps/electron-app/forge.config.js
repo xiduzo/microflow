@@ -42,6 +42,7 @@ module.exports = {
     {
       name: "@electron-forge/maker-deb",
       config: {
+        bin: "Microflow studio",
         mimeType: [
           "x-scheme-handler/mfs",
           "x-scheme-handler/microflow-studio",
@@ -51,6 +52,7 @@ module.exports = {
     {
       name: "@electron-forge/maker-rpm",
       config: {
+        bin: "Microflow studio",
         mimeType: [
           "x-scheme-handler/mfs",
           "x-scheme-handler/microflow-studio",
