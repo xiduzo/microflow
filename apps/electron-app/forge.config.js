@@ -95,7 +95,7 @@ module.exports = {
       name: '@electron-forge/publisher-github',
       config: {
         repository: {
-          owner: 'Xiduzo',
+          owner: 'xiduzo',
           name: 'microflow-studio'
         },
         prerelease: true
