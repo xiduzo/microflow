@@ -5,9 +5,9 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "yarn workspace @fhb/electron-app start",
-    "make": "yarn workspace @fhb/electron-app make",
-    "publish": "yarn workspace @fhb/electron-app publish"
+    "start": "yarn workspace microflow-studio start",
+    "make": "yarn workspace microflow-studio make",
+    "publish": "yarn workspace microflow-studio publish"
   },
   "packageManager": "yarn@3.3.0",
   "engines": {
