@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v2
+        uses: actions/checkout
 
       - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@master
+        uses: actions/setup-node
         with:
           node-version: 20
 
