@@ -3805,7 +3805,7 @@ __metadata:
     stk500-v2: ^1.0.4
   bin:
     avrgirl-arduino: ./bin/cli.js
-  checksum: 3ceab593573fe4f1665320b10de67ebdaa91c00546120f82812273a0a451fbab74535a63f4aa572e7f456a313985836cd99ad60e41e1824c79b71f5fe2e5cde8
+  checksum: 9a2a4ec4e862dc6a5cb0ff2cb40c12aa950e4cd164c9f034c25cd21dad1af8f5f3521f31b3296a2401010d23115ca634c5542a657dd91b66edccae701fa62774
   languageName: node
   linkType: hard
 
