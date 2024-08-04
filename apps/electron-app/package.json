@@ -2,7 +2,7 @@
   "name": "microflow-studio",
   "productName": "microflow-studio",
   "license": "GPL-3.0-only",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "An application which allows you to create flow-based logic for microcontrollers",
   "author": {
     "name": "Sander Boer",
