@@ -3,8 +3,9 @@ const { bundle } = require("./bundler");
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
   packagerConfig: {
-    name: "microflow-studio",
-    executableName: "microflow-studio",
+    name: "Microflow studio",
+    executableName: "Microflow studio",
+    icon: 'assets/icon',
     prune: false,
     protocols: [
       {

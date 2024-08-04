@@ -27,7 +27,7 @@ export function App() {
   );
 }
 
-const root = createRoot(document.body);
+const root = createRoot(document.body.querySelector("main"));
 root.render(<App />);
 
 function NodeAndEdgeSignaler() {

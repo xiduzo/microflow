@@ -1,10 +1,14 @@
 const { app, dialog, BrowserWindow } = require("electron");
+const { updateElectronApp } = require('update-electron-app');
+
 const path = require("node:path");
 
 import handleSquirrelEvent from "@fhb/utils/handleSquirrelEvent";
 import "./main/ipc";
 
 let mainWindow = null;
+
+updateElectronApp();
 
 if (process.defaultApp) {
   if (process.argv.length >= 2) {

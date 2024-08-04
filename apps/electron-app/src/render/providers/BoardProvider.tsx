@@ -41,6 +41,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
     window.electron.ipcRenderer.once(
       "ipc-fhb-flash-firmata",
       (result: BoardFlashResult) => {
+        console.log("flash result", result)
         setFlashResult(result);
 
         switch (result.type) {
@@ -59,6 +60,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
     const off = window.electron.ipcRenderer.on(
       "ipc-fhb-upload-code",
       (message: UploadCodeResult) => {
+        console.log("upload result", message)
         setUploadResult(message);
 
         if (message.type === "ready") {
@@ -76,8 +78,8 @@ export function BoardProvider({ children }: PropsWithChildren) {
     return window.electron.ipcRenderer.on(
       "ipc-fhb-check-board",
       (result: BoardCheckResult) => {
+        console.log("check result", result)
         setCheckResult(result);
-        console.log(result)
 
         switch (result.type) {
           case "exit":
