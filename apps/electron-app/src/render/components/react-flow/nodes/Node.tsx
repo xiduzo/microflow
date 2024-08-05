@@ -76,7 +76,7 @@ export function NodeContainer(props: Props) {
 }
 
 export function NodeHeader(props: NodeHeaderProps) {
-  const { data, type } = useNode();
+  const { data } = useNode();
   const prevValue = useRef(props.valueOverride ?? data.value);
 
   useEffect(() => {
@@ -141,14 +141,16 @@ function BaseNode(props: PropsWithChildren & BaseNode) {
           }),
         )}
       >
-        {props.children}
+        <header className="px-6 py-1 border-b">{props.data.label}</header>
+        <main className="px-4 py-2 flex justify-center items-center grow">{props.children}</main>
+        {/* <footer>whatt</footer> */}
       </div>
     </NodeContainerContext.Provider>
   );
 }
 
 const node = cva(
-  "bg-neutral-950/5 outline -outline-offset-2 outline-neutral-500/25 backdrop-blur-sm rounded-md p-4 min-w-60",
+  "bg-neutral-950/5 outline -outline-offset-2 outline-neutral-500/25 backdrop-blur-sm rounded-md min-w-60 min-h-44 flex flex-col",
   {
     variants: {
       selectable: {
@@ -210,7 +212,7 @@ function BaseContextMenu() {
 export type BaseNode<
   DataType extends Record<string, unknown> = {},
   ValueType = undefined,
-> = Node<DataType & { animated?: string; value?: ValueType, settingsOpen?: boolean }>;
+> = Node<DataType & { animated?: string; value?: ValueType, settingsOpen?: boolean, label: string }>;
 
 type Props = PropsWithChildren &
   BaseNode<{}, any> & {

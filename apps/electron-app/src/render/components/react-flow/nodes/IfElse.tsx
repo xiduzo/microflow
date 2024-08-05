@@ -1,13 +1,13 @@
 import {
-  Icons,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Slider,
+    Icons,
+    Input,
+    Label,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Slider,
 } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { useEffect } from "react";
@@ -121,9 +121,9 @@ export function IfElse(props: Props) {
                 <SelectValue placeholder="Validate with" />
               </SelectTrigger>
               <SelectContent>
-                {subValidators[props.data.validator]?.map((subvalidator) => (
-                  <SelectItem key={subvalidator} value={subvalidator}>
-                    {subvalidator}
+                {subValidators[props.data.validator]?.map((subValidator) => (
+                  <SelectItem key={subValidator} value={subValidator}>
+                    {subValidator}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -172,20 +172,20 @@ export function IfElse(props: Props) {
           )}
 
       </NodeSettings>
-      <Handle type="target" position={Position.Top} id="check" />
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="target" position={Position.Left} id="check" />
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         id="true"
         offset={-0.5}
       />
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         id="false"
         offset={0.5}
       />
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

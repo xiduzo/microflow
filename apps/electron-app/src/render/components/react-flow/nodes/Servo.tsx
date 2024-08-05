@@ -123,12 +123,12 @@ export function Servo(props: Props) {
           )
         }
       </NodeSettings>
-      {props.data.type === "standard" && <Handle type="target" position={Position.Top} id="min" offset={-1} />}
-      {props.data.type === "standard" && <Handle type="target" position={Position.Top} id="to" />}
-      {props.data.type === "standard" && <Handle type="target" position={Position.Top} id="max" offset={1} />}
-      {props.data.type === "continuous" && <Handle type="target" position={Position.Top} id="rotate" hint="from -1 to 1" offset={-0.5} />}
-      {props.data.type === "continuous" && <Handle type="target" position={Position.Top} id="stop" offset={0.5} />}
-      <Handle type="source" position={Position.Right} id="change" />
+      {props.data.type === "standard" && <Handle type="target" position={Position.Left} id="min" offset={-1} />}
+      {props.data.type === "standard" && <Handle type="target" position={Position.Left} id="to" />}
+      {props.data.type === "standard" && <Handle type="target" position={Position.Left} id="max" offset={1} />}
+      {props.data.type === "continuous" && <Handle type="target" position={Position.Left} id="rotate" hint="from -1 to 1" offset={-0.5} />}
+      {props.data.type === "continuous" && <Handle type="target" position={Position.Left} id="stop" offset={0.5} />}
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

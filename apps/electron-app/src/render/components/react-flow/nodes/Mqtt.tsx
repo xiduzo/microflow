@@ -88,9 +88,9 @@ export function Mqtt(props: Props) {
           topic: event.target.value,
         })} />
       </NodeSettings>
-      {props.data.direction === 'publish' && <Handle type="target" position={Position.Top} id="publish" />}
-      {props.data.direction === 'subscribe' && <Handle type="source" position={Position.Bottom} id="subscribe" />}
-      <Handle type="source" position={Position.Right} id="change" />
+      {props.data.direction === 'publish' && <Handle type="target" position={Position.Left} id="publish" />}
+      {props.data.direction === 'subscribe' && <Handle type="source" position={Position.Right} id="subscribe" />}
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

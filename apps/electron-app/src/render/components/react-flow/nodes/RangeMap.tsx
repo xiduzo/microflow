@@ -46,8 +46,8 @@ export function RangeMap(props: Props) {
           })} />
         </section>
       </NodeSettings>
-      <Handle type="target" position={Position.Top} id="from" />
-      <Handle type="source" position={Position.Bottom} id="to" />
+      <Handle type="target" position={Position.Left} id="from" />
+      <Handle type="source" position={Position.Right} id="to" />
     </NodeContainer>
   );
 }

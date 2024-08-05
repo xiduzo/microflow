@@ -31,8 +31,14 @@ module.exports = {
   rebuildConfig: {},
   makers: [
     {
-      name: "@electron-forge/maker-squirrel",
+      name: "@electron-forge/maker-squirrel", // Windows
       config: {
+      }
+    },
+    {
+      name: '@electron-forge/maker-dmg', // MacOS
+      config: {
+        format: 'ULFO'
       }
     },
     {
@@ -40,7 +46,7 @@ module.exports = {
       platforms: ["darwin"],
     },
     {
-      name: "@electron-forge/maker-deb",
+      name: "@electron-forge/maker-deb", // Debian, Ubuntu, etc.
       config: {
         bin: "Microflow studio",
         mimeType: [
@@ -50,7 +56,7 @@ module.exports = {
       },
     },
     {
-      name: "@electron-forge/maker-rpm",
+      name: "@electron-forge/maker-rpm", // Fedora, Red Hat, etc.
       config: {
         bin: "Microflow studio",
         mimeType: [

@@ -1,7 +1,7 @@
 import {
-  ConnectionLineComponentProps,
-  getBezierPath,
-  Position,
+    ConnectionLineComponentProps,
+    getBezierPath,
+    Position,
 } from "@xyflow/react";
 import { useMemo } from "react";
 
@@ -71,6 +71,7 @@ export function ConnectionLine({
     return "#71717a";
   }, [connectionStatus]);
 
+
   return (
     <g>
       <path
@@ -80,7 +81,8 @@ export function ConnectionLine({
         className="animated"
         d={path}
       />
-      <circle cx={toX} cy={toY} fill={color} r={10} />
+      <circle cx={fromX} cy={fromY} fill={color} r={4} />
+      <circle cx={toX} cy={toY} fill={color} r={4} />
     </g>
   );
 }

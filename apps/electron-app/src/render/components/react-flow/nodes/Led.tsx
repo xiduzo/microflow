@@ -1,11 +1,11 @@
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  Switch,
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    Switch,
 } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { LedOption } from "johnny-five";
@@ -53,10 +53,10 @@ export function Led(props: Props) {
           </Select>
         </NodeSettings>
       </NodeContent>
-      <Handle type="target" position={Position.Top} id="on" offset={-1} />
-      <Handle type="target" position={Position.Top} id="toggle" />
-      <Handle type="target" position={Position.Top} id="off" offset={1} />
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="target" position={Position.Left} id="on" offset={-1} />
+      <Handle type="target" position={Position.Left} id="toggle" />
+      <Handle type="target" position={Position.Left} id="off" offset={1} />
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

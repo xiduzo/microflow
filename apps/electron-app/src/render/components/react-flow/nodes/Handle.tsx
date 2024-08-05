@@ -1,12 +1,13 @@
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@fhb/ui";
 import { HandleProps, Position, Handle as XyFlowHandle } from "@xyflow/react";
 
-const HANDLE_SPACING = 40;
+const HANDLE_SPACING = 28;
+const NODER_HEADER_HEIGHT_SPACING = 16;
 
 export function Handle(props: Props) {
   return (
@@ -16,8 +17,12 @@ export function Handle(props: Props) {
           <XyFlowHandle
             {...props}
             style={{
-              width: 20,
-              height: 20,
+              width: [Position.Top, Position.Bottom].includes(
+                props.position,
+              ) ? 24 : 12,
+              height: [Position.Left, Position.Right].includes(
+                props.position,
+              ) ? 24 : 12,
               marginLeft: [Position.Top, Position.Bottom].includes(
                 props.position,
               )
@@ -26,11 +31,10 @@ export function Handle(props: Props) {
               marginTop: [Position.Left, Position.Right].includes(
                 props.position,
               )
-                ? HANDLE_SPACING * (props.offset ?? 0)
+                ? HANDLE_SPACING * (props.offset ?? 0) + NODER_HEADER_HEIGHT_SPACING
                 : 0,
-              borderWidth: 2,
-              borderColor: "white",
-              backgroundColor: "#09090b",
+              backgroundColor: "#737373",
+              borderRadius: '16px',
               ...props.style,
             }}
           />

@@ -1,14 +1,14 @@
 import {
-  Checkbox,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  Slider,
-  Switch
+    Checkbox,
+    Label,
+    RadioGroup,
+    RadioGroupItem,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    Slider,
+    Switch
 } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { ButtonOption } from "johnny-five";
@@ -111,10 +111,10 @@ export function Button(props: Props) {
           </RadioGroup>
         </section>
       </NodeSettings>
-      <Handle type="source" position={Position.Bottom} id="down" offset={-1} />
-      <Handle type="source" position={Position.Bottom} id="hold" />
-      <Handle type="source" position={Position.Bottom} id="up" offset={1} />
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="source" position={Position.Right} id="down" offset={-1} />
+      <Handle type="source" position={Position.Right} id="hold" />
+      <Handle type="source" position={Position.Right} id="up" offset={1} />
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

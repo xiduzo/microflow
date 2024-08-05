@@ -45,7 +45,7 @@ export function Sensor(props: Props) {
           </SelectContent>
         </Select>
       </NodeSettings>
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

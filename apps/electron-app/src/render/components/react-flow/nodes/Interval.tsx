@@ -37,7 +37,7 @@ export function Interval(props: Props) {
           onValueChange={(value) => updateNodeData({ interval: value[0] })}
         />
       </NodeSettings>
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

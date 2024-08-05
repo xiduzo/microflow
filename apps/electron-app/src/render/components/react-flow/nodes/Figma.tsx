@@ -87,37 +87,37 @@ export function Figma(props: Props) {
       </NodeSettings>
       {variable?.resolvedType === "BOOLEAN" && (
         <>
-          <Handle type="target" position={Position.Top} id="true" offset={-1} />
-          <Handle type="target" position={Position.Top} id="toggle" />
-          <Handle type="target" position={Position.Top} id="false" offset={1} />
+          <Handle type="target" position={Position.Left} id="true" offset={-1} />
+          <Handle type="target" position={Position.Left} id="toggle" />
+          <Handle type="target" position={Position.Left} id="false" offset={1} />
         </>
       )}
       {variable?.resolvedType === "COLOR" && (
         <>
           <Handle
             type="target"
-            position={Position.Top}
+            position={Position.Left}
             id="red"
             hint="0-255"
             offset={-1.5}
           />
           <Handle
             type="target"
-            position={Position.Top}
+            position={Position.Left}
             id="green"
             hint="0-255"
             offset={-0.5}
           />
           <Handle
             type="target"
-            position={Position.Top}
+            position={Position.Left}
             id="blue"
             hint="0-255"
             offset={0.5}
           />
           <Handle
             type="target"
-            position={Position.Top}
+            position={Position.Left}
             id="opacity"
             hint="0-100"
             offset={1.5}
@@ -128,20 +128,20 @@ export function Figma(props: Props) {
         <>
           <Handle
             type="target"
-            position={Position.Top}
+            position={Position.Left}
             id="increment"
             offset={-0.5}
           />
           <Handle
             type="target"
-            position={Position.Top}
+            position={Position.Left}
             id="decrement"
             offset={0.5}
           />
         </>
       )}
       <Handle type="target" position={Position.Left} id="set" />
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

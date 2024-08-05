@@ -61,7 +61,7 @@ export function MenuButton() {
 
   return (
     <DropdownMenu open={dropDownOpen}>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger asChild disabled={dropDownOpen}>
          <Button variant="ghost" title="Options" onClick={() => setDropdownOpen(!dropDownOpen)}>
            <Icons.Menu />
          </Button>

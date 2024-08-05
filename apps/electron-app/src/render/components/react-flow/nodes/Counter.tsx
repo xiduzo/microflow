@@ -12,23 +12,23 @@ export function Counter(props: Props) {
           {numberFormat.format(props.data.value ?? 0)}
         </NodeHeader>
       </NodeContent>
+      <NodeSettings>
+      </NodeSettings>
+      <Handle type="target" position={Position.Left} id="reset" offset={-1.5} />
       <Handle
         offset={-0.5}
         type="target"
-        position={Position.Top}
-        id="increment"
+        position={Position.Left}
+        id="decrement"
       />
-      <NodeSettings>
-      </NodeSettings>
       <Handle
         offset={0.5}
         type="target"
-        position={Position.Top}
-        id="decrement"
+        position={Position.Left}
+        id="increment"
       />
-      <Handle type="target" position={Position.Left} id="set" offset={-0.5} />
-      <Handle type="target" position={Position.Left} id="reset" offset={0.5} />
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="target" position={Position.Left} id="set" offset={1.5} />
+      <Handle type="source" position={Position.Bottom} id="change" />
     </NodeContainer>
   );
 }

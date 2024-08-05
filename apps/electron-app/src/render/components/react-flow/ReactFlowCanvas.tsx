@@ -76,34 +76,34 @@ export function ReactFlowComponent() {
 
       switch (type) {
         case "Button":
-          data = { pin: 1 } satisfies ButtonData;
+          data = { pin: 1, label: "Button" } satisfies ButtonData & { label: string };
           break;
         case "Counter":
-          data = {} satisfies CounterData;
+          data = { label: 'Counter' } satisfies CounterData & { label: string };
           break;
         case "Figma":
-          data = {} satisfies FigmaData;
+          data = { label: "Figma variable" } satisfies FigmaData & { label: string };
           break;
         case "IfElse":
-          data = { validator: 'boolean', subValidator: "", validatorArgs: [] } satisfies IfElseData;
+          data = { validator: 'boolean', subValidator: "", validatorArgs: [], label: "If / Else" } satisfies IfElseData & { label: string };
           break;
         case "Interval":
-          data = { interval: 500 } satisfies IntervalData;
+          data = { interval: 500, label: "Interval" } satisfies IntervalData & { label: string };
           break;
         case "Led":
-          data = { pin: 13 } satisfies LedData;
+          data = { pin: 13, label: "LED" } satisfies LedData & { label: string };
           break;
         case "RangeMap":
-          data = { from: [0, 1023], to: [0, 1023] } satisfies RangeMapData;
+          data = { from: [0, 1023], to: [0, 1023], label: "Map" } satisfies RangeMapData & { label: string };
           break;
         case "Mqtt":
-          data = { topic: "", direction: "publish" } satisfies MqttData;
+          data = { topic: "", direction: "publish", label: "MQTT" } satisfies MqttData & { label: string };
           break;
         case "Sensor":
-          data = { pin: "A0" } satisfies SensorData;
+          data = { pin: "A0", label: "Sensor" } satisfies SensorData & { label: string };
           break;
         case "Servo":
-          data = { pin: 9, range: [0, 180], type: "standard", center: false } satisfies ServoData;
+          data = { pin: 9, range: [0, 180], type: "standard", center: false, label: "Servo" } satisfies ServoData & { label: string };
           break;
       }
 
