@@ -99,28 +99,28 @@ export function Figma(props: Props) {
             position={Position.Left}
             id="red"
             hint="0-255"
-            offset={-1.5}
+            offset={-2}
           />
           <Handle
             type="target"
             position={Position.Left}
             id="green"
             hint="0-255"
-            offset={-0.5}
+            offset={-1}
           />
           <Handle
             type="target"
             position={Position.Left}
             id="blue"
             hint="0-255"
-            offset={0.5}
+            offset={1}
           />
           <Handle
             type="target"
             position={Position.Left}
             id="opacity"
             hint="0-100"
-            offset={1.5}
+            offset={2}
           />
         </>
       )}
@@ -130,13 +130,13 @@ export function Figma(props: Props) {
             type="target"
             position={Position.Left}
             id="increment"
-            offset={-0.5}
+            offset={-1}
           />
           <Handle
             type="target"
             position={Position.Left}
             id="decrement"
-            offset={0.5}
+            offset={1}
           />
         </>
       )}

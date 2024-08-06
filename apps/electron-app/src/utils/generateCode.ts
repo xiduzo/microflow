@@ -535,6 +535,11 @@ class RangeMap extends EventEmitter {
     if(typeof input === 'boolean') {
       input = input ? 1 : 0;
     }
+
+    if(typeof input === 'string') {
+      input = parseFloat(input);
+    }
+
     const inMin = this.options.from[0] ?? 0;
     const inMax = this.options.from[1] ?? 1023;
     const outMin = this.options.to[0] ?? 0;
@@ -568,7 +573,7 @@ class Mqtt extends EventEmitter {
     this.options = options;
 
     this.on("change", this.#postMessage.bind(this, "change"));
-    this.on("receive", this.#postMessage.bind(this, "receive"));
+    this.on("subscribe", this.#postMessage.bind(this, "subscribe"));
   }
 
   get value() {
@@ -581,13 +586,12 @@ class Mqtt extends EventEmitter {
   }
 
   setExternal(value) {
-    this.#value = value;
-    this.emit("receive", value);
+    this.value = value;
+    this.emit("subscribe");
   }
 
   publish(message) {
-    this.#value = message;
-    this.emit("change", this.value);
+    this.value = message;
   }
 
   #postMessage(action) {

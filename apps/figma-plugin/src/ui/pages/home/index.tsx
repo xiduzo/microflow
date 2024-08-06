@@ -68,11 +68,11 @@ export function Home() {
         </section>
         <section className="flex items-center justify-between">
           <ConnectionStatusBadge
-            title="Companion app"
+            title="Microflow studio"
             status={connectedClients.get("app")}
           />
           <div className="space-x-1">
-            <Button variant="ghost" size="icon" title="Get the companion app">
+            <Button variant="ghost" size="icon" title="Get Microflow studio">
               <Icons.ExternalLink className="w-4 h-4" opacity="80%" />
             </Button>
           </div>
