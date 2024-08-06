@@ -1,5 +1,6 @@
 import {
     Checkbox,
+    Icons,
     Label,
     RadioGroup,
     RadioGroupItem,
@@ -8,7 +9,7 @@ import {
     SelectItem,
     SelectTrigger,
     Slider,
-    Switch
+    Toggle
 } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { ButtonOption } from "johnny-five";
@@ -19,7 +20,7 @@ import { Handle } from "./Handle";
 import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 export function Button(props: Props) {
-  const { checkResult } = useBoard();
+  const { pins } = useBoard();
 
   const { updateNodeData } = useUpdateNodeData<ButtonData>(props.id);
 
@@ -28,11 +29,10 @@ export function Button(props: Props) {
       {...props}>
       <NodeContent>
         <NodeHeader>
-          <Switch
-            className="scale-150"
-            disabled
-            checked={Boolean(props.data.value)}
-          />
+          <Toggle disabled className="opacity-100 disabled:opacity-100" size='lg' pressed={props.data.value}>
+            {Boolean(props.data.value) && <Icons.Pointer />}
+            {!Boolean(props.data.value) && <Icons.PointerOff />}
+          </Toggle>
         </NodeHeader>
       </NodeContent>
       <NodeSettings>
@@ -42,8 +42,7 @@ export function Button(props: Props) {
         >
           <SelectTrigger>Pin {props.data.pin}</SelectTrigger>
           <SelectContent>
-            {checkResult.pins
-              ?.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
+            {pins.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
               .map((pin) => (
                 <SelectItem key={pin.pin} value={pin.pin.toString()}>
                   Pin {pin.pin}

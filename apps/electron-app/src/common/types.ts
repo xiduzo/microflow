@@ -15,7 +15,7 @@ export enum MODES {
   UNKOWN = 16
 }
 
-type Pin = {
+export type Pin = {
   supportedModes: MODES[],
   analogChannel: number,
   mode?: unknown,
@@ -37,11 +37,12 @@ export type BoardFlashResult = {
 
 export type UploadCodeResult = {
   type: "info" | "ready" | "fail" | "warn" | "exit" | "close" | "error",
-  message?: string
+  message?: string,
+  pins?: Pin[]
 }
 
 export type UploadedCodeMessage = {
   nodeId: string,
   action: string,
-  value?: unknown
+  value?: unknown,
 }

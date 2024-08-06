@@ -16,11 +16,11 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 
 export function Servo(props: Props) {
   const updateNodeInternals = useUpdateNodeInternals();
-  const { checkResult } = useBoard();
+  const { pins } = useBoard();
 
   const { updateNodeData } = useUpdateNodeData<ServoData>(props.id);
 
-  const hasValidPin = !!checkResult.pins?.find((pin) => pin.pin === Number(props.data.pin) && validatePin(pin));
+  const hasValidPin = !!pins.find((pin) => pin.pin === Number(props.data.pin) && validatePin(pin));
 
   const isStandard = props.data.type === "standard";
 
@@ -73,7 +73,7 @@ export function Servo(props: Props) {
             </div>
           )}
         </NodeHeader>
-        {checkResult.type === "ready" && !hasValidPin && (
+        {!hasValidPin && (
           <div className="text-red-500 text-sm">Pin is not valid for a servo</div>
         )}
       </NodeContent>
@@ -84,8 +84,7 @@ export function Servo(props: Props) {
         >
           <SelectTrigger>Pin {props.data.pin}</SelectTrigger>
           <SelectContent>
-            {checkResult.pins
-              ?.filter(validatePin)
+            {pins.filter(validatePin)
               .map((pin) => (
                 <SelectItem key={pin.pin} value={pin.pin.toString()}>
                   Pin {pin.pin}

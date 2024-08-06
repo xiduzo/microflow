@@ -62,9 +62,9 @@ export function ComponentTabs() {
           tags={["Analog", "Input"]}
         />
         <Draggable
-          title="Servo motor"
-          type="Servo"
-          description="Turn things around"
+          title="Piezo"
+          type="Piezo"
+          description="Play sounds"
           tags={["Analog", "Output"]}
         />
       </TabsContent>

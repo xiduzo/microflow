@@ -10,6 +10,7 @@ import {
 import {
     BoardCheckResult,
     BoardFlashResult,
+    Pin,
     UploadCodeResult,
 } from "../../common/types";
 
@@ -17,6 +18,7 @@ const BoardContext = createContext({
   checkResult: {} as BoardCheckResult,
   flashResult: {} as BoardFlashResult,
   uploadResult: {} as UploadCodeResult,
+  pins: [] as Pin[],
   uploadCode: (code: string) => {
     console.log("uploading code", code);
   },
@@ -36,6 +38,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
   const [uploadResult, setUploadResult] = useState<UploadCodeResult>({
     type: "close",
   });
+  const [pins, setPins] = useState<Pin[]>([]);
 
   function flashBoard(board: KnownBoard) {
     window.electron.ipcRenderer.once(
@@ -59,11 +62,14 @@ export function BoardProvider({ children }: PropsWithChildren) {
 
     const off = window.electron.ipcRenderer.on(
       "ipc-fhb-upload-code",
-      (message: UploadCodeResult) => {
-        console.log("upload result", message)
-        setUploadResult(message);
+      (result: UploadCodeResult) => {
+        console.log("upload result", result)
+        setUploadResult(result);
+        if(result.pins) {
+          setPins(result.pins);
+        }
 
-        if (message.type === "ready") {
+        if (result.type === "ready") {
           off();
         }
       },
@@ -80,6 +86,9 @@ export function BoardProvider({ children }: PropsWithChildren) {
       (result: BoardCheckResult) => {
         console.log("check result", result)
         setCheckResult(result);
+        if(result.pins) {
+          setPins(result.pins);
+        }
 
         switch (result.type) {
           case "exit":
@@ -94,7 +103,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
 
   return (
     <BoardContext.Provider
-      value={{ checkResult, flashResult, uploadResult, flashBoard, uploadCode }}
+      value={{ checkResult, flashResult, uploadResult, flashBoard, uploadCode, pins }}
     >
       {children}
     </BoardContext.Provider>

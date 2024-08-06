@@ -1,6 +1,7 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, Slider } from "@fhb/ui";
+import { Progress, Select, SelectContent, SelectItem, SelectTrigger } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { SensorOption } from "johnny-five";
+import { useMemo } from "react";
 import { BoardCheckResult, MODES } from "../../../../common/types";
 import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
 import { useBoard } from "../../../providers/BoardProvider";
@@ -12,20 +13,26 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 }
 
 export function Sensor(props: Props) {
-  const { checkResult } = useBoard();
+  const { pins } = useBoard();
 
   const { updateNodeData } = useUpdateNodeData<SensorData>(props.id);
 
-  const hasValidPin = !!checkResult.pins?.find((pin) => `A${pin.analogChannel}` === props.data.pin && validatePin(pin));
+  const hasValidPin = !!pins.find((pin) => `A${pin.analogChannel}` === props.data.pin && validatePin(pin));
+
+  const progress = useMemo(() => {
+    if(!props.data.value) return 0;
+
+    return Math.round((props.data.value / 1023) * 100);
+  }, [props.data.value])
 
   return (
     <NodeContainer {...props}>
       <NodeContent>
-        {checkResult.type === "ready" && !hasValidPin && (
+        {!hasValidPin && (
           <div className="text-red-500 text-sm">Pin is not valid for a {props.type}</div>
         )}
         <NodeHeader className="text-4xl tabular-nums">
-          <Slider disabled defaultValue={[0]} min={0} max={1023} value={[props.data.value ?? 0]} />
+          <Progress max={1023} value={progress} />
         </NodeHeader>
       </NodeContent>
       <NodeSettings>
@@ -35,8 +42,7 @@ export function Sensor(props: Props) {
         >
           <SelectTrigger>Pin {props.data.pin}</SelectTrigger>
           <SelectContent>
-            {checkResult.pins
-              ?.filter(validatePin)
+            {pins.filter(validatePin)
               .map((pin) => (
                 <SelectItem key={pin.pin} value={`A${pin.analogChannel}`}>
                   Pin A{pin.analogChannel}

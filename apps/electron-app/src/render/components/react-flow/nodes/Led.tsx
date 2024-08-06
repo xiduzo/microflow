@@ -18,7 +18,7 @@ import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "
 export function Led(props: Props) {
   const { updateNodeData } = useUpdateNodeData<LedData>(props.id);
 
-  const { checkResult } = useBoard();
+  const { pins } = useBoard();
 
   return (
     <NodeContainer {...props}>
@@ -41,8 +41,7 @@ export function Led(props: Props) {
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Set led pin</SelectLabel>
-                {checkResult.pins
-                  ?.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
+                {pins.filter((pin) => pin.supportedModes.includes(MODES.INPUT))
                   .map((pin) => (
                     <SelectItem key={pin.pin} value={pin.pin.toString()}>
                       Pin {pin.pin}

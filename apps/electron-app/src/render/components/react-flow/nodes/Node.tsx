@@ -210,7 +210,7 @@ function BaseContextMenu() {
 }
 
 export type BaseNode<
-  DataType extends Record<string, unknown> = {},
+  DataType extends Record<string, any> = {},
   ValueType = undefined,
 > = Node<DataType & { animated?: string; value?: ValueType, settingsOpen?: boolean, label: string }>;
 

@@ -107,13 +107,13 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
     defineMqtt,
     defineRangeMap,
     defineSensor,
-    defineServo
+    defineServo,
+    definePiezo
   ]
 
   classDefinitions.forEach((defineClass) => {
-
-    code += addEnter()
-    code += defineClass()
+    code += addEnter();
+    code += defineClass();
   })
 
   return code
@@ -142,10 +142,15 @@ const board = new JohnnyFive.Board({
 }
 
 function addBoardListener(type: string, selfClosing = true) {
+  const pins = type === 'ready' ? `, pins: Object.entries(board.pins).reduce((acc, [key, value]) => {
+    acc.push({ pin: Number(key), ...value, });
+    return acc;
+  }, [])
+  ` : ``
   return `
 board.on("${type}", (event) => {
   log.warn("board ${type}", { event });
-  process.parentPort.postMessage({ type: "${type}", message: event?.message });
+  process.parentPort.postMessage({ type: "${type}", message: event?.message${pins} });
 ${selfClosing ? `}); // board - ${type}` : ``}
 `
 }
@@ -685,6 +690,51 @@ class Servo extends JohnnyFive.Servo {
   postMessage(action) {
     if(!this.options) return;
     this.emit("change", this.value);
+
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+  }
+}
+`
+}
+
+function definePiezo() {
+  return `
+class Piezo extends JohnnyFive.Piezo {
+  #eventEmitter = new EventEmitter();
+  #timeout = null;
+
+  constructor(options) {
+    super(options);
+    this.options = options;
+  }
+
+  frequency() {
+    if(this.#timeout) {
+      clearTimeout(this.#timeout);
+    }
+
+    this.stop();
+
+    super.frequency(this.options.frequency, this.options.duration);
+
+    this.#timeout = setTimeout(() => {
+      this.stop();
+    }, this.options.duration + 1);
+  }
+
+  stop() {
+    super.stop();
+    super.off();
+  }
+
+  play() {
+    super.play(this.options.tune);
+  }
+
+  postMessage(action) {
+    if (action !== "change") {
+      this.#eventEmitter.emit("change", this.value);
+    }
 
     process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
   }
