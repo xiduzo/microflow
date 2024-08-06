@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 
-import mqtt from "mqtt/*";
+import mqtt, { Packet } from "mqtt/*";
 import { createContext, PropsWithChildren } from "react";
 import { ConnectionStatus, useMqttClient } from "../hooks/useMqttClient";
 
@@ -19,11 +19,11 @@ const MqttProviderContext = createContext<
 >({
   status: "disconnected",
   connectedClients: new Map<Client, ConnectionStatus>(),
-  connect: () => { },
+  connect: () => () => { },
   disconnect: () => { },
-  subscribe: (...args) => { },
-  unsubscribe: (...args) => { },
-  publish: (...args) => { },
+  subscribe: () => Promise.resolve(() => { }),
+  unsubscribe: () => Promise.resolve() as any as Promise<Packet>,
+  publish: () =>  Promise.resolve() as any as Promise<Packet>,
   subscriptions: {
     current: new Map(),
   },
@@ -48,13 +48,13 @@ export function MqttProvider(props: PropsWithChildren & Props) {
       unsubscribe(topic);
     });
     setConnectedClients(new Map());
-    publish(`fhb/v1/${props.uniqueId}/${props.appName}/ping`, "");
-  }, [props.uniqueId, props.appName, unsubscribe])
+    publish(`microflow/v1/${props.config.uniqueId}/${props.appName}/ping`, "");
+  }, [props.config.uniqueId, props.appName, unsubscribe])
 
   useEffect(() => {
     if (status !== "connected") return;
 
-    const unsubFromPing = subscribe(`fhb/v1/${props.uniqueId}/+/ping`, (topic) => {
+    const unsubFromPing = subscribe(`microflow/v1/${props.config.uniqueId}/+/ping`, (topic) => {
       const from = topic.split("/")[3].toString();
       if (from === props.appName) return; // No need to pong to self
       // if we received a ping it is connected
@@ -62,11 +62,11 @@ export function MqttProvider(props: PropsWithChildren & Props) {
         prev.set(from as Client, "connected");
         return new Map(prev);
       });
-      publish(`fhb/v1/${props.uniqueId}/${from}/pong`, props.appName);
+      publish(`microflow/v1/${props.config.uniqueId}/${from}/pong`, props.appName);
     });
 
     const unsubFromPong = subscribe(
-      `fhb/v1/${props.uniqueId}/${props.appName}/pong`,
+      `microflow/v1/${props.config.uniqueId}/${props.appName}/pong`,
       (topic, message) => {
         setConnectedClients((prev) => {
           const client = message.toString() as Client;
@@ -80,7 +80,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
       },
     );
 
-    publish(`fhb/v1/${props.uniqueId}/${props.appName}/ping`, "");
+    publish(`microflow/v1/${props.config.uniqueId}/${props.appName}/ping`, "");
     const interval = setInterval(async () => {
       setConnectedClients((prev) => {
         prev.forEach((_status, client) => {
@@ -97,7 +97,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
         });
         return new Map(prev);
       });
-      await publish(`fhb/v1/${props.uniqueId}/${props.appName}/ping`, "");
+      await publish(`microflow/v1/${props.config.uniqueId}/${props.appName}/ping`, "");
     }, 30000);
 
     return () => {
@@ -105,9 +105,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
       unsubFromPing?.then((unsub) => unsub?.());
       unsubFromPong?.then((unsub) => unsub?.());
     };
-  }, [status, subscribe, publish, props.appName, props.uniqueId]);
-
-  console.log(connectedClients)
+  }, [status, subscribe, publish, props.appName, props.config.uniqueId]);
 
   return (
     <MqttProviderContext.Provider
@@ -115,7 +113,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
         ...mqttClient,
         connectedClients,
         appName: props.appName,
-        uniqueId: props.uniqueId,
+        uniqueId: props.config.uniqueId,
       }}
     >
       {props.children}
@@ -123,11 +121,10 @@ export function MqttProvider(props: PropsWithChildren & Props) {
   );
 }
 
-export type MqttConfig = Pick<mqtt.IClientOptions, "username" | "password" | "host" | "port">
+export type MqttConfig = Partial<Pick<mqtt.IClientOptions, "username" | "password" | "host" | "port">> & { uniqueId: string }
 type Props = {
   appName: Client;
-  uniqueId: string;
-  config?: MqttConfig;
+  config: MqttConfig;
 };
 
 export const useMqtt = () => useContext(MqttProviderContext);

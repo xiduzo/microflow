@@ -1,5 +1,5 @@
 import { Button, cva, Icons } from "@fhb/ui";
-import { PageContent, PageHeader } from "../../components/Page";
+import { PageContent } from "../../components/Page";
 
 import { ConnectionStatus, useMqtt } from "@fhb/mqtt/client";
 import { Link } from "react-router-dom";
@@ -40,31 +40,26 @@ const connectionStatusBadge = cva(
 
 export function Home() {
   const { status, connectedClients } = useMqtt();
-  useSetWindowSize({ width: 250, height: 220 });
+  useSetWindowSize({ width: 250, height: 190 });
 
   console.log("home", connectedClients);
   return (
     <>
-      <PageHeader title="" end={<div className="space-x-1">
-        <Button variant="ghost" size="icon" title="Variables and topics" asChild>
-          <Link to="/variables">
-            <Icons.Settings2 className="w-4 h-4 rotate-90" opacity="80%" />
-          </Link>
-        </Button>
-        <Button variant="ghost" size="icon" title="Config" asChild>
-          <Link to="/config">
-            <Icons.Cog className="w-4 h-4" opacity="80%" />
-          </Link>
-        </Button>
-      </div>} />
       <PageContent>
         <section className="flex items-center justify-between">
           <ConnectionStatusBadge title="Mqtt" status={status} />
-          <Button variant="ghost" size="icon" title="Mqtt settings" asChild>
-            <Link to="/mqtt">
-              <Icons.ServerCog className="w-4 h-4" opacity="80%" />
-            </Link>
-          </Button>
+          <section className="space-x-2">
+            <Button variant="ghost" size="icon" title="Variables and topics" asChild>
+              <Link to="/variables">
+                <Icons.Settings2 className="w-4 h-4 rotate-90" opacity="80%" />
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon" title="Mqtt settings" asChild>
+              <Link to="/mqtt">
+                <Icons.ServerCog className="w-4 h-4" opacity="80%" />
+              </Link>
+            </Button>
+          </section>
         </section>
         <section className="flex items-center justify-between">
           <ConnectionStatusBadge
@@ -72,9 +67,12 @@ export function Home() {
             status={connectedClients.get("app")}
           />
           <div className="space-x-1">
+          <a href="https://microflow.vercel.app/" target="_blank">
             <Button variant="ghost" size="icon" title="Get Microflow studio">
               <Icons.ExternalLink className="w-4 h-4" opacity="80%" />
             </Button>
+          </a>
+
           </div>
         </section>
         <a href="https://www.sanderboer.nl" target="_blank" className="py-2 text-center opacity-60 transition-all hover:opacity-100 hover:underline text-gray-50/40">

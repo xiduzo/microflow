@@ -1,6 +1,7 @@
 import { MqttConfig } from '@fhb/mqtt/client';
-import { Button, Form, FormControl, FormField, FormItem, FormLabel, FormMessage, Icons, Input, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, useForm, Zod, zodResolver } from '@fhb/ui';
+import { Button, Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage, Icons, Input, Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger, Switch, useForm, Zod, zodResolver } from '@fhb/ui';
 import { useEffect } from 'react';
+import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
 
 const schema = Zod.object({
@@ -8,6 +9,8 @@ const schema = Zod.object({
   port: Zod.number({ coerce: true }).optional(),
   username: Zod.string().optional(),
   password: Zod.string().optional(),
+  uniqueId: Zod.string().min(5, "Requires minimum of 5 characters").regex(/^[a-zA-Z_]+$/, { message: 'Only letters and underscores allowed' }),
+  protocol: Zod.enum(['ws', 'wss']).default('wss')
 });
 
 type Schema = Zod.infer<typeof schema>;
@@ -15,6 +18,8 @@ type Schema = Zod.infer<typeof schema>;
 const defaultValues: Schema = {
   host: "test.mosquitto.org",
   port: 8081,
+  uniqueId: "",
+  protocol: "wss",
 }
 
 export function MqttSettingsForm(props: Props) {
@@ -23,7 +28,14 @@ export function MqttSettingsForm(props: Props) {
     defaultValues: defaultValues
   })
 
-  const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>("mqtt-config", defaultValues)
+  const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>("mqtt-config", {
+    uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] })
+  })
+
+  function setRandomUniqueName() {
+    form.clearErrors('uniqueId');
+    form.setValue('uniqueId', uniqueNamesGenerator({ dictionaries: [adjectives, animals] }));
+  }
 
   function onSubmit(data: Schema) {
     setMqttConfig(data)
@@ -48,10 +60,26 @@ export function MqttSettingsForm(props: Props) {
     <SheetContent>
       <SheetHeader>
         <SheetTitle>MQTT Settings</SheetTitle>
-        <SheetDescription>When using Figma nodes, make sure to configure the same MQTT broker in the <a className='underline' href="https://www.figma.com/community/plugin/1373258770799080545/figma-hardware-bridge" target="_blank">Figma hardware bridge plugin</a>.</SheetDescription>
+        <SheetDescription>When using Figma nodes, make sure to configure the same MQTT broker in the <a className='underline' href="https://www.figma.com/community/plugin/1373258770799080545/figma-hardware-bridge" target="_blank">Figma plugin</a>.</SheetDescription>
       </SheetHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-2">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="my-4 space-y-4">
+          <FormField control={form.control} name="uniqueId" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Identifier</FormLabel>
+              <section className="flex items-center space-x-2">
+                <FormControl>
+                  <Input placeholder="Your unique identifier" {...field} />
+                </FormControl>
+                <Button variant="ghost" type="button" onClick={setRandomUniqueName}>
+                  <Icons.Dices className="w-4 h-4" />
+                </Button>
+              </section>
+              <FormDescription>
+                This identifier is only being used by Figma nodes.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>)} />
           <FormField control={form.control} name="host" render={({ field }) => (
             <FormItem>
               <FormLabel>Host</FormLabel>
@@ -84,11 +112,22 @@ export function MqttSettingsForm(props: Props) {
               </FormControl>
               <FormMessage />
             </FormItem>)} />
-          <Button type="submit" className="w-full">Save broker settings</Button>
-          <div className="text-orange-500 text-sm">
-            <Icons.TriangleAlert className="w-3.5 h-3.5 pb-0.5 inline-block mr-1" />
-            This app will force a connection over <code>wss://</code>, make sure your settings will connect to an encrypted websocket.
-          </div>
+          <FormField control={form.control} name="protocol" render={({ field }) => (
+            <FormItem className='flex justify-between items-center space-y-0'>
+              <FormLabel className='grow'>Encrypted (wss)</FormLabel>
+              <FormControl>
+                <Switch {...field} onCheckedChange={checked => {
+                  form.setValue('protocol', checked ? 'wss' : 'ws')
+                }} defaultChecked={form.getValues('protocol') === 'wss'} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>)} />
+          <SheetFooter>
+            <SheetClose asChild>
+              <Button variant='secondary'>Cancel</Button>
+            </SheetClose>
+            <Button type="submit">Save changes</Button>
+          </SheetFooter>
         </form>
       </Form>
     </SheetContent>

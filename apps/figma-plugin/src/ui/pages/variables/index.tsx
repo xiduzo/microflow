@@ -45,16 +45,16 @@ export function Variables() {
               size="icon"
               title="Copy publish topic"
               className="hover:cursor-copy"
-              onClick={() => { copy(`fhb/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`) }}>
-              <Icons.RadioTower className={copyButtonIcon({ hasCopiedValue: copiedValue === `fhb/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set` })} opacity="80%" />
+              onClick={() => { copy(`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`) }}>
+              <Icons.RadioTower className={copyButtonIcon({ hasCopiedValue: copiedValue === `microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set` })} opacity="80%" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               title="Copy subscribe topic"
               className="hover:cursor-copy"
-              onClick={() => { copy(`fhb/v1/${uniqueId}/plugin/variable/${variable.id}`) }}>
-              <Icons.Antenna className={copyButtonIcon({ hasCopiedValue: copiedValue === `fhb/v1/${uniqueId}/plugin/variable/${variable.id}` })} opacity="80%" />
+              onClick={() => { copy(`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`) }}>
+              <Icons.Antenna className={copyButtonIcon({ hasCopiedValue: copiedValue === `microflow/v1/${uniqueId}/plugin/variable/${variable.id}` })} opacity="80%" />
             </Button>
           </div>
         </section>

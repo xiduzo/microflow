@@ -1,6 +1,6 @@
 // https://www.figma.com/plugin-docs/manifest/
 export default {
-  name: "Figma hardware bridge",
+  name: "Microflow hardware bridge",
   id: "1373258770799080545",
   api: "1.0.0",
   main: "plugin.js",

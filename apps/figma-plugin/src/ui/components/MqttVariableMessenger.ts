@@ -29,7 +29,7 @@ export function MqttVariableMessenger() {
 
     const newVariablesAsJson = JSON.stringify(newVariables);
     if (newVariablesAsJson !== JSON.stringify(knownVariables.current)) {
-      await publish(`fhb/v1/${uniqueId}/plugin/variables`, newVariablesAsJson);
+      await publish(`microflow/v1/${uniqueId}/plugin/variables`, newVariablesAsJson);
     }
 
     knownVariables.current = newVariables;
@@ -43,7 +43,7 @@ export function MqttVariableMessenger() {
       }
 
       await publish(
-        `fhb/v1/${uniqueId}/plugin/variable/${variable.id}`,
+        `microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
         JSON.stringify(value),
       );
       publishedVariableValues.current.set(variable.id, valueAsJson);
@@ -53,18 +53,18 @@ export function MqttVariableMessenger() {
   useEffect(() => {
     if (status !== "connected") return;
 
-    subscribe(`fhb/v1/${uniqueId}/+/variables/request`, (topic) => {
+    subscribe(`microflow/v1/${uniqueId}/+/variables/request`, (topic) => {
       const app = topic.split("/")[3];
       publish(
-        `fhb/v1/${uniqueId}/${app}/variables/response`,
+        `microflow/v1/${uniqueId}/${app}/variables/response`,
         JSON.stringify(knownVariables.current),
       );
       publishedVariableValues.current.forEach((value, id) => {
-        publish(`fhb/v1/${uniqueId}/${app}/variable/${id}`, value);
+        publish(`microflow/v1/${uniqueId}/${app}/variable/${id}`, value);
       });
     });
 
-    subscribe(`fhb/v1/${uniqueId}/+/variable/+/set`, async (topic, message) => {
+    subscribe(`microflow/v1/${uniqueId}/+/variable/+/set`, async (topic, message) => {
       const [, , , app, , variableId] = topic.split("/");
       const value = JSON.parse(message.toString());
 

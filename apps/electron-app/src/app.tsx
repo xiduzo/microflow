@@ -1,4 +1,4 @@
-import { FigmaProvider, MqttProvider } from "@fhb/mqtt/client";
+import { FigmaProvider, MqttConfig, MqttProvider } from "@fhb/mqtt/client";
 import { Edge, Node, ReactFlowProvider } from "@xyflow/react";
 import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
@@ -10,10 +10,24 @@ import { BoardProvider } from "./render/providers/BoardProvider";
 import { useNodesEdgesStore } from "./render/store";
 
 export function App() {
-  const [identifier] = useLocalStorage("identifier", uniqueNamesGenerator({ dictionaries: [adjectives, animals] }))
+  const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>("mqtt-config", {
+    uniqueId: ""
+  })
+
+  useEffect(() => {
+    if(mqttConfig.uniqueId.length) {
+      return
+    }
+
+    setMqttConfig({
+      uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] })
+    })
+  }, [mqttConfig.uniqueId])
+
+  console.log(mqttConfig)
 
   return (
-    <MqttProvider appName="app" uniqueId={identifier}>
+    <MqttProvider appName="app" config={mqttConfig}>
       <FigmaProvider>
         <BoardProvider>
           <ReactFlowProvider>

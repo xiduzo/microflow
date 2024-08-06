@@ -25,4 +25,4 @@ export function PageContent(props: PropsWithChildren & { className?: string }) {
   );
 }
 
-const pageContent = cva("flex flex-col space-y-3 p-2 w-full")
+const pageContent = cva("flex flex-col space-y-3 p-4 w-full")

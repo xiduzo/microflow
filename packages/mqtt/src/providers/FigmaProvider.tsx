@@ -1,10 +1,10 @@
 import {
-  createContext,
-  PropsWithChildren,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
+    createContext,
+    PropsWithChildren,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
 } from "react";
 import { useMqtt } from "./MqttProvider";
 
@@ -49,14 +49,14 @@ export function FigmaProvider(props: PropsWithChildren) {
       });
     }
 
-    subscribe(`fhb/v1/${uniqueId}/plugin/variables`, handleVariablesUpdate);
+    subscribe(`microflow/v1/${uniqueId}/plugin/variables`, handleVariablesUpdate);
     subscribe(
-      `fhb/v1/${uniqueId}/${appName}/variables/response`,
+      `microflow/v1/${uniqueId}/${appName}/variables/response`,
       handleVariablesUpdate,
     );
 
-    subscribe(`fhb/v1/${uniqueId}/plugin/variable/+`, handleVariableUpdate);
-    subscribe(`fhb/v1/${uniqueId}/${appName}/variable/+`, handleVariableUpdate);
+    subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, handleVariableUpdate);
+    subscribe(`microflow/v1/${uniqueId}/${appName}/variable/+`, handleVariableUpdate);
   }, [status, subscribe, appName, uniqueId]);
 
   useEffect(() => {
@@ -69,10 +69,10 @@ export function FigmaProvider(props: PropsWithChildren) {
       return;
     }
 
-    publish(`fhb/v1/${uniqueId}/${appName}/variables/request`, "");
+    publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, "");
 
     const interval = setInterval(() => {
-      publish(`fhb/v1/${uniqueId}/${appName}/variables/request`, "");
+      publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, "");
     }, 5000);
 
     return () => {

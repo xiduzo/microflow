@@ -3,7 +3,6 @@ import { Edge, Node, useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { useIsAppleProduct } from "../../../hooks/useIsAppleProduct";
-import { FigmaSettingsForm } from "../../forms/FigmaSettingsForm";
 import { MqttSettingsForm } from "../../forms/MqttSettingsForm";
 
 export function MenuButton() {
@@ -79,9 +78,6 @@ export function MenuButton() {
         <DropdownMenuSeparator />
         <MqttSettingsForm onClose={closeDropdown} trigger={<DropdownMenuItem>
           MQTT settings
-        </DropdownMenuItem>} />
-        <FigmaSettingsForm onClose={closeDropdown} trigger={<DropdownMenuItem>
-          Figma settings
         </DropdownMenuItem>} />
       </DropdownMenuContent>
     </DropdownMenu>

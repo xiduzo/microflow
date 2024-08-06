@@ -53,7 +53,13 @@ export function useLocalStorage<T>(
     (payload) => {
       if (payload?.key !== key) return;
 
-      setState(payload.value);
+      setState(prev => {
+        const next = JSON.stringify(payload?.value);
+        const curr = JSON.stringify(prev);
+        if (next === curr) return prev; // prevent re-rendering if the value is the same
+
+        return payload?.value;
+      });
     },
     { intervalInMs: options?.updateInterval }
   );
@@ -65,9 +71,16 @@ export function useLocalStorage<T>(
       const [resolve] = localStatePromise.current;
       resolve?.();
 
-      setState(payload?.value);
+      setState(prev => {
+        const next = JSON.stringify(payload?.value);
+        const curr = JSON.stringify(prev);
+        if (next === curr) return prev; // prevent re-rendering if the value is the same
+
+        return payload?.value
+      });
     }
   );
+
   return [
     state as typeof options.initialValue extends undefined ? T | undefined : T,
     setLocalState,

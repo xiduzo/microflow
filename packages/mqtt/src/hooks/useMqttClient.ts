@@ -50,17 +50,18 @@ export function useMqttClient() {
     setStatus('connected');
   }, [unsubscribe, subscribe])
 
-  const connect = useCallback((
-    options: mqtt.IClientOptions = {
+  const connect = useCallback((options: mqtt.IClientOptions) => {
+    const defaultClient: mqtt.IClientOptions = {
       host: "test.mosquitto.org",
       port: 8081,
-    },
-  ) => {
+    }
+
     if (client.current) return;
 
     client.current = mqtt.connect({
-      ...options,
+      ...defaultClient,
       protocol: "wss",
+      ...options,
     });
 
     client.current

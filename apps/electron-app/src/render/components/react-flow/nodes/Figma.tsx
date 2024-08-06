@@ -44,7 +44,7 @@ export function Figma(props: Props) {
     if (!variable) return;
 
     publish(
-      `fhb/v1/${uniqueId}/${appName}/variable/${variable.id}/set`,
+      `microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`,
       JSON.stringify(props.data.value),
     );
   }, [props.data?.value, variable, publish, status, appName, uniqueId]);
