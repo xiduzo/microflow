@@ -131,7 +131,7 @@ export function Piezo(props: Props) {
               step={5}
               onValueChange={(value) => updateNodeData({ tempo: value[0] })}
             />
-            <MusicSheet song={props.data.song } />
+            <MusicSheet song={props.data.song} />
             <Sheet onOpenChange={value => {
               if(props.data.type !== 'song') {
                 return;
@@ -145,7 +145,7 @@ export function Piezo(props: Props) {
                   Edit song
                 </Button>
               </SheetTrigger>
-              <SheetContent>
+              <SheetContent className="space-y-0 grid grid-rows-[28px_1fr_minmax(_1fr,_3fr)_40px]">
                 <SheetHeader>
                   <SheetTitle>
                     Edit song
@@ -302,11 +302,11 @@ function SongEditor(props: SongEditorProps) {
 
   return (
   <>
-    <section className="my-6 flex flex-col gap-y-4">
+    <section className="mt-6">
       <MusicSheet song={editedSong} />
       <Label
         htmlFor="temp-tempo"
-        className="flex justify-between"
+        className="flex justify-between mt-4"
       >
         Tempo
         <span className="opacity-40 font-light">
@@ -315,6 +315,7 @@ function SongEditor(props: SongEditorProps) {
       </Label>
       <Slider
         id="temp-tempo"
+        className="my-4"
         defaultValue={[editedTempo ?? 100]}
         min={10}
         max={300}
@@ -324,12 +325,14 @@ function SongEditor(props: SongEditorProps) {
       <Label>
         Notes
       </Label>
+      <section className="grid grid-cols-4 text-xs text-muted-foreground mt-1">
+        <span className="col-span-3">Note</span>
+        <span className="col-span-1 ml-1">Length</span>
+      </section>
+    </section>
+    <section className="mb-6 flex flex-col gap-y-4 -mr-6 pr-2 overflow-y-scroll">
       <section className="flex flex-col space-y-2">
-        <section className="grid grid-cols-4 text-xs text-muted-foreground">
-          <span className="col-span-3">Note</span>
-          <span className="col-span-1">Duration</span>
-        </section>
-        {[...editedSong,...editedSong,...editedSong].map(([note, duration], index) => (
+        {[...editedSong,...editedSong].map(([note, duration], index) => (
           <section key={index} className="grid gap-x-1 grid-cols-4">
             <NoteSelector value={note} onSelect={value => {
               const newSong = [...editedSong]

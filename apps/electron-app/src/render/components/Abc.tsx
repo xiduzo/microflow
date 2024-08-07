@@ -57,6 +57,12 @@ function convertToABC(notes: [string | null, number][]) {
         abcString += `${sharp}${note}${nodeDuration} `
       }
 
+
+
+      if(index === notes.length - 1) {
+        abcString += "|]"
+      }
+
       if(barBeatCount >= beatsPerBar) {
         abcString += "|"
         barBeatCount = 0
@@ -69,9 +75,9 @@ function convertToABC(notes: [string | null, number][]) {
       }
     })
 
-    Array.from({ length: beatsPerLine - lineBeatCount % beatsPerLine }).forEach(() => abcString += "x ") // Fill rest of the line
-
-    abcString += "|]" // end of song
+    if(lineBeatCount) {
+      Array.from({ length: beatsPerLine - lineBeatCount % beatsPerLine }).forEach(() => abcString += "x ") // Fill rest of the line
+    }
 
     return `
 X:1
