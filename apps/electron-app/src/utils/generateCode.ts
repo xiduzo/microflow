@@ -688,37 +688,50 @@ function definePiezo() {
 class Piezo extends JohnnyFive.Piezo {
   #eventEmitter = new EventEmitter();
   #timeout = null;
+  #value = false;
 
   constructor(options) {
     super(options);
     this.options = options;
   }
 
-  buzz() {
-    if(this.#timeout) {
-      clearTimeout(this.#timeout);
-    }
+  get value() {
+    return this.#value;
+  }
 
+  set value(value) {
+    this.#value = value;
+    this.postMessage("change");
+    this.#eventEmitter.emit("change", value);
+  }
+
+  buzz() {
     this.stop();
 
+    this.value = true;
     super.frequency(this.options.frequency, this.options.duration);
 
-    this.#timeout = setTimeout(() => {
+    setTimeout(() => {
       this.stop();
     }, this.options.duration);
   }
 
   stop() {
+    console.log('stop')
     super.stop();
     super.off();
+    this.value = false;
   }
 
   play() {
     this.stop();
 
+    this.value = true;
     super.play({
       song: this.options.song,
       tempo: this.options.tempo
+    }, () => {
+      this.value = false;
     });
   }
 

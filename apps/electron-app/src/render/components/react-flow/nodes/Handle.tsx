@@ -41,7 +41,7 @@ export function Handle(props: Props) {
         </TooltipTrigger>
         <TooltipContent className="text-center">
           <p>{props.title ?? props.id}</p>
-          {props.hint && <p className="opacity-60">{props.hint}</p>}
+          {props.hint && <p className="text-muted-foreground">{props.hint}</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

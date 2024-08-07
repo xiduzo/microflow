@@ -60,7 +60,7 @@ class Piezo extends JohnnyFive.Piezo {
     super.off();
   }
 
-  frequency() {
+  buzz() {
     if(this.#timeout) {
       clearTimeout(this.#timeout);
     }

@@ -174,7 +174,7 @@ export function ReactFlowComponent() {
         position="bottom-center"
         className="text-gray-50/20 bg-neutral-950/5 backdrop-blur-sm rounded-md p-2"
       >
-        <a href="https://www.sanderboer.nl" target="_blank" className="py-2 text-center opacity-60 transition-all hover:opacity-100 hover:underline">
+        <a href="https://www.sanderboer.nl" target="_blank" className="py-2 text-center text-muted-foreground transition-all hover:opacity-100 hover:underline">
           Made with ♥ by Xiduzo
         </a>
       </Panel>

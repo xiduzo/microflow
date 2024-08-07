@@ -11,7 +11,7 @@ export function Footer() {
           <Logo className="mx-auto h-10 w-auto" />
           <div className='text-center mt-2 font-extrabold'>Microflow</div>
           <div className='text-center mt-2'>
-            <a href="https://sanderboer.nl" target="_blank" className='transition-all hover:underline hover:opacity-60 opacity-40'>Made with ♥ by Xiduzo</a>
+            <a href="https://sanderboer.nl" target="_blank" className='transition-all hover:underline text-muted-foreground'>Made with ♥ by Xiduzo</a>
           </div>
           {/* <nav className="mt-10 text-sm" aria-label="quick links">
             <div className="-my-1 flex justify-center gap-x-6">

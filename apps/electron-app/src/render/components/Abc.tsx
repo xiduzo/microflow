@@ -19,18 +19,18 @@ export function MusicSheet(props: Props) {
 function convertToABC(notes: [string | null, number][]) {
     let abcString = "";
     const beatsPerBar = 4
-    const barsPerLine = 5
+    const barsPerLine = 4
     const beatsPerLine = beatsPerBar * barsPerLine
 
-    let beatCount = 0;
-    let totalBeatCount = 0;
+    let barBeatCount = 0;
+    let lineBeatCount = 0;
 
     // https://www.youtube.com/watch?v=H8hWKP5cEXE
     notes.forEach(([fullNote, duration], index) => {
       const nodeDuration = getNodeDuration(duration)
       const beatDuration = duration * beatsPerBar
-      beatCount += beatDuration
-      totalBeatCount += beatDuration
+      barBeatCount += beatDuration
+      lineBeatCount += beatDuration
 
       // abcString += `"${beatDuration}"`
       if (!fullNote) {
@@ -57,17 +57,19 @@ function convertToABC(notes: [string | null, number][]) {
         abcString += `${sharp}${note}${nodeDuration} `
       }
 
-      if(beatCount >= beatsPerBar) {
+      if(barBeatCount >= beatsPerBar) {
         abcString += "|"
-        beatCount = 0
+        barBeatCount = 0
       }
 
-      if(totalBeatCount % beatsPerLine === 0) {
+      if(lineBeatCount >= beatsPerLine) {
         abcString += "\n "
+        lineBeatCount = 0
+        barBeatCount = 0
       }
     })
 
-    Array.from({ length: beatsPerLine - totalBeatCount % beatsPerLine }).forEach(() => abcString += "x ") // Fill rest of the line
+    Array.from({ length: beatsPerLine - lineBeatCount % beatsPerLine }).forEach(() => abcString += "x ") // Fill rest of the line
 
     abcString += "|]" // end of song
 
