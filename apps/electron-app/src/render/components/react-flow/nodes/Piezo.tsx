@@ -1,4 +1,4 @@
-import { Button, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, Icons, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger, Slider } from "@fhb/ui";
+import { Badge, Button, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, Icons, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger, Slider } from "@fhb/ui";
 import { Position } from "@xyflow/react";
 import { PiezoOption, PiezoTune } from "johnny-five";
 import { useState } from "react";
@@ -145,13 +145,19 @@ export function Piezo(props: Props) {
                   Edit song
                 </Button>
               </SheetTrigger>
-              <SheetContent className="space-y-0 grid grid-rows-[28px_1fr_minmax(_1fr,_3fr)_40px]">
+              <SheetContent>
                 <SheetHeader>
                   <SheetTitle>
                     Edit song
                   </SheetTitle>
                 </SheetHeader>
                 {tempSong && tempTempo && <SongEditor song={tempSong} tempo={tempTempo} />}
+                <SheetFooter>
+                  <SheetClose asChild>
+                    <Button variant="secondary">Cancel</Button>
+                  </SheetClose>
+                  <Button>Save song</Button>
+                </SheetFooter>
               </SheetContent>
             </Sheet>
           </>
@@ -301,69 +307,68 @@ function SongEditor(props: SongEditorProps) {
   const [editedTempo, setEditedTempo] = useState(props.tempo)
 
   return (
-  <>
-    <section className="mt-6">
-      <MusicSheet song={editedSong} />
-      <Label
-        htmlFor="temp-tempo"
-        className="flex justify-between mt-4"
-      >
-        Tempo
-        <span className="opacity-40 font-light">
-          {editedTempo ?? 100}
-        </span>
-      </Label>
-      <Slider
-        id="temp-tempo"
-        className="my-4"
-        defaultValue={[editedTempo ?? 100]}
-        min={10}
-        max={300}
-        step={5}
-        onValueChange={(value) => setEditedTempo(value[0])}
-      />
-      <Label>
-        Notes
-      </Label>
-      <section className="grid grid-cols-4 text-xs text-muted-foreground mt-1">
-        <span className="col-span-3">Note</span>
-        <span className="col-span-1 ml-1">Length</span>
-      </section>
+  <section className="my-6 flex flex-col space-y-4">
+    <MusicSheet song={editedSong} />
+    <Label
+      htmlFor="temp-tempo"
+      className="flex justify-between"
+    >
+      Tempo
+      <span className="opacity-40 font-light">
+        {editedTempo ?? 100}
+      </span>
+    </Label>
+    <Slider
+      id="temp-tempo"
+      defaultValue={[editedTempo ?? 100]}
+      min={10}
+      max={300}
+      step={5}
+      onValueChange={(value) => setEditedTempo(value[0])}
+    />
+    <Label>
+      Notes
+    </Label>
+    {/* TODO: make this react DND */}
+    <section className="grid gap-2 grid-cols-4">
+      {editedSong.map(([note, duration], index) => (
+        <Badge key={index} className="flex justify-between" variant="secondary" draggable onClick={() => {
+          console.log("TODO: open popover to edit note, can also delete note in popover")
+        }}>
+          <span>{note ?? "Rest"}</span>
+          <span>{noteDurationToVisualDuation(duration)}</span>
+        </Badge>
+      ))}
+      {/* TODO: add drop area to remove note */}
+      {/* TODO: add single note using NoteSelector */}
     </section>
-    <section className="mb-6 flex flex-col gap-y-4 -mr-6 pr-2 overflow-y-scroll">
-      <section className="flex flex-col space-y-2">
-        {[...editedSong,...editedSong].map(([note, duration], index) => (
-          <section key={index} className="grid gap-x-1 grid-cols-4">
-            <NoteSelector value={note} onSelect={value => {
-              const newSong = [...editedSong]
-              newSong[index] = [value, duration]
-              setEditedSong(newSong)
-            }} />
-            <Select onValueChange={value => {
-              const newSong = [...editedSong]
-              newSong[index] = [note, parseFloat(value)]
-              setEditedSong(newSong)
-            }}>
-              <SelectTrigger>{noteDurationToVisualDuation(duration)}</SelectTrigger>
-              <SelectContent>
-                {Object.values(NOTE_DURATION).map((selectableDuration) => (
-                  <SelectItem key={selectableDuration} value={selectableDuration.toString()}>
-                    {noteDurationToVisualDuation(selectableDuration)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </section>
-        ))}
-      </section>
-    </section>
-    <SheetFooter>
-      <SheetClose asChild>
-        <Button variant="secondary">Cancel</Button>
-      </SheetClose>
-      <Button>Save song</Button>
-    </SheetFooter>
-  </>
+
+    {/* <section className="flex flex-col space-y-2">
+      {[...editedSong,...editedSong].map(([note, duration], index) => (
+        <section key={index} className="grid gap-x-1 grid-cols-4">
+          <NoteSelector value={note} onSelect={value => {
+            const newSong = [...editedSong]
+            newSong[index] = [value, duration]
+            setEditedSong(newSong)
+          }} />
+          <Select onValueChange={value => {
+            const newSong = [...editedSong]
+            newSong[index] = [note, parseFloat(value)]
+            setEditedSong(newSong)
+          }}>
+            <SelectTrigger>{noteDurationToVisualDuation(duration)}</SelectTrigger>
+            <SelectContent>
+              {Object.values(NOTE_DURATION).map((selectableDuration) => (
+                <SelectItem key={selectableDuration} value={selectableDuration.toString()}>
+                  {noteDurationToVisualDuation(selectableDuration)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </section>
+      ))}
+    </section> */}
+  </section>
   )
 }
 
