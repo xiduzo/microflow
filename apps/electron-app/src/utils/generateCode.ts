@@ -1,18 +1,4 @@
 import { Edge, Node } from "@xyflow/react";
-import { NodeType } from "../render/components/react-flow/ReactFlowCanvas";
-
-const defintions: Record<NodeType, () => string> = {
-  Button: defineButton,
-  Counter: defineCounter,
-  Interval: defineInterval,
-  Led: defineLed,
-  Figma: defineFigma,
-  IfElse: defineIfElse,
-  RangeMap: defineRangeMap,
-  Mqtt: defineMqtt,
-  Sensor: defineSensor,
-  Servo: defineServo,
-}
 
 export function generateCode(nodes: Node[], edges: Edge[]) {
   let code = `
@@ -708,7 +694,7 @@ class Piezo extends JohnnyFive.Piezo {
     this.options = options;
   }
 
-  frequency() {
+  buzz() {
     if(this.#timeout) {
       clearTimeout(this.#timeout);
     }
@@ -719,7 +705,7 @@ class Piezo extends JohnnyFive.Piezo {
 
     this.#timeout = setTimeout(() => {
       this.stop();
-    }, this.options.duration + 1);
+    }, this.options.duration);
   }
 
   stop() {
@@ -728,7 +714,12 @@ class Piezo extends JohnnyFive.Piezo {
   }
 
   play() {
-    super.play(this.options.tune);
+    this.stop();
+
+    super.play({
+      song: this.options.song,
+      tempo: this.options.tempo
+    });
   }
 
   postMessage(action) {

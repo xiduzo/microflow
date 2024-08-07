@@ -17,6 +17,7 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
   onConnect: OnConnect;
   setNodes: (nodes: Node<NodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
+  deleteEdges: (nodeId: string) => void;
   addNode: (node: Node<NodeData>) => void;
 };
 
@@ -67,6 +68,10 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
   setEdges: (edges) => {
     set({ edges });
   },
+  deleteEdges: (nodeId) => {
+    const edges = get().edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId);
+    set({ edges });
+  },
   addNode: (node) => {
     if (!node.data) node.data = {}
 
@@ -76,22 +81,11 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
   }
 }));
 
-export const nodeSelector = <T extends Record<string, unknown> = {}>(nodeId: string) => (state: AppState<T>) => ({
-  node: state.nodes.find((node) => node.id === nodeId),
-});
-
-export const edgeSelector = (edgeId: string) => (state: AppState) => ({
-  edge: state.edges.find((edge) => edge.id === edgeId),
-})
-
-export const nodesAndEdgesSelector = (state: AppState) => ({
-  nodes: state.nodes,
-  edges: state.edges,
-})
-
 export const nodesAndEdgesCountsSelector = (state: AppState) => ({
   nodesCount: state.nodes.length,
   edgesCount: state.edges.length,
 })
 
-export const outgoingEdgeIdSelector = (nodeId: string, handle: string) => (state: AppState) => state.edges.filter(edge => edge.source === nodeId && edge.sourceHandle === handle).map(edge => edge.id);
+export const deleteEdgesSelector = (state: AppState) => ({
+  deleteEdges: state.deleteEdges
+})

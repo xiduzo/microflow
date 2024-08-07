@@ -12,14 +12,14 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@fhb/ui";
-import { Position, useUpdateNodeInternals } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 import { useEffect } from "react";
-import { useUpdateNodeData } from "../../../hooks/nodeUpdater";
+import { useUpdateNodeData, useUpdateNodesHandles } from "../../../hooks/nodeUpdater";
 import { Handle } from "./Handle";
 import { BaseNode, NodeContainer, NodeContent, NodeHeader, NodeSettings } from "./Node";
 
 export function Figma(props: Props) {
-  const updateNodeInternals = useUpdateNodeInternals();
+  const { updateNodesHandles } = useUpdateNodesHandles(props.id);
 
   const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
 
@@ -52,8 +52,8 @@ export function Figma(props: Props) {
   useEffect(() => {
     if (!variable?.resolvedType) return;
 
-    updateNodeInternals(props.id);
-  }, [variable?.resolvedType, props.id]);
+    updateNodesHandles();
+  }, [variable?.resolvedType]);
 
   return (
     <NodeContainer {...props}>

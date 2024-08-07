@@ -7,54 +7,104 @@ const board = new JohnnyFive.Board({
 });
 
 board.on("ready", () => {
-  const piezo = new Piezo({ pin: 3 })
+  const piezo = new Piezo({ pin: 11 })
 
   board.repl.inject({
     // Allow limited on/off control access to the
     // Led instance from the REPL.
     freq: (frequency = 420, duration = 1000) => {
       piezo.frequency(frequency, duration);
+    },
+    play: () => {
+      piezo.play({
+          // song is composed by an array of pairs of notes and beats
+          // The first argument is the note (null means "no note")
+          // The second argument is the length of time (beat) of the note (or non-note)
+          song: [
+            ["C4", 1 / 4],
+            ["D4", 1 / 4],
+            ["F4", 1 / 4],
+            ["D4", 1 / 4],
+            ["A4", 1 / 4],
+            [null, 1 / 4],
+            ["A4", 1],
+            ["G4", 1],
+            [null, 1 / 2],
+            ["C4", 1 / 4],
+            ["D4", 1 / 4],
+            ["F4", 1 / 4],
+            ["D4", 1 / 4],
+            ["G4", 1 / 4],
+            [null, 1 / 4],
+            ["G4", 1],
+            ["F4", 1],
+            [null, 1 / 2]
+          ],
+          tempo: 100
+        });
     }
   });
 })
 
 class Piezo extends JohnnyFive.Piezo {
   #eventEmitter = new EventEmitter();
-  #value = false;
+  #timeout = null;
 
   constructor(options) {
     super(options);
     this.options = options;
   }
 
-  set value(value) {
-    this.#value = value;
-  }
-
-  get value() {
-    return this.#value;
-  }
-
   stop() {
+    super.stop();
     super.off();
-    this.value = false;
   }
 
-  frequency(frequency = 420, duration = 1000) {
-    super.frequency(frequency, duration);
-    this.value = true;
+  frequency() {
+    if(this.#timeout) {
+      clearTimeout(this.#timeout);
+    }
 
-    setTimeout(() => {
-      this.value = false;
-      this.stop()
-    }, duration);
+    this.stop();
+
+    super.frequency(this.options.frequency, this.options.duration);
+
+    this.#timeout = setTimeout(() => {
+      this.stop();
+    }, this.options.duration);
   }
 
-  play(tune = { tempo: 1000, song: ["C4"] }) {
-    super.play(tune, () => {
-      this.value = false;
+  play() {
+    //super.play(this.options.song);
+    console.log("play", this.options);
+    this.stop();
+    super.play({
+      beats: 20,
+      // song is composed by an array of pairs of notes and beats
+      // The first argument is the note (null means "no note")
+      // The second argument is the length of time (beat) of the note (or non-note)
+      song: [
+        ["C4", 1 / 4],
+        ["D4", 1 / 4],
+        ["F4", 1 / 4],
+        ["D4", 1 / 4],
+        ["A4", 1 / 4],
+        [null, 1 / 4],
+        ["A4", 1],
+        ["G4", 1],
+        [null, 1 / 2],
+        ["C4", 1 / 4],
+        ["D4", 1 / 4],
+        ["F4", 1 / 4],
+        ["D4", 1 / 4],
+        ["G4", 1 / 4],
+        [null, 1 / 4],
+        ["G4", 1],
+        ["F4", 1],
+        [null, 1 / 2]
+      ],
+      tempo: this.options.tempo
     });
-    this.value = true;
   }
 
   postMessage(action) {
@@ -62,6 +112,6 @@ class Piezo extends JohnnyFive.Piezo {
       this.#eventEmitter.emit("change", this.value);
     }
 
-    // process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
   }
 }

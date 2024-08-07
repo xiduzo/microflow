@@ -18,7 +18,7 @@ import { Interval, IntervalData } from "./nodes/Interval";
 import { Led, LedData } from "./nodes/Led";
 import { Mqtt, MqttData } from "./nodes/Mqtt";
 import { BaseNode } from "./nodes/Node";
-import { Piezo, PiezoData, PiezoNotes } from "./nodes/Piezo";
+import { defaultSong, Piezo, PiezoData } from "./nodes/Piezo";
 import { RangeMap, RangeMapData } from "./nodes/RangeMap";
 import { Sensor, SensorData } from "./nodes/Sensor";
 import { Servo, ServoData } from "./nodes/Servo";
@@ -108,7 +108,7 @@ export function ReactFlowComponent() {
           data = { pin: 9, range: [0, 180], type: "standard", center: false, label: "Servo" } satisfies ServoData & { label: string };
           break;
         case "Piezo":
-          data = { pin: 3, label: "Piezo", type: "buzz", duration: 1000, frequency: PiezoNotes.d5 } satisfies PiezoData & { label: string };
+          data = { pin: 3, label: "Piezo", type: "song", tempo: 100, song: defaultSong } satisfies PiezoData & { label: string };
           break;
       }
 

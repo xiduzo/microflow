@@ -1265,6 +1265,7 @@ __metadata:
   dependencies:
     "@hookform/resolvers": ^3.9.0
     "@radix-ui/react-checkbox": ^1.1.1
+    "@radix-ui/react-collapsible": ^1.1.0
     "@radix-ui/react-context-menu": ^2.2.1
     "@radix-ui/react-dialog": ^1.1.1
     "@radix-ui/react-dropdown-menu": ^2.1.1
@@ -2035,6 +2036,32 @@ __metadata:
     "@types/react-dom":
       optional: true
   checksum: 731d698058beaa81e56708b6f7dd8736cc5971e231d9fa84df7e0bd301ee144b341592f7241c28c53d5184d3277d2b98bd0be54559ce2a9befc350b41a67811d
+  languageName: node
+  linkType: hard
+
+"@radix-ui/react-collapsible@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@radix-ui/react-collapsible@npm:1.1.0"
+  dependencies:
+    "@radix-ui/primitive": 1.1.0
+    "@radix-ui/react-compose-refs": 1.1.0
+    "@radix-ui/react-context": 1.1.0
+    "@radix-ui/react-id": 1.1.0
+    "@radix-ui/react-presence": 1.1.0
+    "@radix-ui/react-primitive": 2.0.0
+    "@radix-ui/react-use-controllable-state": 1.1.0
+    "@radix-ui/react-use-layout-effect": 1.1.0
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-dom": "*"
+    react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
+  checksum: 1891dde55bf716d9619bd54da72bc65005cbc9dec2395079b53abe0bf4d655906bcbb85ca040e09b9bd8e3fcd0e58154a7ddc410b848db1dfb34ca1530459af0
   languageName: node
   linkType: hard
 
@@ -3812,6 +3839,13 @@ __metadata:
   version: 2.0.0
   resolution: "abbrev@npm:2.0.0"
   checksum: 0e994ad2aa6575f94670d8a2149afe94465de9cedaaaac364e7fb43a40c3691c980ff74899f682f4ca58fa96b4cbd7421a015d3a6defe43a442117d7821a2f36
+  languageName: node
+  linkType: hard
+
+"abcjs@npm:^6.4.2":
+  version: 6.4.2
+  resolution: "abcjs@npm:6.4.2"
+  checksum: ee1e7ef17158c51117bdd9611551a406f3026ef614a50ca297ca3159b626c4099c287f6fb25de5c26f4c02e39d28c1dddaef6ee0350bacd8c1b3906822b463a8
   languageName: node
   linkType: hard
 
@@ -8833,6 +8867,7 @@ __metadata:
     "@types/react": ^18.3.3
     "@types/react-dom": ^18.3.0
     "@xyflow/react": ^12.0.0
+    abcjs: ^6.4.2
     autoprefixer: ^10.4.19
     avrgirl-arduino: "https://github.com/blokdots/avrgirl-arduino.git"
     electron: 28.0.0
