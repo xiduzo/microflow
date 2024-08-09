@@ -27,11 +27,11 @@ export function NoteSelector(props: {
 					variant="outline"
 					role="combobox"
 					aria-expanded={open}
-					className="col-span-3 justify-between"
+					className="justify-between w-full"
 				>
 					{NOTES_AND_FREQUENCIES.get(props.value)
 						? props.value
-						: props.value === null
+						: props.value === 'null'
 							? 'Rest'
 							: 'Select note...'}
 					<Icons.ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

@@ -29,11 +29,13 @@ export function MenuButton() {
 	const saveNodesAndEdges = useCallback(
 		(autoSafe = false) => {
 			setLocalNodes(
-				getNodes().map(node => {
-					node.data.value = undefined;
-					node.selected = false;
-					return node;
-				}),
+				getNodes()
+					.filter(node => node.type !== '')
+					.map(node => {
+						node.data.value = undefined;
+						node.selected = false;
+						return node;
+					}),
 			);
 
 			setLocalEdges(

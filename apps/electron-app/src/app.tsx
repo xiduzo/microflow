@@ -31,8 +31,6 @@ export function App() {
 		});
 	}, [mqttConfig.uniqueId]);
 
-	console.log(mqttConfig);
-
 	return (
 		<MqttProvider appName="app" config={mqttConfig}>
 			<FigmaProvider>

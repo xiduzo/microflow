@@ -733,7 +733,6 @@ class Piezo extends JohnnyFive.Piezo {
   }
 
   stop() {
-    console.log('stop')
     super.stop();
     super.off();
     this.value = false;

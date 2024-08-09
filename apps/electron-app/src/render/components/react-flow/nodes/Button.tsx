@@ -85,11 +85,7 @@ export function Button(props: Props) {
 						className="flex items-center space-x-2"
 						onClick={() => updateNodeData({ invert: !props.data.invert })}
 					>
-						<Checkbox
-							id="inverted"
-							checked={props.data.invert}
-							onChange={console.log}
-						/>
+						<Checkbox id="inverted" checked={props.data.invert} />
 						<span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
 							Invert button
 						</span>

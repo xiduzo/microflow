@@ -7,9 +7,7 @@ import {
 	SelectItem,
 	SelectTrigger,
 	Sheet,
-	SheetClose,
 	SheetContent,
-	SheetFooter,
 	SheetHeader,
 	SheetTitle,
 	SheetTrigger,
@@ -204,14 +202,16 @@ export function Piezo(props: Props) {
 									<SheetTitle>Edit song</SheetTitle>
 								</SheetHeader>
 								{tempSong && tempTempo && (
-									<SongEditor song={tempSong} tempo={tempTempo} />
+									<SongEditor
+										song={tempSong}
+										tempo={tempTempo}
+										onSave={(song, tempo) => {
+											updateNodeData({ song, tempo });
+											setTempSong(song);
+											setTempTempo(tempo);
+										}}
+									/>
 								)}
-								<SheetFooter>
-									<SheetClose asChild>
-										<Button variant="secondary">Cancel</Button>
-									</SheetClose>
-									<Button>Save song</Button>
-								</SheetFooter>
 							</SheetContent>
 						</Sheet>
 					</>
