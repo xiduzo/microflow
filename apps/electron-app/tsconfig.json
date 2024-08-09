@@ -1,8 +1,8 @@
 {
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "paths": {
-      "@ui/*": ["../../packages/ui/*"]
-    }
-  }
+	"compilerOptions": {
+		"jsx": "react-jsx",
+		"paths": {
+			"@ui/*": ["../../packages/ui/*"]
+		}
+	}
 }

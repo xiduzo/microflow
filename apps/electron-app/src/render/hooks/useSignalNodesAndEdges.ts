@@ -1,54 +1,54 @@
-import { useReactFlow } from "@xyflow/react";
-import {
-  useEffect,
-  useRef
-} from "react";
-import { UploadedCodeMessage } from "../../common/types";
+import { useReactFlow } from '@xyflow/react';
+import { useEffect, useRef } from 'react';
+import { UploadedCodeMessage } from '../../common/types';
 
 export function useSignalNodesAndEdges() {
-  const { updateNodeData, getEdges, updateEdge } = useReactFlow();
-  const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
+	const { updateNodeData, getEdges, updateEdge } = useReactFlow();
+	const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  useEffect(() => {
-    return window.electron.ipcRenderer.on(
-      "ipc-fhb-uploaded-code",
-      (message: UploadedCodeMessage) => {
-        if (timeouts.current.get(message.nodeId)) {
-          clearTimeout(timeouts.current.get(message.nodeId));
-        }
+	useEffect(() => {
+		return window.electron.ipcRenderer.on(
+			'ipc-fhb-uploaded-code',
+			(message: UploadedCodeMessage) => {
+				if (timeouts.current.get(message.nodeId)) {
+					clearTimeout(timeouts.current.get(message.nodeId));
+				}
 
-        const update: { animated: string; value?: unknown } = {
-          animated: message.action,
-          value: message.value,
-        };
+				const update: { animated: string; value?: unknown } = {
+					animated: message.action,
+					value: message.value,
+				};
 
-        updateNodeData(message.nodeId, update);
+				updateNodeData(message.nodeId, update);
 
-        getEdges()
-          .filter(({ source, sourceHandle }) => source === message.nodeId && sourceHandle === message.action)
-          .map((edge) => {
-            const timeout = timeouts.current.get(edge.id);
-            if (timeout) clearTimeout(timeout);
+				getEdges()
+					.filter(
+						({ source, sourceHandle }) =>
+							source === message.nodeId && sourceHandle === message.action,
+					)
+					.map(edge => {
+						const timeout = timeouts.current.get(edge.id);
+						if (timeout) clearTimeout(timeout);
 
-            updateEdge(edge.id, { animated: true });
+						updateEdge(edge.id, { animated: true });
 
-            timeouts.current.set(
-              edge.id,
-              setTimeout(() => {
-                updateEdge(edge.id, { animated: false });
-              }, 150),
-            );
-          });
+						timeouts.current.set(
+							edge.id,
+							setTimeout(() => {
+								updateEdge(edge.id, { animated: false });
+							}, 150),
+						);
+					});
 
-        timeouts.current.set(
-          message.nodeId,
-          setTimeout(() => {
-            updateNodeData(message.nodeId, { animated: undefined });
-          }, 150),
-        );
-      },
-    );
-  }, [updateNodeData, getEdges, updateEdge]);
+				timeouts.current.set(
+					message.nodeId,
+					setTimeout(() => {
+						updateNodeData(message.nodeId, { animated: undefined });
+					}, 150),
+				);
+			},
+		);
+	}, [updateNodeData, getEdges, updateEdge]);
 
-  return null;
+	return null;
 }

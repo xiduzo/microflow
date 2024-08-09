@@ -1,19 +1,21 @@
-import Link from 'next/link'
+import Link from 'next/link';
 
-import { Button } from '@fhb/ui'
+import { Button } from '@fhb/ui';
 
 export function NavLink({
-  href,
-  children,
+	href,
+	children,
 }: {
-  href: string
-  children: React.ReactNode
+	href: string;
+	children: React.ReactNode;
 }) {
-  return (
-    <Button asChild variant='ghost' className='hover:bg-yellow-500 hover:text-neutral-800'>
-      <Link href={href} >
-        {children}
-      </Link>
-    </Button>
-  )
+	return (
+		<Button
+			asChild
+			variant="ghost"
+			className="hover:bg-yellow-500 hover:text-neutral-800"
+		>
+			<Link href={href}>{children}</Link>
+		</Button>
+	);
 }

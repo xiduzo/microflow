@@ -1,36 +1,36 @@
-import { Badge } from "@fhb/ui";
-import { KnownBoard } from "avrgirl-arduino";
-import { useState } from "react";
-import { useBoard } from "../../../providers/BoardProvider";
+import { Badge } from '@fhb/ui';
+import { KnownBoard } from 'avrgirl-arduino';
+import { useState } from 'react';
+import { useBoard } from '../../../providers/BoardProvider';
 
 const SUPPORTED_BOARDS: [KnownBoard, string][] = [
-  ["uno", "Arduino uno"],
-  ["mega", "Arduino mega"],
-  ["leonardo", "Arduino leonardo"],
-  ["micro", "Arduino micro"],
-  ["nano", "Arduino nano"],
-  ["yun", "Arduino yun"],
+	['uno', 'Arduino uno'],
+	['mega', 'Arduino mega'],
+	['leonardo', 'Arduino leonardo'],
+	['micro', 'Arduino micro'],
+	['nano', 'Arduino nano'],
+	['yun', 'Arduino yun'],
 ];
 
 export function FlashFirmata(props: Props) {
-  const { flashResult, flashBoard } = useBoard();
+	const { flashResult, flashBoard } = useBoard();
 
-  const [boardToFlash, setBoardToFlash] = useState<
-    KnownBoard[number] | undefined
-  >();
+	const [boardToFlash, setBoardToFlash] = useState<
+		KnownBoard[number] | undefined
+	>();
 
-  function flashFirmata() {
-    if (!boardToFlash) return;
+	function flashFirmata() {
+		if (!boardToFlash) return;
 
-    flashBoard(boardToFlash as KnownBoard);
-  }
+		flashBoard(boardToFlash as KnownBoard);
+	}
 
-  return (
-    <section className="flex items-center space-x-2">
-      <Badge variant={props.message ? "destructive" : "secondary"}>
-        {props.message?.split("\n")[0].trim() ?? "Unknown error occurred"}
-      </Badge>
-      {/* <Dialog>
+	return (
+		<section className="flex items-center space-x-2">
+			<Badge variant={props.message ? 'destructive' : 'secondary'}>
+				{props.message?.split('\n')[0].trim() ?? 'Unknown error occurred'}
+			</Badge>
+			{/* <Dialog>
         <DialogTrigger asChild>
           <Button variant="ghost" size="icon">
             <Icons.ArrowBigRight className="h-4 w-4" />
@@ -78,10 +78,10 @@ export function FlashFirmata(props: Props) {
           </section>
         </DialogContent>
       </Dialog> */}
-    </section>
-  );
+		</section>
+	);
 }
 
 type Props = {
-  message?: string;
+	message?: string;
 };

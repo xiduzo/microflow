@@ -1,85 +1,93 @@
-import { useMqtt } from "@fhb/mqtt/client";
-import { useEffect, useRef } from "react";
-import { MESSAGE_TYPE, SetLocalValiable } from "../../common/types/Message";
-import { useMessageListener } from "../hooks/useMessageListener";
-import { sendMessageToFigma } from "../utils/sendMessageToFigma";
+import { useMqtt } from '@fhb/mqtt/client';
+import { useEffect, useRef } from 'react';
+import { MESSAGE_TYPE, SetLocalValiable } from '../../common/types/Message';
+import { useMessageListener } from '../hooks/useMessageListener';
+import { sendMessageToFigma } from '../utils/sendMessageToFigma';
 
-type KnownVariable = Pick<Variable, "name" | "resolvedType" | "id">;
+type KnownVariable = Pick<Variable, 'name' | 'resolvedType' | 'id'>;
 
 export function MqttVariableMessenger() {
-  const { status, publish, subscribe, uniqueId } = useMqtt();
-  const publishedVariableValues = useRef<Map<string, any | undefined>>(
-    new Map(),
-  );
-  const knownVariables = useRef<Record<string, KnownVariable>>({}); // <id, name>
+	const { status, publish, subscribe, uniqueId } = useMqtt();
+	const publishedVariableValues = useRef<Map<string, any | undefined>>(
+		new Map(),
+	);
+	const knownVariables = useRef<Record<string, KnownVariable>>({}); // <id, name>
 
-  async function publishVariables(variables?: Variable[]) {
-    const newVariables =
-      variables?.reduce(
-        (acc, variable) => {
-          acc[variable.id] = {
-            id: variable.id,
-            name: variable.name,
-            resolvedType: variable.resolvedType,
-          };
-          return acc;
-        },
-        {} as Record<string, KnownVariable>,
-      ) ?? {};
+	async function publishVariables(variables?: Variable[]) {
+		const newVariables =
+			variables?.reduce(
+				(acc, variable) => {
+					acc[variable.id] = {
+						id: variable.id,
+						name: variable.name,
+						resolvedType: variable.resolvedType,
+					};
+					return acc;
+				},
+				{} as Record<string, KnownVariable>,
+			) ?? {};
 
-    const newVariablesAsJson = JSON.stringify(newVariables);
-    if (newVariablesAsJson !== JSON.stringify(knownVariables.current)) {
-      await publish(`microflow/v1/${uniqueId}/plugin/variables`, newVariablesAsJson);
-    }
+		const newVariablesAsJson = JSON.stringify(newVariables);
+		if (newVariablesAsJson !== JSON.stringify(knownVariables.current)) {
+			await publish(
+				`microflow/v1/${uniqueId}/plugin/variables`,
+				newVariablesAsJson,
+			);
+		}
 
-    knownVariables.current = newVariables;
+		knownVariables.current = newVariables;
 
-    variables?.forEach(async (variable) => {
-      const current = publishedVariableValues.current.get(variable.id);
-      const value = Object.values(variable.valuesByMode)[0];
-      const valueAsJson = JSON.stringify(value);
-      if (current === valueAsJson) {
-        return;
-      }
+		variables?.forEach(async variable => {
+			const current = publishedVariableValues.current.get(variable.id);
+			const value = Object.values(variable.valuesByMode)[0];
+			const valueAsJson = JSON.stringify(value);
+			if (current === valueAsJson) {
+				return;
+			}
 
-      await publish(
-        `microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
-        JSON.stringify(value),
-      );
-      publishedVariableValues.current.set(variable.id, valueAsJson);
-    });
-  }
+			await publish(
+				`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
+				JSON.stringify(value),
+			);
+			publishedVariableValues.current.set(variable.id, valueAsJson);
+		});
+	}
 
-  useEffect(() => {
-    if (status !== "connected") return;
+	useEffect(() => {
+		if (status !== 'connected') return;
 
-    subscribe(`microflow/v1/${uniqueId}/+/variables/request`, (topic) => {
-      const app = topic.split("/")[3];
-      publish(
-        `microflow/v1/${uniqueId}/${app}/variables/response`,
-        JSON.stringify(knownVariables.current),
-      );
-      publishedVariableValues.current.forEach((value, id) => {
-        publish(`microflow/v1/${uniqueId}/${app}/variable/${id}`, value);
-      });
-    });
+		subscribe(`microflow/v1/${uniqueId}/+/variables/request`, topic => {
+			const app = topic.split('/')[3];
+			publish(
+				`microflow/v1/${uniqueId}/${app}/variables/response`,
+				JSON.stringify(knownVariables.current),
+			);
+			publishedVariableValues.current.forEach((value, id) => {
+				publish(`microflow/v1/${uniqueId}/${app}/variable/${id}`, value);
+			});
+		});
 
-    subscribe(`microflow/v1/${uniqueId}/+/variable/+/set`, async (topic, message) => {
-      const [, , , app, , variableId] = topic.split("/");
-      const value = JSON.parse(message.toString());
+		subscribe(
+			`microflow/v1/${uniqueId}/+/variable/+/set`,
+			async (topic, message) => {
+				const [, , , app, , variableId] = topic.split('/');
+				const value = JSON.parse(message.toString());
 
-      sendMessageToFigma(SetLocalValiable(variableId, value as VariableValue))
-    })
-  }, [status, subscribe, publish, uniqueId]);
+				sendMessageToFigma(
+					SetLocalValiable(variableId, value as VariableValue),
+				);
+			},
+		);
+	}, [status, subscribe, publish, uniqueId]);
 
-  useMessageListener<Variable[] | undefined>(
-    MESSAGE_TYPE.GET_LOCAL_VARIABLES,
-    publishVariables,
-    {
-      intervalInMs: 100,
-      shouldSendInitialMessage: true,
-    },
-  );
+	useMessageListener<Variable[] | undefined>(
+		MESSAGE_TYPE.GET_LOCAL_VARIABLES,
+		publishVariables,
+		{
+			intervalInMs: 100,
+			shouldSendInitialMessage: true,
+		},
+	);
 
-  return null;
+	return null;
 }

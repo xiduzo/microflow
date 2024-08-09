@@ -1,15 +1,24 @@
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        Helvetica, Arial, sans-serif;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+		Arial, sans-serif;
 }
 
 .dotted-background {
-    --dot-bg: #171717;
-    --dot-color: #404040;
-    --dot-size: 2px;
-    --dot-space: 36px;
+	--dot-bg: #171717;
+	--dot-color: #404040;
+	--dot-size: 2px;
+	--dot-space: 36px;
 	background:
-		linear-gradient(90deg, var(--dot-bg) calc(var(--dot-space) - var(--dot-size)), transparent 1%) center / var(--dot-space) var(--dot-space),
-		linear-gradient(var(--dot-bg) calc(var(--dot-space) - var(--dot-size)), transparent 1%) center / var(--dot-space) var(--dot-space),
+		linear-gradient(
+				90deg,
+				var(--dot-bg) calc(var(--dot-space) - var(--dot-size)),
+				transparent 1%
+			)
+			center / var(--dot-space) var(--dot-space),
+		linear-gradient(
+				var(--dot-bg) calc(var(--dot-space) - var(--dot-size)),
+				transparent 1%
+			)
+			center / var(--dot-space) var(--dot-space),
 		var(--dot-color);
 }

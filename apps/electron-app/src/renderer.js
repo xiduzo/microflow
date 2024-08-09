@@ -29,5 +29,4 @@
 import '@fhb/ui/global.css';
 import '@xyflow/react/dist/style.css';
 import './app';
-import "./index.css";
-
+import './index.css';
