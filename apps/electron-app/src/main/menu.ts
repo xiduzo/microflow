@@ -54,6 +54,12 @@ export function createMenu(mainWindow: BrowserWindow) {
 						);
 					},
 				},
+				{
+					label: 'Clear flow',
+					click: () => {
+						mainWindow.webContents.send('ipc-menu', 'clear-flow');
+					},
+				},
 				{ type: 'separator' },
 				{
 					label: 'Add node',

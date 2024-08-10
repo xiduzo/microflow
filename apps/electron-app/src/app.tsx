@@ -63,7 +63,7 @@ const root = createRoot(document.body.querySelector('main'));
 root.render(<App />);
 
 function IpcMenuListeners() {
-	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
+	const { saveNodesAndEdges, clearNodesAndEdges, setAutoSave } = useSaveFlow();
 	const { setOpen } = useNewNode();
 	const [showMqttSettings, setShowMqttSettings] = useState(false);
 
@@ -76,6 +76,9 @@ function IpcMenuListeners() {
 				switch (button) {
 					case 'save-flow':
 						saveNodesAndEdges();
+						break;
+					case 'clear-flow':
+						clearNodesAndEdges();
 						break;
 					case 'add-node':
 						setOpen(true);
@@ -92,8 +95,6 @@ function IpcMenuListeners() {
 			},
 		);
 	}, [saveNodesAndEdges, setOpen]);
-
-	console.log('showMqttSettings', showMqttSettings);
 
 	if (showMqttSettings)
 		return <MqttSettingsForm open onClose={() => setShowMqttSettings(false)} />;
