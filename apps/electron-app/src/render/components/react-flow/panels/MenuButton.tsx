@@ -91,7 +91,7 @@ export function MenuButton() {
 				<AddNewNodeMenuButton />
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onClick={() => saveNodesAndEdges()}>
-					Save
+					Save flow
 					<DropdownMenuShortcut>
 						{isAppleProduct ? '⌘' : 'ctrl'}+s
 					</DropdownMenuShortcut>

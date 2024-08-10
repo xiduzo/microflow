@@ -49,6 +49,8 @@ export function NewNodeProvider(props: PropsWithChildren) {
 	const isAppleProduct = useIsAppleProduct();
 
 	useEffect(() => {
+		if (nodeToAdd) return;
+
 		function handleKeyDown(event: KeyboardEvent) {
 			if (
 				event.key === 'k' &&
@@ -61,7 +63,7 @@ export function NewNodeProvider(props: PropsWithChildren) {
 
 		document.addEventListener('keydown', handleKeyDown);
 		return () => document.removeEventListener('keydown', handleKeyDown);
-	}, [isAppleProduct]);
+	}, [isAppleProduct, nodeToAdd]);
 
 	return (
 		<NewNodeContext.Provider value={{ open, setOpen, nodeToAdd, setNodeToAdd }}>
@@ -214,28 +216,37 @@ function NewNodeCommandDialog() {
 }
 
 function DroppableNewNode() {
-	const { nodeToAdd, setNodeToAdd } = useNewNode();
+	const { nodeToAdd, setNodeToAdd, open } = useNewNode();
 	const { screenToFlowPosition, updateNode } = useReactFlow();
 	const { addNode, deleteNode } = useNodesEdgesStore(
 		useShallow(tempNodeSelector),
 	);
 
 	useEffect(() => {
+		if (!nodeToAdd) return;
+
 		function handleKeyDown(event: KeyboardEvent) {
-			if (!nodeToAdd) return;
 			if (event.key === 'Escape' || event.key === 'Backspace') {
 				setNodeToAdd(null);
 				deleteNode(nodeToAdd);
 			}
 		}
 
-		function handleMouseDown() {
-			if (!nodeToAdd) return;
+		function handleMouseDown(event: MouseEvent) {
+			updateNode(nodeToAdd, {
+				position: screenToFlowPosition({
+					x: event.clientX - 120,
+					y: event.clientY - 75,
+				}),
+			});
+			const element = event.target as HTMLElement;
+			if (!element.closest('.react-flow__node')) return;
+
 			setNodeToAdd(null);
+			updateNode(nodeToAdd, { selected: false });
 		}
 
 		function handleMouseMove(event: MouseEvent) {
-			if (!nodeToAdd) return;
 			updateNode(nodeToAdd, {
 				position: screenToFlowPosition({
 					x: event.clientX - 120,

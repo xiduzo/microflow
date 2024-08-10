@@ -25,23 +25,7 @@ const menuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
 	...appMenu,
 	{
 		label: 'File',
-		submenu: [
-			{
-				label: 'Save flow',
-			},
-			{
-				label: 'Auto save',
-				checked: true,
-			},
-			{ type: 'separator' },
-			{
-				label: 'Export',
-			},
-			{
-				label: 'Import',
-			},
-			isMac ? { role: 'close' } : { role: 'quit' },
-		],
+		submenu: [isMac ? { role: 'close' } : { role: 'quit' }],
 	},
 	{ role: 'viewMenu' },
 	{ role: 'windowMenu' },
