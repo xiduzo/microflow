@@ -3,11 +3,11 @@ import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { Handle } from './Handle';
 import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
+	BaseNode,
+	NodeContainer,
+	NodeContent,
+	NodeSettings,
+	NodeValue,
 } from './Node';
 
 const numberFormat = new Intl.NumberFormat();
@@ -29,9 +29,7 @@ export function Interval(props: Props) {
 					className="flex justify-between"
 				>
 					Interval
-					<span className="opacity-40 font-light">
-						{props.data.interval}ms
-					</span>
+					<span className="opacity-40 font-light">{props.data.interval}ms</span>
 				</Label>
 				<Slider
 					id={`interval-${props.id}`}
@@ -53,5 +51,5 @@ type Props = BaseNode<IntervalData, number>;
 export const DEFAULT_INTERVAL_DATA: Props['data'] = {
 	label: 'Interval',
 	interval: 500,
-	value: 0
+	value: 0,
 };

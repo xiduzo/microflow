@@ -11,7 +11,7 @@ export function useSaveFlow() {
 
 	const saveNodesAndEdges = useCallback(
 		(autoSave = false) => {
-			setLocalNodes(getNodes().filter(node => node.type !== ''));
+			setLocalNodes(getNodes());
 
 			setLocalEdges(
 				getEdges().map(edge => {

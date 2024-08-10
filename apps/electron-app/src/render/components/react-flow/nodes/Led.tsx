@@ -1,11 +1,11 @@
 import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    Switch,
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	Switch,
 } from '@fhb/ui';
 import { Position } from '@xyflow/react';
 import { LedOption } from 'johnny-five';
@@ -14,11 +14,11 @@ import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
+	BaseNode,
+	NodeContainer,
+	NodeContent,
+	NodeSettings,
+	NodeValue,
 } from './Node';
 
 export function Led(props: Props) {
@@ -70,7 +70,7 @@ export function Led(props: Props) {
 export type LedData = Omit<LedOption, 'board'>;
 type Props = BaseNode<LedData, number>;
 export const DEFAULT_LED_DATA: Props['data'] = {
-  label: 'LED',
-  pin: 13,
-  value: 0,
+	label: 'LED',
+	pin: 13,
+	value: 0,
 };

@@ -227,24 +227,36 @@ class Led extends JohnnyFive.Led {
     this.options = options;
 
     this.#eventEmitter.on("change", this.#postMessage.bind(this, "change"));
+  }
 
-    setInterval(() => {
-      if(this.#value !== null && this.#value !== this.value) {
-        this.#eventEmitter.emit("change");
-      }
-      this.#value = this.value;
-    }, 7)
+  get value() {
+    return this.#value;
   }
 
   // Highjack the on method
   // to allow for a custom actions
   on(action, callback) {
     if (!action) {
+      this.#value = 1;
       super.on();
+      this.#eventEmitter.emit("change");
       return;
     }
 
     this.#eventEmitter.on(action, callback);
+  }
+
+
+  off() {
+    this.#value = 0;
+    super.off();
+    this.#eventEmitter.emit("change");
+  }
+
+  toggle() {
+    this.#value = this.#value === 0 ? 1 : 0;
+    super.toggle();
+    this.#eventEmitter.emit("change");
   }
 
   #postMessage(action) {
@@ -252,7 +264,7 @@ class Led extends JohnnyFive.Led {
       this.emit("change", this.value);
     }
 
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
+    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.#value });
   }
 }
 `;

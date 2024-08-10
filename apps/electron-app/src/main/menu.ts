@@ -35,6 +35,14 @@ export function createMenu(mainWindow: BrowserWindow) {
 			label: 'Flow',
 			submenu: [
 				{
+					label: 'Insert node',
+					accelerator: isMac ? 'Cmd+I' : 'Ctrl+I',
+					click: () => {
+						mainWindow.webContents.send('ipc-menu', 'add-node');
+					},
+				},
+				{ type: 'separator' },
+				{
 					label: 'Save flow',
 					accelerator: isMac ? 'Cmd+S' : 'Ctrl+S',
 					click: () => {
@@ -58,14 +66,6 @@ export function createMenu(mainWindow: BrowserWindow) {
 					label: 'Clear flow',
 					click: () => {
 						mainWindow.webContents.send('ipc-menu', 'clear-flow');
-					},
-				},
-				{ type: 'separator' },
-				{
-					label: 'Add node',
-					accelerator: isMac ? 'Cmd+K' : 'Ctrl+K',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', 'add-node');
 					},
 				},
 			],

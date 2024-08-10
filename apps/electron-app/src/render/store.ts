@@ -33,7 +33,18 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
 	edges: [],
 	onNodesChange: changes => {
 		set({
-			nodes: applyNodeChanges(changes, get().nodes),
+			nodes: applyNodeChanges(
+				changes.filter(change => {
+					if (change.type === 'replace') {
+						// TODO: find out why items are being replaced with `undefined` as values
+						if ((change.item.data as { value: unknown }).value === undefined) {
+							return false;
+						}
+					}
+					return change;
+				}),
+				get().nodes,
+			),
 		});
 	},
 	onEdgesChange: changes => {
