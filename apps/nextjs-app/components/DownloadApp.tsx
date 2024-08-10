@@ -14,26 +14,21 @@ export function DownloadApp() {
 	const [os, setOs] = useState('');
 
 	function downloadApp() {
+		const version = '0.1.1';
+		const baseUrl = `https://github.com/xiduzo/microflow-studio/releases/download/v${version}`;
+
 		switch (os) {
 			case 'macos':
-				window.open(
-					'https://github.com/xiduzo/microflow-studio/releases/download/v0.1.0/microflow-studio-darwin-arm64-0.1.0.zip',
-				);
+				window.open(`${baseUrl}/Microflow.studio-${version}-arm64.dmg`);
 				break;
 			case 'windows':
-				window.open(
-					'https://github.com/xiduzo/microflow-studio/releases/download/v0.1.0/microflow-studio-0.1.0.Setup.exe',
-				);
+				window.open(`${baseUrl}/Microflow.studio-${version}.Setup.exe`);
 				break;
 			case 'debian':
-				window.open(
-					'https://github.com/xiduzo/microflow-studio/releases/download/v0.1.0/microflow-studio_0.1.0_amd64.deb',
-				);
+				window.open(`${baseUrl}/microflow-studio_${version}_amd64.deb`);
 				break;
 			case 'redhat':
-				window.open(
-					'https://github.com/xiduzo/microflow-studio/releases/download/v0.1.0/microflow-studio-0.1.0-1.x86_64.rpm',
-				);
+				window.open(`${baseUrl}/microflow-studio-${version}-1.x86_64.rpm`);
 				break;
 		}
 	}

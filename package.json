@@ -19,7 +19,7 @@
 		"email": "mail@sanderboer.nl",
 		"url": "https://sanderboer.nl"
 	},
-	"description": "A way to easily connect your hardware devices to the internet",
+	"description": "A set of tools to make it easier to start prototyping for interactivity",
 	"license": "GPL-3.0-only",
 	"devDependencies": {
 		"@total-typescript/ts-reset": "^0.5.1"

@@ -98,7 +98,7 @@ module.exports = {
 			config: {
 				repository: {
 					owner: 'xiduzo',
-					name: 'microflow-studio',
+					name: 'microflow',
 				},
 				prerelease: true,
 			},
