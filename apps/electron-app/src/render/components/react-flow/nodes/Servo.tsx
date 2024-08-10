@@ -17,8 +17,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from './Node';
 
 const ROTATING_SERVO_STOP_DEGREES = 90;
@@ -63,10 +63,10 @@ export function Servo(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader className="text-2xl flex items-center justify-center rounded-full w-24 h-24 p-0 min-w-[10px] m-auto">
+				<NodeValue className="text-2xl flex items-center justify-center rounded-full w-24 h-24 p-0 min-w-[10px] m-auto">
 					{isStandard && (
 						<div className="flex items-start z-10">
-							{props.data.value ?? 0}
+							{props.data.value}
 							<span className="font-extralight">°</span>
 						</div>
 					)}
@@ -112,7 +112,7 @@ export function Servo(props: Props) {
 							<Icons.Dot className={`w-8 h-8 absolute -top-4 left-8`} />
 						</div>
 					)}
-				</NodeHeader>
+				</NodeValue>
 				{!hasValidPin && (
 					<div className="text-red-500 text-sm">
 						Pin is not valid for a servo
@@ -203,3 +203,10 @@ export function Servo(props: Props) {
 
 export type ServoData = Omit<ServoGeneralOption, 'board'>;
 type Props = BaseNode<ServoData, number>;
+export const DEFAULT_SERVO_DATA: Props['data'] = {
+	value: 0,
+	pin: 'A0',
+	label: 'Servo',
+	type: 'standard',
+	range: [0, 180],
+};

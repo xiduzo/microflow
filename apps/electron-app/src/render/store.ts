@@ -21,6 +21,7 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	setEdges: (edges: Edge[]) => void;
 	deleteEdges: (nodeId: string) => void;
 	addNode: (node: Node<NodeData>) => void;
+	deleteNode: (nodeId: string) => void;
 };
 
 export const baseEdgeConfig: Partial<Edge> = {
@@ -83,6 +84,15 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
 			nodes: [...get().nodes, node],
 		});
 	},
+	deleteNode: nodeId => {
+		const nodes = get().nodes.filter(node => node.id !== nodeId);
+		set({ nodes });
+
+		const edges = get().edges.filter(
+			edge => edge.source !== nodeId && edge.target !== nodeId,
+		);
+		set({ edges });
+	},
 }));
 
 export const nodesAndEdgesCountsSelector = (state: AppState) => ({
@@ -92,4 +102,9 @@ export const nodesAndEdgesCountsSelector = (state: AppState) => ({
 
 export const deleteEdgesSelector = (state: AppState) => ({
 	deleteEdges: state.deleteEdges,
+});
+
+export const tempNodeSelector = (state: AppState) => ({
+	addNode: state.addNode,
+	deleteNode: state.deleteNode,
 });

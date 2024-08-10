@@ -28,8 +28,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from '../Node';
 import {
 	DEFAULT_SONG,
@@ -59,7 +59,7 @@ export function Piezo(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader className="tabular-nums">
+				<NodeValue className="tabular-nums">
 					{props.data.type === 'song' &&
 						(Boolean(props.data.value) ? (
 							<Icons.Disc3 className="animate-spin w-14 h-14" />
@@ -72,7 +72,7 @@ export function Piezo(props: Props) {
 						) : (
 							<Icons.Bell className="w-10 h-10" />
 						))}
-				</NodeHeader>
+				</NodeValue>
 			</NodeContent>
 
 			<NodeSettings>
@@ -100,7 +100,7 @@ export function Piezo(props: Props) {
 							update = {
 								...update,
 								duration: 500,
-								frequency: 2500,
+								frequency: DEFAULT_FREQUENCY,
 							} as BuzzData;
 						} else {
 							update = {
@@ -127,12 +127,12 @@ export function Piezo(props: Props) {
 						>
 							Duration
 							<span className="opacity-40 font-light">
-								{props.data.duration ?? 500}ms
+								{props.data.duration}ms
 							</span>
 						</Label>
 						<Slider
 							id={`duration-${props.id}`}
-							defaultValue={[props.data.duration ?? 500]}
+							defaultValue={[props.data.duration]}
 							min={100}
 							max={2500}
 							step={100}
@@ -144,14 +144,12 @@ export function Piezo(props: Props) {
 						>
 							Frequency
 							<span className="opacity-40 font-light">
-								{props.data.frequency ?? NOTES_AND_FREQUENCIES.get('C4')}Hz
+								{props.data.frequency}Hz
 							</span>
 						</Label>
 						<Slider
 							id={`frequency-${props.id}`}
-							defaultValue={[
-								props.data.frequency ?? NOTES_AND_FREQUENCIES.get('C4'),
-							]}
+							defaultValue={[props.data.frequency]}
 							min={MIN_NOTE_FREQUENCY}
 							max={MAX_NOTE_FREQUENCY}
 							step={1}
@@ -171,16 +169,14 @@ export function Piezo(props: Props) {
 							className="flex justify-between"
 						>
 							Tempo
-							<span className="opacity-40 font-light">
-								{props.data.tempo ?? 100}
-							</span>
+							<span className="opacity-40 font-light">{props.data.tempo}</span>
 						</Label>
 						<Slider
 							id={`tempo-${props.id}`}
-							defaultValue={[props.data.tempo ?? 100]}
-							min={10}
+							defaultValue={[props.data.tempo]}
+							min={30}
 							max={300}
-							step={5}
+							step={10}
 							onValueChange={value => updateNodeData({ tempo: value[0] })}
 						/>
 						<MusicSheet song={props.data.song} />
@@ -207,8 +203,8 @@ export function Piezo(props: Props) {
 										tempo={tempTempo}
 										onSave={(song, tempo) => {
 											updateNodeData({ song, tempo });
-											setTempSong(song);
-											setTempTempo(tempo);
+											setTempSong(null);
+											setTempTempo(null);
 										}}
 									/>
 								)}
@@ -244,5 +240,14 @@ type SongData = { type: 'song' } & PiezoTune & {
 	};
 type BaseData = Omit<PiezoOption, 'type'>;
 
+const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get('C4');
 export type PiezoData = BaseData & (BuzzData | SongData);
 type Props = BaseNode<PiezoData, boolean>;
+export const DEFAULT_PIEZO_DATA: Props['data'] = {
+	label: 'Piezo',
+	value: false,
+	duration: 500,
+	frequency: DEFAULT_FREQUENCY,
+	pin: 11,
+	type: 'buzz',
+};

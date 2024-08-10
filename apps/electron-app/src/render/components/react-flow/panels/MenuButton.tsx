@@ -13,6 +13,7 @@ import { Edge, Node, useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { useIsAppleProduct } from '../../../hooks/useIsAppleProduct';
+import { useNewNode } from '../../../providers/NewNodeProvider';
 import { MqttSettingsForm } from '../../forms/MqttSettingsForm';
 
 export function MenuButton() {
@@ -28,19 +29,10 @@ export function MenuButton() {
 
 	const saveNodesAndEdges = useCallback(
 		(autoSafe = false) => {
-			setLocalNodes(
-				getNodes()
-					.filter(node => node.type !== '')
-					.map(node => {
-						node.data.value = undefined;
-						node.selected = false;
-						return node;
-					}),
-			);
+			setLocalNodes(getNodes().filter(node => node.type !== ''));
 
 			setLocalEdges(
 				getEdges().map(edge => {
-					edge.selected = false;
 					edge.animated = false;
 					return edge;
 				}),
@@ -96,6 +88,8 @@ export function MenuButton() {
 				onEscapeKeyDown={closeDropdown}
 				onInteractOutside={closeDropdown}
 			>
+				<AddNewNodeMenuButton />
+				<DropdownMenuSeparator />
 				<DropdownMenuItem onClick={() => saveNodesAndEdges()}>
 					Save
 					<DropdownMenuShortcut>
@@ -115,27 +109,19 @@ export function MenuButton() {
 				/>
 			</DropdownMenuContent>
 		</DropdownMenu>
-		// <>
-		//   <Button onClick={() => setDrawerOpen(true)} variant="ghost" title="Settings" disabled={drawerOpen}>
-		//     <Icons.Menu />
-		//   </Button>
-		//   <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} nested>
-		//     <DrawerContent>
-		//       <DrawerHeader className="max-w-xl w-full m-auto mt-6">
-		//         <DrawerTitle className="flex items-center justify-between">
-		//           Settings
-		//           <span className="text-xs font-light text-neutral-500">subtext</span>
-		//         </DrawerTitle>
-		//         <DrawerDescription>Updates will be automatically applied</DrawerDescription>
-		//       </DrawerHeader>
-		//       <section className="max-w-xl w-full m-auto flex flex-col space-y-4 mb-8 p-4">
-		//         contentcontent
-		//       </section>
-		//       <DrawerFooter className="max-w-xl w-full m-auto">
-		//         {/* Footer */}
-		//       </DrawerFooter>
-		//     </DrawerContent>
-		//   </Drawer>
-		// </>
+	);
+}
+
+function AddNewNodeMenuButton() {
+	const isAppleProduct = useIsAppleProduct();
+	const { setOpen } = useNewNode();
+
+	return (
+		<DropdownMenuItem onClick={() => setOpen(true)}>
+			Add node
+			<DropdownMenuShortcut>
+				{isAppleProduct ? '⌘' : 'ctrl'}+k
+			</DropdownMenuShortcut>
+		</DropdownMenuItem>
 	);
 }

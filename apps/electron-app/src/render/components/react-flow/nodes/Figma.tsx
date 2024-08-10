@@ -23,8 +23,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from './Node';
 
 export function Figma(props: Props) {
@@ -74,13 +74,13 @@ export function Figma(props: Props) {
 				{!isConnectedToPlugin && (
 					<Badge variant="destructive">Figma plugin not connected</Badge>
 				)}
-				<NodeHeader>
+				<NodeValue>
 					<FigmaHeaderContent
 						variable={variable}
 						hasVariables={!!Array.from(Object.values(variables)).length}
 						value={props.data.value ?? value}
 					/>
-				</NodeHeader>
+				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
 				<Select
@@ -234,3 +234,7 @@ export type FigmaData = {
 	variableId?: string;
 };
 type Props = BaseNode<FigmaData, string | number | boolean>;
+export const DEFAULT_FIGMA_DATA: Props['data'] = {
+	label: 'Figma',
+	value: 0,
+};

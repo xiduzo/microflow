@@ -17,8 +17,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from './Node';
 
 export function Mqtt(props: Props) {
@@ -71,13 +71,13 @@ export function Mqtt(props: Props) {
 				{status !== 'connected' && (
 					<Badge variant="destructive">MQTT not connected</Badge>
 				)}
-				<NodeHeader className="tabular-nums">
+				<NodeValue className="tabular-nums">
 					{props.data.direction === 'publish' ? (
 						<Icons.RadioTower className="w-8 h-8" />
 					) : (
 						<Icons.Antenna className="w-8 h-8" />
 					)}
-				</NodeHeader>
+				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
 				<Select
@@ -87,7 +87,7 @@ export function Mqtt(props: Props) {
 						updateNodeInternals(props.id);
 					}}
 				>
-					<SelectTrigger>{props.data.direction ?? 'publish'}</SelectTrigger>
+					<SelectTrigger>{props.data.direction}</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="publish">Publish</SelectItem>
 						<SelectItem value="subscribe">Subscribe</SelectItem>
@@ -121,3 +121,9 @@ type Direction = 'publish' | 'subscribe';
 
 export type MqttData = { direction: Direction; topic?: string };
 type Props = BaseNode<MqttData, unknown>;
+export const DEFAULT_MQTT_DATA: Props['data'] = {
+	label: 'MQTT',
+	direction: 'publish',
+	value: '',
+	topic: '',
+};

@@ -8,9 +8,10 @@ import {
 	uniqueNamesGenerator,
 } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
-import { ReactFlowComponent } from './render/components/react-flow/ReactFlowCanvas';
+import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
 import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
 import { BoardProvider } from './render/providers/BoardProvider';
+import { NewNodeProvider } from './render/providers/NewNodeProvider';
 import { useNodesEdgesStore } from './render/store';
 
 export function App() {
@@ -21,6 +22,8 @@ export function App() {
 		},
 	);
 
+	// Somehow initial triggers engless rerenders
+	// This is a workaround
 	useEffect(() => {
 		if (mqttConfig.uniqueId.length) {
 			return;
@@ -38,7 +41,9 @@ export function App() {
 					<ReactFlowProvider>
 						<NodeAndEdgeSignaler />
 						<LoadNodesAndEdges />
-						<ReactFlowComponent />
+						<NewNodeProvider>
+							<ReactFlowCanvas />
+						</NewNodeProvider>
 					</ReactFlowProvider>
 				</BoardProvider>
 			</FigmaProvider>

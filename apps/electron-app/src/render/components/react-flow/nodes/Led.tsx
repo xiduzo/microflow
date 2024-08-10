@@ -1,11 +1,11 @@
 import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectTrigger,
-	Switch,
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    Switch,
 } from '@fhb/ui';
 import { Position } from '@xyflow/react';
 import { LedOption } from 'johnny-five';
@@ -14,11 +14,11 @@ import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeHeader,
-	NodeSettings,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
 } from './Node';
 
 export function Led(props: Props) {
@@ -29,36 +29,36 @@ export function Led(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader>
+				<NodeValue>
 					<Switch
 						className="scale-150"
 						disabled
 						checked={Boolean(props.data.value)}
 					/>
-				</NodeHeader>
-				<NodeSettings>
-					<Select
-						value={props.data.pin.toString()}
-						onValueChange={value => {
-							updateNodeData({ pin: parseInt(value) });
-						}}
-					>
-						<SelectTrigger>Pin {props.data.pin}</SelectTrigger>
-						<SelectContent>
-							<SelectGroup>
-								<SelectLabel>Set led pin</SelectLabel>
-								{pins
-									.filter(pin => pin.supportedModes.includes(MODES.INPUT))
-									.map(pin => (
-										<SelectItem key={pin.pin} value={pin.pin.toString()}>
-											Pin {pin.pin}
-										</SelectItem>
-									))}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
-				</NodeSettings>
+				</NodeValue>
 			</NodeContent>
+			<NodeSettings>
+				<Select
+					value={props.data.pin.toString()}
+					onValueChange={value => {
+						updateNodeData({ pin: parseInt(value) });
+					}}
+				>
+					<SelectTrigger>Pin {props.data.pin}</SelectTrigger>
+					<SelectContent>
+						<SelectGroup>
+							<SelectLabel>Set led pin</SelectLabel>
+							{pins
+								.filter(pin => pin.supportedModes.includes(MODES.INPUT))
+								.map(pin => (
+									<SelectItem key={pin.pin} value={pin.pin.toString()}>
+										Pin {pin.pin}
+									</SelectItem>
+								))}
+						</SelectGroup>
+					</SelectContent>
+				</Select>
+			</NodeSettings>
 			<Handle type="target" position={Position.Left} id="on" offset={-1} />
 			<Handle type="target" position={Position.Left} id="toggle" />
 			<Handle type="target" position={Position.Left} id="off" offset={1} />
@@ -69,3 +69,8 @@ export function Led(props: Props) {
 
 export type LedData = Omit<LedOption, 'board'>;
 type Props = BaseNode<LedData, number>;
+export const DEFAULT_LED_DATA: Props['data'] = {
+  label: 'LED',
+  pin: 13,
+  value: 0,
+};

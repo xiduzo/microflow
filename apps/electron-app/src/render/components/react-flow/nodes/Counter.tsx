@@ -4,8 +4,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from './Node';
 
 const numberFormat = new Intl.NumberFormat();
@@ -14,9 +14,9 @@ export function Counter(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader className="text-4xl tabular-nums">
-					{numberFormat.format(props.data.value ?? 0)}
-				</NodeHeader>
+				<NodeValue className="text-4xl tabular-nums">
+					{numberFormat.format(props.data.value)}
+				</NodeValue>
 			</NodeContent>
 			<NodeSettings></NodeSettings>
 			<Handle type="target" position={Position.Left} id="reset" offset={1.5} />
@@ -40,3 +40,7 @@ export function Counter(props: Props) {
 
 export type CounterData = {};
 type Props = BaseNode<CounterData, number>;
+export const DEFAULT_COUNTER_DATA: Props['data'] = {
+	label: 'Counter',
+	value: 0,
+};

@@ -21,8 +21,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from './Node';
 
 export function Button(props: Props) {
@@ -33,7 +33,7 @@ export function Button(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader>
+				<NodeValue>
 					<Toggle
 						disabled
 						className="opacity-100 disabled:opacity-100"
@@ -43,7 +43,7 @@ export function Button(props: Props) {
 						{Boolean(props.data.value) && <Icons.Pointer />}
 						{!Boolean(props.data.value) && <Icons.PointerOff />}
 					</Toggle>
-				</NodeHeader>
+				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
 				<Select
@@ -67,13 +67,13 @@ export function Button(props: Props) {
 				>
 					Hold time
 					<span className="opacity-40 font-light">
-						{props.data.holdtime ?? 500} ms
+						{props.data.holdtime} ms
 					</span>
 				</Label>
 				<Slider
 					id={`holdtime-${props.id}`}
 					className="pb-2"
-					defaultValue={[props.data.holdtime ?? 500]}
+					defaultValue={[props.data.holdtime]}
 					min={500}
 					max={2500}
 					step={50}
@@ -131,3 +131,12 @@ export function Button(props: Props) {
 
 export type ButtonData = Omit<ButtonOption, 'board'>;
 type Props = BaseNode<ButtonData, boolean>;
+export const DEFAULT_BUTTON_DATA: Props['data'] = {
+	value: false,
+	holdtime: 500,
+	isPulldown: false,
+	isPullup: false,
+	invert: false,
+	pin: 6,
+	label: 'Button',
+};

@@ -220,11 +220,11 @@ function defineLed() {
 	return `
 class Led extends JohnnyFive.Led {
   #eventEmitter = new EventEmitter();
-  #value = null
+  #value = 0
 
   constructor(options) {
     super(options);
-    this.options = options
+    this.options = options;
 
     this.#eventEmitter.on("change", this.#postMessage.bind(this, "change"));
 
@@ -265,7 +265,7 @@ class Counter extends EventEmitter {
 
   constructor(options) {
     super();
-    this.options = options
+    this.options = options;
 
     this.on("change", this.#postMessage.bind(this, "change"));
   }
@@ -314,7 +314,7 @@ class Interval extends EventEmitter {
 
   constructor(options) {
     super();
-    this.options = options
+    this.options = options;
 
     this.on("change", this.#postMessage.bind(this, "change"));
 
@@ -357,12 +357,12 @@ class Interval extends EventEmitter {
 function defineFigma() {
 	return `
 class Figma extends EventEmitter {
-  #value = null;
+  #value = '';
   #defaultRGBA = { r: 0, g: 0, b: 0, a: 0 }
 
   constructor(options) {
     super();
-    this.options = options
+    this.options = options;
 
     this.on("change", this.#postMessage.bind(this, "change"));
   }
@@ -434,7 +434,7 @@ class Figma extends EventEmitter {
 function defineIfElse() {
 	return `
 class IfElse extends EventEmitter {
-  #value = null
+  #value = false
 
   constructor(options) {
     super();
@@ -573,7 +573,7 @@ class RangeMap extends EventEmitter {
 function defineMqtt() {
 	return `
 class Mqtt extends EventEmitter {
-  #value = null;
+  #value = '';
 
   constructor(options) {
     super();

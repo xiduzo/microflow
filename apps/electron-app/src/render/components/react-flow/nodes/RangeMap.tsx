@@ -6,8 +6,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from './Node';
 
 export function RangeMap(props: Props) {
@@ -16,23 +16,23 @@ export function RangeMap(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader
+				<NodeValue
 					className="text-4xl tabular-nums"
-					valueOverride={props.data.value?.[0]}
+					valueOverride={props.data.value[0]}
 				>
-					{props.data.value?.[0] ?? 0}
-				</NodeHeader>
+					{props.data.value[0]}
+				</NodeValue>
 				<section className="flex flex-col space-y-3">
 					<span className="w-full flex justify-center">
 						<Icons.ArrowsUpFromLine className="rotate-180" />
 					</span>
 				</section>
-				<NodeHeader
+				<NodeValue
 					className="text-4xl tabular-nums"
-					valueOverride={props.data.value?.[1]}
+					valueOverride={props.data.value[1]}
 				>
-					{props.data.value?.[1] ?? 0}
-				</NodeHeader>
+					{props.data.value[1]}
+				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
 				<div>From range</div>
@@ -91,3 +91,10 @@ export type RangeMapData = {
 	to: number[];
 };
 type Props = BaseNode<RangeMapData, number[]>;
+
+export const DEFAULT_RANGE_MAP_DATA: Props['data'] = {
+	value: [0, 0],
+	from: [0, 100],
+	to: [0, 100],
+	label: 'Range Map',
+};

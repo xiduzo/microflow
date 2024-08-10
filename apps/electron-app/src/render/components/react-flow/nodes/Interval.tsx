@@ -3,11 +3,11 @@ import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { Handle } from './Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeHeader,
-	NodeSettings,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
 } from './Node';
 
 const numberFormat = new Intl.NumberFormat();
@@ -18,9 +18,9 @@ export function Interval(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader className="tabular-nums">
-					{numberFormat.format(Math.round(props.data.value ?? 0))}
-				</NodeHeader>
+				<NodeValue className="tabular-nums">
+					{numberFormat.format(Math.round(props.data.value))}
+				</NodeValue>
 			</NodeContent>
 
 			<NodeSettings>
@@ -30,13 +30,13 @@ export function Interval(props: Props) {
 				>
 					Interval
 					<span className="opacity-40 font-light">
-						{props.data.interval ?? 500}ms
+						{props.data.interval}ms
 					</span>
 				</Label>
 				<Slider
 					id={`interval-${props.id}`}
 					className="pb-2"
-					defaultValue={[props.data.interval ?? 500]}
+					defaultValue={[props.data.interval]}
 					min={500}
 					max={5000}
 					step={100}
@@ -48,5 +48,10 @@ export function Interval(props: Props) {
 	);
 }
 
-export type IntervalData = { interval?: number };
+export type IntervalData = { interval: number };
 type Props = BaseNode<IntervalData, number>;
+export const DEFAULT_INTERVAL_DATA: Props['data'] = {
+	label: 'Interval',
+	interval: 500,
+	value: 0
+};

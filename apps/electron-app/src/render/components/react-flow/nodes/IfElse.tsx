@@ -17,8 +17,8 @@ import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
-	NodeHeader,
 	NodeSettings,
+	NodeValue,
 } from './Node';
 
 // TODO: add custom method validator
@@ -48,7 +48,7 @@ export function IfElse(props: Props) {
 
 		if (props.data.validator === 'number') {
 			const isRange = ['between', 'outside'].includes(props.data.subValidator);
-			const currentValue = Number(props.data.validatorArgs[0] ?? 0);
+			const currentValue = Number(props.data.validatorArgs[0]);
 			const validatorArgs = [currentValue];
 			if (isRange) {
 				const increment = (MAX_NUMERIC_VALUE + 1) * 0.25;
@@ -77,7 +77,7 @@ export function IfElse(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeHeader>
+				<NodeValue>
 					{props.data.value === true && (
 						<Icons.Check className="w-12 h-12 text-green-500" />
 					)}
@@ -88,7 +88,7 @@ export function IfElse(props: Props) {
 						(props.data.value === undefined && (
 							<Icons.Dot className="w-12 h-12 text-gray-500" />
 						))}
-				</NodeHeader>
+				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
 				<section className="flex space-x-2 justify-between">
@@ -138,7 +138,7 @@ export function IfElse(props: Props) {
 				</section>
 				{props.data.validator === 'text' && (
 					<Input
-						value={(props.data.validatorArgs[0] as string) ?? ''}
+						value={String(props.data.validatorArgs[0])}
 						type="text"
 						placeholder="Expected value"
 						onChange={e => updateNodeData({ validatorArgs: [e.target.value] })}
@@ -159,7 +159,7 @@ export function IfElse(props: Props) {
 							</Label>
 							<Slider
 								id={`slider-if-else-${props.id}`}
-								key={props.data.validatorArgs.length ?? 0}
+								key={props.data.validatorArgs.length}
 								defaultValue={
 									(props.data.validatorArgs.filter(
 										arg => arg !== undefined,
@@ -189,3 +189,10 @@ export type IfElseData = {
 	subValidator: string;
 };
 type Props = BaseNode<IfElseData, boolean>;
+export const DEFAULT_IF_ELSE_DATA: Props['data'] = {
+	label: 'If/Else',
+	value: false,
+	validator: validators[0],
+	subValidator: subValidators[validators[0]][0],
+	validatorArgs: [0, 1023],
+};

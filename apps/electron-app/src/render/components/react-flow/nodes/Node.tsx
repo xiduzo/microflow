@@ -1,11 +1,6 @@
 import {
 	Button,
 	cn,
-	ContextMenu,
-	ContextMenuContent,
-	ContextMenuItem,
-	ContextMenuShortcut,
-	ContextMenuTrigger,
 	cva,
 	Drawer,
 	DrawerContent,
@@ -19,7 +14,6 @@ import { Node, useReactFlow } from '@xyflow/react';
 import {
 	createContext,
 	PropsWithChildren,
-	ReactElement,
 	useContext,
 	useEffect,
 	useRef,
@@ -78,19 +72,10 @@ type NodeContainerProps = PropsWithChildren & {
 };
 
 export function NodeContainer(props: Props) {
-	return (
-		<ContextMenu>
-			<ContextMenuTrigger>
-				<BaseNode {...props}>
-					{props.children}
-					{props.contextMenu ?? <BaseContextMenu />}
-				</BaseNode>
-			</ContextMenuTrigger>
-		</ContextMenu>
-	);
+	return <BaseNode {...props}>{props.children}</BaseNode>;
 }
 
-export function NodeHeader(props: NodeHeaderProps) {
+export function NodeValue(props: NodeValueProps) {
 	const { data } = useNode();
 	const prevValue = useRef(props.valueOverride ?? data.value);
 
@@ -103,7 +88,7 @@ export function NodeHeader(props: NodeHeaderProps) {
 	return (
 		<section
 			className={cn(
-				nodeHeader({
+				nodeValue({
 					className: props.className,
 					active:
 						props.active ||
@@ -119,18 +104,18 @@ export function NodeHeader(props: NodeHeaderProps) {
 
 export function NodeContent(props: PropsWithChildren) {
 	return (
-		<section className="flex flex-col space-y-4 m-2">{props.children}</section>
+		<section className="flex flex-col space-y-4 grow">{props.children}</section>
 	);
 }
 
-type NodeHeaderProps = PropsWithChildren &
-	VariantProps<typeof nodeHeader> & {
+type NodeValueProps = PropsWithChildren &
+	VariantProps<typeof nodeValue> & {
 		className?: string;
 		valueOverride?: unknown;
 	};
 
-const nodeHeader = cva(
-	'flex p-10 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 pointer-events-none',
+const nodeValue = cva(
+	'flex p-10 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 w-full pointer-events-none',
 	{
 		variants: {
 			active: {
@@ -162,18 +147,28 @@ function BaseNode(props: PropsWithChildren & BaseNode) {
 					}),
 				)}
 			>
-				<header className="px-6 py-1 border-b">{props.data.label}</header>
-				<main className="px-4 py-2 flex justify-center items-center grow">
+				<NodeHeader />
+				<main className="px-4 pt-2 pb-4 flex justify-center items-center grow">
 					{props.children}
 				</main>
-				{/* <footer>whatt</footer> */}
 			</div>
 		</NodeContainerContext.Provider>
 	);
 }
 
+function NodeHeader() {
+	const node = useNode();
+	const { updateNodeData } = useReactFlow<BaseNode>();
+
+	return (
+		<header className="p-2 pl-4 border-b-2 text-muted-foreground text-sm">
+			{node.data.label}
+		</header>
+	);
+}
+
 const node = cva(
-	'bg-neutral-950/5 outline -outline-offset-2 outline-neutral-500/25 backdrop-blur-sm rounded-md min-w-60 min-h-44 flex flex-col',
+	'bg-neutral-950/5 outline -outline-offset-1 outline-neutral-500/25 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col',
 	{
 		variants: {
 			selectable: {
@@ -207,49 +202,16 @@ const node = cva(
 	},
 );
 
-function BaseContextMenuItems() {
-	const node = useNode();
-	const { deleteElements, updateNodeData } = useReactFlow<BaseNode>();
-
-	return (
-		<>
-			<ContextMenuItem
-				onClick={() => updateNodeData(node.id, { settingsOpen: true })}
-			>
-				Settings
-			</ContextMenuItem>
-			<ContextMenuItem
-				className="text-red-500"
-				onClick={() => deleteElements({ nodes: [node] })}
-			>
-				Delete
-				<ContextMenuShortcut>⌫</ContextMenuShortcut>
-			</ContextMenuItem>
-		</>
-	);
-}
-
-function BaseContextMenu() {
-	return (
-		<ContextMenuContent>
-			<BaseContextMenuItems />
-		</ContextMenuContent>
-	);
-}
-
 export type BaseNode<
 	DataType extends Record<string, any> = {},
 	ValueType = undefined,
 > = Node<
 	DataType & {
-		animated?: string;
-		value?: ValueType;
-		settingsOpen?: boolean;
+		value: ValueType;
 		label: string;
+		animated?: string;
+		settingsOpen?: boolean;
 	}
 >;
 
-type Props = PropsWithChildren &
-	BaseNode<{}, any> & {
-		contextMenu?: ReactElement<typeof ContextMenuContent>;
-	};
+type Props = PropsWithChildren & BaseNode<{}, any>;

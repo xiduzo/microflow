@@ -1,10 +1,11 @@
-const { app, dialog, BrowserWindow } = require('electron');
+const { app, dialog, BrowserWindow, Menu } = require('electron');
 const { updateElectronApp } = require('update-electron-app');
 
 const path = require('node:path');
 
 import handleSquirrelEvent from '@fhb/utils/handleSquirrelEvent';
 import './main/ipc';
+import './main/menu';
 
 let mainWindow = null;
 
