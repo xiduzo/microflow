@@ -21,7 +21,6 @@ import { Piezo } from './nodes/piezo/Piezo';
 import { RangeMap } from './nodes/RangeMap';
 import { Sensor } from './nodes/Sensor';
 import { Servo } from './nodes/Servo';
-import { MenuButton } from './panels/MenuButton';
 import { SerialConnectionStatus } from './panels/SerialConnectionStatus';
 
 const nodeTypes = {
@@ -84,13 +83,9 @@ export function ReactFlowCanvas() {
 				<SerialConnectionStatus />
 			</Panel>
 
-			<Panel position="top-right">
-				<MenuButton />
-			</Panel>
-
 			<Panel
 				position="bottom-center"
-				className="text-gray-50/20 bg-neutral-950/5 backdrop-blur-sm rounded-md p-2"
+				className="text-gray-50/20 bg-neutral-950/5 backdrop-blur-sm rounded-md"
 			>
 				<a
 					href="https://www.sanderboer.nl"

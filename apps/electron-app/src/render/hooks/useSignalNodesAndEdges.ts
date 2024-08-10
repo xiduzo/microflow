@@ -8,7 +8,7 @@ export function useSignalNodesAndEdges() {
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on(
-			'ipc-fhb-uploaded-code',
+			'ipc-microcontroller',
 			(message: UploadedCodeMessage) => {
 				if (timeouts.current.get(message.nodeId)) {
 					clearTimeout(timeouts.current.get(message.nodeId));

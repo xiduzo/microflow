@@ -44,7 +44,7 @@ export function Figma(props: Props) {
 
 	useEffect(() => {
 		window.electron.ipcRenderer.send(
-			'ipc-fhb-value-changed',
+			'ipc-external-value',
 			props.type,
 			props.id,
 			value,

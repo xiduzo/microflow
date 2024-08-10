@@ -33,7 +33,6 @@ import { DEFAULT_RANGE_MAP_DATA } from '../components/react-flow/nodes/RangeMap'
 import { DEFAULT_SENSOR_DATA } from '../components/react-flow/nodes/Sensor';
 import { DEFAULT_SERVO_DATA } from '../components/react-flow/nodes/Servo';
 import { NodeType } from '../components/react-flow/ReactFlowCanvas';
-import { useIsAppleProduct } from '../hooks/useIsAppleProduct';
 import { tempNodeSelector, useNodesEdgesStore } from '../store';
 
 const NewNodeContext = createContext({
@@ -46,24 +45,6 @@ const NewNodeContext = createContext({
 export function NewNodeProvider(props: PropsWithChildren) {
 	const [open, setOpen] = useState(false);
 	const [nodeToAdd, setNodeToAdd] = useState<string | null>(null);
-	const isAppleProduct = useIsAppleProduct();
-
-	useEffect(() => {
-		if (nodeToAdd) return;
-
-		function handleKeyDown(event: KeyboardEvent) {
-			if (
-				event.key === 'k' &&
-				(isAppleProduct ? event.metaKey : event.ctrlKey)
-			) {
-				event.preventDefault();
-				setOpen(prev => !prev);
-			}
-		}
-
-		document.addEventListener('keydown', handleKeyDown);
-		return () => document.removeEventListener('keydown', handleKeyDown);
-	}, [isAppleProduct, nodeToAdd]);
 
 	return (
 		<NewNodeContext.Provider value={{ open, setOpen, nodeToAdd, setNodeToAdd }}>
@@ -229,6 +210,14 @@ function DroppableNewNode() {
 			if (event.key === 'Escape' || event.key === 'Backspace') {
 				setNodeToAdd(null);
 				deleteNode(nodeToAdd);
+			}
+
+			if (event.key === 'Enter') {
+				const element = event.target as HTMLElement;
+				if (element !== document.body) return;
+
+				setNodeToAdd(null);
+				updateNode(nodeToAdd, { selected: false });
 			}
 		}
 

@@ -3,11 +3,12 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
 type Channels =
-	| 'ipc-fhb-flash-firmata'
-	| 'ipc-fhb-check-board'
-	| 'ipc-fhb-upload-code'
-	| 'ipc-fhb-uploaded-code'
-	| 'ipc-fhb-value-changed';
+	| 'ipc-flash-firmata'
+	| 'ipc-check-board'
+	| 'ipc-upload-code'
+	| 'ipc-microcontroller'
+	| 'ipc-external-value'
+	| 'ipc-menu';
 export const electronHandler = {
 	ipcRenderer: {
 		send(channel: Channels, ...args: unknown[]) {

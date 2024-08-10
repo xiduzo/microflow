@@ -18,6 +18,7 @@ export * from './components/ui/select';
 export * from './components/ui/separator';
 export * from './components/ui/sheet';
 export * from './components/ui/slider';
+export * from './components/ui/sonner';
 export * from './components/ui/switch';
 export * from './components/ui/tabs';
 export * from './components/ui/toggle';
@@ -27,5 +28,7 @@ export { zodResolver } from '@hookform/resolvers/zod';
 export * from 'class-variance-authority';
 export * as Icons from 'lucide-react';
 export { useForm } from 'react-hook-form';
+export { toast } from 'sonner';
 export * as Zod from 'zod';
 export * from './lib/utils';
+

@@ -2,6 +2,7 @@ import Avrgirl, { type KnownBoard, type Port } from 'avrgirl-arduino';
 import {
 	ipcMain,
 	IpcMainEvent,
+	Menu,
 	utilityProcess,
 	UtilityProcess,
 } from 'electron';
@@ -35,7 +36,16 @@ const KNOWN_BOARD_PRODUCT_IDS: [KnownBoard, string[]][] = [
 //   shell.openExternal(pagePath)
 // })
 
-ipcMain.on('ipc-fhb-check-board', event => {
+ipcMain.on('ipc-menu', (_event, action, ...args) => {
+	switch (action) {
+		case 'auto-save':
+			const checked = Boolean(args[0]);
+			Menu.getApplicationMenu().getMenuItemById('autosave').checked = checked;
+			break;
+	}
+});
+
+ipcMain.on('ipc-check-board', event => {
 	childProcess?.kill();
 
 	const filePath = join(__dirname, 'check.js');
@@ -47,16 +57,16 @@ ipcMain.on('ipc-fhb-check-board', event => {
 		}
 
 		if (message.type !== 'error') {
-			event.reply('ipc-fhb-check-board', message satisfies BoardCheckResult);
+			event.reply('ipc-check-board', message satisfies BoardCheckResult);
 		} else {
 			try {
 				await forceFlashBoard();
-				event.reply('ipc-fhb-check-board', {
+				event.reply('ipc-check-board', {
 					type: 'ready',
 				} satisfies BoardCheckResult); // We know the board can run Firmata now
 			} catch (error) {
 				log.warn({ error });
-				event.reply('ipc-fhb-check-board', message satisfies BoardCheckResult);
+				event.reply('ipc-check-board', message satisfies BoardCheckResult);
 			}
 		}
 
@@ -64,34 +74,34 @@ ipcMain.on('ipc-fhb-check-board', event => {
 	});
 });
 
-ipcMain.on('ipc-fhb-flash-firmata', async (event, board: KnownBoard) => {
+ipcMain.on('ipc-flash-firmata', async (event, board: KnownBoard) => {
 	childProcess?.kill();
-	event.reply('ipc-fhb-flash-firmata', {
+	event.reply('ipc-flash-firmata', {
 		type: 'flashing',
 	} satisfies BoardFlashResult);
 
 	try {
 		await flashBoard(board);
-		event.reply('ipc-fhb-flash-firmata', {
+		event.reply('ipc-flash-firmata', {
 			type: 'done',
 		} satisfies BoardFlashResult);
 	} catch (error) {
 		log.warn({ error });
-		event.reply('ipc-fhb-flash-firmata', {
+		event.reply('ipc-flash-firmata', {
 			type: 'error',
 			message: error.message,
 		} satisfies BoardFlashResult);
 	}
 });
 
-ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
+ipcMain.on('ipc-upload-code', (event, code: string) => {
 	childProcess?.kill();
 
 	const filePath = join(__dirname, 'temp.js');
 	writeFile(filePath, code, error => {
 		if (error) {
 			log.error({ error });
-			event.reply('ipc-fhb-upload-code', {
+			event.reply('ipc-upload-code', {
 				type: 'error',
 				message: error.message,
 			} satisfies UploadCodeResult);
@@ -103,18 +113,18 @@ ipcMain.on('ipc-fhb-upload-code', (event, code: string) => {
 			'message',
 			(message: UploadedCodeMessage | UploadCodeResult) => {
 				if ('type' in message) {
-					event.reply('ipc-fhb-upload-code', message);
+					event.reply('ipc-upload-code', message);
 					return;
 				}
 
-				event.reply('ipc-fhb-uploaded-code', message);
+				event.reply('ipc-microcontroller', message);
 			},
 		);
 	});
 });
 
 ipcMain.on(
-	'ipc-fhb-value-changed',
+	'ipc-external-value',
 	(_event, nodeType: string, nodeId: string, value: unknown) => {
 		childProcess?.postMessage({ nodeType, nodeId, value });
 	},
@@ -209,7 +219,7 @@ function sniffPorts(connectedPort: string, event: IpcMainEvent) {
 	getConnectedDevices()
 		.then(ports => {
 			if (!ports.find(port => port.path === connectedPort)) {
-				event.reply('ipc-fhb-check-board', {
+				event.reply('ipc-check-board', {
 					type: 'exit',
 				} satisfies BoardCheckResult);
 				return;

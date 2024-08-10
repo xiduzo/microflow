@@ -1,11 +1,11 @@
-const { app, dialog, BrowserWindow, Menu } = require('electron');
+const { app, dialog, BrowserWindow } = require('electron');
 const { updateElectronApp } = require('update-electron-app');
 
 const path = require('node:path');
 
 import handleSquirrelEvent from '@fhb/utils/handleSquirrelEvent';
 import './main/ipc';
-import './main/menu';
+import { createMenu } from './main/menu';
 
 let mainWindow = null;
 
@@ -32,6 +32,8 @@ const createWindow = () => {
 			preload: path.join(__dirname, 'preload.js'),
 		},
 	});
+
+	createMenu(mainWindow);
 
 	// and load the index.html of the app.
 	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

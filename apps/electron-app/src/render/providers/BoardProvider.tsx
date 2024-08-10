@@ -42,26 +42,26 @@ export function BoardProvider({ children }: PropsWithChildren) {
 
 	function flashBoard(board: KnownBoard) {
 		window.electron.ipcRenderer.once(
-			'ipc-fhb-flash-firmata',
+			'ipc-flash-firmata',
 			(result: BoardFlashResult) => {
 				console.log('flash result', result);
 				setFlashResult(result);
 
 				switch (result.type) {
 					case 'done':
-						window.electron.ipcRenderer.send('ipc-fhb-check-board');
+						window.electron.ipcRenderer.send('ipc-check-board');
 						break;
 				}
 			},
 		);
-		window.electron.ipcRenderer.send('ipc-fhb-flash-firmata', board);
+		window.electron.ipcRenderer.send('ipc-flash-firmata', board);
 	}
 
 	const uploadCode = useCallback((code: string) => {
 		setUploadResult({ type: 'info' });
 
 		const off = window.electron.ipcRenderer.on(
-			'ipc-fhb-upload-code',
+			'ipc-upload-code',
 			(result: UploadCodeResult) => {
 				console.log('upload result', result);
 				setUploadResult(result);
@@ -75,14 +75,14 @@ export function BoardProvider({ children }: PropsWithChildren) {
 			},
 		);
 
-		window.electron.ipcRenderer.send('ipc-fhb-upload-code', code);
+		window.electron.ipcRenderer.send('ipc-upload-code', code);
 	}, []);
 
 	useEffect(() => {
-		window.electron.ipcRenderer.send('ipc-fhb-check-board');
+		window.electron.ipcRenderer.send('ipc-check-board');
 
 		return window.electron.ipcRenderer.on(
-			'ipc-fhb-check-board',
+			'ipc-check-board',
 			(result: BoardCheckResult) => {
 				console.log('check result', result);
 				setCheckResult(result);
@@ -94,7 +94,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
 					case 'exit':
 					case 'fail':
 					case 'close':
-						window.electron.ipcRenderer.send('ipc-fhb-check-board');
+						window.electron.ipcRenderer.send('ipc-check-board');
 						break;
 				}
 			},

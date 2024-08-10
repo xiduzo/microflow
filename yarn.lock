@@ -1296,9 +1296,11 @@ __metadata:
     clsx: ^2.1.1
     cmdk: 1.0.0
     lucide-react: ^0.400.0
+    next-themes: ^0.3.0
     react: ^18.3.1
     react-dom: ^18.3.1
     react-hook-form: ^7.52.1
+    sonner: ^1.5.0
     tailwind-merge: ^2.3.0
     tailwindcss: ^3.4.4
     tailwindcss-animate: ^1.0.7
@@ -9593,6 +9595,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"next-themes@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "next-themes@npm:0.3.0"
+  peerDependencies:
+    react: ^16.8 || ^17 || ^18
+    react-dom: ^16.8 || ^17 || ^18
+  checksum: 4285c4969eac517ad7addd773bcb71e7d14bc6c6e3b24eb97b80a6e06ac03fb6cb345e75dfb448156d14430d06289948eb8cfdeb52402ca7ce786093d01d2878
+  languageName: node
+  linkType: hard
+
 "next@npm:14.2.5":
   version: 14.2.5
   resolution: "next@npm:14.2.5"
@@ -11869,6 +11881,16 @@ __metadata:
     ip: "npm:^2.0.0"
     smart-buffer: "npm:^4.2.0"
   checksum: 259d9e3e8e1c9809a7f5c32238c3d4d2a36b39b83851d0f573bfde5f21c4b1288417ce1af06af1452569cd1eb0841169afd4998f0e04ba04656f6b7f0e46d748
+  languageName: node
+  linkType: hard
+
+"sonner@npm:^1.5.0":
+  version: 1.5.0
+  resolution: "sonner@npm:1.5.0"
+  peerDependencies:
+    react: ^18.0.0
+    react-dom: ^18.0.0
+  checksum: 0b0f911785b74209a44fe85fe5b0cf3bd440c78271285026dc1290bb6e8c6296c92a01a0f72646d18312654c138838aeadd15a55c20954a193cb65ccf84f51e3
   languageName: node
   linkType: hard
 

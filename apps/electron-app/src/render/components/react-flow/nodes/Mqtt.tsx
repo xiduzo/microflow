@@ -53,7 +53,7 @@ export function Mqtt(props: Props) {
 			}
 
 			window.electron.ipcRenderer.send(
-				'ipc-fhb-value-changed',
+				'ipc-external-value',
 				props.type,
 				props.id,
 				value,

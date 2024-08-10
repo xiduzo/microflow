@@ -3,7 +3,6 @@ import {
 	Button,
 	Form,
 	FormControl,
-	FormDescription,
 	FormField,
 	FormItem,
 	FormLabel,
@@ -17,7 +16,6 @@ import {
 	SheetFooter,
 	SheetHeader,
 	SheetTitle,
-	SheetTrigger,
 	Switch,
 	useForm,
 	Zod,
@@ -87,12 +85,12 @@ export function MqttSettingsForm(props: Props) {
 
 	return (
 		<Sheet
+			open={props.open}
 			onOpenChange={opened => {
 				if (opened) return;
 				props.onClose?.();
 			}}
 		>
-			<SheetTrigger asChild>{props.trigger}</SheetTrigger>
 			<SheetContent>
 				<SheetHeader>
 					<SheetTitle>MQTT Settings</SheetTitle>
@@ -132,9 +130,6 @@ export function MqttSettingsForm(props: Props) {
 											<Icons.Dices className="w-4 h-4" />
 										</Button>
 									</section>
-									<FormDescription>
-										This identifier is only being used by Figma nodes.
-									</FormDescription>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -228,6 +223,6 @@ export function MqttSettingsForm(props: Props) {
 }
 
 type Props = {
-	trigger: React.ReactNode;
+	open: boolean;
 	onClose?: () => void;
 };
