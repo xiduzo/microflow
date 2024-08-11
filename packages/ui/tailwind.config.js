@@ -75,6 +75,9 @@ module.exports = {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				wiggle: 'wiggle 0.3s ease-in-out infinite',
 			},
+			maxWidth: {
+				'8xl': '88rem',
+			},
 		},
 	},
 	plugins: [require('tailwindcss-animate')],

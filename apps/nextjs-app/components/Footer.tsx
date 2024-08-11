@@ -38,7 +38,7 @@ export function Footer() {
               </svg>
             </Link> */}
 						<Link
-							href="https://github.com/xiduzo/microflow-studio"
+							href="https://github.com/xiduzo/microflow"
 							target="_blank"
 							className="group"
 							aria-label="Microflow on GitHub"
@@ -54,7 +54,7 @@ export function Footer() {
 					</div>
 					<p className="mt-6 text-sm text-slate-500 sm:mt-0">
 						Copyleft <span className="rotate-180 inline-block">&copy;</span>{' '}
-						{new Date().getFullYear()} Microflow studio. No rights reserved.
+						{new Date().getFullYear()} Microflow. No rights reserved.
 					</p>
 				</div>
 			</Container>
