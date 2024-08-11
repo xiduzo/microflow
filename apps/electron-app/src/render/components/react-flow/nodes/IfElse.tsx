@@ -190,7 +190,7 @@ export type IfElseData = {
 };
 type Props = BaseNode<IfElseData, boolean>;
 export const DEFAULT_IF_ELSE_DATA: Props['data'] = {
-	label: 'If/Else',
+	label: 'if...else',
 	value: false,
 	validator: validators[0],
 	subValidator: subValidators[validators[0]][0],

@@ -7,7 +7,7 @@ import { Logo } from './Logo';
 export function Header(props: PropsWithChildren) {
 	return (
 		<header className="fixed top-4 w-full z-50 flex justify-center">
-			<Container className="mx-4 max-w-screen-xl w-full bg-neutral-900/25 rounded-xl backdrop-blur-sm py-2">
+			<Container className="mx-4 max-w-screen-2xl w-full bg-neutral-900/25 rounded-xl backdrop-blur-sm py-2">
 				<nav className="relative z-50 flex justify-between">
 					<div className="flex grow items-center md:gap-x-12">
 						<Link

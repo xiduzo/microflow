@@ -130,7 +130,7 @@ function NewNodeCommandDialog() {
 						</CommandShortcut>
 					</CommandItem>
 					<CommandItem onSelect={selectNode('IfElse')}>
-						If/Else
+						if...else
 						<CommandShortcut>
 							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>

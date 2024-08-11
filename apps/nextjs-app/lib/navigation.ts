@@ -1,56 +1,85 @@
 export const navigation = [
 	{
 		title: 'Introduction',
-		links: [
-			{ title: 'Getting started', href: '/docs' },
-			{ title: 'Installation', href: '/docs/installation' },
-		],
+		links: [{ title: 'Microflow', href: '/docs' }],
 	},
 	{
-		title: 'Core concepts',
+		title: 'Microflow studio',
 		links: [
-			{ title: 'Understanding caching', href: '/docs/understanding-caching' },
+			{ title: 'Getting started', href: '/docs/microflow-studio' },
+			{ title: 'Nodes', href: '/docs/microflow-studio/nodes' },
 			{
-				title: 'Predicting user behavior',
-				href: '/docs/predicting-user-behavior',
+				title: 'Button',
+				href: '/docs/microflow-studio/nodes/button',
+				parent: '/docs/microflow-studio/nodes',
 			},
-			{ title: 'Basics of time-travel', href: '/docs/basics-of-time-travel' },
 			{
-				title: 'Introduction to string theory',
-				href: '/docs/introduction-to-string-theory',
+				title: 'Counter',
+				href: '/docs/microflow-studio/nodes/counter',
+				parent: '/docs/microflow-studio/nodes',
 			},
-			{ title: 'The butterfly effect', href: '/docs/the-butterfly-effect' },
-		],
-	},
-	{
-		title: 'Advanced guides',
-		links: [
-			{ title: 'Writing plugins', href: '/docs/writing-plugins' },
-			{ title: 'Neuralink integration', href: '/docs/neuralink-integration' },
-			{ title: 'Temporal paradoxes', href: '/docs/temporal-paradoxes' },
-			{ title: 'Testing', href: '/docs/testing' },
-			{ title: 'Compile-time caching', href: '/docs/compile-time-caching' },
 			{
-				title: 'Predictive data generation',
-				href: '/docs/predictive-data-generation',
+				title: 'Figma',
+				href: '/docs/microflow-studio/nodes/figma',
+				parent: '/docs/microflow-studio/nodes',
 			},
+			{
+				title: 'If...else',
+				href: '/docs/microflow-studio/nodes/if-else',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Interval',
+				href: '/docs/microflow-studio/nodes/interval',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'LDR',
+				href: '/docs/microflow-studio/nodes/ldr',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'LED',
+				href: '/docs/microflow-studio/nodes/led',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Map',
+				href: '/docs/microflow-studio/nodes/map',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'MQTT',
+				href: '/docs/microflow-studio/nodes/mqtt',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Piezo',
+				href: '/docs/microflow-studio/nodes/piezo',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Potentiometer',
+				href: '/docs/microflow-studio/nodes/potentiometer',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Servo',
+				href: '/docs/microflow-studio/nodes/servo',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{ title: 'Edges', href: '/docs/microflow-studio/edges' },
 		],
 	},
 	{
-		title: 'API reference',
+		title: 'Microflow hardware bridge',
 		links: [
-			{ title: 'CacheAdvance.predict()', href: '/docs/cacheadvance-predict' },
-			{ title: 'CacheAdvance.flush()', href: '/docs/cacheadvance-flush' },
-			{ title: 'CacheAdvance.revert()', href: '/docs/cacheadvance-revert' },
-			{ title: 'CacheAdvance.regret()', href: '/docs/cacheadvance-regret' },
+			{ title: 'Getting started', href: '/docs/microflow-hardware-bridge' },
+			{ title: 'MQTT', href: '/docs/microflow-hardware-bridge/mqtt' },
 		],
 	},
 	{
-		title: 'Contributing',
-		links: [
-			{ title: 'How to contribute', href: '/docs/how-to-contribute' },
-			{ title: 'Architecture guide', href: '/docs/architecture-guide' },
-			{ title: 'Design principles', href: '/docs/design-principles' },
-		],
+		title: 'Community',
+		links: [{ title: 'How to contribute', href: '/docs/contributing/how-to' }],
 	},
 ];

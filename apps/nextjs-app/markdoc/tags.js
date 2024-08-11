@@ -1,5 +1,6 @@
 import { Callout } from '@/components/Callout';
 import { QuickLink, QuickLinks } from '@/components/QuickLinks';
+import { Badge } from '@fhb/ui';
 
 const tags = {
 	callout: {
@@ -40,6 +41,26 @@ const tags = {
 			description: { type: String },
 			icon: { type: String },
 			href: { type: String },
+		},
+	},
+	tag: {
+		render: Badge,
+		selfClosing: true,
+		attributes: {
+			title: { type: String },
+		},
+		render: props => {
+			console.log('props', props);
+			return (
+				<Badge {...props} variant="secondary">
+					{props.title}
+				</Badge>
+			);
+		},
+	},
+	tags: {
+		render: ({ children }) => {
+			return <div className="flex flex-wrap gap-2">{children}</div>;
 		},
 	},
 };
