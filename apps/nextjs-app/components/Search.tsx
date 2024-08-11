@@ -63,7 +63,7 @@ function useAutocomplete({
 		}
 	}
 
-	let [autocomplete] = useState<Autocomplete>(() =>
+	let [autocomplete] = useState(() =>
 		createAutocomplete<
 			Result,
 			React.SyntheticEvent,
@@ -310,11 +310,9 @@ function CloseOnNavigation({
 function SearchDialog({
 	open,
 	setOpen,
-	className,
 }: {
 	open: boolean;
 	setOpen: (open: boolean) => void;
-	className?: string;
 }) {
 	let formRef = useRef<React.ElementRef<'form'>>(null);
 	let panelRef = useRef<React.ElementRef<'div'>>(null);
@@ -358,12 +356,8 @@ function SearchDialog({
 			<Suspense fallback={null}>
 				<CloseOnNavigation close={close} autocomplete={autocomplete} />
 			</Suspense>
-			<Dialog
-				open={open}
-				onOpenChange={() => close(autocomplete)}
-				// className={clsx('fixed inset-0 z-50', className)}
-			>
-				<DialogContent className="mx-auto transform-gpu overflow-hidden rounded-xl bg-white shadow-xl sm:max-w-xl dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
+			<Dialog open={open} onOpenChange={() => close(autocomplete)}>
+				<DialogContent className="p-0 overflow-hidden">
 					<div {...autocomplete.getRootProps({})}>
 						<form
 							ref={formRef}
@@ -379,7 +373,7 @@ function SearchDialog({
 							/>
 							<div
 								ref={panelRef}
-								className="border-t border-slate-200 bg-white px-2 py-3 empty:hidden dark:border-slate-400/10 dark:bg-slate-800"
+								className="border-t px-2 py-3 empty:hidden"
 								{...autocomplete.getPanelProps({})}
 							>
 								{autocompleteState.isOpen && (
@@ -428,7 +422,7 @@ export function Search() {
 
 	useEffect(() => {
 		setModifierKey(
-			/(Mac|iPhone|iPod|iPad)/i.test(navigator.platform) ? '⌘' : 'Ctrl ',
+			/(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent) ? '⌘' : 'Ctrl ',
 		);
 	}, []);
 
@@ -444,7 +438,7 @@ export function Search() {
 					Quick search...
 				</span>
 				{modifierKey && (
-					<kbd className="ml-auto hidden font-medium text-slate-400 md:block dark:text-slate-500">
+					<kbd className="ml-auto hidden font-medium text-slate-400 md:block dark:text-slate-500 space-x-1">
 						<kbd className="font-sans">{modifierKey}</kbd>
 						<kbd className="font-sans">K</kbd>
 					</kbd>

@@ -8,8 +8,6 @@ export function Prose<T extends React.ElementType = 'div'>({
 	as?: T;
 }) {
 	let Component = as ?? 'div';
-	console.log({ as });
-
 	return (
 		<Component
 			className={clsx(
