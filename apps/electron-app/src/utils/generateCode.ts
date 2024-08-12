@@ -100,13 +100,9 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
 	const classDefinitions = [
 		defineButton,
-		defineCounter,
 		defineFigma,
-		defineIfElse,
-		defineInterval,
 		defineLed,
 		defineMqtt,
-		defineRangeMap,
 		defineSensor,
 		defineServo,
 		definePiezo,
@@ -127,6 +123,7 @@ function addEnter() {
 
 function addImports() {
 	return `
+const { Counter, IfElse, RangeMap, Interval } = require("@microflow/components");
 const EventEmitter = require("events");
 const JohnnyFive = require("johnny-five");
 const log = require("electron-log/node");
@@ -270,102 +267,6 @@ class Led extends JohnnyFive.Led {
 `;
 }
 
-function defineCounter() {
-	return `
-class Counter extends EventEmitter {
-  #value = 0;
-
-  constructor(options) {
-    super();
-    this.options = options;
-
-    this.on("change", this.#postMessage.bind(this, "change"));
-  }
-
-  set value(value) {
-    this.#value = parseInt(value);
-    this.emit("change", this.value);
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  increment(amount = 1) {
-    this.value += amount;
-  }
-
-  decrement(amount = 1) {
-    this.value -= amount;
-  }
-
-  reset() {
-    this.value = 0;
-  }
-
-  set(value) {
-    this.value = value;
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-`;
-}
-
-function defineInterval() {
-	return `
-class Interval extends EventEmitter {
-  #minIntervalInMs = 500;
-  #value = 0;
-
-  constructor(options) {
-    super();
-    this.options = options;
-
-    this.on("change", this.#postMessage.bind(this, "change"));
-
-    setInterval(() => {
-      this.value = performance.now()
-    }, this.#interval(options.interval));
-  }
-
-  set value(value) {
-    this.#value = value;
-    this.emit("change", value);
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  #interval(interval) {
-    const parsed = parseInt(interval);
-    const isNumber = !isNaN(parsed);
-
-    if (!isNumber) {
-      return this.#minIntervalInMs;
-    }
-
-    return Math.max(this.#minIntervalInMs, parsed);
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-`;
-}
-
 function defineFigma() {
 	return `
 class Figma extends EventEmitter {
@@ -441,145 +342,6 @@ class Figma extends EventEmitter {
   }
 }
   `;
-}
-
-function defineIfElse() {
-	return `
-class IfElse extends EventEmitter {
-  #value = false
-
-  constructor(options) {
-    super();
-    this.options = options;
-
-    this.on("change", this.#postMessage.bind(this, "change"));
-    this.on("true", this.#postMessage.bind(this, "true"));
-    this.on("false", this.#postMessage.bind(this, "false"));
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  set value(value) {
-    this.#value = value;
-    this.emit(value ? "true" : "false", value)
-  }
-
-  check(input) {
-    const validator = this.#validator();
-    this.value = validator(input, ...this.options.validatorArgs);
-  }
-
-  #validator() {
-    switch (this.options.validator) {
-      case "boolean":
-        return (input) => input === true || ["1", "true", "on", "yes"].includes(String(input).toLowerCase());
-      case "number":
-        switch (this.options.subValidator) {
-          case "equal to":
-            return (input, expected) => input == expected;
-          case "greater than":
-            return (input, expected) => input > expected;
-          case "less than":
-            return (input, expected) => input < expected;
-          case "between":
-            return (input, min, max) => input > min && input < max;
-          case "outside":
-            return (input, min, max) => input < min && input > max;
-          case "is even":
-            return (input) => Math.round(input) % 2 === 0;
-          case "is odd":
-            return (input) => Math.round(input) % 2 !== 0;
-          default:
-            return () => false;
-        }
-      case "text":
-        switch (this.options.subValidator) {
-          case "equal to":
-            return (input, expected) => input === expected;
-          case "includes":
-            return (input, expected) => input.includes(expected);
-          case "starts with":
-            return (input, expected) => input.startsWith(expected);
-          case "ends with":
-            return (input, expected) => input.endsWith(expected);
-          default:
-            return () => false;
-        }
-      default:
-        return () => false;
-    }
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-`;
-}
-
-function defineRangeMap() {
-	return `
-class RangeMap extends EventEmitter {
-  #value = [0,0];
-
-  constructor(options) {
-    super();
-    this.options = options;
-
-    this.on("to", this.#postMessage.bind(this, "to"));
-    this.on("change", this.#postMessage.bind(this, "change"));
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  set value(value) {
-    const previousValue = this.#value;
-
-    this.#value = value;
-    this.#postMessage("change");
-
-    if(previousValue[1] !== value[1]) {
-      this.emit("to", value[1]);
-    }
-  }
-
-  from(input) {
-    if(typeof input === 'boolean') {
-      input = input ? 1 : 0;
-    }
-
-    if(typeof input === 'string') {
-      input = parseFloat(input);
-    }
-
-    const inMin = this.options.from[0] ?? 0;
-    const inMax = this.options.from[1] ?? 1023;
-    const outMin = this.options.to[0] ?? 0;
-    const outMax = this.options.to[1] ?? 1023;
-
-    const output = ((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
-    const distance = outMax - outMin;
-    const normalizedOutput = parseFloat(output).toFixed(distance <= 10 ? 1 : 0);
-    this.value = [input, normalizedOutput];
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-`;
 }
 
 function defineMqtt() {

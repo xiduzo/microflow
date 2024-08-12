@@ -1670,6 +1670,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@microflow/components@workspace:packages/components, @microflow/components@workspaces:*":
+  version: 0.0.0-use.local
+  resolution: "@microflow/components@workspace:packages/components"
+  dependencies:
+    electron-log: ^5.1.7
+    johnny-five: "https://github.com/xiduzo/johnny-five.git"
+    typescript: ^5.5.4
+  languageName: unknown
+  linkType: soft
+
 "@microflow/figma-plugin@workspace:apps/figma-plugin":
   version: 0.0.0-use.local
   resolution: "@microflow/figma-plugin@workspace:apps/figma-plugin"
@@ -4343,6 +4353,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/w3c-web-usb@npm:^1.0.6":
+  version: 1.0.10
+  resolution: "@types/w3c-web-usb@npm:1.0.10"
+  checksum: 6ac6786a0788f0846a48b103ab06ca5fde5eb95674217b522420a2f6157bee3e181a961c1b7011940f497c55f4f5cc46129657d881fdd8112b48764089679ad6
+  languageName: node
+  linkType: hard
+
 "@types/ws@npm:^8.5.9":
   version: 8.5.11
   resolution: "@types/ws@npm:8.5.11"
@@ -6430,6 +6447,13 @@ __metadata:
   version: 5.1.5
   resolution: "electron-log@npm:5.1.5"
   checksum: 8efdf124fc3fa78c6069da05b98277c3c78a42dbea60d8fbdb30b0ca7aca466cf8cf5fc0844ae6154ff8c1709de9f26cf8fc52fb496edabf9a9e0f853f96ffbe
+  languageName: node
+  linkType: hard
+
+"electron-log@npm:^5.1.7":
+  version: 5.1.7
+  resolution: "electron-log@npm:5.1.7"
+  checksum: e1bdf4e82cf2cd5c14d8051359cc727ff7619a2f4be033be287de38d860b5a40718615f8b51dbc78d82363deb01d13be2d550347b0f22b3fb7835035f211499d
   languageName: node
   linkType: hard
 
@@ -9635,6 +9659,7 @@ __metadata:
     "@electron-forge/publisher-github": ^7.4.0
     "@electron-forge/shared-types": ^7.4.0
     "@manypkg/find-root": ^2.2.2
+    "@microflow/components": "workspaces:*"
     "@microflow/mqtt": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"
@@ -9662,6 +9687,7 @@ __metadata:
     typescript: ^5.5.3
     unique-names-generator: ^4.7.1
     update-electron-app: ^3.0.0
+    usb: ^2.13.0
     usehooks-ts: ^3.1.0
     zustand: ^4.5.4
   languageName: unknown
@@ -10151,6 +10177,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-addon-api@npm:^8.0.0":
+  version: 8.1.0
+  resolution: "node-addon-api@npm:8.1.0"
+  dependencies:
+    node-gyp: latest
+  checksum: a30398fa9bb029f164b57d77aac1dc57e62e46cf1a5c468e1a762e34b442ae9d3ee007a87de58e5866df19446f08d556a2dc261a39240d10f6512ed50acf8210
+  languageName: node
+  linkType: hard
+
 "node-api-version@npm:^0.1.4":
   version: 0.1.4
   resolution: "node-api-version@npm:0.1.4"
@@ -10192,7 +10227,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-gyp-build@npm:^4.3.0":
+"node-gyp-build@npm:^4.3.0, node-gyp-build@npm:^4.5.0":
   version: 4.8.1
   resolution: "node-gyp-build@npm:4.8.1"
   bin:
@@ -13354,7 +13389,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5":
+"typescript@npm:^5, typescript@npm:^5.5.4":
   version: 5.5.4
   resolution: "typescript@npm:5.5.4"
   bin:
@@ -13374,7 +13409,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@^5#~builtin<compat/typescript>":
+"typescript@patch:typescript@^5#~builtin<compat/typescript>, typescript@patch:typescript@^5.5.4#~builtin<compat/typescript>":
   version: 5.5.4
   resolution: "typescript@patch:typescript@npm%3A5.5.4#~builtin<compat/typescript>::version=5.5.4&hash=d73830"
   bin:
@@ -13522,6 +13557,18 @@ __metadata:
   dependencies:
     punycode: ^2.1.0
   checksum: 7167432de6817fe8e9e0c9684f1d2de2bb688c94388f7569f7dbdb1587c9f4ca2a77962f134ec90be0cc4d004c939ff0d05acc9f34a0db39a3c797dada262633
+  languageName: node
+  linkType: hard
+
+"usb@npm:^2.13.0":
+  version: 2.13.0
+  resolution: "usb@npm:2.13.0"
+  dependencies:
+    "@types/w3c-web-usb": ^1.0.6
+    node-addon-api: ^8.0.0
+    node-gyp: latest
+    node-gyp-build: ^4.5.0
+  checksum: 9efea190bd3e28c5185ea35db771b0465227d580b4cab7dc7c49d74ac9da19db6f0001045041b9881b1a7ac1a475686ca4d31b84b9c523ab1f68ac199fe446e9
   languageName: node
   linkType: hard
 

@@ -7,6 +7,7 @@ module.exports = {
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
 		prune: false,
+		extraResource: ['./src/main/workers/check.js'],
 		protocols: [
 			{
 				name: 'microflow-studio',

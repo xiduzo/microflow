@@ -1,7 +1,9 @@
 const JohnnyFive = require('johnny-five');
 const log = require('electron-log/node');
 const EventEmitter = require('events');
+const { Counter } = require('@microflow/components');
 
+console.log(Counter);
 const board = new JohnnyFive.Board({
 	repl: true,
 });

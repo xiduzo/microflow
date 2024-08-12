@@ -36,6 +36,7 @@ const KNOWN_BOARD_PRODUCT_IDS: [KnownBoard, string[]][] = [
 //   const pagePath = path.join('file://', pageDirectory, 'index.html')
 //   shell.openExternal(pagePath)
 // })
+//
 
 ipcMain.on('ipc-menu', (_event, action, ...args) => {
 	switch (action) {
@@ -234,6 +235,7 @@ function sniffPorts(connectedPort: string, event: IpcMainEvent) {
 }
 
 async function getConnectedDevices(): Promise<Port[]> {
+	// return getDeviceList()
 	return new Promise((resolve, reject) => {
 		Avrgirl.list((error: unknown, ports: Port[]) => {
 			if (error) {
