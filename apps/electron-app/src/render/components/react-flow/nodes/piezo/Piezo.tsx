@@ -13,14 +13,11 @@ import {
 	SheetTrigger,
 	Slider,
 } from '@fhb/ui';
-import { Position } from '@xyflow/react';
+import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { PiezoOption, PiezoTune } from 'johnny-five';
 import { useState } from 'react';
 import { BoardCheckResult, MODES } from '../../../../../common/types';
-import {
-	useUpdateNodeData,
-	useUpdateNodesHandles,
-} from '../../../../hooks/nodeUpdater';
+import { useUpdateNodeData } from '../../../../hooks/nodeUpdater';
 import { useBoard } from '../../../../providers/BoardProvider';
 import { MusicSheet } from '../../../MusicSheet';
 import { Handle } from '../Handle';
@@ -48,7 +45,7 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 
 export function Piezo(props: Props) {
 	const { pins } = useBoard();
-	const { updateNodesHandles } = useUpdateNodesHandles(props.id);
+	const updateNodeInternals = useUpdateNodeInternals();
 	const { updateNodeData } = useUpdateNodeData<PiezoData>(props.id);
 
 	const [tempSong, setTempSong] = useState<[string | null, number][] | null>(
@@ -93,7 +90,7 @@ export function Piezo(props: Props) {
 				<Select
 					value={props.data.type}
 					onValueChange={(value: 'buzz' | 'song') => {
-						updateNodesHandles();
+						updateNodeInternals(props.id);
 
 						let update = { type: value } as BuzzData | SongData;
 						if (value === 'buzz') {

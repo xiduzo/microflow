@@ -111,10 +111,6 @@ export const nodesAndEdgesCountsSelector = (state: AppState) => ({
 	edgesCount: state.edges.length,
 });
 
-export const deleteEdgesSelector = (state: AppState) => ({
-	deleteEdges: state.deleteEdges,
-});
-
 export const tempNodeSelector = (state: AppState) => ({
 	addNode: state.addNode,
 	deleteNode: state.deleteNode,
