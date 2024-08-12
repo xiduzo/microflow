@@ -42,7 +42,6 @@ export function Home() {
 	const { status, connectedClients } = useMqtt();
 	useSetWindowSize({ width: 250, height: 190 });
 
-	console.log('home', connectedClients);
 	return (
 		<>
 			<PageContent>

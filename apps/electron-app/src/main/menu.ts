@@ -36,7 +36,7 @@ export function createMenu(mainWindow: BrowserWindow) {
 			submenu: [
 				{
 					label: 'Insert node',
-					accelerator: isMac ? 'Cmd+I' : 'Ctrl+I',
+					accelerator: isMac ? 'Cmd+K' : 'Ctrl+K',
 					click: () => {
 						mainWindow.webContents.send('ipc-menu', 'add-node');
 					},

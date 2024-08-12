@@ -111,10 +111,16 @@ function NewNodeCommandDialog() {
 			<CommandList>
 				<CommandEmpty>No results found.</CommandEmpty>
 				<CommandGroup heading="Flow">
-					<CommandItem onSelect={selectNode('RangeMap')}>
-						Map
+					<CommandItem onSelect={selectNode('Counter')}>
+						Counter
 						<CommandShortcut>
-							<Badge variant="outline">Transformation</Badge>
+							<Badge variant="outline">Event</Badge>
+						</CommandShortcut>
+					</CommandItem>
+					<CommandItem onSelect={selectNode('IfElse')}>
+						If...else
+						<CommandShortcut>
+							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>
 					</CommandItem>
 					<CommandItem onSelect={selectNode('Interval')}>
@@ -123,21 +129,22 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Event</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Counter')}>
-						Counter
+					<CommandItem onSelect={selectNode('RangeMap')}>
+						Map
 						<CommandShortcut>
-							<Badge variant="outline">Event</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('IfElse')}>
-						if...else
-						<CommandShortcut>
-							<Badge variant="outline">Control</Badge>
+							<Badge variant="outline">Transformation</Badge>
 						</CommandShortcut>
 					</CommandItem>
 				</CommandGroup>
 				<CommandSeparator />
 				<CommandGroup heading="Hardware">
+					<CommandItem onSelect={selectNode('Button')}>
+						Button
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Digital</Badge>
+							<Badge variant="outline">Input</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Led')}>
 						LED
 						<CommandShortcut className="space-x-1">
@@ -145,11 +152,18 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Button')}>
-						Button
+					<CommandItem onSelect={selectNode('Sensor', 'LDR')}>
+						LDR (Light Dependent Resistor)
 						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Digital</Badge>
+							<Badge variant="outline">Analog</Badge>
 							<Badge variant="outline">Input</Badge>
+						</CommandShortcut>
+					</CommandItem>
+					<CommandItem onSelect={selectNode('Piezo')}>
+						Piezo
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
 					<CommandItem onSelect={selectNode('Sensor', 'Potentiometer')}>
@@ -159,15 +173,8 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Input</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Sensor', 'LDR')}>
-						Light Dependent Resistor (LDR)
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Input</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Piezo')}>
-						Piezo
+					<CommandItem onSelect={selectNode('Servo')}>
+						Servo
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Analog</Badge>
 							<Badge variant="outline">Output</Badge>

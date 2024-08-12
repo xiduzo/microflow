@@ -43,8 +43,8 @@ export function Variables() {
 						<div className="text-xl">No variables found</div>
 						<div className="text-neutral-400 text-center">
 							All variables created in the{' '}
-							<code className="p-0.5 bg-yellow-500 rounded-md text-neutral-100">
-								FHB
+							<code className="p-0.5 px-1 bg-yellow-500 rounded-md text-neutral-100">
+								MHB
 							</code>{' '}
 							collection will be linked automatically with this plugin.
 						</div>

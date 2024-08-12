@@ -66,28 +66,21 @@ export function FigmaProvider(props: PropsWithChildren) {
 			`microflow/v1/${uniqueId}/${appName}/variable/+`,
 			handleVariableUpdate,
 		);
-	}, [status, subscribe, appName, uniqueId]);
+	}, [status, appName, uniqueId]);
 
 	useEffect(() => {
 		if (status !== 'connected') return;
-
-		if (
-			Object.values(variableValues).length &&
-			Object.values(variableTypes).length
-		) {
-			return;
-		}
 
 		publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
 
 		const interval = setInterval(() => {
 			publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
-		}, 5000);
+		}, 1000 * 60);
 
 		return () => {
 			clearInterval(interval);
 		};
-	}, [variableValues, variableTypes, status]);
+	}, [status]);
 
 	return (
 		<FigmaContext.Provider value={{ variableValues, variableTypes }}>

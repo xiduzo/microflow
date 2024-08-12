@@ -5,7 +5,7 @@ import {
 	MESSAGE_TYPE,
 } from '../../common/types/Message';
 
-const FIGMA_PLUGIN_NAME = 'FHB';
+const FIGMA_PLUGIN_NAME = 'MHB';
 
 export async function deleteVariable(id: string) {
 	const variable = await figma.variables.getVariableByIdAsync(id);

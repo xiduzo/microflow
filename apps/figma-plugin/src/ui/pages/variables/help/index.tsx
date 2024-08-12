@@ -3,11 +3,11 @@ import { PageContent, PageHeader } from '../../../components/Page';
 import { useSetWindowSize } from '../../../hooks/useSetWindowSize';
 
 export function VariablesHelp() {
-	useSetWindowSize({ width: 450, height: 475 });
+	useSetWindowSize({ width: 450, height: 500 });
 
 	return (
 		<>
-			<PageHeader title="Variables help" />
+			<PageHeader title="Variables with MQTT" />
 			<PageContent>
 				<div>
 					This plugin uses{' '}
@@ -15,16 +15,12 @@ export function VariablesHelp() {
 						MQTT
 					</a>{' '}
 					to expose all variables in the{' '}
-					<code className="p-0.5 bg-yellow-500 rounded-md text-neutral-100">
-						FHB
+					<code className="p-0.5 px-1 bg-yellow-500 rounded-md text-neutral-100">
+						MHB
 					</code>{' '}
 					variable collection.
 				</div>
-				<div className="flex items-center">
-					Variables updates can be{' '}
-					<Icons.RadioTower className="w-3 h-3 mx-2" aria-hidden /> published or{' '}
-					<Icons.Antenna className="w-3 h-3 mx-2" aria-hidden /> subscribed to
-				</div>
+				<div>Variables updates can be published or subscribed to:</div>
 				<section className="pt-3">
 					<div className="flex items-center space-x-3">
 						<Icons.RadioTower className="w-5 h-5" aria-hidden />
@@ -49,8 +45,8 @@ export function VariablesHelp() {
 					</div>
 					<div className="mt-1.5">
 						Whenever there is a change in the{' '}
-						<code className="p-0.5 bg-yellow-500 rounded-md text-neutral-100">
-							FHB
+						<code className="p-0.5 px-1 bg-yellow-500 rounded-md text-neutral-100">
+							MHB
 						</code>{' '}
 						collection, this plugin will publish an update on the subscribed
 						topic.

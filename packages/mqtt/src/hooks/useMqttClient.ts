@@ -69,12 +69,20 @@ export function useMqttClient() {
 
 			client.current
 				.on('connect', resubscribe)
-				.on('error', disconnect)
-				.on('disconnect', disconnect)
-				.on('close', () => {
-					setStatus('disconnected');
-				})
 				.on('reconnect', resubscribe)
+				.on('error', error => {
+					console.debug('error event received', error);
+					disconnect();
+				})
+				.on('disconnect', error => {
+					console.debug('disconnect event received', error);
+					disconnect();
+				})
+				.on('close', () => {
+					console.debug('close event received');
+					// disconnect();
+					// connect(options);
+				})
 				.on('message', (topic, payload, packet) => {
 					Array.from(subscriptions.current.keys()).forEach(subscription => {
 						const regexp = new RegExp(

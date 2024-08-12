@@ -99,7 +99,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 								prev.set(client, 'disconnected');
 								return new Map(prev);
 							});
-						}, 5000),
+						}, 1000 * 5),
 					);
 				});
 				return new Map(prev);
@@ -108,7 +108,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 				`microflow/v1/${props.config.uniqueId}/${props.appName}/ping`,
 				'',
 			);
-		}, 30000);
+		}, 1000 * 30);
 
 		return () => {
 			clearInterval(interval);
