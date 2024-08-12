@@ -488,9 +488,9 @@ class IfElse extends EventEmitter {
           case "outside":
             return (input, min, max) => input < min && input > max;
           case "is even":
-            return (input) => input % 2 === 0;
+            return (input) => Math.round(input) % 2 === 0;
           case "is odd":
-            return (input) => input % 2 !== 0;
+            return (input) => Math.round(input) % 2 !== 0;
           default:
             return () => false;
         }
