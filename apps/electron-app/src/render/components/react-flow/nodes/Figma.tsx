@@ -1,4 +1,4 @@
-import { FigmaVariable, useFigmaVariable, useMqtt } from '@fhb/mqtt/client';
+import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt/client';
 import {
 	Badge,
 	Icons,
@@ -11,7 +11,7 @@ import {
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect } from 'react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';

@@ -1,5 +1,5 @@
-import { FigmaProvider, MqttConfig, MqttProvider } from '@fhb/mqtt/client';
-import { Toaster } from '@fhb/ui';
+import { FigmaProvider, MqttConfig, MqttProvider } from '@microflow/mqtt/client';
+import { Toaster } from '@microflow/ui';
 import { Edge, Node, ReactFlowProvider } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';

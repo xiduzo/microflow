@@ -1,4 +1,4 @@
-import { Button, Icons } from '@fhb/ui';
+import { Button, Icons } from '@microflow/ui';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export function IconBackButton() {

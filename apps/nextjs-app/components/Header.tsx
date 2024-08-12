@@ -1,4 +1,4 @@
-import { Button } from '@fhb/ui';
+import { Button } from '@microflow/ui';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 import { Container } from './Container';

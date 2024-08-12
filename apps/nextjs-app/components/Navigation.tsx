@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { navigation } from '@/lib/navigation';
-import { Icons } from '@fhb/ui';
+import { Icons } from '@microflow/ui';
 
 export function Navigation({
 	className,

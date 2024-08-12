@@ -1,4 +1,4 @@
-import { Badge, Icons } from '@fhb/ui';
+import { Badge, Icons } from '@microflow/ui';
 import { useAutoCodeUploader } from '../../../hooks/codeUploader';
 import { useBoard } from '../../../providers/BoardProvider';
 import { FlashFirmata } from './FlashFirmata';

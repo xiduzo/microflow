@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 
-import { Icons } from '@fhb/ui';
+import { Icons } from '@microflow/ui';
 
 const styles = {
 	note: {

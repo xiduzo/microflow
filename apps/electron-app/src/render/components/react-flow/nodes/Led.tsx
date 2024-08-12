@@ -6,7 +6,7 @@ import {
 	SelectLabel,
 	SelectTrigger,
 	Switch,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { LedOption } from 'johnny-five';
 import { MODES } from '../../../../common/types';

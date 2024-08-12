@@ -1,4 +1,4 @@
-import { MqttConfig } from '@fhb/mqtt/client';
+import { MqttConfig } from '@microflow/mqtt/client';
 import {
 	Button,
 	Form,
@@ -20,7 +20,7 @@ import {
 	useForm,
 	Zod,
 	zodResolver,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { useEffect } from 'react';
 import {
 	adjectives,

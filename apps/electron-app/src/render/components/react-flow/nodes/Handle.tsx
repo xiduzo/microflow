@@ -3,7 +3,7 @@ import {
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { HandleProps, Position, Handle as XyFlowHandle } from '@xyflow/react';
 
 const HANDLE_SPACING = 28;

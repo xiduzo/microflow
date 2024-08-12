@@ -9,7 +9,7 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 	VariantProps,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import {
 	createContext,

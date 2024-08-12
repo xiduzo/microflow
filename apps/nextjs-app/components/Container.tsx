@@ -1,4 +1,4 @@
-import { cn } from '@fhb/ui';
+import { cn } from '@microflow/ui';
 
 export function Container({
 	className,

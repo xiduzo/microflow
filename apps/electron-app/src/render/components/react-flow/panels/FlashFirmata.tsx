@@ -1,4 +1,4 @@
-import { Badge } from '@fhb/ui';
+import { Badge } from '@microflow/ui';
 import { KnownBoard } from 'avrgirl-arduino';
 import { useState } from 'react';
 import { useBoard } from '../../../providers/BoardProvider';

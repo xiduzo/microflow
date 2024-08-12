@@ -1,4 +1,4 @@
-import BaseConfig from '@fhb/ui/tailwind.config';
+import BaseConfig from '@microflow/ui/tailwind.config';
 import type { Config } from 'tailwindcss';
 const typographyPlugin = require('@tailwindcss/typography');
 

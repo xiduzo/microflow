@@ -11,7 +11,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
 import {
 	createContext,

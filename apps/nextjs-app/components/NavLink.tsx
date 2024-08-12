@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { Button } from '@fhb/ui';
+import { Button } from '@microflow/ui';
 
 export function NavLink({
 	href,

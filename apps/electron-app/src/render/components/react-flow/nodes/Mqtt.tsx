@@ -1,4 +1,4 @@
-import { useMqtt } from '@fhb/mqtt/client';
+import { useMqtt } from '@microflow/mqtt/client';
 import {
 	Badge,
 	Icons,
@@ -8,7 +8,7 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect } from 'react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';

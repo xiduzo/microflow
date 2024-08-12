@@ -10,7 +10,7 @@ import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { useState } from 'react';
 import { NOTES_AND_FREQUENCIES } from './constants';
 

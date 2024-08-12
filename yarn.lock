@@ -1262,99 +1262,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@fhb/figma-plugin@workspace:apps/figma-plugin":
-  version: 0.0.0-use.local
-  resolution: "@fhb/figma-plugin@workspace:apps/figma-plugin"
-  dependencies:
-    "@fhb/mqtt": "workspaces:*"
-    "@fhb/ui": "workspaces:*"
-    "@figma/plugin-typings": ^1.83.0
-    "@types/node": ^18.15.11
-    "@types/postcss-url": ^10.0.0
-    "@types/react": ^18.0.28
-    "@types/react-dom": ^18.0.11
-    "@vitejs/plugin-react": ^4.2.1
-    autoprefixer: ^10.4.19
-    concurrently: ^8.2.2
-    mqtt: ^5.8.0
-    postcss: ^8.4.39
-    react: ^18.2.0
-    react-dom: ^18.2.0
-    react-router-dom: ^6.25.0
-    rimraf: ^5.0.5
-    rollup: ^4.19.1
-    tailwindcss: ^3.4.5
-    typescript: ^5.3.0
-    unique-names-generator: ^4.7.1
-    usehooks-ts: ^3.1.0
-    vite: ^5.0.11
-    vite-plugin-generate-file: ^0.1.1
-    vite-plugin-singlefile: ^0.13.5
-  languageName: unknown
-  linkType: soft
-
-"@fhb/mqtt@workspace:packages/mqtt, @fhb/mqtt@workspaces:*":
-  version: 0.0.0-use.local
-  resolution: "@fhb/mqtt@workspace:packages/mqtt"
-  dependencies:
-    mqtt: ^5.8.0
-    react: ^18.3.1
-  languageName: unknown
-  linkType: soft
-
-"@fhb/test-package@workspace:packages/test":
-  version: 0.0.0-use.local
-  resolution: "@fhb/test-package@workspace:packages/test"
-  languageName: unknown
-  linkType: soft
-
-"@fhb/ui@workspace:packages/ui, @fhb/ui@workspaces:*":
-  version: 0.0.0-use.local
-  resolution: "@fhb/ui@workspace:packages/ui"
-  dependencies:
-    "@hookform/resolvers": ^3.9.0
-    "@radix-ui/react-checkbox": ^1.1.1
-    "@radix-ui/react-collapsible": ^1.1.0
-    "@radix-ui/react-context-menu": ^2.2.1
-    "@radix-ui/react-dialog": ^1.1.1
-    "@radix-ui/react-dropdown-menu": ^2.1.1
-    "@radix-ui/react-label": ^2.1.0
-    "@radix-ui/react-popover": ^1.1.1
-    "@radix-ui/react-progress": ^1.1.0
-    "@radix-ui/react-radio-group": ^1.2.0
-    "@radix-ui/react-select": ^2.1.1
-    "@radix-ui/react-separator": ^1.1.0
-    "@radix-ui/react-slider": ^1.2.0
-    "@radix-ui/react-slot": ^1.1.0
-    "@radix-ui/react-switch": ^1.1.0
-    "@radix-ui/react-tabs": ^1.1.0
-    "@radix-ui/react-toggle": ^1.1.0
-    "@radix-ui/react-tooltip": ^1.1.2
-    "@types/johnny-five": ^2.1.9
-    "@types/react": ^18.3.3
-    class-variance-authority: ^0.7.0
-    clsx: ^2.1.1
-    cmdk: 1.0.0
-    lucide-react: ^0.400.0
-    next-themes: ^0.3.0
-    react: ^18.3.1
-    react-dom: ^18.3.1
-    react-hook-form: ^7.52.1
-    sonner: ^1.5.0
-    tailwind-merge: ^2.3.0
-    tailwindcss: ^3.4.4
-    tailwindcss-animate: ^1.0.7
-    vaul: ^0.9.1
-    zod: ^3.23.8
-  languageName: unknown
-  linkType: soft
-
-"@fhb/utils@workspace:packages/utils, @fhb/utils@workspaces:*":
-  version: 0.0.0-use.local
-  resolution: "@fhb/utils@workspace:packages/utils"
-  languageName: unknown
-  linkType: soft
-
 "@figma/plugin-typings@npm:^1.83.0":
   version: 1.97.0
   resolution: "@figma/plugin-typings@npm:1.97.0"
@@ -1762,6 +1669,99 @@ __metadata:
   checksum: 7b1ef1bc5c8c7cdded69d9f7db48505691603de17434b24858a3fc75a5e23c7fccdeeaf012ad38a1b7bf971d9e712c3888ce82259116902e4040522bfa0e516f
   languageName: node
   linkType: hard
+
+"@microflow/figma-plugin@workspace:apps/figma-plugin":
+  version: 0.0.0-use.local
+  resolution: "@microflow/figma-plugin@workspace:apps/figma-plugin"
+  dependencies:
+    "@figma/plugin-typings": ^1.83.0
+    "@microflow/mqtt": "workspaces:*"
+    "@microflow/ui": "workspaces:*"
+    "@types/node": ^18.15.11
+    "@types/postcss-url": ^10.0.0
+    "@types/react": ^18.0.28
+    "@types/react-dom": ^18.0.11
+    "@vitejs/plugin-react": ^4.2.1
+    autoprefixer: ^10.4.19
+    concurrently: ^8.2.2
+    mqtt: ^5.8.0
+    postcss: ^8.4.39
+    react: ^18.2.0
+    react-dom: ^18.2.0
+    react-router-dom: ^6.25.0
+    rimraf: ^5.0.5
+    rollup: ^4.19.1
+    tailwindcss: ^3.4.5
+    typescript: ^5.3.0
+    unique-names-generator: ^4.7.1
+    usehooks-ts: ^3.1.0
+    vite: ^5.0.11
+    vite-plugin-generate-file: ^0.1.1
+    vite-plugin-singlefile: ^0.13.5
+  languageName: unknown
+  linkType: soft
+
+"@microflow/mqtt@workspace:packages/mqtt, @microflow/mqtt@workspaces:*":
+  version: 0.0.0-use.local
+  resolution: "@microflow/mqtt@workspace:packages/mqtt"
+  dependencies:
+    mqtt: ^5.8.0
+    react: ^18.3.1
+  languageName: unknown
+  linkType: soft
+
+"@microflow/test-package@workspace:packages/test":
+  version: 0.0.0-use.local
+  resolution: "@microflow/test-package@workspace:packages/test"
+  languageName: unknown
+  linkType: soft
+
+"@microflow/ui@workspace:packages/ui, @microflow/ui@workspaces:*":
+  version: 0.0.0-use.local
+  resolution: "@microflow/ui@workspace:packages/ui"
+  dependencies:
+    "@hookform/resolvers": ^3.9.0
+    "@radix-ui/react-checkbox": ^1.1.1
+    "@radix-ui/react-collapsible": ^1.1.0
+    "@radix-ui/react-context-menu": ^2.2.1
+    "@radix-ui/react-dialog": ^1.1.1
+    "@radix-ui/react-dropdown-menu": ^2.1.1
+    "@radix-ui/react-label": ^2.1.0
+    "@radix-ui/react-popover": ^1.1.1
+    "@radix-ui/react-progress": ^1.1.0
+    "@radix-ui/react-radio-group": ^1.2.0
+    "@radix-ui/react-select": ^2.1.1
+    "@radix-ui/react-separator": ^1.1.0
+    "@radix-ui/react-slider": ^1.2.0
+    "@radix-ui/react-slot": ^1.1.0
+    "@radix-ui/react-switch": ^1.1.0
+    "@radix-ui/react-tabs": ^1.1.0
+    "@radix-ui/react-toggle": ^1.1.0
+    "@radix-ui/react-tooltip": ^1.1.2
+    "@types/johnny-five": ^2.1.9
+    "@types/react": ^18.3.3
+    class-variance-authority: ^0.7.0
+    clsx: ^2.1.1
+    cmdk: 1.0.0
+    lucide-react: ^0.400.0
+    next-themes: ^0.3.0
+    react: ^18.3.1
+    react-dom: ^18.3.1
+    react-hook-form: ^7.52.1
+    sonner: ^1.5.0
+    tailwind-merge: ^2.3.0
+    tailwindcss: ^3.4.4
+    tailwindcss-animate: ^1.0.7
+    vaul: ^0.9.1
+    zod: ^3.23.8
+  languageName: unknown
+  linkType: soft
+
+"@microflow/utils@workspace:packages/utils, @microflow/utils@workspaces:*":
+  version: 0.0.0-use.local
+  resolution: "@microflow/utils@workspace:packages/utils"
+  languageName: unknown
+  linkType: soft
 
 "@next/env@npm:14.2.5":
   version: 14.2.5
@@ -4981,9 +4981,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"avrgirl-arduino@https://github.com/blokdots/avrgirl-arduino.git":
+"avrgirl-arduino@https://github.com/xiduzo/avrgirl-arduino.git":
   version: 5.0.1
-  resolution: "avrgirl-arduino@https://github.com/blokdots/avrgirl-arduino.git#commit=213f5a825cd3e639a1511be0c81addf2282ad960"
+  resolution: "avrgirl-arduino@https://github.com/xiduzo/avrgirl-arduino.git#commit=213f5a825cd3e639a1511be0c81addf2282ad960"
   dependencies:
     async: ^2.6.3
     awty: ^0.1.0
@@ -4999,7 +4999,7 @@ __metadata:
     stk500-v2: ^1.0.4
   bin:
     avrgirl-arduino: ./bin/cli.js
-  checksum: 9a2a4ec4e862dc6a5cb0ff2cb40c12aa950e4cd164c9f034c25cd21dad1af8f5f3521f31b3296a2401010d23115ca634c5542a657dd91b66edccae701fa62774
+  checksum: 7c489fccb4013187624ac3ca4709aa77861b59b717e34db957f2819a5ed52396c9dd8bf05454cc4d5c0240aeabed2d9f7d6d6aee3c97d4e8306b4ca9c00239f9
   languageName: node
   linkType: hard
 
@@ -7482,9 +7482,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"firmata@https://github.com/blokdots/firmata.js, firmata@https://github.com/blokdots/firmata.js.git":
+"firmata@https://github.com/blokdots/firmata.js":
   version: 2.3.0
   resolution: "firmata@https://github.com/blokdots/firmata.js.git#commit=d70f2c139e6e4623c5754a83dfb812f8144f4b78"
+  dependencies:
+    serialport: ^10.4.0
+  checksum: 3a95998b594876bc3445febfcc578469f1f43254a22e9df18219fa845a156ed1c0ed58be14714cde2220cce080168155744b1c122118f2ea1adc3d75282a6b53
+  languageName: node
+  linkType: hard
+
+"firmata@https://github.com/xiduzo/firmata.js.git":
+  version: 2.3.0
+  resolution: "firmata@https://github.com/xiduzo/firmata.js.git#commit=d70f2c139e6e4623c5754a83dfb812f8144f4b78"
   dependencies:
     serialport: ^10.4.0
   checksum: 3a95998b594876bc3445febfcc578469f1f43254a22e9df18219fa845a156ed1c0ed58be14714cde2220cce080168155744b1c122118f2ea1adc3d75282a6b53
@@ -8945,9 +8954,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"johnny-five@https://github.com/blokdots/johnny-five.git":
+"johnny-five@https://github.com/xiduzo/johnny-five.git":
   version: 2.1.0
-  resolution: "johnny-five@https://github.com/blokdots/johnny-five.git#commit=ce860b7f0531794f8cd5a0e6208809f0a47f89a7"
+  resolution: "johnny-five@https://github.com/xiduzo/johnny-five.git#commit=ce860b7f0531794f8cd5a0e6208809f0a47f89a7"
   dependencies:
     browser-serialport: latest
     chalk: 2.1.0
@@ -9625,10 +9634,10 @@ __metadata:
     "@electron-forge/plugin-vite": ^7.2.0
     "@electron-forge/publisher-github": ^7.4.0
     "@electron-forge/shared-types": ^7.4.0
-    "@fhb/mqtt": "workspaces:*"
-    "@fhb/ui": "workspaces:*"
-    "@fhb/utils": "workspaces:*"
     "@manypkg/find-root": ^2.2.2
+    "@microflow/mqtt": "workspaces:*"
+    "@microflow/ui": "workspaces:*"
+    "@microflow/utils": "workspaces:*"
     "@npmcli/arborist": ^7.5.3
     "@rollup/plugin-alias": ^5.1.0
     "@types/node": ^18.15.11
@@ -9638,11 +9647,11 @@ __metadata:
     "@xyflow/react": ^12.0.0
     abcjs: ^6.4.2
     autoprefixer: ^10.4.19
-    avrgirl-arduino: "https://github.com/blokdots/avrgirl-arduino.git"
+    avrgirl-arduino: "https://github.com/xiduzo/avrgirl-arduino.git"
     electron: 28.0.0
     electron-log: ^5.1.5
-    firmata: "https://github.com/blokdots/firmata.js.git"
-    johnny-five: "https://github.com/blokdots/johnny-five.git"
+    firmata: "https://github.com/xiduzo/firmata.js.git"
+    johnny-five: "https://github.com/xiduzo/johnny-five.git"
     mqtt: ^5.8.0
     postcss: ^8.4.39
     react: ^18.3.1
@@ -10090,9 +10099,9 @@ __metadata:
   resolution: "nextjs-app@workspace:apps/nextjs-app"
   dependencies:
     "@algolia/autocomplete-core": ^1.17.4
-    "@fhb/ui": "workspaces:*"
     "@markdoc/markdoc": ^0.4.0
     "@markdoc/next.js": ^0.3.7
+    "@microflow/ui": "workspaces:*"
     "@sindresorhus/slugify": ^2.2.1
     "@tailwindcss/typography": ^0.5.14
     "@types/node": ^20

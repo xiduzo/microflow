@@ -1,5 +1,5 @@
-import { MqttProvider } from '@fhb/mqtt/client';
-import '@fhb/ui/global.css';
+import { MqttProvider } from '@microflow/mqtt/client';
+import '@microflow/ui/global.css';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import {
 	adjectives,

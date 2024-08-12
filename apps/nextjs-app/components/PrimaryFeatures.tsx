@@ -7,7 +7,7 @@ import figmaImage from '@/images/features/figma.png';
 import hardwareImage from '@/images/features/hardware.png';
 import mqttImage from '@/images/features/mqtt.png';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@fhb/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@microflow/ui';
 
 const features = [
 	{

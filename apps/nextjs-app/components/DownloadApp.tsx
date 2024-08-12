@@ -7,7 +7,7 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { useState } from 'react';
 
 export function DownloadApp() {

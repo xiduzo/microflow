@@ -1,7 +1,7 @@
-import { Button, cva, Icons } from '@fhb/ui';
+import { Button, cva, Icons } from '@microflow/ui';
 import { PageContent } from '../../components/Page';
 
-import { ConnectionStatus, useMqtt } from '@fhb/mqtt/client';
+import { ConnectionStatus, useMqtt } from '@microflow/mqtt/client';
 import { Link } from 'react-router-dom';
 import { useSetWindowSize } from '../../hooks/useSetWindowSize';
 

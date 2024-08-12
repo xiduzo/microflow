@@ -12,7 +12,7 @@ import {
 	SheetTitle,
 	SheetTrigger,
 	Slider,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { PiezoOption, PiezoTune } from 'johnny-five';
 import { useState } from 'react';

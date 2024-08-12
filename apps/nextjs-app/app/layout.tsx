@@ -1,4 +1,4 @@
-import '@fhb/ui/global.css';
+import '@microflow/ui/global.css';
 import type { Metadata } from 'next';
 import { PropsWithChildren } from 'react';
 import './globals.css';

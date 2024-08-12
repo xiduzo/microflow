@@ -4,7 +4,7 @@ import {
     SelectContent,
     SelectItem,
     SelectTrigger,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { SensorOption } from 'johnny-five';
 import { useMemo } from 'react';

@@ -3,7 +3,7 @@ const { updateElectronApp } = require('update-electron-app');
 
 const path = require('node:path');
 
-import handleSquirrelEvent from '@fhb/utils/handleSquirrelEvent';
+import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
 import './main/ipc';
 import { createMenu } from './main/menu';
 
@@ -43,9 +43,6 @@ const createWindow = () => {
 			path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
 		);
 	}
-
-	// Open the DevTools.
-	mainWindow.webContents.openDevTools();
 };
 
 if (!handleSquirrelEvent()) {

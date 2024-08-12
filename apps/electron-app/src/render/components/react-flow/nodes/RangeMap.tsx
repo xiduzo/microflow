@@ -1,4 +1,4 @@
-import { Icons, Input } from '@fhb/ui';
+import { Icons, Input } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { Handle } from './Handle';

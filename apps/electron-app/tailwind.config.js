@@ -1,4 +1,4 @@
-import BaseConfig from '@fhb/ui/tailwind.config';
+import BaseConfig from '@microflow/ui/tailwind.config';
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {

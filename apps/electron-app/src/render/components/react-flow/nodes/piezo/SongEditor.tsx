@@ -12,7 +12,7 @@ import {
 	SheetClose,
 	SheetFooter,
 	Slider,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import {
 	createContext,
 	PropsWithChildren,

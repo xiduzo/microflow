@@ -10,9 +10,9 @@
 	},
 	"dependencies": {
 		"@algolia/autocomplete-core": "^1.17.4",
-		"@fhb/ui": "workspaces:*",
 		"@markdoc/markdoc": "^0.4.0",
 		"@markdoc/next.js": "^0.3.7",
+		"@microflow/ui": "workspaces:*",
 		"@sindresorhus/slugify": "^2.2.1",
 		"@tailwindcss/typography": "^0.5.14",
 		"fast-glob": "^3.3.2",

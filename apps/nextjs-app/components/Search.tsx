@@ -22,7 +22,7 @@ import Highlighter from 'react-highlight-words';
 
 import { navigation } from '@/lib/navigation';
 import { type Result } from '@/markdoc/search.mjs';
-import { Dialog, DialogContent, Icons } from '@fhb/ui';
+import { Dialog, DialogContent, Icons } from '@microflow/ui';
 
 type EmptyObject = Record<string, never>;
 

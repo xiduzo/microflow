@@ -1,4 +1,4 @@
-import { toast } from '@fhb/ui';
+import { toast } from '@microflow/ui';
 import { Edge, Node, useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect } from 'react';
 import { useLocalStorage } from 'usehooks-ts';

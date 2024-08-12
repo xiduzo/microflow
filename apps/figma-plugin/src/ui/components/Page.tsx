@@ -1,4 +1,4 @@
-import { cva } from '@fhb/ui';
+import { cva } from '@microflow/ui';
 import { PropsWithChildren } from 'react';
 import { IconBackButton } from './IconBackButton';
 

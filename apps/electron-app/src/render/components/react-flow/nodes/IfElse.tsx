@@ -8,7 +8,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 	Slider,
-} from '@fhb/ui';
+} from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';

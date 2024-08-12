@@ -1,6 +1,6 @@
 import { Callout } from '@/components/Callout';
 import { QuickLink, QuickLinks } from '@/components/QuickLinks';
-import { Badge } from '@fhb/ui';
+import { Badge } from '@microflow/ui';
 
 const tags = {
 	callout: {

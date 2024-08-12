@@ -1,4 +1,4 @@
-import { Icons } from '@fhb/ui';
+import { Icons } from '@microflow/ui';
 import { PageContent, PageHeader } from '../../../components/Page';
 import { useSetWindowSize } from '../../../hooks/useSetWindowSize';
 

@@ -1,4 +1,4 @@
-import { Label, Slider } from '@fhb/ui';
+import { Label, Slider } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { Handle } from './Handle';
