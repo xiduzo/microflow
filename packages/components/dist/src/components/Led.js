@@ -11,7 +11,6 @@ class Led extends BaseComponent_1.BaseComponent {
         super(options);
         this.options = options;
         this.component = new johnny_five_1.default.Led(options);
-        this.eventEmitter.on('change', this.postMessage.bind(this, 'change'));
     }
     // Highjack the on method
     // to allow for a custom actions

@@ -13,8 +13,6 @@ class IfElse extends BaseComponent_1.BaseComponent {
         super(options);
         _IfElse_instances.add(this);
         this.options = options;
-        this.eventEmitter.on('true', this.postMessage.bind(this, 'true'));
-        this.eventEmitter.on('false', this.postMessage.bind(this, 'false'));
     }
     check(input) {
         const validator = __classPrivateFieldGet(this, _IfElse_instances, "m", _IfElse_validator).call(this);

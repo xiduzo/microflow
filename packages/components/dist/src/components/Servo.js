@@ -15,17 +15,17 @@ class Servo extends BaseComponent_1.BaseComponent {
     }
     min() {
         this.component.min();
-        this.postMessage('change');
+        this.value = this.component.value;
     }
     max() {
         this.component.max();
-        this.postMessage('change');
+        this.value = this.component.value;
     }
     to(position) {
         if (isNaN(position))
             return;
         this.component.to(position);
-        this.postMessage('change');
+        this.value = this.component.value;
     }
     rotate(speed = 0) {
         if (typeof speed === 'boolean') {
@@ -36,11 +36,11 @@ class Servo extends BaseComponent_1.BaseComponent {
             return;
         }
         this.component.cw(speed);
-        this.postMessage('change');
+        this.value = this.component.value;
     }
     stop() {
         this.component.stop();
-        this.postMessage('change');
+        this.value = this.component.value;
     }
 }
 exports.Servo = Servo;

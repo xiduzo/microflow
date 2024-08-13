@@ -16,19 +16,19 @@ export class Servo extends BaseComponent<number> {
 
 	min() {
 		this.component.min();
-		this.postMessage('change');
+		this.value = this.component.value;
 	}
 
 	max() {
 		this.component.max();
-		this.postMessage('change');
+		this.value = this.component.value;
 	}
 
 	to(position: number) {
 		if (isNaN(position)) return;
 
 		this.component.to(position);
-		this.postMessage('change');
+		this.value = this.component.value;
 	}
 
 	rotate(speed = 0) {
@@ -42,12 +42,11 @@ export class Servo extends BaseComponent<number> {
 		}
 
 		this.component.cw(speed);
-
-		this.postMessage('change');
+		this.value = this.component.value;
 	}
 
 	stop() {
 		this.component.stop();
-		this.postMessage('change');
+		this.value = this.component.value;
 	}
 }

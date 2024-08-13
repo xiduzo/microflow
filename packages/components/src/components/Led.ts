@@ -9,8 +9,6 @@ export class Led extends BaseComponent<number> {
 		super(options);
 
 		this.component = new JohnnyFive.Led(options);
-
-		this.eventEmitter.on('change', this.postMessage.bind(this, 'change'));
 	}
 
 	// Highjack the on method

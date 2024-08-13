@@ -6,7 +6,6 @@ class RangeMap extends BaseComponent_1.BaseComponent {
     constructor(options) {
         super(options);
         this.options = options;
-        this.eventEmitter.on('to', this.postMessage.bind(this, 'to'));
     }
     from(input) {
         if (typeof input === 'boolean') {

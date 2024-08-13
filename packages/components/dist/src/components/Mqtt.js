@@ -6,8 +6,6 @@ class Mqtt extends BaseComponent_1.BaseComponent {
     constructor(options) {
         super(options);
         this.options = options;
-        this.eventEmitter.on('change', this.postMessage.bind(this, 'change'));
-        this.eventEmitter.on('subscribe', this.postMessage.bind(this, 'subscribe'));
     }
     setExternal(value) {
         this.value = value;

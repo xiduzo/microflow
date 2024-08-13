@@ -12,14 +12,14 @@ export class Button extends BaseComponent<number | boolean> {
 
 		this.component.on('up', () => {
 			this.value = false;
-			this.postMessage('inactive');
+			this.eventEmitter.emit('inactive', this.value, false);
 		});
 		this.component.on('down', () => {
 			this.value = true;
-			this.postMessage('active');
+			this.eventEmitter.emit('active', this.value, false);
 		});
 		this.component.on('hold', () => {
-			this.postMessage('hold');
+			this.eventEmitter.emit('hold', this.value);
 		});
 	}
 }

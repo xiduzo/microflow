@@ -8,8 +8,6 @@ type RangeMapOptions = BaseComponentOptions<[number, number]> & {
 export class RangeMap extends BaseComponent<[number, number]> {
 	constructor(private readonly options: RangeMapOptions) {
 		super(options);
-
-		this.eventEmitter.on('to', this.postMessage.bind(this, 'to'));
 	}
 
 	from(input: boolean | string | number) {

@@ -19,9 +19,6 @@ export type IfElseOptions = BaseComponentOptions<boolean> & {
 export class IfElse extends BaseComponent<boolean> {
 	constructor(private readonly options: IfElseOptions) {
 		super(options);
-
-		this.eventEmitter.on('true', this.postMessage.bind(this, 'true'));
-		this.eventEmitter.on('false', this.postMessage.bind(this, 'false'));
 	}
 
 	check(input: never) {
