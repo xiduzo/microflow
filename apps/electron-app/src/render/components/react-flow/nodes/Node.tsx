@@ -76,7 +76,7 @@ export function NodeContainer(props: Props) {
 }
 
 export function NodeValue(props: NodeValueProps) {
-	const { data } = useNode();
+	const { id, data } = useNode();
 	const prevValue = useRef(props.valueOverride ?? data.value);
 
 	useEffect(() => {
@@ -158,7 +158,6 @@ function BaseNode(props: PropsWithChildren & BaseNode) {
 
 function NodeHeader() {
 	const node = useNode();
-	const { updateNodeData } = useReactFlow<BaseNode>();
 
 	return (
 		<header className="p-2 pl-4 border-b-2 text-muted-foreground text-sm">

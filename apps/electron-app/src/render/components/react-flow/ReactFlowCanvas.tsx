@@ -7,37 +7,11 @@ import {
 	useReactFlow,
 } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
+import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useNodesEdgesStore } from '../../store';
 import { ConnectionLine } from './ConnectionLine';
-import { Button } from './nodes/Button';
-import { Counter } from './nodes/Counter';
-import { Figma } from './nodes/Figma';
-import { IfElse } from './nodes/IfElse';
-import { Interval } from './nodes/Interval';
-import { Led } from './nodes/Led';
-import { Mqtt } from './nodes/Mqtt';
 import { BaseNode } from './nodes/Node';
-import { Piezo } from './nodes/piezo/Piezo';
-import { RangeMap } from './nodes/RangeMap';
-import { Sensor } from './nodes/Sensor';
-import { Servo } from './nodes/Servo';
 import { SerialConnectionStatus } from './panels/SerialConnectionStatus';
-
-const nodeTypes = {
-	Button: Button,
-	Led: Led,
-	Counter: Counter,
-	Figma: Figma,
-	Interval: Interval,
-	IfElse: IfElse,
-	RangeMap: RangeMap,
-	Mqtt: Mqtt,
-	Sensor: Sensor,
-	Servo: Servo,
-	Piezo: Piezo,
-};
-
-export type NodeType = keyof typeof nodeTypes;
 
 const selector = (state: AppState) => ({
 	nodes: state.nodes,
@@ -55,7 +29,7 @@ export function ReactFlowCanvas() {
 		<ReactFlow
 			{...store}
 			// @ts-expect-error
-			nodeTypes={nodeTypes}
+			nodeTypes={NODE_TYPES}
 			colorMode="dark"
 			connectionLineComponent={ConnectionLine}
 			minZoom={0.2}

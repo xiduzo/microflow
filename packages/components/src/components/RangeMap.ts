@@ -1,0 +1,39 @@
+import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+
+type RangeMapOptions = BaseComponentOptions<[number, number]> & {
+	from: [number, number];
+	to: [number, number];
+};
+
+export class RangeMap extends BaseComponent<[number, number]> {
+	constructor(private readonly options: RangeMapOptions) {
+		super(options);
+
+		this.eventEmitter.on('to', this.postMessage.bind(this, 'to'));
+	}
+
+	from(input: boolean | string | number) {
+		if (typeof input === 'boolean') {
+			input = input ? 1 : 0;
+		}
+
+		if (typeof input === 'string') {
+			input = parseFloat(input);
+		}
+
+		const [inMin = 0, inMax = 1023] = this.options.from;
+		const [outMin = 0, outMax = 1023] = this.options.to;
+
+		const mapped =
+			((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+		const distance = outMax - outMin;
+		const normalizedOutput = parseFloat(mapped.toFixed(distance <= 10 ? 1 : 0));
+
+		const prevValue = this.value;
+		this.value = [input, normalizedOutput];
+
+		if (prevValue[1] !== normalizedOutput) {
+			this.eventEmitter.emit('to', normalizedOutput);
+		}
+	}
+}

@@ -1,6 +1,6 @@
-import EventEmitter from 'events';
+import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-export type IfElseOptions = {
+export type IfElseOptions = BaseComponentOptions<boolean> & {
 	validator: 'boolean' | 'number' | 'text';
 	subValidator?:
 		| 'equal to'
@@ -14,32 +14,20 @@ export type IfElseOptions = {
 		| 'starts with'
 		| 'ends with';
 	validatorArgs: any[];
-	id: string;
 };
 
-export class IfElse extends EventEmitter {
-	#value = false;
-
+export class IfElse extends BaseComponent<boolean> {
 	constructor(private readonly options: IfElseOptions) {
-		super();
+		super(options);
 
-		this.on('change', this.#postMessage.bind(this, 'change'));
-		this.on('true', this.#postMessage.bind(this, 'true'));
-		this.on('false', this.#postMessage.bind(this, 'false'));
-	}
-
-	get value() {
-		return this.#value;
-	}
-
-	set value(value) {
-		this.#value = value;
-		this.emit(value ? 'true' : 'false', value);
+		this.eventEmitter.on('true', this.postMessage.bind(this, 'true'));
+		this.eventEmitter.on('false', this.postMessage.bind(this, 'false'));
 	}
 
 	check(input: never) {
 		const validator = this.#validator();
 		this.value = validator(input);
+		this.eventEmitter.emit(this.value ? 'true' : 'false', this.value);
 	}
 
 	#validator() {
@@ -85,17 +73,5 @@ export class IfElse extends EventEmitter {
 			default:
 				return () => false;
 		}
-	}
-
-	#postMessage(action: string) {
-		if (action !== 'change') {
-			this.emit('change', this.value);
-		}
-
-		(process as any).parentPort.postMessage({
-			nodeId: this.options.id,
-			action,
-			value: this.value,
-		});
 	}
 }

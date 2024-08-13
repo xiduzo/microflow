@@ -1,9 +1,9 @@
 import {
-    Progress,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
+	Progress,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { SensorOption } from 'johnny-five';
@@ -13,11 +13,11 @@ import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
+	BaseNode,
+	NodeContainer,
+	NodeContent,
+	NodeSettings,
+	NodeValue,
 } from './Node';
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
@@ -77,7 +77,7 @@ export function Sensor(props: Props) {
 export type SensorData = Omit<SensorOption, 'board'>;
 type Props = BaseNode<SensorData, number>;
 export const DEFAULT_SENSOR_DATA: Props['data'] = {
-  value: 0,
-  pin: 'A0',
+	value: 0,
+	pin: 'A0',
 	label: 'Sensor',
 };

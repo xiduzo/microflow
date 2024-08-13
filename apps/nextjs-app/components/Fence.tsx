@@ -1,7 +1,8 @@
 'use client';
 
+import mermaid from 'mermaid';
 import { Highlight } from 'prism-react-renderer';
-import { Fragment } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 
 export function Fence({
 	children,
@@ -10,6 +11,27 @@ export function Fence({
 	children: string;
 	language: string;
 }) {
+	const mermaidElement = useRef<HTMLPreElement>(null);
+
+	useEffect(() => {
+		if (!mermaidElement.current) return;
+
+		mermaid.initialize({
+			theme: 'dark',
+		});
+		mermaid.run({
+			nodes: [mermaidElement.current],
+		});
+	}, []);
+
+	if (language === 'mermaid') {
+		return (
+			<pre className="mermaid language-mermaid" ref={mermaidElement}>
+				{children}
+			</pre>
+		);
+	}
+
 	return (
 		<Highlight
 			code={children.trimEnd()}

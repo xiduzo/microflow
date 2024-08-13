@@ -121,9 +121,14 @@ export function Button(props: Props) {
 					</RadioGroup>
 				</section>
 			</NodeSettings>
-			<Handle type="source" position={Position.Right} id="down" offset={-1} />
+			<Handle type="source" position={Position.Right} id="active" offset={-1} />
 			<Handle type="source" position={Position.Right} id="hold" />
-			<Handle type="source" position={Position.Right} id="up" offset={1} />
+			<Handle
+				type="source"
+				position={Position.Right}
+				id="inactive"
+				offset={1}
+			/>
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);

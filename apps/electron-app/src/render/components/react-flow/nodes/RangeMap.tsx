@@ -10,6 +10,10 @@ import {
 	NodeValue,
 } from './Node';
 
+const numberFormat = new Intl.NumberFormat('en-US', {
+	maximumFractionDigits: 2,
+});
+
 export function RangeMap(props: Props) {
 	const { updateNodeData } = useUpdateNodeData<RangeMapData>(props.id);
 
@@ -20,7 +24,7 @@ export function RangeMap(props: Props) {
 					className="text-4xl tabular-nums"
 					valueOverride={props.data.value[0]}
 				>
-					{props.data.value[0]}
+					{numberFormat.format(props.data.value[0])}
 				</NodeValue>
 				<section className="flex flex-col space-y-3">
 					<span className="w-full flex justify-center">
@@ -31,7 +35,7 @@ export function RangeMap(props: Props) {
 					className="text-4xl tabular-nums"
 					valueOverride={props.data.value[1]}
 				>
-					{props.data.value[1]}
+					{numberFormat.format(props.data.value[1])}
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>

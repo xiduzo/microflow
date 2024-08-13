@@ -1,4 +1,8 @@
-import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt/client';
+import {
+	FigmaVariable,
+	useFigmaVariable,
+	useMqtt,
+} from '@microflow/mqtt/client';
 import {
 	Badge,
 	Icons,

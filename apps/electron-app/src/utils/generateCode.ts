@@ -11,24 +11,29 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
 	code += addImports();
 
+	code += addEnter();
+	code += `const nodes = new Map();`;
+	code += addEnter();
+
 	let innerCode = ``;
 
 	innerCode += addBoard();
 
-	const boardListners = ['error', 'fail', 'warn', 'exit', 'close', 'info'];
-	boardListners.forEach(listener => {
+	const boardListeners = ['error', 'fail', 'warn', 'exit', 'close', 'info'];
+	boardListeners.forEach(listener => {
 		innerCode += addBoardListener(listener);
 	});
 
 	innerCode += addBoardListener('ready', false);
+
 	nodes.forEach(node => {
 		node.data.id = node.id; // Expose the Id to the options
 		innerCode += `  const ${node.type}_${node.id} = new ${node.type}(${JSON.stringify(node.data)});`;
 		innerCode += addEnter();
+		innerCode += `  nodes.set("${node.type}_${node.id}", ${node.type}_${node.id});`;
+		innerCode += addEnter();
 	});
-	innerCode += addEnter();
 
-	innerCode += `  const nodes = [${nodes.map(node => `{ id: "${node.type}_${node.id}", variable: ${node.type}_${node.id} }`)}];`;
 	innerCode += addEnter();
 	innerCode += addEnter();
 
@@ -59,7 +64,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 			edges.forEach(edge => {
 				const targetNode = nodes.find(node => node.id === edge.target);
 				// TODO: maybe be a bit more specific about the value and also include the type?
-				const shouldSetValue = [
+				const valueTriggers = [
 					'set',
 					'check',
 					'red',
@@ -70,7 +75,9 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 					'publish',
 					'rotate',
 					'to',
-				].includes(edge.targetHandle);
+				];
+
+				const shouldSetValue = valueTriggers.includes(edge.targetHandle);
 				let value = shouldSetValue
 					? `${node.type}_${node.id}.value`
 					: undefined;
@@ -93,25 +100,11 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 		});
 	});
 
-	innerCode += addNodeProcessListener();
 	innerCode += `}); // board - ready`;
 
 	code += wrapInTryCatch(innerCode);
 
-	const classDefinitions = [
-		defineButton,
-		defineFigma,
-		defineLed,
-		defineMqtt,
-		defineSensor,
-		defineServo,
-		definePiezo,
-	];
-
-	classDefinitions.forEach(defineClass => {
-		code += addEnter();
-		code += defineClass();
-	});
+	code += addNodeProcessListener();
 
 	return code;
 }
@@ -123,16 +116,14 @@ function addEnter() {
 
 function addImports() {
 	return `
-const { Counter, IfElse, RangeMap, Interval } = require("@microflow/components");
-const EventEmitter = require("events");
-const JohnnyFive = require("johnny-five");
+const { Board, Button, Counter, Figma, IfElse, Interval, Led, Mqtt, Piezo, RangeMap, Sensor, Servo } = require("@microflow/components");
 const log = require("electron-log/node");
 `;
 }
 
 function addBoard() {
 	return `
-const board = new JohnnyFive.Board({
+const board = new Board({
   repl: false,
   debug: false,
 });
@@ -150,7 +141,7 @@ function addBoardListener(type: string, selfClosing = true) {
 			: ``;
 	return `
 board.on("${type}", (event) => {
-  log.warn("board ${type}", { event });
+  log.info("board ${type}", { event });
   process.parentPort.postMessage({ type: "${type}", message: event?.message${pins} });
 ${selfClosing ? `}); // board - ${type}` : ``}
 `;
@@ -162,16 +153,14 @@ process.parentPort.on('message', (e) => {`;
 
 	let innerCode = ``;
 
-	innerCode +=
-		'const node = nodes.find((node) => node.id === `${e.data.nodeType}_${e.data.nodeId}`);';
+	innerCode += 'const node = nodes.get(`${e.data.nodeType}_${e.data.nodeId}`);';
 	innerCode += addEnter();
-	innerCode += 'node?.variable.setExternal(e.data.value)';
+	innerCode += 'node?.variable.setExternal?.(e.data.value);';
 
 	code += wrapInTryCatch(innerCode);
 
 	code += `
 }); // process.parentPort.on - 'message'`;
-	code += addEnter();
 	return code;
 }
 
@@ -181,356 +170,6 @@ try {
   ${code}
 } catch(error) {
   log.error("something went wrong", { error });
-}
-`;
-}
-
-function defineButton() {
-	return `
-class Button extends JohnnyFive.Button {
-  constructor(options) {
-    super(options);
-    this.options = options
-
-    this.on("up", this.#postMessage.bind(this, "up"));
-    this.on("down", this.#postMessage.bind(this, "down"));
-    this.on("hold", this.#postMessage.bind(this, "hold"));
-    this.on("change", this.#postMessage.bind(this, "change"));
-  }
-
-  get value() {
-    return this.value;
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-`;
-}
-
-function defineLed() {
-	return `
-class Led extends JohnnyFive.Led {
-  #eventEmitter = new EventEmitter();
-  #value = 0
-
-  constructor(options) {
-    super(options);
-    this.options = options;
-
-    this.#eventEmitter.on("change", this.#postMessage.bind(this, "change"));
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  // Highjack the on method
-  // to allow for a custom actions
-  on(action, callback) {
-    if (!action) {
-      this.#value = 1;
-      super.on();
-      this.#eventEmitter.emit("change");
-      return;
-    }
-
-    this.#eventEmitter.on(action, callback);
-  }
-
-
-  off() {
-    this.#value = 0;
-    super.off();
-    this.#eventEmitter.emit("change");
-  }
-
-  toggle() {
-    this.#value = this.#value === 0 ? 1 : 0;
-    super.toggle();
-    this.#eventEmitter.emit("change");
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.#value });
-  }
-}
-`;
-}
-
-function defineFigma() {
-	return `
-class Figma extends EventEmitter {
-  #value = '';
-  #defaultRGBA = { r: 0, g: 0, b: 0, a: 0 }
-
-  constructor(options) {
-    super();
-    this.options = options;
-
-    this.on("change", this.#postMessage.bind(this, "change"));
-  }
-
-  set value(value) {
-    this.#value = value;
-    this.emit("change", value);
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  increment(amount = 1) {
-    this.value += amount;
-  }
-
-  decrement(amount = 1) {
-    this.value -= amount;
-  }
-
-  true() {
-    this.value = true;
-  }
-
-  false() {
-    this.value = false;
-  }
-
-  toggle() {
-    this.value = !this.value;
-  }
-
-  set(value) {
-    this.value = value;
-  }
-
-  setExternal(value) {
-    this.#value = value;
-  }
-
-  red(value) {
-    this.value = { ...this.#defaultRGBA, ...this.#value, r: Math.min(1, value / 255) };
-  }
-
-  green(value) {
-    this.value = { ...this.#defaultRGBA, ...this.#value, g: Math.min(1, value / 255) };
-  }
-
-  blue(value) {
-    this.value = { ...this.#defaultRGBA, ...this.#value, b: Math.min(1, value / 255) };
-  }
-
-  opacity(value) {
-    this.value = { ...this.#defaultRGBA, ...this.#value, a: Math.min(1, value / 100) };
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-  `;
-}
-
-function defineMqtt() {
-	return `
-class Mqtt extends EventEmitter {
-  #value = '';
-
-  constructor(options) {
-    super();
-    this.options = options;
-
-    this.on("change", this.#postMessage.bind(this, "change"));
-    this.on("subscribe", this.#postMessage.bind(this, "subscribe"));
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  set value(value) {
-    this.#value = value;
-    this.#postMessage("change");
-  }
-
-  setExternal(value) {
-    this.value = value;
-    this.emit("subscribe");
-  }
-
-  publish(message) {
-    this.value = message;
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}`;
-}
-
-function defineSensor() {
-	return `
-class Sensor extends JohnnyFive.Sensor {
-  #value = 0;
-
-  constructor(options) {
-    super(options);
-    this.options = options;
-
-    this.on("change", () => {
-      this.#value = this.raw;
-      this.#postMessage("change");
-    })
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  #postMessage(action) {
-    if (action !== "change") {
-      this.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-`;
-}
-
-function defineServo() {
-	return `
-class Servo extends JohnnyFive.Servo {
-  constructor(options) {
-    super(options);
-    this.options = options;
-
-    this.on("move:complete", this.postMessage.bind(this, "complete"));
-  }
-
-  min() {
-    super.min()
-    this.postMessage("change");
-  }
-
-  max() {
-    super.max();
-    this.postMessage("change");
-  }
-
-  to(position) {
-    if(isNaN(position)) return;
-
-    super.to(position);
-    this.postMessage("change");
-  }
-
-  rotate(speed = 0) {
-    if(typeof speed === 'boolean') {
-      speed = speed ? 1 : -1;
-    }
-
-    if(speed < 0.05 && speed > -0.05) {
-      this.stop();
-      return;
-    }
-
-    this.cw(speed);
-
-
-    this.postMessage("change");
-  }
-
-  stop() {
-    super.stop();
-    this.postMessage("change");
-  }
-
-  postMessage(action) {
-    if(!this.options) return;
-    this.emit("change", this.value);
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
-}
-`;
-}
-
-function definePiezo() {
-	return `
-class Piezo extends JohnnyFive.Piezo {
-  #eventEmitter = new EventEmitter();
-  #timeout = null;
-  #value = false;
-
-  constructor(options) {
-    super(options);
-    this.options = options;
-  }
-
-  get value() {
-    return this.#value;
-  }
-
-  set value(value) {
-    this.#value = value;
-    this.postMessage("change");
-    this.#eventEmitter.emit("change", value);
-  }
-
-  buzz() {
-    this.stop();
-
-    this.value = true;
-    super.frequency(this.options.frequency, this.options.duration);
-
-    setTimeout(() => {
-      this.stop();
-    }, this.options.duration);
-  }
-
-  stop() {
-    super.stop();
-    super.off();
-    this.value = false;
-  }
-
-  play() {
-    this.stop();
-
-    this.value = true;
-    super.play({
-      song: this.options.song,
-      tempo: this.options.tempo
-    }, () => {
-      this.value = false;
-    });
-  }
-
-  postMessage(action) {
-    if (action !== "change") {
-      this.#eventEmitter.emit("change", this.value);
-    }
-
-    process.parentPort.postMessage({ nodeId: this.options.id, action, value: this.value });
-  }
 }
 `;
 }

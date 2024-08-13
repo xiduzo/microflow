@@ -8,6 +8,8 @@ const board = new JohnnyFive.Board({
 	repl: true,
 });
 
+const button = new JohnnyFive.Button(2);
+
 board.on('ready', () => {
 	const piezo = new Piezo({ pin: 11 });
 
