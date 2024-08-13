@@ -43,7 +43,7 @@ class BaseComponent {
     on(action, callback) {
         this.eventEmitter.on(action, args => {
             callback(args);
-            this.postMessage(action, !!args[1]);
+            this.postMessage(action, args[1] === undefined || !!args[1]);
         });
     }
     postMessage(action, emitChange = true) {

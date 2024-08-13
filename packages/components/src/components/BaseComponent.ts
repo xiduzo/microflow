@@ -52,7 +52,7 @@ export class BaseComponent<T> {
 	on(action: string, callback: (...args: any[]) => void) {
 		this.eventEmitter.on(action, args => {
 			callback(args);
-			this.postMessage(action, !!args[1]);
+			this.postMessage(action, args[1] === undefined || !!args[1]);
 		});
 	}
 
