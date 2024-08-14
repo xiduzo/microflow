@@ -52,7 +52,7 @@ export function NodeSettings(props: NodeContainerProps) {
 					{props.children}
 				</section>
 				<DrawerFooter className="max-w-md w-full m-auto">
-					<Button variant="outline" onClick={closeDrawer}>
+					<Button variant="secondary" onClick={closeDrawer}>
 						Close
 					</Button>
 					<Button

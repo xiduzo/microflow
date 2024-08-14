@@ -24,10 +24,10 @@ if (process.defaultApp) {
 const createWindow = () => {
 	// Create the browser window.
 	mainWindow = new BrowserWindow({
-		width: 1080,
-		minWidth: 1080,
-		height: 860,
-		minHeight: 860,
+		width: 1024,
+		minWidth: 1024,
+		height: 768,
+		minHeight: 768,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 		},

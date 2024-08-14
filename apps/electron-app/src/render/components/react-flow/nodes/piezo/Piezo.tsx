@@ -1,21 +1,14 @@
 import {
-	Button,
 	Icons,
 	Label,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-	SheetTrigger,
 	Slider,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { PiezoOption, PiezoTune } from 'johnny-five';
-import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { BoardCheckResult, MODES } from '../../../../../common/types';
 import { useUpdateNodeData } from '../../../../hooks/nodeUpdater';
@@ -31,6 +24,7 @@ import {
 	NodeValue,
 } from '../Node';
 import {
+	DEFAULT_NOTE,
 	DEFAULT_SONG,
 	MAX_NOTE_FREQUENCY,
 	MIN_NOTE_FREQUENCY,
@@ -51,11 +45,6 @@ export function Piezo(props: Props) {
 	const { deleteEdges } = useNodesEdgesStore(useShallow(deleteEdgesSelector));
 
 	const { updateNodeData } = useUpdateNodeData<PiezoData>(props.id);
-
-	const [tempSong, setTempSong] = useState<[string | null, number][] | null>(
-		null,
-	);
-	const [tempTempo, setTempTempo] = useState<number | null>(null);
 
 	return (
 		<NodeContainer {...props}>
@@ -182,36 +171,7 @@ export function Piezo(props: Props) {
 							onValueChange={value => updateNodeData({ tempo: value[0] })}
 						/>
 						<MusicSheet song={props.data.song} />
-						<Sheet
-							onOpenChange={value => {
-								if (props.data.type !== 'song') {
-									return;
-								}
-
-								setTempSong(value ? props.data.song : null);
-								setTempTempo(value ? props.data.tempo : null);
-							}}
-						>
-							<SheetTrigger asChild>
-								<Button variant="secondary">Edit song</Button>
-							</SheetTrigger>
-							<SheetContent>
-								<SheetHeader>
-									<SheetTitle>Edit song</SheetTitle>
-								</SheetHeader>
-								{tempSong && tempTempo && (
-									<SongEditor
-										song={tempSong}
-										tempo={tempTempo}
-										onSave={(song, tempo) => {
-											updateNodeData({ song, tempo });
-											setTempSong(null);
-											setTempTempo(null);
-										}}
-									/>
-								)}
-							</SheetContent>
-						</Sheet>
+						<SongEditor song={props.data.song} onSave={updateNodeData} />
 					</>
 				)}
 			</NodeSettings>
@@ -242,7 +202,7 @@ type SongData = { type: 'song' } & PiezoTune & {
 	};
 type BaseData = Omit<PiezoOption, 'type'>;
 
-const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get('C4');
+const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
 export type PiezoData = BaseData & (BuzzData | SongData);
 type Props = BaseNode<PiezoData, boolean>;
 export const DEFAULT_PIEZO_DATA: Props['data'] = {

@@ -23,6 +23,10 @@ import {
 	Led,
 } from '../render/components/react-flow/nodes/Led';
 import {
+	DEFAULT_MATRIX_DATA,
+	Matrix,
+} from '../render/components/react-flow/nodes/matrix/Matrix';
+import {
 	DEFAULT_MOTION_DATA,
 	Motion,
 } from '../render/components/react-flow/nodes/Motion';
@@ -60,6 +64,7 @@ export const NODE_TYPES = {
 	Servo: Servo,
 	Piezo: Piezo,
 	Motion: Motion,
+	Matrix: Matrix,
 };
 
 export type NodeType = keyof typeof NODE_TYPES;
@@ -80,3 +85,4 @@ DEFAULT_NODE_DATA.set('Sensor', DEFAULT_SENSOR_DATA);
 DEFAULT_NODE_DATA.set('Servo', DEFAULT_SERVO_DATA);
 DEFAULT_NODE_DATA.set('Piezo', DEFAULT_PIEZO_DATA);
 DEFAULT_NODE_DATA.set('Motion', DEFAULT_MOTION_DATA);
+DEFAULT_NODE_DATA.set('Matrix', DEFAULT_MATRIX_DATA);

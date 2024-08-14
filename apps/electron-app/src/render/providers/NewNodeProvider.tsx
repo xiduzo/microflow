@@ -121,6 +121,13 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Input</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Sensor', 'LDR')}>
+						LDR (Light Dependent Resistor)
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Input</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Led')}>
 						LED
 						<CommandShortcut className="space-x-1">
@@ -128,11 +135,12 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Sensor', 'LDR')}>
-						LDR (Light Dependent Resistor)
+					<CommandItem onSelect={selectNode('Matrix')}>
+						LED Matrix
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Input</Badge>
+							<Badge variant="outline">Digital</Badge>
+							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
 					<CommandItem onSelect={selectNode('Motion')}>

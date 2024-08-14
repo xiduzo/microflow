@@ -1681,6 +1681,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@microflow/components@workspace:packages/components"
   dependencies:
+    "@types/johnny-five": ^2.1.9
     electron-log: ^5.1.7
     johnny-five: "https://github.com/xiduzo/johnny-five.git"
     typescript: ^5.5.4
@@ -10231,6 +10232,7 @@ __metadata:
     "@microflow/utils": "workspaces:*"
     "@npmcli/arborist": ^7.5.3
     "@rollup/plugin-alias": ^5.1.0
+    "@types/johnny-five": ^2.1.9
     "@types/node": ^18.15.11
     "@types/npmcli__arborist": ^5.6.9
     "@types/react": ^18.3.3
