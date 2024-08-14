@@ -53,6 +53,8 @@ export function Figma(props: Props) {
 		// TODO this sometimes interferes with the publish
 		// when the next value is already being send to the plugin
 		// and the plugin has not processed the previous value yet
+		if (value !== undefined || value !== null) return;
+
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
 	}, [value, props.id]);
 
@@ -83,7 +85,6 @@ export function Figma(props: Props) {
 		if (uploadResult.type !== 'ready') return;
 		if (!variable?.resolvedType) return;
 
-		console.log('>>>>>>>> should only trigger once');
 		const value = DEFAULT_FIGMA_VALUE_PER_TYPE[variable.resolvedType];
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
 	}, [uploadResult.type, variable?.resolvedType, props.id]);
@@ -227,7 +228,7 @@ function FigmaHeaderContent(props: {
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="-mx-8 max-w-52 max-h-20 text-wrap overflow-hidden pointer-events-auto">
-								{String(props.value)}
+								{String(props.value ?? '-')}
 							</div>
 						</TooltipTrigger>
 						<TooltipContent className="max-w-64">

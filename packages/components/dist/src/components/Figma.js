@@ -31,7 +31,7 @@ class Figma extends BaseComponent_1.BaseComponent {
         try {
             switch (typeof this.value) {
                 case 'string':
-                    this.value = String(value);
+                    this.value = String(value !== null && value !== void 0 ? value : '-');
                     break;
                 case 'number':
                     const num = Number(value);
@@ -96,7 +96,7 @@ class Figma extends BaseComponent_1.BaseComponent {
             return value;
         }
         if (typeof value === 'string') {
-            return value;
+            return value !== null && value !== void 0 ? value : '-';
         }
         throw new Error('Invalid value type');
     }

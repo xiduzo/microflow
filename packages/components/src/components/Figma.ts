@@ -41,7 +41,7 @@ export class Figma extends BaseComponent<string | number | boolean | RGBA> {
 		try {
 			switch (typeof this.value) {
 				case 'string':
-					this.value = String(value);
+					this.value = String(value ?? '-');
 					break;
 				case 'number':
 					const num = Number(value);
@@ -131,7 +131,7 @@ export class Figma extends BaseComponent<string | number | boolean | RGBA> {
 		}
 
 		if (typeof value === 'string') {
-			return value;
+			return value ?? '-';
 		}
 
 		throw new Error('Invalid value type');
