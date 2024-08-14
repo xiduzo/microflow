@@ -11,8 +11,6 @@ class Servo extends BaseComponent_1.BaseComponent {
         super(options);
         this.options = options;
         this.component = new johnny_five_1.default.Servo(options);
-        // TODO: emit on move complete?
-        // this.component.on('move:complete', this.postMessage.bind(this, 'complete'));
     }
     min() {
         this.component.min();

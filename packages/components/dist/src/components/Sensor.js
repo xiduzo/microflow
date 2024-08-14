@@ -12,7 +12,7 @@ class Sensor extends BaseComponent_1.BaseComponent {
         this.options = options;
         this.component = new johnny_five_1.default.Sensor(options);
         this.component.on('change', () => {
-            this.value = this.component.raw;
+            this.value = Number(this.component.raw);
         });
     }
 }

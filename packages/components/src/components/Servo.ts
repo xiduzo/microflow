@@ -10,9 +10,6 @@ export class Servo extends BaseComponent<number> {
 	constructor(private readonly options: ServoOptions) {
 		super(options);
 		this.component = new JohnnyFive.Servo(options);
-
-		// TODO: emit on move complete?
-		// this.component.on('move:complete', this.postMessage.bind(this, 'complete'));
 	}
 
 	min() {

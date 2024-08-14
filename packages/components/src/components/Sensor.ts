@@ -11,7 +11,7 @@ export class Sensor extends BaseComponent<number> {
 		this.component = new JohnnyFive.Sensor(options);
 
 		this.component.on('change', () => {
-			this.value = this.component.raw;
+			this.value = Number(this.component.raw);
 		});
 	}
 }

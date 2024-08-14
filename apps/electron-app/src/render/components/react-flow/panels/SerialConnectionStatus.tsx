@@ -1,13 +1,29 @@
 import { Badge, Icons } from '@microflow/ui';
-import { useAutoCodeUploader } from '../../../hooks/codeUploader';
+import {
+	useAutoCodeUploader,
+	useCodeUploader,
+} from '../../../hooks/codeUploader';
 import { useBoard } from '../../../providers/BoardProvider';
 import { FlashFirmata } from './FlashFirmata';
 
 export function SerialConnectionStatus() {
 	const { checkResult, uploadResult } = useBoard();
+	const uploadCode = useCodeUploader();
 
 	if (checkResult.type === 'error') {
 		return <FlashFirmata message={checkResult.message} />;
+	}
+
+	if (uploadResult.type === 'error') {
+		return (
+			<Badge
+				className="bg-orange-400 text-orange-900 pointer-events-none"
+				onClick={uploadCode}
+			>
+				Click to retry upload
+				<Icons.Upload className="ml-2 h-3 w-3" />
+			</Badge>
+		);
 	}
 
 	if (checkResult.type === 'ready') {

@@ -11,17 +11,13 @@ import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../store';
 let timeout: NodeJS.Timeout | undefined;
 
 export function useCodeUploader() {
-	const { checkResult, uploadCode: boardUpload } = useBoard();
+	const { uploadCode: boardUpload } = useBoard();
 
 	const { updateNodeData, getNodes, getEdges, getInternalNode } =
 		useReactFlow();
 
 	const uploadCode = useCallback(() => {
-		if (checkResult.type !== 'ready') {
-			// TODO: add notification to user?
-			return;
-		}
-
+		console.log('uploadCode');
 		timeout && clearTimeout(timeout);
 
 		timeout = setTimeout(() => {
@@ -63,7 +59,7 @@ export function useCodeUploader() {
 
 			boardUpload(code);
 		}, 1000);
-	}, [getNodes, getEdges, updateNodeData, checkResult]);
+	}, [getNodes, getEdges, updateNodeData, boardUpload, getInternalNode]);
 
 	return uploadCode;
 }

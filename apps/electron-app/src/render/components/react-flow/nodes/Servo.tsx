@@ -63,7 +63,7 @@ export function Servo(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeValue className="text-2xl flex items-center justify-center rounded-full w-24 h-24 p-0 min-w-[10px] m-auto">
+				<NodeValue className="text-2xl flex items-center justify-center rounded-full w-28 h-28 p-0 min-w-[10px] m-auto">
 					{isStandard && (
 						<div className="flex items-start z-10">
 							{props.data.value}
@@ -73,30 +73,30 @@ export function Servo(props: Props) {
 					{isStandard && (
 						<>
 							<div
-								className="w-24 h-24 flex absolute"
+								className="w-28 h-28 flex absolute"
 								style={{
 									rotate: `${props.data.range[0]}deg`,
 								}}
 							>
 								<div
-									className={`h-12 w-0.5 bg-gradient-to-b from-red-500/30 to-red-500/0 to-30% left-[47px] absolute`}
+									className={`h-14 w-0.5 bg-gradient-to-b from-red-500/30 to-red-500/0 to-30% left-[54px] absolute`}
 								></div>
 							</div>
 							<div
-								className="w-24 h-24 flex absolute"
+								className="w-28 h-28 flex absolute"
 								style={{
 									rotate: `${props.data.range[1]}deg`,
 								}}
 							>
 								<div
-									className={`h-12 w-0.5 bg-gradient-to-b from-green-500/30 to-green-500/0 to-30% left-[47px] absolute`}
+									className={`h-14 w-0.5 bg-gradient-to-b from-green-500/30 to-green-500/0 to-30% left-[54px] absolute`}
 								></div>
 							</div>
 						</>
 					)}
 					{props.data.value !== null && props.data.value !== undefined && (
 						<div
-							className={`w-24 h-24 flex absolute ${isStandard ? 'transition-all' : 'animate-spin'}`}
+							className={`w-28 h-28 flex absolute ${isStandard ? 'transition-all' : 'animate-spin'}`}
 							style={{
 								rotate: `${isStandard ? props.data.value : 0}deg`,
 								animationDuration: `${animationDuration}s`,
@@ -107,9 +107,9 @@ export function Servo(props: Props) {
 							}}
 						>
 							<div
-								className={`h-12 w-0.5 bg-gradient-to-b from-primary to-primary/0 to-${isStandard ? '60' : '95'}% left-[47px] absolute`}
+								className={`h-14 w-0.5 bg-gradient-to-b from-primary to-primary/0 to-${isStandard ? '60' : '95'}% left-[54px] absolute`}
 							></div>
-							<Icons.Dot className={`w-8 h-8 absolute -top-4 left-8`} />
+							<Icons.Dot className={`w-8 h-8 absolute -top-4 left-[39px]`} />
 						</div>
 					)}
 				</NodeValue>

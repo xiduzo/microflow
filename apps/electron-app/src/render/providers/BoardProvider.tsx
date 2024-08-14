@@ -1,3 +1,4 @@
+import { toast } from '@microflow/ui';
 import { KnownBoard } from 'avrgirl-arduino';
 import {
 	createContext,
@@ -59,6 +60,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
 
 	const uploadCode = useCallback((code: string) => {
 		setUploadResult({ type: 'info' });
+		setCheckResult({ type: 'ready' });
 
 		const off = window.electron.ipcRenderer.on(
 			'ipc-upload-code',
@@ -71,6 +73,11 @@ export function BoardProvider({ children }: PropsWithChildren) {
 
 				if (result.type === 'ready') {
 					off();
+				}
+
+				if (result.type === 'error') {
+					off();
+					toast.error(result.message);
 				}
 			},
 		);

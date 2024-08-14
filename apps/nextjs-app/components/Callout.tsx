@@ -20,7 +20,10 @@ const styles = {
 const icons = {
 	note: (props: { className?: string }) => <Icons.Lightbulb {...props} />,
 	warning: (props: { className?: string }) => (
-		<Icons.TriangleAlert color="amber" {...props} />
+		<Icons.TriangleAlert
+			{...props}
+			className={`text-amber-500 ${props.className}`}
+		/>
 	),
 };
 
