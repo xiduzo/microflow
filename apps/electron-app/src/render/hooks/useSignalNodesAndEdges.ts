@@ -1,3 +1,4 @@
+import { toast } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
 import { UploadedCodeMessage } from '../../common/types';
@@ -10,6 +11,14 @@ export function useSignalNodesAndEdges() {
 		return window.electron.ipcRenderer.on(
 			'ipc-microcontroller',
 			(message: UploadedCodeMessage) => {
+				if (message.value instanceof Error) {
+					toast.error(message.value.message, {
+						important: true,
+						description: `Error in node ${message.nodeId} with handle ${message.action}`,
+					});
+					return;
+				}
+
 				if (timeouts.current.get(message.nodeId)) {
 					clearTimeout(timeouts.current.get(message.nodeId));
 				}

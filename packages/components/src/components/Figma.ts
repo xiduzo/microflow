@@ -1,3 +1,4 @@
+import Logger from 'electron-log/node';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
 type FigmaOptions = BaseComponentOptions<string>;
@@ -10,7 +11,7 @@ type RGBA = {
 };
 
 export class Figma extends BaseComponent<string | number | boolean | RGBA> {
-	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 0 };
+	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 1 };
 
 	constructor(public readonly options: FigmaOptions) {
 		super(options);
@@ -36,12 +37,38 @@ export class Figma extends BaseComponent<string | number | boolean | RGBA> {
 		this.value = !Boolean(this.value);
 	}
 
-	set(value: string | number | boolean) {
-		this.value = value;
+	set(value: string | number | boolean | RGBA) {
+		try {
+			switch (typeof this.value) {
+				case 'string':
+					this.value = String(value);
+					break;
+				case 'number':
+					const num = Number(value);
+					if (isNaN(num)) {
+						throw new Error('Invalid number');
+					}
+					this.value = this.formatNumberWithMaxDecimals(num);
+					break;
+				case 'boolean':
+					this.value = Boolean(value);
+					break;
+				case 'object':
+					const convertedValue = this.convertValue(value);
+					if (typeof convertedValue !== 'object') {
+						throw new Error('Invalid object');
+					}
+					this.value = convertedValue;
+					break;
+			}
+		} catch (error) {
+			Logger.warn('Invalid value type to set figma', { value, error });
+			this.postErrorMessage('set', new Error(`${value} is not a valid value`));
+		}
 	}
 
-	setExternal(value: string | number | boolean) {
-		this.value = value;
+	setExternal(value: string | number | boolean | RGBA) {
+		this.value = this.convertValue(value);
 	}
 
 	red(value: number) {
@@ -49,7 +76,7 @@ export class Figma extends BaseComponent<string | number | boolean | RGBA> {
 		this.value = {
 			...this.defaultRGBA,
 			...currentValue,
-			r: Math.min(1, value / 255),
+			r: this.formatNumberWithMaxDecimals(Math.min(1, value / 255)),
 		};
 	}
 
@@ -58,7 +85,7 @@ export class Figma extends BaseComponent<string | number | boolean | RGBA> {
 		this.value = {
 			...this.defaultRGBA,
 			...currentValue,
-			g: Math.min(1, value / 255),
+			g: this.formatNumberWithMaxDecimals(Math.min(1, value / 255)),
 		};
 	}
 
@@ -67,7 +94,7 @@ export class Figma extends BaseComponent<string | number | boolean | RGBA> {
 		this.value = {
 			...this.defaultRGBA,
 			...currentValue,
-			b: Math.min(1, value / 255),
+			b: this.formatNumberWithMaxDecimals(Math.min(1, value / 255)),
 		};
 	}
 
@@ -76,7 +103,37 @@ export class Figma extends BaseComponent<string | number | boolean | RGBA> {
 		this.value = {
 			...this.defaultRGBA,
 			...currentValue,
-			a: Math.min(1, value / 100),
+			a: this.formatNumberWithMaxDecimals(Math.min(1, value / 100)),
 		};
+	}
+
+	private formatNumberWithMaxDecimals(value: number) {
+		return Number(value.toFixed(2));
+	}
+
+	private convertValue(value: unknown) {
+		if (typeof value === 'object') {
+			const obj = { ...this.defaultRGBA, ...value };
+			return {
+				r: this.formatNumberWithMaxDecimals(obj.r),
+				g: this.formatNumberWithMaxDecimals(obj.g),
+				b: this.formatNumberWithMaxDecimals(obj.b),
+				a: this.formatNumberWithMaxDecimals(obj.a),
+			};
+		}
+
+		if (typeof value === 'number') {
+			return this.formatNumberWithMaxDecimals(value);
+		}
+
+		if (typeof value === 'boolean') {
+			return value;
+		}
+
+		if (typeof value === 'string') {
+			return value;
+		}
+
+		throw new Error('Invalid value type');
 	}
 }

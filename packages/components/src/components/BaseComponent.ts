@@ -67,4 +67,12 @@ export class BaseComponent<T> {
 			value: this.value,
 		});
 	}
+
+	protected postErrorMessage(action: string, error: Error) {
+		postMessageToElectronMain({
+			action: action,
+			nodeId: this._id,
+			value: error,
+		});
+	}
 }

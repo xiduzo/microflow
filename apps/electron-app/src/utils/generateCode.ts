@@ -28,9 +28,9 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 
 	nodes.forEach(node => {
 		node.data.id = node.id; // Expose the Id to the options
-		innerCode += `  const ${node.type}_${node.id} = new ${node.type}(${JSON.stringify(node.data)});`;
+		innerCode += `  const ${node.type}_${node.id} = new MicroflowComponents.${node.type}(${JSON.stringify(node.data)});`;
 		innerCode += addEnter();
-		innerCode += `  nodes.set("${node.type}_${node.id}", ${node.type}_${node.id});`;
+		innerCode += `  nodes.set("${node.id}", ${node.type}_${node.id});`;
 		innerCode += addEnter();
 	});
 
@@ -116,14 +116,14 @@ function addEnter() {
 
 function addImports() {
 	return `
-const { Board, Button, Counter, Figma, IfElse, Interval, Led, Mqtt, Piezo, RangeMap, Sensor, Servo } = require("@microflow/components");
+const MicroflowComponents = require("@microflow/components");
 const log = require("electron-log/node");
 `;
 }
 
 function addBoard() {
 	return `
-const board = new Board({
+const board = new MicroflowComponents.Board({
   repl: false,
   debug: false,
 });
@@ -149,13 +149,14 @@ ${selfClosing ? `}); // board - ${type}` : ``}
 
 function addNodeProcessListener() {
 	let code = `
+// Listen to events from electron
 process.parentPort.on('message', (e) => {`;
 
 	let innerCode = ``;
 
-	innerCode += 'const node = nodes.get(`${e.data.nodeType}_${e.data.nodeId}`);';
+	innerCode += 'const node = nodes.get(e.data.nodeId);';
 	innerCode += addEnter();
-	innerCode += 'node?.variable.setExternal?.(e.data.value);';
+	innerCode += 'node?.setExternal?.(e.data.value);';
 
 	code += wrapInTryCatch(innerCode);
 
@@ -170,6 +171,5 @@ try {
   ${code}
 } catch(error) {
   log.error("something went wrong", { error });
-}
-`;
+}`;
 }

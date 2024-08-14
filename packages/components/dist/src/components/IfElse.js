@@ -17,7 +17,7 @@ class IfElse extends BaseComponent_1.BaseComponent {
     check(input) {
         const validator = __classPrivateFieldGet(this, _IfElse_instances, "m", _IfElse_validator).call(this);
         this.value = validator(input);
-        this.eventEmitter.emit(this.value ? 'true' : 'false', this.value);
+        this.eventEmitter.emit(this.value ? 'true' : 'false', this.value, false);
     }
 }
 exports.IfElse = IfElse;

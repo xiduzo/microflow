@@ -22,7 +22,7 @@ class RangeMap extends BaseComponent_1.BaseComponent {
         const prevValue = this.value;
         this.value = [input, normalizedOutput];
         if (prevValue[1] !== normalizedOutput) {
-            this.eventEmitter.emit('to', normalizedOutput);
+            this.eventEmitter.emit('to', normalizedOutput, false);
         }
     }
 }

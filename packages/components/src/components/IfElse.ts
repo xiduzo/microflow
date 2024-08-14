@@ -24,7 +24,7 @@ export class IfElse extends BaseComponent<boolean> {
 	check(input: never) {
 		const validator = this.#validator();
 		this.value = validator(input);
-		this.eventEmitter.emit(this.value ? 'true' : 'false', this.value);
+		this.eventEmitter.emit(this.value ? 'true' : 'false', this.value, false);
 	}
 
 	#validator() {

@@ -56,5 +56,12 @@ class BaseComponent {
             value: this.value,
         });
     }
+    postErrorMessage(action, error) {
+        (0, postMessageToElectronMain_1.postMessageToElectronMain)({
+            action: action,
+            nodeId: this._id,
+            value: error,
+        });
+    }
 }
 exports.BaseComponent = BaseComponent;

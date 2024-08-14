@@ -11,7 +11,8 @@ export class Servo extends BaseComponent<number> {
 		super(options);
 		this.component = new JohnnyFive.Servo(options);
 
-		this.component.on('move:complete', this.postMessage.bind(this, 'complete'));
+		// TODO: emit on move complete?
+		// this.component.on('move:complete', this.postMessage.bind(this, 'complete'));
 	}
 
 	min() {

@@ -4,6 +4,7 @@ type Message<T> = {
 	nodeId: string;
 	action: string;
 	value: T;
+	error?: string;
 };
 
 // Poor mans electron parent port

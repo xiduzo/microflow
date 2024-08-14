@@ -115,7 +115,7 @@ type NodeValueProps = PropsWithChildren &
 	};
 
 const nodeValue = cva(
-	'flex p-10 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 w-full pointer-events-none',
+	'flex p-4 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none',
 	{
 		variants: {
 			active: {

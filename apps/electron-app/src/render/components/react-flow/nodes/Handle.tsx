@@ -6,7 +6,7 @@ import {
 } from '@microflow/ui';
 import { HandleProps, Position, Handle as XyFlowHandle } from '@xyflow/react';
 
-const HANDLE_SPACING = 28;
+const HANDLE_SPACING = 30;
 const NODER_HEADER_HEIGHT_SPACING = 16;
 
 export function Handle(props: Props) {

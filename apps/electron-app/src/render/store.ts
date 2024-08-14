@@ -19,7 +19,7 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	onConnect: OnConnect;
 	setNodes: (nodes: Node<NodeData>[]) => void;
 	setEdges: (edges: Edge[]) => void;
-	deleteEdges: (nodeId: string) => void;
+	deleteEdges: (nodeId: string, except?: string[]) => void;
 	addNode: (node: Node<NodeData>) => void;
 	deleteNode: (nodeId: string) => void;
 };
@@ -82,10 +82,20 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
 	setEdges: edges => {
 		set({ edges });
 	},
-	deleteEdges: nodeId => {
-		const edges = get().edges.filter(
-			edge => edge.source !== nodeId && edge.target !== nodeId,
-		);
+	deleteEdges: (nodeId, except = []) => {
+		const edges = get().edges.filter(edge => {
+			const isSource = edge.source === nodeId;
+			const isTarget = edge.target === nodeId;
+			const isExceptHandle =
+				except.includes(edge.sourceHandle) ||
+				except.includes(edge.targetHandle);
+
+			if (except.length) {
+				return (!isSource || !isTarget) && isExceptHandle;
+			}
+
+			return !isSource && !isTarget;
+		});
 		set({ edges });
 	},
 	addNode: node => {
@@ -114,4 +124,8 @@ export const nodesAndEdgesCountsSelector = (state: AppState) => ({
 export const tempNodeSelector = (state: AppState) => ({
 	addNode: state.addNode,
 	deleteNode: state.deleteNode,
+});
+
+export const deleteEdgesSelector = (state: AppState) => ({
+	deleteEdges: state.deleteEdges,
 });
