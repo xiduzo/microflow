@@ -23,6 +23,7 @@ __exportStar(require("./src/components/Figma"), exports);
 __exportStar(require("./src/components/IfElse"), exports);
 __exportStar(require("./src/components/Interval"), exports);
 __exportStar(require("./src/components/Led"), exports);
+__exportStar(require("./src/components/Motion"), exports);
 __exportStar(require("./src/components/Mqtt"), exports);
 __exportStar(require("./src/components/Piezo"), exports);
 __exportStar(require("./src/components/RangeMap"), exports);

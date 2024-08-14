@@ -41,7 +41,9 @@ export function Button(props: Props) {
 						pressed={props.data.value}
 					>
 						{Boolean(props.data.value) && <Icons.Pointer />}
-						{!Boolean(props.data.value) && <Icons.PointerOff />}
+						{!Boolean(props.data.value) && (
+							<Icons.PointerOff className="text-muted-foreground" />
+						)}
 					</Toggle>
 				</NodeValue>
 			</NodeContent>

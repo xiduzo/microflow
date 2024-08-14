@@ -32,10 +32,6 @@ export function Sensor(props: Props) {
 
 	const { updateNodeData } = useUpdateNodeData<SensorData>(props.id);
 
-	const hasValidPin = !!pins.find(
-		pin => `A${pin.analogChannel}` === props.data.pin && validatePin(pin),
-	);
-
 	const progress = useMemo(() => {
 		if (!props.data.value) return 0;
 
@@ -45,11 +41,6 @@ export function Sensor(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				{!hasValidPin && (
-					<div className="text-red-500 text-sm">
-						Pin is not valid for a {props.type}
-					</div>
-				)}
 				<NodeValue className="text-4xl tabular-nums">
 					<Progress max={1023} value={progress} />
 				</NodeValue>

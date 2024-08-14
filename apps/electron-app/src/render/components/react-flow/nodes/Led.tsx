@@ -1,11 +1,11 @@
 import {
+	Icons,
 	Select,
 	SelectContent,
 	SelectGroup,
 	SelectItem,
 	SelectLabel,
 	SelectTrigger,
-	Switch,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { LedOption } from 'johnny-five';
@@ -30,11 +30,12 @@ export function Led(props: Props) {
 		<NodeContainer {...props}>
 			<NodeContent>
 				<NodeValue>
-					<Switch
-						className="scale-150"
-						disabled
-						checked={Boolean(props.data.value)}
-					/>
+					{Boolean(props.data.value) && (
+						<Icons.Lightbulb className="w-10 h-10" />
+					)}
+					{!Boolean(props.data.value) && (
+						<Icons.LightbulbOff className="w-10 h-10 text-muted-foreground" />
+					)}
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>

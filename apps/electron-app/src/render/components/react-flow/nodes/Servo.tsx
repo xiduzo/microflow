@@ -36,10 +36,6 @@ export function Servo(props: Props) {
 
 	const { updateNodeData } = useUpdateNodeData<ServoData>(props.id);
 
-	const hasValidPin = !!pins.find(
-		pin => pin.pin === Number(props.data.pin) && validatePin(pin),
-	);
-
 	const isStandard = props.data.type === 'standard';
 
 	const animationDuration = useMemo(() => {
@@ -113,11 +109,6 @@ export function Servo(props: Props) {
 						</div>
 					)}
 				</NodeValue>
-				{!hasValidPin && (
-					<div className="text-red-500 text-sm">
-						Pin is not valid for a servo
-					</div>
-				)}
 			</NodeContent>
 			<NodeSettings>
 				<Select

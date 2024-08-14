@@ -135,6 +135,14 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Input</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Motion')}>
+						Motion
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Digital</Badge>
+							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Input</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Piezo')}>
 						Piezo
 						<CommandShortcut className="space-x-1">
