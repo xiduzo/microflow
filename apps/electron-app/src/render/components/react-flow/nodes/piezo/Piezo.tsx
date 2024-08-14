@@ -1,38 +1,40 @@
 import {
-	Button,
-	Icons,
-	Label,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-	SheetTrigger,
-	Slider,
+    Button,
+    Icons,
+    Label,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+    Slider,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { PiezoOption, PiezoTune } from 'johnny-five';
 import { useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { BoardCheckResult, MODES } from '../../../../../common/types';
 import { useUpdateNodeData } from '../../../../hooks/nodeUpdater';
 import { useBoard } from '../../../../providers/BoardProvider';
+import { deleteEdgesSelector, useNodesEdgesStore } from '../../../../store';
 import { MusicSheet } from '../../../MusicSheet';
 import { Handle } from '../Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
 } from '../Node';
 import {
-	DEFAULT_SONG,
-	MAX_NOTE_FREQUENCY,
-	MIN_NOTE_FREQUENCY,
-	NOTES_AND_FREQUENCIES,
+    DEFAULT_SONG,
+    MAX_NOTE_FREQUENCY,
+    MIN_NOTE_FREQUENCY,
+    NOTES_AND_FREQUENCIES,
 } from './constants';
 import { SongEditor } from './SongEditor';
 
@@ -46,6 +48,8 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 export function Piezo(props: Props) {
 	const { pins } = useBoard();
 	const updateNodeInternals = useUpdateNodeInternals();
+	const { deleteEdges } = useNodesEdgesStore(useShallow(deleteEdgesSelector));
+
 	const { updateNodeData } = useUpdateNodeData<PiezoData>(props.id);
 
 	const [tempSong, setTempSong] = useState<[string | null, number][] | null>(
@@ -107,6 +111,7 @@ export function Piezo(props: Props) {
 							} as SongData;
 						}
 						updateNodeData(update);
+						deleteEdges(props.id, ['stop'])
 					}}
 				>
 					<SelectTrigger>{props.data.type}</SelectTrigger>

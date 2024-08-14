@@ -17,7 +17,6 @@ export function useCodeUploader() {
 		useReactFlow();
 
 	const uploadCode = useCallback(() => {
-		console.log('uploadCode');
 		timeout && clearTimeout(timeout);
 
 		timeout = setTimeout(() => {
@@ -66,12 +65,17 @@ export function useCodeUploader() {
 
 export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
+	const { checkResult } = useBoard();
 
 	const { nodesCount, edgesCount } = useNodesEdgesStore(
 		useShallow(nodesAndEdgesCountsSelector),
 	);
 
 	useEffect(() => {
+		if (checkResult.type !== 'ready') {
+			return;
+		}
+
 		uploadCode();
-	}, [nodesCount, edgesCount, uploadCode]);
+	}, [nodesCount, edgesCount, uploadCode, checkResult.type]);
 }

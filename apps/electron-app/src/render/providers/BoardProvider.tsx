@@ -60,8 +60,9 @@ export function BoardProvider({ children }: PropsWithChildren) {
 
 	const uploadCode = useCallback((code: string) => {
 		setUploadResult({ type: 'info' });
-		setCheckResult({ type: 'ready' });
 
+		// TODO: when the uploads happen too fast in a row
+		// we need to already call the `off`
 		const off = window.electron.ipcRenderer.on(
 			'ipc-upload-code',
 			(result: UploadCodeResult) => {
@@ -71,12 +72,11 @@ export function BoardProvider({ children }: PropsWithChildren) {
 					setPins(result.pins);
 				}
 
-				if (result.type === 'ready') {
+				if (result.type !== 'info') {
 					off();
 				}
 
 				if (result.type === 'error') {
-					off();
 					toast.error(result.message);
 				}
 			},
