@@ -1,45 +1,65 @@
-import { Button, cva } from '@microflow/ui';
+import { Button } from '@microflow/ui';
 import { useState } from 'react';
+import { MatrixDisplay } from './MatrixDisplay';
 
-function newMatrix(dimensions: [number, number], fill = 1): number[][] {
-	return Array.from({ length: dimensions[0] }, () =>
-		new Array(dimensions[0]).fill(fill),
+function newMatrix(options: {
+	dimensions: [number, number];
+	shape?: string[];
+	fill?: string;
+}) {
+	const [rows, columns] = options.dimensions;
+
+	const matrix = Array.from({ length: rows }, () =>
+		new Array(columns).fill(options.fill ?? '0').join(''),
 	);
+
+	options.shape?.forEach((row, rowIndex) => {
+		const newRow = matrix[rowIndex].split('');
+		row.split('').forEach((cell, columnIndex) => {
+			newRow[columnIndex] = cell;
+		});
+		matrix[rowIndex] = newRow.join('');
+	});
+
+	return matrix;
 }
+
 export function MatrixEditor(props: Props) {
-	const [matrix, setMatrix] = useState<number[][]>(newMatrix(props.dimensions));
+	const [matrix, setMatrix] = useState<string[]>(
+		newMatrix({
+			dimensions: props.dimensions,
+			shape: props.shape,
+		}),
+	);
 
 	return (
 		<div className="space-y-4">
-			<h1>Matrix Editor</h1>
-			<section className="grid grid-cols-8 gap-2">
-				{matrix.map((row, i) =>
-					row.map((_cell, j) => (
-						<div
-							onChange={checked => {
-								console.log(checked);
-							}}
-							onClick={() => {
-								setMatrix(prevMatrix => {
-									const prev = prevMatrix[i][j];
-									const newMatrix = Object.assign([], prevMatrix);
-									newMatrix[i][j] = prev ? 0 : 1;
-									return newMatrix;
-								});
-							}}
-							key={j}
-							data-cell={`${i}-${j}`}
-							className={cell({ active: Boolean(matrix[i][j]) })}
-						/>
-					)),
-				)}
-			</section>
+			<MatrixDisplay
+				dimensions={props.dimensions}
+				shape={matrix}
+				onCellClick={(row, column) => {
+					setMatrix(prevMatrix => {
+						const prev = prevMatrix[row].at(column);
+						const newMatrix = Object.assign([], prevMatrix);
+						const newValue = Number(prev) ? '0' : '1';
+						const newRow = newMatrix[row].split('');
+						newRow[column] = newValue;
+						newMatrix[row] = newRow.join('');
+						return newMatrix;
+					});
+				}}
+			/>
 			<section className="flex space-x-2">
 				<Button
 					className="grow"
 					variant="outline"
 					onClick={() => {
-						setMatrix(newMatrix(props.dimensions));
+						setMatrix(
+							newMatrix({
+								dimensions: props.dimensions,
+								fill: '1',
+							}),
+						);
 					}}
 				>
 					Fill all
@@ -48,7 +68,12 @@ export function MatrixEditor(props: Props) {
 					variant="outline"
 					className="grow"
 					onClick={() => {
-						setMatrix(newMatrix(props.dimensions, 0));
+						setMatrix(
+							newMatrix({
+								dimensions: props.dimensions,
+								fill: '0',
+							}),
+						);
 					}}
 				>
 					Clear all
@@ -60,16 +85,7 @@ export function MatrixEditor(props: Props) {
 
 type Props = {
 	dimensions: [number, number];
+	shape: string[];
 };
 
-const cell = cva(
-	'place-self-center w-full h-11 ring-0 transition-all hover:ring-4 ring-blue-500 rounded-sm',
-	{
-		variants: {
-			active: {
-				true: 'bg-red-500',
-				false: 'bg-muted scale-95',
-			},
-		},
-	},
-);
+export type { Props as MatrixEditorProps };

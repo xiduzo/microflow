@@ -76,7 +76,7 @@ export function NodeContainer(props: Props) {
 }
 
 export function NodeValue(props: NodeValueProps) {
-	const { id, data } = useNode();
+	const { data } = useNode();
 	const prevValue = useRef(props.valueOverride ?? data.value);
 
 	useEffect(() => {
@@ -115,7 +115,7 @@ type NodeValueProps = PropsWithChildren &
 	};
 
 const nodeValue = cva(
-	'flex p-4 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none',
+	'flex p-4 justify-center items-center rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none',
 	{
 		variants: {
 			active: {

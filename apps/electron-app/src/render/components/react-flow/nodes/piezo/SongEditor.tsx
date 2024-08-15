@@ -56,7 +56,7 @@ export function SongEditor(props: Props) {
 				<DialogHeader>
 					<DialogTitle>Edit song</DialogTitle>
 				</DialogHeader>
-				<section className="my-6 flex flex-col space-y-4">
+				<section className="flex flex-col space-y-4">
 					<MusicSheet song={editedSong as any as typeof props.song} />
 					<DragProvider swap={swapNotes}>
 						<section className="grid gap-2 grid-cols-4">
@@ -72,7 +72,7 @@ export function SongEditor(props: Props) {
 										});
 									}}
 									action={{
-										label: 'Remove node',
+										label: 'Delete note',
 										variant: 'destructive',
 										onClick: () => {
 											setEditedSong(prev => {
@@ -113,9 +113,6 @@ export function SongEditor(props: Props) {
 						</section>
 					</DragProvider>
 					<DialogFooter>
-						<DialogClose asChild>
-							<Button variant="secondary">Cancel</Button>
-						</DialogClose>
 						<DialogClose asChild>
 							<Button
 								onClick={() => {
