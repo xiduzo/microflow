@@ -1,22 +1,22 @@
 import {
-	Button,
-	cn,
-	cva,
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	VariantProps,
+    Button,
+    cn,
+    cva,
+    Drawer,
+    DrawerContent,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle,
+    VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import {
-	createContext,
-	PropsWithChildren,
-	useContext,
-	useEffect,
-	useRef,
+    createContext,
+    PropsWithChildren,
+    useContext,
+    useEffect,
+    useRef,
 } from 'react';
 
 export function NodeSettings(props: NodeContainerProps) {
@@ -70,10 +70,6 @@ export function NodeSettings(props: NodeContainerProps) {
 type NodeContainerProps = PropsWithChildren & {
 	className?: string;
 };
-
-export function NodeContainer(props: Props) {
-	return <BaseNode {...props}>{props.children}</BaseNode>;
-}
 
 export function NodeValue(props: NodeValueProps) {
 	const { data } = useNode();
@@ -132,7 +128,7 @@ const nodeValue = cva(
 const NodeContainerContext = createContext<BaseNode>({} as BaseNode);
 export const useNode = () => useContext(NodeContainerContext);
 
-function BaseNode(props: PropsWithChildren & BaseNode) {
+export function NodeContainer(props: PropsWithChildren & BaseNode) {
 	return (
 		<NodeContainerContext.Provider value={props}>
 			<div
@@ -212,5 +208,3 @@ export type BaseNode<
 		settingsOpen?: boolean;
 	}
 >;
-
-type Props = PropsWithChildren & BaseNode<{}, any>;

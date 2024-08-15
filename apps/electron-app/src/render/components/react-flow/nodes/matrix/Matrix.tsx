@@ -40,13 +40,12 @@ export function Matrix(props: Props) {
 					<section className="grid grid-cols-12 gap-2">
 						{Array.from({ length: 24 }).map((_, index) => {
 							return (
-								<Dialog>
+								<Dialog key={index}>
 									<DialogTrigger asChild>
 										<div
 											className={shape({
 												cols: (12 / Math.round(32 / 8)) as keyof typeof shape,
 											})}
-											key={index}
 										>
 											<MatrixDisplay
 												size="tiny"
@@ -127,7 +126,7 @@ export const DEFAULT_MATRIX_SHAPE: MatrixShape = [
 
 export const DEFAULT_MATRIX_DATA: Props['data'] = {
 	value: false,
-	label: 'Matrix',
+	label: 'LED Matrix',
 	pins: {
 		data: 8,
 		clock: 10,

@@ -105,7 +105,7 @@ export function SongEditor(props: Props) {
 							>
 								<Badge
 									variant="outline"
-									className="border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full"
+									className="text-muted-foreground hover:text-foreground border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full"
 								>
 									Add note
 								</Badge>

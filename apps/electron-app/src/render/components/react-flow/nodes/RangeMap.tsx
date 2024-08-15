@@ -100,5 +100,5 @@ export const DEFAULT_RANGE_MAP_DATA: Props['data'] = {
 	value: [0, 0],
 	from: [0, 100],
 	to: [0, 100],
-	label: 'Range Map',
+	label: 'Map',
 };

@@ -91,7 +91,11 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 		const interval = setInterval(async () => {
 			setConnectedClients(prev => {
 				prev.forEach((_status, client) => {
-					prev.set(client, 'connecting');
+					const prevStatus = prev.get(client);
+					prev.set(
+						client,
+						prevStatus === 'disconnected' ? 'disconnected' : 'connecting',
+					);
 					disconnectedIntervals.current.set(
 						client,
 						setTimeout(() => {
@@ -108,7 +112,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 				`microflow/v1/${props.config.uniqueId}/${props.appName}/ping`,
 				'',
 			);
-		}, 1000 * 30);
+		}, 1000 * 15);
 
 		return () => {
 			clearInterval(interval);
