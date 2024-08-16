@@ -6,16 +6,15 @@ type IntervalOptions = BaseComponentOptions<number> & {
 
 export class Interval extends BaseComponent<number> {
 	private readonly minIntervalInMs = 500;
+	private interval: NodeJS.Timeout | null = null;
 
 	constructor(private readonly options: IntervalOptions) {
 		super(options);
 
-		setInterval(() => {
-			this.value = Math.round(performance.now());
-		}, this.interval(options.interval));
+		this.start();
 	}
 
-	private interval(interval: number) {
+	private getIntervalTime(interval: number) {
 		const parsed = parseInt(String(interval));
 		const isNumber = !isNaN(parsed);
 
@@ -24,5 +23,21 @@ export class Interval extends BaseComponent<number> {
 		}
 
 		return Math.max(this.minIntervalInMs, parsed);
+	}
+
+	start() {
+		if (this.interval) {
+			clearInterval(this.interval);
+		}
+
+		this.interval = setInterval(() => {
+			this.value = Math.round(performance.now());
+		}, this.getIntervalTime(this.options.interval));
+	}
+
+	stop() {
+		if (this.interval) {
+			clearInterval(this.interval);
+		}
 	}
 }

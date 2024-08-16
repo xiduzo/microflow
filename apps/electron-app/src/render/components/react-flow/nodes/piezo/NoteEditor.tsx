@@ -13,10 +13,11 @@ import { PropsWithChildren, useState } from 'react';
 import { NOTE_DURATION } from './constants';
 import { noteDurationToVisualDuation } from './helpers';
 import { NoteSelector } from './NoteSelector';
+import { Note } from './Piezo';
 
 export function NodeEditor(props: Props) {
 	const [internalNode, setInternalNode] = useState(props.note);
-	const [note, duration, id] = internalNode;
+	const [note, duration] = internalNode;
 
 	return (
 		<Popover>
@@ -25,14 +26,14 @@ export function NodeEditor(props: Props) {
 				<NoteSelector
 					value={String(note)}
 					onSelect={value => {
-						setInternalNode([value, duration, id]);
-						props.onSelect?.([value, duration, id]);
+						setInternalNode([value, duration]);
+						props.onSelect?.([value, duration]);
 					}}
 				/>
 				<Select
 					onValueChange={value => {
-						setInternalNode([note, Number(value), id]);
-						props.onSelect?.([note, Number(value), id]);
+						setInternalNode([note, Number(value)]);
+						props.onSelect?.([note, Number(value)]);
 					}}
 				>
 					<SelectTrigger>
@@ -67,13 +68,13 @@ export function NodeEditor(props: Props) {
 }
 
 type Props = PropsWithChildren & {
-	note: [string, number, string];
-	onSelect?: (note: [string | null, number, string]) => void;
+	note: Note;
+	onSelect?: (note: Note) => void;
 	action: Action;
 };
 
 type Action = {
 	variant?: ButtonProps['variant'];
 	label: string;
-	onClick: (note: [string | null, number, string]) => void;
+	onClick: (note: Note) => void;
 };

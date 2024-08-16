@@ -68,7 +68,7 @@ const cell = cva('place-self-center w-full ring-0 transition-all', {
 	},
 });
 
-type Props = MatrixEditorProps & {
+type Props = Omit<MatrixEditorProps, 'onSave'> & {
 	onCellClick?: (row: number, column: number) => void;
 	cellClassName?: string;
 } & Pick<VariantProps<typeof cell>, 'size'>;

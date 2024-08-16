@@ -1,10 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Matrix = void 0;
-const node_1 = __importDefault(require("electron-log/node"));
 const johnny_five_1 = require("johnny-five");
 const BaseComponent_1 = require("./BaseComponent");
 class Matrix extends BaseComponent_1.BaseComponent {
@@ -12,10 +8,21 @@ class Matrix extends BaseComponent_1.BaseComponent {
         super(options);
         this.options = options;
         this.controller = new johnny_five_1.Led.Matrix(options);
-        node_1.default.debug('Matrix created', options);
         this.controller.brightness(100);
         this.controller.off();
     }
-    draw() { }
+    show(index) {
+        this.controller.on();
+        const shape = this.options.shapes[index];
+        if (!shape) {
+            return;
+        }
+        this.controller.draw(0, shape);
+        this.value = shape;
+    }
+    hide() {
+        this.controller.off();
+        this.value = this.value.map(row => row.replace(/'1'/g, '0'));
+    }
 }
 exports.Matrix = Matrix;

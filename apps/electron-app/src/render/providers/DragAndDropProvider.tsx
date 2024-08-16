@@ -1,25 +1,32 @@
 import {
-	createContext,
-	PropsWithChildren,
-	useContext,
-	useEffect,
-	useState,
+    createContext,
+    PropsWithChildren,
+    useContext,
+    useEffect,
+    useState,
 } from 'react';
 
-const DragContext = createContext({
+const DragAndDropContext = createContext({
 	dragging: '',
 	setDragging: (id: string) => () => {},
 	setHover: (id: string) => () => {},
 });
 
-export function DragProvider(
-	props: PropsWithChildren & { swap: (id: string, afterId: string) => void },
-) {
+type Actions = {
+	swap?: (id: string, hoveredId: string) => void;
+	onDragDone?: () => void;
+};
+
+export function DragAndDropProvider(props: PropsWithChildren & Actions) {
 	const [dragging, internalSetDragging] = useState('');
 	const [hover, internalSetHover] = useState('');
 
 	const setDragging = (id: string) => () => {
 		internalSetDragging(id);
+
+		if(id === ''){
+      props.onDragDone?.();
+    }
 	};
 
 	const setHover = (id: string) => () => {
@@ -36,11 +43,11 @@ export function DragProvider(
 		}
 
 		internalSetHover('');
-		props.swap(dragging, hover);
-	}, [dragging, hover, props.swap]);
+		props.swap?.(dragging, hover);
+	}, [dragging, hover, props.swap, props.onDragDone]);
 
 	return (
-		<DragContext.Provider
+		<DragAndDropContext.Provider
 			value={{
 				dragging,
 				setDragging,
@@ -48,10 +55,10 @@ export function DragProvider(
 			}}
 		>
 			{props.children}
-		</DragContext.Provider>
+		</DragAndDropContext.Provider>
 	);
 }
 
-export function useDrag() {
-	return useContext(DragContext);
+export function useDragAndDrop() {
+	return useContext(DragAndDropContext);
 }

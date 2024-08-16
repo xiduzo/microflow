@@ -7,17 +7,29 @@ class Interval extends BaseComponent_1.BaseComponent {
         super(options);
         this.options = options;
         this.minIntervalInMs = 500;
-        setInterval(() => {
-            this.value = Math.round(performance.now());
-        }, this.interval(options.interval));
+        this.interval = null;
+        this.start();
     }
-    interval(interval) {
+    getIntervalTime(interval) {
         const parsed = parseInt(String(interval));
         const isNumber = !isNaN(parsed);
         if (!isNumber) {
             return this.minIntervalInMs;
         }
         return Math.max(this.minIntervalInMs, parsed);
+    }
+    start() {
+        if (this.interval) {
+            clearInterval(this.interval);
+        }
+        this.interval = setInterval(() => {
+            this.value = Math.round(performance.now());
+        }, this.getIntervalTime(this.options.interval));
+    }
+    stop() {
+        if (this.interval) {
+            clearInterval(this.interval);
+        }
     }
 }
 exports.Interval = Interval;

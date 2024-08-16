@@ -197,8 +197,9 @@ export function Piezo(props: Props) {
 }
 
 type BuzzData = { type: 'buzz'; duration: number; frequency: number };
+export type Note = [string | null, number];
 type SongData = { type: 'song' } & PiezoTune & {
-		song: [string | null, number][];
+		song: Note[];
 	};
 type BaseData = Omit<PiezoOption, 'type'>;
 

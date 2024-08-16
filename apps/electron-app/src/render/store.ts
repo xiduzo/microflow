@@ -22,6 +22,10 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	deleteEdges: (nodeId: string, except?: string[]) => void;
 	addNode: (node: Node<NodeData>) => void;
 	deleteNode: (nodeId: string) => void;
+	previousStates: { nodes: Node; edges: Edge[] }[];
+	nextStates: { nodes: Node; edges: Edge[] }[];
+	undo: () => void;
+	redo: () => void;
 };
 
 export const baseEdgeConfig: Partial<Edge> = {
@@ -31,6 +35,8 @@ export const baseEdgeConfig: Partial<Edge> = {
 export const useNodesEdgesStore = create<AppState>((set, get) => ({
 	nodes: [],
 	edges: [],
+	previousStates: [],
+	nextStates: [],
 	onNodesChange: changes => {
 		set({
 			nodes: applyNodeChanges(
@@ -81,6 +87,12 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
 	},
 	setEdges: edges => {
 		set({ edges });
+	},
+	undo: () => {
+		// TODO: Implement undo
+	},
+	redo: () => {
+		// TODO: Implement redo
 	},
 	deleteEdges: (nodeId, except = []) => {
 		const edges = get().edges.filter(edge => {

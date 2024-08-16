@@ -1,22 +1,22 @@
 import {
-    Button,
-    cn,
-    cva,
-    Drawer,
-    DrawerContent,
-    DrawerDescription,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle,
-    VariantProps,
+	Button,
+	cn,
+	cva,
+	Drawer,
+	DrawerContent,
+	DrawerDescription,
+	DrawerFooter,
+	DrawerHeader,
+	DrawerTitle,
+	VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import {
-    createContext,
-    PropsWithChildren,
-    useContext,
-    useEffect,
-    useRef,
+	createContext,
+	PropsWithChildren,
+	useContext,
+	useEffect,
+	useRef,
 } from 'react';
 
 export function NodeSettings(props: NodeContainerProps) {
@@ -199,7 +199,7 @@ const node = cva(
 
 export type BaseNode<
 	DataType extends Record<string, any> = {},
-	ValueType = undefined,
+	ValueType = any,
 > = Node<
 	DataType & {
 		value: ValueType;

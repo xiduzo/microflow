@@ -75,6 +75,7 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 					'publish',
 					'rotate',
 					'to',
+					'show',
 				];
 
 				const shouldSetValue = valueTriggers.includes(edge.targetHandle);

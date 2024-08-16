@@ -10,45 +10,32 @@ import {
 	DialogTrigger,
 } from '@microflow/ui';
 import { useState } from 'react';
-import { DragProvider } from '../../../../providers/DragProvider';
+import { uuid } from '../../../../../utils/uuid';
+import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { MusicSheet } from '../../../MusicSheet';
 import { DEFAULT_NOTE, DEFAULT_NOTE_DURATION } from './constants';
 import { DndBadge } from './DndBadge';
 import { noteDurationToVisualDuation } from './helpers';
 import { NodeEditor } from './NoteEditor';
 
-function randomNodeId() {
-	return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
-}
-
-function addIdToSong(song: Props['song']): [string | null, number, string][] {
-	return song.map(([note, duration]) => [note, duration, randomNodeId()]);
-}
-
 export function SongEditor(props: Props) {
-	const [editedSong, setEditedSong] = useState<
-		[string | null, number, string][]
-	>(addIdToSong(props.song));
+	const [editedSong, setEditedSong] = useState(
+		props.song.map(note => ({ note, id: uuid() })),
+	);
 
-	function swapNotes(id: string, afterId: string) {
+	function swapNotes(id: string, hoveredId: string) {
 		setEditedSong(prev => {
-			const startIndex = prev.findIndex(([_, __, noteId]) => noteId === id);
-			const afterIndex = prev.findIndex(
-				([_, __, noteId]) => noteId === afterId,
-			);
+			const leftIndex = prev.findIndex(item => item.id === id);
+			const rightIndex = prev.findIndex(item => item.id === hoveredId);
 			const newSong = [...prev];
-			const [note] = newSong.splice(startIndex, 1);
-			newSong.splice(afterIndex, 0, note);
+			newSong[leftIndex] = prev[rightIndex];
+			newSong[rightIndex] = prev[leftIndex];
 			return newSong;
 		});
 	}
 
 	return (
-		<Dialog
-			onOpenChange={() => {
-				setEditedSong(addIdToSong(props.song));
-			}}
-		>
+		<Dialog>
 			<DialogTrigger asChild>
 				<Button variant="outline">Edit song</Button>
 			</DialogTrigger>
@@ -57,17 +44,17 @@ export function SongEditor(props: Props) {
 					<DialogTitle>Edit song</DialogTitle>
 				</DialogHeader>
 				<section className="flex flex-col space-y-4">
-					<MusicSheet song={editedSong as any as typeof props.song} />
-					<DragProvider swap={swapNotes}>
+					<MusicSheet song={editedSong.map(song => song.note)} />
+					<DragAndDropProvider swap={swapNotes}>
 						<section className="grid gap-2 grid-cols-4">
-							{editedSong?.map((note, index) => (
+							{editedSong?.map(({ note, id }, index) => (
 								<NodeEditor
-									key={note[2]}
+									key={id}
 									note={note}
 									onSelect={value => {
 										setEditedSong(prev => {
 											const newSong = [...prev];
-											newSong[index] = value;
+											newSong[index] = { ...newSong[index], note: value };
 											return newSong;
 										});
 									}}
@@ -83,7 +70,7 @@ export function SongEditor(props: Props) {
 										},
 									}}
 								>
-									<DndBadge id={note[0]}>
+									<DndBadge id={id}>
 										<span>{note[0] ?? 'Rest'}</span>
 										<span className="text-muted-foreground">
 											{noteDurationToVisualDuation(note[1])}
@@ -92,13 +79,12 @@ export function SongEditor(props: Props) {
 								</NodeEditor>
 							))}
 							<NodeEditor
-								key={randomNodeId()}
-								note={[DEFAULT_NOTE, DEFAULT_NOTE_DURATION, randomNodeId()]}
+								note={[DEFAULT_NOTE, DEFAULT_NOTE_DURATION]}
 								action={{
 									label: 'Add note',
 									onClick: note => {
 										setEditedSong(prev => {
-											return [...prev, note];
+											return [...prev, { note, id: uuid() }];
 										});
 									},
 								}}
@@ -111,16 +97,13 @@ export function SongEditor(props: Props) {
 								</Badge>
 							</NodeEditor>
 						</section>
-					</DragProvider>
+					</DragAndDropProvider>
 					<DialogFooter>
 						<DialogClose asChild>
 							<Button
 								onClick={() => {
 									props.onSave({
-										song: editedSong.map(([note, duration]) => [
-											note,
-											duration,
-										]) as typeof props.song,
+										song: editedSong.map(({ note }) => note),
 									});
 								}}
 							>

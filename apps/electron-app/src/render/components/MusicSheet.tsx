@@ -1,5 +1,6 @@
 import { renderAbc } from 'abcjs';
 import { useEffect, useRef } from 'react';
+import { Note } from './react-flow/nodes/piezo/Piezo';
 
 export function MusicSheet(props: Props) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -16,7 +17,7 @@ export function MusicSheet(props: Props) {
 	return <div className="w-full" ref={ref} />;
 }
 
-function convertToABC(notes: [string | null, number][]) {
+function convertToABC(notes: Note[]) {
 	let abcString = '';
 	const beatsPerBar = 4;
 	const barsPerLine = 4;
@@ -116,5 +117,5 @@ function getNodeDuration(duration: number) {
 }
 
 type Props = {
-	song: [string | null, number][];
+	song: Note[];
 };
