@@ -21,18 +21,7 @@ import {
 	useState,
 } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { DEFAULT_BUTTON_DATA } from '../components/react-flow/nodes/Button';
-import { DEFAULT_COUNTER_DATA } from '../components/react-flow/nodes/Counter';
-import { DEFAULT_FIGMA_DATA } from '../components/react-flow/nodes/Figma';
-import { DEFAULT_IF_ELSE_DATA } from '../components/react-flow/nodes/IfElse';
-import { DEFAULT_INTERVAL_DATA } from '../components/react-flow/nodes/Interval';
-import { DEFAULT_LED_DATA } from '../components/react-flow/nodes/Led';
-import { DEFAULT_MQTT_DATA } from '../components/react-flow/nodes/Mqtt';
-import { DEFAULT_PIEZO_DATA } from '../components/react-flow/nodes/piezo/Piezo';
-import { DEFAULT_RANGE_MAP_DATA } from '../components/react-flow/nodes/RangeMap';
-import { DEFAULT_SENSOR_DATA } from '../components/react-flow/nodes/Sensor';
-import { DEFAULT_SERVO_DATA } from '../components/react-flow/nodes/Servo';
-import { NodeType } from '../components/react-flow/ReactFlowCanvas';
+import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
 import { tempNodeSelector, useNodesEdgesStore } from '../store';
 
 const NewNodeContext = createContext({
@@ -59,19 +48,6 @@ export function useNewNode() {
 	return useContext(NewNodeContext);
 }
 
-const DEFAULT_NODE_DATA = new Map<NodeType, Record<string, any>>();
-DEFAULT_NODE_DATA.set('Button', DEFAULT_BUTTON_DATA);
-DEFAULT_NODE_DATA.set('Led', DEFAULT_LED_DATA);
-DEFAULT_NODE_DATA.set('Counter', DEFAULT_COUNTER_DATA);
-DEFAULT_NODE_DATA.set('Figma', DEFAULT_FIGMA_DATA);
-DEFAULT_NODE_DATA.set('Interval', DEFAULT_INTERVAL_DATA);
-DEFAULT_NODE_DATA.set('IfElse', DEFAULT_IF_ELSE_DATA);
-DEFAULT_NODE_DATA.set('RangeMap', DEFAULT_RANGE_MAP_DATA);
-DEFAULT_NODE_DATA.set('Mqtt', DEFAULT_MQTT_DATA);
-DEFAULT_NODE_DATA.set('Sensor', DEFAULT_SENSOR_DATA);
-DEFAULT_NODE_DATA.set('Servo', DEFAULT_SERVO_DATA);
-DEFAULT_NODE_DATA.set('Piezo', DEFAULT_PIEZO_DATA);
-
 function NewNodeCommandDialog() {
 	const { open, setOpen, setNodeToAdd } = useNewNode();
 	const { addNode } = useNodesEdgesStore(useShallow(tempNodeSelector));
@@ -80,7 +56,7 @@ function NewNodeCommandDialog() {
 		return function () {
 			const data = DEFAULT_NODE_DATA.get(type) ?? {};
 
-			if (label) {
+			if (label && 'label' in data) {
 				data.label = label;
 			}
 
@@ -145,6 +121,13 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Input</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Sensor', 'LDR')}>
+						LDR (Light Dependent Resistor)
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Input</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Led')}>
 						LED
 						<CommandShortcut className="space-x-1">
@@ -152,9 +135,18 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Sensor', 'LDR')}>
-						LDR (Light Dependent Resistor)
+					<CommandItem onSelect={selectNode('Matrix')}>
+						LED Matrix
 						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Digital</Badge>
+							<Badge variant="outline">Output</Badge>
+						</CommandShortcut>
+					</CommandItem>
+					<CommandItem onSelect={selectNode('Motion')}>
+						Motion
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Digital</Badge>
 							<Badge variant="outline">Analog</Badge>
 							<Badge variant="outline">Input</Badge>
 						</CommandShortcut>

@@ -107,6 +107,9 @@ export const NOTE_DURATION = {
 	Sixteenth: 1 / 16,
 };
 
+export const DEFAULT_NOTE = 'C4';
+export const DEFAULT_NOTE_DURATION = NOTE_DURATION.Quarter;
+
 export const DEFAULT_SONG: [string | null, number][] = [
 	['C4', NOTE_DURATION.Quarter],
 	['D4', NOTE_DURATION.Quarter],

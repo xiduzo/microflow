@@ -1,249 +1,123 @@
 import {
 	Badge,
 	Button,
-	Label,
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SheetClose,
-	SheetFooter,
-	Slider,
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
 } from '@microflow/ui';
-import {
-	createContext,
-	PropsWithChildren,
-	useContext,
-	useEffect,
-	useState,
-} from 'react';
+import { useState } from 'react';
+import { uuid } from '../../../../../utils/uuid';
+import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { MusicSheet } from '../../../MusicSheet';
-import { NOTE_DURATION } from './constants';
+import { DEFAULT_NOTE, DEFAULT_NOTE_DURATION } from './constants';
+import { DndBadge } from './DndBadge';
 import { noteDurationToVisualDuation } from './helpers';
-import { NoteSelector } from './NoteSelector';
+import { NodeEditor } from './NoteEditor';
 
 export function SongEditor(props: Props) {
 	const [editedSong, setEditedSong] = useState(
-		props.song.map(note => [
-			...note,
-			Date.now().toString(36) + Math.random().toString(36).substring(2, 9),
-		]),
+		props.song.map(note => ({ note, id: uuid() })),
 	);
-	const [editedTempo, setEditedTempo] = useState(props.tempo);
 
-	function swapNotes(id: string, afterId: string) {
+	function swapNotes(id: string, hoveredId: string) {
 		setEditedSong(prev => {
-			const startIndex = prev.findIndex(([_, __, noteId]) => noteId === id);
-			const afterIndex = prev.findIndex(
-				([_, __, noteId]) => noteId === afterId,
-			);
+			const leftIndex = prev.findIndex(item => item.id === id);
+			const rightIndex = prev.findIndex(item => item.id === hoveredId);
 			const newSong = [...prev];
-			const [note] = newSong.splice(startIndex, 1);
-			newSong.splice(afterIndex, 0, note);
+			newSong[leftIndex] = prev[rightIndex];
+			newSong[rightIndex] = prev[leftIndex];
 			return newSong;
 		});
 	}
 
 	return (
-		<section className="my-6 flex flex-col space-y-4">
-			<MusicSheet song={editedSong as typeof props.song} />
-			<Label htmlFor="temp-tempo" className="flex justify-between">
-				Tempo
-				<span className="opacity-40 font-light">{editedTempo ?? 100}</span>
-			</Label>
-			<Slider
-				id="temp-tempo"
-				defaultValue={[editedTempo ?? 100]}
-				min={10}
-				max={300}
-				step={5}
-				onValueChange={value => setEditedTempo(value[0])}
-			/>
-			<Label>Notes</Label>
-			<DragProvider swap={swapNotes}>
-				<section className="grid gap-2 grid-cols-4">
-					{editedSong.map(([note, duration, id], index) => (
-						<Popover key={id}>
-							<PopoverTrigger>
-								<DndBadge id={id.toString()}>
-									<span>{note ?? 'Rest'}</span>
-									<span className="text-muted-foreground">
-										{noteDurationToVisualDuation(Number(duration))}
-									</span>
-								</DndBadge>
-							</PopoverTrigger>
-							<PopoverContent className="space-y-2">
-								<NoteSelector
-									value={String(note)}
-									onSelect={note => {
+		<Dialog>
+			<DialogTrigger asChild>
+				<Button variant="outline">Edit song</Button>
+			</DialogTrigger>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Edit song</DialogTitle>
+				</DialogHeader>
+				<section className="flex flex-col space-y-4">
+					<MusicSheet song={editedSong.map(song => song.note)} />
+					<DragAndDropProvider swap={swapNotes}>
+						<section className="grid gap-2 grid-cols-4">
+							{editedSong?.map(({ note, id }, index) => (
+								<NodeEditor
+									key={id}
+									note={note}
+									onSelect={value => {
 										setEditedSong(prev => {
 											const newSong = [...prev];
-											newSong[index][0] = note;
+											newSong[index] = { ...newSong[index], note: value };
 											return newSong;
 										});
 									}}
-								/>
-								<Select
-									onValueChange={value => {
-										const newSong = [...editedSong];
-										newSong[index][1] = parseFloat(value);
-										setEditedSong(newSong);
+									action={{
+										label: 'Delete note',
+										variant: 'destructive',
+										onClick: () => {
+											setEditedSong(prev => {
+												const newSong = [...prev];
+												newSong.splice(index, 1);
+												return newSong;
+											});
+										},
 									}}
 								>
-									<SelectTrigger>
-										{noteDurationToVisualDuation(Number(duration))}
-									</SelectTrigger>
-									<SelectContent>
-										{Object.values(NOTE_DURATION)
-											.filter(duration => {
-												if (note === null && duration > 1) return false;
-												return duration;
-											})
-											.map(selectableDuration => (
-												<SelectItem
-													key={selectableDuration}
-													value={selectableDuration.toString()}
-												>
-													{noteDurationToVisualDuation(selectableDuration)}
-												</SelectItem>
-											))}
-									</SelectContent>
-								</Select>
-								<Button
-									variant="destructive"
-									className="w-full"
-									onClick={() => {
+									<DndBadge id={id}>
+										<span>{note[0] ?? 'Rest'}</span>
+										<span className="text-muted-foreground">
+											{noteDurationToVisualDuation(note[1])}
+										</span>
+									</DndBadge>
+								</NodeEditor>
+							))}
+							<NodeEditor
+								note={[DEFAULT_NOTE, DEFAULT_NOTE_DURATION]}
+								action={{
+									label: 'Add note',
+									onClick: note => {
 										setEditedSong(prev => {
-											const newSong = [...prev];
-											newSong.splice(index, 1);
-											return newSong;
+											return [...prev, { note, id: uuid() }];
 										});
-									}}
+									},
+								}}
+							>
+								<Badge
+									variant="outline"
+									className="text-muted-foreground hover:text-foreground border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full"
 								>
-									Delete note
-								</Button>
-							</PopoverContent>
-						</Popover>
-					))}
-					<Badge
-						variant="outline"
-						className="border-dashed hover:cursor-pointer hover:border-solid justify-center"
-						onClick={() => {
-							setEditedSong(prev => [
-								...prev,
-								[
-									null,
-									NOTE_DURATION.Whole,
-									Date.now().toString(36).substring(2, 9),
-								],
-							]);
-						}}
-					>
-						Add note
-					</Badge>
+									Add note
+								</Badge>
+							</NodeEditor>
+						</section>
+					</DragAndDropProvider>
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button
+								onClick={() => {
+									props.onSave({
+										song: editedSong.map(({ note }) => note),
+									});
+								}}
+							>
+								Save song
+							</Button>
+						</DialogClose>
+					</DialogFooter>
 				</section>
-			</DragProvider>
-			<SheetFooter>
-				<SheetClose asChild>
-					<Button variant="secondary">Cancel</Button>
-				</SheetClose>
-				<SheetClose asChild>
-					<Button
-						onClick={() => {
-							props.onSave(
-								editedSong.map(([note, duration]) => [
-									note,
-									duration,
-								]) as typeof props.song,
-								editedTempo,
-							);
-						}}
-					>
-						Save song
-					</Button>
-				</SheetClose>
-			</SheetFooter>
-		</section>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
 type Props = {
 	song: [string | null, number][];
-	tempo: number;
-	onSave: (song: [string | null, number][], tempo: number) => void;
+	onSave: (data: { song: [string | null, number][] }) => void;
 };
-
-function DndBadge(props: PropsWithChildren & { id: string }) {
-	const { dragging, setDragging, setHover } = useDrag();
-	return (
-		<Badge
-			style={{ opacity: dragging === props.id ? 0.25 : 1 }}
-			draggable
-			onDragStart={setDragging(props.id)}
-			onDragEnd={setDragging('')}
-			onDragEnter={setHover(props.id)}
-			onDragLeave={setHover('')}
-			onDrop={() => {
-				setDragging('');
-				setHover('');
-			}}
-			className="flex justify-between hover:cursor-grab"
-			variant="secondary"
-		>
-			{props.children}
-		</Badge>
-	);
-}
-
-const DragContext = createContext({
-	dragging: '',
-	setDragging: (id: string) => () => {},
-	setHover: (id: string) => () => {},
-});
-
-function DragProvider(
-	props: PropsWithChildren & { swap: (id: string, afterId: string) => void },
-) {
-	const [dragging, internalSetDragging] = useState('');
-	const [hover, internalSetHover] = useState('');
-
-	const setDragging = (id: string) => () => {
-		internalSetDragging(id);
-	};
-
-	const setHover = (id: string) => () => {
-		internalSetHover(id);
-	};
-
-	useEffect(() => {
-		if (dragging === '' || hover === '') {
-			return;
-		}
-
-		if (dragging === hover) {
-			return;
-		}
-
-		internalSetHover('');
-		props.swap(dragging, hover);
-	}, [dragging, hover, props.swap]);
-
-	return (
-		<DragContext.Provider
-			value={{
-				dragging,
-				setDragging,
-				setHover,
-			}}
-		>
-			{props.children}
-		</DragContext.Provider>
-	);
-}
-
-function useDrag() {
-	return useContext(DragContext);
-}

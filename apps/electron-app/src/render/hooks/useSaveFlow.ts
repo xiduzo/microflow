@@ -39,7 +39,7 @@ export function useSaveFlow() {
 
 		const interval = setInterval(() => {
 			saveNodesAndEdges(true);
-		}, 1000 * 30);
+		}, 1000 * 5);
 
 		return () => clearInterval(interval);
 	}, [autoSave, saveNodesAndEdges]);

@@ -1,24 +1,24 @@
+import type {
+	BuzzData,
+	PiezoData,
+	PiezoValueType,
+	SongData,
+} from '@microflow/components';
 import {
-	Button,
 	Icons,
 	Label,
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-	SheetTrigger,
 	Slider,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
-import { PiezoOption, PiezoTune } from 'johnny-five';
-import { useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { BoardCheckResult, MODES } from '../../../../../common/types';
 import { useUpdateNodeData } from '../../../../hooks/nodeUpdater';
 import { useBoard } from '../../../../providers/BoardProvider';
+import { deleteEdgesSelector, useNodesEdgesStore } from '../../../../store';
 import { MusicSheet } from '../../../MusicSheet';
 import { Handle } from '../Handle';
 import {
@@ -29,6 +29,7 @@ import {
 	NodeValue,
 } from '../Node';
 import {
+	DEFAULT_NOTE,
 	DEFAULT_SONG,
 	MAX_NOTE_FREQUENCY,
 	MIN_NOTE_FREQUENCY,
@@ -46,12 +47,9 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 export function Piezo(props: Props) {
 	const { pins } = useBoard();
 	const updateNodeInternals = useUpdateNodeInternals();
-	const { updateNodeData } = useUpdateNodeData<PiezoData>(props.id);
+	const { deleteEdges } = useNodesEdgesStore(useShallow(deleteEdgesSelector));
 
-	const [tempSong, setTempSong] = useState<[string | null, number][] | null>(
-		null,
-	);
-	const [tempTempo, setTempTempo] = useState<number | null>(null);
+	const { updateNodeData } = useUpdateNodeData<PiezoData>(props.id);
 
 	return (
 		<NodeContainer {...props}>
@@ -61,7 +59,7 @@ export function Piezo(props: Props) {
 						(Boolean(props.data.value) ? (
 							<Icons.Disc3 className="animate-spin w-14 h-14" />
 						) : (
-							<Icons.Disc className="w-14 h-14" />
+							<Icons.Disc className="w-14 h-14 text-muted-foreground" />
 						))}
 					{props.data.type === 'buzz' &&
 						(Boolean(props.data.value) ? (
@@ -92,7 +90,7 @@ export function Piezo(props: Props) {
 					onValueChange={(value: 'buzz' | 'song') => {
 						updateNodeInternals(props.id);
 
-						let update = { type: value } as BuzzData | SongData;
+						let update: Partial<typeof props.data> = { type: value };
 						if (value === 'buzz') {
 							update = {
 								...update,
@@ -107,6 +105,7 @@ export function Piezo(props: Props) {
 							} as SongData;
 						}
 						updateNodeData(update);
+						deleteEdges(props.id, ['stop']);
 					}}
 				>
 					<SelectTrigger>{props.data.type}</SelectTrigger>
@@ -177,36 +176,7 @@ export function Piezo(props: Props) {
 							onValueChange={value => updateNodeData({ tempo: value[0] })}
 						/>
 						<MusicSheet song={props.data.song} />
-						<Sheet
-							onOpenChange={value => {
-								if (props.data.type !== 'song') {
-									return;
-								}
-
-								setTempSong(value ? props.data.song : null);
-								setTempTempo(value ? props.data.tempo : null);
-							}}
-						>
-							<SheetTrigger asChild>
-								<Button variant="secondary">Edit song</Button>
-							</SheetTrigger>
-							<SheetContent>
-								<SheetHeader>
-									<SheetTitle>Edit song</SheetTitle>
-								</SheetHeader>
-								{tempSong && tempTempo && (
-									<SongEditor
-										song={tempSong}
-										tempo={tempTempo}
-										onSave={(song, tempo) => {
-											updateNodeData({ song, tempo });
-											setTempSong(null);
-											setTempTempo(null);
-										}}
-									/>
-								)}
-							</SheetContent>
-						</Sheet>
+						<SongEditor song={props.data.song} onSave={updateNodeData} />
 					</>
 				)}
 			</NodeSettings>
@@ -231,15 +201,8 @@ export function Piezo(props: Props) {
 	);
 }
 
-type BuzzData = { type: 'buzz'; duration: number; frequency: number };
-type SongData = { type: 'song' } & PiezoTune & {
-		song: [string | null, number][];
-	};
-type BaseData = Omit<PiezoOption, 'type'>;
-
-const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get('C4');
-export type PiezoData = BaseData & (BuzzData | SongData);
-type Props = BaseNode<PiezoData, boolean>;
+const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
+type Props = BaseNode<PiezoData, PiezoValueType>;
 export const DEFAULT_PIEZO_DATA: Props['data'] = {
 	label: 'Piezo',
 	value: false,

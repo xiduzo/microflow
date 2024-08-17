@@ -1,23 +1,23 @@
+import type { SensorData, SensorValueType } from '@microflow/components';
 import {
-    Progress,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
+	Progress,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { SensorOption } from 'johnny-five';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
+	BaseNode,
+	NodeContainer,
+	NodeContent,
+	NodeSettings,
+	NodeValue,
 } from './Node';
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
@@ -32,10 +32,6 @@ export function Sensor(props: Props) {
 
 	const { updateNodeData } = useUpdateNodeData<SensorData>(props.id);
 
-	const hasValidPin = !!pins.find(
-		pin => `A${pin.analogChannel}` === props.data.pin && validatePin(pin),
-	);
-
 	const progress = useMemo(() => {
 		if (!props.data.value) return 0;
 
@@ -45,11 +41,6 @@ export function Sensor(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				{!hasValidPin && (
-					<div className="text-red-500 text-sm">
-						Pin is not valid for a {props.type}
-					</div>
-				)}
 				<NodeValue className="text-4xl tabular-nums">
 					<Progress max={1023} value={progress} />
 				</NodeValue>
@@ -74,10 +65,9 @@ export function Sensor(props: Props) {
 	);
 }
 
-export type SensorData = Omit<SensorOption, 'board'>;
-type Props = BaseNode<SensorData, number>;
+type Props = BaseNode<SensorData, SensorValueType>;
 export const DEFAULT_SENSOR_DATA: Props['data'] = {
-  value: 0,
-  pin: 'A0',
+	value: 0,
+	pin: 'A0',
 	label: 'Sensor',
 };

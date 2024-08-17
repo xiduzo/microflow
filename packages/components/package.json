@@ -1,0 +1,13 @@
+{
+	"name": "@microflow/components",
+	"version": "1.0.0",
+	"main": "index.ts",
+	"devDependencies": {
+		"@types/johnny-five": "^2.1.9",
+		"typescript": "^5.5.4"
+	},
+	"dependencies": {
+		"electron-log": "^5.1.7",
+		"johnny-five": "https://github.com/xiduzo/johnny-five.git"
+	}
+}

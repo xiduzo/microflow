@@ -53,18 +53,15 @@ export function FigmaProvider(props: PropsWithChildren) {
 			`microflow/v1/${uniqueId}/plugin/variables`,
 			handleVariablesUpdate,
 		);
-		subscribe(
-			`microflow/v1/${uniqueId}/${appName}/variables/response`,
-			handleVariablesUpdate,
-		);
 
 		subscribe(
 			`microflow/v1/${uniqueId}/plugin/variable/+`,
 			handleVariableUpdate,
 		);
+
 		subscribe(
-			`microflow/v1/${uniqueId}/${appName}/variable/+`,
-			handleVariableUpdate,
+			`microflow/v1/${uniqueId}/${appName}/variables/response`,
+			handleVariablesUpdate,
 		);
 	}, [status, appName, uniqueId]);
 
@@ -72,14 +69,6 @@ export function FigmaProvider(props: PropsWithChildren) {
 		if (status !== 'connected') return;
 
 		publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
-
-		const interval = setInterval(() => {
-			publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
-		}, 1000 * 60);
-
-		return () => {
-			clearInterval(interval);
-		};
 	}, [status]);
 
 	return (

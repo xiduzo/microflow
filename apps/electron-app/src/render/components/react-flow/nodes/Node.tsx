@@ -52,7 +52,7 @@ export function NodeSettings(props: NodeContainerProps) {
 					{props.children}
 				</section>
 				<DrawerFooter className="max-w-md w-full m-auto">
-					<Button variant="outline" onClick={closeDrawer}>
+					<Button variant="secondary" onClick={closeDrawer}>
 						Close
 					</Button>
 					<Button
@@ -70,10 +70,6 @@ export function NodeSettings(props: NodeContainerProps) {
 type NodeContainerProps = PropsWithChildren & {
 	className?: string;
 };
-
-export function NodeContainer(props: Props) {
-	return <BaseNode {...props}>{props.children}</BaseNode>;
-}
 
 export function NodeValue(props: NodeValueProps) {
 	const { data } = useNode();
@@ -115,7 +111,7 @@ type NodeValueProps = PropsWithChildren &
 	};
 
 const nodeValue = cva(
-	'flex p-10 justify-center items-center h-11 rounded-md transition-all dutation-75 min-w-48 w-full pointer-events-none',
+	'flex p-4 justify-center items-center rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none',
 	{
 		variants: {
 			active: {
@@ -132,7 +128,7 @@ const nodeValue = cva(
 const NodeContainerContext = createContext<BaseNode>({} as BaseNode);
 export const useNode = () => useContext(NodeContainerContext);
 
-function BaseNode(props: PropsWithChildren & BaseNode) {
+export function NodeContainer(props: PropsWithChildren & BaseNode) {
 	return (
 		<NodeContainerContext.Provider value={props}>
 			<div
@@ -158,7 +154,6 @@ function BaseNode(props: PropsWithChildren & BaseNode) {
 
 function NodeHeader() {
 	const node = useNode();
-	const { updateNodeData } = useReactFlow<BaseNode>();
 
 	return (
 		<header className="p-2 pl-4 border-b-2 text-muted-foreground text-sm">
@@ -203,15 +198,13 @@ const node = cva(
 );
 
 export type BaseNode<
-	DataType extends Record<string, any> = {},
-	ValueType = undefined,
+	Data extends Record<string, any> = {},
+	ValueType = any,
 > = Node<
-	DataType & {
+	Data & {
 		value: ValueType;
 		label: string;
 		animated?: string;
 		settingsOpen?: boolean;
 	}
 >;
-
-type Props = PropsWithChildren & BaseNode<{}, any>;

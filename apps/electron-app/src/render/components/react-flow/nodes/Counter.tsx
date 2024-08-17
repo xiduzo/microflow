@@ -1,3 +1,4 @@
+import type { CounterData, CounterValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
 import {
@@ -38,8 +39,7 @@ export function Counter(props: Props) {
 	);
 }
 
-export type CounterData = {};
-type Props = BaseNode<CounterData, number>;
+type Props = BaseNode<CounterData, CounterValueType>;
 export const DEFAULT_COUNTER_DATA: Props['data'] = {
 	label: 'Counter',
 	value: 0,

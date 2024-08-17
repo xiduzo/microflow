@@ -49,6 +49,7 @@
 		"typescript": "^5.5.3"
 	},
 	"dependencies": {
+		"@microflow/components": "workspaces:*",
 		"@microflow/mqtt": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",
@@ -57,7 +58,6 @@
 		"avrgirl-arduino": "https://github.com/xiduzo/avrgirl-arduino.git",
 		"electron-log": "^5.1.5",
 		"firmata": "https://github.com/xiduzo/firmata.js.git",
-		"johnny-five": "https://github.com/xiduzo/johnny-five.git",
 		"mqtt": "^5.8.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",

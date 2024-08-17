@@ -36,6 +36,7 @@ const KNOWN_BOARD_PRODUCT_IDS: [KnownBoard, string[]][] = [
 //   const pagePath = path.join('file://', pageDirectory, 'index.html')
 //   shell.openExternal(pagePath)
 // })
+//
 
 ipcMain.on('ipc-menu', (_event, action, ...args) => {
 	switch (action) {
@@ -124,12 +125,9 @@ ipcMain.on('ipc-upload-code', (event, code: string) => {
 	});
 });
 
-ipcMain.on(
-	'ipc-external-value',
-	(_event, nodeType: string, nodeId: string, value: unknown) => {
-		childProcess?.postMessage({ nodeType, nodeId, value });
-	},
-);
+ipcMain.on('ipc-external-value', (_event, nodeId: string, value: unknown) => {
+	childProcess?.postMessage({ nodeId, value });
+});
 
 async function forceFlashBoard(): Promise<void> {
 	return new Promise(async (resolve, reject) => {
@@ -190,7 +188,7 @@ async function flashBoard(board: KnownBoard): Promise<void> {
 				const noFirmataPathError = new Error(
 					"oops! Couldn't find Standard Firmata file for " + board + ' board.',
 				);
-				log.warn({ noFirmataPathError });
+				log.warn(noFirmataPathError.message);
 				reject(noFirmataPathError);
 				return;
 			}
@@ -234,6 +232,7 @@ function sniffPorts(connectedPort: string, event: IpcMainEvent) {
 }
 
 async function getConnectedDevices(): Promise<Port[]> {
+	// return getDeviceList()
 	return new Promise((resolve, reject) => {
 		Avrgirl.list((error: unknown, ports: Port[]) => {
 			if (error) {

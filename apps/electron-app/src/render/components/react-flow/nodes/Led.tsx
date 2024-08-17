@@ -1,14 +1,14 @@
+import type { LedData, LedValueType } from '@microflow/components';
 import {
+	Icons,
 	Select,
 	SelectContent,
 	SelectGroup,
 	SelectItem,
 	SelectLabel,
 	SelectTrigger,
-	Switch,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { LedOption } from 'johnny-five';
 import { MODES } from '../../../../common/types';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
@@ -30,11 +30,12 @@ export function Led(props: Props) {
 		<NodeContainer {...props}>
 			<NodeContent>
 				<NodeValue>
-					<Switch
-						className="scale-150"
-						disabled
-						checked={Boolean(props.data.value)}
-					/>
+					{Boolean(props.data.value) && (
+						<Icons.Lightbulb className="w-10 h-10" />
+					)}
+					{!Boolean(props.data.value) && (
+						<Icons.LightbulbOff className="w-10 h-10 text-muted-foreground" />
+					)}
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
@@ -67,8 +68,7 @@ export function Led(props: Props) {
 	);
 }
 
-export type LedData = Omit<LedOption, 'board'>;
-type Props = BaseNode<LedData, number>;
+type Props = BaseNode<LedData, LedValueType>;
 export const DEFAULT_LED_DATA: Props['data'] = {
 	label: 'LED',
 	pin: 13,

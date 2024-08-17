@@ -1,4 +1,9 @@
-import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt/client';
+import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
+import {
+	FigmaVariable,
+	useFigmaVariable,
+	useMqtt,
+} from '@microflow/mqtt/client';
 import {
 	Badge,
 	Icons,
@@ -13,8 +18,11 @@ import {
 	TooltipTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
+import { useBoard } from '../../../providers/BoardProvider';
+import { deleteEdgesSelector, useNodesEdgesStore } from '../../../store';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -26,6 +34,9 @@ import {
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
+	const { deleteEdges } = useNodesEdgesStore(useShallow(deleteEdgesSelector));
+	const { uploadResult } = useBoard();
+	const lastPublishedValue = useRef<string>();
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
 
@@ -35,40 +46,54 @@ export function Figma(props: Props) {
 		props.data?.variableId,
 	);
 
-	const isConnectedToPlugin =
-		connectedClients.get('plugin') === 'connected' ||
-		connectedClients.get('plugin') === 'connecting';
+	const isDisconnected = [undefined, 'disconnected'].includes(
+		connectedClients.get('plugin'),
+	);
 
 	useEffect(() => {
-		window.electron.ipcRenderer.send(
-			'ipc-external-value',
-			props.type,
-			props.id,
-			value,
-		);
-	}, [value, props.id, props.type]);
+		// TODO this sometimes interferes with the publish
+		// when the next value is already being send to the plugin
+		// and the plugin has not processed the previous value yet
+		if (value !== undefined || value !== null) return;
+
+		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
+	}, [value, props.id]);
 
 	useEffect(() => {
 		if (status !== 'connected') return;
-		if (props.data?.value === undefined) return;
+		if (props.data?.value === undefined || props.data?.value === null) return;
 		if (!variable) return;
+
+		const valueToPublish = JSON.stringify(props.data.value);
+
+		if (lastPublishedValue.current === valueToPublish) return;
+		lastPublishedValue.current = valueToPublish;
 
 		publish(
 			`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`,
-			JSON.stringify(props.data.value),
+			valueToPublish,
 		);
-	}, [props.data?.value, variable, publish, status, appName, uniqueId]);
+	}, [props.data?.value, variable, status, appName, uniqueId]);
 
 	useEffect(() => {
 		if (!variable?.resolvedType) return;
 
 		updateNodeInternals(props.id);
+		updateNodeData({}); // Make sure the handles are updated when connection takes place
 	}, [variable?.resolvedType, props.id]);
+
+	useEffect(() => {
+		if (uploadResult.type !== 'ready') return;
+		if (!variable?.resolvedType) return;
+
+		const value = DEFAULT_FIGMA_VALUE_PER_TYPE[variable.resolvedType];
+		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
+	}, [uploadResult.type, variable?.resolvedType, props.id]);
 
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				{!isConnectedToPlugin && (
+				{isDisconnected && (
 					<Badge variant="destructive">Figma plugin not connected</Badge>
 				)}
 				<NodeValue>
@@ -83,7 +108,10 @@ export function Figma(props: Props) {
 				<Select
 					disabled={!Array.from(Object.values(variables)).length}
 					value={props.data.variableId}
-					onValueChange={variableId => updateNodeData({ variableId })}
+					onValueChange={variableId => {
+						updateNodeData({ variableId });
+						deleteEdges(props.id, ['change']);
+					}}
 				>
 					<SelectTrigger>{variable?.name ?? 'Select variable'}</SelectTrigger>
 					<SelectContent>
@@ -121,28 +149,28 @@ export function Figma(props: Props) {
 						position={Position.Left}
 						id="red"
 						hint="0-255"
-						offset={-2}
+						offset={-1.5}
 					/>
 					<Handle
 						type="target"
 						position={Position.Left}
 						id="green"
 						hint="0-255"
-						offset={-1}
+						offset={-0.5}
 					/>
 					<Handle
 						type="target"
 						position={Position.Left}
 						id="blue"
 						hint="0-255"
-						offset={1}
+						offset={0.5}
 					/>
 					<Handle
 						type="target"
 						position={Position.Left}
 						id="opacity"
 						hint="0-100"
-						offset={2}
+						offset={1.5}
 					/>
 				</>
 			)}
@@ -154,6 +182,7 @@ export function Figma(props: Props) {
 						id="increment"
 						offset={-1}
 					/>
+					<Handle type="target" position={Position.Left} id="set" />
 					<Handle
 						type="target"
 						position={Position.Left}
@@ -162,7 +191,9 @@ export function Figma(props: Props) {
 					/>
 				</>
 			)}
-			<Handle type="target" position={Position.Left} id="set" />
+			{variable?.resolvedType === 'STRING' && (
+				<Handle type="target" position={Position.Left} id="set" />
+			)}
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);
@@ -198,7 +229,7 @@ function FigmaHeaderContent(props: {
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="-mx-8 max-w-52 max-h-20 text-wrap overflow-hidden pointer-events-auto">
-								{String(props.value)}
+								{String(props.value ?? '-')}
 							</div>
 						</TooltipTrigger>
 						<TooltipContent className="max-w-64">
@@ -208,12 +239,7 @@ function FigmaHeaderContent(props: {
 				</TooltipProvider>
 			);
 		case 'COLOR':
-			const { r, g, b, a } = (props.value ?? { r: 0, g: 0, b: 0, a: 0 }) as {
-				r: number;
-				g: number;
-				b: number;
-				a: number;
-			};
+			const { r, g, b, a } = (props.value ?? DEFAULT_COLOR) as RGBA;
 			return (
 				<div
 					className="w-full h-14 rounded-sm bg-green-50 border-2 border-black ring-2 ring-white"
@@ -227,11 +253,18 @@ function FigmaHeaderContent(props: {
 	}
 }
 
-export type FigmaData = {
-	variableId?: string;
-};
-type Props = BaseNode<FigmaData, string | number | boolean>;
+type Props = BaseNode<FigmaData, FigmaValueType>;
+const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',
-	value: 0,
+	value: null,
+};
+export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<
+	FigmaVariable['resolvedType'],
+	unknown
+> = {
+	BOOLEAN: false,
+	FLOAT: 0,
+	STRING: '-',
+	COLOR: DEFAULT_COLOR,
 };

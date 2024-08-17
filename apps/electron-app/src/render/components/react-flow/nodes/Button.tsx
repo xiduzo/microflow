@@ -1,3 +1,4 @@
+import type { ButtonData, ButtonValueType } from '@microflow/components';
 import {
 	Checkbox,
 	Icons,
@@ -12,7 +13,6 @@ import {
 	Toggle,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { ButtonOption } from 'johnny-five';
 import { MODES } from '../../../../common/types';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
@@ -38,10 +38,12 @@ export function Button(props: Props) {
 						disabled
 						className="opacity-100 disabled:opacity-100"
 						size="lg"
-						pressed={props.data.value}
+						pressed={Boolean(props.data.value)}
 					>
 						{Boolean(props.data.value) && <Icons.Pointer />}
-						{!Boolean(props.data.value) && <Icons.PointerOff />}
+						{!Boolean(props.data.value) && (
+							<Icons.PointerOff className="text-muted-foreground" />
+						)}
 					</Toggle>
 				</NodeValue>
 			</NodeContent>
@@ -121,16 +123,20 @@ export function Button(props: Props) {
 					</RadioGroup>
 				</section>
 			</NodeSettings>
-			<Handle type="source" position={Position.Right} id="down" offset={-1} />
+			<Handle type="source" position={Position.Right} id="active" offset={-1} />
 			<Handle type="source" position={Position.Right} id="hold" />
-			<Handle type="source" position={Position.Right} id="up" offset={1} />
+			<Handle
+				type="source"
+				position={Position.Right}
+				id="inactive"
+				offset={1}
+			/>
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);
 }
 
-export type ButtonData = Omit<ButtonOption, 'board'>;
-type Props = BaseNode<ButtonData, boolean>;
+type Props = BaseNode<ButtonData, ButtonValueType>;
 export const DEFAULT_BUTTON_DATA: Props['data'] = {
 	value: false,
 	holdtime: 500,
