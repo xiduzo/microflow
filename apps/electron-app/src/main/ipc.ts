@@ -18,8 +18,6 @@ import {
 } from '../common/types';
 
 let childProcess: UtilityProcess | null = null;
-let portSniffer: NodeJS.Timeout | null = null;
-const PORT_SNIFFER_INTERVAL_IN_MS = 250;
 
 // https://github.com/noopkat/avrgirl-arduino/blob/master/boards.js
 const KNOWN_BOARD_PRODUCT_IDS: [KnownBoard, string[]][] = [
@@ -54,7 +52,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 	const filePath = join(__dirname, 'check.js');
 
-	let connectedToPort: Port | null = null;
+	let connectedPort: Port | null = null;
 
 	// Check board on all ports which match the known product IDs
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
@@ -80,7 +78,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 			if (result.type === 'ready') {
 				// board is ready, no need to check other ports
-				connectedToPort = port;
+				connectedPort = port;
 				event.reply('ipc-check-board', result);
 				break checkBoard;
 			}
@@ -96,7 +94,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 				try {
 					await flashBoard(board, port);
-					connectedToPort = port;
+					connectedPort = port;
 					event.reply('ipc-check-board', {
 						...result,
 						port: port.path,
@@ -110,8 +108,8 @@ ipcMain.on('ipc-check-board', async event => {
 		}
 	}
 
-	if (!!connectedToPort) {
-		sniffPorts(connectedToPort, event); // detect for disconnected board
+	if (!!connectedPort) {
+		sniffPorts(event, { connectedPort }); // detect for disconnected board
 		return;
 	}
 
@@ -119,6 +117,7 @@ ipcMain.on('ipc-check-board', async event => {
 		type: 'error',
 		message: 'Unable to auto-connect to a micro-controller',
 	} satisfies BoardCheckResult);
+	sniffPorts(event); // detect for new usb connections
 });
 
 ipcMain.on(
@@ -268,20 +267,47 @@ async function flashBoard(board: KnownBoard, port: Port): Promise<void> {
 	});
 }
 
-function sniffPorts(connectedPort: Port, event: IpcMainEvent) {
+let portSniffer: NodeJS.Timeout | null = null;
+const PORT_SNIFFER_INTERVAL_IN_MS = 250;
+
+function sniffPorts(
+	event: IpcMainEvent,
+	options: {
+		connectedPort?: Port;
+		portsConnected?: Port[];
+	} = {},
+) {
 	portSniffer && clearTimeout(portSniffer);
 
 	getConnectedPorts()
 		.then(ports => {
-			if (!ports.find(port => port.path === connectedPort.path)) {
+			// Check if the connected port is still connected
+			if (
+				options.connectedPort &&
+				!ports.find(port => port.path === options.connectedPort.path)
+			) {
 				event.reply('ipc-check-board', {
 					type: 'exit',
 				} satisfies BoardCheckResult);
 				return;
 			}
 
+			// Check if new ports are connected
+			// We only care about this if we don't have a connected port
+			if (
+				!options.connectedPort &&
+				ports.length !== options.portsConnected?.length
+			) {
+				event.reply('ipc-check-board', {
+					type: 'exit',
+				} satisfies BoardCheckResult);
+				return;
+			}
+
+			options.portsConnected = ports;
+
 			portSniffer = setTimeout(() => {
-				sniffPorts(connectedPort, event);
+				sniffPorts(event, options);
 			}, PORT_SNIFFER_INTERVAL_IN_MS);
 		})
 		.catch(log.warn);
