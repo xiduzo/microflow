@@ -113,10 +113,6 @@ ipcMain.on('ipc-check-board', async event => {
 		return;
 	}
 
-	event.reply('ipc-check-board', {
-		type: 'error',
-		message: 'Unable to auto-connect to a micro-controller',
-	} satisfies BoardCheckResult);
 	sniffPorts(event); // detect for new usb connections
 });
 
