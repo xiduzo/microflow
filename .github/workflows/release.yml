@@ -23,10 +23,10 @@ jobs:
       - name: Enable corepack
         run: corepack enable
 
-      - name: Install dependencies
-        run: yarn install
+      - name: Build packages
+        run: yarn build
 
-      - name: publish
+      - name: Publish application
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: yarn publish
