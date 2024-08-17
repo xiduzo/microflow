@@ -54,7 +54,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 	const filePath = join(__dirname, 'check.js');
 
-	let boardIsReady = false;
+	let connectedToPort: Port | null = null;
 
 	// Check board on all ports which match the known product IDs
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
@@ -80,8 +80,8 @@ ipcMain.on('ipc-check-board', async event => {
 
 			if (result.type === 'ready') {
 				// board is ready, no need to check other ports
+				connectedToPort = port;
 				event.reply('ipc-check-board', result);
-				boardIsReady = true;
 				break checkBoard;
 			}
 
@@ -96,13 +96,12 @@ ipcMain.on('ipc-check-board', async event => {
 
 				try {
 					await flashBoard(board, port);
-					sniffPorts(port, event); // detect for disconnected board
+					connectedToPort = port;
 					event.reply('ipc-check-board', {
 						...result,
 						port: port.path,
 						type: 'ready',
 					} satisfies BoardCheckResult);
-					boardIsReady = true;
 					break checkBoard; // board is flashed with firmata, no need to check other ports
 				} catch (error) {
 					log.warn('Board could not be flashed', { board, error });
@@ -111,7 +110,8 @@ ipcMain.on('ipc-check-board', async event => {
 		}
 	}
 
-	if (boardIsReady) {
+	if (!!connectedToPort) {
+		sniffPorts(connectedToPort, event); // detect for disconnected board
 		return;
 	}
 
