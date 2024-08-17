@@ -116,7 +116,7 @@ const nodeValue = cva(
 		variants: {
 			active: {
 				true: 'bg-yellow-700',
-				false: 'bg-zinc-700',
+				false: 'bg-muted',
 			},
 			defaultVariants: {
 				active: false,
@@ -163,7 +163,7 @@ function NodeHeader() {
 }
 
 const node = cva(
-	'bg-neutral-950/5 outline -outline-offset-1 outline-neutral-500/25 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col',
+	'bg-neutral-950/5 outline outline-2 -outline-offset-1 outline-neutral-500/25 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col',
 	{
 		variants: {
 			selectable: {

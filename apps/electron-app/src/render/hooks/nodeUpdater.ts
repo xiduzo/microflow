@@ -1,5 +1,5 @@
 import { useReactFlow } from '@xyflow/react';
-import { useCodeUploader } from './codeUploader';
+import { useCodeUploader } from './useCodeUploader';
 
 export function useUpdateNodeData<T extends Record<string, any>>(
 	nodeId: string,

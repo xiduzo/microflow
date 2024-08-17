@@ -157,6 +157,10 @@ ipcMain.on(
 
 ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 	log.debug('ipc-upload-code', { portPath });
+	if (!portPath) {
+		log.warn('No port path provided for uploading code');
+		return;
+	}
 	childProcess?.kill();
 
 	const filePath = join(__dirname, 'temp.js');

@@ -53,7 +53,7 @@ const cell = cva('place-self-center w-full ring-0 transition-all', {
 		},
 		active: {
 			true: 'bg-red-500',
-			false: 'bg-muted',
+			false: 'bg-muted-foreground/10',
 		},
 		size: {
 			tiny: 'h-2 rounded-[2px]',

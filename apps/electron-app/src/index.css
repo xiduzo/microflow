@@ -3,3 +3,81 @@ body {
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
 		Arial, sans-serif;
 }
+
+/*
+ *
+ * React flow style overwrites
+ *
+*/
+
+/* Nodes */
+/* Nodes themselves are styled in `Node.tsx` */
+.react-flow__minimap .react-flow__minimap-node.animated {
+	@apply fill-yellow-500;
+}
+
+.react-flow__minimap .react-flow__minimap-node.selected {
+	@apply fill-blue-500;
+}
+
+/* Edges */
+.react-flow__edge-path {
+	@apply stroke-[4] stroke-neutral-600;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge.selectable:focus .react-flow__edge-path {
+	@apply stroke-blue-500;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+	@apply stroke-yellow-500;
+}
+
+.react-flow__connection .react-flow__connection-path {
+	@apply stroke-[4] stroke-neutral-400;
+	stroke-dasharray: 8, 8;
+	transition: stroke 0.15s;
+}
+
+.react-flow__connection.valid .react-flow__connection-path {
+	@apply stroke-green-500;
+}
+
+.react-flow__connection.invalid .react-flow__connection-path {
+	@apply stroke-red-500;
+}
+
+/* Handles */
+.react-flow__handle {
+	@apply bg-neutral-600 rounded-md transition-all duration-150 border-none;
+}
+
+.react-flow:has(.react-flow__handle.connectingfrom):not(
+		:has(.react-flow__handle.connectingto.valid)
+	)
+	.connectionindicator {
+	@apply bg-neutral-400;
+}
+
+.react-flow__handle.connectingto {
+	@apply bg-red-500;
+}
+
+.react-flow__handle.connectingto.valid {
+	@apply bg-green-500;
+}
+
+.react-flow__handle.connectingfrom {
+	@apply bg-neutral-400;
+}
+
+.react-flow:has(.react-flow__handle.connectingto.valid)
+	.react-flow__handle.connectingfrom {
+	@apply bg-green-500;
+}
+
+.react-flow:has(.react-flow__connection.invalid)
+	.react-flow__handle.connectingfrom {
+	@apply bg-red-500;
+}

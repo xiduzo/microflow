@@ -55,14 +55,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
 				}
 			},
 		);
-
-		console.log('flashing board', board, checkResult.port);
-
-		window.electron.ipcRenderer.send(
-			'ipc-flash-firmata',
-			board,
-			checkResult.port,
-		);
+		window.electron.ipcRenderer.send('ipc-flash-firmata', board);
 	}
 
 	const uploadCode = useCallback(
@@ -105,7 +98,9 @@ export function BoardProvider({ children }: PropsWithChildren) {
 		return window.electron.ipcRenderer.on(
 			'ipc-check-board',
 			(result: BoardCheckResult) => {
-				console.log('check result', result);
+				if (result.type !== 'exit') {
+					console.log('check result', result);
+				}
 				setCheckResult(result);
 				if (result.pins) {
 					setPins(result.pins);

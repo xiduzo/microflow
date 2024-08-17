@@ -2,7 +2,7 @@ import { Badge, Icons } from '@microflow/ui';
 import {
 	useAutoCodeUploader,
 	useCodeUploader,
-} from '../../../hooks/codeUploader';
+} from '../../../hooks/useCodeUploader';
 import { useBoard } from '../../../providers/BoardProvider';
 import { FlashFirmata } from './FlashFirmata';
 
@@ -47,7 +47,7 @@ export function SerialConnectionStatus() {
 
 	if (checkResult.type === 'info' && checkResult.class === 'Connected') {
 		return (
-			<Badge className="pointer-events-none">
+			<Badge className="bg-blue-400 text-blue-900 pointer-events-none">
 				Validating firmware
 				<Icons.Bot className="ml-2 h-3 w-3 animate-pulse" />
 			</Badge>
@@ -64,10 +64,18 @@ export function SerialConnectionStatus() {
 		);
 	}
 
+	if (checkResult.type === 'warn') {
+		return (
+			<Badge variant="destructive" className="pointer-events-none">
+				{checkResult.message ?? 'Unknown error occurred'}
+				<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
+			</Badge>
+		);
+	}
+
 	return (
-		<Badge className="pointer-events-none">
-			{checkResult.message?.split('\n')[0].trim() ??
-				'Looking for connected device'}
+		<Badge className="bg-muted text-muted-foreground pointer-events-none">
+			{checkResult.message?.split('\n')[0].trim() ?? 'Finding micro-controller'}
 			<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
 		</Badge>
 	);

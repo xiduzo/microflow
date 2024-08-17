@@ -61,7 +61,7 @@ export function Matrix(props: Props) {
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
-				<ScrollArea className="h-96 p-4 border">
+				<ScrollArea className="h-60 p-2 border">
 					<section className="grid grid-cols-12 gap-2">
 						<DragAndDropProvider
 							swap={swapShapes}
@@ -113,14 +113,6 @@ export function Matrix(props: Props) {
 				>
 					<Button variant="outline">Add new shape</Button>
 				</MatrixEditor>
-				<Button
-					variant="destructive"
-					onClick={() => {
-						updateNodeData({ shapes: [] });
-					}}
-				>
-					Delete all shapes
-				</Button>
 			</NodeSettings>
 			<Handle
 				type="target"
