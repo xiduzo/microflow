@@ -1,3 +1,4 @@
+import { Note } from '@microflow/components';
 import {
 	Button,
 	ButtonProps,
@@ -13,7 +14,6 @@ import { PropsWithChildren, useState } from 'react';
 import { NOTE_DURATION } from './constants';
 import { noteDurationToVisualDuation } from './helpers';
 import { NoteSelector } from './NoteSelector';
-import { Note } from './Piezo';
 
 export function NodeEditor(props: Props) {
 	const [internalNode, setInternalNode] = useState(props.note);

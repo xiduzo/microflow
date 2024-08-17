@@ -1,9 +1,12 @@
-import JohnnyFive from 'johnny-five';
+import JohnnyFive, { LedOption } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type LedOptions = BaseComponentOptions<number> & JohnnyFive.LedOption;
+export type LedData = Omit<LedOption, 'board'>;
+export type LedValueType = number;
 
-export class Led extends BaseComponent<number> {
+type LedOptions = BaseComponentOptions & LedData;
+
+export class Led extends BaseComponent<LedValueType> {
 	private readonly component: JohnnyFive.Led;
 	constructor(private readonly options: LedOptions) {
 		super(options);

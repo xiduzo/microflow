@@ -1,3 +1,4 @@
+import { ServoData, ServoValueType } from '@microflow/components';
 import {
 	Icons,
 	Input,
@@ -7,7 +8,6 @@ import {
 	SelectTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
-import { ServoGeneralOption } from 'johnny-five';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
@@ -192,8 +192,7 @@ export function Servo(props: Props) {
 	);
 }
 
-export type ServoData = Omit<ServoGeneralOption, 'board'>;
-type Props = BaseNode<ServoData, number>;
+type Props = BaseNode<ServoData, ServoValueType>;
 export const DEFAULT_SERVO_DATA: Props['data'] = {
 	value: 0,
 	pin: 'A0',

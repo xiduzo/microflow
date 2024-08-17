@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
 import { postMessageToElectronMain } from '../utils/postMessageToElectronMain';
 
-export type BaseComponentOptions<T> = {
+export type BaseComponentOptions<T = any> = {
 	id: string;
 	value: T;
 };

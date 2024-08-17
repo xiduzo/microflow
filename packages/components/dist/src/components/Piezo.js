@@ -14,6 +14,9 @@ class Piezo extends BaseComponent_1.BaseComponent {
     }
     buzz() {
         this.stop();
+        if (this.options.type !== 'buzz') {
+            return;
+        }
         this.value = true;
         this.component.frequency(this.options.frequency, this.options.duration);
         setTimeout(() => {
@@ -28,6 +31,9 @@ class Piezo extends BaseComponent_1.BaseComponent {
     }
     play() {
         this.stop();
+        if (this.options.type !== 'song') {
+            return;
+        }
         this.value = true;
         this.component.play({
             song: this.options.song,

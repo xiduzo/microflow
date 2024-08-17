@@ -1,3 +1,4 @@
+import { IntervalData } from '@microflow/components';
 import { Label, Slider } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
@@ -41,12 +42,13 @@ export function Interval(props: Props) {
 					onValueChange={value => updateNodeData({ interval: value[0] })}
 				/>
 			</NodeSettings>
+			<Handle type="source" position={Position.Left} id="start" offset={-0.5} />
+			<Handle type="source" position={Position.Left} id="stop" offset={0.5} />
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);
 }
 
-export type IntervalData = { interval: number };
 type Props = BaseNode<IntervalData, number>;
 export const DEFAULT_INTERVAL_DATA: Props['data'] = {
 	label: 'Interval',

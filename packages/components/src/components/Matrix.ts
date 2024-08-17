@@ -1,12 +1,18 @@
 import { Led } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type MatrixOptions = BaseComponentOptions<any> &
-	(Led.MatrixOption | Led.MatrixIC2Option) & {
-		shapes: string[][];
-	};
+export type MatrixShape = string[];
+export type MatrixData = Omit<
+	Led.MatrixOption & Led.MatrixIC2Option,
+	'board'
+> & {
+	shapes: MatrixShape[];
+};
+export type MatrixValueType = MatrixShape;
 
-export class Matrix extends BaseComponent<string[]> {
+type MatrixOptions = BaseComponentOptions & MatrixData;
+
+export class Matrix extends BaseComponent<MatrixValueType> {
 	private readonly controller: Led.Matrix;
 	constructor(private readonly options: MatrixOptions) {
 		super(options);

@@ -1,3 +1,4 @@
+import { RangeMapData, RangeMapValueType } from '@microflow/components';
 import { Icons, Input } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
@@ -90,11 +91,7 @@ export function RangeMap(props: Props) {
 	);
 }
 
-export type RangeMapData = {
-	from: number[];
-	to: number[];
-};
-type Props = BaseNode<RangeMapData, number[]>;
+type Props = BaseNode<RangeMapData, RangeMapValueType>;
 
 export const DEFAULT_RANGE_MAP_DATA: Props['data'] = {
 	value: [0, 0],

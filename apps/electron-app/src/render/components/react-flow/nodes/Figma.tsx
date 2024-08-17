@@ -1,3 +1,4 @@
+import { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
 import {
 	FigmaVariable,
 	useFigmaVariable,
@@ -252,11 +253,7 @@ function FigmaHeaderContent(props: {
 	}
 }
 
-export type FigmaData = {
-	variableId?: string;
-};
-type RGBA = { r: number; g: number; b: number; a: number };
-type Props = BaseNode<FigmaData, string | number | boolean | RGBA>;
+type Props = BaseNode<FigmaData, FigmaValueType>;
 const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',

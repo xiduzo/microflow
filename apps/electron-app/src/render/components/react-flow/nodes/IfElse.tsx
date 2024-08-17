@@ -1,4 +1,12 @@
 import {
+	IF_ELSE_SUB_VALIDATORS,
+	IF_ELSE_VALIDATORS,
+	IfElseData,
+	IfElseValueType,
+	SubValidator,
+	Validator,
+} from '@microflow/components';
+import {
 	Icons,
 	Input,
 	Label,
@@ -20,23 +28,6 @@ import {
 	NodeSettings,
 	NodeValue,
 } from './Node';
-
-// TODO: add custom method validator
-const validators = ['boolean', 'number', 'text'] as const;
-const subValidators = {
-	boolean: [],
-	number: [
-		'equal to',
-		'greater than',
-		'less than',
-		'between',
-		'outside',
-		'is even',
-		'is odd',
-	],
-	text: ['equal to', 'includes', 'starts with', 'ends with'], // TODO regex
-};
-type Validator = (typeof validators)[number];
 
 const MAX_NUMERIC_VALUE = 1023;
 
@@ -97,7 +88,7 @@ export function IfElse(props: Props) {
 						onValueChange={value =>
 							updateNodeData({
 								validator: value as Validator,
-								subValidator: subValidators[value][0],
+								subValidator: IF_ELSE_SUB_VALIDATORS[value][0],
 							})
 						}
 					>
@@ -105,14 +96,14 @@ export function IfElse(props: Props) {
 							<SelectValue placeholder="Validator" />
 						</SelectTrigger>
 						<SelectContent>
-							{validators.map(validator => (
+							{IF_ELSE_VALIDATORS.map(validator => (
 								<SelectItem key={validator} value={validator}>
 									{validator}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
-					{subValidators[props.data.validator]?.length > 0 && (
+					{IF_ELSE_SUB_VALIDATORS[props.data.validator]?.length > 0 && (
 						<Select
 							disabled={!props.data.validator}
 							value={props.data.subValidator}
@@ -127,11 +118,13 @@ export function IfElse(props: Props) {
 								<SelectValue placeholder="Validate with" />
 							</SelectTrigger>
 							<SelectContent>
-								{subValidators[props.data.validator]?.map(subValidator => (
-									<SelectItem key={subValidator} value={subValidator}>
-										{subValidator}
-									</SelectItem>
-								))}
+								{IF_ELSE_SUB_VALIDATORS[props.data.validator]?.map(
+									(subValidator: SubValidator) => (
+										<SelectItem key={subValidator} value={subValidator}>
+											{subValidator}
+										</SelectItem>
+									),
+								)}
 							</SelectContent>
 						</Select>
 					)}
@@ -183,16 +176,11 @@ export function IfElse(props: Props) {
 	);
 }
 
-export type IfElseData = {
-	validatorArgs: unknown[];
-	validator: Validator;
-	subValidator: string;
-};
-type Props = BaseNode<IfElseData, boolean>;
+type Props = BaseNode<IfElseData, IfElseValueType>;
 export const DEFAULT_IF_ELSE_DATA: Props['data'] = {
 	label: 'if...else',
 	value: false,
-	validator: validators[0],
-	subValidator: subValidators[validators[0]][0],
+	validator: IF_ELSE_VALIDATORS[0],
+	subValidator: IF_ELSE_SUB_VALIDATORS[IF_ELSE_VALIDATORS[0]][0],
 	validatorArgs: [0, 1023],
 };

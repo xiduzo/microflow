@@ -1,3 +1,4 @@
+import { MqttData, MqttDirection, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt/client';
 import {
 	Badge,
@@ -82,7 +83,7 @@ export function Mqtt(props: Props) {
 			<NodeSettings>
 				<Select
 					value={props.data.direction}
-					onValueChange={(value: Direction) => {
+					onValueChange={(value: MqttDirection) => {
 						updateNodeData({ direction: value });
 						updateNodeInternals(props.id);
 					}}
@@ -117,10 +118,8 @@ export function Mqtt(props: Props) {
 		</NodeContainer>
 	);
 }
-type Direction = 'publish' | 'subscribe';
 
-export type MqttData = { direction: Direction; topic?: string };
-type Props = BaseNode<MqttData, unknown>;
+type Props = BaseNode<MqttData, MqttValueType>;
 export const DEFAULT_MQTT_DATA: Props['data'] = {
 	label: 'MQTT',
 	direction: 'publish',

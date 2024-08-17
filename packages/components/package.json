@@ -6,10 +6,12 @@
 		"build": "tsc",
 		"dev": "tsc --watch"
 	},
-	"dependencies": {
+	"devDependencies": {
 		"@types/johnny-five": "^2.1.9",
-		"electron-log": "^5.1.7",
-		"johnny-five": "https://github.com/xiduzo/johnny-five.git",
 		"typescript": "^5.5.4"
+	},
+	"dependencies": {
+		"electron-log": "^5.1.7",
+		"johnny-five": "https://github.com/xiduzo/johnny-five.git"
 	}
 }

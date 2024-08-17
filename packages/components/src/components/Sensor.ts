@@ -1,9 +1,12 @@
-import JohnnyFive from 'johnny-five';
+import JohnnyFive, { SensorOption } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type SensorOptions = BaseComponentOptions<number> & JohnnyFive.SensorOption;
+export type SensorData = Omit<SensorOption, 'board'>;
+export type SensorValueType = number;
 
-export class Sensor extends BaseComponent<number> {
+type SensorOptions = BaseComponentOptions & SensorData;
+
+export class Sensor extends BaseComponent<SensorValueType> {
 	private readonly component: JohnnyFive.Sensor;
 
 	constructor(private readonly options: SensorOptions) {

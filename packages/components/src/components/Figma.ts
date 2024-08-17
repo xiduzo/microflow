@@ -1,16 +1,21 @@
 import Logger from 'electron-log/node';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type FigmaOptions = BaseComponentOptions<string>;
-
-type RGBA = {
+export type RGBA = {
 	r: number;
 	g: number;
 	b: number;
 	a: number;
 };
 
-export class Figma extends BaseComponent<string | number | boolean | RGBA> {
+export type FigmaData = {
+	variableId?: string;
+};
+export type FigmaValueType = string | number | boolean | RGBA;
+
+type FigmaOptions = BaseComponentOptions<string> & FigmaData;
+
+export class Figma extends BaseComponent<FigmaValueType> {
 	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 1 };
 
 	constructor(public readonly options: FigmaOptions) {

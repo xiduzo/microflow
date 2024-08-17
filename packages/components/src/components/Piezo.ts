@@ -1,14 +1,19 @@
-import JohnnyFive from 'johnny-five';
+import JohnnyFive, { PiezoOption, PiezoTune } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type PiezoOptions = BaseComponentOptions<boolean> & {
-	frequency: number;
-	duration: number;
-	tempo: number;
-	song: [string | null, number][];
-} & JohnnyFive.PiezoOption;
+export type BuzzData = { type: 'buzz'; duration: number; frequency: number };
+export type Note = [string | null, number];
+export type SongData = { type: 'song' } & PiezoTune & {
+		song: Note[];
+	};
+type BaseData = Omit<PiezoOption, 'type'>;
 
-export class Piezo extends BaseComponent<boolean> {
+export type PiezoData = BaseData & (BuzzData | SongData);
+export type PiezoValueType = boolean;
+
+type PiezoOptions = BaseComponentOptions & PiezoData;
+
+export class Piezo extends BaseComponent<PiezoValueType> {
 	private readonly component: JohnnyFive.Piezo;
 
 	constructor(private readonly options: PiezoOptions) {
@@ -18,6 +23,10 @@ export class Piezo extends BaseComponent<boolean> {
 
 	buzz() {
 		this.stop();
+
+		if (this.options.type !== 'buzz') {
+			return;
+		}
 
 		this.value = true;
 		this.component.frequency(this.options.frequency, this.options.duration);
@@ -36,6 +45,10 @@ export class Piezo extends BaseComponent<boolean> {
 
 	play() {
 		this.stop();
+
+		if (this.options.type !== 'song') {
+			return;
+		}
 
 		this.value = true;
 		this.component.play(

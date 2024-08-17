@@ -1,9 +1,21 @@
-import JohnnyFive from 'johnny-five';
+import JohnnyFive, { MotionOption } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type MotionOptions = BaseComponentOptions<boolean> & JohnnyFive.MotionOption;
+export const MOTION_CONTROLLERS = [
+	'HCSR501',
+	'GP2Y0D810Z0F',
+	'GP2Y0D815Z0F',
+] as const;
+export type Controller = (typeof MOTION_CONTROLLERS)[number];
 
-export class Motion extends BaseComponent<boolean> {
+export type MotionData = Omit<MotionOption, 'board'> & {
+	controller: Controller;
+};
+export type MotionValueType = boolean;
+
+type MotionOptions = BaseComponentOptions & MotionData;
+
+export class Motion extends BaseComponent<MotionValueType> {
 	private readonly component: JohnnyFive.Motion;
 
 	constructor(private readonly options: MotionOptions) {

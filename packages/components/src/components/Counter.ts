@@ -1,9 +1,11 @@
 import Logger from 'electron-log/node';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type CounterOptions = BaseComponentOptions<number>;
+export type CounterData = {};
+export type CounterValueType = number;
+type CounterOptions = BaseComponentOptions & CounterData;
 
-export class Counter extends BaseComponent<number> {
+export class Counter extends BaseComponent<CounterValueType> {
 	constructor(private readonly options: CounterOptions) {
 		super(options);
 	}

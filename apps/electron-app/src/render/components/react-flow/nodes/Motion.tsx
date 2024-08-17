@@ -1,4 +1,10 @@
 import {
+	Controller,
+	MOTION_CONTROLLERS,
+	MotionData,
+	MotionValueType,
+} from '@microflow/components';
+import {
 	Icons,
 	Select,
 	SelectContent,
@@ -6,7 +12,6 @@ import {
 	SelectTrigger,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { MotionOption } from 'johnny-five';
 import { BoardCheckResult, MODES } from '../../../../common/types';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
@@ -50,7 +55,7 @@ export function Motion(props: Props) {
 				>
 					<SelectTrigger>{props.data.controller}</SelectTrigger>
 					<SelectContent>
-						{controllers.map(controller => (
+						{MOTION_CONTROLLERS.map(controller => (
 							<SelectItem key={controller} value={controller}>
 								{controller}
 							</SelectItem>
@@ -109,13 +114,7 @@ export function Motion(props: Props) {
 	);
 }
 
-const controllers = ['HCSR501', 'GP2Y0D810Z0F', 'GP2Y0D815Z0F'] as const;
-type Controller = (typeof controllers)[number];
-
-export type MotionData = Omit<MotionOption, 'board'> & {
-	controller: Controller;
-};
-type Props = BaseNode<MotionData, boolean>;
+type Props = BaseNode<MotionData, MotionValueType>;
 export const DEFAULT_MOTION_DATA: Props['data'] = {
 	value: false,
 	pin: '8',

@@ -1,8 +1,11 @@
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type IntervalOptions = BaseComponentOptions<number> & {
+export type IntervalData = {
 	interval: number;
+	autoStart?: boolean;
 };
+
+type IntervalOptions = BaseComponentOptions<number> & IntervalData;
 
 export class Interval extends BaseComponent<number> {
 	private readonly minIntervalInMs = 500;
@@ -29,6 +32,8 @@ export class Interval extends BaseComponent<number> {
 		if (this.interval) {
 			clearInterval(this.interval);
 		}
+
+		this.value = Math.round(performance.now());
 
 		this.interval = setInterval(() => {
 			this.value = Math.round(performance.now());

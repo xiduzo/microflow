@@ -1,3 +1,4 @@
+import { SensorData, SensorValueType } from '@microflow/components';
 import {
 	Progress,
 	Select,
@@ -6,7 +7,6 @@ import {
 	SelectTrigger,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { SensorOption } from 'johnny-five';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
@@ -65,8 +65,7 @@ export function Sensor(props: Props) {
 	);
 }
 
-export type SensorData = Omit<SensorOption, 'board'>;
-type Props = BaseNode<SensorData, number>;
+type Props = BaseNode<SensorData, SensorValueType>;
 export const DEFAULT_SENSOR_DATA: Props['data'] = {
 	value: 0,
 	pin: 'A0',

@@ -1,11 +1,12 @@
-const JohnnyFive = require('johnny-five');
+const { Board } = require('@microflow/components');
 const log = require('electron-log/node');
 
+const board = new Board({
+	repl: false,
+	debug: true,
+});
+
 try {
-	const board = new JohnnyFive.Board({
-		repl: false,
-		debug: true,
-	});
 	log.debug('Board is being checked', board.port);
 
 	board.on('info', event => {

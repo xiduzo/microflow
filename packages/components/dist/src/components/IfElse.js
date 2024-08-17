@@ -6,8 +6,22 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
 };
 var _IfElse_instances, _IfElse_validator;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IfElse = void 0;
+exports.IfElse = exports.IF_ELSE_SUB_VALIDATORS = exports.IF_ELSE_VALIDATORS = void 0;
 const BaseComponent_1 = require("./BaseComponent");
+exports.IF_ELSE_VALIDATORS = ['boolean', 'number', 'text'];
+exports.IF_ELSE_SUB_VALIDATORS = {
+    boolean: [null],
+    number: [
+        'equal to',
+        'greater than',
+        'less than',
+        'between',
+        'outside',
+        'is even',
+        'is odd',
+    ],
+    text: ['equal to', 'includes', 'starts with', 'ends with'], // TODO regex
+};
 class IfElse extends BaseComponent_1.BaseComponent {
     constructor(options) {
         super(options);

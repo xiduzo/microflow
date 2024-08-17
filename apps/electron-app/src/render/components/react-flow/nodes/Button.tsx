@@ -1,3 +1,4 @@
+import { ButtonData, ButtonValueType } from '@microflow/components';
 import {
 	Checkbox,
 	Icons,
@@ -12,7 +13,6 @@ import {
 	Toggle,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { ButtonOption } from 'johnny-five';
 import { MODES } from '../../../../common/types';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
@@ -38,7 +38,7 @@ export function Button(props: Props) {
 						disabled
 						className="opacity-100 disabled:opacity-100"
 						size="lg"
-						pressed={props.data.value}
+						pressed={Boolean(props.data.value)}
 					>
 						{Boolean(props.data.value) && <Icons.Pointer />}
 						{!Boolean(props.data.value) && (
@@ -136,8 +136,7 @@ export function Button(props: Props) {
 	);
 }
 
-export type ButtonData = Omit<ButtonOption, 'board'>;
-type Props = BaseNode<ButtonData, boolean>;
+type Props = BaseNode<ButtonData, ButtonValueType>;
 export const DEFAULT_BUTTON_DATA: Props['data'] = {
 	value: false,
 	holdtime: 500,

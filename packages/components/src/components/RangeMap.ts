@@ -1,11 +1,15 @@
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type RangeMapOptions = BaseComponentOptions<[number, number]> & {
-	from: [number, number];
-	to: [number, number];
+export type Range = [number, number];
+export type RangeMapData = {
+	from: Range;
+	to: Range;
 };
+export type RangeMapValueType = Range;
 
-export class RangeMap extends BaseComponent<[number, number]> {
+type RangeMapOptions = BaseComponentOptions & RangeMapData;
+
+export class RangeMap extends BaseComponent<Range> {
 	constructor(private readonly options: RangeMapOptions) {
 		super(options);
 	}

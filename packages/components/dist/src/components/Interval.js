@@ -22,6 +22,7 @@ class Interval extends BaseComponent_1.BaseComponent {
         if (this.interval) {
             clearInterval(this.interval);
         }
+        this.value = Math.round(performance.now());
         this.interval = setInterval(() => {
             this.value = Math.round(performance.now());
         }, this.getIntervalTime(this.options.interval));

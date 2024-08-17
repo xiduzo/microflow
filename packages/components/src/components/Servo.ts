@@ -1,10 +1,12 @@
-import JohnnyFive from 'johnny-five';
+import JohnnyFive, { ServoGeneralOption } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type ServoOptions = BaseComponentOptions<number> &
-	JohnnyFive.ServoGeneralOption;
+export type ServoData = Omit<ServoGeneralOption, 'board'>;
+export type ServoValueType = number;
 
-export class Servo extends BaseComponent<number> {
+type ServoOptions = BaseComponentOptions & ServoData;
+
+export class Servo extends BaseComponent<ServoValueType> {
 	private readonly component: JohnnyFive.Servo;
 
 	constructor(private readonly options: ServoOptions) {

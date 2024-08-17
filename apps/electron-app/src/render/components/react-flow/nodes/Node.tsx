@@ -198,10 +198,10 @@ const node = cva(
 );
 
 export type BaseNode<
-	DataType extends Record<string, any> = {},
+	Data extends Record<string, any> = {},
 	ValueType = any,
 > = Node<
-	DataType & {
+	Data & {
 		value: ValueType;
 		label: string;
 		animated?: string;

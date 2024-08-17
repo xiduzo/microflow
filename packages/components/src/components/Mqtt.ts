@@ -1,8 +1,13 @@
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-type MqttOptions = BaseComponentOptions<string>;
+export type MqttDirection = 'publish' | 'subscribe';
 
-export class Mqtt extends BaseComponent<string> {
+export type MqttData = { direction: MqttDirection; topic?: string };
+export type MqttValueType = string;
+
+type MqttOptions = BaseComponentOptions & MqttData;
+
+export class Mqtt extends BaseComponent<MqttValueType> {
 	constructor(private readonly options: MqttOptions) {
 		super(options);
 	}

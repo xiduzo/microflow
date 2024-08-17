@@ -1,6 +1,10 @@
-import { Button, cva, ScrollArea } from '@microflow/ui';
+import {
+	MatrixData,
+	MatrixShape,
+	MatrixValueType,
+} from '@microflow/components';
+import { Button, ScrollArea } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { Led } from 'johnny-five';
 import { useEffect, useState } from 'react';
 import { uuid } from '../../../../../utils/uuid';
 import { useUpdateNodeData } from '../../../../hooks/nodeUpdater';
@@ -109,6 +113,14 @@ export function Matrix(props: Props) {
 				>
 					<Button variant="outline">Add new shape</Button>
 				</MatrixEditor>
+				<Button
+					variant="destructive"
+					onClick={() => {
+						updateNodeData({ shapes: [] });
+					}}
+				>
+					Delete all shapes
+				</Button>
 			</NodeSettings>
 			<Handle
 				type="target"
@@ -128,15 +140,6 @@ export function Matrix(props: Props) {
 	);
 }
 
-export type MatrixShape = string[];
-export type MatrixData = Omit<
-	Led.MatrixOption & Led.MatrixIC2Option,
-	'board'
-> & {
-	shapes: MatrixShape[];
-};
-
-type Props = BaseNode<MatrixData, MatrixShape>;
 export const DEFAULT_MATRIX_SHAPE: MatrixShape = [
 	'01100110',
 	'10011001',
@@ -159,6 +162,7 @@ export const DEFAULT_MATRIX_START_SHAPE: MatrixShape = [
 	'00000000',
 ];
 
+type Props = BaseNode<MatrixData, MatrixValueType>;
 export const DEFAULT_MATRIX_DATA: Props['data'] = {
 	value: DEFAULT_MATRIX_START_SHAPE,
 	label: 'LED Matrix',
@@ -171,25 +175,3 @@ export const DEFAULT_MATRIX_DATA: Props['data'] = {
 	dims: [8, 8], // [rows, columns]
 	shapes: [DEFAULT_MATRIX_SHAPE],
 };
-
-const gridItem = cva(
-	'cursor-pointer transition-all hover:ring-blue-500 hover:ring-4 m-1',
-	{
-		variants: {
-			cols: {
-				1: 'col-span-1',
-				2: 'col-span-2',
-				3: 'col-span-3',
-				4: 'col-span-4',
-				5: 'col-span-5',
-				6: 'col-span-6',
-				7: 'col-span-7',
-				8: 'col-span-8',
-				9: 'col-span-9',
-				10: 'col-span-10',
-				11: 'col-span-11',
-				12: 'col-span-12',
-			},
-		},
-	},
-);

@@ -1,4 +1,10 @@
 import {
+	BuzzData,
+	PiezoData,
+	PiezoValueType,
+	SongData,
+} from '@microflow/components';
+import {
 	Icons,
 	Label,
 	Select,
@@ -8,7 +14,6 @@ import {
 	Slider,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
-import { PiezoOption, PiezoTune } from 'johnny-five';
 import { useShallow } from 'zustand/react/shallow';
 import { BoardCheckResult, MODES } from '../../../../../common/types';
 import { useUpdateNodeData } from '../../../../hooks/nodeUpdater';
@@ -85,7 +90,7 @@ export function Piezo(props: Props) {
 					onValueChange={(value: 'buzz' | 'song') => {
 						updateNodeInternals(props.id);
 
-						let update = { type: value } as BuzzData | SongData;
+						let update: Partial<typeof props.data> = { type: value };
 						if (value === 'buzz') {
 							update = {
 								...update,
@@ -196,16 +201,8 @@ export function Piezo(props: Props) {
 	);
 }
 
-type BuzzData = { type: 'buzz'; duration: number; frequency: number };
-export type Note = [string | null, number];
-type SongData = { type: 'song' } & PiezoTune & {
-		song: Note[];
-	};
-type BaseData = Omit<PiezoOption, 'type'>;
-
 const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
-export type PiezoData = BaseData & (BuzzData | SongData);
-type Props = BaseNode<PiezoData, boolean>;
+type Props = BaseNode<PiezoData, PiezoValueType>;
 export const DEFAULT_PIEZO_DATA: Props['data'] = {
 	label: 'Piezo',
 	value: false,

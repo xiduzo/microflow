@@ -3,9 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Motion = void 0;
+exports.Motion = exports.MOTION_CONTROLLERS = void 0;
 const johnny_five_1 = __importDefault(require("johnny-five"));
 const BaseComponent_1 = require("./BaseComponent");
+exports.MOTION_CONTROLLERS = [
+    'HCSR501',
+    'GP2Y0D810Z0F',
+    'GP2Y0D815Z0F',
+];
 class Motion extends BaseComponent_1.BaseComponent {
     constructor(options) {
         super(options);
