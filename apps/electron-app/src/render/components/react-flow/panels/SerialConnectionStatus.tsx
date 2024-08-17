@@ -15,13 +15,14 @@ export function SerialConnectionStatus() {
 	}
 
 	if (uploadResult.type === 'error') {
+		console.log('uploadResult', uploadResult);
 		return (
 			<Badge
 				className="bg-orange-400 text-orange-900 pointer-events-none"
 				onClick={uploadCode}
 			>
-				Click to retry upload
-				<Icons.Upload className="ml-2 h-3 w-3" />
+				Upload failed for unknown reasons
+				{/* <Icons.Upload className="ml-2 h-3 w-3" /> */}
 			</Badge>
 		);
 	}
@@ -54,6 +55,7 @@ export function SerialConnectionStatus() {
 	}
 
 	if (checkResult.type === 'fail') {
+		console.log('checkResult', checkResult);
 		return (
 			<Badge variant="destructive" className="pointer-events-none">
 				{checkResult.message ?? 'Unknown error occurred'}

@@ -12,6 +12,17 @@ export function generateCode(nodes: Node[], edges: Edge[]) {
 	code += addImports();
 
 	code += addEnter();
+	code += `
+const port = process.argv.at(-1);
+
+if (!port) {
+	log.warn(
+		'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
+	);
+}
+`;
+
+	code += addEnter();
 	code += `const nodes = new Map();`;
 	code += addEnter();
 
@@ -127,7 +138,10 @@ function addBoard() {
 const board = new MicroflowComponents.Board({
   repl: false,
   debug: false,
+  port: port,
 });
+
+log.info("Board is created", { port: board.port });
 `;
 }
 

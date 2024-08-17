@@ -55,35 +55,49 @@ export function BoardProvider({ children }: PropsWithChildren) {
 				}
 			},
 		);
-		window.electron.ipcRenderer.send('ipc-flash-firmata', board);
+
+		console.log('flashing board', board, checkResult.port);
+
+		window.electron.ipcRenderer.send(
+			'ipc-flash-firmata',
+			board,
+			checkResult.port,
+		);
 	}
 
-	const uploadCode = useCallback((code: string) => {
-		setUploadResult({ type: 'info' });
+	const uploadCode = useCallback(
+		(code: string) => {
+			setUploadResult({ type: 'info' });
 
-		// TODO: when the uploads happen too fast in a row
-		// we need to already call the `off`
-		const off = window.electron.ipcRenderer.on(
-			'ipc-upload-code',
-			(result: UploadCodeResult) => {
-				console.log('upload result', result);
-				setUploadResult(result);
-				if (result.pins) {
-					setPins(result.pins);
-				}
+			// TODO: when the uploads happen too fast in a row
+			// we need to already call the `off`
+			const off = window.electron.ipcRenderer.on(
+				'ipc-upload-code',
+				(result: UploadCodeResult) => {
+					console.log('upload result', result);
+					setUploadResult(result);
+					if (result.pins) {
+						setPins(result.pins);
+					}
 
-				if (result.type !== 'info') {
-					off();
-				}
+					if (result.type !== 'info') {
+						off();
+					}
 
-				if (result.type === 'error') {
-					toast.error(result.message);
-				}
-			},
-		);
+					if (result.type === 'error') {
+						toast.error(result.message);
+					}
+				},
+			);
 
-		window.electron.ipcRenderer.send('ipc-upload-code', code);
-	}, []);
+			window.electron.ipcRenderer.send(
+				'ipc-upload-code',
+				code,
+				checkResult.port,
+			);
+		},
+		[checkResult.port],
+	);
 
 	useEffect(() => {
 		window.electron.ipcRenderer.send('ipc-check-board');

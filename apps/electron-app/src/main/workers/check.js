@@ -1,13 +1,24 @@
 const { Board } = require('@microflow/components');
 const log = require('electron-log/node');
 
-const board = new Board({
-	repl: false,
-	debug: true,
-});
+const port = process.argv.at(-1);
+
+if (!port) {
+	log.warn(
+		'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
+	);
+}
+
+let board;
 
 try {
-	log.debug('Board is being checked', board.port);
+	board = new Board({
+		repl: false,
+		debug: true,
+		port,
+	});
+
+	log.debug('Board is being checked', { port: board.port });
 
 	board.on('info', event => {
 		process.parentPort.postMessage({
