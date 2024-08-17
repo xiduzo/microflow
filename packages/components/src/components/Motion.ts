@@ -1,17 +1,12 @@
 import JohnnyFive, { MotionOption } from 'johnny-five';
+import { Controller } from '../constants/Motion';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
-
-export const MOTION_CONTROLLERS = [
-	'HCSR501',
-	'GP2Y0D810Z0F',
-	'GP2Y0D815Z0F',
-] as const;
-export type Controller = (typeof MOTION_CONTROLLERS)[number];
 
 export type MotionData = Omit<MotionOption, 'board'> & {
 	controller: Controller;
 };
 export type MotionValueType = boolean;
+export type { Controller } from '../constants/Motion';
 
 type MotionOptions = BaseComponentOptions & MotionData;
 

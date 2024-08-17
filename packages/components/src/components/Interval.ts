@@ -4,10 +4,11 @@ export type IntervalData = {
 	interval: number;
 	autoStart?: boolean;
 };
+export type IntervalValueType = number;
 
 type IntervalOptions = BaseComponentOptions<number> & IntervalData;
 
-export class Interval extends BaseComponent<number> {
+export class Interval extends BaseComponent<IntervalValueType> {
 	private readonly minIntervalInMs = 500;
 	private interval: NodeJS.Timeout | null = null;
 

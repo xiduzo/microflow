@@ -1,9 +1,9 @@
-import {
+import type {
 	Controller,
-	MOTION_CONTROLLERS,
 	MotionData,
 	MotionValueType,
 } from '@microflow/components';
+import { MOTION_CONTROLLERS } from '@microflow/components/contants';
 import {
 	Icons,
 	Select,

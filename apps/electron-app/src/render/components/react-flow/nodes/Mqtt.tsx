@@ -1,4 +1,8 @@
-import { MqttData, MqttDirection, MqttValueType } from '@microflow/components';
+import type {
+	MqttData,
+	MqttDirection,
+	MqttValueType,
+} from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt/client';
 import {
 	Badge,

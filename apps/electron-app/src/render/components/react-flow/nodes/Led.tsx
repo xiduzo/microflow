@@ -1,4 +1,4 @@
-import { LedData, LedValueType } from '@microflow/components';
+import type { LedData, LedValueType } from '@microflow/components';
 import {
 	Icons,
 	Select,

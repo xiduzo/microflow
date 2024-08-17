@@ -1,4 +1,4 @@
-import { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
+import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
 import {
 	FigmaVariable,
 	useFigmaVariable,

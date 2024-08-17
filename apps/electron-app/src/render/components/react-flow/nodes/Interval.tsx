@@ -1,4 +1,4 @@
-import { IntervalData } from '@microflow/components';
+import type { IntervalData, IntervalValueType } from '@microflow/components';
 import { Label, Slider } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
@@ -49,7 +49,7 @@ export function Interval(props: Props) {
 	);
 }
 
-type Props = BaseNode<IntervalData, number>;
+type Props = BaseNode<IntervalData, IntervalValueType>;
 export const DEFAULT_INTERVAL_DATA: Props['data'] = {
 	label: 'Interval',
 	interval: 500,

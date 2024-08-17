@@ -1,4 +1,4 @@
-import { ButtonData, ButtonValueType } from '@microflow/components';
+import type { ButtonData, ButtonValueType } from '@microflow/components';
 import {
 	Checkbox,
 	Icons,

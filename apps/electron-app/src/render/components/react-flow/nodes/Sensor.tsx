@@ -1,4 +1,4 @@
-import { SensorData, SensorValueType } from '@microflow/components';
+import type { SensorData, SensorValueType } from '@microflow/components';
 import {
 	Progress,
 	Select,

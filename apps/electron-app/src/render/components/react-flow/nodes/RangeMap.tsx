@@ -1,4 +1,4 @@
-import { RangeMapData, RangeMapValueType } from '@microflow/components';
+import type { RangeMapData, RangeMapValueType } from '@microflow/components';
 import { Icons, Input } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useUpdateNodeData } from '../../../hooks/nodeUpdater';

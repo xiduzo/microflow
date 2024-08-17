@@ -1,4 +1,4 @@
-import {
+import type {
 	BuzzData,
 	PiezoData,
 	PiezoValueType,

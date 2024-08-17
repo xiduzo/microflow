@@ -1,4 +1,4 @@
-import { ServoData, ServoValueType } from '@microflow/components';
+import type { ServoData, ServoValueType } from '@microflow/components';
 import {
 	Icons,
 	Input,

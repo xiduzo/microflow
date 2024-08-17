@@ -1,11 +1,7 @@
 {
 	"name": "@microflow/components",
 	"version": "1.0.0",
-	"main": "dist/index.js",
-	"scripts": {
-		"build": "tsc",
-		"dev": "tsc --watch"
-	},
+	"main": "index.ts",
 	"devDependencies": {
 		"@types/johnny-five": "^2.1.9",
 		"typescript": "^5.5.4"

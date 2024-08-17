@@ -1,11 +1,13 @@
-import {
-	IF_ELSE_SUB_VALIDATORS,
-	IF_ELSE_VALIDATORS,
+import type {
 	IfElseData,
 	IfElseValueType,
 	SubValidator,
 	Validator,
 } from '@microflow/components';
+import {
+	IF_ELSE_SUB_VALIDATORS,
+	IF_ELSE_VALIDATORS,
+} from '@microflow/components/contants';
 import {
 	Icons,
 	Input,

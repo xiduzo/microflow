@@ -12,4 +12,3 @@ export * from './src/components/Piezo';
 export * from './src/components/RangeMap';
 export * from './src/components/Sensor';
 export * from './src/components/Servo';
-
