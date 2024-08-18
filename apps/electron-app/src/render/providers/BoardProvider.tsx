@@ -1,5 +1,4 @@
 import { toast } from '@microflow/ui';
-import { KnownBoard } from 'avrgirl-arduino';
 import {
 	createContext,
 	PropsWithChildren,
@@ -8,23 +7,14 @@ import {
 	useEffect,
 	useState,
 } from 'react';
-import {
-	BoardCheckResult,
-	BoardFlashResult,
-	Pin,
-	UploadCodeResult,
-} from '../../common/types';
+import { BoardCheckResult, Pin, UploadCodeResult } from '../../common/types';
 
 const BoardContext = createContext({
 	checkResult: {} as BoardCheckResult,
-	flashResult: {} as BoardFlashResult,
 	uploadResult: {} as UploadCodeResult,
 	pins: [] as Pin[],
 	uploadCode: (code: string) => {
 		console.log('uploading code', code);
-	},
-	flashBoard: (board: KnownBoard) => {
-		console.log('flashing board', board);
 	},
 });
 export const useBoard = () => useContext(BoardContext);
@@ -33,30 +23,11 @@ export function BoardProvider({ children }: PropsWithChildren) {
 	const [checkResult, setCheckResult] = useState<BoardCheckResult>({
 		type: 'exit',
 	});
-	const [flashResult, setFlashResult] = useState<BoardFlashResult>({
-		type: 'done',
-	});
 	const [uploadResult, setUploadResult] = useState<UploadCodeResult>({
 		type: 'close',
 	});
+
 	const [pins, setPins] = useState<Pin[]>([]);
-
-	function flashBoard(board: KnownBoard) {
-		window.electron.ipcRenderer.once(
-			'ipc-flash-firmata',
-			(result: BoardFlashResult) => {
-				console.log('flash result', result);
-				setFlashResult(result);
-
-				switch (result.type) {
-					case 'done':
-						window.electron.ipcRenderer.send('ipc-check-board');
-						break;
-				}
-			},
-		);
-		window.electron.ipcRenderer.send('ipc-flash-firmata', board);
-	}
 
 	const uploadCode = useCallback(
 		(code: string) => {
@@ -121,9 +92,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
 		<BoardContext.Provider
 			value={{
 				checkResult,
-				flashResult,
 				uploadResult,
-				flashBoard,
 				uploadCode,
 				pins,
 			}}

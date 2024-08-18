@@ -20,6 +20,11 @@ try {
 
 	log.debug('Board is being checked', { port: board.port });
 
+	process.parentPort.postMessage({
+		type: 'info',
+		message: 'checking micro-controller',
+	});
+
 	board.on('info', event => {
 		process.parentPort.postMessage({
 			type: 'info',

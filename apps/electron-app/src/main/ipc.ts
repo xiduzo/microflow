@@ -12,7 +12,6 @@ import { readdir, writeFile } from 'fs';
 import { dirname, join, resolve } from 'path';
 import {
 	BoardCheckResult,
-	BoardFlashResult,
 	UploadCodeResult,
 	UploadedCodeMessage,
 } from '../common/types';
@@ -85,13 +84,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 			if (result.type === 'error') {
 				// Board is connected but no firmata is found,
-				// send message to the renderer and lets try to flash it
-				event.reply('ipc-check-board', {
-					...result,
-					type: 'info',
-					class: 'Connected',
-				} satisfies BoardCheckResult);
-
+				// lets try to flash it
 				try {
 					await flashBoard(board, port);
 					connectedPort = port;
@@ -101,62 +94,20 @@ ipcMain.on('ipc-check-board', async event => {
 						type: 'ready',
 					} satisfies BoardCheckResult);
 					break checkBoard; // board is flashed with firmata, no need to check other ports
-				} catch (error) {
-					log.warn('Board could not be flashed', { board, error });
+				} catch {
+					// Ignore error
 				}
 			}
 		}
 	}
 
-	if (!!connectedPort) {
-		sniffPorts(event, { connectedPort }); // detect for disconnected board
-		return;
-	}
-
-	sniffPorts(event); // detect for new usb connections
+	// Start sniffing ports for changes in connections
+	sniffPorts(event, { connectedPort });
 });
 
-ipcMain.on(
-	'ipc-flash-firmata',
-	async (event, board: KnownBoard, path: string) => {
-		childProcess?.kill();
-
-		console.log('ipc-flash-firmata', board, path);
-
-		const ports = await getConnectedPorts();
-		const port = ports.find(port => port.path === path);
-
-		console.log('ports', port);
-
-		if (!port) {
-			event.reply('ipc-flash-firmata', {
-				type: 'error',
-				message: `No port found on path ${path}`,
-			} satisfies BoardFlashResult);
-			return;
-		}
-
-		event.reply('ipc-flash-firmata', {
-			type: 'flashing',
-		} satisfies BoardFlashResult);
-
-		try {
-			await flashBoard(board, port);
-			event.reply('ipc-flash-firmata', {
-				type: 'done',
-			} satisfies BoardFlashResult);
-		} catch (error) {
-			log.warn({ error });
-			event.reply('ipc-flash-firmata', {
-				type: 'error',
-				message: error.message,
-			} satisfies BoardFlashResult);
-		}
-	},
-);
-
 ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
-	log.debug('ipc-upload-code', { portPath });
+	log.info(`Uploading code to port ${portPath}`);
+
 	if (!portPath) {
 		log.warn('No port path provided for uploading code');
 		return;
@@ -177,6 +128,7 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 		childProcess = utilityProcess.fork(filePath, [portPath], {
 			serviceName: 'Microflow studio - micro-controller runner',
 		});
+
 		childProcess.on(
 			'message',
 			(message: UploadedCodeMessage | UploadCodeResult) => {
@@ -195,30 +147,9 @@ ipcMain.on('ipc-external-value', (_event, nodeId: string, value: unknown) => {
 	childProcess?.postMessage({ nodeId, value });
 });
 
-async function getKnownBoardsWithPorts() {
-	try {
-		const ports = await getConnectedPorts();
-
-		return KNOWN_BOARD_PRODUCT_IDS.reduce(
-			(acc, [board, productIds]) => {
-				const matchingPorts = ports.filter(port => {
-					if (!port._standardPid) return false;
-					return productIds.includes('0x' + port._standardPid);
-				});
-
-				acc.push([board, matchingPorts]);
-				return acc;
-			},
-			[] as [KnownBoard, Port[]][],
-		);
-	} catch (error) {
-		log.warn({ error });
-	}
-}
-
 async function flashBoard(board: KnownBoard, port: Port): Promise<void> {
 	childProcess?.kill();
-	log.debug('Try flashing firmata', { board, port });
+	log.debug(`Try flashing firmata to ${board} on ${port.path}`);
 
 	const avrgirlDir = dirname(require.resolve('avrgirl-arduino'));
 	const firmataDir = resolve(avrgirlDir, 'junk', 'hex', board);
@@ -227,8 +158,10 @@ async function flashBoard(board: KnownBoard, port: Port): Promise<void> {
 	return new Promise((resolve, reject) => {
 		readdir(firmataDir, function (readdirError, files) {
 			if (readdirError) {
-				log.warn({ readdirError });
-				reject(readdirError);
+				log.warn(`Could not read firmata directory: ${firmataDir}`, {
+					readdirError,
+				});
+				reject();
 				return;
 			}
 
@@ -240,27 +173,24 @@ async function flashBoard(board: KnownBoard, port: Port): Promise<void> {
 			}
 
 			if (typeof firmataPath === 'undefined') {
-				const noFirmataPathError = new Error(
-					"oops! Couldn't find Standard Firmata file for " + board + ' board.',
-				);
-				log.warn(noFirmataPathError.message);
-				reject(noFirmataPathError);
+				log.warn(`Could not find Firmata file for ${board}`);
+				reject();
 				return;
 			}
 
 			const avrgirl = new Avrgirl({ board });
 
 			avrgirl.flash(firmataPath, (flashError?: unknown) => {
-				const flashErrorResponse = new Error(
-					'oops! Unable to flash device. Make sure the correct board is selected and no other program is using the device.',
-				);
 				if (flashError) {
-					log.warn({ flashError });
-					reject(flashErrorResponse);
+					log.warn(
+						`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
+						{ flashError },
+					);
+					reject();
 					return;
 				}
 
-				log.debug('Firmata flashed successfully', { board });
+				log.debug(`Firmata flashed successfully to ${board} on ${port.path}!`);
 				resolve();
 			});
 		});
@@ -324,4 +254,38 @@ async function getConnectedPorts(): Promise<Port[]> {
 			resolve(ports);
 		});
 	});
+}
+
+async function getKnownBoardsWithPorts() {
+	try {
+		const ports = await getConnectedPorts();
+
+		const boardsWithPorts = KNOWN_BOARD_PRODUCT_IDS.reduce(
+			(acc, [board, productIds]) => {
+				const matchingPorts = ports.filter(port => {
+					if (!port._standardPid) return false;
+					return productIds.includes('0x' + port._standardPid);
+				});
+
+				if (matchingPorts.length) {
+					acc.push([board, matchingPorts]);
+				}
+
+				return acc;
+			},
+			[] as [KnownBoard, Port[]][],
+		);
+
+		if (boardsWithPorts.length) {
+			log.debug('Found boards on ports:');
+			boardsWithPorts.forEach(([board, ports]) => {
+				log.debug(`  - ${board} on ${ports.map(port => port.path).join(', ')}`);
+			});
+		}
+
+		return boardsWithPorts;
+	} catch (error) {
+		log.warn('Could not get known boards with ports', { error });
+		return [];
+	}
 }

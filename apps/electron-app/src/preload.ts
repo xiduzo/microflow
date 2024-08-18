@@ -3,7 +3,6 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
 type Channels =
-	| 'ipc-flash-firmata'
 	| 'ipc-check-board'
 	| 'ipc-upload-code'
 	| 'ipc-microcontroller'

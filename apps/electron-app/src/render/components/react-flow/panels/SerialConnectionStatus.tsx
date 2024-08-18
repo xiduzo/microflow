@@ -1,26 +1,15 @@
 import { Badge, Icons } from '@microflow/ui';
-import {
-	useAutoCodeUploader,
-	useCodeUploader,
-} from '../../../hooks/useCodeUploader';
+import { useAutoCodeUploader } from '../../../hooks/useCodeUploader';
 import { useBoard } from '../../../providers/BoardProvider';
-import { FlashFirmata } from './FlashFirmata';
 
 export function SerialConnectionStatus() {
 	const { checkResult, uploadResult } = useBoard();
-	const uploadCode = useCodeUploader();
-
-	if (checkResult.type === 'error') {
-		return <FlashFirmata message={checkResult.message} />;
-	}
+	useAutoCodeUploader();
 
 	if (uploadResult.type === 'error') {
-		console.log('uploadResult', uploadResult);
+		console.debug('SerialConnectionStatus - uploadResult', uploadResult);
 		return (
-			<Badge
-				className="bg-orange-400 text-orange-900 pointer-events-none"
-				onClick={uploadCode}
-			>
+			<Badge variant="destructive" className="pointer-events-none">
 				Upload failed for unknown reasons
 				{/* <Icons.Upload className="ml-2 h-3 w-3" /> */}
 			</Badge>
@@ -31,7 +20,6 @@ export function SerialConnectionStatus() {
 		return (
 			<Badge className="bg-green-400 text-green-900 pointer-events-none">
 				Connected
-				<AutoCodeUploader />
 				{uploadResult.type === 'ready' && (
 					<Icons.Check className="ml-2 h-3 w-3" />
 				)}
@@ -45,30 +33,20 @@ export function SerialConnectionStatus() {
 		);
 	}
 
-	if (checkResult.type === 'info' && checkResult.class === 'Connected') {
+	if (checkResult.type === 'info') {
 		return (
 			<Badge className="bg-blue-400 text-blue-900 pointer-events-none">
-				Validating firmware
+				Validating micro-controller
 				<Icons.Bot className="ml-2 h-3 w-3 animate-pulse" />
 			</Badge>
 		);
 	}
 
-	if (checkResult.type === 'fail') {
-		console.log('checkResult', checkResult);
+	if (['fail', 'warn', 'errror'].includes(checkResult.type)) {
+		console.debug('SerialConnectionStatus - checkResult', checkResult);
 		return (
 			<Badge variant="destructive" className="pointer-events-none">
 				{checkResult.message ?? 'Unknown error occurred'}
-				<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
-			</Badge>
-		);
-	}
-
-	if (checkResult.type === 'warn') {
-		return (
-			<Badge variant="destructive" className="pointer-events-none">
-				{checkResult.message ?? 'Unknown error occurred'}
-				<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
 			</Badge>
 		);
 	}
@@ -79,10 +57,4 @@ export function SerialConnectionStatus() {
 			<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
 		</Badge>
 	);
-}
-
-function AutoCodeUploader() {
-	useAutoCodeUploader();
-
-	return null;
 }
