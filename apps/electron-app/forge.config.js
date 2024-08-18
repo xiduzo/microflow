@@ -1,4 +1,5 @@
 const { bundle } = require('./bundler');
+require('dotenv').config();
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
@@ -6,12 +7,14 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
-		osxSign: {},
-		osxNotarize: {
-			appleApiKey: process.env.APPLE_API_KEY,
-			appleApiKeyId: process.env.APPLE_API_KEY_ID,
-			appleApiIssuer: process.env.APPLE_API_ISSUER,
-		},
+		// osxSign: {
+		// 	identity: process.env.SIGN_ID, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+		// },
+		// osxNotarize: {
+		// 	appleApiKey: process.env.APPLE_API_KEY,
+		// 	appleApiKeyId: process.env.APPLE_API_KEY_ID,
+		// 	appleApiIssuer: process.env.APPLE_API_ISSUER,
+		// },
 		prune: false,
 		extraResource: ['./src/main/workers/check.js'],
 		protocols: [
@@ -29,6 +32,7 @@ module.exports = {
 			platform,
 			arch,
 		) => {
+			console.log('packageAfterCopy', buildPath);
 			// https://gist.github.com/robin-hartmann/ad6ffc19091c9e661542fbf178647047
 			// this is a workaround until we find a proper solution
 			// for running electron-forge in a mono repository
