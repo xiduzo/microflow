@@ -8,7 +8,8 @@
 		"start": "yarn workspace microflow-studio start",
 		"build": "yarn workspace @microflow/components build",
 		"make": "yarn workspace microflow-studio make",
-		"publish": "yarn workspace microflow-studio publish"
+		"publish": "yarn workspace microflow-studio publish",
+		"postinstall": "patch-package"
 	},
 	"packageManager": "yarn@3.3.0",
 	"engines": {
@@ -23,6 +24,7 @@
 	"description": "A set of tools to make it easier to start prototyping for interactivity",
 	"license": "GPL-3.0-only",
 	"devDependencies": {
-		"@total-typescript/ts-reset": "^0.5.1"
+		"@total-typescript/ts-reset": "^0.5.1",
+		"patch-package": "^8.0.0"
 	}
 }

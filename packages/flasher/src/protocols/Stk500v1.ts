@@ -17,7 +17,6 @@ export class Stk500v1 extends Protocol implements Flasher {
 			await this.bootload(hex);
 		} catch (error) {
 			console.error(error);
-			throw error;
 		}
 	}
 

@@ -205,9 +205,18 @@ async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
 	return new Promise(async (resolve, reject) => {
 		log.debug(`Flashing firmata from ${firmataPath}`);
 		try {
-			await new Flasher(board, port.path).flash(firmataPath);
-			log.debug(`Firmata flashed successfully to ${board} on ${port.path}!`);
-			resolve();
+			new Flasher(board, port.path)
+				.flash(firmataPath)
+				.then(err => {
+					console.log(err);
+					log.debug(
+						`Firmata flashed successfully to ${board} on ${port.path}!`,
+					);
+					resolve();
+				})
+				.catch(err => {
+					log.debug('flasher', err);
+				});
 		} catch (flashError) {
 			log.error(
 				`Unable to flash ${board} on ${port.path} using ${firmataPath}`,

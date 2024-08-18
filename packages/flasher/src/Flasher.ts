@@ -1,6 +1,8 @@
 import { Board, BoardName, BOARDS } from './constants';
 import { SerialConnection } from './SerialConnection';
 
+let match = null;
+
 export class Flasher {
 	private readonly connection: SerialConnection;
 	private readonly board: Board;
@@ -22,7 +24,6 @@ export class Flasher {
 		try {
 			const protocol = new this.board.protocol(this.connection, this.board);
 			await this.connection.open();
-
 			console.debug(`Flashing ${filePath}`);
 			await protocol.flash(filePath);
 			console.debug(`Flashing succeeded!`);
