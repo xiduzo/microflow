@@ -1,0 +1,20 @@
+{
+	"name": "@microflow/flasher",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "tsc -w",
+		"build": "tsc"
+	},
+	"devDependencies": {
+		"typescript": "^5.5.4"
+	},
+	"dependencies": {
+		"chip.avr.avr109": "^1.1.1",
+		"electron-log": "^5.1.7",
+		"intel-hex": "^0.2.0",
+		"serialport": "12.0.0",
+		"stk500": "^2.0.3",
+		"stk500-v2": "^1.0.4"
+	}
+}

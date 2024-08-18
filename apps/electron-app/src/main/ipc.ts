@@ -1,5 +1,4 @@
-import Avrgirl, { type KnownBoard, type Port } from 'avrgirl-arduino';
-
+import { Flasher, type BoardName } from '@microflow/flasher';
 import {
 	ipcMain,
 	IpcMainEvent,
@@ -8,8 +7,9 @@ import {
 	UtilityProcess,
 } from 'electron';
 import log from 'electron-log/node';
-import { readdir, writeFile } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { existsSync, writeFile } from 'fs';
+import { join, resolve } from 'path';
+import { SerialPort } from 'serialport';
 import {
 	BoardCheckResult,
 	UploadCodeResult,
@@ -18,14 +18,48 @@ import {
 
 let childProcess: UtilityProcess | null = null;
 
-// https://github.com/noopkat/avrgirl-arduino/blob/master/boards.js
-const KNOWN_BOARD_PRODUCT_IDS: [KnownBoard, string[]][] = [
-	['uno', ['0x0043', '0x7523', '0x0001', '0xea60', '0x6015']],
-	['mega', ['0x0042', '0x6001', '0x0010', '0x7523']],
-	['leonardo', ['0x0036', '0x8036', '0x800c']],
-	['micro', ['0x0037', '0x8037', '0x0036', '0x0237']],
-	['nano', ['0x6001', '0x7523']],
-	['yun', ['0x0041', '0x8041']],
+const isDev = process.env.NODE_ENV === 'development';
+const resourcesPath = isDev ? __dirname : process.resourcesPath;
+
+// https://johnny-five.io/platform-support/
+const KNOWN_BOARDS = [
+	// 'adk',
+	// 'arduboy',
+	// 'blend-micro',
+	// 'bqZum',
+	// 'circuit-playground-classic',
+	// 'duemilanove168',
+	// 'duemilanove328',
+	// 'esplora',
+	// 'feather',
+	// 'imuduino',
+	'leonardo',
+	// 'lilypad-usb',
+	// 'little-bits',
+	'mega',
+	'micro',
+	// 'nano (new bootloader)',
+	'nano',
+	// 'pinoccio',
+	// 'pro-mini',
+	// 'qduino',
+	// 'sf-pro-micro',
+	// 'tinyduino',
+	'uno',
+	// 'xprov4',
+	'yun',
+	// 'zumcore2',
+	// 'zumjunior',
+];
+
+// type KnownBoard = (typeof KNOWN_BOARDS)[number];
+const KNOWN_BOARD_PRODUCT_IDS: [BoardName, string[]][] = [
+	// ['uno', ['0043', '7523', '0001', 'ea60', '6015']],
+	// ['mega', ['0042', '6001', '0010', '7523']],
+	// ['leonardo', ['0036', '8036', '800c']],
+	// ['micro', ['0037', '8037', '0036', '0237']],
+	['nano', ['6001', '7523']],
+	// ['yun', ['0041', '8041']],
 ];
 
 // ipcMain.on("shell:open", () => {
@@ -49,9 +83,10 @@ ipcMain.on('ipc-check-board', async event => {
 
 	const boardsAndPorts = await getKnownBoardsWithPorts();
 
-	const filePath = join(__dirname, 'check.js');
+	const filePath = join(resourcesPath, 'workers', 'check.js');
+	log.debug('Getting check file', { filePath });
 
-	let connectedPort: Port | null = null;
+	let connectedPort: PortInfo | null = null;
 
 	// Check board on all ports which match the known product IDs
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
@@ -87,6 +122,7 @@ ipcMain.on('ipc-check-board', async event => {
 				// lets try to flash it
 				try {
 					await flashBoard(board, port);
+					log.debug('Board flashed', { board, port });
 					connectedPort = port;
 					event.reply('ipc-check-board', {
 						...result,
@@ -94,7 +130,8 @@ ipcMain.on('ipc-check-board', async event => {
 						type: 'ready',
 					} satisfies BoardCheckResult);
 					break checkBoard; // board is flashed with firmata, no need to check other ports
-				} catch {
+				} catch (error) {
+					log.warn('Error flashing board', { error });
 					// Ignore error
 				}
 			}
@@ -114,7 +151,8 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 	}
 	childProcess?.kill();
 
-	const filePath = join(__dirname, 'temp.js');
+	const filePath = join(resourcesPath, 'temp.js');
+	log.debug('Writing code to file', { filePath });
 	writeFile(filePath, code, error => {
 		if (error) {
 			log.error('write file error', { error });
@@ -147,53 +185,52 @@ ipcMain.on('ipc-external-value', (_event, nodeId: string, value: unknown) => {
 	childProcess?.postMessage({ nodeId, value });
 });
 
-async function flashBoard(board: KnownBoard, port: Port): Promise<void> {
+async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
 	childProcess?.kill();
 	log.debug(`Try flashing firmata to ${board} on ${port.path}`);
 
-	const avrgirlDir = dirname(require.resolve('avrgirl-arduino'));
-	const firmataDir = resolve(avrgirlDir, 'junk', 'hex', board);
-	let firmataPath: string | undefined;
+	const firmataPath = resolve(
+		resourcesPath,
+		'hex',
+		board,
+		'StandardFirmata.cpp.hex',
+	);
 
-	return new Promise((resolve, reject) => {
-		readdir(firmataDir, function (readdirError, files) {
-			if (readdirError) {
-				log.warn(`Could not read firmata directory: ${firmataDir}`, {
-					readdirError,
-				});
-				reject();
-				return;
-			}
+	// Check if file exists
+	if (!existsSync(firmataPath)) {
+		log.error(`Firmata file not found at ${firmataPath}`);
+		return;
+	}
 
-			for (const file of files) {
-				if (file.indexOf('StandardFirmata') < 0) continue;
+	return new Promise(async (resolve, reject) => {
+		log.debug(`Flashing firmata from ${firmataPath}`);
+		try {
+			await new Flasher(board, port.path).flash(firmataPath);
+			log.debug(`Firmata flashed successfully to ${board} on ${port.path}!`);
+			resolve();
+		} catch (flashError) {
+			log.error(
+				`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
+				{ flashError },
+			);
+			reject();
+		}
 
-				firmataPath = join(firmataDir, file);
-				break;
-			}
+		// const avrgirl = new Avrgirl({ board });
 
-			if (typeof firmataPath === 'undefined') {
-				log.warn(`Could not find Firmata file for ${board}`);
-				reject();
-				return;
-			}
+		// avrgirl.flash(firmataPath, (flashError?: unknown) => {
+		// 	if (flashError) {
+		// 		log.warn(
+		// 			`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
+		// 			{ flashError },
+		// 		);
+		// 		reject();
+		// 		return;
+		// 	}
 
-			const avrgirl = new Avrgirl({ board });
-
-			avrgirl.flash(firmataPath, (flashError?: unknown) => {
-				if (flashError) {
-					log.warn(
-						`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-						{ flashError },
-					);
-					reject();
-					return;
-				}
-
-				log.debug(`Firmata flashed successfully to ${board} on ${port.path}!`);
-				resolve();
-			});
-		});
+		// 	log.debug(`Firmata flashed successfully to ${board} on ${port.path}!`);
+		// 	resolve();
+		// });
 	});
 }
 
@@ -203,8 +240,8 @@ const PORT_SNIFFER_INTERVAL_IN_MS = 250;
 function sniffPorts(
 	event: IpcMainEvent,
 	options: {
-		connectedPort?: Port;
-		portsConnected?: Port[];
+		connectedPort?: PortInfo;
+		portsConnected?: PortInfo[];
 	} = {},
 ) {
 	portSniffer && clearTimeout(portSniffer);
@@ -243,43 +280,39 @@ function sniffPorts(
 		.catch(log.warn);
 }
 
-async function getConnectedPorts(): Promise<Port[]> {
-	return new Promise((resolve, reject) => {
-		Avrgirl.list((error: unknown, ports: Port[]) => {
-			if (error) {
-				reject(error);
-				return;
-			}
-
-			resolve(ports);
-		});
-	});
+async function getConnectedPorts() {
+	return SerialPort.list();
 }
 
+type PortInfo = { path: string };
+// type PortInfo = Awaited<ReturnType<typeof SerialPort.list>>[number];
 async function getKnownBoardsWithPorts() {
 	try {
 		const ports = await getConnectedPorts();
 
 		const boardsWithPorts = KNOWN_BOARD_PRODUCT_IDS.reduce(
 			(acc, [board, productIds]) => {
-				const matchingPorts = ports.filter(port => {
-					if (!port._standardPid) return false;
-					return productIds.includes('0x' + port._standardPid);
+				const matchingDevices = ports.filter(port => {
+					const productId = port.productId || port.pnpId;
+					if (!productId) return false;
+					return productIds.includes(productId.toLowerCase());
 				});
 
-				if (matchingPorts.length) {
-					acc.push([board, matchingPorts]);
+				if (matchingDevices.length) {
+					acc.push([board, matchingDevices]);
 				}
 
 				return acc;
 			},
-			[] as [KnownBoard, Port[]][],
+			[] as [BoardName, PortInfo[]][],
 		);
 
 		if (boardsWithPorts.length) {
 			log.debug('Found boards on ports:');
-			boardsWithPorts.forEach(([board, ports]) => {
-				log.debug(`  - ${board} on ${ports.map(port => port.path).join(', ')}`);
+			boardsWithPorts.forEach(([board, devices]) => {
+				log.debug(
+					`  - ${board} on ${devices.map(device => device.path).join(', ')}`,
+				);
 			});
 		}
 
