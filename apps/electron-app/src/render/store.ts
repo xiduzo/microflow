@@ -54,33 +54,10 @@ export const useNodesEdgesStore = create<AppState>((set, get) => ({
 		});
 	},
 	onEdgesChange: changes => {
-		set({
-			edges: applyEdgeChanges(changes, get().edges).map(edge => {
-				if (edge.selected) {
-					edge.style = {
-						...baseEdgeConfig.style,
-						stroke: '#3b82f6',
-					};
-				} else if (edge.animated) {
-					edge.style = {
-						...baseEdgeConfig.style,
-						stroke: '#eab308',
-					};
-				} else {
-					edge.style = baseEdgeConfig.style;
-				}
-
-				return edge;
-			}),
-		});
+		set({ edges: applyEdgeChanges(changes, get().edges) });
 	},
 	onConnect: connection => {
-		const currentEdges = get().edges;
-		const newEdges = addEdge(connection, currentEdges);
-
-		set({
-			edges: newEdges.map(edge => ({ ...baseEdgeConfig, ...edge })),
-		});
+		set({ edges: addEdge(connection, get().edges) });
 	},
 	setNodes: nodes => {
 		set({ nodes });

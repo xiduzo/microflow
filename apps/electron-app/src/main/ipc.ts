@@ -12,14 +12,11 @@ import { readdir, writeFile } from 'fs';
 import { dirname, join, resolve } from 'path';
 import {
 	BoardCheckResult,
-	BoardFlashResult,
 	UploadCodeResult,
 	UploadedCodeMessage,
 } from '../common/types';
 
 let childProcess: UtilityProcess | null = null;
-let portSniffer: NodeJS.Timeout | null = null;
-const PORT_SNIFFER_INTERVAL_IN_MS = 250;
 
 // https://github.com/noopkat/avrgirl-arduino/blob/master/boards.js
 const KNOWN_BOARD_PRODUCT_IDS: [KnownBoard, string[]][] = [
@@ -47,62 +44,80 @@ ipcMain.on('ipc-menu', (_event, action, ...args) => {
 	}
 });
 
-ipcMain.on('ipc-check-board', event => {
+ipcMain.on('ipc-check-board', async event => {
 	childProcess?.kill();
+
+	const boardsAndPorts = await getKnownBoardsWithPorts();
 
 	const filePath = join(__dirname, 'check.js');
 
-	childProcess = utilityProcess.fork(filePath);
-	childProcess.on('message', async (message: BoardCheckResult) => {
-		if (message.type !== 'info') {
-			childProcess?.kill(); // Free up the port again
-		}
+	let connectedPort: Port | null = null;
 
-		if (message.type !== 'error') {
-			event.reply('ipc-check-board', message satisfies BoardCheckResult);
-		} else {
-			try {
-				await forceFlashBoard();
-				event.reply('ipc-check-board', {
-					type: 'ready',
-				} satisfies BoardCheckResult); // We know the board can run Firmata now
-			} catch (error) {
-				log.warn({ error });
-				event.reply('ipc-check-board', message satisfies BoardCheckResult);
+	// Check board on all ports which match the known product IDs
+	checkBoard: for (const [board, ports] of boardsAndPorts) {
+		for (const port of ports) {
+			log.debug(`checking board ${board} on path ${port.path}`);
+
+			const result = await new Promise<BoardCheckResult>(resolve => {
+				childProcess = utilityProcess.fork(filePath, [port.path], {
+					serviceName: 'Microflow studio - micro-controller validator',
+				});
+
+				childProcess.on('message', async (message: BoardCheckResult) => {
+					if (message.type !== 'info') {
+						childProcess?.kill(); // Free up the port again
+						resolve(message);
+						return;
+					}
+
+					// Inform info messages to the renderer
+					event.reply('ipc-check-board', message);
+				});
+			});
+
+			if (result.type === 'ready') {
+				// board is ready, no need to check other ports
+				connectedPort = port;
+				event.reply('ipc-check-board', result);
+				break checkBoard;
+			}
+
+			if (result.type === 'error') {
+				// Board is connected but no firmata is found,
+				// lets try to flash it
+				try {
+					await flashBoard(board, port);
+					connectedPort = port;
+					event.reply('ipc-check-board', {
+						...result,
+						port: port.path,
+						type: 'ready',
+					} satisfies BoardCheckResult);
+					break checkBoard; // board is flashed with firmata, no need to check other ports
+				} catch {
+					// Ignore error
+				}
 			}
 		}
-
-		message.port && sniffPorts(message.port, event);
-	});
-});
-
-ipcMain.on('ipc-flash-firmata', async (event, board: KnownBoard) => {
-	childProcess?.kill();
-	event.reply('ipc-flash-firmata', {
-		type: 'flashing',
-	} satisfies BoardFlashResult);
-
-	try {
-		await flashBoard(board);
-		event.reply('ipc-flash-firmata', {
-			type: 'done',
-		} satisfies BoardFlashResult);
-	} catch (error) {
-		log.warn({ error });
-		event.reply('ipc-flash-firmata', {
-			type: 'error',
-			message: error.message,
-		} satisfies BoardFlashResult);
 	}
+
+	// Start sniffing ports for changes in connections
+	sniffPorts(event, { connectedPort });
 });
 
-ipcMain.on('ipc-upload-code', (event, code: string) => {
+ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
+	log.info(`Uploading code to port ${portPath}`);
+
+	if (!portPath) {
+		log.warn('No port path provided for uploading code');
+		return;
+	}
 	childProcess?.kill();
 
 	const filePath = join(__dirname, 'temp.js');
 	writeFile(filePath, code, error => {
 		if (error) {
-			log.error({ error });
+			log.error('write file error', { error });
 			event.reply('ipc-upload-code', {
 				type: 'error',
 				message: error.message,
@@ -110,7 +125,10 @@ ipcMain.on('ipc-upload-code', (event, code: string) => {
 			return;
 		}
 
-		childProcess = utilityProcess.fork(filePath);
+		childProcess = utilityProcess.fork(filePath, [portPath], {
+			serviceName: 'Microflow studio - micro-controller runner',
+		});
+
 		childProcess.on(
 			'message',
 			(message: UploadedCodeMessage | UploadCodeResult) => {
@@ -129,42 +147,10 @@ ipcMain.on('ipc-external-value', (_event, nodeId: string, value: unknown) => {
 	childProcess?.postMessage({ nodeId, value });
 });
 
-async function forceFlashBoard(): Promise<void> {
-	return new Promise(async (resolve, reject) => {
-		try {
-			const ports = await getConnectedDevices();
-			const potentialBoardsToFlash = KNOWN_BOARD_PRODUCT_IDS.filter(
-				([, productIds]) => {
-					for (const port of ports) {
-						if (!port._standardPid) continue;
-						if (productIds.includes('0x' + port._standardPid)) {
-							return true;
-						}
-					}
+async function flashBoard(board: KnownBoard, port: Port): Promise<void> {
+	childProcess?.kill();
+	log.debug(`Try flashing firmata to ${board} on ${port.path}`);
 
-					return false;
-				},
-			);
-
-			flashing: for (const [board] of potentialBoardsToFlash) {
-				try {
-					await flashBoard(board);
-					resolve();
-					break flashing; // We have successfully flashed the board and can stop trying the other boards
-				} catch (flashError) {
-					log.warn({ flashError });
-				}
-			}
-		} catch (error) {
-			log.warn({ error });
-		}
-
-		reject(); // Should fire if we didn't flash any board
-	});
-}
-
-async function flashBoard(board: KnownBoard): Promise<void> {
-	log.debug('Try flashing firmata', { board });
 	const avrgirlDir = dirname(require.resolve('avrgirl-arduino'));
 	const firmataDir = resolve(avrgirlDir, 'junk', 'hex', board);
 	let firmataPath: string | undefined;
@@ -172,8 +158,10 @@ async function flashBoard(board: KnownBoard): Promise<void> {
 	return new Promise((resolve, reject) => {
 		readdir(firmataDir, function (readdirError, files) {
 			if (readdirError) {
-				log.warn({ readdirError });
-				reject(readdirError);
+				log.warn(`Could not read firmata directory: ${firmataDir}`, {
+					readdirError,
+				});
+				reject();
 				return;
 			}
 
@@ -185,54 +173,77 @@ async function flashBoard(board: KnownBoard): Promise<void> {
 			}
 
 			if (typeof firmataPath === 'undefined') {
-				const noFirmataPathError = new Error(
-					"oops! Couldn't find Standard Firmata file for " + board + ' board.',
-				);
-				log.warn(noFirmataPathError.message);
-				reject(noFirmataPathError);
+				log.warn(`Could not find Firmata file for ${board}`);
+				reject();
 				return;
 			}
 
 			const avrgirl = new Avrgirl({ board });
 
 			avrgirl.flash(firmataPath, (flashError?: unknown) => {
-				const flashErrorResponse = new Error(
-					'oops! Unable to flash device. Make sure the correct board is selected and no other program is using the device.',
-				);
 				if (flashError) {
-					log.warn({ flashError });
-					reject(flashErrorResponse);
+					log.warn(
+						`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
+						{ flashError },
+					);
+					reject();
 					return;
 				}
 
-				log.debug('Firmata flashed successfully', { board });
+				log.debug(`Firmata flashed successfully to ${board} on ${port.path}!`);
 				resolve();
 			});
 		});
 	});
 }
 
-function sniffPorts(connectedPort: string, event: IpcMainEvent) {
+let portSniffer: NodeJS.Timeout | null = null;
+const PORT_SNIFFER_INTERVAL_IN_MS = 250;
+
+function sniffPorts(
+	event: IpcMainEvent,
+	options: {
+		connectedPort?: Port;
+		portsConnected?: Port[];
+	} = {},
+) {
 	portSniffer && clearTimeout(portSniffer);
 
-	getConnectedDevices()
+	getConnectedPorts()
 		.then(ports => {
-			if (!ports.find(port => port.path === connectedPort)) {
+			// Check if the connected port is still connected
+			if (
+				options.connectedPort &&
+				!ports.find(port => port.path === options.connectedPort.path)
+			) {
 				event.reply('ipc-check-board', {
 					type: 'exit',
 				} satisfies BoardCheckResult);
 				return;
 			}
 
+			// Check if new ports are connected
+			// We only care about this if we don't have a connected port
+			if (
+				!options.connectedPort &&
+				ports.length !== options.portsConnected?.length
+			) {
+				event.reply('ipc-check-board', {
+					type: 'exit',
+				} satisfies BoardCheckResult);
+				return;
+			}
+
+			options.portsConnected = ports;
+
 			portSniffer = setTimeout(() => {
-				sniffPorts(connectedPort, event);
+				sniffPorts(event, options);
 			}, PORT_SNIFFER_INTERVAL_IN_MS);
 		})
 		.catch(log.warn);
 }
 
-async function getConnectedDevices(): Promise<Port[]> {
-	// return getDeviceList()
+async function getConnectedPorts(): Promise<Port[]> {
 	return new Promise((resolve, reject) => {
 		Avrgirl.list((error: unknown, ports: Port[]) => {
 			if (error) {
@@ -243,4 +254,38 @@ async function getConnectedDevices(): Promise<Port[]> {
 			resolve(ports);
 		});
 	});
+}
+
+async function getKnownBoardsWithPorts() {
+	try {
+		const ports = await getConnectedPorts();
+
+		const boardsWithPorts = KNOWN_BOARD_PRODUCT_IDS.reduce(
+			(acc, [board, productIds]) => {
+				const matchingPorts = ports.filter(port => {
+					if (!port._standardPid) return false;
+					return productIds.includes('0x' + port._standardPid);
+				});
+
+				if (matchingPorts.length) {
+					acc.push([board, matchingPorts]);
+				}
+
+				return acc;
+			},
+			[] as [KnownBoard, Port[]][],
+		);
+
+		if (boardsWithPorts.length) {
+			log.debug('Found boards on ports:');
+			boardsWithPorts.forEach(([board, ports]) => {
+				log.debug(`  - ${board} on ${ports.map(port => port.path).join(', ')}`);
+			});
+		}
+
+		return boardsWithPorts;
+	} catch (error) {
+		log.warn('Could not get known boards with ports', { error });
+		return [];
+	}
 }

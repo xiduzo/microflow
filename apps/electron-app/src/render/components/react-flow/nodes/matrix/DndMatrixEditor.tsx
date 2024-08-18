@@ -55,7 +55,7 @@ type Props = MatrixEditorProps & {
 	index: number;
 };
 
-const gridItem = cva('cursor-grab m-1', {
+const gridItem = cva('cursor-grab mx-1', {
 	variants: {
 		cols: {
 			1: 'col-span-1',

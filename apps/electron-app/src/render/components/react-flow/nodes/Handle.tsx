@@ -34,8 +34,6 @@ export function Handle(props: Props) {
 								? HANDLE_SPACING * (props.offset ?? 0) +
 									NODER_HEADER_HEIGHT_SPACING
 								: 0,
-							backgroundColor: '#737373',
-							borderRadius: '16px',
 							...props.style,
 						}}
 					/>
