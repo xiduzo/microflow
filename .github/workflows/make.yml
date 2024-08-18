@@ -17,11 +17,15 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@v4
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -34,5 +38,10 @@ jobs:
       - name: Build packages
         run: yarn build
 
+      - name: Generate Apple Auth Key
+        run: echo ${{ secrets.APPLE_P8_AUTH_KEY }} | base64 --decode > AuthKey_${{env.APPLE_API_KEY_ID}}.p8
+
       - name: Make application
         run: yarn make
+        env:
+          APPLE_API_KEY: AuthKey_${{ env.APPLE_API_KEY_ID }}.p8

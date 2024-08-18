@@ -6,6 +6,12 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
+		osxSign: {},
+		osxNotarize: {
+			appleApiKey: process.env.APPLE_API_KEY,
+			appleApiKeyId: process.env.APPLE_API_KEY_ID,
+			appleApiIssuer: process.env.APPLE_API_ISSUER,
+		},
 		prune: false,
 		extraResource: ['./src/main/workers/check.js'],
 		protocols: [

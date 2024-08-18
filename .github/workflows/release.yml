@@ -16,6 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -29,7 +35,11 @@ jobs:
       - name: Build packages
         run: yarn build
 
+      - name: Generate Apple Auth Key
+        run: echo ${{ secrets.APPLE_P8_AUTH_KEY }} | base64 --decode > AuthKey_${{env.APPLE_API_KEY_ID}}.p8
+
       - name: Publish application
+        run: yarn publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn publish
+          APPLE_API_KEY: AuthKey_${{ env.APPLE_API_KEY_ID }}.p8
