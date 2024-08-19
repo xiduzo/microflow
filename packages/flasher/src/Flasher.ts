@@ -23,12 +23,12 @@ export class Flasher {
 	async flash(filePath: string) {
 		try {
 			const protocol = new this.board.protocol(this.connection, this.board);
-			await this.connection.open();
+
 			console.debug(`Flashing ${filePath}`);
 			await protocol.flash(filePath);
 			console.debug(`Flashing succeeded!`);
 		} catch (error) {
-			console.error(error);
+			console.error('Flashing failed', { error });
 			throw new Error(
 				`Unable to flash ${this.board.name} on ${this.connection.serialPort.path} using ${filePath}`,
 			);

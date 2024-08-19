@@ -9,15 +9,12 @@ export class Stk500v1 extends Protocol implements Flasher {
 	}
 
 	async flash(filePath: string) {
-		try {
-			const file = this.getFileContents(filePath);
-			const hex = this.parseHex(file);
+		const file = this.getFileContents(filePath);
+		const hex = this.parseHex(file);
 
-			await this.reset();
-			await this.bootload(hex);
-		} catch (error) {
-			console.error(error);
-		}
+		await this.connection.open();
+		await this.reset();
+		await this.bootload(hex);
 	}
 
 	private async reset() {
@@ -27,11 +24,11 @@ export class Stk500v1 extends Protocol implements Flasher {
 
 	private bootload(hex: Buffer) {
 		return new Promise<void>((resolve, reject) => {
-			new STK500().bootload(
+			new STK500({ debug: true }).bootload(
 				this.connection.serialPort,
 				hex,
 				this.board,
-				async (error: unknown) => {
+				(error: unknown) => {
 					if (error) {
 						reject(error);
 						return;

@@ -1,4 +1,4 @@
-import { Flasher, type BoardName } from '@microflow/flasher';
+import { BOARDS, Flasher, type BoardName } from '@microflow/flasher';
 import {
 	ipcMain,
 	IpcMainEvent,
@@ -16,51 +16,12 @@ import {
 	UploadedCodeMessage,
 } from '../common/types';
 
+type PortInfo = Awaited<ReturnType<typeof SerialPort.list>>[number];
+
 let childProcess: UtilityProcess | null = null;
 
 const isDev = process.env.NODE_ENV === 'development';
 const resourcesPath = isDev ? __dirname : process.resourcesPath;
-
-// https://johnny-five.io/platform-support/
-const KNOWN_BOARDS = [
-	// 'adk',
-	// 'arduboy',
-	// 'blend-micro',
-	// 'bqZum',
-	// 'circuit-playground-classic',
-	// 'duemilanove168',
-	// 'duemilanove328',
-	// 'esplora',
-	// 'feather',
-	// 'imuduino',
-	'leonardo',
-	// 'lilypad-usb',
-	// 'little-bits',
-	'mega',
-	'micro',
-	// 'nano (new bootloader)',
-	'nano',
-	// 'pinoccio',
-	// 'pro-mini',
-	// 'qduino',
-	// 'sf-pro-micro',
-	// 'tinyduino',
-	'uno',
-	// 'xprov4',
-	'yun',
-	// 'zumcore2',
-	// 'zumjunior',
-];
-
-// type KnownBoard = (typeof KNOWN_BOARDS)[number];
-const KNOWN_BOARD_PRODUCT_IDS: [BoardName, string[]][] = [
-	// ['uno', ['0043', '7523', '0001', 'ea60', '6015']],
-	// ['mega', ['0042', '6001', '0010', '7523']],
-	// ['leonardo', ['0036', '8036', '800c']],
-	// ['micro', ['0037', '8037', '0036', '0237']],
-	['nano', ['6001', '7523']],
-	// ['yun', ['0041', '8041']],
-];
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -84,7 +45,6 @@ ipcMain.on('ipc-check-board', async event => {
 	const boardsAndPorts = await getKnownBoardsWithPorts();
 
 	const filePath = join(resourcesPath, 'workers', 'check.js');
-	log.debug('Getting check file', { filePath });
 
 	let connectedPort: PortInfo | null = null;
 
@@ -293,22 +253,20 @@ async function getConnectedPorts() {
 	return SerialPort.list();
 }
 
-type PortInfo = { path: string };
-// type PortInfo = Awaited<ReturnType<typeof SerialPort.list>>[number];
 async function getKnownBoardsWithPorts() {
 	try {
 		const ports = await getConnectedPorts();
 
-		const boardsWithPorts = KNOWN_BOARD_PRODUCT_IDS.reduce(
-			(acc, [board, productIds]) => {
+		const boardsWithPorts = BOARDS.reduce(
+			(acc, board) => {
 				const matchingDevices = ports.filter(port => {
 					const productId = port.productId || port.pnpId;
 					if (!productId) return false;
-					return productIds.includes(productId.toLowerCase());
+					return board.productIds.includes(productId.toLowerCase() as never);
 				});
 
 				if (matchingDevices.length) {
-					acc.push([board, matchingDevices]);
+					acc.push([board.name, matchingDevices]);
 				}
 
 				return acc;

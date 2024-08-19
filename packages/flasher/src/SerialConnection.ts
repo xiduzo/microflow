@@ -42,6 +42,10 @@ export class SerialConnection {
 	}
 
 	async close() {
+		if (!this.serialPort.isOpen) {
+			console.debug(`Serial port already closed on ${this.serialPort.path}`);
+			return;
+		}
 		return new Promise<void>((resolve, reject) => {
 			this.serialPort.close(error => {
 				if (error) {

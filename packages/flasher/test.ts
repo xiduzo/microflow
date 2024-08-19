@@ -1,13 +1,19 @@
 import path from 'path';
 import { Flasher } from './src/Flasher';
 
-try {
-	const __dirname = path.resolve(path.dirname(''));
+async function flash() {
+  try {
+    const __dirname = path.resolve(path.dirname(''));
 	const filePath = path.resolve(
 		__dirname,
-		'../../apps/electron-app/hex/uno/StandardFirmata.cpp.hex',
+		'../../apps/electron-app/hex/leonardo/StandardFirmata.cpp.hex',
 	);
-	new Flasher('nano', '/dev/tty.usbserial-1140').flash(filePath);
-} catch (error) {
-	console.log(error);
+    await new Flasher('leonardo', '/dev/tty.usbmodem1101').flash(filePath)
+    console.log('done')
+  } catch (error) {
+    console.log(error);
+  }
+
 }
+
+flash()
