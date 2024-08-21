@@ -35,6 +35,12 @@ jobs:
       - name: Build packages
         run: yarn build
 
+      - uses: actions/setup-python@v5
+        with:
+          # https://stackoverflow.com/a/78870850/4655177
+          # Required for `distutils` module
+          python-version: '3.10'
+
       - name: Publish application
         run: yarn publish
         env:
