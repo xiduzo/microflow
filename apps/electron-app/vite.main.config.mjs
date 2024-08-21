@@ -7,7 +7,7 @@ const dest = '.vite/build';
 export default defineConfig({
 	build: {
 		rollupOptions: {
-			external: ['avrgirl-arduino', 'serialport'],
+			external: ['serialport'],
 		},
 	},
 	plugins: [

@@ -14,20 +14,7 @@ export class Avr109 extends Protocol implements Flasher {
 		const file = this.getFileContents(filePath);
 
 		await this.reset();
-		let port;
-		let tries = 15;
-		do {
-			const ports = await SerialPort.list();
-			port = ports.find(port => port.path === this.connection.serialPort.path);
-			await new Promise(resolve => setTimeout(resolve, 100));
-		} while (!port && --tries);
-
-		if (!port) {
-			throw new Error(
-				`Serial port ${this.connection.serialPort.path} not found`,
-			);
-		}
-
+		await this.waitForBoardToBeConnectedAgain();
 		await this.connection.open();
 		await this.bootload(file);
 	}
@@ -38,6 +25,28 @@ export class Avr109 extends Protocol implements Flasher {
 		await resetSerialConnection.open();
 		await resetSerialConnection.sendResetSignals(false, 250);
 		await resetSerialConnection.close();
+	}
+
+	private async waitForBoardToBeConnectedAgain() {
+		const path = this.connection.serialPort.path;
+
+		let port;
+		let tries = 15;
+
+		do {
+			const ports = await SerialPort.list();
+			port = ports.find(port => port.path === path);
+			if (!port) {
+				// Give the board some time to reconnect
+				await new Promise(resolve => setTimeout(resolve, 100));
+			}
+		} while (!port && --tries);
+
+		if (!port) {
+			throw new Error(`Board not found on ${path} anymore`);
+		}
+
+		return Promise.resolve();
 	}
 
 	private async bootload(file: string) {

@@ -7,7 +7,7 @@
 	"scripts": {
 		"start": "yarn workspace microflow-studio start",
 		"build": "yarn workspace @microflow/components build",
-		"make": "yarn workspace microflow-studio make",
+		"make": "DEBUG=electron-osx yarn workspace microflow-studio make",
 		"publish": "yarn workspace microflow-studio publish",
 		"postinstall": "patch-package"
 	},

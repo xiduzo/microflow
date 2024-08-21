@@ -8,12 +8,13 @@ module.exports = {
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
 		// osxSign: {
-		// 	identity: process.env.SIGN_ID, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+		// 	identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
 		// },
 		// osxNotarize: {
-		// 	appleApiKey: process.env.APPLE_API_KEY,
-		// 	appleApiKeyId: process.env.APPLE_API_KEY_ID,
-		// 	appleApiIssuer: process.env.APPLE_API_ISSUER,
+		// 	tool: 'notarytool',
+		// 	appleId: process.env.APPLE_ID,
+		// 	appleIdPassword: process.env.APPLE_PASSWORD,
+		// 	teamId: process.env.APPLE_TEAM_ID,
 		// },
 		prune: false, // Requires for monorepo
 		extraResource: ['./workers', './hex'],
@@ -32,7 +33,7 @@ module.exports = {
 			platform,
 			arch,
 		) => {
-			console.log('packageAfterCopy', buildPath);
+			console.log(forgeConfig, buildPath, electronVersion, platform, arch);
 			// https://gist.github.com/robin-hartmann/ad6ffc19091c9e661542fbf178647047
 			// this is a workaround until we find a proper solution
 			// for running electron-forge in a mono repository

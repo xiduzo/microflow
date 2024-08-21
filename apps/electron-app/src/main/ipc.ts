@@ -1,4 +1,10 @@
-import { BOARDS, Flasher, type BoardName } from '@microflow/flasher';
+import {
+	BOARDS,
+	Flasher,
+	getConnectedPorts,
+	type BoardName,
+	type PortInfo,
+} from '@microflow/flasher';
 import {
 	ipcMain,
 	IpcMainEvent,
@@ -9,14 +15,11 @@ import {
 import log from 'electron-log/node';
 import { existsSync, writeFile } from 'fs';
 import { join, resolve } from 'path';
-import { SerialPort } from 'serialport';
 import {
 	BoardCheckResult,
 	UploadCodeResult,
 	UploadedCodeMessage,
 } from '../common/types';
-
-type PortInfo = Awaited<ReturnType<typeof SerialPort.list>>[number];
 
 let childProcess: UtilityProcess | null = null;
 
@@ -47,6 +50,9 @@ ipcMain.on('ipc-check-board', async event => {
 	const filePath = join(resourcesPath, 'workers', 'check.js');
 
 	let connectedPort: PortInfo | null = null;
+
+	const [lastBoard, ports] = boardsAndPorts.at(-1);
+	const lastPort = ports.at(-1);
 
 	// Check board on all ports which match the known product IDs
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
@@ -92,7 +98,10 @@ ipcMain.on('ipc-check-board', async event => {
 					break checkBoard; // board is flashed with firmata, no need to check other ports
 				} catch (error) {
 					log.warn('Error flashing board', { error });
-					// Ignore error
+					// we should not return as we still want to sniff the ports 🐕
+					if (board === lastBoard && port.path === lastPort.path) {
+						event.reply('ipc-check-board', result);
+					}
 				}
 			}
 		}
@@ -100,6 +109,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 	// Start sniffing ports for changes in connections
 	sniffPorts(event, { connectedPort });
+	childProcess?.kill();
 });
 
 ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
@@ -165,41 +175,15 @@ async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
 	return new Promise(async (resolve, reject) => {
 		log.debug(`Flashing firmata from ${firmataPath}`);
 		try {
-			new Flasher(board, port.path)
-				.flash(firmataPath)
-				.then(err => {
-					console.log(err);
-					log.debug(
-						`Firmata flashed successfully to ${board} on ${port.path}!`,
-					);
-					resolve();
-				})
-				.catch(err => {
-					log.debug('flasher', err);
-				});
+			await new Flasher(board, port.path).flash(firmataPath);
+			resolve();
 		} catch (flashError) {
 			log.error(
 				`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
 				{ flashError },
 			);
-			reject();
+			reject(flashError);
 		}
-
-		// const avrgirl = new Avrgirl({ board });
-
-		// avrgirl.flash(firmataPath, (flashError?: unknown) => {
-		// 	if (flashError) {
-		// 		log.warn(
-		// 			`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-		// 			{ flashError },
-		// 		);
-		// 		reject();
-		// 		return;
-		// 	}
-
-		// 	log.debug(`Firmata flashed successfully to ${board} on ${port.path}!`);
-		// 	resolve();
-		// });
 	});
 }
 
@@ -247,10 +231,6 @@ function sniffPorts(
 			}, PORT_SNIFFER_INTERVAL_IN_MS);
 		})
 		.catch(log.warn);
-}
-
-async function getConnectedPorts() {
-	return SerialPort.list();
 }
 
 async function getKnownBoardsWithPorts() {

@@ -1,23 +1,21 @@
 import { Board, BoardName, BOARDS } from './constants';
 import { SerialConnection } from './SerialConnection';
 
-let match = null;
-
 export class Flasher {
 	private readonly connection: SerialConnection;
 	private readonly board: Board;
 
-	constructor(boardName: BoardName, path: string) {
+	constructor(boardName: BoardName, usbPortPath: string) {
 		const board = BOARDS.find(board => board.name === boardName);
 
 		if (!board) {
-			throw new Error(`Board ${boardName} is now a know board`);
+			throw new Error(`Board ${boardName} is not a know board`);
 		}
 
 		this.board = board;
-		this.connection = new SerialConnection(board.baudRate, path);
+		this.connection = new SerialConnection(board.baudRate, usbPortPath);
 
-		console.debug(`Created flasher for ${board.name} on ${path}`);
+		console.debug(`Created flasher for ${board.name} on ${usbPortPath}`);
 	}
 
 	async flash(filePath: string) {
