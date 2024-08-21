@@ -35,9 +35,6 @@ jobs:
       - name: Build packages
         run: yarn build
 
-      - name: Generate Apple Auth Key
-        run: echo ${{ secrets.APPLE_P8_AUTH_KEY }} | base64 --decode > AuthKey_${{env.APPLE_API_KEY_ID}}.p8
-
       - name: Publish application
         run: yarn publish
         env:

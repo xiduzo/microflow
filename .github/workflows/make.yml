@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/*
   pull_request:
     branches:
       - main
@@ -41,8 +42,10 @@ jobs:
       - name: Build packages
         run: yarn build
 
-      - name: Generate Apple Auth Key
-        run: echo ${{ secrets.APPLE_P8_AUTH_KEY }} | base64 --decode > AuthKey_${{env.APPLE_API_KEY_ID}}.p8
+      - name: Install python setup tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel
 
       - name: Make application
         run: yarn make
