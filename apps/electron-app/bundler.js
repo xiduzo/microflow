@@ -83,6 +83,7 @@ const bundle = async (source, destination) => {
 	for (const dep of prodDeps) {
 		const dest = path.join(destination, dep.location);
 
+		console.log(`Copying ${dep.location} to ${dest}`);
 		await fs.cp(dep.realpath, dest, {
 			recursive: true,
 			errorOnExist: false,

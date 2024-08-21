@@ -7,9 +7,9 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
-		// osxSign: {
-		// 	identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
-		// },
+		osxSign: {
+			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+		},
 		// osxNotarize: {
 		// 	tool: 'notarytool',
 		// 	appleId: process.env.APPLE_ID,
