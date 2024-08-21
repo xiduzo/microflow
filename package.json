@@ -26,5 +26,8 @@
 	"devDependencies": {
 		"@total-typescript/ts-reset": "^0.5.1",
 		"patch-package": "^8.0.0"
+	},
+	"dependencies": {
+		"node-gyp": "^10.2.0"
 	}
 }
