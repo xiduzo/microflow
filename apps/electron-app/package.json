@@ -4,9 +4,9 @@
 	"license": "GPL-3.0-only",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/xiduzo/microflow-studio"
+		"url": "https://github.com/xiduzo/microflow"
 	},
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "An application which allows you to create flow-based logic for micro-controllers",
 	"author": {
 		"name": "Sander Boer",
@@ -41,15 +41,18 @@
 		"@types/react": "^18.3.3",
 		"@types/react-dom": "^18.3.0",
 		"autoprefixer": "^10.4.19",
+		"dotenv": "^16.4.5",
 		"electron": "28.0.0",
 		"postcss": "^8.4.39",
 		"rimraf": "5.0.5",
+		"rollup-plugin-copy": "^3.5.0",
 		"tailwindcss": "^3.4.4",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.5.3"
 	},
 	"dependencies": {
 		"@microflow/components": "workspaces:*",
+		"@microflow/flasher": "workspaces:*",
 		"@microflow/mqtt": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",
@@ -61,8 +64,8 @@
 		"mqtt": "^5.8.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
+		"serialport": "12.0.0",
 		"unique-names-generator": "^4.7.1",
-		"update-electron-app": "^3.0.0",
 		"usehooks-ts": "^3.1.0",
 		"zustand": "^4.5.4"
 	}

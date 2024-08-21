@@ -11,7 +11,6 @@
 		"typescript": "^5.5.4"
 	},
 	"dependencies": {
-		"electron-log": "^5.1.7",
 		"johnny-five": "https://github.com/xiduzo/johnny-five.git"
 	}
 }

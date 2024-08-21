@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+# TODO: might need to add `distutils` to the python version
+# when `Preparing native dependencies: node-gyp` error occurs
+# https://stackoverflow.com/questions/77233855/why-did-i-get-an-error-modulenotfounderror-no-module-named-distutils
 jobs:
   make:
     runs-on: ${{ matrix.os }}

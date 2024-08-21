@@ -59,6 +59,10 @@ export function BoardProvider({ children }: PropsWithChildren) {
 				code,
 				checkResult.port,
 			);
+
+			return () => {
+				off();
+			};
 		},
 		[checkResult.port],
 	);
@@ -72,6 +76,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
 				if (result.type !== 'exit') {
 					console.log('check result', result);
 				}
+
 				setCheckResult(result);
 				if (result.pins) {
 					setPins(result.pins);
@@ -81,7 +86,10 @@ export function BoardProvider({ children }: PropsWithChildren) {
 					case 'exit':
 					case 'fail':
 					case 'close':
-						window.electron.ipcRenderer.send('ipc-check-board');
+						console.log('check result', result);
+						setTimeout(() => {
+							window.electron.ipcRenderer.send('ipc-check-board');
+						}, 1000); // don't force it too much, give the boards some time
 						break;
 				}
 			},

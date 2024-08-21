@@ -1,4 +1,5 @@
 const { bundle } = require('./bundler');
+require('dotenv').config();
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
@@ -6,14 +7,17 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
-		osxSign: {},
-		osxNotarize: {
-			appleApiKey: process.env.APPLE_API_KEY,
-			appleApiKeyId: process.env.APPLE_API_KEY_ID,
-			appleApiIssuer: process.env.APPLE_API_ISSUER,
-		},
-		prune: false,
-		extraResource: ['./src/main/workers/check.js'],
+		// osxSign: {
+		// 	identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+		// },
+		// osxNotarize: {
+		// 	tool: 'notarytool',
+		// 	appleId: process.env.APPLE_ID,
+		// 	appleIdPassword: process.env.APPLE_PASSWORD,
+		// 	teamId: process.env.APPLE_TEAM_ID,
+		// },
+		prune: false, // Requires for monorepo
+		extraResource: ['./workers', './hex'],
 		protocols: [
 			{
 				name: 'microflow-studio',
@@ -29,6 +33,7 @@ module.exports = {
 			platform,
 			arch,
 		) => {
+			console.log(forgeConfig, buildPath, electronVersion, platform, arch);
 			// https://gist.github.com/robin-hartmann/ad6ffc19091c9e661542fbf178647047
 			// this is a workaround until we find a proper solution
 			// for running electron-forge in a mono repository
@@ -74,12 +79,6 @@ module.exports = {
 				// `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
 				// If you are familiar with Vite configuration, it will look really familiar.
 				build: [
-					// Workers
-					{
-						entry: 'src/main/workers/check.js',
-						config: 'vite.worker.config.mjs',
-					},
-					// Rest
 					{
 						// `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
 						entry: 'src/main.js',
