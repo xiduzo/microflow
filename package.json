@@ -13,7 +13,7 @@
 	},
 	"packageManager": "yarn@3.3.0",
 	"engines": {
-		"node": "18.19.0",
+		"node": "20.13.1",
 		"yarn": "3.3.0"
 	},
 	"author": {
