@@ -5166,15 +5166,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"async@npm:^2.6.3":
-  version: 2.6.4
-  resolution: "async@npm:2.6.4"
-  dependencies:
-    lodash: ^4.17.14
-  checksum: a52083fb32e1ebe1d63e5c5624038bb30be68ff07a6c8d7dfe35e47c93fc144bd8652cbec869e0ac07d57dde387aa5f1386be3559cdee799cb1f789678d88e19
-  languageName: node
-  linkType: hard
-
 "async@npm:^3.2.3":
   version: 3.2.5
   resolution: "async@npm:3.2.5"
@@ -5220,37 +5211,6 @@ __metadata:
   dependencies:
     possible-typed-array-names: ^1.0.0
   checksum: 1aa3ffbfe6578276996de660848b6e95669d9a95ad149e3dd0c0cda77db6ee1dbd9d1dd723b65b6d277b882dd0c4b91a654ae9d3cf9e1254b7e93e4908d78fd3
-  languageName: node
-  linkType: hard
-
-"avrgirl-arduino@https://github.com/xiduzo/avrgirl-arduino.git":
-  version: 5.0.1
-  resolution: "avrgirl-arduino@https://github.com/xiduzo/avrgirl-arduino.git#commit=213f5a825cd3e639a1511be0c81addf2282ad960"
-  dependencies:
-    async: ^2.6.3
-    awty: ^0.1.0
-    browser-serialport: "git+https://github.com/noopkat/browser-serialport.git#c8628c41c11890d3058875994c15f83f2df8185b"
-    chip.avr.avr109: ^1.1.1
-    colors: ^1.4.0
-    graceful-fs: ^4.2.4
-    intel-hex: ^0.1.2
-    minimist: ^1.2.5
-    process: ^0.11.10
-    serialport: ^10.4.0
-    stk500: ^2.0.3
-    stk500-v2: ^1.0.4
-  bin:
-    avrgirl-arduino: ./bin/cli.js
-  checksum: 7c489fccb4013187624ac3ca4709aa77861b59b717e34db957f2819a5ed52396c9dd8bf05454cc4d5c0240aeabed2d9f7d6d6aee3c97d4e8306b4ca9c00239f9
-  languageName: node
-  linkType: hard
-
-"awty@npm:^0.1.0":
-  version: 0.1.0
-  resolution: "awty@npm:0.1.0"
-  dependencies:
-    isval: 0.0.2
-  checksum: 71ee5cca80e36eeab742b9b570fbdc4b0591c7f73de9abce1d7893706583db63e609a9b813f1b2d821c318f9ddde24ce55604d6f0245ab26683a3ed3a4cd1012
   languageName: node
   linkType: hard
 
@@ -5433,13 +5393,6 @@ __metadata:
   dependencies:
     fill-range: ^7.1.1
   checksum: b95aa0b3bd909f6cd1720ffcf031aeaf46154dd88b4da01f9a1d3f7ea866a79eba76a6d01cbc3c422b2ee5cdc39a4f02491058d5df0d7bf6e6a162a832df1f69
-  languageName: node
-  linkType: hard
-
-"browser-serialport@git+https://github.com/noopkat/browser-serialport.git#c8628c41c11890d3058875994c15f83f2df8185b":
-  version: 2.0.3
-  resolution: "browser-serialport@https://github.com/noopkat/browser-serialport.git#commit=c8628c41c11890d3058875994c15f83f2df8185b"
-  checksum: 67a5b14b93ebbf93481f8112b1827ae1f7004ab6c8baf714d840d08a69f4d625f7f5a407c8103a13ef1c5340531c2aa650e79236eaea56580c7978e0e4a5bcf7
   languageName: node
   linkType: hard
 
@@ -6003,13 +5956,6 @@ __metadata:
   version: 2.0.20
   resolution: "colorette@npm:2.0.20"
   checksum: 0c016fea2b91b733eb9f4bcdb580018f52c0bc0979443dad930e5037a968237ac53d9beb98e218d2e9235834f8eebce7f8e080422d6194e957454255bde71d3d
-  languageName: node
-  linkType: hard
-
-"colors@npm:^1.4.0":
-  version: 1.4.0
-  resolution: "colors@npm:1.4.0"
-  checksum: 98aa2c2418ad87dedf25d781be69dc5fc5908e279d9d30c34d8b702e586a0474605b3a189511482b9d5ed0d20c867515d22749537f7bc546256c6014f3ebdcec
   languageName: node
   linkType: hard
 
@@ -9130,13 +9076,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"intel-hex@npm:^0.1.2":
-  version: 0.1.2
-  resolution: "intel-hex@npm:0.1.2"
-  checksum: 55388f6f7e5fc97a4a891b121feaa1e4e3e919793e9a2297f9692f11151e0b51ebe0d60306e4de296712dc2575facafa9f3bf3fd2514501335db1edfe12f1691
-  languageName: node
-  linkType: hard
-
 "internal-slot@npm:^1.0.4, internal-slot@npm:^1.0.7":
   version: 1.0.7
   resolution: "internal-slot@npm:1.0.7"
@@ -9589,13 +9528,6 @@ __metadata:
   version: 3.1.1
   resolution: "isexe@npm:3.1.1"
   checksum: 7fe1931ee4e88eb5aa524cd3ceb8c882537bc3a81b02e438b240e47012eef49c86904d0f0e593ea7c3a9996d18d0f1f3be8d3eaa92333977b0c3a9d353d5563e
-  languageName: node
-  linkType: hard
-
-"isval@npm:0.0.2":
-  version: 0.0.2
-  resolution: "isval@npm:0.0.2"
-  checksum: f78e679349d4fefe9a99e5b929578b39860a433ee8a1bfbcbacc0af7dc16ca1d5d1059cdd2e501b73b89b441f97c330df624c428a8696752a0511a5215d5ffb3
   languageName: node
   linkType: hard
 
@@ -10136,7 +10068,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.14, lodash@npm:^4.17.15, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4":
+"lodash@npm:^4.17.15, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: eb835a2e51d381e561e508ce932ea50a8e5a68f4ebdd771ea240d3048244a8d13658acbd502cd4829768c56f2e16bdd4340b9ea141297d472517b83868e677f7
@@ -10474,7 +10406,6 @@ __metadata:
     "@xyflow/react": ^12.0.0
     abcjs: ^6.4.2
     autoprefixer: ^10.4.19
-    avrgirl-arduino: "https://github.com/xiduzo/avrgirl-arduino.git"
     dotenv: ^16.4.5
     electron: 28.0.0
     electron-log: ^5.1.5
@@ -10833,7 +10764,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimist@npm:^1.1.1, minimist@npm:^1.1.3, minimist@npm:^1.2.0, minimist@npm:^1.2.5, minimist@npm:^1.2.6, minimist@npm:^1.2.8":
+"minimist@npm:^1.1.1, minimist@npm:^1.1.3, minimist@npm:^1.2.0, minimist@npm:^1.2.6, minimist@npm:^1.2.8":
   version: 1.2.8
   resolution: "minimist@npm:1.2.8"
   checksum: 75a6d645fb122dad29c06a7597bddea977258957ed88d7a6df59b5cd3fe4a527e253e9bbf2e783e4b73657f9098b96a5fe96ab8a113655d4109108577ecf85b0
