@@ -1,5 +1,4 @@
 const { app, dialog, BrowserWindow } = require('electron');
-const { updateElectronApp } = require('update-electron-app');
 
 const path = require('node:path');
 
@@ -8,8 +7,6 @@ import './main/ipc';
 import { createMenu } from './main/menu';
 
 let mainWindow = null;
-
-updateElectronApp();
 
 if (process.defaultApp) {
 	if (process.argv.length >= 2) {
