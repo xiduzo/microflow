@@ -79,4 +79,9 @@ jobs:
       - name: Make application
         run: yarn make
         env:
-          APPLE_IDENTITY: env.APPLE_IDENTITY
+          APPLE_IDENTITY: ${{ env.APPLE_IDENTITY }}
+
+      - name: Clean up keychain and provisioning profile
+        if: runner.os == 'macOS'
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
