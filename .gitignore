@@ -122,3 +122,4 @@ dist-ssr
 # Secrets
 .env
 *.p8
+*.provisionprofile

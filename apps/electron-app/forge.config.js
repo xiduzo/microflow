@@ -8,7 +8,34 @@ module.exports = {
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
 		osxSign: {
+			strictVerify: false,
 			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+			ignore: filePath => {
+				if (filePath.includes('build/node_gyp_bins/python3')) {
+					console.log('>> ignore signing', filePath);
+					return true;
+				}
+				return false;
+			},
+			// optionsForFile: filePath => {
+			// 	if (!filePath.includes('node_gyp_bins/python3')) {
+			// 		return;
+			// 	}
+
+			// 	console.log('>> extra options', filePath);
+
+			// 	return {
+			// 		additionalArguments: ['--deep'],
+			// 	};
+			// },
+			// ignore: filePath => {
+			// 	if (!filePath.includes('node_gyp_bins/python3')) {
+			// 		return false;
+			// 	}
+
+			// 	console.log('>> ignore', filePath);
+			// 	return true;
+			// },
 		},
 		// osxNotarize: {
 		// 	tool: 'notarytool',
@@ -17,7 +44,6 @@ module.exports = {
 		// 	teamId: process.env.APPLE_TEAM_ID,
 		// },
 		prune: false, // Requires for monorepo
-		extraResource: ['./workers', './hex'],
 		protocols: [
 			{
 				name: 'microflow-studio',

@@ -51,9 +51,27 @@ const collectProdDeps = node => {
 
 	while (stack.length > 0) {
 		const currentNode = stack.pop();
+		// Ignore types packages
+		if (currentNode.location.startsWith('node_modules/@types')) {
+			// console.debug(`IGNORE ${currentNode.location}`);
+			continue;
+		}
+
+		// Ignore radix-ui packages
+		if (currentNode.location.includes('@radix-ui')) {
+			// console.debug(`IGNORE ${currentNode.location}`);
+			continue;
+		}
+
 		const depEdges = [...currentNode.edgesOut.values()].filter(
 			depEdge => depEdge.type === 'prod',
 		);
+
+		// Show dependencies
+		// console.debug(
+		// 	currentNode.location,
+		// 	depEdges.map(depEdge => depEdge.to.location),
+		// );
 
 		for (const depEdge of depEdges) {
 			const depNode = resolveLink(depEdge.to);
@@ -83,8 +101,20 @@ const bundle = async (source, destination) => {
 	for (const dep of prodDeps) {
 		const dest = path.join(destination, dep.location);
 
-		console.log(`Copying ${dep.location} to ${dest}`);
-		await fs.cp(dep.realpath, dest, {
+		let bundlePath = dest;
+		if (dep.location.startsWith('packages')) {
+			switch (dep.location) {
+				case 'packages/components':
+					bundlePath = dest.replace('packages', 'node_modules/@microflow');
+					break;
+				default:
+					continue;
+			}
+		}
+
+		console.log(`${dep.location} --> ${bundlePath}`);
+
+		await fs.cp(dep.realpath, bundlePath, {
 			recursive: true,
 			errorOnExist: false,
 		});

@@ -23,9 +23,6 @@ import {
 
 let childProcess: UtilityProcess | null = null;
 
-const isDev = process.env.NODE_ENV === 'development';
-const resourcesPath = isDev ? __dirname : process.resourcesPath;
-
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
 //   const pagePath = path.join('file://', pageDirectory, 'index.html')
@@ -47,24 +44,41 @@ ipcMain.on('ipc-check-board', async event => {
 
 	const boardsAndPorts = await getKnownBoardsWithPorts();
 
-	const filePath = join(resourcesPath, 'workers', 'check.js');
+	const filePath = join(__dirname, 'workers', 'check.js');
 
 	let connectedPort: PortInfo | null = null;
 
 	const [lastBoard, ports] = boardsAndPorts.at(-1);
 	const lastPort = ports.at(-1);
 
+	log.debug('Checking boards and ports', {
+		boardsAndPorts: JSON.stringify(boardsAndPorts),
+	});
+
 	// Check board on all ports which match the known product IDs
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
-			log.debug(`checking board ${board} on path ${port.path}`);
+			log.debug(`checking board ${board} on path ${port.path}`, { filePath });
 
 			const result = await new Promise<BoardCheckResult>(resolve => {
 				childProcess = utilityProcess.fork(filePath, [port.path], {
 					serviceName: 'Microflow studio - micro-controller validator',
+					stdio: 'pipe',
+				});
+
+				childProcess.stderr?.on('data', data => {
+					log.error('board check child process error', {
+						data: data.toString(),
+					});
+				});
+
+				log.debug('Child process forked', {
+					filePath,
+					port: port.path,
 				});
 
 				childProcess.on('message', async (message: BoardCheckResult) => {
+					log.debug('board check child process process message', { message });
 					if (message.type !== 'info') {
 						childProcess?.kill(); // Free up the port again
 						resolve(message);
@@ -121,7 +135,7 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 	}
 	childProcess?.kill();
 
-	const filePath = join(resourcesPath, 'temp.js');
+	const filePath = join(__dirname, 'temp.js');
 	log.debug('Writing code to file', { filePath });
 	writeFile(filePath, code, error => {
 		if (error) {
@@ -135,6 +149,13 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 
 		childProcess = utilityProcess.fork(filePath, [portPath], {
 			serviceName: 'Microflow studio - micro-controller runner',
+			stdio: 'pipe',
+		});
+
+		childProcess.stderr?.on('data', data => {
+			log.error('board check child process error', {
+				data: data.toString(),
+			});
 		});
 
 		childProcess.on(
@@ -160,7 +181,7 @@ async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
 	log.debug(`Try flashing firmata to ${board} on ${port.path}`);
 
 	const firmataPath = resolve(
-		resourcesPath,
+		__dirname,
 		'hex',
 		board,
 		'StandardFirmata.cpp.hex',
