@@ -17,7 +17,7 @@
 	"scripts": {
 		"start": "electron-forge start",
 		"package": "electron-forge package",
-		"make": "electron-forge make",
+		"make": "DEBUG=electron-osx-sign electron-forge make",
 		"make:debug": "DEBUG=electron-osx-sign electron-forge make",
 		"publish": "electron-forge publish",
 		"lint": "echo \"No linting configured\""
