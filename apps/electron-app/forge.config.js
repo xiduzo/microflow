@@ -7,28 +7,36 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
-		// osxSign: {
-		// 	identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
-		// 	// optionsForFile: filePath => {
-		// 	// 	if (!filePath.includes('node_gyp_bins/python3')) {
-		// 	// 		return;
-		// 	// 	}
+		osxSign: {
+			strictVerify: false,
+			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+			ignore: filePath => {
+				if (filePath.includes('build/node_gyp_bins/python3')) {
+					console.log('>> ignore signing', filePath);
+					return true;
+				}
+				return false;
+			},
+			// optionsForFile: filePath => {
+			// 	if (!filePath.includes('node_gyp_bins/python3')) {
+			// 		return;
+			// 	}
 
-		// 	// 	console.log('>> extra options', filePath);
+			// 	console.log('>> extra options', filePath);
 
-		// 	// 	return {
-		// 	// 		additionalArguments: ['--deep'],
-		// 	// 	};
-		// 	// },
-		// 	// ignore: filePath => {
-		// 	// 	if (!filePath.includes('node_gyp_bins/python3')) {
-		// 	// 		return false;
-		// 	// 	}
+			// 	return {
+			// 		additionalArguments: ['--deep'],
+			// 	};
+			// },
+			// ignore: filePath => {
+			// 	if (!filePath.includes('node_gyp_bins/python3')) {
+			// 		return false;
+			// 	}
 
-		// 	// 	console.log('>> ignore', filePath);
-		// 	// 	return true;
-		// 	// },
-		// },
+			// 	console.log('>> ignore', filePath);
+			// 	return true;
+			// },
+		},
 		// osxNotarize: {
 		// 	tool: 'notarytool',
 		// 	appleId: process.env.APPLE_ID,
