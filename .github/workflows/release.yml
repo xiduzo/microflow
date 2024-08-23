@@ -68,9 +68,9 @@ jobs:
         run: yarn publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_IDENTITY: ${{ env.APPLE_IDENTITY }}
-          APPLE_ID: ${{ env.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ env.APPLE_TEAM_ID }}
+          APPLE_IDENTITY: ${{ vars.APPLE_IDENTITY }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
 
       - name: Clean up keychain and provisioning profile
