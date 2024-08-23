@@ -38,13 +38,14 @@ try {
 		process.parentPort.postMessage({
 			type: 'ready',
 			port: board.port,
-			pins: Object.entries(board.pins).reduce((acc, [key, value]) => {
-				acc.push({
-					pin: Number(key),
-					...value,
-				});
-				return acc;
-			}, []),
+			pins:
+				Object.entries(board.pins)?.reduce((acc, [key, value]) => {
+					acc.push({
+						pin: Number(key),
+						...value,
+					});
+					return acc;
+				}, []) ?? [],
 		});
 	});
 

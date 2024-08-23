@@ -11,6 +11,7 @@
 
 const fs = require('fs/promises');
 const path = require('path');
+
 /** @type {Arborist} */
 // @ts-ignore missing types for @npmcli/arborist
 const arborist = require('@npmcli/arborist');
@@ -30,6 +31,8 @@ const { findRoot } = require('@manypkg/find-root');
  *  location: string;
  *  realpath: string;
  *  target: Node;
+ *  name: string;
+ *  version: string;
  *  edgesOut: Map<string, Edge>;
  * }} Node
  */
@@ -47,7 +50,8 @@ const getWorkspaceByPath = (node, realPath) =>
 /** @type {(node: Node) => Node[]} */
 const collectProdDeps = node => {
 	const stack = [node];
-	const result = new Set(); // Using a set to avoid duplicates and track visited nodes
+	/** @type {Map<string, Node>} */
+	const result = new Map(); // Using a set to avoid duplicates and track visited nodes
 
 	while (stack.length > 0) {
 		const currentNode = stack.pop();
@@ -63,9 +67,11 @@ const collectProdDeps = node => {
 			continue;
 		}
 
-		const depEdges = [...currentNode.edgesOut.values()].filter(
-			depEdge => depEdge.type === 'prod',
-		);
+		const depEdges = [...currentNode.edgesOut.values()]
+			.filter(depEdge => depEdge.type === 'prod')
+			.filter(
+				depEdge => !depEdge.to.location.startsWith('node_modules/@types'),
+			);
 
 		// Show dependencies
 		// console.debug(
@@ -76,14 +82,36 @@ const collectProdDeps = node => {
 		for (const depEdge of depEdges) {
 			const depNode = resolveLink(depEdge.to);
 
-			if (!result.has(depNode)) {
-				result.add(depNode);
+			const addedNode = result.get(depNode.name);
+			if (addedNode) {
+				const addedVersion = Number(addedNode.version.replace(/[.]/g, ''));
+				const depVersion = Number(depNode.version.replace(/[.]/g, ''));
+
+				if (depVersion > addedVersion) {
+					console.log(
+						'newer version detected',
+						'from',
+						addedNode.name,
+						addedNode.location,
+						addedVersion,
+						'to',
+						depNode.name,
+						depNode.location,
+						depVersion,
+					);
+
+					stack.push(depNode);
+				}
+			} else {
 				stack.push(depNode);
 			}
+
+			console.log('adding module', depNode.name, depNode.version);
+			result.set(depNode.name, depNode);
 		}
 	}
 
-	return Array.from(result); // Convert the set to an array if necessary
+	return Array.from(result.values()); // Convert the set to an array if necessary
 };
 
 /** @type {(source: string, destination: string) => Promise<void>} */
@@ -99,25 +127,33 @@ const bundle = async (source, destination) => {
 	const prodDeps = collectProdDeps(sourceNode);
 
 	for (const dep of prodDeps) {
-		const dest = path.join(destination, dep.location);
+		const dest = dep.location.startsWith('packages')
+			? path.join(destination, 'node_modules', '@microflow', dep.name)
+			: path.join(destination, 'node_modules', dep.name);
 
-		let bundlePath = dest;
-		if (dep.location.startsWith('packages')) {
-			switch (dep.location) {
-				case 'packages/components':
-					bundlePath = dest.replace('packages', 'node_modules/@microflow');
-					break;
-				default:
-					continue;
-			}
+		if (dep.name.startsWith('@types')) {
+			// console.debug(`IGNORE ${dep.name}`);
+			continue;
 		}
 
-		console.log(`${dep.location} --> ${bundlePath}`);
+		// console.log(dep.name, `${dep.location} --> ${dest}`);
 
-		await fs.cp(dep.realpath, bundlePath, {
+		await fs.cp(dep.realpath, dest, {
 			recursive: true,
 			errorOnExist: false,
+			dereference: true,
+			filter: source => {
+				console.log('>> copying', source);
+				return true;
+			},
 		});
+
+		// if (dest.includes('@serialport/bindings-cpp')) {
+		// 	// Check if folder exists
+		// 	const folder = path.join(dest, 'build', 'node_gyp_bins');
+		// 	const exists = await fs.readdir(folder).catch(() => false);
+		// 	console.log('!!!! patching serialport', dest, exists);
+		// }
 	}
 };
 

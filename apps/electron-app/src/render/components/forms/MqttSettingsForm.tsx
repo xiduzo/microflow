@@ -1,4 +1,4 @@
-import { MqttConfig } from '@microflow/mqtt/client';
+import { MqttConfig } from '@microflow/mqtt-provider/client';
 import {
 	Button,
 	Form,

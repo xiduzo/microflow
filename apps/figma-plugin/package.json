@@ -1,7 +1,7 @@
 {
 	"name": "@microflow/figma-plugin",
 	"private": true,
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"scripts": {
 		"dev": "concurrently \"yarn watch:ui\" \"yarn watch:plugin\"",
 		"dev:ui-only": "vite -c ./vite.config.ui.ts",
@@ -17,7 +17,7 @@
 		"build:plugin": "vite build -c ./vite.config.plugin.ts"
 	},
 	"dependencies": {
-		"@microflow/mqtt": "workspaces:*",
+		"@microflow/mqtt-provider": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"mqtt": "^5.8.0",
 		"react": "^18.2.0",

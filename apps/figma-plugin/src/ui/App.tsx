@@ -1,4 +1,4 @@
-import { MqttProvider } from '@microflow/mqtt/client';
+import { MqttProvider } from '@microflow/mqtt-provider/client';
 import '@microflow/ui/global.css';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import {

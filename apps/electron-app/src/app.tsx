@@ -2,7 +2,7 @@ import {
 	FigmaProvider,
 	MqttConfig,
 	MqttProvider,
-} from '@microflow/mqtt/client';
+} from '@microflow/mqtt-provider/client';
 import { Toaster } from '@microflow/ui';
 import { Edge, Node, ReactFlowProvider } from '@xyflow/react';
 import { useEffect, useState } from 'react';
