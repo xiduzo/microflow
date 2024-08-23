@@ -1,7 +1,10 @@
 import path from 'path';
 import { Flasher } from './src/Flasher';
+import { getConnectedPorts } from './src/serialport';
 
 async function flash() {
+	const ports = await getConnectedPorts();
+	console.log(ports);
 	const board = 'mega';
 	try {
 		const __dirname = path.resolve(path.dirname(''));
@@ -9,7 +12,7 @@ async function flash() {
 			__dirname,
 			`../../apps/electron-app/hex/${board}/StandardFirmata.cpp.hex`,
 		);
-		await new Flasher(board, '/dev/tty.usbmodem1101').flash(filePath);
+		await new Flasher(board, '/dev/tty.usbmodem1401').flash(filePath);
 		console.log('done');
 	} catch (error) {
 		console.log(error);

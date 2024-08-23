@@ -55,7 +55,7 @@ export class Avr109 extends Protocol implements Flasher {
 
 			AVR109.init(
 				this.connection.serialPort,
-				{ signature, debug: true },
+				{ signature, debug: false },
 				async (error: unknown, flasher: any) => {
 					if (error) {
 						reject(error);

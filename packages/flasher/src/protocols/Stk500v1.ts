@@ -24,7 +24,7 @@ export class Stk500v1 extends Protocol implements Flasher {
 
 	private bootload(hex: Buffer) {
 		return new Promise<void>((resolve, reject) => {
-			new STK500({ debug: true }).bootload(
+			new STK500({ debug: false }).bootload(
 				this.connection.serialPort,
 				hex,
 				this.board,

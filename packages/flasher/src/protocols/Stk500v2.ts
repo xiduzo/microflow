@@ -21,19 +21,15 @@ export class Stk500v2 extends Protocol implements Flasher {
 		const hex = this.parseHex(file);
 
 		await this.connection.open();
-		await this.reset();
 		const stk500v2 = new STK500v2(this.connection.serialPort);
 
-		console.log('syncing');
+		await this.reset();
+
 		await this.sync(stk500v2, 5);
-		console.log('synced');
 		await this.verifySignature(stk500v2, this.board.signature);
-		console.log(stk500v2);
-		// await STK500v2.sync(5);
-		// await STK500v2.verifySignature(this.board.signature);
-		// await STK500v2.enterProgrammingMode(this.board);
-		// await STK500v2.upload(hex, this.board.pageSize);
-		// await STK500v2.exitProgrammingMode();
+		await this.enterProgrammingMode(stk500v2, this.board);
+		await this.upload(stk500v2, hex, this.board.pageSize);
+		await this.exitProgrammingMode(stk500v2);
 	}
 
 	private async reset() {
@@ -56,6 +52,45 @@ export class Stk500v2 extends Protocol implements Flasher {
 	private async verifySignature(stk500v2: any, signature: Buffer) {
 		return new Promise<void>((resolve, reject) => {
 			stk500v2.verifySignature(signature, (error: unknown) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+
+	private async enterProgrammingMode(stk500v2: any, board: Board) {
+		return new Promise<void>((resolve, reject) => {
+			stk500v2.enterProgrammingMode(board, (error: unknown) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+
+	private async upload(stk500v2: any, hex: any, pageSize: number) {
+		return new Promise<void>((resolve, reject) => {
+			stk500v2.upload(hex, pageSize, (error: unknown) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+
+	private async exitProgrammingMode(stk500v2: any) {
+		return new Promise<void>((resolve, reject) => {
+			stk500v2.exitProgrammingMode((error: unknown) => {
 				if (error) {
 					reject(error);
 					return;

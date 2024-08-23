@@ -1,0 +1,32 @@
+diff --git a/node_modules/stk500-v2/index.js b/node_modules/stk500-v2/index.js
+index b379200..faf5156 100644
+--- a/node_modules/stk500-v2/index.js
++++ b/node_modules/stk500-v2/index.js
+@@ -265,10 +265,10 @@ stk500.prototype.loadAddress = function(useaddr, done) {
+   //console.log("load address");
+   var self = this;
+
+-  msb = (useaddr >> 24) & 0xff | 0x80;
+-  xsb = (useaddr >> 16) & 0xff;
+-  ysb = (useaddr >> 8) & 0xff;
+-  lsb = useaddr & 0xff;
++  var msb = (useaddr >> 24) & 0xff | 0x80;
++  var xsb = (useaddr >> 16) & 0xff;
++  var ysb = (useaddr >> 8) & 0xff;
++  var lsb = useaddr & 0xff;
+
+   var cmdBuf = Buffer.from([CMD_LOAD_ADDRESS, msb, xsb, ysb, lsb]);
+
+diff --git a/node_modules/stk500-v2/lib/parser-v2.js b/node_modules/stk500-v2/lib/parser-v2.js
+index 339f8fc..11184bf 100644
+--- a/node_modules/stk500-v2/lib/parser-v2.js
++++ b/node_modules/stk500-v2/lib/parser-v2.js
+@@ -64,7 +64,7 @@ module.exports = function(serialPort){
+       //received. The total timeout period is 200 ms for the CMD_SIGN_ON command, 5
+       //seconds for the CMD_READ/PROGRAM_FLASH/EEPROM commands, and 1
+       //second for all other commands.
+-      timeout = 1000;
++      var timeout = 1000;
+       if(typeByte === c.CMD_SIGN_ON) timeout = 200;
+       else {
+         // grab the constant names.

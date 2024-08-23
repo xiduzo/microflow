@@ -1,5 +1,6 @@
 import { Avr109 } from './protocols/Avr109';
 import { Stk500v1 } from './protocols/Stk500v1';
+import { Stk500v2 } from './protocols/Stk500v2';
 // import { Stk500v2 } from './protocols/Stk500v2';
 
 export const BOARDS = [
@@ -26,24 +27,24 @@ export const BOARDS = [
 			'https://web.archive.org/web/20150813095112/https://www.arduino.cc/en/Main/ArduinoBoardNano',
 		protocol: Stk500v1,
 	},
-	// {
-	// 	name: 'mega',
-	// 	baudRate: 115200,
-	// 	signature: Buffer.from([0x1e, 0x98, 0x01]), // ATmega2560
-	// 	pageSize: 256,
-	// 	delay1: 10,
-	// 	delay2: 1,
-	// 	timeout: 0xc8,
-	// 	stabDelay: 0x64,
-	// 	cmdexeDelay: 0x19,
-	// 	synchLoops: 0x20,
-	// 	byteDelay: 0x00,
-	// 	pollValue: 0x53,
-	// 	pollIndex: 0x03,
-	// 	productIds: ['0042', '6001', '0010', '7523'],
-	// 	productPage: 'https://store.arduino.cc/mega-2560-r3',
-	// 	protocol: Stk500v2,
-	// },
+	{
+		name: 'mega',
+		baudRate: 115200,
+		signature: Buffer.from([0x1e, 0x98, 0x01]), // ATmega2560
+		pageSize: 256,
+		delay1: 10,
+		delay2: 1,
+		timeout: 0xc8,
+		stabDelay: 0x64,
+		cmdexeDelay: 0x19,
+		synchLoops: 0x20,
+		byteDelay: 0x00,
+		pollValue: 0x53,
+		pollIndex: 0x03,
+		productIds: ['0042', '6001', '0010', '7523'],
+		productPage: 'https://store.arduino.cc/mega-2560-r3',
+		protocol: Stk500v2,
+	},
 	{
 		name: 'nano (new bootloader)',
 		baudRate: 115200,
