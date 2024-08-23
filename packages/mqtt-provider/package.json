@@ -1,5 +1,5 @@
 {
-	"name": "@microflow/mqtt",
+	"name": "@microflow/mqtt-provider",
 	"version": "1.0.0",
 	"type": "module",
 	"dependencies": {

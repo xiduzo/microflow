@@ -1692,7 +1692,7 @@ __metadata:
   resolution: "@microflow/figma-plugin@workspace:apps/figma-plugin"
   dependencies:
     "@figma/plugin-typings": ^1.83.0
-    "@microflow/mqtt": "workspaces:*"
+    "@microflow/mqtt-provider": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@types/node": ^18.15.11
     "@types/postcss-url": ^10.0.0
@@ -1723,7 +1723,6 @@ __metadata:
   resolution: "@microflow/flasher@workspace:packages/flasher"
   dependencies:
     chip.avr.avr109: ^1.1.1
-    electron-log: ^5.1.7
     intel-hex: ^0.2.0
     serialport: 12.0.0
     stk500: ^2.0.3
@@ -1732,9 +1731,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@microflow/mqtt@workspace:packages/mqtt, @microflow/mqtt@workspaces:*":
+"@microflow/mqtt-provider@workspace:packages/mqtt-provider, @microflow/mqtt-provider@workspaces:*":
   version: 0.0.0-use.local
-  resolution: "@microflow/mqtt@workspace:packages/mqtt"
+  resolution: "@microflow/mqtt-provider@workspace:packages/mqtt-provider"
   dependencies:
     mqtt: ^5.8.0
     react: ^18.3.1
@@ -7029,13 +7028,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-log@npm:^5.1.7":
-  version: 5.1.7
-  resolution: "electron-log@npm:5.1.7"
-  checksum: e1bdf4e82cf2cd5c14d8051359cc727ff7619a2f4be033be287de38d860b5a40718615f8b51dbc78d82363deb01d13be2d550347b0f22b3fb7835035f211499d
-  languageName: node
-  linkType: hard
-
 "electron-to-chromium@npm:^1.4.796":
   version: 1.4.818
   resolution: "electron-to-chromium@npm:1.4.818"
@@ -10394,7 +10386,7 @@ __metadata:
     "@manypkg/find-root": ^2.2.2
     "@microflow/components": "workspaces:*"
     "@microflow/flasher": "workspaces:*"
-    "@microflow/mqtt": "workspaces:*"
+    "@microflow/mqtt-provider": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"
     "@npmcli/arborist": ^7.5.3

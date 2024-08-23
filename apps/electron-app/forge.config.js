@@ -1,5 +1,6 @@
 const { bundle } = require('./bundler');
 require('dotenv').config();
+const fs = require('fs/promises');
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
@@ -11,38 +12,24 @@ module.exports = {
 			strictVerify: false,
 			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
 			ignore: filePath => {
-				if (filePath.includes('build/node_gyp_bins/python3')) {
+				// https://github.com/nodejs/node-gyp/issues/2713
+				if (filePath.includes('build/node_gyp_bins')) {
 					console.log('>> ignore signing', filePath);
+					fs.rm(filePath, { recursive: true })
+						.then(() => {
+							console.log('>> removed folder', filePath);
+						})
+						.catch(console.error);
 					return true;
 				}
 				return false;
 			},
-			// optionsForFile: filePath => {
-			// 	if (!filePath.includes('node_gyp_bins/python3')) {
-			// 		return;
-			// 	}
-
-			// 	console.log('>> extra options', filePath);
-
-			// 	return {
-			// 		additionalArguments: ['--deep'],
-			// 	};
-			// },
-			// ignore: filePath => {
-			// 	if (!filePath.includes('node_gyp_bins/python3')) {
-			// 		return false;
-			// 	}
-
-			// 	console.log('>> ignore', filePath);
-			// 	return true;
-			// },
 		},
-		// osxNotarize: {
-		// 	tool: 'notarytool',
-		// 	appleId: process.env.APPLE_ID,
-		// 	appleIdPassword: process.env.APPLE_PASSWORD,
-		// 	teamId: process.env.APPLE_TEAM_ID,
-		// },
+		osxNotarize: {
+			appleId: process.env.APPLE_ID,
+			appleIdPassword: process.env.APPLE_PASSWORD,
+			teamId: process.env.APPLE_TEAM_ID,
+		},
 		prune: false, // Requires for monorepo
 		protocols: [
 			{
@@ -53,20 +40,21 @@ module.exports = {
 	},
 	hooks: {
 		packageAfterCopy: async (
-			forgeConfig,
+			_forgeConfig,
 			buildPath,
-			electronVersion,
-			platform,
-			arch,
+			_electronVersion,
+			_platform,
+			_arch,
 		) => {
-			console.log(forgeConfig, buildPath, electronVersion, platform, arch);
 			// https://gist.github.com/robin-hartmann/ad6ffc19091c9e661542fbf178647047
 			// this is a workaround until we find a proper solution
 			// for running electron-forge in a mono repository
 			await bundle(__dirname, buildPath);
 		},
 	},
-	rebuildConfig: {},
+	rebuildConfig: {
+		disablePreGypCopy: true,
+	},
 	makers: [
 		{
 			name: '@electron-forge/maker-squirrel', // Windows

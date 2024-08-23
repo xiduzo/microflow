@@ -3,7 +3,7 @@ import {
 	FigmaVariable,
 	useFigmaVariable,
 	useMqtt,
-} from '@microflow/mqtt/client';
+} from '@microflow/mqtt-provider/client';
 import {
 	Badge,
 	Icons,

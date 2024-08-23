@@ -42,20 +42,17 @@ ipcMain.on('ipc-menu', (_event, action, ...args) => {
 ipcMain.on('ipc-check-board', async event => {
 	childProcess?.kill();
 
-	const boardsAndPorts = await getKnownBoardsWithPorts();
-
-	const filePath = join(__dirname, 'workers', 'check.js');
-
 	let connectedPort: PortInfo | null = null;
 
-	const [lastBoard, ports] = boardsAndPorts.at(-1);
-	const lastPort = ports.at(-1);
+	// Check board on all ports which match the known product IDs
+	const boardsAndPorts = await getKnownBoardsWithPorts();
 
 	log.debug('Checking boards and ports', {
 		boardsAndPorts: JSON.stringify(boardsAndPorts),
 	});
 
-	// Check board on all ports which match the known product IDs
+	const filePath = join(__dirname, 'workers', 'check.js');
+
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
 			log.debug(`checking board ${board} on path ${port.path}`, { filePath });
@@ -111,6 +108,8 @@ ipcMain.on('ipc-check-board', async event => {
 					} satisfies BoardCheckResult);
 					break checkBoard; // board is flashed with firmata, no need to check other ports
 				} catch (error) {
+					const [lastBoard, ports] = boardsAndPorts.at(-1);
+					const lastPort = ports.at(-1);
 					log.warn('Error flashing board', { error });
 					// we should not return as we still want to sniff the ports 🐕
 					if (board === lastBoard && port.path === lastPort.path) {

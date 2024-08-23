@@ -3,7 +3,7 @@ import type {
 	MqttDirection,
 	MqttValueType,
 } from '@microflow/components';
-import { useMqtt } from '@microflow/mqtt/client';
+import { useMqtt } from '@microflow/mqtt-provider/client';
 import {
 	Badge,
 	Icons,
