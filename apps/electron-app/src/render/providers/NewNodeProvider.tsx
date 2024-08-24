@@ -111,6 +111,12 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Transformation</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Note')}>
+						Note
+						<CommandShortcut>
+							<Badge variant="outline">Information</Badge>
+						</CommandShortcut>
+					</CommandItem>
 				</CommandGroup>
 				<CommandSeparator />
 				<CommandGroup heading="Hardware">

@@ -20,7 +20,12 @@ export function useCodeUploader() {
 		timeout && clearTimeout(timeout);
 
 		timeout = setTimeout(() => {
-			const nodes = getNodes();
+			const nodes = getNodes().filter(node => {
+				if (node.type === 'Note') {
+					return;
+				}
+				return node;
+			});
 			const edges = getEdges();
 
 			const nodesWithDefaultValues = nodes.map(node => {

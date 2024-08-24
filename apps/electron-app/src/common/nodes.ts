@@ -35,6 +35,10 @@ import {
 	Mqtt,
 } from '../render/components/react-flow/nodes/Mqtt';
 import {
+	DEFAULT_NOTE_DATA,
+	Note,
+} from '../render/components/react-flow/nodes/Note';
+import {
 	DEFAULT_PIEZO_DATA,
 	Piezo,
 } from '../render/components/react-flow/nodes/piezo/Piezo';
@@ -65,6 +69,7 @@ export const NODE_TYPES = {
 	Piezo: Piezo,
 	Motion: Motion,
 	Matrix: Matrix,
+	Note: Note,
 };
 
 export type NodeType = keyof typeof NODE_TYPES;
@@ -86,3 +91,4 @@ DEFAULT_NODE_DATA.set('Servo', DEFAULT_SERVO_DATA);
 DEFAULT_NODE_DATA.set('Piezo', DEFAULT_PIEZO_DATA);
 DEFAULT_NODE_DATA.set('Motion', DEFAULT_MOTION_DATA);
 DEFAULT_NODE_DATA.set('Matrix', DEFAULT_MATRIX_DATA);
+DEFAULT_NODE_DATA.set('Note', DEFAULT_NOTE_DATA);

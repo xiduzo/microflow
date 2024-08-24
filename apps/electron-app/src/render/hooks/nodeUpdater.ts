@@ -7,8 +7,13 @@ export function useUpdateNodeData<T extends Record<string, any>>(
 	const { updateNodeData: internalUpdateNodeData } = useReactFlow();
 	const uploadCode = useCodeUploader();
 
-	function updateNodeData(data: Partial<T>) {
+	function updateNodeData(data: Partial<T>, updateCode = true) {
 		internalUpdateNodeData(nodeId, data);
+
+		if (!updateCode) {
+			return;
+		}
+
 		uploadCode();
 	}
 

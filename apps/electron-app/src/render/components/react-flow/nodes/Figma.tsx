@@ -96,7 +96,7 @@ export function Figma(props: Props) {
 				{isDisconnected && (
 					<Badge variant="destructive">Figma plugin not connected</Badge>
 				)}
-				<NodeValue>
+				<NodeValue className="max-w-48 text-wrap">
 					<FigmaHeaderContent
 						variable={variable}
 						hasVariables={!!Array.from(Object.values(variables)).length}
@@ -228,7 +228,7 @@ function FigmaHeaderContent(props: {
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<div className="-mx-8 max-w-52 max-h-20 text-wrap overflow-hidden pointer-events-auto">
+							<div className="-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto">
 								{String(props.value ?? '-')}
 							</div>
 						</TooltipTrigger>

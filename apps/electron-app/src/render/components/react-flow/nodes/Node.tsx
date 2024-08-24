@@ -31,9 +31,11 @@ export function NodeSettings(props: NodeContainerProps) {
 		<Drawer
 			open={node.data.settingsOpen}
 			nested
+			shouldScaleBackground
 			onOpenChange={update => {
 				if (update === true) return;
 				closeDrawer();
+				props.onClose?.();
 			}}
 		>
 			<DrawerContent>
@@ -69,6 +71,7 @@ export function NodeSettings(props: NodeContainerProps) {
 
 type NodeContainerProps = PropsWithChildren & {
 	className?: string;
+	onClose?: () => void;
 };
 
 export function NodeValue(props: NodeValueProps) {
