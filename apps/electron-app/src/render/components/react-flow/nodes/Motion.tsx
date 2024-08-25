@@ -13,7 +13,6 @@ import {
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
@@ -22,6 +21,7 @@ import {
 	NodeContent,
 	NodeSettings,
 	NodeValue,
+	useNodeSettings,
 } from './Node';
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
@@ -32,10 +32,6 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 }
 
 export function Motion(props: Props) {
-	const { pins } = useBoard();
-
-	const { updateNodeData } = useUpdateNodeData<MotionData>(props.id);
-
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
@@ -47,53 +43,7 @@ export function Motion(props: Props) {
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
-				<Select
-					value={props.data.pin.toString()}
-					onValueChange={(value: Controller) =>
-						updateNodeData({ controller: value })
-					}
-				>
-					<SelectTrigger>{props.data.controller}</SelectTrigger>
-					<SelectContent>
-						{MOTION_CONTROLLERS.map(controller => (
-							<SelectItem key={controller} value={controller}>
-								{controller}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Select
-					value={props.data.pin.toString()}
-					onValueChange={value => updateNodeData({ pin: value })}
-				>
-					<SelectTrigger>Pin {props.data.pin}</SelectTrigger>
-					<SelectContent>
-						{pins
-							.filter(validatePin)
-							.filter(validatedPin => {
-								if (props.data.controller === 'HCSR501') {
-									return validatedPin.analogChannel === 127;
-								} else {
-									return validatedPin.analogChannel !== 127;
-								}
-							})
-							.map(pin => (
-								<SelectItem
-									key={pin.pin}
-									value={
-										pin.analogChannel === 127
-											? `${pin.pin}`
-											: `A${pin.analogChannel}`
-									}
-								>
-									Pin{' '}
-									{pin.analogChannel === 127
-										? pin.pin
-										: `A${pin.analogChannel}`}
-								</SelectItem>
-							))}
-					</SelectContent>
-				</Select>
+				<MotionSettings />
 			</NodeSettings>
 			<Handle
 				type="source"
@@ -111,6 +61,62 @@ export function Motion(props: Props) {
 			/>
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
+	);
+}
+
+function MotionSettings() {
+	const { pins } = useBoard();
+
+	const { settings, setSettings } = useNodeSettings<MotionData>();
+
+	return (
+		<>
+			<Select
+				value={settings.controller}
+				onValueChange={(value: Controller) =>
+					setSettings({ controller: value })
+				}
+			>
+				<SelectTrigger>{settings.controller}</SelectTrigger>
+				<SelectContent>
+					{MOTION_CONTROLLERS.map(controller => (
+						<SelectItem key={controller} value={controller}>
+							{controller}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+			<Select
+				value={settings.pin.toString()}
+				onValueChange={value => setSettings({ pin: value })}
+			>
+				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
+				<SelectContent>
+					{pins
+						.filter(validatePin)
+						.filter(validatedPin => {
+							if (settings.controller === 'HCSR501') {
+								return validatedPin.analogChannel === 127;
+							} else {
+								return validatedPin.analogChannel !== 127;
+							}
+						})
+						.map(pin => (
+							<SelectItem
+								key={pin.pin}
+								value={
+									pin.analogChannel === 127
+										? `${pin.pin}`
+										: `A${pin.analogChannel}`
+								}
+							>
+								Pin{' '}
+								{pin.analogChannel === 127 ? pin.pin : `A${pin.analogChannel}`}
+							</SelectItem>
+						))}
+				</SelectContent>
+			</Select>
+		</>
 	);
 }
 

@@ -10,7 +10,6 @@ import {
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
@@ -19,6 +18,7 @@ import {
 	NodeContent,
 	NodeSettings,
 	NodeValue,
+	useNodeSettings,
 } from './Node';
 
 const ROTATING_SERVO_STOP_DEGREES = 90;
@@ -32,9 +32,6 @@ function validatePin(pin: BoardCheckResult['pins'][0]) {
 
 export function Servo(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
-	const { pins } = useBoard();
-
-	const { updateNodeData } = useUpdateNodeData<ServoData>(props.id);
 
 	const isStandard = props.data.type === 'standard';
 
@@ -110,61 +107,12 @@ export function Servo(props: Props) {
 					)}
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings>
-				<Select
-					value={props.data.pin.toString()}
-					onValueChange={value => updateNodeData({ pin: value })}
-				>
-					<SelectTrigger>Pin {props.data.pin}</SelectTrigger>
-					<SelectContent>
-						{pins.filter(validatePin).map(pin => (
-							<SelectItem key={pin.pin} value={pin.pin.toString()}>
-								Pin {pin.pin}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Select
-					value={props.data.type}
-					onValueChange={value => {
-						updateNodeData({ type: value });
-						updateNodeInternals(props.id);
-					}}
-				>
-					<SelectTrigger className="first-letter:uppercase">
-						{props.data.type}
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="standard">Standard</SelectItem>
-						<SelectItem value="continuous">Continuous</SelectItem>
-					</SelectContent>
-				</Select>
-				{isStandard && (
-					<>
-						<div>Servo range</div>
-						<section className="flex space-x-2 justify-between items-center">
-							<Input
-								type="number"
-								defaultValue={props.data.range[0]}
-								onChange={event =>
-									updateNodeData({
-										range: [Number(event.target.value), props.data.range[1]],
-									})
-								}
-							/>
-							<span className="text-gray-800">-</span>
-							<Input
-								type="number"
-								defaultValue={props.data.range[1]}
-								onChange={event =>
-									updateNodeData({
-										range: [props.data.range[0], Number(event.target.value)],
-									})
-								}
-							/>
-						</section>
-					</>
-				)}
+			<NodeSettings
+				onClose={() => {
+					updateNodeInternals({});
+				}}
+			>
+				<ServoSettings />
 			</NodeSettings>
 			{props.data.type === 'standard' && (
 				<Handle type="target" position={Position.Left} id="min" offset={-1} />
@@ -189,6 +137,71 @@ export function Servo(props: Props) {
 			)}
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
+	);
+}
+
+function ServoSettings() {
+	const { pins } = useBoard();
+
+	const { settings, setSettings } = useNodeSettings<ServoData>();
+
+	return (
+		<>
+			<Select
+				value={settings.pin.toString()}
+				onValueChange={value => setSettings({ pin: value })}
+			>
+				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
+				<SelectContent>
+					{pins.filter(validatePin).map(pin => (
+						<SelectItem key={pin.pin} value={pin.pin.toString()}>
+							Pin {pin.pin}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+			<Select
+				value={settings.type}
+				onValueChange={value => {
+					setSettings({ type: value });
+					updateNodeInternals(props.id);
+				}}
+			>
+				<SelectTrigger className="first-letter:uppercase">
+					{settings.type}
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value="standard">Standard</SelectItem>
+					<SelectItem value="continuous">Continuous</SelectItem>
+				</SelectContent>
+			</Select>
+			{settings.type === 'standard' && (
+				<>
+					<div>Servo range</div>
+					<section className="flex space-x-2 justify-between items-center">
+						<Input
+							type="number"
+							defaultValue={settings.range[0]}
+							onChange={event =>
+								setSettings({
+									range: [Number(event.target.value), settings.range[1]],
+								})
+							}
+						/>
+						<span className="text-gray-800">-</span>
+						<Input
+							type="number"
+							defaultValue={settings.range[1]}
+							onChange={event =>
+								setSettings({
+									range: [settings.range[0], Number(event.target.value)],
+								})
+							}
+						/>
+					</section>
+				</>
+			)}
+		</>
 	);
 }
 

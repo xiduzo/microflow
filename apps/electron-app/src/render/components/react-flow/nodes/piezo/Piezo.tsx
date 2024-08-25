@@ -1,25 +1,8 @@
-import type {
-	BuzzData,
-	PiezoData,
-	PiezoValueType,
-	SongData,
-} from '@microflow/components';
-import {
-	Icons,
-	Label,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	Slider,
-} from '@microflow/ui';
+import type { PiezoData, PiezoValueType } from '@microflow/components';
+import { Icons } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
-import { BoardCheckResult, MODES } from '../../../../../common/types';
-import { useUpdateNodeData } from '../../../../hooks/nodeUpdater';
-import { useBoard } from '../../../../providers/BoardProvider';
 import { deleteEdgesSelector, useNodesEdgesStore } from '../../../../store';
-import { MusicSheet } from '../../../MusicSheet';
 import { Handle } from '../Handle';
 import {
 	BaseNode,
@@ -28,28 +11,12 @@ import {
 	NodeSettings,
 	NodeValue,
 } from '../Node';
-import {
-	DEFAULT_NOTE,
-	DEFAULT_SONG,
-	MAX_NOTE_FREQUENCY,
-	MIN_NOTE_FREQUENCY,
-	NOTES_AND_FREQUENCIES,
-} from './constants';
-import { SongEditor } from './SongEditor';
-
-function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return (
-		pin.supportedModes.includes(MODES.INPUT) &&
-		pin.supportedModes.includes(MODES.PWM)
-	);
-}
+import { DEFAULT_NOTE, NOTES_AND_FREQUENCIES } from './constants';
+import { PiezoSettings } from './PiezoSettings';
 
 export function Piezo(props: Props) {
-	const { pins } = useBoard();
 	const updateNodeInternals = useUpdateNodeInternals();
 	const { deleteEdges } = useNodesEdgesStore(useShallow(deleteEdgesSelector));
-
-	const { updateNodeData } = useUpdateNodeData<PiezoData>(props.id);
 
 	return (
 		<NodeContainer {...props}>
@@ -69,116 +36,13 @@ export function Piezo(props: Props) {
 						))}
 				</NodeValue>
 			</NodeContent>
-
-			<NodeSettings>
-				<Select
-					value={props.data.pin.toString()}
-					onValueChange={value => updateNodeData({ pin: Number(value) })}
-				>
-					<SelectTrigger>Pin {props.data.pin}</SelectTrigger>
-					<SelectContent>
-						{pins.filter(validatePin).map(pin => (
-							<SelectItem key={pin.pin} value={pin.pin.toString()}>
-								Pin {pin.pin}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-
-				<Select
-					value={props.data.type}
-					onValueChange={(value: 'buzz' | 'song') => {
-						updateNodeInternals(props.id);
-
-						let update: Partial<typeof props.data> = { type: value };
-						if (value === 'buzz') {
-							update = {
-								...update,
-								duration: 500,
-								frequency: DEFAULT_FREQUENCY,
-							} as BuzzData;
-						} else {
-							update = {
-								...update,
-								tempo: 100,
-								song: DEFAULT_SONG,
-							} as SongData;
-						}
-						updateNodeData(update);
-						deleteEdges(props.id, ['stop']);
-					}}
-				>
-					<SelectTrigger>{props.data.type}</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="buzz">Buzz</SelectItem>
-						<SelectItem value="song">Song</SelectItem>
-					</SelectContent>
-				</Select>
-
-				{props.data.type === 'buzz' && (
-					<>
-						<Label
-							htmlFor={`duration-${props.id}`}
-							className="flex justify-between"
-						>
-							Duration
-							<span className="opacity-40 font-light">
-								{props.data.duration}ms
-							</span>
-						</Label>
-						<Slider
-							id={`duration-${props.id}`}
-							defaultValue={[props.data.duration]}
-							min={100}
-							max={2500}
-							step={100}
-							onValueChange={value => updateNodeData({ duration: value[0] })}
-						/>
-						<Label
-							htmlFor={`frequency-${props.id}`}
-							className="flex justify-between"
-						>
-							Frequency
-							<span className="opacity-40 font-light">
-								{props.data.frequency}Hz
-							</span>
-						</Label>
-						<Slider
-							id={`frequency-${props.id}`}
-							defaultValue={[props.data.frequency]}
-							min={MIN_NOTE_FREQUENCY}
-							max={MAX_NOTE_FREQUENCY}
-							step={1}
-							onValueChange={value => updateNodeData({ frequency: value[0] })}
-						/>
-						<div className="text-sm text-muted-foreground">
-							Higher frequencies tend to get stuck longer in the piezo then the
-							requested duration. If you experience this, try lowering the
-							frequency or duration.
-						</div>
-					</>
-				)}
-				{props.data.type === 'song' && (
-					<>
-						<Label
-							htmlFor={`tempo-${props.id}`}
-							className="flex justify-between"
-						>
-							Tempo
-							<span className="opacity-40 font-light">{props.data.tempo}</span>
-						</Label>
-						<Slider
-							id={`tempo-${props.id}`}
-							defaultValue={[props.data.tempo]}
-							min={30}
-							max={300}
-							step={10}
-							onValueChange={value => updateNodeData({ tempo: value[0] })}
-						/>
-						<MusicSheet song={props.data.song} />
-						<SongEditor song={props.data.song} onSave={updateNodeData} />
-					</>
-				)}
+			<NodeSettings
+				onClose={() => {
+					updateNodeInternals(props.id);
+					deleteEdges(props.id, ['stop']);
+				}}
+			>
+				<PiezoSettings />
 			</NodeSettings>
 			{props.data.type === 'buzz' && (
 				<Handle
@@ -201,7 +65,7 @@ export function Piezo(props: Props) {
 	);
 }
 
-const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
+export const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
 type Props = BaseNode<PiezoData, PiezoValueType>;
 export const DEFAULT_PIEZO_DATA: Props['data'] = {
 	label: 'Piezo',

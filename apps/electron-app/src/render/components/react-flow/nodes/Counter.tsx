@@ -1,13 +1,7 @@
 import type { CounterData, CounterValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-} from './Node';
+import { BaseNode, NodeContainer, NodeContent, NodeValue } from './Node';
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -19,7 +13,6 @@ export function Counter(props: Props) {
 					{numberFormat.format(props.data.value)}
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings></NodeSettings>
 			<Handle type="target" position={Position.Left} id="reset" offset={1.5} />
 			<Handle
 				offset={0.5}

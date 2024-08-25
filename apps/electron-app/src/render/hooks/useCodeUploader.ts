@@ -6,10 +6,6 @@ import { generateCode } from '../../utils/generateCode';
 import { useBoard } from '../providers/BoardProvider';
 import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../store';
 
-// This is outside of the hook to prevent multiple timeouts
-// from being created when the hook is called multiple times
-let timeout: NodeJS.Timeout | undefined;
-
 export function useCodeUploader() {
 	const { uploadCode: boardUpload } = useBoard();
 
@@ -17,52 +13,48 @@ export function useCodeUploader() {
 		useReactFlow();
 
 	const uploadCode = useCallback(() => {
-		timeout && clearTimeout(timeout);
+		const nodes = getNodes().filter(node => {
+			if (node.type === 'Note') {
+				return;
+			}
+			return node;
+		});
+		const edges = getEdges();
 
-		timeout = setTimeout(() => {
-			const nodes = getNodes().filter(node => {
-				if (node.type === 'Note') {
-					return;
-				}
-				return node;
-			});
-			const edges = getEdges();
+		const nodesWithDefaultValues = nodes.map(node => {
+			const data = DEFAULT_NODE_DATA.get(node.type);
+			if (data?.value !== undefined) {
+				node.data.value = data.value;
+			}
+			updateNodeData(node.id, node.data);
+			return node;
+		});
 
-			const nodesWithDefaultValues = nodes.map(node => {
-				const data = DEFAULT_NODE_DATA.get(node.type);
-				if (data?.value !== undefined) {
-					node.data.value = data.value;
-				}
-				updateNodeData(node.id, node.data);
-				return node;
-			});
-
-			const internalNodes = nodesWithDefaultValues.map(node =>
-				getInternalNode(node.id),
+		const internalNodes = nodesWithDefaultValues.map(node =>
+			getInternalNode(node.id),
+		);
+		const allowedEdges = edges.filter(edge => {
+			const sourceNode = internalNodes.find(
+				node =>
+					node.id === edge.source &&
+					node.internals.handleBounds.source?.find(
+						handle => handle.id === edge.sourceHandle,
+					),
 			);
-			const allowedEdges = edges.filter(edge => {
-				const sourceNode = internalNodes.find(
-					node =>
-						node.id === edge.source &&
-						node.internals.handleBounds.source?.find(
-							handle => handle.id === edge.sourceHandle,
-						),
-				);
-				const targetNode = internalNodes.find(
-					node =>
-						node.id === edge.target &&
-						node.internals.handleBounds.target?.find(
-							handle => handle.id === edge.targetHandle,
-						),
-				);
+			const targetNode = internalNodes.find(
+				node =>
+					node.id === edge.target &&
+					node.internals.handleBounds.target?.find(
+						handle => handle.id === edge.targetHandle,
+					),
+			);
 
-				return sourceNode && targetNode;
-			});
+			return sourceNode && targetNode;
+		});
 
-			const code = generateCode(nodes, allowedEdges);
+		const code = generateCode(nodes, allowedEdges);
 
-			boardUpload(code);
-		}, 1000);
+		boardUpload(code);
 	}, [getNodes, getEdges, updateNodeData, boardUpload, getInternalNode]);
 
 	return uploadCode;

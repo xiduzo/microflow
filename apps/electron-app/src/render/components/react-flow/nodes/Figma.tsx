@@ -30,6 +30,7 @@ import {
 	NodeContent,
 	NodeSettings,
 	NodeValue,
+	useNodeSettings,
 } from './Node';
 
 export function Figma(props: Props) {
@@ -104,26 +105,12 @@ export function Figma(props: Props) {
 					/>
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings>
-				<Select
-					disabled={!Array.from(Object.values(variables)).length}
-					value={props.data.variableId}
-					onValueChange={variableId => {
-						updateNodeData({ variableId });
-						deleteEdges(props.id, ['change']);
-					}}
-				>
-					<SelectTrigger>{variable?.name ?? 'Select variable'}</SelectTrigger>
-					<SelectContent>
-						{Array.from(Object.values(variables)).map(
-							(variable: FigmaVariable) => (
-								<SelectItem key={variable.id} value={variable.id}>
-									{variable.name}
-								</SelectItem>
-							),
-						)}
-					</SelectContent>
-				</Select>
+			<NodeSettings<FigmaData>
+				onClose={() => {
+					deleteEdges(props.id, ['change']);
+				}}
+			>
+				<FigmaSettings />
 			</NodeSettings>
 			{variable?.resolvedType === 'BOOLEAN' && (
 				<>
@@ -196,6 +183,35 @@ export function Figma(props: Props) {
 			)}
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
+	);
+}
+
+function FigmaSettings() {
+	const { settings, setSettings } = useNodeSettings<FigmaData>();
+
+	const { variables, variable } = useFigmaVariable(settings?.variableId);
+
+	return (
+		<>
+			<Select
+				disabled={!Array.from(Object.values(variables)).length}
+				value={settings.variableId}
+				onValueChange={variableId => {
+					setSettings({ variableId });
+				}}
+			>
+				<SelectTrigger>{variable?.name ?? 'Select variable'}</SelectTrigger>
+				<SelectContent>
+					{Array.from(Object.values(variables)).map(
+						(variable: FigmaVariable) => (
+							<SelectItem key={variable.id} value={variable.id}>
+								{variable.name}
+							</SelectItem>
+						),
+					)}
+				</SelectContent>
+			</Select>
+		</>
 	);
 }
 

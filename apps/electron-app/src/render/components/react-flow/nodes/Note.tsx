@@ -1,34 +1,42 @@
 import { Textarea } from '@microflow/ui';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import {
 	BaseNode,
 	NodeContainer,
 	NodeContent,
 	NodeSettings,
 	NodeValue,
+	useNodeSettings,
 } from './Node';
 
 export function Note(props: Props) {
-	const { updateNodeData } = useUpdateNodeData<NoteData>(props.id);
-
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
 				<NodeValue className="max-w-48 text-wrap">{props.data.value}</NodeValue>
 			</NodeContent>
 			<NodeSettings>
-				<Textarea
-					placeholder="Write your note here..."
-					value={props.data.value}
-					onChange={e => updateNodeData({ value: e.target.value }, false)}
-				/>
-				<Textarea
-					placeholder="You can add extra info here..."
-					value={props.data.extraInfo}
-					onChange={e => updateNodeData({ extraInfo: e.target.value }, false)}
-				/>
+				<NoteSettings />
 			</NodeSettings>
 		</NodeContainer>
+	);
+}
+
+function NoteSettings() {
+	const { settings, setSettings } = useNodeSettings<NoteData>();
+
+	return (
+		<>
+			<Textarea
+				placeholder="Write your note here..."
+				value={settings.value}
+				onChange={e => setSettings({ value: e.target.value })}
+			/>
+			<Textarea
+				placeholder="You can add extra info here..."
+				value={settings.extraInfo}
+				onChange={e => setSettings({ extraInfo: e.target.value })}
+			/>
+		</>
 	);
 }
 

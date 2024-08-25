@@ -17,62 +17,102 @@ import {
 	useContext,
 	useEffect,
 	useRef,
+	useState,
 } from 'react';
+import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 
-export function NodeSettings(props: NodeContainerProps) {
+type NodeSettingsContextType<T extends Record<string, any>> = {
+	settings: T;
+	setSettings: (settings: Partial<T>) => void;
+};
+
+const NodeSettingsContextCreator = <T extends Record<string, any>>() =>
+	createContext<NodeSettingsContextType<T>>({
+		settings: {} as T,
+		setSettings: (settings: Partial<T>) => {},
+	});
+
+const NodeSettingsContext = NodeSettingsContextCreator();
+
+export function useNodeSettings<T extends Record<string, any>>() {
+	return useContext<NodeSettingsContextType<T>>(NodeSettingsContext as any);
+}
+
+export function NodeSettings<T>(props: NodeContainerProps<T>) {
 	const node = useNode();
-	const { updateNodeData, deleteElements } = useReactFlow<BaseNode>();
+	const [settings, setSettingsState] = useState(node.data);
+	const { deleteElements } = useReactFlow<BaseNode>();
+	const { updateNodeData } = useUpdateNodeData(node.id);
 
 	function closeDrawer() {
-		updateNodeData(node.id, { settingsOpen: false });
+		const newSettings = { ...settings, settingsOpen: false };
+		updateNodeData(newSettings);
+		setSettingsState(newSettings);
+		props.onClose?.(newSettings as T);
+	}
+
+	function setSettings(settings: Partial<T>) {
+		setSettingsState(prev => {
+			const newSettings = { ...prev, ...settings };
+			return newSettings;
+		});
 	}
 
 	return (
-		<Drawer
-			open={node.data.settingsOpen}
-			nested
-			shouldScaleBackground
-			onOpenChange={update => {
-				if (update === true) return;
-				closeDrawer();
-				props.onClose?.();
+		<NodeSettingsContext.Provider
+			value={{
+				settings,
+				setSettings,
 			}}
 		>
-			<DrawerContent>
-				<DrawerHeader className="max-w-md w-full m-auto mt-6">
-					<DrawerTitle className="flex items-center justify-between">
-						Configure node
-						<span className="text-xs font-light text-neutral-500">
-							id: {node.id}
-						</span>
-					</DrawerTitle>
-					<DrawerDescription>
-						Updates will be automatically applied
-					</DrawerDescription>
-				</DrawerHeader>
-				<section className="max-w-md w-full m-auto flex flex-col space-y-4 mb-8 p-4">
-					{props.children}
+			<Drawer
+				open={node.data.settingsOpen}
+				nested
+				shouldScaleBackground
+				onOpenChange={update => {
+					if (update === true) return;
+					closeDrawer();
+				}}
+			>
+				<section className="pointer-events-none">
+					<DrawerContent>
+						<DrawerHeader className="max-w-md w-full m-auto mt-6">
+							<DrawerTitle className="flex items-center justify-between">
+								Configure node
+								<span className="text-xs font-light text-neutral-500">
+									id: {node.id}
+								</span>
+							</DrawerTitle>
+							<DrawerDescription>
+								Updates will be automatically applied when closing the drawer.
+							</DrawerDescription>
+						</DrawerHeader>
+						<section className="max-w-md w-full m-auto flex flex-col space-y-4 mb-8 p-4">
+							{props.children}
+						</section>
+						<DrawerFooter className="max-w-md w-full m-auto">
+							<Button variant="secondary" onClick={closeDrawer}>
+								Close
+							</Button>
+							<Button
+								variant="destructive"
+								onClick={() => deleteElements({ nodes: [node] })}
+							>
+								Delete node
+							</Button>
+						</DrawerFooter>
+					</DrawerContent>
 				</section>
-				<DrawerFooter className="max-w-md w-full m-auto">
-					<Button variant="secondary" onClick={closeDrawer}>
-						Close
-					</Button>
-					<Button
-						variant="destructive"
-						onClick={() => deleteElements({ nodes: [node] })}
-					>
-						Delete node
-					</Button>
-				</DrawerFooter>
-			</DrawerContent>
-		</Drawer>
+			</Drawer>
+		</NodeSettingsContext.Provider>
 	);
 }
 
-type NodeContainerProps = PropsWithChildren & {
-	className?: string;
-	onClose?: () => void;
-};
+type NodeContainerProps<T extends Record<string, any> = {}> =
+	PropsWithChildren & {
+		className?: string;
+		onClose?: (settings: T) => void;
+	};
 
 export function NodeValue(props: NodeValueProps) {
 	const { data } = useNode();
