@@ -33,10 +33,7 @@ const handleSquirrelEvent = () => {
 	};
 
 	const [, squirrelEvent] = process.argv;
-	if (
-		squirrelEvent === '--squirrel-install' ||
-		squirrelEvent === '--squirrel-updated'
-	) {
+	if (squirrelEvent === '--squirrel-install' || squirrelEvent === '--squirrel-updated') {
 		spawnUpdate(['--createShortcut', exeName]);
 		// eslint-disable-next-line @typescript-eslint/unbound-method
 		setTimeout(app.quit, 1000);

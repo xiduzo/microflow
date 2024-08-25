@@ -8,13 +8,7 @@ export function IconBackButton() {
 	if (location.pathname === '/') return null;
 
 	return (
-		<Button
-			variant="ghost"
-			size="icon"
-			title="Back"
-			className="mr-2"
-			onClick={() => navigate(-1)}
-		>
+		<Button variant="ghost" size="icon" title="Back" className="mr-2" onClick={() => navigate(-1)}>
 			<Icons.ArrowLeft className="w-4 h-4" />
 		</Button>
 	);

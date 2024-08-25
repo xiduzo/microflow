@@ -1,59 +1,17 @@
-import {
-	Button,
-	DEFAULT_BUTTON_DATA,
-} from '../render/components/react-flow/nodes/Button';
-import {
-	Counter,
-	DEFAULT_COUNTER_DATA,
-} from '../render/components/react-flow/nodes/Counter';
-import {
-	DEFAULT_FIGMA_DATA,
-	Figma,
-} from '../render/components/react-flow/nodes/Figma';
-import {
-	DEFAULT_IF_ELSE_DATA,
-	IfElse,
-} from '../render/components/react-flow/nodes/IfElse';
-import {
-	DEFAULT_INTERVAL_DATA,
-	Interval,
-} from '../render/components/react-flow/nodes/Interval';
-import {
-	DEFAULT_LED_DATA,
-	Led,
-} from '../render/components/react-flow/nodes/Led';
-import {
-	DEFAULT_MATRIX_DATA,
-	Matrix,
-} from '../render/components/react-flow/nodes/matrix/Matrix';
-import {
-	DEFAULT_MOTION_DATA,
-	Motion,
-} from '../render/components/react-flow/nodes/Motion';
-import {
-	DEFAULT_MQTT_DATA,
-	Mqtt,
-} from '../render/components/react-flow/nodes/Mqtt';
-import {
-	DEFAULT_NOTE_DATA,
-	Note,
-} from '../render/components/react-flow/nodes/Note';
-import {
-	DEFAULT_PIEZO_DATA,
-	Piezo,
-} from '../render/components/react-flow/nodes/piezo/Piezo';
-import {
-	DEFAULT_RANGE_MAP_DATA,
-	RangeMap,
-} from '../render/components/react-flow/nodes/RangeMap';
-import {
-	DEFAULT_SENSOR_DATA,
-	Sensor,
-} from '../render/components/react-flow/nodes/Sensor';
-import {
-	DEFAULT_SERVO_DATA,
-	Servo,
-} from '../render/components/react-flow/nodes/Servo';
+import { Button, DEFAULT_BUTTON_DATA } from '../render/components/react-flow/nodes/Button';
+import { Counter, DEFAULT_COUNTER_DATA } from '../render/components/react-flow/nodes/Counter';
+import { DEFAULT_FIGMA_DATA, Figma } from '../render/components/react-flow/nodes/Figma';
+import { DEFAULT_IF_ELSE_DATA, IfElse } from '../render/components/react-flow/nodes/IfElse';
+import { DEFAULT_INTERVAL_DATA, Interval } from '../render/components/react-flow/nodes/Interval';
+import { DEFAULT_LED_DATA, Led } from '../render/components/react-flow/nodes/Led';
+import { DEFAULT_MATRIX_DATA, Matrix } from '../render/components/react-flow/nodes/matrix/Matrix';
+import { DEFAULT_MOTION_DATA, Motion } from '../render/components/react-flow/nodes/Motion';
+import { DEFAULT_MQTT_DATA, Mqtt } from '../render/components/react-flow/nodes/Mqtt';
+import { DEFAULT_NOTE_DATA, Note } from '../render/components/react-flow/nodes/Note';
+import { DEFAULT_PIEZO_DATA, Piezo } from '../render/components/react-flow/nodes/piezo/Piezo';
+import { DEFAULT_RANGE_MAP_DATA, RangeMap } from '../render/components/react-flow/nodes/RangeMap';
+import { DEFAULT_SENSOR_DATA, Sensor } from '../render/components/react-flow/nodes/Sensor';
+import { DEFAULT_SERVO_DATA, Servo } from '../render/components/react-flow/nodes/Servo';
 
 export const NODE_TYPES = {
 	Button: Button,

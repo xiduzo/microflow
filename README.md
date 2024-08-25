@@ -13,7 +13,6 @@ A desktop application that allows you to create interactive prototypes using a v
 
 Download the latest release from the [releases page](https://github.com/xiduzo/microflow/releases) and get started.
 
-
 ## Microflow hardware bridge
 
 Bridge the gap between your micro-controllers and design tools.

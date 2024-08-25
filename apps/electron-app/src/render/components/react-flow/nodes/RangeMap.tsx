@@ -19,10 +19,7 @@ export function RangeMap(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeValue
-					className="text-4xl tabular-nums"
-					valueOverride={props.data.value[0]}
-				>
+				<NodeValue className="text-4xl tabular-nums" valueOverride={props.data.value[0]}>
 					{numberFormat.format(props.data.value[0])}
 				</NodeValue>
 				<section className="flex flex-col space-y-3">
@@ -30,10 +27,7 @@ export function RangeMap(props: Props) {
 						<Icons.ArrowsUpFromLine className="rotate-180" />
 					</span>
 				</section>
-				<NodeValue
-					className="text-4xl tabular-nums"
-					valueOverride={props.data.value[1]}
-				>
+				<NodeValue className="text-4xl tabular-nums" valueOverride={props.data.value[1]}>
 					{numberFormat.format(props.data.value[1])}
 				</NodeValue>
 			</NodeContent>

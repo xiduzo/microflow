@@ -37,9 +37,7 @@ export function Button(props: Props) {
 						pressed={Boolean(props.data.value)}
 					>
 						{Boolean(props.data.value) && <Icons.Pointer />}
-						{!Boolean(props.data.value) && (
-							<Icons.PointerOff className="text-muted-foreground" />
-						)}
+						{!Boolean(props.data.value) && <Icons.PointerOff className="text-muted-foreground" />}
 					</Toggle>
 				</NodeValue>
 			</NodeContent>
@@ -48,12 +46,7 @@ export function Button(props: Props) {
 			</NodeSettings>
 			<Handle type="source" position={Position.Right} id="active" offset={-1} />
 			<Handle type="source" position={Position.Right} id="hold" />
-			<Handle
-				type="source"
-				position={Position.Right}
-				id="inactive"
-				offset={1}
-			/>
+			<Handle type="source" position={Position.Right} id="inactive" offset={1} />
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);

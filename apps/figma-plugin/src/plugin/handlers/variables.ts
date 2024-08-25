@@ -17,10 +17,7 @@ export async function deleteVariable(id: string) {
 	figma.ui.postMessage(DeleteVariable(id));
 }
 
-export async function createVariable(
-	name: string,
-	resolvedType: VariableResolvedDataType,
-) {
+export async function createVariable(name: string, resolvedType: VariableResolvedDataType) {
 	const collection = await getCollection();
 
 	figma.variables.createVariable(name, collection, resolvedType);
@@ -28,15 +25,11 @@ export async function createVariable(
 }
 
 export async function getLocalVariables(
-	type:
-		| MESSAGE_TYPE.GET_LOCAL_VARIABLES
-		| MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES,
+	type: MESSAGE_TYPE.GET_LOCAL_VARIABLES | MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES,
 ) {
 	const collection = await getCollection();
 
-	const promises = collection.variableIds.map(id =>
-		figma.variables.getVariableByIdAsync(id),
-	);
+	const promises = collection.variableIds.map(id => figma.variables.getVariableByIdAsync(id));
 	const variables = (await Promise.all(promises)).filter(Boolean);
 
 	const variablesToSend = variables.map(variable => {
@@ -60,10 +53,9 @@ export async function setLocalvariable(id: string, value: unknown) {
 	const newValue = mapValueToFigmaValue(variable.resolvedType, value);
 
 	if (newValue === null) {
-		figma.notify(
-			`Received invalid value (${value as string}) for variable (${variable.name})`,
-			{ error: true },
-		);
+		figma.notify(`Received invalid value (${value as string}) for variable (${variable.name})`, {
+			error: true,
+		});
 		return;
 	}
 

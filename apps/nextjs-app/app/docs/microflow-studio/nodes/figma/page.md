@@ -3,8 +3,8 @@ title: Figma
 ---
 
 {% tags %}
-  {% tag title="Input" /%}
-  {% tag title="Output" /%}
+{% tag title="Input" /%}
+{% tag title="Output" /%}
 {% /tags %}
 
 The Figma node allows you to interact with [Figma variables](https://help.figma.com/hc/en-us/articles/15339657135383-Guide-to-variables-in-Figma).

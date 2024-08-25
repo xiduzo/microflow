@@ -51,12 +51,10 @@ export function PrimaryFeatures() {
 						Rapid prototyping
 					</h2>
 					<p className="mt-6 text-lg tracking-tight text-blue-100">
-						Don&apos;t worry about low-level coding, or coding at all for that
-						matter!
+						Don&apos;t worry about low-level coding, or coding at all for that matter!
 					</p>
 					<p className="mt-1 text-lg tracking-tight text-blue-100">
-						Focus on creating engaging interactions and bringing your ideas to
-						life quickly.
+						Focus on creating engaging interactions and bringing your ideas to life quickly.
 					</p>
 				</div>
 				<Tabs defaultValue={features[0].title} className="mb-6 mt-14">
@@ -73,9 +71,7 @@ export function PrimaryFeatures() {
 					</TabsList>
 					{features.map(feature => (
 						<TabsContent key={feature.title} value={feature.title}>
-							<p className="mt-6 max-w-2xl m-auto text-center">
-								{feature.description}
-							</p>
+							<p className="mt-6 max-w-2xl m-auto text-center">{feature.description}</p>
 							<div
 								aria-hidden="true"
 								className="w-2xl m-auto mt-8 overflow-hidden rounded-xl bg-slate-50 shadow-xl shadow-blue-900/20"

@@ -36,9 +36,7 @@ export function NodeEditor(props: Props) {
 						props.onSelect?.([note, Number(value)]);
 					}}
 				>
-					<SelectTrigger>
-						{noteDurationToVisualDuation(Number(duration))}
-					</SelectTrigger>
+					<SelectTrigger>{noteDurationToVisualDuation(Number(duration))}</SelectTrigger>
 					<SelectContent>
 						{Object.values(NOTE_DURATION)
 							.filter(duration => {
@@ -46,10 +44,7 @@ export function NodeEditor(props: Props) {
 								return duration;
 							})
 							.map(selectableDuration => (
-								<SelectItem
-									key={selectableDuration}
-									value={selectableDuration.toString()}
-								>
+								<SelectItem key={selectableDuration} value={selectableDuration.toString()}>
 									{noteDurationToVisualDuation(selectableDuration)}
 								</SelectItem>
 							))}

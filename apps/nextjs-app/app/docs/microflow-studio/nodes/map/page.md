@@ -3,7 +3,7 @@ title: Map
 ---
 
 {% tags %}
-  {% tag title="Transformation" /%}
+{% tag title="Transformation" /%}
 {% /tags %}
 
 Transforms a number from one range to another.

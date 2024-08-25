@@ -1,8 +1,4 @@
-import type {
-	MqttData,
-	MqttDirection,
-	MqttValueType,
-} from '@microflow/components';
+import type { MqttData, MqttDirection, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
 import {
 	Badge,
@@ -55,12 +51,7 @@ export function Mqtt(props: Props) {
 				}
 			}
 
-			window.electron.ipcRenderer.send(
-				'ipc-external-value',
-				props.type,
-				props.id,
-				value,
-			);
+			window.electron.ipcRenderer.send('ipc-external-value', props.type, props.id, value);
 		});
 
 		return () => {
@@ -71,9 +62,7 @@ export function Mqtt(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				{status !== 'connected' && (
-					<Badge variant="destructive">MQTT not connected</Badge>
-				)}
+				{status !== 'connected' && <Badge variant="destructive">MQTT not connected</Badge>}
 				<NodeValue className="tabular-nums">
 					{props.data.direction === 'publish' ? (
 						<Icons.RadioTower className="w-8 h-8" />

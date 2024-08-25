@@ -36,9 +36,7 @@ export function useCopyToClipboard() {
 			return;
 		}
 
-		sendMessageToFigma(
-			ShowToast('Unabled to copy to clipboard', { error: true }),
-		);
+		sendMessageToFigma(ShowToast('Unabled to copy to clipboard', { error: true }));
 	}
 
 	useEffect(() => {

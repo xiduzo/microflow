@@ -1,11 +1,7 @@
 import { MqttProvider } from '@microflow/mqtt-provider/client';
 import '@microflow/ui/global.css';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import {
-	adjectives,
-	animals,
-	uniqueNamesGenerator,
-} from 'unique-names-generator';
+import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { LOCAL_STORAGE_KEYS } from '../common/types/Message';
 import { MqttVariableMessenger } from './components/MqttVariableMessenger';
 import { useLocalStorage } from './hooks/useLocalStorage';

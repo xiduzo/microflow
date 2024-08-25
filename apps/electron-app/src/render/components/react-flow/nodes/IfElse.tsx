@@ -1,13 +1,5 @@
-import type {
-	IfElseData,
-	IfElseValueType,
-	SubValidator,
-	Validator,
-} from '@microflow/components';
-import {
-	IF_ELSE_SUB_VALIDATORS,
-	IF_ELSE_VALIDATORS,
-} from '@microflow/components/contants';
+import type { IfElseData, IfElseValueType, SubValidator, Validator } from '@microflow/components';
+import { IF_ELSE_SUB_VALIDATORS, IF_ELSE_VALIDATORS } from '@microflow/components/contants';
 import {
 	Icons,
 	Input,
@@ -38,16 +30,10 @@ export function IfElse(props: Props) {
 		<NodeContainer {...props}>
 			<NodeContent>
 				<NodeValue>
-					{props.data.value === true && (
-						<Icons.Check className="w-12 h-12 text-green-500" />
-					)}
-					{props.data.value === false && (
-						<Icons.X className="w-12 h-12 text-red-500" />
-					)}
+					{props.data.value === true && <Icons.Check className="w-12 h-12 text-green-500" />}
+					{props.data.value === false && <Icons.X className="w-12 h-12 text-red-500" />}
 					{props.data.value === null ||
-						(props.data.value === undefined && (
-							<Icons.Dot className="w-12 h-12 text-gray-500" />
-						))}
+						(props.data.value === undefined && <Icons.Dot className="w-12 h-12 text-gray-500" />)}
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
@@ -129,13 +115,11 @@ function IfElseSettings() {
 							<SelectValue placeholder="Validate with" />
 						</SelectTrigger>
 						<SelectContent>
-							{IF_ELSE_SUB_VALIDATORS[settings.validator]?.map(
-								(subValidator: SubValidator) => (
-									<SelectItem key={subValidator} value={subValidator}>
-										{subValidator}
-									</SelectItem>
-								),
-							)}
+							{IF_ELSE_SUB_VALIDATORS[settings.validator]?.map((subValidator: SubValidator) => (
+								<SelectItem key={subValidator} value={subValidator}>
+									{subValidator}
+								</SelectItem>
+							))}
 						</SelectContent>
 					</Select>
 				)}
@@ -162,9 +146,7 @@ function IfElseSettings() {
 							id={`slider-if-else`}
 							key={settings.validatorArgs.length}
 							defaultValue={
-								(settings.validatorArgs.filter(
-									arg => arg !== undefined,
-								) as number[]) ?? [0]
+								(settings.validatorArgs.filter(arg => arg !== undefined) as number[]) ?? [0]
 							}
 							min={0}
 							max={MAX_NUMERIC_VALUE}

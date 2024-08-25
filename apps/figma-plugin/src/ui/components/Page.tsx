@@ -20,11 +20,7 @@ type PageHeaderProps = {
 };
 
 export function PageContent(props: PropsWithChildren & { className?: string }) {
-	return (
-		<main className={pageContent({ className: props.className })}>
-			{props.children}
-		</main>
-	);
+	return <main className={pageContent({ className: props.className })}>{props.children}</main>;
 }
 
 const pageContent = cva('flex flex-col space-y-3 p-4 w-full');

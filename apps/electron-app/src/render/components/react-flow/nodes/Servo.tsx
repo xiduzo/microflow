@@ -1,12 +1,5 @@
 import type { ServoData, ServoValueType } from '@microflow/components';
-import {
-	Icons,
-	Input,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-} from '@microflow/ui';
+import { Icons, Input, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
@@ -24,10 +17,7 @@ import {
 const ROTATING_SERVO_STOP_DEGREES = 90;
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return (
-		pin.supportedModes.includes(MODES.INPUT) &&
-		pin.supportedModes.includes(MODES.PWM)
-	);
+	return pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM);
 }
 
 export function Servo(props: Props) {
@@ -43,9 +33,7 @@ export function Servo(props: Props) {
 		if (props.data.value === ROTATING_SERVO_STOP_DEGREES) return 0;
 
 		const diff =
-			ROTATING_SERVO_STOP_DEGREES +
-			1 -
-			Math.abs(ROTATING_SERVO_STOP_DEGREES - props.data.value);
+			ROTATING_SERVO_STOP_DEGREES + 1 - Math.abs(ROTATING_SERVO_STOP_DEGREES - props.data.value);
 		const rotationSpeedPercentage = diff / ROTATING_SERVO_STOP_DEGREES;
 		const slowestTurningSpeed = 6;
 
@@ -117,9 +105,7 @@ export function Servo(props: Props) {
 			{props.data.type === 'standard' && (
 				<Handle type="target" position={Position.Left} id="min" offset={-1} />
 			)}
-			{props.data.type === 'standard' && (
-				<Handle type="target" position={Position.Left} id="to" />
-			)}
+			{props.data.type === 'standard' && <Handle type="target" position={Position.Left} id="to" />}
 			{props.data.type === 'standard' && (
 				<Handle type="target" position={Position.Left} id="max" offset={1} />
 			)}
@@ -147,10 +133,7 @@ function ServoSettings() {
 
 	return (
 		<>
-			<Select
-				value={settings.pin.toString()}
-				onValueChange={value => setSettings({ pin: value })}
-			>
+			<Select value={settings.pin.toString()} onValueChange={value => setSettings({ pin: value })}>
 				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
 				<SelectContent>
 					{pins.filter(validatePin).map(pin => (
@@ -167,9 +150,7 @@ function ServoSettings() {
 					updateNodeInternals(props.id);
 				}}
 			>
-				<SelectTrigger className="first-letter:uppercase">
-					{settings.type}
-				</SelectTrigger>
+				<SelectTrigger className="first-letter:uppercase">{settings.type}</SelectTrigger>
 				<SelectContent>
 					<SelectItem value="standard">Standard</SelectItem>
 					<SelectItem value="continuous">Continuous</SelectItem>

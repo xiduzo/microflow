@@ -1,16 +1,6 @@
-import type {
-	Controller,
-	MotionData,
-	MotionValueType,
-} from '@microflow/components';
+import type { Controller, MotionData, MotionValueType } from '@microflow/components';
 import { MOTION_CONTROLLERS } from '@microflow/components/contants';
-import {
-	Icons,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-} from '@microflow/ui';
+import { Icons, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
 import { useBoard } from '../../../providers/BoardProvider';
@@ -25,10 +15,7 @@ import {
 } from './Node';
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return (
-		pin.supportedModes.includes(MODES.INPUT) &&
-		!pin.supportedModes.includes(MODES.I2C)
-	);
+	return pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
 }
 
 export function Motion(props: Props) {
@@ -73,9 +60,7 @@ function MotionSettings() {
 		<>
 			<Select
 				value={settings.controller}
-				onValueChange={(value: Controller) =>
-					setSettings({ controller: value })
-				}
+				onValueChange={(value: Controller) => setSettings({ controller: value })}
 			>
 				<SelectTrigger>{settings.controller}</SelectTrigger>
 				<SelectContent>
@@ -86,10 +71,7 @@ function MotionSettings() {
 					))}
 				</SelectContent>
 			</Select>
-			<Select
-				value={settings.pin.toString()}
-				onValueChange={value => setSettings({ pin: value })}
-			>
+			<Select value={settings.pin.toString()} onValueChange={value => setSettings({ pin: value })}>
 				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
 				<SelectContent>
 					{pins
@@ -104,14 +86,9 @@ function MotionSettings() {
 						.map(pin => (
 							<SelectItem
 								key={pin.pin}
-								value={
-									pin.analogChannel === 127
-										? `${pin.pin}`
-										: `A${pin.analogChannel}`
-								}
+								value={pin.analogChannel === 127 ? `${pin.pin}` : `A${pin.analogChannel}`}
 							>
-								Pin{' '}
-								{pin.analogChannel === 127 ? pin.pin : `A${pin.analogChannel}`}
+								Pin {pin.analogChannel === 127 ? pin.pin : `A${pin.analogChannel}`}
 							</SelectItem>
 						))}
 				</SelectContent>

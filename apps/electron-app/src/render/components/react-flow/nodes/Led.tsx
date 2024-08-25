@@ -26,9 +26,7 @@ export function Led(props: Props) {
 		<NodeContainer {...props}>
 			<NodeContent>
 				<NodeValue>
-					{Boolean(props.data.value) && (
-						<Icons.Lightbulb className="w-10 h-10" />
-					)}
+					{Boolean(props.data.value) && <Icons.Lightbulb className="w-10 h-10" />}
 					{!Boolean(props.data.value) && (
 						<Icons.LightbulbOff className="w-10 h-10 text-muted-foreground" />
 					)}

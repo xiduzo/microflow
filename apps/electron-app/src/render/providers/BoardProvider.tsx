@@ -5,13 +5,16 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
 import { BoardCheckResult, Pin, UploadCodeResult } from '../../common/types';
+import { useCelebration } from '../components/Celebration';
 
 const BoardContext = createContext({
-	checkResult: {} as BoardCheckResult,
-	uploadResult: {} as UploadCodeResult,
+	checkResult: 'exit' as BoardCheckResult['type'],
+	uploadResult: 'close' as UploadCodeResult['type'],
 	pins: [] as Pin[],
 	uploadCode: (code: string) => {
 		console.log('uploading code', code);
@@ -20,81 +23,75 @@ const BoardContext = createContext({
 export const useBoard = () => useContext(BoardContext);
 
 export function BoardProvider({ children }: PropsWithChildren) {
-	const [checkResult, setCheckResult] = useState<BoardCheckResult>({
-		type: 'exit',
-	});
-	const [uploadResult, setUploadResult] = useState<UploadCodeResult>({
-		type: 'close',
-	});
-
+	const [isFirstUpload, setIsFirstUpload] = useLocalStorage('isFirstUpload', true);
+	const { celebrate } = useCelebration();
+	const [checkResult, setCheckResult] = useState<BoardCheckResult['type']>('exit');
+	const [uploadResult, setUploadResult] = useState<UploadCodeResult['type']>('close');
 	const [pins, setPins] = useState<Pin[]>([]);
 
-	const uploadCode = useCallback(
-		(code: string) => {
-			setUploadResult({ type: 'info' });
+	const port = useRef<string>(null);
 
-			// TODO: when the uploads happen too fast in a row
-			// we need to already call the `off`
-			const off = window.electron.ipcRenderer.on(
-				'ipc-upload-code',
-				(result: UploadCodeResult) => {
-					console.log('upload result', result);
-					setUploadResult(result);
-					if (result.pins) {
-						setPins(result.pins);
-					}
+	const uploadCode = useCallback((code: string) => {
+		// TODO: why do we need to keep this ref instead uf using the `checkResult.port` state?
+		if (!port.current) {
+			// toast.error('No board connected');
+			return;
+		}
+		setUploadResult('info');
 
-					if (result.type !== 'info') {
-						off();
-					}
+		// TODO: when the uploads happen too fast in a row
+		// we need to already call the `off`
+		const off = window.electron.ipcRenderer.on('ipc-upload-code', (result: UploadCodeResult) => {
+			console.log('upload result', result);
+			setUploadResult(result.type);
 
-					if (result.type === 'error') {
-						toast.error(result.message);
-					}
-				},
-			);
+			if (result.pins) {
+				setPins(result.pins);
+			}
 
-			window.electron.ipcRenderer.send(
-				'ipc-upload-code',
-				code,
-				checkResult.port,
-			);
-
-			return () => {
+			if (result.type !== 'info') {
 				off();
-			};
-		},
-		[checkResult.port],
-	);
+			}
+
+			if (result.type === 'error') {
+				toast.error(result.message);
+			}
+		});
+
+		window.electron.ipcRenderer.send('ipc-upload-code', code, port.current);
+	}, []);
 
 	useEffect(() => {
 		window.electron.ipcRenderer.send('ipc-check-board');
 
-		return window.electron.ipcRenderer.on(
-			'ipc-check-board',
-			(result: BoardCheckResult) => {
-				if (result.type !== 'exit') {
-					console.log('check result', result);
-				}
+		return window.electron.ipcRenderer.on('ipc-check-board', (result: BoardCheckResult) => {
+			console.log('check result', result);
+			setCheckResult(result.type);
 
-				setCheckResult(result);
-				if (result.pins) {
-					setPins(result.pins);
-				}
+			if (result.pins) {
+				setPins(result.pins);
+			}
 
-				switch (result.type) {
-					case 'exit':
-					case 'fail':
-					case 'close':
-						console.log('check result', result);
-						setTimeout(() => {
-							window.electron.ipcRenderer.send('ipc-check-board');
-						}, 1000); // don't force it too much, give the boards some time
-						break;
-				}
-			},
-		);
+			port.current = result.port;
+
+			switch (result.type) {
+				case 'exit':
+				case 'fail':
+				case 'close':
+					setTimeout(() => {
+						window.electron.ipcRenderer.send('ipc-check-board');
+					}, 1000); // don't force it too much, give the boards some time
+					break;
+			}
+		});
 	}, []);
+
+	useEffect(() => {
+		if (checkResult === 'ready' && isFirstUpload) {
+			celebrate('Succesfully connected your first micro-controller, happy hacking!');
+			setIsFirstUpload(false);
+		}
+	}, [checkResult, isFirstUpload]);
 
 	return (
 		<BoardContext.Provider

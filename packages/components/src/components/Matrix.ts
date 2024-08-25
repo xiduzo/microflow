@@ -2,10 +2,7 @@ import { Led } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
 export type MatrixShape = string[];
-export type MatrixData = Omit<
-	Led.MatrixOption & Led.MatrixIC2Option,
-	'board'
-> & {
+export type MatrixData = Omit<Led.MatrixOption & Led.MatrixIC2Option, 'board'> & {
 	shapes: MatrixShape[];
 };
 export type MatrixValueType = MatrixShape;

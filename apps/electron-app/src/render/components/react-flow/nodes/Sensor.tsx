@@ -1,11 +1,5 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import {
-	Progress,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-} from '@microflow/ui';
+import { Progress, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
@@ -21,10 +15,7 @@ import {
 } from './Node';
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return (
-		pin.supportedModes.includes(MODES.INPUT) &&
-		pin.supportedModes.includes(MODES.ANALOG)
-	);
+	return pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG);
 }
 
 export function Sensor(props: Props) {
@@ -56,10 +47,7 @@ function SensorSettings() {
 
 	return (
 		<>
-			<Select
-				value={settings.pin.toString()}
-				onValueChange={value => setSettings({ pin: value })}
-			>
+			<Select value={settings.pin.toString()} onValueChange={value => setSettings({ pin: value })}>
 				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
 				<SelectContent>
 					{pins.filter(validatePin).map(pin => (

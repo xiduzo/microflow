@@ -9,12 +9,11 @@ import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../store';
 export function useCodeUploader() {
 	const { uploadCode: boardUpload } = useBoard();
 
-	const { updateNodeData, getNodes, getEdges, getInternalNode } =
-		useReactFlow();
+	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
 		const nodes = getNodes().filter(node => {
-			if (node.type === 'Note') {
+			if (['note'].includes(node.type.toLowerCase())) {
 				return;
 			}
 			return node;
@@ -30,23 +29,17 @@ export function useCodeUploader() {
 			return node;
 		});
 
-		const internalNodes = nodesWithDefaultValues.map(node =>
-			getInternalNode(node.id),
-		);
+		const internalNodes = nodesWithDefaultValues.map(node => getInternalNode(node.id));
 		const allowedEdges = edges.filter(edge => {
 			const sourceNode = internalNodes.find(
 				node =>
 					node.id === edge.source &&
-					node.internals.handleBounds.source?.find(
-						handle => handle.id === edge.sourceHandle,
-					),
+					node.internals.handleBounds.source?.find(handle => handle.id === edge.sourceHandle),
 			);
 			const targetNode = internalNodes.find(
 				node =>
 					node.id === edge.target &&
-					node.internals.handleBounds.target?.find(
-						handle => handle.id === edge.targetHandle,
-					),
+					node.internals.handleBounds.target?.find(handle => handle.id === edge.targetHandle),
 			);
 
 			return sourceNode && targetNode;
@@ -64,15 +57,13 @@ export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
 	const { checkResult } = useBoard();
 
-	const { nodesCount, edgesCount } = useNodesEdgesStore(
-		useShallow(nodesAndEdgesCountsSelector),
-	);
+	const { nodesCount, edgesCount } = useNodesEdgesStore(useShallow(nodesAndEdgesCountsSelector));
 
 	useEffect(() => {
-		if (checkResult.type !== 'ready') {
+		if (checkResult !== 'ready') {
 			return;
 		}
 
 		uploadCode();
-	}, [nodesCount, edgesCount, uploadCode, checkResult.type]);
+	}, [nodesCount, edgesCount, uploadCode, checkResult]);
 }

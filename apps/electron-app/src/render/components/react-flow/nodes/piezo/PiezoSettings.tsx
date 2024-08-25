@@ -1,29 +1,15 @@
 import { BuzzData, SongData, type PiezoData } from '@microflow/components';
-import {
-	Label,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	Slider,
-} from '@microflow/ui';
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, Slider } from '@microflow/ui';
 import { BoardCheckResult, MODES } from '../../../../../common/types';
 import { useBoard } from '../../../../providers/BoardProvider';
 import { MusicSheet } from '../../../MusicSheet';
 import { useNodeSettings } from '../Node';
-import {
-	DEFAULT_SONG,
-	MAX_NOTE_FREQUENCY,
-	MIN_NOTE_FREQUENCY,
-} from './constants';
+import { DEFAULT_SONG, MAX_NOTE_FREQUENCY, MIN_NOTE_FREQUENCY } from './constants';
 import { DEFAULT_FREQUENCY } from './Piezo';
 import { SongEditor } from './SongEditor';
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return (
-		pin.supportedModes.includes(MODES.INPUT) &&
-		pin.supportedModes.includes(MODES.PWM)
-	);
+	return pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM);
 }
 
 export function PiezoSettings() {
@@ -89,9 +75,7 @@ export function PiezoSettings() {
 					/>
 					<Label htmlFor="frequency" className="flex justify-between">
 						Frequency
-						<span className="opacity-40 font-light">
-							{settings.frequency}Hz
-						</span>
+						<span className="opacity-40 font-light">{settings.frequency}Hz</span>
 					</Label>
 					<Slider
 						id="frequency"
@@ -102,9 +86,8 @@ export function PiezoSettings() {
 						onValueChange={value => setSettings({ frequency: value[0] })}
 					/>
 					<div className="text-sm text-muted-foreground">
-						Higher frequencies tend to get stuck longer in the piezo then the
-						requested duration. If you experience this, try lowering the
-						frequency or duration.
+						Higher frequencies tend to get stuck longer in the piezo then the requested duration. If
+						you experience this, try lowering the frequency or duration.
 					</div>
 				</>
 			)}

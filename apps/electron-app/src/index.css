@@ -1,7 +1,6 @@
 body {
 	@apply w-screen h-screen p-0;
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
-		Arial, sans-serif;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 /*
@@ -72,12 +71,10 @@ body {
 	@apply bg-neutral-400;
 }
 
-.react-flow:has(.react-flow__handle.connectingto.valid)
-	.react-flow__handle.connectingfrom {
+.react-flow:has(.react-flow__handle.connectingto.valid) .react-flow__handle.connectingfrom {
 	@apply bg-green-500;
 }
 
-.react-flow:has(.react-flow__connection.invalid)
-	.react-flow__handle.connectingfrom {
+.react-flow:has(.react-flow__connection.invalid) .react-flow__handle.connectingfrom {
 	@apply bg-red-500;
 }

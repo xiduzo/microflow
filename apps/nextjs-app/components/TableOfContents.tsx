@@ -6,11 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { type Section, type Subsection } from '@/lib/sections';
 
-export function TableOfContents({
-	tableOfContents,
-}: {
-	tableOfContents: Array<Section>;
-}) {
+export function TableOfContents({ tableOfContents }: { tableOfContents: Array<Section> }) {
 	let [currentSection, setCurrentSection] = useState(tableOfContents[0]?.id);
 
 	let getHeadings = useCallback((tableOfContents: Array<Section>) => {

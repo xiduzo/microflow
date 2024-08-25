@@ -39,10 +39,7 @@ function PageLink({
 				>
 					{title}
 					<ArrowIcon
-						className={clsx(
-							'h-4 w-4 flex-none fill-current',
-							dir === 'previous' && '-scale-x-100',
-						)}
+						className={clsx('h-4 w-4 flex-none fill-current', dir === 'previous' && '-scale-x-100')}
 					/>
 				</Link>
 			</dd>

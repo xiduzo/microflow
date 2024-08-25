@@ -19,9 +19,7 @@ import { noteDurationToVisualDuation } from './helpers';
 import { NodeEditor } from './NoteEditor';
 
 export function SongEditor(props: Props) {
-	const [editedSong, setEditedSong] = useState(
-		props.song.map(note => ({ note, id: uuid() })),
-	);
+	const [editedSong, setEditedSong] = useState(props.song.map(note => ({ note, id: uuid() })));
 
 	function swapNotes(id: string, hoveredId: string) {
 		setEditedSong(prev => {

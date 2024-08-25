@@ -1,36 +1,26 @@
-import {
-	FigmaProvider,
-	MqttConfig,
-	MqttProvider,
-} from '@microflow/mqtt-provider/client';
+import { FigmaProvider, MqttConfig, MqttProvider } from '@microflow/mqtt-provider/client';
 import { Toaster } from '@microflow/ui';
-import { Edge, Node, ReactFlowProvider } from '@xyflow/react';
+import { initParticlesEngine } from '@tsparticles/react';
+import { ReactFlowProvider } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import {
-	adjectives,
-	animals,
-	uniqueNamesGenerator,
-} from 'unique-names-generator';
+import { loadFull } from 'tsparticles';
+import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
 import { MqttSettingsForm } from './render/components/forms/MqttSettingsForm';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
 import { useSaveFlow } from './render/hooks/useSaveFlow';
 import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
 import { BoardProvider } from './render/providers/BoardProvider';
-import {
-	NewNodeProvider,
-	useNewNode,
-} from './render/providers/NewNodeProvider';
-import { useNodesEdgesStore } from './render/store';
+import { CelebrationProvider } from './render/providers/CelebrationProvider';
+import { NewNodeProvider, useNewNode } from './render/providers/NewNodeProvider';
 
 export function App() {
-	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>(
-		'mqtt-config',
-		{
-			uniqueId: '',
-		},
-	);
+	const [init, setInit] = useState(false);
+
+	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>('mqtt-config', {
+		uniqueId: '',
+	});
 
 	// Somehow initial triggers engless rerenders
 	// This is a workaround
@@ -44,22 +34,31 @@ export function App() {
 		});
 	}, [mqttConfig.uniqueId]);
 
+	useEffect(() => {
+		initParticlesEngine(async engine => {
+			await loadFull(engine);
+		}).then(() => {
+			setInit(true);
+		});
+	}, []);
+
 	return (
-		<MqttProvider appName="app" config={mqttConfig}>
-			<FigmaProvider>
-				<BoardProvider>
-					<ReactFlowProvider>
-						<NodeAndEdgeSignaler />
-						<LoadNodesAndEdges />
-						<NewNodeProvider>
-							<ReactFlowCanvas />
-							<IpcMenuListeners />
-						</NewNodeProvider>
-					</ReactFlowProvider>
-				</BoardProvider>
-			</FigmaProvider>
-			<Toaster position="top-right" />
-		</MqttProvider>
+		<CelebrationProvider init={init}>
+			<BoardProvider>
+				<MqttProvider appName="app" config={mqttConfig}>
+					<FigmaProvider>
+						<ReactFlowProvider>
+							<NodeAndEdgeSignaler />
+							<NewNodeProvider>
+								<ReactFlowCanvas />
+								<IpcMenuListeners />
+							</NewNodeProvider>
+						</ReactFlowProvider>
+					</FigmaProvider>
+					<Toaster position="top-right" />
+				</MqttProvider>
+			</BoardProvider>
+		</CelebrationProvider>
 	);
 }
 
@@ -72,55 +71,38 @@ function IpcMenuListeners() {
 	const [showMqttSettings, setShowMqttSettings] = useState(false);
 
 	useEffect(() => {
-		window.electron.ipcRenderer.on(
-			'ipc-menu',
-			(button: string, ...props: unknown[]) => {
-				console.log('ipc-menu', button, props);
+		window.electron.ipcRenderer.on('ipc-menu', (button: string, ...props: unknown[]) => {
+			console.log('ipc-menu', button, props);
 
-				switch (button) {
-					case 'save-flow':
-						saveNodesAndEdges();
-						break;
-					case 'clear-flow':
-						clearNodesAndEdges();
-						break;
-					case 'add-node':
-						setOpen(true);
-						break;
-					case 'toggle-autosave':
-						setAutoSave(Boolean(props[0]));
-						break;
-					case 'mqtt-settings':
-						setShowMqttSettings(true);
-						break;
-					default:
-						break;
-				}
-			},
-		);
+			switch (button) {
+				case 'save-flow':
+					saveNodesAndEdges();
+					break;
+				case 'clear-flow':
+					clearNodesAndEdges();
+					break;
+				case 'add-node':
+					setOpen(true);
+					break;
+				case 'toggle-autosave':
+					setAutoSave(Boolean(props[0]));
+					break;
+				case 'mqtt-settings':
+					setShowMqttSettings(true);
+					break;
+				default:
+					break;
+			}
+		});
 	}, [saveNodesAndEdges, setOpen]);
 
-	if (showMqttSettings)
-		return <MqttSettingsForm open onClose={() => setShowMqttSettings(false)} />;
+	if (showMqttSettings) return <MqttSettingsForm open onClose={() => setShowMqttSettings(false)} />;
 
 	return null;
 }
 
 function NodeAndEdgeSignaler() {
 	useSignalNodesAndEdges();
-
-	return null;
-}
-
-function LoadNodesAndEdges() {
-	const [localNodes] = useLocalStorage<Node[]>('nodes', []);
-	const [localEdges] = useLocalStorage<Edge[]>('edges', []);
-	const { setNodes, setEdges } = useNodesEdgesStore();
-
-	useEffect(() => {
-		setNodes(localNodes);
-		setEdges(localEdges);
-	}, [setNodes, localNodes, setEdges, localEdges]);
 
 	return null;
 }

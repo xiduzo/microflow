@@ -37,16 +37,12 @@ function SearchIcon(props: { className?: string }) {
 	return <Icons.Search className={`"w-5 h-5 ${props.className}`} />;
 }
 
-function useAutocomplete({
-	close,
-}: {
-	close: (autocomplete: Autocomplete) => void;
-}) {
+function useAutocomplete({ close }: { close: (autocomplete: Autocomplete) => void }) {
 	let id = useId();
 	let router = useRouter();
-	let [autocompleteState, setAutocompleteState] = useState<
-		AutocompleteState<Result> | EmptyObject
-	>({});
+	let [autocompleteState, setAutocompleteState] = useState<AutocompleteState<Result> | EmptyObject>(
+		{},
+	);
 
 	function navigate({ itemUrl }: { itemUrl?: string }) {
 		if (!itemUrl) {
@@ -55,21 +51,13 @@ function useAutocomplete({
 
 		router.push(itemUrl);
 
-		if (
-			itemUrl ===
-			window.location.pathname + window.location.search + window.location.hash
-		) {
+		if (itemUrl === window.location.pathname + window.location.search + window.location.hash) {
 			close(autocomplete);
 		}
 	}
 
 	let [autocomplete] = useState(() =>
-		createAutocomplete<
-			Result,
-			React.SyntheticEvent,
-			React.MouseEvent,
-			React.KeyboardEvent
-		>({
+		createAutocomplete<Result, React.SyntheticEvent, React.MouseEvent, React.KeyboardEvent>({
 			id,
 			placeholder: 'Find something...',
 			defaultActiveItemId: 0,
@@ -117,14 +105,7 @@ function LoadingIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 				d="M15.5 10a5.5 5.5 0 1 0-5.5 5.5"
 			/>
 			<defs>
-				<linearGradient
-					id={id}
-					x1="13"
-					x2="9.5"
-					y1="9"
-					y2="15"
-					gradientUnits="userSpaceOnUse"
-				>
+				<linearGradient id={id} x1="13" x2="9.5" y1="9" y2="15" gradientUnits="userSpaceOnUse">
 					<stop stopColor="currentColor" />
 					<stop offset="1" stopColor="currentColor" stopOpacity="0" />
 				</linearGradient>
@@ -219,9 +200,7 @@ function SearchResults({
 		return (
 			<p className="px-4 py-8 text-center text-sm text-slate-700 dark:text-slate-400">
 				No results for &ldquo;
-				<span className="break-words text-slate-900 dark:text-white">
-					{query}
-				</span>
+				<span className="break-words text-slate-900 dark:text-white">{query}</span>
 				&rdquo;
 			</p>
 		);
@@ -307,13 +286,7 @@ function CloseOnNavigation({
 	return null;
 }
 
-function SearchDialog({
-	open,
-	setOpen,
-}: {
-	open: boolean;
-	setOpen: (open: boolean) => void;
-}) {
+function SearchDialog({ open, setOpen }: { open: boolean; setOpen: (open: boolean) => void }) {
 	let formRef = useRef<React.ElementRef<'form'>>(null);
 	let panelRef = useRef<React.ElementRef<'div'>>(null);
 	let inputRef = useRef<React.ElementRef<typeof SearchInput>>(null);
@@ -406,8 +379,7 @@ function useSearchProps() {
 		dialogProps: {
 			open,
 			setOpen: useCallback((open: boolean) => {
-				let { width = 0, height = 0 } =
-					buttonRef.current?.getBoundingClientRect() ?? {};
+				let { width = 0, height = 0 } = buttonRef.current?.getBoundingClientRect() ?? {};
 				if (!open || (width !== 0 && height !== 0)) {
 					setOpen(open);
 				}
@@ -421,9 +393,7 @@ export function Search() {
 	let { buttonProps, dialogProps } = useSearchProps();
 
 	useEffect(() => {
-		setModifierKey(
-			/(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent) ? '⌘' : 'Ctrl ',
-		);
+		setModifierKey(/(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent) ? '⌘' : 'Ctrl ');
 	}, []);
 
 	return (

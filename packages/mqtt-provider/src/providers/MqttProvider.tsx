@@ -14,9 +14,7 @@ type MqttProviderContextProps = {
 	uniqueId: string;
 };
 
-const MqttProviderContext = createContext<
-	UseMqttClientProps & MqttProviderContextProps
->({
+const MqttProviderContext = createContext<UseMqttClientProps & MqttProviderContextProps>({
 	status: 'disconnected',
 	connectedClients: new Map<Client, ConnectionStatus>(),
 	connect: () => () => {},
@@ -33,11 +31,10 @@ const MqttProviderContext = createContext<
 
 export function MqttProvider(props: PropsWithChildren & Props) {
 	const mqttClient = useMqttClient();
-	const { connect, status, subscribe, publish, subscriptions, unsubscribe } =
-		mqttClient;
-	const [connectedClients, setConnectedClients] = useState<
-		Map<Client, ConnectionStatus>
-	>(new Map());
+	const { connect, status, subscribe, publish, subscriptions, unsubscribe } = mqttClient;
+	const [connectedClients, setConnectedClients] = useState<Map<Client, ConnectionStatus>>(
+		new Map(),
+	);
 	const disconnectedIntervals = useRef<Map<Client, NodeJS.Timeout>>(new Map());
 
 	useEffect(() => {
@@ -55,22 +52,16 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 	useEffect(() => {
 		if (status !== 'connected') return;
 
-		const unsubFromPing = subscribe(
-			`microflow/v1/${props.config.uniqueId}/+/ping`,
-			topic => {
-				const from = topic.split('/')[3].toString();
-				if (from === props.appName) return; // No need to pong to self
-				// if we received a ping it is connected
-				setConnectedClients(prev => {
-					prev.set(from as Client, 'connected');
-					return new Map(prev);
-				});
-				publish(
-					`microflow/v1/${props.config.uniqueId}/${from}/pong`,
-					props.appName,
-				);
-			},
-		);
+		const unsubFromPing = subscribe(`microflow/v1/${props.config.uniqueId}/+/ping`, topic => {
+			const from = topic.split('/')[3].toString();
+			if (from === props.appName) return; // No need to pong to self
+			// if we received a ping it is connected
+			setConnectedClients(prev => {
+				prev.set(from as Client, 'connected');
+				return new Map(prev);
+			});
+			publish(`microflow/v1/${props.config.uniqueId}/${from}/pong`, props.appName);
+		});
 
 		const unsubFromPong = subscribe(
 			`microflow/v1/${props.config.uniqueId}/${props.appName}/pong`,
@@ -92,10 +83,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 			setConnectedClients(prev => {
 				prev.forEach((_status, client) => {
 					const prevStatus = prev.get(client);
-					prev.set(
-						client,
-						prevStatus === 'disconnected' ? 'disconnected' : 'connecting',
-					);
+					prev.set(client, prevStatus === 'disconnected' ? 'disconnected' : 'connecting');
 					disconnectedIntervals.current.set(
 						client,
 						setTimeout(() => {
@@ -108,10 +96,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 				});
 				return new Map(prev);
 			});
-			await publish(
-				`microflow/v1/${props.config.uniqueId}/${props.appName}/ping`,
-				'',
-			);
+			await publish(`microflow/v1/${props.config.uniqueId}/${props.appName}/ping`, '');
 		}, 1000 * 15);
 
 		return () => {

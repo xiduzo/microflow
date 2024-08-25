@@ -39,13 +39,7 @@ module.exports = {
 		],
 	},
 	hooks: {
-		packageAfterCopy: async (
-			_forgeConfig,
-			buildPath,
-			_electronVersion,
-			_platform,
-			_arch,
-		) => {
+		packageAfterCopy: async (_forgeConfig, buildPath, _electronVersion, _platform, _arch) => {
 			// https://gist.github.com/robin-hartmann/ad6ffc19091c9e661542fbf178647047
 			// this is a workaround until we find a proper solution
 			// for running electron-forge in a mono repository

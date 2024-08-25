@@ -15,10 +15,7 @@ export class Counter extends BaseComponent<CounterValueType> {
 			this.value += this.inputToNumber(amount);
 		} catch (error) {
 			Logger.warn('Invalid value type to increment counter', { amount, error });
-			this.postErrorMessage(
-				'increment',
-				new Error(`${amount} is not a valid number`),
-			);
+			this.postErrorMessage('increment', new Error(`${amount} is not a valid number`));
 		}
 	}
 
@@ -27,10 +24,7 @@ export class Counter extends BaseComponent<CounterValueType> {
 			this.value -= this.inputToNumber(amount);
 		} catch (error) {
 			Logger.warn('Invalid value type to decrement counter', { amount, error });
-			this.postErrorMessage(
-				'decrement',
-				new Error(`${amount} is not a valid number`),
-			);
+			this.postErrorMessage('decrement', new Error(`${amount} is not a valid number`));
 		}
 	}
 

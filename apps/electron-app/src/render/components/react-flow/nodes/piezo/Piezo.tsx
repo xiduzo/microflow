@@ -4,13 +4,7 @@ import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { deleteEdgesSelector, useNodesEdgesStore } from '../../../../store';
 import { Handle } from '../Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-} from '../Node';
+import { BaseNode, NodeContainer, NodeContent, NodeSettings, NodeValue } from '../Node';
 import { DEFAULT_NOTE, NOTES_AND_FREQUENCIES } from './constants';
 import { PiezoSettings } from './PiezoSettings';
 
@@ -45,20 +39,10 @@ export function Piezo(props: Props) {
 				<PiezoSettings />
 			</NodeSettings>
 			{props.data.type === 'buzz' && (
-				<Handle
-					type="target"
-					position={Position.Left}
-					id="buzz"
-					offset={-0.5}
-				/>
+				<Handle type="target" position={Position.Left} id="buzz" offset={-0.5} />
 			)}
 			{props.data.type === 'song' && (
-				<Handle
-					type="target"
-					position={Position.Left}
-					id="play"
-					offset={-0.5}
-				/>
+				<Handle type="target" position={Position.Left} id="play" offset={-0.5} />
 			)}
 			<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
 		</NodeContainer>

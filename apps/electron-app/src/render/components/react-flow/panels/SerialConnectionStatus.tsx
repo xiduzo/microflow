@@ -6,7 +6,7 @@ export function SerialConnectionStatus() {
 	const { checkResult, uploadResult } = useBoard();
 	useAutoCodeUploader();
 
-	if (uploadResult.type === 'error') {
+	if (uploadResult === 'error') {
 		console.debug('SerialConnectionStatus - uploadResult', uploadResult);
 		return (
 			<Badge variant="destructive" className="pointer-events-none">
@@ -16,24 +16,18 @@ export function SerialConnectionStatus() {
 		);
 	}
 
-	if (checkResult.type === 'ready') {
+	if (checkResult === 'ready') {
 		return (
 			<Badge className="bg-green-400 text-green-900 pointer-events-none">
 				Connected
-				{uploadResult.type === 'ready' && (
-					<Icons.Check className="ml-2 h-3 w-3" />
-				)}
-				{uploadResult.type === 'info' && (
-					<Icons.Zap className="w-2 h-2 ml-2 animate-pulse" />
-				)}
-				{uploadResult.type === 'close' && (
-					<Icons.Loader2 className="w-2 h-2 ml-2 animate-spin" />
-				)}
+				{uploadResult === 'ready' && <Icons.Check className="ml-2 h-3 w-3" />}
+				{uploadResult === 'info' && <Icons.Zap className="w-2 h-2 ml-2 animate-pulse" />}
+				{uploadResult === 'close' && <Icons.Loader2 className="w-2 h-2 ml-2 animate-spin" />}
 			</Badge>
 		);
 	}
 
-	if (checkResult.type === 'info') {
+	if (checkResult === 'info') {
 		return (
 			<Badge className="bg-blue-400 text-blue-900 pointer-events-none">
 				Validating micro-controller
@@ -42,18 +36,18 @@ export function SerialConnectionStatus() {
 		);
 	}
 
-	if (['fail', 'warn', 'errror'].includes(checkResult.type)) {
+	if (['fail', 'warn', 'errror'].includes(checkResult)) {
 		console.debug('SerialConnectionStatus - checkResult', checkResult);
 		return (
 			<Badge variant="destructive" className="pointer-events-none">
-				{checkResult.message ?? 'Unknown error occurred'}
+				Unknown error occurred
 			</Badge>
 		);
 	}
 
 	return (
 		<Badge className="bg-muted text-muted-foreground pointer-events-none">
-			{checkResult.message?.split('\n')[0].trim() ?? 'Finding micro-controller'}
+			Finding micro-controller
 			<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
 		</Badge>
 	);

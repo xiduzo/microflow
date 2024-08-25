@@ -22,7 +22,6 @@ try {
 	process.parentPort.postMessage({
 		type: 'info',
 		message: 'checking micro-controller',
-		port: board.port,
 	});
 
 	board.on('info', event => {
@@ -37,7 +36,6 @@ try {
 		// When board is connected and Firmata is flashed
 		process.parentPort.postMessage({
 			type: 'ready',
-			port: board.port,
 			pins:
 				Object.entries(board.pins)?.reduce((acc, [key, value]) => {
 					acc.push({
@@ -54,7 +52,6 @@ try {
 		process.parentPort.postMessage({
 			type: 'error',
 			message: error.message,
-			port: board.port,
 		});
 	});
 
@@ -78,17 +75,20 @@ try {
 
 	board.on('exit', () => {
 		// TODO: find out when this fires
-		process.parentPort.postMessage({ type: 'exit' });
+		process.parentPort.postMessage({
+			type: 'exit',
+		});
 	});
 
 	board.on('close', () => {
 		// TODO: find out when this fires
-		process.parentPort.postMessage({ type: 'close' });
+		process.parentPort.postMessage({
+			type: 'close',
+		});
 	});
 } catch (error) {
 	process.parentPort.postMessage({
 		type: 'error',
 		message: error.message,
-		port: board.port,
 	});
 }

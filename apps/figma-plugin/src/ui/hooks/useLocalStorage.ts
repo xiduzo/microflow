@@ -17,10 +17,7 @@ export function useLocalStorage<T>(
 ) {
 	const [state, setState] = useState(options.initialValue);
 	const localStatePromise = useRef<
-		[
-			((value?: unknown) => void) | undefined,
-			((reason?: unknown) => void) | undefined,
-		]
+		[((value?: unknown) => void) | undefined, ((reason?: unknown) => void) | undefined]
 	>([undefined, undefined]);
 
 	const setLocalState = useCallback(
@@ -31,10 +28,7 @@ export function useLocalStorage<T>(
 			return new Promise((resolve, reject) => {
 				localStatePromise.current = [resolve, reject];
 				sendMessageToFigma(
-					SetLocalStateValue(
-						key,
-						update instanceof Function ? update(state) : update,
-					),
+					SetLocalStateValue(key, update instanceof Function ? update(state) : update),
 				);
 				setTimeout(() => {
 					reject('Timeout');

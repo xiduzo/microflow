@@ -1,8 +1,4 @@
-import type {
-    MatrixData,
-    MatrixShape,
-    MatrixValueType,
-} from '@microflow/components';
+import type { MatrixData, MatrixShape, MatrixValueType } from '@microflow/components';
 import { Button, ScrollArea } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useState } from 'react';
@@ -10,12 +6,12 @@ import { uuid } from '../../../../../utils/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { Handle } from '../Handle';
 import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
-    useNodeSettings,
+	BaseNode,
+	NodeContainer,
+	NodeContent,
+	NodeSettings,
+	NodeValue,
+	useNodeSettings,
 } from '../Node';
 import { DndMatrixEditor } from './DndMatrixEditor';
 import { MatrixDisplay } from './MatrixDisplay';
@@ -26,11 +22,7 @@ export function Matrix(props: Props) {
 		<NodeContainer {...props}>
 			<NodeContent>
 				<NodeValue>
-					<MatrixDisplay
-						size="small"
-						dimensions={[8, 8]}
-						shape={props.data.value}
-					/>
+					<MatrixDisplay size="small" dimensions={[8, 8]} shape={props.data.value} />
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
@@ -44,20 +36,15 @@ export function Matrix(props: Props) {
 				offset={-0.5}
 			/>
 			<Handle type="target" position={Position.Left} id="hide" offset={0.5} />
-			<Handle
-				type="source"
-				position={Position.Bottom}
-				id="change"
-				offset={-1}
-			/>
+			<Handle type="source" position={Position.Bottom} id="change" offset={-1} />
 		</NodeContainer>
 	);
 }
 
 function MatrixSettings() {
-  const { settings, setSettings } = useNodeSettings<MatrixData>();
+	const { settings, setSettings } = useNodeSettings<MatrixData>();
 
-  const [shapes, setShapes] = useState(
+	const [shapes, setShapes] = useState(
 		settings.shapes.map(shape => ({
 			id: uuid(),
 			shape,
@@ -74,61 +61,59 @@ function MatrixSettings() {
 		setShapes(nextShapes);
 	}
 
-  return (
-    <>
-      <ScrollArea className="h-60 p-2 border">
-					<section className="grid grid-cols-12 gap-2">
-						<DragAndDropProvider
-							swap={swapShapes}
-							onDragDone={() =>
-								setSettings({ shapes: shapes.map(({ shape }) => shape) })
-							}
-						>
-							{shapes.map(({ id, shape }, index) => {
-								return (
-									<DndMatrixEditor
-										key={id}
-										index={index}
-										id={id}
-										onSave={newShape => {
-											const nextShapes = [...shapes];
-											nextShapes[index] = {
-												...nextShapes[index],
-												shape: newShape,
-											};
-											setShapes(nextShapes);
-											setSettings({
-												shapes: nextShapes.map(({ shape }) => shape),
-											});
-										}}
-										dimensions={settings.dims}
-										onDelete={() => {
-											const nextShapes = [...shapes];
-											nextShapes.splice(index, 1);
-											setShapes(nextShapes);
-											setSettings({
-												shapes: nextShapes.map(({ shape }) => shape),
-											});
-										}}
-										shape={shape}
-									/>
-								);
-							})}
-						</DragAndDropProvider>
-					</section>
-				</ScrollArea>
-				<MatrixEditor
-					key={shapes.length}
-					onSave={newShape => {
-						setSettings({ shapes: [...settings.shapes, newShape] });
-					}}
-					dimensions={settings.dims}
-					shape={DEFAULT_MATRIX_SHAPE}
-				>
-					<Button variant="outline">Add new shape</Button>
-				</MatrixEditor>
-    </>
-  )
+	return (
+		<>
+			<ScrollArea className="h-60 p-2 border">
+				<section className="grid grid-cols-12 gap-2">
+					<DragAndDropProvider
+						swap={swapShapes}
+						onDragDone={() => setSettings({ shapes: shapes.map(({ shape }) => shape) })}
+					>
+						{shapes.map(({ id, shape }, index) => {
+							return (
+								<DndMatrixEditor
+									key={id}
+									index={index}
+									id={id}
+									onSave={newShape => {
+										const nextShapes = [...shapes];
+										nextShapes[index] = {
+											...nextShapes[index],
+											shape: newShape,
+										};
+										setShapes(nextShapes);
+										setSettings({
+											shapes: nextShapes.map(({ shape }) => shape),
+										});
+									}}
+									dimensions={settings.dims}
+									onDelete={() => {
+										const nextShapes = [...shapes];
+										nextShapes.splice(index, 1);
+										setShapes(nextShapes);
+										setSettings({
+											shapes: nextShapes.map(({ shape }) => shape),
+										});
+									}}
+									shape={shape}
+								/>
+							);
+						})}
+					</DragAndDropProvider>
+				</section>
+			</ScrollArea>
+			<MatrixEditor
+				key={shapes.length}
+				onSave={newShape => {
+					setSettings({ shapes: [...settings.shapes, newShape] });
+				}}
+				dimensions={settings.dims}
+				shape={DEFAULT_MATRIX_SHAPE}
+			>
+				<Button variant="outline">Add new shape</Button>
+			</MatrixEditor>
+		</>
+	);
 }
 
 export const DEFAULT_MATRIX_SHAPE: MatrixShape = [

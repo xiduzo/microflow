@@ -1,9 +1,5 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
-import {
-	FigmaVariable,
-	useFigmaVariable,
-	useMqtt,
-} from '@microflow/mqtt-provider/client';
+import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
 import {
 	Badge,
 	Icons,
@@ -43,13 +39,9 @@ export function Figma(props: Props) {
 
 	const { updateNodeData } = useUpdateNodeData<FigmaData>(props.id);
 
-	const { variables, variable, value } = useFigmaVariable(
-		props.data?.variableId,
-	);
+	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
 
-	const isDisconnected = [undefined, 'disconnected'].includes(
-		connectedClients.get('plugin'),
-	);
+	const isDisconnected = [undefined, 'disconnected'].includes(connectedClients.get('plugin'));
 
 	useEffect(() => {
 		// TODO this sometimes interferes with the publish
@@ -70,10 +62,7 @@ export function Figma(props: Props) {
 		if (lastPublishedValue.current === valueToPublish) return;
 		lastPublishedValue.current = valueToPublish;
 
-		publish(
-			`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`,
-			valueToPublish,
-		);
+		publish(`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`, valueToPublish);
 	}, [props.data?.value, variable, status, appName, uniqueId]);
 
 	useEffect(() => {
@@ -84,19 +73,17 @@ export function Figma(props: Props) {
 	}, [variable?.resolvedType, props.id]);
 
 	useEffect(() => {
-		if (uploadResult.type !== 'ready') return;
+		if (uploadResult !== 'ready') return;
 		if (!variable?.resolvedType) return;
 
 		const value = DEFAULT_FIGMA_VALUE_PER_TYPE[variable.resolvedType];
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
-	}, [uploadResult.type, variable?.resolvedType, props.id]);
+	}, [uploadResult, variable?.resolvedType, props.id]);
 
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				{isDisconnected && (
-					<Badge variant="destructive">Figma plugin not connected</Badge>
-				)}
+				{isDisconnected && <Badge variant="destructive">Figma plugin not connected</Badge>}
 				<NodeValue className="max-w-48 text-wrap">
 					<FigmaHeaderContent
 						variable={variable}
@@ -114,68 +101,24 @@ export function Figma(props: Props) {
 			</NodeSettings>
 			{variable?.resolvedType === 'BOOLEAN' && (
 				<>
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="true"
-						offset={-1}
-					/>
+					<Handle type="target" position={Position.Left} id="true" offset={-1} />
 					<Handle type="target" position={Position.Left} id="toggle" />
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="false"
-						offset={1}
-					/>
+					<Handle type="target" position={Position.Left} id="false" offset={1} />
 				</>
 			)}
 			{variable?.resolvedType === 'COLOR' && (
 				<>
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="red"
-						hint="0-255"
-						offset={-1.5}
-					/>
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="green"
-						hint="0-255"
-						offset={-0.5}
-					/>
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="blue"
-						hint="0-255"
-						offset={0.5}
-					/>
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="opacity"
-						hint="0-100"
-						offset={1.5}
-					/>
+					<Handle type="target" position={Position.Left} id="red" hint="0-255" offset={-1.5} />
+					<Handle type="target" position={Position.Left} id="green" hint="0-255" offset={-0.5} />
+					<Handle type="target" position={Position.Left} id="blue" hint="0-255" offset={0.5} />
+					<Handle type="target" position={Position.Left} id="opacity" hint="0-100" offset={1.5} />
 				</>
 			)}
 			{variable?.resolvedType === 'FLOAT' && (
 				<>
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="increment"
-						offset={-1}
-					/>
+					<Handle type="target" position={Position.Left} id="increment" offset={-1} />
 					<Handle type="target" position={Position.Left} id="set" />
-					<Handle
-						type="target"
-						position={Position.Left}
-						id="decrement"
-						offset={1}
-					/>
+					<Handle type="target" position={Position.Left} id="decrement" offset={1} />
 				</>
 			)}
 			{variable?.resolvedType === 'STRING' && (
@@ -202,13 +145,11 @@ function FigmaSettings() {
 			>
 				<SelectTrigger>{variable?.name ?? 'Select variable'}</SelectTrigger>
 				<SelectContent>
-					{Array.from(Object.values(variables)).map(
-						(variable: FigmaVariable) => (
-							<SelectItem key={variable.id} value={variable.id}>
-								{variable.name}
-							</SelectItem>
-						),
-					)}
+					{Array.from(Object.values(variables)).map((variable: FigmaVariable) => (
+						<SelectItem key={variable.id} value={variable.id}>
+							{variable.name}
+						</SelectItem>
+					))}
 				</SelectContent>
 			</Select>
 		</>
@@ -230,15 +171,9 @@ function FigmaHeaderContent(props: {
 
 	switch (props.variable.resolvedType) {
 		case 'BOOLEAN':
-			return (
-				<Switch className="scale-150" disabled checked={Boolean(props.value)} />
-			);
+			return <Switch className="scale-150" disabled checked={Boolean(props.value)} />;
 		case 'FLOAT':
-			return (
-				<span className="text-4xl tabular-nums">
-					{Number(props.value ?? 0)}
-				</span>
-			);
+			return <span className="text-4xl tabular-nums">{Number(props.value ?? 0)}</span>;
 		case 'STRING':
 			return (
 				<TooltipProvider>
@@ -248,9 +183,7 @@ function FigmaHeaderContent(props: {
 								{String(props.value ?? '-')}
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="max-w-64">
-							{String(props.value)}
-						</TooltipContent>
+						<TooltipContent className="max-w-64">{String(props.value)}</TooltipContent>
 					</Tooltip>
 				</TooltipProvider>
 			);
@@ -275,10 +208,7 @@ export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',
 	value: null,
 };
-export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<
-	FigmaVariable['resolvedType'],
-	unknown
-> = {
+export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
 	BOOLEAN: false,
 	FLOAT: 0,
 	STRING: '-',
