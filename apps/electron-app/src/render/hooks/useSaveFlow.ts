@@ -11,23 +11,15 @@ export function useSaveFlow() {
 
 	const saveNodesAndEdges = useCallback(
 		(autoSave = false) => {
-			setLocalNodes(
-				getNodes().map(node => {
-					node.data.animated = false;
-					return node;
-				}),
-			);
+			setLocalNodes(getNodes());
 
-			setLocalEdges(
-				getEdges().map(edge => {
-					edge.animated = false;
-					return edge;
-				}),
-			);
+			setLocalEdges(getEdges());
 
-			if (!autoSave) {
-				toast.success('Flow saved');
+			if (autoSave) {
+				return;
 			}
+
+			toast.success('Flow saved');
 		},
 		[setLocalNodes, getNodes, setLocalEdges, getEdges],
 	);

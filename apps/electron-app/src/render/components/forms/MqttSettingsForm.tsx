@@ -22,11 +22,7 @@ import {
 	zodResolver,
 } from '@microflow/ui';
 import { useEffect } from 'react';
-import {
-	adjectives,
-	animals,
-	uniqueNamesGenerator,
-} from 'unique-names-generator';
+import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
 
 const schema = Zod.object({
@@ -55,19 +51,13 @@ export function MqttSettingsForm(props: Props) {
 		defaultValues: defaultValues,
 	});
 
-	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>(
-		'mqtt-config',
-		{
-			uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
-		},
-	);
+	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>('mqtt-config', {
+		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
+	});
 
 	function setRandomUniqueName() {
 		form.clearErrors('uniqueId');
-		form.setValue(
-			'uniqueId',
-			uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
-		);
+		form.setValue('uniqueId', uniqueNamesGenerator({ dictionaries: [adjectives, animals] }));
 	}
 
 	function onSubmit(data: Schema) {
@@ -95,8 +85,7 @@ export function MqttSettingsForm(props: Props) {
 				<SheetHeader>
 					<SheetTitle>MQTT Settings</SheetTitle>
 					<SheetDescription>
-						When using Figma nodes, make sure to configure the same MQTT broker
-						in the{' '}
+						When using Figma nodes, make sure to configure the same MQTT broker in the{' '}
 						<a
 							className="underline"
 							href="https://www.figma.com/community/plugin/1373258770799080545/figma-hardware-bridge"
@@ -108,10 +97,7 @@ export function MqttSettingsForm(props: Props) {
 					</SheetDescription>
 				</SheetHeader>
 				<Form {...form}>
-					<form
-						onSubmit={form.handleSubmit(onSubmit)}
-						className="my-4 space-y-4"
-					>
+					<form onSubmit={form.handleSubmit(onSubmit)} className="my-4 space-y-4">
 						<FormField
 							control={form.control}
 							name="uniqueId"
@@ -122,11 +108,7 @@ export function MqttSettingsForm(props: Props) {
 										<FormControl>
 											<Input placeholder="Your unique identifier" {...field} />
 										</FormControl>
-										<Button
-											variant="ghost"
-											type="button"
-											onClick={setRandomUniqueName}
-										>
+										<Button variant="ghost" type="button" onClick={setRandomUniqueName}>
 											<Icons.Dices className="w-4 h-4" />
 										</Button>
 									</section>
@@ -180,11 +162,7 @@ export function MqttSettingsForm(props: Props) {
 								<FormItem>
 									<FormLabel>Password</FormLabel>
 									<FormControl>
-										<Input
-											placeholder="************"
-											type="password"
-											{...field}
-										/>
+										<Input placeholder="************" type="password" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>

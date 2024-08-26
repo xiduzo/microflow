@@ -48,9 +48,7 @@ if (!port) {
 	innerCode += addEnter();
 	innerCode += addEnter();
 
-	const nodesWithActionListener = nodes.filter(node =>
-		edges.some(edge => edge.source === node.id),
-	);
+	const nodesWithActionListener = nodes.filter(node => edges.some(edge => edge.source === node.id));
 
 	nodesWithActionListener.forEach(node => {
 		const actions = edges.filter(edge => edge.source === node.id);
@@ -90,9 +88,7 @@ if (!port) {
 				];
 
 				const shouldSetValue = valueTriggers.includes(edge.targetHandle);
-				let value = shouldSetValue
-					? `${node.type}_${node.id}.value`
-					: undefined;
+				let value = shouldSetValue ? `${node.type}_${node.id}.value` : undefined;
 
 				if (node.type === 'RangeMap' && shouldSetValue) {
 					// Mapper node

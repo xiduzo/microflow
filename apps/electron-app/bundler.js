@@ -69,9 +69,7 @@ const collectProdDeps = node => {
 
 		const depEdges = [...currentNode.edgesOut.values()]
 			.filter(depEdge => depEdge.type === 'prod')
-			.filter(
-				depEdge => !depEdge.to.location.startsWith('node_modules/@types'),
-			);
+			.filter(depEdge => !depEdge.to.location.startsWith('node_modules/@types'));
 
 		// Show dependencies
 		// console.debug(

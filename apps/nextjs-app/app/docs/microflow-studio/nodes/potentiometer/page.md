@@ -3,8 +3,8 @@ title: Potentiometer
 ---
 
 {% tags %}
-  {% tag title="Analog" /%}
-  {% tag title="Input" /%}
+{% tag title="Analog" /%}
+{% tag title="Input" /%}
 {% /tags %}
 
 The OG slider.

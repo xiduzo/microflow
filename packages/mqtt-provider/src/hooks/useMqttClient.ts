@@ -86,10 +86,7 @@ export function useMqttClient() {
 				.on('message', (topic, payload, packet) => {
 					Array.from(subscriptions.current.keys()).forEach(subscription => {
 						const regexp = new RegExp(
-							subscription
-								.replace(/\//g, '\\/')
-								.replace(/\+/g, '\\S+')
-								.replace(/#/, '\\S+'),
+							subscription.replace(/\//g, '\\/').replace(/\+/g, '\\S+').replace(/#/, '\\S+'),
 						);
 						if (!topic.match(regexp)) {
 							return;

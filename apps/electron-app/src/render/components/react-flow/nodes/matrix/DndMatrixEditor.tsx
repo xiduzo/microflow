@@ -1,10 +1,4 @@
-import {
-	cva,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@ui/index';
+import { cva, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ui/index';
 import { useDragAndDrop } from '../../../../providers/DragAndDropProvider';
 import { MatrixDisplay } from './MatrixDisplay';
 import { MatrixEditor, MatrixEditorProps } from './MatrixEditor';
@@ -37,11 +31,7 @@ export function DndMatrixEditor(props: Props) {
 					<Tooltip>
 						<TooltipContent>Shape #{props.index}</TooltipContent>
 						<TooltipTrigger className="w-full">
-							<MatrixDisplay
-								size="tiny"
-								dimensions={[rows, cols]}
-								shape={props.shape}
-							/>
+							<MatrixDisplay size="tiny" dimensions={[rows, cols]} shape={props.shape} />
 						</TooltipTrigger>
 					</Tooltip>
 				</TooltipProvider>

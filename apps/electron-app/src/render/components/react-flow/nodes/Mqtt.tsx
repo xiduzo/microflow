@@ -1,8 +1,4 @@
-import type {
-	MqttData,
-	MqttDirection,
-	MqttValueType,
-} from '@microflow/components';
+import type { MqttData, MqttDirection, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
 import {
 	Badge,
@@ -16,7 +12,6 @@ import {
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect } from 'react';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -24,12 +19,11 @@ import {
 	NodeContent,
 	NodeSettings,
 	NodeValue,
+	useNodeSettings,
 } from './Node';
 
 export function Mqtt(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
-
-	const { updateNodeData } = useUpdateNodeData<MqttData>(props.id);
 
 	const { publish, subscribe, status } = useMqtt();
 
@@ -57,12 +51,7 @@ export function Mqtt(props: Props) {
 				}
 			}
 
-			window.electron.ipcRenderer.send(
-				'ipc-external-value',
-				props.type,
-				props.id,
-				value,
-			);
+			window.electron.ipcRenderer.send('ipc-external-value', props.type, props.id, value);
 		});
 
 		return () => {
@@ -73,9 +62,7 @@ export function Mqtt(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				{status !== 'connected' && (
-					<Badge variant="destructive">MQTT not connected</Badge>
-				)}
+				{status !== 'connected' && <Badge variant="destructive">MQTT not connected</Badge>}
 				<NodeValue className="tabular-nums">
 					{props.data.direction === 'publish' ? (
 						<Icons.RadioTower className="w-8 h-8" />
@@ -84,33 +71,12 @@ export function Mqtt(props: Props) {
 					)}
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings>
-				<Select
-					value={props.data.direction}
-					onValueChange={(value: MqttDirection) => {
-						updateNodeData({ direction: value });
-						updateNodeInternals(props.id);
-					}}
-				>
-					<SelectTrigger>{props.data.direction}</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="publish">Publish</SelectItem>
-						<SelectItem value="subscribe">Subscribe</SelectItem>
-					</SelectContent>
-				</Select>
-				<Label htmlFor={`mqtt-${props.id}`} className="flex justify-between">
-					Topic
-				</Label>
-				<Input
-					id={`mqtt-${props.id}`}
-					defaultValue={props.data.topic}
-					placeholder="your/+/topic/#"
-					onChange={event =>
-						updateNodeData({
-							topic: event.target.value,
-						})
-					}
-				/>
+			<NodeSettings
+				onClose={() => {
+					updateNodeInternals(props.id);
+				}}
+			>
+				<MqttSettings />
 			</NodeSettings>
 			{props.data.direction === 'publish' && (
 				<Handle type="target" position={Position.Left} id="publish" />
@@ -120,6 +86,39 @@ export function Mqtt(props: Props) {
 			)}
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
+	);
+}
+
+function MqttSettings() {
+	const { settings, setSettings } = useNodeSettings<MqttData>();
+	return (
+		<>
+			<Select
+				value={settings.direction}
+				onValueChange={(value: MqttDirection) => {
+					setSettings({ direction: value });
+				}}
+			>
+				<SelectTrigger>{settings.direction}</SelectTrigger>
+				<SelectContent>
+					<SelectItem value="publish">Publish</SelectItem>
+					<SelectItem value="subscribe">Subscribe</SelectItem>
+				</SelectContent>
+			</Select>
+			<Label htmlFor="topic" className="flex justify-between">
+				Topic
+			</Label>
+			<Input
+				id="topic"
+				defaultValue={settings.topic}
+				placeholder="your/+/topic/#"
+				onChange={event =>
+					setSettings({
+						topic: event.target.value,
+					})
+				}
+			/>
+		</>
 	);
 }
 

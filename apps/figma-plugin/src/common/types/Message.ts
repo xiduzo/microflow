@@ -22,10 +22,7 @@ type SetUiOptionsMessage = {
 	type: MESSAGE_TYPE.SET_UI_OPTIONS;
 	payload: Partial<ShowUIOptions>;
 };
-export function SetUiOptions(payload: {
-	width?: number;
-	height?: number;
-}): SetUiOptionsMessage {
+export function SetUiOptions(payload: { width?: number; height?: number }): SetUiOptionsMessage {
 	return {
 		type: MESSAGE_TYPE.SET_UI_OPTIONS,
 		payload: payload,
@@ -59,9 +56,7 @@ export function GetLocalStateValue<T>(key: LOCAL_STORAGE_KEYS, value: T) {
 
 type PickedVariable = Pick<Variable, 'id' | 'name' | 'resolvedType'>;
 type GetLocalVariablesMessage = {
-	type:
-		| MESSAGE_TYPE.GET_LOCAL_VARIABLES
-		| MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES;
+	type: MESSAGE_TYPE.GET_LOCAL_VARIABLES | MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES;
 	payload?: PickedVariable[] | undefined;
 };
 export function GetLocalVariables(
@@ -100,10 +95,7 @@ type ShowToastMessage = {
 		options?: NotificationOptions;
 	};
 };
-export function ShowToast(
-	message: string,
-	options?: NotificationOptions,
-): ShowToastMessage {
+export function ShowToast(message: string, options?: NotificationOptions): ShowToastMessage {
 	return {
 		type: MESSAGE_TYPE.SHOW_TOAST,
 		payload: { message, options },
@@ -117,9 +109,7 @@ type CreateVariableMessage = {
 	payload: Omit<VariableMessage, 'id'>;
 };
 
-export function CreateVariable(
-	payload: Omit<VariableMessage, 'id'>,
-): CreateVariableMessage {
+export function CreateVariable(payload: Omit<VariableMessage, 'id'>): CreateVariableMessage {
 	return {
 		type: MESSAGE_TYPE.CREATE_VARIABLE,
 		payload,

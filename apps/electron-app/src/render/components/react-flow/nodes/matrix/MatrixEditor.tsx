@@ -12,11 +12,7 @@ import {
 import { PropsWithChildren, useState } from 'react';
 import { MatrixDisplay } from './MatrixDisplay';
 
-function newMatrix(options: {
-	dimensions: [number, number];
-	shape?: string[];
-	fill?: string;
-}) {
+function newMatrix(options: { dimensions: [number, number]; shape?: string[]; fill?: string }) {
 	const [rows, columns] = options.dimensions;
 
 	const matrix = Array.from({ length: rows }, () =>
@@ -47,9 +43,7 @@ export function MatrixEditor(props: Props) {
 			<DialogTrigger asChild>{props.children}</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>
-						{!!props.onDelete ? 'Edit' : 'Add new'} shape
-					</DialogTitle>
+					<DialogTitle>{!!props.onDelete ? 'Edit' : 'Add new'} shape</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-4">
 					<MatrixDisplay
@@ -124,24 +118,21 @@ type Props = PropsWithChildren & {
 
 export type { Props as MatrixEditorProps };
 
-const shape = cva(
-	'cursor-pointer transition-all hover:ring-blue-500 hover:ring-4 m-1',
-	{
-		variants: {
-			cols: {
-				1: 'col-span-1',
-				2: 'col-span-2',
-				3: 'col-span-3',
-				4: 'col-span-4',
-				5: 'col-span-5',
-				6: 'col-span-6',
-				7: 'col-span-7',
-				8: 'col-span-8',
-				9: 'col-span-9',
-				10: 'col-span-10',
-				11: 'col-span-11',
-				12: 'col-span-12',
-			},
+const shape = cva('cursor-pointer transition-all hover:ring-blue-500 hover:ring-4 m-1', {
+	variants: {
+		cols: {
+			1: 'col-span-1',
+			2: 'col-span-2',
+			3: 'col-span-3',
+			4: 'col-span-4',
+			5: 'col-span-5',
+			6: 'col-span-6',
+			7: 'col-span-7',
+			8: 'col-span-8',
+			9: 'col-span-9',
+			10: 'col-span-10',
+			11: 'col-span-11',
+			12: 'col-span-12',
 		},
 	},
-);
+});

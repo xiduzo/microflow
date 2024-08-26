@@ -8,9 +8,7 @@ type KnownVariable = Pick<Variable, 'name' | 'resolvedType' | 'id'>;
 
 export function MqttVariableMessenger() {
 	const { status, publish, subscribe, uniqueId } = useMqtt();
-	const publishedVariableValues = useRef<Map<string, any | undefined>>(
-		new Map(),
-	);
+	const publishedVariableValues = useRef<Map<string, any | undefined>>(new Map());
 	const knownVariables = useRef<Record<string, KnownVariable>>({}); // <id, name>
 
 	async function publishVariables(variables?: Variable[]) {
@@ -29,10 +27,7 @@ export function MqttVariableMessenger() {
 
 		const newVariablesAsJson = JSON.stringify(newVariables);
 		if (newVariablesAsJson !== JSON.stringify(knownVariables.current)) {
-			await publish(
-				`microflow/v1/${uniqueId}/plugin/variables`,
-				newVariablesAsJson,
-			);
+			await publish(`microflow/v1/${uniqueId}/plugin/variables`, newVariablesAsJson);
 		}
 
 		knownVariables.current = newVariables;
@@ -67,27 +62,18 @@ export function MqttVariableMessenger() {
 			});
 		});
 
-		subscribe(
-			`microflow/v1/${uniqueId}/+/variable/+/set`,
-			async (topic, message) => {
-				const [, , , app, , variableId] = topic.split('/');
-				const value = JSON.parse(message.toString());
+		subscribe(`microflow/v1/${uniqueId}/+/variable/+/set`, async (topic, message) => {
+			const [, , , app, , variableId] = topic.split('/');
+			const value = JSON.parse(message.toString());
 
-				sendMessageToFigma(
-					SetLocalValiable(variableId, value as VariableValue),
-				);
-			},
-		);
+			sendMessageToFigma(SetLocalValiable(variableId, value as VariableValue));
+		});
 	}, [status, subscribe, publish, uniqueId]);
 
-	useMessageListener<Variable[] | undefined>(
-		MESSAGE_TYPE.GET_LOCAL_VARIABLES,
-		publishVariables,
-		{
-			intervalInMs: 100,
-			shouldSendInitialMessage: true,
-		},
-	);
+	useMessageListener<Variable[] | undefined>(MESSAGE_TYPE.GET_LOCAL_VARIABLES, publishVariables, {
+		intervalInMs: 100,
+		shouldSendInitialMessage: true,
+	});
 
 	return null;
 }

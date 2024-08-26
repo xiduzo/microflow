@@ -4,11 +4,10 @@ const faqs = [
 	[
 		{
 			question: 'Is Microflow free?',
-			answer:
-				'Yes, and we are committed to providing a free platform for all starters.',
+			answer: 'Yes, and we are committed to providing a free platform for all starters.',
 		},
 		{
-			question: 'My micro-controller does not connect, why?',
+			question: 'My microcontroller does not connect, why?',
 			answer:
 				'As of right now we support the following boards: <code>Arduino uno</code>, <code>Arduino mega</code>, <code>Arduino leonardo</code>, <code>Arduino micro</code>, <code>Arduino nano</code> and <code>Arduino yun</code>',
 		},
@@ -26,8 +25,7 @@ const faqs = [
 		},
 		{
 			question: 'Can Micorflow do...?',
-			answer:
-				'Probably not, but Microflow is open-source and you can add the feature yourself!',
+			answer: 'Probably not, but Microflow is open-source and you can add the feature yourself!',
 		},
 	],
 	[
@@ -38,8 +36,7 @@ const faqs = [
 		},
 		{
 			question: 'You are awesome!',
-			answer:
-				'Not really a question, but thank you! You are are awesome too ♥️',
+			answer: 'Not really a question, but thank you! You are are awesome too ♥️',
 		},
 	],
 ];
@@ -72,9 +69,7 @@ export function Faqs() {
 							<ul role="list" className="flex flex-col gap-y-8">
 								{column.map((faq, faqIndex) => (
 									<li key={faqIndex}>
-										<h3 className="font-display text-lg leading-7 text-slate-50">
-											{faq.question}
-										</h3>
+										<h3 className="font-display text-lg leading-7 text-slate-50">{faq.question}</h3>
 										<p
 											className="mt-4 text-sm text-slate-400"
 											dangerouslySetInnerHTML={{ __html: faq.answer }}

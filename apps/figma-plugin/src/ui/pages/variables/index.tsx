@@ -1,10 +1,7 @@
 import { Button, cva, Icons } from '@microflow/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-	LOCAL_STORAGE_KEYS,
-	MESSAGE_TYPE,
-} from '../../../common/types/Message';
+import { LOCAL_STORAGE_KEYS, MESSAGE_TYPE } from '../../../common/types/Message';
 import { PageContent, PageHeader } from '../../components/Page';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
@@ -19,10 +16,7 @@ export function Variables() {
 
 	useSetWindowSize({ width: 450, height: variables?.length ? 550 : 300 });
 
-	useMessageListener<Variable[] | undefined>(
-		MESSAGE_TYPE.GET_LOCAL_VARIABLES,
-		setVariables,
-	);
+	useMessageListener<Variable[] | undefined>(MESSAGE_TYPE.GET_LOCAL_VARIABLES, setVariables);
 
 	return (
 		<>
@@ -43,19 +37,14 @@ export function Variables() {
 						<div className="text-xl">No variables found</div>
 						<div className="text-neutral-400 text-center">
 							All variables created in the{' '}
-							<code className="p-0.5 px-1 bg-yellow-500 rounded-md text-neutral-100">
-								MHB
-							</code>{' '}
+							<code className="p-0.5 px-1 bg-yellow-500 rounded-md text-neutral-100">MHB</code>{' '}
 							collection will be linked automatically with this plugin.
 						</div>
 					</section>
 				)}
 				{variables?.map(variable => {
 					return (
-						<section
-							key={variable.id}
-							className="flex justify-between py-1 group"
-						>
+						<section key={variable.id} className="flex justify-between py-1 group">
 							<div className="flex space-x-2 items-center">
 								<VariableIcon type={variable.resolvedType} />
 								<span>{variable.name}</span>
@@ -67,9 +56,7 @@ export function Variables() {
 									title="Copy publish topic"
 									className="hover:cursor-copy"
 									onClick={() => {
-										copy(
-											`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`,
-										);
+										copy(`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`);
 									}}
 								>
 									<Icons.RadioTower
@@ -87,16 +74,13 @@ export function Variables() {
 									title="Copy subscribe topic"
 									className="hover:cursor-copy"
 									onClick={() => {
-										copy(
-											`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
-										);
+										copy(`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`);
 									}}
 								>
 									<Icons.Antenna
 										className={copyButtonIcon({
 											hasCopiedValue:
-												copiedValue ===
-												`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
+												copiedValue === `microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
 										})}
 										opacity="80%"
 									/>

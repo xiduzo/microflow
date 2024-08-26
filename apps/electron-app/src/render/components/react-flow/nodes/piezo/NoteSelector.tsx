@@ -14,10 +14,7 @@ import {
 import { useState } from 'react';
 import { NOTES_AND_FREQUENCIES } from './constants';
 
-export function NoteSelector(props: {
-	value: string;
-	onSelect: (value: string | null) => void;
-}) {
+export function NoteSelector(props: { value: string; onSelect: (value: string | null) => void }) {
 	const [open, setOpen] = useState(false);
 
 	return (

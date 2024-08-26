@@ -3,7 +3,7 @@ title: If...else
 ---
 
 {% tags %}
-  {% tag title="Control" /%}
+{% tag title="Control" /%}
 {% /tags %}
 
 An `if...else` statement is a fundamental control structure in programming that allows you to make decisions based on certain conditions

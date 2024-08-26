@@ -5,13 +5,7 @@ import { ConnectionStatus, useMqtt } from '@microflow/mqtt-provider/client';
 import { Link } from 'react-router-dom';
 import { useSetWindowSize } from '../../hooks/useSetWindowSize';
 
-function ConnectionStatusBadge({
-	title,
-	status,
-}: {
-	title: string;
-	status?: ConnectionStatus;
-}) {
+function ConnectionStatusBadge({ title, status }: { title: string; status?: ConnectionStatus }) {
 	return (
 		<div className="flex items-center">
 			{title}
@@ -24,19 +18,16 @@ function ConnectionStatusBadge({
 	);
 }
 
-const connectionStatusBadge = cva(
-	'ml-2 pointer-events-none w-2 h-2 rounded-full',
-	{
-		variants: {
-			status: {
-				undefined: 'bg-yellow-500 text-yellow-900 animate-pulse',
-				connected: 'bg-green-500 text-green-900',
-				connecting: 'bg-green-400 text-green-800 animate-pulse',
-				disconnected: 'bg-red-500 text-red-900 animate-pulse',
-			},
+const connectionStatusBadge = cva('ml-2 pointer-events-none w-2 h-2 rounded-full', {
+	variants: {
+		status: {
+			undefined: 'bg-yellow-500 text-yellow-900 animate-pulse',
+			connected: 'bg-green-500 text-green-900',
+			connecting: 'bg-green-400 text-green-800 animate-pulse',
+			disconnected: 'bg-red-500 text-red-900 animate-pulse',
 		},
 	},
-);
+});
 
 export function Home() {
 	const { status, connectedClients } = useMqtt();
@@ -48,12 +39,7 @@ export function Home() {
 				<section className="flex items-center justify-between">
 					<ConnectionStatusBadge title="Mqtt" status={status} />
 					<section className="space-x-2">
-						<Button
-							variant="ghost"
-							size="icon"
-							title="Variables and topics"
-							asChild
-						>
+						<Button variant="ghost" size="icon" title="Variables and topics" asChild>
 							<Link to="/variables">
 								<Icons.Settings2 className="w-4 h-4 rotate-90" opacity="80%" />
 							</Link>
@@ -66,10 +52,7 @@ export function Home() {
 					</section>
 				</section>
 				<section className="flex items-center justify-between">
-					<ConnectionStatusBadge
-						title="Microflow studio"
-						status={connectedClients.get('app')}
-					/>
+					<ConnectionStatusBadge title="Microflow studio" status={connectedClients.get('app')} />
 					<div className="space-x-1">
 						<a href="https://microflow.vercel.app/" target="_blank">
 							<Button variant="ghost" size="icon" title="Get Microflow studio">

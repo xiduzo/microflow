@@ -15,11 +15,7 @@ import {
 	zodResolver,
 } from '@microflow/ui';
 import { useEffect } from 'react';
-import {
-	adjectives,
-	animals,
-	uniqueNamesGenerator,
-} from 'unique-names-generator';
+import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { LOCAL_STORAGE_KEYS, ShowToast } from '../../../common/types/Message';
 import { PageContent, PageHeader } from '../../components/Page';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
@@ -69,10 +65,7 @@ export function Mqtt() {
 
 	function setRandomUniqueName() {
 		form.clearErrors('uniqueId');
-		form.setValue(
-			'uniqueId',
-			uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
-		);
+		form.setValue('uniqueId', uniqueNamesGenerator({ dictionaries: [adjectives, animals] }));
 	}
 
 	useEffect(() => {
@@ -88,10 +81,7 @@ export function Mqtt() {
 			<PageHeader title="MQTT settings" />
 			<PageContent>
 				<Form {...form}>
-					<form
-						onSubmit={form.handleSubmit(onSubmit)}
-						className="my-4 space-y-4"
-					>
+					<form onSubmit={form.handleSubmit(onSubmit)} className="my-4 space-y-4">
 						<FormField
 							control={form.control}
 							name="uniqueId"
@@ -102,22 +92,14 @@ export function Mqtt() {
 										<FormControl>
 											<Input placeholder="Your unique identifier" {...field} />
 										</FormControl>
-										<Button
-											variant="ghost"
-											type="button"
-											onClick={setRandomUniqueName}
-										>
+										<Button variant="ghost" type="button" onClick={setRandomUniqueName}>
 											<Icons.Dices className="w-4 h-4" />
 										</Button>
 									</section>
 									<FormDescription>
-										This identifier allows you to send and receive variable
-										values between this plugin and other MQTT clients, like{' '}
-										<a
-											className="underline"
-											href="https://microflow.vercel.app/"
-											target="_blank"
-										>
+										This identifier allows you to send and receive variable values between this
+										plugin and other MQTT clients, like{' '}
+										<a className="underline" href="https://microflow.vercel.app/" target="_blank">
 											Microflow studio
 										</a>
 										.
@@ -172,11 +154,7 @@ export function Mqtt() {
 								<FormItem>
 									<FormLabel>Password</FormLabel>
 									<FormControl>
-										<Input
-											placeholder="************"
-											type="password"
-											{...field}
-										/>
+										<Input placeholder="************" type="password" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -187,8 +165,8 @@ export function Mqtt() {
 						</Button>
 						<div className="text-orange-500 text-sm">
 							<Icons.TriangleAlert className="w-3.5 h-3.5 pb-0.5 inline-block mr-1" />
-							This plugin will force a connection over <code>wss://</code>, make
-							sure your settings will connect to an encrypted websocket.
+							This plugin will force a connection over <code>wss://</code>, make sure your settings
+							will connect to an encrypted websocket.
 						</div>
 					</form>
 				</Form>

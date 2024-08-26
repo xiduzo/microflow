@@ -1,10 +1,4 @@
-import {
-    createContext,
-    PropsWithChildren,
-    useContext,
-    useEffect,
-    useState,
-} from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 
 const DragAndDropContext = createContext({
 	dragging: '',
@@ -24,9 +18,9 @@ export function DragAndDropProvider(props: PropsWithChildren & Actions) {
 	const setDragging = (id: string) => () => {
 		internalSetDragging(id);
 
-		if(id === ''){
-      props.onDragDone?.();
-    }
+		if (id === '') {
+			props.onDragDone?.();
+		}
 	};
 
 	const setHover = (id: string) => () => {

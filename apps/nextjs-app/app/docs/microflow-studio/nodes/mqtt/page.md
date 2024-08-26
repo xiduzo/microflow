@@ -3,8 +3,8 @@ title: MQTT
 ---
 
 {% tags %}
-  {% tag title="Input" /%}
-  {% tag title="Output" /%}
+{% tag title="Input" /%}
+{% tag title="Output" /%}
 {% /tags %}
 
 The MQTT node allows you to send and receive messages from any MQTT broker.

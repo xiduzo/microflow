@@ -1,11 +1,4 @@
-import {
-	Background,
-	Controls,
-	MiniMap,
-	Panel,
-	ReactFlow,
-	useReactFlow,
-} from '@xyflow/react';
+import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useNodesEdgesStore } from '../../store';

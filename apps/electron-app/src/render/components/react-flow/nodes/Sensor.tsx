@@ -1,15 +1,8 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import {
-	Progress,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-} from '@microflow/ui';
+import { Progress, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
@@ -18,20 +11,14 @@ import {
 	NodeContent,
 	NodeSettings,
 	NodeValue,
+	useNodeSettings,
 } from './Node';
 
 function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return (
-		pin.supportedModes.includes(MODES.INPUT) &&
-		pin.supportedModes.includes(MODES.ANALOG)
-	);
+	return pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG);
 }
 
 export function Sensor(props: Props) {
-	const { pins } = useBoard();
-
-	const { updateNodeData } = useUpdateNodeData<SensorData>(props.id);
-
 	const progress = useMemo(() => {
 		if (!props.data.value) return 0;
 
@@ -46,22 +33,31 @@ export function Sensor(props: Props) {
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
-				<Select
-					value={props.data.pin.toString()}
-					onValueChange={value => updateNodeData({ pin: value })}
-				>
-					<SelectTrigger>Pin {props.data.pin}</SelectTrigger>
-					<SelectContent>
-						{pins.filter(validatePin).map(pin => (
-							<SelectItem key={pin.pin} value={`A${pin.analogChannel}`}>
-								Pin A{pin.analogChannel}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				<SensorSettings />
 			</NodeSettings>
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
+	);
+}
+
+function SensorSettings() {
+	const { pins } = useBoard();
+
+	const { settings, setSettings } = useNodeSettings<SensorData>();
+
+	return (
+		<>
+			<Select value={settings.pin.toString()} onValueChange={value => setSettings({ pin: value })}>
+				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
+				<SelectContent>
+					{pins.filter(validatePin).map(pin => (
+						<SelectItem key={pin.pin} value={`A${pin.analogChannel}`}>
+							Pin A{pin.analogChannel}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+		</>
 	);
 }
 

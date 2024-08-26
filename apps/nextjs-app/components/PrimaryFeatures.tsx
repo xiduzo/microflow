@@ -13,19 +13,19 @@ const features = [
 	{
 		title: 'Hardware',
 		description:
-			'Connect a wide range of hardware components to your micro-controller and start designing interactions using flows. From temperature sensors to LEDs, Microflow studio makes it easy to integrate a variety of components into your project.',
+			'Connect a wide range of hardware components to your microcontroller and start designing interactions using flows. From temperature sensors to LEDs, Microflow studio makes it easy to integrate a variety of components into your project.',
 		image: hardwareImage,
 	},
 	{
 		title: 'MQTT',
 		description:
-			'Use our MQTT feature to send and receive data between any MQTT client and your micro-controller. This allows for seamless remote control of devices, making it easy to integrate IoT applications into your project.',
+			'Use our MQTT feature to send and receive data between any MQTT client and your microcontroller. This allows for seamless remote control of devices, making it easy to integrate IoT applications into your project.',
 		image: mqttImage,
 	},
 	{
 		title: 'Figma',
 		description:
-			'Integrate your Figma designs with our platform for interactive prototypes. Control variables directly from your design environment, making it easy to test and refine your projects in a realistic setting.',
+			'Integrate your Figma designs with our platform for interactive prototypes. Control variables directly from Microflow studio, making it easy to test and refine your projects in a realistic setting.',
 		image: figmaImage,
 	},
 ];
@@ -51,12 +51,10 @@ export function PrimaryFeatures() {
 						Rapid prototyping
 					</h2>
 					<p className="mt-6 text-lg tracking-tight text-blue-100">
-						Don&apos;t worry about low-level coding, or coding at all for that
-						matter!
+						Don&apos;t worry about low-level coding, or coding at all for that matter!
 					</p>
 					<p className="mt-1 text-lg tracking-tight text-blue-100">
-						Focus on creating engaging interactions and bringing your ideas to
-						life quickly.
+						Focus on creating engaging interactions and bringing your ideas to life quickly.
 					</p>
 				</div>
 				<Tabs defaultValue={features[0].title} className="mb-6 mt-14">
@@ -73,9 +71,7 @@ export function PrimaryFeatures() {
 					</TabsList>
 					{features.map(feature => (
 						<TabsContent key={feature.title} value={feature.title}>
-							<p className="mt-6 max-w-2xl m-auto text-center">
-								{feature.description}
-							</p>
+							<p className="mt-6 max-w-2xl m-auto text-center">{feature.description}</p>
 							<div
 								aria-hidden="true"
 								className="w-2xl m-auto mt-8 overflow-hidden rounded-xl bg-slate-50 shadow-xl shadow-blue-900/20"

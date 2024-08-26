@@ -1,7 +1,6 @@
 import { Avr109 } from './protocols/Avr109';
 import { Stk500v1 } from './protocols/Stk500v1';
 import { Stk500v2 } from './protocols/Stk500v2';
-// import { Stk500v2 } from './protocols/Stk500v2';
 
 export const BOARDS = [
 	{
@@ -13,18 +12,6 @@ export const BOARDS = [
 		timeout: 400,
 		productIds: ['0043', '7523', '0001', 'ea60', '6015'],
 		productPage: 'https://store.arduino.cc/arduino-uno-rev3',
-		protocol: Stk500v1,
-	},
-	{
-		name: 'nano',
-		baudRate: 57600,
-		signature: Buffer.from([0x1e, 0x95, 0x0f]),
-		pageSize: 128,
-		numPages: 256,
-		timeout: 400,
-		productIds: ['6001', '7523'],
-		productPage:
-			'https://web.archive.org/web/20150813095112/https://www.arduino.cc/en/Main/ArduinoBoardNano',
 		protocol: Stk500v1,
 	},
 	{
@@ -44,6 +31,18 @@ export const BOARDS = [
 		productIds: ['0042', '6001', '0010', '7523'],
 		productPage: 'https://store.arduino.cc/mega-2560-r3',
 		protocol: Stk500v2,
+	},
+	{
+		name: 'nano',
+		baudRate: 57600,
+		signature: Buffer.from([0x1e, 0x95, 0x0f]),
+		pageSize: 128,
+		numPages: 256,
+		timeout: 400,
+		productIds: ['6001', '7523'],
+		productPage:
+			'https://web.archive.org/web/20150813095112/https://www.arduino.cc/en/Main/ArduinoBoardNano',
+		protocol: Stk500v1,
 	},
 	{
 		name: 'nano (new bootloader)',

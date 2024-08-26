@@ -5,21 +5,11 @@ import {
 	type BoardName,
 	type PortInfo,
 } from '@microflow/flasher';
-import {
-	ipcMain,
-	IpcMainEvent,
-	Menu,
-	utilityProcess,
-	UtilityProcess,
-} from 'electron';
+import { ipcMain, IpcMainEvent, Menu, utilityProcess, UtilityProcess } from 'electron';
 import log from 'electron-log/node';
 import { existsSync, writeFile } from 'fs';
 import { join, resolve } from 'path';
-import {
-	BoardCheckResult,
-	UploadCodeResult,
-	UploadedCodeMessage,
-} from '../common/types';
+import { BoardCheckResult, UploadCodeResult, UploadedCodeMessage } from '../common/types';
 
 let childProcess: UtilityProcess | null = null;
 
@@ -59,7 +49,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 			const result = await new Promise<BoardCheckResult>(resolve => {
 				childProcess = utilityProcess.fork(filePath, [port.path], {
-					serviceName: 'Microflow studio - micro-controller validator',
+					serviceName: 'Microflow studio - microcontroller validator',
 					stdio: 'pipe',
 				});
 
@@ -83,14 +73,14 @@ ipcMain.on('ipc-check-board', async event => {
 					}
 
 					// Inform info messages to the renderer
-					event.reply('ipc-check-board', message);
+					event.reply('ipc-check-board', { ...message, port: port.path });
 				});
 			});
 
 			if (result.type === 'ready') {
 				// board is ready, no need to check other ports
 				connectedPort = port;
-				event.reply('ipc-check-board', result);
+				event.reply('ipc-check-board', { ...result, port: port.path });
 				break checkBoard;
 			}
 
@@ -113,7 +103,7 @@ ipcMain.on('ipc-check-board', async event => {
 					log.warn('Error flashing board', { error });
 					// we should not return as we still want to sniff the ports 🐕
 					if (board === lastBoard && port.path === lastPort.path) {
-						event.reply('ipc-check-board', result);
+						event.reply('ipc-check-board', { ...result, port: port.path });
 					}
 				}
 			}
@@ -147,7 +137,7 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 		}
 
 		childProcess = utilityProcess.fork(filePath, [portPath], {
-			serviceName: 'Microflow studio - micro-controller runner',
+			serviceName: 'Microflow studio - microcontroller runner',
 			stdio: 'pipe',
 		});
 
@@ -157,17 +147,14 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 			});
 		});
 
-		childProcess.on(
-			'message',
-			(message: UploadedCodeMessage | UploadCodeResult) => {
-				if ('type' in message) {
-					event.reply('ipc-upload-code', message);
-					return;
-				}
+		childProcess.on('message', (message: UploadedCodeMessage | UploadCodeResult) => {
+			if ('type' in message) {
+				event.reply('ipc-upload-code', message);
+				return;
+			}
 
-				event.reply('ipc-microcontroller', message);
-			},
-		);
+			event.reply('ipc-microcontroller', message);
+		});
 	});
 });
 
@@ -179,12 +166,7 @@ async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
 	childProcess?.kill();
 	log.debug(`Try flashing firmata to ${board} on ${port.path}`);
 
-	const firmataPath = resolve(
-		__dirname,
-		'hex',
-		board,
-		'StandardFirmata.cpp.hex',
-	);
+	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
 
 	// Check if file exists
 	if (!existsSync(firmataPath)) {
@@ -198,10 +180,7 @@ async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
 			await new Flasher(board, port.path).flash(firmataPath);
 			resolve();
 		} catch (flashError) {
-			log.error(
-				`Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-				{ flashError },
-			);
+			log.error(`Unable to flash ${board} on ${port.path} using ${firmataPath}`, { flashError });
 			reject(flashError);
 		}
 	});
@@ -222,22 +201,17 @@ function sniffPorts(
 	getConnectedPorts()
 		.then(ports => {
 			// Check if the connected port is still connected
-			if (
-				options.connectedPort &&
-				!ports.find(port => port.path === options.connectedPort.path)
-			) {
+			if (options.connectedPort && !ports.find(port => port.path === options.connectedPort.path)) {
 				event.reply('ipc-check-board', {
 					type: 'exit',
+					port: options.connectedPort.path,
 				} satisfies BoardCheckResult);
 				return;
 			}
 
 			// Check if new ports are connected
 			// We only care about this if we don't have a connected port
-			if (
-				!options.connectedPort &&
-				ports.length !== options.portsConnected?.length
-			) {
+			if (!options.connectedPort && ports.length !== options.portsConnected?.length) {
 				event.reply('ipc-check-board', {
 					type: 'exit',
 				} satisfies BoardCheckResult);
@@ -277,9 +251,7 @@ async function getKnownBoardsWithPorts() {
 		if (boardsWithPorts.length) {
 			log.debug('Found boards on ports:');
 			boardsWithPorts.forEach(([board, devices]) => {
-				log.debug(
-					`  - ${board} on ${devices.map(device => device.path).join(', ')}`,
-				);
+				log.debug(`  - ${board} on ${devices.map(device => device.path).join(', ')}`);
 			});
 		}
 

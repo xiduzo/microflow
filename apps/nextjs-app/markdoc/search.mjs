@@ -55,10 +55,7 @@ export default function withSearch(nextConfig = {}) {
 
 						let files = glob.sync('**/page.md', { cwd: pagesDir });
 						let data = files.map(file => {
-							let url =
-								file === 'page.md'
-									? '/'
-									: `/${file.replace(/\/page\.md$/, '')}`;
+							let url = file === 'page.md' ? '/' : `/${file.replace(/\/page\.md$/, '')}`;
 							let md = fs.readFileSync(path.join(pagesDir, file), 'utf8');
 
 							let sections;
@@ -67,10 +64,7 @@ export default function withSearch(nextConfig = {}) {
 								sections = cache.get(file)[1];
 							} else {
 								let ast = Markdoc.parse(md);
-								let title =
-									ast.attributes?.frontmatter?.match(
-										/^title:\s*(.*?)\s*$/m,
-									)?.[1];
+								let title = ast.attributes?.frontmatter?.match(/^title:\s*(.*?)\s*$/m)?.[1];
 								sections = [[title, null, []]];
 								extractSections(ast, sections);
 								cache.set(file, [md, sections]);

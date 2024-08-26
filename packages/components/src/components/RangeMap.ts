@@ -26,8 +26,7 @@ export class RangeMap extends BaseComponent<Range> {
 		const [inMin = 0, inMax = 1023] = this.options.from;
 		const [outMin = 0, outMax = 1023] = this.options.to;
 
-		const mapped =
-			((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+		const mapped = ((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
 		const distance = outMax - outMin;
 		const normalizedOutput = parseFloat(mapped.toFixed(distance <= 10 ? 1 : 0));
 

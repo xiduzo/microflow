@@ -1,9 +1,4 @@
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@microflow/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@microflow/ui';
 import { HandleProps, Position, Handle as XyFlowHandle } from '@xyflow/react';
 
 const HANDLE_SPACING = 30;
@@ -17,22 +12,13 @@ export function Handle(props: Props) {
 					<XyFlowHandle
 						{...props}
 						style={{
-							width: [Position.Top, Position.Bottom].includes(props.position)
-								? 24
-								: 12,
-							height: [Position.Left, Position.Right].includes(props.position)
-								? 24
-								: 12,
-							marginLeft: [Position.Top, Position.Bottom].includes(
-								props.position,
-							)
+							width: [Position.Top, Position.Bottom].includes(props.position) ? 24 : 12,
+							height: [Position.Left, Position.Right].includes(props.position) ? 24 : 12,
+							marginLeft: [Position.Top, Position.Bottom].includes(props.position)
 								? HANDLE_SPACING * (props.offset ?? 0)
 								: 0,
-							marginTop: [Position.Left, Position.Right].includes(
-								props.position,
-							)
-								? HANDLE_SPACING * (props.offset ?? 0) +
-									NODER_HEADER_HEIGHT_SPACING
+							marginTop: [Position.Left, Position.Right].includes(props.position)
+								? HANDLE_SPACING * (props.offset ?? 0) + NODER_HEADER_HEIGHT_SPACING
 								: 0,
 							...props.style,
 						}}

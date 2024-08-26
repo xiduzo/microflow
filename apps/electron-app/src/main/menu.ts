@@ -1,10 +1,4 @@
-import {
-	app,
-	BrowserWindow,
-	Menu,
-	MenuItem,
-	MenuItemConstructorOptions,
-} from 'electron';
+import { app, BrowserWindow, Menu, MenuItem, MenuItemConstructorOptions } from 'electron';
 
 const isMac = process.platform === 'darwin';
 
@@ -55,11 +49,7 @@ export function createMenu(mainWindow: BrowserWindow) {
 					type: 'checkbox',
 					checked: true,
 					click: menuItem => {
-						mainWindow.webContents.send(
-							'ipc-menu',
-							'toggle-autosave',
-							menuItem.checked,
-						);
+						mainWindow.webContents.send('ipc-menu', 'toggle-autosave', menuItem.checked);
 					},
 				},
 				{

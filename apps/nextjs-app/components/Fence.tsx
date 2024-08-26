@@ -4,13 +4,7 @@ import mermaid from 'mermaid';
 import { Highlight } from 'prism-react-renderer';
 import { Fragment, useEffect, useRef } from 'react';
 
-export function Fence({
-	children,
-	language,
-}: {
-	children: string;
-	language: string;
-}) {
+export function Fence({ children, language }: { children: string; language: string }) {
 	const mermaidElement = useRef<HTMLPreElement>(null);
 
 	useEffect(() => {
@@ -33,11 +27,7 @@ export function Fence({
 	}
 
 	return (
-		<Highlight
-			code={children.trimEnd()}
-			language={language}
-			theme={{ plain: {}, styles: [] }}
-		>
+		<Highlight code={children.trimEnd()} language={language} theme={{ plain: {}, styles: [] }}>
 			{({ className, style, tokens, getTokenProps }) => (
 				<pre className={className} style={style}>
 					<code>

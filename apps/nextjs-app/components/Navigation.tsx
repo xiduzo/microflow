@@ -18,8 +18,7 @@ export function Navigation({
 
 	function getChildLinks(href: string) {
 		return navigation.reduce(
-			(acc, { links }) =>
-				acc + links.filter(({ parent }) => parent === href).length,
+			(acc, { links }) => acc + links.filter(({ parent }) => parent === href).length,
 			0,
 		);
 	}

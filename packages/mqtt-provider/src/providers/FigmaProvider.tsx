@@ -1,11 +1,4 @@
-import {
-	createContext,
-	PropsWithChildren,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { useMqtt } from './MqttProvider';
 
 export type FigmaVariable = {
@@ -21,27 +14,19 @@ const FigmaContext = createContext({
 
 export function FigmaProvider(props: PropsWithChildren) {
 	const { status, subscribe, publish, appName, uniqueId } = useMqtt();
-	const [variableValues, setVariableValues] = useState<Record<string, unknown>>(
-		{},
-	);
-	const [variableTypes, setVariableTypes] = useState<
-		Record<string, FigmaVariable>
-	>({});
+	const [variableValues, setVariableValues] = useState<Record<string, unknown>>({});
+	const [variableTypes, setVariableTypes] = useState<Record<string, FigmaVariable>>({});
 
 	useEffect(() => {
 		if (status !== 'connected') return;
 
 		function handleVariablesUpdate(_topic: string, message: Buffer) {
-			const variables = JSON.parse(message.toString()) as Record<
-				string,
-				FigmaVariable
-			>;
+			const variables = JSON.parse(message.toString()) as Record<string, FigmaVariable>;
 			setVariableTypes(variables);
 		}
 
 		function handleVariableUpdate(topic: string, message: Buffer) {
-			const [_prefix, _version, _id, _app, _topic, variableId] =
-				topic.split('/');
+			const [_prefix, _version, _id, _app, _topic, variableId] = topic.split('/');
 			setVariableValues(prev => {
 				const next = { ...prev };
 				next[variableId] = JSON.parse(message.toString());
@@ -49,20 +34,11 @@ export function FigmaProvider(props: PropsWithChildren) {
 			});
 		}
 
-		subscribe(
-			`microflow/v1/${uniqueId}/plugin/variables`,
-			handleVariablesUpdate,
-		);
+		subscribe(`microflow/v1/${uniqueId}/plugin/variables`, handleVariablesUpdate);
 
-		subscribe(
-			`microflow/v1/${uniqueId}/plugin/variable/+`,
-			handleVariableUpdate,
-		);
+		subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, handleVariableUpdate);
 
-		subscribe(
-			`microflow/v1/${uniqueId}/${appName}/variables/response`,
-			handleVariablesUpdate,
-		);
+		subscribe(`microflow/v1/${uniqueId}/${appName}/variables/response`, handleVariablesUpdate);
 	}, [status, appName, uniqueId]);
 
 	useEffect(() => {

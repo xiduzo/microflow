@@ -10,11 +10,7 @@ export function Header(props: PropsWithChildren) {
 			<Container className="mx-4 max-w-screen-2xl w-full bg-neutral-900/25 rounded-xl backdrop-blur-sm py-2">
 				<nav className="relative z-50 flex justify-between">
 					<div className="flex grow items-center md:gap-x-12">
-						<Link
-							href="/"
-							aria-label="Home"
-							className="flex items-center font-extrabold"
-						>
+						<Link href="/" aria-label="Home" className="flex items-center font-extrabold">
 							<Logo className="h-10 w-auto mr-4" />
 							Microflow
 						</Link>

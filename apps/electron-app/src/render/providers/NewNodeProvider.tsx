@@ -13,13 +13,7 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
-import {
-	createContext,
-	PropsWithChildren,
-	useContext,
-	useEffect,
-	useState,
-} from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
 import { tempNodeSelector, useNodesEdgesStore } from '../store';
@@ -79,9 +73,7 @@ function NewNodeCommandDialog() {
 		<CommandDialog open={open} onOpenChange={setOpen}>
 			<DialogHeader className="hidden">
 				<DialogTitle>Add new node</DialogTitle>
-				<DialogDescription>
-					Search for a node or node type to add to the flow.
-				</DialogDescription>
+				<DialogDescription>Search for a node or node type to add to the flow.</DialogDescription>
 			</DialogHeader>
 			<CommandInput placeholder="Seach node or node type..." />
 			<CommandList>
@@ -109,6 +101,12 @@ function NewNodeCommandDialog() {
 						Map
 						<CommandShortcut>
 							<Badge variant="outline">Transformation</Badge>
+						</CommandShortcut>
+					</CommandItem>
+					<CommandItem onSelect={selectNode('Note')}>
+						Note
+						<CommandShortcut>
+							<Badge variant="outline">Information</Badge>
 						</CommandShortcut>
 					</CommandItem>
 				</CommandGroup>
@@ -198,9 +196,7 @@ function NewNodeCommandDialog() {
 function DroppableNewNode() {
 	const { nodeToAdd, setNodeToAdd, open } = useNewNode();
 	const { screenToFlowPosition, updateNode } = useReactFlow();
-	const { addNode, deleteNode } = useNodesEdgesStore(
-		useShallow(tempNodeSelector),
-	);
+	const { addNode, deleteNode } = useNodesEdgesStore(useShallow(tempNodeSelector));
 
 	useEffect(() => {
 		if (!nodeToAdd) return;

@@ -11,8 +11,9 @@ import { DownloadApp } from './DownloadApp';
 export function Hero() {
 	return (
 		<Container className="pb-16 max-w-full pt-20 text-center lg:pt-32 min-h-[60vh] flex flex-col justify-center dotted-background">
-			<h1 className="mx-auto max-w-4xl font-display text-5xl font-medium tracking-tight text-slate-200 sm:text-7xl">
-				Micro-controllers{' '}
+			<h1 className="mx-auto text-wrap max-w-4xl font-display text-5xl font-medium tracking-tight text-slate-200 sm:text-7xl">
+				Microcontrollers
+				<br />
 				<span className="relative whitespace-nowrap text-yellow-500">
 					<svg
 						aria-hidden="true"

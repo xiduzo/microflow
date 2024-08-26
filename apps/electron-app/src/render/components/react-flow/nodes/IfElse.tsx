@@ -1,13 +1,5 @@
-import type {
-	IfElseData,
-	IfElseValueType,
-	SubValidator,
-	Validator,
-} from '@microflow/components';
-import {
-	IF_ELSE_SUB_VALIDATORS,
-	IF_ELSE_VALIDATORS,
-} from '@microflow/components/contants';
+import type { IfElseData, IfElseValueType, SubValidator, Validator } from '@microflow/components';
+import { IF_ELSE_SUB_VALIDATORS, IF_ELSE_VALIDATORS } from '@microflow/components/contants';
 import {
 	Icons,
 	Input,
@@ -21,7 +13,6 @@ import {
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -29,19 +20,40 @@ import {
 	NodeContent,
 	NodeSettings,
 	NodeValue,
+	useNodeSettings,
 } from './Node';
 
 const MAX_NUMERIC_VALUE = 1023;
 
 export function IfElse(props: Props) {
-	const { updateNodeData } = useUpdateNodeData<IfElseData>(props.id);
+	return (
+		<NodeContainer {...props}>
+			<NodeContent>
+				<NodeValue>
+					{props.data.value === true && <Icons.Check className="w-12 h-12 text-green-500" />}
+					{props.data.value === false && <Icons.X className="w-12 h-12 text-red-500" />}
+					{props.data.value === null ||
+						(props.data.value === undefined && <Icons.Dot className="w-12 h-12 text-gray-500" />)}
+				</NodeValue>
+			</NodeContent>
+			<NodeSettings>
+				<IfElseSettings />
+			</NodeSettings>
+			<Handle type="target" position={Position.Left} id="check" />
+			<Handle type="source" position={Position.Right} id="true" offset={-0.5} />
+			<Handle type="source" position={Position.Right} id="false" offset={0.5} />
+			<Handle type="source" position={Position.Bottom} id="change" />
+		</NodeContainer>
+	);
+}
+
+function IfElseSettings() {
+	const { settings, setSettings } = useNodeSettings<IfElseData>();
 
 	useEffect(() => {
-		if (!props?.data) return;
-
-		if (props.data.validator === 'number') {
-			const isRange = ['between', 'outside'].includes(props.data.subValidator);
-			const currentValue = Number(props.data.validatorArgs[0]);
+		if (settings.validator === 'number') {
+			const isRange = ['between', 'outside'].includes(settings.subValidator);
+			const currentValue = Number(settings.validatorArgs[0]);
 			const validatorArgs = [currentValue];
 			if (isRange) {
 				const increment = (MAX_NUMERIC_VALUE + 1) * 0.25;
@@ -49,9 +61,7 @@ export function IfElse(props: Props) {
 					currentValue + increment >= MAX_NUMERIC_VALUE
 						? currentValue - increment
 						: currentValue + increment;
-				const nextValue = Number(
-					props.data.validatorArgs[1] ?? nextValueBackup,
-				);
+				const nextValue = Number(settings.validatorArgs[1] ?? nextValueBackup);
 				if (nextValue > currentValue) {
 					validatorArgs.push(nextValue);
 				} else {
@@ -59,122 +69,93 @@ export function IfElse(props: Props) {
 				}
 			}
 
-			if (props.data.validatorArgs.length === validatorArgs.length) {
+			if (settings.validatorArgs.length === validatorArgs.length) {
 				return;
 			}
 
-			updateNodeData({ validatorArgs });
+			setSettings({ validatorArgs });
 		}
-	}, [props.data.validator, props.data.subValidator, props.data.validatorArgs]);
+	}, [settings.validator, settings.subValidator, settings.validatorArgs]);
 
 	return (
-		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue>
-					{props.data.value === true && (
-						<Icons.Check className="w-12 h-12 text-green-500" />
-					)}
-					{props.data.value === false && (
-						<Icons.X className="w-12 h-12 text-red-500" />
-					)}
-					{props.data.value === null ||
-						(props.data.value === undefined && (
-							<Icons.Dot className="w-12 h-12 text-gray-500" />
+		<>
+			<section className="flex space-x-2 justify-between">
+				<Select
+					value={settings.validator}
+					onValueChange={value =>
+						setSettings({
+							validator: value as Validator,
+							subValidator: IF_ELSE_SUB_VALIDATORS[value][0],
+						})
+					}
+				>
+					<SelectTrigger>
+						<SelectValue placeholder="Validator" />
+					</SelectTrigger>
+					<SelectContent>
+						{IF_ELSE_VALIDATORS.map(validator => (
+							<SelectItem key={validator} value={validator}>
+								{validator}
+							</SelectItem>
 						))}
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<section className="flex space-x-2 justify-between">
+					</SelectContent>
+				</Select>
+				{IF_ELSE_SUB_VALIDATORS[settings.validator]?.length > 0 && (
 					<Select
-						value={props.data.validator}
+						disabled={!settings.validator}
+						value={settings.subValidator}
 						onValueChange={value =>
-							updateNodeData({
-								validator: value as Validator,
-								subValidator: IF_ELSE_SUB_VALIDATORS[value][0],
+							setSettings({
+								validator: settings.validator,
+								subValidator: value,
 							})
 						}
 					>
 						<SelectTrigger>
-							<SelectValue placeholder="Validator" />
+							<SelectValue placeholder="Validate with" />
 						</SelectTrigger>
 						<SelectContent>
-							{IF_ELSE_VALIDATORS.map(validator => (
-								<SelectItem key={validator} value={validator}>
-									{validator}
+							{IF_ELSE_SUB_VALIDATORS[settings.validator]?.map((subValidator: SubValidator) => (
+								<SelectItem key={subValidator} value={subValidator}>
+									{subValidator}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
-					{IF_ELSE_SUB_VALIDATORS[props.data.validator]?.length > 0 && (
-						<Select
-							disabled={!props.data.validator}
-							value={props.data.subValidator}
-							onValueChange={value =>
-								updateNodeData({
-									validator: props.data.validator,
-									subValidator: value,
-								})
-							}
-						>
-							<SelectTrigger>
-								<SelectValue placeholder="Validate with" />
-							</SelectTrigger>
-							<SelectContent>
-								{IF_ELSE_SUB_VALIDATORS[props.data.validator]?.map(
-									(subValidator: SubValidator) => (
-										<SelectItem key={subValidator} value={subValidator}>
-											{subValidator}
-										</SelectItem>
-									),
-								)}
-							</SelectContent>
-						</Select>
-					)}
-				</section>
-				{props.data.validator === 'text' && (
-					<Input
-						value={String(props.data.validatorArgs[0])}
-						type="text"
-						placeholder="Expected value"
-						onChange={e => updateNodeData({ validatorArgs: [e.target.value] })}
-					/>
 				)}
-				{props.data.validator === 'number' &&
-					!['is even', 'is odd'].includes(props.data.subValidator) && (
-						<>
-							<Label
-								htmlFor={`slider-numeric-${props.id}`}
-								className="flex justify-between"
-							>
-								{props.data.validatorArgs?.map((value, index) => (
-									<span key={index} className="opacity-40 font-light">
-										{String(value)}
-									</span>
-								))}
-							</Label>
-							<Slider
-								id={`slider-if-else-${props.id}`}
-								key={props.data.validatorArgs.length}
-								defaultValue={
-									(props.data.validatorArgs.filter(
-										arg => arg !== undefined,
-									) as number[]) ?? [0]
-								}
-								min={0}
-								max={MAX_NUMERIC_VALUE}
-								step={1}
-								onValueChange={values =>
-									updateNodeData({ validatorArgs: values })
-								}
-							/>
-						</>
-					)}
-			</NodeSettings>
-			<Handle type="target" position={Position.Left} id="check" />
-			<Handle type="source" position={Position.Right} id="true" offset={-0.5} />
-			<Handle type="source" position={Position.Right} id="false" offset={0.5} />
-			<Handle type="source" position={Position.Bottom} id="change" />
-		</NodeContainer>
+			</section>
+			{settings.validator === 'text' && (
+				<Input
+					value={String(settings.validatorArgs[0])}
+					type="text"
+					placeholder="Expected value"
+					onChange={e => setSettings({ validatorArgs: [e.target.value] })}
+				/>
+			)}
+			{settings.validator === 'number' &&
+				!['is even', 'is odd'].includes(settings.subValidator) && (
+					<>
+						<Label htmlFor={`slider-if-else`} className="flex justify-between">
+							{settings.validatorArgs?.map((value, index) => (
+								<span key={index} className="opacity-40 font-light">
+									{String(value)}
+								</span>
+							))}
+						</Label>
+						<Slider
+							id={`slider-if-else`}
+							key={settings.validatorArgs.length}
+							defaultValue={
+								(settings.validatorArgs.filter(arg => arg !== undefined) as number[]) ?? [0]
+							}
+							min={0}
+							max={MAX_NUMERIC_VALUE}
+							step={1}
+							onValueChange={validatorArgs => setSettings({ validatorArgs })}
+						/>
+					</>
+				)}
+		</>
 	);
 }
 

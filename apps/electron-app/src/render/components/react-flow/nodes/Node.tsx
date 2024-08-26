@@ -11,64 +11,92 @@ import {
 	VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
-import {
-	createContext,
-	PropsWithChildren,
-	useContext,
-	useEffect,
-	useRef,
-} from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
 
-export function NodeSettings(props: NodeContainerProps) {
+type NodeSettingsContextType<T extends Record<string, any>> = {
+	settings: T;
+	setSettings: (settings: Partial<T>) => void;
+};
+
+const NodeSettingsContextCreator = <T extends Record<string, any>>() =>
+	createContext<NodeSettingsContextType<T>>({
+		settings: {} as T,
+		setSettings: (settings: Partial<T>) => {},
+	});
+
+const NodeSettingsContext = NodeSettingsContextCreator();
+
+export function useNodeSettings<T extends Record<string, any>>() {
+	return useContext<NodeSettingsContextType<T>>(NodeSettingsContext as any);
+}
+
+export function NodeSettings<T>(props: NodeContainerProps<T>) {
 	const node = useNode();
-	const { updateNodeData, deleteElements } = useReactFlow<BaseNode>();
+	const [settings, setSettingsState] = useState(node.data);
+	const { deleteElements } = useReactFlow<BaseNode>();
+	const { updateNodeData } = useUpdateNodeData(node.id);
 
 	function closeDrawer() {
-		updateNodeData(node.id, { settingsOpen: false });
+		const newSettings = { ...settings, settingsOpen: false };
+		updateNodeData(newSettings);
+		setSettingsState(newSettings);
+		props.onClose?.(newSettings as T);
+	}
+
+	function setSettings(settings: Partial<T>) {
+		setSettingsState(prev => {
+			const newSettings = { ...prev, ...settings };
+			return newSettings;
+		});
 	}
 
 	return (
-		<Drawer
-			open={node.data.settingsOpen}
-			nested
-			onOpenChange={update => {
-				if (update === true) return;
-				closeDrawer();
+		<NodeSettingsContext.Provider
+			value={{
+				settings,
+				setSettings,
 			}}
 		>
-			<DrawerContent>
-				<DrawerHeader className="max-w-md w-full m-auto mt-6">
-					<DrawerTitle className="flex items-center justify-between">
-						Configure node
-						<span className="text-xs font-light text-neutral-500">
-							id: {node.id}
-						</span>
-					</DrawerTitle>
-					<DrawerDescription>
-						Updates will be automatically applied
-					</DrawerDescription>
-				</DrawerHeader>
-				<section className="max-w-md w-full m-auto flex flex-col space-y-4 mb-8 p-4">
-					{props.children}
-				</section>
-				<DrawerFooter className="max-w-md w-full m-auto">
-					<Button variant="secondary" onClick={closeDrawer}>
-						Close
-					</Button>
-					<Button
-						variant="destructive"
-						onClick={() => deleteElements({ nodes: [node] })}
-					>
-						Delete node
-					</Button>
-				</DrawerFooter>
-			</DrawerContent>
-		</Drawer>
+			<Drawer
+				open={node.data.settingsOpen}
+				nested
+				onOpenChange={update => {
+					if (update === true) return;
+					if (update === node.data.settingsOpen) return;
+					closeDrawer();
+				}}
+			>
+				<DrawerContent>
+					<DrawerHeader className="max-w-md w-full m-auto mt-6">
+						<DrawerTitle className="flex items-center justify-between">
+							Configure node
+							<span className="text-xs font-light text-neutral-500">id: {node.id}</span>
+						</DrawerTitle>
+						<DrawerDescription>
+							Updates will be automatically applied when closing the drawer.
+						</DrawerDescription>
+					</DrawerHeader>
+					<section className="max-w-md w-full m-auto flex flex-col space-y-4 mb-8 p-4">
+						{props.children}
+					</section>
+					<DrawerFooter className="max-w-md w-full m-auto">
+						<Button variant="secondary" onClick={closeDrawer}>
+							Close
+						</Button>
+						<Button variant="destructive" onClick={() => deleteElements({ nodes: [node] })}>
+							Delete node
+						</Button>
+					</DrawerFooter>
+				</DrawerContent>
+			</Drawer>
+		</NodeSettingsContext.Provider>
 	);
 }
 
-type NodeContainerProps = PropsWithChildren & {
+type NodeContainerProps<T extends Record<string, any> = {}> = PropsWithChildren & {
 	className?: string;
+	onClose?: (settings: T) => void;
 };
 
 export function NodeValue(props: NodeValueProps) {
@@ -88,8 +116,7 @@ export function NodeValue(props: NodeValueProps) {
 					className: props.className,
 					active:
 						props.active ||
-						(!!data.animated &&
-							(props.valueOverride ?? data.value) !== prevValue.current),
+						(!!data.animated && (props.valueOverride ?? data.value) !== prevValue.current),
 				}),
 			)}
 		>
@@ -99,9 +126,7 @@ export function NodeValue(props: NodeValueProps) {
 }
 
 export function NodeContent(props: PropsWithChildren) {
-	return (
-		<section className="flex flex-col space-y-4 grow">{props.children}</section>
-	);
+	return <section className="flex flex-col space-y-4 grow">{props.children}</section>;
 }
 
 type NodeValueProps = PropsWithChildren &
@@ -156,9 +181,7 @@ function NodeHeader() {
 	const node = useNode();
 
 	return (
-		<header className="p-2 pl-4 border-b-2 text-muted-foreground text-sm">
-			{node.data.label}
-		</header>
+		<header className="p-2 pl-4 border-b-2 text-muted-foreground text-sm">{node.data.label}</header>
 	);
 }
 
@@ -197,10 +220,7 @@ const node = cva(
 	},
 );
 
-export type BaseNode<
-	Data extends Record<string, any> = {},
-	ValueType = any,
-> = Node<
+export type BaseNode<Data extends Record<string, any> = {}, ValueType = any> = Node<
 	Data & {
 		value: ValueType;
 		label: string;

@@ -91,12 +91,8 @@ export const NOTES_AND_FREQUENCIES = new Map<string, number>([
 	['D#8', 4978],
 ]);
 
-export const MIN_NOTE_FREQUENCY = Math.min(
-	...Array.from(NOTES_AND_FREQUENCIES.values()),
-);
-export const MAX_NOTE_FREQUENCY = Math.max(
-	...Array.from(NOTES_AND_FREQUENCIES.values()),
-);
+export const MIN_NOTE_FREQUENCY = Math.min(...Array.from(NOTES_AND_FREQUENCIES.values()));
+export const MAX_NOTE_FREQUENCY = Math.max(...Array.from(NOTES_AND_FREQUENCIES.values()));
 
 export const NOTE_DURATION = {
 	DoubleWhole: 2,
