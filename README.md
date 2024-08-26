@@ -15,6 +15,6 @@ Download the latest release from the [releases page](https://github.com/xiduzo/m
 
 ## Microflow hardware bridge
 
-Bridge the gap between your micro-controllers and design tools.
+Bridge the gap between your microcontrollers and design tools.
 
 Microflow hardware bridge is a Figma plugin that allows you to connect your Figma designs to the Microflow studio application or any other application that supports MQTT.

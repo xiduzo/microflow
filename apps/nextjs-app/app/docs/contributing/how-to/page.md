@@ -2,7 +2,7 @@
 title: How to contribute
 ---
 
-Microflow is a set of open-source tools that help getting started with micro-controllers. We welcome contributions from the community. This guide will help you get started with contributing to the project.
+Microflow is a set of open-source tools that help poeple getting started with microcontrollers. We welcome contributions from the community. This guide will help you get started with contributing to the project.
 
 ## I found a bug, what should I do?
 

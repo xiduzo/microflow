@@ -21,7 +21,7 @@ try {
 
 	process.parentPort.postMessage({
 		type: 'info',
-		message: 'checking micro-controller',
+		message: 'checking microcontroller',
 	});
 
 	board.on('info', event => {

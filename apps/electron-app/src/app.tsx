@@ -44,6 +44,7 @@ export function App() {
 
 	return (
 		<CelebrationProvider init={init}>
+			<Toaster position="top-right" className="z-20" />
 			<BoardProvider>
 				<MqttProvider appName="app" config={mqttConfig}>
 					<FigmaProvider>
@@ -55,7 +56,6 @@ export function App() {
 							</NewNodeProvider>
 						</ReactFlowProvider>
 					</FigmaProvider>
-					<Toaster position="top-right" />
 				</MqttProvider>
 			</BoardProvider>
 		</CelebrationProvider>

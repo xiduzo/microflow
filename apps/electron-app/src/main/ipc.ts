@@ -49,7 +49,7 @@ ipcMain.on('ipc-check-board', async event => {
 
 			const result = await new Promise<BoardCheckResult>(resolve => {
 				childProcess = utilityProcess.fork(filePath, [port.path], {
-					serviceName: 'Microflow studio - micro-controller validator',
+					serviceName: 'Microflow studio - microcontroller validator',
 					stdio: 'pipe',
 				});
 
@@ -137,7 +137,7 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 		}
 
 		childProcess = utilityProcess.fork(filePath, [portPath], {
-			serviceName: 'Microflow studio - micro-controller runner',
+			serviceName: 'Microflow studio - microcontroller runner',
 			stdio: 'pipe',
 		});
 

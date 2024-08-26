@@ -1,12 +1,12 @@
 import {
-	Edge,
-	Node,
-	OnConnect,
-	OnEdgesChange,
-	OnNodesChange,
-	addEdge,
-	applyEdgeChanges,
-	applyNodeChanges,
+    Edge,
+    Node,
+    OnConnect,
+    OnEdgesChange,
+    OnNodesChange,
+    addEdge,
+    applyEdgeChanges,
+    applyNodeChanges,
 } from '@xyflow/react';
 
 import { create } from 'zustand';
@@ -57,6 +57,11 @@ const INTRODUCTION_NODES = [
 
 export const useNodesEdgesStore = create<AppState>((set, get) => {
 	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
+
+	if(!hasSeenIntroduction) {
+	  localStorage.setItem('has-seen-introduction', 'true');
+		localStorage.setItem('nodes', JSON.stringify(INTRODUCTION_NODES))
+	}
 
 	return {
 		nodes: hasSeenIntroduction

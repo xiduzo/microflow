@@ -12,7 +12,7 @@ A servo is a small motor which can be rotated to a specific angle. Servos are co
 {% callout type="warning" title="Power consumption" %}
 Servos can draw a lot of power, especially when they are moving. Make sure to use a power supply that can provide enough current to power your servo.
 
-Powering the servo directly from the micro-controller can cause the micro-controller to reset or behave erratically. Always power the servo from a separate power supply.
+Powering the servo directly from the microcontroller can cause the microcontroller to reset or behave erratically. Always power the servo from a separate power supply.
 {% /callout %}
 
 ## Resources

@@ -17,12 +17,20 @@ export function SerialConnectionStatus() {
 	}
 
 	if (checkResult === 'ready') {
+		if (uploadResult === 'info') {
+			return (
+				<Badge className="bg-orange-400 text-orange-900 animate-pulse pointer-events-none">
+					Uploading your flow
+					<Icons.Zap className="ml-2 h-3 w-3" />
+				</Badge>
+			);
+		}
+
 		return (
 			<Badge className="bg-green-400 text-green-900 pointer-events-none">
-				Connected
+				Microcontroller up to date
 				{uploadResult === 'ready' && <Icons.Check className="ml-2 h-3 w-3" />}
-				{uploadResult === 'info' && <Icons.Zap className="w-2 h-2 ml-2 animate-pulse" />}
-				{uploadResult === 'close' && <Icons.Loader2 className="w-2 h-2 ml-2 animate-spin" />}
+				{uploadResult === 'close' && <Icons.TriangleAlert className="w-2 h-2 ml-2" />}
 			</Badge>
 		);
 	}
@@ -30,8 +38,8 @@ export function SerialConnectionStatus() {
 	if (checkResult === 'info') {
 		return (
 			<Badge className="bg-blue-400 text-blue-900 pointer-events-none">
-				Validating micro-controller
-				<Icons.Bot className="ml-2 h-3 w-3 animate-pulse" />
+				Connecting your microcontroller
+				<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
 			</Badge>
 		);
 	}
@@ -46,9 +54,9 @@ export function SerialConnectionStatus() {
 	}
 
 	return (
-		<Badge className="bg-muted text-muted-foreground pointer-events-none">
-			Finding micro-controller
-			<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
+		<Badge className="bg-muted text-muted-foreground pointer-events-none animate-pulse">
+			Connect your microcontroller by USB
+			<Icons.Usb className="ml-2 h-3 w-3" />
 		</Badge>
 	);
 }

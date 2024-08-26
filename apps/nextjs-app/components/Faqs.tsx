@@ -7,7 +7,7 @@ const faqs = [
 			answer: 'Yes, and we are committed to providing a free platform for all starters.',
 		},
 		{
-			question: 'My micro-controller does not connect, why?',
+			question: 'My microcontroller does not connect, why?',
 			answer:
 				'As of right now we support the following boards: <code>Arduino uno</code>, <code>Arduino mega</code>, <code>Arduino leonardo</code>, <code>Arduino micro</code>, <code>Arduino nano</code> and <code>Arduino yun</code>',
 		},

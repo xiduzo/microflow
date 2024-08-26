@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { BoardCheckResult, Pin, UploadCodeResult } from '../../common/types';
-import { useCelebration } from '../components/Celebration';
+import { useCelebration } from './CelebrationProvider';
 
 const BoardContext = createContext({
 	checkResult: 'exit' as BoardCheckResult['type'],
@@ -88,7 +88,7 @@ export function BoardProvider({ children }: PropsWithChildren) {
 
 	useEffect(() => {
 		if (checkResult === 'ready' && isFirstUpload) {
-			celebrate('Succesfully connected your first micro-controller, happy hacking!');
+			celebrate('Succesfully connected your first microcontroller, happy hacking!');
 			setIsFirstUpload(false);
 		}
 	}, [checkResult, isFirstUpload]);
