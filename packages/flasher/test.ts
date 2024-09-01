@@ -1,4 +1,5 @@
 import path from 'path';
+import { UnableToOpenSerialConnection } from './src/errors';
 import { Flasher } from './src/Flasher';
 import { getConnectedPorts } from './src/serialport';
 
@@ -15,6 +16,10 @@ async function flash() {
 		await new Flasher(board, '/dev/tty.usbmodem1401').flash(filePath);
 		console.log('done');
 	} catch (error) {
+		if (error instanceof UnableToOpenSerialConnection) {
+			console.log('Unable to open serial connection');
+			return;
+		}
 		console.log(error);
 	}
 }

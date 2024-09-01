@@ -26,10 +26,11 @@ export class Flasher {
 			await protocol.flash(filePath);
 			console.debug(`Flashing succeeded!`);
 		} catch (error) {
-			console.error('Flashing failed', { error });
-			throw new Error(
+			console.error(
 				`Unable to flash ${this.board.name} on ${this.connection.serialPort.path} using ${filePath}`,
+				{ error },
 			);
+			throw error; // This is important to rethrow the error so the caller can handle it
 		} finally {
 			await this.connection.close(); // Always close the port again
 		}
