@@ -39,11 +39,12 @@ While Johnny-Five supports a broad range of boards, as of right now Microflow st
 
 Oops, something might be going on with your microcontroller.
 
-When the You should see a `Upload failed for unknown reasons` status.
+You should see the `Upload failed for unknown reasons` status.
 
 In order to validate if the problem is with your microcontroller or with Microflow studio, you can try the following:
 
 #### 1. Check your microcontroller
+Validate if you can upload a sketch to your microcontroller using the Arduino IDE.
 
 1. Install [the latests Arduino IDE](https://www.arduino.cc/en/software)
 2. Open the Arduino IDE and connect your microcontroller
@@ -56,9 +57,9 @@ If you can successfully upload the sketch to your microcontroller, then the prob
 
 #### 2. Install the correct drivers
 
-If you are using an unofficial board, you might need to install the correct drivers for your board.
+If you are using an unofficial board, you might still need to install the correct drivers for your specific board.
 
-A common example is the _CH34x driver_ for Arduino clones. You can find the driver [here](https://sparks.gogo.co.nz/ch340.html), and check [this youtube video](https://www.youtube.com/watch?v=MM9Fj6bwHLk) for instructions on how to install the driver.
+This is a common issue for Arduino clones which require the _CH34x driver_. You can find the driver [here](https://sparks.gogo.co.nz/ch340.html), and check [this youtube video](https://www.youtube.com/watch?v=MM9Fj6bwHLk) for instructions on how to install the driver on your machine
 
 ---
 

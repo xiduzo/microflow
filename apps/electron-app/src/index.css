@@ -20,7 +20,7 @@ body {
 }
 
 /* Edges */
-.react-flow__edge-path {
+.react-flow__edges .react-flow__edge-path {
 	@apply stroke-[4] stroke-neutral-600;
 }
 
@@ -48,7 +48,7 @@ body {
 }
 
 /* Handles */
-.react-flow__handle {
+.react-flow__node .react-flow__handle {
 	@apply bg-neutral-600 rounded-md transition-all duration-150 border-none;
 }
 

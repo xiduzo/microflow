@@ -1,10 +1,15 @@
 const { app, dialog, BrowserWindow } = require('electron');
-
+const { updateElectronApp } = require('update-electron-app');
 const path = require('node:path');
+import logger from 'electron-log/node';
 
 import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
 import './main/ipc';
 import { createMenu } from './main/menu';
+
+updateElectronApp({
+	logger: logger,
+});
 
 let mainWindow = null;
 

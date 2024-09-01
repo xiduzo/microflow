@@ -50,7 +50,6 @@ const tags = {
 			title: { type: String },
 		},
 		render: props => {
-			console.log('props', props);
 			return (
 				<Badge {...props} variant="secondary">
 					{props.title}
