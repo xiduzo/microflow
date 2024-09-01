@@ -1,4 +1,5 @@
 import { SerialPort } from 'serialport';
+import { UnableToOpenSerialConnection } from './errors';
 
 export class SerialConnection {
 	serialPort: SerialPort;
@@ -31,7 +32,7 @@ export class SerialConnection {
 		return new Promise<void>((resolve, reject) => {
 			this.serialPort.open(error => {
 				if (error) {
-					reject(error);
+					reject(new UnableToOpenSerialConnection(error.message));
 					return;
 				}
 
