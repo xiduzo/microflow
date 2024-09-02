@@ -42,6 +42,7 @@ export function RangeMap(props: Props) {
 
 function RangeMapSettings() {
 	const { settings, setSettings } = useNodeSettings<RangeMapData>();
+
 	return (
 		<>
 			<div>From range</div>

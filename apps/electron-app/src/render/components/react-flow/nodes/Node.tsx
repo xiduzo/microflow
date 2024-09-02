@@ -1,14 +1,14 @@
 import {
-	Button,
-	cn,
-	cva,
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	VariantProps,
+  Button,
+  cn,
+  cva,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
@@ -34,7 +34,7 @@ export function useNodeSettings<T extends Record<string, any>>() {
 
 export function NodeSettings<T>(props: NodeContainerProps<T>) {
 	const node = useNode();
-	const [settings, setSettings] = useState(node.data);
+	const [settings, setSettingsState] = useState(node.data);
 	const { deleteElements } = useReactFlow<BaseNode>();
 	const updateNode = useUpdateNode(node.id);
 
@@ -46,9 +46,12 @@ export function NodeSettings<T>(props: NodeContainerProps<T>) {
 		props.onClose?.(newSettings as T);
 	}
 
-	useEffect(() => {
-		setSettings(node.data);
-	}, [node.data.settingsOpen]);
+	function setSettings(newSettings: Partial<T>) {
+    setSettingsState((prev) => {
+      const updatedSettings = { ...prev, ...newSettings };
+      return updatedSettings;
+    });
+  }
 
 	return (
 		<NodeSettingsContext.Provider
@@ -57,7 +60,7 @@ export function NodeSettings<T>(props: NodeContainerProps<T>) {
 				setSettings,
 			}}
 		>
-			<Drawer open={settings.settingsOpen} nested onOpenChange={handleOpenChange}>
+			<Drawer open={node.data.settingsOpen} nested onOpenChange={handleOpenChange}>
 				<DrawerContent>
 					<DrawerHeader className="max-w-md w-full m-auto mt-6">
 						<DrawerTitle className="flex items-center justify-between">

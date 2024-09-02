@@ -171,7 +171,13 @@ function FigmaHeaderContent(props: {
 
 	switch (props.variable.resolvedType) {
 		case 'BOOLEAN':
-			return <Switch className="scale-150" disabled checked={Boolean(props.value)} />;
+			return (
+				<Switch
+					className="scale-150 border border-muted-foreground/10"
+					disabled
+					checked={Boolean(props.value)}
+				/>
+			);
 		case 'FLOAT':
 			return <span className="text-4xl tabular-nums">{Number(props.value ?? 0)}</span>;
 		case 'STRING':
