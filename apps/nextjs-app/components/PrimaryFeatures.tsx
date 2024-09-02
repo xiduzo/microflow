@@ -19,13 +19,13 @@ const features = [
 	{
 		title: 'MQTT',
 		description:
-			'Use our MQTT feature to send and receive data between any MQTT client and your microcontroller. This allows for seamless remote control of devices, making it easy to integrate IoT applications into your project.',
+			'Use MQTT to send and receive data between any MQTT client and your microcontroller. This allows for seamless remote control of devices, making it easy to integrate IoT applications into your project.',
 		image: mqttImage,
 	},
 	{
 		title: 'Figma',
 		description:
-			'Integrate your Figma designs with our platform for interactive prototypes. Control variables directly from Microflow studio, making it easy to test and refine your projects in a realistic setting.',
+			'Integrate your Figma designs with our platform for interactive prototypes. Control variables directly from Microflow studio, making it easy to prototype, test and refine your projects in a real world setting.',
 		image: figmaImage,
 	},
 ];
