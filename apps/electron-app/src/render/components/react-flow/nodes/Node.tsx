@@ -12,7 +12,8 @@ import {
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
+import { isNodeTypeACodeType } from '../../../../utils/generateCode';
+import { useUpdateNode } from '../../../hooks/nodeUpdater';
 
 type NodeSettingsContextType<T extends Record<string, any>> = {
 	settings: T;
@@ -33,23 +34,21 @@ export function useNodeSettings<T extends Record<string, any>>() {
 
 export function NodeSettings<T>(props: NodeContainerProps<T>) {
 	const node = useNode();
-	const [settings, setSettingsState] = useState(node.data);
+	const [settings, setSettings] = useState(node.data);
 	const { deleteElements } = useReactFlow<BaseNode>();
-	const { updateNodeData } = useUpdateNodeData(node.id);
+	const updateNode = useUpdateNode(node.id);
 
-	function closeDrawer() {
-		const newSettings = { ...settings, settingsOpen: false };
-		updateNodeData(newSettings);
-		setSettingsState(newSettings);
+	function handleOpenChange(settingsOpen: boolean) {
+		if (settingsOpen) return;
+
+		const newSettings = { ...settings, settingsOpen };
+		updateNode(newSettings, isNodeTypeACodeType(node.type));
 		props.onClose?.(newSettings as T);
 	}
 
-	function setSettings(settings: Partial<T>) {
-		setSettingsState(prev => {
-			const newSettings = { ...prev, ...settings };
-			return newSettings;
-		});
-	}
+	useEffect(() => {
+		setSettings(node.data);
+	}, [node.data.settingsOpen]);
 
 	return (
 		<NodeSettingsContext.Provider
@@ -58,15 +57,7 @@ export function NodeSettings<T>(props: NodeContainerProps<T>) {
 				setSettings,
 			}}
 		>
-			<Drawer
-				open={node.data.settingsOpen}
-				nested
-				onOpenChange={update => {
-					if (update === true) return;
-					if (update === node.data.settingsOpen) return;
-					closeDrawer();
-				}}
-			>
+			<Drawer open={settings.settingsOpen} nested onOpenChange={handleOpenChange}>
 				<DrawerContent>
 					<DrawerHeader className="max-w-md w-full m-auto mt-6">
 						<DrawerTitle className="flex items-center justify-between">
@@ -81,7 +72,7 @@ export function NodeSettings<T>(props: NodeContainerProps<T>) {
 						{props.children}
 					</section>
 					<DrawerFooter className="max-w-md w-full m-auto">
-						<Button variant="secondary" onClick={closeDrawer}>
+						<Button variant="secondary" onClick={handleOpenChange}>
 							Close
 						</Button>
 						<Button variant="destructive" onClick={() => deleteElements({ nodes: [node] })}>

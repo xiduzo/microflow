@@ -2,18 +2,22 @@ import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { DEFAULT_NODE_DATA } from '../../common/nodes';
-import { generateCode } from '../../utils/generateCode';
+import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
 import { useBoard } from '../providers/BoardProvider';
 import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../store';
 
 export function useCodeUploader() {
-	const { uploadCode: boardUpload } = useBoard();
+	const { uploadCode: boardUpload, checkResult } = useBoard();
 
 	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
+		if (checkResult !== 'ready') {
+			return;
+		}
+
 		const nodes = getNodes().filter(node => {
-			if (['note'].includes(node.type.toLowerCase())) {
+			if (!isNodeTypeACodeType(node.type)) {
 				return;
 			}
 			return node;
@@ -48,7 +52,7 @@ export function useCodeUploader() {
 		const code = generateCode(nodes, allowedEdges);
 
 		boardUpload(code);
-	}, [getNodes, getEdges, updateNodeData, boardUpload, getInternalNode]);
+	}, [getNodes, getEdges, updateNodeData, boardUpload, getInternalNode, checkResult]);
 
 	return uploadCode;
 }

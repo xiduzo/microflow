@@ -16,7 +16,7 @@ import {
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useUpdateNodeData } from '../../../hooks/nodeUpdater';
+import { useUpdateNode } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { deleteEdgesSelector, useNodesEdgesStore } from '../../../store';
 import { Handle } from './Handle';
@@ -37,7 +37,7 @@ export function Figma(props: Props) {
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
 
-	const { updateNodeData } = useUpdateNodeData<FigmaData>(props.id);
+	const updateNode = useUpdateNode<FigmaData>(props.id);
 
 	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
 
@@ -69,7 +69,7 @@ export function Figma(props: Props) {
 		if (!variable?.resolvedType) return;
 
 		updateNodeInternals(props.id);
-		updateNodeData({}); // Make sure the handles are updated when connection takes place
+		updateNode({}); // Make sure the handles are updated when connection takes place
 	}, [variable?.resolvedType, props.id]);
 
 	useEffect(() => {

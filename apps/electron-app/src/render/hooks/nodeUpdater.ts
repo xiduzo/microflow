@@ -2,19 +2,22 @@ import { useReactFlow } from '@xyflow/react';
 import { useCallback } from 'react';
 import { useCodeUploader } from './useCodeUploader';
 
-export function useUpdateNodeData<T extends Record<string, any>>(nodeId: string) {
-	const { updateNodeData: internalUpdateNodeData } = useReactFlow();
+export function useUpdateNode<T extends Record<string, any>>(nodeId: string) {
+	const { updateNodeData } = useReactFlow();
 	const uploadCode = useCodeUploader();
 
-	const updateNodeData = useCallback((data: Partial<T>, updateCode = true) => {
-		internalUpdateNodeData(nodeId, data);
+	const updateNode = useCallback(
+		(data: Partial<T>, updateCode = true) => {
+			updateNodeData(nodeId, data);
 
-		if (!updateCode) {
-			return;
-		}
+			if (!updateCode) {
+				return;
+			}
 
-		uploadCode();
-	}, []);
+			uploadCode();
+		},
+		[uploadCode, updateNodeData, nodeId],
+	);
 
-	return { updateNodeData };
+	return updateNode;
 }

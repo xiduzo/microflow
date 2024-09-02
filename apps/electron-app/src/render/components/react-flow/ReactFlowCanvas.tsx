@@ -26,6 +26,10 @@ export function ReactFlowCanvas() {
 			minZoom={0.2}
 			maxZoom={2}
 			onNodeDoubleClick={(_event, node) => {
+				if ('settingsOpen' in node.data && node.data.settingsOpen === true) {
+					return;
+				}
+
 				updateNodeData(node.id, { settingsOpen: true });
 			}}
 			disableKeyboardA11y={true}

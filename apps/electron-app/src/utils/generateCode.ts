@@ -1,5 +1,9 @@
 import { Edge, Node } from '@xyflow/react';
 
+export function isNodeTypeACodeType(type: string) {
+	return !['note'].includes(type.toLowerCase());
+}
+
 export function generateCode(nodes: Node[], edges: Edge[]) {
 	let code = `
 /*

@@ -96,7 +96,7 @@ type Props = BaseNode<RangeMapData, RangeMapValueType>;
 
 export const DEFAULT_RANGE_MAP_DATA: Props['data'] = {
 	value: [0, 0],
-	from: [0, 100],
+	from: [0, 1023],
 	to: [0, 100],
 	label: 'Map',
 };
