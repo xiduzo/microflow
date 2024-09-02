@@ -1,9 +1,9 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import { Progress, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
+import { Progress } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useMemo } from 'react';
-import { BoardCheckResult, MODES } from '../../../../common/types';
-import { useBoard } from '../../../providers/BoardProvider';
+import { MODES } from '../../../../common/types';
+import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -13,10 +13,6 @@ import {
 	NodeValue,
 	useNodeSettings,
 } from './Node';
-
-function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG);
-}
 
 export function Sensor(props: Props) {
 	const progress = useMemo(() => {
@@ -41,22 +37,17 @@ export function Sensor(props: Props) {
 }
 
 function SensorSettings() {
-	const { pins } = useBoard();
-
 	const { settings, setSettings } = useNodeSettings<SensorData>();
 
 	return (
 		<>
-			<Select value={settings.pin.toString()} onValueChange={value => setSettings({ pin: value })}>
-				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
-				<SelectContent>
-					{pins.filter(validatePin).map(pin => (
-						<SelectItem key={pin.pin} value={`A${pin.analogChannel}`}>
-							Pin A{pin.analogChannel}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			<PinSelect
+				value={settings.pin}
+				onValueChange={pin => setSettings({ pin })}
+				filter={pin =>
+					pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG)
+				}
+			/>
 		</>
 	);
 }

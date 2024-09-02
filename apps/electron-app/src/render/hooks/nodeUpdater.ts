@@ -14,7 +14,9 @@ export function useUpdateNode<T extends Record<string, any>>(nodeId: string) {
 				return;
 			}
 
-			uploadCode();
+			setTimeout(() => {
+				uploadCode();
+			}, 150); // Sometimes we need to give the UI a bit of a head-start so we put this on eventloop queue for later
 		},
 		[uploadCode, updateNodeData, nodeId],
 	);

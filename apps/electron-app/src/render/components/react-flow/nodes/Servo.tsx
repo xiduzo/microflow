@@ -3,7 +3,7 @@ import { Icons, Input, Select, SelectContent, SelectItem, SelectTrigger } from '
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useMemo } from 'react';
 import { BoardCheckResult, MODES } from '../../../../common/types';
-import { useBoard } from '../../../providers/BoardProvider';
+import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -97,7 +97,7 @@ export function Servo(props: Props) {
 			</NodeContent>
 			<NodeSettings
 				onClose={() => {
-					updateNodeInternals({});
+					updateNodeInternals(props.id);
 				}}
 			>
 				<ServoSettings />
@@ -127,27 +127,21 @@ export function Servo(props: Props) {
 }
 
 function ServoSettings() {
-	const { pins } = useBoard();
-
 	const { settings, setSettings } = useNodeSettings<ServoData>();
 
 	return (
 		<>
-			<Select value={settings.pin.toString()} onValueChange={value => setSettings({ pin: value })}>
-				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
-				<SelectContent>
-					{pins.filter(validatePin).map(pin => (
-						<SelectItem key={pin.pin} value={pin.pin.toString()}>
-							Pin {pin.pin}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			<PinSelect
+				value={settings.pin}
+				onValueChange={pin => setSettings({ pin })}
+				filter={pin =>
+					pin.supportedModes.includes(MODES.OUTPUT) && pin.supportedModes.includes(MODES.PWM)
+				}
+			/>
 			<Select
 				value={settings.type}
 				onValueChange={value => {
 					setSettings({ type: value });
-					updateNodeInternals(props.id);
 				}}
 			>
 				<SelectTrigger className="first-letter:uppercase">{settings.type}</SelectTrigger>

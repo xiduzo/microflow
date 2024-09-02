@@ -1,9 +1,12 @@
 import type { MatrixData, MatrixShape, MatrixValueType } from '@microflow/components';
-import { Button, ScrollArea } from '@microflow/ui';
+import { Button, Label, ScrollArea } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useState } from 'react';
+import { MODES } from '../../../../../common/types';
 import { uuid } from '../../../../../utils/uuid';
+import { useBoard } from '../../../../providers/BoardProvider';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
+import { PinSelect } from '../../../PinSelect';
 import { Handle } from '../Handle';
 import {
 	BaseNode,
@@ -43,6 +46,7 @@ export function Matrix(props: Props) {
 
 function MatrixSettings() {
 	const { settings, setSettings } = useNodeSettings<MatrixData>();
+	const { pins } = useBoard();
 
 	const [shapes, setShapes] = useState(
 		settings.shapes.map(shape => ({
@@ -63,6 +67,38 @@ function MatrixSettings() {
 
 	return (
 		<>
+			<section className="flex space-x-2">
+				<div className="flex-grow">
+					<Label className="pb-2">Data</Label>
+					<PinSelect
+						value={settings.pins.data}
+						onValueChange={data => setSettings({ pins: { ...settings.pins, data } })}
+						filter={pin =>
+							pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG)
+						}
+					/>
+				</div>
+				<div className="flex-grow">
+					<Label>Clock</Label>
+					<PinSelect
+						value={settings.pins.clock}
+						onValueChange={clock => setSettings({ pins: { ...settings.pins, clock } })}
+						filter={pin =>
+							pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM)
+						}
+					/>
+				</div>
+				<div className="flex-grow">
+					<Label>CS</Label>
+					<PinSelect
+						value={settings.pins.cs}
+						onValueChange={cs => setSettings({ pins: { ...settings.pins, cs } })}
+						filter={pin =>
+							pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG)
+						}
+					/>
+				</div>
+			</section>
 			<ScrollArea className="h-60 p-2 border">
 				<section className="grid grid-cols-12 gap-2">
 					<DragAndDropProvider

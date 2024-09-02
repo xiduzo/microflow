@@ -1,16 +1,8 @@
 import type { LedData, LedValueType } from '@microflow/components';
-import {
-	Icons,
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectTrigger,
-} from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
-import { useBoard } from '../../../providers/BoardProvider';
+import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -44,32 +36,17 @@ export function Led(props: Props) {
 }
 
 function LedSettings() {
-	const { pins } = useBoard();
-
 	const { settings, setSettings } = useNodeSettings<LedData>();
 
 	return (
 		<>
-			<Select
-				value={settings.pin.toString()}
-				onValueChange={value => {
-					setSettings({ pin: parseInt(value) });
-				}}
-			>
-				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
-				<SelectContent>
-					<SelectGroup>
-						<SelectLabel>Set led pin</SelectLabel>
-						{pins
-							.filter(pin => pin.supportedModes.includes(MODES.INPUT))
-							.map(pin => (
-								<SelectItem key={pin.pin} value={pin.pin.toString()}>
-									Pin {pin.pin}
-								</SelectItem>
-							))}
-					</SelectGroup>
-				</SelectContent>
-			</Select>
+			<PinSelect
+				value={settings.pin}
+				onValueChange={pin => setSettings({ pin })}
+				filter={pin =>
+					pin.supportedModes.includes(MODES.OUTPUT) && !pin.supportedModes.includes(MODES.ANALOG)
+				}
+			/>
 		</>
 	);
 }
