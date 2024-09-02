@@ -153,7 +153,6 @@ export const nodesAndEdgesCountsSelector = (state: AppState) => ({
 
 export const tempNodeSelector = (state: AppState) => ({
 	addNode: (node: Node) => {
-		console.log(state.nodes);
 		state.setNodes([
 			...state.nodes.map(stateNode => ({
 				...stateNode,
