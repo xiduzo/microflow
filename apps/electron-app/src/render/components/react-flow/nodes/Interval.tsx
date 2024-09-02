@@ -24,8 +24,8 @@ export function Interval(props: Props) {
 			<NodeSettings>
 				<IntervalSettings />
 			</NodeSettings>
-			<Handle type="source" position={Position.Left} id="start" offset={-0.5} />
-			<Handle type="source" position={Position.Left} id="stop" offset={0.5} />
+			<Handle type="target" position={Position.Left} id="start" offset={-0.5} />
+			<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);
