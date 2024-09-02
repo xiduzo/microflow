@@ -100,7 +100,7 @@ function IfElseSettings() {
 						))}
 					</SelectContent>
 				</Select>
-				{IF_ELSE_SUB_VALIDATORS[settings.validator]?.length > 0 && (
+				{IF_ELSE_SUB_VALIDATORS[settings.validator]?.filter(Boolean).length > 0 && (
 					<Select
 						disabled={!settings.validator}
 						value={settings.subValidator}

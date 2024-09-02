@@ -88,9 +88,9 @@ export function Servo(props: Props) {
 							}}
 						>
 							<div
-								className={`h-14 w-0.5 bg-gradient-to-b from-primary to-primary/0 to-${isStandard ? '60' : '95'}% left-[54px] absolute`}
+								className={`h-14 w-0.5 bg-gradient-to-b from-muted-foreground to-muted-foreground/0 to-${isStandard ? '60' : '95'}% left-[54px] absolute`}
 							></div>
-							<Icons.Dot className={`w-8 h-8 absolute -top-4 left-[39px]`} />
+							<Icons.Dot className={`w-8 h-8 absolute -top-4 left-[39px] text-muted-foreground`} />
 						</div>
 					)}
 				</NodeValue>

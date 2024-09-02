@@ -28,8 +28,8 @@ export function Sensor(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
-				<NodeValue className="text-4xl tabular-nums">
-					<Progress max={1023} value={progress} />
+				<NodeValue className="text-4xl">
+					<Progress max={1023} value={progress} className="border border-muted-foreground/10" />
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
