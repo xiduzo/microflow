@@ -1,14 +1,14 @@
 import {
-  Button,
-  cn,
-  cva,
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  VariantProps,
+	Button,
+	cn,
+	cva,
+	Drawer,
+	DrawerContent,
+	DrawerDescription,
+	DrawerFooter,
+	DrawerHeader,
+	DrawerTitle,
+	VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
@@ -38,20 +38,22 @@ export function NodeSettings<T>(props: NodeContainerProps<T>) {
 	const { deleteElements } = useReactFlow<BaseNode>();
 	const updateNode = useUpdateNode(node.id);
 
-	function handleOpenChange(settingsOpen: boolean) {
+	function handleOpenChange(settingsOpen = false) {
 		if (settingsOpen) return;
+		if (settingsOpen === node.data.settingsOpen) return;
 
 		const newSettings = { ...settings, settingsOpen };
-		updateNode(newSettings, isNodeTypeACodeType(node.type));
+
 		props.onClose?.(newSettings as T);
+		updateNode(newSettings, isNodeTypeACodeType(node.type));
 	}
 
 	function setSettings(newSettings: Partial<T>) {
-    setSettingsState((prev) => {
-      const updatedSettings = { ...prev, ...newSettings };
-      return updatedSettings;
-    });
-  }
+		setSettingsState(prev => {
+			const updatedSettings = { ...prev, ...newSettings };
+			return updatedSettings;
+		});
+	}
 
 	return (
 		<NodeSettingsContext.Provider
@@ -75,7 +77,7 @@ export function NodeSettings<T>(props: NodeContainerProps<T>) {
 						{props.children}
 					</section>
 					<DrawerFooter className="max-w-md w-full m-auto">
-						<Button variant="secondary" onClick={handleOpenChange}>
+						<Button variant="secondary" onClick={() => handleOpenChange()}>
 							Close
 						</Button>
 						<Button variant="destructive" onClick={() => deleteElements({ nodes: [node] })}>

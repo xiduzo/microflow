@@ -2,8 +2,8 @@ import type { Controller, MotionData, MotionValueType } from '@microflow/compone
 import { MOTION_CONTROLLERS } from '@microflow/components/contants';
 import { Icons, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { BoardCheckResult, MODES } from '../../../../common/types';
-import { useBoard } from '../../../providers/BoardProvider';
+import { MODES } from '../../../../common/types';
+import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -13,10 +13,6 @@ import {
 	NodeValue,
 	useNodeSettings,
 } from './Node';
-
-function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
-}
 
 export function Motion(props: Props) {
 	return (
@@ -52,12 +48,24 @@ export function Motion(props: Props) {
 }
 
 function MotionSettings() {
-	const { pins } = useBoard();
-
 	const { settings, setSettings } = useNodeSettings<MotionData>();
 
 	return (
 		<>
+			<PinSelect
+				value={settings.pin}
+				onValueChange={pin => setSettings({ pin })}
+				filter={pin => {
+					const isCorrectMode =
+						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
+
+					if (settings.controller === 'HCSR501') {
+						return isCorrectMode && pin.supportedModes.includes(MODES.ANALOG);
+					} else {
+						return isCorrectMode && !pin.supportedModes.includes(MODES.ANALOG);
+					}
+				}}
+			/>
 			<Select
 				value={settings.controller}
 				onValueChange={(value: Controller) => setSettings({ controller: value })}
@@ -69,28 +77,6 @@ function MotionSettings() {
 							{controller}
 						</SelectItem>
 					))}
-				</SelectContent>
-			</Select>
-			<Select value={settings.pin.toString()} onValueChange={value => setSettings({ pin: value })}>
-				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
-				<SelectContent>
-					{pins
-						.filter(validatePin)
-						.filter(validatedPin => {
-							if (settings.controller === 'HCSR501') {
-								return validatedPin.analogChannel === 127;
-							} else {
-								return validatedPin.analogChannel !== 127;
-							}
-						})
-						.map(pin => (
-							<SelectItem
-								key={pin.pin}
-								value={pin.analogChannel === 127 ? `${pin.pin}` : `A${pin.analogChannel}`}
-							>
-								Pin {pin.analogChannel === 127 ? pin.pin : `A${pin.analogChannel}`}
-							</SelectItem>
-						))}
 				</SelectContent>
 			</Select>
 		</>

@@ -1,36 +1,24 @@
 import { BuzzData, SongData, type PiezoData } from '@microflow/components';
 import { Label, Select, SelectContent, SelectItem, SelectTrigger, Slider } from '@microflow/ui';
-import { BoardCheckResult, MODES } from '../../../../../common/types';
-import { useBoard } from '../../../../providers/BoardProvider';
+import { MODES } from '../../../../../common/types';
 import { MusicSheet } from '../../../MusicSheet';
+import { PinSelect } from '../../../PinSelect';
 import { useNodeSettings } from '../Node';
 import { DEFAULT_SONG, MAX_NOTE_FREQUENCY, MIN_NOTE_FREQUENCY } from './constants';
 import { DEFAULT_FREQUENCY } from './Piezo';
 import { SongEditor } from './SongEditor';
 
-function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM);
-}
-
 export function PiezoSettings() {
-	const { pins } = useBoard();
-
 	const { settings, setSettings } = useNodeSettings<PiezoData>();
 	return (
 		<>
-			<Select
-				value={settings.pin.toString()}
-				onValueChange={value => setSettings({ pin: Number(value) })}
-			>
-				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
-				<SelectContent>
-					{pins.filter(validatePin).map(pin => (
-						<SelectItem key={pin.pin} value={pin.pin.toString()}>
-							Pin {pin.pin}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			<PinSelect
+				value={settings.pin}
+				onValueChange={pin => setSettings({ pin })}
+				filter={pin =>
+					pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM)
+				}
+			/>
 
 			<Select
 				value={settings.type}

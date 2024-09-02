@@ -1,20 +1,8 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import {
-	Checkbox,
-	Icons,
-	Label,
-	RadioGroup,
-	RadioGroupItem,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	Slider,
-	Toggle,
-} from '@microflow/ui';
+import { Checkbox, Icons, Label, RadioGroup, RadioGroupItem, Slider, Toggle } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
-import { useBoard } from '../../../providers/BoardProvider';
+import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
 import {
 	BaseNode,
@@ -53,27 +41,15 @@ export function Button(props: Props) {
 }
 
 function ButtonSettings() {
-	const { pins } = useBoard();
-
 	const { settings, setSettings } = useNodeSettings<ButtonData>();
 
 	return (
 		<>
-			<Select
-				value={settings.pin.toString()}
-				onValueChange={value => setSettings({ pin: parseInt(value) })}
-			>
-				<SelectTrigger>Pin {settings.pin}</SelectTrigger>
-				<SelectContent>
-					{pins
-						.filter(pin => pin.supportedModes.includes(MODES.INPUT))
-						.map(pin => (
-							<SelectItem key={pin.pin} value={pin.pin.toString()}>
-								Pin {pin.pin}
-							</SelectItem>
-						))}
-				</SelectContent>
-			</Select>
+			<PinSelect
+				value={settings.pin}
+				onValueChange={pin => setSettings({ pin })}
+				filter={pin => pin.supportedModes.includes(MODES.INPUT)}
+			/>
 			<Label htmlFor="holdtime" className="flex justify-between">
 				Hold time
 				<span className="opacity-40 font-light">{settings.holdtime} ms</span>
