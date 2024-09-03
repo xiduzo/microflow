@@ -4,6 +4,7 @@ const path = require('node:path');
 import logger from 'electron-log/node';
 
 import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
+import { handleDeepLink } from './main/deepLink';
 import './main/ipc';
 import { createMenu } from './main/menu';
 
@@ -24,7 +25,6 @@ if (process.defaultApp) {
 }
 
 const createWindow = () => {
-	// Create the browser window.
 	mainWindow = new BrowserWindow({
 		width: 1024,
 		minWidth: 1024,
@@ -37,7 +37,6 @@ const createWindow = () => {
 
 	createMenu(mainWindow);
 
-	// and load the index.html of the app.
 	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
 		mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
 	} else {
@@ -50,30 +49,25 @@ if (!handleSquirrelEvent()) {
 	if (!gotTheLock) {
 		app.quit();
 	} else {
-		app.on('second-instance', (event, commandLine, workingDirectory) => {
+		// Windows & linux
+		app.on('second-instance', (_event, commandLine, _workingDirectory) => {
 			// Someone tried to run a second instance, we should focus our window.
 			if (mainWindow) {
 				if (mainWindow.isMinimized()) mainWindow.restore();
 				mainWindow.focus();
 			}
 
-			dialog.showErrorBox('Welcome Back', `You arrived from: ${commandLine.pop()?.slice(0, -1)}`);
+			logger.log('commandLine', _event, commandLine);
+			handleDeepLink(mainWindow, commandLine.pop() ?? '');
 		});
 
-		// This method will be called when Electron has finished
-		// initialization and is ready to create browser windows.
-		// Some APIs can only be used after this event occurs.
 		app.on('ready', createWindow);
 
-		// In this file you can include the rest of your app's specific main process
-		// code. You can also put them in separate files and import them here.
-		app.on('open-url', (event, url) => {
-			dialog.showErrorBox('Welcome Back', `You arrived from: ${url}`);
+		// MacOS
+		app.on('open-url', (_event, url) => {
+			handleDeepLink(mainWindow, url);
 		});
 
-		// Quit when all windows are closed, except on macOS. There, it's common
-		// for applications and their menu bar to stay active until the user quits
-		// explicitly with Cmd + Q.
 		app.on('window-all-closed', () => {
 			if (process.platform !== 'darwin') {
 				app.quit();

@@ -7,7 +7,8 @@ type Channels =
 	| 'ipc-upload-code'
 	| 'ipc-microcontroller'
 	| 'ipc-external-value'
-	| 'ipc-menu';
+	| 'ipc-menu'
+	| 'ipc-deep-link';
 export const electronHandler = {
 	ipcRenderer: {
 		send(channel: Channels, ...args: unknown[]) {

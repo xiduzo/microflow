@@ -1,17 +1,17 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
 import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
 import {
-	Badge,
-	Icons,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	Switch,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
+    Badge,
+    Icons,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    Switch,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
@@ -21,12 +21,12 @@ import { useBoard } from '../../../providers/BoardProvider';
 import { deleteEdgesSelector, useNodesEdgesStore } from '../../../store';
 import { Handle } from './Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
+    useNodeSettings,
 } from './Node';
 
 export function Figma(props: Props) {
@@ -79,6 +79,27 @@ export function Figma(props: Props) {
 		const value = DEFAULT_FIGMA_VALUE_PER_TYPE[variable.resolvedType];
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
 	}, [uploadResult, variable?.resolvedType, props.id]);
+
+	useEffect(() => {
+		return window.electron.ipcRenderer.on('ipc-deep-link', (event, id, value) => {
+			if (event !== 'figma') {
+				return;
+			}
+
+			if (id !== variable?.id) {
+				return;
+			}
+
+			// TODO: do some processing on the value received from the plugin
+			// Eg. convert the color value to rgba
+			// +<number> of -<number> to increment or decrement the value
+			// true/false values
+
+			console.log('sending update', props.id, value);
+
+			window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
+		});
+	}, [variable?.id, props.id]);
 
 	return (
 		<NodeContainer {...props}>
