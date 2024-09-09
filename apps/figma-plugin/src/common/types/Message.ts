@@ -9,6 +9,7 @@ export enum MESSAGE_TYPE {
 	CREATE_VARIABLE = 'CREATE_VARIABLE',
 	DELETE_VARIABLE = 'DELETE_VARIABLE',
 	UPDATE_VARIABLE = 'UPDATE_VARIABLE',
+	OPEN_LINK = 'OPEN_LINK',
 }
 
 export enum LOCAL_STORAGE_KEYS {
@@ -137,6 +138,18 @@ export function UpdateVariable(payload: Omit<VariableMessage, 'resolvedType'>) {
 		payload,
 	};
 }
+
+type OpenLinkMessage = {
+	type: MESSAGE_TYPE.OPEN_LINK;
+	payload: string;
+};
+export function OpenLink(payload: string): OpenLinkMessage {
+	return {
+		type: MESSAGE_TYPE.OPEN_LINK,
+		payload,
+	};
+}
+
 export type Message<T> =
 	| GetSetLocalStateValueMessage<T>
 	| SetUiOptionsMessage
@@ -145,7 +158,8 @@ export type Message<T> =
 	| ShowToastMessage
 	| CreateVariableMessage
 	| DeleteVariableMessage
-	| UpdateVariableMessage;
+	| UpdateVariableMessage
+	| OpenLinkMessage;
 
 export type PluginMessage<T> = {
 	pluginMessage: { type: MESSAGE_TYPE; payload?: T };

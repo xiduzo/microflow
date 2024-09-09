@@ -1,12 +1,12 @@
 import {
-	Edge,
-	Node,
-	OnConnect,
-	OnEdgesChange,
-	OnNodesChange,
-	addEdge,
-	applyEdgeChanges,
-	applyNodeChanges,
+    Edge,
+    Node,
+    OnConnect,
+    OnEdgesChange,
+    OnNodesChange,
+    addEdge,
+    applyEdgeChanges,
+    applyNodeChanges,
 } from '@xyflow/react';
 
 import { create } from 'zustand';

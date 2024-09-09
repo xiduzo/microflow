@@ -72,8 +72,6 @@ function IpcMenuListeners() {
 
 	useEffect(() => {
 		window.electron.ipcRenderer.on('ipc-menu', (button: string, ...props: unknown[]) => {
-			console.log('ipc-menu', button, props);
-
 			switch (button) {
 				case 'save-flow':
 					saveNodesAndEdges();

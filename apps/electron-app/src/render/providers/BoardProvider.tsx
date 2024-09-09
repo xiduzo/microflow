@@ -42,7 +42,6 @@ export function BoardProvider({ children }: PropsWithChildren) {
 		// TODO: when the uploads happen too fast in a row
 		// we need to already call the `off`
 		const off = window.electron.ipcRenderer.on('ipc-upload-code', (result: UploadCodeResult) => {
-			console.log('upload result', result);
 			setUploadResult(result.type);
 
 			if (result.pins) {
@@ -65,7 +64,6 @@ export function BoardProvider({ children }: PropsWithChildren) {
 		window.electron.ipcRenderer.send('ipc-check-board');
 
 		return window.electron.ipcRenderer.on('ipc-check-board', (result: BoardCheckResult) => {
-			console.log('check result', result);
 			setCheckResult(result.type);
 
 			if (result.pins) {

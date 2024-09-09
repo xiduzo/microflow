@@ -1,17 +1,17 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
 import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
 import {
-	Badge,
-	Icons,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	Switch,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
+    Badge,
+    Icons,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    Switch,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
@@ -21,12 +21,12 @@ import { useBoard } from '../../../providers/BoardProvider';
 import { deleteEdgesSelector, useNodesEdgesStore } from '../../../store';
 import { Handle } from './Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
+    useNodeSettings,
 } from './Node';
 
 export function Figma(props: Props) {
@@ -80,6 +80,28 @@ export function Figma(props: Props) {
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
 	}, [uploadResult, variable?.resolvedType, props.id]);
 
+	useEffect(() => {
+		return window.electron.ipcRenderer.on('ipc-deep-link', (event, id, value) => {
+			if (event !== 'figma') {
+				return;
+			}
+
+			if (id !== variable?.id) {
+				return;
+			}
+
+			// TODO: do some processing on the value received from the plugin
+			// Eg. convert the color value to rgba
+			// +<number> of -<number> to increment or decrement the value
+			// true/false values
+			window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
+
+			// TODO: should we already publish the value?
+			// this would probably mean we publish it twice but it does not require a
+			// microcontroller to be connected and active
+		});
+	}, [variable?.id, props.id]);
+
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
@@ -99,14 +121,22 @@ export function Figma(props: Props) {
 			>
 				<FigmaSettings />
 			</NodeSettings>
-			{variable?.resolvedType === 'BOOLEAN' && (
+			<FigmaHandles variable={variable} />
+		</NodeContainer>
+	);
+}
+
+function FigmaHandles(props: { variable?: FigmaVariable }) {
+	return (
+		<>
+			{props.variable?.resolvedType === 'BOOLEAN' && (
 				<>
 					<Handle type="target" position={Position.Left} id="true" offset={-1} />
 					<Handle type="target" position={Position.Left} id="toggle" />
 					<Handle type="target" position={Position.Left} id="false" offset={1} />
 				</>
 			)}
-			{variable?.resolvedType === 'COLOR' && (
+			{props.variable?.resolvedType === 'COLOR' && (
 				<>
 					<Handle type="target" position={Position.Left} id="red" hint="0-255" offset={-1.5} />
 					<Handle type="target" position={Position.Left} id="green" hint="0-255" offset={-0.5} />
@@ -114,18 +144,18 @@ export function Figma(props: Props) {
 					<Handle type="target" position={Position.Left} id="opacity" hint="0-100" offset={1.5} />
 				</>
 			)}
-			{variable?.resolvedType === 'FLOAT' && (
+			{props.variable?.resolvedType === 'FLOAT' && (
 				<>
 					<Handle type="target" position={Position.Left} id="increment" offset={-1} />
 					<Handle type="target" position={Position.Left} id="set" />
 					<Handle type="target" position={Position.Left} id="decrement" offset={1} />
 				</>
 			)}
-			{variable?.resolvedType === 'STRING' && (
+			{props.variable?.resolvedType === 'STRING' && (
 				<Handle type="target" position={Position.Left} id="set" />
 			)}
 			<Handle type="source" position={Position.Bottom} id="change" />
-		</NodeContainer>
+		</>
 	);
 }
 

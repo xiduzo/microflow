@@ -1,6 +1,6 @@
 import { Callout } from '@/components/Callout';
 import { QuickLink, QuickLinks } from '@/components/QuickLinks';
-import { Badge } from '@microflow/ui';
+import { Badge, Icon } from '@microflow/ui';
 
 const tags = {
 	callout: {
@@ -60,6 +60,15 @@ const tags = {
 	tags: {
 		render: ({ children }) => {
 			return <div className="flex flex-wrap gap-2">{children}</div>;
+		},
+	},
+	icon: {
+		selfClosing: true,
+		attributes: {
+			name: { type: String },
+		},
+		render: ({ name }) => {
+			return <Icon icon={name} />;
 		},
 	},
 };
