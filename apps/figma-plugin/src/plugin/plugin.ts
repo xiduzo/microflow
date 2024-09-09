@@ -13,6 +13,10 @@ figma.ui.onmessage = <T>(message: Message<T>) => {
 	const { type, payload } = message;
 
 	switch (type) {
+		case MESSAGE_TYPE.OPEN_LINK: {
+			figma.openExternal(payload);
+			break;
+		}
 		case MESSAGE_TYPE.SHOW_TOAST: {
 			figma.notify(payload.message, payload.options);
 			break;
