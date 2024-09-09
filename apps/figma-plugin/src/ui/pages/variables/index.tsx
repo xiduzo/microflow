@@ -1,4 +1,4 @@
-import { Button, cva, Icons } from '@microflow/ui';
+import { Button, cva, Icon, IconName, Icons } from '@microflow/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LOCAL_STORAGE_KEYS, MESSAGE_TYPE } from '../../../common/types/Message';
@@ -50,47 +50,51 @@ export function Variables() {
 								<span>{variable.name}</span>
 							</div>
 							<div className="flex space-x-2 items-center opacity-10 group-hover:opacity-100 transition-all duration-300">
-								<Button
-									variant="ghost"
-									size="icon"
+								<CopyButton
 									title="Copy publish topic"
-									className="hover:cursor-copy"
-									onClick={() => {
-										copy(`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`);
-									}}
-								>
-									<Icons.RadioTower
-										className={copyButtonIcon({
-											hasCopiedValue:
-												copiedValue ===
-												`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`,
-										})}
-										opacity="80%"
-									/>
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
+									icon="RadioTower"
+									textToCopy={`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`}
+								/>
+								<CopyButton
 									title="Copy subscribe topic"
-									className="hover:cursor-copy"
-									onClick={() => {
-										copy(`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`);
-									}}
-								>
-									<Icons.Antenna
-										className={copyButtonIcon({
-											hasCopiedValue:
-												copiedValue === `microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
-										})}
-										opacity="80%"
-									/>
-								</Button>
+									icon="Antenna"
+									textToCopy={`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`}
+								/>
+								<CopyButton
+									title="Copy prototype link"
+									icon="Link"
+									textToCopy={`http://localhost:3000/set/${variable.id}/YOUR_VALUE`}
+								/>
 							</div>
 						</section>
 					);
 				})}
 			</PageContent>
 		</>
+	);
+}
+
+function CopyButton(props: { textToCopy: string; icon: IconName; title: string }) {
+	const [copiedValue, copy] = useCopyToClipboard();
+
+	return (
+		<Button
+			variant="ghost"
+			size="icon"
+			title={props.title}
+			className="hover:cursor-copy"
+			onClick={() => {
+				copy(props.textToCopy);
+			}}
+		>
+			<Icon
+				icon={props.icon}
+				opacity="80%"
+				className={copyButtonIcon({
+					hasCopiedValue: copiedValue === props.textToCopy,
+				})}
+			/>
+		</Button>
 	);
 }
 

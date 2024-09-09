@@ -10,7 +10,7 @@ By default it will be connected to the [mosquitto](https://mosquitto.org/) test 
 
 Because the default connection is connected to an open broker, all data is public and can be read by anyone. Be aware to not publish any sensitive content over this connection.
 
-## Local broker
+### Local broker
 Figma requires the broker to be connected over a secure connection (`wss`).
 
 To connect to a local broker, you will need to make sure you have a valid SSL certificate.

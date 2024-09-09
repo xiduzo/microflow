@@ -75,6 +75,7 @@ export const navigation = [
 		title: 'Microflow hardware bridge',
 		links: [
 			{ title: 'Getting started', href: '/docs/microflow-hardware-bridge' },
+			{ title: 'Variables', href: '/docs/microflow-hardware-bridge/variables' },
 			{ title: 'MQTT', href: '/docs/microflow-hardware-bridge/mqtt' },
 		],
 	},
