@@ -6,7 +6,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
 	title: 'Microflow',
-	description: 'Flow based microcontroller logic',
+	description: 'Microcontrollers made simple',
 };
 
 export default function RootLayout(props: PropsWithChildren) {
