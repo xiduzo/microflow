@@ -42,3 +42,8 @@ sequenceDiagram
     Microflow website ->> Microflow website: Close webpage
     Microflow studio ->> Microflow hardware bridge: Update variable
 ```
+
+#### Issues
+Sometimes the website does not open Microflow studio properly.
+
+[>> Click here <<](microflow-studio://link-web) to validate if the link is working as expected.

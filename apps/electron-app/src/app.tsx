@@ -1,5 +1,5 @@
 import { FigmaProvider, MqttConfig, MqttProvider } from '@microflow/mqtt-provider/client';
-import { Toaster } from '@microflow/ui';
+import { toast, Toaster } from '@microflow/ui';
 import { initParticlesEngine } from '@tsparticles/react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { useEffect, useState } from 'react';
@@ -45,6 +45,7 @@ export function App() {
 	return (
 		<CelebrationProvider init={init}>
 			<Toaster position="top-right" className="z-20" />
+			<IpcDeepLinkListener />
 			<BoardProvider>
 				<MqttProvider appName="app" config={mqttConfig}>
 					<FigmaProvider>
@@ -101,6 +102,24 @@ function IpcMenuListeners() {
 
 function NodeAndEdgeSignaler() {
 	useSignalNodesAndEdges();
+
+	return null;
+}
+
+function IpcDeepLinkListener() {
+	useEffect(() => {
+		return window.electron.ipcRenderer.on('ipc-deep-link', (event, ...args) => {
+			console.log('ipc-deep-link', event, args);
+
+			switch (event) {
+				case 'web':
+					toast.success('Microflow studio successfully linked!');
+					break;
+				default:
+					break;
+			}
+		});
+	}, []);
 
 	return null;
 }
