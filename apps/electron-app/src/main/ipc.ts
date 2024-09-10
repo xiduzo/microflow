@@ -116,13 +116,13 @@ ipcMain.on('ipc-check-board', async event => {
 });
 
 ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
+	childProcess?.kill();
 	log.info(`Uploading code to port ${portPath}`);
 
 	if (!portPath) {
 		log.warn('No port path provided for uploading code');
 		return;
 	}
-	childProcess?.kill();
 
 	const filePath = join(__dirname, 'temp.js');
 	log.debug('Writing code to file', { filePath });
