@@ -6,6 +6,7 @@ import { Container } from '@/components/Container';
 // import logoTransistor from '@/images/logos/transistor.svg'
 // import logoTuple from '@/images/logos/tuple.svg'
 import { Button } from '@microflow/ui';
+import Link from 'next/link';
 import { DownloadApp } from './DownloadApp';
 
 export function Hero() {
@@ -31,7 +32,9 @@ export function Hero() {
 				A set of tools to make it easier to start prototyping for interactivity
 			</p>
 			<div className="mt-10 flex justify-center gap-x-6">
-				<Button variant="secondary">Go to documentation</Button>
+				<Button variant="secondary" asChild>
+					<Link href="/docs">Go to documentation</Link>
+				</Button>
 			</div>
 			<div className="mt-36 lg:mt-44">
 				<p className="font-display text-base text-slate-100">
