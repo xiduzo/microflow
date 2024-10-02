@@ -354,7 +354,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/cli@npm:^7.2.0":
+"@electron-forge/cli@npm:7.2.0":
   version: 7.2.0
   resolution: "@electron-forge/cli@npm:7.2.0"
   dependencies:
@@ -458,7 +458,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/maker-deb@npm:^7.2.0":
+"@electron-forge/maker-deb@npm:7.2.0":
   version: 7.2.0
   resolution: "@electron-forge/maker-deb@npm:7.2.0"
   dependencies:
@@ -472,7 +472,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/maker-dmg@npm:^7.4.0":
+"@electron-forge/maker-dmg@npm:7.4.0":
   version: 7.4.0
   resolution: "@electron-forge/maker-dmg@npm:7.4.0"
   dependencies:
@@ -487,7 +487,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/maker-rpm@npm:^7.2.0":
+"@electron-forge/maker-rpm@npm:7.2.0":
   version: 7.2.0
   resolution: "@electron-forge/maker-rpm@npm:7.2.0"
   dependencies:
@@ -501,7 +501,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/maker-squirrel@npm:^7.2.0":
+"@electron-forge/maker-squirrel@npm:7.2.0":
   version: 7.2.0
   resolution: "@electron-forge/maker-squirrel@npm:7.2.0"
   dependencies:
@@ -516,7 +516,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/maker-zip@npm:^7.2.0":
+"@electron-forge/maker-zip@npm:7.2.0":
   version: 7.2.0
   resolution: "@electron-forge/maker-zip@npm:7.2.0"
   dependencies:
@@ -529,7 +529,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/plugin-auto-unpack-natives@npm:^7.2.0":
+"@electron-forge/plugin-auto-unpack-natives@npm:7.2.0":
   version: 7.2.0
   resolution: "@electron-forge/plugin-auto-unpack-natives@npm:7.2.0"
   dependencies:
@@ -548,7 +548,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/plugin-vite@npm:^7.2.0":
+"@electron-forge/plugin-vite@npm:7.2.0":
   version: 7.2.0
   resolution: "@electron-forge/plugin-vite@npm:7.2.0"
   dependencies:
@@ -581,7 +581,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/publisher-github@npm:^7.4.0":
+"@electron-forge/publisher-github@npm:7.4.0":
   version: 7.4.0
   resolution: "@electron-forge/publisher-github@npm:7.4.0"
   dependencies:
@@ -613,7 +613,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron-forge/shared-types@npm:7.4.0, @electron-forge/shared-types@npm:^7.4.0":
+"@electron-forge/shared-types@npm:7.4.0":
   version: 7.4.0
   resolution: "@electron-forge/shared-types@npm:7.4.0"
   dependencies:
@@ -1621,7 +1621,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@manypkg/find-root@npm:^2.2.2":
+"@manypkg/find-root@npm:2.2.2":
   version: 2.2.2
   resolution: "@manypkg/find-root@npm:2.2.2"
   dependencies:
@@ -1920,7 +1920,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@npmcli/arborist@npm:^7.5.3":
+"@npmcli/arborist@npm:7.5.3":
   version: 7.5.3
   resolution: "@npmcli/arborist@npm:7.5.3"
   dependencies:
@@ -3472,7 +3472,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rollup/plugin-alias@npm:^5.1.0":
+"@rollup/plugin-alias@npm:5.1.0":
   version: 5.1.0
   resolution: "@rollup/plugin-alias@npm:5.1.0"
   dependencies:
@@ -4123,7 +4123,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tsparticles/engine@npm:^3.5.0":
+"@tsparticles/engine@npm:3.5.0, @tsparticles/engine@npm:^3.5.0":
   version: 3.5.0
   resolution: "@tsparticles/engine@npm:3.5.0"
   checksum: 2b07b2f94b08755e3f4465a86ccfec04fcd8a39c87d78ef435f907eff912555c2bf07551f6a77da8181011d5247c73e076618883e4ff7eaac72d4fd4b806b2e9
@@ -4321,7 +4321,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tsparticles/react@npm:^3.0.0":
+"@tsparticles/react@npm:3.0.0":
   version: 3.0.0
   resolution: "@tsparticles/react@npm:3.0.0"
   peerDependencies:
@@ -4840,12 +4840,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^18.11.18":
-  version: 18.19.3
-  resolution: "@types/node@npm:18.19.3"
-  dependencies:
-    undici-types: "npm:~5.26.4"
-  checksum: 58c4fa45a78fcec75c78182a4b266395905957633654eb0311c5f9c30ac15c179ea2287ab1af034e46c2db7bb0589ef0000ee64c1de8f568a0aad29eaadb100c
+"@types/node@npm:18.15.11":
+  version: 18.15.11
+  resolution: "@types/node@npm:18.15.11"
+  checksum: 977b4ad04708897ff0eb049ecf82246d210939c82461922d20f7d2dcfd81bbc661582ba3af28869210f7e8b1934529dcd46bff7d448551400f9d48b9d3bddec3
   languageName: node
   linkType: hard
 
@@ -4864,6 +4862,15 @@ __metadata:
   dependencies:
     undici-types: ~5.26.4
   checksum: cb2199123efca94908ee7191cc7b7abc11b26bf1fbb93c2948d5537a6594eedc35d4748d9fa998078fdc2eb5cc3a11d6d87b2fea20a05bda9d304e37d3c3282a
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^20.9.0":
+  version: 20.16.10
+  resolution: "@types/node@npm:20.16.10"
+  dependencies:
+    undici-types: ~6.19.2
+  checksum: 8b4d5a0af828871627e80da095df50ef8ae7ca458f39ccde1d060e3bf97b0bc76af9547bd5d75ce4ccb1dd80466804b2fe4f12553c11cb8691c6667effd9a9d7
   languageName: node
   linkType: hard
 
@@ -4887,7 +4894,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/npmcli__arborist@npm:^5.6.9":
+"@types/npmcli__arborist@npm:5.6.9":
   version: 5.6.9
   resolution: "@types/npmcli__arborist@npm:5.6.9"
   dependencies:
@@ -4952,7 +4959,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:^18, @types/react-dom@npm:^18.0.11, @types/react-dom@npm:^18.3.0":
+"@types/react-dom@npm:18.3.0, @types/react-dom@npm:^18, @types/react-dom@npm:^18.0.11":
   version: 18.3.0
   resolution: "@types/react-dom@npm:18.3.0"
   dependencies:
@@ -4970,7 +4977,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react@npm:*, @types/react@npm:^18, @types/react@npm:^18.0.28, @types/react@npm:^18.3.3":
+"@types/react@npm:*, @types/react@npm:18.3.3, @types/react@npm:^18, @types/react@npm:^18.0.28, @types/react@npm:^18.3.3":
   version: 18.3.3
   resolution: "@types/react@npm:18.3.3"
   dependencies:
@@ -5143,7 +5150,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@xyflow/react@npm:^12.0.0":
+"@xyflow/react@npm:12.0.0":
   version: 12.0.0
   resolution: "@xyflow/react@npm:12.0.0"
   dependencies:
@@ -5193,7 +5200,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"abcjs@npm:^6.4.2":
+"abcjs@npm:6.4.2":
   version: 6.4.2
   resolution: "abcjs@npm:6.4.2"
   checksum: ee1e7ef17158c51117bdd9611551a406f3026ef614a50ca297ca3159b626c4099c287f6fb25de5c26f4c02e39d28c1dddaef6ee0350bacd8c1b3906822b463a8
@@ -5641,7 +5648,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"autoprefixer@npm:^10.4.19":
+"autoprefixer@npm:10.4.19, autoprefixer@npm:^10.4.19":
   version: 10.4.19
   resolution: "autoprefixer@npm:10.4.19"
   dependencies:
@@ -7361,7 +7368,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dotenv@npm:^16.4.5":
+"dotenv@npm:16.4.5":
   version: 16.4.5
   resolution: "dotenv@npm:16.4.5"
   checksum: 301a12c3d44fd49888b74eb9ccf9f07a1f5df43f489e7fcb89647a2edcd84c42d6bc349dc8df099cd18f07c35c7b04685c1a4f3e6a6a9e6b30f8d48c15b7f49c
@@ -7476,7 +7483,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-log@npm:^5.1.5":
+"electron-log@npm:5.1.5":
   version: 5.1.5
   resolution: "electron-log@npm:5.1.5"
   checksum: 8efdf124fc3fa78c6069da05b98277c3c78a42dbea60d8fbdb30b0ca7aca466cf8cf5fc0844ae6154ff8c1709de9f26cf8fc52fb496edabf9a9e0f853f96ffbe
@@ -7510,16 +7517,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:28.0.0":
-  version: 28.0.0
-  resolution: "electron@npm:28.0.0"
+"electron@npm:29.4.6":
+  version: 29.4.6
+  resolution: "electron@npm:29.4.6"
   dependencies:
-    "@electron/get": "npm:^2.0.0"
-    "@types/node": "npm:^18.11.18"
-    extract-zip: "npm:^2.0.1"
+    "@electron/get": ^2.0.0
+    "@types/node": ^20.9.0
+    extract-zip: ^2.0.1
   bin:
     electron: cli.js
-  checksum: 5e0da4f3a8b6746cc597b20453cec89a346c9b64b6d3e3dbc7ba015c1e7d1dcaf43c2fc7c3115fc57f68853724049a6b21e40a82becb49df2d8207cbf6cbc3ea
+  checksum: 14f4ae506032227083e59db3188863c71cd89c9df9490cc4bb014af55c9d93bd585093e06db4f221e897aea5b01805d4ad11e5f6ae7b41cbe493d84d55e5ffbf
   languageName: node
   linkType: hard
 
@@ -8088,21 +8095,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"eslint-plugin-react-hooks@npm:4.6.2":
+  version: 4.6.2
+  resolution: "eslint-plugin-react-hooks@npm:4.6.2"
+  peerDependencies:
+    eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0
+  checksum: 395c433610f59577cfcf3f2e42bcb130436c8a0b3777ac64f441d88c5275f4fcfc89094cedab270f2822daf29af1079151a7a6579a8e9ea8cee66540ba0384c4
+  languageName: node
+  linkType: hard
+
 "eslint-plugin-react-hooks@npm:^4.5.0 || 5.0.0-canary-7118f5dd7-20230705":
   version: 5.0.0-canary-7118f5dd7-20230705
   resolution: "eslint-plugin-react-hooks@npm:5.0.0-canary-7118f5dd7-20230705"
   peerDependencies:
     eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0
   checksum: 20e334e60bf5e56cf9f760598411847525c3ff826e6ae7757c8efdc60b33d47a97ddbe1b94ce95956ea9f7bbef37995b19c716be50bd44e6a1e789cba08b6224
-  languageName: node
-  linkType: hard
-
-"eslint-plugin-react-hooks@npm:^4.6.2":
-  version: 4.6.2
-  resolution: "eslint-plugin-react-hooks@npm:4.6.2"
-  peerDependencies:
-    eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0
-  checksum: 395c433610f59577cfcf3f2e42bcb130436c8a0b3777ac64f441d88c5275f4fcfc89094cedab270f2822daf29af1079151a7a6579a8e9ea8cee66540ba0384c4
   languageName: node
   linkType: hard
 
@@ -10853,53 +10860,53 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "microflow-studio@workspace:apps/electron-app"
   dependencies:
-    "@electron-forge/cli": ^7.2.0
-    "@electron-forge/maker-deb": ^7.2.0
-    "@electron-forge/maker-dmg": ^7.4.0
-    "@electron-forge/maker-rpm": ^7.2.0
-    "@electron-forge/maker-squirrel": ^7.2.0
-    "@electron-forge/maker-zip": ^7.2.0
-    "@electron-forge/plugin-auto-unpack-natives": ^7.2.0
-    "@electron-forge/plugin-vite": ^7.2.0
-    "@electron-forge/publisher-github": ^7.4.0
-    "@electron-forge/shared-types": ^7.4.0
-    "@manypkg/find-root": ^2.2.2
+    "@electron-forge/cli": 7.2.0
+    "@electron-forge/maker-deb": 7.2.0
+    "@electron-forge/maker-dmg": 7.4.0
+    "@electron-forge/maker-rpm": 7.2.0
+    "@electron-forge/maker-squirrel": 7.2.0
+    "@electron-forge/maker-zip": 7.2.0
+    "@electron-forge/plugin-auto-unpack-natives": 7.2.0
+    "@electron-forge/plugin-vite": 7.2.0
+    "@electron-forge/publisher-github": 7.4.0
+    "@electron-forge/shared-types": 7.4.0
+    "@manypkg/find-root": 2.2.2
     "@microflow/components": "workspaces:*"
     "@microflow/flasher": "workspaces:*"
     "@microflow/mqtt-provider": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"
-    "@npmcli/arborist": ^7.5.3
-    "@rollup/plugin-alias": ^5.1.0
-    "@tsparticles/engine": ^3.5.0
-    "@tsparticles/react": ^3.0.0
-    "@types/node": ^18.15.11
-    "@types/npmcli__arborist": ^5.6.9
-    "@types/react": ^18.3.3
-    "@types/react-dom": ^18.3.0
-    "@xyflow/react": ^12.0.0
-    abcjs: ^6.4.2
-    autoprefixer: ^10.4.19
-    dotenv: ^16.4.5
-    electron: 28.0.0
-    electron-log: ^5.1.5
-    eslint-plugin-react-hooks: ^4.6.2
+    "@npmcli/arborist": 7.5.3
+    "@rollup/plugin-alias": 5.1.0
+    "@tsparticles/engine": 3.5.0
+    "@tsparticles/react": 3.0.0
+    "@types/node": 18.15.11
+    "@types/npmcli__arborist": 5.6.9
+    "@types/react": 18.3.3
+    "@types/react-dom": 18.3.0
+    "@xyflow/react": 12.0.0
+    abcjs: 6.4.2
+    autoprefixer: 10.4.19
+    dotenv: 16.4.5
+    electron: 29.4.6
+    electron-log: 5.1.5
+    eslint-plugin-react-hooks: 4.6.2
     firmata: "https://github.com/xiduzo/firmata.js.git"
-    mqtt: ^5.8.0
-    postcss: ^8.4.39
-    react: ^18.3.1
-    react-dom: ^18.3.1
+    mqtt: 5.8.0
+    postcss: 8.4.39
+    react: 18.3.1
+    react-dom: 18.3.1
     rimraf: 5.0.5
-    rollup-plugin-copy: ^3.5.0
+    rollup-plugin-copy: 3.5.0
     serialport: 12.0.0
-    tailwindcss: ^3.4.4
-    ts-node: ^10.9.2
-    tsparticles: ^3.5.0
-    typescript: ^5.5.3
-    unique-names-generator: ^4.7.1
-    update-electron-app: ^3.0.0
-    usehooks-ts: ^3.1.0
-    zustand: ^4.5.4
+    tailwindcss: 3.4.4
+    ts-node: 10.9.2
+    tsparticles: 3.5.0
+    typescript: 5.5.3
+    unique-names-generator: 4.7.1
+    update-electron-app: 3.0.0
+    usehooks-ts: 3.1.0
+    zustand: 4.5.4
   languageName: unknown
   linkType: soft
 
@@ -11387,7 +11394,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mqtt@npm:^5.2.0, mqtt@npm:^5.8.0":
+"mqtt@npm:5.8.0, mqtt@npm:^5.2.0, mqtt@npm:^5.8.0":
   version: 5.8.0
   resolution: "mqtt@npm:5.8.0"
   dependencies:
@@ -12605,6 +12612,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"postcss@npm:8.4.39, postcss@npm:^8.0.0, postcss@npm:^8.4.23, postcss@npm:^8.4.39":
+  version: 8.4.39
+  resolution: "postcss@npm:8.4.39"
+  dependencies:
+    nanoid: ^3.3.7
+    picocolors: ^1.0.1
+    source-map-js: ^1.2.0
+  checksum: 14b130c90f165961772bdaf99c67f907f3d16494adf0868e57ef68baa67e0d1f6762db9d41ab0f4d09bab6fb7888588dba3596afd1a235fd5c2d43fba7006ac6
+  languageName: node
+  linkType: hard
+
 "postcss@npm:^8":
   version: 8.4.40
   resolution: "postcss@npm:8.4.40"
@@ -12613,17 +12631,6 @@ __metadata:
     picocolors: ^1.0.1
     source-map-js: ^1.2.0
   checksum: afd0cc49d2169dcd96c0f17e155c5d75de048956306a3017f1cfa6a7d66b941592245bed20f7796ceeccb2d8967749b623be2c7b010a74f67ea10fb5bdb8ba28
-  languageName: node
-  linkType: hard
-
-"postcss@npm:^8.0.0, postcss@npm:^8.4.23, postcss@npm:^8.4.39":
-  version: 8.4.39
-  resolution: "postcss@npm:8.4.39"
-  dependencies:
-    nanoid: ^3.3.7
-    picocolors: ^1.0.1
-    source-map-js: ^1.2.0
-  checksum: 14b130c90f165961772bdaf99c67f907f3d16494adf0868e57ef68baa67e0d1f6762db9d41ab0f4d09bab6fb7888588dba3596afd1a235fd5c2d43fba7006ac6
   languageName: node
   linkType: hard
 
@@ -12829,7 +12836,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:^18, react-dom@npm:^18.2.0, react-dom@npm:^18.3.1":
+"react-dom@npm:18.3.1, react-dom@npm:^18, react-dom@npm:^18.2.0, react-dom@npm:^18.3.1":
   version: 18.3.1
   resolution: "react-dom@npm:18.3.1"
   dependencies:
@@ -12972,7 +12979,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:^18, react@npm:^18.2.0, react@npm:^18.3.1":
+"react@npm:18.3.1, react@npm:^18, react@npm:^18.2.0, react@npm:^18.3.1":
   version: 18.3.1
   resolution: "react@npm:18.3.1"
   dependencies:
@@ -13375,7 +13382,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rollup-plugin-copy@npm:^3.5.0":
+"rollup-plugin-copy@npm:3.5.0":
   version: 3.5.0
   resolution: "rollup-plugin-copy@npm:3.5.0"
   dependencies:
@@ -14532,6 +14539,39 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tailwindcss@npm:3.4.4, tailwindcss@npm:^3.4.4":
+  version: 3.4.4
+  resolution: "tailwindcss@npm:3.4.4"
+  dependencies:
+    "@alloc/quick-lru": ^5.2.0
+    arg: ^5.0.2
+    chokidar: ^3.5.3
+    didyoumean: ^1.2.2
+    dlv: ^1.1.3
+    fast-glob: ^3.3.0
+    glob-parent: ^6.0.2
+    is-glob: ^4.0.3
+    jiti: ^1.21.0
+    lilconfig: ^2.1.0
+    micromatch: ^4.0.5
+    normalize-path: ^3.0.0
+    object-hash: ^3.0.0
+    picocolors: ^1.0.0
+    postcss: ^8.4.23
+    postcss-import: ^15.1.0
+    postcss-js: ^4.0.1
+    postcss-load-config: ^4.0.1
+    postcss-nested: ^6.0.1
+    postcss-selector-parser: ^6.0.11
+    resolve: ^1.22.2
+    sucrase: ^3.32.0
+  bin:
+    tailwind: lib/cli.js
+    tailwindcss: lib/cli.js
+  checksum: 743639b6a5c827b6f91ad8cff22ad296e25f4478202200a6f41ae49fbb28c4c6f8120e742a85e09987e33352fbc52c6a34c4ed33ce000b3810d4edf632142bac
+  languageName: node
+  linkType: hard
+
 "tailwindcss@npm:^3.4.1":
   version: 3.4.7
   resolution: "tailwindcss@npm:3.4.7"
@@ -14562,39 +14602,6 @@ __metadata:
     tailwind: lib/cli.js
     tailwindcss: lib/cli.js
   checksum: 9c769ab5ddcd4aaf99a9798f89dab5816e801fd6b5cab352b54ebfaeb2b53dd322604e6dfbcb70633c3bae17c9432cebcdbe85ca5ca6d261ec674f8d1b11e29c
-  languageName: node
-  linkType: hard
-
-"tailwindcss@npm:^3.4.4":
-  version: 3.4.4
-  resolution: "tailwindcss@npm:3.4.4"
-  dependencies:
-    "@alloc/quick-lru": ^5.2.0
-    arg: ^5.0.2
-    chokidar: ^3.5.3
-    didyoumean: ^1.2.2
-    dlv: ^1.1.3
-    fast-glob: ^3.3.0
-    glob-parent: ^6.0.2
-    is-glob: ^4.0.3
-    jiti: ^1.21.0
-    lilconfig: ^2.1.0
-    micromatch: ^4.0.5
-    normalize-path: ^3.0.0
-    object-hash: ^3.0.0
-    picocolors: ^1.0.0
-    postcss: ^8.4.23
-    postcss-import: ^15.1.0
-    postcss-js: ^4.0.1
-    postcss-load-config: ^4.0.1
-    postcss-nested: ^6.0.1
-    postcss-selector-parser: ^6.0.11
-    resolve: ^1.22.2
-    sucrase: ^3.32.0
-  bin:
-    tailwind: lib/cli.js
-    tailwindcss: lib/cli.js
-  checksum: 743639b6a5c827b6f91ad8cff22ad296e25f4478202200a6f41ae49fbb28c4c6f8120e742a85e09987e33352fbc52c6a34c4ed33ce000b3810d4edf632142bac
   languageName: node
   linkType: hard
 
@@ -14829,7 +14836,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-node@npm:^10.9.2":
+"ts-node@npm:10.9.2":
   version: 10.9.2
   resolution: "ts-node@npm:10.9.2"
   dependencies:
@@ -14893,7 +14900,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsparticles@npm:^3.5.0":
+"tsparticles@npm:3.5.0":
   version: 3.5.0
   resolution: "tsparticles@npm:3.5.0"
   dependencies:
@@ -15031,6 +15038,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"typescript@npm:5.5.3, typescript@npm:^5.3.0":
+  version: 5.5.3
+  resolution: "typescript@npm:5.5.3"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 4b4f14313484d5c86064d04ba892544801fa551f5cf72719b540b498056fec7fc192d0bbdb2ba1448e759b1548769956da9e43e7c16781e8d8856787b0575004
+  languageName: node
+  linkType: hard
+
 "typescript@npm:^5, typescript@npm:^5.5.4":
   version: 5.5.4
   resolution: "typescript@npm:5.5.4"
@@ -15041,13 +15058,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.3.0, typescript@npm:^5.5.3":
+"typescript@patch:typescript@5.5.3#~builtin<compat/typescript>, typescript@patch:typescript@^5.3.0#~builtin<compat/typescript>":
   version: 5.5.3
-  resolution: "typescript@npm:5.5.3"
+  resolution: "typescript@patch:typescript@npm%3A5.5.3#~builtin<compat/typescript>::version=5.5.3&hash=d73830"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 4b4f14313484d5c86064d04ba892544801fa551f5cf72719b540b498056fec7fc192d0bbdb2ba1448e759b1548769956da9e43e7c16781e8d8856787b0575004
+  checksum: 6853be4607706cc1ad2f16047cf1cd72d39f79acd5f9716e1d23bc0e462c7f59be7458fe58a21665e7657a05433d7ab8419d093a5a4bd5f3a33f879b35d2769b
   languageName: node
   linkType: hard
 
@@ -15058,16 +15075,6 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: fc52962f31a5bcb716d4213bef516885e4f01f30cea797a831205fc9ef12b405a40561c40eae3127ab85ba1548e7df49df2bcdee6b84a94bfbe3a0d7eff16b14
-  languageName: node
-  linkType: hard
-
-"typescript@patch:typescript@^5.3.0#~builtin<compat/typescript>, typescript@patch:typescript@^5.5.3#~builtin<compat/typescript>":
-  version: 5.5.3
-  resolution: "typescript@patch:typescript@npm%3A5.5.3#~builtin<compat/typescript>::version=5.5.3&hash=d73830"
-  bin:
-    tsc: bin/tsc
-    tsserver: bin/tsserver
-  checksum: 6853be4607706cc1ad2f16047cf1cd72d39f79acd5f9716e1d23bc0e462c7f59be7458fe58a21665e7657a05433d7ab8419d093a5a4bd5f3a33f879b35d2769b
   languageName: node
   linkType: hard
 
@@ -15090,6 +15097,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"undici-types@npm:~6.19.2":
+  version: 6.19.8
+  resolution: "undici-types@npm:6.19.8"
+  checksum: de51f1b447d22571cf155dfe14ff6d12c5bdaec237c765085b439c38ca8518fc360e88c70f99469162bf2e14188a7b0bcb06e1ed2dc031042b984b0bb9544017
+  languageName: node
+  linkType: hard
+
 "unique-filename@npm:^2.0.0":
   version: 2.0.1
   resolution: "unique-filename@npm:2.0.1"
@@ -15108,7 +15122,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"unique-names-generator@npm:^4.7.1":
+"unique-names-generator@npm:4.7.1, unique-names-generator@npm:^4.7.1":
   version: 4.7.1
   resolution: "unique-names-generator@npm:4.7.1"
   checksum: 81b58efee72458fd0c84f54a89d731b2570305d331ce62c4156273e54ece77b6488fc6c607169f4b8f6644fa48b42aef8689dbe7e310ae2c4bafbd5c0a625354
@@ -15191,7 +15205,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"update-electron-app@npm:^3.0.0":
+"update-electron-app@npm:3.0.0":
   version: 3.0.0
   resolution: "update-electron-app@npm:3.0.0"
   dependencies:
@@ -15251,7 +15265,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"usehooks-ts@npm:^3.1.0":
+"usehooks-ts@npm:3.1.0, usehooks-ts@npm:^3.1.0":
   version: 3.1.0
   resolution: "usehooks-ts@npm:3.1.0"
   dependencies:
@@ -15899,7 +15913,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zustand@npm:^4.4.0, zustand@npm:^4.5.4":
+"zustand@npm:4.5.4, zustand@npm:^4.4.0":
   version: 4.5.4
   resolution: "zustand@npm:4.5.4"
   dependencies:
