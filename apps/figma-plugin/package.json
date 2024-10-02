@@ -1,7 +1,7 @@
 {
 	"name": "@microflow/figma-plugin",
 	"private": true,
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"scripts": {
 		"dev": "concurrently \"yarn watch:ui\" \"yarn watch:plugin\"",
 		"dev:ui-only": "vite -c ./vite.config.ui.ts",

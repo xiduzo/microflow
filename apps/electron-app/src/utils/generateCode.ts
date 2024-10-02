@@ -58,15 +58,10 @@ if (!port) {
 		const actions = edges.filter(edge => edge.source === node.id);
 
 		const actionsGroupedByHandle = actions.reduce(
-			(acc, action) => {
-				if (!acc[action.sourceHandle]) {
-					acc[action.sourceHandle] = [];
-				}
-
-				acc[action.sourceHandle].push(action);
-
-				return acc;
-			},
+			(acc, action) => ({
+				...acc,
+				[action.sourceHandle]: [...(acc[action.sourceHandle] || []), action],
+			}),
 			{} as Record<string, Edge[]>,
 		);
 
