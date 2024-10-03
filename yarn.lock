@@ -7491,16 +7491,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:28.1.4":
-  version: 28.1.4
-  resolution: "electron@npm:28.1.4"
+"electron@npm:28.3.3":
+  version: 28.3.3
+  resolution: "electron@npm:28.3.3"
   dependencies:
     "@electron/get": ^2.0.0
     "@types/node": ^18.11.18
     extract-zip: ^2.0.1
   bin:
     electron: cli.js
-  checksum: 824c306350c4f37dd68e824ba53e0a9aff89dc532d9b40c16a88e4afc5236c2cae6159f1a4ba0b43eec4446c047881478c8631c028db24fa0aa4d53b1b233100
+  checksum: 87a27def565817626bbb6c153fc8a731d5d0caf6470260652f4514a592c796bc947f4a7c11b27d26b50230e91b20bb0c2904b49a11793a89b90c3d432def2613
   languageName: node
   linkType: hard
 
@@ -10874,7 +10874,7 @@ __metadata:
     abcjs: 6.4.3
     autoprefixer: 10.4.20
     dotenv: 16.4.5
-    electron: 28.1.4
+    electron: 28.3.3
     electron-log: 5.2.0
     eslint-plugin-react-hooks: 4.6.2
     firmata: "https://github.com/xiduzo/firmata.js.git"
