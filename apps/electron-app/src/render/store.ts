@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react';
 
 import { create } from 'zustand';
+import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
 
 export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
@@ -36,50 +37,30 @@ function getLocalItem<T>(item: string, fallback: T) {
 	return JSON.parse(localStorage.getItem(item) ?? JSON.stringify(fallback)) as T;
 }
 
-const INTRODUCTION_NODES = [
-	{
-		data: {
-			label: 'Note',
-			value: 'Welcome to Microflow studio! Double click me 👀',
-			animated: false,
-			settingsOpen: false,
-			extraInfo:
-				'You can add new nodes by clicking on "Flow" and then on "Insert node", try it out!',
-		},
-		id: '1szrv5',
-		type: 'Note',
-		position: { x: 416, y: 250 },
-		selected: false,
-		measured: { width: 224, height: 190 },
-		dragging: false,
-	},
-];
-
 export const useNodesEdgesStore = create<AppState>((set, get) => {
 	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
 
 	if (!hasSeenIntroduction) {
 		localStorage.setItem('has-seen-introduction', 'true');
 		localStorage.setItem('nodes', JSON.stringify(INTRODUCTION_NODES));
+		localStorage.setItem('edges', JSON.stringify(INTRODUCTION_EDGES));
 	}
 
+	const localNodes = getLocalItem<Node[]>('nodes', []).map(node => ({
+		...node,
+		selected: false,
+		data: { ...node.data, animated: false, settingsOpen: false },
+	}))
+
+	const localEdges = getLocalItem<Edge[]>('edges', []).map(edge => ({
+		...edge,
+		animated: false,
+		selected: false,
+	}))
+
 	return {
-		nodes: hasSeenIntroduction
-			? getLocalItem<Node[]>('nodes', []).map(node => ({
-					...node,
-					selected: false,
-					data: {
-						...node.data,
-						animated: false,
-						settingsOpen: false,
-					},
-				}))
-			: INTRODUCTION_NODES,
-		edges: getLocalItem<Edge[]>('edges', []).map(edge => ({
-			...edge,
-			animated: false,
-			selected: false,
-		})),
+		nodes: hasSeenIntroduction ? localNodes : INTRODUCTION_NODES,
+		edges: hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES,
 		previousStates: [],
 		nextStates: [],
 		onNodesChange: changes => {
