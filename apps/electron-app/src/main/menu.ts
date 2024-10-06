@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, MenuItem, MenuItemConstructorOptions } from 'electron';
+import { importFlow } from './file';
 
 const isMac = process.platform === 'darwin';
 
@@ -52,12 +53,29 @@ export function createMenu(mainWindow: BrowserWindow) {
 						mainWindow.webContents.send('ipc-menu', 'toggle-autosave', menuItem.checked);
 					},
 				},
+				{ type: 'separator' },
 				{
-					label: 'Clear flow',
+					label: 'New flow',
+					accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
 					click: () => {
-						mainWindow.webContents.send('ipc-menu', 'clear-flow');
+						mainWindow.webContents.send('ipc-menu', 'new-flow');
 					},
 				},
+				{
+				  label: 'Export flow',
+          accelerator: isMac ? 'Cmd+E' : 'Ctrl+E',
+          click: () => {
+            mainWindow.webContents.send('ipc-menu', 'export-flow');
+          }
+				},
+				{
+				  label: 'Import flow',
+          accelerator: isMac ? 'Cmd+I' : 'Ctrl+I',
+          click: async () => {
+            const flow = await importFlow()
+            mainWindow.webContents.send('ipc-menu', 'import-flow', flow);
+          }
+				}
 			],
 		},
 		{
