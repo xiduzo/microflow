@@ -73,6 +73,8 @@ export function createMenu(mainWindow: BrowserWindow) {
           accelerator: isMac ? 'Cmd+I' : 'Ctrl+I',
           click: async () => {
             const flow = await importFlow()
+            if(!flow) return
+
             mainWindow.webContents.send('ipc-menu', 'import-flow', flow);
           }
 				}

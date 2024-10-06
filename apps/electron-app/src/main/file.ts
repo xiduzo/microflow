@@ -27,7 +27,7 @@ export async function exportFlow(nodes: Node[], edges: Edge[]) {
   })
 }
 
-export async function importFlow() {
+export async function importFlow(): Promise<FlowFile | null >{
   const file = await dialog.showOpenDialog({
     title: 'Open a file',
     filters: [
@@ -36,7 +36,7 @@ export async function importFlow() {
   })
 
   if (file.canceled) {
-    return Promise.resolve();
+    return Promise.resolve(null);
   }
 
   return new Promise<FlowFile>((resolve, reject) => {
