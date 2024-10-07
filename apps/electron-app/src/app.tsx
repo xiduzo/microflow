@@ -1,12 +1,14 @@
 import { FigmaProvider, MqttConfig, MqttProvider } from '@microflow/mqtt-provider/client';
 import { toast, Toaster } from '@microflow/ui';
 import { initParticlesEngine } from '@tsparticles/react';
-import { ReactFlowProvider } from '@xyflow/react';
+import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { loadFull } from 'tsparticles';
 import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
+import { useShallow } from 'zustand/react/shallow';
+import { FlowFile } from './common/types';
 import { MqttSettingsForm } from './render/components/forms/MqttSettingsForm';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
 import { useSaveFlow } from './render/hooks/useSaveFlow';
@@ -14,6 +16,7 @@ import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
 import { BoardProvider } from './render/providers/BoardProvider';
 import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeProvider, useNewNode } from './render/providers/NewNodeProvider';
+import { setNodesAndEdgesSelecor, useNodesEdgesStore } from './render/store';
 
 export function App() {
 	const [init, setInit] = useState(false);
@@ -67,6 +70,9 @@ const root = createRoot(document.body.querySelector('main'));
 root.render(<App />);
 
 function IpcMenuListeners() {
+  const { getNodes, getEdges } = useReactFlow();
+  const { setEdges, setNodes } = useNodesEdgesStore(useShallow(setNodesAndEdgesSelecor));
+
 	const { saveNodesAndEdges, clearNodesAndEdges, setAutoSave } = useSaveFlow();
 	const { setOpen } = useNewNode();
 	const [showMqttSettings, setShowMqttSettings] = useState(false);
@@ -77,7 +83,7 @@ function IpcMenuListeners() {
 				case 'save-flow':
 					saveNodesAndEdges();
 					break;
-				case 'clear-flow':
+				case 'new-flow':
 					clearNodesAndEdges();
 					break;
 				case 'add-node':
@@ -89,6 +95,15 @@ function IpcMenuListeners() {
 				case 'mqtt-settings':
 					setShowMqttSettings(true);
 					break;
+				case 'export-flow':
+				  window.electron.ipcRenderer.send('ipc-export-flow', getNodes(), getEdges());
+          break;
+        case 'import-flow':
+          // TODO: data validation
+          const { nodes, edges } = props[0] as FlowFile
+          setNodes(nodes)
+          setEdges(edges)
+          break;
 				default:
 					break;
 			}

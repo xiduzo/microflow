@@ -1,3 +1,5 @@
+import type { Edge, Node } from "@xyflow/react";
+
 export enum MODES {
 	INPUT = 0,
 	OUTPUT = 1,
@@ -46,3 +48,8 @@ export type UploadedCodeMessage = {
 	action: string;
 	value?: unknown;
 };
+
+export type FlowFile = {
+  nodes: Node[],
+  edges: Edge[]
+}

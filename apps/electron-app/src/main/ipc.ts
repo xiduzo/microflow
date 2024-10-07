@@ -1,15 +1,18 @@
 import {
-	BOARDS,
-	Flasher,
-	getConnectedPorts,
-	type BoardName,
-	type PortInfo,
+  BOARDS,
+  Flasher,
+  getConnectedPorts,
+  type BoardName,
+  type PortInfo,
 } from '@microflow/flasher';
+import type { Edge, Node } from "@xyflow/react";
 import { ipcMain, IpcMainEvent, Menu, utilityProcess, UtilityProcess } from 'electron';
+
 import log from 'electron-log/node';
 import { existsSync, writeFile } from 'fs';
 import { join, resolve } from 'path';
 import { BoardCheckResult, UploadCodeResult, UploadedCodeMessage } from '../common/types';
+import { exportFlow } from './file';
 
 let childProcess: UtilityProcess | null = null;
 
@@ -19,6 +22,10 @@ let childProcess: UtilityProcess | null = null;
 //   shell.openExternal(pagePath)
 // })
 //
+
+ipcMain.on('ipc-export-flow', async (_event, nodes: Node[], edges: Edge[]) => {
+  await exportFlow(nodes, edges);
+});
 
 ipcMain.on('ipc-menu', (_event, action, ...args) => {
 	switch (action) {

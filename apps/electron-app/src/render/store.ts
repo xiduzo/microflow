@@ -1,12 +1,12 @@
 import {
-    Edge,
-    Node,
-    OnConnect,
-    OnEdgesChange,
-    OnNodesChange,
-    addEdge,
-    applyEdgeChanges,
-    applyNodeChanges,
+  Edge,
+  Node,
+  OnConnect,
+  OnEdgesChange,
+  OnNodesChange,
+  addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
 } from '@xyflow/react';
 
 import { create } from 'zustand';
@@ -152,3 +152,8 @@ export const tempNodeSelector = (state: AppState) => ({
 export const deleteEdgesSelector = (state: AppState) => ({
 	deleteEdges: state.deleteEdges,
 });
+
+export const setNodesAndEdgesSelecor = (state: AppState) => ({
+  setNodes: state.setNodes,
+  setEdges: state.setEdges,
+})
