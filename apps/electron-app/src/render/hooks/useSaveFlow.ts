@@ -24,13 +24,6 @@ export function useSaveFlow() {
 		[setLocalNodes, getNodes, setLocalEdges, getEdges],
 	);
 
-	const clearNodesAndEdges = useCallback(() => {
-		setLocalNodes([]);
-		setLocalEdges([]);
-
-		toast.success('Flow cleared');
-	}, [setLocalNodes, setLocalEdges]);
-
 	useEffect(() => {
 		if (!autoSave) return;
 
@@ -45,5 +38,5 @@ export function useSaveFlow() {
 		window.electron.ipcRenderer.send('ipc-menu', 'auto-save', autoSave);
 	}, [autoSave]);
 
-	return { autoSave, setAutoSave, saveNodesAndEdges, clearNodesAndEdges };
+	return { autoSave, setAutoSave, saveNodesAndEdges };
 }

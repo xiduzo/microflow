@@ -38,6 +38,21 @@ export function createMenu(mainWindow: BrowserWindow) {
 				},
 				{ type: 'separator' },
 				{
+				  label: 'Undo',
+          accelerator: isMac ? 'Cmd+Z' : 'Ctrl+Z',
+          click: () => {
+            mainWindow.webContents.send('ipc-menu', 'undo');
+          }
+				},
+				{
+				  label: 'Redo',
+          accelerator: isMac ? 'Cmd+Shift+Z' : 'Ctrl+Shift+Z',
+          click: () => {
+            mainWindow.webContents.send('ipc-menu', 'redo');
+          }
+				},
+				{ type: 'separator' },
+				{
 					label: 'Save flow',
 					accelerator: isMac ? 'Cmd+S' : 'Ctrl+S',
 					click: () => {
