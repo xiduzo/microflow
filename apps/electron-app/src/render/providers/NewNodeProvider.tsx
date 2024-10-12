@@ -1,16 +1,16 @@
 import {
-	Badge,
-	CommandDialog,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-	CommandSeparator,
-	CommandShortcut,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
+    Badge,
+    CommandDialog,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+    CommandSeparator,
+    CommandShortcut,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
 } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
@@ -194,7 +194,7 @@ function NewNodeCommandDialog() {
 }
 
 function DroppableNewNode() {
-	const { nodeToAdd, setNodeToAdd, open } = useNewNode();
+	const { nodeToAdd, setNodeToAdd } = useNewNode();
 	const { screenToFlowPosition, updateNode } = useReactFlow();
 	const { addNode, deleteNode } = useNodesEdgesStore(useShallow(tempNodeSelector));
 
