@@ -94,14 +94,16 @@ export const useNodesEdgesStore = create<AppState>((set, get) => {
 			updateHistory({ edges });
 		},
 		deleteEdges: (nodeId, except = []) => {
+		  // TODO: only delete edges when they have connections which are not possible anymore
 			const edges = get().edges.filter(edge => {
 				const isSource = edge.source === nodeId;
 				const isTarget = edge.target === nodeId;
-				const isExceptHandle =
-					except.includes(edge.sourceHandle) || except.includes(edge.targetHandle);
 
-				if (except.length) {
-					return (!isSource || !isTarget) && isExceptHandle;
+				if (except.length && (isSource || isTarget)) {
+  				const isExceptHandle =
+  					except.includes(edge.sourceHandle) || except.includes(edge.targetHandle);
+
+					return isExceptHandle;
 				}
 
 				return !isSource && !isTarget;

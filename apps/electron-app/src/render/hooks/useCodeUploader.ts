@@ -38,12 +38,12 @@ export function useCodeUploader() {
 			const sourceNode = internalNodes.find(
 				node =>
 					node.id === edge.source &&
-					node.internals.handleBounds.source?.find(handle => handle.id === edge.sourceHandle),
+					(node.internals.handleBounds?.source?.find(handle => handle.id === edge.sourceHandle) ?? true),
 			);
 			const targetNode = internalNodes.find(
 				node =>
 					node.id === edge.target &&
-					node.internals.handleBounds.target?.find(handle => handle.id === edge.targetHandle),
+					(node.internals.handleBounds?.target?.find(handle => handle.id === edge.targetHandle) ?? true),
 			);
 
 			return sourceNode && targetNode;
