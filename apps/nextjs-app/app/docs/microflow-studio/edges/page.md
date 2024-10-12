@@ -12,28 +12,28 @@ Flows can be simple or complex, depending on the number of nodes and the connect
 
 ### Simple flow
 
-In this example, we have a simple flow with two nodes connected by an edge. When a button is pressed, the LED turns on.
+In this example, we have a simple flow with two nodes connected by an edge. When a button (`pin 6`) is pressed, the LED (`pin 13` ([BUILTIN_LED](https://docs.arduino.cc/language-reference/en/variables/constants/ledbuiltin/))) turns on.
 
 ```mermaid
 flowchart LR
     A[Button]-- Down handle -->B[LED]
 ```
 
-// TODO: add download file for simple flow
+[Download simple flow example](/flow-examples/simple_flow.microflow)
 
 ### Complex flow
 
 In this example, we have a more complex flow with multiple nodes connected by edges.
 
-When a button is pressed, the counter increments. The counter value is then mapped to a range of values. If the counter value is greater than _N_, the LED turns on. Otherwise, the piezo buzzer turns on.
+When a button (`pin 6`) is pressed, the counter increments. The counter value is then mapped to a range of values. **If** the counter value is greater than _N_, the LED (`pin 13` ([BUILTIN_LED](https://docs.arduino.cc/language-reference/en/variables/constants/ledbuiltin/))) turns on. **Else**, the piezo (`pin 11`) buzzer turns on.
 
 ```mermaid
 flowchart LR
-    A[Button] -- Up handle --> B[Counter]
+    A[Button] -- Active handle --> B[Counter]
     B -- Change handle --> C[Map]
     C -- Change handle --> D[if..else]
-    D -->|True handle| E[Piezo one]
-    D -->|False handle| F[Piezo two]
+    D -->|True handle| E[Piezo]
+    D -->|False handle| F[Piezo]
 ```
 
-// TODO: add download file for complex flow
+[Download complex flow example](/flow-examples/complex_flow.microflow)

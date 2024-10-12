@@ -20,7 +20,7 @@ When variables are updated via the Figma variable panel, Microflow hardware brid
 ## {% icon name="Link" /%} Updating variables from within a prototype
 Listening to updates from withint a prototype is a bit cumbersome because Figma doesn't allow plugins to access the values of variables from within prototypes.
 
-To get around this limitation and avoid needing elevated permissions like [figproxy](https://edges.ideo.com/posts/figproxy), we're utulizing a small web app that opens [Microflow Studio](/docs/microflow-studio) and updates the variable value.
+To get around this limitation, and avoid needing elevated permissions like [figproxy](https://edges.ideo.com/posts/figproxy), we're utulizing a small web app that opens [Microflow Studio](/docs/microflow-studio) and updates the variable value.
 
 In order to use this feature, you'll need to:
 
@@ -41,6 +41,7 @@ sequenceDiagram
     Microflow website ->> Microflow studio: Open Microflow Studio
     Microflow website ->> Microflow website: Close webpage
     Microflow studio ->> Microflow hardware bridge: Update variable
+    Microflow hardware bridge ->> Figma prototype: Update variable
 ```
 
 #### Issues
