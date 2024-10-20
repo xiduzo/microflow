@@ -14,7 +14,7 @@ export function DownloadApp() {
 	const [os, setOs] = useState('');
 
 	function downloadApp() {
-		const version = '0.4.3';
+		const version = '0.5.0';
 		const baseUrl = `https://github.com/xiduzo/microflow/releases/download/v${version}`;
 
 		switch (os) {

@@ -1,26 +1,26 @@
 import type { IfElseData, IfElseValueType, SubValidator, Validator } from '@microflow/components';
 import { IF_ELSE_SUB_VALIDATORS, IF_ELSE_VALIDATORS } from '@microflow/components/contants';
 import {
-	Icons,
-	Input,
-	Label,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-	Slider,
+    Icons,
+    Input,
+    Label,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Slider,
 } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
+    useNodeSettings,
 } from './Node';
 
 const MAX_NUMERIC_VALUE = 1023;
@@ -32,8 +32,8 @@ export function IfElse(props: Props) {
 				<NodeValue>
 					{props.data.value === true && <Icons.Check className="w-12 h-12 text-green-500" />}
 					{props.data.value === false && <Icons.X className="w-12 h-12 text-red-500" />}
-					{props.data.value === null ||
-						(props.data.value === undefined && <Icons.Dot className="w-12 h-12 text-gray-500" />)}
+					{(props.data.value === null ||
+						props.data.value === undefined) && <Icons.Dot className="w-12 h-12 text-gray-500" />}
 				</NodeValue>
 			</NodeContent>
 			<NodeSettings>
