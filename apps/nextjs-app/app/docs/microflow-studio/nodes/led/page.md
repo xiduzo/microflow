@@ -10,7 +10,29 @@ title: LED
 An LED (Light Emitting Diode) is a simple output device that emits light when an electric current passes through it.
 LEDs are commonly used in electronics projects to indicate the status of a circuit or to provide visual feedback.
 
+## LED RGB
+
+{% callout type="warning" title="Not yet supported" %}
+RGB LEDs are not yet supported in Microflow. We are working on adding support for RGB LEDs in the future.
+{% /callout %}
+
+
+## LED matrix
+For now, only basic `8x8` LED matrixes are supported.
+
+You are able to customise the display of the matrix by an embedded editor in Microflow. This editor allows you to draw a sequence of frames that will be displayed on the matrix.
+
+The frame that will be displayed can be configured by passing in a the numeric value in the `show` handle of the node.
+
+{% callout type="note" title="Counting like a coder" %}
+The frames start counting from `0`, meaning the first frame is `0`, the second frame is `1`, and so on.
+{% /callout %}
+
+[Download LED matrix example](/flow-examples/led_matrix.microflow)
+
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/led/)
+- [Johnny-Five LED](https://johnny-five.io/api/led/)
+- [Johnny-Five RGB LED](https://johnny-five.io/api/led.rgb/)
+- [Johnny-Five LED Matrix](https://johnny-five.io/api/led.matrix/)
 - [Arduino](https://docs.arduino.cc/built-in-examples/basics/Blink/)
