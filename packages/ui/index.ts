@@ -32,5 +32,7 @@ export * from 'class-variance-authority';
 export * as Icons from 'lucide-react';
 export { useForm } from 'react-hook-form';
 export { toast } from 'sonner';
+export * from 'tweakpane';
 export * as Zod from 'zod';
 export * from './lib/utils';
+

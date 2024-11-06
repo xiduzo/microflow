@@ -32,6 +32,7 @@
 		"sonner": "1.5.0",
 		"tailwind-merge": "2.5.3",
 		"tailwindcss-animate": "1.0.7",
+		"tweakpane": "^4.0.5",
 		"vaul": "1.0.0",
 		"zod": "3.23.8"
 	},

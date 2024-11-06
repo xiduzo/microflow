@@ -1,14 +1,15 @@
 import {
-	Button,
-	cn,
-	cva,
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	VariantProps,
+  Button,
+  cn,
+  cva,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  Icon,
+  VariantProps
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
@@ -30,6 +31,16 @@ const NodeSettingsContext = NodeSettingsContextCreator();
 
 export function useNodeSettings<T extends Record<string, any>>() {
 	return useContext<NodeSettingsContextType<T>>(NodeSettingsContext as any);
+}
+
+export function NodeSettingsButton() {
+  const { settingsOpened, setSettingsOpened } = useNode()
+
+  return <Button variant={settingsOpened ? 'secondary' : 'ghost'} size='icon' onClick={() => {
+    setSettingsOpened(!settingsOpened)
+  }}>
+    <Icon icon='SlidersHorizontal' size={16} />
+  </Button>
 }
 
 export function NodeSettings<T>(props: NodeContainerProps<T>) {
@@ -146,12 +157,19 @@ const nodeValue = cva(
 	},
 );
 
-const NodeContainerContext = createContext<BaseNode>({} as BaseNode);
+type ContainerProps = BaseNode & { settingsOpened: boolean, setSettingsOpened: (open: boolean) => void }
+const NodeContainerContext = createContext<ContainerProps>({} as ContainerProps);
 export const useNode = () => useContext(NodeContainerContext);
 
 export function NodeContainer(props: PropsWithChildren & BaseNode) {
+  const [settingsOpened, setSettingsOpened] = useState(false)
+
 	return (
-		<NodeContainerContext.Provider value={props}>
+		<NodeContainerContext.Provider value={{
+		...props,
+		settingsOpened,
+		setSettingsOpened
+		}}>
 			<div
 				className={cn(
 					node({
@@ -177,7 +195,13 @@ function NodeHeader() {
 	const node = useNode();
 
 	return (
-		<header className="p-2 pl-4 border-b-2 text-muted-foreground text-sm">{node.data.label}</header>
+		<header className="p-2 pl-4 border-b-2 text-muted-foreground flex justify-between items-center">
+		<div className='flex flex-col'>
+		{node.data.label}
+        <span className='text-xs opacity-50 font-light'>{node.id}</span>
+		</div>
+		<NodeSettingsButton/>
+		</header>
 	);
 }
 

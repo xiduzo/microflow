@@ -15,6 +15,9 @@ import { BoardProvider } from './render/providers/BoardProvider';
 import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeProvider } from './render/providers/NewNodeProvider';
 
+
+
+
 export function App() {
 	const [init, setInit] = useState(false);
 

@@ -1827,6 +1827,7 @@ __metadata:
     tailwind-merge: 2.5.3
     tailwindcss: 3.4.13
     tailwindcss-animate: 1.0.7
+    tweakpane: ^4.0.5
     vaul: 1.0.0
     zod: 3.23.8
   languageName: unknown
@@ -4737,6 +4738,13 @@ __metadata:
     "@tufjs/canonical-json": 2.0.0
     minimatch: ^9.0.4
   checksum: 7a7370ac8dc3c18b66dddca3269d9b9282d891f1c289beb2060649fd50ef74eaa6494bd6d6b3edfe11f0f1efa14ec19c5ec819c7cf1871476c9e002115ffb9a7
+  languageName: node
+  linkType: hard
+
+"@tweakpane/core@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "@tweakpane/core@npm:2.0.5"
+  checksum: ca5ed838bf384e786dbbe70b76c7b732a4e82bfe19132aebf017f24ca69b6652fff1254ec2167c307a7680fbd9a15994a0f4bf0f86812899fdd9e46dd3634e93
   languageName: node
   linkType: hard
 
@@ -11007,6 +11015,7 @@ __metadata:
     "@rollup/plugin-alias": 5.1.1
     "@tsparticles/engine": 3.5.0
     "@tsparticles/react": 3.0.0
+    "@tweakpane/core": ^2.0.5
     "@types/node": 18.19.54
     "@types/npmcli__arborist": 5.6.11
     "@types/react": 18.3.11
@@ -14909,6 +14918,13 @@ __metadata:
     debug: ^4.3.4
     make-fetch-happen: ^13.0.1
   checksum: 23a8f84a33f4569296c7d1d6919ea87273923a3d0c6cc837a84fb200041a54bb1b50623f79cc77307325d945dfe10e372ac1cad105956e34d3df2d4984027bd8
+  languageName: node
+  linkType: hard
+
+"tweakpane@npm:^4.0.5":
+  version: 4.0.5
+  resolution: "tweakpane@npm:4.0.5"
+  checksum: 0175d754a0ef8aea16a29513b6996bd6b73ec4199be25a8764d84046edb58cd9b4463494b64a47948deb8116334cf84497f954f4e2707ef0381566f2833d1763
   languageName: node
   linkType: hard
 
