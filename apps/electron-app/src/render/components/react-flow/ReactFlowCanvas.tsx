@@ -1,8 +1,8 @@
-import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
+import { useAutoAnimate } from '@ui/index';
+import { Background, Controls, MiniMap, Panel, ReactFlow } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useNodesEdgesStore } from '../../store';
-import { BaseNode } from './nodes/Node';
 import { SerialConnectionStatus } from './panels/SerialConnectionStatus';
 
 const selector = (state: AppState) => ({
@@ -15,7 +15,7 @@ const selector = (state: AppState) => ({
 
 export function ReactFlowCanvas() {
 	const store = useNodesEdgesStore(useShallow(selector));
-	const { updateNodeData } = useReactFlow<BaseNode>();
+	const [ref] = useAutoAnimate({ duration: 200 })
 
 	return (
 		<ReactFlow
@@ -25,13 +25,6 @@ export function ReactFlowCanvas() {
 			colorMode="dark"
 			minZoom={0.2}
 			maxZoom={2}
-			onNodeDoubleClick={(_event, node) => {
-				if ('settingsOpen' in node.data && node.data.settingsOpen === true) {
-					return;
-				}
-
-				updateNodeData(node.id, { settingsOpen: true });
-			}}
 			disableKeyboardA11y={true}
 		>
 			<Controls />
@@ -58,6 +51,12 @@ export function ReactFlowCanvas() {
 				>
 					Made with ♥ by Xiduzo
 				</a>
+			</Panel>
+
+			<Panel position='top-right'>
+  			<section id="settings-panels" className='flex flex-col space-y-2' ref={ref}>
+  			 {/* Filled by settings */}
+  			</section>
 			</Panel>
 		</ReactFlow>
 	);

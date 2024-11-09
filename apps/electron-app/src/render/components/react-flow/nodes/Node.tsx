@@ -9,10 +9,12 @@ import {
   DrawerHeader,
   DrawerTitle,
   Icon,
+  Pane,
   VariantProps
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { isNodeTypeACodeType } from '../../../../utils/generateCode';
 import { useUpdateNode } from '../../../hooks/nodeUpdater';
 
@@ -36,7 +38,8 @@ export function useNodeSettings<T extends Record<string, any>>() {
 export function NodeSettingsButton() {
   const { settingsOpened, setSettingsOpened } = useNode()
 
-  return <Button variant={settingsOpened ? 'secondary' : 'ghost'} size='icon' onClick={() => {
+  return <Button variant={settingsOpened ? 'secondary' : 'ghost'} size='icon' onClick={(e) => {
+    e.stopPropagation();
     setSettingsOpened(!settingsOpened)
   }}>
     <Icon icon='SlidersHorizontal' size={16} />
@@ -157,9 +160,9 @@ const nodeValue = cva(
 	},
 );
 
-type ContainerProps = BaseNode & { settingsOpened: boolean, setSettingsOpened: (open: boolean) => void }
-const NodeContainerContext = createContext<ContainerProps>({} as ContainerProps);
-export const useNode = () => useContext(NodeContainerContext);
+type ContainerProps<T> = BaseNode<T> & { settingsOpened: boolean, setSettingsOpened: (open: boolean) => void }
+const NodeContainerContext = createContext<ContainerProps<unknown>>({} as ContainerProps<unknown>);
+export const useNode = <T extends Record<string, any>>() => useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
 
 export function NodeContainer(props: PropsWithChildren & BaseNode) {
   const [settingsOpened, setSettingsOpened] = useState(false)
@@ -184,7 +187,9 @@ export function NodeContainer(props: PropsWithChildren & BaseNode) {
 			>
 				<NodeHeader />
 				<main className="px-4 pt-2 pb-4 flex justify-center items-center grow">
-					{props.children}
+  				<NodeSettingsPane>
+  					{props.children}
+  				</NodeSettingsPane>
 				</main>
 			</div>
 		</NodeContainerContext.Provider>
@@ -203,6 +208,42 @@ function NodeHeader() {
 		<NodeSettingsButton/>
 		</header>
 	);
+}
+
+const NodeSettingsPaneContext = createContext<{ pane: Pane | null }>({ pane: null })
+
+function NodeSettingsPane(props: PropsWithChildren) {
+  const [pane, setPane] = useState<Pane | null>(null)
+
+  const { data, settingsOpened, id } = useNode()
+  const ref = useRef<HTMLDivElement>()
+
+  const updateNode = useUpdateNode(id);
+
+  useEffect(() => {
+    if(!settingsOpened) return
+
+    const pane = new Pane({
+      title: `${data.label} (${id})`,
+      container: ref.current,
+    })
+
+    setPane(pane)
+
+    return () => {
+      pane.dispose()
+      setPane(null)
+    }
+  }, [settingsOpened, data.label, id])
+
+  return (<NodeSettingsPaneContext.Provider value={{pane}}>
+    {props.children}
+    {settingsOpened && createPortal(<div ref={ref} onClick={e => e.stopPropagation()}/>, document.getElementById('settings-panels'))}
+  </NodeSettingsPaneContext.Provider>)
+}
+
+export function useNodeSettingsPane() {
+  return useContext(NodeSettingsPaneContext)
 }
 
 const node = cva(

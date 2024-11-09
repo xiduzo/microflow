@@ -27,6 +27,7 @@ export * from './components/ui/textarea';
 export * from './components/ui/toggle';
 export * from './components/ui/tooltip';
 
+export * from '@formkit/auto-animate/react';
 export { zodResolver } from '@hookform/resolvers/zod';
 export * from 'class-variance-authority';
 export * as Icons from 'lucide-react';

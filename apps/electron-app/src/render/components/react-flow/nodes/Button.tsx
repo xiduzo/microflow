@@ -1,16 +1,19 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Checkbox, Icons, Label, RadioGroup, RadioGroupItem, Slider, Toggle } from '@microflow/ui';
+import { Icons, Toggle } from '@microflow/ui';
 import { Position } from '@xyflow/react';
+import { useEffect, useRef } from 'react';
 import { MODES } from '../../../../common/types';
-import { PinSelect } from '../../PinSelect';
+import { pinValue } from '../../../../utils/pin';
+import { useUpdateNode } from '../../../hooks/nodeUpdater';
+import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
-    useNodeSettings,
+  BaseNode,
+  NodeContainer,
+  NodeContent,
+  NodeValue,
+  useNode,
+  useNodeSettingsPane
 } from './Node';
 
 export function Button(props: Props) {
@@ -29,9 +32,7 @@ export function Button(props: Props) {
 					</Toggle>
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings>
-				<ButtonSettings />
-			</NodeSettings>
+			<SettingsPane />
 			<Handle type="source" position={Position.Right} id="active" offset={-1} />
 			<Handle type="source" position={Position.Right} id="hold" />
 			<Handle type="source" position={Position.Right} id="inactive" offset={1} />
@@ -40,72 +41,72 @@ export function Button(props: Props) {
 	);
 }
 
-function ButtonSettings() {
-	const { settings, setSettings } = useNodeSettings<ButtonData>();
+function SettingsPane() {
+  const { pane } = useNodeSettingsPane()
+  const { data, id } = useNode<ButtonData>()
+  const paneData = useRef(data)
+  const updateNode = useUpdateNode(id);
+  const { pins } = useBoard()
 
-	return (
-		<>
-			<PinSelect
-				value={settings.pin}
-				onValueChange={pin => setSettings({ pin })}
-				filter={pin => pin.supportedModes.includes(MODES.INPUT)}
-			/>
-			<Label htmlFor="holdtime" className="flex justify-between">
-				Hold time
-				<span className="opacity-40 font-light">{settings.holdtime} ms</span>
-			</Label>
-			<Slider
-				id="holdtime"
-				className="pb-2"
-				defaultValue={[settings.holdtime]}
-				min={500}
-				max={2500}
-				step={50}
-				onValueChange={value => setSettings({ holdtime: value[0] })}
-			/>
-			<hr />
-			<section className="flex justify-between items-start">
-				<div
-					className="flex items-center space-x-2"
-					onClick={() => setSettings({ invert: !settings.invert })}
-				>
-					<Checkbox id="inverted" checked={settings.invert} />
-					<span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-						Invert button
-					</span>
-				</div>
-				<RadioGroup
-					defaultValue={settings.isPullup ? 'pullup' : settings.isPulldown ? 'pulldown' : 'default'}
-					onValueChange={value => {
-						switch (value) {
-							case 'default':
-								setSettings({ isPullup: false, isPulldown: false });
-								break;
-							case 'pullup':
-								setSettings({ isPullup: true, isPulldown: false });
-								break;
-							case 'pulldown':
-								setSettings({ isPullup: false, isPulldown: true });
-								break;
-						}
-					}}
-				>
-					<div className="flex items-center space-x-2">
-						<RadioGroupItem value="default" id="default" />
-						<Label htmlFor="default">Normal button</Label>
-					</div>
-					<div className="flex items-center space-x-2">
-						<RadioGroupItem value="pullup" id="pullup" />
-						<Label htmlFor="pullup">Pullup button</Label>
-					</div>
-					<div className="flex items-center space-x-2">
-						<RadioGroupItem value="pulldown" id="pulldown" />
-						<Label htmlFor="pulldown">Pulldown button</Label>
-					</div>
-				</RadioGroup>
-			</section>
-		</>
-	);
+  useEffect(() => {
+    if(!pane) return
+
+    pane.addBinding(paneData.current, 'pin', {
+      view: 'list',
+      disabled: !pins.length,
+      label: "pin",
+      options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(pin => ({
+        value: pinValue(pin),
+        text: `${pinValue(pin)}`,
+      }))
+    })
+
+    const advanced = pane.addFolder({
+      title: "advanced",
+      expanded: false
+    })
+
+    advanced.addBinding(paneData.current, 'holdtime', {
+      min: 100,
+      step: 50,
+    });
+
+    const type = advanced.addBlade({
+      view: 'list',
+      label: 'type',
+      value: paneData.current.isPulldown ? 'pulldown' : paneData.current.isPullup ? 'pullup' : 'default',
+      options: [
+        { value: 'default', text: 'default' },
+        { value: 'pullup', text: 'pull-up' },
+        { value: 'pulldown', text: 'pull-down' },
+      ],
+    })
+
+    advanced.addBinding(paneData.current, 'invert')
+
+    pane.addButton({
+      title: 'Save',
+    }).on('click', () => {
+      switch(type.exportState().value) {
+        case 'default':
+          paneData.current.isPullup = false
+          paneData.current.isPulldown = false
+          break
+        case 'pullup':
+          paneData.current.isPullup = true
+          paneData.current.isPulldown = false
+          break
+        case 'pulldown':
+          paneData.current.isPullup = false
+          paneData.current.isPulldown = true
+          break
+      }
+
+      updateNode(paneData.current)
+    })
+  }, [pane])
+
+  return null
 }
 
 type Props = BaseNode<ButtonData, ButtonValueType>;
