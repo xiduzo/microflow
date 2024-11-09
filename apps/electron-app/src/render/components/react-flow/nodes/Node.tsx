@@ -1,19 +1,28 @@
 import {
-  Button,
-  cn,
-  cva,
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  Icon,
-  Pane,
-  VariantProps
+	BindingParams,
+	Button,
+	cn,
+	cva,
+	Drawer,
+	DrawerContent,
+	DrawerDescription,
+	DrawerFooter,
+	DrawerHeader,
+	DrawerTitle,
+	Icon,
+	Pane,
+	VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
-import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import {
+	createContext,
+	PropsWithChildren,
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { isNodeTypeACodeType } from '../../../../utils/generateCode';
 import { useUpdateNode } from '../../../hooks/nodeUpdater';
@@ -36,14 +45,20 @@ export function useNodeSettings<T extends Record<string, any>>() {
 }
 
 export function NodeSettingsButton() {
-  const { settingsOpened, setSettingsOpened } = useNode()
+	const { settingsOpened, setSettingsOpened } = useNode();
 
-  return <Button variant={settingsOpened ? 'secondary' : 'ghost'} size='icon' onClick={(e) => {
-    e.stopPropagation();
-    setSettingsOpened(!settingsOpened)
-  }}>
-    <Icon icon='SlidersHorizontal' size={16} />
-  </Button>
+	return (
+		<Button
+			variant={settingsOpened ? 'secondary' : 'ghost'}
+			size="icon"
+			onClick={e => {
+				e.stopPropagation();
+				setSettingsOpened(!settingsOpened);
+			}}
+		>
+			<Icon icon="SlidersHorizontal" size={16} />
+		</Button>
+	);
 }
 
 export function NodeSettings<T>(props: NodeContainerProps<T>) {
@@ -160,19 +175,25 @@ const nodeValue = cva(
 	},
 );
 
-type ContainerProps<T> = BaseNode<T> & { settingsOpened: boolean, setSettingsOpened: (open: boolean) => void }
+type ContainerProps<T> = BaseNode<T> & {
+	settingsOpened: boolean;
+	setSettingsOpened: (open: boolean) => void;
+};
 const NodeContainerContext = createContext<ContainerProps<unknown>>({} as ContainerProps<unknown>);
-export const useNode = <T extends Record<string, any>>() => useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
+export const useNode = <T extends Record<string, any>>() =>
+	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
 
 export function NodeContainer(props: PropsWithChildren & BaseNode) {
-  const [settingsOpened, setSettingsOpened] = useState(false)
+	const [settingsOpened, setSettingsOpened] = useState(false);
 
 	return (
-		<NodeContainerContext.Provider value={{
-		...props,
-		settingsOpened,
-		setSettingsOpened
-		}}>
+		<NodeContainerContext.Provider
+			value={{
+				...props,
+				settingsOpened,
+				setSettingsOpened,
+			}}
+		>
 			<div
 				className={cn(
 					node({
@@ -187,9 +208,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode) {
 			>
 				<NodeHeader />
 				<main className="px-4 pt-2 pb-4 flex justify-center items-center grow">
-  				<NodeSettingsPane>
-  					{props.children}
-  				</NodeSettingsPane>
+					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
 			</div>
 		</NodeContainerContext.Provider>
@@ -201,60 +220,76 @@ function NodeHeader() {
 
 	return (
 		<header className="p-2 pl-4 border-b-2 text-muted-foreground flex justify-between items-center">
-		<div className='flex flex-col'>
-		{node.data.label}
-        <span className='text-xs opacity-50 font-light'>{node.id}</span>
-		</div>
-		<NodeSettingsButton/>
+			<div className="flex flex-col">
+				{node.data.label}
+				<span className="text-xs opacity-50 font-light">{node.id}</span>
+			</div>
+			<NodeSettingsButton />
 		</header>
 	);
 }
 
-type SettingsContextProps<T extends Record<string, unknown>> = { pane: Pane | null, settings: T, updateNode: (settings: Partial<T>) => void }
-const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>({ pane: null, settings: {}, updateNode: () => {} })
+type SettingsContextProps<T extends Record<string, unknown>> = {
+	pane: Pane | null;
+	settings: T;
+};
+const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
+	{} as SettingsContextProps<{}>,
+);
 
 function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChildren) {
-  const [pane, setPane] = useState<Pane | null>(null)
+	const [pane, setPane] = useState<Pane | null>(null);
 
-  const { data, settingsOpened, id } = useNode<T>()
-  const updateNode = useUpdateNode(id);
-  const active = useRef(false)
+	const { data, settingsOpened, setSettingsOpened, id } = useNode<T>();
+	const updateNode = useUpdateNode(id);
 
-  const settings = useRef(data)
+	const settings = useRef(data);
 
-  const ref = useRef<HTMLDivElement>()
+	const ref = useRef<HTMLDivElement>();
 
-  useEffect(() => {
-    if(!settingsOpened) return
-    if(active.current) return // Prevents re-rendering
+	useEffect(() => {
+		if (!settingsOpened) return;
 
-    active.current = true
-    const pane = new Pane({
-      title: `${data.label} (${id})`,
-      container: ref.current,
-    })
+		const pane = new Pane({
+			title: `${data.label} (${id})`,
+			container: ref.current,
+		});
 
-    setPane(pane)
+		pane
+			.addButton({
+				title: 'Save & close',
+				index: 9999,
+			})
+			.on('click', () => {
+				updateNode(settings.current);
+				setSettingsOpened(false);
+			});
 
-    return () => {
-      pane.dispose()
-      setPane(null)
-      active.current = false
-    }
-  }, [settingsOpened, data.label, id])
+		setPane(pane);
 
-  useEffect(() => {
-    settings.current = data
-  }, [data])
+		return () => {
+			pane.dispose();
+		};
+	}, [settingsOpened]);
 
-  return (<NodeSettingsPaneContext.Provider value={{pane, settings: settings.current, updateNode }}>
-    {props.children}
-    {settingsOpened && createPortal(<div ref={ref} onClick={e => e.stopPropagation()}/>, document.getElementById('settings-panels'))}
-  </NodeSettingsPaneContext.Provider>)
+	useEffect(() => {
+		settings.current = { ...data };
+	}, [data, settingsOpened]);
+
+	return (
+		<NodeSettingsPaneContext.Provider value={{ pane, settings: settings.current }}>
+			{props.children}
+			{settingsOpened &&
+				createPortal(
+					<div ref={ref} onClick={e => e.stopPropagation()} className="w-72" />,
+					document.getElementById('settings-panels'),
+				)}
+		</NodeSettingsPaneContext.Provider>
+	);
 }
 
 export function useNodeSettingsPane<T extends Record<string, unknown>>() {
-  return useContext(NodeSettingsPaneContext  as React.Context<SettingsContextProps<T>>)
+	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
 }
 
 const node = cva(

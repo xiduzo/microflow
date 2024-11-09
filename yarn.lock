@@ -12700,6 +12700,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"prettier@npm:^3.3.3":
+  version: 3.3.3
+  resolution: "prettier@npm:3.3.3"
+  bin:
+    prettier: bin/prettier.cjs
+  checksum: bc8604354805acfdde6106852d14b045bb20827ad76a5ffc2455b71a8257f94de93f17f14e463fe844808d2ccc87248364a5691488a3304f1031326e62d9276e
+  languageName: node
+  linkType: hard
+
 "prism-react-renderer@npm:2.3.1":
   version: 2.3.1
   resolution: "prism-react-renderer@npm:2.3.1"
@@ -15930,6 +15939,7 @@ __metadata:
   dependencies:
     "@total-typescript/ts-reset": ^0.5.1
     patch-package: ^8.0.0
+    prettier: ^3.3.3
   languageName: unknown
   linkType: soft
 

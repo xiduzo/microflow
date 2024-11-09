@@ -1,26 +1,25 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
-import { FigmaVariable, useFigma, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
 import {
-  Badge,
-  Icons,
-  Switch,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
+	FigmaVariable,
+	useFigma,
+	useFigmaVariable,
+	useMqtt,
+} from '@microflow/mqtt-provider/client';
+import {
+	Badge,
+	Icons,
+	Switch,
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
 import { useUpdateNode } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
-import {
-  BaseNode,
-  NodeContainer,
-  NodeContent,
-  NodeValue,
-  useNodeSettingsPane
-} from './Node';
+import { BaseNode, NodeContainer, NodeContent, NodeValue, useNodeSettingsPane } from './Node';
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
@@ -146,31 +145,26 @@ function FigmaHandles(props: { variable?: FigmaVariable }) {
 }
 
 function FigmaSettings() {
-  const { pane, settings, updateNode } = useNodeSettingsPane<FigmaData>()
+	const { pane, settings } = useNodeSettingsPane<FigmaData>();
 
 	const { variableTypes } = useFigma();
 
 	useEffect(() => {
-	  if(!pane) return
+		if (!pane) return;
 
-    pane.addBinding(settings, 'variableId', {
+		pane.addBinding(settings, 'variableId', {
+			index: 0,
 			view: 'list',
 			label: 'variable',
 			value: settings.variableId,
 			options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
-        value: variable.id,
-        text: variable.name
-      }))
-		})
+				value: variable.id,
+				text: variable.name,
+			})),
+		});
+	}, [pane, settings, variableTypes]);
 
-    pane.addButton({
-      title: 'Save',
-    }).on('click', () => {
-      updateNode(settings)
-    })
-	}, [pane, settings, updateNode, variableTypes])
-
-	return null
+	return null;
 }
 
 function FigmaHeaderContent(props: {
@@ -230,7 +224,7 @@ const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',
 	value: null,
-  variableId: '',
+	variableId: '',
 };
 export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
 	BOOLEAN: false,

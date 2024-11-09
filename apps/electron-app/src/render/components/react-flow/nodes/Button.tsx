@@ -1,18 +1,12 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Icons, Toggle } from '@microflow/ui';
+import { Icons, Toggle, TpChangeEvent } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
 import { pinValue } from '../../../../utils/pin';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
-import {
-  BaseNode,
-  NodeContainer,
-  NodeContent,
-  NodeValue,
-  useNodeSettingsPane
-} from './Node';
+import { BaseNode, NodeContainer, NodeContent, NodeValue, useNodeSettingsPane } from './Node';
 
 export function Button(props: Props) {
 	return (
@@ -30,7 +24,7 @@ export function Button(props: Props) {
 					</Toggle>
 				</NodeValue>
 			</NodeContent>
-			<SettingsPane />
+			<ButtonSettings />
 			<Handle type="source" position={Position.Right} id="active" offset={-1} />
 			<Handle type="source" position={Position.Right} id="hold" />
 			<Handle type="source" position={Position.Right} id="inactive" offset={1} />
@@ -39,69 +33,70 @@ export function Button(props: Props) {
 	);
 }
 
-function SettingsPane() {
-  const { pane, settings, updateNode } = useNodeSettingsPane()
-  const { pins } = useBoard()
+function ButtonSettings() {
+	const { pane, settings } = useNodeSettingsPane<ButtonData>();
+	const { pins } = useBoard();
 
-  useEffect(() => {
-    if(!pane) return
+	useEffect(() => {
+		if (!pane) return;
 
-    pane.addBinding(settings, 'pin', {
-      view: 'list',
-      disabled: !pins.length,
-      label: "pin",
-      options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(pin => ({
-        value: pinValue(pin),
-        text: `${pinValue(pin)}`,
-      }))
-    })
+		pane.addBinding(settings, 'pin', {
+			view: 'list',
+			disabled: !pins.length,
+			label: 'pin',
+			index: 0,
+			options: pins
+				.filter(pin => pin.supportedModes.includes(MODES.INPUT))
+				.map(pin => ({
+					value: pinValue(pin),
+					text: `${pinValue(pin)}`,
+				})),
+		});
 
-    const advanced = pane.addFolder({
-      title: "advanced",
-      expanded: false
-    })
+		const advanced = pane.addFolder({
+			title: 'advanced',
+			expanded: false,
+			index: 1,
+		});
 
-    advanced.addBinding(settings, 'holdtime', {
-      min: 100,
-      step: 50,
-    });
+		advanced.addBinding(settings, 'holdtime', {
+			min: 100,
+			step: 50,
+		});
 
-    const type = advanced.addBlade({
-      view: 'list',
-      label: 'type',
-      value: settings.isPulldown ? 'pulldown' : settings.isPullup ? 'pullup' : 'default',
-      options: [
-        { value: 'default', text: 'default' },
-        { value: 'pullup', text: 'pull-up' },
-        { value: 'pulldown', text: 'pull-down' },
-      ],
-    })
+		advanced
+			.addBlade({
+				view: 'list',
+				label: 'type',
+				value: settings.isPulldown ? 2 : settings.isPullup ? 1 : 0,
+				options: [
+					{ value: 0, text: 'default' },
+					{ value: 1, text: 'pull-up' },
+					{ value: 2, text: 'pull-down' },
+				],
+			})
+			// @ts-ignore-next-line
+			.on('change', (event: TpChangeEvent<number>) => {
+				switch (event.value) {
+					case 0:
+						settings.isPulldown = false;
+						settings.isPullup = false;
+						break;
+					case 1:
+						settings.isPulldown = false;
+						settings.isPullup = true;
+						break;
+					case 2:
+						settings.isPulldown = true;
+						settings.isPullup = false;
+						break;
+				}
+			});
 
-    advanced.addBinding(settings, 'invert')
+		advanced.addBinding(settings, 'invert');
+	}, [pane, settings, pins]);
 
-    pane.addButton({
-      title: 'Save',
-    }).on('click', () => {
-      switch(type.exportState().value) {
-        case 'default':
-          settings.isPullup = false
-          settings.isPulldown = false
-          break
-        case 'pullup':
-          settings.isPullup = true
-          settings.isPulldown = false
-          break
-        case 'pulldown':
-          settings.isPullup = false
-          settings.isPulldown = true
-          break
-      }
-
-      updateNode(settings)
-    })
-  }, [pane, settings, updateNode, pins])
-
-  return null
+	return null;
 }
 
 type Props = BaseNode<ButtonData, ButtonValueType>;
