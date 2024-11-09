@@ -1,10 +1,9 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
 import { Icons, Toggle } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
 import { pinValue } from '../../../../utils/pin';
-import { useUpdateNode } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import {
@@ -12,7 +11,6 @@ import {
   NodeContainer,
   NodeContent,
   NodeValue,
-  useNode,
   useNodeSettingsPane
 } from './Node';
 
@@ -42,16 +40,13 @@ export function Button(props: Props) {
 }
 
 function SettingsPane() {
-  const { pane } = useNodeSettingsPane()
-  const { data, id } = useNode<ButtonData>()
-  const paneData = useRef(data)
-  const updateNode = useUpdateNode(id);
+  const { pane, settings, updateNode } = useNodeSettingsPane()
   const { pins } = useBoard()
 
   useEffect(() => {
     if(!pane) return
 
-    pane.addBinding(paneData.current, 'pin', {
+    pane.addBinding(settings, 'pin', {
       view: 'list',
       disabled: !pins.length,
       label: "pin",
@@ -66,7 +61,7 @@ function SettingsPane() {
       expanded: false
     })
 
-    advanced.addBinding(paneData.current, 'holdtime', {
+    advanced.addBinding(settings, 'holdtime', {
       min: 100,
       step: 50,
     });
@@ -74,7 +69,7 @@ function SettingsPane() {
     const type = advanced.addBlade({
       view: 'list',
       label: 'type',
-      value: paneData.current.isPulldown ? 'pulldown' : paneData.current.isPullup ? 'pullup' : 'default',
+      value: settings.isPulldown ? 'pulldown' : settings.isPullup ? 'pullup' : 'default',
       options: [
         { value: 'default', text: 'default' },
         { value: 'pullup', text: 'pull-up' },
@@ -82,29 +77,29 @@ function SettingsPane() {
       ],
     })
 
-    advanced.addBinding(paneData.current, 'invert')
+    advanced.addBinding(settings, 'invert')
 
     pane.addButton({
       title: 'Save',
     }).on('click', () => {
       switch(type.exportState().value) {
         case 'default':
-          paneData.current.isPullup = false
-          paneData.current.isPulldown = false
+          settings.isPullup = false
+          settings.isPulldown = false
           break
         case 'pullup':
-          paneData.current.isPullup = true
-          paneData.current.isPulldown = false
+          settings.isPullup = true
+          settings.isPulldown = false
           break
         case 'pulldown':
-          paneData.current.isPullup = false
-          paneData.current.isPulldown = true
+          settings.isPullup = false
+          settings.isPulldown = true
           break
       }
 
-      updateNode(paneData.current)
+      updateNode(settings)
     })
-  }, [pane])
+  }, [pane, settings, updateNode, pins])
 
   return null
 }

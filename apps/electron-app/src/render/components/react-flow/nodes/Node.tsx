@@ -210,15 +210,18 @@ function NodeHeader() {
 	);
 }
 
-const NodeSettingsPaneContext = createContext<{ pane: Pane | null }>({ pane: null })
+type SettingsContextProps<T extends Record<string, unknown>> = { pane: Pane | null, settings: T, updateNode: (settings: Partial<T>) => void }
+const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>({ pane: null, settings: {}, updateNode: () => {} })
 
-function NodeSettingsPane(props: PropsWithChildren) {
+function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChildren) {
   const [pane, setPane] = useState<Pane | null>(null)
 
-  const { data, settingsOpened, id } = useNode()
-  const ref = useRef<HTMLDivElement>()
-
+  const { data, settingsOpened, id } = useNode<T>()
   const updateNode = useUpdateNode(id);
+
+  const settings = useRef(data)
+
+  const ref = useRef<HTMLDivElement>()
 
   useEffect(() => {
     if(!settingsOpened) return
@@ -236,14 +239,18 @@ function NodeSettingsPane(props: PropsWithChildren) {
     }
   }, [settingsOpened, data.label, id])
 
-  return (<NodeSettingsPaneContext.Provider value={{pane}}>
+  useEffect(() => {
+    settings.current = data
+  }, [data])
+
+  return (<NodeSettingsPaneContext.Provider value={{pane, settings: settings.current, updateNode }}>
     {props.children}
     {settingsOpened && createPortal(<div ref={ref} onClick={e => e.stopPropagation()}/>, document.getElementById('settings-panels'))}
   </NodeSettingsPaneContext.Provider>)
 }
 
-export function useNodeSettingsPane() {
-  return useContext(NodeSettingsPaneContext)
+export function useNodeSettingsPane<T extends Record<string, unknown>>() {
+  return useContext(NodeSettingsPaneContext  as React.Context<SettingsContextProps<T>>)
 }
 
 const node = cva(

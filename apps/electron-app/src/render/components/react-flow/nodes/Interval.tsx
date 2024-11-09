@@ -1,14 +1,12 @@
 import type { IntervalData, IntervalValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect, useRef } from 'react';
-import { useUpdateNode } from '../../../hooks/nodeUpdater';
+import { useEffect } from 'react';
 import { Handle } from './Handle';
 import {
     BaseNode,
     NodeContainer,
     NodeContent,
     NodeValue,
-    useNode,
     useNodeSettingsPane
 } from './Node';
 
@@ -31,15 +29,12 @@ export function Interval(props: Props) {
 }
 
 function SettingsPane() {
-  const { pane } = useNodeSettingsPane()
-  const { data, id } = useNode<IntervalData>()
-  const paneData = useRef(data)
-  const updateNode = useUpdateNode(id);
+  const { pane, settings, updateNode } = useNodeSettingsPane<IntervalData>()
 
   useEffect(() => {
     if(!pane) return
 
-    pane.addBinding(paneData.current, 'interval', {
+    pane.addBinding(settings, 'interval', {
       min: 500,
       max: 5000,
       step: 100
@@ -48,10 +43,9 @@ function SettingsPane() {
     pane.addButton({
       title: 'Save',
     }).on('click', (e) => {
-      console.log(paneData.current)
-      updateNode(paneData.current)
+      updateNode(settings)
     })
-  }, [pane])
+  }, [pane, settings, updateNode])
 
   return null
 }
