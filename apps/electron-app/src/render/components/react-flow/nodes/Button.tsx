@@ -5,12 +5,12 @@ import { MODES } from '../../../../common/types';
 import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
+    useNodeSettings,
 } from './Node';
 
 export function Button(props: Props) {
@@ -75,7 +75,7 @@ function ButtonSettings() {
 					</span>
 				</div>
 				<RadioGroup
-					defaultValue="default"
+					defaultValue={settings.isPullup ? 'pullup' : settings.isPulldown ? 'pulldown' : 'default'}
 					onValueChange={value => {
 						switch (value) {
 							case 'default':
