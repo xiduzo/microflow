@@ -36,7 +36,7 @@ export function IfElse(props: Props) {
 }
 
 function IfElseSettings() {
-	const { settingsOpened, pane, settings } = useNodeSettingsPane<IfElseData>();
+	const { pane, settings } = useNodeSettingsPane<IfElseData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -106,7 +106,7 @@ function IfElseSettings() {
 			addValidatorArgs(settings.subValidator);
 		}
 
-		const validatorPane = pane
+		pane
 			.addBinding(settings, 'validator', {
 				index: 0,
 				view: 'list',
@@ -136,7 +136,7 @@ function IfElseSettings() {
 			});
 
 		if (settings.validator !== 'boolean') addSubValidator(settings.validator);
-	}, [pane, settings, settingsOpened]);
+	}, [pane, settings]);
 
 	return null;
 }
