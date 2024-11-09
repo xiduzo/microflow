@@ -21,14 +21,20 @@ export function FigmaProvider(props: PropsWithChildren) {
 		if (status !== 'connected') return;
 
 		function handleVariablesUpdate(_topic: string, message: Buffer) {
-			const variables = JSON.parse(message.toString()) as Record<string, FigmaVariable>;
-			setVariableTypes(variables);
+			setVariableTypes(prev => {
+			  const current = JSON.stringify(prev);
+				if(message.toString() === current) return prev
+
+				return JSON.parse(message.toString()) as Record<string, FigmaVariable>;
+			});
 		}
 
 		function handleVariableUpdate(topic: string, message: Buffer) {
 			const [_prefix, _version, _id, _app, _topic, variableId] = topic.split('/');
 			setVariableValues(prev => {
 				const next = { ...prev };
+				const prevValue = next[variableId];
+				if (prevValue && JSON.stringify(prevValue) === message.toString()) return prev;
 				next[variableId] = JSON.parse(message.toString());
 				return next;
 			});

@@ -218,6 +218,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 
   const { data, settingsOpened, id } = useNode<T>()
   const updateNode = useUpdateNode(id);
+  const active = useRef(false)
 
   const settings = useRef(data)
 
@@ -225,7 +226,9 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 
   useEffect(() => {
     if(!settingsOpened) return
+    if(active.current) return // Prevents re-rendering
 
+    active.current = true
     const pane = new Pane({
       title: `${data.label} (${id})`,
       container: ref.current,
@@ -236,6 +239,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
     return () => {
       pane.dispose()
       setPane(null)
+      active.current = false
     }
   }, [settingsOpened, data.label, id])
 

@@ -42,7 +42,7 @@ function SettingsPane() {
 
     pane.addButton({
       title: 'Save',
-    }).on('click', (e) => {
+    }).on('click', () => {
       updateNode(settings)
     })
   }, [pane, settings, updateNode])

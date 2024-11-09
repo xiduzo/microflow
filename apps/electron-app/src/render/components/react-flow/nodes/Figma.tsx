@@ -1,37 +1,29 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
-import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
+import { FigmaVariable, useFigma, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
 import {
-    Badge,
-    Icons,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    Switch,
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
+  Badge,
+  Icons,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { useUpdateNode } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
-import { deleteEdgesSelector, useNodesEdgesStore } from '../../../store';
 import { Handle } from './Handle';
 import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
-    useNodeSettings,
+  BaseNode,
+  NodeContainer,
+  NodeContent,
+  NodeValue,
+  useNodeSettingsPane
 } from './Node';
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
-	const { deleteEdges } = useNodesEdgesStore(useShallow(deleteEdgesSelector));
 	const { uploadResult } = useBoard();
 	const lastPublishedValue = useRef<string>();
 
@@ -114,13 +106,7 @@ export function Figma(props: Props) {
 					/>
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings<FigmaData>
-				onClose={() => {
-					deleteEdges(props.id, ['change']);
-				}}
-			>
-				<FigmaSettings />
-			</NodeSettings>
+			<FigmaSettings />
 			<FigmaHandles variable={variable} />
 		</NodeContainer>
 	);
@@ -160,30 +146,31 @@ function FigmaHandles(props: { variable?: FigmaVariable }) {
 }
 
 function FigmaSettings() {
-	const { settings, setSettings } = useNodeSettings<FigmaData>();
+  const { pane, settings, updateNode } = useNodeSettingsPane<FigmaData>()
 
-	const { variables, variable } = useFigmaVariable(settings?.variableId);
+	const { variableTypes } = useFigma();
 
-	return (
-		<>
-			<Select
-				disabled={!Array.from(Object.values(variables)).length}
-				value={settings.variableId}
-				onValueChange={variableId => {
-					setSettings({ variableId });
-				}}
-			>
-				<SelectTrigger>{variable?.name ?? 'Select variable'}</SelectTrigger>
-				<SelectContent>
-					{Array.from(Object.values(variables)).map((variable: FigmaVariable) => (
-						<SelectItem key={variable.id} value={variable.id}>
-							{variable.name}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-		</>
-	);
+	useEffect(() => {
+	  if(!pane) return
+
+    pane.addBinding(settings, 'variableId', {
+			view: 'list',
+			label: 'variable',
+			value: settings.variableId,
+			options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
+        value: variable.id,
+        text: variable.name
+      }))
+		})
+
+    pane.addButton({
+      title: 'Save',
+    }).on('click', () => {
+      updateNode(settings)
+    })
+	}, [pane, settings, updateNode, variableTypes])
+
+	return null
 }
 
 function FigmaHeaderContent(props: {
@@ -243,6 +230,7 @@ const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',
 	value: null,
+  variableId: '',
 };
 export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
 	BOOLEAN: false,
