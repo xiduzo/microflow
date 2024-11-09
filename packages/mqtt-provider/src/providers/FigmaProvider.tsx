@@ -13,7 +13,7 @@ const FigmaContext = createContext({
 });
 
 export function FigmaProvider(props: PropsWithChildren) {
-	const { status, subscribe, publish, appName, uniqueId } = useMqtt();
+	const { status, subscribe, publish, appName, uniqueId, connectedClients } = useMqtt();
 	const [variableValues, setVariableValues] = useState<Record<string, unknown>>({});
 	const [variableTypes, setVariableTypes] = useState<Record<string, FigmaVariable>>({});
 
@@ -43,9 +43,11 @@ export function FigmaProvider(props: PropsWithChildren) {
 
 	useEffect(() => {
 		if (status !== 'connected') return;
+		if(!connectedClients.get('plugin')) return;
+		if(connectedClients.get('plugin') !== 'connected') return;
 
 		publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
-	}, [status]);
+	}, [status, uniqueId, appName, connectedClients]);
 
 	return (
 		<FigmaContext.Provider value={{ variableValues, variableTypes }}>
