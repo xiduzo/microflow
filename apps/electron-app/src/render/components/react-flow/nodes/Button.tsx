@@ -14,7 +14,6 @@ import {
 } from './Node';
 
 export function Button(props: Props) {
-  console.log(props.data.isPullup)
 	return (
 		<NodeContainer {...props}>
 			<NodeContent>
