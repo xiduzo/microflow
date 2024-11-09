@@ -1,17 +1,17 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
 import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
 import {
-	Badge,
-	Icons,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	Switch,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
+    Badge,
+    Icons,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    Switch,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
@@ -21,12 +21,12 @@ import { useBoard } from '../../../providers/BoardProvider';
 import { deleteEdgesSelector, useNodesEdgesStore } from '../../../store';
 import { Handle } from './Handle';
 import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
+    BaseNode,
+    NodeContainer,
+    NodeContent,
+    NodeSettings,
+    NodeValue,
+    useNodeSettings,
 } from './Node';
 
 export function Figma(props: Props) {
@@ -47,7 +47,7 @@ export function Figma(props: Props) {
 		// TODO this sometimes interferes with the publish
 		// when the next value is already being send to the plugin
 		// and the plugin has not processed the previous value yet
-		if (value !== undefined || value !== null) return;
+		if (value === undefined || value === null) return;
 
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
 	}, [value, props.id]);
