@@ -10,11 +10,6 @@ body {
 */
 
 /* Nodes */
-/* Nodes themselves are styled in `Node.tsx` */
-.react-flow__minimap .react-flow__minimap-node.animated {
-	@apply fill-yellow-500;
-}
-
 .react-flow__minimap .react-flow__minimap-node.selected {
 	@apply fill-blue-500;
 }

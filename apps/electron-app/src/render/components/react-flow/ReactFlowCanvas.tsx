@@ -28,12 +28,7 @@ export function ReactFlowCanvas() {
 			disableKeyboardA11y={true}
 		>
 			<Controls />
-			<MiniMap
-				nodeBorderRadius={12}
-				nodeClassName={node => {
-					if (node.data.animated) return 'animated';
-				}}
-			/>
+			<MiniMap nodeBorderRadius={12} />
 			<Background gap={32} />
 
 			<Panel position="top-center">
