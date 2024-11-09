@@ -95,11 +95,7 @@ export function Servo(props: Props) {
 					)}
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings
-				onClose={() => {
-					updateNodeInternals(props.id);
-				}}
-			>
+			<NodeSettings>
 				<ServoSettings />
 			</NodeSettings>
 			{props.data.type === 'standard' && (

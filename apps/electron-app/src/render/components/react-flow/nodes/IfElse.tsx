@@ -9,24 +9,15 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContent, NodeContainer, NodeValue, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { BindingApi, BladeApi } from '@tweakpane/core';
-
-const MAX_NUMERIC_VALUE = 1023;
+import { useNodeValue } from '../../../stores/node-data';
 
 export function IfElse(props: Props) {
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue>
-					{props.data.value === true && <Icons.Check className="w-12 h-12 text-green-500" />}
-					{props.data.value === false && <Icons.X className="w-12 h-12 text-red-500" />}
-					{(props.data.value === null || props.data.value === undefined) && (
-						<Icons.Dot className="w-12 h-12 text-gray-500" />
-					)}
-				</NodeValue>
-			</NodeContent>
-			<IfElseSettings />
+			<Value />
+			<Settings />
 			<Handle type="target" position={Position.Left} id="check" />
 			<Handle type="source" position={Position.Right} id="true" offset={-0.5} />
 			<Handle type="source" position={Position.Right} id="false" offset={0.5} />
@@ -35,7 +26,15 @@ export function IfElse(props: Props) {
 	);
 }
 
-function IfElseSettings() {
+function Value() {
+	const { id } = useNode();
+	const value = useNodeValue<Props['data']['value']>(id, false);
+
+	if (value) return <Icons.Check className="w-12 h-12 text-green-500" />;
+	return <Icons.X className="w-12 h-12 text-red-500" />;
+}
+
+function Settings() {
 	const { pane, settings } = useNodeSettingsPane<IfElseData>();
 
 	useEffect(() => {

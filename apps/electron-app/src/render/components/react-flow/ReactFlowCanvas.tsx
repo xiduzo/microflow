@@ -2,7 +2,7 @@ import { useAutoAnimate } from '@ui/index';
 import { Background, Controls, MiniMap, Panel, ReactFlow } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
-import { AppState, useNodesEdgesStore } from '../../store';
+import { AppState, useNodesEdgesStore } from '../../stores/react-flow';
 import { SerialConnectionStatus } from './panels/SerialConnectionStatus';
 
 const selector = (state: AppState) => ({

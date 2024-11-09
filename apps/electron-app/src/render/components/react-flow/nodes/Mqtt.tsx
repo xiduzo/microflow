@@ -23,8 +23,6 @@ import {
 } from './Node';
 
 export function Mqtt(props: Props) {
-	const updateNodeInternals = useUpdateNodeInternals();
-
 	const { publish, subscribe, status } = useMqtt();
 
 	useEffect(() => {
@@ -71,11 +69,7 @@ export function Mqtt(props: Props) {
 					)}
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings
-				onClose={() => {
-					updateNodeInternals(props.id);
-				}}
-			>
+			<NodeSettings>
 				<MqttSettings />
 			</NodeSettings>
 			{props.data.direction === 'publish' && (
@@ -126,6 +120,6 @@ type Props = BaseNode<MqttData, MqttValueType>;
 export const DEFAULT_MQTT_DATA: Props['data'] = {
 	label: 'MQTT',
 	direction: 'publish',
-	value: '',
 	topic: '',
+	value: '',
 };

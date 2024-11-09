@@ -10,19 +10,12 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 	Icon,
+	Icons,
 	Pane,
 	VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
-import {
-	createContext,
-	PropsWithChildren,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { isNodeTypeACodeType } from '../../../../utils/generateCode';
 import { useUpdateNode } from '../../../hooks/nodeUpdater';
@@ -56,7 +49,7 @@ export function NodeSettingsButton() {
 				setSettingsOpened(!settingsOpened);
 			}}
 		>
-			<Icon icon="SlidersHorizontal" size={16} />
+			<Icons.SlidersHorizontal size={16} />
 		</Button>
 	);
 }
@@ -125,29 +118,7 @@ type NodeContainerProps<T extends Record<string, any> = {}> = PropsWithChildren 
 };
 
 export function NodeValue(props: NodeValueProps) {
-	const { data } = useNode();
-	const prevValue = useRef(props.valueOverride ?? data.value);
-
-	useEffect(() => {
-		if (data.animated) return;
-
-		prevValue.current = props.valueOverride ?? data.value;
-	}, [data.animated, data.value, props.valueOverride]);
-
-	return (
-		<section
-			className={cn(
-				nodeValue({
-					className: props.className,
-					active:
-						props.active ||
-						(!!data.animated && (props.valueOverride ?? data.value) !== prevValue.current),
-				}),
-			)}
-		>
-			{props.children}
-		</section>
-	);
+	return props.children;
 }
 
 export function NodeContent(props: PropsWithChildren) {
@@ -161,18 +132,7 @@ type NodeValueProps = PropsWithChildren &
 	};
 
 const nodeValue = cva(
-	'flex p-4 justify-center items-center rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none',
-	{
-		variants: {
-			active: {
-				true: 'bg-yellow-700',
-				false: 'bg-muted',
-			},
-			defaultVariants: {
-				active: false,
-			},
-		},
-	},
+	'flex p-4 justify-center items-center rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none bg-muted',
 );
 
 type ContainerProps<T> = BaseNode<T> & {
@@ -207,7 +167,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode) {
 				)}
 			>
 				<NodeHeader />
-				<main className="px-4 pt-2 pb-4 flex justify-center items-center grow">
+				<main className="flex grow justify-center items-center bg-muted">
 					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
 			</div>
@@ -327,9 +287,9 @@ const node = cva(
 	},
 );
 
-export type BaseNode<Data extends Record<string, any> = {}, ValueType = any> = Node<
-	Data & {
-		value: ValueType;
+export type BaseNode<Settings extends Record<string, unknown> = {}, Value = any> = Node<
+	Settings & {
+		value: Value;
 		label: string;
 		animated?: string;
 		settingsOpen?: boolean;

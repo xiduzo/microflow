@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { DEFAULT_NODE_DATA } from '../../common/nodes';
 import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
 import { useBoard } from '../providers/BoardProvider';
-import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../store';
+import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../stores/react-flow';
 
 export function useCodeUploader() {
 	const { uploadCode: boardUpload, checkResult } = useBoard();
@@ -38,12 +38,14 @@ export function useCodeUploader() {
 			const sourceNode = internalNodes.find(
 				node =>
 					node.id === edge.source &&
-					(node.internals.handleBounds?.source?.find(handle => handle.id === edge.sourceHandle) ?? true),
+					(node.internals.handleBounds?.source?.find(handle => handle.id === edge.sourceHandle) ??
+						true),
 			);
 			const targetNode = internalNodes.find(
 				node =>
 					node.id === edge.target &&
-					(node.internals.handleBounds?.target?.find(handle => handle.id === edge.targetHandle) ?? true),
+					(node.internals.handleBounds?.target?.find(handle => handle.id === edge.targetHandle) ??
+						true),
 			);
 
 			return sourceNode && targetNode;

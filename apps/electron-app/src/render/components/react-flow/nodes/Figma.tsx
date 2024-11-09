@@ -19,7 +19,8 @@ import { useEffect, useRef } from 'react';
 import { useUpdateNode } from '../../../hooks/nodeUpdater';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, NodeContent, NodeValue, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
@@ -95,17 +96,9 @@ export function Figma(props: Props) {
 
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				{isDisconnected && <Badge variant="destructive">Figma plugin not connected</Badge>}
-				<NodeValue className="max-w-48 text-wrap">
-					<FigmaHeaderContent
-						variable={variable}
-						hasVariables={!!Array.from(Object.values(variables)).length}
-						value={props.data.value ?? value}
-					/>
-				</NodeValue>
-			</NodeContent>
-			<FigmaSettings />
+			{isDisconnected && <Badge variant="destructive">Figma plugin not connected</Badge>}
+			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
+			<Settings />
 			<FigmaHandles variable={variable} />
 		</NodeContainer>
 	);
@@ -144,7 +137,7 @@ function FigmaHandles(props: { variable?: FigmaVariable }) {
 	);
 }
 
-function FigmaSettings() {
+function Settings() {
 	const { pane, settings } = useNodeSettingsPane<FigmaData>();
 
 	const { variableTypes } = useFigma();
@@ -167,11 +160,10 @@ function FigmaSettings() {
 	return null;
 }
 
-function FigmaHeaderContent(props: {
-	variable?: FigmaVariable;
-	value: unknown;
-	hasVariables: boolean;
-}) {
+function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
+	const { id } = useNode();
+	const value = useNodeValue<Props['data']['value']>(id, '');
+
 	if (!props.hasVariables) {
 		return <Icons.Loader2 className="w-12 h-12 animate-spin" />;
 	}
@@ -186,26 +178,26 @@ function FigmaHeaderContent(props: {
 				<Switch
 					className="scale-150 border border-muted-foreground/10"
 					disabled
-					checked={Boolean(props.value)}
+					checked={Boolean(value)}
 				/>
 			);
 		case 'FLOAT':
-			return <span className="text-4xl tabular-nums">{Number(props.value ?? 0)}</span>;
+			return <span className="text-4xl tabular-nums">{Number(value)}</span>;
 		case 'STRING':
 			return (
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto">
-								{String(props.value ?? '-')}
+								{String(value)}
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="max-w-64">{String(props.value)}</TooltipContent>
+						<TooltipContent className="max-w-64">{String(value)}</TooltipContent>
 					</Tooltip>
 				</TooltipProvider>
 			);
 		case 'COLOR':
-			const { r, g, b, a } = (props.value ?? DEFAULT_COLOR) as RGBA;
+			const { r, g, b, a } = (value ?? DEFAULT_COLOR) as RGBA;
 			return (
 				<div
 					className="w-full h-14 rounded-sm bg-green-50 border-2 border-black ring-2 ring-white"

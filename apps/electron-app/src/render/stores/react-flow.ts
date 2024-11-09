@@ -1,16 +1,16 @@
 import {
-    Edge,
-    Node,
-    OnConnect,
-    OnEdgesChange,
-    OnNodesChange,
-    addEdge,
-    applyEdgeChanges,
-    applyNodeChanges,
+	Edge,
+	Node,
+	OnConnect,
+	OnEdgesChange,
+	OnNodesChange,
+	addEdge,
+	applyEdgeChanges,
+	applyNodeChanges,
 } from '@xyflow/react';
 
 import { create } from 'zustand';
-import { LinkedList } from '../common/LinkedList';
+import { LinkedList } from '../../common/LinkedList';
 import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
 
 const HISTORY_DEBOUNCE_TIME_IN_MS = 1000;
@@ -26,7 +26,7 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	deleteEdges: (nodeId: string, except?: string[]) => void;
 	addNode: (node: Node<NodeData>) => void;
 	deleteNode: (nodeId: string) => void;
-	history: LinkedList<{nodes: Node[], edges: Edge[]}>
+	history: LinkedList<{ nodes: Node[]; edges: Edge[] }>;
 	undo: () => void;
 	redo: () => void;
 };
@@ -52,34 +52,34 @@ export const useNodesEdgesStore = create<AppState>((set, get) => {
 		...node,
 		selected: false,
 		data: { ...node.data, animated: false, settingsOpen: false },
-	}))
+	}));
 
 	const localEdges = getLocalItem<Edge[]>('edges', []).map(edge => ({
 		...edge,
 		animated: false,
 		selected: false,
-	}))
+	}));
 
-	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES
-	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES
+	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES;
+	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES;
 
-	let historyUpdateDebounce: NodeJS.Timeout | null = null
+	let historyUpdateDebounce: NodeJS.Timeout | null = null;
 	function updateHistory(update: Partial<Pick<AppState, 'nodes' | 'edges'>>) {
-    set(update)
+		set(update);
 
-    clearTimeout(historyUpdateDebounce)
-    historyUpdateDebounce = setTimeout(() => {
-      const { nodes, edges, history } = get()
-      history.append({ nodes, edges })
-    }, HISTORY_DEBOUNCE_TIME_IN_MS)
-  }
+		clearTimeout(historyUpdateDebounce);
+		historyUpdateDebounce = setTimeout(() => {
+			const { nodes, edges, history } = get();
+			history.append({ nodes, edges });
+		}, HISTORY_DEBOUNCE_TIME_IN_MS);
+	}
 
 	return {
 		nodes: initialNodes,
 		edges: initialEdges,
 		history: new LinkedList({ nodes: initialNodes, edges: initialEdges }),
 		onNodesChange: changes => {
-			updateHistory({ nodes: applyNodeChanges(changes, get().nodes) })
+			updateHistory({ nodes: applyNodeChanges(changes, get().nodes) });
 		},
 		onEdgesChange: changes => {
 			updateHistory({ edges: applyEdgeChanges(changes, get().edges) });
@@ -88,20 +88,21 @@ export const useNodesEdgesStore = create<AppState>((set, get) => {
 			updateHistory({ edges: addEdge(connection, get().edges) });
 		},
 		setNodes: nodes => {
+			console.log('setNodes', nodes);
 			updateHistory({ nodes });
 		},
 		setEdges: edges => {
 			updateHistory({ edges });
 		},
 		deleteEdges: (nodeId, except = []) => {
-		  // TODO: only delete edges when they have connections which are not possible anymore
+			// TODO: only delete edges when they have connections which are not possible anymore
 			const edges = get().edges.filter(edge => {
 				const isSource = edge.source === nodeId;
 				const isTarget = edge.target === nodeId;
 
 				if (except.length && (isSource || isTarget)) {
-  				const isExceptHandle =
-  					except.includes(edge.sourceHandle) || except.includes(edge.targetHandle);
+					const isExceptHandle =
+						except.includes(edge.sourceHandle) || except.includes(edge.targetHandle);
 
 					return isExceptHandle;
 				}
@@ -125,18 +126,18 @@ export const useNodesEdgesStore = create<AppState>((set, get) => {
 		undo: () => {
 			const history = get().history;
 
-			const state = history.backward()
-			if(!state) return
+			const state = history.backward();
+			if (!state) return;
 
-			set({...state})
+			set({ ...state });
 		},
 		redo: () => {
-		  const history = get().history;
+			const history = get().history;
 
-			const state = history.forward()
-			if(!state) return
+			const state = history.forward();
+			if (!state) return;
 
-			set({...state})
+			set({ ...state });
 		},
 	};
 });
@@ -168,8 +169,8 @@ export const deleteEdgesSelector = (state: AppState) => ({
 });
 
 export const setNodesAndEdgesSelecor = (state: AppState) => ({
-  setNodes: state.setNodes,
-  setEdges: state.setEdges,
-  undo: state.undo,
-  redo: state.redo,
-})
+	setNodes: state.setNodes,
+	setEdges: state.setEdges,
+	undo: state.undo,
+	redo: state.redo,
+});

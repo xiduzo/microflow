@@ -2,9 +2,11 @@ import { toast } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
 import { UploadedCodeMessage } from '../../common/types';
+import { useNodeData } from '../stores/node-data';
 
 export function useSignalNodesAndEdges() {
 	const { updateNodeData, getEdges, updateEdge } = useReactFlow();
+	const { update } = useNodeData();
 	const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
 	useEffect(() => {
@@ -21,12 +23,12 @@ export function useSignalNodesAndEdges() {
 				clearTimeout(timeouts.current.get(message.nodeId));
 			}
 
-			const update: { animated: string; value?: unknown } = {
+			const updateObj: { animated: string; value?: unknown } = {
 				animated: message.action,
 				value: message.value,
 			};
 
-			updateNodeData(message.nodeId, update);
+			update(message.nodeId, message.value);
 
 			getEdges()
 				.filter(
@@ -50,11 +52,11 @@ export function useSignalNodesAndEdges() {
 			timeouts.current.set(
 				message.nodeId,
 				setTimeout(() => {
-					updateNodeData(message.nodeId, { animated: undefined });
+					// updateNodeData(message.nodeId, { animated: undefined });
 				}, 150),
 			);
 		});
-	}, [updateNodeData, getEdges, updateEdge]);
+	}, [updateNodeData, getEdges, updateEdge, update]);
 
 	return null;
 }

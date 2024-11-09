@@ -2,7 +2,7 @@ import type { PiezoData, PiezoValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
-import { deleteEdgesSelector, useNodesEdgesStore } from '../../../../store';
+import { deleteEdgesSelector, useNodesEdgesStore } from '../../../../stores/react-flow';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, NodeContent, NodeSettings, NodeValue } from '../Node';
 import { DEFAULT_NOTE, NOTES_AND_FREQUENCIES } from './constants';
@@ -30,12 +30,7 @@ export function Piezo(props: Props) {
 						))}
 				</NodeValue>
 			</NodeContent>
-			<NodeSettings
-				onClose={() => {
-					updateNodeInternals(props.id);
-					deleteEdges(props.id, ['stop']);
-				}}
-			>
+			<NodeSettings>
 				<PiezoSettings />
 			</NodeSettings>
 			{props.data.type === 'buzz' && (

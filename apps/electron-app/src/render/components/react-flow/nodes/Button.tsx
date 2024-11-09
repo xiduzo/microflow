@@ -6,25 +6,14 @@ import { MODES } from '../../../../common/types';
 import { pinValue } from '../../../../utils/pin';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, NodeContent, NodeValue, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Button(props: Props) {
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue>
-					<Toggle
-						disabled
-						className="opacity-100 disabled:opacity-100"
-						size="lg"
-						pressed={Boolean(props.data.value)}
-					>
-						{Boolean(props.data.value) && <Icons.Pointer />}
-						{!Boolean(props.data.value) && <Icons.PointerOff className="text-muted-foreground" />}
-					</Toggle>
-				</NodeValue>
-			</NodeContent>
-			<ButtonSettings />
+			<Value />
+			<Settings />
 			<Handle type="source" position={Position.Right} id="active" offset={-1} />
 			<Handle type="source" position={Position.Right} id="hold" />
 			<Handle type="source" position={Position.Right} id="inactive" offset={1} />
@@ -33,7 +22,24 @@ export function Button(props: Props) {
 	);
 }
 
-function ButtonSettings() {
+function Value() {
+	const { id } = useNode();
+	const value = useNodeValue<Props['data']['value']>(id, false);
+
+	return (
+		<Toggle
+			disabled
+			className="opacity-100 disabled:opacity-100"
+			size="lg"
+			pressed={Boolean(value)}
+		>
+			{value && <Icons.Pointer />}
+			{!value && <Icons.PointerOff className="text-muted-foreground" />}
+		</Toggle>
+	);
+}
+
+function Settings() {
 	const { pane, settings } = useNodeSettingsPane<ButtonData>();
 	const { pins } = useBoard();
 

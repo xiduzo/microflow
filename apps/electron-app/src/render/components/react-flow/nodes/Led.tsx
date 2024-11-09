@@ -2,31 +2,18 @@ import type { LedData, LedValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
-import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useEffect } from 'react';
+import { useBoard } from '../../../providers/BoardProvider';
+import { pinValue } from '../../../../utils/pin';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Led(props: Props) {
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue>
-					{Boolean(props.data.value) && <Icons.Lightbulb className="w-10 h-10" />}
-					{!Boolean(props.data.value) && (
-						<Icons.LightbulbOff className="w-10 h-10 text-muted-foreground" />
-					)}
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<LedSettings />
-			</NodeSettings>
+			<Value />
+			<Settings />
 			<Handle type="target" position={Position.Left} id="on" offset={-1} />
 			<Handle type="target" position={Position.Left} id="toggle" />
 			<Handle type="target" position={Position.Left} id="off" offset={1} />
@@ -35,20 +22,36 @@ export function Led(props: Props) {
 	);
 }
 
-function LedSettings() {
-	const { settings, setSettings } = useNodeSettings<LedData>();
+function Value() {
+	const { id } = useNode();
+	const value = useNodeValue<Props['data']['value']>(id, 0);
 
-	return (
-		<>
-			<PinSelect
-				value={settings.pin}
-				onValueChange={pin => setSettings({ pin })}
-				filter={pin =>
-					pin.supportedModes.includes(MODES.OUTPUT) && !pin.supportedModes.includes(MODES.ANALOG)
-				}
-			/>
-		</>
-	);
+	if (!value) return <Icons.LightbulbOff className="w-10 h-10 text-muted-foreground" />;
+	return <Icons.Lightbulb className="w-10 h-10" />;
+}
+
+function Settings() {
+	const { pane, settings } = useNodeSettingsPane<LedData>();
+	const { pins } = useBoard();
+
+	useEffect(() => {
+		if (!pane) return;
+
+		pane.addBinding(settings, 'pin', {
+			view: 'list',
+			disabled: !pins.length,
+			label: 'pin',
+			index: 0,
+			options: pins
+				.filter(pin => pin.supportedModes.includes(MODES.INPUT))
+				.map(pin => ({
+					value: pinValue(pin),
+					text: `${pinValue(pin)}`,
+				})),
+		});
+	}, [pane, settings, pins]);
+
+	return null;
 }
 
 type Props = BaseNode<LedData, LedValueType>;
