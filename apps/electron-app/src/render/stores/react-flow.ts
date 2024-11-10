@@ -12,6 +12,7 @@ import {
 import { create } from 'zustand';
 import { LinkedList } from '../../common/LinkedList';
 import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
+import { useShallow } from 'zustand/react/shallow';
 
 const HISTORY_DEBOUNCE_TIME_IN_MS = 1000;
 
@@ -23,7 +24,7 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	onConnect: OnConnect;
 	setNodes: (nodes: Node<NodeData>[]) => void;
 	setEdges: (edges: Edge[]) => void;
-	deleteEdges: (nodeId: string, except?: string[]) => void;
+	deleteEdges: (nodeId: string, handles?: string[]) => void;
 	addNode: (node: Node<NodeData>) => void;
 	deleteNode: (nodeId: string) => void;
 	history: LinkedList<{ nodes: Node[]; edges: Edge[] }>;
@@ -39,7 +40,7 @@ function getLocalItem<T>(item: string, fallback: T) {
 	return JSON.parse(localStorage.getItem(item) ?? JSON.stringify(fallback)) as T;
 }
 
-export const useNodesEdgesStore = create<AppState>((set, get) => {
+export const useReactFlowStore = create<AppState>((set, get) => {
 	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
 
 	if (!hasSeenIntroduction) {
@@ -94,20 +95,19 @@ export const useNodesEdgesStore = create<AppState>((set, get) => {
 		setEdges: edges => {
 			updateHistory({ edges });
 		},
-		deleteEdges: (nodeId, except = []) => {
-			// TODO: only delete edges when they have connections which are not possible anymore
+		deleteEdges: (nodeId, handles = []) => {
+			if (!handles.length) return;
+
 			const edges = get().edges.filter(edge => {
 				const isSource = edge.source === nodeId;
+				const isSourceHandle = handles.includes(edge.targetHandle);
+				if (isSource && isSourceHandle) return false;
+
 				const isTarget = edge.target === nodeId;
+				const isTargetHandle = handles.includes(edge.sourceHandle);
+				if (isTarget && isTargetHandle) return false;
 
-				if (except.length && (isSource || isTarget)) {
-					const isExceptHandle =
-						except.includes(edge.sourceHandle) || except.includes(edge.targetHandle);
-
-					return isExceptHandle;
-				}
-
-				return !isSource && !isTarget;
+				return false;
 			});
 			updateHistory({ edges });
 		},
@@ -142,35 +142,36 @@ export const useNodesEdgesStore = create<AppState>((set, get) => {
 	};
 });
 
-export const nodesAndEdgesCountsSelector = (state: AppState) => ({
-	nodesCount: state.nodes.length,
-	edgesCount: state.edges.length,
-});
+export function useNodeAndEdgeCount() {
+	return useReactFlowStore(
+		useShallow((state: AppState) => ({
+			nodesCount: state.nodes.length,
+			edgesCount: state.edges.length,
+		})),
+	);
+}
 
-export const tempNodeSelector = (state: AppState) => ({
-	addNode: (node: Node) => {
-		state.setNodes([
-			...state.nodes.map(stateNode => ({
-				...stateNode,
-				selected: false,
-				data: {
-					...stateNode.data,
-					settingsOpen: false,
-				},
-			})),
-			node,
-		]);
-	},
-	deleteNode: state.deleteNode,
-});
+export function useTempNode() {
+	return useReactFlowStore(
+		useShallow((state: AppState) => ({
+			addNode: (node: Node) => {
+				state.setNodes([
+					...state.nodes.map(stateNode => ({
+						...stateNode,
+						selected: false,
+						data: {
+							...stateNode.data,
+							settingsOpen: false,
+						},
+					})),
+					node,
+				]);
+			},
+			deleteNode: state.deleteNode,
+		})),
+	);
+}
 
-export const deleteEdgesSelector = (state: AppState) => ({
-	deleteEdges: state.deleteEdges,
-});
-
-export const setNodesAndEdgesSelecor = (state: AppState) => ({
-	setNodes: state.setNodes,
-	setEdges: state.setEdges,
-	undo: state.undo,
-	redo: state.redo,
-});
+export function useDeleteEdges() {
+	return useReactFlowStore(useShallow(state => state.deleteEdges));
+}

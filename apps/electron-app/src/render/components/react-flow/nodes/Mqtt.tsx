@@ -66,7 +66,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<MqttData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<MqttData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -84,6 +84,10 @@ function Settings() {
 			index: 1,
 		});
 	}, [pane, settings]);
+
+	useEffect(() => {
+		setHandlesToDelete(['publish', 'subscribe']);
+	}, [setHandlesToDelete]);
 
 	return null;
 }

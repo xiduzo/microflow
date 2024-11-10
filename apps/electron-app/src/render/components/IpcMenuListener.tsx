@@ -4,12 +4,12 @@ import { useLocalStorage } from 'usehooks-ts';
 import { FlowFile } from '../../common/types';
 import { useSaveFlow } from '../hooks/useSaveFlow';
 import { useNewNode } from '../providers/NewNodeProvider';
-import { useNodesEdgesStore } from '../stores/react-flow';
+import { useReactFlowStore } from '../stores/react-flow';
 import { MqttSettingsForm } from './forms/MqttSettingsForm';
 
 export function IpcMenuListeners() {
 	const { getNodes, getEdges } = useReactFlow();
-	const { setEdges, setNodes, undo, redo } = useNodesEdgesStore();
+	const { setEdges, setNodes, undo, redo } = useReactFlowStore();
 
 	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
 	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);

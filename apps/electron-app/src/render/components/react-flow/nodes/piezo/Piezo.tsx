@@ -42,7 +42,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<PiezoData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<PiezoData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
@@ -124,6 +124,10 @@ function Settings() {
 
 		addTypeBindings();
 	}, [pane, settings, pins]);
+
+	useEffect(() => {
+		setHandlesToDelete(['buzz', 'play']);
+	}, [setHandlesToDelete]);
 
 	if (!editorOpened) return null;
 	if (settings.type === 'buzz') return null;

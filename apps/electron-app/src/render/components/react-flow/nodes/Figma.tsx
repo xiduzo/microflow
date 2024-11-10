@@ -133,7 +133,7 @@ function FigmaHandles(props: { variable?: FigmaVariable }) {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<FigmaData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<FigmaData>();
 
 	const { variableTypes } = useFigma();
 
@@ -152,6 +152,21 @@ function Settings() {
 			})),
 		});
 	}, [pane, settings, variableTypes]);
+
+	useEffect(() => {
+		setHandlesToDelete([
+			'true',
+			'toggle',
+			'false',
+			'red',
+			'green',
+			'blue',
+			'opacity',
+			'increment',
+			'set',
+			'decrement',
+		]);
+	}, [setHandlesToDelete]);
 
 	return null;
 }

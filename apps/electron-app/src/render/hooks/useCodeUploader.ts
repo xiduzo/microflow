@@ -1,8 +1,7 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
-import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../stores/react-flow';
+import { useNodeAndEdgeCount } from '../stores/react-flow';
 import { useBoardPort, useBoardResult, useBoardStore } from '../stores/board';
 import { UploadResult } from '../../common/types';
 import { toast } from '@ui/index';
@@ -74,7 +73,7 @@ export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
 	const boardResult = useBoardResult();
 
-	const { nodesCount, edgesCount } = useNodesEdgesStore(useShallow(nodesAndEdgesCountsSelector));
+	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
 
 	useEffect(() => {
 		if (boardResult !== 'ready') return;

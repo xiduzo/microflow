@@ -11,10 +11,19 @@ import {
 	TweakpaneEssentialPlugin,
 	TweakpaneTextareaPlugin,
 } from '@microflow/ui';
-import { Node } from '@xyflow/react';
-import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import { Node, useUpdateNodeInternals } from '@xyflow/react';
+import {
+	createContext,
+	PropsWithChildren,
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
+import { useDeleteEdges } from '../../../stores/react-flow';
 
 export function NodeSettingsButton() {
 	const { settingsOpened, setSettingsOpened } = useNode();
@@ -113,6 +122,7 @@ const header = cva(
 type SettingsContextProps<T extends Record<string, unknown>> = {
 	pane: Pane | null;
 	settings: T;
+	setHandlesToDelete: (handles: string[]) => void;
 };
 
 const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
@@ -123,15 +133,23 @@ export function useNodeSettingsPane<T extends Record<string, unknown>>() {
 	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
 }
 
-function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChildren) {
+function NodeSettingsPane<T extends Record<string, unknown>>(
+	props: PropsWithChildren & { options?: unknown },
+) {
 	const [pane, setPane] = useState<Pane | null>(null);
+	const updateNodeInternals = useUpdateNodeInternals();
+	const deleteEdes = useDeleteEdges();
 
 	const { data, settingsOpened, setSettingsOpened, id, type } = useNode<T>();
 	const updateNode = useUpdateNode(id);
 
-	const settings = useRef(data);
-
 	const ref = useRef<HTMLDivElement>();
+	const settings = useRef(data);
+	const handlesToDelete = useRef<string[]>([]);
+
+	const setHandlesToDelete = useCallback((handles: string[]) => {
+		handlesToDelete.current = handles;
+	}, []);
 
 	useEffect(() => {
 		if (!settingsOpened) return;
@@ -154,7 +172,9 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 				index: 9999,
 			})
 			.on('click', () => {
+				deleteEdes(id, handlesToDelete.current);
 				updateNode(settings.current, type !== 'Note');
+				updateNodeInternals(id);
 				setSettingsOpened(false);
 			});
 
@@ -164,7 +184,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 			setPane(null);
 			pane.dispose();
 		};
-	}, [settingsOpened, type]);
+	}, [settingsOpened, deleteEdes, type, id]);
 
 	useEffect(() => {
 		if (settingsOpened) return;
@@ -172,7 +192,9 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 	}, [data, settingsOpened]);
 
 	return (
-		<NodeSettingsPaneContext.Provider value={{ pane, settings: settings.current }}>
+		<NodeSettingsPaneContext.Provider
+			value={{ pane, settings: settings.current, setHandlesToDelete }}
+		>
 			{props.children}
 			{settingsOpened &&
 				createPortal(

@@ -19,7 +19,7 @@ export function useCelebrateFirstUpload() {
 	}, [boardResult, isFirstUpload]);
 }
 
-export const useCheckBoard = () => {
+export function useCheckBoard() {
 	const { setBoardResult } = useBoardStore();
 
 	useEffect(() => {
@@ -39,4 +39,4 @@ export const useCheckBoard = () => {
 			}
 		});
 	}, []);
-};
+}

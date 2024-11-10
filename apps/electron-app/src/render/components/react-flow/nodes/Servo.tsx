@@ -16,23 +16,23 @@ export function Servo(props: Props) {
 			<Value />
 			<Settings />
 			{props.data.type === 'standard' && (
-				<Handle type="target" position={Position.Left} id="min" offset={-1} />
-			)}
-			{props.data.type === 'standard' && <Handle type="target" position={Position.Left} id="to" />}
-			{props.data.type === 'standard' && (
-				<Handle type="target" position={Position.Left} id="max" offset={1} />
-			)}
-			{props.data.type === 'continuous' && (
-				<Handle
-					type="target"
-					position={Position.Left}
-					id="rotate"
-					hint="from -1 to 1"
-					offset={-0.5}
-				/>
+				<>
+					<Handle type="target" position={Position.Left} id="min" offset={-1} />
+					<Handle type="target" position={Position.Left} id="to" />
+					<Handle type="target" position={Position.Left} id="max" offset={1} />
+				</>
 			)}
 			{props.data.type === 'continuous' && (
-				<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
+				<>
+					<Handle
+						type="target"
+						position={Position.Left}
+						id="rotate"
+						hint="from -1 to 1"
+						offset={-0.5}
+					/>
+					<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
+				</>
 			)}
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
@@ -58,7 +58,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<ServoData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<ServoData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -104,6 +104,10 @@ function Settings() {
 
 		setRangePane();
 	}, [pane, settings, pins]);
+
+	useEffect(() => {
+		setHandlesToDelete(['min', 'to', 'max', 'rotate', 'stop']);
+	}, [setHandlesToDelete]);
 
 	return null;
 }

@@ -2,7 +2,7 @@ import { useAutoAnimate } from '@ui/index';
 import { Background, Controls, MiniMap, Panel, ReactFlow } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
-import { AppState, useNodesEdgesStore } from '../../stores/react-flow';
+import { AppState, useReactFlowStore } from '../../stores/react-flow';
 import { SerialConnectionStatus } from './panels/SerialConnectionStatus';
 
 const selector = (state: AppState) => ({
@@ -14,7 +14,7 @@ const selector = (state: AppState) => ({
 });
 
 export function ReactFlowCanvas() {
-	const store = useNodesEdgesStore(useShallow(selector));
+	const store = useReactFlowStore(useShallow(selector));
 	const [ref] = useAutoAnimate();
 
 	return (

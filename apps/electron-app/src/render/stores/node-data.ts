@@ -7,7 +7,7 @@ type NodeData<T extends unknown = unknown> = {
 	clear: () => void;
 };
 
-export const useNodeData = create<NodeData>(set => {
+export const useNodeDataStore = create<NodeData>(set => {
 	return {
 		data: {},
 		clear: () => {
@@ -26,7 +26,10 @@ export const useNodeData = create<NodeData>(set => {
 	};
 });
 
-export const useNodeValue = <T>(id: string, defaultValue: T) =>
-	useNodeData(useShallow(state => (state.data[id] as T) ?? defaultValue));
+export function useNodeValue<T>(id: string, defaultValue: T) {
+	return useNodeDataStore(useShallow(state => (state.data[id] as T) ?? defaultValue));
+}
 
-export const useClearNodeData = () => useNodeData(useShallow(state => state.clear));
+export function useClearNodeData() {
+	return useNodeDataStore(useShallow(state => state.clear));
+}
