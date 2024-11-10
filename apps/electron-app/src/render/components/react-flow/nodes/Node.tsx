@@ -1,5 +1,4 @@
 import {
-	BindingParams,
 	Button,
 	cn,
 	cva,
@@ -9,7 +8,6 @@ import {
 	DrawerFooter,
 	DrawerHeader,
 	DrawerTitle,
-	Icon,
 	Icons,
 	Pane,
 	Tooltip,
@@ -24,7 +22,7 @@ import { Node, useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { isNodeTypeACodeType } from '../../../../utils/generateCode';
-import { useUpdateNode } from '../../../hooks/nodeUpdater';
+import { useUpdateNode } from '../../../hooks/useUpdateNode';
 
 type NodeSettingsContextType<T extends Record<string, any>> = {
 	settings: T;
@@ -184,13 +182,17 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 }
 
 function NodeHeader(props: { error?: string }) {
-	const node = useNode();
+	const { data, id } = useNode();
+
+	if (id.startsWith('1vf')) {
+		console.log('NodeHeader', data);
+	}
 
 	return (
 		<header className="p-2 pl-4 border-b-2 text-muted-foreground flex justify-between items-center">
 			<div className="flex flex-col">
 				<div className="flex items-center space-x-2">
-					<span className="font-bold">{node.data.label}</span>
+					<span className="font-bold">{data.label}</span>
 					{props.error && (
 						<TooltipProvider>
 							<Tooltip>
@@ -202,7 +204,7 @@ function NodeHeader(props: { error?: string }) {
 						</TooltipProvider>
 					)}
 				</div>
-				<span className="text-xs font-extralight">{node.id}</span>
+				<span className="text-xs font-extralight">{id}</span>
 			</div>
 			<NodeSettingsButton />
 		</header>
@@ -237,6 +239,10 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
 
+		pane.addBinding(settings.current, 'label', {
+			index: 9998,
+		});
+
 		pane
 			.addButton({
 				title: 'Save & close',
@@ -250,9 +256,10 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 		setPane(pane);
 
 		return () => {
+			setPane(null);
 			pane.dispose();
 		};
-	}, [settingsOpened]);
+	}, [settingsOpened, settings]);
 
 	useEffect(() => {
 		settings.current = { ...data };

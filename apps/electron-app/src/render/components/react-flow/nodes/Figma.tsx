@@ -15,7 +15,7 @@ import {
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
-import { useUpdateNode } from '../../../hooks/nodeUpdater';
+import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
@@ -28,6 +28,7 @@ export function Figma(props: Props) {
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
 
+	// TODO: should we update from the component?
 	const updateNode = useUpdateNode<FigmaData>(props.id);
 
 	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);

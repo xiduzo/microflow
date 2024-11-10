@@ -12,14 +12,10 @@ export function useCodeUploader() {
 	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
-		if (checkResult !== 'ready') {
-			return;
-		}
+		if (checkResult !== 'ready') return;
 
 		const nodes = getNodes().filter(node => {
-			if (!isNodeTypeACodeType(node.type)) {
-				return;
-			}
+			if (!isNodeTypeACodeType(node.type)) return;
 			return node;
 		});
 		const edges = getEdges();
@@ -66,9 +62,7 @@ export function useAutoCodeUploader() {
 	const { nodesCount, edgesCount } = useNodesEdgesStore(useShallow(nodesAndEdgesCountsSelector));
 
 	useEffect(() => {
-		if (checkResult !== 'ready') {
-			return;
-		}
+		if (checkResult !== 'ready') return;
 
 		uploadCode();
 	}, [nodesCount, edgesCount, uploadCode, checkResult]);
