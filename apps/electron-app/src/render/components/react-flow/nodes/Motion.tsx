@@ -40,7 +40,7 @@ function Value() {
 	const value = useNodeValue<MotionValueType>(id, false);
 
 	if (!value) return <Icons.EyeClosed className="text-muted-foreground" size={48} />;
-	return <Icons.Eye size={48} />;
+	return <Icons.Eye className="text-green-500" size={48} />;
 }
 
 function Settings() {

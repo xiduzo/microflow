@@ -1,5 +1,4 @@
 import {
-	Button,
 	cn,
 	cva,
 	Icons,
@@ -8,6 +7,7 @@ import {
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
+	TweakpaneCameraPlugin,
 	TweakpaneEssentialPlugin,
 	TweakpaneTextareaPlugin,
 } from '@microflow/ui';
@@ -43,50 +43,6 @@ const settingsButton = cva(
 		},
 	},
 );
-
-type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
-	settingsOpened: boolean;
-	setSettingsOpened: (open: boolean) => void;
-};
-
-const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
-	{} as ContainerProps<Record<string, unknown>>,
-);
-export const useNode = <T extends Record<string, unknown>>() =>
-	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
-
-export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
-	const [settingsOpened, setSettingsOpened] = useState(false);
-
-	return (
-		<NodeContainerContext.Provider
-			value={{
-				...props,
-				settingsOpened,
-				setSettingsOpened,
-			}}
-		>
-			<article
-				className={cn(
-					node({
-						className: props.className,
-						deletabled: props.deletable,
-						draggable: props.draggable,
-						dragging: props.dragging,
-						selectable: props.selectable,
-						selected: props.selected,
-						hasError: !!props.error,
-					}),
-				)}
-			>
-				<NodeHeader error={props.error} selected={props.selected} />
-				<main className="flex grow justify-center items-center bg-muted/40">
-					<NodeSettingsPane>{props.children}</NodeSettingsPane>
-				</main>
-			</article>
-		</NodeContainerContext.Provider>
-	);
-}
 
 function NodeHeader(props: { error?: string; selected?: boolean }) {
 	const { data, id } = useNode();
@@ -163,6 +119,10 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 	{} as SettingsContextProps<{}>,
 );
 
+export function useNodeSettingsPane<T extends Record<string, unknown>>() {
+	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
+}
+
 function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChildren) {
 	const [pane, setPane] = useState<Pane | null>(null);
 
@@ -182,6 +142,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 		});
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
+		pane.registerPlugin(TweakpaneCameraPlugin);
 
 		pane.addBinding(settings.current, 'label', {
 			index: 9998,
@@ -203,9 +164,10 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 			setPane(null);
 			pane.dispose();
 		};
-	}, [settingsOpened, settings]);
+	}, [settingsOpened, type]);
 
 	useEffect(() => {
+		if (settingsOpened) return;
 		settings.current = { ...data };
 	}, [data, settingsOpened]);
 
@@ -221,8 +183,48 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 	);
 }
 
-export function useNodeSettingsPane<T extends Record<string, unknown>>() {
-	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
+type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
+	settingsOpened: boolean;
+	setSettingsOpened: (open: boolean) => void;
+};
+
+const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
+	{} as ContainerProps<Record<string, unknown>>,
+);
+export const useNode = <T extends Record<string, unknown>>() =>
+	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
+
+export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
+	const [settingsOpened, setSettingsOpened] = useState(false);
+
+	return (
+		<NodeContainerContext.Provider
+			value={{
+				...props,
+				settingsOpened,
+				setSettingsOpened,
+			}}
+		>
+			<article
+				className={cn(
+					node({
+						className: props.className,
+						deletabled: props.deletable,
+						draggable: props.draggable,
+						dragging: props.dragging,
+						selectable: props.selectable,
+						selected: props.selected,
+						hasError: !!props.error,
+					}),
+				)}
+			>
+				<NodeHeader error={props.error} selected={props.selected} />
+				<main className="flex grow justify-center items-center bg-muted/40">
+					<NodeSettingsPane>{props.children}</NodeSettingsPane>
+				</main>
+			</article>
+		</NodeContainerContext.Provider>
+	);
 }
 
 const node = cva(

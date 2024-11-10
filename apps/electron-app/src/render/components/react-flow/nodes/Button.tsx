@@ -27,7 +27,7 @@ function Value() {
 	const value = useNodeValue<ButtonValueType>(id, false);
 
 	if (!value) return <Icons.PointerOff className="text-muted-foreground" size={48} />;
-	return <Icons.Pointer size={48} />;
+	return <Icons.Pointer className="text-green-500" size={48} />;
 }
 
 function Settings() {
