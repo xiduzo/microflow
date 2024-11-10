@@ -24,6 +24,8 @@ function Settings() {
 
 		pane.addBinding(settings, 'value', {
 			index: 0,
+			view: 'textarea',
+			rows: 3,
 		});
 		pane.addBinding(settings, 'extraInfo', {
 			index: 1,
