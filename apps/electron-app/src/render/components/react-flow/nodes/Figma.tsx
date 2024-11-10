@@ -27,6 +27,7 @@ export function Figma(props: Props) {
 	const lastPublishedValue = useRef<string>();
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
+	const componentValue = useNodeValue<FigmaValueType>(props.id, undefined);
 
 	// TODO: should we update from the component?
 	const updateNode = useUpdateNode<FigmaData>(props.id);
@@ -46,16 +47,16 @@ export function Figma(props: Props) {
 
 	useEffect(() => {
 		if (status !== 'connected') return;
-		if (props.data?.value === undefined || props.data?.value === null) return;
+		if (componentValue === undefined) return;
 		if (!variable) return;
 
-		const valueToPublish = JSON.stringify(props.data.value);
+		const valueToPublish = JSON.stringify(componentValue);
 
 		if (lastPublishedValue.current === valueToPublish) return;
 		lastPublishedValue.current = valueToPublish;
 
 		publish(`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`, valueToPublish);
-	}, [props.data?.value, variable, status, appName, uniqueId]);
+	}, [componentValue, variable, status, appName, uniqueId]);
 
 	useEffect(() => {
 		if (!variable?.resolvedType) return;

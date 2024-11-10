@@ -54,8 +54,7 @@ function Value() {
 
 		if (value === ROTATING_SERVO_STOP_DEGREES) return 0;
 
-		const diff =
-			ROTATING_SERVO_STOP_DEGREES + 1 - Math.abs(ROTATING_SERVO_STOP_DEGREES - props.data.value);
+		const diff = ROTATING_SERVO_STOP_DEGREES + 1 - Math.abs(ROTATING_SERVO_STOP_DEGREES - value);
 		const rotationSpeedPercentage = diff / ROTATING_SERVO_STOP_DEGREES;
 		const slowestTurningSpeed = 6;
 
@@ -67,7 +66,7 @@ function Value() {
 		<section className="relative">
 			{isStandard && (
 				<div className="flex items-start z-10">
-					{data.value}
+					{value}
 					<span className="font-extralight">°</span>
 				</div>
 			)}

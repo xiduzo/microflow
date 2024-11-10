@@ -5,16 +5,18 @@ import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Mqtt(props: Props) {
 	const { publish, subscribe, status } = useMqtt();
+	const value = useNodeValue<MqttValueType>(props.id, '');
 
 	useEffect(() => {
 		if (props.data.direction !== 'publish') return;
 		if (!props.data.topic.length) return;
 
-		publish(props.data.topic, JSON.stringify(props.data.value));
-	}, [props.data.value, props.data.topic, props.data.direction, publish]);
+		publish(props.data.topic, JSON.stringify(value));
+	}, [value, props.data.topic, props.data.direction, publish]);
 
 	useEffect(() => {
 		if (props.data.direction !== 'subscribe') return;

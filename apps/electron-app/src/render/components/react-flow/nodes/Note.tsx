@@ -11,7 +11,7 @@ export function Note(props: Props) {
 }
 
 function Value() {
-	const { data } = useNode();
+	const { data } = useNode<NoteData>();
 
 	return <section className="text-wrap">{data.value ?? ''}</section>;
 }

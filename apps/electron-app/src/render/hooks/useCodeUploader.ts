@@ -1,7 +1,6 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { DEFAULT_NODE_DATA } from '../../common/nodes';
 import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
 import { useBoard } from '../providers/BoardProvider';
 import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../stores/react-flow';
@@ -20,16 +19,7 @@ export function useCodeUploader() {
 		});
 		const edges = getEdges();
 
-		const nodesWithDefaultValues = nodes.map(node => {
-			const data = DEFAULT_NODE_DATA.get(node.type);
-			if (data?.value !== undefined) {
-				node.data.value = data.value;
-			}
-			updateNodeData(node.id, node.data);
-			return node;
-		});
-
-		const internalNodes = nodesWithDefaultValues.map(node => getInternalNode(node.id));
+		const internalNodes = nodes.map(node => getInternalNode(node.id));
 		const allowedEdges = edges.filter(edge => {
 			const sourceNode = internalNodes.find(
 				node =>
