@@ -46,7 +46,7 @@ function Value() {
 	if (data.type === 'continuous') {
 		if (!value) return <Icons.RefreshCwOff className="text-muted-foreground" size={48} />;
 		if (value > 0) return <Icons.RotateCw className="animate-spin" size={48} />;
-		return <Icons.RotateCcw className="animate-spin" size={48} />;
+		return <Icons.RotateCcw className="animate-spin direction-reverse" size={48} />;
 	}
 
 	return (

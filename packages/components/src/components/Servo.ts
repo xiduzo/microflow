@@ -36,10 +36,12 @@ export class Servo extends BaseComponent<ServoValueType> {
 		this.value = this.component.value;
 	}
 
-	rotate(speed = 0) {
+	rotate(speed: number | string | boolean = 0) {
 		if (typeof speed === 'boolean') {
 			speed = speed ? 1 : -1;
 		}
+
+		speed = Number(speed);
 
 		if (speed < 0.05 && speed > -0.05) {
 			this.stop();
@@ -47,7 +49,7 @@ export class Servo extends BaseComponent<ServoValueType> {
 		}
 
 		this.component.cw(speed);
-		this.value = this.component.value;
+		this.value = speed;
 	}
 
 	stop() {

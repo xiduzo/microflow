@@ -42,12 +42,12 @@ export class IfElse extends BaseComponent<IfElseValueType> {
 	}
 
 	check(input: never) {
-		const validator = this.#validator();
+		const validator = this.getValidator();
 		this.value = validator(input);
 		this.eventEmitter.emit(this.value ? 'true' : 'false', this.value, false);
 	}
 
-	#validator() {
+	private getValidator() {
 		switch (this.options.validator) {
 			case 'boolean':
 				return (input: boolean | string) =>
