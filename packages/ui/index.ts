@@ -36,5 +36,6 @@ export { toast } from 'sonner';
 export * from 'tweakpane';
 export * as TweakpaneEssentialPlugin from '@tweakpane/plugin-essentials';
 export * as TweakpaneTextareaPlugin from '@pangenerator/tweakpane-textarea-plugin';
+export * as TweakpaneCameraPlugin from '@tweakpane/plugin-camerakit';
 export * as Zod from 'zod';
 export * from './lib/utils';

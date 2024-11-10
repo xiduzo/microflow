@@ -42,7 +42,7 @@ export function ReactFlowCanvas() {
 				<a
 					href="https://www.sanderboer.nl"
 					target="_blank"
-					className="text-center text-muted-foreground transition-all hover:opacity-100 hover:underline text-xs select-none"
+					className="text-center text-muted-foreground transition-all hover:opacity-100 hover:underline text-xs select-none px-2"
 				>
 					Made with ♥ by Xiduzo
 				</a>

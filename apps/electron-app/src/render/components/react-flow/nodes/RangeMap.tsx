@@ -28,7 +28,7 @@ function Value() {
 	return (
 		<section className="flex items-center flex-col space-y-2 text-2xl">
 			<span>{numberFormat.format(from)}</span>
-			<Icons.ArrowsUpFromLine className="rotate-180" size={16} />
+			<Icons.Activity className="rotate-90 text-muted-foreground" size={16} />
 			<span>{numberFormat.format(to)}</span>
 		</section>
 	);

@@ -1,7 +1,7 @@
 import type { ServoData, ServoValueType } from '@microflow/components';
-import { Icons } from '@microflow/ui';
+import { Icons, Pane, TweakpaneCameraPlugin } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
@@ -42,74 +42,13 @@ export function Servo(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode();
+	const { id } = useNode();
 	const value = useNodeValue<ServoValueType>(id, 0);
 
-	const isStandard = data.type === 'standard';
-
-	const animationDuration = useMemo(() => {
-		if (isStandard) return 1.5;
-
-		if (!value) return 0;
-
-		if (value === ROTATING_SERVO_STOP_DEGREES) return 0;
-
-		const diff = ROTATING_SERVO_STOP_DEGREES + 1 - Math.abs(ROTATING_SERVO_STOP_DEGREES - value);
-		const rotationSpeedPercentage = diff / ROTATING_SERVO_STOP_DEGREES;
-		const slowestTurningSpeed = 6;
-
-		// TODO this is a very rough estimation
-		return Math.max(slowestTurningSpeed * rotationSpeedPercentage, 1.25);
-	}, [isStandard, value]);
-
 	return (
-		<section className="relative">
-			{isStandard && (
-				<div className="flex items-start z-10">
-					{value}
-					<span className="font-extralight">°</span>
-				</div>
-			)}
-			{isStandard && (
-				<>
-					<div
-						className="w-28 h-28 flex absolute"
-						style={{
-							rotate: `${data.range[0]}deg`,
-						}}
-					>
-						<div
-							className={`h-14 w-0.5 bg-gradient-to-b from-red-500/30 to-red-500/0 to-30% absolute`}
-						></div>
-					</div>
-					<div
-						className="w-28 h-28 flex absolute"
-						style={{
-							rotate: `${data.range[1]}deg`,
-						}}
-					>
-						<div
-							className={`h-14 w-0.5 bg-gradient-to-b from-green-500/30 to-green-500/0 to-30% absolute`}
-						></div>
-					</div>
-				</>
-			)}
-			{value !== null && value !== undefined && (
-				<div
-					className={`w-28 h-28 flex absolute ${isStandard ? 'transition-all' : 'animate-spin'}`}
-					style={{
-						rotate: `${isStandard ? value : 0}deg`,
-						animationDuration: `${animationDuration}s`,
-						animationDirection:
-							!isStandard && value < ROTATING_SERVO_STOP_DEGREES ? 'reverse' : 'normal',
-					}}
-				>
-					<div
-						className={`h-14 w-0.5 bg-gradient-to-b from-muted-foreground to-muted-foreground/0 to-${isStandard ? '60' : '95'}%  absolute`}
-					></div>
-					<Icons.Dot className={`w-8 h-8 absolute -top-4 text-muted-foreground`} />
-				</div>
-			)}
+		<section className="tabular-nums text-4xl">
+			{value}
+			<span className="font-extralight">°</span>
 		</section>
 	);
 }
