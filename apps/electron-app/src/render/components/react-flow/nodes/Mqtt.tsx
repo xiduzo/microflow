@@ -4,7 +4,7 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNodeSettings, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 
 export function Mqtt(props: Props) {
 	const { publish, subscribe, status } = useMqtt();
@@ -57,10 +57,10 @@ export function Mqtt(props: Props) {
 }
 
 function Value() {
-	const { settings } = useNodeSettings<MqttData>();
+	const { data } = useNode<MqttData>();
 
-	if (settings.direction === 'publish') return <Icons.RadioTower className="w-8 h-8" />;
-	return <Icons.Antenna className="w-8 h-8" />;
+	if (data.direction === 'publish') return <Icons.RadioTower size={48} />;
+	return <Icons.Antenna size={48} />;
 }
 
 function Settings() {

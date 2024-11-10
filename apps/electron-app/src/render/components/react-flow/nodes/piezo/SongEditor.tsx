@@ -33,10 +33,7 @@ export function SongEditor(props: Props) {
 	}
 
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
-				<Button variant="outline">Edit song</Button>
-			</DialogTrigger>
+		<Dialog defaultOpen onOpenChange={props.onClose}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Edit song</DialogTitle>
@@ -97,6 +94,14 @@ export function SongEditor(props: Props) {
 						</section>
 					</DragAndDropProvider>
 					<DialogFooter>
+						<Button
+							variant="destructive"
+							onClick={() => {
+								setEditedSong([]);
+							}}
+						>
+							Clear song
+						</Button>
 						<DialogClose asChild>
 							<Button
 								onClick={() => {
@@ -118,4 +123,5 @@ export function SongEditor(props: Props) {
 type Props = {
 	song: [string | null, number][];
 	onSave: (data: { song: [string | null, number][] }) => void;
+	onClose: () => void;
 };

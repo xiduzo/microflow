@@ -184,9 +184,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 function NodeHeader(props: { error?: string }) {
 	const { data, id } = useNode();
 
-	if (id.startsWith('1vf')) {
-		console.log('NodeHeader', data);
-	}
+	// TODO: label does not update from settings pane
 
 	return (
 		<header className="p-2 pl-4 border-b-2 text-muted-foreground flex justify-between items-center">

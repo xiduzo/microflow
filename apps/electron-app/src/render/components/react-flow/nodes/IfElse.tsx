@@ -2,7 +2,6 @@ import type { IfElseData, IfElseValueType } from '@microflow/components';
 import {
 	IF_ELSE_SUB_VALIDATORS,
 	IF_ELSE_VALIDATORS,
-	SubValidator,
 	Validator,
 } from '@microflow/components/contants';
 import { Icons } from '@microflow/ui';
@@ -30,8 +29,8 @@ function Value() {
 	const { id } = useNode();
 	const value = useNodeValue<IfElseValueType>(id, false);
 
-	if (value) return <Icons.Check className="w-12 h-12 text-green-500" />;
-	return <Icons.X className="w-12 h-12 text-red-500" />;
+	if (value) return <Icons.Check className="text-green-500" size={48} />;
+	return <Icons.X className="text-red-500" size={48} />;
 }
 
 function Settings() {

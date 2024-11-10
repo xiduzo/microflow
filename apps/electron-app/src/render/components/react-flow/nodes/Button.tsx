@@ -1,5 +1,5 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Icons, Toggle, TpChangeEvent } from '@microflow/ui';
+import { Icons, TpChangeEvent } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
@@ -26,17 +26,8 @@ function Value() {
 	const { id } = useNode();
 	const value = useNodeValue<ButtonValueType>(id, false);
 
-	return (
-		<Toggle
-			disabled
-			className="opacity-100 disabled:opacity-100"
-			size="lg"
-			pressed={Boolean(value)}
-		>
-			{value && <Icons.Pointer />}
-			{!value && <Icons.PointerOff className="text-muted-foreground" />}
-		</Toggle>
-	);
+	if (!value) return <Icons.PointerOff className="text-muted-foreground" size={48} />;
+	return <Icons.Pointer size={48} />;
 }
 
 function Settings() {
