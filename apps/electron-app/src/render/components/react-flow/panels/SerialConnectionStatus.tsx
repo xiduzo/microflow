@@ -1,9 +1,10 @@
 import { Badge, Icons } from '@microflow/ui';
 import { useAutoCodeUploader } from '../../../hooks/useCodeUploader';
-import { useBoard } from '../../../providers/BoardProvider';
+import { useBoardResult, useUploadResult } from '../../../stores/board';
 
 export function SerialConnectionStatus() {
-	const { checkResult, uploadResult } = useBoard();
+	const boardResult = useBoardResult();
+	const uploadResult = useUploadResult();
 	useAutoCodeUploader();
 
 	if (uploadResult === 'error') {
@@ -16,7 +17,7 @@ export function SerialConnectionStatus() {
 		);
 	}
 
-	if (checkResult === 'ready') {
+	if (boardResult === 'ready') {
 		if (uploadResult === 'info') {
 			return (
 				<Badge className="bg-orange-400 text-orange-900 animate-pulse pointer-events-none select-none">
@@ -35,7 +36,7 @@ export function SerialConnectionStatus() {
 		);
 	}
 
-	if (checkResult === 'info') {
+	if (boardResult === 'info') {
 		return (
 			<Badge className="bg-blue-400 text-blue-900 pointer-events-none select-none">
 				Connecting your microcontroller
@@ -44,8 +45,8 @@ export function SerialConnectionStatus() {
 		);
 	}
 
-	if (['fail', 'warn', 'errror'].includes(checkResult)) {
-		console.debug('SerialConnectionStatus - checkResult', checkResult);
+	if (['fail', 'warn', 'errror'].includes(boardResult)) {
+		console.debug('SerialConnectionStatus - checkResult', boardResult);
 		return (
 			<Badge variant="destructive" className="pointer-events-none select-none">
 				Unknown error occurred

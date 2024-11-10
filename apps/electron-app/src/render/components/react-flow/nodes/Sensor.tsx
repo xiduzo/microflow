@@ -8,6 +8,7 @@ import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useBoard } from '../../../providers/BoardProvider';
 import { mapPinToPaneOption } from '../../../../utils/pin';
+import { usePins } from '../../../stores/board';
 
 export function Sensor(props: Props) {
 	return (
@@ -30,7 +31,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<SensorData>();
-	const { pins } = useBoard();
+	const pins = usePins();
 
 	useEffect(() => {
 		if (!pane) return;

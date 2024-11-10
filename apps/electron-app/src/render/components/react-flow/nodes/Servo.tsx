@@ -1,16 +1,14 @@
 import type { ServoData, ServoValueType } from '@microflow/components';
-import { Icons, Pane, TweakpaneCameraPlugin } from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { useBoard } from '../../../providers/BoardProvider';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { BindingApi } from '@tweakpane/core';
-
-const ROTATING_SERVO_STOP_DEGREES = 90;
+import { usePins } from '../../../stores/board';
 
 export function Servo(props: Props) {
 	return (
@@ -42,8 +40,14 @@ export function Servo(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
+	const { id, data } = useNode<ServoData>();
 	const value = useNodeValue<ServoValueType>(id, 0);
+
+	if (data.type === 'continuous') {
+		if (!value) return <Icons.RefreshCwOff className="text-muted-foreground" size={48} />;
+		if (value > 0) return <Icons.RotateCw className="animate-spin" size={48} />;
+		return <Icons.RotateCcw className="animate-spin" size={48} />;
+	}
 
 	return (
 		<section className="tabular-nums text-4xl">
@@ -55,7 +59,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<ServoData>();
-	const { pins } = useBoard();
+	const pins = usePins();
 
 	useEffect(() => {
 		if (!pane) return;

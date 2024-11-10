@@ -2,16 +2,22 @@ import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
-import { useBoard } from '../providers/BoardProvider';
 import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../stores/react-flow';
+import { useBoardPort, useBoardResult, useBoardStore } from '../stores/board';
+import { UploadResult } from '../../common/types';
+import { toast } from '@ui/index';
 
 export function useCodeUploader() {
-	const { uploadCode: boardUpload, checkResult } = useBoard();
+	const boardResult = useBoardResult();
+	const port = useBoardPort();
+	const { setUploadResult } = useBoardStore();
 
 	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
-		if (checkResult !== 'ready') return;
+		if (boardResult !== 'ready') return;
+
+		setUploadResult({ type: 'info' });
 
 		const nodes = getNodes().filter(node => {
 			if (!isNodeTypeACodeType(node.type)) return;
@@ -39,21 +45,28 @@ export function useCodeUploader() {
 
 		const code = generateCode(nodes, allowedEdges);
 
-		boardUpload(code);
-	}, [getNodes, getEdges, updateNodeData, boardUpload, getInternalNode, checkResult]);
+		const off = window.electron.ipcRenderer.on('ipc-upload-code', (result: UploadResult) => {
+			setUploadResult(result);
+
+			if (result.type !== 'info') off();
+			if (result.type === 'error') toast.error(result.message);
+		});
+
+		window.electron.ipcRenderer.send('ipc-upload-code', code, port);
+	}, [getNodes, getEdges, updateNodeData, getInternalNode, boardResult, setUploadResult, port]);
 
 	return uploadCode;
 }
 
 export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
-	const { checkResult } = useBoard();
+	const boardResult = useBoardResult();
 
 	const { nodesCount, edgesCount } = useNodesEdgesStore(useShallow(nodesAndEdgesCountsSelector));
 
 	useEffect(() => {
-		if (checkResult !== 'ready') return;
+		if (boardResult !== 'ready') return;
 
 		uploadCode();
-	}, [nodesCount, edgesCount, uploadCode, checkResult]);
+	}, [nodesCount, edgesCount, uploadCode, boardResult]);
 }

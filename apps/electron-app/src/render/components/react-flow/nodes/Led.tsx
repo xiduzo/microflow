@@ -5,9 +5,9 @@ import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useEffect } from 'react';
-import { useBoard } from '../../../providers/BoardProvider';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
+import { usePins } from '../../../stores/board';
 
 export function Led(props: Props) {
 	return (
@@ -32,7 +32,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<LedData>();
-	const { pins } = useBoard();
+	const pins = usePins();
 
 	useEffect(() => {
 		if (!pane) return;

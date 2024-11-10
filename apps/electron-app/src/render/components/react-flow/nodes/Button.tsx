@@ -8,6 +8,7 @@ import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
+import { usePins } from '../../../stores/board';
 
 export function Button(props: Props) {
 	return (
@@ -32,7 +33,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<ButtonData>();
-	const { pins } = useBoard();
+	const pins = usePins();
 
 	useEffect(() => {
 		if (!pane) return;

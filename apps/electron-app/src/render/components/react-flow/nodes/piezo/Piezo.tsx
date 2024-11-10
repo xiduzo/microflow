@@ -11,6 +11,7 @@ import { MODES } from '../../../../../common/types';
 import { mapPinToPaneOption } from '../../../../../utils/pin';
 import { BindingApi, ButtonApi } from '@tweakpane/core';
 import { SongEditor } from './SongEditor';
+import { usePins } from '../../../../stores/board';
 
 export function Piezo(props: Props) {
 	return (
@@ -43,7 +44,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<PiezoData>();
-	const { pins } = useBoard();
+	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
 	useEffect(() => {

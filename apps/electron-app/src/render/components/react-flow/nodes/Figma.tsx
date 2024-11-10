@@ -16,14 +16,14 @@ import {
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
-import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
+import { useUploadResult } from '../../../stores/board';
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
-	const { uploadResult } = useBoard();
+	const uploadResult = useUploadResult();
 	const lastPublishedValue = useRef<string>();
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();

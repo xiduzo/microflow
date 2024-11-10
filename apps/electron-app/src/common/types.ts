@@ -1,4 +1,4 @@
-import type { Edge, Node } from "@xyflow/react";
+import type { Edge, Node } from '@xyflow/react';
 
 export enum MODES {
 	INPUT = 0,
@@ -24,7 +24,7 @@ export type Pin = {
 	pin: number;
 };
 
-export type BoardCheckResult = {
+export type BoardResult = {
 	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error';
 	port?: string;
 	pins?: Pin[];
@@ -37,7 +37,7 @@ export type BoardFlashResult = {
 	message?: string;
 };
 
-export type UploadCodeResult = {
+export type UploadResult = {
 	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error';
 	message?: string;
 	pins?: Pin[];
@@ -50,6 +50,6 @@ export type UploadedCodeMessage = {
 };
 
 export type FlowFile = {
-  nodes: Node[],
-  edges: Edge[]
-}
+	nodes: Node[];
+	edges: Edge[];
+};

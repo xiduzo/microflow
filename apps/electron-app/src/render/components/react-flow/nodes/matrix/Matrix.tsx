@@ -22,6 +22,7 @@ import { uuid } from '../../../../../utils/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { DndMatrixEditor } from './DndMatrixEditor';
 import { MatrixEditor } from './MatrixEditor';
+import { usePins } from '../../../../stores/board';
 
 export function Matrix(props: Props) {
 	return (
@@ -50,7 +51,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<MatrixData>();
-	const { pins } = useBoard();
+	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
 	const [shapes, setShapes] = useState(
@@ -110,7 +111,8 @@ function Settings() {
 							pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM),
 					)
 					.map(mapPinToPaneOption),
-			}) // @ts-ignore-next-line
+			})
+			// @ts-ignore-next-line
 			.on('change', (event: TpChangeEvent) => {
 				settings.pins.clock = event.value;
 			});
@@ -157,10 +159,7 @@ function Settings() {
 				</DialogHeader>
 				<ScrollArea className="h-60 p-2 border">
 					<section className="grid grid-cols-12 gap-2">
-						<DragAndDropProvider
-							swap={swapShapes}
-							// onDragDone={() => setSettings({ shapes: shapes.map(({ shape }) => shape) })}
-						>
+						<DragAndDropProvider swap={swapShapes}>
 							{shapes.map(({ id, shape }, index) => {
 								return (
 									<DndMatrixEditor

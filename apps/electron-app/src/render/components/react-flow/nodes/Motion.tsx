@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { useBoard } from '../../../providers/BoardProvider';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { BindingApi } from '@tweakpane/core';
+import { usePins } from '../../../stores/board';
 
 export function Motion(props: Props) {
 	return (
@@ -45,7 +46,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<MotionData>();
-	const { pins } = useBoard();
+	const pins = usePins();
 
 	useEffect(() => {
 		if (!pane) return;
