@@ -27,7 +27,7 @@ function Value() {
 	const value = useNodeValue<LedValueType>(id, 0);
 
 	if (!value) return <Icons.LightbulbOff className="text-muted-foreground" size={48} />;
-	return <Icons.Lightbulb className="text-yellow-400" size={48} />;
+	return <Icons.Lightbulb className="text-yellow-500" size={48} />;
 }
 
 function Settings() {

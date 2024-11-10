@@ -6,8 +6,10 @@ import { nodesAndEdgesCountsSelector, useNodesEdgesStore } from '../stores/react
 import { useBoardPort, useBoardResult, useBoardStore } from '../stores/board';
 import { UploadResult } from '../../common/types';
 import { toast } from '@ui/index';
+import { useClearNodeData } from '../stores/node-data';
 
 export function useCodeUploader() {
+	const clearNodeData = useClearNodeData();
 	const boardResult = useBoardResult();
 	const port = useBoardPort();
 	const { setUploadResult } = useBoardStore();
@@ -17,6 +19,7 @@ export function useCodeUploader() {
 	const uploadCode = useCallback(() => {
 		if (boardResult !== 'ready') return;
 
+		clearNodeData();
 		setUploadResult({ type: 'info' });
 
 		const nodes = getNodes().filter(node => {
@@ -53,7 +56,16 @@ export function useCodeUploader() {
 		});
 
 		window.electron.ipcRenderer.send('ipc-upload-code', code, port);
-	}, [getNodes, getEdges, updateNodeData, getInternalNode, boardResult, setUploadResult, port]);
+	}, [
+		getNodes,
+		getEdges,
+		updateNodeData,
+		getInternalNode,
+		boardResult,
+		setUploadResult,
+		port,
+		clearNodeData,
+	]);
 
 	return uploadCode;
 }

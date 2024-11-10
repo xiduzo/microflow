@@ -13,7 +13,7 @@ export function Note(props: Props) {
 function Value() {
 	const { data } = useNode<NoteData>();
 
-	return <section className="text-wrap">{data.value ?? ''}</section>;
+	return <section className="text-wrap w-64 text-center">{data.value ?? ''}</section>;
 }
 
 function Settings() {
