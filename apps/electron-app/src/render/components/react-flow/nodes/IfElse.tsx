@@ -28,7 +28,7 @@ export function IfElse(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<Props['data']['value']>(id, false);
+	const value = useNodeValue<IfElseValueType>(id, false);
 
 	if (value) return <Icons.Check className="w-12 h-12 text-green-500" />;
 	return <Icons.X className="w-12 h-12 text-red-500" />;

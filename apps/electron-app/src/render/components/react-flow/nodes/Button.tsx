@@ -3,7 +3,7 @@ import { Icons, Toggle, TpChangeEvent } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { pinValue } from '../../../../utils/pin';
+import { mapPinToPaneOption } from '../../../../utils/pin';
 import { useBoard } from '../../../providers/BoardProvider';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
@@ -24,7 +24,7 @@ export function Button(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<Props['data']['value']>(id, false);
+	const value = useNodeValue<ButtonValueType>(id, false);
 
 	return (
 		<Toggle
@@ -51,12 +51,7 @@ function Settings() {
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins
-				.filter(pin => pin.supportedModes.includes(MODES.INPUT))
-				.map(pin => ({
-					value: pinValue(pin),
-					text: `${pinValue(pin)}`,
-				})),
+			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
 		});
 
 		const advanced = pane.addFolder({

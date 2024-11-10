@@ -23,7 +23,7 @@ export function RangeMap(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const [from, to] = useNodeValue<Props['data']['value']>(id, [0, 0]);
+	const [from, to] = useNodeValue<RangeMapValueType>(id, [0, 0]);
 
 	return (
 		<section className="flex items-center flex-col space-y-2 text-2xl">

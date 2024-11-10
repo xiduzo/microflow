@@ -8,7 +8,7 @@ import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
 import { useBoard } from '../../../providers/BoardProvider';
-import { pinValue } from '../../../../utils/pin';
+import { mapPinToPaneOption } from '../../../../utils/pin';
 import { BindingApi } from '@tweakpane/core';
 
 export function Motion(props: Props) {
@@ -37,7 +37,7 @@ export function Motion(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<Props['data']['value']>(id, false);
+	const value = useNodeValue<MotionValueType>(id, false);
 
 	if (!value) return <Icons.EyeClosed className="w-10 h-10 text-muted-foreground" />;
 	return <Icons.Eye className="w-10 h-10" />;
@@ -71,10 +71,7 @@ function Settings() {
 							return isCorrectMode && !pin.supportedModes.includes(MODES.ANALOG);
 						}
 					})
-					.map(pin => ({
-						value: pinValue(pin),
-						text: `${pinValue(pin)}`,
-					})),
+					.map(mapPinToPaneOption),
 			});
 		}
 

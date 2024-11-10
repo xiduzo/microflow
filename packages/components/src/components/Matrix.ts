@@ -11,6 +11,7 @@ type MatrixOptions = BaseComponentOptions & MatrixData;
 
 export class Matrix extends BaseComponent<MatrixValueType> {
 	private readonly controller: Led.Matrix;
+
 	constructor(private readonly options: MatrixOptions) {
 		super(options);
 

@@ -21,7 +21,7 @@ export function Counter(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<Props['data']['value']>(id, 0);
+	const value = useNodeValue<CounterValueType>(id, 0);
 
 	return <section className="text-4xl tabular-nums">{numberFormat.format(value)}</section>;
 }

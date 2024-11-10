@@ -1,7 +1,9 @@
 import JohnnyFive, { ServoGeneralOption } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-export type ServoData = Omit<ServoGeneralOption, 'board'>;
+export type ServoData = Omit<ServoGeneralOption, 'board' | 'range'> & {
+	range: { min: number; max: number };
+};
 export type ServoValueType = number;
 
 type ServoOptions = BaseComponentOptions & ServoData;
@@ -9,9 +11,12 @@ type ServoOptions = BaseComponentOptions & ServoData;
 export class Servo extends BaseComponent<ServoValueType> {
 	private readonly component: JohnnyFive.Servo;
 
-	constructor(private readonly options: ServoOptions) {
+	constructor(options: ServoOptions) {
 		super(options);
-		this.component = new JohnnyFive.Servo(options);
+		this.component = new JohnnyFive.Servo({
+			...options,
+			range: [options.range.min, options.range.max],
+		});
 	}
 
 	min() {

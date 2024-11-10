@@ -8,7 +8,7 @@ export type MqttValueType = string;
 type MqttOptions = BaseComponentOptions & MqttData;
 
 export class Mqtt extends BaseComponent<MqttValueType> {
-	constructor(private readonly options: MqttOptions) {
+	constructor(options: MqttOptions) {
 		super(options);
 	}
 

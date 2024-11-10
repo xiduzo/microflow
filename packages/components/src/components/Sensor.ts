@@ -9,7 +9,7 @@ type SensorOptions = BaseComponentOptions & SensorData;
 export class Sensor extends BaseComponent<SensorValueType> {
 	private readonly component: JohnnyFive.Sensor;
 
-	constructor(private readonly options: SensorOptions) {
+	constructor(options: SensorOptions) {
 		super(options);
 		this.component = new JohnnyFive.Sensor(options);
 

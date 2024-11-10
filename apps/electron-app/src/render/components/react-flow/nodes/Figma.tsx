@@ -156,7 +156,7 @@ function Settings() {
 
 function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 	const { id } = useNode();
-	const value = useNodeValue<Props['data']['value']>(id, '');
+	const value = useNodeValue<FigmaValueType>(id, '');
 
 	if (!props.hasVariables) return <Icons.Loader2 className="w-12 h-12 animate-spin" />;
 	if (!props.variable) return <Icons.Variable className="w-12 h-12 opacity-40" />;

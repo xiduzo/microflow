@@ -21,7 +21,7 @@ export function Interval(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<Props['data']['value']>(id, 0);
+	const value = useNodeValue<IntervalValueType>(id, 0);
 
 	return <section className="tabular-nums">{numberFormat.format(Math.round(value))}</section>;
 }

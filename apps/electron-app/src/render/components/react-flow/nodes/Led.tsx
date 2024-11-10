@@ -6,7 +6,7 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useEffect } from 'react';
 import { useBoard } from '../../../providers/BoardProvider';
-import { pinValue } from '../../../../utils/pin';
+import { mapPinToPaneOption } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
 
 export function Led(props: Props) {
@@ -24,7 +24,7 @@ export function Led(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<Props['data']['value']>(id, 0);
+	const value = useNodeValue<LedValueType>(id, 0);
 
 	if (!value) return <Icons.LightbulbOff className="w-10 h-10 text-muted-foreground" />;
 	return <Icons.Lightbulb className="w-10 h-10" />;
@@ -42,12 +42,7 @@ function Settings() {
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins
-				.filter(pin => pin.supportedModes.includes(MODES.INPUT))
-				.map(pin => ({
-					value: pinValue(pin),
-					text: `${pinValue(pin)}`,
-				})),
+			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
 		});
 	}, [pane, settings, pins]);
 

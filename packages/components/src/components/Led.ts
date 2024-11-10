@@ -8,7 +8,8 @@ type LedOptions = BaseComponentOptions & LedData;
 
 export class Led extends BaseComponent<LedValueType> {
 	private readonly component: JohnnyFive.Led;
-	constructor(private readonly options: LedOptions) {
+
+	constructor(options: LedOptions) {
 		super(options);
 
 		this.component = new JohnnyFive.Led(options);
