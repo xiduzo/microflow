@@ -237,8 +237,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
 
-		console.log(pane.controller);
-
 		pane
 			.addButton({
 				title: 'Save & close',
