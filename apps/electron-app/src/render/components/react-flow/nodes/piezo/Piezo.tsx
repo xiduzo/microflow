@@ -6,7 +6,6 @@ import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from '../Node';
 import { DEFAULT_NOTE, DEFAULT_SONG, NOTES_AND_FREQUENCIES } from './constants';
 import { useNodeValue } from '../../../../stores/node-data';
 import { useEffect, useState } from 'react';
-import { useBoard } from '../../../../providers/BoardProvider';
 import { MODES } from '../../../../../common/types';
 import { mapPinToPaneOption } from '../../../../../utils/pin';
 import { BindingApi, ButtonApi } from '@tweakpane/core';

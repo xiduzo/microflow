@@ -7,7 +7,6 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
-import { useBoard } from '../../../providers/BoardProvider';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { BindingApi } from '@tweakpane/core';
 import { usePins } from '../../../stores/board';

@@ -19,15 +19,6 @@ export function useSignalNodesAndEdges() {
 				return;
 			}
 
-			if (timeouts.current.get(message.nodeId)) {
-				clearTimeout(timeouts.current.get(message.nodeId));
-			}
-
-			const updateObj: { animated: string; value?: unknown } = {
-				animated: message.action,
-				value: message.value,
-			};
-
 			update(message.nodeId, message.value);
 
 			getEdges()
@@ -48,13 +39,6 @@ export function useSignalNodesAndEdges() {
 						}, 150),
 					);
 				});
-
-			timeouts.current.set(
-				message.nodeId,
-				setTimeout(() => {
-					// updateNodeData(message.nodeId, { animated: undefined });
-				}, 150),
-			);
 		});
 	}, [updateNodeData, getEdges, updateEdge, update]);
 

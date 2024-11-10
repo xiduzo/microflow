@@ -5,7 +5,6 @@ import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
 import { useNodeValue } from '../../../../stores/node-data';
-import { useBoard } from '../../../../providers/BoardProvider';
 import { MODES } from '../../../../../common/types';
 import { mapPinToPaneOption } from '../../../../../utils/pin';
 import { DEFAULT_MATRIX_SHAPE, DEFAULT_MATRIX_START_SHAPE } from '@microflow/components/contants';
