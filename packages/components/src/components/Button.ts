@@ -10,7 +10,7 @@ export class Button extends BaseComponent<ButtonValueType> {
 	private readonly component: JohnnyFive.Button;
 
 	constructor(options: ButtonOptions) {
-		super(options);
+		super(options, false);
 
 		this.component = new JohnnyFive.Button(options);
 

@@ -94,7 +94,6 @@ function Settings() {
 
 type Props = BaseNode<MotionData, MotionValueType>;
 export const DEFAULT_MOTION_DATA: Props['data'] = {
-	value: false,
 	pin: '8',
 	label: 'Motion',
 	controller: 'HCSR501',

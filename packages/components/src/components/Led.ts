@@ -10,7 +10,7 @@ export class Led extends BaseComponent<LedValueType> {
 	private readonly component: JohnnyFive.Led;
 
 	constructor(options: LedOptions) {
-		super(options);
+		super(options, 0);
 
 		this.component = new JohnnyFive.Led(options);
 	}

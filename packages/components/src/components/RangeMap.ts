@@ -11,7 +11,7 @@ type RangeMapOptions = BaseComponentOptions & RangeMapData;
 
 export class RangeMap extends BaseComponent<RangeMapValueType> {
 	constructor(private readonly options: RangeMapOptions) {
-		super(options);
+		super(options, [0, 0]);
 	}
 
 	from(input: boolean | string | number) {

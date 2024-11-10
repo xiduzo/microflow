@@ -2,12 +2,6 @@ import {
 	Button,
 	cn,
 	cva,
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
 	Icons,
 	Pane,
 	Tooltip,
@@ -16,30 +10,11 @@ import {
 	TooltipTrigger,
 	TweakpaneEssentialPlugin,
 	TweakpaneTextareaPlugin,
-	VariantProps,
 } from '@microflow/ui';
-import { Node, useReactFlow } from '@xyflow/react';
+import { Node } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { isNodeTypeACodeType } from '../../../../utils/generateCode';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
-
-type NodeSettingsContextType<T extends Record<string, any>> = {
-	settings: T;
-	setSettings: (settings: Partial<T>) => void;
-};
-
-const NodeSettingsContextCreator = <T extends Record<string, any>>() =>
-	createContext<NodeSettingsContextType<T>>({
-		settings: {} as T,
-		setSettings: (settings: Partial<T>) => {},
-	});
-
-const NodeSettingsContext = NodeSettingsContextCreator();
-
-export function useNodeSettings<T extends Record<string, any>>() {
-	return useContext<NodeSettingsContextType<T>>(NodeSettingsContext as any);
-}
 
 export function NodeSettingsButton() {
 	const { settingsOpened, setSettingsOpened } = useNode();
@@ -58,91 +33,11 @@ export function NodeSettingsButton() {
 	);
 }
 
-export function NodeSettings<T>(props: NodeContainerProps<T>) {
-	const node = useNode();
-	const [settings, setSettingsState] = useState(node.data);
-	const { deleteElements } = useReactFlow<BaseNode>();
-	const updateNode = useUpdateNode(node.id);
-
-	function handleOpenChange(settingsOpen = false) {
-		if (settingsOpen) return;
-		if (settingsOpen === node.data.settingsOpen) return;
-
-		const newSettings = { ...settings, settingsOpen };
-
-		props.onClose?.(newSettings as T);
-		updateNode(newSettings, isNodeTypeACodeType(node.type));
-	}
-
-	function setSettings(newSettings: Partial<T>) {
-		setSettingsState(prev => {
-			const updatedSettings = { ...prev, ...newSettings };
-			return updatedSettings;
-		});
-	}
-
-	return (
-		<NodeSettingsContext.Provider
-			value={{
-				settings,
-				setSettings,
-			}}
-		>
-			<Drawer open={node.data.settingsOpen} nested onOpenChange={handleOpenChange}>
-				<DrawerContent>
-					<DrawerHeader className="max-w-md w-full m-auto mt-6">
-						<DrawerTitle className="flex items-center justify-between">
-							Configure node
-							<span className="text-xs font-light text-neutral-500">id: {node.id}</span>
-						</DrawerTitle>
-						<DrawerDescription>
-							Updates will be automatically applied when closing the drawer.
-						</DrawerDescription>
-					</DrawerHeader>
-					<section className="max-w-md w-full m-auto flex flex-col space-y-4 mb-8 p-4">
-						{props.children}
-					</section>
-					<DrawerFooter className="max-w-md w-full m-auto">
-						<Button variant="secondary" onClick={() => handleOpenChange()}>
-							Close
-						</Button>
-						<Button variant="destructive" onClick={() => deleteElements({ nodes: [node] })}>
-							Delete node
-						</Button>
-					</DrawerFooter>
-				</DrawerContent>
-			</Drawer>
-		</NodeSettingsContext.Provider>
-	);
-}
-
-type NodeContainerProps<T extends Record<string, any> = {}> = PropsWithChildren & {
-	className?: string;
-	onClose?: (settings: T) => void;
-};
-
-export function NodeValue(props: NodeValueProps) {
-	return props.children;
-}
-
-export function NodeContent(props: PropsWithChildren) {
-	return <section className="flex flex-col space-y-4 grow">{props.children}</section>;
-}
-
-type NodeValueProps = PropsWithChildren &
-	VariantProps<typeof nodeValue> & {
-		className?: string;
-		valueOverride?: unknown;
-	};
-
-const nodeValue = cva(
-	'flex p-4 justify-center items-center rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none bg-muted',
-);
-
 type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
 	settingsOpened: boolean;
 	setSettingsOpened: (open: boolean) => void;
 };
+
 const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
 	{} as ContainerProps<Record<string, unknown>>,
 );
@@ -160,7 +55,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 				setSettingsOpened,
 			}}
 		>
-			<div
+			<article
 				className={cn(
 					node({
 						className: props.className,
@@ -169,50 +64,65 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 						dragging: props.dragging,
 						selectable: props.selectable,
 						selected: props.selected,
+						hasError: !!props.error,
 					}),
 				)}
 			>
-				<NodeHeader error={props.error} />
-				<main className="flex grow justify-center items-center bg-muted">
+				<NodeHeader error={props.error} selected={props.selected} />
+				<main className="flex grow justify-center items-center bg-muted/40">
 					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
-			</div>
+			</article>
 		</NodeContainerContext.Provider>
 	);
 }
 
-function NodeHeader(props: { error?: string }) {
+function NodeHeader(props: { error?: string; selected?: boolean }) {
 	const { data, id } = useNode();
 
 	// TODO: label does not update from settings pane
 
 	return (
-		<header className="p-2 pl-4 border-b-2 text-muted-foreground flex justify-between items-center">
+		<header className={header({ selected: props.selected, hasError: !!props.error })}>
 			<div className="flex flex-col">
 				<div className="flex items-center space-x-2">
-					<span className="font-bold">{data.label}</span>
+					<h1 className="font-bold">{data.label}</h1>
 					{props.error && (
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>
-									<Icons.OctagonAlert size={16} className="text-red-500" />
+									<Icons.OctagonAlert size={16} />
 								</TooltipTrigger>
 								<TooltipContent className="text-red-500">{props.error}</TooltipContent>
 							</Tooltip>
 						</TooltipProvider>
 					)}
 				</div>
-				<span className="text-xs font-extralight">{id}</span>
+				<h2 className="text-xs font-extralight">{id}</h2>
 			</div>
 			<NodeSettingsButton />
 		</header>
 	);
 }
 
+const header = cva('p-2 pl-3.5 border-b-2 flex justify-between items-center rounded-t-md', {
+	variants: {
+		selected: {
+			true: 'bg-blue-500 text-blue-950 border-blue-500',
+			false: 'text-muted-foreground border-muted',
+		},
+		hasError: {
+			true: 'bg-red-500 text-red-950 border-red-500',
+			false: 'text-muted-foreground border-muted',
+		},
+	},
+});
+
 type SettingsContextProps<T extends Record<string, unknown>> = {
 	pane: Pane | null;
 	settings: T;
 };
+
 const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 	{} as SettingsContextProps<{}>,
 );
@@ -268,7 +178,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 			{props.children}
 			{settingsOpened &&
 				createPortal(
-					<div ref={ref} onClick={e => e.stopPropagation()} className="w-72" />,
+					<div ref={ref} onClick={e => e.stopPropagation()} />,
 					document.getElementById('settings-panels'),
 				)}
 		</NodeSettingsPaneContext.Provider>
@@ -280,29 +190,15 @@ export function useNodeSettingsPane<T extends Record<string, unknown>>() {
 }
 
 const node = cva(
-	'bg-neutral-950/5 outline outline-2 -outline-offset-1 outline-neutral-500/25 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col',
+	'outline outline-2 -outline-offset-1 outline-muted backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col',
 	{
 		variants: {
-			selectable: {
-				true: '',
-				false: '',
-			},
-			selected: {
-				true: 'outline-blue-500',
-				false: '',
-			},
-			draggable: {
-				true: 'active:cursor-grabbing',
-				false: '',
-			},
-			dragging: {
-				true: '',
-				false: '',
-			},
-			deletabled: {
-				true: '',
-				false: '',
-			},
+			hasError: { true: 'outline-red-500', false: '' },
+			selectable: { true: '', false: '' },
+			selected: { true: 'outline-blue-500', false: '' },
+			draggable: { true: 'active:cursor-grabbing', false: '' },
+			dragging: { true: '', false: '' },
+			deletabled: { true: '', false: '' },
 		},
 		defaultVariants: {
 			selectable: false,
@@ -310,13 +206,13 @@ const node = cva(
 			draggable: false,
 			dragging: false,
 			deletabled: false,
+			hasError: false,
 		},
 	},
 );
 
 export type BaseNode<Settings extends Record<string, unknown> = {}, Value = any> = Node<
 	Settings & {
-		value: Value;
 		label: string;
 		animated?: string;
 		settingsOpen?: boolean;

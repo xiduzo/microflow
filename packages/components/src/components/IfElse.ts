@@ -34,11 +34,11 @@ export type IfElseData = BooleanData | TextData | NumberData | SingleNumberData 
 
 export type IfElseValueType = boolean;
 
-export type IfElseOptions = BaseComponentOptions<boolean> & IfElseData;
+export type IfElseOptions = BaseComponentOptions & IfElseData;
 
 export class IfElse extends BaseComponent<IfElseValueType> {
 	constructor(private readonly options: IfElseOptions) {
-		super(options);
+		super(options, false);
 	}
 
 	check(input: never) {

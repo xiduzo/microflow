@@ -12,7 +12,7 @@ export class Servo extends BaseComponent<ServoValueType> {
 	private readonly component: JohnnyFive.Servo;
 
 	constructor(options: ServoOptions) {
-		super(options);
+		super(options, 0);
 		this.component = new JohnnyFive.Servo({
 			...options,
 			range: [options.range.min, options.range.max],

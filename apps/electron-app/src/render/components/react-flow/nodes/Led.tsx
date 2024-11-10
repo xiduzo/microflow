@@ -53,5 +53,4 @@ type Props = BaseNode<LedData, LedValueType>;
 export const DEFAULT_LED_DATA: Props['data'] = {
 	label: 'LED',
 	pin: 13,
-	value: 0,
 };

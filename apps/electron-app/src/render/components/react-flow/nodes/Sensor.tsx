@@ -54,7 +54,6 @@ function Settings() {
 
 type Props = BaseNode<SensorData, SensorValueType>;
 export const DEFAULT_SENSOR_DATA: Props['data'] = {
-	value: 0,
 	pin: 'A0',
 	label: 'Sensor',
 };

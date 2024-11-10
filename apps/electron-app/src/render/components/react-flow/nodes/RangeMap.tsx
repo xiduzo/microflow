@@ -57,7 +57,6 @@ function Settings() {
 type Props = BaseNode<RangeMapData, RangeMapValueType>;
 
 export const DEFAULT_RANGE_MAP_DATA: Props['data'] = {
-	value: [0, 0],
 	from: { min: 0, max: 1023 },
 	to: { min: 0, max: 1023 },
 	label: 'Map',

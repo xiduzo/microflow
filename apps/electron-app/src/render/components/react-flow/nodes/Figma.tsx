@@ -159,8 +159,8 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 	const { id } = useNode();
 	const value = useNodeValue<FigmaValueType>(id, '');
 
-	if (!props.hasVariables) return <Icons.Loader2 className="w-12 h-12 animate-spin" />;
-	if (!props.variable) return <Icons.Variable className="w-12 h-12 opacity-40" />;
+	if (!props.hasVariables) return <Icons.CloudOff className="text-muted-foreground" size={48} />;
+	if (!props.variable) return <Icons.Variable className="text-muted-foreground" size={48} />;
 
 	switch (props.variable.resolvedType) {
 		case 'BOOLEAN':
@@ -205,7 +205,6 @@ type Props = BaseNode<FigmaData, FigmaValueType>;
 const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',
-	value: null,
 	variableId: '',
 };
 export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {

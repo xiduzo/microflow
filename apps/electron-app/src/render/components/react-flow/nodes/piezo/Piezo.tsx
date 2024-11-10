@@ -147,7 +147,6 @@ export const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
 type Props = BaseNode<PiezoData, PiezoValueType>;
 export const DEFAULT_PIEZO_DATA: Props['data'] = {
 	label: 'Piezo',
-	value: false,
 	duration: 500,
 	frequency: DEFAULT_FREQUENCY,
 	pin: 11,

@@ -16,7 +16,7 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 	private readonly component: JohnnyFive.Piezo;
 
 	constructor(private readonly options: PiezoOptions) {
-		super(options);
+		super(options, false);
 		this.component = new JohnnyFive.Piezo(options);
 	}
 

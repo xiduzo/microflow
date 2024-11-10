@@ -29,5 +29,4 @@ function Value() {
 type Props = BaseNode<CounterData, CounterValueType>;
 export const DEFAULT_COUNTER_DATA: Props['data'] = {
 	label: 'Counter',
-	value: 0,
 };

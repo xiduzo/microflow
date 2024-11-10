@@ -1,30 +1,16 @@
 import type { ServoData, ServoValueType } from '@microflow/components';
-import { Icons, Input, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
-import { Position, useUpdateNodeInternals } from '@xyflow/react';
+import { Icons } from '@microflow/ui';
+import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
-import { BoardCheckResult, MODES } from '../../../../common/types';
-import { PinSelect } from '../../PinSelect';
+import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNode,
-	useNodeSettings,
-	useNodeSettingsPane,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useBoard } from '../../../providers/BoardProvider';
-import { mapPinToPaneOption, pinValue } from '../../../../utils/pin';
+import { mapPinToPaneOption } from '../../../../utils/pin';
 import { BindingApi } from '@tweakpane/core';
 
 const ROTATING_SERVO_STOP_DEGREES = 90;
-
-function validatePin(pin: BoardCheckResult['pins'][0]) {
-	return pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM);
-}
 
 export function Servo(props: Props) {
 	return (
@@ -182,7 +168,6 @@ function Settings() {
 
 type Props = BaseNode<ServoData, ServoValueType>;
 export const DEFAULT_SERVO_DATA: Props['data'] = {
-	value: 0,
 	pin: 3,
 	label: 'Servo',
 	type: 'standard',

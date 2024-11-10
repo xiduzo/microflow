@@ -91,5 +91,4 @@ export const DEFAULT_MQTT_DATA: Props['data'] = {
 	label: 'MQTT',
 	direction: 'publish',
 	topic: '',
-	value: '',
 };

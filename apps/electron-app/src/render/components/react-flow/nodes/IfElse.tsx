@@ -29,8 +29,8 @@ function Value() {
 	const { id } = useNode();
 	const value = useNodeValue<IfElseValueType>(id, false);
 
-	if (value) return <Icons.Check className="text-green-500" size={48} />;
-	return <Icons.X className="text-red-500" size={48} />;
+	if (value) return <Icons.ShieldCheck className="text-green-500" size={48} />;
+	return <Icons.ShieldX className="text-red-500" size={48} />;
 }
 
 function Settings() {
@@ -142,6 +142,5 @@ function Settings() {
 type Props = BaseNode<IfElseData, IfElseValueType>;
 export const DEFAULT_IF_ELSE_DATA: Props['data'] = {
 	label: 'if...else',
-	value: false,
 	validator: 'boolean',
 };
