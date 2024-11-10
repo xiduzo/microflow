@@ -142,6 +142,7 @@ function Settings() {
 			index: 0,
 			view: 'list',
 			label: 'variable',
+			disabled: !Object.keys(variableTypes).length,
 			value: settings.variableId,
 			options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
 				value: variable.id,
