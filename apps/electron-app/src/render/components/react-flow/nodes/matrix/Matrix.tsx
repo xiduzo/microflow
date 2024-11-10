@@ -1,6 +1,6 @@
 import { type MatrixData, type MatrixValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
@@ -9,6 +9,19 @@ import { useBoard } from '../../../../providers/BoardProvider';
 import { MODES } from '../../../../../common/types';
 import { mapPinToPaneOption } from '../../../../../utils/pin';
 import { DEFAULT_MATRIX_SHAPE, DEFAULT_MATRIX_START_SHAPE } from '@microflow/components/contants';
+import {
+	Button,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	ScrollArea,
+} from '@ui/index';
+import { uuid } from '../../../../../utils/uuid';
+import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
+import { DndMatrixEditor } from './DndMatrixEditor';
+import { MatrixEditor } from './MatrixEditor';
 
 export function Matrix(props: Props) {
 	return (
@@ -38,6 +51,28 @@ function Value() {
 function Settings() {
 	const { pane, settings } = useNodeSettingsPane<MatrixData>();
 	const { pins } = useBoard();
+	const [editorOpened, setEditorOpened] = useState(false);
+
+	const [shapes, setShapes] = useState(
+		settings.shapes.map(shape => ({
+			id: uuid(),
+			shape,
+		})),
+	);
+
+	function swapShapes(id: string, hoveredId: string) {
+		const nextShapes = [...shapes];
+		const leftIndex = shapes.findIndex(shape => shape.id === id);
+		const rightIndex = shapes.findIndex(shape => shape.id === hoveredId);
+
+		nextShapes[leftIndex] = shapes[rightIndex];
+		nextShapes[rightIndex] = shapes[leftIndex];
+		setShapes(nextShapes);
+	}
+
+	useEffect(() => {
+		settings.shapes = shapes.map(({ shape }) => shape);
+	}, [shapes, settings.shapes]);
 
 	useEffect(() => {
 		if (!pane) return;
@@ -56,7 +91,8 @@ function Settings() {
 							!pin.supportedModes.includes(MODES.ANALOG),
 					)
 					.map(mapPinToPaneOption),
-			}) // @ts-ignore-next-line
+			})
+			// @ts-ignore-next-line
 			.on('change', (event: TpChangeEvent) => {
 				settings.pins.data = event.value;
 			});
@@ -93,122 +129,79 @@ function Settings() {
 							!pin.supportedModes.includes(MODES.ANALOG),
 					)
 					.map(mapPinToPaneOption),
-			}) // @ts-ignore-next-line
+			})
+			// @ts-ignore-next-line
 			.on('change', (event: TpChangeEvent) => {
 				settings.pins.cs = event.value;
 			});
+
+		pane
+			.addButton({
+				label: 'shapes',
+				title: 'edit shapes',
+				index: 3,
+			})
+			.on('click', () => {
+				setEditorOpened(true);
+			});
 	}, [pane, settings, pins]);
 
-	return null;
+	if (!editorOpened) return null;
+
+	return (
+		<Dialog defaultOpen onOpenChange={setEditorOpened}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Shapes</DialogTitle>
+					<DialogDescription>Define the shapes for the matrix</DialogDescription>
+				</DialogHeader>
+				<ScrollArea className="h-60 p-2 border">
+					<section className="grid grid-cols-12 gap-2">
+						<DragAndDropProvider
+							swap={swapShapes}
+							// onDragDone={() => setSettings({ shapes: shapes.map(({ shape }) => shape) })}
+						>
+							{shapes.map(({ id, shape }, index) => {
+								return (
+									<DndMatrixEditor
+										key={id}
+										index={index}
+										id={id}
+										onSave={newShape => {
+											const nextShapes = [...shapes];
+											nextShapes[index] = {
+												...nextShapes[index],
+												shape: newShape,
+											};
+											setShapes(nextShapes);
+										}}
+										dimensions={settings.dims}
+										onDelete={() => {
+											const nextShapes = [...shapes];
+											nextShapes.splice(index, 1);
+											setShapes(nextShapes);
+										}}
+										shape={shape}
+									/>
+								);
+							})}
+						</DragAndDropProvider>
+					</section>
+				</ScrollArea>
+				<MatrixEditor
+					key={shapes.length}
+					onSave={newShape => {
+						setShapes([...shapes, { id: uuid(), shape: newShape }]);
+					}}
+					dimensions={settings.dims}
+					shape={DEFAULT_MATRIX_SHAPE}
+				>
+					<Button variant="outline">Add new shape</Button>
+				</MatrixEditor>
+			</DialogContent>
+		</Dialog>
+	);
 }
-
-// function MatrixSettings() {
-// 	const { settings, setSettings } = useNodeSettings<MatrixData>();
-// 	const { pins } = useBoard();
-
-// 	const [shapes, setShapes] = useState(
-// 		settings.shapes.map(shape => ({
-// 			id: uuid(),
-// 			shape,
-// 		})),
-// 	);
-
-// 	function swapShapes(id: string, hoveredId: string) {
-// 		const nextShapes = [...shapes];
-// 		const leftIndex = shapes.findIndex(shape => shape.id === id);
-// 		const rightIndex = shapes.findIndex(shape => shape.id === hoveredId);
-
-// 		nextShapes[leftIndex] = shapes[rightIndex];
-// 		nextShapes[rightIndex] = shapes[leftIndex];
-// 		setShapes(nextShapes);
-// 	}
-
-// 	return (
-// 		<>
-// 			<section className="flex space-x-2">
-// 				<div className="flex-grow">
-// 					<Label className="pb-2">Data</Label>
-// 					<PinSelect
-// 						value={settings.pins.data}
-// 						onValueChange={data => setSettings({ pins: { ...settings.pins, data } })}
-// 						filter={pin =>
-// 							pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG)
-// 						}
-// 					/>
-// 				</div>
-// 				<div className="flex-grow">
-// 					<Label>Clock</Label>
-// 					<PinSelect
-// 						value={settings.pins.clock}
-// 						onValueChange={clock => setSettings({ pins: { ...settings.pins, clock } })}
-// 						filter={pin =>
-// 							pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM)
-// 						}
-// 					/>
-// 				</div>
-// 				<div className="flex-grow">
-// 					<Label>CS</Label>
-// 					<PinSelect
-// 						value={settings.pins.cs}
-// 						onValueChange={cs => setSettings({ pins: { ...settings.pins, cs } })}
-// 						filter={pin =>
-// 							pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG)
-// 						}
-// 					/>
-// 				</div>
-// 			</section>
-// 			<ScrollArea className="h-60 p-2 border">
-// 				<section className="grid grid-cols-12 gap-2">
-// 					<DragAndDropProvider
-// 						swap={swapShapes}
-// 						onDragDone={() => setSettings({ shapes: shapes.map(({ shape }) => shape) })}
-// 					>
-// 						{shapes.map(({ id, shape }, index) => {
-// 							return (
-// 								<DndMatrixEditor
-// 									key={id}
-// 									index={index}
-// 									id={id}
-// 									onSave={newShape => {
-// 										const nextShapes = [...shapes];
-// 										nextShapes[index] = {
-// 											...nextShapes[index],
-// 											shape: newShape,
-// 										};
-// 										setShapes(nextShapes);
-// 										setSettings({
-// 											shapes: nextShapes.map(({ shape }) => shape),
-// 										});
-// 									}}
-// 									dimensions={settings.dims}
-// 									onDelete={() => {
-// 										const nextShapes = [...shapes];
-// 										nextShapes.splice(index, 1);
-// 										setShapes(nextShapes);
-// 										setSettings({
-// 											shapes: nextShapes.map(({ shape }) => shape),
-// 										});
-// 									}}
-// 									shape={shape}
-// 								/>
-// 							);
-// 						})}
-// 					</DragAndDropProvider>
-// 				</section>
-// 			</ScrollArea>
-// 			<MatrixEditor
-// 				key={shapes.length}
-// 				onSave={newShape => {
-// 					setSettings({ shapes: [...settings.shapes, newShape] });
-// 				}}
-// 				dimensions={settings.dims}
-// 				shape={DEFAULT_MATRIX_SHAPE}
-// 			>
-// 				<Button variant="outline">Add new shape</Button>
-// 			</MatrixEditor>
-// 		</>
-// 	);
-// }
 
 type Props = BaseNode<MatrixData, MatrixValueType>;
 export const DEFAULT_MATRIX_DATA: Props['data'] = {

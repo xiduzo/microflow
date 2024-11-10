@@ -10,13 +10,16 @@ body {
 */
 
 /* Nodes */
+.react-flow__minimap .react-flow__minimap-node {
+	@apply fill-muted transition-all;
+}
 .react-flow__minimap .react-flow__minimap-node.selected {
 	@apply fill-blue-500;
 }
 
 /* Edges */
 .react-flow__edges .react-flow__edge-path {
-	@apply stroke-[4] stroke-neutral-600;
+	@apply stroke-[4] stroke-neutral-600 transition-all;
 }
 
 .react-flow__edge.selected .react-flow__edge-path,

@@ -20,18 +20,29 @@ export function NodeSettingsButton() {
 	const { settingsOpened, setSettingsOpened } = useNode();
 
 	return (
-		<Button
-			variant={settingsOpened ? 'secondary' : 'ghost'}
-			size="icon"
+		<button
 			onClick={e => {
 				e.stopPropagation();
 				setSettingsOpened(!settingsOpened);
 			}}
+			className={settingsButton({ settingsOpened })}
 		>
 			<Icons.SlidersHorizontal size={16} />
-		</Button>
+		</button>
 	);
 }
+
+const settingsButton = cva(
+	'h-10 w-10 inline-flex items-center justify-center rounded-md transition-all',
+	{
+		variants: {
+			settingsOpened: {
+				true: 'bg-black/40 hover:bg-black/30',
+				false: 'hover:bg-black/40',
+			},
+		},
+	},
+);
 
 type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
 	settingsOpened: boolean;
@@ -90,7 +101,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 					{props.error && (
 						<TooltipProvider>
 							<Tooltip>
-								<TooltipTrigger asChild>
+								<TooltipTrigger asChild className="cursor-help">
 									<Icons.OctagonAlert size={16} />
 								</TooltipTrigger>
 								<TooltipContent className="text-red-500">{props.error}</TooltipContent>
@@ -105,18 +116,43 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 	);
 }
 
-const header = cva('p-2 pl-3.5 border-b-2 flex justify-between items-center rounded-t-md', {
-	variants: {
-		selected: {
-			true: 'bg-blue-500 text-blue-950 border-blue-500',
-			false: 'text-muted-foreground border-muted',
+const header = cva(
+	'p-2 pl-3.5 border-b-2 flex justify-between items-center rounded-t-md transition-all',
+	{
+		variants: {
+			selected: {
+				true: '',
+				false: '',
+			},
+			hasError: {
+				true: '',
+				false: '',
+			},
 		},
-		hasError: {
-			true: 'bg-red-500 text-red-950 border-red-500',
-			false: 'text-muted-foreground border-muted',
-		},
+		compoundVariants: [
+			{
+				selected: false,
+				hasError: false,
+				className: 'text-muted-foreground border-muted',
+			},
+			{
+				selected: true,
+				hasError: false,
+				className: 'bg-blue-600 text-blue-200 border-blue-600',
+			},
+			{
+				selected: false,
+				hasError: true,
+				className: 'bg-red-600 text-red-200 border-red-600',
+			},
+			{
+				selected: true,
+				hasError: true,
+				className: 'bg-blue-600 text-blue-200 border-blue-600',
+			},
+		],
 	},
-});
+);
 
 type SettingsContextProps<T extends Record<string, unknown>> = {
 	pane: Pane | null;
@@ -190,15 +226,15 @@ export function useNodeSettingsPane<T extends Record<string, unknown>>() {
 }
 
 const node = cva(
-	'outline outline-2 -outline-offset-1 outline-muted backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col',
+	'outline outline-2 -outline-offset-1 outline-muted backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col transition-all',
 	{
 		variants: {
-			hasError: { true: 'outline-red-500', false: '' },
 			selectable: { true: '', false: '' },
-			selected: { true: 'outline-blue-500', false: '' },
+			selected: { true: 'outline-blue-600', false: '' },
 			draggable: { true: 'active:cursor-grabbing', false: '' },
 			dragging: { true: '', false: '' },
 			deletabled: { true: '', false: '' },
+			hasError: { true: '', false: '' },
 		},
 		defaultVariants: {
 			selectable: false,
@@ -208,6 +244,28 @@ const node = cva(
 			deletabled: false,
 			hasError: false,
 		},
+		compoundVariants: [
+			{
+				selected: false,
+				hasError: false,
+				className: '',
+			},
+			{
+				selected: true,
+				hasError: false,
+				className: 'outline-blue-600',
+			},
+			{
+				selected: false,
+				hasError: true,
+				className: 'outline-red-600',
+			},
+			{
+				selected: true,
+				hasError: true,
+				className: 'outline-blue-600',
+			},
+		],
 	},
 );
 
