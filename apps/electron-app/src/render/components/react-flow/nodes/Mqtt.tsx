@@ -1,26 +1,10 @@
-import type { MqttData, MqttDirection, MqttValueType } from '@microflow/components';
+import type { MqttData, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
-import {
-	Badge,
-	Icons,
-	Input,
-	Label,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-} from '@microflow/ui';
-import { Position, useUpdateNodeInternals } from '@xyflow/react';
+import { Icons } from '@microflow/ui';
+import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNodeSettings, useNodeSettingsPane } from './Node';
 
 export function Mqtt(props: Props) {
 	const { publish, subscribe, status } = useMqtt();
@@ -58,20 +42,9 @@ export function Mqtt(props: Props) {
 	}, [props.id, props.type, props.data.topic, props.data.direction, subscribe]);
 
 	return (
-		<NodeContainer {...props}>
-			<NodeContent>
-				{status !== 'connected' && <Badge variant="destructive">MQTT not connected</Badge>}
-				<NodeValue className="tabular-nums">
-					{props.data.direction === 'publish' ? (
-						<Icons.RadioTower className="w-8 h-8" />
-					) : (
-						<Icons.Antenna className="w-8 h-8" />
-					)}
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<MqttSettings />
-			</NodeSettings>
+		<NodeContainer {...props} error={status !== 'connected' && 'MQTT not connected'}>
+			<Value />
+			<Settings />
 			{props.data.direction === 'publish' && (
 				<Handle type="target" position={Position.Left} id="publish" />
 			)}
@@ -83,37 +56,34 @@ export function Mqtt(props: Props) {
 	);
 }
 
-function MqttSettings() {
-	const { settings, setSettings } = useNodeSettings<MqttData>();
-	return (
-		<>
-			<Select
-				value={settings.direction}
-				onValueChange={(value: MqttDirection) => {
-					setSettings({ direction: value });
-				}}
-			>
-				<SelectTrigger>{settings.direction}</SelectTrigger>
-				<SelectContent>
-					<SelectItem value="publish">Publish</SelectItem>
-					<SelectItem value="subscribe">Subscribe</SelectItem>
-				</SelectContent>
-			</Select>
-			<Label htmlFor="topic" className="flex justify-between">
-				Topic
-			</Label>
-			<Input
-				id="topic"
-				defaultValue={settings.topic}
-				placeholder="your/+/topic/#"
-				onChange={event =>
-					setSettings({
-						topic: event.target.value,
-					})
-				}
-			/>
-		</>
-	);
+function Value() {
+	const { settings } = useNodeSettings<MqttData>();
+
+	if (settings.direction === 'publish') return <Icons.RadioTower className="w-8 h-8" />;
+	return <Icons.Antenna className="w-8 h-8" />;
+}
+
+function Settings() {
+	const { pane, settings } = useNodeSettingsPane<MqttData>();
+
+	useEffect(() => {
+		if (!pane) return;
+
+		pane.addBinding(settings, 'direction', {
+			view: 'list',
+			index: 0,
+			options: [
+				{ text: 'publish', value: 'publish' },
+				{ text: 'subscribe', value: 'subscribe' },
+			],
+		});
+
+		pane.addBinding(settings, 'topic', {
+			index: 1,
+		});
+	}, [pane, settings]);
+
+	return null;
 }
 
 type Props = BaseNode<MqttData, MqttValueType>;

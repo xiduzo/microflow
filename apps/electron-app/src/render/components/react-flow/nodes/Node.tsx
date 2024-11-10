@@ -12,6 +12,10 @@ import {
 	Icon,
 	Icons,
 	Pane,
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
 	VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
@@ -143,7 +147,7 @@ const NodeContainerContext = createContext<ContainerProps<unknown>>({} as Contai
 export const useNode = <T extends Record<string, any>>() =>
 	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
 
-export function NodeContainer(props: PropsWithChildren & BaseNode) {
+export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
 	const [settingsOpened, setSettingsOpened] = useState(false);
 
 	return (
@@ -166,7 +170,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode) {
 					}),
 				)}
 			>
-				<NodeHeader />
+				<NodeHeader error={props.error} />
 				<main className="flex grow justify-center items-center bg-muted">
 					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
@@ -175,14 +179,26 @@ export function NodeContainer(props: PropsWithChildren & BaseNode) {
 	);
 }
 
-function NodeHeader() {
+function NodeHeader(props: { error?: string }) {
 	const node = useNode();
 
 	return (
 		<header className="p-2 pl-4 border-b-2 text-muted-foreground flex justify-between items-center">
 			<div className="flex flex-col">
-				{node.data.label}
-				<span className="text-xs opacity-50 font-light">{node.id}</span>
+				<div className="flex items-center space-x-2">
+					<span className="font-bold">{node.data.label}</span>
+					{props.error && (
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Icons.OctagonAlert size={16} className="text-red-500" />
+								</TooltipTrigger>
+								<TooltipContent className="text-red-500">{props.error}</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					)}
+				</div>
+				<span className="text-xs font-extralight">{node.id}</span>
 			</div>
 			<NodeSettingsButton />
 		</header>

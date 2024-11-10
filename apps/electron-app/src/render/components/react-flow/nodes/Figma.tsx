@@ -6,7 +6,6 @@ import {
 	useMqtt,
 } from '@microflow/mqtt-provider/client';
 import {
-	Badge,
 	Icons,
 	Switch,
 	Tooltip,
@@ -74,13 +73,8 @@ export function Figma(props: Props) {
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on('ipc-deep-link', (event, id, value) => {
-			if (event !== 'figma') {
-				return;
-			}
-
-			if (id !== variable?.id) {
-				return;
-			}
+			if (event !== 'figma') return;
+			if (id !== variable?.id) return;
 
 			// TODO: do some processing on the value received from the plugin
 			// Eg. convert the color value to rgba
@@ -95,8 +89,7 @@ export function Figma(props: Props) {
 	}, [variable?.id, props.id]);
 
 	return (
-		<NodeContainer {...props}>
-			{isDisconnected && <Badge variant="destructive">Figma plugin not connected</Badge>}
+		<NodeContainer {...props} error={isDisconnected && 'Figma plugin is not connected'}>
 			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
 			<Settings />
 			<FigmaHandles variable={variable} />
@@ -164,13 +157,8 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 	const { id } = useNode();
 	const value = useNodeValue<Props['data']['value']>(id, '');
 
-	if (!props.hasVariables) {
-		return <Icons.Loader2 className="w-12 h-12 animate-spin" />;
-	}
-
-	if (!props.variable) {
-		return <Icons.Variable className="w-12 h-12 opacity-40" />;
-	}
+	if (!props.hasVariables) return <Icons.Loader2 className="w-12 h-12 animate-spin" />;
+	if (!props.variable) return <Icons.Variable className="w-12 h-12 opacity-40" />;
 
 	switch (props.variable.resolvedType) {
 		case 'BOOLEAN':
