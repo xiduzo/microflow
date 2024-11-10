@@ -6,14 +6,14 @@ export type IntervalData = {
 };
 export type IntervalValueType = number;
 
-type IntervalOptions = BaseComponentOptions<number> & IntervalData;
+type IntervalOptions = BaseComponentOptions & IntervalData;
 
 export class Interval extends BaseComponent<IntervalValueType> {
 	private readonly minIntervalInMs = 500;
 	private interval: NodeJS.Timeout | null = null;
 
 	constructor(private readonly options: IntervalOptions) {
-		super(options);
+		super(options, 0);
 
 		this.start();
 	}

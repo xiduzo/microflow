@@ -6,9 +6,8 @@ export type Note = [string | null, number];
 export type SongData = { type: 'song' } & PiezoTune & {
 		song: Note[];
 	};
-type BaseData = Omit<PiezoOption, 'type'>;
 
-export type PiezoData = BaseData & (BuzzData | SongData);
+export type PiezoData = PiezoOption & (BuzzData | SongData);
 export type PiezoValueType = boolean;
 
 type PiezoOptions = BaseComponentOptions & PiezoData;
@@ -17,7 +16,7 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 	private readonly component: JohnnyFive.Piezo;
 
 	constructor(private readonly options: PiezoOptions) {
-		super(options);
+		super(options, false);
 		this.component = new JohnnyFive.Piezo(options);
 	}
 

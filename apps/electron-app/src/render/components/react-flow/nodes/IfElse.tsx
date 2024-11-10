@@ -1,44 +1,22 @@
-import type { IfElseData, IfElseValueType, SubValidator, Validator } from '@microflow/components';
-import { IF_ELSE_SUB_VALIDATORS, IF_ELSE_VALIDATORS } from '@microflow/components/contants';
+import type { IfElseData, IfElseValueType } from '@microflow/components';
 import {
-    Icons,
-    Input,
-    Label,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-    Slider,
-} from '@microflow/ui';
+	IF_ELSE_SUB_VALIDATORS,
+	IF_ELSE_VALIDATORS,
+	Validator,
+} from '@microflow/components/contants';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
-    useNodeSettings,
-} from './Node';
-
-const MAX_NUMERIC_VALUE = 1023;
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BindingApi, BladeApi } from '@tweakpane/core';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function IfElse(props: Props) {
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue>
-					{props.data.value === true && <Icons.Check className="w-12 h-12 text-green-500" />}
-					{props.data.value === false && <Icons.X className="w-12 h-12 text-red-500" />}
-					{(props.data.value === null ||
-						props.data.value === undefined) && <Icons.Dot className="w-12 h-12 text-gray-500" />}
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<IfElseSettings />
-			</NodeSettings>
+			<Value />
+			<Settings />
 			<Handle type="target" position={Position.Left} id="check" />
 			<Handle type="source" position={Position.Right} id="true" offset={-0.5} />
 			<Handle type="source" position={Position.Right} id="false" offset={0.5} />
@@ -47,123 +25,122 @@ export function IfElse(props: Props) {
 	);
 }
 
-function IfElseSettings() {
-	const { settings, setSettings } = useNodeSettings<IfElseData>();
+function Value() {
+	const { id } = useNode();
+	const value = useNodeValue<IfElseValueType>(id, false);
+
+	if (value) return <Icons.ShieldCheck className="text-green-500" size={48} />;
+	return <Icons.ShieldX className="text-red-500" size={48} />;
+}
+
+function Settings() {
+	const { pane, settings } = useNodeSettingsPane<IfElseData>();
 
 	useEffect(() => {
-		if (settings.validator === 'number') {
-			const isRange = ['between', 'outside'].includes(settings.subValidator);
-			const currentValue = Number(settings.validatorArgs[0]);
-			const validatorArgs = [currentValue];
-			if (isRange) {
-				const increment = (MAX_NUMERIC_VALUE + 1) * 0.25;
-				const nextValueBackup =
-					currentValue + increment >= MAX_NUMERIC_VALUE
-						? currentValue - increment
-						: currentValue + increment;
-				const nextValue = Number(settings.validatorArgs[1] ?? nextValueBackup);
-				if (nextValue > currentValue) {
-					validatorArgs.push(nextValue);
-				} else {
-					validatorArgs.unshift(nextValue);
-				}
-			}
+		if (!pane) return;
 
-			if (settings.validatorArgs.length === validatorArgs.length) {
-				return;
-			}
+		let subValidatorPane: BindingApi | undefined;
+		let validatorArgPane: BladeApi | undefined;
 
-			setSettings({ validatorArgs });
+		function addValidatorArgs() {
+			validatorArgPane?.dispose();
+
+			validatorArgPane = pane.addBinding(settings, 'validatorArg', {
+				index: 2,
+				step: 10,
+				label: '',
+			});
 		}
-	}, [settings.validator, settings.subValidator, settings.validatorArgs]);
 
-	return (
-		<>
-			<section className="flex space-x-2 justify-between">
-				<Select
-					value={settings.validator}
-					onValueChange={value =>
-						setSettings({
-							validator: value as Validator,
-							subValidator: IF_ELSE_SUB_VALIDATORS[value][0],
-						})
+		function addSubValidator(validator: Validator) {
+			subValidatorPane?.dispose();
+
+			subValidatorPane = pane
+				.addBinding(settings, 'subValidator', {
+					view: 'list',
+					index: 1,
+					label: 'is',
+					options: IF_ELSE_SUB_VALIDATORS[validator].map(item => ({
+						text: item,
+						value: item,
+					})),
+				})
+				.on('change', event => {
+					switch (event.value) {
+						case 'equal to':
+						case 'includes':
+						case 'starts with':
+						case 'ends with':
+							settings.validatorArg = settings.validatorArg ?? '';
+							addValidatorArgs();
+							break;
+						case 'less than':
+						case 'greater than':
+							settings.validatorArg = isNaN(Number(settings.validatorArg))
+								? 0
+								: (settings.validatorArg ?? 0);
+							addValidatorArgs();
+							break;
+						case 'between':
+						case 'outside':
+							settings.validatorArg = isNaN(Number(settings.validatorArg))
+								? (settings.validatorArg ?? { min: 100, max: 500 })
+								: { min: 100, max: 500 };
+							addValidatorArgs();
+							break;
+						case 'even':
+						case 'odd':
+							validatorArgPane?.dispose();
+							break;
+						default:
+							// Boolean
+							break;
 					}
-				>
-					<SelectTrigger>
-						<SelectValue placeholder="Validator" />
-					</SelectTrigger>
-					<SelectContent>
-						{IF_ELSE_VALIDATORS.map(validator => (
-							<SelectItem key={validator} value={validator}>
-								{validator}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				{IF_ELSE_SUB_VALIDATORS[settings.validator]?.filter(Boolean).length > 0 && (
-					<Select
-						disabled={!settings.validator}
-						value={settings.subValidator}
-						onValueChange={value =>
-							setSettings({
-								validator: settings.validator,
-								subValidator: value,
-							})
-						}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder="Validate with" />
-						</SelectTrigger>
-						<SelectContent>
-							{IF_ELSE_SUB_VALIDATORS[settings.validator]?.map((subValidator: SubValidator) => (
-								<SelectItem key={subValidator} value={subValidator}>
-									{subValidator}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				)}
-			</section>
-			{settings.validator === 'text' && (
-				<Input
-					value={String(settings.validatorArgs[0])}
-					type="text"
-					placeholder="Expected value"
-					onChange={e => setSettings({ validatorArgs: [e.target.value] })}
-				/>
-			)}
-			{settings.validator === 'number' &&
-				!['is even', 'is odd'].includes(settings.subValidator) && (
-					<>
-						<Label htmlFor={`slider-if-else`} className="flex justify-between">
-							{settings.validatorArgs?.map((value, index) => (
-								<span key={index} className="opacity-40 font-light">
-									{String(value)}
-								</span>
-							))}
-						</Label>
-						<Slider
-							id={`slider-if-else`}
-							key={settings.validatorArgs.length}
-							defaultValue={
-								(settings.validatorArgs.filter(arg => arg !== undefined) as number[]) ?? [0]
-							}
-							min={0}
-							max={MAX_NUMERIC_VALUE}
-							step={1}
-							onValueChange={validatorArgs => setSettings({ validatorArgs })}
-						/>
-					</>
-				)}
-		</>
-	);
+				});
+
+			if (settings.subValidator === 'odd') return;
+			if (settings.subValidator === 'even') return;
+
+			addValidatorArgs();
+		}
+
+		pane
+			.addBinding(settings, 'validator', {
+				index: 0,
+				view: 'list',
+				label: 'validate',
+				options: IF_ELSE_VALIDATORS.map(validator => ({
+					text: validator,
+					value: validator,
+				})),
+			})
+			.on('change', event => {
+				switch (event.value) {
+					case 'boolean':
+						subValidatorPane?.dispose();
+						validatorArgPane?.dispose();
+						return;
+					case 'number':
+						settings.subValidator = 'equal to';
+						settings.validatorArg = 0;
+						addSubValidator(event.value);
+						break;
+					case 'text':
+						settings.subValidator = 'includes';
+						settings.validatorArg = '';
+						addSubValidator(event.value);
+						return;
+				}
+			});
+
+		if (settings.validator !== 'boolean') addSubValidator(settings.validator);
+	}, [pane, settings]);
+
+	return null;
 }
 
 type Props = BaseNode<IfElseData, IfElseValueType>;
 export const DEFAULT_IF_ELSE_DATA: Props['data'] = {
 	label: 'if...else',
-	value: false,
-	validator: IF_ELSE_VALIDATORS[0],
-	subValidator: IF_ELSE_SUB_VALIDATORS[IF_ELSE_VALIDATORS[0]][0],
-	validatorArgs: [0, 1023],
+	validator: 'boolean',
 };

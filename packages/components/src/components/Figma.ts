@@ -13,13 +13,13 @@ export type FigmaData = {
 };
 export type FigmaValueType = string | number | boolean | RGBA;
 
-type FigmaOptions = BaseComponentOptions<string> & FigmaData;
+type FigmaOptions = BaseComponentOptions & FigmaData;
 
 export class Figma extends BaseComponent<FigmaValueType> {
 	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 1 };
 
-	constructor(public readonly options: FigmaOptions) {
-		super(options);
+	constructor(options: FigmaOptions) {
+		super(options, '');
 	}
 
 	increment(amount = 1) {

@@ -9,8 +9,8 @@ type SensorOptions = BaseComponentOptions & SensorData;
 export class Sensor extends BaseComponent<SensorValueType> {
 	private readonly component: JohnnyFive.Sensor;
 
-	constructor(private readonly options: SensorOptions) {
-		super(options);
+	constructor(options: SensorOptions) {
+		super(options, 0);
 		this.component = new JohnnyFive.Sensor(options);
 
 		this.component.on('change', () => {

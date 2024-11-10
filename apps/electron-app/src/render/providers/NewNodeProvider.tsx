@@ -1,22 +1,21 @@
 import {
-    Badge,
-    CommandDialog,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
-    CommandShortcut,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
+	Badge,
+	CommandDialog,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+	CommandSeparator,
+	CommandShortcut,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
 } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
-import { tempNodeSelector, useNodesEdgesStore } from '../store';
+import { useTempNode } from '../stores/react-flow';
 
 const NewNodeContext = createContext({
 	open: false,
@@ -44,7 +43,7 @@ export function useNewNode() {
 
 function NewNodeCommandDialog() {
 	const { open, setOpen, setNodeToAdd } = useNewNode();
-	const { addNode } = useNodesEdgesStore(useShallow(tempNodeSelector));
+	const { addNode } = useTempNode();
 
 	function selectNode(type: NodeType, label?: string) {
 		return function () {
@@ -196,7 +195,7 @@ function NewNodeCommandDialog() {
 function DroppableNewNode() {
 	const { nodeToAdd, setNodeToAdd } = useNewNode();
 	const { screenToFlowPosition, updateNode } = useReactFlow();
-	const { addNode, deleteNode } = useNodesEdgesStore(useShallow(tempNodeSelector));
+	const { addNode, deleteNode } = useTempNode();
 
 	useEffect(() => {
 		if (!nodeToAdd) return;

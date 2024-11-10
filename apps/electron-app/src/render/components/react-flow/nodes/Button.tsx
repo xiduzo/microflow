@@ -1,37 +1,19 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Checkbox, Icons, Label, RadioGroup, RadioGroupItem, Slider, Toggle } from '@microflow/ui';
+import { Icons, TpChangeEvent } from '@microflow/ui';
 import { Position } from '@xyflow/react';
+import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { PinSelect } from '../../PinSelect';
+import { mapPinToPaneOption } from '../../../../utils/pin';
 import { Handle } from './Handle';
-import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
-    useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
+import { usePins } from '../../../stores/board';
 
 export function Button(props: Props) {
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue>
-					<Toggle
-						disabled
-						className="opacity-100 disabled:opacity-100"
-						size="lg"
-						pressed={Boolean(props.data.value)}
-					>
-						{Boolean(props.data.value) && <Icons.Pointer />}
-						{!Boolean(props.data.value) && <Icons.PointerOff className="text-muted-foreground" />}
-					</Toggle>
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<ButtonSettings />
-			</NodeSettings>
+			<Value />
+			<Settings />
 			<Handle type="source" position={Position.Right} id="active" offset={-1} />
 			<Handle type="source" position={Position.Right} id="hold" />
 			<Handle type="source" position={Position.Right} id="inactive" offset={1} />
@@ -40,77 +22,77 @@ export function Button(props: Props) {
 	);
 }
 
-function ButtonSettings() {
-	const { settings, setSettings } = useNodeSettings<ButtonData>();
+function Value() {
+	const { id } = useNode();
+	const value = useNodeValue<ButtonValueType>(id, false);
 
-	return (
-		<>
-			<PinSelect
-				value={settings.pin}
-				onValueChange={pin => setSettings({ pin })}
-				filter={pin => pin.supportedModes.includes(MODES.INPUT)}
-			/>
-			<Label htmlFor="holdtime" className="flex justify-between">
-				Hold time
-				<span className="opacity-40 font-light">{settings.holdtime} ms</span>
-			</Label>
-			<Slider
-				id="holdtime"
-				className="pb-2"
-				defaultValue={[settings.holdtime]}
-				min={500}
-				max={2500}
-				step={50}
-				onValueChange={value => setSettings({ holdtime: value[0] })}
-			/>
-			<hr />
-			<section className="flex justify-between items-start">
-				<div
-					className="flex items-center space-x-2"
-					onClick={() => setSettings({ invert: !settings.invert })}
-				>
-					<Checkbox id="inverted" checked={settings.invert} />
-					<span className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-						Invert button
-					</span>
-				</div>
-				<RadioGroup
-					defaultValue={settings.isPullup ? 'pullup' : settings.isPulldown ? 'pulldown' : 'default'}
-					onValueChange={value => {
-						switch (value) {
-							case 'default':
-								setSettings({ isPullup: false, isPulldown: false });
-								break;
-							case 'pullup':
-								setSettings({ isPullup: true, isPulldown: false });
-								break;
-							case 'pulldown':
-								setSettings({ isPullup: false, isPulldown: true });
-								break;
-						}
-					}}
-				>
-					<div className="flex items-center space-x-2">
-						<RadioGroupItem value="default" id="default" />
-						<Label htmlFor="default">Normal button</Label>
-					</div>
-					<div className="flex items-center space-x-2">
-						<RadioGroupItem value="pullup" id="pullup" />
-						<Label htmlFor="pullup">Pullup button</Label>
-					</div>
-					<div className="flex items-center space-x-2">
-						<RadioGroupItem value="pulldown" id="pulldown" />
-						<Label htmlFor="pulldown">Pulldown button</Label>
-					</div>
-				</RadioGroup>
-			</section>
-		</>
-	);
+	if (!value) return <Icons.PointerOff className="text-muted-foreground" size={48} />;
+	return <Icons.Pointer className="text-green-500" size={48} />;
+}
+
+function Settings() {
+	const { pane, settings } = useNodeSettingsPane<ButtonData>();
+	const pins = usePins();
+
+	useEffect(() => {
+		if (!pane) return;
+
+		pane.addBinding(settings, 'pin', {
+			view: 'list',
+			disabled: !pins.length,
+			label: 'pin',
+			index: 0,
+			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
+		});
+
+		const advanced = pane.addFolder({
+			title: 'advanced',
+			expanded: false,
+			index: 1,
+		});
+
+		advanced.addBinding(settings, 'holdtime', {
+			min: 100,
+			step: 50,
+		});
+
+		advanced
+			.addBlade({
+				view: 'list',
+				label: 'type',
+				value: settings.isPulldown ? 2 : settings.isPullup ? 1 : 0,
+				options: [
+					{ value: 0, text: 'default' },
+					{ value: 1, text: 'pull-up' },
+					{ value: 2, text: 'pull-down' },
+				],
+			})
+			// @ts-ignore-next-line
+			.on('change', (event: TpChangeEvent<number>) => {
+				switch (event.value) {
+					case 0:
+						settings.isPulldown = false;
+						settings.isPullup = false;
+						break;
+					case 1:
+						settings.isPulldown = false;
+						settings.isPullup = true;
+						break;
+					case 2:
+						settings.isPulldown = true;
+						settings.isPullup = false;
+						break;
+				}
+			});
+
+		advanced.addBinding(settings, 'invert');
+	}, [pane, settings, pins]);
+
+	return null;
 }
 
 type Props = BaseNode<ButtonData, ButtonValueType>;
 export const DEFAULT_BUTTON_DATA: Props['data'] = {
-	value: false,
 	holdtime: 500,
 	isPulldown: false,
 	isPullup: false,

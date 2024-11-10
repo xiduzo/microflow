@@ -7,13 +7,5 @@
 	"useTabs": true,
 	"arrowParens": "avoid",
 	"bracketSpacing": true,
-	"endOfLine": "auto",
-	"overrides": [
-		{
-			"files": "*.ts",
-			"options": {
-				"parser": "typescript"
-			}
-		}
-	]
+	"endOfLine": "auto"
 }

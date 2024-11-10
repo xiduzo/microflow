@@ -1,7 +1,7 @@
 import { Led } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { DEFAULT_MATRIX_START_SHAPE, type MatrixShape } from '../constants/Matrix';
 
-export type MatrixShape = string[];
 export type MatrixData = Omit<Led.MatrixOption & Led.MatrixIC2Option, 'board'> & {
 	shapes: MatrixShape[];
 };
@@ -11,8 +11,9 @@ type MatrixOptions = BaseComponentOptions & MatrixData;
 
 export class Matrix extends BaseComponent<MatrixValueType> {
 	private readonly controller: Led.Matrix;
+
 	constructor(private readonly options: MatrixOptions) {
-		super(options);
+		super(options, DEFAULT_MATRIX_START_SHAPE);
 
 		this.controller = new Led.Matrix(options);
 

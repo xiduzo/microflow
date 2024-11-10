@@ -1,7 +1,9 @@
 import JohnnyFive, { ServoGeneralOption } from 'johnny-five';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
-export type ServoData = Omit<ServoGeneralOption, 'board'>;
+export type ServoData = Omit<ServoGeneralOption, 'board' | 'range'> & {
+	range: { min: number; max: number };
+};
 export type ServoValueType = number;
 
 type ServoOptions = BaseComponentOptions & ServoData;
@@ -9,9 +11,12 @@ type ServoOptions = BaseComponentOptions & ServoData;
 export class Servo extends BaseComponent<ServoValueType> {
 	private readonly component: JohnnyFive.Servo;
 
-	constructor(private readonly options: ServoOptions) {
-		super(options);
-		this.component = new JohnnyFive.Servo(options);
+	constructor(options: ServoOptions) {
+		super(options, 0);
+		this.component = new JohnnyFive.Servo({
+			...options,
+			range: [options.range.min, options.range.max],
+		});
 	}
 
 	min() {
@@ -31,10 +36,12 @@ export class Servo extends BaseComponent<ServoValueType> {
 		this.value = this.component.value;
 	}
 
-	rotate(speed = 0) {
+	rotate(speed: number | string | boolean = 0) {
 		if (typeof speed === 'boolean') {
 			speed = speed ? 1 : -1;
 		}
+
+		speed = Number(speed);
 
 		if (speed < 0.05 && speed > -0.05) {
 			this.stop();
@@ -42,7 +49,7 @@ export class Servo extends BaseComponent<ServoValueType> {
 		}
 
 		this.component.cw(speed);
-		this.value = this.component.value;
+		this.value = speed;
 	}
 
 	stop() {

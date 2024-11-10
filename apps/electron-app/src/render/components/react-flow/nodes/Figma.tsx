@@ -1,42 +1,35 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
-import { FigmaVariable, useFigmaVariable, useMqtt } from '@microflow/mqtt-provider/client';
 import {
-    Badge,
-    Icons,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    Switch,
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
+	FigmaVariable,
+	useFigma,
+	useFigmaVariable,
+	useMqtt,
+} from '@microflow/mqtt-provider/client';
+import {
+	Icons,
+	Switch,
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { useUpdateNode } from '../../../hooks/nodeUpdater';
-import { useBoard } from '../../../providers/BoardProvider';
-import { deleteEdgesSelector, useNodesEdgesStore } from '../../../store';
+import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { Handle } from './Handle';
-import {
-    BaseNode,
-    NodeContainer,
-    NodeContent,
-    NodeSettings,
-    NodeValue,
-    useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
+import { useUploadResult } from '../../../stores/board';
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
-	const { deleteEdges } = useNodesEdgesStore(useShallow(deleteEdgesSelector));
-	const { uploadResult } = useBoard();
+	const uploadResult = useUploadResult();
 	const lastPublishedValue = useRef<string>();
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
+	const componentValue = useNodeValue<FigmaValueType>(props.id, undefined);
 
+	// TODO: should we update from the component?
 	const updateNode = useUpdateNode<FigmaData>(props.id);
 
 	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
@@ -54,16 +47,16 @@ export function Figma(props: Props) {
 
 	useEffect(() => {
 		if (status !== 'connected') return;
-		if (props.data?.value === undefined || props.data?.value === null) return;
+		if (componentValue === undefined) return;
 		if (!variable) return;
 
-		const valueToPublish = JSON.stringify(props.data.value);
+		const valueToPublish = JSON.stringify(componentValue);
 
 		if (lastPublishedValue.current === valueToPublish) return;
 		lastPublishedValue.current = valueToPublish;
 
 		publish(`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`, valueToPublish);
-	}, [props.data?.value, variable, status, appName, uniqueId]);
+	}, [componentValue, variable, status, appName, uniqueId]);
 
 	useEffect(() => {
 		if (!variable?.resolvedType) return;
@@ -82,13 +75,8 @@ export function Figma(props: Props) {
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on('ipc-deep-link', (event, id, value) => {
-			if (event !== 'figma') {
-				return;
-			}
-
-			if (id !== variable?.id) {
-				return;
-			}
+			if (event !== 'figma') return;
+			if (id !== variable?.id) return;
 
 			// TODO: do some processing on the value received from the plugin
 			// Eg. convert the color value to rgba
@@ -103,24 +91,9 @@ export function Figma(props: Props) {
 	}, [variable?.id, props.id]);
 
 	return (
-		<NodeContainer {...props}>
-			<NodeContent>
-				{isDisconnected && <Badge variant="destructive">Figma plugin not connected</Badge>}
-				<NodeValue className="max-w-48 text-wrap">
-					<FigmaHeaderContent
-						variable={variable}
-						hasVariables={!!Array.from(Object.values(variables)).length}
-						value={props.data.value ?? value}
-					/>
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings<FigmaData>
-				onClose={() => {
-					deleteEdges(props.id, ['change']);
-				}}
-			>
-				<FigmaSettings />
-			</NodeSettings>
+		<NodeContainer {...props} error={isDisconnected && 'Figma plugin is not connected'}>
+			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
+			<Settings />
 			<FigmaHandles variable={variable} />
 		</NodeContainer>
 	);
@@ -159,45 +132,51 @@ function FigmaHandles(props: { variable?: FigmaVariable }) {
 	);
 }
 
-function FigmaSettings() {
-	const { settings, setSettings } = useNodeSettings<FigmaData>();
+function Settings() {
+	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<FigmaData>();
 
-	const { variables, variable } = useFigmaVariable(settings?.variableId);
+	const { variableTypes } = useFigma();
 
-	return (
-		<>
-			<Select
-				disabled={!Array.from(Object.values(variables)).length}
-				value={settings.variableId}
-				onValueChange={variableId => {
-					setSettings({ variableId });
-				}}
-			>
-				<SelectTrigger>{variable?.name ?? 'Select variable'}</SelectTrigger>
-				<SelectContent>
-					{Array.from(Object.values(variables)).map((variable: FigmaVariable) => (
-						<SelectItem key={variable.id} value={variable.id}>
-							{variable.name}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-		</>
-	);
+	useEffect(() => {
+		if (!pane) return;
+
+		pane.addBinding(settings, 'variableId', {
+			index: 0,
+			view: 'list',
+			label: 'variable',
+			disabled: !Object.keys(variableTypes).length,
+			value: settings.variableId,
+			options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
+				value: variable.id,
+				text: variable.name,
+			})),
+		});
+	}, [pane, settings, variableTypes]);
+
+	useEffect(() => {
+		setHandlesToDelete([
+			'true',
+			'toggle',
+			'false',
+			'red',
+			'green',
+			'blue',
+			'opacity',
+			'increment',
+			'set',
+			'decrement',
+		]);
+	}, [setHandlesToDelete]);
+
+	return null;
 }
 
-function FigmaHeaderContent(props: {
-	variable?: FigmaVariable;
-	value: unknown;
-	hasVariables: boolean;
-}) {
-	if (!props.hasVariables) {
-		return <Icons.Loader2 className="w-12 h-12 animate-spin" />;
-	}
+function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
+	const { id } = useNode();
+	const value = useNodeValue<FigmaValueType>(id, '');
 
-	if (!props.variable) {
-		return <Icons.Variable className="w-12 h-12 opacity-40" />;
-	}
+	if (!props.hasVariables) return <Icons.CloudOff className="text-muted-foreground" size={48} />;
+	if (!props.variable) return <Icons.Variable className="text-muted-foreground" size={48} />;
 
 	switch (props.variable.resolvedType) {
 		case 'BOOLEAN':
@@ -205,26 +184,26 @@ function FigmaHeaderContent(props: {
 				<Switch
 					className="scale-150 border border-muted-foreground/10"
 					disabled
-					checked={Boolean(props.value)}
+					checked={Boolean(value)}
 				/>
 			);
 		case 'FLOAT':
-			return <span className="text-4xl tabular-nums">{Number(props.value ?? 0)}</span>;
+			return <span className="text-4xl tabular-nums">{Number(value)}</span>;
 		case 'STRING':
 			return (
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<div className="-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto">
-								{String(props.value ?? '-')}
+								{String(value)}
 							</div>
 						</TooltipTrigger>
-						<TooltipContent className="max-w-64">{String(props.value)}</TooltipContent>
+						<TooltipContent className="max-w-64">{String(value)}</TooltipContent>
 					</Tooltip>
 				</TooltipProvider>
 			);
 		case 'COLOR':
-			const { r, g, b, a } = (props.value ?? DEFAULT_COLOR) as RGBA;
+			const { r, g, b, a } = (value ?? DEFAULT_COLOR) as RGBA;
 			return (
 				<div
 					className="w-full h-14 rounded-sm bg-green-50 border-2 border-black ring-2 ring-white"
@@ -242,7 +221,7 @@ type Props = BaseNode<FigmaData, FigmaValueType>;
 const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',
-	value: null,
+	variableId: '',
 };
 export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
 	BOOLEAN: false,

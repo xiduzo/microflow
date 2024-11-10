@@ -1,60 +1,59 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
 import { Progress } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { MODES } from '../../../../common/types';
-import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
+import { mapPinToPaneOption } from '../../../../utils/pin';
+import { usePins } from '../../../stores/board';
 
 export function Sensor(props: Props) {
-	const progress = useMemo(() => {
-		if (!props.data.value) return 0;
-
-		return Math.round((props.data.value / 1023) * 100);
-	}, [props.data.value]);
-
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue className="text-4xl">
-					<Progress max={1023} value={progress} className="border border-muted-foreground/10" />
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<SensorSettings />
-			</NodeSettings>
+			<Value />
+			<Settings />
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);
 }
 
-function SensorSettings() {
-	const { settings, setSettings } = useNodeSettings<SensorData>();
+function Value() {
+	const { id } = useNode();
+	const value = useNodeValue<SensorValueType>(id, 0);
 
-	return (
-		<>
-			<PinSelect
-				value={settings.pin}
-				onValueChange={pin => setSettings({ pin })}
-				filter={pin =>
-					pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG)
-				}
-			/>
-		</>
-	);
+	const progress = useMemo(() => Math.round((value / 1023) * 100), [value]);
+
+	return <Progress max={1023} value={progress} className="border border-muted-foreground mx-4" />;
+}
+
+function Settings() {
+	const { pane, settings } = useNodeSettingsPane<SensorData>();
+	const pins = usePins();
+
+	useEffect(() => {
+		if (!pane) return;
+
+		pane.addBinding(settings, 'pin', {
+			view: 'list',
+			disabled: !pins.length,
+			label: 'pin',
+			index: 0,
+			options: pins
+				.filter(
+					pin =>
+						pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG),
+				)
+				.map(mapPinToPaneOption),
+		});
+	}, [pane, settings, pins]);
+
+	return null;
 }
 
 type Props = BaseNode<SensorData, SensorValueType>;
 export const DEFAULT_SENSOR_DATA: Props['data'] = {
-	value: 0,
 	pin: 'A0',
 	label: 'Sensor',
 };

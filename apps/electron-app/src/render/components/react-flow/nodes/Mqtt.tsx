@@ -1,38 +1,22 @@
-import type { MqttData, MqttDirection, MqttValueType } from '@microflow/components';
+import type { MqttData, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
-import {
-	Badge,
-	Icons,
-	Input,
-	Label,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-} from '@microflow/ui';
-import { Position, useUpdateNodeInternals } from '@xyflow/react';
+import { Icons } from '@microflow/ui';
+import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Mqtt(props: Props) {
-	const updateNodeInternals = useUpdateNodeInternals();
-
 	const { publish, subscribe, status } = useMqtt();
+	const value = useNodeValue<MqttValueType>(props.id, '');
 
 	useEffect(() => {
 		if (props.data.direction !== 'publish') return;
 		if (!props.data.topic.length) return;
 
-		publish(props.data.topic, JSON.stringify(props.data.value));
-	}, [props.data.value, props.data.topic, props.data.direction, publish]);
+		publish(props.data.topic, JSON.stringify(value));
+	}, [value, props.data.topic, props.data.direction, publish]);
 
 	useEffect(() => {
 		if (props.data.direction !== 'subscribe') return;
@@ -60,24 +44,9 @@ export function Mqtt(props: Props) {
 	}, [props.id, props.type, props.data.topic, props.data.direction, subscribe]);
 
 	return (
-		<NodeContainer {...props}>
-			<NodeContent>
-				{status !== 'connected' && <Badge variant="destructive">MQTT not connected</Badge>}
-				<NodeValue className="tabular-nums">
-					{props.data.direction === 'publish' ? (
-						<Icons.RadioTower className="w-8 h-8" />
-					) : (
-						<Icons.Antenna className="w-8 h-8" />
-					)}
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings
-				onClose={() => {
-					updateNodeInternals(props.id);
-				}}
-			>
-				<MqttSettings />
-			</NodeSettings>
+		<NodeContainer {...props} error={status !== 'connected' && 'MQTT not connected'}>
+			<Value />
+			<Settings />
 			{props.data.direction === 'publish' && (
 				<Handle type="target" position={Position.Left} id="publish" />
 			)}
@@ -89,43 +58,43 @@ export function Mqtt(props: Props) {
 	);
 }
 
-function MqttSettings() {
-	const { settings, setSettings } = useNodeSettings<MqttData>();
-	return (
-		<>
-			<Select
-				value={settings.direction}
-				onValueChange={(value: MqttDirection) => {
-					setSettings({ direction: value });
-				}}
-			>
-				<SelectTrigger>{settings.direction}</SelectTrigger>
-				<SelectContent>
-					<SelectItem value="publish">Publish</SelectItem>
-					<SelectItem value="subscribe">Subscribe</SelectItem>
-				</SelectContent>
-			</Select>
-			<Label htmlFor="topic" className="flex justify-between">
-				Topic
-			</Label>
-			<Input
-				id="topic"
-				defaultValue={settings.topic}
-				placeholder="your/+/topic/#"
-				onChange={event =>
-					setSettings({
-						topic: event.target.value,
-					})
-				}
-			/>
-		</>
-	);
+function Value() {
+	const { data } = useNode<MqttData>();
+
+	if (data.direction === 'publish') return <Icons.RadioTower size={48} />;
+	return <Icons.Antenna size={48} />;
+}
+
+function Settings() {
+	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<MqttData>();
+
+	useEffect(() => {
+		if (!pane) return;
+
+		pane.addBinding(settings, 'direction', {
+			view: 'list',
+			index: 0,
+			options: [
+				{ text: 'publish', value: 'publish' },
+				{ text: 'subscribe', value: 'subscribe' },
+			],
+		});
+
+		pane.addBinding(settings, 'topic', {
+			index: 1,
+		});
+	}, [pane, settings]);
+
+	useEffect(() => {
+		setHandlesToDelete(['publish', 'subscribe']);
+	}, [setHandlesToDelete]);
+
+	return null;
 }
 
 type Props = BaseNode<MqttData, MqttValueType>;
 export const DEFAULT_MQTT_DATA: Props['data'] = {
 	label: 'MQTT',
 	direction: 'publish',
-	value: '',
 	topic: '',
 };

@@ -1,9 +1,8 @@
 import EventEmitter from 'events';
 import { postMessageToElectronMain } from '../utils/postMessageToElectronMain';
 
-export type BaseComponentOptions<T = any> = {
+export type BaseComponentOptions = {
 	id: string;
-	value: T;
 };
 
 export class BaseComponent<T> {
@@ -12,8 +11,8 @@ export class BaseComponent<T> {
 
 	protected readonly eventEmitter = new EventEmitter();
 
-	constructor(options: BaseComponentOptions<T>) {
-		this._value = options.value;
+	constructor(options: BaseComponentOptions, initialValue: T) {
+		this._value = initialValue;
 		this._id = options.id;
 
 		this.eventEmitter.on('change', this.postMessage.bind(this, 'change'));

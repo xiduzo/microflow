@@ -61,7 +61,7 @@ export function MqttSettingsForm(props: Props) {
 	}
 
 	function onSubmit(data: Schema) {
-		setMqttConfig(data);
+		setMqttConfig(data as MqttConfig);
 		props.onClose?.();
 	}
 

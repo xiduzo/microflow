@@ -6,8 +6,8 @@ export type CounterValueType = number;
 type CounterOptions = BaseComponentOptions & CounterData;
 
 export class Counter extends BaseComponent<CounterValueType> {
-	constructor(private readonly options: CounterOptions) {
-		super(options);
+	constructor(options: CounterOptions) {
+		super(options, 0);
 	}
 
 	increment(amount = 1) {

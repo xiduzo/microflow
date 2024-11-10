@@ -1,17 +1,17 @@
 import {
-  BOARDS,
-  Flasher,
-  getConnectedPorts,
-  type BoardName,
-  type PortInfo,
+	BOARDS,
+	Flasher,
+	getConnectedPorts,
+	type BoardName,
+	type PortInfo,
 } from '@microflow/flasher';
-import type { Edge, Node } from "@xyflow/react";
+import type { Edge, Node } from '@xyflow/react';
 import { ipcMain, IpcMainEvent, Menu, utilityProcess, UtilityProcess } from 'electron';
 
 import log from 'electron-log/node';
 import { existsSync, writeFile } from 'fs';
 import { join, resolve } from 'path';
-import { BoardCheckResult, UploadCodeResult, UploadedCodeMessage } from '../common/types';
+import { BoardResult, UploadResult, UploadedCodeMessage } from '../common/types';
 import { exportFlow } from './file';
 
 let childProcess: UtilityProcess | null = null;
@@ -24,7 +24,7 @@ let childProcess: UtilityProcess | null = null;
 //
 
 ipcMain.on('ipc-export-flow', async (_event, nodes: Node[], edges: Edge[]) => {
-  await exportFlow(nodes, edges);
+	await exportFlow(nodes, edges);
 });
 
 ipcMain.on('ipc-menu', (_event, action, ...args) => {
@@ -54,7 +54,7 @@ ipcMain.on('ipc-check-board', async event => {
 		for (const port of ports) {
 			log.debug(`checking board ${board} on path ${port.path}`, { filePath });
 
-			const result = await new Promise<BoardCheckResult>(resolve => {
+			const result = await new Promise<BoardResult>(resolve => {
 				childProcess = utilityProcess.fork(filePath, [port.path], {
 					serviceName: 'Microflow studio - microcontroller validator',
 					stdio: 'pipe',
@@ -71,7 +71,7 @@ ipcMain.on('ipc-check-board', async event => {
 					port: port.path,
 				});
 
-				childProcess.on('message', async (message: BoardCheckResult) => {
+				childProcess.on('message', async (message: BoardResult) => {
 					log.debug('board check child process process message', { message });
 					if (message.type !== 'info') {
 						childProcess?.kill(); // Free up the port again
@@ -102,7 +102,7 @@ ipcMain.on('ipc-check-board', async event => {
 						...result,
 						port: port.path,
 						type: 'ready',
-					} satisfies BoardCheckResult);
+					} satisfies BoardResult);
 					break checkBoard; // board is flashed with firmata, no need to check other ports
 				} catch (error) {
 					const [lastBoard, ports] = boardsAndPorts.at(-1);
@@ -139,7 +139,7 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 			event.reply('ipc-upload-code', {
 				type: 'error',
 				message: error.message,
-			} satisfies UploadCodeResult);
+			} satisfies UploadResult);
 			return;
 		}
 
@@ -154,7 +154,7 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 			});
 		});
 
-		childProcess.on('message', (message: UploadedCodeMessage | UploadCodeResult) => {
+		childProcess.on('message', (message: UploadedCodeMessage | UploadResult) => {
 			if ('type' in message) {
 				event.reply('ipc-upload-code', message);
 				return;
@@ -212,7 +212,7 @@ function sniffPorts(
 				event.reply('ipc-check-board', {
 					type: 'exit',
 					port: options.connectedPort.path,
-				} satisfies BoardCheckResult);
+				} satisfies BoardResult);
 				return;
 			}
 
@@ -221,7 +221,7 @@ function sniffPorts(
 			if (!options.connectedPort && ports.length !== options.portsConnected?.length) {
 				event.reply('ipc-check-board', {
 					type: 'exit',
-				} satisfies BoardCheckResult);
+				} satisfies BoardResult);
 				return;
 			}
 

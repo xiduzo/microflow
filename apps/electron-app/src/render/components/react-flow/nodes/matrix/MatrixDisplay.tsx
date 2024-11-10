@@ -7,6 +7,7 @@ export function MatrixDisplay(props: Props) {
 		<section
 			className={matrix({
 				size: props.size ?? (columns > 16 ? 'medium' : 'large'),
+				className: props.className,
 			})}
 			style={{
 				gridTemplateRows: `repeat(${rows}, 1fr)`,
@@ -71,4 +72,5 @@ const cell = cva('place-self-center w-full ring-0 transition-all', {
 type Props = Omit<MatrixEditorProps, 'onSave'> & {
 	onCellClick?: (row: number, column: number) => void;
 	cellClassName?: string;
+	className?: string;
 } & Pick<VariantProps<typeof cell>, 'size'>;

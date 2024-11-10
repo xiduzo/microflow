@@ -11,11 +11,14 @@ import { IpcDeepLinkListener } from './render/components/IpcDeepLinkListener';
 import { IpcMenuListeners } from './render/components/IpcMenuListener';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
 import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
-import { BoardProvider } from './render/providers/BoardProvider';
+import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard';
 import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeProvider } from './render/providers/NewNodeProvider';
 
 export function App() {
+	useCelebrateFirstUpload();
+	useCheckBoard();
+
 	const [init, setInit] = useState(false);
 
 	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>('mqtt-config', {
@@ -44,21 +47,19 @@ export function App() {
 
 	return (
 		<CelebrationProvider init={init}>
-			<Toaster position="top-right" className="z-20" />
+			<Toaster position="top-left" className="z-20" />
 			<IpcDeepLinkListener />
-			<BoardProvider>
-				<MqttProvider appName="app" config={mqttConfig}>
-					<FigmaProvider>
-						<ReactFlowProvider>
-							<NodeAndEdgeSignaler />
-							<NewNodeProvider>
-								<ReactFlowCanvas />
-								<IpcMenuListeners />
-							</NewNodeProvider>
-						</ReactFlowProvider>
-					</FigmaProvider>
-				</MqttProvider>
-			</BoardProvider>
+			<MqttProvider appName="app" config={mqttConfig}>
+				<FigmaProvider>
+					<ReactFlowProvider>
+						<NodeAndEdgeSignaler />
+						<NewNodeProvider>
+							<ReactFlowCanvas />
+							<IpcMenuListeners />
+						</NewNodeProvider>
+					</ReactFlowProvider>
+				</FigmaProvider>
+			</MqttProvider>
 		</CelebrationProvider>
 	);
 }

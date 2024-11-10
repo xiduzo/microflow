@@ -1,15 +1,15 @@
-import { useReactFlow, type Edge, type Node } from "@xyflow/react";
-import { useEffect, useState } from "react";
-import { useLocalStorage } from "usehooks-ts";
-import { FlowFile } from "../../common/types";
-import { useSaveFlow } from "../hooks/useSaveFlow";
-import { useNewNode } from "../providers/NewNodeProvider";
-import { useNodesEdgesStore } from "../store";
-import { MqttSettingsForm } from "./forms/MqttSettingsForm";
+import { useReactFlow, type Edge, type Node } from '@xyflow/react';
+import { useEffect, useState } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
+import { FlowFile } from '../../common/types';
+import { useSaveFlow } from '../hooks/useSaveFlow';
+import { useNewNode } from '../providers/NewNodeProvider';
+import { useReactFlowStore } from '../stores/react-flow';
+import { MqttSettingsForm } from './forms/MqttSettingsForm';
 
 export function IpcMenuListeners() {
-  const { getNodes, getEdges } = useReactFlow();
-  const { setEdges, setNodes, undo, redo } = useNodesEdgesStore();
+	const { getNodes, getEdges } = useReactFlow();
+	const { setEdges, setNodes, undo, redo } = useReactFlowStore();
 
 	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
 	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);
@@ -24,10 +24,10 @@ export function IpcMenuListeners() {
 					saveNodesAndEdges();
 					break;
 				case 'new-flow':
-					setLocalEdges([])
-					setLocalNodes([])
-					setNodes([])
-					setEdges([])
+					setLocalEdges([]);
+					setLocalNodes([]);
+					setNodes([]);
+					setEdges([]);
 					break;
 				case 'add-node':
 					setOpen(true);
@@ -39,20 +39,20 @@ export function IpcMenuListeners() {
 					setShowMqttSettings(true);
 					break;
 				case 'export-flow':
-				  window.electron.ipcRenderer.send('ipc-export-flow', getNodes(), getEdges());
-          break;
-        case 'import-flow':
-          // TODO: data validation
-          const { nodes, edges } = props[0] as FlowFile
-          setNodes(nodes)
-          setEdges(edges)
-          break;
-        case 'undo':
-          undo();
-          break;
-        case 'redo':
-          redo();
-          break;
+					window.electron.ipcRenderer.send('ipc-export-flow', getNodes(), getEdges());
+					break;
+				case 'import-flow':
+					// TODO: data validation
+					const { nodes, edges } = props[0] as FlowFile;
+					setNodes(nodes);
+					setEdges(edges);
+					break;
+				case 'undo':
+					undo();
+					break;
+				case 'redo':
+					redo();
+					break;
 				default:
 					break;
 			}

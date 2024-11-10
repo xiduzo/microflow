@@ -1,158 +1,233 @@
 import {
-	Button,
 	cn,
 	cva,
-	Drawer,
-	DrawerContent,
-	DrawerDescription,
-	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	VariantProps,
+	Icons,
+	Pane,
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+	TweakpaneCameraPlugin,
+	TweakpaneEssentialPlugin,
+	TweakpaneTextareaPlugin,
 } from '@microflow/ui';
-import { Node, useReactFlow } from '@xyflow/react';
-import { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
-import { isNodeTypeACodeType } from '../../../../utils/generateCode';
-import { useUpdateNode } from '../../../hooks/nodeUpdater';
+import { Node, useUpdateNodeInternals } from '@xyflow/react';
+import {
+	createContext,
+	PropsWithChildren,
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from 'react';
+import { createPortal } from 'react-dom';
+import { useUpdateNode } from '../../../hooks/useUpdateNode';
+import { useDeleteEdges } from '../../../stores/react-flow';
 
-type NodeSettingsContextType<T extends Record<string, any>> = {
-	settings: T;
-	setSettings: (settings: Partial<T>) => void;
-};
-
-const NodeSettingsContextCreator = <T extends Record<string, any>>() =>
-	createContext<NodeSettingsContextType<T>>({
-		settings: {} as T,
-		setSettings: (settings: Partial<T>) => {},
-	});
-
-const NodeSettingsContext = NodeSettingsContextCreator();
-
-export function useNodeSettings<T extends Record<string, any>>() {
-	return useContext<NodeSettingsContextType<T>>(NodeSettingsContext as any);
-}
-
-export function NodeSettings<T>(props: NodeContainerProps<T>) {
-	const node = useNode();
-	const [settings, setSettingsState] = useState(node.data);
-	const { deleteElements } = useReactFlow<BaseNode>();
-	const updateNode = useUpdateNode(node.id);
-
-	function handleOpenChange(settingsOpen = false) {
-		if (settingsOpen) return;
-		if (settingsOpen === node.data.settingsOpen) return;
-
-		const newSettings = { ...settings, settingsOpen };
-
-		props.onClose?.(newSettings as T);
-		updateNode(newSettings, isNodeTypeACodeType(node.type));
-	}
-
-	function setSettings(newSettings: Partial<T>) {
-		setSettingsState(prev => {
-			const updatedSettings = { ...prev, ...newSettings };
-			return updatedSettings;
-		});
-	}
+export function NodeSettingsButton() {
+	const { settingsOpened, setSettingsOpened } = useNode();
 
 	return (
-		<NodeSettingsContext.Provider
-			value={{
-				settings,
-				setSettings,
+		<button
+			onClick={e => {
+				e.stopPropagation();
+				setSettingsOpened(!settingsOpened);
 			}}
+			className={settingsButton({ settingsOpened })}
 		>
-			<Drawer open={node.data.settingsOpen} nested onOpenChange={handleOpenChange}>
-				<DrawerContent>
-					<DrawerHeader className="max-w-md w-full m-auto mt-6">
-						<DrawerTitle className="flex items-center justify-between">
-							Configure node
-							<span className="text-xs font-light text-neutral-500">id: {node.id}</span>
-						</DrawerTitle>
-						<DrawerDescription>
-							Updates will be automatically applied when closing the drawer.
-						</DrawerDescription>
-					</DrawerHeader>
-					<section className="max-w-md w-full m-auto flex flex-col space-y-4 mb-8 p-4">
-						{props.children}
-					</section>
-					<DrawerFooter className="max-w-md w-full m-auto">
-						<Button variant="secondary" onClick={() => handleOpenChange()}>
-							Close
-						</Button>
-						<Button variant="destructive" onClick={() => deleteElements({ nodes: [node] })}>
-							Delete node
-						</Button>
-					</DrawerFooter>
-				</DrawerContent>
-			</Drawer>
-		</NodeSettingsContext.Provider>
+			<Icons.SlidersHorizontal size={16} />
+		</button>
 	);
 }
 
-type NodeContainerProps<T extends Record<string, any> = {}> = PropsWithChildren & {
-	className?: string;
-	onClose?: (settings: T) => void;
-};
-
-export function NodeValue(props: NodeValueProps) {
-	const { data } = useNode();
-	const prevValue = useRef(props.valueOverride ?? data.value);
-
-	useEffect(() => {
-		if (data.animated) return;
-
-		prevValue.current = props.valueOverride ?? data.value;
-	}, [data.animated, data.value, props.valueOverride]);
-
-	return (
-		<section
-			className={cn(
-				nodeValue({
-					className: props.className,
-					active:
-						props.active ||
-						(!!data.animated && (props.valueOverride ?? data.value) !== prevValue.current),
-				}),
-			)}
-		>
-			{props.children}
-		</section>
-	);
-}
-
-export function NodeContent(props: PropsWithChildren) {
-	return <section className="flex flex-col space-y-4 grow">{props.children}</section>;
-}
-
-type NodeValueProps = PropsWithChildren &
-	VariantProps<typeof nodeValue> & {
-		className?: string;
-		valueOverride?: unknown;
-	};
-
-const nodeValue = cva(
-	'flex p-4 justify-center items-center rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none',
+const settingsButton = cva(
+	'h-10 w-10 inline-flex items-center justify-center rounded-md transition-all',
 	{
 		variants: {
-			active: {
-				true: 'bg-yellow-700',
-				false: 'bg-muted',
-			},
-			defaultVariants: {
-				active: false,
+			settingsOpened: {
+				true: 'bg-black/40 hover:bg-black/30',
+				false: 'hover:bg-black/40',
 			},
 		},
 	},
 );
 
-const NodeContainerContext = createContext<BaseNode>({} as BaseNode);
-export const useNode = () => useContext(NodeContainerContext);
+function NodeHeader(props: { error?: string; selected?: boolean }) {
+	const { data, id } = useNode();
 
-export function NodeContainer(props: PropsWithChildren & BaseNode) {
+	// TODO: label does not update from settings pane
+
 	return (
-		<NodeContainerContext.Provider value={props}>
-			<div
+		<header className={header({ selected: props.selected, hasError: !!props.error })}>
+			<div className="flex flex-col">
+				<div className="flex items-center space-x-2">
+					<h1 className="font-bold">{data.label}</h1>
+					{props.error && (
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild className="cursor-help">
+									<Icons.OctagonAlert size={16} />
+								</TooltipTrigger>
+								<TooltipContent className="text-red-500">{props.error}</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					)}
+				</div>
+				<h2 className="text-xs font-extralight">{id}</h2>
+			</div>
+			<NodeSettingsButton />
+		</header>
+	);
+}
+
+const header = cva(
+	'p-2 pl-3.5 border-b-2 flex justify-between items-center rounded-t-md transition-all',
+	{
+		variants: {
+			selected: {
+				true: '',
+				false: '',
+			},
+			hasError: {
+				true: '',
+				false: '',
+			},
+		},
+		compoundVariants: [
+			{
+				selected: false,
+				hasError: false,
+				className: 'text-muted-foreground border-muted',
+			},
+			{
+				selected: true,
+				hasError: false,
+				className: 'bg-blue-600 text-blue-200 border-blue-600',
+			},
+			{
+				selected: false,
+				hasError: true,
+				className: 'bg-red-600 text-red-200 border-red-600',
+			},
+			{
+				selected: true,
+				hasError: true,
+				className: 'bg-blue-600 text-blue-200 border-blue-600',
+			},
+		],
+	},
+);
+
+type SettingsContextProps<T extends Record<string, unknown>> = {
+	pane: Pane | null;
+	settings: T;
+	setHandlesToDelete: (handles: string[]) => void;
+};
+
+const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
+	{} as SettingsContextProps<{}>,
+);
+
+export function useNodeSettingsPane<T extends Record<string, unknown>>() {
+	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
+}
+
+function NodeSettingsPane<T extends Record<string, unknown>>(
+	props: PropsWithChildren & { options?: unknown },
+) {
+	const [pane, setPane] = useState<Pane | null>(null);
+	const updateNodeInternals = useUpdateNodeInternals();
+	const deleteEdes = useDeleteEdges();
+
+	const { data, settingsOpened, setSettingsOpened, id, type } = useNode<T>();
+	const updateNode = useUpdateNode(id);
+
+	const ref = useRef<HTMLDivElement>();
+	const settings = useRef(data);
+	const handlesToDelete = useRef<string[]>([]);
+
+	const setHandlesToDelete = useCallback((handles: string[]) => {
+		handlesToDelete.current = handles;
+	}, []);
+
+	useEffect(() => {
+		if (!settingsOpened) return;
+
+		const pane = new Pane({
+			title: `${data.label} (${id})`,
+			container: ref.current,
+		});
+		pane.registerPlugin(TweakpaneEssentialPlugin);
+		pane.registerPlugin(TweakpaneTextareaPlugin);
+		pane.registerPlugin(TweakpaneCameraPlugin);
+
+		pane.addBinding(settings.current, 'label', {
+			index: 9998,
+		});
+
+		pane
+			.addButton({
+				title: 'Save & close',
+				index: 9999,
+			})
+			.on('click', () => {
+				deleteEdes(id, handlesToDelete.current);
+				updateNode(settings.current, type !== 'Note');
+				updateNodeInternals(id);
+				setSettingsOpened(false);
+			});
+
+		setPane(pane);
+
+		return () => {
+			setPane(null);
+			pane.dispose();
+		};
+	}, [settingsOpened, deleteEdes, type, id]);
+
+	useEffect(() => {
+		if (settingsOpened) return;
+		settings.current = { ...data };
+	}, [data, settingsOpened]);
+
+	return (
+		<NodeSettingsPaneContext.Provider
+			value={{ pane, settings: settings.current, setHandlesToDelete }}
+		>
+			{props.children}
+			{settingsOpened &&
+				createPortal(
+					<div ref={ref} onClick={e => e.stopPropagation()} />,
+					document.getElementById('settings-panels'),
+				)}
+		</NodeSettingsPaneContext.Provider>
+	);
+}
+
+type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
+	settingsOpened: boolean;
+	setSettingsOpened: (open: boolean) => void;
+};
+
+const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
+	{} as ContainerProps<Record<string, unknown>>,
+);
+export const useNode = <T extends Record<string, unknown>>() =>
+	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
+
+export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
+	const [settingsOpened, setSettingsOpened] = useState(false);
+
+	return (
+		<NodeContainerContext.Provider
+			value={{
+				...props,
+				settingsOpened,
+				setSettingsOpened,
+			}}
+		>
+			<article
 				className={cn(
 					node({
 						className: props.className,
@@ -161,50 +236,29 @@ export function NodeContainer(props: PropsWithChildren & BaseNode) {
 						dragging: props.dragging,
 						selectable: props.selectable,
 						selected: props.selected,
+						hasError: !!props.error,
 					}),
 				)}
 			>
-				<NodeHeader />
-				<main className="px-4 pt-2 pb-4 flex justify-center items-center grow">
-					{props.children}
+				<NodeHeader error={props.error} selected={props.selected} />
+				<main className="flex grow justify-center items-center bg-muted/40">
+					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
-			</div>
+			</article>
 		</NodeContainerContext.Provider>
 	);
 }
 
-function NodeHeader() {
-	const node = useNode();
-
-	return (
-		<header className="p-2 pl-4 border-b-2 text-muted-foreground text-sm">{node.data.label}</header>
-	);
-}
-
 const node = cva(
-	'bg-neutral-950/5 outline outline-2 -outline-offset-1 outline-neutral-500/25 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col',
+	'outline outline-2 -outline-offset-1 outline-muted backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col transition-all',
 	{
 		variants: {
-			selectable: {
-				true: '',
-				false: '',
-			},
-			selected: {
-				true: 'outline-blue-500',
-				false: '',
-			},
-			draggable: {
-				true: 'active:cursor-grabbing',
-				false: '',
-			},
-			dragging: {
-				true: '',
-				false: '',
-			},
-			deletabled: {
-				true: '',
-				false: '',
-			},
+			selectable: { true: '', false: '' },
+			selected: { true: 'outline-blue-600', false: '' },
+			draggable: { true: 'active:cursor-grabbing', false: '' },
+			dragging: { true: '', false: '' },
+			deletabled: { true: '', false: '' },
+			hasError: { true: '', false: '' },
 		},
 		defaultVariants: {
 			selectable: false,
@@ -212,13 +266,35 @@ const node = cva(
 			draggable: false,
 			dragging: false,
 			deletabled: false,
+			hasError: false,
 		},
+		compoundVariants: [
+			{
+				selected: false,
+				hasError: false,
+				className: '',
+			},
+			{
+				selected: true,
+				hasError: false,
+				className: 'outline-blue-600',
+			},
+			{
+				selected: false,
+				hasError: true,
+				className: 'outline-red-600',
+			},
+			{
+				selected: true,
+				hasError: true,
+				className: 'outline-blue-600',
+			},
+		],
 	},
 );
 
-export type BaseNode<Data extends Record<string, any> = {}, ValueType = any> = Node<
-	Data & {
-		value: ValueType;
+export type BaseNode<Settings extends Record<string, unknown> = {}, Value = any> = Node<
+	Settings & {
 		label: string;
 		animated?: string;
 		settingsOpen?: boolean;

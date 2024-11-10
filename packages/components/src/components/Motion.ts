@@ -13,8 +13,8 @@ type MotionOptions = BaseComponentOptions & MotionData;
 export class Motion extends BaseComponent<MotionValueType> {
 	private readonly component: JohnnyFive.Motion;
 
-	constructor(private readonly options: MotionOptions) {
-		super(options);
+	constructor(options: MotionOptions) {
+		super(options, false);
 
 		this.component = new JohnnyFive.Motion(options);
 

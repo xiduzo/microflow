@@ -1,33 +1,21 @@
-import type { Controller, MotionData, MotionValueType } from '@microflow/components';
+import type { MotionData, MotionValueType } from '@microflow/components';
 import { MOTION_CONTROLLERS } from '@microflow/components/contants';
-import { Icons, Select, SelectContent, SelectItem, SelectTrigger } from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
-import { PinSelect } from '../../PinSelect';
 import { Handle } from './Handle';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useNodeValue } from '../../../stores/node-data';
+import { useEffect } from 'react';
+import { mapPinToPaneOption } from '../../../../utils/pin';
+import { BindingApi } from '@tweakpane/core';
+import { usePins } from '../../../stores/board';
 
 export function Motion(props: Props) {
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue className="text-4xl tabular-nums">
-					{Boolean(props.data.value) && <Icons.Eye className="w-10 h-10" />}
-					{!Boolean(props.data.value) && (
-						<Icons.EyeOff className="w-10 h-10 text-muted-foreground pulse" />
-					)}
-				</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<MotionSettings />
-			</NodeSettings>
+			<Value />
+			<Settings />
 			<Handle
 				type="source"
 				position={Position.Right}
@@ -47,45 +35,65 @@ export function Motion(props: Props) {
 	);
 }
 
-function MotionSettings() {
-	const { settings, setSettings } = useNodeSettings<MotionData>();
+function Value() {
+	const { id } = useNode();
+	const value = useNodeValue<MotionValueType>(id, false);
 
-	return (
-		<>
-			<PinSelect
-				value={settings.pin}
-				onValueChange={pin => setSettings({ pin })}
-				filter={pin => {
-					const isCorrectMode =
-						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
+	if (!value) return <Icons.EyeClosed className="text-muted-foreground" size={48} />;
+	return <Icons.Eye className="text-green-500" size={48} />;
+}
 
-					if (settings.controller === 'HCSR501') {
-						return isCorrectMode && pin.supportedModes.includes(MODES.ANALOG);
-					} else {
-						return isCorrectMode && !pin.supportedModes.includes(MODES.ANALOG);
-					}
-				}}
-			/>
-			<Select
-				value={settings.controller}
-				onValueChange={(value: Controller) => setSettings({ controller: value })}
-			>
-				<SelectTrigger>{settings.controller}</SelectTrigger>
-				<SelectContent>
-					{MOTION_CONTROLLERS.map(controller => (
-						<SelectItem key={controller} value={controller}>
-							{controller}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-		</>
-	);
+function Settings() {
+	const { pane, settings } = useNodeSettingsPane<MotionData>();
+	const pins = usePins();
+
+	useEffect(() => {
+		if (!pane) return;
+
+		let pinPane: BindingApi | undefined;
+
+		function createPinPane() {
+			pinPane?.dispose();
+
+			pinPane = pane.addBinding(settings, 'pin', {
+				view: 'list',
+				disabled: !pins.length,
+				label: 'pin',
+				index: 1,
+				options: pins
+					.filter(pin => {
+						const isCorrectMode =
+							pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
+
+						if (settings.controller === 'HCSR501') {
+							return isCorrectMode && pin.supportedModes.includes(MODES.ANALOG);
+						} else {
+							return isCorrectMode && !pin.supportedModes.includes(MODES.ANALOG);
+						}
+					})
+					.map(mapPinToPaneOption),
+			});
+		}
+
+		pane
+			.addBinding(settings, 'controller', {
+				view: 'list',
+				index: 0,
+				options: MOTION_CONTROLLERS.map(controller => ({
+					value: controller,
+					text: controller,
+				})),
+			})
+			.on('change', createPinPane);
+
+		createPinPane();
+	}, [pane, pins]);
+
+	return null;
 }
 
 type Props = BaseNode<MotionData, MotionValueType>;
 export const DEFAULT_MOTION_DATA: Props['data'] = {
-	value: false,
 	pin: '8',
 	label: 'Motion',
 	controller: 'HCSR501',

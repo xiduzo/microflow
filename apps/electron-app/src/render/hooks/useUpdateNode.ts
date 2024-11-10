@@ -10,9 +10,7 @@ export function useUpdateNode<T extends Record<string, any>>(nodeId: string) {
 		(data: Partial<T>, updateCode = true) => {
 			updateNodeData(nodeId, data);
 
-			if (!updateCode) {
-				return;
-			}
+			if (!updateCode) return;
 
 			setTimeout(() => {
 				uploadCode();

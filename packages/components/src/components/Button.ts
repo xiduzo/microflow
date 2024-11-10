@@ -8,8 +8,9 @@ type ButtonOptions = BaseComponentOptions & ButtonData;
 
 export class Button extends BaseComponent<ButtonValueType> {
 	private readonly component: JohnnyFive.Button;
-	constructor(private readonly options: ButtonOptions) {
-		super(options);
+
+	constructor(options: ButtonOptions) {
+		super(options, false);
 
 		this.component = new JohnnyFive.Button(options);
 
