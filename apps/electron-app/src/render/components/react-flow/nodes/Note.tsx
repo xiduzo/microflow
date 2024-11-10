@@ -1,43 +1,39 @@
-import { Textarea } from '@microflow/ui';
-import {
-	BaseNode,
-	NodeContainer,
-	NodeContent,
-	NodeSettings,
-	NodeValue,
-	useNodeSettings,
-} from './Node';
+import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { useEffect } from 'react';
 
 export function Note(props: Props) {
 	return (
 		<NodeContainer {...props}>
-			<NodeContent>
-				<NodeValue className="max-w-48 text-wrap">{props.data.value}</NodeValue>
-			</NodeContent>
-			<NodeSettings>
-				<NoteSettings />
-			</NodeSettings>
+			<Value />
+			<Settings />
 		</NodeContainer>
 	);
 }
 
-function NoteSettings() {
-	const { settings, setSettings } = useNodeSettings<NoteData>();
+function Value() {
+	const { data } = useNode();
 
-	return (
-		<>
-			<Textarea
-				placeholder="Write your note here..."
-				value={settings.value}
-				onChange={e => setSettings({ value: e.target.value })}
-			/>
-			<Textarea
-				placeholder="You can add extra info here..."
-				value={settings.extraInfo}
-				onChange={e => setSettings({ extraInfo: e.target.value })}
-			/>
-		</>
-	);
+	return <section className="text-wrap">{data.value ?? ''}</section>;
+}
+
+function Settings() {
+	const { pane, settings } = useNodeSettingsPane<NoteData>();
+
+	useEffect(() => {
+		if (!pane) return;
+
+		pane.addBinding(settings, 'value', {
+			index: 0,
+		});
+		pane.addBinding(settings, 'extraInfo', {
+			index: 1,
+			label: 'Extra info',
+			view: 'textarea',
+			rows: 3,
+		});
+	}, [pane, settings]);
+
+	return null;
 }
 
 type NoteData = {
@@ -48,4 +44,5 @@ type Props = BaseNode<NoteData, string>;
 export const DEFAULT_NOTE_DATA: Props['data'] = {
 	label: 'Note',
 	value: 'New note',
+	extraInfo: '',
 };

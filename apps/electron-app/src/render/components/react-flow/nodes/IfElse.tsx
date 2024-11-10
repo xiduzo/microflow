@@ -43,7 +43,7 @@ function Settings() {
 		let subValidatorPane: BindingApi | undefined;
 		let validatorArgPane: BladeApi | undefined;
 
-		function addValidatorArgs(subValidator: SubValidator) {
+		function addValidatorArgs() {
 			validatorArgPane?.dispose();
 
 			validatorArgPane = pane.addBinding(settings, 'validatorArg', {
@@ -73,21 +73,21 @@ function Settings() {
 						case 'starts with':
 						case 'ends with':
 							settings.validatorArg = settings.validatorArg ?? '';
-							addValidatorArgs(event.value);
+							addValidatorArgs();
 							break;
 						case 'less than':
 						case 'greater than':
 							settings.validatorArg = isNaN(Number(settings.validatorArg))
 								? 0
 								: (settings.validatorArg ?? 0);
-							addValidatorArgs(event.value);
+							addValidatorArgs();
 							break;
 						case 'between':
 						case 'outside':
 							settings.validatorArg = isNaN(Number(settings.validatorArg))
-								? (settings.validatorArg ?? { x: 100, y: 500 })
-								: { x: 100, y: 500 };
-							addValidatorArgs(event.value);
+								? (settings.validatorArg ?? { min: 100, max: 500 })
+								: { min: 100, max: 500 };
+							addValidatorArgs();
 							break;
 						case 'even':
 						case 'odd':
@@ -102,7 +102,7 @@ function Settings() {
 			if (settings.subValidator === 'odd') return;
 			if (settings.subValidator === 'even') return;
 
-			addValidatorArgs(settings.subValidator);
+			addValidatorArgs();
 		}
 
 		pane

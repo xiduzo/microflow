@@ -27,10 +27,7 @@ type SingleNumberData = {
 type DoubleNumberData = {
 	validator: 'number';
 	subValidator: 'between' | 'outside';
-	/**
-	 * To work nicely with the tweakplane UI, we need to have a single object with x and y properties.
-	 */
-	validatorArg: { x: number; y: number };
+	validatorArg: { min: number; max: number };
 };
 
 export type IfElseData = BooleanData | TextData | NumberData | SingleNumberData | DoubleNumberData;
@@ -68,12 +65,12 @@ export class IfElse extends BaseComponent<IfElseValueType> {
 							input < (this.options.validatorArg as SingleNumberData['validatorArg']);
 					case 'between':
 						return (input: number) =>
-							input > (this.options.validatorArg as DoubleNumberData['validatorArg']).x &&
-							input < (this.options.validatorArg as DoubleNumberData['validatorArg']).y;
+							input > (this.options.validatorArg as DoubleNumberData['validatorArg']).min &&
+							input < (this.options.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'outside':
 						return (input: number) =>
-							input < (this.options.validatorArg as DoubleNumberData['validatorArg']).x &&
-							input > (this.options.validatorArg as DoubleNumberData['validatorArg']).y;
+							input < (this.options.validatorArg as DoubleNumberData['validatorArg']).min &&
+							input > (this.options.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'even':
 						return (input: number) => Math.round(input) % 2 === 0;
 					case 'odd':

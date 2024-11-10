@@ -16,6 +16,8 @@ import {
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
+	TweakpaneEssentialPlugin,
+	TweakpaneTextareaPlugin,
 	VariantProps,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
@@ -139,12 +141,14 @@ const nodeValue = cva(
 	'flex p-4 justify-center items-center rounded-md transition-all dutation-75 min-w-48 min-h-28 w-full pointer-events-none bg-muted',
 );
 
-type ContainerProps<T> = BaseNode<T> & {
+type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
 	settingsOpened: boolean;
 	setSettingsOpened: (open: boolean) => void;
 };
-const NodeContainerContext = createContext<ContainerProps<unknown>>({} as ContainerProps<unknown>);
-export const useNode = <T extends Record<string, any>>() =>
+const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
+	{} as ContainerProps<Record<string, unknown>>,
+);
+export const useNode = <T extends Record<string, unknown>>() =>
 	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
 
 export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
@@ -216,7 +220,7 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChildren) {
 	const [pane, setPane] = useState<Pane | null>(null);
 
-	const { data, settingsOpened, setSettingsOpened, id } = useNode<T>();
+	const { data, settingsOpened, setSettingsOpened, id, type } = useNode<T>();
 	const updateNode = useUpdateNode(id);
 
 	const settings = useRef(data);
@@ -230,6 +234,10 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 			title: `${data.label} (${id})`,
 			container: ref.current,
 		});
+		pane.registerPlugin(TweakpaneEssentialPlugin);
+		pane.registerPlugin(TweakpaneTextareaPlugin);
+
+		console.log(pane.controller);
 
 		pane
 			.addButton({
@@ -237,7 +245,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(props: PropsWithChi
 				index: 9999,
 			})
 			.on('click', () => {
-				updateNode(settings.current);
+				updateNode(settings.current, type !== 'Note');
 				setSettingsOpened(false);
 			});
 
