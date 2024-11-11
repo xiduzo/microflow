@@ -2,15 +2,13 @@ import type { MqttData, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 
 export function Mqtt(props: Props) {
 	const { status } = useMqtt();
-
-	console.log('>>> trigger MQTT', status);
 
 	return (
 		<NodeContainer {...props} error={status !== 'connected' && 'MQTT not connected'}>
@@ -83,23 +81,26 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'direction', {
-			view: 'list',
-			index: 0,
-			options: [
-				{ text: 'publish', value: 'publish' },
-				{ text: 'subscribe', value: 'subscribe' },
-			],
-		});
+		const initialDirection = settings.direction;
+
+		pane
+			.addBinding(settings, 'direction', {
+				view: 'list',
+				index: 0,
+				options: [
+					{ text: 'publish', value: 'publish' },
+					{ text: 'subscribe', value: 'subscribe' },
+				],
+			})
+			.on('change', event => {
+				if (event.value === initialDirection) setHandlesToDelete([]);
+				else setHandlesToDelete(event.value === 'publish' ? ['subscribe'] : ['publish']);
+			});
 
 		pane.addBinding(settings, 'topic', {
 			index: 1,
 		});
-	}, [pane, settings]);
-
-	useEffect(() => {
-		setHandlesToDelete(['publish', 'subscribe']);
-	}, [setHandlesToDelete]);
+	}, [pane, settings, setHandlesToDelete]);
 
 	return null;
 }
