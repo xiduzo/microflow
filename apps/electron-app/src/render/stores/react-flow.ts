@@ -100,12 +100,12 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 
 			const edges = get().edges.filter(edge => {
 				const isSource = edge.source === nodeId;
-				const isSourceHandle = handles.includes(edge.targetHandle);
-				if (isSource && isSourceHandle) return false;
-
 				const isTarget = edge.target === nodeId;
-				const isTargetHandle = handles.includes(edge.sourceHandle);
-				if (isTarget && isTargetHandle) return false;
+
+				if (!isSource && !isTarget) return true;
+
+				if (isTarget && !handles.includes(edge.targetHandle)) return true;
+				if (isSource && !handles.includes(edge.sourceHandle)) return true;
 
 				return false;
 			});
