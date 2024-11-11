@@ -1,10 +1,7 @@
 import { FigmaProvider, MqttConfig, MqttProvider } from '@microflow/mqtt-provider/client';
 import { Toaster } from '@microflow/ui';
-import { initParticlesEngine } from '@tsparticles/react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { loadFull } from 'tsparticles';
 import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
 import { IpcDeepLinkListener } from './render/components/IpcDeepLinkListener';
@@ -16,51 +13,29 @@ import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeProvider } from './render/providers/NewNodeProvider';
 
 export function App() {
-	useCelebrateFirstUpload();
-	useCheckBoard();
-
-	const [init, setInit] = useState(false);
-
-	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>('mqtt-config', {
-		uniqueId: '',
+	const [mqttConfig] = useLocalStorage<MqttConfig | undefined>('mqtt-config', {
+		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
 	});
 
-	// Somehow initial triggers engless rerenders
-	// This is a workaround
-	useEffect(() => {
-		if (mqttConfig.uniqueId.length) {
-			return;
-		}
-
-		setMqttConfig({
-			uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
-		});
-	}, [mqttConfig.uniqueId]);
-
-	useEffect(() => {
-		initParticlesEngine(async engine => {
-			await loadFull(engine);
-		}).then(() => {
-			setInit(true);
-		});
-	}, []);
-
 	return (
-		<CelebrationProvider init={init}>
-			<Toaster position="top-left" className="z-20" />
-			<IpcDeepLinkListener />
-			<MqttProvider appName="app" config={mqttConfig}>
-				<FigmaProvider>
-					<ReactFlowProvider>
-						<NodeAndEdgeSignaler />
-						<NewNodeProvider>
-							<ReactFlowCanvas />
-							<IpcMenuListeners />
-						</NewNodeProvider>
-					</ReactFlowProvider>
-				</FigmaProvider>
-			</MqttProvider>
-		</CelebrationProvider>
+		<>
+			<CelebrationProvider>
+				<Toaster position="top-left" className="z-20" />
+				<IpcDeepLinkListener />
+				<MqttProvider appName="app" config={mqttConfig}>
+					<FigmaProvider>
+						<ReactFlowProvider>
+							<NodeAndEdgeSignaler />
+							<NewNodeProvider>
+								<ReactFlowCanvas />
+								<IpcMenuListeners />
+							</NewNodeProvider>
+						</ReactFlowProvider>
+					</FigmaProvider>
+				</MqttProvider>
+			</CelebrationProvider>
+			<BoardHooks />
+		</>
 	);
 }
 
@@ -69,6 +44,13 @@ root.render(<App />);
 
 function NodeAndEdgeSignaler() {
 	useSignalNodesAndEdges();
+
+	return null;
+}
+
+function BoardHooks() {
+	useCelebrateFirstUpload();
+	useCheckBoard();
 
 	return null;
 }
