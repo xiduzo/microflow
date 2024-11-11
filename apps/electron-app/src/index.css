@@ -22,12 +22,12 @@ body {
 	@apply stroke-[4] stroke-neutral-600 transition-all;
 }
 
-.react-flow__edge.selected .react-flow__edge-path,
-.react-flow__edge.selectable:focus .react-flow__edge-path {
+.react-flow__edges .react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edges .react-flow__edge.selectable:focus .react-flow__edge-path {
 	@apply stroke-blue-500;
 }
 
-.react-flow__edge.animated .react-flow__edge-path {
+.react-flow__edges .react-flow__edge.animated .react-flow__edge-path {
 	@apply stroke-yellow-500;
 }
 
