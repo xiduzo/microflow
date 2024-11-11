@@ -41,7 +41,7 @@ export function Servo(props: Props) {
 
 function Value() {
 	const { id, data } = useNode<ServoData>();
-	const value = useNodeValue<ServoValueType>(id, 0);
+	const value = useNodeValue<ServoValueType>(id, data.range.min);
 
 	if (data.type === 'continuous') {
 		if (!value) return <Icons.Circle className="text-muted-foreground" size={48} />;
@@ -50,9 +50,23 @@ function Value() {
 	}
 
 	return (
-		<section className="tabular-nums text-4xl">
-			{value}
-			<span className="font-extralight">°</span>
+		<section className="relative">
+			<section
+				className="origin-bottom absolute transition-all"
+				style={{ rotate: `${data.range.min - 90}deg` }}
+			>
+				<Icons.Slash className="-rotate-45 text-red-500/10" size={48} />
+			</section>
+			<section
+				className="origin-bottom absolute transition-all"
+				style={{ rotate: `${data.range.max - 90}deg` }}
+			>
+				<Icons.Slash className="-rotate-45 text-green-500/10" size={48} />
+			</section>
+			<section className="origin-bottom transition-all" style={{ rotate: `${value - 90}deg` }}>
+				<Icons.Slash className="-rotate-45 text-muted-foreground" size={48} />
+			</section>
+			<div className="absolute w-4 h-4 left-4 -bottom-2 rounded-full bg-muted-foreground" />
 		</section>
 	);
 }
@@ -74,7 +88,7 @@ function Settings() {
 				index: 2,
 				step: 1,
 				min: 0,
-				max: 360,
+				max: 180,
 			});
 		}
 		pane.addBinding(settings, 'pin', {

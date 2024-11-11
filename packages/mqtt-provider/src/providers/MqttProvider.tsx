@@ -65,7 +65,7 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 
 		const unsubFromPong = subscribe(
 			`microflow/v1/${props.config.uniqueId}/${props.appName}/pong`,
-			(topic, message) => {
+			(_topic, message) => {
 				setConnectedClients(prev => {
 					const client = message.toString() as Client;
 					prev.set(client, 'connected');

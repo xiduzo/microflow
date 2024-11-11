@@ -23,7 +23,6 @@ export function useMqttClient() {
 
 	const subscribe = useCallback(
 		async (topic: string, callback: mqtt.OnMessageCallback) => {
-			if (subscriptions.current.get(topic)) return;
 			subscriptions.current.set(topic, callback);
 			await client.current?.subscribeAsync(topic).catch(console.error);
 
@@ -40,8 +39,7 @@ export function useMqttClient() {
 
 	const resubscribe = useCallback(async () => {
 		setStatus('connecting');
-		for (const topic in Object.keys(subscriptions.current)) {
-			const callback = subscriptions.current.get(topic);
+		for (const [topic, callback] of Array.from(subscriptions.current)) {
 			try {
 				await unsubscribe(topic);
 				await subscribe(topic, callback);
@@ -80,26 +78,17 @@ export function useMqttClient() {
 				})
 				.on('close', () => {
 					console.debug('close event received');
-					// disconnect();
-					// connect(options);
 				})
 				.on('message', (topic, payload, packet) => {
 					Array.from(subscriptions.current.keys()).forEach(subscription => {
 						const regexp = new RegExp(
 							subscription.replace(/\//g, '\\/').replace(/\+/g, '\\S+').replace(/#/, '\\S+'),
 						);
-						if (!topic.match(regexp)) {
-							return;
-						}
-
-						const callback = subscriptions.current.get(subscription);
-
-						if (!callback) {
-							return;
-						}
+						if (!topic.match(regexp)) return;
 
 						try {
-							callback(topic, payload, packet);
+							const callback = subscriptions.current.get(subscription);
+							callback?.(topic, payload, packet);
 						} catch {
 							console.error('Error in callback for topic', {
 								topic,
