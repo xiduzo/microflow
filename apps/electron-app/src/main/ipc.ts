@@ -148,6 +148,12 @@ ipcMain.on('ipc-upload-code', (event, code: string, portPath: string) => {
 			stdio: 'pipe',
 		});
 
+		childProcess.stdout?.on('data', data => {
+			log.info('board check child process stdout', {
+				data: data.toString(),
+			});
+		});
+
 		childProcess.stderr?.on('data', data => {
 			log.error('board check child process error', {
 				data: data.toString(),
