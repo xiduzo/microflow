@@ -23,9 +23,7 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 	buzz() {
 		this.stop();
 
-		if (this.options.type !== 'buzz') {
-			return;
-		}
+		if (this.options.type !== 'buzz') return;
 
 		this.value = true;
 		this.component.frequency(this.options.frequency, this.options.duration);
@@ -36,18 +34,20 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 	}
 
 	stop() {
-		this.component.stop();
-		this.component.off();
-		this.value = false;
+		try {
+			this.component.stop();
+			this.component.off();
+			this.value = false;
+		} catch (error) {
+			console.error(error);
+		}
 		return this;
 	}
 
 	play() {
 		this.stop();
 
-		if (this.options.type !== 'song') {
-			return;
-		}
+		if (this.options.type !== 'song') return;
 
 		this.value = true;
 		this.component.play(

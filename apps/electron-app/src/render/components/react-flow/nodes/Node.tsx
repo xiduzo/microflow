@@ -56,8 +56,6 @@ const settingsButton = cva(
 function NodeHeader(props: { error?: string; selected?: boolean }) {
 	const { data, id } = useNode();
 
-	// TODO: label does not update from settings pane
-
 	return (
 		<header className={header({ selected: props.selected, hasError: !!props.error })}>
 			<div className="flex flex-col">
@@ -140,7 +138,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const updateNodeInternals = useUpdateNodeInternals();
 	const deleteEdes = useDeleteEdges();
 
-	const { data, settingsOpened, setSettingsOpened, id, type } = useNode<T>();
+	const { data, settingsOpened, id, type } = useNode<T>();
 	const updateNode = useUpdateNode(id);
 
 	const ref = useRef<HTMLDivElement>();
@@ -173,6 +171,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			})
 			.on('click', () => {
 				deleteEdes(id, handlesToDelete.current);
+				console.log(settings.current, type);
 				updateNode(settings.current, type !== 'Note');
 				updateNodeInternals(id);
 			});
@@ -183,7 +182,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			setPane(null);
 			pane.dispose();
 		};
-	}, [settingsOpened, deleteEdes, type, id]);
+	}, [settingsOpened, deleteEdes, type, id, updateNode, updateNodeInternals]);
 
 	useEffect(() => {
 		if (settingsOpened) return;

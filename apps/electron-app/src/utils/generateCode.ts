@@ -67,7 +67,6 @@ if (!port) {
 
 		Object.entries(actionsGroupedByHandle).forEach(([action, edges]) => {
 			innerCode += `  ${node.type}_${node.id}.on("${action}", () => {`;
-			innerCode += addEnter();
 
 			edges.forEach(edge => {
 				const targetNode = nodes.find(node => node.id === edge.target);
@@ -97,7 +96,8 @@ if (!port) {
 
 				// TODO: add support for increment and decrement bigger than 1
 				// TODO: add support for multiple values
-				innerCode += `    ${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`;
+				const handler = `${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`;
+				innerCode += wrapInTryCatch(handler);
 				innerCode += addEnter();
 			});
 
@@ -113,6 +113,7 @@ if (!port) {
 
 	code += addNodeProcessListener();
 
+	// TODO: prettier formatting
 	return code;
 }
 
