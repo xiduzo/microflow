@@ -1,7 +1,17 @@
 import { toast } from '@microflow/ui';
 import { Container, type ISourceOptions } from '@tsparticles/engine';
-import Particles from '@tsparticles/react';
-import { createContext, PropsWithChildren, useCallback, useContext, useMemo, useRef } from 'react';
+import Particles, { initParticlesEngine } from '@tsparticles/react';
+import {
+	createContext,
+	PropsWithChildren,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
+import { loadFull } from 'tsparticles';
 
 const CelebrationContext = createContext({
 	celebrate: (message?: string) => {},
@@ -11,7 +21,9 @@ export function useCelebration() {
 	return useContext(CelebrationContext);
 }
 
-export function CelebrationProvider(props: Props) {
+export function CelebrationProvider(props: PropsWithChildren) {
+	const [init, setInit] = useState(false);
+
 	const container = useRef<Container>(null);
 
 	const options = useMemo(
@@ -154,11 +166,17 @@ export function CelebrationProvider(props: Props) {
 		});
 	}, []);
 
-	if (!props.init) return null;
+	useEffect(() => {
+		initParticlesEngine(async engine => {
+			await loadFull(engine);
+		}).then(() => {
+			setInit(true);
+		});
+	}, []);
 
 	return (
 		<CelebrationContext.Provider value={{ celebrate }}>
-			{props.init && (
+			{init && (
 				<Particles
 					className="z-10 pointer-events-none"
 					id="tsparticles"
@@ -170,7 +188,3 @@ export function CelebrationProvider(props: Props) {
 		</CelebrationContext.Provider>
 	);
 }
-
-type Props = PropsWithChildren & {
-	init?: boolean;
-};
