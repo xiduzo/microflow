@@ -14,6 +14,7 @@ type PiezoOptions = BaseComponentOptions & PiezoData;
 
 export class Piezo extends BaseComponent<PiezoValueType> {
 	private readonly component: JohnnyFive.Piezo;
+	private timeout: NodeJS.Timeout | undefined;
 
 	constructor(private readonly options: PiezoOptions) {
 		super(options, false);
@@ -21,6 +22,7 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 	}
 
 	buzz() {
+		clearTimeout(this.timeout);
 		this.stop();
 
 		if (this.options.type !== 'buzz') return;
@@ -28,7 +30,7 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 		this.value = true;
 		this.component.frequency(this.options.frequency, this.options.duration);
 
-		setTimeout(() => {
+		this.timeout = setTimeout(() => {
 			this.stop();
 		}, this.options.duration);
 	}
