@@ -121,11 +121,11 @@ function Settings() {
 					{ text: 'song', value: 'song' },
 				],
 			})
-			.on('change', event => {
+			.on('change', ({ value }) => {
 				addTypeBindings();
 
-				if (initialType === event.value) setHandlesToDelete([]);
-				else setHandlesToDelete(event.value === 'song' ? ['buzz'] : ['play']);
+				if (value === initialType) setHandlesToDelete([]);
+				else setHandlesToDelete(value === 'song' ? ['buzz'] : ['play']);
 			});
 
 		addTypeBindings();

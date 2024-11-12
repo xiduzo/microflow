@@ -80,6 +80,8 @@ function Settings() {
 
 		let rangePane: BindingApi | undefined;
 
+		const intialType = settings.type;
+
 		function setRangePane() {
 			rangePane?.dispose();
 			if (settings.type === 'continuous') return;
@@ -112,16 +114,15 @@ function Settings() {
 					{ text: 'continuous', value: 'continuous' },
 				],
 			})
-			.on('change', event => {
+			.on('change', ({ value }) => {
 				setRangePane();
+
+				if (value === intialType) setHandlesToDelete([]);
+				else setHandlesToDelete(value === 'standard' ? ['min', 'to', 'max'] : ['rotate', 'stop']);
 			});
 
 		setRangePane();
-	}, [pane, settings, pins]);
-
-	useEffect(() => {
-		setHandlesToDelete(['min', 'to', 'max', 'rotate', 'stop']);
-	}, [setHandlesToDelete]);
+	}, [pane, settings, pins, setHandlesToDelete]);
 
 	return null;
 }

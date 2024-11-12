@@ -15,10 +15,10 @@ export function Mqtt(props: Props) {
 			<Subscriber />
 			<Value />
 			<Settings />
-			{props.data.direction === 'publish' && (
+			{props.data.type === 'publish' && (
 				<Handle type="target" position={Position.Left} id="publish" />
 			)}
-			{props.data.direction === 'subscribe' && (
+			{props.data.type === 'subscribe' && (
 				<Handle type="source" position={Position.Right} id="subscribe" />
 			)}
 			<Handle type="source" position={Position.Bottom} id="change" />
@@ -31,7 +31,7 @@ function Subscriber() {
 	const { subscribe } = useMqtt();
 
 	useEffect(() => {
-		if (data.direction !== 'subscribe') return;
+		if (data.type !== 'subscribe') return;
 		if (!data.topic.length) return;
 
 		const unsubFromTopic = subscribe(data.topic, (_topic, message) => {
@@ -42,9 +42,7 @@ function Subscriber() {
 				value = message.toString();
 
 				const parsed = parseFloat(value as string);
-				if (!isNaN(parsed)) {
-					value = parsed;
-				}
+				if (!isNaN(parsed)) value = parsed;
 			}
 
 			window.electron.ipcRenderer.send('ipc-external-value', id, value);
@@ -53,7 +51,7 @@ function Subscriber() {
 		return () => {
 			unsubFromTopic?.then(unsub => unsub?.());
 		};
-	}, [id, data.topic, data.direction, subscribe]);
+	}, [id, data.topic, data.type, subscribe]);
 
 	return null;
 }
@@ -65,13 +63,13 @@ function Value() {
 	const value = useNodeValue<MqttValueType>(id, '');
 
 	useEffect(() => {
-		if (data.direction !== 'publish') return;
+		if (data.type !== 'publish') return;
 		if (!data.topic.length) return;
 
 		publish(data.topic, JSON.stringify(value));
-	}, [value, data.topic, data.direction, publish]);
+	}, [value, data.topic, data.type, publish]);
 
-	if (data.direction === 'publish') return <Icons.RadioTower size={48} />;
+	if (data.type === 'publish') return <Icons.RadioTower size={48} />;
 	return <Icons.Antenna size={48} />;
 }
 
@@ -81,10 +79,10 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		const initialDirection = settings.direction;
+		const initialType = settings.type;
 
 		pane
-			.addBinding(settings, 'direction', {
+			.addBinding(settings, 'type', {
 				view: 'list',
 				index: 0,
 				options: [
@@ -92,9 +90,9 @@ function Settings() {
 					{ text: 'subscribe', value: 'subscribe' },
 				],
 			})
-			.on('change', event => {
-				if (event.value === initialDirection) setHandlesToDelete([]);
-				else setHandlesToDelete(event.value === 'publish' ? ['subscribe'] : ['publish']);
+			.on('change', ({ value }) => {
+				if (value === initialType) setHandlesToDelete([]);
+				else setHandlesToDelete(value === 'publish' ? ['subscribe'] : ['publish']);
 			});
 
 		pane.addBinding(settings, 'topic', {
@@ -108,6 +106,6 @@ function Settings() {
 type Props = BaseNode<MqttData, MqttValueType>;
 export const DEFAULT_MQTT_DATA: Props['data'] = {
 	label: 'MQTT',
-	direction: 'publish',
+	type: 'publish',
 	topic: '',
 };
