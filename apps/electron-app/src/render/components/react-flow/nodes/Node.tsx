@@ -168,14 +168,13 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 		pane
 			.addButton({
-				title: 'Save & close',
+				title: 'Save',
 				index: 9999,
 			})
 			.on('click', () => {
 				deleteEdes(id, handlesToDelete.current);
 				updateNode(settings.current, type !== 'Note');
 				updateNodeInternals(id);
-				setSettingsOpened(false);
 			});
 
 		setPane(pane);

@@ -140,33 +140,43 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'variableId', {
-			index: 0,
-			view: 'list',
-			label: 'variable',
-			disabled: !Object.keys(variableTypes).length,
-			value: settings.variableId,
-			options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
-				value: variable.id,
-				text: variable.name,
-			})),
-		});
-	}, [pane, settings, variableTypes]);
+		const initialVariableType = Array.from(Object.values(variableTypes)).find(
+			({ id }) => id === settings.variableId,
+		)?.resolvedType;
 
-	useEffect(() => {
-		setHandlesToDelete([
-			'true',
-			'toggle',
-			'false',
-			'red',
-			'green',
-			'blue',
-			'opacity',
-			'increment',
-			'set',
-			'decrement',
-		]);
-	}, [setHandlesToDelete]);
+		pane
+			.addBinding(settings, 'variableId', {
+				index: 0,
+				view: 'list',
+				label: 'variable',
+				disabled: !Object.keys(variableTypes).length,
+				value: settings.variableId,
+				options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
+					value: variable.id,
+					text: variable.name,
+				})),
+			})
+			.on('change', ({ value }) => {
+				const selectedVariableType = Array.from(Object.values(variableTypes)).find(
+					({ id }) => id === value,
+				)?.resolvedType;
+				if (selectedVariableType === initialVariableType) setHandlesToDelete([]);
+				switch (initialVariableType) {
+					case 'BOOLEAN':
+						setHandlesToDelete(['true', 'toggle', 'false']);
+						break;
+					case 'COLOR':
+						setHandlesToDelete(['red', 'green', 'blue', 'opacity']);
+						break;
+					case 'FLOAT':
+						setHandlesToDelete(['increment', 'set', 'decrement']);
+						break;
+					case 'STRING':
+						setHandlesToDelete(['set']);
+						break;
+				}
+			});
+	}, [pane, settings, variableTypes]);
 
 	return null;
 }

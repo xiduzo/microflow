@@ -48,6 +48,7 @@ function Settings() {
 
 	useEffect(() => {
 		if (!pane) return;
+		const initialType = settings.type;
 
 		let durationBinding: BindingApi | undefined;
 		let frequencyBinding: BindingApi | undefined;
@@ -120,14 +121,15 @@ function Settings() {
 					{ text: 'song', value: 'song' },
 				],
 			})
-			.on('change', addTypeBindings);
+			.on('change', ({ value }) => {
+				addTypeBindings();
+
+				if (value === initialType) setHandlesToDelete([]);
+				else setHandlesToDelete(value === 'song' ? ['buzz'] : ['play']);
+			});
 
 		addTypeBindings();
-	}, [pane, settings, pins]);
-
-	useEffect(() => {
-		setHandlesToDelete(['buzz', 'play']);
-	}, [setHandlesToDelete]);
+	}, [pane, settings, pins, setHandlesToDelete]);
 
 	if (!editorOpened) return null;
 	if (settings.type === 'buzz') return null;
