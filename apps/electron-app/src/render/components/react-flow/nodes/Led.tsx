@@ -37,13 +37,17 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'pin', {
+		const pinBinding = pane.addBinding(settings, 'pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
 			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
 		});
+
+		return () => {
+			[pinBinding].forEach(disposable => disposable.dispose());
+		};
 	}, [pane, settings, pins]);
 
 	return null;

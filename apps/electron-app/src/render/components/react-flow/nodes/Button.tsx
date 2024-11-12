@@ -1,5 +1,5 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Icons, TpChangeEvent } from '@microflow/ui';
+import { Icons, ListBladeApi, TpChangeEvent } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
@@ -37,7 +37,7 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'pin', {
+		const pinBinding = pane.addBinding(settings, 'pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
@@ -45,47 +45,50 @@ function Settings() {
 			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
 		});
 
-		const advanced = pane.addFolder({
+		const advancedFolder = pane.addFolder({
 			title: 'advanced',
 			expanded: false,
 			index: 1,
 		});
 
-		advanced.addBinding(settings, 'holdtime', {
+		advancedFolder.addBinding(settings, 'holdtime', {
 			min: 100,
 			step: 50,
 		});
 
-		advanced
-			.addBlade({
-				view: 'list',
-				label: 'type',
-				value: settings.isPulldown ? 2 : settings.isPullup ? 1 : 0,
-				options: [
-					{ value: 0, text: 'default' },
-					{ value: 1, text: 'pull-up' },
-					{ value: 2, text: 'pull-down' },
-				],
-			})
-			// @ts-ignore-next-line
-			.on('change', (event: TpChangeEvent<number>) => {
-				switch (event.value) {
-					case 0:
-						settings.isPulldown = false;
-						settings.isPullup = false;
-						break;
-					case 1:
-						settings.isPulldown = false;
-						settings.isPullup = true;
-						break;
-					case 2:
-						settings.isPulldown = true;
-						settings.isPullup = false;
-						break;
-				}
-			});
+		const typeBlade = advancedFolder.addBlade({
+			view: 'list',
+			label: 'type',
+			value: settings.isPulldown ? 2 : settings.isPullup ? 1 : 0,
+			options: [
+				{ value: 0, text: 'default' },
+				{ value: 1, text: 'pull-up' },
+				{ value: 2, text: 'pull-down' },
+			],
+		});
 
-		advanced.addBinding(settings, 'invert');
+		(typeBlade as ListBladeApi<number>).on('change', event => {
+			switch (event.value) {
+				case 0:
+					settings.isPulldown = false;
+					settings.isPullup = false;
+					break;
+				case 1:
+					settings.isPulldown = false;
+					settings.isPullup = true;
+					break;
+				case 2:
+					settings.isPulldown = true;
+					settings.isPullup = false;
+					break;
+			}
+		});
+
+		advancedFolder.addBinding(settings, 'invert');
+
+		return () => {
+			[pinBinding, advancedFolder].forEach(disposable => disposable.dispose());
+		};
 	}, [pane, settings, pins]);
 
 	return null;

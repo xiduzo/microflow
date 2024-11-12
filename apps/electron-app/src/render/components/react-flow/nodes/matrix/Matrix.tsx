@@ -15,6 +15,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
+	ListBladeApi,
 	ScrollArea,
 } from '@ui/index';
 import { uuid } from '../../../../../utils/uuid';
@@ -77,66 +78,60 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane
-			.addBlade({
-				view: 'list',
-				disabled: !pins.length,
-				label: 'data (DIN)',
-				index: 0,
-				value: settings.pins.data,
-				options: pins
-					.filter(
-						pin =>
-							pin.supportedModes.includes(MODES.INPUT) &&
-							!pin.supportedModes.includes(MODES.ANALOG),
-					)
-					.map(mapPinToPaneOption),
-			})
-			// @ts-ignore-next-line
-			.on('change', (event: TpChangeEvent) => {
-				settings.pins.data = event.value;
-			});
+		const dataPinBlade = pane.addBlade({
+			view: 'list',
+			disabled: !pins.length,
+			label: 'data (DIN)',
+			index: 0,
+			value: settings.pins.data,
+			options: pins
+				.filter(
+					pin =>
+						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG),
+				)
+				.map(mapPinToPaneOption),
+		});
 
-		pane
-			.addBlade({
-				view: 'list',
-				disabled: !pins.length,
-				label: 'clock (CLK)',
-				index: 1,
-				value: settings.pins.clock,
-				options: pins
-					.filter(
-						pin =>
-							pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM),
-					)
-					.map(mapPinToPaneOption),
-			})
-			// @ts-ignore-next-line
-			.on('change', (event: TpChangeEvent) => {
-				settings.pins.clock = event.value;
-			});
+		(dataPinBlade as ListBladeApi<number | string>).on('change', event => {
+			settings.pins.data = event.value;
+		});
 
-		pane
-			.addBlade({
-				view: 'list',
-				disabled: !pins.length,
-				label: 'chip select (CS)',
-				index: 2,
-				value: settings.pins.cs,
-				options: pins
-					.filter(
-						pin =>
-							pin.supportedModes.includes(MODES.INPUT) &&
-							!pin.supportedModes.includes(MODES.ANALOG),
-					)
-					.map(mapPinToPaneOption),
-			})
-			// @ts-ignore-next-line
-			.on('change', (event: TpChangeEvent) => {
-				settings.pins.cs = event.value;
-			});
+		const clockPinBlade = pane.addBlade({
+			view: 'list',
+			disabled: !pins.length,
+			label: 'clock (CLK)',
+			index: 1,
+			value: settings.pins.clock,
+			options: pins
+				.filter(
+					pin => pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM),
+				)
+				.map(mapPinToPaneOption),
+		});
 
-		pane
+		(clockPinBlade as ListBladeApi<number | string>).on('change', event => {
+			settings.pins.clock = event.value;
+		});
+
+		const chipSeletPinBlade = pane.addBlade({
+			view: 'list',
+			disabled: !pins.length,
+			label: 'chip select (CS)',
+			index: 2,
+			value: settings.pins.cs,
+			options: pins
+				.filter(
+					pin =>
+						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG),
+				)
+				.map(mapPinToPaneOption),
+		});
+
+		(chipSeletPinBlade as ListBladeApi<number | string>).on('change', event => {
+			settings.pins.cs = event.value;
+		});
+
+		const shapesButton = pane
 			.addButton({
 				label: 'shapes',
 				title: 'edit shapes',
@@ -145,6 +140,12 @@ function Settings() {
 			.on('click', () => {
 				setEditorOpened(true);
 			});
+
+		return () => {
+			[dataPinBlade, clockPinBlade, chipSeletPinBlade, shapesButton].forEach(disposable => {
+				disposable.dispose();
+			});
+		};
 	}, [pane, settings, pins]);
 
 	if (!editorOpened) return null;

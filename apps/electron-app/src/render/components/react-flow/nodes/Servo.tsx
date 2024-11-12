@@ -78,22 +78,23 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		let rangePane: BindingApi | undefined;
+		let rangeBinding: BindingApi | undefined;
 
 		const intialType = settings.type;
 
 		function setRangePane() {
-			rangePane?.dispose();
+			rangeBinding?.dispose();
 			if (settings.type === 'continuous') return;
 
-			rangePane = pane.addBinding(settings, 'range', {
+			rangeBinding = pane.addBinding(settings, 'range', {
 				index: 2,
 				step: 1,
 				min: 0,
 				max: 180,
 			});
 		}
-		pane.addBinding(settings, 'pin', {
+
+		const pinBinding = pane.addBinding(settings, 'pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
@@ -106,7 +107,7 @@ function Settings() {
 				.map(mapPinToPaneOption),
 		});
 
-		pane
+		const typeBinding = pane
 			.addBinding(settings, 'type', {
 				index: 1,
 				options: [
@@ -122,6 +123,10 @@ function Settings() {
 			});
 
 		setRangePane();
+
+		return () => {
+			[rangeBinding, pinBinding, typeBinding].forEach(disposable => disposable?.dispose());
+		};
 	}, [pane, settings, pins, setHandlesToDelete]);
 
 	return null;
