@@ -8,7 +8,7 @@ import { useNodeValue } from '../../../../stores/node-data';
 import { useEffect, useState } from 'react';
 import { MODES } from '../../../../../common/types';
 import { mapPinToPaneOption } from '../../../../../utils/pin';
-import { BindingApi, ButtonApi } from '@tweakpane/core';
+import { BindingApi, ButtonApi, FolderApi } from '@tweakpane/core';
 import { SongEditor } from './SongEditor';
 import { usePins } from '../../../../stores/board';
 
@@ -50,27 +50,23 @@ function Settings() {
 		if (!pane) return;
 		const initialType = settings.type;
 
-		let durationBinding: BindingApi | undefined;
-		let frequencyBinding: BindingApi | undefined;
-		let tempoBinding: BindingApi | undefined;
-		let songBinding: ButtonApi | undefined;
+		let settingsFolder: FolderApi | undefined;
 
 		function addTypeBindings() {
-			durationBinding?.dispose();
-			frequencyBinding?.dispose();
-			tempoBinding?.dispose();
-			songBinding?.dispose();
-
+			settingsFolder?.dispose();
+			settingsFolder = pane.addFolder({
+				title: 'settings',
+				expanded: true,
+				index: 2,
+			});
 			if (settings.type === 'buzz') {
-				durationBinding = pane.addBinding(settings, 'duration', {
-					index: 2,
+				settingsFolder.addBinding(settings, 'duration', {
 					min: 100,
 					max: 2500,
 					step: 100,
 				});
 
-				frequencyBinding = pane.addBinding(settings, 'frequency', {
-					index: 3,
+				settingsFolder.addBinding(settings, 'frequency', {
 					view: 'list',
 					options: Array.from(NOTES_AND_FREQUENCIES.entries()).map(([note, frequency]) => ({
 						text: note,
@@ -83,15 +79,13 @@ function Settings() {
 
 			settings.tempo = settings.tempo || 120;
 			settings.song = settings.song || DEFAULT_SONG;
-			tempoBinding = pane.addBinding(settings, 'tempo', {
-				index: 2,
+			settingsFolder.addBinding(settings, 'tempo', {
 				min: 40,
 				max: 240,
 				step: 10,
 			});
-			songBinding = pane
+			settingsFolder
 				.addButton({
-					index: 3,
 					label: 'song',
 					title: 'edit song',
 				})
@@ -100,7 +94,7 @@ function Settings() {
 				});
 		}
 
-		pane.addBinding(settings, 'pin', {
+		const pinBinding = pane.addBinding(settings, 'pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
@@ -112,23 +106,27 @@ function Settings() {
 				.map(mapPinToPaneOption),
 		});
 
-		pane
-			.addBinding(settings, 'type', {
-				view: 'list',
-				index: 1,
-				options: [
-					{ text: 'buzz', value: 'buzz' },
-					{ text: 'song', value: 'song' },
-				],
-			})
-			.on('change', ({ value }) => {
-				addTypeBindings();
+		const typeBinding = pane.addBinding(settings, 'type', {
+			view: 'list',
+			index: 1,
+			options: [
+				{ text: 'buzz', value: 'buzz' },
+				{ text: 'song', value: 'song' },
+			],
+		});
 
-				if (value === initialType) setHandlesToDelete([]);
-				else setHandlesToDelete(value === 'song' ? ['buzz'] : ['play']);
-			});
+		typeBinding.on('change', ({ value }) => {
+			addTypeBindings();
+
+			if (value === initialType) setHandlesToDelete([]);
+			else setHandlesToDelete(value === 'song' ? ['buzz'] : ['play']);
+		});
 
 		addTypeBindings();
+
+		return () => {
+			[settingsFolder, pinBinding, typeBinding].forEach(disposable => disposable?.dispose());
+		};
 	}, [pane, settings, pins, setHandlesToDelete]);
 
 	if (!editorOpened) return null;

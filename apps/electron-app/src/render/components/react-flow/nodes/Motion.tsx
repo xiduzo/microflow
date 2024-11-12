@@ -50,12 +50,12 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		let pinPane: BindingApi | undefined;
+		let pinBinding: BindingApi | undefined;
 
 		function createPinPane() {
-			pinPane?.dispose();
+			pinBinding?.dispose();
 
-			pinPane = pane.addBinding(settings, 'pin', {
+			pinBinding = pane.addBinding(settings, 'pin', {
 				view: 'list',
 				disabled: !pins.length,
 				label: 'pin',
@@ -75,7 +75,7 @@ function Settings() {
 			});
 		}
 
-		pane
+		const controllerBinding = pane
 			.addBinding(settings, 'controller', {
 				view: 'list',
 				index: 0,
@@ -87,6 +87,10 @@ function Settings() {
 			.on('change', createPinPane);
 
 		createPinPane();
+
+		return () => {
+			[pinBinding, controllerBinding].forEach(disposable => disposable?.dispose());
+		};
 	}, [pane, pins]);
 
 	return null;
