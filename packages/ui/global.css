@@ -71,3 +71,15 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+.custom-tweak-pane-graph {
+	@apply w-full;
+}
+
+.custom-tweak-pane-graph .tp-lblv_l {
+	@apply hidden;
+}
+
+.custom-tweak-pane-graph .tp-rotv {
+	@apply h-full rounded-none flex items-center justify-center bg-transparent shadow-none;
+}

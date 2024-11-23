@@ -83,6 +83,7 @@ if (!port) {
 					'rotate',
 					'to',
 					'show',
+					'debug',
 				];
 
 				const shouldSetValue = valueTriggers.includes(edge.targetHandle);

@@ -195,7 +195,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			})
 			.on('click', () => {
 				deleteEdes(id, handlesToDelete.current);
-				console.log(settings.current, type);
 				updateNode(settings.current, type !== 'Note');
 				updateNodeInternals(id);
 			});

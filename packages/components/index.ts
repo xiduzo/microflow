@@ -1,6 +1,7 @@
 export { Board } from 'johnny-five';
 export * from './src/components/Button';
 export * from './src/components/Counter';
+export * from './src/components/Debug';
 export * from './src/components/Figma';
 export * from './src/components/IfElse';
 export * from './src/components/Interval';
