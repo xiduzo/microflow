@@ -1,4 +1,4 @@
-const { app, dialog, BrowserWindow } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const { updateElectronApp } = require('update-electron-app');
 const path = require('node:path');
 import logger from 'electron-log/node';

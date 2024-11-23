@@ -1,5 +1,6 @@
 import {
 	cn,
+	CommandShortcut,
 	cva,
 	Icons,
 	Pane,
@@ -26,18 +27,41 @@ import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 
 export function NodeSettingsButton() {
-	const { settingsOpened, setSettingsOpened } = useNode();
+	const { settingsOpened, setSettingsOpened, selected } = useNode();
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.code === 'KeyC' && selected) {
+				setSettingsOpened(!settingsOpened);
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [selected, settingsOpened]);
 
 	return (
-		<button
-			onClick={e => {
-				e.stopPropagation();
-				setSettingsOpened(!settingsOpened);
-			}}
-			className={settingsButton({ settingsOpened })}
-		>
-			<Icons.SlidersHorizontal size={16} />
-		</button>
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild className="cursor-context-menu">
+					<button
+						onClick={e => {
+							e.stopPropagation();
+							setSettingsOpened(!settingsOpened);
+						}}
+						className={settingsButton({ settingsOpened })}
+					>
+						<Icons.SlidersHorizontal size={16} />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<CommandShortcut>C</CommandShortcut>onfigure
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }
 

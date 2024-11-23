@@ -17,6 +17,7 @@ const appMenu: (MenuItemConstructorOptions | MenuItem)[] = isMac
 					{ role: 'unhide' },
 					{ type: 'separator' },
 					{ role: 'quit' },
+					{ role: 'editMenu' },
 					isMac ? { role: 'close' } : undefined,
 				],
 			},
@@ -38,18 +39,18 @@ export function createMenu(mainWindow: BrowserWindow) {
 				},
 				{ type: 'separator' },
 				{
-				  label: 'Undo',
-          accelerator: isMac ? 'Cmd+Z' : 'Ctrl+Z',
-          click: () => {
-            mainWindow.webContents.send('ipc-menu', 'undo');
-          }
+					label: 'Undo',
+					accelerator: isMac ? 'Cmd+Z' : 'Ctrl+Z',
+					click: () => {
+						mainWindow.webContents.send('ipc-menu', 'undo');
+					},
 				},
 				{
-				  label: 'Redo',
-          accelerator: isMac ? 'Cmd+Shift+Z' : 'Ctrl+Shift+Z',
-          click: () => {
-            mainWindow.webContents.send('ipc-menu', 'redo');
-          }
+					label: 'Redo',
+					accelerator: isMac ? 'Cmd+Shift+Z' : 'Ctrl+Shift+Z',
+					click: () => {
+						mainWindow.webContents.send('ipc-menu', 'redo');
+					},
 				},
 				{ type: 'separator' },
 				{
@@ -77,22 +78,22 @@ export function createMenu(mainWindow: BrowserWindow) {
 					},
 				},
 				{
-				  label: 'Export flow',
-          accelerator: isMac ? 'Cmd+E' : 'Ctrl+E',
-          click: () => {
-            mainWindow.webContents.send('ipc-menu', 'export-flow');
-          }
+					label: 'Export flow',
+					accelerator: isMac ? 'Cmd+E' : 'Ctrl+E',
+					click: () => {
+						mainWindow.webContents.send('ipc-menu', 'export-flow');
+					},
 				},
 				{
-				  label: 'Import flow',
-          accelerator: isMac ? 'Cmd+I' : 'Ctrl+I',
-          click: async () => {
-            const flow = await importFlow()
-            if(!flow) return
+					label: 'Import flow',
+					accelerator: isMac ? 'Cmd+I' : 'Ctrl+I',
+					click: async () => {
+						const flow = await importFlow();
+						if (!flow) return;
 
-            mainWindow.webContents.send('ipc-menu', 'import-flow', flow);
-          }
-				}
+						mainWindow.webContents.send('ipc-menu', 'import-flow', flow);
+					},
+				},
 			],
 		},
 		{
