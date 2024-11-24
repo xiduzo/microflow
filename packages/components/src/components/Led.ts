@@ -36,4 +36,9 @@ export class Led extends BaseComponent<LedValueType> {
 		this.component.toggle();
 		this.value = this.value === 0 ? 1 : 0;
 	}
+
+	brightness(value: number) {
+		this.component.brightness(value);
+		this.value = value;
+	}
 }

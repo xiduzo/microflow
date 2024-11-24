@@ -47,7 +47,6 @@ function Settings() {
 
 			validatorArgPane = pane.addBinding(settings, 'validatorArg', {
 				index: 2,
-				step: 10,
 				label: '',
 			});
 		}
