@@ -12,14 +12,7 @@ export function Debug(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle
-				type="target"
-				position={Position.Left}
-				id="debug"
-				isConnectable={edges =>
-					edges.some(edge => edge.id === props.id && edge.targetHandle === 'debug')
-				}
-			/>
+			<Handle type="target" position={Position.Left} id="debug" />
 		</NodeContainer>
 	);
 }

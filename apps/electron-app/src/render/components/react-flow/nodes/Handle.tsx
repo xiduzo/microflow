@@ -1,18 +1,41 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@microflow/ui';
-import { HandleProps, Position, Handle as XyFlowHandle, Edge, useEdges } from '@xyflow/react';
+import {
+	HandleProps,
+	Position,
+	Handle as XyFlowHandle,
+	Edge,
+	Connection,
+	useEdges,
+} from '@xyflow/react';
+import { useMemo } from 'react';
 
 const HANDLE_SPACING = 26;
 const NODER_HEADER_HEIGHT_SPACING = 26;
 
 export function Handle(props: Props) {
 	const edges = useEdges();
+
+	const isConnectable = useMemo(() => {
+		return typeof props.isConnectable === 'boolean'
+			? props.isConnectable
+			: (props.isConnectable?.(edges) ?? true);
+	}, [props.isConnectable, edges]);
 	return (
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<XyFlowHandle
 						{...props}
-						isConnectable={props.isConnectable?.(edges) ?? true}
+						isConnectable={isConnectable}
+						isValidConnection={edge => {
+							if (props.isValidConnection) {
+								return props.isValidConnection(edges, edge);
+							}
+
+							// Can not connect to self
+							if (edge.source === edge.target) return false;
+							return true;
+						}}
 						style={{
 							width: [Position.Top, Position.Bottom].includes(props.position) ? 20 : 10,
 							height: [Position.Left, Position.Right].includes(props.position) ? 20 : 10,
@@ -35,8 +58,9 @@ export function Handle(props: Props) {
 	);
 }
 
-type Props = Omit<HandleProps, 'isConnectable'> & {
+type Props = Omit<HandleProps, 'isConnectable' | 'isValidConnection'> & {
 	offset?: number;
 	hint?: string;
-	isConnectable?: (edges: Edge[]) => boolean;
+	isConnectable?: ((edges: Edge[]) => boolean) | boolean;
+	isValidConnection?: (edges: Edge[], edge: Edge | Connection) => boolean;
 };
