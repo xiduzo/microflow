@@ -1,3 +1,4 @@
+import { Modes } from '@tsparticles/engine';
 import type { Edge, Node } from '@xyflow/react';
 
 export enum MODES {
@@ -16,6 +17,23 @@ export enum MODES {
 	PING_READ = 117,
 	UNKOWN = 16,
 }
+
+export const PIN_MODES = new Map<MODES, string>([
+	[MODES.INPUT, 'input'],
+	[MODES.OUTPUT, 'output'],
+	[MODES.ANALOG, 'analog'],
+	[MODES.PWM, 'pwm'],
+	[MODES.SERVO, 'servo'],
+	[MODES.SHIFT, 'shift'],
+	[MODES.I2C, 'i2c'],
+	[MODES.ONEWIRE, 'onewire'],
+	[MODES.STEPPER, 'stepper'],
+	[MODES.SERIAL, 'serial'],
+	[MODES.PULLUP, 'pullup'],
+	[MODES.IGNORE, 'ignore'],
+	[MODES.PING_READ, 'ping_read'],
+	[MODES.UNKOWN, 'unkown'],
+]);
 
 export type Pin = {
 	supportedModes: MODES[];
