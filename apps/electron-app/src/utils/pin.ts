@@ -1,5 +1,5 @@
 import { ListParamsOptions } from '@tweakpane/core';
-import { MODES, Pin } from '../common/types';
+import { MODES, Pin, PIN_MODES } from '../common/types';
 
 export function pinValue(pin: Pin) {
 	return !pin.supportedModes.includes(MODES.ANALOG) ? pin.pin : `A${pin.analogChannel}`;

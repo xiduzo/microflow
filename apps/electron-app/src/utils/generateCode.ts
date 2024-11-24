@@ -84,6 +84,7 @@ if (!port) {
 					'to',
 					'show',
 					'debug',
+					'brightness',
 				];
 
 				const shouldSetValue = valueTriggers.includes(edge.targetHandle);
