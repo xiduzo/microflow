@@ -15,7 +15,9 @@ const selector = (state: AppState) => ({
 
 export function ReactFlowCanvas() {
 	const store = useReactFlowStore(useShallow(selector));
-	const [ref] = useAutoAnimate();
+	const [animationRef] = useAutoAnimate({
+		duration: 100,
+	});
 
 	return (
 		<ReactFlow
@@ -49,7 +51,7 @@ export function ReactFlowCanvas() {
 			</Panel>
 
 			<Panel position="top-right">
-				<section id="settings-panels" className="flex flex-col space-y-2" ref={ref}>
+				<section id="settings-panels" className="flex flex-col space-y-2" ref={animationRef}>
 					{/* Filled by settings */}
 				</section>
 			</Panel>

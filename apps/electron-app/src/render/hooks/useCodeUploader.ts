@@ -1,5 +1,5 @@
 import { useReactFlow } from '@xyflow/react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
 import { useNodeAndEdgeCount } from '../stores/react-flow';
 import { useBoardPort, useBoardResult, useBoardStore } from '../stores/board';
@@ -72,12 +72,19 @@ export function useCodeUploader() {
 export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
 	const boardResult = useBoardResult();
+	const debounce = useRef<NodeJS.Timeout>();
 
 	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
 
 	useEffect(() => {
 		if (boardResult !== 'ready') return;
 
-		uploadCode();
+		debounce.current = setTimeout(() => {
+			uploadCode();
+		}, 5_000);
+
+		return () => {
+			clearTimeout(debounce.current);
+		};
 	}, [nodesCount, edgesCount, uploadCode, boardResult]);
 }

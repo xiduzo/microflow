@@ -84,6 +84,12 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Event</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Debug')}>
+						Debug
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Output</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('IfElse')}>
 						If...else
 						<CommandShortcut>
