@@ -3,7 +3,7 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import type { DebugValueType, DebugData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pane } from '@ui/index';
 import { BindingApi } from '@tweakpane/core';
 
@@ -12,7 +12,14 @@ export function Debug(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="debug" />
+			<Handle
+				type="target"
+				position={Position.Left}
+				id="debug"
+				isConnectable={edges =>
+					edges.some(edge => edge.id === props.id && edge.targetHandle === 'debug')
+				}
+			/>
 		</NodeContainer>
 	);
 }
@@ -22,11 +29,11 @@ function Value() {
 	const value = useNodeValue<DebugValueType>(id, 0);
 
 	const container = useRef<HTMLDivElement>();
-	const display = useRef({ value: 0 });
+	const display = useRef({ value: 0 as unknown });
 
 	useEffect(() => {
-		display.current.value = value;
-	}, [value]);
+		display.current.value = data.type === 'graph' ? Number(value) : value;
+	}, [value, data.type]);
 
 	useEffect(() => {
 		const pane = new Pane({
@@ -38,7 +45,7 @@ function Value() {
 			index: 1,
 			label: '',
 			view: data.type === 'graph' ? 'graph' : '',
-			...data,
+			...(data.type === 'graph' ? data.range : { bufferSize: data.bufferSize }),
 		});
 
 		return () => {
@@ -64,7 +71,6 @@ function Settings() {
 		function addOptionsBinding() {
 			optionsBinding?.dispose();
 
-			console.log(settings);
 			switch (settings.type) {
 				case 'log':
 					settings.bufferSize = settings.bufferSize || 10;

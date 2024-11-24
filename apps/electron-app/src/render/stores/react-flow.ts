@@ -175,3 +175,7 @@ export function useTempNode() {
 export function useDeleteEdges() {
 	return useReactFlowStore(useShallow(state => state.deleteEdges));
 }
+
+export function useEdges() {
+	return useReactFlowStore(useShallow(state => state.edges));
+}
