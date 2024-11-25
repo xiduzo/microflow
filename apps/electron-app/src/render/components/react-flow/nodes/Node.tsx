@@ -162,7 +162,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const updateNodeInternals = useUpdateNodeInternals();
 	const deleteEdes = useDeleteEdges();
 
-	const { data, settingsOpened, id, type } = useNode<T>();
+	const { data, settingsOpened, setSettingsOpened, id, type } = useNode<T>();
 	const updateNode = useUpdateNode(id);
 
 	const ref = useRef<HTMLDivElement>();
@@ -188,15 +188,27 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			index: 9998,
 		});
 
+		function saveSettings() {
+			deleteEdes(id, handlesToDelete.current);
+			updateNode(settings.current, type !== 'Note');
+			updateNodeInternals(id);
+		}
+
 		pane
 			.addButton({
 				title: 'Save',
+				index: 9998,
+			})
+			.on('click', saveSettings);
+
+		pane
+			.addButton({
+				title: 'Save & Close',
 				index: 9999,
 			})
 			.on('click', () => {
-				deleteEdes(id, handlesToDelete.current);
-				updateNode(settings.current, type !== 'Note');
-				updateNodeInternals(id);
+				saveSettings();
+				setSettingsOpened(false);
 			});
 
 		setPane(pane);
@@ -316,6 +328,8 @@ const node = cva(
 
 export type BaseNode<Settings extends Record<string, unknown> = {}, Value = any> = Node<
 	Settings & {
+		type?: string;
+		subType?: string;
 		label: string;
 		animated?: string;
 		settingsOpen?: boolean;

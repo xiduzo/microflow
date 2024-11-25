@@ -45,17 +45,16 @@ function NewNodeCommandDialog() {
 	const { open, setOpen, setNodeToAdd } = useNewNode();
 	const { addNode } = useTempNode();
 
-	function selectNode(type: NodeType, label?: string) {
+	function selectNode(type: NodeType, options?: { label?: string; subType?: string }) {
 		return function () {
-			const data = DEFAULT_NODE_DATA.get(type) ?? {};
-
-			if (label && 'label' in data) {
-				data.label = label;
-			}
+			const DEFAULT_DATA = DEFAULT_NODE_DATA.get(type) ?? {};
 
 			const id = Math.random().toString(36).substring(2, 8);
 			const newNode = {
-				data,
+				data: {
+					...DEFAULT_DATA,
+					...options,
+				},
 				id,
 				type,
 				position: { x: 0, y: 0 },
@@ -124,7 +123,7 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Input</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Sensor', 'LDR')}>
+					<CommandItem onSelect={selectNode('Sensor', { label: 'LDR', subType: 'ldr' })}>
 						LDR (Light Dependent Resistor)
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Analog</Badge>
@@ -134,6 +133,7 @@ function NewNodeCommandDialog() {
 					<CommandItem onSelect={selectNode('Led')}>
 						LED
 						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Analog</Badge>
 							<Badge variant="outline">Digital</Badge>
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
@@ -161,7 +161,9 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Sensor', 'Potentiometer')}>
+					<CommandItem
+						onSelect={selectNode('Sensor', { label: 'Potentiometer', subType: 'potentiometer' })}
+					>
 						Potentiometer
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Analog</Badge>
@@ -172,6 +174,14 @@ function NewNodeCommandDialog() {
 						Servo
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Output</Badge>
+						</CommandShortcut>
+					</CommandItem>
+					<CommandItem onSelect={selectNode('Led', { label: 'Vibration', subType: 'vibration' })}>
+						Vibration
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Digital</Badge>
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>

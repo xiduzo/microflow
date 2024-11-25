@@ -26,6 +26,7 @@ export function Led(props: Props) {
 				type="target"
 				position={Position.Left}
 				id="brightness"
+				title={props.data.subType === 'vibration' ? 'intensity' : 'brightness'}
 				offset={0.5}
 				hint={`${isPmwPin ? '0-255' : 'requires PWM pin'}`}
 				isConnectable={isPmwPin}
@@ -37,18 +38,43 @@ export function Led(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
+	const { id, data } = useNode();
 	const value = useNodeValue<LedValueType>(id, 0);
 
-	if (!value) return <Icons.LightbulbOff className="text-muted-foreground" size={48} />;
+	switch (data.subType) {
+		case 'vibration':
+			return <VibrationValue value={value} />;
+		default:
+			return <LedValue value={value} />;
+	}
+}
+
+function LedValue(props: { value: number }) {
+	if (!props.value) return <Icons.LightbulbOff className="text-muted-foreground" size={48} />;
 	return (
 		<Icons.Lightbulb
 			className="text-yellow-500"
 			size={48}
 			style={{
-				opacity: value > 1 ? value / 255 : 1, // Rhough dimmable LED
+				opacity: props.value > 1 ? props.value / 255 : 1, // Rhough dimmable LED
 			}}
 		/>
+	);
+}
+
+function VibrationValue(props: { value: number }) {
+	if (!props.value) return <Icons.VibrateOff className="text-muted-foreground" size={48} />;
+	return (
+		<section className="relative">
+			<Icons.Vibrate
+				className="text-orange-500 animate-wiggle"
+				size={48}
+				style={{
+					animationDuration: `${250 + (250 - (props.value > 1 ? props.value / 255 : 1) * 250)}ms`,
+				}}
+			/>
+			<div className="animate-ping w-8 h-8 bg-orange-500 rounded-full absolute left-[9px] right-0 bottom-0 top-2 -z-10"></div>
+		</section>
 	);
 }
 

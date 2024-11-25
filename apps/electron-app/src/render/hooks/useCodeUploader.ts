@@ -6,6 +6,7 @@ import { useBoardPort, useBoardResult, useBoardStore } from '../stores/board';
 import { UploadResult } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
+import { useNewNode } from '../providers/NewNodeProvider';
 
 export function useCodeUploader() {
 	const clearNodeData = useClearNodeData();
@@ -71,20 +72,30 @@ export function useCodeUploader() {
 
 export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
+	const { nodeToAdd } = useNewNode();
 	const boardResult = useBoardResult();
 	const debounce = useRef<NodeJS.Timeout>();
 
 	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
 
+	const lastNodesCount = useRef(-1);
+	const lastEdgesCount = useRef(-1);
+
 	useEffect(() => {
+		if (nodeToAdd?.length) return;
 		if (boardResult !== 'ready') return;
+
+		if (lastNodesCount.current === nodesCount && lastEdgesCount.current === edgesCount) return;
+
+		lastNodesCount.current = nodesCount;
+		lastEdgesCount.current = edgesCount;
 
 		debounce.current = setTimeout(() => {
 			uploadCode();
-		}, 5_000);
+		}, 1_000);
 
 		return () => {
 			clearTimeout(debounce.current);
 		};
-	}, [nodesCount, edgesCount, uploadCode, boardResult]);
+	}, [nodesCount, edgesCount, uploadCode, boardResult, nodeToAdd]);
 }
