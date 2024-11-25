@@ -7,18 +7,24 @@ type GraphData = {
 	range: { min: number; max: number };
 };
 
-type LogData = {
-	type: 'log';
+type StringData = {
+	type: 'string';
 	bufferSize: number;
 };
 
-export type DebugData = GraphData | LogData;
+type ObjectData = {
+	type: 'object';
+	multiline: true;
+	rows: number;
+};
+
+export type DebugData = GraphData | StringData | ObjectData;
 
 type DebugOptions = BaseComponentOptions & DebugData;
 
 export class Debug extends BaseComponent<DebugValueType> {
 	constructor(options: DebugOptions) {
-		super(options, { type: 'number', value: 0 });
+		super(options, 0);
 	}
 
 	debug(value: unknown) {

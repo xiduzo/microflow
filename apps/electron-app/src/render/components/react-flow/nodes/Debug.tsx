@@ -3,7 +3,7 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import type { DebugValueType, DebugData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Pane } from '@ui/index';
 import { BindingApi } from '@tweakpane/core';
 
@@ -21,11 +21,35 @@ function Value() {
 	const { id, data } = useNode<DebugData>();
 	const value = useNodeValue<DebugValueType>(id, 0);
 
+	console.log(value);
 	const container = useRef<HTMLDivElement>();
-	const display = useRef({ value: 0 as unknown });
+	const display = useRef({ value });
+
+	const bindingConfig = useMemo(() => {
+		switch (data.type) {
+			case 'object':
+				return { rows: data.rows, multiline: true };
+			case 'string':
+				return { bufferSize: data.bufferSize };
+			case 'graph':
+			default:
+				return { ...data.range, view: 'graph' };
+		}
+	}, [data.type]);
 
 	useEffect(() => {
-		display.current.value = data.type === 'graph' ? Number(value) : value;
+		switch (data.type) {
+			case 'object':
+				display.current.value = JSON.stringify(value, null, 2);
+				break;
+			case 'string':
+				display.current.value = value;
+				break;
+			case 'graph':
+			default:
+				display.current.value = Number(value);
+				break;
+		}
 	}, [value, data.type]);
 
 	useEffect(() => {
@@ -37,14 +61,15 @@ function Value() {
 			readonly: true,
 			index: 1,
 			label: '',
-			view: data.type === 'graph' ? 'graph' : '',
-			...(data.type === 'graph' ? data.range : { bufferSize: data.bufferSize }),
+			...bindingConfig,
 		});
+
+		console.log(bindingConfig);
 
 		return () => {
 			pane.dispose();
 		};
-	}, [data]);
+	}, [data, bindingConfig]);
 
 	return (
 		<div className="custom-tweak-pane-graph">
@@ -65,12 +90,22 @@ function Settings() {
 			optionsBinding?.dispose();
 
 			switch (settings.type) {
-				case 'log':
+				case 'string':
 					settings.bufferSize = settings.bufferSize || 10;
 					optionsBinding = pane.addBinding(settings, 'bufferSize', {
 						label: 'size',
 						index: 1,
 						min: 1,
+						step: 1,
+					});
+					break;
+				case 'object':
+					settings.rows = 5;
+					optionsBinding = pane.addBinding(settings, 'rows', {
+						label: 'size',
+						index: 1,
+						min: 1,
+						max: 10,
 						step: 1,
 					});
 					break;
@@ -81,6 +116,7 @@ function Settings() {
 						label: 'range',
 						index: 1,
 					});
+					break;
 			}
 		}
 
@@ -91,7 +127,8 @@ function Settings() {
 				view: 'list',
 				options: [
 					{ value: 'graph', text: 'graph' },
-					{ value: 'log', text: 'log' },
+					{ value: 'string', text: 'string' },
+					{ value: 'object', text: 'object' },
 				],
 			})
 			.on('change', () => {
