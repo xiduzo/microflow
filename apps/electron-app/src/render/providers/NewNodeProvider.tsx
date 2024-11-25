@@ -138,11 +138,17 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Rgb')}>
+						LED (RGB)
+						<CommandShortcut className="space-x-1">
+							<Badge variant="outline">Analog</Badge>
+							<Badge variant="outline">Output</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Matrix')}>
 						LED Matrix
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Digital</Badge>
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>

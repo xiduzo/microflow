@@ -1,12 +1,6 @@
 import Logger from 'electron-log/node';
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
-
-export type RGBA = {
-	r: number;
-	g: number;
-	b: number;
-	a: number;
-};
+import { RGBA } from '../types';
 
 export type FigmaData = {
 	variableId?: string;
@@ -22,12 +16,14 @@ export class Figma extends BaseComponent<FigmaValueType> {
 		super(options, '');
 	}
 
-	increment(amount = 1) {
-		this.value = Number(this.value) + amount;
+	// TODO: get value from edge
+	increment() {
+		this.value = Number(this.value) + 1;
 	}
 
-	decrement(amount = 1) {
-		this.value = Number(this.value) - amount;
+	// TODO: get value from edge
+	decrement() {
+		this.value = Number(this.value) - 1;
 	}
 
 	true() {
