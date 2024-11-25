@@ -103,3 +103,26 @@ body {
 .react-flow__handle:not(.connectable) {
 	@apply cursor-not-allowed pointer-events-auto bg-red-500;
 }
+
+/*
+* react-colorful style overwrites
+*/
+.react-colorful {
+	@apply p-4;
+}
+
+.react-colorful__hue {
+	@apply hidden;
+}
+
+.react-colorful .react-colorful__alpha {
+	@apply mt-4 rounded-md h-5;
+}
+
+.react-colorful .react-colorful__saturation {
+	@apply border-b-0 rounded-md;
+}
+
+.react-colorful .react-colorful__pointer {
+	@apply w-5 h-5 transition-all;
+}

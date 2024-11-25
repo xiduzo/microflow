@@ -70,27 +70,10 @@ if (!port) {
 
 			edges.forEach(edge => {
 				const targetNode = nodes.find(node => node.id === edge.target);
-				// TODO: maybe be a bit more specific about the value and also include the type?
-				const valueTriggers = [
-					'set',
-					'check',
-					'red',
-					'green',
-					'blue',
-					'opacity',
-					'from',
-					'publish',
-					'rotate',
-					'to',
-					'show',
-					'debug',
-					'brightness',
-				];
 
-				const shouldSetValue = valueTriggers.includes(edge.targetHandle);
-				let value = shouldSetValue ? `${node.type}_${node.id}.value` : undefined;
+				let value = `${node.type}_${node.id}.value`;
 
-				if (node.type === 'RangeMap' && shouldSetValue) {
+				if (node.type === 'RangeMap') {
 					// Mapper node
 					innerCode += addEnter();
 					value = `${node.type}_${node.id}.value[1]`;

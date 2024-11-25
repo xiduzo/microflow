@@ -20,6 +20,7 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useUploadResult } from '../../../stores/board';
+import { RgbaColorPicker } from 'react-colorful';
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
@@ -213,15 +214,7 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 				</TooltipProvider>
 			);
 		case 'COLOR':
-			const { r, g, b, a } = (value ?? DEFAULT_COLOR) as RGBA;
-			return (
-				<div
-					className="w-full h-14 rounded-sm bg-green-50 border-2 border-black ring-2 ring-white"
-					style={{
-						backgroundColor: `rgba(${r * 255},${g * 255},${b * 255},${a * 255})`,
-					}}
-				></div>
-			);
+			return <RgbaColorPicker color={value as RGBA} />;
 		default:
 			return <div>Unknown type</div>;
 	}

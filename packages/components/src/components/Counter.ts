@@ -10,21 +10,23 @@ export class Counter extends BaseComponent<CounterValueType> {
 		super(options, 0);
 	}
 
-	increment(amount = 1) {
+	// TODO: get value from edge
+	increment() {
 		try {
-			this.value += this.inputToNumber(amount);
+			this.value += 1;
 		} catch (error) {
-			Logger.warn('Invalid value type to increment counter', { amount, error });
-			this.postErrorMessage('increment', new Error(`${amount} is not a valid number`));
+			Logger.warn('Invalid value type to increment counter', { error });
+			this.postErrorMessage('increment', new Error(`unable to increment`));
 		}
 	}
 
-	decrement(amount = 1) {
+	// TODO: get value from edge
+	decrement() {
 		try {
-			this.value -= this.inputToNumber(amount);
+			this.value -= 1;
 		} catch (error) {
-			Logger.warn('Invalid value type to decrement counter', { amount, error });
-			this.postErrorMessage('decrement', new Error(`${amount} is not a valid number`));
+			Logger.warn('Invalid value type to decrement counter', { error });
+			this.postErrorMessage('decrement', new Error(`unable to decrement`));
 		}
 	}
 
