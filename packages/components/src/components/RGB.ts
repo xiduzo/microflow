@@ -13,7 +13,7 @@ export class Rgb extends BaseComponent<RgbValueType> {
 	private updateQueue: Promise<void> = Promise.resolve();
 
 	constructor(options: RgbOptions) {
-		super(options, { r: 0, g: 0, b: 0, a: 0 });
+		super(options, { r: 0, g: 0, b: 0, a: 1 });
 
 		this.component = new JohnnyFive.Led.RGB(options);
 	}

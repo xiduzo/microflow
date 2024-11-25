@@ -26,7 +26,7 @@ export function Rgb(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<RgbValueType>(id, { r: 0, g: 0, b: 0, a: 0 });
+	const value = useNodeValue<RgbValueType>(id, { r: 0, g: 0, b: 0, a: 1 });
 
 	return <RgbaColorPicker color={value} />;
 }
