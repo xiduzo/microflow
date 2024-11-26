@@ -22,7 +22,7 @@ export function DownloadApp() {
 				window.open(`${baseUrl}/Microflow-studio-${version}-arm64.dmg`);
 				break;
 			case 'windows':
-				window.open(`${baseUrl}/Microflow-studio-${version}.Setup.exe`);
+				window.open(`${baseUrl}/Microflow-studio-${version}-Setup.exe`);
 				break;
 			case 'debian':
 				window.open(`${baseUrl}/microflow-studio_${version}_amd64.deb`);
