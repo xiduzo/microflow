@@ -9,6 +9,7 @@
 		"build": "yarn workspace @microflow/components build",
 		"make": "DEBUG=electron-osx yarn workspace microflow-studio make",
 		"publish": "yarn workspace microflow-studio publish",
+		"publish:intel": "yarn workspace microflow-studio publish:intel",
 		"postinstall": "patch-package"
 	},
 	"packageManager": "yarn@3.3.0",

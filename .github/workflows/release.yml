@@ -73,6 +73,16 @@ jobs:
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
 
+      - name: Publish application
+        if: runner.os == 'macOS'
+        run: yarn publish:intel
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_IDENTITY: ${{ vars.APPLE_IDENTITY }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+
       - name: Clean up keychain and provisioning profile
         if: runner.os == 'macOS'
         run: |

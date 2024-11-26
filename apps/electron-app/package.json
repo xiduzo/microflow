@@ -20,6 +20,7 @@
 		"make": "DEBUG=electron-osx-sign electron-forge make",
 		"make:debug": "DEBUG=electron-osx-sign electron-forge make",
 		"publish": "electron-forge publish",
+		"publish:intel": "electron-forge publish --arch x64",
 		"lint": "echo \"No linting configured\""
 	},
 	"keywords": [],
