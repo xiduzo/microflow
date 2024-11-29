@@ -49,6 +49,11 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
+				title: 'Motion',
+				href: '/docs/microflow-studio/nodes/motion',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
 				title: 'MQTT',
 				href: '/docs/microflow-studio/nodes/mqtt',
 				parent: '/docs/microflow-studio/nodes',
@@ -68,6 +73,11 @@ export const navigation = [
 				href: '/docs/microflow-studio/nodes/servo',
 				parent: '/docs/microflow-studio/nodes',
 			},
+			{
+				title: 'Vibration',
+				href: '/docs/microflow-studio/nodes/vibration',
+				parent: '/docs/microflow-studio/nodes',
+			},
 			{ title: 'Edges', href: '/docs/microflow-studio/edges' },
 		],
 	},
@@ -76,6 +86,16 @@ export const navigation = [
 		links: [
 			{ title: 'Getting started', href: '/docs/microflow-hardware-bridge' },
 			{ title: 'Variables', href: '/docs/microflow-hardware-bridge/variables' },
+			{
+				title: 'Connecting',
+				href: '/docs/microflow-hardware-bridge/variables/connecting',
+				parent: '/docs/microflow-hardware-bridge/variables',
+			},
+			{
+				title: 'Manipulating',
+				href: '/docs/microflow-hardware-bridge/variables/manipulating',
+				parent: '/docs/microflow-hardware-bridge/variables',
+			},
 			{ title: 'MQTT', href: '/docs/microflow-hardware-bridge/mqtt' },
 		],
 	},

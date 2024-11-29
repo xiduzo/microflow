@@ -9,7 +9,7 @@ title: Potentiometer
 
 The OG slider.
 
-A potentiometer can be used to control the brightness of an LED, the speed of a motor, or even the pitch of a piezo.
+A potentiometer can, for example, be used to control the brightness of an LED, the speed of a motor, or even the pitch of a piezo.
 
 ## Resources
 

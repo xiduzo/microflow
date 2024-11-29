@@ -10,14 +10,11 @@ title: LED
 An LED (Light Emitting Diode) is a simple output device that emits light when an electric current passes through it.
 LEDs are commonly used in electronics projects to indicate the status of a circuit or to provide visual feedback.
 
-## LED RGB
+## LED - RGB
 
-{% callout type="warning" title="Not yet supported" %}
-RGB LEDs are not yet supported in Microflow. We are working on adding support for RGB LEDs in the future.
-{% /callout %}
+Compared to a regular LED, a RGB LED allows you to individually control the intensity of each of the three primary colors (Red, Green, and Blue) that make up the LED.
 
-
-## LED matrix
+## LED - matrix
 For now, only basic `8x8` LED matrixes are supported.
 
 You are able to customise the display of the matrix by an embedded editor in Microflow. This editor allows you to draw a sequence of frames that will be displayed on the matrix.
