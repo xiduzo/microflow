@@ -67,8 +67,8 @@ const tags = {
 		attributes: {
 			name: { type: String },
 		},
-		render: ({ name }) => {
-			return <Icon icon={name} />;
+		render: ({ name, className }) => {
+			return <Icon icon={name} className={className} />;
 		},
 	},
 };

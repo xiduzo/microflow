@@ -36,4 +36,4 @@ The value of a node can be represented in different ways, depending on the node 
 
 Each node has a set of properties that define its behavior and configuration. These properties can be set in the node's configuration panel.
 
-To open the configuration panel, **double-click** on the node in the flow editor.
+To open the configuration panel, click the icon in the top right corner of the node.
