@@ -34,7 +34,7 @@ function Settings() {
 
 		pane.addBinding(settings, 'interval', {
 			index: 0,
-			min: 500,
+			min: 100,
 			max: 5000,
 			step: 100,
 		});
