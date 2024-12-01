@@ -30,8 +30,8 @@ export function FigmaProvider(props: PropsWithChildren) {
 		}
 
 		function handleVariableUpdate(topic: string, message: Buffer) {
-			console.log('[VARIABLE]', message.toString());
 			const [_prefix, _version, _id, _app, _topic, variableId] = topic.split('/');
+			console.debug('[VARIABLE]', variableId, message.toString());
 			setVariableValues(prev => {
 				const next = { ...prev };
 				const prevValue = next[variableId];

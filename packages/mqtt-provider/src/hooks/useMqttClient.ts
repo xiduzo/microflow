@@ -35,6 +35,7 @@ export function useMqttClient() {
 			callback: mqtt.OnMessageCallback,
 			options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties,
 		) => {
+			console.debug('[SUBSCRIBE]', topic, options);
 			subscriptions.current.set(topic, { callback, options });
 			await client.current
 				?.subscribeAsync(topic, options) // tODO: these options should be passed by subscriber
@@ -48,6 +49,7 @@ export function useMqttClient() {
 	);
 
 	const publish = useCallback((topic: string, payload: string, options?: IClientPublishOptions) => {
+		console.debug('[PUBLISH]', topic, payload, options);
 		return client.current?.publishAsync(topic, payload, options);
 	}, []);
 
@@ -121,6 +123,7 @@ export function useMqttClient() {
 					await resubscribe(options);
 				})
 				.on('message', (topic, payload, packet) => {
+					console.debug('[MESSAGE]', topic, payload);
 					Array.from(subscriptions.current.keys()).forEach(subscription => {
 						const regexp = new RegExp(
 							subscription.replace(/\//g, '\\/').replace(/\+/g, '\\S+').replace(/#/, '\\S+'),

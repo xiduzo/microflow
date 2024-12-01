@@ -55,8 +55,6 @@ export function MqttProvider(props: PropsWithChildren & Props) {
 			(topic, message) => {
 				const from = topic.split('/')[3].toString();
 				if (from === props.appName) return; // No need to get status from self
-				console.debug('received status from', { from, message, topic });
-				// if we received a ping it is connected
 				setConnectedClients(prev => {
 					prev.set(from as Client, message.toString() as 'connected' | 'disconnected');
 					return new Map(prev);

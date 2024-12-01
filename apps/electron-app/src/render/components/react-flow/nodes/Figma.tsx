@@ -42,7 +42,7 @@ export function Figma(props: Props) {
 		// and the plugin has not processed the previous value yet
 		if (value === undefined || value === null) return;
 
-		console.log('<<<', value);
+		console.debug('<<<', value);
 
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
 	}, [value, props.id]);
@@ -57,7 +57,7 @@ export function Figma(props: Props) {
 		if (lastPublishedValue.current === valueToPublish) return;
 		lastPublishedValue.current = valueToPublish;
 
-		console.log('>>>', valueToPublish);
+		console.debug('>>>', valueToPublish);
 		publish(`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`, valueToPublish);
 	}, [componentValue, variable, status, appName, uniqueId]);
 
