@@ -23,7 +23,7 @@ export function DownloadApp() {
 	const [os, setOs] = useState<OperationSystem>();
 
 	function downloadApp() {
-		const version = '0.6.3';
+		const version = '0.6.4';
 		const baseUrl = `https://github.com/xiduzo/microflow/releases/download/v${version}`;
 
 		switch (os) {
