@@ -1,7 +1,7 @@
 import { Message, MESSAGE_TYPE } from '../common/types/Message';
 import { getLocalValue, setLocalValue } from './handlers/clientStorage';
 import { setUiOptions } from './handlers/ui';
-import { getLocalVariables, setLocalvariable } from './handlers/variables';
+import { deleteVariable, getLocalVariables, setLocalvariable } from './handlers/variables';
 
 figma.showUI(__html__, {
 	themeColors: true,
@@ -43,7 +43,7 @@ figma.ui.onmessage = <T>(message: Message<T>) => {
 			break;
 		}
 		case MESSAGE_TYPE.DELETE_VARIABLE: {
-			// void deleteVariable(payload);
+			void deleteVariable(payload);
 			break;
 		}
 		case MESSAGE_TYPE.SET_LOCAL_VARIABLE: {
