@@ -89,7 +89,6 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 			updateHistory({ edges: addEdge(connection, get().edges) });
 		},
 		setNodes: nodes => {
-			console.log('setNodes', nodes);
 			updateHistory({ nodes });
 		},
 		setEdges: edges => {

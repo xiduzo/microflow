@@ -10,6 +10,7 @@ export function MqttVariableMessenger() {
 	const { status, publish, subscribe, uniqueId } = useMqtt();
 	const publishedVariableValues = useRef<Map<string, any | undefined>>(new Map());
 	const knownVariables = useRef<Record<string, KnownVariable>>({}); // <id, name>
+	const lastReceveivedVariables = useRef<Map<string, number>>(new Map());
 
 	async function publishVariables(variables?: Variable[]) {
 		const newVariables =
@@ -66,6 +67,8 @@ export function MqttVariableMessenger() {
 			const [, , , app, , variableId] = topic.split('/');
 			const value = JSON.parse(message.toString());
 
+			// Make sure we don't send the same value back to the app
+			publishedVariableValues.current.set(variableId, JSON.stringify(value));
 			sendMessageToFigma(SetLocalValiable(variableId, value as VariableValue));
 		});
 	}, [status, subscribe, publish, uniqueId]);

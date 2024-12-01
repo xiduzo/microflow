@@ -30,7 +30,6 @@ export function Figma(props: Props) {
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
 	const componentValue = useNodeValue<FigmaValueType>(props.id, undefined);
 
-	// TODO: should we update from the component?
 	const updateNode = useUpdateNode<FigmaData>(props.id);
 
 	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
@@ -42,6 +41,8 @@ export function Figma(props: Props) {
 		// when the next value is already being send to the plugin
 		// and the plugin has not processed the previous value yet
 		if (value === undefined || value === null) return;
+
+		console.debug('<<<', value);
 
 		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
 	}, [value, props.id]);
@@ -56,6 +57,7 @@ export function Figma(props: Props) {
 		if (lastPublishedValue.current === valueToPublish) return;
 		lastPublishedValue.current = valueToPublish;
 
+		console.debug('>>>', valueToPublish);
 		publish(`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`, valueToPublish);
 	}, [componentValue, variable, status, appName, uniqueId]);
 

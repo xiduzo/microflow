@@ -139,7 +139,6 @@ function Settings() {
 				setEditorOpened(false);
 			}}
 			onSave={data => {
-				console.log(data);
 				settings.song = data.song;
 				setEditorOpened(false);
 			}}

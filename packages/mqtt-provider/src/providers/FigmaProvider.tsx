@@ -22,8 +22,8 @@ export function FigmaProvider(props: PropsWithChildren) {
 
 		function handleVariablesUpdate(_topic: string, message: Buffer) {
 			setVariableTypes(prev => {
-			  const current = JSON.stringify(prev);
-				if(message.toString() === current) return prev
+				const current = JSON.stringify(prev);
+				if (message.toString() === current) return prev;
 
 				return JSON.parse(message.toString()) as Record<string, FigmaVariable>;
 			});
@@ -31,6 +31,7 @@ export function FigmaProvider(props: PropsWithChildren) {
 
 		function handleVariableUpdate(topic: string, message: Buffer) {
 			const [_prefix, _version, _id, _app, _topic, variableId] = topic.split('/');
+			console.debug('[VARIABLE]', variableId, message.toString());
 			setVariableValues(prev => {
 				const next = { ...prev };
 				const prevValue = next[variableId];
@@ -40,20 +41,39 @@ export function FigmaProvider(props: PropsWithChildren) {
 			});
 		}
 
-		subscribe(`microflow/v1/${uniqueId}/plugin/variables`, handleVariablesUpdate);
+		const variablesSub = subscribe(
+			`microflow/v1/${uniqueId}/plugin/variables`,
+			handleVariablesUpdate,
+		);
 
-		subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, handleVariableUpdate);
+		const variableSub = subscribe(
+			`microflow/v1/${uniqueId}/plugin/variable/+`,
+			handleVariableUpdate,
+		);
 
-		subscribe(`microflow/v1/${uniqueId}/${appName}/variables/response`, handleVariablesUpdate);
+		const responseSub = subscribe(
+			`microflow/v1/${uniqueId}/${appName}/variables/response`,
+			handleVariablesUpdate,
+		);
+
+		return () => {
+			variablesSub.then(unsubscribe => unsubscribe?.());
+			variableSub.then(unsubscribe => unsubscribe?.());
+			responseSub.then(unsubscribe => unsubscribe?.());
+		};
 	}, [status, appName, uniqueId]);
+
+	const pluginConnected = useMemo(
+		() => connectedClients.get('plugin') === 'connected',
+		[connectedClients],
+	);
 
 	useEffect(() => {
 		if (status !== 'connected') return;
-		if(!connectedClients.get('plugin')) return;
-		if(connectedClients.get('plugin') !== 'connected') return;
+		if (!pluginConnected) return;
 
 		publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
-	}, [status, uniqueId, appName, connectedClients]);
+	}, [status, uniqueId, appName, pluginConnected]);
 
 	return (
 		<FigmaContext.Provider value={{ variableValues, variableTypes }}>

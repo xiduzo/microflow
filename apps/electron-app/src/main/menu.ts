@@ -39,15 +39,15 @@ export function createMenu(mainWindow: BrowserWindow) {
 				},
 				{ type: 'separator' },
 				{
-					label: 'Undo',
-					accelerator: isMac ? 'Cmd+Z' : 'Ctrl+Z',
+					label: 'Previous state',
+					accelerator: isMac ? 'Cmd+P' : 'Ctrl+P',
 					click: () => {
 						mainWindow.webContents.send('ipc-menu', 'undo');
 					},
 				},
 				{
-					label: 'Redo',
-					accelerator: isMac ? 'Cmd+Shift+Z' : 'Ctrl+Shift+Z',
+					label: 'Next state',
+					accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
 					click: () => {
 						mainWindow.webContents.send('ipc-menu', 'redo');
 					},

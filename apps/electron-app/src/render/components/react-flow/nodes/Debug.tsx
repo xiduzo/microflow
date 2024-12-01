@@ -21,7 +21,6 @@ function Value() {
 	const { id, data } = useNode<DebugData>();
 	const value = useNodeValue<DebugValueType>(id, 0);
 
-	console.log(value);
 	const container = useRef<HTMLDivElement>();
 	const display = useRef({ value });
 
@@ -63,8 +62,6 @@ function Value() {
 			label: '',
 			...bindingConfig,
 		});
-
-		console.log(bindingConfig);
 
 		return () => {
 			pane.dispose();

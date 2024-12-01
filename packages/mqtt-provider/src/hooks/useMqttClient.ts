@@ -1,4 +1,4 @@
-import mqtt from 'mqtt';
+import mqtt, { IClientPublishOptions } from 'mqtt';
 import { useCallback, useRef, useState } from 'react';
 
 const ConnectionStatusus = ['connected', 'disconnected', 'connecting'] as const;
@@ -8,7 +8,15 @@ export function useMqttClient() {
 	const client = useRef<mqtt.MqttClient>();
 
 	const [status, setStatus] = useState<ConnectionStatus>('disconnected');
-	const subscriptions = useRef(new Map<string, mqtt.OnMessageCallback>());
+	const subscriptions = useRef(
+		new Map<
+			string,
+			{
+				callback: mqtt.OnMessageCallback;
+				options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties;
+			}
+		>(),
+	);
 
 	const disconnect = useCallback(() => {
 		setStatus('disconnected');
@@ -22,9 +30,16 @@ export function useMqttClient() {
 	}, []);
 
 	const subscribe = useCallback(
-		async (topic: string, callback: mqtt.OnMessageCallback) => {
-			subscriptions.current.set(topic, callback);
-			await client.current?.subscribeAsync(topic).catch(console.error);
+		async (
+			topic: string,
+			callback: mqtt.OnMessageCallback,
+			options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties,
+		) => {
+			console.debug('[SUBSCRIBE]', topic, options);
+			subscriptions.current.set(topic, { callback, options });
+			await client.current
+				?.subscribeAsync(topic, options) // tODO: these options should be passed by subscriber
+				.catch(console.error);
 
 			return () => {
 				unsubscribe?.(topic)?.catch(console.error);
@@ -33,25 +48,31 @@ export function useMqttClient() {
 		[unsubscribe],
 	);
 
-	const publish = useCallback((topic: string, payload: string) => {
-		return client.current?.publishAsync(topic, payload);
+	const publish = useCallback((topic: string, payload: string, options?: IClientPublishOptions) => {
+		console.debug('[PUBLISH]', topic, payload, options);
+		return client.current?.publishAsync(topic, payload, options);
 	}, []);
 
-	const resubscribe = useCallback(async () => {
-		setStatus('connecting');
-		for (const [topic, callback] of Array.from(subscriptions.current)) {
-			try {
-				await unsubscribe(topic);
-				await subscribe(topic, callback);
-			} catch (e) {
-				console.error(e);
+	const resubscribe = useCallback(
+		async (options: { uniqueId: string; appName: string }) => {
+			for (const [topic, { callback, options }] of Array.from(subscriptions.current)) {
+				try {
+					await subscribe(topic, callback, options);
+				} catch (e) {
+					console.error(e);
+				}
 			}
-		}
-		setStatus('connected');
-	}, [unsubscribe, subscribe]);
+			setStatus('connected');
+			await publish(`microflow/v1/${options.uniqueId}/${options.appName}/status`, 'connected', {
+				retain: true,
+				qos: 1,
+			});
+		},
+		[unsubscribe, subscribe],
+	);
 
 	const connect = useCallback(
-		(options: mqtt.IClientOptions) => {
+		(options: mqtt.IClientOptions & { uniqueId: string; appName: string }) => {
 			const defaultClient: mqtt.IClientOptions = {
 				host: 'test.mosquitto.org',
 				port: 8081,
@@ -63,11 +84,31 @@ export function useMqttClient() {
 				...defaultClient,
 				protocol: 'wss',
 				...options,
+				will: {
+					topic: `microflow/v1/${options.uniqueId}/${options.appName}/status`,
+					retain: true,
+					qos: 2,
+					properties: {
+						willDelayInterval: 0,
+					},
+					// const encoder = new TextEncoder();
+					// encoder.encode('disconnected');
+					payload: new Uint8Array([
+						100, 105, 115, 99, 111, 110, 110, 101, 99, 116, 101, 100,
+					]) as Buffer,
+				},
 			});
 
 			client.current
-				.on('connect', resubscribe)
-				.on('reconnect', resubscribe)
+				.on('connect', async () => {
+					console.debug('connect', options.uniqueId);
+					await resubscribe(options);
+				})
+				.on('reconnect', async () => {
+					console.debug('reconnect');
+					setStatus('connecting');
+					await resubscribe(options);
+				})
 				.on('error', error => {
 					console.debug('error event received', error);
 					disconnect();
@@ -76,10 +117,13 @@ export function useMqttClient() {
 					console.debug('disconnect event received', error);
 					disconnect();
 				})
-				.on('close', () => {
+				.on('close', async () => {
 					console.debug('close event received');
+					setStatus('connecting');
+					await resubscribe(options);
 				})
 				.on('message', (topic, payload, packet) => {
+					console.debug('[MESSAGE]', topic, payload);
 					Array.from(subscriptions.current.keys()).forEach(subscription => {
 						const regexp = new RegExp(
 							subscription.replace(/\//g, '\\/').replace(/\+/g, '\\S+').replace(/#/, '\\S+'),
@@ -87,7 +131,7 @@ export function useMqttClient() {
 						if (!topic.match(regexp)) return;
 
 						try {
-							const callback = subscriptions.current.get(subscription);
+							const { callback } = subscriptions.current.get(subscription);
 							callback?.(topic, payload, packet);
 						} catch {
 							console.error('Error in callback for topic', {
