@@ -18,7 +18,7 @@ export class Led extends BaseComponent<LedValueType> {
 	// Highjack the on method
 	// to allow for a custom actions
 	on(action: string, callback: (...args: any[]) => void) {
-		if (action) {
+		if (action && callback) {
 			this.eventEmitter.on(action, callback);
 			return;
 		}
