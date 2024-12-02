@@ -15,3 +15,5 @@ export * from './src/components/RGB';
 export * from './src/components/Sensor';
 export * from './src/components/Servo';
 export * from './src/types';
+export * from 'etherport-client';
+export * from './src/TcpSerial';

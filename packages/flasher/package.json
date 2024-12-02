@@ -4,7 +4,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "tsc -w",
-		"build": "tsc"
+		"build": "tsc",
+		"test": "npx tsx ./test.ts"
 	},
 	"devDependencies": {
 		"typescript": "5.6.2"

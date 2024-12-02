@@ -1,12 +1,14 @@
-import { toast } from "@ui/index";
-import { useEffect } from "react";
+import { toast } from '@ui/index';
+import { useEffect } from 'react';
 
 export function IpcDeepLinkListener() {
 	useEffect(() => {
-		return window.electron.ipcRenderer.on('ipc-deep-link', (event, ...args) => {
-			console.log('ipc-deep-link', event, args);
+		return window.electron.ipcRenderer.on<{ from: string }>('ipc-deep-link', result => {
+			if (!result.success) return;
 
-			switch (event) {
+			console.log('ipc-deep-link', result);
+
+			switch (result.data.from) {
 				case 'web':
 					toast.success('Microflow studio successfully linked!');
 					break;

@@ -10,21 +10,23 @@ export function useSignalNodesAndEdges() {
 	const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
 	useEffect(() => {
-		return window.electron.ipcRenderer.on('ipc-microcontroller', (message: UploadedCodeMessage) => {
-			if (message.value instanceof Error) {
-				toast.error(message.value.message, {
+		return window.electron.ipcRenderer.on<UploadedCodeMessage>('ipc-microcontroller', result => {
+			if (!result.success) return;
+
+			if (result.data.value instanceof Error) {
+				toast.error(result.data.value.message, {
 					important: true,
-					description: `Error in node ${message.nodeId} with handle ${message.action}`,
+					description: `Error in node ${result.data.nodeId} with handle ${result.data.action}`,
 				});
 				return;
 			}
 
-			update(message.nodeId, message.value);
+			update(result.data.nodeId, result.data.value);
 
 			getEdges()
 				.filter(
 					({ source, sourceHandle }) =>
-						source === message.nodeId && sourceHandle === message.action,
+						source === result.data.nodeId && sourceHandle === result.data.action,
 				)
 				.map(edge => {
 					const timeout = timeouts.current.get(edge.id);

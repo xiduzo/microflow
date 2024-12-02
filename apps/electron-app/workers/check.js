@@ -1,4 +1,4 @@
-const { Board } = require('@microflow/components');
+const { Board, TcpSerial } = require('@microflow/components');
 
 const port = process.argv.at(-1);
 
@@ -13,10 +13,28 @@ if (!port) {
 let board;
 
 try {
+	const ipRegex = new RegExp(
+		/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/,
+	);
+	const portIsIp = ipRegex.test(port);
+	let connection;
+
+	if (portIsIp) {
+		connection = new TcpSerial({ host: port, port: 3030 });
+
+		connection.on('close', () => {
+			process.parentPort.postMessage({
+				type: 'close',
+				message: `Connection not reachable on ${port}`,
+				class: TcpSerial.name,
+			});
+		});
+	}
+
 	board = new Board({
 		repl: false,
 		debug: true,
-		port,
+		port: connection || port,
 	});
 
 	process.parentPort.postMessage({

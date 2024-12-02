@@ -1,6 +1,7 @@
 import { Edge, Node } from '@xyflow/react';
 
-export function isNodeTypeACodeType(type: string) {
+export function isNodeTypeACodeType(type?: string) {
+	if (!type) return false;
 	return !['note'].includes(type.toLowerCase());
 }
 
@@ -116,10 +117,26 @@ const log = require("electron-log/node");
 
 function addBoard() {
 	return `
+const ipRegex = new RegExp(/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/);
+const portIsIp = ipRegex.test(String(port));
+
+let connection;
+
+if(portIsIp) {
+    connection = new MicroflowComponents.TcpSerial({
+        host: port,
+        port: 3030,
+    });
+
+    connection.on('close', e => {
+        process.parentPort.postMessage({ type: "close", message: \`Connection lost to \${port}\` });
+    })
+}
+
 const board = new MicroflowComponents.Board({
   repl: false,
   debug: false,
-  port: port,
+  port: connection || port,
 });
 
 log.info("Board is created", { port: board.port });

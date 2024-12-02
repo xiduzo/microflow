@@ -3,7 +3,7 @@ import { Background, Controls, MiniMap, Panel, ReactFlow } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useReactFlowStore } from '../../stores/react-flow';
-import { SerialConnectionStatus } from './panels/SerialConnectionStatus';
+import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
 
 const selector = (state: AppState) => ({
 	nodes: state.nodes,
@@ -34,7 +34,7 @@ export function ReactFlowCanvas() {
 			<Background gap={32} />
 
 			<Panel position="top-center">
-				<SerialConnectionStatus />
+				<SerialConnectionStatusPanel />
 			</Panel>
 
 			<Panel

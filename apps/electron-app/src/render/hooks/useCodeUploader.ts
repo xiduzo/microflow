@@ -2,17 +2,21 @@ import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef } from 'react';
 import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
 import { useNodeAndEdgeCount } from '../stores/react-flow';
-import { useBoardPort, useBoardResult, useBoardStore } from '../stores/board';
+import { useBoardPort, useBoardResult, useBoardStore, useUploadResult } from '../stores/board';
 import { UploadResult } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
 import { useNewNode } from '../providers/NewNodeProvider';
+import { useLocalStorage } from 'usehooks-ts';
+import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
 
 export function useCodeUploader() {
 	const clearNodeData = useClearNodeData();
 	const boardResult = useBoardResult();
+
 	const port = useBoardPort();
-	const { setUploadResult } = useBoardStore();
+	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
+	const { setUploadResult, setBoardResult } = useBoardStore();
 
 	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
 
@@ -32,14 +36,14 @@ export function useCodeUploader() {
 		const allowedEdges = edges.filter(edge => {
 			const sourceNode = internalNodes.find(
 				node =>
-					node.id === edge.source &&
-					(node.internals.handleBounds?.source?.find(handle => handle.id === edge.sourceHandle) ??
+					node?.id === edge.source &&
+					(node?.internals.handleBounds?.source?.find(handle => handle.id === edge.sourceHandle) ??
 						true),
 			);
 			const targetNode = internalNodes.find(
 				node =>
-					node.id === edge.target &&
-					(node.internals.handleBounds?.target?.find(handle => handle.id === edge.targetHandle) ??
+					node?.id === edge.target &&
+					(node?.internals.handleBounds?.target?.find(handle => handle.id === edge.targetHandle) ??
 						true),
 			);
 
@@ -48,14 +52,27 @@ export function useCodeUploader() {
 
 		const code = generateCode(nodes, allowedEdges);
 
-		const off = window.electron.ipcRenderer.on('ipc-upload-code', (result: UploadResult) => {
-			setUploadResult(result);
+		const off = window.electron.ipcRenderer.on<UploadResult>('ipc-upload-code', result => {
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
 
-			if (result.type !== 'info') off();
-			if (result.type === 'error') toast.error(result.message);
+			setUploadResult(result.data);
+
+			if (result.data.type === 'error') toast.error(result.data.message);
+			if (result.data.type === 'close') {
+				result.data.message && toast.warning(result.data.message);
+				setBoardResult({ type: 'close' });
+				window.electron.ipcRenderer.send('ipc-check-board', { ip: config.ip });
+			}
 		});
 
-		window.electron.ipcRenderer.send('ipc-upload-code', code, port);
+		window.electron.ipcRenderer.send('ipc-upload-code', { code, port: config.ip ?? port });
+
+		return () => {
+			off();
+		};
 	}, [
 		getNodes,
 		getEdges,
@@ -64,6 +81,7 @@ export function useCodeUploader() {
 		boardResult,
 		setUploadResult,
 		port,
+		config.ip,
 		clearNodeData,
 	]);
 
@@ -74,6 +92,7 @@ export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
 	const { nodeToAdd } = useNewNode();
 	const boardResult = useBoardResult();
+	const uploadResult = useUploadResult();
 	const debounce = useRef<NodeJS.Timeout>();
 
 	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
@@ -98,4 +117,11 @@ export function useAutoCodeUploader() {
 			clearTimeout(debounce.current);
 		};
 	}, [nodesCount, edgesCount, uploadCode, boardResult, nodeToAdd]);
+
+	useEffect(() => {
+		if (uploadResult !== 'close') return;
+
+		lastNodesCount.current = -1;
+		lastEdgesCount.current = -1;
+	}, [boardResult]);
 }

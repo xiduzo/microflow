@@ -7,10 +7,12 @@
 		"build": "tsc"
 	},
 	"devDependencies": {
+		"@types/etherport-client": "^0.1.0",
 		"@types/johnny-five": "2.1.10",
 		"typescript": "5.6.2"
 	},
 	"dependencies": {
+		"etherport-client": "^0.1.4",
 		"johnny-five": "https://github.com/xiduzo/johnny-five.git"
 	}
 }

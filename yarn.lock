@@ -1732,7 +1732,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@microflow/components@workspace:packages/components"
   dependencies:
+    "@types/etherport-client": ^0.1.0
     "@types/johnny-five": 2.1.10
+    etherport-client: ^0.1.4
     johnny-five: "https://github.com/xiduzo/johnny-five.git"
     typescript: 5.6.2
   languageName: unknown
@@ -4913,6 +4915,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/etherport-client@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "@types/etherport-client@npm:0.1.0"
+  dependencies:
+    "@types/node": "*"
+  checksum: f06a274ae6d8fe107492df2981631e6b6ae8df27459f4f28d5fa068a7038bbcde60f2020d54e0b3393c3b2273db04dc6a199af481700f29dff2925351034121a
+  languageName: node
+  linkType: hard
+
 "@types/fs-extra@npm:^8.0.1":
   version: 8.1.5
   resolution: "@types/fs-extra@npm:8.1.5"
@@ -7308,7 +7319,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:^3.2.7":
+"debug@npm:^3.2.6, debug@npm:^3.2.7":
   version: 3.2.7
   resolution: "debug@npm:3.2.7"
   dependencies:
@@ -8438,6 +8449,15 @@ __metadata:
   version: 1.8.1
   resolution: "etag@npm:1.8.1"
   checksum: 571aeb3dbe0f2bbd4e4fadbdb44f325fc75335cd5f6f6b6a091e6a06a9f25ed5392f0863c5442acb0646787446e816f13cbfc6edce5b07658541dff573cab1ff
+  languageName: node
+  linkType: hard
+
+"etherport-client@npm:^0.1.4":
+  version: 0.1.4
+  resolution: "etherport-client@npm:0.1.4"
+  dependencies:
+    debug: ^3.2.6
+  checksum: 23def231b239c7eeee2a83b8de32a515c45c1648ab784a18240ec02c7ab298d4552e455e2ed42ddaa0f0019ab424acccd354a81c8d4ac9f49a8ca5b9994787eb
   languageName: node
   linkType: hard
 

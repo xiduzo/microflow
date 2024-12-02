@@ -35,7 +35,7 @@ export function useSaveFlow() {
 	}, [autoSave, saveNodesAndEdges]);
 
 	useEffect(() => {
-		window.electron.ipcRenderer.send('ipc-menu', 'auto-save', autoSave);
+		window.electron.ipcRenderer.send('ipc-menu', { action: 'auto-save', args: autoSave });
 	}, [autoSave]);
 
 	return { autoSave, setAutoSave, saveNodesAndEdges };

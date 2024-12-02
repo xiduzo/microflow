@@ -1,4 +1,3 @@
-import { Modes } from '@tsparticles/engine';
 import type { Edge, Node } from '@xyflow/react';
 
 export enum MODES {
@@ -71,3 +70,5 @@ export type FlowFile = {
 	nodes: Node[];
 	edges: Edge[];
 };
+
+export type IpcResponse<T> = { success: true; data: T } | { success: false; error: string };
