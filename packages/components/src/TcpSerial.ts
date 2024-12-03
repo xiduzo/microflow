@@ -5,14 +5,12 @@ import { Socket } from 'net';
 type Options = {
 	port: number;
 	host: string;
-	reconnectTimeoutSecs?: number;
 };
 
 const PING_INTERVAL_MS = 1000;
 
 export class TcpSerial extends EventEmitter {
 	private socket: Socket;
-	private reconnectTimer: NodeJS.Timeout | undefined = undefined;
 	private disconnectTimeout: NodeJS.Timeout | undefined = undefined;
 	private pingInterval: NodeJS.Timeout | undefined = undefined;
 
@@ -118,5 +116,3 @@ export class TcpSerial extends EventEmitter {
 		this.emit('ready', event);
 	}
 }
-
-// inherits(UdpSerial, EventEmitter);
