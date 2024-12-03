@@ -11,11 +11,11 @@ type BoardState = {
 
 export const useBoardStore = create<BoardState>(set => {
 	return {
-		board: { type: 'info' },
+		board: { type: 'close' },
 		setBoardResult: (result: BoardResult) => {
 			set({ board: result });
 		},
-		upload: { type: 'info' },
+		upload: { type: 'close' },
 		setUploadResult: (result: UploadResult) => {
 			set({ upload: result });
 		},

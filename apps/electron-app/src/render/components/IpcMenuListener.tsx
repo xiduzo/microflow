@@ -6,6 +6,8 @@ import { useSaveFlow } from '../hooks/useSaveFlow';
 import { useNewNode } from '../providers/NewNodeProvider';
 import { useReactFlowStore } from '../stores/react-flow';
 import { MqttSettingsForm } from './forms/MqttSettingsForm';
+import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
+import { useAppStore } from '../stores/app';
 
 export function IpcMenuListeners() {
 	const { getNodes, getEdges } = useReactFlow();
@@ -15,11 +17,15 @@ export function IpcMenuListeners() {
 	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);
 	const [, setLocalEdges] = useLocalStorage<Edge[]>('edges', []);
 	const { setOpen } = useNewNode();
-	const [showMqttSettings, setShowMqttSettings] = useState(false);
+	const { settingsOpen, setSettingsOpen } = useAppStore();
 
 	useEffect(() => {
-		window.electron.ipcRenderer.on('ipc-menu', (button: string, ...props: unknown[]) => {
-			switch (button) {
+		window.electron.ipcRenderer.on<{ button: string; args: any }>('ipc-menu', result => {
+			if (!result.success) return;
+
+			console.log(result);
+
+			switch (result.data.button) {
 				case 'save-flow':
 					saveNodesAndEdges();
 					break;
@@ -33,17 +39,21 @@ export function IpcMenuListeners() {
 					setOpen(true);
 					break;
 				case 'toggle-autosave':
-					setAutoSave(Boolean(props[0]));
+					setAutoSave(Boolean(result.data.args));
 					break;
 				case 'mqtt-settings':
-					setShowMqttSettings(true);
+				case 'board-settings':
+					setSettingsOpen(result.data.button);
 					break;
 				case 'export-flow':
-					window.electron.ipcRenderer.send('ipc-export-flow', getNodes(), getEdges());
+					window.electron.ipcRenderer.send('ipc-export-flow', {
+						nodes: getNodes(),
+						edges: getEdges(),
+					});
 					break;
 				case 'import-flow':
 					// TODO: data validation
-					const { nodes, edges } = props[0] as FlowFile;
+					const { nodes, edges } = result.data.args as FlowFile;
 					setNodes(nodes);
 					setEdges(edges);
 					break;
@@ -57,9 +67,10 @@ export function IpcMenuListeners() {
 					break;
 			}
 		});
-	}, [saveNodesAndEdges, setOpen]);
+	}, [saveNodesAndEdges, setSettingsOpen, setOpen]);
 
-	if (showMqttSettings) return <MqttSettingsForm open onClose={() => setShowMqttSettings(false)} />;
+	if (settingsOpen === 'mqtt-settings') return <MqttSettingsForm open />;
+	if (settingsOpen === 'board-settings') return <AdvancedSettingsForm open />;
 
 	return null;
 }

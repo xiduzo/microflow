@@ -12,12 +12,11 @@ export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 	if (figmaVariableMatch?.length) {
 		const [_link, variableId, value] = figmaVariableMatch;
 
-		mainWindow.webContents.send(
-			'ipc-deep-link',
-			'figma',
-			decodeURIComponent(variableId),
-			decodeURIComponent(value),
-		);
+		mainWindow.webContents.send('ipc-deep-link', {
+			from: 'figma',
+			variableId: decodeURIComponent(variableId),
+			value: decodeURIComponent(value),
+		});
 		return;
 	}
 
@@ -25,7 +24,7 @@ export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 	const linkWebMatch = linkWebRegex.exec(link);
 
 	if (linkWebMatch?.length) {
-		mainWindow.webContents.send('ipc-deep-link', 'web');
+		mainWindow.webContents.send('ipc-deep-link', { from: 'web' });
 		return;
 	}
 }

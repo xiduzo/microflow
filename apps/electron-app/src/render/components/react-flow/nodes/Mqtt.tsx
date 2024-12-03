@@ -11,7 +11,7 @@ export function Mqtt(props: Props) {
 	const { status } = useMqtt();
 
 	return (
-		<NodeContainer {...props} error={status !== 'connected' && 'MQTT not connected'}>
+		<NodeContainer {...props} error={status !== 'connected' ? 'MQTT not connected' : undefined}>
 			<Subscriber />
 			<Value />
 			<Settings />
@@ -32,7 +32,7 @@ function Subscriber() {
 
 	useEffect(() => {
 		if (data.type !== 'subscribe') return;
-		if (!data.topic.length) return;
+		if (!data.topic?.length) return;
 
 		const unsubFromTopic = subscribe(data.topic, (_topic, message) => {
 			let value: unknown;
@@ -45,7 +45,7 @@ function Subscriber() {
 				if (!isNaN(parsed)) value = parsed;
 			}
 
-			window.electron.ipcRenderer.send('ipc-external-value', id, value);
+			window.electron.ipcRenderer.send('ipc-external-value', { nodeId: id, value });
 		});
 
 		return () => {
@@ -63,13 +63,13 @@ function Value() {
 	const value = useNodeValue<MqttValueType>(id, '');
 
 	useEffect(() => {
-		if (data.type !== 'publish') return;
-		if (!data.topic.length) return;
+		if (data.direction !== 'publish') return;
+		if (!data.topic?.length) return;
 
 		publish(data.topic, JSON.stringify(value));
-	}, [value, data.topic, data.type, publish]);
+	}, [value, data.topic, data.direction, publish]);
 
-	if (data.type === 'publish') return <Icons.RadioTower size={48} />;
+	if (data.direction === 'publish') return <Icons.RadioTower size={48} />;
 	return <Icons.Antenna size={48} />;
 }
 
@@ -79,10 +79,10 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		const initialType = settings.type;
+		const initialType = settings.direction;
 
 		pane
-			.addBinding(settings, 'type', {
+			.addBinding(settings, 'direction', {
 				view: 'list',
 				index: 0,
 				options: [
@@ -106,6 +106,6 @@ function Settings() {
 type Props = BaseNode<MqttData, MqttValueType>;
 export const DEFAULT_MQTT_DATA: Props['data'] = {
 	label: 'MQTT',
-	type: 'publish',
+	direction: 'publish',
 	topic: '',
 };

@@ -3,6 +3,7 @@
 		"jsx": "react-jsx",
 		"paths": {
 			"@ui/*": ["../../packages/ui/*"]
-		}
+		},
+		"strict": true
 	}
 }

@@ -28,7 +28,7 @@ export function Figma(props: Props) {
 	const lastPublishedValue = useRef<string>();
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
-	const componentValue = useNodeValue<FigmaValueType>(props.id, undefined);
+	const componentValue = useNodeValue<FigmaValueType>(props.id, '');
 
 	const updateNode = useUpdateNode<FigmaData>(props.id);
 
@@ -44,7 +44,7 @@ export function Figma(props: Props) {
 
 		console.debug('<<<', value);
 
-		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
+		window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
 	}, [value, props.id]);
 
 	useEffect(() => {
@@ -73,28 +73,32 @@ export function Figma(props: Props) {
 		if (!variable?.resolvedType) return;
 
 		const value = DEFAULT_FIGMA_VALUE_PER_TYPE[variable.resolvedType];
-		window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
+		window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
 	}, [uploadResult, variable?.resolvedType, props.id]);
 
 	useEffect(() => {
-		return window.electron.ipcRenderer.on('ipc-deep-link', (event, id, value) => {
-			if (event !== 'figma') return;
-			if (id !== variable?.id) return;
+		return window.electron.ipcRenderer.on<{ from: string; variableId: string; value: unknown }>(
+			'ipc-deep-link',
+			result => {
+				if (!result.success) return;
+				if (result.data.from !== 'figma') return;
+				if (result.data.variableId !== variable?.id) return;
 
-			// TODO: do some processing on the value received from the plugin
-			// Eg. convert the color value to rgba
-			// +<number> of -<number> to increment or decrement the value
-			// true/false values
-			window.electron.ipcRenderer.send('ipc-external-value', props.id, value);
+				// TODO: do some processing on the value received from the plugin
+				// Eg. convert the color value to rgba
+				// +<number> of -<number> to increment or decrement the value
+				// true/false values
+				window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
 
-			// TODO: should we already publish the value?
-			// this would probably mean we publish it twice but it does not require a
-			// microcontroller to be connected and active
-		});
+				// TODO: should we already publish the value?
+				// this would probably mean we publish it twice but it does not require a
+				// microcontroller to be connected and active
+			},
+		);
 	}, [variable?.id, props.id]);
 
 	return (
-		<NodeContainer {...props} error={isDisconnected && 'Figma plugin is not connected'}>
+		<NodeContainer {...props} error={isDisconnected ? 'Figma plugin is not connected' : undefined}>
 			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
 			<Settings />
 			<FigmaHandles variable={variable} />

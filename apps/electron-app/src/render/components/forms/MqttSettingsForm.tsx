@@ -1,4 +1,3 @@
-import { MqttConfig } from '@microflow/mqtt-provider/client';
 import {
 	Button,
 	Form,
@@ -21,9 +20,9 @@ import {
 	Zod,
 	zodResolver,
 } from '@microflow/ui';
-import { useEffect } from 'react';
 import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
+import { useAppStore } from '../../stores/app';
 
 const schema = Zod.object({
 	host: Zod.string().optional(),
@@ -38,22 +37,20 @@ const schema = Zod.object({
 
 type Schema = Zod.infer<typeof schema>;
 
-const defaultValues: Schema = {
-	host: 'test.mosquitto.org',
-	port: 8081,
-	uniqueId: '',
-	protocol: 'wss',
-};
-
 export function MqttSettingsForm(props: Props) {
+	const [mqttConfig, setMqttConfig] = useLocalStorage<Schema | undefined>('mqtt-config', {
+		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
+		host: 'test.mosquitto.org',
+		port: 8081,
+		protocol: 'wss',
+	});
+
 	const form = useForm<Schema>({
 		resolver: zodResolver(schema),
-		defaultValues: defaultValues,
+		defaultValues: mqttConfig,
 	});
 
-	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig | undefined>('mqtt-config', {
-		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
-	});
+	const { setSettingsOpen } = useAppStore();
 
 	function setRandomUniqueName() {
 		form.clearErrors('uniqueId');
@@ -61,29 +58,30 @@ export function MqttSettingsForm(props: Props) {
 	}
 
 	function onSubmit(data: Schema) {
-		setMqttConfig(data as MqttConfig);
-		props.onClose?.();
+		setMqttConfig(data);
+		setSettingsOpen(undefined);
+		closeForm();
 	}
 
-	useEffect(() => {
-		if (!mqttConfig) return;
-		form.reset({
-			...defaultValues,
-			...(mqttConfig as Schema),
-		});
-	}, [mqttConfig, form.reset]);
+	function closeForm() {
+		setSettingsOpen(undefined);
+		props.onClose?.();
+	}
 
 	return (
 		<Sheet
 			open={props.open}
 			onOpenChange={opened => {
 				if (opened) return;
-				props.onClose?.();
+				closeForm();
 			}}
 		>
 			<SheetContent>
 				<SheetHeader>
-					<SheetTitle>MQTT Settings</SheetTitle>
+					<SheetTitle className="flex gap-2 items-center">
+						<Icons.Globe size={16} />
+						MQTT settings
+					</SheetTitle>
 					<SheetDescription>
 						When using Figma nodes, make sure to configure the same MQTT broker in the{' '}
 						<a
