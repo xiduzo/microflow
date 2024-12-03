@@ -14,8 +14,6 @@ import { join, resolve } from 'path';
 import { BoardResult, IpcResponse, UploadResult, UploadedCodeMessage } from '../common/types';
 import { exportFlow } from './file';
 
-let childProcess: UtilityProcess | null = null;
-
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
 //   const pagePath = path.join('file://', pageDirectory, 'index.html')
@@ -43,14 +41,12 @@ ipcMain.on('ipc-menu', (_event, data: { action: string; args: any }) => {
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
-	childProcess?.kill();
-
+	checkProcess?.kill();
 	log.debug('Checking board', { data });
 
 	if (data.ip) {
 		log.debug(`Checking board on IP ${data.ip}`);
 		const result = await checkBoardOnPort(event, data.ip);
-		console.log({ result });
 
 		event.reply('ipc-check-board', {
 			success: true,
@@ -122,22 +118,28 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 
 	// Start sniffing ports for changes in connections
 	sniffPorts(event, { connectedPort });
-	childProcess?.kill();
 });
 
+let checkProcess: UtilityProcess | null = null;
 async function checkBoardOnPort(event: IpcMainEvent, port: string) {
+	checkProcess?.kill();
 	const filePath = join(__dirname, 'workers', 'check.js');
 
 	return new Promise<BoardResult>(resolve => {
-		childProcess = utilityProcess.fork(filePath, [port], {
+		checkProcess = utilityProcess.fork(filePath, [port], {
 			serviceName: 'Microflow studio - microcontroller validator',
 			stdio: 'pipe',
 		});
 
-		childProcess.stderr?.on('data', data => {
+		checkProcess.stderr?.on('data', data => {
 			log.error('board check child process error', {
 				data: data.toString(),
 			});
+			checkProcess?.kill();
+			event.reply('ipc-check-board', {
+				success: true,
+				data: { type: 'error' },
+			} satisfies IpcResponse<BoardResult>);
 		});
 
 		log.debug('Child process forked', {
@@ -145,10 +147,10 @@ async function checkBoardOnPort(event: IpcMainEvent, port: string) {
 			port: port,
 		});
 
-		childProcess.on('message', async (message: BoardResult) => {
+		checkProcess.on('message', async (message: BoardResult) => {
 			log.debug('board check child process process message', { message });
 			if (message.type !== 'info') {
-				childProcess?.kill(); // Free up the port again
+				checkProcess?.kill(); // Free up the port again
 				resolve(message);
 				return;
 			}
@@ -162,8 +164,10 @@ async function checkBoardOnPort(event: IpcMainEvent, port: string) {
 	});
 }
 
+let uploadProcess: UtilityProcess | null = null;
 ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
-	childProcess?.kill();
+	uploadProcess?.kill();
+	checkProcess?.kill();
 	log.info(`Uploading code to port ${data.port}`);
 
 	if (!data.port) {
@@ -182,24 +186,29 @@ ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
 			return;
 		}
 
-		childProcess = utilityProcess.fork(filePath, [data.port], {
+		uploadProcess = utilityProcess.fork(filePath, [data.port], {
 			serviceName: 'Microflow studio - microcontroller runner',
 			stdio: 'pipe',
 		});
 
-		childProcess.stdout?.on('data', data => {
-			log.info('board check child process stdout', {
+		uploadProcess.stdout?.on('data', data => {
+			log.info('uploaded code child process stdout', {
 				data: data.toString(),
 			});
 		});
 
-		childProcess.stderr?.on('data', data => {
-			log.error('board check child process error', {
+		uploadProcess.stderr?.on('data', data => {
+			log.error('uploaded code child process error', {
 				data: data.toString(),
 			});
+			uploadProcess?.kill();
+			event.reply('ipc-upload-code', {
+				success: true,
+				data: { type: 'error' },
+			} satisfies IpcResponse<BoardResult>);
 		});
 
-		childProcess.on('message', (message: UploadedCodeMessage | UploadResult) => {
+		uploadProcess.on('message', (message: UploadedCodeMessage | UploadResult) => {
 			if ('type' in message) {
 				event.reply('ipc-upload-code', {
 					data: message,
@@ -207,7 +216,7 @@ ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
 				} satisfies IpcResponse<UploadResult>);
 
 				if (message.type === 'close') {
-					childProcess?.kill();
+					uploadProcess?.kill();
 				}
 				return;
 			}
@@ -221,11 +230,11 @@ ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
 });
 
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
-	childProcess?.postMessage(data);
+	uploadProcess?.postMessage(data);
 });
 
 async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
-	childProcess?.kill();
+	checkProcess?.kill();
 	log.debug(`Try flashing firmata to ${board} on ${port.path}`);
 
 	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
