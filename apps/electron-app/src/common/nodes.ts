@@ -3,6 +3,7 @@ import { Counter, DEFAULT_COUNTER_DATA } from '../render/components/react-flow/n
 import { DEFAULT_FIGMA_DATA, Figma } from '../render/components/react-flow/nodes/Figma';
 import { DEFAULT_IF_ELSE_DATA, IfElse } from '../render/components/react-flow/nodes/IfElse';
 import { DEFAULT_INTERVAL_DATA, Interval } from '../render/components/react-flow/nodes/Interval';
+import { DEFAULT_UGEN_DATA, Ugen } from '../render/components/react-flow/nodes/Ugen';
 import { DEFAULT_LED_DATA, Led } from '../render/components/react-flow/nodes/Led';
 import { DEFAULT_MATRIX_DATA, Matrix } from '../render/components/react-flow/nodes/matrix/Matrix';
 import { DEFAULT_MOTION_DATA, Motion } from '../render/components/react-flow/nodes/Motion';
@@ -22,6 +23,7 @@ export const NODE_TYPES = {
 	Figma: Figma,
 	IfElse: IfElse,
 	Interval: Interval,
+	Ugen: Ugen,
 	Led: Led,
 	Matrix: Matrix,
 	Motion: Motion,
@@ -44,6 +46,7 @@ DEFAULT_NODE_DATA.set('Debug', DEFAULT_DEBUG_DATA);
 DEFAULT_NODE_DATA.set('Figma', DEFAULT_FIGMA_DATA);
 DEFAULT_NODE_DATA.set('IfElse', DEFAULT_IF_ELSE_DATA);
 DEFAULT_NODE_DATA.set('Interval', DEFAULT_INTERVAL_DATA);
+DEFAULT_NODE_DATA.set('Ugen', DEFAULT_UGEN_DATA);
 DEFAULT_NODE_DATA.set('Led', DEFAULT_LED_DATA);
 DEFAULT_NODE_DATA.set('Matrix', DEFAULT_MATRIX_DATA);
 DEFAULT_NODE_DATA.set('Motion', DEFAULT_MOTION_DATA);
