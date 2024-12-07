@@ -34,7 +34,10 @@ export class Ugen extends BaseComponent<UgenValueType> {
 	private freq4: number = 0;
 	private freq0: number = 0;
 
+	// internal logic
 	private started: number = 0;
+	private refreshRate: number = 20;
+	private interval: NodeJS.Timeout | null = null;
 
 	constructor(private readonly options: UgenOptions) {
 		super(options, 0);
@@ -54,7 +57,8 @@ export class Ugen extends BaseComponent<UgenValueType> {
 	}
 
 	private elapsed(): number {
-		return Date.now() - this.started;
+		//return Date.now() - this.started;
+		return performance.now();
 	}
 
 	private sawtooth(t: number /*, mode: number */): number {
@@ -129,40 +133,30 @@ this node will produce a change event on every evaluation loop.
 */
 
 	start() {
-		// if (this.interval) {
-		// 	clearInterval(this.interval);
-		// }
-
-		switch (this.waveform) {
-			case 'sinus': {
-				this.sinus(this.elapsed());
+		this.interval = setInterval(() => {
+			switch (this.waveform) {
+				case 'sinus': {
+					this.value = this.sinus(this.elapsed());
+				}
+				case 'square': {
+					this.value = this.square(this.elapsed());
+				}
+				case 'sawtooth': {
+					this.value = this.sawtooth(this.elapsed());
+				}
+				case 'triangle': {
+					this.value = this.triangle(this.elapsed());
+				}
+				case 'random': {
+					this.value = this.random(this.elapsed());
+				}
 			}
-			case 'square': {
-				this.square(this.elapsed());
-			}
-			case 'sawtooth': {
-				this.sawtooth(this.elapsed());
-			}
-			case 'triangle': {
-				this.triangle(this.elapsed());
-			}
-			case 'random': {
-				this.random(this.elapsed());
-			}
-			default: {
-			}
-		}
-
-		this.value = Math.random(); //Math.round(performance.now());
-
-		// this.interval = setInterval(() => {
-		// 	this.value = Math.round(performance.now());
-		// }, this.getIntervalTime(this.options.interval));
-	}
+		}, this.refreshRate);
+	} // start()
 
 	stop() {
-		// if (this.interval) {
-		// 	clearInterval(this.interval);
-		// }
+		if (this.interval) {
+			clearInterval(this.interval);
+		}
 	}
 }

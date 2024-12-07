@@ -12,6 +12,7 @@ export function Interval(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
+			<Handle type="target" position={Position.Left} id="reset" offset={-1.5} />
 			<Handle type="target" position={Position.Left} id="start" offset={-0.5} />
 			<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
 			<Handle type="source" position={Position.Bottom} id="change" />
