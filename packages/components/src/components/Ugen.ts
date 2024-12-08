@@ -36,7 +36,7 @@ export class Ugen extends BaseComponent<UgenValueType> {
 
 	// internal logic
 	private started: number = 0;
-	private refreshRate: number = 20;
+	private refreshRate: number = 20; /* default to 50 times a second */
 	private interval: NodeJS.Timeout | null = null;
 
 	constructor(private readonly options: UgenOptions) {
@@ -125,12 +125,6 @@ export class Ugen extends BaseComponent<UgenValueType> {
 		let rv: number = this.shift + this.amplitude * Math.random();
 		return rv;
 	}
-
-	/**
-@TODO every time this node is evaluated it should return a new
-value, it's not like interval that sleeps in between "changes"
-this node will produce a change event on every evaluation loop.
-*/
 
 	start() {
 		this.interval = setInterval(() => {
