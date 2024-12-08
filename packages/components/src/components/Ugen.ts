@@ -1,10 +1,12 @@
 import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 /**
- * Function generator is a very versatile way of doing things in MCUs
- * it can be used to control timing, for example a square wave can be used
- * to control on/off cycles of an LED. As well as values, such as using a
- * sine wave to control a face value. Function generator can be compounded
- * to produce fairly complex control signals.
+ * Function generator is a very versatile way of doing things in mcus
+ * it can be used to control timing as well as values. For example a
+ * square wave can be used to control on/off cycles of an LED at a
+ * specific frequency. As well as values, such as using a
+ * sine wave to control a fade value.
+ *
+ * Function generators can be compounded to produce interesting control signals.
  */
 export type WaveformType = 'sinus' | 'square' | 'sawtooth' | 'triangle' | 'random';
 
@@ -61,18 +63,16 @@ export class Ugen extends BaseComponent<UgenValueType> {
 		return performance.now();
 	}
 
-	private sawtooth(t: number /*, mode: number */): number {
+	private sawtooth(t: number): number {
 		let rv: number = 0;
 
 		t += this.phase;
 		if (t >= 0.0) {
 			if (t >= this.period) t = t % this.period;
-			//if (mode == 1) t = this.period - t;
 			rv = this.amplitude * (-1.0 + t * this.freq2);
 		} else {
 			t = -t;
 			if (t >= this.period) t = t % this.period;
-			//if (mode == 1) t = this.period - t;
 			rv = this.amplitude * (1.0 - t * this.freq2);
 		}
 		rv += this.shift;
@@ -127,6 +127,11 @@ export class Ugen extends BaseComponent<UgenValueType> {
 	}
 
 	start() {
+		// avoid multiple re-entry
+		if (this.interval) {
+			clearInterval(this.interval);
+		}
+
 		this.interval = setInterval(() => {
 			switch (this.waveform) {
 				case 'sinus': {
