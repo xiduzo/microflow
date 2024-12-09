@@ -220,9 +220,8 @@ function DroppableNewNode() {
 	const { addNode, deleteNode } = useTempNode();
 
 	useEffect(() => {
-		if (!nodeToAdd) return;
-
 		function handleKeyDown(event: KeyboardEvent) {
+			if (!nodeToAdd) return;
 			if (event.key === 'Escape' || event.key === 'Backspace') {
 				setNodeToAdd(null);
 				deleteNode(nodeToAdd);
@@ -238,6 +237,7 @@ function DroppableNewNode() {
 		}
 
 		function handleMouseDown(event: MouseEvent) {
+			if (!nodeToAdd) return;
 			updateNode(nodeToAdd, {
 				position: screenToFlowPosition({
 					x: event.clientX - 120,
@@ -252,6 +252,7 @@ function DroppableNewNode() {
 		}
 
 		function handleMouseMove(event: MouseEvent) {
+			if (!nodeToAdd) return;
 			updateNode(nodeToAdd, {
 				position: screenToFlowPosition({
 					x: event.clientX - 120,

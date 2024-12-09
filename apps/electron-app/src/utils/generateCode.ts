@@ -61,7 +61,7 @@ if (!port) {
 		const actionsGroupedByHandle = actions.reduce(
 			(acc, action) => ({
 				...acc,
-				[action.sourceHandle]: [...(acc[action.sourceHandle] || []), action],
+				[String(action.sourceHandle)]: [...(acc[String(action.sourceHandle)] || []), action],
 			}),
 			{} as Record<string, Edge[]>,
 		);

@@ -1,11 +1,13 @@
+import { type Note } from '@microflow/components';
 import { renderAbc } from 'abcjs';
 import { useEffect, useRef } from 'react';
-import { Note } from './react-flow/nodes/piezo/Piezo';
 
 export function MusicSheet(props: Props) {
 	const ref = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
+		if (!ref.current) return;
+
 		const abcString = convertToABC(props.song);
 
 		renderAbc(ref.current, abcString, {
@@ -38,6 +40,8 @@ function convertToABC(notes: Note[]) {
 			abcString += `z${nodeDuration} `;
 		} else {
 			let note = fullNote.at(0);
+			if (!note) return;
+
 			const octave = Number(fullNote.at(-1));
 			const sharp = fullNote.includes('#') ? '^' : '';
 

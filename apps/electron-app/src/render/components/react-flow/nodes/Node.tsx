@@ -152,6 +152,7 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 );
 
 export function useNodeSettingsPane<T extends Record<string, unknown>>() {
+	// @ts-ignore-next-line
 	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
 }
 
@@ -165,7 +166,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const { data, settingsOpened, setSettingsOpened, id, type } = useNode<T>();
 	const updateNode = useUpdateNode(id);
 
-	const ref = useRef<HTMLDivElement>();
+	const ref = useRef<HTMLDivElement>(null);
 	const settings = useRef(data);
 	const handlesToDelete = useRef<string[]>([]);
 
@@ -178,7 +179,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 		const pane = new Pane({
 			title: `${data.label} (${id})`,
-			container: ref.current,
+			container: ref.current ?? undefined,
 		});
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
@@ -232,7 +233,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			{settingsOpened &&
 				createPortal(
 					<div ref={ref} onClick={e => e.stopPropagation()} />,
-					document.getElementById('settings-panels'),
+					document.getElementById('settings-panels')!,
 				)}
 		</NodeSettingsPaneContext.Provider>
 	);

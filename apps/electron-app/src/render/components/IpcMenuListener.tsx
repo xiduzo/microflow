@@ -1,5 +1,5 @@
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { FlowFile } from '../../common/types';
 import { useSaveFlow } from '../hooks/useSaveFlow';
