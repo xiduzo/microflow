@@ -21,6 +21,8 @@ import { exportFlow } from './file';
 // })
 //
 
+const processes = new Map<string, UtilityProcess>();
+
 ipcMain.on('ipc-export-flow', async (_event, data: { nodes: Node[]; edges: Edge[] }) => {
 	await exportFlow(data.nodes, data.edges);
 });
@@ -41,7 +43,7 @@ ipcMain.on('ipc-menu', (_event, data: { action: string; args: any }) => {
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
-	checkProcess?.kill();
+	killRunningProcesses();
 	log.debug('Checking board', { data });
 
 	if (data.ip) {
@@ -120,15 +122,18 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 	sniffPorts(event, { connectedPort });
 });
 
-let checkProcess: UtilityProcess | null = null;
 async function checkBoardOnPort(event: IpcMainEvent, port: string) {
-	checkProcess?.kill();
+	killRunningProcesses();
 	const filePath = join(__dirname, 'workers', 'check.js');
 
 	return new Promise<BoardResult>(resolve => {
-		checkProcess = utilityProcess.fork(filePath, [port], {
+		const checkProcess = utilityProcess.fork(filePath, [port], {
 			serviceName: 'Microflow studio - microcontroller validator',
 			stdio: 'pipe',
+		});
+
+		checkProcess.on('spawn', () => {
+			processes.set(String(checkProcess.pid), checkProcess);
 		});
 
 		checkProcess.stderr?.on('data', data => {
@@ -164,14 +169,12 @@ async function checkBoardOnPort(event: IpcMainEvent, port: string) {
 	});
 }
 
-let uploadProcess: UtilityProcess | null = null;
 ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
-	uploadProcess?.kill();
-	checkProcess?.kill();
+	killRunningProcesses();
 	log.info(`Uploading code to port ${data.port}`);
 
 	if (!data.port) {
-		log.warn('No port path provided for uploading code');
+		log.error('No port path provided for uploading code');
 		return;
 	}
 
@@ -186,9 +189,13 @@ ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
 			return;
 		}
 
-		uploadProcess = utilityProcess.fork(filePath, [data.port], {
+		const uploadProcess = utilityProcess.fork(filePath, [data.port], {
 			serviceName: 'Microflow studio - microcontroller runner',
 			stdio: 'pipe',
+		});
+
+		uploadProcess.on('spawn', () => {
+			processes.set(String(uploadProcess.pid), uploadProcess);
 		});
 
 		uploadProcess.stdout?.on('data', data => {
@@ -229,12 +236,22 @@ ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
 	});
 });
 
+let latestUploadProcessId: string | null = null;
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
-	uploadProcess?.postMessage(data);
+	const process = Array.from(processes).find(
+		([, process]) => process.pid === latestUploadProcessId,
+	);
+	if (!process) {
+		log.debug('Tried to set external value while no upload process is running');
+		return;
+	}
+
+	const [pid, runner] = process;
+	runner.postMessage(data);
 });
 
 async function flashBoard(board: BoardName, port: PortInfo): Promise<void> {
-	checkProcess?.kill();
+	killRunningProcesses();
 	log.debug(`Try flashing firmata to ${board} on ${port.path}`);
 
 	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
@@ -337,4 +354,17 @@ async function getKnownBoardsWithPorts() {
 		log.warn('Could not get known boards with ports', { error });
 		return [];
 	}
+}
+
+function killRunningProcesses() {
+	Array.from(processes).forEach(([pid, process]) => {
+		const killed = process.kill();
+
+		if (!killed) {
+			log.warn('Could not kill process', { process });
+			return;
+		}
+
+		processes.delete(pid);
+	});
 }

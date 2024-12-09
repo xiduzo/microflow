@@ -1,4 +1,4 @@
-import { TcpSerial, EtherPortClient } from '@microflow/components';
+import { TcpSerial } from '@microflow/components';
 import { getConnectedPorts } from '@microflow/flasher';
 import * as JohnnyFive from 'johnny-five';
 
@@ -15,7 +15,7 @@ async function test() {
 	const ports = await getConnectedPorts();
 	console.log(ports);
 	const connection = new TcpSerial({
-		host: '192.168.2.26',
+		host: '145.109.225.198',
 		port: 3030,
 	});
 	const board = new JohnnyFive.Board({
