@@ -66,11 +66,12 @@ if (!port) {
 			{} as Record<string, Edge[]>,
 		);
 
-		Object.entries(actionsGroupedByHandle).forEach(([action, edges]) => {
+		Object.entries(actionsGroupedByHandle).forEach(([action, actionEdges]) => {
 			innerCode += `  ${node.type}_${node.id}.on("${action}", () => {`;
 
-			edges.forEach(edge => {
+			actionEdges.forEach(edge => {
 				const targetNode = nodes.find(node => node.id === edge.target);
+				if (!targetNode) return;
 
 				let value = `${node.type}_${node.id}.value`;
 
@@ -80,9 +81,21 @@ if (!port) {
 					value = `${node.type}_${node.id}.value[1]`;
 				}
 
+				if (targetNode.type === 'And') {
+					// We are handling the `And` node differently
+					const nodeValues = edges
+						.filter(edge => edge.target === targetNode.id)
+						.map(edge => {
+							const sourceNode = nodes.find(node => node.id === edge.source);
+							return `${sourceNode?.type}_${sourceNode?.id}.value`;
+						})
+						.join(',');
+					value = `[${nodeValues}]`;
+					edge.targetHandle = 'check'; // Naughty override, make sure this is in line with the actual implementation
+				}
+
 				// TODO: add support for increment and decrement bigger than 1
-				// TODO: add support for multiple values
-				const handler = `${targetNode?.type}_${targetNode?.id}.${edge.targetHandle}(${value});`;
+				const handler = `${targetNode.type}_${targetNode.id}.${edge.targetHandle}(${value});`;
 				innerCode += wrapInTryCatch(handler);
 				innerCode += addEnter();
 			});

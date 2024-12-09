@@ -51,7 +51,7 @@ export class IfElse extends BaseComponent<IfElseValueType> {
 		switch (this.options.validator) {
 			case 'boolean':
 				return (input: boolean | string) =>
-					input === true || ['1', 'true', 'on', 'yes'].includes(String(input).toLowerCase());
+					['1', 'true', 'on', 'yes'].includes(String(input).toLowerCase());
 			case 'number':
 				switch (this.options.subValidator) {
 					case 'equal to':

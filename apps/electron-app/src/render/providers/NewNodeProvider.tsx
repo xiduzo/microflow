@@ -95,6 +95,12 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('And')}>
+						And
+						<CommandShortcut>
+							<Badge variant="outline">Control</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Interval')}>
 						Interval
 						<CommandShortcut>
