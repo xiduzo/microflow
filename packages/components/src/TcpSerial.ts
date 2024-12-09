@@ -14,7 +14,7 @@ export class TcpSerial extends EventEmitter {
 	private disconnectTimeout: NodeJS.Timeout | undefined = undefined;
 	private pingInterval: NodeJS.Timeout | undefined = undefined;
 
-	name = 'UdpSerial';
+	name = 'TcpSerial';
 
 	constructor(private readonly options: Options) {
 		super();
@@ -38,19 +38,19 @@ export class TcpSerial extends EventEmitter {
 		}
 
 		if (!this.socket.writable) {
-			console.warn('Socket not writable');
+			console.warn('[WRITE] Socket not writable');
 			return;
 		}
 
 		this.socket.write(buffer, error => {
 			if (!error) return;
-			console.error('Write error', error);
+			console.error('[WRITE] error during writing', error);
 			this.socket.destroy(error);
 		});
 
-		if (typeof callback === 'function') {
-			process.nextTick(callback);
-		}
+		if (typeof callback !== 'function') return;
+
+		process.nextTick(callback);
 	}
 
 	private connect() {
@@ -59,7 +59,7 @@ export class TcpSerial extends EventEmitter {
 		this.socket.setNoDelay(true);
 		this.socket.setTimeout(5000);
 		this.socket.connect(this.options.port, this.options.host, () => {
-			console.log('[CONNECTED]');
+			console.info('[CONNECTED]');
 			this.socket.setTimeout(0);
 		});
 
@@ -77,15 +77,16 @@ export class TcpSerial extends EventEmitter {
 		}, PING_INTERVAL_MS * 1.25);
 	}
 
-	private onCloseHandler(event: unknown) {
-		console.debug('onCloseHandler', event);
-		this.emit('close', event);
+	private onCloseHandler(hadError: boolean) {
+		console.debug('onCloseHandler', hadError);
+		this.socket.destroy();
+		this.emit('close', hadError);
 	}
 
-	private onConnectHandler(event: unknown) {
-		console.debug('onConnectHandler', event);
+	private onConnectHandler() {
+		console.debug('onConnectHandler');
 		this.socket.setTimeout(0);
-		this.emit('connect', event);
+		this.emit('connect');
 	}
 
 	private onDataHandler(event: Buffer) {
@@ -94,25 +95,26 @@ export class TcpSerial extends EventEmitter {
 		this.emit('data', event);
 	}
 
-	private onErrorHandler(event: unknown) {
-		console.debug('onErrorHandler', event);
-		this.emit('error', event);
+	private onErrorHandler(error: Error) {
+		console.debug('onErrorHandler', error);
 		this.socket.destroy();
+		this.emit('error', error);
 	}
 
-	private onTimeoutHandler(event: unknown) {
-		console.debug('onTimeoutHandler', event);
-		this.emit('timeout', event);
+	private onTimeoutHandler() {
+		console.debug('onTimeoutHandler');
 		this.socket.destroy();
+		this.emit('timeout');
 	}
 
-	private onEndHandler(event: unknown) {
-		console.debug('onEndHandler', event);
-		this.emit('end', event);
+	private onEndHandler() {
+		console.debug('onEndHandler');
+		this.socket.destroy();
+		this.emit('end');
 	}
 
-	private onReadyHandler(event: unknown) {
-		console.debug('onReadyHandler', event);
-		this.emit('ready', event);
+	private onReadyHandler() {
+		console.debug('onReadyHandler');
+		this.emit('ready');
 	}
 }
