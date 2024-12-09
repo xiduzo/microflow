@@ -1,4 +1,5 @@
 export { Board } from 'johnny-five';
+export * from './src/components/And';
 export * from './src/components/Button';
 export * from './src/components/Counter';
 export * from './src/components/Debug';
