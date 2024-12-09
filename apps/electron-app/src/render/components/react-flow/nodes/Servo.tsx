@@ -83,6 +83,7 @@ function Settings() {
 		const intialType = settings.type;
 
 		function setRangePane() {
+			if (!pane) return;
 			rangeBinding?.dispose();
 			if (settings.type === 'continuous') return;
 

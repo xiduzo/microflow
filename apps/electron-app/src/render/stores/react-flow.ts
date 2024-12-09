@@ -64,7 +64,7 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES;
 	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES;
 
-	let historyUpdateDebounce: NodeJS.Timeout | null = null;
+	let historyUpdateDebounce: NodeJS.Timeout | undefined;
 	function updateHistory(update: Partial<Pick<AppState, 'nodes' | 'edges'>>) {
 		set(update);
 
@@ -103,8 +103,8 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 
 				if (!isSource && !isTarget) return true;
 
-				if (isTarget && !handles.includes(edge.targetHandle)) return true;
-				if (isSource && !handles.includes(edge.sourceHandle)) return true;
+				if (isTarget && !handles.includes(edge.targetHandle ?? '')) return true;
+				if (isSource && !handles.includes(edge.sourceHandle ?? '')) return true;
 
 				return false;
 			});

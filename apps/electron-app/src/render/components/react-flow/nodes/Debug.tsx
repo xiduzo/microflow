@@ -62,7 +62,6 @@ function Value() {
 			container: container.current ?? undefined,
 		});
 
-		console.log({ bindingConfig });
 		pane.addBinding(display.current, 'value', {
 			readonly: true,
 			index: 1,

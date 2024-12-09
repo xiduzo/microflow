@@ -1,5 +1,5 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Icons, ListBladeApi, TpChangeEvent } from '@microflow/ui';
+import { Icons, ListBladeApi } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
