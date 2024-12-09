@@ -21,7 +21,7 @@ function Value() {
 	const { id, data } = useNode<DebugData>();
 	const value = useNodeValue<DebugValueType>(id, 0);
 
-	const container = useRef<HTMLDivElement>();
+	const container = useRef<HTMLDivElement>(null);
 	const display = useRef({ value });
 
 	const bindingConfig = useMemo(() => {
@@ -34,7 +34,13 @@ function Value() {
 			default:
 				return { ...data.range, view: 'graph' };
 		}
-	}, [data.type]);
+	}, [
+		data.type,
+		(data as any).rows,
+		(data as any).bufferSize,
+		(data as any).range?.min,
+		(data as any).range?.max,
+	]);
 
 	useEffect(() => {
 		switch (data.type) {
@@ -53,9 +59,10 @@ function Value() {
 
 	useEffect(() => {
 		const pane = new Pane({
-			container: container.current,
+			container: container.current ?? undefined,
 		});
 
+		console.log({ bindingConfig });
 		pane.addBinding(display.current, 'value', {
 			readonly: true,
 			index: 1,
@@ -66,7 +73,7 @@ function Value() {
 		return () => {
 			pane.dispose();
 		};
-	}, [data, bindingConfig]);
+	}, [bindingConfig]);
 
 	return (
 		<div className="custom-tweak-pane-graph">
@@ -84,6 +91,7 @@ function Settings() {
 		let optionsBinding: BindingApi;
 
 		function addOptionsBinding() {
+			if (!pane) return;
 			optionsBinding?.dispose();
 
 			switch (settings.type) {
