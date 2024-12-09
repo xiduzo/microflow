@@ -21,7 +21,7 @@ import { exportFlow } from './file';
 // })
 //
 
-const processes = new Map<string, UtilityProcess>();
+const processes = new Map<number, UtilityProcess>();
 
 ipcMain.on('ipc-export-flow', async (_event, data: { nodes: Node[]; edges: Edge[] }) => {
 	await exportFlow(data.nodes, data.edges);
@@ -133,7 +133,12 @@ async function checkBoardOnPort(event: IpcMainEvent, port: string) {
 		});
 
 		checkProcess.on('spawn', () => {
-			processes.set(String(checkProcess.pid), checkProcess);
+			log.debug('[SPAWNED] checkProcess', checkProcess.pid);
+			processes.set(Number(checkProcess.pid), checkProcess);
+		});
+
+		checkProcess.on('exit', code => {
+			log.debug('[EXITED] checkProcess', code);
 		});
 
 		checkProcess.stderr?.on('data', data => {
@@ -195,7 +200,13 @@ ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
 		});
 
 		uploadProcess.on('spawn', () => {
-			processes.set(String(uploadProcess.pid), uploadProcess);
+			log.debug('[SPAWNED] uploadProcess', uploadProcess.pid);
+			processes.set(Number(uploadProcess.pid), uploadProcess);
+			latestUploadProcessId = uploadProcess.pid;
+		});
+
+		uploadProcess.on('exit', code => {
+			log.debug('[EXITED] uploadProcess', code);
 		});
 
 		uploadProcess.stdout?.on('data', data => {
@@ -236,7 +247,7 @@ ipcMain.on('ipc-upload-code', (event, data: { code: string; port: string }) => {
 	});
 });
 
-let latestUploadProcessId: string | null = null;
+let latestUploadProcessId: number | undefined;
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
 	const process = Array.from(processes).find(
 		([, process]) => process.pid === latestUploadProcessId,
@@ -357,12 +368,11 @@ async function getKnownBoardsWithPorts() {
 }
 
 function killRunningProcesses() {
-	Array.from(processes).forEach(([pid, process]) => {
-		const killed = process.kill();
+	Array.from(processes).forEach(([pid, utilityProcess]) => {
+		utilityProcess.removeAllListeners();
 
-		if (!killed) {
-			log.warn('Could not kill process', { process });
-			return;
+		if (!utilityProcess.kill()) {
+			log.warn('Could not kill process', { pid, utilityProcess });
 		}
 
 		processes.delete(pid);
