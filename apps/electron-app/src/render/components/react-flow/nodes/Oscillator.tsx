@@ -1,4 +1,4 @@
-import type { UgenData, UgenValueType } from '@microflow/components';
+import type { OscillatorData, OscillatorValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
@@ -7,7 +7,7 @@ import { useNodeValue } from '../../../stores/node-data';
 
 const numberFormat = new Intl.NumberFormat();
 
-export function Interval(props: Props) {
+export function Oscillator(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
@@ -22,32 +22,48 @@ export function Interval(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<UgenValueType>(id, 0);
+	const value = useNodeValue<OscillatorValueType>(id, 0);
 
 	return <section className="tabular-nums">{numberFormat.format(Math.round(value))}</section>;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<UgenData>();
+	const { pane, settings } = useNodeSettingsPane<OscillatorData>();
 
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'ugen', {
+		pane.addBinding(settings, 'waveform', {
 			index: 0,
-			min: 100,
-			max: 5000,
-			step: 100,
+			view: 'list',
+			label: 'validate',
+			options: ['sinus', 'square', 'sawtooth', 'triangle', 'random'],
+		});
+
+		pane.addBinding(settings, 'period', {
+			index: 1,
+		});
+
+		pane.addBinding(settings, 'amplitude', {
+			index: 2,
+		});
+
+		pane.addBinding(settings, 'phase', {
+			index: 4,
+		});
+
+		pane.addBinding(settings, 'shift', {
+			index: 5,
 		});
 	}, [pane, settings]);
 
 	return null;
 }
 
-type Props = BaseNode<UgenData, UgenValueType>;
-export const DEFAULT_INTERVAL_DATA: Props['data'] = {
-	label: 'Function generator',
-	waveform: ['sine', 'triangle', 'sawtooth', 'square', 'random'],
+type Props = BaseNode<OscillatorData, OscillatorValueType>;
+export const DEFAULT_OSCILLATOR_DATA: Props['data'] = {
+	label: 'Oscillator',
+	waveform: 'sinus',
 	period: 1000,
 	amplitude: 1,
 	phase: 0,

@@ -83,6 +83,12 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Event</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Oscillator')}>
+						Oscillator
+						<CommandShortcut>
+							<Badge variant="outline">Generator</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Debug')}>
 						Debug
 						<CommandShortcut className="space-x-1">

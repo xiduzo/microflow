@@ -10,19 +10,19 @@ import { BaseComponent, BaseComponentOptions } from './BaseComponent';
  */
 export type WaveformType = 'sinus' | 'square' | 'sawtooth' | 'triangle' | 'random';
 
-export type UgenData = {
+export type OscillatorData = {
 	waveform: WaveformType;
 	period: number;
 	amplitude: number;
 	phase: number;
 	shift: number;
-	autoStart?: boolean;
+	// autoStart?: boolean;
 };
-export type UgenValueType = number;
+export type OscillatorValueType = number;
 
-type UgenOptions = BaseComponentOptions & UgenData;
+type OscillatorOptions = BaseComponentOptions & OscillatorData;
 
-export class Ugen extends BaseComponent<UgenValueType> {
+export class Oscillator extends BaseComponent<OscillatorValueType> {
 	// user-defined values through the options panel
 	private waveform: WaveformType = 'sinus';
 	private period: number = 1;
@@ -41,7 +41,7 @@ export class Ugen extends BaseComponent<UgenValueType> {
 	private refreshRate: number = 20; /* default to 50 times a second */
 	private interval: NodeJS.Timeout | null = null;
 
-	constructor(private readonly options: UgenOptions) {
+	constructor(private readonly options: OscillatorOptions) {
 		super(options, 0);
 
 		this.freq1 = 1 / this.period;
@@ -133,6 +133,7 @@ export class Ugen extends BaseComponent<UgenValueType> {
 		}
 
 		this.interval = setInterval(() => {
+			console.log(`oscillator is oscillating...`);
 			switch (this.waveform) {
 				case 'sinus': {
 					this.value = this.sinus(this.elapsed());

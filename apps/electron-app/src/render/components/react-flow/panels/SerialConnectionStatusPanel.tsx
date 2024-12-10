@@ -57,7 +57,7 @@ export function SerialConnectionStatusPanel() {
 
 	return (
 		<Badge className={badge({ variant: 'plain' })}>
-			Connect your microcontroller {!!ip ? `on ${ip}` : 'by USB'}
+			Connect your microcontroller {!!ip ? `on ${ip}` : 'via USB'}
 			{!ip && <Icons.Usb className="ml-2 h-3 w-3" />}
 			{!!ip && <Icons.Wifi className="ml-2 h-3 w-3" />}
 		</Badge>
