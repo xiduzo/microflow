@@ -1,10 +1,10 @@
 export { Board } from 'johnny-five';
 export * from './src/components/And';
 export * from './src/components/Button';
+export * from './src/components/Compare';
 export * from './src/components/Counter';
 export * from './src/components/Debug';
 export * from './src/components/Figma';
-export * from './src/components/IfElse';
 export * from './src/components/Interval';
 export * from './src/components/Oscillator';
 export * from './src/components/Led';
