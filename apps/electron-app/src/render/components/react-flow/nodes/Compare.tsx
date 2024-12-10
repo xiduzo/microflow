@@ -1,8 +1,8 @@
-import type { IfElseData, IfElseValueType } from '@microflow/components';
+import type { CompareData, CompateValueType } from '@microflow/components';
 import {
-	IF_ELSE_SUB_VALIDATORS,
-	IF_ELSE_VALIDATORS,
-	Validator,
+	COMPARE_SUB_VALIDATORS,
+	COMPARE_VALIDATORS,
+	CompareValidator,
 } from '@microflow/components/contants';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
@@ -12,7 +12,7 @@ import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { BindingApi, BladeApi } from '@tweakpane/core';
 import { useNodeValue } from '../../../stores/node-data';
 
-export function IfElse(props: Props) {
+export function Compare(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
@@ -27,14 +27,14 @@ export function IfElse(props: Props) {
 
 function Value() {
 	const { id } = useNode();
-	const value = useNodeValue<IfElseValueType>(id, false);
+	const value = useNodeValue<CompateValueType>(id, false);
 
 	if (value) return <Icons.ShieldCheck className="text-green-500" size={48} />;
 	return <Icons.ShieldX className="text-red-500" size={48} />;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<IfElseData>();
+	const { pane, settings } = useNodeSettingsPane<CompareData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -53,7 +53,7 @@ function Settings() {
 			});
 		}
 
-		function addSubValidator(validator: Validator) {
+		function addSubValidator(validator: CompareValidator) {
 			if (!pane) return;
 			subValidatorPane?.dispose();
 
@@ -62,7 +62,7 @@ function Settings() {
 					view: 'list',
 					index: 1,
 					label: 'is',
-					options: IF_ELSE_SUB_VALIDATORS[validator].map(item => ({
+					options: COMPARE_SUB_VALIDATORS[validator].map(item => ({
 						text: item,
 						value: item,
 					})),
@@ -111,7 +111,7 @@ function Settings() {
 				index: 0,
 				view: 'list',
 				label: 'validate',
-				options: IF_ELSE_VALIDATORS.map(validator => ({
+				options: COMPARE_VALIDATORS.map(validator => ({
 					text: validator,
 					value: validator,
 				})),
@@ -141,8 +141,8 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<IfElseData, IfElseValueType>;
-export const DEFAULT_IF_ELSE_DATA: Props['data'] = {
-	label: 'if...else',
+type Props = BaseNode<CompareData, CompateValueType>;
+export const DEFAULT_COMPARE_DATA: Props['data'] = {
+	label: 'compare',
 	validator: 'boolean',
 };

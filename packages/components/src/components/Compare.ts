@@ -30,14 +30,14 @@ type DoubleNumberData = {
 	validatorArg: { min: number; max: number };
 };
 
-export type IfElseData = BooleanData | TextData | NumberData | SingleNumberData | DoubleNumberData;
+export type CompareData = BooleanData | TextData | NumberData | SingleNumberData | DoubleNumberData;
 
-export type IfElseValueType = boolean;
+export type CompateValueType = boolean;
 
-export type IfElseOptions = BaseComponentOptions & IfElseData;
+export type CompareOptions = BaseComponentOptions & CompareData;
 
-export class IfElse extends BaseComponent<IfElseValueType> {
-	constructor(private readonly options: IfElseOptions) {
+export class Compare extends BaseComponent<CompateValueType> {
+	constructor(private readonly options: CompareOptions) {
 		super(options, false);
 	}
 
