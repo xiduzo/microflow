@@ -3,12 +3,11 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
 import { type AndData, type AndValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { Icons } from '@ui/index';
 import { uuid } from '../../../../utils/uuid';
 
 export function And(props: Props) {
-	console.log(props.data);
 	function getOffset(index: number) {
 		return index - (props.data.checks - 1) / 2;
 	}

@@ -3,11 +3,12 @@ import { useEffect } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { FlowFile } from '../../common/types';
 import { useSaveFlow } from '../hooks/useSaveFlow';
-import { useNewNode } from '../providers/NewNodeProvider';
 import { useReactFlowStore } from '../stores/react-flow';
 import { MqttSettingsForm } from './forms/MqttSettingsForm';
 import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
 import { useAppStore } from '../stores/app';
+import { useNewNodeStore } from '../stores/new-node';
+import { useShallow } from 'zustand/react/shallow';
 
 export function IpcMenuListeners() {
 	const { getNodes, getEdges } = useReactFlow();
@@ -16,7 +17,7 @@ export function IpcMenuListeners() {
 	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
 	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);
 	const [, setLocalEdges] = useLocalStorage<Edge[]>('edges', []);
-	const { setOpen } = useNewNode();
+	const setOpen = useNewNodeStore(useShallow(state => state.setOpen));
 	const { settingsOpen, setSettingsOpen } = useAppStore();
 
 	useEffect(() => {

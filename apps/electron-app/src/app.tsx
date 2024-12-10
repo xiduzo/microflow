@@ -10,7 +10,7 @@ import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas'
 import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
 import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard';
 import { CelebrationProvider } from './render/providers/CelebrationProvider';
-import { NewNodeProvider } from './render/providers/NewNodeProvider';
+import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 
 export function App() {
 	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
@@ -25,11 +25,10 @@ export function App() {
 				<MqttProvider appName="app" config={mqttConfig}>
 					<FigmaProvider>
 						<ReactFlowProvider>
+							<NewNodeCommandDialog />
 							<NodeAndEdgeSignaler />
-							<NewNodeProvider>
-								<ReactFlowCanvas />
-								<IpcMenuListeners />
-							</NewNodeProvider>
+							<ReactFlowCanvas />
+							<IpcMenuListeners />
 						</ReactFlowProvider>
 					</FigmaProvider>
 				</MqttProvider>
