@@ -101,6 +101,12 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('And')}>
+						And
+						<CommandShortcut>
+							<Badge variant="outline">Control</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Interval')}>
 						Interval
 						<CommandShortcut>
@@ -226,9 +232,8 @@ function DroppableNewNode() {
 	const { addNode, deleteNode } = useTempNode();
 
 	useEffect(() => {
-		if (!nodeToAdd) return;
-
 		function handleKeyDown(event: KeyboardEvent) {
+			if (!nodeToAdd) return;
 			if (event.key === 'Escape' || event.key === 'Backspace') {
 				setNodeToAdd(null);
 				deleteNode(nodeToAdd);
@@ -244,6 +249,7 @@ function DroppableNewNode() {
 		}
 
 		function handleMouseDown(event: MouseEvent) {
+			if (!nodeToAdd) return;
 			updateNode(nodeToAdd, {
 				position: screenToFlowPosition({
 					x: event.clientX - 120,
@@ -258,6 +264,7 @@ function DroppableNewNode() {
 		}
 
 		function handleMouseMove(event: MouseEvent) {
+			if (!nodeToAdd) return;
 			updateNode(nodeToAdd, {
 				position: screenToFlowPosition({
 					x: event.clientX - 120,

@@ -13,7 +13,7 @@ import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeProvider } from './render/providers/NewNodeProvider';
 
 export function App() {
-	const [mqttConfig] = useLocalStorage<MqttConfig | undefined>('mqtt-config', {
+	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
 		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
 	});
 
@@ -39,7 +39,7 @@ export function App() {
 	);
 }
 
-const root = createRoot(document.body.querySelector('main'));
+const root = createRoot(document.body.querySelector('main')!);
 root.render(<App />);
 
 function NodeAndEdgeSignaler() {

@@ -43,6 +43,8 @@ function Settings() {
 		let validatorArgPane: BladeApi | undefined;
 
 		function addValidatorArgs() {
+			if (!pane) return;
+
 			validatorArgPane?.dispose();
 
 			validatorArgPane = pane.addBinding(settings, 'validatorArg', {
@@ -52,6 +54,7 @@ function Settings() {
 		}
 
 		function addSubValidator(validator: Validator) {
+			if (!pane) return;
 			subValidatorPane?.dispose();
 
 			subValidatorPane = pane

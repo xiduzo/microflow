@@ -18,8 +18,10 @@ import { DEFAULT_RANGE_MAP_DATA, RangeMap } from '../render/components/react-flo
 import { DEFAULT_SENSOR_DATA, Sensor } from '../render/components/react-flow/nodes/Sensor';
 import { DEFAULT_SERVO_DATA, Servo } from '../render/components/react-flow/nodes/Servo';
 import { DEFAULT_RGB_DATA, Rgb } from '../render/components/react-flow/nodes/RGB';
+import { And, DEFAULT_AND_DATA } from '../render/components/react-flow/nodes/And';
 
 export const NODE_TYPES = {
+	And: And,
 	Button: Button,
 	Counter: Counter,
 	Debug: Debug,
@@ -43,6 +45,7 @@ export type NodeType = keyof typeof NODE_TYPES;
 
 export const DEFAULT_NODE_DATA = new Map<NodeType | string, Record<string, any>>();
 
+DEFAULT_NODE_DATA.set('And', DEFAULT_AND_DATA);
 DEFAULT_NODE_DATA.set('Button', DEFAULT_BUTTON_DATA);
 DEFAULT_NODE_DATA.set('Counter', DEFAULT_COUNTER_DATA);
 DEFAULT_NODE_DATA.set('Debug', DEFAULT_DEBUG_DATA);
