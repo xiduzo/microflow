@@ -24,11 +24,11 @@ type OscillatorOptions = BaseComponentOptions & OscillatorData;
 
 export class Oscillator extends BaseComponent<OscillatorValueType> {
 	// user-defined values through the options panel
-	private waveform: WaveformType = 'sinus';
-	private period: number = 1;
-	private amplitude: number = 1;
-	private phase: number = 0;
-	private shift: number = 0;
+	// private waveform: WaveformType = 'sinus';
+	// private period: number = 1;
+	// private amplitude: number = 1;
+	// private phase: number = 0;
+	// private shift: number = 0;
 
 	// auto-calculated values when "period" is reset
 	private freq1: number = 0;
@@ -44,7 +44,12 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	constructor(private readonly options: OscillatorOptions) {
 		super(options, 0);
 
-		this.freq1 = 1 / this.period;
+		console.log('oscillator was recreated!');
+		console.log(options);
+		console.log('---------------------------');
+		console.log(this);
+
+		this.freq1 = 1 / this.options.period;
 		this.freq2 = 2 * this.freq1;
 		this.freq4 = 4 * this.freq1;
 		this.freq0 = 2 * Math.PI * this.freq1;
@@ -66,63 +71,63 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	private sawtooth(t: number): number {
 		let rv: number = 0;
 
-		t += this.phase;
+		t += this.options.phase;
 		if (t >= 0.0) {
-			if (t >= this.period) t = t % this.period;
-			rv = this.amplitude * (-1.0 + t * this.freq2);
+			if (t >= this.options.period) t = t % this.options.period;
+			rv = this.options.amplitude * (-1.0 + t * this.freq2);
 		} else {
 			t = -t;
-			if (t >= this.period) t = t % this.period;
-			rv = this.amplitude * (1.0 - t * this.freq2);
+			if (t >= this.options.period) t = t % this.options.period;
+			rv = this.options.amplitude * (1.0 - t * this.freq2);
 		}
-		rv += this.shift;
+		rv += this.options.shift;
 		return rv;
 	}
 
 	private triangle(t: number): number {
 		let rv: number = 0;
 
-		t += this.phase;
+		t += this.options.phase;
 		if (t < 0.0) {
 			t = -t;
 		}
-		if (t >= this.period) t = t % this.period;
-		if (t * 2 < this.period) {
-			rv = this.amplitude * (-1.0 + t * this.freq4);
+		if (t >= this.options.period) t = t % this.options.period;
+		if (t * 2 < this.options.period) {
+			rv = this.options.amplitude * (-1.0 + t * this.freq4);
 		} else {
-			rv = this.amplitude * (3.0 - t * this.freq4);
+			rv = this.options.amplitude * (3.0 - t * this.freq4);
 		}
-		rv += this.shift;
+		rv += this.options.shift;
 		return rv;
 	}
 
 	private square(t: number): number {
 		let rv: number = 0;
-		t += this.phase;
+		t += this.options.phase;
 		if (t >= 0) {
-			if (t >= this.period) t = t % this.period;
-			if (t + t < this.period) rv = this.amplitude;
-			else rv = -this.amplitude;
+			if (t >= this.options.period) t = t % this.options.period;
+			if (t + t < this.options.period) rv = this.options.amplitude;
+			else rv = -this.options.amplitude;
 		} else {
 			t = -t;
-			if (t >= this.period) t = t % this.period;
-			if (t * 2 < this.period) rv = -this.amplitude;
-			else rv = this.amplitude;
+			if (t >= this.options.period) t = t % this.options.period;
+			if (t * 2 < this.options.period) rv = -this.options.amplitude;
+			else rv = this.options.amplitude;
 		}
-		rv += this.shift;
+		rv += this.options.shift;
 		return rv;
 	}
 
 	private sinus(t: number): number {
 		let rv: number;
-		t += this.phase;
-		rv = this.amplitude * Math.sin(t * this.freq0);
-		rv += this.shift;
+		t += this.options.phase;
+		rv = this.options.amplitude * Math.sin(t * this.freq0);
+		rv += this.options.shift;
 		return rv;
 	}
 
 	private random(t: number /* not used */): number {
-		let rv: number = this.shift + this.amplitude * Math.random();
+		let rv: number = this.options.shift + this.options.amplitude * Math.random();
 		return rv;
 	}
 
@@ -133,22 +138,31 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 		}
 
 		this.interval = setInterval(() => {
-			console.log(`oscillator is oscillating...`);
-			switch (this.waveform) {
+			switch (this.options.waveform) {
 				case 'sinus': {
+					console.log(`oscillator >> sinus`);
 					this.value = this.sinus(this.elapsed());
+					break;
 				}
 				case 'square': {
+					console.log(`oscillator >> square`);
 					this.value = this.square(this.elapsed());
+					break;
 				}
 				case 'sawtooth': {
+					console.log(`oscillator >> sawtooth`);
 					this.value = this.sawtooth(this.elapsed());
+					break;
 				}
 				case 'triangle': {
+					console.log(`oscillator >> triangle`);
 					this.value = this.triangle(this.elapsed());
+					break;
 				}
 				case 'random': {
+					console.log(`oscillator >> random`);
 					this.value = this.random(this.elapsed());
+					break;
 				}
 			}
 		}, this.refreshRate);

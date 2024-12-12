@@ -37,7 +37,12 @@ function Settings() {
 			index: 0,
 			view: 'list',
 			label: 'validate',
-			options: ['sinus', 'square', 'sawtooth', 'triangle', 'random'],
+			options: [
+				{ value: 'sinus', text: 'sinus' },
+				{ value: 'triangle', text: 'triangle' },
+				{ value: 'sawtooth', text: 'sawtooth' },
+				{ value: 'square', text: 'square' },
+			],
 		});
 
 		pane.addBinding(settings, 'period', {

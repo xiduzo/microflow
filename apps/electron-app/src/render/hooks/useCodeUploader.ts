@@ -68,7 +68,7 @@ export function useCodeUploader() {
 			}
 		});
 
-		window.electron.ipcRenderer.send('ipc-upload-code', { code, port: config.ip ?? port });
+		window.electron.ipcRenderer.send('ipc-upload-code', { code, port: config.ip || port });
 
 		return () => {
 			off();
