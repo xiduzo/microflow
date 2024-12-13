@@ -96,7 +96,6 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 						</TooltipProvider>
 					)}
 				</div>
-				<h2 className="text-xs font-extralight">{id}</h2>
 			</div>
 			<NodeSettingsButton />
 		</header>
