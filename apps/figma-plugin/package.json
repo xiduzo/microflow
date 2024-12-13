@@ -1,5 +1,6 @@
 {
-	"name": "@microflow/figma-plugin",
+	"name": "microflow-hardware-bridge",
+	"productName": "microflow-hardware-bridge",
 	"private": true,
 	"version": "0.7.0",
 	"scripts": {

@@ -7,6 +7,7 @@
 	"scripts": {
 		"start": "concurrently --names \"APP,COMPONENTS\" --prefix-colors \"blue,green\" \"yarn workspace microflow-studio start\" \"yarn workspace @microflow/components dev\"",
 		"dev": "concurrently --names \"APP,COMPONENTS\" --prefix-colors \"blue,green\" \"yarn workspace microflow-studio start\" \"yarn workspace @microflow/components dev\"",
+		"dev:plugin": "yarn workspace microflow-hardware-bridge dev",
 		"build": "yarn workspace @microflow/components build",
 		"make": "DEBUG=electron-osx yarn workspace microflow-studio make",
 		"publish": "yarn workspace microflow-studio publish",
