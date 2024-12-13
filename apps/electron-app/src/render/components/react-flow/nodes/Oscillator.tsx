@@ -12,9 +12,9 @@ export function Oscillator(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="reset" offset={-1.5} />
-			<Handle type="target" position={Position.Left} id="start" offset={-0.5} />
-			<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
+			<Handle type="target" position={Position.Left} id="reset" offset={-1} />
+			<Handle type="target" position={Position.Left} id="start" />
+			<Handle type="target" position={Position.Left} id="stop" offset={1} />
 			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);
@@ -47,10 +47,12 @@ function Settings() {
 
 		pane.addBinding(settings, 'period', {
 			index: 1,
+			min: 100,
 		});
 
 		pane.addBinding(settings, 'amplitude', {
 			index: 2,
+			min: 0.1,
 		});
 
 		pane.addBinding(settings, 'phase', {

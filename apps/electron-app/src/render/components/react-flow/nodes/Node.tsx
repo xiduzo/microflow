@@ -195,7 +195,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			autoUpdate.current && clearTimeout(autoUpdate.current);
 			autoUpdate.current = setTimeout(() => {
 				saveSettings();
-			}, 500);
+			}, 1_000);
 		});
 
 		pane.registerPlugin(TweakpaneEssentialPlugin);
