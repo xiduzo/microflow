@@ -13,37 +13,17 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
-import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
+import { memo, useEffect } from 'react';
 import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
 import { useTempNode } from '../stores/react-flow';
+import { useNewNodeStore } from '../stores/new-node';
+import { useShallow } from 'zustand/react/shallow';
 
-const NewNodeContext = createContext({
-	open: false,
-	setOpen: (open: boolean) => {},
-	nodeToAdd: null as string | null,
-	setNodeToAdd: (nodeId: string | null) => {},
-});
-
-export function NewNodeProvider(props: PropsWithChildren) {
-	const [open, setOpen] = useState(false);
-	const [nodeToAdd, setNodeToAdd] = useState<string | null>(null);
-
-	return (
-		<NewNodeContext.Provider value={{ open, setOpen, nodeToAdd, setNodeToAdd }}>
-			{props.children}
-			<NewNodeCommandDialog />
-			<DroppableNewNode />
-		</NewNodeContext.Provider>
-	);
-}
-
-export function useNewNode() {
-	return useContext(NewNodeContext);
-}
-
-function NewNodeCommandDialog() {
-	const { open, setOpen, setNodeToAdd } = useNewNode();
+export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
+	useDraggableNewNode();
+	const { open, setOpen, setNodeToAdd } = useNewNodeStore();
 	const { addNode } = useTempNode();
+	console.log('>>> trigger');
 
 	function selectNode(type: NodeType, options?: { label?: string; subType?: string }) {
 		return function () {
@@ -95,8 +75,8 @@ function NewNodeCommandDialog() {
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('IfElse')}>
-						If...else
+					<CommandItem onSelect={selectNode('Compare')}>
+						Compare
 						<CommandShortcut>
 							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>
@@ -224,14 +204,18 @@ function NewNodeCommandDialog() {
 			</CommandList>
 		</CommandDialog>
 	);
-}
+});
 
-function DroppableNewNode() {
-	const { nodeToAdd, setNodeToAdd } = useNewNode();
+function useDraggableNewNode() {
+	const { nodeToAdd, setNodeToAdd } = useNewNodeStore(
+		useShallow(state => ({ nodeToAdd: state.nodeToAdd, setNodeToAdd: state.setNodeToAdd })),
+	);
 	const { screenToFlowPosition, updateNode } = useReactFlow();
 	const { addNode, deleteNode } = useTempNode();
 
 	useEffect(() => {
+		if (!nodeToAdd) return;
+
 		function handleKeyDown(event: KeyboardEvent) {
 			if (!nodeToAdd) return;
 			if (event.key === 'Escape' || event.key === 'Backspace') {

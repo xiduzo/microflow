@@ -32,10 +32,6 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	redo: () => void;
 };
 
-export const baseEdgeConfig: Partial<Edge> = {
-	style: { strokeWidth: 4, stroke: '#4b5563' },
-};
-
 function getLocalItem<T>(item: string, fallback: T) {
 	return JSON.parse(localStorage.getItem(item) ?? JSON.stringify(fallback)) as T;
 }
@@ -68,7 +64,7 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 	function updateHistory(update: Partial<Pick<AppState, 'nodes' | 'edges'>>) {
 		set(update);
 
-		clearTimeout(historyUpdateDebounce);
+		historyUpdateDebounce && clearTimeout(historyUpdateDebounce);
 		historyUpdateDebounce = setTimeout(() => {
 			const { nodes, edges, history } = get();
 			history.append({ nodes, edges });
@@ -143,7 +139,7 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 
 export function useNodeAndEdgeCount() {
 	return useReactFlowStore(
-		useShallow((state: AppState) => ({
+		useShallow(state => ({
 			nodesCount: state.nodes.length,
 			edgesCount: state.edges.length,
 		})),
@@ -152,20 +148,8 @@ export function useNodeAndEdgeCount() {
 
 export function useTempNode() {
 	return useReactFlowStore(
-		useShallow((state: AppState) => ({
-			addNode: (node: Node) => {
-				state.setNodes([
-					...state.nodes.map(stateNode => ({
-						...stateNode,
-						selected: false,
-						data: {
-							...stateNode.data,
-							settingsOpen: false,
-						},
-					})),
-					node,
-				]);
-			},
+		useShallow(state => ({
+			addNode: state.addNode,
 			deleteNode: state.deleteNode,
 		})),
 	);
