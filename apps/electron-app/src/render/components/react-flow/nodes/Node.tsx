@@ -96,6 +96,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 						</TooltipProvider>
 					)}
 				</div>
+				<span className="text-muted-foreground/40 text-xs font-extralight">{id}</span>
 			</div>
 			<NodeSettingsButton />
 		</header>

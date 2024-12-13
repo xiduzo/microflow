@@ -76,11 +76,9 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 		edges: initialEdges,
 		history: new LinkedList({ nodes: initialNodes, edges: initialEdges }),
 		onNodesChange: changes => {
-			console.log(...changes);
 			updateHistory({ nodes: applyNodeChanges(changes, get().nodes) });
 		},
 		onEdgesChange: changes => {
-			console.log(...changes);
 			updateHistory({ edges: applyEdgeChanges(changes, get().edges) });
 		},
 		onConnect: connection => {

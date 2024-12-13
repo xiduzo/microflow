@@ -54,11 +54,11 @@ function Settings() {
 		});
 
 		pane.addBinding(settings, 'phase', {
-			index: 4,
+			index: 3,
 		});
 
 		pane.addBinding(settings, 'shift', {
-			index: 5,
+			index: 4,
 		});
 	}, [pane, settings]);
 

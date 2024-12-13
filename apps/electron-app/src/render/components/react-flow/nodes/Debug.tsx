@@ -48,7 +48,7 @@ function Value() {
 				display.current.value = JSON.stringify(value, null, 2);
 				break;
 			case 'string':
-				display.current.value = value;
+				display.current.value = String(value);
 				break;
 			case 'graph':
 			default:
@@ -66,6 +66,7 @@ function Value() {
 			readonly: true,
 			index: 1,
 			label: '',
+			interval: 1000 / 60,
 			...bindingConfig,
 		});
 

@@ -23,49 +23,39 @@ export type OscillatorValueType = number;
 type OscillatorOptions = BaseComponentOptions & OscillatorData;
 
 export class Oscillator extends BaseComponent<OscillatorValueType> {
-	// user-defined values through the options panel
-	// private waveform: WaveformType = 'sinus';
-	// private period: number = 1;
-	// private amplitude: number = 1;
-	// private phase: number = 0;
-	// private shift: number = 0;
-
 	// auto-calculated values when "period" is reset
-	private freq1: number = 0;
-	private freq2: number = 0;
-	private freq4: number = 0;
-	private freq0: number = 0;
+	private freq1 = 0;
+	private freq2 = 0;
+	private freq4 = 0;
+	private freq0 = 0;
 
 	// internal logic
-	private started: number = 0;
-	private refreshRate: number = 20; /* default to 50 times a second */
-	private interval: NodeJS.Timeout | null = null;
+	private started = 0;
+	private lastTime = 0;
+	private FRAMES_PER_SECOND = 60;
+	private refreshRate = 1_000 / this.FRAMES_PER_SECOND;
+	private timeout: NodeJS.Timeout | null = null;
 
 	constructor(private readonly options: OscillatorOptions) {
 		super(options, 0);
-
-		console.log('oscillator was recreated!');
-		console.log(options);
-		console.log('---------------------------');
-		console.log(this);
 
 		this.freq1 = 1 / this.options.period;
 		this.freq2 = 2 * this.freq1;
 		this.freq4 = 4 * this.freq1;
 		this.freq0 = 2 * Math.PI * this.freq1;
 
-		this.started = Date.now();
-
 		this.start();
 	}
 
-	public reset() {
-		this.started = Date.now();
+	reset() {
+		this.started = performance.now();
 	}
 
-	private elapsed(): number {
-		//return Date.now() - this.started;
-		return performance.now();
+	start() {
+		this.stop();
+		this.reset();
+		this.started = this.ellapsed();
+		this.timeout = setTimeout(this.loop.bind(this), this.refreshRate);
 	}
 
 	private sawtooth(t: number): number {
@@ -126,51 +116,51 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 		return rv;
 	}
 
-	private random(t: number /* not used */): number {
-		let rv: number = this.options.shift + this.options.amplitude * Math.random();
-		return rv;
+	private random(): number {
+		return this.options.shift + this.options.amplitude * Math.random();
 	}
 
-	start() {
-		// avoid multiple re-entry
-		if (this.interval) {
-			clearInterval(this.interval);
+	private ellapsed() {
+		return performance.now() - this.started;
+	}
+
+	private loop() {
+		const currentTime = this.ellapsed();
+
+		switch (this.options.waveform) {
+			case 'sinus': {
+				this.value = this.sinus(currentTime);
+				break;
+			}
+			case 'square': {
+				this.value = this.square(currentTime);
+				break;
+			}
+			case 'sawtooth': {
+				this.value = this.sawtooth(currentTime);
+				break;
+			}
+			case 'triangle': {
+				this.value = this.triangle(currentTime);
+				break;
+			}
+			case 'random': {
+				this.value = this.random();
+				break;
+			}
 		}
 
-		this.interval = setInterval(() => {
-			switch (this.options.waveform) {
-				case 'sinus': {
-					console.log(`oscillator >> sinus`);
-					this.value = this.sinus(this.elapsed());
-					break;
-				}
-				case 'square': {
-					console.log(`oscillator >> square`);
-					this.value = this.square(this.elapsed());
-					break;
-				}
-				case 'sawtooth': {
-					console.log(`oscillator >> sawtooth`);
-					this.value = this.sawtooth(this.elapsed());
-					break;
-				}
-				case 'triangle': {
-					console.log(`oscillator >> triangle`);
-					this.value = this.triangle(this.elapsed());
-					break;
-				}
-				case 'random': {
-					console.log(`oscillator >> random`);
-					this.value = this.random(this.elapsed());
-					break;
-				}
-			}
-		}, this.refreshRate);
-	} // start()
+		// Schedule next update
+		const nextUpdateTime = this.lastTime + this.refreshRate;
+		const now = performance.now();
+		const timeout = Math.max(0, nextUpdateTime - now);
+
+		// console.log(`next update in ${timeout}ms`);
+		this.lastTime = nextUpdateTime; // Update last time to the ideal time, not actual time
+		this.timeout = setTimeout(this.loop.bind(this), timeout);
+	}
 
 	stop() {
-		if (this.interval) {
-			clearInterval(this.interval);
-		}
+		this.timeout && clearTimeout(this.timeout);
 	}
 }
