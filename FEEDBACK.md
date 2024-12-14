@@ -23,3 +23,44 @@ Ninja-level nodes:
 ## Bugs?
 - [x] refresh rate of debug is waaaaaaay slow
 - [x] interval rate of oscillator is set to 50fps but only 41fps are produced, is that the maximum refresh rate of johnny-five or where does this limitation come from?
+
+## Developer happines stuff
+Mostly API-level stuff, pet-peeves, OCD stuff, things I wish (as a developer) were easier to do.
+
+- [ ] adding a new node requires quite some boilerplate, I see myself copying and pasting quite a lot of stuff from other components.
+- [ ] somewhat incoherent API, for example when I needed an attribute value I expected a function like `const value = useNodeAttribute<OscillatorData>(id, 'period', 0);`, but it turns out it was a lot easier and all I needed was `const { id, data } = useNode();` and then I could use the `data` object to fetch stuff from it like so `const waveform = data['waveform'];`. This is slightly maddedning, that intuition doesn't work in this codebase. I blame React for this, and the fact that some things have a more reactish API, while others are closer to the cleaner object model under it. I don't think there's an easy way to fix this that doesn't involve writing a ton of stupid wrappers.
+- [ ] more about coherence, Node properties are called Data in the code, Properties in some places, Settings in the `.tsx` file. Not a biggie but would be nice to settle on one and name it the same across the entire codebase. I would propose *attributes*, because settings applies to too many things in app development.
+- [ ] same thing about the words Component and Node, one has `BaseComponent.ts` in `@microflow/components` and `Node.tsx` in the presentation layer. You get used to it pretty quickly, but make the codebase a bit disorienting for a noob.
+- [ ] `BaseComponent.ts` assumes that `change` happens when the value changes, but this is not always true. When writing the `Trigger` node I found situations were I wanted to send an output signal that didn't have a specific value. In the end I settled for sending out a 1.0 for `trigger happened` (or `bang` as it's called in other flow-based languages) and a `0.0` when `trigger didn't happen`. My first implementation was like this:
+
+```
+	/**
+	 * @TODO apparently this doesn't work
+	 *
+	 * bang the output 'change' gate
+	 */
+	public bang() {
+		let value: number = 1.0;
+		this.eventEmitter.emit('change', JSON.stringify(value));
+	}
+
+	/**
+	 * "unbang"
+	 */
+	public quiet() {
+		let value: number = 0.0;
+		this.eventEmitter.emit('change', JSON.stringify(value));
+	}
+```
+
+You can still see the vestiges of this approach in `BaseComponent.ts`. This never worked, and after staring at it for hours I honestly do not know why. Instead I had to do this in the child component:
+
+```
+		if (retval) {
+			this.value = 1.0; // not ideal, I don't really want to send a specific value here but rather a gate bang
+			setTimeout(() => {
+				this.value = 0.0;
+			}, this.options.duration);
+```
+
+In my opinion it would be nice if there was a very straight-foward way in `BaseComponent.ts` to just send a pulse/bang to the next node, a way that is independant of value just so that the developer doesn't have to thing about it. Something happened in this node and I just want to notify the next node down the chain.
