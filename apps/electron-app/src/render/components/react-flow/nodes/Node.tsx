@@ -96,6 +96,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 						</TooltipProvider>
 					)}
 				</div>
+				<span className="text-muted-foreground/40 text-xs font-extralight">{id}</span>
 			</div>
 			<NodeSettingsButton />
 		</header>
@@ -166,6 +167,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const updateNode = useUpdateNode(id);
 
 	const ref = useRef<HTMLDivElement>(null);
+	const autoUpdate = useRef<NodeJS.Timeout | null>(null);
 	const settings = useRef(data);
 	const handlesToDelete = useRef<string[]>([]);
 
@@ -180,6 +182,22 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			title: `${data.label} (${id})`,
 			container: ref.current ?? undefined,
 		});
+
+		function saveSettings() {
+			deleteEdes(id, handlesToDelete.current);
+			updateNode(settings.current, type !== 'Note');
+			updateNodeInternals(id);
+		}
+
+		pane.on('change', event => {
+			if (!event.last) return;
+
+			autoUpdate.current && clearTimeout(autoUpdate.current);
+			autoUpdate.current = setTimeout(() => {
+				saveSettings();
+			}, 1_000);
+		});
+
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
 		pane.registerPlugin(TweakpaneCameraPlugin);
@@ -188,26 +206,12 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			index: 9998,
 		});
 
-		function saveSettings() {
-			deleteEdes(id, handlesToDelete.current);
-			updateNode(settings.current, type !== 'Note');
-			updateNodeInternals(id);
-		}
-
 		pane
 			.addButton({
-				title: 'Save',
-				index: 9998,
-			})
-			.on('click', saveSettings);
-
-		pane
-			.addButton({
-				title: 'Save & Close',
+				title: 'Close',
 				index: 9999,
 			})
 			.on('click', () => {
-				saveSettings();
 				setSettingsOpened(false);
 			});
 

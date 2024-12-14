@@ -5,7 +5,9 @@
 		"packages/*"
 	],
 	"scripts": {
-		"start": "yarn workspace microflow-studio start",
+		"start": "concurrently --names \"APP,COMPONENTS\" --prefix-colors \"blue,green\" \"yarn workspace microflow-studio start\" \"yarn workspace @microflow/components dev\"",
+		"dev": "concurrently --names \"APP,COMPONENTS\" --prefix-colors \"blue,green\" \"yarn workspace microflow-studio start\" \"yarn workspace @microflow/components dev\"",
+		"dev:plugin": "yarn workspace microflow-hardware-bridge dev",
 		"build": "yarn workspace @microflow/components build",
 		"make": "DEBUG=electron-osx yarn workspace microflow-studio make",
 		"publish": "yarn workspace microflow-studio publish",
@@ -26,6 +28,7 @@
 	"license": "GPL-3.0-only",
 	"devDependencies": {
 		"@total-typescript/ts-reset": "^0.5.1",
+		"concurrently": "^9.1.0",
 		"patch-package": "^8.0.0",
 		"prettier": "^3.3.3"
 	}

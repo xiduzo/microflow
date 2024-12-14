@@ -6,9 +6,10 @@ import { useBoardPort, useBoardResult, useBoardStore, useUploadResult } from '..
 import { UploadResult } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
-import { useNewNode } from '../providers/NewNodeProvider';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
+import { useShallow } from 'zustand/react/shallow';
+import { useNewNodeStore } from '../stores/new-node';
 
 export function useCodeUploader() {
 	const clearNodeData = useClearNodeData();
@@ -90,7 +91,7 @@ export function useCodeUploader() {
 
 export function useAutoCodeUploader() {
 	const uploadCode = useCodeUploader();
-	const { nodeToAdd } = useNewNode();
+	const nodeToAdd = useNewNodeStore(useShallow(state => state.nodeToAdd));
 	const boardResult = useBoardResult();
 	const uploadResult = useUploadResult();
 	const debounce = useRef<NodeJS.Timeout>();
