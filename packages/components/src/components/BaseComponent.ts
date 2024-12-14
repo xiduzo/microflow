@@ -74,4 +74,18 @@ export class BaseComponent<T> {
 			value: error,
 		});
 	}
+
+	/**
+	 * bang the output 'change' gate
+	 */
+	public bang() {
+		this.eventEmitter.emit('change', JSON.stringify(1));
+	}
+
+	/**
+	 * "unbang"
+	 */
+	public quiet() {
+		this.eventEmitter.emit('change', JSON.stringify(0));
+	}
 }
