@@ -14,7 +14,7 @@ import { DEFAULT_MATRIX_DATA, Matrix } from '../render/components/react-flow/nod
 import { DEFAULT_MOTION_DATA, Motion } from '../render/components/react-flow/nodes/Motion';
 import { DEFAULT_MQTT_DATA, Mqtt } from '../render/components/react-flow/nodes/Mqtt';
 import { DEFAULT_NOTE_DATA, Note } from '../render/components/react-flow/nodes/Note';
-import { DEFAULT_DEBUG_DATA, Debug } from '../render/components/react-flow/nodes/Debug';
+import { DEFAULT_MONITOR_DATA, Monitor } from '../render/components/react-flow/nodes/Monitor';
 import { DEFAULT_PIEZO_DATA, Piezo } from '../render/components/react-flow/nodes/piezo/Piezo';
 import { DEFAULT_RANGE_MAP_DATA, RangeMap } from '../render/components/react-flow/nodes/RangeMap';
 import { DEFAULT_SENSOR_DATA, Sensor } from '../render/components/react-flow/nodes/Sensor';
@@ -26,7 +26,7 @@ export const NODE_TYPES = {
 	And: And,
 	Button: Button,
 	Counter: Counter,
-	Debug: Debug,
+	Monitor: Monitor,
 	Figma: Figma,
 	Compare: Compare,
 	Interval: Interval,
@@ -52,7 +52,7 @@ export const DEFAULT_NODE_DATA = new Map<NodeType | string, Record<string, any>>
 DEFAULT_NODE_DATA.set('And', DEFAULT_AND_DATA);
 DEFAULT_NODE_DATA.set('Button', DEFAULT_BUTTON_DATA);
 DEFAULT_NODE_DATA.set('Counter', DEFAULT_COUNTER_DATA);
-DEFAULT_NODE_DATA.set('Debug', DEFAULT_DEBUG_DATA);
+DEFAULT_NODE_DATA.set('Monitor', DEFAULT_MONITOR_DATA);
 DEFAULT_NODE_DATA.set('Figma', DEFAULT_FIGMA_DATA);
 DEFAULT_NODE_DATA.set('Compare', DEFAULT_COMPARE_DATA);
 DEFAULT_NODE_DATA.set('Interval', DEFAULT_INTERVAL_DATA);

@@ -1,13 +1,13 @@
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
-import type { DebugValueType, DebugData } from '@microflow/components';
+import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef } from 'react';
 import { Pane } from '@ui/index';
 import { BindingApi } from '@tweakpane/core';
 
-export function Debug(props: Props) {
+export function Monitor(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
@@ -18,7 +18,7 @@ export function Debug(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode<DebugData>();
+	const { id, data } = useNode<MonitorData>();
 	const value = useNodeValue<DebugValueType>(id, 0);
 
 	const container = useRef<HTMLDivElement>(null);
@@ -26,10 +26,8 @@ function Value() {
 
 	const bindingConfig = useMemo(() => {
 		switch (data.type) {
-			case 'object':
+			case 'raw':
 				return { rows: data.rows, multiline: true };
-			case 'string':
-				return { bufferSize: data.bufferSize };
 			case 'graph':
 			default:
 				return { ...data.range, view: 'graph' };
@@ -44,11 +42,8 @@ function Value() {
 
 	useEffect(() => {
 		switch (data.type) {
-			case 'object':
+			case 'raw':
 				display.current.value = JSON.stringify(value, null, 2);
-				break;
-			case 'string':
-				display.current.value = String(value);
 				break;
 			case 'graph':
 			default:
@@ -83,7 +78,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<DebugData>();
+	const { pane, settings } = useNodeSettingsPane<MonitorData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -95,16 +90,7 @@ function Settings() {
 			optionsBinding?.dispose();
 
 			switch (settings.type) {
-				case 'string':
-					settings.bufferSize = settings.bufferSize || 10;
-					optionsBinding = pane.addBinding(settings, 'bufferSize', {
-						label: 'size',
-						index: 1,
-						min: 1,
-						step: 1,
-					});
-					break;
-				case 'object':
+				case 'raw':
 					settings.rows = 5;
 					optionsBinding = pane.addBinding(settings, 'rows', {
 						label: 'size',
@@ -132,8 +118,7 @@ function Settings() {
 				view: 'list',
 				options: [
 					{ value: 'graph', text: 'graph' },
-					{ value: 'string', text: 'string' },
-					{ value: 'object', text: 'object' },
+					{ value: 'raw', text: 'raw' },
 				],
 			})
 			.on('change', () => {
@@ -150,9 +135,9 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<DebugData, DebugValueType>;
-export const DEFAULT_DEBUG_DATA: Props['data'] = {
-	label: 'Debug',
+type Props = BaseNode<MonitorData, DebugValueType>;
+export const DEFAULT_MONITOR_DATA: Props['data'] = {
+	label: 'Monitor',
 	type: 'graph',
 	range: { min: 0, max: 1023 },
 };

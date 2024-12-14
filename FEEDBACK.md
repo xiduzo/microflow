@@ -7,11 +7,12 @@
 
 ## Nodes
 - [x] If..Else is strangely named because technically you cannot do an Else with it, only an If. :) Maybe this node could be called **Compare**?
-- [ ] Would be awesome if Debug could "autorange"  :) and maybe instead of **Debug** it could be called **Plot** or **Graph**?
+- [ ] Would be awesome if Debug could "autorange"  :)
+    - [x] and maybe instead of **Debug** it could be called **Plot** or **Graph**?
 
 Nodes that would be nice to have:
-- [ ] **Trigger** node, that outputs a 1 when a specific threshold is reached, with configurable options to *trigger on* `increasing values` or `decreasing values`
-- [ ] **Smooth** node that makes an analog input less noisy
+- [x] **Trigger** node, that outputs a 1 when a specific threshold is reached, with configurable options to *trigger on* `increasing values` or `decreasing values`
+- [x] **Smooth** node that makes an analog input less noisy
 - [ ] **Math** node that can take two inputs and perform an operation on them `add`, `substract`, `multiply`, `divide`, `modulo`
 - [ ] **Constant** node that takes a value and never changes (for example if you want to divide all incoming signals by 2, you create a node with a constant = 2 and a math node)
 - [ ] **Delay** node, gives output only after `xyz` milliseconds after receiving input

@@ -75,8 +75,8 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 							<Badge variant="outline">Transformation</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('Debug')}>
-						Debug
+					<CommandItem onSelect={selectNode('Monitor')}>
+						Monitor
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
