@@ -3,9 +3,7 @@ import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
-import { useNodeValue } from '../../../stores/node-data';
-
-const numberFormat = new Intl.NumberFormat();
+import { Icons } from '@ui/index';
 
 export function Trigger(props: Props) {
 	return (
@@ -19,31 +17,16 @@ export function Trigger(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode();
-	const threshold = data['threshold']; //useNodeAttribute<TriggerData>(id, 'threshold', 0);
-	const behaviour = data['behaviour']; //useNodeAttribute<TriggerData>(id, 'behaviour', 0);
-
-	let comp: string = '\u2261';
-	switch (behaviour) {
-		case 'exact': {
-			comp = '\u2261'; // identical/exact match
-			break;
-		}
-		case 'increasing': {
-			comp = '\u003E'; // greater than
-			break;
-		}
-		case 'decreasing': {
-			comp = '\u003C'; // less than
-			break;
-		}
-	}
+	const { data } = useNode<TriggerData>();
 
 	return (
-		<section className="tabular-nums">
-			{comp} {threshold}
+		<section className="flex flex-col text-center gap-1">
+			{data.behaviour === 'exact' && <Icons.Equal size={48} />}
+			{data.behaviour === 'increasing' && <Icons.TrendingUp size={48} />}
+			{data.behaviour === 'decreasing' && <Icons.TrendingDown size={48} />}
+			<div className="text-muted-foreground text-xs">{data.threshold}</div>
 		</section>
-	); //{numberFormat.format(Math.round(value))}</section>;
+	);
 }
 
 function Settings() {

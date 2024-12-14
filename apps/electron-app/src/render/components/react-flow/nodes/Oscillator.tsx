@@ -3,9 +3,7 @@ import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
-import { useNodeValue } from '../../../stores/node-data';
-
-const numberFormat = new Intl.NumberFormat();
+import { Icons } from '@ui/index';
 
 export function Oscillator(props: Props) {
 	return (
@@ -21,16 +19,16 @@ export function Oscillator(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode();
-	const value = useNodeValue<OscillatorData>(id, 0);
-
-	const waveform = data['waveform'];
-	const period = data['period'];
-	const amplitude = data['amplitude'];
+	const { data } = useNode<OscillatorData>();
 
 	return (
-		<section className="tabular-nums">
-			{waveform} @ {period / 1000} s
+		<section className="flex flex-col text-center gap-1">
+			{data.waveform === 'random' && <Icons.Dices size={48} />}
+			{data.waveform === 'sawtooth' && <Icons.TriangleRight size={48} />}
+			{data.waveform === 'sinus' && <Icons.AudioWaveform size={48} />}
+			{data.waveform === 'square' && <Icons.Square size={48} />}
+			{data.waveform === 'triangle' && <Icons.Triangle size={48} />}
+			<div className="text-muted-foreground text-xs">{data.period / 1000}s</div>
 		</section>
 	);
 }
@@ -56,6 +54,7 @@ function Settings() {
 
 		pane.addBinding(settings, 'period', {
 			index: 1,
+			step: 1,
 			min: 100,
 		});
 

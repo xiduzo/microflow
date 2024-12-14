@@ -3,9 +3,6 @@ import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
-import { useNodeValue } from '../../../stores/node-data';
-
-const numberFormat = new Intl.NumberFormat();
 
 export function Smooth(props: Props) {
 	return (
@@ -19,10 +16,9 @@ export function Smooth(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode();
-	const attenuation = data['attenuation'];
+	const { data } = useNode<SmoothData>();
 
-	return <section className="tabular-nums">{attenuation.toFixed(3)}</section>;
+	return <section className="tabular-nums">{data.attenuation.toFixed(3)}</section>;
 }
 
 function Settings() {
