@@ -76,16 +76,20 @@ export class BaseComponent<T> {
 	}
 
 	/**
+	 * @TODO apparently this doesn't work
+	 *
 	 * bang the output 'change' gate
 	 */
 	public bang() {
-		this.eventEmitter.emit('change', JSON.stringify(1));
+		let value: number = 1.0;
+		this.eventEmitter.emit('change', JSON.stringify(value));
 	}
 
 	/**
 	 * "unbang"
 	 */
 	public quiet() {
-		this.eventEmitter.emit('change', JSON.stringify(0));
+		let value: number = 0.0;
+		this.eventEmitter.emit('change', JSON.stringify(value));
 	}
 }

@@ -67,6 +67,14 @@ function Settings() {
 			index: 1,
 			label: 'threshold value',
 		});
+
+		pane.addBinding(settings, 'duration', {
+			index: 2,
+			min: 0.1,
+			max: 1000,
+			step: 0.1,
+			label: 'duration',
+		});
 	}, [pane, settings]);
 
 	return null;
@@ -76,5 +84,6 @@ type Props = BaseNode<TriggerData, TriggerValueType>;
 export const DEFAULT_TRIGGER_DATA: Props['data'] = {
 	label: 'Trigger',
 	behaviour: 'exact',
-	threshold: 0,
+	threshold: 0.5,
+	duration: 250,
 };

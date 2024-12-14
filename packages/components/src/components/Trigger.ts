@@ -7,6 +7,7 @@ export type TriggerBehaviour = 'increasing' | 'exact' | 'decreasing';
 export type TriggerData = {
 	behaviour: TriggerBehaviour;
 	threshold: number;
+	duration: number;
 };
 export type TriggerValueType = number;
 
@@ -103,11 +104,10 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		}
 
 		if (retval) {
-			//console.log(`(!) was triggered`);
-			//this.value = value;
-			this.bang();
-		} else {
-			this.quiet();
+			this.value = 1.0; // not ideal, I don't really want to send a specific value here but rather a gate bang
+			setTimeout(() => {
+				this.value = 0.0;
+			}, this.options.duration);
 		}
 	} // input()
 } // Trigger component
