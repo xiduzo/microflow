@@ -250,6 +250,7 @@ type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
 const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
 	{} as ContainerProps<Record<string, unknown>>,
 );
+
 const useNode = <T extends Record<string, unknown>>() =>
 	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
 
@@ -345,7 +346,6 @@ export type BaseNode<Attributes extends Record<string, unknown> = {}> = Node<
 		type?: string;
 		subType?: string;
 		label: string;
-		animated?: string;
 		settingsOpen?: boolean;
 	}
 >;

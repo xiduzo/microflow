@@ -28,8 +28,9 @@ export const useNodeDataStore = create<NodeData>(set => {
 });
 
 export function useNodeValue<T>(defaultValue: T) {
-	// This is a dirty hack to get the id of the current node
-	// We should not mix react context with zustand state
+	// This is a dirty hack to get the id of the current node from the context
+	// You should never mix react context with a zustand state
+	// But ej, there is always an exception to the rule
 	const id = useNodeId();
 	return useNodeDataStore(useShallow(state => (state.data[id] as T) ?? defaultValue));
 }
