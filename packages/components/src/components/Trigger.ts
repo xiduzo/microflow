@@ -2,8 +2,6 @@ import { BaseComponent, BaseComponentOptions } from './BaseComponent';
 
 export type TriggerBehaviour = 'increasing' | 'exact' | 'decreasing';
 
-//export type WaveformType = 'sinus' | 'square' | 'sawtooth' | 'triangle' | 'random';
-
 export type TriggerData = {
 	behaviour: TriggerBehaviour;
 	threshold: number;
@@ -87,27 +85,26 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 
 		switch (this.options.behaviour) {
 			case 'increasing': {
-				retval = this.checkIncreasing(value);
+				retval = this.checkIncreasing(Number(value));
 				//console.log(`[>] trigger ${this.value} < ${value}`);
 				break;
 			}
 			case 'exact': {
-				retval = this.value === value ? true : false;
+				retval = this.value === Number(value);
 				//console.log(`[=] trigger  ${this.value} = ${value}`);
 				break;
 			}
 			case 'decreasing': {
-				retval = this.checkDecreasing(value); //this.value > value ? true : false;
+				retval = this.checkDecreasing(Number(value)); //this.value > value ? true : false;
 				//console.log(`[<] trigger  ${this.value} > ${value}`);
 				break;
 			}
 		}
 
-		if (retval) {
-			this.value = 1.0; // not ideal, I don't really want to send a specific value here but rather a gate bang
-			setTimeout(() => {
-				this.value = 0.0;
-			}, this.options.duration);
-		}
+		this.value = Number(value);
+
+		if (!retval) return;
+
+		this.eventEmitter.emit('bang', this.value);
 	} // input()
 } // Trigger component

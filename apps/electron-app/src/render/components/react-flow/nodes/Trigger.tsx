@@ -10,8 +10,8 @@ export function Trigger(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="signal" offset={-0.5} />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="target" position={Position.Left} id="signal" />
+			<Handle type="source" position={Position.Right} id="bang" />
 		</NodeContainer>
 	);
 }

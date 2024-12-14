@@ -74,22 +74,4 @@ export class BaseComponent<T> {
 			value: error,
 		});
 	}
-
-	/**
-	 * @TODO apparently this doesn't work
-	 *
-	 * bang the output 'change' gate
-	 */
-	public bang() {
-		let value: number = 1.0;
-		this.eventEmitter.emit('change', JSON.stringify(value));
-	}
-
-	/**
-	 * "unbang"
-	 */
-	public quiet() {
-		let value: number = 0.0;
-		this.eventEmitter.emit('change', JSON.stringify(value));
-	}
 }
