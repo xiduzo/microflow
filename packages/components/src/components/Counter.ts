@@ -1,13 +1,12 @@
 import Logger from 'electron-log/node';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type CounterData = {};
 export type CounterValueType = number;
-type CounterOptions = BaseComponentOptions & CounterData;
 
 export class Counter extends BaseComponent<CounterValueType> {
-	constructor(options: CounterOptions) {
-		super(options, 0);
+	constructor(data: BaseComponentData & CounterData) {
+		super(data, 0);
 	}
 
 	// TODO: get value from edge

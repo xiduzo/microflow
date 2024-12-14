@@ -4,7 +4,7 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeId, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 
 export function Mqtt(props: Props) {
@@ -27,7 +27,8 @@ export function Mqtt(props: Props) {
 }
 
 function Subscriber() {
-	const { data, id } = useNode<MqttData>();
+	const id = useNodeId();
+	const data = useNodeData<MqttData>();
 	const { subscribe } = useMqtt();
 
 	useEffect(() => {
@@ -59,8 +60,8 @@ function Subscriber() {
 function Value() {
 	const { publish } = useMqtt();
 
-	const { data, id } = useNode<MqttData>();
-	const value = useNodeValue<MqttValueType>(id, '');
+	const data = useNodeData<MqttData>();
+	const value = useNodeValue<MqttValueType>('');
 
 	useEffect(() => {
 		if (data.direction !== 'publish') return;
@@ -74,7 +75,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<MqttData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettings<MqttData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -103,7 +104,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<MqttData, MqttValueType>;
+type Props = BaseNode<MqttData>;
 export const DEFAULT_MQTT_DATA: Props['data'] = {
 	label: 'MQTT',
 	direction: 'publish',

@@ -1,8 +1,8 @@
-import type { SmoothData, SmoothValueType } from '@microflow/components';
+import type { SmoothData } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 
 export function Smooth(props: Props) {
 	return (
@@ -16,13 +16,13 @@ export function Smooth(props: Props) {
 }
 
 function Value() {
-	const { data } = useNode<SmoothData>();
+	const data = useNodeData<SmoothData>();
 
 	return <section className="tabular-nums">{data.attenuation.toFixed(3)}</section>;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<SmoothData>();
+	const { pane, settings } = useNodeSettings<SmoothData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -39,7 +39,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<SmoothData, SmoothValueType>;
+type Props = BaseNode<SmoothData>;
 export const DEFAULT_SMOOTH_DATA: Props['data'] = {
 	label: 'Smooth',
 	attenuation: 0.995,

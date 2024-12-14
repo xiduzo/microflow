@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type Range = { min: number; max: number };
 export type RangeMapData = {
@@ -7,11 +7,9 @@ export type RangeMapData = {
 };
 export type RangeMapValueType = [number, number];
 
-type RangeMapOptions = BaseComponentOptions & RangeMapData;
-
 export class RangeMap extends BaseComponent<RangeMapValueType> {
-	constructor(private readonly options: RangeMapOptions) {
-		super(options, [0, 0]);
+	constructor(private readonly data: BaseComponentData & RangeMapData) {
+		super(data, [0, 0]);
 	}
 
 	from(input: boolean | string | number) {
@@ -23,8 +21,8 @@ export class RangeMap extends BaseComponent<RangeMapValueType> {
 			input = parseFloat(input);
 		}
 
-		const { min: inMin = 0, max: inMax = 1023 } = this.options.from;
-		const { min: outMin = 0, max: outMax = 1023 } = this.options.to;
+		const { min: inMin = 0, max: inMax = 1023 } = this.data.from;
+		const { min: outMin = 0, max: outMax = 1023 } = this.data.to;
 
 		const mapped = ((input - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
 		const distance = outMax - outMin;

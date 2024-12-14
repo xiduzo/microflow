@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 type BooleanData = {
 	validator: 'boolean';
@@ -34,11 +34,9 @@ export type CompareData = BooleanData | TextData | NumberData | SingleNumberData
 
 export type CompateValueType = boolean;
 
-export type CompareOptions = BaseComponentOptions & CompareData;
-
 export class Compare extends BaseComponent<CompateValueType> {
-	constructor(private readonly options: CompareOptions) {
-		super(options, false);
+	constructor(private readonly data: BaseComponentData & CompareData) {
+		super(data, false);
 	}
 
 	check(input: never) {
@@ -48,29 +46,29 @@ export class Compare extends BaseComponent<CompateValueType> {
 	}
 
 	private getValidator() {
-		switch (this.options.validator) {
+		switch (this.data.validator) {
 			case 'boolean':
 				return (input: boolean | string) =>
 					['1', 'true', 'on', 'yes'].includes(String(input).toLowerCase());
 			case 'number':
-				switch (this.options.subValidator) {
+				switch (this.data.subValidator) {
 					case 'equal to':
 						return (input: number) =>
-							input == (this.options.validatorArg as SingleNumberData['validatorArg']);
+							input == (this.data.validatorArg as SingleNumberData['validatorArg']);
 					case 'greater than':
 						return (input: number) =>
-							input > (this.options.validatorArg as SingleNumberData['validatorArg']);
+							input > (this.data.validatorArg as SingleNumberData['validatorArg']);
 					case 'less than':
 						return (input: number) =>
-							input < (this.options.validatorArg as SingleNumberData['validatorArg']);
+							input < (this.data.validatorArg as SingleNumberData['validatorArg']);
 					case 'between':
 						return (input: number) =>
-							input > (this.options.validatorArg as DoubleNumberData['validatorArg']).min &&
-							input < (this.options.validatorArg as DoubleNumberData['validatorArg']).max;
+							input > (this.data.validatorArg as DoubleNumberData['validatorArg']).min &&
+							input < (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'outside':
 						return (input: number) =>
-							input < (this.options.validatorArg as DoubleNumberData['validatorArg']).min &&
-							input > (this.options.validatorArg as DoubleNumberData['validatorArg']).max;
+							input < (this.data.validatorArg as DoubleNumberData['validatorArg']).min &&
+							input > (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'even':
 						return (input: number) => Math.round(input) % 2 === 0;
 					case 'odd':
@@ -79,8 +77,8 @@ export class Compare extends BaseComponent<CompateValueType> {
 						return () => false;
 				}
 			case 'text':
-				const expected = this.options.validatorArg as TextData['validatorArg'];
-				switch (this.options.subValidator) {
+				const expected = this.data.validatorArg as TextData['validatorArg'];
+				switch (this.data.subValidator) {
 					case 'equal to':
 						return (input: string) => input === expected;
 					case 'includes':

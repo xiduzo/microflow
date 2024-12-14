@@ -1,18 +1,16 @@
 import JohnnyFive, { ButtonOption } from 'johnny-five';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type ButtonData = Omit<ButtonOption, 'board'>;
 export type ButtonValueType = boolean | number;
 
-type ButtonOptions = BaseComponentOptions & ButtonData;
-
 export class Button extends BaseComponent<ButtonValueType> {
 	private readonly component: JohnnyFive.Button;
 
-	constructor(options: ButtonOptions) {
-		super(options, false);
+	constructor(data: BaseComponentData & ButtonData) {
+		super(data, false);
 
-		this.component = new JohnnyFive.Button(options);
+		this.component = new JohnnyFive.Button(data);
 
 		this.component.on('up', () => {
 			this.value = false;

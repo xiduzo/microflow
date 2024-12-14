@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type IntervalData = {
 	interval: number;
@@ -6,14 +6,12 @@ export type IntervalData = {
 };
 export type IntervalValueType = number;
 
-type IntervalOptions = BaseComponentOptions & IntervalData;
-
 export class Interval extends BaseComponent<IntervalValueType> {
 	private readonly minIntervalInMs = 500;
 	private interval: NodeJS.Timeout | null = null;
 
-	constructor(private readonly options: IntervalOptions) {
-		super(options, 0);
+	constructor(private readonly data: BaseComponentData & IntervalData) {
+		super(data, 0);
 
 		this.start();
 	}
@@ -38,7 +36,7 @@ export class Interval extends BaseComponent<IntervalValueType> {
 
 		this.interval = setInterval(() => {
 			this.value = Math.round(performance.now());
-		}, this.getIntervalTime(this.options.interval));
+		}, this.getIntervalTime(this.data.interval));
 	}
 
 	stop() {

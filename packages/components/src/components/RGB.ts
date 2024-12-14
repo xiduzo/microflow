@@ -1,21 +1,19 @@
 import JohnnyFive from 'johnny-five';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 import { RGBA } from '../types';
 
 export type RgbData = Omit<ConstructorParameters<typeof JohnnyFive.Led.RGB>[0], 'board'>;
 
 export type RgbValueType = RGBA;
 
-type RgbOptions = BaseComponentOptions & RgbData;
-
 export class Rgb extends BaseComponent<RgbValueType> {
 	private readonly component: JohnnyFive.Led.RGB;
 	private updateQueue: Promise<void> = Promise.resolve();
 
-	constructor(options: RgbOptions) {
-		super(options, { r: 0, g: 0, b: 0, a: 1 });
+	constructor(data: BaseComponentData & RgbData) {
+		super(data, { r: 0, g: 0, b: 0, a: 1 });
 
-		this.component = new JohnnyFive.Led.RGB(options);
+		this.component = new JohnnyFive.Led.RGB(data);
 	}
 
 	red(value: number) {

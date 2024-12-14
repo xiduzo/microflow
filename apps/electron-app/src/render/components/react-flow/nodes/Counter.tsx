@@ -1,7 +1,7 @@
 import type { CounterData, CounterValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode } from './Node';
+import { BaseNode, NodeContainer } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 
 const numberFormat = new Intl.NumberFormat();
@@ -20,13 +20,12 @@ export function Counter(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<CounterValueType>(id, 0);
+	const value = useNodeValue<CounterValueType>(0);
 
 	return <section className="text-4xl tabular-nums">{numberFormat.format(value)}</section>;
 }
 
-type Props = BaseNode<CounterData, CounterValueType>;
+type Props = BaseNode<CounterData>;
 export const DEFAULT_COUNTER_DATA: Props['data'] = {
 	label: 'Counter',
 };

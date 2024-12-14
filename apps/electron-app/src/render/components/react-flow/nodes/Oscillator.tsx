@@ -1,8 +1,8 @@
-import type { OscillatorData, OscillatorValueType } from '@microflow/components';
+import type { OscillatorData } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { Icons } from '@ui/index';
 
 export function Oscillator(props: Props) {
@@ -19,7 +19,7 @@ export function Oscillator(props: Props) {
 }
 
 function Value() {
-	const { data } = useNode<OscillatorData>();
+	const data = useNodeData<OscillatorData>();
 
 	return (
 		<section className="flex flex-col text-center gap-1">
@@ -34,7 +34,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<OscillatorData>();
+	const { pane, settings } = useNodeSettings<OscillatorData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -75,7 +75,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<OscillatorData, OscillatorValueType>;
+type Props = BaseNode<OscillatorData>;
 export const DEFAULT_OSCILLATOR_DATA: Props['data'] = {
 	label: 'Oscillator',
 	waveform: 'sinus',

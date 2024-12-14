@@ -1,5 +1,5 @@
 import Logger from 'electron-log/node';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 import { RGBA } from '../types';
 
 export type FigmaData = {
@@ -7,13 +7,11 @@ export type FigmaData = {
 };
 export type FigmaValueType = string | number | boolean | RGBA;
 
-type FigmaOptions = BaseComponentOptions & FigmaData;
-
 export class Figma extends BaseComponent<FigmaValueType> {
 	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 1 };
 
-	constructor(options: FigmaOptions) {
-		super(options, '');
+	constructor(data: BaseComponentData & FigmaData) {
+		super(data, '');
 	}
 
 	// TODO: get value from edge

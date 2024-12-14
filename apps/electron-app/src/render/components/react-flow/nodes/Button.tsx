@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 
@@ -23,15 +23,14 @@ export function Button(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<ButtonValueType>(id, false);
+	const value = useNodeValue<ButtonValueType>(false);
 
 	if (!value) return <Icons.PointerOff className="text-muted-foreground" size={48} />;
 	return <Icons.Pointer className="text-green-500" size={48} />;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<ButtonData>();
+	const { pane, settings } = useNodeSettings<ButtonData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -94,7 +93,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<ButtonData, ButtonValueType>;
+type Props = BaseNode<ButtonData>;
 export const DEFAULT_BUTTON_DATA: Props['data'] = {
 	holdtime: 500,
 	isPulldown: false,

@@ -1,6 +1,6 @@
 import JohnnyFive, { MotionOption } from 'johnny-five';
 import { Controller } from '../constants/Motion';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type MotionData = Omit<MotionOption, 'board'> & {
 	controller: Controller;
@@ -8,15 +8,13 @@ export type MotionData = Omit<MotionOption, 'board'> & {
 export type MotionValueType = boolean;
 export type { Controller } from '../constants/Motion';
 
-type MotionOptions = BaseComponentOptions & MotionData;
-
 export class Motion extends BaseComponent<MotionValueType> {
 	private readonly component: JohnnyFive.Motion;
 
-	constructor(options: MotionOptions) {
-		super(options, false);
+	constructor(data: BaseComponentData & MotionData) {
+		super(data, false);
 
-		this.component = new JohnnyFive.Motion(options);
+		this.component = new JohnnyFive.Motion(data);
 
 		this.component.on('motionstart', () => {
 			this.eventEmitter.emit('motionstart');

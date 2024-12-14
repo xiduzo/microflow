@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type TriggerBehaviour = 'increasing' | 'exact' | 'decreasing';
 
@@ -9,15 +9,13 @@ export type TriggerData = {
 };
 export type TriggerValueType = number;
 
-type TriggerOptions = BaseComponentOptions & TriggerData;
-
 export class Trigger extends BaseComponent<TriggerValueType> {
 	private previousValue: number = Number.NaN; // safe initial value
 	private firstDerivative: number = Number.NaN;
 	private thresholdCrossed: boolean = false;
 
-	constructor(private readonly options: TriggerOptions) {
-		super(options, 0);
+	constructor(private readonly data: BaseComponentData & TriggerData) {
+		super(data, 0);
 	}
 
 	checkIncreasing(value: number): boolean {
@@ -38,7 +36,7 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 
 			// is increasing
 			if (this.firstDerivative > 0) {
-				if (value >= this.options.threshold) {
+				if (value >= this.data.threshold) {
 					this.thresholdCrossed = true;
 				}
 			}
@@ -66,7 +64,7 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 
 			// is decreasing
 			if (this.firstDerivative < 0) {
-				if (value <= this.options.threshold) {
+				if (value <= this.data.threshold) {
 					this.thresholdCrossed = true;
 				}
 			}
@@ -83,7 +81,7 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		// 	`style:  ${this.options.behaviour} / thresh: ${this.options.threshold} / fd: ${this.firstDerivative}  / prev: ${this.previousValue}  / crossed: ${this.thresholdCrossed}`,
 		// );
 
-		switch (this.options.behaviour) {
+		switch (this.data.behaviour) {
 			case 'increasing': {
 				retval = this.checkIncreasing(Number(value));
 				//console.log(`[>] trigger ${this.value} < ${value}`);

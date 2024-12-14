@@ -2,7 +2,7 @@ import { type MatrixData, type MatrixValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from '../Node';
+import { BaseNode, NodeContainer, useNodeSettings } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
 import { useNodeValue } from '../../../../stores/node-data';
 import { MODES } from '../../../../../common/types';
@@ -43,14 +43,13 @@ export function Matrix(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<MatrixValueType>(id, DEFAULT_MATRIX_START_SHAPE);
+	const value = useNodeValue<MatrixValueType>(DEFAULT_MATRIX_START_SHAPE);
 
 	return <MatrixDisplay className="m-4" size="small" dimensions={[8, 8]} shape={value} />;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<MatrixData>();
+	const { pane, settings } = useNodeSettings<MatrixData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
@@ -202,7 +201,7 @@ function Settings() {
 	);
 }
 
-type Props = BaseNode<MatrixData, MatrixValueType>;
+type Props = BaseNode<MatrixData>;
 export const DEFAULT_MATRIX_DATA: Props['data'] = {
 	label: 'LED Matrix',
 	pins: {

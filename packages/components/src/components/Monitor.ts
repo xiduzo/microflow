@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type DebugValueType = unknown;
 
@@ -15,11 +15,9 @@ type RawData = {
 
 export type MonitorData = GraphData | RawData;
 
-type MonitorOptions = BaseComponentOptions & MonitorData;
-
 export class Monitor extends BaseComponent<DebugValueType> {
-	constructor(options: MonitorOptions) {
-		super(options, 0);
+	constructor(data: BaseComponentData & MonitorData) {
+		super(data, 0);
 	}
 
 	debug(value: unknown) {

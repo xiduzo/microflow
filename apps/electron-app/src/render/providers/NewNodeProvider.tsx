@@ -23,7 +23,6 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 	useDraggableNewNode();
 	const { open, setOpen, setNodeToAdd } = useNewNodeStore();
 	const { addNode } = useTempNode();
-	console.log('>>> trigger');
 
 	function selectNode(type: NodeType, options?: { label?: string; subType?: string }) {
 		return function () {
