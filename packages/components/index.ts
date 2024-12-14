@@ -7,6 +7,8 @@ export * from './src/components/Debug';
 export * from './src/components/Figma';
 export * from './src/components/Interval';
 export * from './src/components/Oscillator';
+export * from './src/components/Trigger';
+export * from './src/components/Smooth';
 export * from './src/components/Led';
 export * from './src/components/Matrix';
 export * from './src/components/Motion';

@@ -69,10 +69,22 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 							<Badge variant="outline">Generator</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Smooth')}>
+						Smooth
+						<CommandShortcut>
+							<Badge variant="outline">Transformation</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Debug')}>
 						Debug
 						<CommandShortcut className="space-x-1">
 							<Badge variant="outline">Output</Badge>
+						</CommandShortcut>
+					</CommandItem>
+					<CommandItem onSelect={selectNode('Trigger')}>
+						Trigger
+						<CommandShortcut>
+							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>
 					</CommandItem>
 					<CommandItem onSelect={selectNode('Compare')}>
