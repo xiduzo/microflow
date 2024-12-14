@@ -50,6 +50,7 @@ function Settings() {
 				{ value: 'triangle', text: 'triangle' },
 				{ value: 'sawtooth', text: 'sawtooth' },
 				{ value: 'square', text: 'square' },
+				{ value: 'random', text: 'random' },
 			],
 		});
 
