@@ -44,10 +44,10 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	constructor(private readonly options: OscillatorOptions) {
 		super(options, 0);
 
-		console.log('oscillator was recreated!');
-		console.log(options);
-		console.log('---------------------------');
-		console.log(this);
+		// console.log('oscillator was recreated!');
+		// console.log(options);
+		// console.log('---------------------------');
+		// console.log(this);
 
 		this.freq1 = 1 / this.options.period;
 		this.freq2 = 2 * this.freq1;
@@ -140,27 +140,27 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 		this.interval = setInterval(() => {
 			switch (this.options.waveform) {
 				case 'sinus': {
-					console.log(`oscillator >> sinus`);
+					// console.log(`oscillator >> sinus`);
 					this.value = this.sinus(this.elapsed());
 					break;
 				}
 				case 'square': {
-					console.log(`oscillator >> square`);
+					// console.log(`oscillator >> square`);
 					this.value = this.square(this.elapsed());
 					break;
 				}
 				case 'sawtooth': {
-					console.log(`oscillator >> sawtooth`);
+					// console.log(`oscillator >> sawtooth`);
 					this.value = this.sawtooth(this.elapsed());
 					break;
 				}
 				case 'triangle': {
-					console.log(`oscillator >> triangle`);
+					// console.log(`oscillator >> triangle`);
 					this.value = this.triangle(this.elapsed());
 					break;
 				}
 				case 'random': {
-					console.log(`oscillator >> random`);
+					// console.log(`oscillator >> random`);
 					this.value = this.random(this.elapsed());
 					break;
 				}

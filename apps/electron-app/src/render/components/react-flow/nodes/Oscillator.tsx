@@ -21,10 +21,19 @@ export function Oscillator(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<OscillatorValueType>(id, 0);
+	const { id, data } = useNode();
+	const value = useNodeValue<OscillatorData>(id, 0);
 
-	return <section className="tabular-nums">{numberFormat.format(Math.round(value))}</section>;
+	const waveform = data['waveform'];
+	const period = data['period'];
+	const amplitude = data['amplitude'];
+
+	return (
+		<section className="tabular-nums">
+			{waveform}
+			<br />[{-1 * amplitude},{amplitude}] @ {period / 1000} s
+		</section>
+	);
 }
 
 function Settings() {
