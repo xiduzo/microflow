@@ -75,6 +75,12 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 							<Badge variant="outline">Output</Badge>
 						</CommandShortcut>
 					</CommandItem>
+					<CommandItem onSelect={selectNode('Trigger')}>
+						Trigger
+						<CommandShortcut>
+							<Badge variant="outline">Control</Badge>
+						</CommandShortcut>
+					</CommandItem>
 					<CommandItem onSelect={selectNode('Compare')}>
 						Compare
 						<CommandShortcut>

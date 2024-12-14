@@ -7,6 +7,7 @@ import {
 	DEFAULT_OSCILLATOR_DATA,
 	Oscillator,
 } from '../render/components/react-flow/nodes/Oscillator';
+import { DEFAULT_TRIGGER_DATA, Trigger } from '../render/components/react-flow/nodes/Trigger';
 import { DEFAULT_LED_DATA, Led } from '../render/components/react-flow/nodes/Led';
 import { DEFAULT_MATRIX_DATA, Matrix } from '../render/components/react-flow/nodes/matrix/Matrix';
 import { DEFAULT_MOTION_DATA, Motion } from '../render/components/react-flow/nodes/Motion';
@@ -29,6 +30,7 @@ export const NODE_TYPES = {
 	Compare: Compare,
 	Interval: Interval,
 	Oscillator: Oscillator,
+	Trigger: Trigger,
 	Led: Led,
 	Matrix: Matrix,
 	Motion: Motion,
@@ -53,6 +55,7 @@ DEFAULT_NODE_DATA.set('Figma', DEFAULT_FIGMA_DATA);
 DEFAULT_NODE_DATA.set('Compare', DEFAULT_COMPARE_DATA);
 DEFAULT_NODE_DATA.set('Interval', DEFAULT_INTERVAL_DATA);
 DEFAULT_NODE_DATA.set('Oscillator', DEFAULT_OSCILLATOR_DATA);
+DEFAULT_NODE_DATA.set('Trigger', DEFAULT_TRIGGER_DATA);
 DEFAULT_NODE_DATA.set('Led', DEFAULT_LED_DATA);
 DEFAULT_NODE_DATA.set('Matrix', DEFAULT_MATRIX_DATA);
 DEFAULT_NODE_DATA.set('Motion', DEFAULT_MOTION_DATA);
