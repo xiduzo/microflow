@@ -96,7 +96,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 						</TooltipProvider>
 					)}
 				</div>
-				<span className="text-muted-foreground/40 text-xs font-extralight">{id}</span>
+				<span className="text-muted-foreground text-xs font-extralight">{id}</span>
 			</div>
 			<NodeSettingsButton />
 		</header>
@@ -167,7 +167,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const updateNode = useUpdateNode(id);
 
 	const ref = useRef<HTMLDivElement>(null);
-	const autoUpdate = useRef<NodeJS.Timeout | null>(null);
 	const settings = useRef(data);
 	const handlesToDelete = useRef<string[]>([]);
 
@@ -192,10 +191,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		pane.on('change', event => {
 			if (!event.last) return;
 
-			autoUpdate.current && clearTimeout(autoUpdate.current);
-			autoUpdate.current = setTimeout(() => {
-				saveSettings();
-			}, 1_000);
+			saveSettings();
 		});
 
 		pane.registerPlugin(TweakpaneEssentialPlugin);

@@ -11,11 +11,22 @@ import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
 import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard';
 import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
+import { useEffect } from 'react';
 
 export function App() {
 	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
 		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
 	});
+
+	useEffect(() => {
+		const log = (event: KeyboardEvent) => console.log(event);
+
+		window.addEventListener('keydown', log);
+
+		return () => {
+			window.removeEventListener('keydown', log);
+		};
+	}, []);
 
 	return (
 		<>

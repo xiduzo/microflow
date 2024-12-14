@@ -27,7 +27,6 @@ export function ReactFlowCanvas() {
 			colorMode="dark"
 			minZoom={0.2}
 			maxZoom={2}
-			disableKeyboardA11y={true}
 		>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} />

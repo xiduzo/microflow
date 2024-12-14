@@ -13,16 +13,31 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
 import { useTempNode } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
 import { useShallow } from 'zustand/react/shallow';
+import { useWindowSize } from 'usehooks-ts';
+
+const NODE_SIZE = {
+	width: 208,
+	height: 176,
+};
 
 export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 	useDraggableNewNode();
 	const { open, setOpen, setNodeToAdd } = useNewNodeStore();
-	const { addNode } = useTempNode();
+	const { onNodesChange } = useTempNode();
+	const { flowToScreenPosition } = useReactFlow();
+	const windowSize = useWindowSize();
+
+	const position = useMemo(() => {
+		return flowToScreenPosition({
+			x: windowSize.width / 2 - NODE_SIZE.width / 2,
+			y: windowSize.height / 2 - NODE_SIZE.height / 2,
+		});
+	}, [flowToScreenPosition, windowSize]);
 
 	function selectNode(type: NodeType, options?: { label?: string; subType?: string }) {
 		return function () {
@@ -36,13 +51,12 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 				},
 				id,
 				type,
-				position: { x: 0, y: 0 },
+				position,
 				selected: true,
 			};
 
-			addNode(newNode);
+			onNodesChange([{ type: 'add', item: newNode }]);
 			setNodeToAdd(id);
-			setOpen(false);
 		};
 	}
 
@@ -221,8 +235,8 @@ function useDraggableNewNode() {
 	const { nodeToAdd, setNodeToAdd } = useNewNodeStore(
 		useShallow(state => ({ nodeToAdd: state.nodeToAdd, setNodeToAdd: state.setNodeToAdd })),
 	);
-	const { screenToFlowPosition, updateNode } = useReactFlow();
-	const { addNode, deleteNode } = useTempNode();
+	const { screenToFlowPosition, getZoom } = useReactFlow();
+	const { onNodesChange } = useTempNode();
 
 	useEffect(() => {
 		if (!nodeToAdd) return;
@@ -231,7 +245,7 @@ function useDraggableNewNode() {
 			if (!nodeToAdd) return;
 			if (event.key === 'Escape' || event.key === 'Backspace') {
 				setNodeToAdd(null);
-				deleteNode(nodeToAdd);
+				onNodesChange([{ id: nodeToAdd, type: 'remove' }]);
 			}
 
 			if (event.key === 'Enter') {
@@ -239,47 +253,47 @@ function useDraggableNewNode() {
 				if (element !== document.body) return;
 
 				setNodeToAdd(null);
-				updateNode(nodeToAdd, { selected: false });
+				onNodesChange([{ id: nodeToAdd, type: 'select', selected: false }]);
 			}
 		}
 
 		function handleMouseDown(event: MouseEvent) {
 			if (!nodeToAdd) return;
-			updateNode(nodeToAdd, {
-				position: screenToFlowPosition({
-					x: event.clientX - 120,
-					y: event.clientY - 75,
-				}),
-			});
 			const element = event.target as HTMLElement;
 			if (!element.closest('.react-flow__node')) return;
 
 			setNodeToAdd(null);
-			updateNode(nodeToAdd, { selected: false });
 		}
 
 		function handleMouseMove(event: MouseEvent) {
+			const zoom = getZoom();
 			if (!nodeToAdd) return;
-			updateNode(nodeToAdd, {
-				position: screenToFlowPosition({
-					x: event.clientX - 120,
-					y: event.clientY - 75,
-				}),
-			});
+			onNodesChange([
+				{
+					id: nodeToAdd,
+					type: 'position',
+					position: screenToFlowPosition({
+						x: event.clientX - (NODE_SIZE.width / 2) * zoom,
+						y: event.clientY - (NODE_SIZE.height / 2) * zoom,
+					}),
+				},
+			]);
 		}
 
+		console.log('>>> add event listeners');
 		document.addEventListener('keydown', handleKeyDown);
 		document.addEventListener('mousemove', handleMouseMove);
 		document.addEventListener('mousedown', handleMouseDown);
 		document.addEventListener('click', handleMouseDown);
 
 		return () => {
+			console.log('>>> remove event listeners');
 			document.removeEventListener('keydown', handleKeyDown);
 			document.removeEventListener('mousemove', handleMouseMove);
 			document.removeEventListener('mousedown', handleMouseDown);
 			document.removeEventListener('click', handleMouseDown);
 		};
-	}, [nodeToAdd, addNode, deleteNode]);
+	}, [nodeToAdd, getZoom]);
 
 	return null;
 }

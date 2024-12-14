@@ -25,8 +25,6 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	setNodes: (nodes: Node<NodeData>[]) => void;
 	setEdges: (edges: Edge[]) => void;
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
-	addNode: (node: Node<NodeData>) => void;
-	deleteNode: (nodeId: string) => void;
 	history: LinkedList<{ nodes: Node[]; edges: Edge[] }>;
 	undo: () => void;
 	redo: () => void;
@@ -76,7 +74,18 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 		edges: initialEdges,
 		history: new LinkedList({ nodes: initialNodes, edges: initialEdges }),
 		onNodesChange: changes => {
+			console.log(...changes);
 			updateHistory({ nodes: applyNodeChanges(changes, get().nodes) });
+
+			changes.forEach(change => {
+				if (change.type === 'remove') {
+					const { edges } = get();
+					const newEdges = edges.filter(
+						edge => edge.source !== change.id && edge.target !== change.id,
+					);
+					set({ edges: newEdges });
+				}
+			});
 		},
 		onEdgesChange: changes => {
 			updateHistory({ edges: applyEdgeChanges(changes, get().edges) });
@@ -104,18 +113,6 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 
 				return false;
 			});
-			updateHistory({ edges });
-		},
-		addNode: node => {
-			if (!node.data) node.data = {};
-
-			updateHistory({ nodes: [...get().nodes, node] });
-		},
-		deleteNode: nodeId => {
-			const nodes = get().nodes.filter(node => node.id !== nodeId);
-			set({ nodes });
-
-			const edges = get().edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId);
 			updateHistory({ edges });
 		},
 		undo: () => {
@@ -149,8 +146,7 @@ export function useNodeAndEdgeCount() {
 export function useTempNode() {
 	return useReactFlowStore(
 		useShallow(state => ({
-			addNode: state.addNode,
-			deleteNode: state.deleteNode,
+			onNodesChange: state.onNodesChange,
 		})),
 	);
 }
