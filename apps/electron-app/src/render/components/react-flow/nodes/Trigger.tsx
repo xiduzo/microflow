@@ -1,8 +1,8 @@
-import type { TriggerData, TriggerValueType } from '@microflow/components';
+import type { TriggerData } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { Icons } from '@ui/index';
 
 export function Trigger(props: Props) {
@@ -17,7 +17,7 @@ export function Trigger(props: Props) {
 }
 
 function Value() {
-	const { data } = useNode<TriggerData>();
+	const data = useNodeData<TriggerData>();
 
 	return (
 		<section className="flex flex-col text-center gap-1">
@@ -30,7 +30,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<TriggerData>();
+	const { pane, settings } = useNodeSettings<TriggerData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -63,7 +63,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<TriggerData, TriggerValueType>;
+type Props = BaseNode<TriggerData>;
 export const DEFAULT_TRIGGER_DATA: Props['data'] = {
 	label: 'Trigger',
 	behaviour: 'exact',

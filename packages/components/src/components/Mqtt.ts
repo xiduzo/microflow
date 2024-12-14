@@ -1,15 +1,13 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type MqttDirection = 'publish' | 'subscribe';
 
 export type MqttData = { direction: MqttDirection; topic?: string };
 export type MqttValueType = string;
 
-type MqttOptions = BaseComponentOptions & MqttData;
-
 export class Mqtt extends BaseComponent<MqttValueType> {
-	constructor(options: MqttOptions) {
-		super(options, '');
+	constructor(data: BaseComponentData & MqttData) {
+		super(data, '');
 	}
 
 	setExternal(value: string) {

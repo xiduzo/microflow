@@ -17,7 +17,7 @@ import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useRef } from 'react';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useUploadResult } from '../../../stores/board';
 import { RgbaColorPicker } from 'react-colorful';
@@ -28,7 +28,7 @@ export function Figma(props: Props) {
 	const lastPublishedValue = useRef<string>();
 
 	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
-	const componentValue = useNodeValue<FigmaValueType>(props.id, '');
+	const componentValue = useNodeValue<FigmaValueType>('');
 
 	const updateNode = useUpdateNode<FigmaData>(props.id);
 
@@ -140,7 +140,7 @@ function FigmaHandles(props: { variable?: FigmaVariable }) {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<FigmaData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettings<FigmaData>();
 
 	const { variableTypes } = useFigma();
 
@@ -189,8 +189,7 @@ function Settings() {
 }
 
 function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
-	const { id } = useNode();
-	const value = useNodeValue<FigmaValueType>(id, '');
+	const value = useNodeValue<FigmaValueType>('');
 
 	if (!props.hasVariables) return <Icons.CloudOff className="text-muted-foreground" size={48} />;
 	if (!props.variable) return <Icons.Variable className="text-muted-foreground" size={48} />;
@@ -226,7 +225,7 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 	}
 }
 
-type Props = BaseNode<FigmaData, FigmaValueType>;
+type Props = BaseNode<FigmaData>;
 const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 export const DEFAULT_FIGMA_DATA: Props['data'] = {
 	label: 'Figma',

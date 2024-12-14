@@ -1,6 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { type AndData, type AndValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
@@ -36,8 +36,8 @@ export function And(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode<AndData>();
-	const value = useNodeValue<AndValueType>(id, []);
+	const data = useNodeData<AndData>();
+	const value = useNodeValue<AndValueType>([]);
 
 	const allTrue = value.length === data.checks && value.every(Boolean);
 
@@ -46,7 +46,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<AndData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettings<AndData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -73,7 +73,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<AndData, AndValueType>;
+type Props = BaseNode<AndData>;
 export const DEFAULT_AND_DATA: Props['data'] = {
 	label: 'and',
 	checks: 4,

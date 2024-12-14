@@ -1,5 +1,5 @@
-import { Led } from 'johnny-five';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import JohnnyFive, { Led } from 'johnny-five';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 import { DEFAULT_MATRIX_START_SHAPE, type MatrixShape } from '../constants/Matrix';
 
 export type MatrixData = Omit<Led.MatrixOption & Led.MatrixIC2Option, 'board'> & {
@@ -7,35 +7,33 @@ export type MatrixData = Omit<Led.MatrixOption & Led.MatrixIC2Option, 'board'> &
 };
 export type MatrixValueType = MatrixShape;
 
-type MatrixOptions = BaseComponentOptions & MatrixData;
-
 export class Matrix extends BaseComponent<MatrixValueType> {
-	private readonly controller: Led.Matrix;
+	private readonly component: JohnnyFive.Led.Matrix;
 
-	constructor(private readonly options: MatrixOptions) {
-		super(options, DEFAULT_MATRIX_START_SHAPE);
+	constructor(private readonly data: BaseComponentData & MatrixData) {
+		super(data, DEFAULT_MATRIX_START_SHAPE);
 
-		this.controller = new Led.Matrix(options);
+		this.component = new Led.Matrix(data);
 
-		this.controller.brightness(100);
-		this.controller.off();
+		this.component.brightness(100);
+		this.component.off();
 	}
 
 	show(index: number) {
-		this.controller.on();
+		this.component.on();
 
-		const shape = this.options.shapes[index];
+		const shape = this.data.shapes[index];
 
 		if (!shape) {
 			return;
 		}
 
-		this.controller.draw(0, shape as any as number);
+		this.component.draw(0, shape as any as number);
 		this.value = shape;
 	}
 
 	hide() {
-		this.controller.off();
+		this.component.off();
 		this.value = this.value.map(row => row.replace(/'1'/g, '0'));
 	}
 }

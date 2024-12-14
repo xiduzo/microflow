@@ -4,7 +4,7 @@ import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
@@ -20,8 +20,7 @@ export function Sensor(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<SensorValueType>(id, 0);
+	const value = useNodeValue<SensorValueType>(0);
 
 	const progress = useMemo(() => Math.round((value / 1023) * 100), [value]);
 
@@ -29,7 +28,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<SensorData>();
+	const { pane, settings } = useNodeSettings<SensorData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -56,7 +55,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<SensorData, SensorValueType>;
+type Props = BaseNode<SensorData>;
 export const DEFAULT_SENSOR_DATA: Props['data'] = {
 	pin: 'A0',
 	label: 'Sensor',

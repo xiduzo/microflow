@@ -2,7 +2,7 @@ import type { RangeMapData, RangeMapValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
 
@@ -22,8 +22,7 @@ export function RangeMap(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const [from, to] = useNodeValue<RangeMapValueType>(id, [0, 0]);
+	const [from, to] = useNodeValue<RangeMapValueType>([0, 0]);
 
 	return (
 		<section className="flex items-center flex-col space-y-2 text-2xl">
@@ -35,7 +34,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane();
+	const { pane, settings } = useNodeSettings();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -54,7 +53,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<RangeMapData, RangeMapValueType>;
+type Props = BaseNode<RangeMapData>;
 
 export const DEFAULT_RANGE_MAP_DATA: Props['data'] = {
 	from: { min: 0, max: 1023 },

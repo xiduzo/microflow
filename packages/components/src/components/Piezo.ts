@@ -1,5 +1,5 @@
 import JohnnyFive, { PiezoOption, PiezoTune } from 'johnny-five';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type BuzzData = { type: 'buzz'; duration: number; frequency: number };
 export type Note = [string | null, number];
@@ -10,29 +10,27 @@ export type SongData = { type: 'song' } & PiezoTune & {
 export type PiezoData = PiezoOption & (BuzzData | SongData);
 export type PiezoValueType = boolean;
 
-type PiezoOptions = BaseComponentOptions & PiezoData;
-
 export class Piezo extends BaseComponent<PiezoValueType> {
 	private readonly component: JohnnyFive.Piezo;
 	private timeout: NodeJS.Timeout | undefined;
 
-	constructor(private readonly options: PiezoOptions) {
-		super(options, false);
-		this.component = new JohnnyFive.Piezo(options);
+	constructor(private readonly data: BaseComponentData & PiezoData) {
+		super(data, false);
+		this.component = new JohnnyFive.Piezo(data);
 	}
 
 	buzz() {
 		clearTimeout(this.timeout);
 		this.stop();
 
-		if (this.options.type !== 'buzz') return;
+		if (this.data.type !== 'buzz') return;
 
 		this.value = true;
-		this.component.frequency(this.options.frequency, this.options.duration);
+		this.component.frequency(this.data.frequency, this.data.duration);
 
 		this.timeout = setTimeout(() => {
 			this.stop();
-		}, this.options.duration);
+		}, this.data.duration);
 	}
 
 	stop() {
@@ -49,13 +47,13 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 	play() {
 		this.stop();
 
-		if (this.options.type !== 'song') return;
+		if (this.data.type !== 'song') return;
 
 		this.value = true;
 		this.component.play(
 			{
-				song: this.options.song,
-				tempo: this.options.tempo,
+				song: this.data.song,
+				tempo: this.data.tempo,
 			},
 			() => {
 				this.value = false;

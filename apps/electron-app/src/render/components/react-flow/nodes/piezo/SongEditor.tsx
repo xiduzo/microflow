@@ -7,7 +7,6 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from '@microflow/ui';
 import { useState } from 'react';
 import { uuid } from '../../../../../utils/uuid';

@@ -2,13 +2,13 @@ import type { PiezoData, PiezoValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from '../Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from '../Node';
 import { DEFAULT_NOTE, DEFAULT_SONG, NOTES_AND_FREQUENCIES } from './constants';
 import { useNodeValue } from '../../../../stores/node-data';
 import { useEffect, useState } from 'react';
 import { MODES } from '../../../../../common/types';
 import { mapPinToPaneOption } from '../../../../../utils/pin';
-import { BindingApi, ButtonApi, FolderApi } from '@tweakpane/core';
+import { FolderApi } from '@tweakpane/core';
 import { SongEditor } from './SongEditor';
 import { usePins } from '../../../../stores/board';
 
@@ -29,8 +29,9 @@ export function Piezo(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode<PiezoData>();
-	const value = useNodeValue<PiezoValueType>(id, false);
+	// @ts-expect-error PiezoData is not of type `Record<string, unknown>`
+	const data = useNodeData<PiezoData>();
+	const value = useNodeValue<PiezoValueType>(false);
 
 	if (!value) {
 		if (data.type === 'song') return <Icons.Disc className="text-muted-foreground" size={48} />;
@@ -42,7 +43,8 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<PiezoData>();
+	// @ts-expect-error PiezoData is not of type `Record<string, unknown>`
+	const { pane, settings, setHandlesToDelete } = useNodeSettings<PiezoData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
@@ -53,6 +55,7 @@ function Settings() {
 		let settingsFolder: FolderApi | undefined;
 
 		function addTypeBindings() {
+			if (!pane) return;
 			settingsFolder?.dispose();
 			settingsFolder = pane.addFolder({
 				title: 'settings',
@@ -139,7 +142,7 @@ function Settings() {
 				setEditorOpened(false);
 			}}
 			onSave={data => {
-				settings.song = data.song;
+				data.song = data.song;
 				setEditorOpened(false);
 			}}
 		/>
@@ -147,11 +150,13 @@ function Settings() {
 }
 
 export const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
-type Props = BaseNode<PiezoData, PiezoValueType>;
+
+// @ts-expect-error PiezoData is not of type `Record<string, unknown>`
+type Props = BaseNode<PiezoData>;
 export const DEFAULT_PIEZO_DATA: Props['data'] = {
 	label: 'Piezo',
 	duration: 500,
-	frequency: DEFAULT_FREQUENCY,
+	frequency: DEFAULT_FREQUENCY!,
 	pin: 11,
 	type: 'buzz',
 };

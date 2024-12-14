@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type AndValueType = boolean[];
 
@@ -6,11 +6,9 @@ export type AndData = {
 	checks: number;
 };
 
-export type AndOptions = BaseComponentOptions & AndData;
-
 export class And extends BaseComponent<AndValueType> {
-	constructor(private readonly options: AndOptions) {
-		super(options, Array.from({ length: options.checks }).fill(false).map(Boolean));
+	constructor(private readonly data: BaseComponentData & AndData) {
+		super(data, Array.from({ length: data.checks }).fill(false).map(Boolean));
 	}
 
 	check(inputs: unknown[]) {
@@ -19,10 +17,6 @@ export class And extends BaseComponent<AndValueType> {
 		);
 
 		const amountOfTrue = Object.values(this.value).filter(Boolean).length;
-		this.eventEmitter.emit(
-			amountOfTrue === this.options.checks ? 'true' : 'false',
-			this.value,
-			false,
-		);
+		this.eventEmitter.emit(amountOfTrue === this.data.checks ? 'true' : 'false', this.value, false);
 	}
 }

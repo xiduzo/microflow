@@ -1,25 +1,23 @@
 import JohnnyFive, { LedOption } from 'johnny-five';
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type LedData = Omit<LedOption, 'board'>;
 export type LedValueType = number;
 
-type LedOptions = BaseComponentOptions & LedData;
-
 export class Led extends BaseComponent<LedValueType> {
 	private readonly component: JohnnyFive.Led;
 
-	constructor(options: LedOptions) {
-		super(options, 0);
+	constructor(data: BaseComponentData & LedData) {
+		super(data, 0);
 
-		this.component = new JohnnyFive.Led(options);
+		this.component = new JohnnyFive.Led(data);
 	}
 
 	// Highjack the on method
 	// to allow for a custom actions
 	on(action: string, callback: (...args: any[]) => void) {
 		if (action && callback && typeof callback === 'function') {
-			this.eventEmitter.on(action, callback);
+			super.on(action, callback);
 			return;
 		}
 

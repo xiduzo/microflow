@@ -1,5 +1,5 @@
 import { RgbData, RgbValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { Handle } from './Handle';
 import { Position } from '@xyflow/react';
 import { usePins } from '../../../stores/board';
@@ -25,14 +25,13 @@ export function Rgb(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<RgbValueType>(id, { r: 0, g: 0, b: 0, a: 1 });
+	const value = useNodeValue<RgbValueType>({ r: 0, g: 0, b: 0, a: 1 });
 
 	return <RgbaColorPicker color={value} />;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<RgbData>();
+	const { pane, settings } = useNodeSettings<RgbData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -69,7 +68,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<RgbData, RgbValueType>;
+type Props = BaseNode<RgbData>;
 export const DEFAULT_RGB_DATA: Props['data'] = {
 	label: 'RGB',
 	pins: {

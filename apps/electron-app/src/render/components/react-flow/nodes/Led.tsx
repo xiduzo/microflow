@@ -3,7 +3,7 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useEffect, useMemo } from 'react';
 import { mapPinToPaneOption, pinValue } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
@@ -38,8 +38,8 @@ export function Led(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode();
-	const value = useNodeValue<LedValueType>(id, 0);
+	const data = useNodeData();
+	const value = useNodeValue<LedValueType>(0);
 
 	switch (data.subType) {
 		case 'vibration':
@@ -79,7 +79,7 @@ function VibrationValue(props: { value: number }) {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<LedData>();
+	const { pane, settings } = useNodeSettings<LedData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -101,7 +101,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<LedData, LedValueType>;
+type Props = BaseNode<LedData>;
 export const DEFAULT_LED_DATA: Props['data'] = {
 	label: 'LED',
 	pin: 13,

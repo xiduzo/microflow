@@ -4,7 +4,7 @@ import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { BindingApi } from '@tweakpane/core';
@@ -40,8 +40,8 @@ export function Servo(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode<ServoData>();
-	const value = useNodeValue<ServoValueType>(id, data.range.min);
+	const data = useNodeData<ServoData>();
+	const value = useNodeValue<ServoValueType>(data.range.min);
 
 	if (data.type === 'continuous') {
 		if (!value) return <Icons.Circle className="text-muted-foreground" size={48} />;
@@ -72,7 +72,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettingsPane<ServoData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettings<ServoData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -133,7 +133,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<ServoData, ServoValueType>;
+type Props = BaseNode<ServoData>;
 export const DEFAULT_SERVO_DATA: Props['data'] = {
 	pin: 3,
 	label: 'Servo',

@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentOptions } from './BaseComponent';
+import { BaseComponent, BaseComponentData } from './BaseComponent';
 /**
  * Function generator is a very versatile way of doing things in mcus
  * it can be used to control timing as well as values. For example a
@@ -20,8 +20,6 @@ export type OscillatorData = {
 };
 export type OscillatorValueType = number;
 
-type OscillatorOptions = BaseComponentOptions & OscillatorData;
-
 export class Oscillator extends BaseComponent<OscillatorValueType> {
 	// auto-calculated values when "period" is reset
 	private freq1 = 0;
@@ -36,10 +34,10 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	private refreshRate = 1_000 / this.FRAMES_PER_SECOND;
 	private timeout: NodeJS.Timeout | null = null;
 
-	constructor(private readonly options: OscillatorOptions) {
-		super(options, 0);
+	constructor(private readonly data: BaseComponentData & OscillatorData) {
+		super(data, 0);
 
-		this.freq1 = 1 / this.options.period;
+		this.freq1 = 1 / this.data.period;
 		this.freq2 = 2 * this.freq1;
 		this.freq4 = 4 * this.freq1;
 		this.freq0 = 2 * Math.PI * this.freq1;
@@ -61,63 +59,63 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	private sawtooth(t: number): number {
 		let rv: number = 0;
 
-		t += this.options.phase;
+		t += this.data.phase;
 		if (t >= 0.0) {
-			if (t >= this.options.period) t = t % this.options.period;
-			rv = this.options.amplitude * (-1.0 + t * this.freq2);
+			if (t >= this.data.period) t = t % this.data.period;
+			rv = this.data.amplitude * (-1.0 + t * this.freq2);
 		} else {
 			t = -t;
-			if (t >= this.options.period) t = t % this.options.period;
-			rv = this.options.amplitude * (1.0 - t * this.freq2);
+			if (t >= this.data.period) t = t % this.data.period;
+			rv = this.data.amplitude * (1.0 - t * this.freq2);
 		}
-		rv += this.options.shift;
+		rv += this.data.shift;
 		return rv;
 	}
 
 	private triangle(t: number): number {
 		let rv: number = 0;
 
-		t += this.options.phase;
+		t += this.data.phase;
 		if (t < 0.0) {
 			t = -t;
 		}
-		if (t >= this.options.period) t = t % this.options.period;
-		if (t * 2 < this.options.period) {
-			rv = this.options.amplitude * (-1.0 + t * this.freq4);
+		if (t >= this.data.period) t = t % this.data.period;
+		if (t * 2 < this.data.period) {
+			rv = this.data.amplitude * (-1.0 + t * this.freq4);
 		} else {
-			rv = this.options.amplitude * (3.0 - t * this.freq4);
+			rv = this.data.amplitude * (3.0 - t * this.freq4);
 		}
-		rv += this.options.shift;
+		rv += this.data.shift;
 		return rv;
 	}
 
 	private square(t: number): number {
 		let rv: number = 0;
-		t += this.options.phase;
+		t += this.data.phase;
 		if (t >= 0) {
-			if (t >= this.options.period) t = t % this.options.period;
-			if (t + t < this.options.period) rv = this.options.amplitude;
-			else rv = -this.options.amplitude;
+			if (t >= this.data.period) t = t % this.data.period;
+			if (t + t < this.data.period) rv = this.data.amplitude;
+			else rv = -this.data.amplitude;
 		} else {
 			t = -t;
-			if (t >= this.options.period) t = t % this.options.period;
-			if (t * 2 < this.options.period) rv = -this.options.amplitude;
-			else rv = this.options.amplitude;
+			if (t >= this.data.period) t = t % this.data.period;
+			if (t * 2 < this.data.period) rv = -this.data.amplitude;
+			else rv = this.data.amplitude;
 		}
-		rv += this.options.shift;
+		rv += this.data.shift;
 		return rv;
 	}
 
 	private sinus(t: number): number {
 		let rv: number;
-		t += this.options.phase;
-		rv = this.options.amplitude * Math.sin(t * this.freq0);
-		rv += this.options.shift;
+		t += this.data.phase;
+		rv = this.data.amplitude * Math.sin(t * this.freq0);
+		rv += this.data.shift;
 		return rv;
 	}
 
 	private random(): number {
-		return this.options.shift + this.options.amplitude * Math.random();
+		return this.data.shift + this.data.amplitude * Math.random();
 	}
 
 	private ellapsed() {
@@ -127,7 +125,7 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	private loop() {
 		const currentTime = this.ellapsed();
 
-		switch (this.options.waveform) {
+		switch (this.data.waveform) {
 			case 'sinus': {
 				this.value = this.sinus(currentTime);
 				break;

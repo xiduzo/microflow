@@ -8,7 +8,7 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { BindingApi, BladeApi } from '@tweakpane/core';
 import { useNodeValue } from '../../../stores/node-data';
 
@@ -26,15 +26,14 @@ export function Compare(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<CompateValueType>(id, false);
+	const value = useNodeValue<CompateValueType>(false);
 
 	if (value) return <Icons.ShieldCheck className="text-green-500" size={48} />;
 	return <Icons.ShieldX className="text-red-500" size={48} />;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<CompareData>();
+	const { pane, settings } = useNodeSettings<CompareData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -141,7 +140,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<CompareData, CompateValueType>;
+type Props = BaseNode<CompareData>;
 export const DEFAULT_COMPARE_DATA: Props['data'] = {
 	label: 'compare',
 	validator: 'boolean',

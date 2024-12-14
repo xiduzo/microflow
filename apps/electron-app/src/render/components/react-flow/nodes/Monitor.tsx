@@ -1,6 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef } from 'react';
@@ -18,8 +18,8 @@ export function Monitor(props: Props) {
 }
 
 function Value() {
-	const { id, data } = useNode<MonitorData>();
-	const value = useNodeValue<DebugValueType>(id, 0);
+	const data = useNodeData<MonitorData>();
+	const value = useNodeValue<DebugValueType>(0);
 
 	const container = useRef<HTMLDivElement>(null);
 	const display = useRef({ value });
@@ -78,7 +78,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<MonitorData>();
+	const { pane, settings } = useNodeSettings<MonitorData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -135,7 +135,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<MonitorData, DebugValueType>;
+type Props = BaseNode<MonitorData>;
 export const DEFAULT_MONITOR_DATA: Props['data'] = {
 	label: 'Monitor',
 	type: 'graph',

@@ -151,7 +151,7 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 	{} as SettingsContextProps<{}>,
 );
 
-export function useNodeSettingsPane<T extends Record<string, unknown>>() {
+export function useNodeSettings<T extends Record<string, unknown>>() {
 	// @ts-ignore-next-line
 	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
 }
@@ -250,8 +250,18 @@ type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
 const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
 	{} as ContainerProps<Record<string, unknown>>,
 );
-export const useNode = <T extends Record<string, unknown>>() =>
+const useNode = <T extends Record<string, unknown>>() =>
 	useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
+
+export const useNodeId = () => {
+	const { id } = useNode();
+	return id;
+};
+
+export const useNodeData = <T extends Record<string, unknown>>() => {
+	const { data } = useNode<T>();
+	return data;
+};
 
 export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
 	const [settingsOpened, setSettingsOpened] = useState(false);
@@ -330,8 +340,8 @@ const node = cva(
 	},
 );
 
-export type BaseNode<Settings extends Record<string, unknown> = {}, Value = any> = Node<
-	Settings & {
+export type BaseNode<Attributes extends Record<string, unknown> = {}> = Node<
+	Attributes & {
 		type?: string;
 		subType?: string;
 		label: string;

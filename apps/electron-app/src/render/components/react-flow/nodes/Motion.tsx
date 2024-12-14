@@ -4,7 +4,7 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNode, useNodeSettingsPane } from './Node';
+import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
 import { mapPinToPaneOption } from '../../../../utils/pin';
@@ -36,15 +36,14 @@ export function Motion(props: Props) {
 }
 
 function Value() {
-	const { id } = useNode();
-	const value = useNodeValue<MotionValueType>(id, false);
+	const value = useNodeValue<MotionValueType>(false);
 
 	if (!value) return <Icons.EyeClosed className="text-muted-foreground" size={48} />;
 	return <Icons.Eye className="text-green-500" size={48} />;
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<MotionData>();
+	const { pane, settings } = useNodeSettings<MotionData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -53,6 +52,7 @@ function Settings() {
 		let pinBinding: BindingApi | undefined;
 
 		function createPinPane() {
+			if (!pane) return;
 			pinBinding?.dispose();
 
 			pinBinding = pane.addBinding(settings, 'pin', {
@@ -96,7 +96,7 @@ function Settings() {
 	return null;
 }
 
-type Props = BaseNode<MotionData, MotionValueType>;
+type Props = BaseNode<MotionData>;
 export const DEFAULT_MOTION_DATA: Props['data'] = {
 	pin: '8',
 	label: 'Motion',
