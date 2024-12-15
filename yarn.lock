@@ -5340,23 +5340,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@xyflow/react@npm:12.3.1":
-  version: 12.3.1
-  resolution: "@xyflow/react@npm:12.3.1"
+"@xyflow/react@npm:12.3.6":
+  version: 12.3.6
+  resolution: "@xyflow/react@npm:12.3.6"
   dependencies:
-    "@xyflow/system": 0.0.43
+    "@xyflow/system": 0.0.47
     classcat: ^5.0.3
     zustand: ^4.4.0
   peerDependencies:
     react: ">=17"
     react-dom: ">=17"
-  checksum: 01f5369c64db0f2c11c27339b5a79d83a2246f0812b466a23b905a96297c1578a48e044a3d5a37cad506ba752eaf9d9eee93dcc6bbff93e9bbd0b282f133cea4
+  checksum: c8f86c900502d4b4cb74cdb525a2b25730d54ca63792154127aaf7e075587a0f016121396e7c6185f4872af5585c0e6e515a2ce506e3b70822eb2a0b48c7b266
   languageName: node
   linkType: hard
 
-"@xyflow/system@npm:0.0.43":
-  version: 0.0.43
-  resolution: "@xyflow/system@npm:0.0.43"
+"@xyflow/system@npm:0.0.47":
+  version: 0.0.47
+  resolution: "@xyflow/system@npm:0.0.47"
   dependencies:
     "@types/d3-drag": ^3.0.7
     "@types/d3-selection": ^3.0.10
@@ -5365,7 +5365,7 @@ __metadata:
     d3-drag: ^3.0.0
     d3-selection: ^3.0.0
     d3-zoom: ^3.0.0
-  checksum: 25effd99488ad9f22b7baef2306bc59ddb1906c51655edce3b1b4bb2fdc034f404009ecb022ef1eaa1f40191ba43da11416de93786d5ec8b83d2c34b945526f9
+  checksum: 2f1788bce46610055de857f8743e794394dcc53ffd6e0943bf6e7718fb6334ca29dffd0e57e7c8de0b1eaaa3e63e082cbdebc3caefaf506a4e8f2971a40f6d88
   languageName: node
   linkType: hard
 
@@ -11057,7 +11057,7 @@ __metadata:
     "@types/npmcli__arborist": 5.6.11
     "@types/react": 18.3.11
     "@types/react-dom": 18.3.0
-    "@xyflow/react": 12.3.1
+    "@xyflow/react": 12.3.6
     abcjs: 6.4.3
     autoprefixer: 10.4.20
     dotenv: 16.4.5

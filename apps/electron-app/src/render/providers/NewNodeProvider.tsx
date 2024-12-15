@@ -15,9 +15,8 @@ import {
 import { useReactFlow } from '@xyflow/react';
 import { memo, useEffect, useMemo } from 'react';
 import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
-import { useTempNode } from '../stores/react-flow';
+import { useDeleteSelectedNodes, useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
-import { useShallow } from 'zustand/react/shallow';
 import { useWindowSize } from 'usehooks-ts';
 
 const NODE_SIZE = {
@@ -27,9 +26,11 @@ const NODE_SIZE = {
 
 export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 	useDraggableNewNode();
+	useBackspaceOverwrite();
+
 	const { open, setOpen, setNodeToAdd } = useNewNodeStore();
-	const { onNodesChange } = useTempNode();
 	const { flowToScreenPosition } = useReactFlow();
+	const changeNodes = useNodesChange();
 	const windowSize = useWindowSize();
 
 	const position = useMemo(() => {
@@ -55,7 +56,7 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 				selected: true,
 			};
 
-			onNodesChange([{ type: 'add', item: newNode }]);
+			changeNodes([{ item: newNode, type: 'add' }]);
 			setNodeToAdd(id);
 		};
 	}
@@ -232,28 +233,29 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 });
 
 function useDraggableNewNode() {
-	const { nodeToAdd, setNodeToAdd } = useNewNodeStore(
-		useShallow(state => ({ nodeToAdd: state.nodeToAdd, setNodeToAdd: state.setNodeToAdd })),
-	);
+	const { nodeToAdd, setNodeToAdd } = useNewNodeStore();
 	const { screenToFlowPosition, getZoom } = useReactFlow();
-	const { onNodesChange } = useTempNode();
+	const changeNodes = useNodesChange();
 
 	useEffect(() => {
 		if (!nodeToAdd) return;
 
 		function handleKeyDown(event: KeyboardEvent) {
 			if (!nodeToAdd) return;
-			if (event.key === 'Escape' || event.key === 'Backspace') {
-				setNodeToAdd(null);
-				onNodesChange([{ id: nodeToAdd, type: 'remove' }]);
-			}
 
-			if (event.key === 'Enter') {
-				const element = event.target as HTMLElement;
-				if (element !== document.body) return;
+			switch (event.key) {
+				case 'Backspace':
+				case 'Escape':
+					changeNodes([{ id: nodeToAdd, type: 'remove' }]);
+					setNodeToAdd(null);
+					break;
+				case 'Enter':
+					const element = event.target as HTMLElement;
+					if (element !== document.body) return;
 
-				setNodeToAdd(null);
-				onNodesChange([{ id: nodeToAdd, type: 'select', selected: false }]);
+					changeNodes([{ id: nodeToAdd, type: 'select', selected: false }]);
+					setNodeToAdd(null);
+					break;
 			}
 		}
 
@@ -262,13 +264,14 @@ function useDraggableNewNode() {
 			const element = event.target as HTMLElement;
 			if (!element.closest('.react-flow__node')) return;
 
+			changeNodes([{ id: nodeToAdd, type: 'select', selected: false }]);
 			setNodeToAdd(null);
 		}
 
 		function handleMouseMove(event: MouseEvent) {
-			const zoom = getZoom();
 			if (!nodeToAdd) return;
-			onNodesChange([
+			const zoom = getZoom();
+			changeNodes([
 				{
 					id: nodeToAdd,
 					type: 'position',
@@ -280,20 +283,36 @@ function useDraggableNewNode() {
 			]);
 		}
 
-		console.log('>>> add event listeners');
 		document.addEventListener('keydown', handleKeyDown);
 		document.addEventListener('mousemove', handleMouseMove);
 		document.addEventListener('mousedown', handleMouseDown);
 		document.addEventListener('click', handleMouseDown);
 
 		return () => {
-			console.log('>>> remove event listeners');
 			document.removeEventListener('keydown', handleKeyDown);
 			document.removeEventListener('mousemove', handleMouseMove);
 			document.removeEventListener('mousedown', handleMouseDown);
 			document.removeEventListener('click', handleMouseDown);
 		};
-	}, [nodeToAdd, getZoom]);
+	}, [nodeToAdd, getZoom, changeNodes]);
 
 	return null;
+}
+
+// https://github.com/xyflow/xyflow/issues/4761
+export function useBackspaceOverwrite() {
+	const deleteSelectedNodes = useDeleteSelectedNodes();
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.code === 'Backspace') {
+				deleteSelectedNodes();
+			}
+		};
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [deleteSelectedNodes]);
 }
