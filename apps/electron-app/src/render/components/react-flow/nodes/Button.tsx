@@ -94,11 +94,13 @@ function Settings() {
 }
 
 type Props = BaseNode<ButtonData>;
-export const DEFAULT_BUTTON_DATA: Props['data'] = {
-	holdtime: 500,
-	isPulldown: false,
-	isPullup: false,
-	invert: false,
-	pin: 6,
-	label: 'Button',
+Button.defaultProps = {
+	data: {
+		holdtime: 500,
+		isPulldown: false,
+		isPullup: false,
+		invert: false,
+		pin: 6,
+		label: 'Button',
+	} satisfies Props['data'],
 };

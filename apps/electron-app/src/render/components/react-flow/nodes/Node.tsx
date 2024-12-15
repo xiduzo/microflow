@@ -337,8 +337,8 @@ const node = cva(
 	},
 );
 
-export type BaseNode<Attributes extends Record<string, unknown> = {}> = Node<
-	Attributes & {
+export type BaseNode<Data extends Record<string, unknown> = {}> = Node<
+	Data & {
 		type?: string;
 		subType?: string;
 		label: string;

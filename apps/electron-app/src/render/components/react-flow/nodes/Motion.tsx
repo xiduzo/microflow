@@ -97,8 +97,10 @@ function Settings() {
 }
 
 type Props = BaseNode<MotionData>;
-export const DEFAULT_MOTION_DATA: Props['data'] = {
-	pin: '8',
-	label: 'Motion',
-	controller: 'HCSR501',
+Motion.defaultProps = {
+	data: {
+		pin: '8',
+		label: 'Motion',
+		controller: 'HCSR501',
+	} satisfies Props['data'],
 };

@@ -153,10 +153,12 @@ export const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
 
 // @ts-expect-error PiezoData is not of type `Record<string, unknown>`
 type Props = BaseNode<PiezoData>;
-export const DEFAULT_PIEZO_DATA: Props['data'] = {
-	label: 'Piezo',
-	duration: 500,
-	frequency: DEFAULT_FREQUENCY!,
-	pin: 11,
-	type: 'buzz',
+Piezo.defaultProps = {
+	data: {
+		label: 'Piezo',
+		duration: 500,
+		frequency: DEFAULT_FREQUENCY!,
+		pin: 11,
+		type: 'buzz',
+	} satisfies Props['data'],
 };

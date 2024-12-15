@@ -102,7 +102,9 @@ function Settings() {
 }
 
 type Props = BaseNode<LedData>;
-export const DEFAULT_LED_DATA: Props['data'] = {
-	label: 'LED',
-	pin: 13,
+Led.defaultProps = {
+	data: {
+		label: 'LED',
+		pin: 13,
+	} satisfies Props['data'],
 };

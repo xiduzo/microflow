@@ -64,9 +64,11 @@ function Settings() {
 }
 
 type Props = BaseNode<TriggerData>;
-export const DEFAULT_TRIGGER_DATA: Props['data'] = {
-	label: 'Trigger',
-	behaviour: 'exact',
-	threshold: 0.5,
-	duration: 250,
+Trigger.defaultProps = {
+	data: {
+		label: 'Trigger',
+		behaviour: 'exact',
+		threshold: 0.5,
+		duration: 250,
+	} satisfies Props['data'],
 };

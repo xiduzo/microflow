@@ -54,9 +54,10 @@ function Settings() {
 }
 
 type Props = BaseNode<RangeMapData>;
-
-export const DEFAULT_RANGE_MAP_DATA: Props['data'] = {
-	from: { min: 0, max: 1023 },
-	to: { min: 0, max: 1023 },
-	label: 'Map',
+RangeMap.defaultProps = {
+	data: {
+		from: { min: 0, max: 1023 },
+		to: { min: 0, max: 1023 },
+		label: 'Map',
+	} satisfies Props['data'],
 };

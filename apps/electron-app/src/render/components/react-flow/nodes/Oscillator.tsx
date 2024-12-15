@@ -76,11 +76,13 @@ function Settings() {
 }
 
 type Props = BaseNode<OscillatorData>;
-export const DEFAULT_OSCILLATOR_DATA: Props['data'] = {
-	label: 'Oscillator',
-	waveform: 'sinus',
-	period: 1000,
-	amplitude: 1,
-	phase: 0,
-	shift: 0,
+Oscillator.defaultProps = {
+	data: {
+		label: 'Oscillator',
+		waveform: 'sinus',
+		period: 1000,
+		amplitude: 1,
+		phase: 0,
+		shift: 0,
+	} satisfies Props['data'],
 };

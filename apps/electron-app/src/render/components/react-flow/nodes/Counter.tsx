@@ -26,6 +26,8 @@ function Value() {
 }
 
 type Props = BaseNode<CounterData>;
-export const DEFAULT_COUNTER_DATA: Props['data'] = {
-	label: 'Counter',
+Counter.defaultProps = {
+	data: {
+		label: 'Counter',
+	} satisfies Props['data'],
 };
