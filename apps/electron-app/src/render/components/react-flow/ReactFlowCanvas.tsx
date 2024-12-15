@@ -1,9 +1,9 @@
-import { useAutoAnimate } from '@ui/index';
 import { Background, Controls, MiniMap, Panel, ReactFlow } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useReactFlowStore } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
+import { SettingsPanel } from './panels/SettingsPanel';
 
 const selector = (state: AppState) => ({
 	nodes: state.nodes,
@@ -15,9 +15,6 @@ const selector = (state: AppState) => ({
 
 export function ReactFlowCanvas() {
 	const store = useReactFlowStore(useShallow(selector));
-	const [animationRef] = useAutoAnimate({
-		duration: 100,
-	});
 
 	return (
 		<ReactFlow
@@ -27,7 +24,6 @@ export function ReactFlowCanvas() {
 			colorMode="dark"
 			minZoom={0.2}
 			maxZoom={2}
-			disableKeyboardA11y={true}
 		>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} />
@@ -51,9 +47,7 @@ export function ReactFlowCanvas() {
 			</Panel>
 
 			<Panel position="top-right">
-				<section id="settings-panels" className="flex flex-col space-y-2" ref={animationRef}>
-					{/* Filled by settings */}
-				</section>
+				<SettingsPanel />
 			</Panel>
 		</ReactFlow>
 	);

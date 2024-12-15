@@ -15,5 +15,7 @@ export const useNewNodeStore = create<NewNodeStore>((set, get) => ({
 	nodeToAdd: null as string | null,
 	setNodeToAdd: (nodeId: string | null) => {
 		set({ nodeToAdd: nodeId });
+
+		if (nodeId) set({ open: false });
 	},
 }));

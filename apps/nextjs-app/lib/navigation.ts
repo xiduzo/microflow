@@ -101,6 +101,9 @@ export const navigation = [
 	},
 	{
 		title: 'Community',
-		links: [{ title: 'How to contribute', href: '/docs/contributing/how-to' }],
+		links: [
+			{ title: 'How to contribute', href: '/docs/contributing/how-to' },
+			{ title: 'Add your own node', href: '/docs/contributing/nodes' },
+		],
 	},
 ];

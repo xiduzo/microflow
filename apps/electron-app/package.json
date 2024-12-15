@@ -63,7 +63,7 @@
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",
 		"@tsparticles/react": "3.0.0",
-		"@xyflow/react": "12.3.1",
+		"@xyflow/react": "12.3.6",
 		"abcjs": "6.4.3",
 		"electron-log": "5.2.0",
 		"firmata": "https://github.com/xiduzo/firmata.js.git",

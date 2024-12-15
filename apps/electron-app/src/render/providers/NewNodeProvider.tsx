@@ -13,16 +13,32 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
-import { useTempNode } from '../stores/react-flow';
+import { useDeleteSelectedNodes, useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
-import { useShallow } from 'zustand/react/shallow';
+import { useWindowSize } from 'usehooks-ts';
+
+const NODE_SIZE = {
+	width: 208,
+	height: 176,
+};
 
 export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 	useDraggableNewNode();
+	useBackspaceOverwrite();
+
 	const { open, setOpen, setNodeToAdd } = useNewNodeStore();
-	const { addNode } = useTempNode();
+	const { flowToScreenPosition } = useReactFlow();
+	const changeNodes = useNodesChange();
+	const windowSize = useWindowSize();
+
+	const position = useMemo(() => {
+		return flowToScreenPosition({
+			x: windowSize.width / 2 - NODE_SIZE.width / 2,
+			y: windowSize.height / 2 - NODE_SIZE.height / 2,
+		});
+	}, [flowToScreenPosition, windowSize]);
 
 	function selectNode(type: NodeType, options?: { label?: string; subType?: string }) {
 		return function () {
@@ -36,13 +52,12 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 				},
 				id,
 				type,
-				position: { x: 0, y: 0 },
+				position,
 				selected: true,
 			};
 
-			addNode(newNode);
+			changeNodes([{ item: newNode, type: 'add' }]);
 			setNodeToAdd(id);
-			setOpen(false);
 		};
 	}
 
@@ -218,54 +233,54 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 });
 
 function useDraggableNewNode() {
-	const { nodeToAdd, setNodeToAdd } = useNewNodeStore(
-		useShallow(state => ({ nodeToAdd: state.nodeToAdd, setNodeToAdd: state.setNodeToAdd })),
-	);
-	const { screenToFlowPosition, updateNode } = useReactFlow();
-	const { addNode, deleteNode } = useTempNode();
+	const { nodeToAdd, setNodeToAdd } = useNewNodeStore();
+	const { screenToFlowPosition, getZoom } = useReactFlow();
+	const changeNodes = useNodesChange();
 
 	useEffect(() => {
 		if (!nodeToAdd) return;
 
 		function handleKeyDown(event: KeyboardEvent) {
 			if (!nodeToAdd) return;
-			if (event.key === 'Escape' || event.key === 'Backspace') {
-				setNodeToAdd(null);
-				deleteNode(nodeToAdd);
-			}
 
-			if (event.key === 'Enter') {
-				const element = event.target as HTMLElement;
-				if (element !== document.body) return;
+			switch (event.key) {
+				case 'Backspace':
+				case 'Escape':
+					changeNodes([{ id: nodeToAdd, type: 'remove' }]);
+					setNodeToAdd(null);
+					break;
+				case 'Enter':
+					const element = event.target as HTMLElement;
+					if (element !== document.body) return;
 
-				setNodeToAdd(null);
-				updateNode(nodeToAdd, { selected: false });
+					changeNodes([{ id: nodeToAdd, type: 'select', selected: false }]);
+					setNodeToAdd(null);
+					break;
 			}
 		}
 
 		function handleMouseDown(event: MouseEvent) {
 			if (!nodeToAdd) return;
-			updateNode(nodeToAdd, {
-				position: screenToFlowPosition({
-					x: event.clientX - 120,
-					y: event.clientY - 75,
-				}),
-			});
 			const element = event.target as HTMLElement;
 			if (!element.closest('.react-flow__node')) return;
 
+			changeNodes([{ id: nodeToAdd, type: 'select', selected: false }]);
 			setNodeToAdd(null);
-			updateNode(nodeToAdd, { selected: false });
 		}
 
 		function handleMouseMove(event: MouseEvent) {
 			if (!nodeToAdd) return;
-			updateNode(nodeToAdd, {
-				position: screenToFlowPosition({
-					x: event.clientX - 120,
-					y: event.clientY - 75,
-				}),
-			});
+			const zoom = getZoom();
+			changeNodes([
+				{
+					id: nodeToAdd,
+					type: 'position',
+					position: screenToFlowPosition({
+						x: event.clientX - (NODE_SIZE.width / 2) * zoom,
+						y: event.clientY - (NODE_SIZE.height / 2) * zoom,
+					}),
+				},
+			]);
 		}
 
 		document.addEventListener('keydown', handleKeyDown);
@@ -279,7 +294,25 @@ function useDraggableNewNode() {
 			document.removeEventListener('mousedown', handleMouseDown);
 			document.removeEventListener('click', handleMouseDown);
 		};
-	}, [nodeToAdd, addNode, deleteNode]);
+	}, [nodeToAdd, getZoom, changeNodes]);
 
 	return null;
+}
+
+// https://github.com/xyflow/xyflow/issues/4761
+export function useBackspaceOverwrite() {
+	const deleteSelectedNodes = useDeleteSelectedNodes();
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.code === 'Backspace') {
+				deleteSelectedNodes();
+			}
+		};
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [deleteSelectedNodes]);
 }
