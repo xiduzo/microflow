@@ -53,6 +53,16 @@ if (!port) {
 	innerCode += addEnter();
 	innerCode += addEnter();
 
+	// Initial triggers
+	nodes.forEach(node => {
+		if (node.type?.toLowerCase() === 'gate') {
+			const trigger = `  ${node.type}_${node.id}.check(${getAllEdgesValues(node.id, edges, nodes)});`;
+			innerCode += wrapInTryCatch(trigger);
+			innerCode += addEnter();
+			innerCode += addEnter();
+		}
+	});
+
 	const nodesWithActionListener = nodes.filter(node => edges.some(edge => edge.source === node.id));
 
 	nodesWithActionListener.forEach(node => {
@@ -66,6 +76,7 @@ if (!port) {
 			{} as Record<string, Edge[]>,
 		);
 
+		// React to actions
 		Object.entries(actionsGroupedByHandle).forEach(([action, actionEdges]) => {
 			innerCode += `  ${node.type}_${node.id}.on("${action}", () => {`;
 
@@ -75,22 +86,14 @@ if (!port) {
 
 				let value = `${node.type}_${node.id}.value`;
 
-				if (node.type === 'RangeMap') {
+				if (node.type?.toLowerCase() === 'rangemap') {
 					// Mapper node
 					innerCode += addEnter();
 					value = `${node.type}_${node.id}.value[1]`;
 				}
 
-				if (targetNode.type === 'And') {
-					// We are handling the `And` node differently
-					const nodeValues = edges
-						.filter(edge => edge.target === targetNode.id)
-						.map(edge => {
-							const sourceNode = nodes.find(node => node.id === edge.source);
-							return `${sourceNode?.type}_${sourceNode?.id}.value`;
-						})
-						.join(',');
-					value = `[${nodeValues}]`;
+				if (targetNode.type?.toLowerCase() === 'gate') {
+					value = getAllEdgesValues(targetNode.id, edges, nodes);
 					edge.targetHandle = 'check'; // Naughty override, make sure this is in line with the actual implementation
 				}
 
@@ -198,4 +201,20 @@ try {
 } catch(error) {
   log.error("something went wrong", { error });
 }`;
+}
+
+/**
+ * @returns {string} The values of the source node as a string array
+ * @example `'[true, 5, 0, 'what']'`
+ */
+function getAllEdgesValues(nodeId: string, edges: Edge[], nodes: Node[]) {
+	const values = edges
+		.filter(edge => edge.target === nodeId)
+		.map(edge => {
+			const sourceNode = nodes.find(node => node.id === edge.source);
+			return `${sourceNode?.type}_${sourceNode?.id}.value`;
+		})
+		.join(',');
+
+	return `[${values}]`;
 }

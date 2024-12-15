@@ -141,7 +141,9 @@ function Settings() {
 }
 
 type Props = BaseNode<CompareData>;
-export const DEFAULT_COMPARE_DATA: Props['data'] = {
-	label: 'compare',
-	validator: 'boolean',
+Compare.defaultProps = {
+	data: {
+		label: 'compare',
+		validator: 'boolean',
+	} satisfies Props['data'],
 };

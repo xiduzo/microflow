@@ -56,7 +56,9 @@ function Settings() {
 }
 
 type Props = BaseNode<SensorData>;
-export const DEFAULT_SENSOR_DATA: Props['data'] = {
-	pin: 'A0',
-	label: 'Sensor',
+Sensor.defaultProps = {
+	data: {
+		pin: 'A0',
+		label: 'Sensor',
+	} satisfies Props['data'],
 };

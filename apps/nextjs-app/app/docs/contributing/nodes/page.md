@@ -103,17 +103,19 @@ function Settings() {
 
 ```ts
 type Props = BaseNode<MyNodeData>;
-export const DEFAULT_MYNODE_DATA: Props['data'] = {
-	label: 'MyNode',
-	emotion: 'happy',
-	joy: 95,
+MyNode.defaultProps = {
+    data: {
+        label: 'MyNode',
+        emotion: 'happy',
+        joy: 95,
+    } satisfies Props['data'],
 };
 ```
 
 - Add a reference in `apps/electron-app/src/common/nodes.ts`
 
 ```ts
-import { DEFAULT_MYNODE_DATA, MyNode } from '../render/components/react-flow/nodes/MyNode';
+import { MyNode } from '../render/components/react-flow/nodes/MyNode';
 ```
 
 Add the correct entry to the `NODE_TYPES` list:
@@ -126,13 +128,7 @@ export const NODE_TYPES = {
 };
 ```
 
-And last but not least in that same file, add an entry that specifies the default attribute values for the node:
-
-```ts
-DEFAULT_MYNODE_DATA.set('MyNode', DEFAULT_MYNODE_DATA);
-```
-
-- Add some JSX in `apps/electron-app/src/render/NewNodeProvider.tsx` so that it appears in the search menu.
+And last but not least, add some JSX in `apps/electron-app/src/render/NewNodeProvider.tsx` so that it appears in the search menu.
 
 ```tsx
 <CommandItem onSelect={selectNode('MyNode')}>

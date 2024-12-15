@@ -136,8 +136,10 @@ function Settings() {
 }
 
 type Props = BaseNode<MonitorData>;
-export const DEFAULT_MONITOR_DATA: Props['data'] = {
-	label: 'Monitor',
-	type: 'graph',
-	range: { min: 0, max: 1023 },
+Monitor.defaultProps = {
+	data: {
+		label: 'Monitor',
+		type: 'graph',
+		range: { min: 0, max: 1023 },
+	} satisfies Props['data'],
 };

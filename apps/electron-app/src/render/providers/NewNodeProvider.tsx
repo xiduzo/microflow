@@ -14,7 +14,7 @@ import {
 } from '@microflow/ui';
 import { useReactFlow } from '@xyflow/react';
 import { memo, useEffect, useMemo } from 'react';
-import { DEFAULT_NODE_DATA, NodeType } from '../../common/nodes';
+import { NODE_TYPES, NodeType } from '../../common/nodes';
 import { useDeleteSelectedNodes, useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
 import { useWindowSize } from 'usehooks-ts';
@@ -40,16 +40,14 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 		});
 	}, [flowToScreenPosition, windowSize]);
 
-	function selectNode(type: NodeType, options?: { label?: string; subType?: string }) {
+	function selectNode(type: NodeType, data?: { label?: string; subType?: string }) {
 		return function () {
-			const DEFAULT_DATA = DEFAULT_NODE_DATA.get(type) ?? {};
+			const DEFAULT_DATA =
+				'defaultProps' in NODE_TYPES[type] ? (NODE_TYPES[type].defaultProps as any).data : {};
 
 			const id = Math.random().toString(36).substring(2, 8);
 			const newNode = {
-				data: {
-					...DEFAULT_DATA,
-					...options,
-				},
+				data: { ...DEFAULT_DATA, ...data },
 				id,
 				type,
 				position,
@@ -107,8 +105,8 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>
 					</CommandItem>
-					<CommandItem onSelect={selectNode('And')}>
-						And
+					<CommandItem onSelect={selectNode('Gate')}>
+						Gate
 						<CommandShortcut>
 							<Badge variant="outline">Control</Badge>
 						</CommandShortcut>

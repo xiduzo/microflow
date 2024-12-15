@@ -43,8 +43,10 @@ type NoteData = {
 	note: string;
 };
 type Props = BaseNode<NoteData>;
-export const DEFAULT_NOTE_DATA: Props['data'] = {
-	label: 'Note',
-	note: 'New note',
-	extraInfo: '',
+Note.defaultProps = {
+	data: {
+		label: 'Note',
+		note: 'New note',
+		extraInfo: '',
+	} satisfies Props['data'],
 };

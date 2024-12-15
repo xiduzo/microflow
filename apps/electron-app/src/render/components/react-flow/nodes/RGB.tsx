@@ -69,12 +69,14 @@ function Settings() {
 }
 
 type Props = BaseNode<RgbData>;
-export const DEFAULT_RGB_DATA: Props['data'] = {
-	label: 'RGB',
-	pins: {
-		red: 9,
-		green: 10,
-		blue: 11,
-	},
-	isAnode: false,
+Rgb.defaultProps = {
+	data: {
+		label: 'RGB',
+		pins: {
+			red: 9,
+			green: 10,
+			blue: 11,
+		},
+		isAnode: false,
+	} satisfies Props['data'],
 };

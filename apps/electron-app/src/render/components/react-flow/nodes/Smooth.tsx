@@ -40,7 +40,9 @@ function Settings() {
 }
 
 type Props = BaseNode<SmoothData>;
-export const DEFAULT_SMOOTH_DATA: Props['data'] = {
-	label: 'Smooth',
-	attenuation: 0.995,
+Smooth.defaultProps = {
+	data: {
+		label: 'Smooth',
+		attenuation: 0.995,
+	} satisfies Props['data'],
 };

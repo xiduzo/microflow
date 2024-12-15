@@ -105,8 +105,10 @@ function Settings() {
 }
 
 type Props = BaseNode<MqttData>;
-export const DEFAULT_MQTT_DATA: Props['data'] = {
-	label: 'MQTT',
-	direction: 'publish',
-	topic: '',
+Mqtt.defaultProps = {
+	data: {
+		label: 'MQTT',
+		direction: 'publish',
+		topic: '',
+	} satisfies Props['data'],
 };

@@ -227,10 +227,13 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 
 type Props = BaseNode<FigmaData>;
 const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
-export const DEFAULT_FIGMA_DATA: Props['data'] = {
-	label: 'Figma',
-	variableId: '',
+Figma.defaultProps = {
+	data: {
+		label: 'Figma',
+		variableId: '',
+	} satisfies Props['data'],
 };
+
 export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
 	BOOLEAN: false,
 	FLOAT: 0,

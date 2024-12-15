@@ -134,9 +134,11 @@ function Settings() {
 }
 
 type Props = BaseNode<ServoData>;
-export const DEFAULT_SERVO_DATA: Props['data'] = {
-	pin: 3,
-	label: 'Servo',
-	type: 'standard',
-	range: { min: 0, max: 180 },
+Servo.defaultProps = {
+	data: {
+		pin: 3,
+		label: 'Servo',
+		type: 'standard',
+		range: { min: 0, max: 180 },
+	} satisfies Props['data'],
 };

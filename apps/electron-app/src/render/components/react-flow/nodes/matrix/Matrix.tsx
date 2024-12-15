@@ -202,14 +202,16 @@ function Settings() {
 }
 
 type Props = BaseNode<MatrixData>;
-export const DEFAULT_MATRIX_DATA: Props['data'] = {
-	label: 'LED Matrix',
-	pins: {
-		data: 2,
-		clock: 3,
-		cs: 4,
-	},
-	controller: undefined,
-	dims: [8, 8], // [rows, columns]
-	shapes: [DEFAULT_MATRIX_SHAPE],
+Matrix.defaultProps = {
+	data: {
+		label: 'LED Matrix',
+		pins: {
+			data: 2,
+			clock: 3,
+			cs: 4,
+		},
+		controller: undefined as unknown as string,
+		dims: [8, 8], // [rows, columns]
+		shapes: [DEFAULT_MATRIX_SHAPE],
+	} satisfies Props['data'],
 };

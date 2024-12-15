@@ -43,7 +43,9 @@ function Settings() {
 }
 
 type Props = BaseNode<IntervalData>;
-export const DEFAULT_INTERVAL_DATA: Props['data'] = {
-	label: 'Interval',
-	interval: 500,
+Interval.defaultProps = {
+	data: {
+		label: 'Interval',
+		interval: 500,
+	} satisfies Props['data'],
 };
