@@ -24,15 +24,13 @@ export type MyNodeData = {
 	emotion: EmotionType;
 	joy: number;
 };
-
-type MyNodeOptions = BaseComponentOptions & MyNodeData;
 ```
 
 Add a constructor to your type that takes the attributes and passes them to the superclass. Like this:
 
 ```
-	constructor(private readonly options: MyNodeOptions) {
-		super(options, 0);
+	constructor(private readonly data: BaseComponentData & MyNodeData) {
+		super(data, 0);
 	}
 ```
 
@@ -93,7 +91,7 @@ function Settings() {
 - And your panel setting defaults.
 
 ```
-type Props = BaseNode<MyNodeData, MyNodeValueType>;
+type Props = BaseNode<MyNodeData>;
 export const DEFAULT_MYNODE_DATA: Props['data'] = {
 	label: 'MyNode',
 	emotion: 'happy',
@@ -124,10 +122,10 @@ DEFAULT_MYNODE_DATA.set('MyNode', DEFAULT_MYNODE_DATA);
 - Add some JSX in `apps/electron-app/src/render/NewNodeProvider.tsx` so that it appears in the search menu.
 
 ```
-					<CommandItem onSelect={selectNode('MyNode')}>
-					MyNode
-						<CommandShortcut>
-							<Badge variant="outline">Custom</Badge>
-						</CommandShortcut>
-					</CommandItem>
+<CommandItem onSelect={selectNode('MyNode')}>
+MyNode
+	<CommandShortcut>
+		<Badge variant="outline">Custom</Badge>
+	</CommandShortcut>
+</CommandItem>
 ```
