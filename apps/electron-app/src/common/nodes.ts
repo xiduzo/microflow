@@ -42,6 +42,6 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Smooth: Smooth,
 	Trigger: Trigger,
 	Vibration: Vibration,
-};
+} as const;
 
 export type NodeType = keyof typeof NODE_TYPES;

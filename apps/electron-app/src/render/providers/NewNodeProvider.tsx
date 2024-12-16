@@ -62,7 +62,7 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 				'defaultProps' in Component ? (Component.defaultProps as any) : { data: {} };
 
 			const group = groups.get(node.data.group) ?? [];
-			group.push({ node, type: node.data.baseType ?? type });
+			group.push({ node, type });
 			groups.set(node.data.group, group);
 			return groups;
 		}, new Map<string, { node: BaseNode; type: string }[]>());
