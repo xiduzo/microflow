@@ -14,5 +14,7 @@ export class Sensor extends BaseComponent<SensorValueType> {
 		this.component.on('change', () => {
 			this.value = Number(this.component.raw);
 		});
+
+		this.value = Number(this.component.raw);
 	}
 }
