@@ -143,7 +143,9 @@ function Settings() {
 type Props = BaseNode<CompareData>;
 Compare.defaultProps = {
 	data: {
-		label: 'compare',
+		group: 'flow',
+		tags: ['control'],
+		label: 'Compare',
 		validator: 'boolean',
 	} satisfies Props['data'],
 };

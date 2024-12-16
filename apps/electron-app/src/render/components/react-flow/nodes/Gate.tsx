@@ -87,6 +87,8 @@ function Settings() {
 type Props = BaseNode<GateData>;
 Gate.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['control', 'transformation'],
 		label: 'Gate',
 		gate: 'and',
 		inputs: 2,

@@ -66,6 +66,8 @@ function Settings() {
 type Props = BaseNode<TriggerData>;
 Trigger.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['event', 'control'],
 		label: 'Trigger',
 		behaviour: 'exact',
 		threshold: 0.5,

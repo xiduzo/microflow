@@ -12,12 +12,13 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@microflow/ui';
-import { useReactFlow } from '@xyflow/react';
+import { Node, useReactFlow } from '@xyflow/react';
 import { memo, useEffect, useMemo } from 'react';
-import { NODE_TYPES, NodeType } from '../../common/nodes';
+import { NODE_TYPES } from '../../common/nodes';
 import { useDeleteSelectedNodes, useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
 import { useWindowSize } from 'usehooks-ts';
+import { BaseNode } from '../components/react-flow/nodes/Node';
 
 const NODE_SIZE = {
 	width: 208,
@@ -29,35 +30,43 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 	useBackspaceOverwrite();
 
 	const { open, setOpen, setNodeToAdd } = useNewNodeStore();
-	const { flowToScreenPosition } = useReactFlow();
+	const { flowToScreenPosition, getZoom } = useReactFlow();
 	const changeNodes = useNodesChange();
 	const windowSize = useWindowSize();
 
 	const position = useMemo(() => {
 		return flowToScreenPosition({
-			x: windowSize.width / 2 - NODE_SIZE.width / 2,
-			y: windowSize.height / 2 - NODE_SIZE.height / 2,
+			x: windowSize.width / 2 - (NODE_SIZE.width / 2) * getZoom(),
+			y: windowSize.height / 2 - (NODE_SIZE.height / 2) * getZoom(),
 		});
-	}, [flowToScreenPosition, windowSize]);
+	}, [flowToScreenPosition, windowSize, getZoom]);
 
-	function selectNode(type: NodeType, data?: { label?: string; subType?: string }) {
+	function selectNode(node: BaseNode, type: string) {
 		return function () {
-			const DEFAULT_DATA =
-				'defaultProps' in NODE_TYPES[type] ? (NODE_TYPES[type].defaultProps as any).data : {};
-
-			const id = Math.random().toString(36).substring(2, 8);
-			const newNode = {
-				data: { ...DEFAULT_DATA, ...data },
-				id,
+			const item: Node = {
+				data: node.data,
+				id: Math.random().toString(36).substring(2, 8),
 				type,
 				position,
 				selected: true,
 			};
 
-			changeNodes([{ item: newNode, type: 'add' }]);
-			setNodeToAdd(id);
+			changeNodes([{ item, type: 'add' }]);
+			setNodeToAdd(item.id);
 		};
 	}
+
+	const groups = useMemo(() => {
+		return Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
+			const node: BaseNode =
+				'defaultProps' in Component ? (Component.defaultProps as any) : { data: {} };
+
+			const group = groups.get(node.data.group) ?? [];
+			group.push({ node, type: node.data.baseType ?? type });
+			groups.set(node.data.group, group);
+			return groups;
+		}, new Map<string, { node: BaseNode; type: string }[]>());
+	}, [NODE_TYPES]);
 
 	return (
 		<CommandDialog open={open} onOpenChange={setOpen}>
@@ -68,163 +77,22 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 			<CommandInput placeholder="Seach node or node type..." />
 			<CommandList>
 				<CommandEmpty>No results found.</CommandEmpty>
-				<CommandGroup heading="Flow">
-					<CommandItem onSelect={selectNode('Counter')}>
-						Counter
-						<CommandShortcut>
-							<Badge variant="outline">Event</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Oscillator')}>
-						Oscillator
-						<CommandShortcut>
-							<Badge variant="outline">Generator</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Smooth')}>
-						Smooth
-						<CommandShortcut>
-							<Badge variant="outline">Transformation</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Monitor')}>
-						Monitor
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Trigger')}>
-						Trigger
-						<CommandShortcut>
-							<Badge variant="outline">Control</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Compare')}>
-						Compare
-						<CommandShortcut>
-							<Badge variant="outline">Control</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Gate')}>
-						Gate
-						<CommandShortcut>
-							<Badge variant="outline">Control</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Interval')}>
-						Interval
-						<CommandShortcut>
-							<Badge variant="outline">Event</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('RangeMap')}>
-						Map
-						<CommandShortcut>
-							<Badge variant="outline">Transformation</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Note')}>
-						Note
-						<CommandShortcut>
-							<Badge variant="outline">Information</Badge>
-						</CommandShortcut>
-					</CommandItem>
-				</CommandGroup>
-				<CommandSeparator />
-				<CommandGroup heading="Hardware">
-					<CommandItem onSelect={selectNode('Button')}>
-						Button
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Digital</Badge>
-							<Badge variant="outline">Input</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Sensor', { label: 'LDR', subType: 'ldr' })}>
-						LDR (Light Dependent Resistor)
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Input</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Led')}>
-						LED
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Digital</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Rgb')}>
-						LED (RGB)
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Matrix')}>
-						LED Matrix
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Motion')}>
-						Motion
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Digital</Badge>
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Input</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Piezo')}>
-						Piezo
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem
-						onSelect={selectNode('Sensor', { label: 'Potentiometer', subType: 'potentiometer' })}
-					>
-						Potentiometer
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Input</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Servo')}>
-						Servo
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Led', { label: 'Vibration', subType: 'vibration' })}>
-						Vibration
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Analog</Badge>
-							<Badge variant="outline">Digital</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-				</CommandGroup>
-				<CommandSeparator />
-				<CommandGroup heading="External">
-					<CommandItem onSelect={selectNode('Mqtt')}>
-						MQTT
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Input</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-					<CommandItem onSelect={selectNode('Figma')}>
-						Figma
-						<CommandShortcut className="space-x-1">
-							<Badge variant="outline">Input</Badge>
-							<Badge variant="outline">Output</Badge>
-						</CommandShortcut>
-					</CommandItem>
-				</CommandGroup>
+				{Array.from(groups).map(([group, nodes]) => (
+					<CommandGroup key={group} heading={group}>
+						{nodes.map(({ node, type }) => (
+							<CommandItem key={node.data.label} onSelect={selectNode(node, type)}>
+								<span className="first:first-letter:uppercase lowercase">{node.data.label}</span>
+								<CommandShortcut className="space-x-1">
+									{node.data.tags.map(tag => (
+										<Badge key={tag} variant="outline">
+											{tag}
+										</Badge>
+									))}
+								</CommandShortcut>
+							</CommandItem>
+						))}
+					</CommandGroup>
+				))}
 			</CommandList>
 		</CommandDialog>
 	);

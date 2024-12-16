@@ -138,6 +138,8 @@ function Settings() {
 type Props = BaseNode<MonitorData>;
 Monitor.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['output', 'information'],
 		label: 'Monitor',
 		type: 'graph',
 		range: { min: 0, max: 1023 },

@@ -25,6 +25,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
+import { NodeType } from '../../../../common/nodes';
 
 export function NodeSettingsButton() {
 	const { settingsOpened, setSettingsOpened, selected } = useNode();
@@ -337,10 +338,24 @@ const node = cva(
 	},
 );
 
+type NodeGroup = 'flow' | 'hardware' | 'external';
+type NodeTags =
+	| 'digital'
+	| 'analog'
+	| 'input'
+	| 'output'
+	| 'event'
+	| 'generator'
+	| 'transformation'
+	| 'control'
+	| 'information';
+
 export type BaseNode<Data extends Record<string, unknown> = {}> = Node<
 	Data & {
-		type?: string;
+		group: NodeGroup;
+		tags: NodeTags[];
 		subType?: string;
+		baseType?: NodeType;
 		label: string;
 		settingsOpen?: boolean;
 	}

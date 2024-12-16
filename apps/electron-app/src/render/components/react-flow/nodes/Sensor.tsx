@@ -9,7 +9,7 @@ import { useNodeValue } from '../../../stores/node-data';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
 
-export function Sensor(props: Props) {
+function Sensor(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
@@ -58,7 +58,27 @@ function Settings() {
 type Props = BaseNode<SensorData>;
 Sensor.defaultProps = {
 	data: {
+		group: 'hardware',
+		tags: ['input', 'analog'],
 		pin: 'A0',
 		label: 'Sensor',
+	} satisfies Props['data'],
+};
+
+export const Ldr = (props: Props) => <Sensor {...props} />;
+Ldr.defaultProps = {
+	data: {
+		...Sensor.defaultProps.data,
+		label: 'LDR',
+		baseType: 'Sensor',
+	} satisfies Props['data'],
+};
+
+export const Potentiometer = (props: Props) => <Sensor {...props} />;
+Potentiometer.defaultProps = {
+	data: {
+		...Sensor.defaultProps.data,
+		label: 'Potentiometer',
+		baseType: 'Sensor',
 	} satisfies Props['data'],
 };

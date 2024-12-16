@@ -28,6 +28,8 @@ function Value() {
 type Props = BaseNode<CounterData>;
 Counter.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['event', 'information'],
 		label: 'Counter',
 	} satisfies Props['data'],
 };

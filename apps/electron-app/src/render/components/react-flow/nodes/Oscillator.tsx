@@ -78,6 +78,8 @@ function Settings() {
 type Props = BaseNode<OscillatorData>;
 Oscillator.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['generator', 'input'],
 		label: 'Oscillator',
 		waveform: 'sinus',
 		period: 1000,

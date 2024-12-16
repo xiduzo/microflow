@@ -229,6 +229,8 @@ type Props = BaseNode<FigmaData>;
 const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 Figma.defaultProps = {
 	data: {
+		group: 'external',
+		tags: ['input', 'output'],
 		label: 'Figma',
 		variableId: '',
 	} satisfies Props['data'],

@@ -4,6 +4,7 @@ import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useReactFlowStore } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
+import { useEffect } from 'react';
 
 const selector = (state: AppState) => ({
 	nodes: state.nodes,
@@ -16,15 +17,25 @@ const selector = (state: AppState) => ({
 export function ReactFlowCanvas() {
 	const store = useReactFlowStore(useShallow(selector));
 
+	useEffect(() => {
+		const originalConsoleError = console.error;
+
+		console.error = (...args: any[]) => {
+			// We are abusing the `defaultProps` to set the default values of the nodes
+			if (typeof args[0] === 'string' && /defaultProps/.test(args[0])) {
+				return;
+			}
+
+			originalConsoleError(...args);
+		};
+
+		return () => {
+			console.error = originalConsoleError;
+		};
+	}, []);
+
 	return (
-		<ReactFlow
-			{...store}
-			// @ts-expect-error
-			nodeTypes={NODE_TYPES}
-			colorMode="dark"
-			minZoom={0.2}
-			maxZoom={2}
-		>
+		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode="dark" minZoom={0.2} maxZoom={2}>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} />
 			<Background gap={32} />

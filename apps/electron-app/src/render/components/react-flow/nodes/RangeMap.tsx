@@ -56,6 +56,8 @@ function Settings() {
 type Props = BaseNode<RangeMapData>;
 RangeMap.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['transformation'],
 		from: { min: 0, max: 1023 },
 		to: { min: 0, max: 1023 },
 		label: 'Map',

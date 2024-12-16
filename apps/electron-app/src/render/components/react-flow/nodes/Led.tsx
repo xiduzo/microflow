@@ -104,7 +104,19 @@ function Settings() {
 type Props = BaseNode<LedData>;
 Led.defaultProps = {
 	data: {
+		group: 'hardware',
+		tags: ['output', 'analog', 'digital'],
 		label: 'LED',
 		pin: 13,
+	} satisfies Props['data'],
+};
+
+export const Vibration = (props: Props) => <Led {...props} />;
+Vibration.defaultProps = {
+	data: {
+		...Led.defaultProps.data,
+		label: 'Vibration',
+		subType: 'vibration',
+		baseType: 'Led',
 	} satisfies Props['data'],
 };
