@@ -3,7 +3,7 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pane } from '@ui/index';
 import { BindingApi, BindingParams } from '@tweakpane/core';
 import { useUploadResult } from '../../../stores/board';
@@ -20,7 +20,7 @@ export function Monitor(props: Props) {
 
 const BASE_GRAPH_RANGE = {
 	min: 0,
-	max: 0,
+	max: 0.0001,
 };
 
 const graphNumberFormat = new Intl.NumberFormat('en-US', {
@@ -33,7 +33,8 @@ function Value() {
 
 	const container = useRef<HTMLDivElement>(null);
 	const display = useRef({ value });
-	const binding = useRef<BindingApi>();
+	const binding = useRef<{ min: number; max: number }>();
+	const [minMax, setMinMax] = useState(BASE_GRAPH_RANGE);
 
 	useEffect(() => {
 		switch (data.type) {
@@ -45,10 +46,14 @@ function Value() {
 				const numericalValue = Number(value);
 				display.current.value = numericalValue;
 				if (!binding.current) return;
-				// @ts-expect-error `min` is not on type
 				binding.current.min = Math.min(binding.current.min ?? BASE_GRAPH_RANGE.min, numericalValue);
-				// @ts-expect-error `max` is not on type
 				binding.current.max = Math.max(binding.current.max ?? BASE_GRAPH_RANGE.max, numericalValue);
+				setMinMax(prev => {
+					if (!binding.current) return prev;
+					if (prev.min === binding.current.min && prev.max === binding.current.max) return prev;
+
+					return { min: binding.current.min, max: binding.current.max };
+				});
 				break;
 		}
 	}, [value, data.type]);
@@ -57,10 +62,9 @@ function Value() {
 		if (!binding.current) return;
 		if (uploadResult !== 'ready') return;
 
-		// @ts-expect-error `min` is not on type
 		binding.current.min = BASE_GRAPH_RANGE.min;
-		// @ts-expect-error `max` is not on type
 		binding.current.max = BASE_GRAPH_RANGE.max;
+		setMinMax(BASE_GRAPH_RANGE);
 	}, [uploadResult]);
 
 	useEffect(() => {
@@ -85,6 +89,7 @@ function Value() {
 				break;
 			case 'graph':
 			default:
+				// @ts-expect-error - Some TS wizzardry
 				binding.current = pane.addBinding(display.current, 'value', {
 					...baseProps,
 					...BASE_GRAPH_RANGE,
@@ -102,11 +107,11 @@ function Value() {
 	return (
 		<div className="custom-tweak-pane-graph">
 			<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
-				{graphNumberFormat.format(binding.current?.max)}
+				{graphNumberFormat.format(minMax.max)}
 			</div>
 			<div ref={container}></div>
 			<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
-				{graphNumberFormat.format(binding.current?.min)}
+				{graphNumberFormat.format(minMax.min)}
 			</div>
 		</div>
 	);
