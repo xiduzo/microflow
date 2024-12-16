@@ -32,7 +32,7 @@ export function Led(props: Props) {
 				isConnectable={isPmwPin}
 			/>
 			<Handle type="target" position={Position.Left} id="off" offset={1.5} />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
 }

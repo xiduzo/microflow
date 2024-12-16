@@ -49,7 +49,7 @@ export function MyNode(props: Props) {
 			<Value />
 			<Settings />
 			<Handle type="target" position={Position.Left} id="input" />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="output" />
 		</NodeContainer>
 	);
 }

@@ -134,7 +134,7 @@ function FigmaHandles(props: { variable?: FigmaVariable }) {
 			{props.variable?.resolvedType === 'STRING' && (
 				<Handle type="target" position={Position.Left} id="set" />
 			)}
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="change" />
 		</>
 	);
 }

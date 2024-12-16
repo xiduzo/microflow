@@ -10,7 +10,7 @@ export function Smooth(props: Props) {
 			<Value />
 			<Settings />
 			<Handle type="target" position={Position.Left} id="signal" offset={-0.5} />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
 }

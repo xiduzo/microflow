@@ -14,7 +14,7 @@ function Sensor(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
 }

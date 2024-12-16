@@ -14,10 +14,10 @@ export function Button(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="active" offset={-1} />
-			<Handle type="source" position={Position.Right} id="hold" />
-			<Handle type="source" position={Position.Right} id="inactive" offset={1} />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="active" offset={-1.5} />
+			<Handle type="source" position={Position.Right} id="hold" offset={-0.5} />
+			<Handle type="source" position={Position.Right} id="inactive" offset={0.5} />
+			<Handle type="source" position={Position.Right} id="change" offset={1.5} />
 		</NodeContainer>
 	);
 }

@@ -28,9 +28,9 @@ export function Gate(props: Props) {
 					/>
 				);
 			})}
-			<Handle type="source" position={Position.Right} id="true" offset={-0.5} />
-			<Handle type="source" position={Position.Right} id="false" offset={0.5} />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="true" offset={-1} />
+			<Handle type="source" position={Position.Right} id="false" />
+			<Handle type="source" position={Position.Right} id="change" offset={1} />
 		</NodeContainer>
 	);
 }

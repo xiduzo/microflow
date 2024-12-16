@@ -13,7 +13,7 @@ export function Oscillator(props: Props) {
 			<Handle type="target" position={Position.Left} id="reset" offset={-1} />
 			<Handle type="target" position={Position.Left} id="start" />
 			<Handle type="target" position={Position.Left} id="stop" offset={1} />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
 }

@@ -34,7 +34,7 @@ export function Servo(props: Props) {
 					<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
 				</>
 			)}
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
 }

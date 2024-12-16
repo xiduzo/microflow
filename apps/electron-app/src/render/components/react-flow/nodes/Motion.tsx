@@ -21,16 +21,10 @@ export function Motion(props: Props) {
 				position={Position.Right}
 				id="motionstart"
 				title="Motion started"
-				offset={-0.5}
+				offset={-1}
 			/>
-			<Handle
-				type="source"
-				position={Position.Right}
-				id="motionend"
-				title="Motion ended"
-				offset={0.5}
-			/>
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="motionend" title="Motion ended" />
+			<Handle type="source" position={Position.Right} id="change" offset={1} />
 		</NodeContainer>
 	);
 }
