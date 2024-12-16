@@ -7,7 +7,7 @@
 
 ## Nodes
 - [x] If..Else is strangely named because technically you cannot do an Else with it, only an If. :) Maybe this node could be called **Compare**?
-- [ ] Would be awesome if Debug could "autorange"  :)
+- [x] Would be awesome if Debug could "autorange"  :)
     - [x] and maybe instead of **Debug** it could be called **Plot** or **Graph**?
 
 Nodes that would be nice to have:

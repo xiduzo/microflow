@@ -3,9 +3,9 @@ import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pane } from '@ui/index';
-import { BindingApi } from '@tweakpane/core';
+import { BindingApi, BindingParams } from '@tweakpane/core';
 
 export function Monitor(props: Props) {
 	return (
@@ -17,28 +17,18 @@ export function Monitor(props: Props) {
 	);
 }
 
+const BASE_GRAPH_RANGE = {
+	min: -0.01,
+	max: 0.01,
+};
+
 function Value() {
 	const data = useNodeData<MonitorData>();
 	const value = useNodeValue<DebugValueType>(0);
 
 	const container = useRef<HTMLDivElement>(null);
 	const display = useRef({ value });
-
-	const bindingConfig = useMemo(() => {
-		switch (data.type) {
-			case 'raw':
-				return { rows: data.rows, multiline: true };
-			case 'graph':
-			default:
-				return { ...data.range, view: 'graph' };
-		}
-	}, [
-		data.type,
-		(data as any).rows,
-		(data as any).bufferSize,
-		(data as any).range?.min,
-		(data as any).range?.max,
-	]);
+	const binding = useRef<BindingApi>();
 
 	useEffect(() => {
 		switch (data.type) {
@@ -47,7 +37,13 @@ function Value() {
 				break;
 			case 'graph':
 			default:
-				display.current.value = Number(value);
+				const numericalValue = Number(value);
+				display.current.value = numericalValue;
+				if (!binding.current) return;
+				// @ts-expect-error `min` is not on type
+				binding.current.min = Math.min(binding.current.min ?? BASE_GRAPH_RANGE.min, numericalValue);
+				// @ts-expect-error `max` is not on type
+				binding.current.max = Math.max(binding.current.max ?? BASE_GRAPH_RANGE.max, numericalValue);
 				break;
 		}
 	}, [value, data.type]);
@@ -57,18 +53,36 @@ function Value() {
 			container: container.current ?? undefined,
 		});
 
-		pane.addBinding(display.current, 'value', {
-			readonly: true,
+		const baseProps: BindingParams = {
 			index: 1,
+			readonly: true,
 			label: '',
 			interval: 1000 / 60,
-			...bindingConfig,
-		});
+		};
+
+		switch (data.type) {
+			case 'raw':
+				pane.addBinding(display.current, 'value', {
+					...baseProps,
+					rows: 5,
+					multiline: true,
+				});
+				break;
+			case 'graph':
+			default:
+				binding.current = pane.addBinding(display.current, 'value', {
+					...baseProps,
+					...BASE_GRAPH_RANGE,
+					view: 'graph',
+				});
+
+				break;
+		}
 
 		return () => {
 			pane.dispose();
 		};
-	}, [bindingConfig]);
+	}, [data.type]);
 
 	return (
 		<div className="custom-tweak-pane-graph">
@@ -83,52 +97,18 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		let optionsBinding: BindingApi;
-
-		function addOptionsBinding() {
-			if (!pane) return;
-			optionsBinding?.dispose();
-
-			switch (settings.type) {
-				case 'raw':
-					settings.rows = 5;
-					optionsBinding = pane.addBinding(settings, 'rows', {
-						label: 'size',
-						index: 1,
-						min: 1,
-						max: 10,
-						step: 1,
-					});
-					break;
-				case 'graph':
-				default:
-					settings.range = settings.range || { min: 0, max: 1023 };
-					optionsBinding = pane.addBinding(settings, 'range', {
-						label: 'range',
-						index: 1,
-					});
-					break;
-			}
-		}
-
-		const typeBinding = pane
-			.addBinding(settings, 'type', {
-				label: 'type',
-				index: 0,
-				view: 'list',
-				options: [
-					{ value: 'graph', text: 'graph' },
-					{ value: 'raw', text: 'raw' },
-				],
-			})
-			.on('change', () => {
-				addOptionsBinding();
-			});
-
-		addOptionsBinding();
+		const typeBinding = pane.addBinding(settings, 'type', {
+			label: 'type',
+			index: 0,
+			view: 'list',
+			options: [
+				{ value: 'graph', text: 'graph' },
+				{ value: 'raw', text: 'raw' },
+			],
+		});
 
 		return () => {
-			[typeBinding, optionsBinding].forEach(disposable => disposable.dispose());
+			[typeBinding].forEach(binding => binding.dispose());
 		};
 	}, [pane, settings]);
 
@@ -142,6 +122,5 @@ Monitor.defaultProps = {
 		tags: ['output', 'information'],
 		label: 'Monitor',
 		type: 'graph',
-		range: { min: 0, max: 1023 },
 	} satisfies Props['data'],
 };
