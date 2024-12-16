@@ -6,6 +6,7 @@ import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef } from 'react';
 import { Pane } from '@ui/index';
 import { BindingApi, BindingParams } from '@tweakpane/core';
+import { useUploadResult } from '../../../stores/board';
 
 export function Monitor(props: Props) {
 	return (
@@ -18,12 +19,16 @@ export function Monitor(props: Props) {
 }
 
 const BASE_GRAPH_RANGE = {
-	min: -0.01,
-	max: 0.01,
+	min: 0,
+	max: 0,
 };
 
+const graphNumberFormat = new Intl.NumberFormat('en-US', {
+	maximumFractionDigits: 2,
+});
 function Value() {
 	const data = useNodeData<MonitorData>();
+	const uploadResult = useUploadResult();
 	const value = useNodeValue<DebugValueType>(0);
 
 	const container = useRef<HTMLDivElement>(null);
@@ -47,6 +52,16 @@ function Value() {
 				break;
 		}
 	}, [value, data.type]);
+
+	useEffect(() => {
+		if (!binding.current) return;
+		if (uploadResult !== 'ready') return;
+
+		// @ts-expect-error `min` is not on type
+		binding.current.min = BASE_GRAPH_RANGE.min;
+		// @ts-expect-error `max` is not on type
+		binding.current.max = BASE_GRAPH_RANGE.max;
+	}, [uploadResult]);
 
 	useEffect(() => {
 		const pane = new Pane({
@@ -86,7 +101,13 @@ function Value() {
 
 	return (
 		<div className="custom-tweak-pane-graph">
+			<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
+				{graphNumberFormat.format(binding.current?.max)}
+			</div>
 			<div ref={container}></div>
+			<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
+				{graphNumberFormat.format(binding.current?.min)}
+			</div>
 		</div>
 	);
 }
