@@ -2,18 +2,9 @@ import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type DebugValueType = unknown;
 
-type GraphData = {
-	type: 'graph';
-	range: { min: number; max: number };
+export type MonitorData = {
+	type: 'graph' | 'raw';
 };
-
-type RawData = {
-	type: 'raw';
-	multiline: true;
-	rows: number;
-};
-
-export type MonitorData = GraphData | RawData;
 
 export class Monitor extends BaseComponent<DebugValueType> {
 	constructor(data: BaseComponentData & MonitorData) {
