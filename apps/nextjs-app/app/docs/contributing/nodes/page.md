@@ -33,7 +33,7 @@ constructor(private readonly data: BaseComponentData & MyNodeData) {
 }
 ```
 
-## Step 2: expose your new type in the components packages and refresh build
+## Step 2: expose your new type in the components packages
 
 - Include your newly created component in the `index.ts` file in `packages/components`. This will make your new components available in the `@microflow/components` package, so that they can be used later in the electron app.
 
@@ -105,6 +105,8 @@ function Settings() {
 type Props = BaseNode<MyNodeData>;
 MyNode.defaultProps = {
     data: {
+        group: 'flow',
+        tags: ['information'],
         label: 'MyNode',
         emotion: 'happy',
         joy: 95,
@@ -112,30 +114,14 @@ MyNode.defaultProps = {
 };
 ```
 
-- Add a reference in `apps/electron-app/src/common/nodes.ts`
+- Add a reference in `apps/electron-app/src/common/nodes.ts` to expose your node to the app.
 
 ```ts
 import { MyNode } from '../render/components/react-flow/nodes/MyNode';
-```
 
-Add the correct entry to the `NODE_TYPES` list:
-
-```ts
 export const NODE_TYPES = {
   ...
   MyNode: MyNode,
   ...
 };
-```
-
-And last but not least, add some JSX in `apps/electron-app/src/render/NewNodeProvider.tsx` so that it appears in the search menu.
-
-```tsx
-<CommandItem onSelect={selectNode('MyNode')}>
-    MyNode
-    <CommandShortcut className="space-x-1">
-    	<Badge variant="outline">custom</Badge>
-        {/* <Badge variant="outline">...</Badge> */}
-    </CommandShortcut>
-</CommandItem>
 ```

@@ -45,6 +45,8 @@ function Settings() {
 type Props = BaseNode<IntervalData>;
 Interval.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['event'],
 		label: 'Interval',
 		interval: 500,
 	} satisfies Props['data'],

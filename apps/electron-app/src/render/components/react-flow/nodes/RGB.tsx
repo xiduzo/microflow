@@ -71,6 +71,8 @@ function Settings() {
 type Props = BaseNode<RgbData>;
 Rgb.defaultProps = {
 	data: {
+		group: 'hardware',
+		tags: ['output', 'analog'],
 		label: 'RGB',
 		pins: {
 			red: 9,

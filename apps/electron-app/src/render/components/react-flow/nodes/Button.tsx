@@ -96,6 +96,8 @@ function Settings() {
 type Props = BaseNode<ButtonData>;
 Button.defaultProps = {
 	data: {
+		group: 'hardware',
+		tags: ['digital', 'input'],
 		holdtime: 500,
 		isPulldown: false,
 		isPullup: false,

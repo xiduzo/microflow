@@ -42,6 +42,8 @@ function Settings() {
 type Props = BaseNode<SmoothData>;
 Smooth.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['transformation'],
 		label: 'Smooth',
 		attenuation: 0.995,
 	} satisfies Props['data'],

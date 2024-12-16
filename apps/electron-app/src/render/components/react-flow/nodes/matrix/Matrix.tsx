@@ -204,6 +204,8 @@ function Settings() {
 type Props = BaseNode<MatrixData>;
 Matrix.defaultProps = {
 	data: {
+		group: 'hardware',
+		tags: ['output', 'analog'],
 		label: 'LED Matrix',
 		pins: {
 			data: 2,

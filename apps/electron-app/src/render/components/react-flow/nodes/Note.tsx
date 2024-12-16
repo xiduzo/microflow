@@ -45,6 +45,8 @@ type NoteData = {
 type Props = BaseNode<NoteData>;
 Note.defaultProps = {
 	data: {
+		group: 'flow',
+		tags: ['information'],
 		label: 'Note',
 		note: 'New note',
 		extraInfo: '',

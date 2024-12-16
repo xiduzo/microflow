@@ -107,6 +107,8 @@ function Settings() {
 type Props = BaseNode<MqttData>;
 Mqtt.defaultProps = {
 	data: {
+		group: 'external',
+		tags: ['input', 'output'],
 		label: 'MQTT',
 		direction: 'publish',
 		topic: '',

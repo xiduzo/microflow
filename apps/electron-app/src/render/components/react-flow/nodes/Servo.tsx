@@ -136,6 +136,8 @@ function Settings() {
 type Props = BaseNode<ServoData>;
 Servo.defaultProps = {
 	data: {
+		group: 'hardware',
+		tags: ['output', 'analog'],
 		pin: 3,
 		label: 'Servo',
 		type: 'standard',
