@@ -57,7 +57,7 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 	}
 
 	const groups = useMemo(() => {
-		return Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
+		const groups = Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
 			const node: BaseNode =
 				'defaultProps' in Component ? (Component.defaultProps as any) : { data: {} };
 
@@ -66,6 +66,8 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 			groups.set(node.data.group, group);
 			return groups;
 		}, new Map<string, { node: BaseNode; type: string }[]>());
+
+		return Array.from(groups);
 	}, [NODE_TYPES]);
 
 	return (
@@ -77,21 +79,24 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 			<CommandInput placeholder="Seach node or node type..." />
 			<CommandList>
 				<CommandEmpty>No results found.</CommandEmpty>
-				{Array.from(groups).map(([group, nodes]) => (
-					<CommandGroup key={group} heading={group}>
-						{nodes.map(({ node, type }) => (
-							<CommandItem key={node.data.label} onSelect={selectNode(node, type)}>
-								<span className="first:first-letter:uppercase lowercase">{node.data.label}</span>
-								<CommandShortcut className="space-x-1">
-									{node.data.tags.map(tag => (
-										<Badge key={tag} variant="outline">
-											{tag}
-										</Badge>
-									))}
-								</CommandShortcut>
-							</CommandItem>
-						))}
-					</CommandGroup>
+				{groups.map(([group, nodes], index) => (
+					<section key={group}>
+						<CommandGroup heading={group}>
+							{nodes.map(({ node, type }) => (
+								<CommandItem key={node.data.label} onSelect={selectNode(node, type)}>
+									<span className="first:first-letter:uppercase lowercase">{node.data.label}</span>
+									<CommandShortcut className="space-x-1">
+										{node.data.tags.map(tag => (
+											<Badge key={tag} variant="outline">
+												{tag}
+											</Badge>
+										))}
+									</CommandShortcut>
+								</CommandItem>
+							))}
+						</CommandGroup>
+						{index !== groups.length - 1 && <CommandSeparator />}
+					</section>
 				))}
 			</CommandList>
 		</CommandDialog>
