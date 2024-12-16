@@ -1,6 +1,6 @@
 ## Some thoughts
 
-- [ ] it feels a bit unhandy that the inputs are on the left side of the node and the outputs are a the bottom. This kind of forces the program to grow in a starcase shape downwards towards the right, which forces scrolling in two directions instead of just up-down or left-right. In biggish sketches it would be more usable to have a dataflow that travel in one axis only.
+- [x] it feels a bit unhandy that the inputs are on the left side of the node and the outputs are a the bottom. This kind of forces the program to grow in a starcase shape downwards towards the right, which forces scrolling in two directions instead of just up-down or left-right. In biggish sketches it would be more usable to have a dataflow that travel in one axis only.
 - [x] for some reason to delete a node I must select it and delete it twice
 - [x] difference between the `save` and the `save & close` button in the settings pannel not very clear, what is saved? you mean apply new settings to node? or save state in file? bit unclear? could the settings be applied just 'on change' in the dialog entry?
 - [x] when I was messing around with the codebase to add a new node type I saw the app fail silently... I thought that was a javascript feature that was not possible with typescript.

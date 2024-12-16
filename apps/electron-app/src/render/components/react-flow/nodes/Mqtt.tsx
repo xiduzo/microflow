@@ -15,13 +15,12 @@ export function Mqtt(props: Props) {
 			<Subscriber />
 			<Value />
 			<Settings />
-			{props.data.type === 'publish' && (
+			{props.data.direction === 'publish' && (
 				<Handle type="target" position={Position.Left} id="publish" />
 			)}
-			{props.data.type === 'subscribe' && (
+			{props.data.direction === 'subscribe' && (
 				<Handle type="source" position={Position.Right} id="subscribe" />
 			)}
-			<Handle type="source" position={Position.Bottom} id="change" />
 		</NodeContainer>
 	);
 }
@@ -32,7 +31,7 @@ function Subscriber() {
 	const { subscribe } = useMqtt();
 
 	useEffect(() => {
-		if (data.type !== 'subscribe') return;
+		if (data.direction !== 'subscribe') return;
 		if (!data.topic?.length) return;
 
 		const unsubFromTopic = subscribe(data.topic, (_topic, message) => {
@@ -52,7 +51,7 @@ function Subscriber() {
 		return () => {
 			unsubFromTopic?.then(unsub => unsub?.());
 		};
-	}, [id, data.topic, data.type, subscribe]);
+	}, [id, data.topic, data.direction, subscribe]);
 
 	return null;
 }

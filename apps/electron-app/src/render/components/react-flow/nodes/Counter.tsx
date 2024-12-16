@@ -14,7 +14,7 @@ export function Counter(props: Props) {
 			<Handle offset={0.5} type="target" position={Position.Left} id="decrement" />
 			<Handle offset={-0.5} type="target" position={Position.Left} id="increment" />
 			<Handle type="target" position={Position.Left} id="set" offset={-1.5} />
-			<Handle type="source" position={Position.Bottom} id="change" />
+			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
 }
