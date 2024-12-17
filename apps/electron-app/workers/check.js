@@ -1,16 +1,20 @@
 const { Board, TcpSerial } = require('@microflow/components');
 
-const port = process.argv.at(-1);
+const port = process?.argv?.at(-1);
 
 if (!port) {
-	process.parentPort.postMessage({
-		type: 'info',
-		message:
-			'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
-	});
+	console.info(
+		JSON.stringify({
+			type: 'info',
+			message:
+				'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
+		}),
+	);
 }
 
-let board;
+function stdout(data) {
+	console.info(JSON.stringify(data));
+}
 
 try {
 	const ipRegex = new RegExp(
@@ -22,91 +26,34 @@ try {
 	if (portIsIp) {
 		connection = new TcpSerial({ host: port, port: 3030 });
 
-		connection.on('close', () => {
-			process.parentPort.postMessage({
+		connection.on('close', () =>
+			stdout({
 				type: 'close',
 				message: `Connection not reachable on ${port}`,
 				class: TcpSerial.name,
-			});
-		});
+			}),
+		);
 	}
 
-	board = new Board({
+	const board = new Board({
 		repl: false,
 		debug: true,
 		port: connection || port,
 	});
 
-	process.parentPort.postMessage({
-		type: 'info',
-		message: 'checking microcontroller',
-	});
+	// When board is connected and Firmata is flashed
+	board.on('ready', () => stdout({ type: 'ready' }));
 
-	board.on('info', event => {
-		process.parentPort.postMessage({
-			type: 'info',
-			message: event.message,
-			class: event.class,
-		});
-	});
+	// When board is found but no Firmata is flashed
+	board.on('error', error => stdout({ type: 'error', message: error.message }));
 
-	board.on('ready', () => {
-		// When board is connected and Firmata is flashed
-		process.parentPort.postMessage({
-			type: 'ready',
-			pins:
-				Object.entries(board.pins)?.reduce((acc, [key, value]) => {
-					acc.push({
-						pin: Number(key),
-						...value,
-					});
-					return acc;
-				}, []) ?? [],
-		});
-	});
+	board.on('exit', () => stdout({ type: 'exit' }));
+	board.on('close', () => stdout({ type: 'close' }));
+	board.on('connect', () => stdout({ type: 'connect' }));
 
-	board.on('error', error => {
-		// When board is found but no Firmata is flashed
-		process.parentPort.postMessage({
-			type: 'error',
-			message: error.message,
-		});
-	});
-
-	board.on('fail', event => {
-		// When board is not found
-		process.parentPort.postMessage({
-			type: 'fail',
-			message: event.message,
-			class: event.class,
-		});
-	});
-
-	board.on('warn', event => {
-		// TODO: find out when this fires
-		process.parentPort.postMessage({
-			type: 'warn',
-			message: event.message,
-			class: event.class,
-		});
-	});
-
-	board.on('exit', () => {
-		// TODO: find out when this fires
-		process.parentPort.postMessage({
-			type: 'exit',
-		});
-	});
-
-	board.on('close', () => {
-		// TODO: find out when this fires
-		process.parentPort.postMessage({
-			type: 'close',
-		});
-	});
+	board.on('info', stdout);
+	board.on('fail', stdout);
+	board.on('warn', stdout);
 } catch (error) {
-	process.parentPort.postMessage({
-		type: 'error',
-		message: error.message,
-	});
+	stdout({ type: 'error', ...error });
 }

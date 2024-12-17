@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import { BoardResult, UploadResult } from '../../common/types';
+import { BoardResult, UploadResponse } from '../../common/types';
 import { useShallow } from 'zustand/react/shallow';
 
 type BoardState = {
 	board: BoardResult;
 	setBoardResult: (result: BoardResult) => void;
-	upload: UploadResult;
-	setUploadResult: (result: UploadResult) => void;
+	upload: UploadResponse;
+	setUploadResult: (result: UploadResponse) => void;
 };
 
 export const useBoardStore = create<BoardState>(set => {
@@ -16,7 +16,7 @@ export const useBoardStore = create<BoardState>(set => {
 			set({ board: result });
 		},
 		upload: { type: 'close' },
-		setUploadResult: (result: UploadResult) => {
+		setUploadResult: (result: UploadResponse) => {
 			set({ upload: result });
 		},
 	};

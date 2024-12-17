@@ -175,7 +175,11 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		handlesToDelete.current = handles;
 	}, []);
 
+	console.log('>> NodeSettingsPane');
+
 	useEffect(() => {
+		console.log('>> NodeSettingsPane useEffect', settingsOpened);
+
 		if (!settingsOpened) return;
 
 		const pane = new Pane({

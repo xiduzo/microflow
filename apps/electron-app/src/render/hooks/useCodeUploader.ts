@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
 import { useNodeAndEdgeCount } from '../stores/react-flow';
 import { useBoardPort, useBoardResult, useBoardStore, useUploadResult } from '../stores/board';
-import { UploadResult } from '../../common/types';
+import { UploadRequest, UploadResponse } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
 import { useLocalStorage } from 'usehooks-ts';
@@ -22,7 +22,9 @@ export function useCodeUploader() {
 	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
+		console.time('uploadCode');
 		if (boardResult !== 'ready') return;
+		if (!config.ip && !port) return;
 
 		clearNodeData();
 		setUploadResult({ type: 'info' });
@@ -53,27 +55,13 @@ export function useCodeUploader() {
 
 		const code = generateCode(nodes, allowedEdges);
 
-		const off = window.electron.ipcRenderer.on<UploadResult>('ipc-upload-code', result => {
-			if (!result.success) {
-				toast.error(result.error);
-				return;
-			}
-
-			setUploadResult(result.data);
-
-			if (result.data.type === 'error') toast.error(result.data.message);
-			if (result.data.type === 'close') {
-				result.data.message && toast.warning(result.data.message);
-				setBoardResult({ type: 'close' });
-				window.electron.ipcRenderer.send('ipc-check-board', { ip: config.ip });
-			}
+		console.time('send');
+		window.electron.ipcRenderer.send<UploadRequest>('ipc-upload-code', {
+			code,
+			port: config.ip || port || '',
 		});
-
-		window.electron.ipcRenderer.send('ipc-upload-code', { code, port: config.ip || port });
-
-		return () => {
-			off();
-		};
+		console.timeEnd('send');
+		console.timeEnd('uploadCode');
 	}, [
 		getNodes,
 		getEdges,
@@ -85,6 +73,28 @@ export function useCodeUploader() {
 		config.ip,
 		clearNodeData,
 	]);
+
+	useEffect(() => {
+		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
+
+			setUploadResult(result.data);
+
+			switch (result.data.type) {
+				case 'close':
+					toast.warning(result.data.message);
+					setBoardResult({ type: 'close' });
+					window.electron.ipcRenderer.send('ipc-check-board', { ip: config.ip });
+					break;
+				case 'error':
+					toast.error(result.data.message);
+					break;
+			}
+		});
+	}, [config.ip]);
 
 	return uploadCode;
 }

@@ -46,7 +46,6 @@ export type BoardResult = {
 	port?: string;
 	pins?: Pin[];
 	message?: string;
-	class?: 'Available' | 'Connected' | 'Board';
 };
 
 export type BoardFlashResult = {
@@ -54,7 +53,12 @@ export type BoardFlashResult = {
 	message?: string;
 };
 
-export type UploadResult = {
+export type UploadRequest = {
+	code: string;
+	port: string;
+};
+
+export type UploadResponse = {
 	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error';
 	message?: string;
 	pins?: Pin[];
