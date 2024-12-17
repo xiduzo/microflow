@@ -66,11 +66,6 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
 			void sniffPorts(event, { connectedPort: port });
-			event.reply('ipc-check-board', {
-				success: true,
-				data: { type: 'info', port: port.path },
-			} satisfies IpcResponse<BoardResult>);
-
 			log.debug(`[CHECK] checking board ${board} on path ${port.path}`);
 
 			try {
@@ -111,13 +106,8 @@ async function checkBoardOnPort(
 		});
 
 		checkProcess.on('spawn', () => {
-			log.debug('[CHECK] [SPAWNED]', checkProcess.pid);
+			log.debug(`[CHECK] [SPAWNED] pid: ${checkProcess.pid}`);
 			processes.set(Number(checkProcess.pid), checkProcess);
-		});
-
-		checkProcess.on('exit', code => {
-			log.debug('[CHECK] [EXITED]', code);
-			cleanupProcesses();
 		});
 
 		checkProcess.stderr?.on('data', data => {
@@ -189,26 +179,17 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 		});
 
 		uploadProcess.on('spawn', () => {
-			log.debug('[UPLOAD] [SPAWNED]', uploadProcess.pid);
+			log.debug(`[UPLOAD] [SPAWNED] pid: ${uploadProcess.pid}`);
 			processes.set(Number(uploadProcess.pid), uploadProcess);
 			latestUploadProcessId = uploadProcess.pid;
 		});
 
-		uploadProcess.on('exit', code => {
-			log.debug('[UPLOAD] [EXITED]', code);
-			cleanupProcesses();
-		});
-
 		uploadProcess.stdout?.on('data', data => {
-			log.info('[UPLOAD] [STDOUT]', {
-				data: data.toString(),
-			});
+			log.info('[UPLOAD] [STDOUT]', data.toString());
 		});
 
 		uploadProcess.stderr?.on('data', data => {
-			log.error('[UPLOAD] [STDERR]', {
-				data: data.toString(),
-			});
+			log.error('[UPLOAD] [STDERR]', data.toString());
 			cleanupProcesses();
 			event.reply('ipc-upload-code', {
 				error: 'Unknown exception when running your flow',
@@ -364,7 +345,10 @@ async function getKnownBoardsWithPorts() {
 
 function cleanupProcesses() {
 	for (const [pid, process] of Array.from(processes)) {
+		process.on('exit', () => {
+			log.debug(`[CLEANUP] process ${pid} exited`);
+			processes.delete(pid);
+		});
 		process.kill();
-		processes.delete(pid);
 	}
 }

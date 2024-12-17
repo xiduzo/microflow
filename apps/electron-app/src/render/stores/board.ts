@@ -9,7 +9,7 @@ type BoardState = {
 	setUploadResult: (result: UploadResponse) => void;
 };
 
-export const useBoardStore = create<BoardState>(set => {
+export const useBoardStore = create<BoardState>((set, get) => {
 	return {
 		board: { type: 'close' },
 		setBoardResult: (result: BoardResult) => {
@@ -17,13 +17,13 @@ export const useBoardStore = create<BoardState>(set => {
 		},
 		upload: { type: 'close' },
 		setUploadResult: (result: UploadResponse) => {
-			set({ upload: result });
+			set({ upload: { pins: get().upload.pins, ...result } });
 		},
 	};
 });
 
 export const usePins = () =>
-	useBoardStore(useShallow((state: BoardState) => state.board.pins ?? []));
+	useBoardStore(useShallow((state: BoardState) => state.upload.pins ?? []));
 
 export const useUploadResult = () =>
 	useBoardStore(useShallow((state: BoardState) => state.upload.type));

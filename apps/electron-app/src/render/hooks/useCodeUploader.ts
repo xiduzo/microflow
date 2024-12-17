@@ -1,6 +1,6 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef } from 'react';
-import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
+import { isNodeTypeACodeType } from '../../utils/generateCode';
 import { useNodeAndEdgeCount } from '../stores/react-flow';
 import { useBoardPort, useBoardResult, useBoardStore, useUploadResult } from '../stores/board';
 import { UploadRequest, UploadResponse } from '../../common/types';
@@ -64,6 +64,7 @@ export function useCodeUploader() {
 				return;
 			}
 
+			console.log(result);
 			setUploadResult(result.data);
 
 			switch (result.data.type) {
