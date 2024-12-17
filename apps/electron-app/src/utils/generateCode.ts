@@ -154,8 +154,6 @@ const board = new MicroflowComponents.Board({
   debug: false,
   port: connection || port,
 });
-
-log.info("Board is created", { port: board.port });
 `;
 }
 
@@ -170,7 +168,6 @@ function addBoardListener(type: string, selfClosing = true) {
 			: ``;
 	return `
 board.on("${type}", (event) => {
-  log.info("board ${type}", { event });
   process.parentPort.postMessage({ type: "${type}", message: event?.message${pins} });
 ${selfClosing ? `}); // board - ${type}` : ``}
 `;

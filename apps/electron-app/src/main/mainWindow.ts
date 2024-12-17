@@ -15,6 +15,8 @@ export const createWindow = () => {
 		minHeight: 768,
 		webPreferences: {
 			preload: join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			backgroundThrottling: false,
 		},
 	});
 

@@ -20,6 +20,7 @@ import {
 } from '../common/types';
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
+import { UploadResult } from '../../out/microflow-studio/Microflow studio-darwin-arm64/Microflow studio.app/Contents/Resources/app/src/common/types';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -50,7 +51,6 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
-	cleanupProcesses();
 	log.debug('[CHECK] requested to check board', data);
 
 	if (data.ip) {
@@ -82,12 +82,14 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 				} satisfies IpcResponse<BoardResult>);
 				break checkBoard;
 			} catch (error) {
-				log.debug('[CHECK] [ERROR]', board, port, error);
+				log.error('[CHECK]', board, port, error);
 				event.reply('ipc-check-board', {
 					success: false,
 					error: (error as any)?.message ?? 'Unknown error',
 				} satisfies IpcResponse<BoardResult>);
 			}
+
+			cleanupProcesses();
 		}
 	}
 
@@ -99,6 +101,7 @@ async function checkBoardOnPort(
 	port: Pick<PortInfo, 'path'>,
 	board?: BoardName,
 ) {
+	cleanupProcesses();
 	const filePath = join(__dirname, 'workers', 'check.js');
 
 	return new Promise<void>((resolve, reject) => {
@@ -114,24 +117,30 @@ async function checkBoardOnPort(
 
 		checkProcess.on('exit', code => {
 			log.debug('[CHECK] [EXITED]', code);
+			cleanupProcesses();
 		});
 
-		checkProcess.stdout?.on('data', async (message: Buffer) => {
-			const stringData = message.toString('utf-8');
-			log.debug('[CHECK] [STDOUT]', stringData);
+		checkProcess.stderr?.on('data', data => {
+			log.debug('[CHECK] [STDERR]', data.toString());
+			cleanupProcesses();
 
+			event.reply('ipc-check-board', {
+				success: false,
+				error: data.toString(),
+			} satisfies IpcResponse<BoardResult>);
+		});
+
+		checkProcess.stdout?.on('data', async data => {
+			log.debug('[CHECK] [STDOUT]', data.toString());
+		});
+
+		checkProcess.on('message', async (data: UploadResult) => {
 			try {
-				const isJsonObject = stringData.match(/\{.*\}/)?.[0];
-				if (!isJsonObject) return;
-				const data = JSON.parse(isJsonObject) as BoardResult;
-				log.warn('[CHECK] [STDOUT] [TYPE]', data.type);
-
 				switch (data.type) {
 					case 'error':
-						log.debug('[CHECK] [ERROR]', board);
 						try {
-							// When no board is passed, we assume it is a board on TCP
-							if (!board) return reject(new Error(data.message ?? stringData));
+							// When no board is passed we assume it is a board on TCP, no need to flash firmata in that case.
+							if (!board) return reject(new Error(data.message ?? 'Unknown error'));
 							await flashBoard(board, port);
 							resolve();
 						} catch (error) {
@@ -141,33 +150,23 @@ async function checkBoardOnPort(
 					case 'close':
 					case 'exit':
 					case 'fail':
-						reject(new Error(data.message ?? stringData));
+						reject(new Error(data.message ?? 'Unknown error'));
 					case 'ready':
 						log.debug('boad ready');
 						resolve();
 						break;
 				}
 			} catch (e) {
-				log.warn('[CHECK] [STDOUT] [ERROR]', e);
-				// Silent error for parsing errors
+				log.warn('[CHECK]', e);
+				cleanupProcesses();
 			}
-		});
-
-		checkProcess.stderr?.on('data', data => {
-			log.debug('[CHECK] [STDERR]', data);
-
-			event.reply('ipc-check-board', {
-				success: false,
-				error: data.toString(),
-			} satisfies IpcResponse<BoardResult>);
 		});
 	});
 }
 
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
-	cleanupProcesses();
-
 	log.debug(`[UPLOAD] Uploading code to port ${data.port}`);
+	cleanupProcesses();
 
 	const code = generateCode(data.nodes as Node[], data.edges as Edge[]);
 
@@ -197,6 +196,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 
 		uploadProcess.on('exit', code => {
 			log.debug('[UPLOAD] [EXITED]', code);
+			cleanupProcesses();
 		});
 
 		uploadProcess.stdout?.on('data', data => {
@@ -209,6 +209,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 			log.error('[UPLOAD] [STDERR]', {
 				data: data.toString(),
 			});
+			cleanupProcesses();
 			event.reply('ipc-upload-code', {
 				error: 'Unknown exception when running your flow',
 				success: false,
@@ -222,6 +223,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 					case 'exit':
 					case 'fail':
 					case 'close':
+						cleanupProcesses();
 						event.reply('ipc-upload-code', {
 							success: false,
 							error: message.message ?? 'Unknown error',
@@ -269,8 +271,7 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 
 	// Check if file exists
 	if (!existsSync(firmataPath)) {
-		log.error(`[FLASH] Firmata file not found at ${firmataPath}`);
-		return;
+		throw new Error(`[FLASH] Firmata file not found at ${firmataPath}`);
 	}
 
 	return new Promise(async (resolve, reject) => {
@@ -302,6 +303,7 @@ async function sniffPorts(
 	const ports = await getConnectedPorts();
 	// Check if the connected port is disconnected
 	if (options.connectedPort && !ports.find(({ path }) => path === options.connectedPort?.path)) {
+		cleanupProcesses();
 		event.reply('ipc-check-board', {
 			success: true,
 			data: { type: 'close', message: 'Connected port is no longer connected' },

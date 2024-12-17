@@ -42,7 +42,7 @@ export type Pin = {
 };
 
 export type BoardResult = {
-	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error';
+	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error' | 'connect';
 	port?: string;
 	pins?: Pin[];
 	message?: string;

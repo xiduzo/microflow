@@ -33,7 +33,6 @@ export function useCheckBoard() {
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<BoardResult>('ipc-check-board', result => {
-			console.log(result);
 			if (!result.success) {
 				toast.warning(result.error);
 				return;
