@@ -9,10 +9,17 @@ import type { Edge, Node } from '@xyflow/react';
 import { ipcMain, IpcMainEvent, Menu, utilityProcess, UtilityProcess } from 'electron';
 
 import log from 'electron-log/node';
-import { existsSync, writeFile } from 'fs';
+import { existsSync, writeFile, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
-import { BoardResult, IpcResponse, UploadResponse, UploadedCodeMessage } from '../common/types';
+import {
+	BoardResult,
+	IpcResponse,
+	UploadRequest,
+	UploadResponse,
+	UploadedCodeMessage,
+} from '../common/types';
 import { exportFlow } from './file';
+import { generateCode } from '../utils/generateCode';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -43,7 +50,7 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
-	killRunningProcesses();
+	cleanupProcesses();
 	log.debug('[CHECK] requested to check board', data);
 
 	if (data.ip) {
@@ -92,7 +99,6 @@ async function checkBoardOnPort(
 	port: Pick<PortInfo, 'path'>,
 	board?: BoardName,
 ) {
-	killRunningProcesses();
 	const filePath = join(__dirname, 'workers', 'check.js');
 
 	return new Promise<void>((resolve, reject) => {
@@ -108,7 +114,6 @@ async function checkBoardOnPort(
 
 		checkProcess.on('exit', code => {
 			log.debug('[CHECK] [EXITED]', code);
-			checkProcess.kill();
 		});
 
 		checkProcess.stdout?.on('data', async (message: Buffer) => {
@@ -136,11 +141,9 @@ async function checkBoardOnPort(
 					case 'close':
 					case 'exit':
 					case 'fail':
-						checkProcess.kill();
 						reject(new Error(data.message ?? stringData));
 					case 'ready':
 						log.debug('boad ready');
-						checkProcess.kill();
 						resolve();
 						break;
 				}
@@ -153,7 +156,6 @@ async function checkBoardOnPort(
 		checkProcess.stderr?.on('data', data => {
 			log.debug('[CHECK] [STDERR]', data);
 
-			checkProcess.kill();
 			event.reply('ipc-check-board', {
 				success: false,
 				error: data.toString(),
@@ -162,23 +164,18 @@ async function checkBoardOnPort(
 	});
 }
 
-ipcMain.on('ipc-upload-code', async (event, data: { code: string; port: string }) => {
-	killRunningProcesses();
-	log.info(`Uploading code to port ${data.port}`);
+ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
+	cleanupProcesses();
 
-	if (!data.port) {
-		log.error('No port path provided for uploading code');
-		event.reply('ipc-upload-code', {
-			error: 'No port path provided',
-			success: false,
-		} satisfies IpcResponse<UploadResponse>);
-		return;
-	}
+	log.debug(`[UPLOAD] Uploading code to port ${data.port}`);
 
+	const code = generateCode(data.nodes as Node[], data.edges as Edge[]);
+
+	log.debug('[UPLOAD] writing file');
 	const filePath = join(__dirname, 'temp.js');
-	writeFile(filePath, data.code, error => {
+	writeFile(filePath, code, error => {
 		if (error) {
-			log.error('write file error', { error });
+			log.debug('[UPLOAD] write file error', { error });
 			event.reply('ipc-upload-code', {
 				error: error.message,
 				success: false,
@@ -186,6 +183,7 @@ ipcMain.on('ipc-upload-code', async (event, data: { code: string; port: string }
 			return;
 		}
 
+		log.debug('[UPLOAD] starting process');
 		const uploadProcess = utilityProcess.fork(filePath, [data.port], {
 			serviceName: 'Microflow studio - microcontroller runner',
 			stdio: 'pipe',
@@ -211,8 +209,10 @@ ipcMain.on('ipc-upload-code', async (event, data: { code: string; port: string }
 			log.error('[UPLOAD] [STDERR]', {
 				data: data.toString(),
 			});
-			uploadProcess?.kill();
-			// TODO: inform the renderer
+			event.reply('ipc-upload-code', {
+				error: 'Unknown exception when running your flow',
+				success: false,
+			} satisfies IpcResponse<UploadResponse>);
 		});
 
 		uploadProcess.on('message', (message: UploadedCodeMessage | UploadResponse) => {
@@ -222,7 +222,6 @@ ipcMain.on('ipc-upload-code', async (event, data: { code: string; port: string }
 					case 'exit':
 					case 'fail':
 					case 'close':
-						uploadProcess?.kill();
 						event.reply('ipc-upload-code', {
 							success: false,
 							error: message.message ?? 'Unknown error',
@@ -263,7 +262,7 @@ ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown
 });
 
 async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
-	killRunningProcesses();
+	cleanupProcesses();
 	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`);
 
 	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
@@ -361,14 +360,9 @@ async function getKnownBoardsWithPorts() {
 	}
 }
 
-function killRunningProcesses() {
-	Array.from(processes).forEach(([pid, utilityProcess]) => {
-		utilityProcess.removeAllListeners();
-
-		if (!utilityProcess.kill()) {
-			log.warn('[PROCESS] Could not kill process', { pid, utilityProcess });
-		}
-
+function cleanupProcesses() {
+	for (const [pid, process] of Array.from(processes)) {
+		process.kill();
 		processes.delete(pid);
-	});
+	}
 }

@@ -54,8 +54,9 @@ export type BoardFlashResult = {
 };
 
 export type UploadRequest = {
-	code: string;
 	port: string;
+	nodes: Pick<Node, 'data' | 'id' | 'type'>[];
+	edges: Omit<Edge, 'id'>[];
 };
 
 export type UploadResponse = {

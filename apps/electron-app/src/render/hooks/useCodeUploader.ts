@@ -19,10 +19,9 @@ export function useCodeUploader() {
 	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
 	const { setUploadResult, setBoardResult } = useBoardStore();
 
-	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
+	const { getNodes, getEdges } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
-		console.time('uploadCode');
 		if (boardResult !== 'ready') return;
 		if (!config.ip && !port) return;
 
@@ -35,44 +34,28 @@ export function useCodeUploader() {
 		});
 		const edges = getEdges();
 
-		const internalNodes = nodes.map(node => getInternalNode(node.id));
-		const allowedEdges = edges.filter(edge => {
-			const sourceNode = internalNodes.find(
-				node =>
-					node?.id === edge.source &&
-					(node?.internals.handleBounds?.source?.find(handle => handle.id === edge.sourceHandle) ??
-						true),
-			);
-			const targetNode = internalNodes.find(
-				node =>
-					node?.id === edge.target &&
-					(node?.internals.handleBounds?.target?.find(handle => handle.id === edge.targetHandle) ??
-						true),
-			);
-
-			return sourceNode && targetNode;
-		});
-
-		const code = generateCode(nodes, allowedEdges);
-
-		console.time('send');
+		// const code = generateCode(nodes, allowedEdges);
+		// console.log(nodes, allowedEdges, code);
 		window.electron.ipcRenderer.send<UploadRequest>('ipc-upload-code', {
-			code,
+			// code,
+			nodes: nodes.map(node => {
+				const { group, tags, label, settingsOpen, subType, ...data } = node.data;
+
+				return {
+					data,
+					id: node.id,
+					type: node.type,
+				};
+			}),
+			edges: edges.map(edge => ({
+				target: edge.target,
+				targetHandle: edge.targetHandle,
+				source: edge.source,
+				sourceHandle: edge.sourceHandle,
+			})),
 			port: config.ip || port || '',
 		});
-		console.timeEnd('send');
-		console.timeEnd('uploadCode');
-	}, [
-		getNodes,
-		getEdges,
-		updateNodeData,
-		getInternalNode,
-		boardResult,
-		setUploadResult,
-		port,
-		config.ip,
-		clearNodeData,
-	]);
+	}, [getNodes, getEdges, boardResult, port, config.ip, clearNodeData, setUploadResult]);
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
