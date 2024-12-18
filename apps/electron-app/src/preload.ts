@@ -15,9 +15,9 @@ type Channels =
 export const electronHandler = {
 	ipcRenderer: {
 		send<Data>(channel: Channels, data?: Data) {
-			console.time('send');
+			console.time(`send ${channel}`);
 			ipcRenderer.send(channel, data);
-			console.timeEnd('send');
+			console.timeEnd(`send ${channel}`);
 		},
 		on<Data>(channel: Channels, callback: (response: IpcResponse<Data>) => void): () => void {
 			const listner = (_event: IpcRendererEvent, response: IpcResponse<Data>) => callback(response);

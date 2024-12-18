@@ -24,8 +24,6 @@ export function IpcMenuListeners() {
 		window.electron.ipcRenderer.on<{ button: string; args: any }>('ipc-menu', result => {
 			if (!result.success) return;
 
-			console.log(result);
-
 			switch (result.data.button) {
 				case 'save-flow':
 					saveNodesAndEdges();

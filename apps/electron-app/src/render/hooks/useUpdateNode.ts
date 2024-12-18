@@ -1,22 +1,23 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback } from 'react';
 import { useCodeUploader } from './useCodeUploader';
+import { useNodesChange } from '../stores/react-flow';
 
 export function useUpdateNode<T extends Record<string, any>>(nodeId: string) {
-	const { updateNodeData } = useReactFlow();
+	const { getNode } = useReactFlow();
 	const uploadCode = useCodeUploader();
+	const onNodesChange = useNodesChange();
 
 	const updateNode = useCallback(
-		(data: Partial<T>, updateCode = true) => {
-			updateNodeData(nodeId, data);
+		(data: T, updateCode = true) => {
+			const node = getNode(nodeId);
 
 			if (!updateCode) return;
 
-			setTimeout(() => {
-				uploadCode();
-			}, 150); // Sometimes we need to give the UI a bit of a head-start so we put this on eventloop queue for later
+			onNodesChange([{ id: nodeId, type: 'replace', item: { ...node!, data } }]);
+			uploadCode();
 		},
-		[uploadCode, updateNodeData, nodeId],
+		[uploadCode, getNode, nodeId, onNodesChange],
 	);
 
 	return updateNode;

@@ -25,7 +25,7 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	setNodes: (nodes: Node<NodeData>[]) => void;
 	setEdges: (edges: Edge[]) => void;
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
-	deleteSelectedNodes: () => void;
+	deleteSelectedNodesAndEdges: () => void;
 	history: LinkedList<{ nodes: Node[]; edges: Edge[] }>;
 	undo: () => void;
 	redo: () => void;
@@ -113,9 +113,10 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 
 			set({ edges });
 		},
-		deleteSelectedNodes: () => {
+		deleteSelectedNodesAndEdges: () => {
 			const nodes = get().nodes.filter(node => !node.selected);
-			set({ nodes });
+			const edges = get().edges.filter(edge => !edge.selected);
+			set({ nodes, edges });
 		},
 		undo: () => {
 			const history = get().history;
@@ -157,6 +158,6 @@ export function useEdges() {
 	return useReactFlowStore(useShallow(state => state.edges));
 }
 
-export function useDeleteSelectedNodes() {
-	return useReactFlowStore(useShallow(state => state.deleteSelectedNodes));
+export function useDeleteSelectedNodesAndEdges() {
+	return useReactFlowStore(useShallow(state => state.deleteSelectedNodesAndEdges));
 }

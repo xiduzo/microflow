@@ -168,36 +168,41 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const updateNode = useUpdateNode(id);
 
 	const ref = useRef<HTMLDivElement>(null);
-	const settings = useRef(data);
+	const [settings, setSettings] = useState<T & { label: string }>({} as T & { label: string });
 	const handlesToDelete = useRef<string[]>([]);
 
 	const setHandlesToDelete = useCallback((handles: string[]) => {
 		handlesToDelete.current = handles;
 	}, []);
 
-	console.log('>> NodeSettingsPane');
+	useEffect(() => {
+		if (settingsOpened) return;
+		// Create a copy of the data when the settings are closed
+		setSettings(data);
+	}, [settingsOpened, data]);
 
 	useEffect(() => {
-		console.log('>> NodeSettingsPane useEffect', settingsOpened);
-
 		if (!settingsOpened) return;
 
 		const pane = new Pane({
-			title: `${data.label} (${id})`,
+			title: `${settings.label} (${id})`,
 			container: ref.current ?? undefined,
 		});
 
 		function saveSettings() {
-			deleteEdes(id, handlesToDelete.current);
-			updateNode(settings.current, type !== 'Note');
-			updateNodeInternals(id);
+			if (handlesToDelete.current.length > 0) {
+				deleteEdes(id, handlesToDelete.current);
+				updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
+			}
+
+			updateNode(settings, type !== 'Note');
 		}
 
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
 		pane.registerPlugin(TweakpaneCameraPlugin);
 
-		pane.addBinding(settings.current, 'label', {
+		pane.addBinding(settings, 'label', {
 			index: 9996,
 		});
 
@@ -223,6 +228,8 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 				index: 9999,
 			})
 			.on('click', () => {
+				console.log(settings);
+				// TODO: when closing the node still gets update but it should revert to the previous state
 				setSettingsOpened(false);
 			});
 
@@ -231,7 +238,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 			changesButton.disabled = false;
 
-			// Automatically save changes is neat to have, unfortunately it will block the render process for now
+			// TODO Automatically save changes is neat to have, unfortunately it will block the render process for now
 			// See https://github.com/electron/electron/issues/45053#issuecomment-2549711790
 			// When resolved, we can use this to save the settings on change instead of a button click
 			// saveSettings();
@@ -245,15 +252,8 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		};
 	}, [settingsOpened, deleteEdes, type, id, updateNode, updateNodeInternals]);
 
-	useEffect(() => {
-		if (settingsOpened) return;
-		settings.current = { ...data };
-	}, [data, settingsOpened]);
-
 	return (
-		<NodeSettingsPaneContext.Provider
-			value={{ pane, settings: settings.current, setHandlesToDelete }}
-		>
+		<NodeSettingsPaneContext.Provider value={{ pane, settings, setHandlesToDelete }}>
 			{props.children}
 			{settingsOpened &&
 				createPortal(

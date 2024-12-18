@@ -35,10 +35,8 @@ function Value() {
 
 function Settings() {
 	const { pane, settings } = useNodeSettings<OscillatorData>();
-	console.log('>> Settings');
 
 	useEffect(() => {
-		console.log('>> pane');
 		if (!pane) return;
 
 		pane.addBinding(settings, 'waveform', {

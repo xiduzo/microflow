@@ -9,7 +9,7 @@ import type { Edge, Node } from '@xyflow/react';
 import { ipcMain, IpcMainEvent, Menu, utilityProcess, UtilityProcess } from 'electron';
 
 import log from 'electron-log/node';
-import { existsSync, writeFile, writeFileSync } from 'fs';
+import { existsSync, writeFile } from 'fs';
 import { join, resolve } from 'path';
 import {
 	BoardResult,
@@ -20,7 +20,6 @@ import {
 } from '../common/types';
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
-import { UploadResult } from '../../out/microflow-studio/Microflow studio-darwin-arm64/Microflow studio.app/Contents/Resources/app/src/common/types';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -124,7 +123,7 @@ async function checkBoardOnPort(
 			log.debug('[CHECK] [STDOUT]', data.toString());
 		});
 
-		checkProcess.on('message', async (data: UploadResult) => {
+		checkProcess.on('message', async (data: UploadResponse) => {
 			try {
 				switch (data.type) {
 					case 'error':
@@ -349,6 +348,8 @@ function cleanupProcesses() {
 			log.debug(`[CLEANUP] process ${pid} exited`);
 			processes.delete(pid);
 		});
+		// Killing utility processes will freeze the main process and renderer process
+		// see https://github.com/electron/electron/issues/45053
 		process.kill();
 	}
 }
