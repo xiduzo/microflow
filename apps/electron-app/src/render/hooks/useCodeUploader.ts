@@ -1,15 +1,15 @@
 import { useReactFlow } from '@xyflow/react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { isNodeTypeACodeType } from '../../utils/generateCode';
-import { useNodeAndEdgeCount } from '../stores/react-flow';
 import { useBoardPort, useBoardResult, useBoardStore, useUploadResult } from '../stores/board';
 import { UploadRequest, UploadResponse } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
-import { useShallow } from 'zustand/react/shallow';
 import { useNewNodeStore } from '../stores/new-node';
+import { useShallow } from 'zustand/react/shallow';
+import { useNodeAndEdgeCount } from '../stores/react-flow';
 
 export function useCodeUploader() {
 	const clearNodeData = useClearNodeData();
@@ -64,7 +64,6 @@ export function useCodeUploader() {
 				return;
 			}
 
-			console.log(result);
 			setUploadResult(result.data);
 
 			switch (result.data.type) {
@@ -83,40 +82,52 @@ export function useCodeUploader() {
 	return uploadCode;
 }
 
-export function useAutoCodeUploader() {
-	const uploadCode = useCodeUploader();
+export function useHasChangesToUpload() {
 	const nodeToAdd = useNewNodeStore(useShallow(state => state.nodeToAdd));
-	const boardResult = useBoardResult();
 	const uploadResult = useUploadResult();
-	const debounce = useRef<NodeJS.Timeout>();
 
-	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
+	const [hasChangesToUpload, setHasChangesToUpload] = useState(false);
 
 	const lastNodesCount = useRef(-1);
 	const lastEdgesCount = useRef(-1);
+	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
 
 	useEffect(() => {
+		// We do not want to probe the user to upload code while they are adding a new node
 		if (nodeToAdd?.length) return;
-		if (boardResult !== 'ready') return;
 
+		// Nothing changed
 		if (lastNodesCount.current === nodesCount && lastEdgesCount.current === edgesCount) return;
 
 		lastNodesCount.current = nodesCount;
 		lastEdgesCount.current = edgesCount;
 
-		debounce.current = setTimeout(() => {
-			uploadCode();
-		}, 1_000);
-
-		return () => {
-			clearTimeout(debounce.current);
-		};
-	}, [nodesCount, edgesCount, uploadCode, boardResult, nodeToAdd]);
+		setHasChangesToUpload(true);
+	}, [nodesCount, edgesCount, nodeToAdd]);
 
 	useEffect(() => {
-		if (uploadResult !== 'close') return;
+		if (uploadResult !== 'ready') return;
 
-		lastNodesCount.current = -1;
-		lastEdgesCount.current = -1;
-	}, [boardResult]);
+		// We have just uploaded the code, so we can reset the flag
+		setHasChangesToUpload(false);
+	}, [uploadResult]);
+
+	return hasChangesToUpload;
+}
+
+export function useFirstUpload() {
+	const isFirstUpload = useRef(false);
+	const boardResult = useBoardResult();
+	const uploadCode = useCodeUploader();
+
+	useEffect(() => {
+		if (isFirstUpload.current) return;
+		if (boardResult !== 'ready') return;
+
+		console.log('First upload');
+
+		isFirstUpload.current = true;
+
+		uploadCode();
+	}, [boardResult, uploadCode]);
 }

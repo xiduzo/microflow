@@ -1,26 +1,32 @@
-import { Badge, cva, Icons } from '@microflow/ui';
-import { useAutoCodeUploader } from '../../../hooks/useCodeUploader';
+import { Badge, Button, cva, Icons, useAutoAnimate } from '@microflow/ui';
 import { useBoardResult, useUploadResult } from '../../../stores/board';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../../forms/AdvancedSettingsForm';
+import {
+	useCodeUploader,
+	useFirstUpload,
+	useHasChangesToUpload,
+} from '../../../hooks/useCodeUploader';
 
 export function SerialConnectionStatusPanel() {
+	const [animationRef] = useAutoAnimate();
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
 	const boardResult = useBoardResult();
 	const uploadResult = useUploadResult();
-	useAutoCodeUploader();
+	const hasChangesToUpload = useHasChangesToUpload();
+	const uploadCode = useCodeUploader();
+	useFirstUpload();
 
 	if (uploadResult === 'error') {
 		return (
 			<Badge variant="destructive" className={badge({ variant: 'destructive' })}>
 				Upload failed for unknown reasons
-				{/* <Icons.Upload className="ml-2 h-3 w-3" /> */}
 			</Badge>
 		);
 	}
 
 	if (boardResult === 'ready') {
-		if (uploadResult === 'info' || uploadResult === 'close') {
+		if (uploadResult === 'info') {
 			return (
 				<Badge className={badge({ variant: 'warning' })}>
 					Uploading your flow
@@ -30,10 +36,22 @@ export function SerialConnectionStatusPanel() {
 		}
 
 		return (
-			<Badge className={badge({ variant: 'success' })}>
-				Microcontroller in sync with flow
-				{uploadResult === 'ready' && <Icons.ChevronsLeftRightEllipsis className="ml-2 h-3 w-3" />}
-			</Badge>
+			<section className="flex flex-col gap-3" ref={animationRef}>
+				<Badge
+					className={badge({
+						variant: 'success',
+						className: hasChangesToUpload ? 'animate-pulse' : '',
+					})}
+				>
+					Microcontroller in sync with flow
+					{uploadResult === 'ready' && <Icons.ChevronsLeftRightEllipsis className="ml-2 h-3 w-3" />}
+				</Badge>
+				{hasChangesToUpload && (
+					<Button size="sm" variant="link" onClick={uploadCode}>
+						Apply changes
+					</Button>
+				)}
+			</section>
 		);
 	}
 
@@ -42,15 +60,6 @@ export function SerialConnectionStatusPanel() {
 			<Badge className={badge({ variant: 'info' })}>
 				Connecting to your microcontroller
 				<Icons.LoaderCircle className="ml-2 h-3 w-3 animate-spin" />
-			</Badge>
-		);
-	}
-
-	if (['fail', 'warn', 'error'].includes(boardResult)) {
-		console.debug('SerialConnectionStatus - checkResult', boardResult);
-		return (
-			<Badge variant="destructive" className={badge({ variant: 'destructive' })}>
-				Unknown error occurred
 			</Badge>
 		);
 	}
