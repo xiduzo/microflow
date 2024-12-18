@@ -12,6 +12,10 @@ type Channels =
 	| 'ipc-deep-link'
 	| 'ipc-export-flow';
 
+type IpcCallback<Data> = (response: IpcResponse<Data>) => void;
+type Listener = (event: IpcRendererEvent, response: IpcResponse<any>) => void;
+const listeners = new Map<string, Listener>();
+
 export const electronHandler = {
 	ipcRenderer: {
 		send<Data>(channel: Channels, data?: Data) {
@@ -19,13 +23,26 @@ export const electronHandler = {
 			ipcRenderer.send(channel, data);
 			console.timeEnd(`send ${channel}`);
 		},
-		on<Data>(channel: Channels, callback: (response: IpcResponse<Data>) => void): () => void {
-			const listner = (_event: IpcRendererEvent, response: IpcResponse<Data>) => callback(response);
+		/**
+		 * Only one listener per channel is allowed.
+		 *
+		 * Adding multiple listeners will overwrite the previous one.
+		 */
+		on<Data>(channel: Channels, callback: IpcCallback<Data>): () => void {
+			const listener = (_event: IpcRendererEvent, response: IpcResponse<Data>) =>
+				callback(response);
 
-			ipcRenderer.on(channel, listner);
+			const previousListener = listeners.get(channel);
+			if (previousListener) {
+				ipcRenderer.removeListener(channel, previousListener);
+				listeners.delete(channel);
+			}
+
+			listeners.set(channel, listener);
+			ipcRenderer.on(channel, listener);
 
 			return () => {
-				ipcRenderer.removeListener(channel, listner);
+				ipcRenderer.removeListener(channel, listener);
 			};
 		},
 		once<Data>(channel: Channels, callback: (response: IpcResponse<Data>) => void) {

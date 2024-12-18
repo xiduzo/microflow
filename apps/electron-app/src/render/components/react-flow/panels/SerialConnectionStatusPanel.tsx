@@ -36,7 +36,7 @@ export function SerialConnectionStatusPanel() {
 		}
 
 		return (
-			<section className="flex flex-col gap-3" ref={animationRef}>
+			<section className="flex flex-col gap-3">
 				<Badge
 					className={badge({
 						variant: 'success',
@@ -46,11 +46,13 @@ export function SerialConnectionStatusPanel() {
 					Microcontroller in sync with flow
 					{uploadResult === 'ready' && <Icons.ChevronsLeftRightEllipsis className="ml-2 h-3 w-3" />}
 				</Badge>
-				{hasChangesToUpload && (
-					<Button size="sm" variant="link" onClick={uploadCode}>
-						Apply changes
-					</Button>
-				)}
+				<div ref={animationRef}>
+					{hasChangesToUpload && (
+						<Button size="sm" variant="link" onClick={uploadCode}>
+							Apply changes
+						</Button>
+					)}
+				</div>
 			</section>
 		);
 	}

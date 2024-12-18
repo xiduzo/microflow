@@ -198,6 +198,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 
 		uploadProcess.on('message', (message: UploadedCodeMessage | UploadResponse) => {
 			if ('type' in message) {
+				log.debug('[UPLOAD] message', message);
 				switch (message.type) {
 					case 'error':
 					case 'exit':
@@ -218,13 +219,14 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 					default:
 						log.debug('Not handling message', { message });
 				}
-				return;
 			}
 
-			event.reply('ipc-microcontroller', {
-				data: message,
-				success: true,
-			} satisfies IpcResponse<UploadedCodeMessage>);
+			if ('action' in message) {
+				event.reply('ipc-microcontroller', {
+					data: message,
+					success: true,
+				} satisfies IpcResponse<UploadedCodeMessage>);
+			}
 		});
 	});
 });

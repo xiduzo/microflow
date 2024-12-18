@@ -28,11 +28,14 @@ export function useCheckBoard() {
 	});
 
 	useEffect(() => {
+		console.debug(`[CHECK] >>>`, { ip });
 		window.electron.ipcRenderer.send('ipc-check-board', { ip });
 	}, []);
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<BoardResult>('ipc-check-board', result => {
+			console.debug(`[CHECK] <<<`, result);
+
 			if (!result.success) {
 				toast.warning(result.error);
 				return;
@@ -43,6 +46,7 @@ export function useCheckBoard() {
 			const isInfo = result.data.type === 'info';
 			const isClose = result.data.type === 'close';
 			if (isClose || (isInfo && !result.data.port)) {
+				console.debug(`[CHECK] >>>`, { ip });
 				window.electron.ipcRenderer.send('ipc-check-board', { ip });
 			}
 		});

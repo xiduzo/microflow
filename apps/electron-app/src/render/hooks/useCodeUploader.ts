@@ -36,6 +36,7 @@ export function useCodeUploader() {
 
 		// const code = generateCode(nodes, allowedEdges);
 		// console.log(nodes, allowedEdges, code);
+		console.debug(`[UPLOAD] >>>`, { nodes: nodes.length, edges: edges.length });
 		window.electron.ipcRenderer.send<UploadRequest>('ipc-upload-code', {
 			// code,
 			nodes: nodes.map(node => {
@@ -59,6 +60,8 @@ export function useCodeUploader() {
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
+			console.debug(`[UPLOAD] <<<`, result);
+
 			if (!result.success) {
 				toast.error(result.error);
 				return;
@@ -70,6 +73,7 @@ export function useCodeUploader() {
 				case 'close':
 					toast.warning(result.data.message);
 					setBoardResult({ type: 'close' });
+					console.debug(`[CHECK] >>>`, { ip: config.ip });
 					window.electron.ipcRenderer.send('ipc-check-board', { ip: config.ip });
 					break;
 				case 'error':
