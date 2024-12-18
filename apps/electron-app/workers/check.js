@@ -1,112 +1,70 @@
 const { Board, TcpSerial } = require('@microflow/components');
 
-const port = process.argv.at(-1);
+const port = process?.argv?.at(-1);
 
 if (!port) {
-	process.parentPort.postMessage({
-		type: 'info',
-		message:
-			'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
-	});
+	console.info(
+		JSON.stringify({
+			type: 'info',
+			message:
+				'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
+		}),
+	);
 }
 
-let board;
+function stdout(data) {
+	process.parentPort.postMessage(data);
+}
 
 try {
 	const ipRegex = new RegExp(
 		/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/,
 	);
-	const portIsIp = ipRegex.test(port);
 	let connection;
 
-	if (portIsIp) {
+	if (ipRegex.test(port)) {
 		connection = new TcpSerial({ host: port, port: 3030 });
 
-		connection.on('close', () => {
-			process.parentPort.postMessage({
+		connection.on('close', () =>
+			stdout({
 				type: 'close',
 				message: `Connection not reachable on ${port}`,
 				class: TcpSerial.name,
-			});
-		});
+			}),
+		);
 	}
 
-	board = new Board({
+	const board = new Board({
 		repl: false,
 		debug: true,
 		port: connection || port,
 	});
 
-	process.parentPort.postMessage({
-		type: 'info',
-		message: 'checking microcontroller',
-	});
+	// This event will emit after the connect event and only when the Board instance object has completed
+	// any hardware initialization that must take place before the program can operate.
+	// This process is asynchronous, and completion is signified to the program via a "ready" event
+	// For on-board execution, ready should emit after connect.
+	board.on('ready', () => stdout({ type: 'ready' }));
+	// When board is found but no Firmata is flashed
+	board.on('error', error => stdout({ type: 'error', message: error.message }));
+	// This event is emitted synchronously on SIGINT.
+	// Use this handler to do any necessary cleanup before your program is "disconnected" from the board.
+	board.on('exit', () => stdout({ type: 'exit' }));
+	// This event is emmited when the device does not respond.
+	// Can be used to detect if board gets disconnected.
+	board.on('close', () => stdout({ type: 'close' }));
+	// This event will emit once the program has "connected" to the board.
+	// This may be immediate, or after some amount of time, but is always asynchronous.
+	// For on-board execution, connect should emit as soon as possible, but asynchronously.
+	board.on('connect', () => stdout({ type: 'connect' }));
+	// This event will emit for any logging message: info, warn or fail.
+	board.on('message', stdout);
 
-	board.on('info', event => {
-		process.parentPort.postMessage({
-			type: 'info',
-			message: event.message,
-			class: event.class,
-		});
-	});
-
-	board.on('ready', () => {
-		// When board is connected and Firmata is flashed
-		process.parentPort.postMessage({
-			type: 'ready',
-			pins:
-				Object.entries(board.pins)?.reduce((acc, [key, value]) => {
-					acc.push({
-						pin: Number(key),
-						...value,
-					});
-					return acc;
-				}, []) ?? [],
-		});
-	});
-
-	board.on('error', error => {
-		// When board is found but no Firmata is flashed
-		process.parentPort.postMessage({
-			type: 'error',
-			message: error.message,
-		});
-	});
-
-	board.on('fail', event => {
-		// When board is not found
-		process.parentPort.postMessage({
-			type: 'fail',
-			message: event.message,
-			class: event.class,
-		});
-	});
-
-	board.on('warn', event => {
-		// TODO: find out when this fires
-		process.parentPort.postMessage({
-			type: 'warn',
-			message: event.message,
-			class: event.class,
-		});
-	});
-
-	board.on('exit', () => {
-		// TODO: find out when this fires
-		process.parentPort.postMessage({
-			type: 'exit',
-		});
-	});
-
-	board.on('close', () => {
-		// TODO: find out when this fires
-		process.parentPort.postMessage({
-			type: 'close',
-		});
+	process.parentPort.on('message', message => {
+		if (message !== 'exit') return;
+		board.io.close();
+		process.parentPort.exit(128);
 	});
 } catch (error) {
-	process.parentPort.postMessage({
-		type: 'error',
-		message: error.message,
-	});
+	stdout({ type: 'error', ...error });
 }

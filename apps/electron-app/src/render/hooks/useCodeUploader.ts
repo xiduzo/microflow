@@ -1,9 +1,9 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef } from 'react';
-import { generateCode, isNodeTypeACodeType } from '../../utils/generateCode';
+import { isNodeTypeACodeType } from '../../utils/generateCode';
 import { useNodeAndEdgeCount } from '../stores/react-flow';
 import { useBoardPort, useBoardResult, useBoardStore, useUploadResult } from '../stores/board';
-import { UploadResult } from '../../common/types';
+import { UploadRequest, UploadResponse } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
 import { useLocalStorage } from 'usehooks-ts';
@@ -19,10 +19,11 @@ export function useCodeUploader() {
 	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
 	const { setUploadResult, setBoardResult } = useBoardStore();
 
-	const { updateNodeData, getNodes, getEdges, getInternalNode } = useReactFlow();
+	const { getNodes, getEdges } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
 		if (boardResult !== 'ready') return;
+		if (!config.ip && !port) return;
 
 		clearNodeData();
 		setUploadResult({ type: 'info' });
@@ -33,58 +34,51 @@ export function useCodeUploader() {
 		});
 		const edges = getEdges();
 
-		const internalNodes = nodes.map(node => getInternalNode(node.id));
-		const allowedEdges = edges.filter(edge => {
-			const sourceNode = internalNodes.find(
-				node =>
-					node?.id === edge.source &&
-					(node?.internals.handleBounds?.source?.find(handle => handle.id === edge.sourceHandle) ??
-						true),
-			);
-			const targetNode = internalNodes.find(
-				node =>
-					node?.id === edge.target &&
-					(node?.internals.handleBounds?.target?.find(handle => handle.id === edge.targetHandle) ??
-						true),
-			);
+		// const code = generateCode(nodes, allowedEdges);
+		// console.log(nodes, allowedEdges, code);
+		window.electron.ipcRenderer.send<UploadRequest>('ipc-upload-code', {
+			// code,
+			nodes: nodes.map(node => {
+				const { group, tags, label, settingsOpen, subType, ...data } = node.data;
 
-			return sourceNode && targetNode;
+				return {
+					data,
+					id: node.id,
+					type: node.type,
+				};
+			}),
+			edges: edges.map(edge => ({
+				target: edge.target,
+				targetHandle: edge.targetHandle,
+				source: edge.source,
+				sourceHandle: edge.sourceHandle,
+			})),
+			port: config.ip || port || '',
 		});
+	}, [getNodes, getEdges, boardResult, port, config.ip, clearNodeData, setUploadResult]);
 
-		const code = generateCode(nodes, allowedEdges);
-
-		const off = window.electron.ipcRenderer.on<UploadResult>('ipc-upload-code', result => {
+	useEffect(() => {
+		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
 			if (!result.success) {
 				toast.error(result.error);
 				return;
 			}
 
+			console.log(result);
 			setUploadResult(result.data);
 
-			if (result.data.type === 'error') toast.error(result.data.message);
-			if (result.data.type === 'close') {
-				result.data.message && toast.warning(result.data.message);
-				setBoardResult({ type: 'close' });
-				window.electron.ipcRenderer.send('ipc-check-board', { ip: config.ip });
+			switch (result.data.type) {
+				case 'close':
+					toast.warning(result.data.message);
+					setBoardResult({ type: 'close' });
+					window.electron.ipcRenderer.send('ipc-check-board', { ip: config.ip });
+					break;
+				case 'error':
+					toast.error(result.data.message);
+					break;
 			}
 		});
-
-		window.electron.ipcRenderer.send('ipc-upload-code', { code, port: config.ip || port });
-
-		return () => {
-			off();
-		};
-	}, [
-		getNodes,
-		getEdges,
-		updateNodeData,
-		getInternalNode,
-		boardResult,
-		setUploadResult,
-		port,
-		config.ip,
-		clearNodeData,
-	]);
+	}, [config.ip]);
 
 	return uploadCode;
 }

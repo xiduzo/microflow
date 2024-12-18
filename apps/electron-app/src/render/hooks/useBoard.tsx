@@ -29,21 +29,21 @@ export function useCheckBoard() {
 
 	useEffect(() => {
 		window.electron.ipcRenderer.send('ipc-check-board', { ip });
+	}, []);
 
+	useEffect(() => {
 		return window.electron.ipcRenderer.on<BoardResult>('ipc-check-board', result => {
-			if (!result.success) return;
+			if (!result.success) {
+				toast.warning(result.error);
+				return;
+			}
+
 			setBoardResult(result.data);
 
-			switch (result.data.type) {
-				case 'error':
-				case 'exit':
-				case 'fail':
-				case 'close':
-					result.data.message && toast.warning(result.data.message);
-					setTimeout(() => {
-						window.electron.ipcRenderer.send('ipc-check-board', { ip });
-					}, 1000); // don't force it too much, give the boards some time
-					break;
+			const isInfo = result.data.type === 'info';
+			const isClose = result.data.type === 'close';
+			if (isClose || (isInfo && !result.data.port)) {
+				window.electron.ipcRenderer.send('ipc-check-board', { ip });
 			}
 		});
 	}, [ip]);

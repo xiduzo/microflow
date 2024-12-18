@@ -42,11 +42,9 @@ export type Pin = {
 };
 
 export type BoardResult = {
-	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error';
-	port?: string;
-	pins?: Pin[];
+	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error' | 'connect';
 	message?: string;
-	class?: 'Available' | 'Connected' | 'Board';
+	port?: string;
 };
 
 export type BoardFlashResult = {
@@ -54,7 +52,13 @@ export type BoardFlashResult = {
 	message?: string;
 };
 
-export type UploadResult = {
+export type UploadRequest = {
+	port: string;
+	nodes: Pick<Node, 'data' | 'id' | 'type'>[];
+	edges: Omit<Edge, 'id'>[];
+};
+
+export type UploadResponse = {
 	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error';
 	message?: string;
 	pins?: Pin[];

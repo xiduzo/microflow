@@ -175,7 +175,11 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		handlesToDelete.current = handles;
 	}, []);
 
+	console.log('>> NodeSettingsPane');
+
 	useEffect(() => {
+		console.log('>> NodeSettingsPane useEffect', settingsOpened);
+
 		if (!settingsOpened) return;
 
 		const pane = new Pane({
@@ -189,19 +193,29 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			updateNodeInternals(id);
 		}
 
-		pane.on('change', event => {
-			if (!event.last) return;
-
-			saveSettings();
-		});
-
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
 		pane.registerPlugin(TweakpaneCameraPlugin);
 
 		pane.addBinding(settings.current, 'label', {
-			index: 9998,
+			index: 9996,
 		});
+
+		pane.addBlade({
+			view: 'separator',
+			index: 9997,
+		});
+
+		const changesButton = pane
+			.addButton({
+				title: 'Apply changes',
+				disabled: true,
+				index: 9998,
+			})
+			.on('click', () => {
+				changesButton.disabled = true;
+				saveSettings();
+			});
 
 		pane
 			.addButton({
@@ -211,6 +225,17 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			.on('click', () => {
 				setSettingsOpened(false);
 			});
+
+		pane.on('change', event => {
+			if (!event.last) return;
+
+			changesButton.disabled = false;
+
+			// Automatically save changes is neat to have, unfortunately it will block the render process for now
+			// See https://github.com/electron/electron/issues/45053#issuecomment-2549711790
+			// When resolved, we can use this to save the settings on change instead of a button click
+			// saveSettings();
+		});
 
 		setPane(pane);
 

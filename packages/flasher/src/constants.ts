@@ -45,7 +45,7 @@ export const BOARDS = [
 		protocol: Stk500v1,
 	},
 	{
-		name: 'nano (new bootloader)',
+		name: 'nano', // new bootloader
 		baudRate: 115200,
 		signature: Buffer.from([0x1e, 0x95, 0x0f]),
 		pageSize: 128,
