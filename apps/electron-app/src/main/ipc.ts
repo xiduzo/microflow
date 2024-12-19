@@ -12,7 +12,7 @@ import log from 'electron-log/node';
 import { existsSync, writeFile } from 'fs';
 import { join, resolve } from 'path';
 import {
-	BoardResult,
+	BoardCheckResult,
 	IpcResponse,
 	UploadRequest,
 	UploadResponse,
@@ -64,6 +64,10 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
+			event.reply('ipc-check-board', {
+				success: true,
+				data: { type: 'info', port: port.path },
+			} satisfies IpcResponse<BoardCheckResult>);
 			void sniffPorts(event, { connectedPort: port });
 			log.debug(`[CHECK] checking board ${board} on path ${port.path}`);
 
@@ -73,14 +77,14 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 				event.reply('ipc-check-board', {
 					success: true,
 					data: { type: 'ready', port: port.path },
-				} satisfies IpcResponse<BoardResult>);
+				} satisfies IpcResponse<BoardCheckResult>);
 				break checkBoard;
 			} catch (error) {
 				log.error('[CHECK]', board, port, error);
 				event.reply('ipc-check-board', {
 					success: false,
 					error: (error as any)?.message ?? 'Unknown error',
-				} satisfies IpcResponse<BoardResult>);
+				} satisfies IpcResponse<BoardCheckResult>);
 			}
 
 			cleanupProcesses();
@@ -116,7 +120,7 @@ async function checkBoardOnPort(
 			event.reply('ipc-check-board', {
 				success: false,
 				error: data.toString(),
-			} satisfies IpcResponse<BoardResult>);
+			} satisfies IpcResponse<BoardCheckResult>);
 		});
 
 		checkProcess.stdout?.on('data', async data => {
@@ -289,7 +293,7 @@ async function sniffPorts(
 		event.reply('ipc-check-board', {
 			success: true,
 			data: { type: 'close', message: 'Connected port is no longer connected' },
-		} satisfies IpcResponse<BoardResult>);
+		} satisfies IpcResponse<BoardCheckResult>);
 		return;
 	}
 
@@ -298,7 +302,7 @@ async function sniffPorts(
 		event.reply('ipc-check-board', {
 			success: true,
 			data: { type: 'info', message: 'Ports have changed' },
-		} satisfies IpcResponse<BoardResult>);
+		} satisfies IpcResponse<BoardCheckResult>);
 		return;
 	}
 

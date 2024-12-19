@@ -228,8 +228,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 				index: 9999,
 			})
 			.on('click', () => {
-				console.log(settings);
-				// TODO: when closing the node still gets update but it should revert to the previous state
 				setSettingsOpened(false);
 			});
 

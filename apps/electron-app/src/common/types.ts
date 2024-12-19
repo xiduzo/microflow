@@ -41,7 +41,7 @@ export type Pin = {
 	pin: number;
 };
 
-export type BoardResult = {
+export type BoardCheckResult = {
 	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error' | 'connect';
 	message?: string;
 	port?: string;

@@ -1,10 +1,10 @@
 import { create } from 'zustand';
-import { BoardResult, UploadResponse } from '../../common/types';
+import { BoardCheckResult, UploadResponse } from '../../common/types';
 import { useShallow } from 'zustand/react/shallow';
 
 type BoardState = {
-	board: BoardResult;
-	setBoardResult: (result: BoardResult) => void;
+	board: BoardCheckResult;
+	setBoardResult: (result: BoardCheckResult) => void;
 	upload: UploadResponse;
 	setUploadResult: (result: UploadResponse) => void;
 };
@@ -12,7 +12,7 @@ type BoardState = {
 export const useBoardStore = create<BoardState>((set, get) => {
 	return {
 		board: { type: 'close' },
-		setBoardResult: (result: BoardResult) => {
+		setBoardResult: (result: BoardCheckResult) => {
 			set({ board: result });
 		},
 		upload: { type: 'close' },
@@ -31,5 +31,5 @@ export const useUploadResult = () =>
 export const useBoardPort = () =>
 	useBoardStore(useShallow((state: BoardState) => state.board.port));
 
-export const useBoardResult = () =>
+export const useBoardCheckResult = () =>
 	useBoardStore(useShallow((state: BoardState) => state.board.type));

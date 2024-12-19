@@ -29,11 +29,11 @@ export function App() {
 							<NodeAndEdgeSignaler />
 							<ReactFlowCanvas />
 							<IpcMenuListeners />
+							<BoardHooks />
 						</ReactFlowProvider>
 					</FigmaProvider>
 				</MqttProvider>
 			</CelebrationProvider>
-			<BoardHooks />
 		</>
 	);
 }

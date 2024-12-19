@@ -1,7 +1,7 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isNodeTypeACodeType } from '../../utils/generateCode';
-import { useBoardPort, useBoardResult, useBoardStore, useUploadResult } from '../stores/board';
+import { useBoardPort, useBoardStore, useUploadResult } from '../stores/board';
 import { UploadRequest, UploadResponse } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
@@ -13,7 +13,6 @@ import { useNodeAndEdgeCount } from '../stores/react-flow';
 
 export function useCodeUploader() {
 	const clearNodeData = useClearNodeData();
-	const boardResult = useBoardResult();
 
 	const port = useBoardPort();
 	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
@@ -22,7 +21,6 @@ export function useCodeUploader() {
 	const { getNodes, getEdges } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
-		if (boardResult !== 'ready') return;
 		if (!config.ip && !port) return;
 
 		clearNodeData();
@@ -56,7 +54,7 @@ export function useCodeUploader() {
 			})),
 			port: config.ip || port || '',
 		});
-	}, [getNodes, getEdges, boardResult, port, config.ip, clearNodeData, setUploadResult]);
+	}, [getNodes, getEdges, port, config.ip, clearNodeData, setUploadResult]);
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
@@ -117,21 +115,4 @@ export function useHasChangesToUpload() {
 	}, [uploadResult]);
 
 	return hasChangesToUpload;
-}
-
-export function useFirstUpload() {
-	const isFirstUpload = useRef(false);
-	const boardResult = useBoardResult();
-	const uploadCode = useCodeUploader();
-
-	useEffect(() => {
-		if (isFirstUpload.current) return;
-		if (boardResult !== 'ready') return;
-
-		console.log('First upload');
-
-		isFirstUpload.current = true;
-
-		uploadCode();
-	}, [boardResult, uploadCode]);
 }
