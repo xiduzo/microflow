@@ -4,7 +4,8 @@
 	"main": "./dist/index.js",
 	"scripts": {
 		"dev": "tsc -w",
-		"build": "tsc"
+		"build": "tsc",
+		"test": "npx tsx ./test.ts"
 	},
 	"devDependencies": {
 		"@types/johnny-five": "2.1.10",

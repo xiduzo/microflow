@@ -19,7 +19,5 @@ export function postMessageToElectronMain<T>(message: Message<T>) {
 		return;
 	}
 
-	log.warn(
-		'postMessageToElectronMain: process.parentPort is not available. Are you running in a node process?',
-	);
+	log.info(message);
 }

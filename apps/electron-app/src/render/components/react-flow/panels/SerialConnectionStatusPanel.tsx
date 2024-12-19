@@ -1,31 +1,28 @@
-import { Badge, Button, cva, Icons, useAutoAnimate } from '@microflow/ui';
-import { useBoardResult, useUploadResult } from '../../../stores/board';
+import { Badge, Button, cva, Icons, useAutoAnimate, VariantProps } from '@microflow/ui';
+import { useBoardCheckResult, useUploadResult } from '../../../stores/board';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../../forms/AdvancedSettingsForm';
-import {
-	useCodeUploader,
-	useFirstUpload,
-	useHasChangesToUpload,
-} from '../../../hooks/useCodeUploader';
+import { useCodeUploader, useHasChangesToUpload } from '../../../hooks/useCodeUploader';
+import { useMemo } from 'react';
 
 export function SerialConnectionStatusPanel() {
 	const [animationRef] = useAutoAnimate();
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
-	const boardResult = useBoardResult();
+	const boardCheckResult = useBoardCheckResult();
 	const uploadResult = useUploadResult();
 	const hasChangesToUpload = useHasChangesToUpload();
 	const uploadCode = useCodeUploader();
-	useFirstUpload();
 
 	if (uploadResult === 'error') {
 		return (
-			<Badge variant="destructive" className={badge({ variant: 'destructive' })}>
+			<Badge className={badge({ variant: 'destructive' })}>
 				Upload failed for unknown reasons
+				<Icons.X className="ml-2 h-3 w-3" />
 			</Badge>
 		);
 	}
 
-	if (boardResult === 'ready') {
+	if (boardCheckResult === 'ready') {
 		if (uploadResult === 'info') {
 			return (
 				<Badge className={badge({ variant: 'warning' })}>
@@ -35,29 +32,31 @@ export function SerialConnectionStatusPanel() {
 			);
 		}
 
-		return (
-			<section className="flex flex-col gap-3">
-				<Badge
-					className={badge({
-						variant: 'success',
-						className: hasChangesToUpload ? 'animate-pulse' : '',
-					})}
-				>
-					Microcontroller in sync with flow
-					{uploadResult === 'ready' && <Icons.ChevronsLeftRightEllipsis className="ml-2 h-3 w-3" />}
-				</Badge>
-				<div ref={animationRef}>
-					{hasChangesToUpload && (
+		if (hasChangesToUpload) {
+			return (
+				<section className="flex flex-col gap-3">
+					<Badge className={badge({ variant: 'success', className: 'animate-pulse' })}>
+						New changes found to upload
+						<Icons.Replace className="ml-2 h-3 w-3" />
+					</Badge>
+					<div ref={animationRef} className="flex justify-center items-center">
 						<Button size="sm" variant="link" onClick={uploadCode}>
 							Apply changes
 						</Button>
-					)}
-				</div>
-			</section>
+					</div>
+				</section>
+			);
+		}
+
+		return (
+			<Badge className={badge({ variant: 'success' })}>
+				'Microcontroller in sync with flow'
+				<Icons.ChevronsLeftRightEllipsis className="ml-2 h-3 w-3" />
+			</Badge>
 		);
 	}
 
-	if (boardResult === 'info') {
+	if (boardCheckResult === 'info') {
 		return (
 			<Badge className={badge({ variant: 'info' })}>
 				Connecting to your microcontroller
@@ -68,14 +67,13 @@ export function SerialConnectionStatusPanel() {
 
 	return (
 		<Badge className={badge({ variant: 'plain' })}>
-			Connect your microcontroller {!!ip ? `on ${ip}` : 'via USB'}
-			{!ip && <Icons.Usb className="ml-2 h-3 w-3" />}
-			{!!ip && <Icons.Wifi className="ml-2 h-3 w-3" />}
+			Connect your microcontroller {ip ? `on ${ip}` : 'via USB'}
+			{ip ? <Icons.Wifi className="ml-2 h-3 w-3" /> : <Icons.Usb className="ml-2 h-3 w-3" />}
 		</Badge>
 	);
 }
 
-const badge = cva('pointer-events-none select-none', {
+const badge = cva('pointer-events-none select-none transition-colors', {
 	variants: {
 		variant: {
 			success: 'bg-green-400 text-green-900',

@@ -1,8 +1,11 @@
-import JohnnyFive, { Led } from 'johnny-five';
+import JohnnyFive from 'johnny-five';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 import { DEFAULT_MATRIX_START_SHAPE, type MatrixShape } from '../constants/Matrix';
 
-export type MatrixData = Omit<Led.MatrixOption & Led.MatrixIC2Option, 'board'> & {
+export type MatrixData = Omit<
+	JohnnyFive.Led.MatrixOption & JohnnyFive.Led.MatrixIC2Option,
+	'board'
+> & {
 	shapes: MatrixShape[];
 };
 export type MatrixValueType = MatrixShape;
@@ -13,7 +16,7 @@ export class Matrix extends BaseComponent<MatrixValueType> {
 	constructor(private readonly data: BaseComponentData & MatrixData) {
 		super(data, DEFAULT_MATRIX_START_SHAPE);
 
-		this.component = new Led.Matrix(data);
+		this.component = new JohnnyFive.Led.Matrix(data);
 
 		this.component.brightness(100);
 		this.component.off();

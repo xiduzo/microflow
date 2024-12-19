@@ -1,28 +1,30 @@
 import { useEffect } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
-import { BoardResult } from '../../common/types';
+import { BoardCheckResult } from '../../common/types';
 import { useCelebration } from '../providers/CelebrationProvider';
-import { useBoardResult, useBoardStore } from '../stores/board';
+import { useBoardCheckResult, useBoardStore } from '../stores/board';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
 import { toast } from '@microflow/ui';
+import { useCodeUploader } from './useCodeUploader';
 
 export function useCelebrateFirstUpload() {
 	const [isFirstUpload, setIsFirstUpload] = useLocalStorage('isFirstUpload', true);
 	const { celebrate } = useCelebration();
 
-	const boardResult = useBoardResult();
+	const boardCheckResult = useBoardCheckResult();
 
 	useEffect(() => {
 		if (!isFirstUpload) return;
-		if (boardResult !== 'ready') return;
+		if (boardCheckResult !== 'ready') return;
 
 		celebrate('Succesfully connected your first microcontroller, happy hacking!');
 		setIsFirstUpload(false);
-	}, [boardResult, isFirstUpload]);
+	}, [boardCheckResult, isFirstUpload]);
 }
 
 export function useCheckBoard() {
-	const { setBoardResult } = useBoardStore();
+	const { setBoardResult, setUploadResult } = useBoardStore();
+	const uploadCode = useCodeUploader();
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', {
 		ip: undefined,
 	});
@@ -30,10 +32,10 @@ export function useCheckBoard() {
 	useEffect(() => {
 		console.debug(`[CHECK] >>>`, { ip });
 		window.electron.ipcRenderer.send('ipc-check-board', { ip });
-	}, []);
+	}, [setBoardResult]);
 
 	useEffect(() => {
-		return window.electron.ipcRenderer.on<BoardResult>('ipc-check-board', result => {
+		return window.electron.ipcRenderer.on<BoardCheckResult>('ipc-check-board', result => {
 			console.debug(`[CHECK] <<<`, result);
 
 			if (!result.success) {
@@ -42,13 +44,22 @@ export function useCheckBoard() {
 			}
 
 			setBoardResult(result.data);
+			setUploadResult({ type: 'close' });
 
-			const isInfo = result.data.type === 'info';
-			const isClose = result.data.type === 'close';
-			if (isClose || (isInfo && !result.data.port)) {
-				console.debug(`[CHECK] >>>`, { ip });
-				window.electron.ipcRenderer.send('ipc-check-board', { ip });
+			switch (result.data.type) {
+				case 'close':
+					console.debug(`[CHECK] >>>`, { ip });
+					window.electron.ipcRenderer.send('ipc-check-board', { ip });
+					break;
+				case 'info':
+					if (result.data.port) break;
+					console.debug(`[CHECK] >>>`, { ip });
+					window.electron.ipcRenderer.send('ipc-check-board', { ip });
+					break;
+				case 'ready':
+					uploadCode();
+					break;
 			}
 		});
-	}, [ip]);
+	}, [ip, setUploadResult, uploadCode]);
 }
