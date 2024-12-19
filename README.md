@@ -33,6 +33,14 @@ It uses [Yarn workspaces](https://classic.yarnpkg.com/en/docs/workspaces/) to ma
 1. run `yarn install`
 2. run `yarn dev`
 
+### Firmata versions
+
+Microflow studio will flash firmata to your microcontroller automatically.
+
+For the [supported boards](https://microflow.vercel.app/docs/microflow-studio#supported-microcontroller-boards) it will flash version `2.5.X` to be compatible with touchdesigner.
+
+All other boards will get flashed with version `2.4.X` from [avr-girl-arduino](https://github.com/noopkat/avrgirl-arduino/tree/master/junk/hex).
+
 ## Microflow hardware bridge
 
 1. run `yarn install`
