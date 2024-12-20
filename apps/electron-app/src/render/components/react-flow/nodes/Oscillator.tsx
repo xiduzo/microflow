@@ -70,6 +70,10 @@ function Settings() {
 		pane.addBinding(settings, 'shift', {
 			index: 4,
 		});
+
+		pane.addBinding(settings, 'autoStart', {
+			index: 5,
+		});
 	}, [pane, settings]);
 
 	return null;
@@ -86,5 +90,6 @@ Oscillator.defaultProps = {
 		amplitude: 1,
 		phase: 0,
 		shift: 0,
+		autoStart: false,
 	} satisfies Props['data'],
 };

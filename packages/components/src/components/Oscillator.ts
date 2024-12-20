@@ -16,7 +16,7 @@ export type OscillatorData = {
 	amplitude: number;
 	phase: number;
 	shift: number;
-	// autoStart?: boolean;
+	autoStart?: boolean;
 };
 export type OscillatorValueType = number;
 
@@ -42,7 +42,7 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 		this.freq4 = 4 * this.freq1;
 		this.freq0 = 2 * Math.PI * this.freq1;
 
-		this.start();
+		if (data.autoStart) this.start();
 	}
 
 	reset() {
@@ -56,65 +56,66 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 		this.timeout = setTimeout(this.loop.bind(this), this.refreshRate);
 	}
 
-	private sawtooth(t: number): number {
-		let rv: number = 0;
+	private sawtooth(timestamp: number) {
+		let value = 0;
+		timestamp += this.data.phase;
 
-		t += this.data.phase;
-		if (t >= 0.0) {
-			if (t >= this.data.period) t = t % this.data.period;
-			rv = this.data.amplitude * (-1.0 + t * this.freq2);
+		if (timestamp >= 0.0) {
+			if (timestamp >= this.data.period) timestamp = timestamp % this.data.period;
+			value = this.data.amplitude * (-1.0 + timestamp * this.freq2);
 		} else {
-			t = -t;
-			if (t >= this.data.period) t = t % this.data.period;
-			rv = this.data.amplitude * (1.0 - t * this.freq2);
+			timestamp = -timestamp;
+			if (timestamp >= this.data.period) timestamp = timestamp % this.data.period;
+			value = this.data.amplitude * (1.0 - timestamp * this.freq2);
 		}
-		rv += this.data.shift;
-		return rv;
+
+		return value + this.data.shift;
 	}
 
-	private triangle(t: number): number {
-		let rv: number = 0;
+	private triangle(timestamp: number) {
+		let value = 0;
+		timestamp += this.data.phase;
 
-		t += this.data.phase;
-		if (t < 0.0) {
-			t = -t;
-		}
-		if (t >= this.data.period) t = t % this.data.period;
-		if (t * 2 < this.data.period) {
-			rv = this.data.amplitude * (-1.0 + t * this.freq4);
+		if (timestamp < 0.0) timestamp = -timestamp;
+		if (timestamp >= this.data.period) timestamp = timestamp % this.data.period;
+		if (timestamp * 2 < this.data.period) {
+			value = this.data.amplitude * (-1.0 + timestamp * this.freq4);
 		} else {
-			rv = this.data.amplitude * (3.0 - t * this.freq4);
+			value = this.data.amplitude * (3.0 - timestamp * this.freq4);
 		}
-		rv += this.data.shift;
-		return rv;
+
+		return value + this.data.shift;
 	}
 
-	private square(t: number): number {
-		let rv: number = 0;
-		t += this.data.phase;
-		if (t >= 0) {
-			if (t >= this.data.period) t = t % this.data.period;
-			if (t + t < this.data.period) rv = this.data.amplitude;
-			else rv = -this.data.amplitude;
+	private square(timestamp: number) {
+		let value = 0;
+		timestamp += this.data.phase;
+
+		if (timestamp >= 0) {
+			if (timestamp >= this.data.period) timestamp = timestamp % this.data.period;
+			if (timestamp + timestamp < this.data.period) value = this.data.amplitude;
+			else value = -this.data.amplitude;
 		} else {
-			t = -t;
-			if (t >= this.data.period) t = t % this.data.period;
-			if (t * 2 < this.data.period) rv = -this.data.amplitude;
-			else rv = this.data.amplitude;
+			timestamp = -timestamp;
+			if (timestamp >= this.data.period) timestamp = timestamp % this.data.period;
+			if (timestamp * 2 < this.data.period) value = -this.data.amplitude;
+			else value = this.data.amplitude;
 		}
-		rv += this.data.shift;
-		return rv;
+
+		return value + this.data.shift;
 	}
 
-	private sinus(t: number): number {
-		let rv: number;
-		t += this.data.phase;
-		rv = this.data.amplitude * Math.sin(t * this.freq0);
-		rv += this.data.shift;
-		return rv;
+	private sinus(timestamp: number) {
+		let value: number;
+		timestamp += this.data.phase;
+
+		value = this.data.amplitude * Math.sin(timestamp * this.freq0);
+		value += this.data.shift;
+
+		return value;
 	}
 
-	private random(): number {
+	private random() {
 		return this.data.shift + this.data.amplitude * Math.random();
 	}
 
