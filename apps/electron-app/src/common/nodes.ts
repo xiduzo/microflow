@@ -18,11 +18,13 @@ import { Servo } from '../render/components/react-flow/nodes/Servo';
 import { Smooth } from '../render/components/react-flow/nodes/Smooth';
 import { Trigger } from '../render/components/react-flow/nodes/Trigger';
 import { Gate } from '../render/components/react-flow/nodes/Gate';
+import { Delay } from '../render/components/react-flow/nodes/Delay';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Button: Button,
 	Compare: Compare,
 	Counter: Counter,
+	Delay: Delay,
 	Figma: Figma,
 	Gate: Gate,
 	Interval: Interval,

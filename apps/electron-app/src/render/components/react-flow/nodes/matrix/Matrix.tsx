@@ -54,10 +54,10 @@ function Settings() {
 	const [editorOpened, setEditorOpened] = useState(false);
 
 	const [shapes, setShapes] = useState(
-		settings.shapes.map(shape => ({
+		settings.shapes?.map(shape => ({
 			id: uuid(),
 			shape,
-		})),
+		})) ?? [DEFAULT_MATRIX_SHAPE],
 	);
 
 	function swapShapes(id: string, hoveredId: string) {

@@ -2,6 +2,7 @@ export { Board } from 'johnny-five';
 export * from './src/components/Button';
 export * from './src/components/Compare';
 export * from './src/components/Counter';
+export * from './src/components/Delay';
 export * from './src/components/Figma';
 export * from './src/components/Gate';
 export * from './src/components/Interval';
