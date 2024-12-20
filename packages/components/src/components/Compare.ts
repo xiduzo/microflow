@@ -53,26 +53,26 @@ export class Compare extends BaseComponent<CompateValueType> {
 			case 'number':
 				switch (this.data.subValidator) {
 					case 'equal to':
-						return (input: number) =>
-							input == (this.data.validatorArg as SingleNumberData['validatorArg']);
+						return (input: unknown) =>
+							Number(input) == (this.data.validatorArg as SingleNumberData['validatorArg']);
 					case 'greater than':
-						return (input: number) =>
-							input > (this.data.validatorArg as SingleNumberData['validatorArg']);
+						return (input: unknown) =>
+							Number(input) > (this.data.validatorArg as SingleNumberData['validatorArg']);
 					case 'less than':
-						return (input: number) =>
-							input < (this.data.validatorArg as SingleNumberData['validatorArg']);
+						return (input: unknown) =>
+							Number(input) < (this.data.validatorArg as SingleNumberData['validatorArg']);
 					case 'between':
-						return (input: number) =>
-							input > (this.data.validatorArg as DoubleNumberData['validatorArg']).min &&
-							input < (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
+						return (input: unknown) =>
+							Number(input) > (this.data.validatorArg as DoubleNumberData['validatorArg']).min &&
+							Number(input) < (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'outside':
-						return (input: number) =>
-							input < (this.data.validatorArg as DoubleNumberData['validatorArg']).min &&
-							input > (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
+						return (input: unknown) =>
+							Number(input) < (this.data.validatorArg as DoubleNumberData['validatorArg']).min &&
+							Number(input) > (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'even':
-						return (input: number) => Math.round(input) % 2 === 0;
+						return (input: unknown) => Math.round(Number(input)) % 2 === 0;
 					case 'odd':
-						return (input: number) => Math.round(input) % 2 !== 0;
+						return (input: unknown) => Math.round(Number(input)) % 2 !== 0;
 					default:
 						return () => false;
 				}
@@ -80,13 +80,13 @@ export class Compare extends BaseComponent<CompateValueType> {
 				const expected = this.data.validatorArg as TextData['validatorArg'];
 				switch (this.data.subValidator) {
 					case 'equal to':
-						return (input: string) => input === expected;
+						return (input: unknown) => String(input) === expected;
 					case 'includes':
-						return (input: string) => input.includes(expected);
+						return (input: unknown) => String(input).includes(expected);
 					case 'starts with':
-						return (input: string) => input.startsWith(expected);
+						return (input: unknown) => String(input).startsWith(expected);
 					case 'ends with':
-						return (input: string) => input.endsWith(expected);
+						return (input: unknown) => String(input).endsWith(expected);
 					default:
 						return () => false;
 				}

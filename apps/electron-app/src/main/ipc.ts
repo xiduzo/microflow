@@ -53,8 +53,16 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 	log.debug('[CHECK] requested to check board', data);
 
 	if (data.ip) {
-		log.debug(`Checking board on IP ${data.ip}`);
-		checkBoardOnPort(event, { path: data.ip });
+		log.debug(`[CHECK] [IP] ${data.ip}`);
+		event.reply('ipc-check-board', {
+			success: true,
+			data: { type: 'info', port: data.ip },
+		} satisfies IpcResponse<BoardCheckResult>);
+		try {
+			await checkBoardOnPort(event, { path: data.ip });
+		} catch (error) {
+			log.warn(`[CHECK] [IP]`, error);
+		}
 		return;
 	}
 
@@ -74,17 +82,9 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 			try {
 				await checkBoardOnPort(event, port, board);
 				connectedPort = port;
-				event.reply('ipc-check-board', {
-					success: true,
-					data: { type: 'ready', port: port.path },
-				} satisfies IpcResponse<BoardCheckResult>);
 				break checkBoard;
 			} catch (error) {
 				log.error('[CHECK]', board, port, error);
-				event.reply('ipc-check-board', {
-					success: false,
-					error: (error as any)?.message ?? 'Unknown error',
-				} satisfies IpcResponse<BoardCheckResult>);
 			}
 
 			cleanupProcesses();
@@ -128,6 +128,7 @@ async function checkBoardOnPort(
 		});
 
 		checkProcess.on('message', async (data: UploadResponse) => {
+			log.debug('[CHECK] [MESSAGE]', data);
 			try {
 				switch (data.type) {
 					case 'error':
@@ -137,15 +138,27 @@ async function checkBoardOnPort(
 							await flashBoard(board, port);
 							resolve();
 						} catch (error) {
+							event.reply('ipc-check-board', {
+								success: false,
+								error: (error as any)?.message ?? 'Unknown error',
+							} satisfies IpcResponse<BoardCheckResult>);
 							reject(error);
 						}
 						break;
 					case 'close':
 					case 'exit':
 					case 'fail':
+						event.reply('ipc-check-board', {
+							success: false,
+							error: data.message ?? 'Unknown error',
+						} satisfies IpcResponse<BoardCheckResult>);
 						reject(new Error(data.message ?? 'Unknown error'));
 					case 'ready':
-						log.debug('boad ready');
+						log.debug('[CHECK] boad ready');
+						event.reply('ipc-check-board', {
+							success: true,
+							data: { type: 'ready', port: port.path },
+						} satisfies IpcResponse<BoardCheckResult>);
 						resolve();
 						break;
 				}
