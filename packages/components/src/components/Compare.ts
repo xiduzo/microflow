@@ -1,3 +1,4 @@
+import { transformValueToBoolean } from '../utils/transformValueToBoolean';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 type BooleanData = {
@@ -48,8 +49,7 @@ export class Compare extends BaseComponent<CompateValueType> {
 	private getValidator() {
 		switch (this.data.validator) {
 			case 'boolean':
-				return (input: boolean | string) =>
-					['1', 'true', 'on', 'yes'].includes(String(input).toLowerCase());
+				return (input: unknown) => transformValueToBoolean(input);
 			case 'number':
 				switch (this.data.subValidator) {
 					case 'equal to':
