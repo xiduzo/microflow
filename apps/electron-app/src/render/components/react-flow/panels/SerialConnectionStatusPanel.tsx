@@ -1,9 +1,8 @@
-import { Badge, Button, cva, Icons, useAutoAnimate, VariantProps } from '@microflow/ui';
+import { Badge, Button, cva, Icons, useAutoAnimate } from '@microflow/ui';
 import { useBoardCheckResult, useUploadResult } from '../../../stores/board';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../../forms/AdvancedSettingsForm';
 import { useCodeUploader, useHasChangesToUpload } from '../../../hooks/useCodeUploader';
-import { useMemo } from 'react';
 
 export function SerialConnectionStatusPanel() {
 	const [animationRef] = useAutoAnimate();
@@ -50,7 +49,7 @@ export function SerialConnectionStatusPanel() {
 
 		return (
 			<Badge className={badge({ variant: 'success' })}>
-				'Microcontroller in sync with flow'
+				Microcontroller in sync with flow
 				<Icons.ChevronsLeftRightEllipsis className="ml-2 h-3 w-3" />
 			</Badge>
 		);
