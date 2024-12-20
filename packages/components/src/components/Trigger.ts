@@ -18,7 +18,39 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		super(data, 0);
 	}
 
-	checkIncreasing(value: number): boolean {
+	signal(value: number) {
+		let shouldBang = false;
+
+		// console.log(
+		// 	`style:  ${this.options.behaviour} / thresh: ${this.options.threshold} / fd: ${this.firstDerivative}  / prev: ${this.previousValue}  / crossed: ${this.thresholdCrossed}`,
+		// );
+
+		switch (this.data.behaviour) {
+			case 'increasing': {
+				shouldBang = this.checkIncreasing(Number(value));
+				//console.log(`[>] trigger ${this.value} < ${value}`);
+				break;
+			}
+			case 'exact': {
+				shouldBang = this.value === Number(value);
+				//console.log(`[=] trigger  ${this.value} = ${value}`);
+				break;
+			}
+			case 'decreasing': {
+				shouldBang = this.checkDecreasing(Number(value)); //this.value > value ? true : false;
+				//console.log(`[<] trigger  ${this.value} > ${value}`);
+				break;
+			}
+		}
+
+		this.value = Number(value);
+
+		if (!shouldBang) return;
+
+		this.eventEmitter.emit('bang', this.value);
+	}
+
+	private checkIncreasing(value: number): boolean {
 		if (this.thresholdCrossed) {
 			this.firstDerivative = value - this.previousValue;
 
@@ -46,7 +78,7 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		return this.thresholdCrossed;
 	}
 
-	checkDecreasing(value: number): boolean {
+	private checkDecreasing(value: number): boolean {
 		if (this.thresholdCrossed) {
 			this.firstDerivative = value - this.previousValue;
 
@@ -73,36 +105,4 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		this.previousValue = value;
 		return this.thresholdCrossed;
 	}
-
-	signal(value: number) {
-		let retval: boolean = false;
-
-		// console.log(
-		// 	`style:  ${this.options.behaviour} / thresh: ${this.options.threshold} / fd: ${this.firstDerivative}  / prev: ${this.previousValue}  / crossed: ${this.thresholdCrossed}`,
-		// );
-
-		switch (this.data.behaviour) {
-			case 'increasing': {
-				retval = this.checkIncreasing(Number(value));
-				//console.log(`[>] trigger ${this.value} < ${value}`);
-				break;
-			}
-			case 'exact': {
-				retval = this.value === Number(value);
-				//console.log(`[=] trigger  ${this.value} = ${value}`);
-				break;
-			}
-			case 'decreasing': {
-				retval = this.checkDecreasing(Number(value)); //this.value > value ? true : false;
-				//console.log(`[<] trigger  ${this.value} > ${value}`);
-				break;
-			}
-		}
-
-		this.value = Number(value);
-
-		if (!retval) return;
-
-		this.eventEmitter.emit('bang', this.value);
-	} // input()
 } // Trigger component

@@ -1,3 +1,4 @@
+import { transformValueToBoolean } from '../utils/transformValueToBoolean';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type GateValueType = boolean;
@@ -15,9 +16,7 @@ export class Gate extends BaseComponent<GateValueType> {
 	}
 
 	check(inputs: unknown[]) {
-		const inputsAsBooleans = inputs.map(input =>
-			['1', 'true', 'on', 'yes'].includes(String(input).toLowerCase()),
-		);
+		const inputsAsBooleans = inputs.map(transformValueToBoolean);
 
 		this.value = this.passesGate(inputsAsBooleans);
 

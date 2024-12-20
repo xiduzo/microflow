@@ -6,8 +6,8 @@ import { MatrixEditor, MatrixEditorProps } from './MatrixEditor';
 export function DndMatrixEditor(props: Props) {
 	const { dragging, setDragging, setHover } = useDragAndDrop();
 
-	const rows = props.shape.length;
-	const cols = props.shape[0].length;
+	const rows = props.shape?.length;
+	const cols = props.shape?.[0]?.length;
 
 	return (
 		<MatrixEditor
