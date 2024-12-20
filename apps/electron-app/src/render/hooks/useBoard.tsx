@@ -40,6 +40,8 @@ export function useCheckBoard() {
 
 			if (!result.success) {
 				toast.warning(result.error);
+				setBoardResult({ type: 'close' });
+				setUploadResult({ type: 'close' });
 				return;
 			}
 
