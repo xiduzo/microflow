@@ -4,8 +4,8 @@ import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef, useState } from 'react';
-import { Pane } from '@ui';
-import { BindingApi, BindingParams } from '@tweakpane/core';
+import { Pane } from '@microflow/ui';
+import { BindingParams } from '@tweakpane/core';
 import { useUploadResult } from '../../../stores/board';
 
 export function Monitor(props: Props) {

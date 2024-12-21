@@ -1,4 +1,4 @@
-import { useAutoAnimate } from '@ui';
+import { useAutoAnimate } from '@microflow/ui';
 
 export function SettingsPanel() {
 	const [animationRef] = useAutoAnimate({

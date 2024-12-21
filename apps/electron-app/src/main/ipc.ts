@@ -20,6 +20,7 @@ import {
 } from '../common/types';
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
+import * as Components from '@microflow/components/index'; // TODO: why do we need to explicitly import this from `index`
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -28,6 +29,7 @@ import { generateCode } from '../utils/generateCode';
 // })
 //
 
+console.log(Components);
 const processes = new Map<number, UtilityProcess>();
 
 ipcMain.on('ipc-export-flow', async (_event, data: { nodes: Node[]; edges: Edge[] }) => {

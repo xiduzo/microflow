@@ -1,8 +1,8 @@
-import { DelayData } from '@microflow/components';
+import type { DelayData } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { Handle } from './Handle';
 import { Position } from '@xyflow/react';
-import { Icons } from '@ui';
+import { Icons } from '@microflow/ui';
 import { useEffect } from 'react';
 
 export function Delay(props: Props) {

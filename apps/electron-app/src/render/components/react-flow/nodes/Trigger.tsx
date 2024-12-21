@@ -3,7 +3,7 @@ import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { Icons } from '@ui';
+import { Icons } from '@microflow/ui';
 
 export function Trigger(props: Props) {
 	return (

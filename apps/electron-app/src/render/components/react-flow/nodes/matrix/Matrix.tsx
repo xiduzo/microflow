@@ -17,7 +17,7 @@ import {
 	DialogTitle,
 	ListBladeApi,
 	ScrollArea,
-} from '@ui';
+} from '@microflow/ui';
 import { uuid } from '../../../../../utils/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { DndMatrixEditor } from './DndMatrixEditor';
