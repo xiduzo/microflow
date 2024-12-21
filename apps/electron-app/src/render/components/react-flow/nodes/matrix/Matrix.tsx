@@ -17,7 +17,7 @@ import {
 	DialogTitle,
 	ListBladeApi,
 	ScrollArea,
-} from '@ui/index';
+} from '@ui';
 import { uuid } from '../../../../../utils/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { DndMatrixEditor } from './DndMatrixEditor';

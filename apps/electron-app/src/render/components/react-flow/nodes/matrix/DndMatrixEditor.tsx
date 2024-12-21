@@ -1,4 +1,4 @@
-import { cva, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ui/index';
+import { cva, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ui';
 import { useDragAndDrop } from '../../../../providers/DragAndDropProvider';
 import { MatrixDisplay } from './MatrixDisplay';
 import { MatrixEditor, MatrixEditorProps } from './MatrixEditor';

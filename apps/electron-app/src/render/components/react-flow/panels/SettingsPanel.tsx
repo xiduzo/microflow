@@ -1,4 +1,4 @@
-import { useAutoAnimate } from '@ui/index';
+import { useAutoAnimate } from '@ui';
 
 export function SettingsPanel() {
 	const [animationRef] = useAutoAnimate({

@@ -4,7 +4,7 @@ import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
-import { Icons } from '@ui/index';
+import { Icons } from '@ui';
 import { uuid } from '../../../../utils/uuid';
 
 export function Gate(props: Props) {

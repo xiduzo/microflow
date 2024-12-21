@@ -1,4 +1,4 @@
-import { toast } from '@ui/index';
+import { toast } from '@ui';
 import { useEffect } from 'react';
 
 export function IpcDeepLinkListener() {
