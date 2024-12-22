@@ -21,7 +21,7 @@ export function generateCode(nodes: Node<{ baseType?: string; id?: string }>[], 
 const port = process.argv.at(-1);
 
 if (!port) {
-	log.warn(
+	console.warn(
 		'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
 	);
 }
@@ -127,7 +127,6 @@ function addEnter() {
 function addImports() {
 	return `
 const MicroflowComponents = require("@microflow/components");
-const log = require("electron-log/node");
 `;
 }
 
@@ -196,7 +195,7 @@ function wrapInTryCatch(code: string) {
 try {
   ${code}
 } catch(error) {
-  log.error("something went wrong", { error });
+  console.error("something went wrong", { error });
 }`;
 }
 
