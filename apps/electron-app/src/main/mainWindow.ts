@@ -4,9 +4,6 @@ import { createMenu } from './menu';
 
 export let mainWindow: BrowserWindow | null = null;
 
-const MAIN_WINDOW_VITE_DEV_SERVER_URL = process.env.MAIN_WINDOW_VITE_DEV_SERVER_URL;
-const MAIN_WINDOW_VITE_NAME = process.env.MAIN_WINDOW_VITE_NAME;
-
 export const createWindow = () => {
 	mainWindow = new BrowserWindow({
 		width: 1024,
@@ -21,6 +18,8 @@ export const createWindow = () => {
 	});
 
 	createMenu(mainWindow);
+
+	mainWindow.webContents.openDevTools();
 
 	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
 		mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);

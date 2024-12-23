@@ -90,6 +90,6 @@ Oscillator.defaultProps = {
 		amplitude: 1,
 		phase: 0,
 		shift: 0,
-		autoStart: false,
+		autoStart: true,
 	} satisfies Props['data'],
 };

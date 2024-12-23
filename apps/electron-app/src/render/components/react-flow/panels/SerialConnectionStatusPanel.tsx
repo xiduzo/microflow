@@ -1,16 +1,12 @@
-import { Badge, Button, cva, Icons, useAutoAnimate } from '@microflow/ui';
+import { Badge, cva, Icons } from '@microflow/ui';
 import { useBoardCheckResult, useUploadResult } from '../../../stores/board';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../../forms/AdvancedSettingsForm';
-import { useCodeUploader, useHasChangesToUpload } from '../../../hooks/useCodeUploader';
 
 export function SerialConnectionStatusPanel() {
-	const [animationRef] = useAutoAnimate();
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
 	const boardCheckResult = useBoardCheckResult();
 	const uploadResult = useUploadResult();
-	const hasChangesToUpload = useHasChangesToUpload();
-	const uploadCode = useCodeUploader();
 
 	if (uploadResult === 'error') {
 		return (
@@ -28,22 +24,6 @@ export function SerialConnectionStatusPanel() {
 					Uploading your flow
 					<Icons.Zap className="ml-2 h-3 w-3 animate-pulse" />
 				</Badge>
-			);
-		}
-
-		if (hasChangesToUpload) {
-			return (
-				<section className="flex flex-col gap-3">
-					<Badge className={badge({ variant: 'success', className: 'animate-pulse' })}>
-						New changes found to upload
-						<Icons.Replace className="ml-2 h-3 w-3" />
-					</Badge>
-					<div ref={animationRef} className="flex justify-center items-center">
-						<Button size="sm" variant="link" onClick={uploadCode}>
-							Apply changes
-						</Button>
-					</div>
-				</section>
 			);
 		}
 

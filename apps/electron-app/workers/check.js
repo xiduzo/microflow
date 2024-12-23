@@ -13,7 +13,7 @@ if (!port) {
 }
 
 function stdout(data) {
-	process.parentPort.postMessage(data);
+	process.send(data);
 }
 
 try {
@@ -59,12 +59,6 @@ try {
 	board.on('connect', () => stdout({ type: 'connect' }));
 	// This event will emit for any logging message: info, warn or fail.
 	board.on('message', stdout);
-
-	process.parentPort.on('message', message => {
-		if (message !== 'exit') return;
-		board.io.close();
-		process.parentPort.exit(128);
-	});
 } catch (error) {
-	stdout({ type: 'error', ...error });
+	stdout({ type: 'error', message: 'catching error', ...error });
 }
