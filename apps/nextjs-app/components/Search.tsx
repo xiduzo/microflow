@@ -116,6 +116,7 @@ function LoadingIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 function HighlightQuery({ text, query }: { text: string; query: string }) {
 	return (
+		// @ts-expect-error highlighter is not properly typed
 		<Highlighter
 			highlightClassName="group-aria-selected:underline bg-transparent text-sky-600 dark:text-sky-400"
 			searchWords={[query]}
