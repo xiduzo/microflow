@@ -6,7 +6,8 @@ import {
 	type PortInfo,
 } from '@microflow/flasher';
 import type { Edge, Node } from '@xyflow/react';
-import { ipcMain, IpcMainEvent, Menu, utilityProcess, UtilityProcess } from 'electron';
+import { ipcMain, IpcMainEvent, Menu } from 'electron';
+import { fork, ChildProcess } from 'child_process';
 
 import log from 'electron-log/node';
 import { existsSync, writeFile } from 'fs';
@@ -28,7 +29,7 @@ import { generateCode } from '../utils/generateCode';
 // })
 //
 
-const processes = new Map<number, UtilityProcess>();
+const processes = new Map<number, ChildProcess>();
 
 ipcMain.on('ipc-export-flow', async (_event, data: { nodes: Node[]; edges: Edge[] }) => {
 	await exportFlow(data.nodes, data.edges);
@@ -50,7 +51,9 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
-	log.debug('[CHECK] requested to check board', data);
+	const timer = new Timer();
+	log.debug('[CHECK] requested to check board', data, timer.duration);
+	cleanupProcesses();
 
 	const boardOverIp: Awaited<ReturnType<typeof getKnownBoardsWithPorts>> = [
 		['BOARD_OVER_IP' as BoardName, [{ path: data.ip ?? '' } as PortInfo]],
@@ -63,7 +66,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
 			void sniffPorts(event, { connectedPort: port });
-			log.debug(`[CHECK] checking board ${board} on path ${port.path}`);
+			log.debug(`[CHECK] checking board ${board} on path ${port.path}`, timer.duration);
 
 			try {
 				event.reply('ipc-check-board', {
@@ -99,30 +102,32 @@ const ipRegex = new RegExp(
 );
 
 async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) {
+	const timer = new Timer();
 	const filePath = join(__dirname, 'workers', 'check.js');
 
 	return new Promise<void>((resolve, reject) => {
-		const checkProcess = utilityProcess.fork(filePath, [port.path], {
-			serviceName: 'Microflow studio - microcontroller validator',
+		console.debug(`[CHECK] creating check worker from ${filePath}`, timer.duration);
+		const checkProcess = fork(filePath, [port.path], {
+			// serviceName: 'Microflow studio - microcontroller validator',
 			stdio: 'pipe',
 		});
 
 		checkProcess.on('spawn', () => {
-			log.debug(`[CHECK] [SPAWNED] pid: ${checkProcess.pid}`);
+			log.debug(`[CHECK] [${checkProcess.pid}] spawned`, timer.duration);
 			processes.set(Number(checkProcess.pid), checkProcess);
 		});
 
 		checkProcess.stderr?.on('data', data => {
-			log.debug('[CHECK] [STDERR]', data.toString());
+			log.debug('[CHECK] [${checkProcess.pid}] stderr', data.toString(), timer.duration);
 			cleanupProcesses();
 		});
 
 		checkProcess.stdout?.on('data', async data => {
-			log.debug('[CHECK] [STDOUT]', data.toString());
+			log.debug(`[CHECK] [${checkProcess.pid}] stdout`, data.toString(), timer.duration);
 		});
 
 		checkProcess.on('message', async (data: UploadResponse) => {
-			log.debug('[CHECK] [MESSAGE]', data);
+			log.debug(`[CHECK] [${checkProcess.pid}] message: ${data.type}`, timer.duration);
 			try {
 				switch (data.type) {
 					case 'error':
@@ -140,7 +145,7 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 					case 'fail':
 						reject(new Error(data.message ?? 'Unknown error'));
 					case 'ready':
-						await cleanupProcesses();
+						cleanupProcesses();
 						resolve();
 						break;
 				}
@@ -152,14 +157,14 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 }
 
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
-	const start = Date.now();
-	log.debug(`[UPLOAD] Uploading code to port ${data.port}`, Date.now() - start);
-	void cleanupProcesses();
+	const timer = new Timer();
+	log.debug(`[UPLOAD] Uploading code to port ${data.port}`, timer.duration);
+	cleanupProcesses();
 
-	log.debug(`[UPLOAD] generate code`, Date.now() - start);
+	log.debug(`[UPLOAD] generate code`, timer.duration);
 	const code = generateCode(data.nodes as Node[], data.edges as Edge[]);
 
-	log.debug('[UPLOAD] writing file', Date.now() - start);
+	log.debug('[UPLOAD] writing file', timer.duration);
 	const filePath = join(__dirname, 'temp.js');
 	writeFile(filePath, code, error => {
 		if (error) {
@@ -171,33 +176,21 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 			return;
 		}
 
-		log.debug('[UPLOAD] starting process', Date.now() - start);
-		const uploadProcess = utilityProcess.fork(filePath, [data.port], {
+		log.debug('[UPLOAD] starting process', timer.duration);
+		const uploadProcess = fork(filePath, [data.port], {
 			// serviceName: 'Microflow studio - microcontroller runner',
 			// stdio: 'pipe',
 		});
 
 		uploadProcess.on('spawn', () => {
-			log.debug(`[UPLOAD] [SPAWNED] pid: ${uploadProcess.pid}`, Date.now() - start);
+			log.debug(`[UPLOAD] [${uploadProcess.pid}] spawned`, timer.duration);
 			processes.set(Number(uploadProcess.pid), uploadProcess);
 			latestUploadProcessId = uploadProcess.pid;
 		});
 
-		// uploadProcess.stdout?.on('data', data => {
-		// 	log.info('[UPLOAD] [STDOUT]', data.toString());
-		// });
-
-		// uploadProcess.stderr?.on('data', data => {
-		// 	log.error('[UPLOAD] [STDERR]', data.toString());
-		// 	cleanupProcesses();
-		// 	event.reply('ipc-upload-code', {
-		// 		error: 'Unknown exception when running your flow',
-		// 		success: false,
-		// 	} satisfies IpcResponse<UploadResponse>);
-		// });
-
 		uploadProcess.on('message', (message: UploadedCodeMessage | UploadResponse) => {
 			if ('type' in message) {
+				log.debug(`[UPLOAD] [${uploadProcess.pid}] message: ${message.type}`, timer.duration);
 				switch (message.type) {
 					case 'error':
 					case 'exit':
@@ -221,6 +214,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 			}
 
 			if ('action' in message) {
+				// log.debug(`[UPLOAD] [${uploadProcess.pid}] action`, message.action);
 				event.reply('ipc-microcontroller', {
 					data: message,
 					success: true,
@@ -241,12 +235,15 @@ ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown
 	}
 
 	const [_pid, runner] = process;
-	runner.postMessage(data);
+	runner.send(data);
+	// runner.postMessage(data);
 });
 
 async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
+	const flashTimer = new Timer();
+
+	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
 	cleanupProcesses();
-	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`);
 
 	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
 
@@ -256,14 +253,18 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 	}
 
 	return new Promise(async (resolve, reject) => {
-		log.debug(`[FLASH] Flashing firmata from ${firmataPath}`);
+		log.debug(`[FLASH] Flashing firmata from ${firmataPath}`, flashTimer.duration);
 		try {
 			await new Flasher(board, port.path).flash(firmataPath);
 			resolve();
 		} catch (flashError) {
-			log.error(`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`, {
-				flashError,
-			});
+			log.error(
+				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
+				{
+					flashError,
+				},
+				flashTimer.duration,
+			);
 			reject(flashError);
 		}
 	});
@@ -343,21 +344,31 @@ async function getKnownBoardsWithPorts() {
 	}
 }
 
-async function cleanupProcesses() {
-	const start = Date.now();
+function cleanupProcesses() {
+	const timer = new Timer();
 	log.debug(`[CLEANUP] started`);
-	for (const [pid, process] of Array.from(processes)) {
-		processes.delete(pid);
-
-		process.on('exit', () => {
-			log.debug(`[CLEANUP] process ${pid} exited`, Date.now() - start);
-		});
+	for (const [pid, childProcess] of Array.from(processes)) {
 		// Killing utility processes will freeze the main process and renderer process
 		// see https://github.com/electron/electron/issues/45053
-		log.debug(`[CLEANUP] killing PID ${pid}`, Date.now() - start);
-		process.removeAllListeners();
-		log.debug(`[CLEANUP] removed listeners`, Date.now() - start);
-		process.kill();
-		log.debug(`[CLEANUP] killed ${pid}`, Date.now() - start);
+		log.debug(`[CLEANUP] [${pid}] killing`, timer.duration);
+		childProcess.kill('SIGKILL');
+		processes.delete(pid);
+		log.debug(`[CLEANUP] [${pid}] killed`, timer.duration);
+	}
+}
+
+process.on('exit', async code => {
+	log.debug(`[PROCESS] about to leave app`, code);
+	cleanupProcesses();
+});
+
+class Timer {
+	private start: number;
+	constructor(private readonly name?: string) {
+		this.start = Date.now();
+	}
+
+	get duration() {
+		return `(${this.name ? this.name + ' took ' : ''}${Date.now() - this.start}ms)`;
 	}
 }

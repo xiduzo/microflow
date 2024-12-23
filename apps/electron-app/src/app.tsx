@@ -11,6 +11,7 @@ import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
 import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard';
 import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
+import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
 
 export function App() {
 	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
@@ -50,6 +51,8 @@ function NodeAndEdgeSignaler() {
 function BoardHooks() {
 	useCelebrateFirstUpload();
 	useCheckBoard();
+	useAutoUploadCode();
+	useUploadResultListener();
 
 	return null;
 }

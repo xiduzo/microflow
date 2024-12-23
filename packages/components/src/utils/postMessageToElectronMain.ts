@@ -19,5 +19,7 @@ export function postMessageToElectronMain<T>(message: Message<T>) {
 		return;
 	}
 
-	log.info(message);
+	process.send?.(message);
+
+	// log.info(message);
 }

@@ -4141,13 +4141,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tsparticles/engine@npm:3.5.0":
-  version: 3.5.0
-  resolution: "@tsparticles/engine@npm:3.5.0"
-  checksum: 2b07b2f94b08755e3f4465a86ccfec04fcd8a39c87d78ef435f907eff912555c2bf07551f6a77da8181011d5247c73e076618883e4ff7eaac72d4fd4b806b2e9
-  languageName: node
-  linkType: hard
-
 "@tsparticles/engine@npm:3.7.1":
   version: 3.7.1
   resolution: "@tsparticles/engine@npm:3.7.1"
@@ -10638,7 +10631,7 @@ __metadata:
     "@microflow/utils": "workspaces:*"
     "@npmcli/arborist": 8.0.0
     "@rollup/plugin-alias": 5.1.1
-    "@tsparticles/engine": 3.5.0
+    "@tsparticles/engine": 3.7.1
     "@tsparticles/react": 3.0.0
     "@tweakpane/core": 2.0.5
     "@types/node": 18.19.54

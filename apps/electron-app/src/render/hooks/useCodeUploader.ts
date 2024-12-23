@@ -16,7 +16,7 @@ export function useCodeUploader() {
 
 	const port = useBoardPort();
 	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
-	const { setUploadResult, setBoardResult } = useBoardStore();
+	const { setUploadResult } = useBoardStore();
 
 	const { getNodes, getEdges } = useReactFlow();
 
@@ -56,7 +56,16 @@ export function useCodeUploader() {
 		});
 	}, [getNodes, getEdges, port, config.ip, clearNodeData, setUploadResult]);
 
+	return uploadCode;
+}
+
+export function useUploadResultListener() {
+	const { setUploadResult, setBoardResult } = useBoardStore();
+
+	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
+
 	useEffect(() => {
+		console.log('useEffect', config.ip);
 		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
 			console.debug(`[UPLOAD] <<<`, result);
 
@@ -80,11 +89,9 @@ export function useCodeUploader() {
 			}
 		});
 	}, [config.ip]);
-
-	return uploadCode;
 }
 
-export function useHasChangesToUpload() {
+function useHasChangesToUpload() {
 	const nodeToAdd = useNewNodeStore(useShallow(state => state.nodeToAdd));
 	const uploadResult = useUploadResult();
 
@@ -101,9 +108,11 @@ export function useHasChangesToUpload() {
 		// Nothing changed
 		if (lastNodesCount.current === nodesCount && lastEdgesCount.current === edgesCount) return;
 
+		const shouldUpload = lastNodesCount.current !== -1 || lastEdgesCount.current !== -1;
 		lastNodesCount.current = nodesCount;
 		lastEdgesCount.current = edgesCount;
 
+		if (!shouldUpload) return;
 		setHasChangesToUpload(true);
 	}, [nodesCount, edgesCount, nodeToAdd]);
 
@@ -115,4 +124,14 @@ export function useHasChangesToUpload() {
 	}, [uploadResult]);
 
 	return hasChangesToUpload;
+}
+
+export function useAutoUploadCode() {
+	const hasChangesToUpload = useHasChangesToUpload();
+	const uploadCode = useCodeUploader();
+
+	useEffect(() => {
+		if (!hasChangesToUpload) return;
+		uploadCode();
+	}, [hasChangesToUpload, uploadCode]);
 }

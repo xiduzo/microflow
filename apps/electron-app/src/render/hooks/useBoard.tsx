@@ -32,21 +32,21 @@ export function useCheckBoard() {
 	useEffect(() => {
 		console.debug(`[CHECK] >>>`, { ip });
 		window.electron.ipcRenderer.send('ipc-check-board', { ip });
-	}, [setBoardResult]);
+	}, []);
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<BoardCheckResult>('ipc-check-board', result => {
 			console.debug(`[CHECK] <<<`, result);
 
+			setUploadResult({ type: 'close' }); // When we received a check result, we can close the upload result
+
 			if (!result.success) {
 				toast.warning(result.error);
 				setBoardResult({ type: 'close' });
-				setUploadResult({ type: 'close' });
 				return;
 			}
 
 			setBoardResult(result.data);
-			setUploadResult({ type: 'close' });
 
 			switch (result.data.type) {
 				case 'close':

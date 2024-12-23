@@ -144,7 +144,7 @@ if(portIsIp) {
     });
 
     connection.on('close', e => {
-        process.parentPort.postMessage({ type: "close", message: \`Connection lost to \${port}\` });
+        process.send({ type: "close", message: \`Connection lost to \${port}\` });
     })
 }
 
@@ -167,7 +167,7 @@ function addBoardListener(type: string, selfClosing = true) {
 			: ``;
 	return `
 board.on("${type}", (event) => {
-  process.parentPort.postMessage({ type: "${type}", message: event?.message${pins} });
+  process.send({ type: "${type}", message: event?.message${pins} });
 ${selfClosing ? `}); // board - ${type}` : ``}
 `;
 }
@@ -175,7 +175,7 @@ ${selfClosing ? `}); // board - ${type}` : ``}
 function addNodeProcessListener() {
 	let code = `
 // Listen to events from electron
-process.parentPort.on('message', (e) => {`;
+process.on('message', (e) => {`;
 
 	let innerCode = ``;
 

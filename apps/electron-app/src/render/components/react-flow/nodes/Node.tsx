@@ -203,24 +203,13 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		pane.registerPlugin(TweakpaneCameraPlugin);
 
 		pane.addBinding(settings, 'label', {
-			index: 9996,
+			index: 9997,
 		});
 
 		pane.addBlade({
 			view: 'separator',
-			index: 9997,
+			index: 9998,
 		});
-
-		const changesButton = pane
-			.addButton({
-				title: 'Apply changes',
-				disabled: true,
-				index: 9998,
-			})
-			.on('click', () => {
-				changesButton.disabled = true;
-				saveSettings();
-			});
 
 		pane
 			.addButton({
@@ -234,12 +223,10 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		pane.on('change', event => {
 			if (!event.last) return;
 
-			changesButton.disabled = false;
-
 			// TODO Automatically save changes is neat to have, unfortunately it will block the render process for now
 			// See https://github.com/electron/electron/issues/45053#issuecomment-2549711790
 			// When resolved, we can use this to save the settings on change instead of a button click
-			// saveSettings();
+			saveSettings();
 		});
 
 		setPane(pane);
@@ -253,11 +240,14 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	return (
 		<NodeSettingsPaneContext.Provider value={{ pane, settings, setHandlesToDelete }}>
 			{props.children}
-			{settingsOpened &&
+			{settingsOpened ? (
 				createPortal(
 					<div ref={ref} onClick={e => e.stopPropagation()} />,
 					document.getElementById('settings-panels')!,
-				)}
+				)
+			) : (
+				<div />
+			)}
 		</NodeSettingsPaneContext.Provider>
 	);
 }
