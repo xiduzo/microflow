@@ -65,7 +65,6 @@ export function useUploadResultListener() {
 	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
 
 	useEffect(() => {
-		console.log('useEffect', config.ip);
 		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
 			console.debug(`[UPLOAD] <<<`, result);
 

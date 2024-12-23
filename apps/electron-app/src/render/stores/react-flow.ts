@@ -64,7 +64,12 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 		historyUpdateDebounce && clearTimeout(historyUpdateDebounce);
 		historyUpdateDebounce = setTimeout(() => {
 			const { nodes, edges, history } = get();
-			history.append({ nodes, edges });
+			history.append({
+				nodes: JSON.parse(JSON.stringify(nodes)), // remove references
+				edges: JSON.parse(JSON.stringify(edges)), // remove references
+			});
+
+			console.debug(`[HISTORY]`, history);
 		}, HISTORY_DEBOUNCE_TIME_IN_MS);
 	}
 
@@ -77,18 +82,27 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 				nodes: applyNodeChanges(changes, get().nodes),
 			});
 
+			const hasChangesWhichNeedSaving = changes.some(change => change.type !== 'select');
+
+			if (!hasChangesWhichNeedSaving) return;
 			updateHistory();
 		},
 		onEdgesChange: changes => {
 			set({
 				edges: applyEdgeChanges(changes, get().edges),
 			});
+
+			const hasChangesWhichNeedSaving = changes.some(
+				change => change.type === 'add' || change.type === 'remove',
+			);
+			if (!hasChangesWhichNeedSaving) return;
 			updateHistory();
 		},
 		onConnect: connection => {
 			set({
 				edges: addEdge(connection, get().edges),
 			});
+			updateHistory();
 		},
 		setNodes: nodes => {
 			set({ nodes });

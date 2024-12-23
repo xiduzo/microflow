@@ -16,6 +16,7 @@ import { Node, useUpdateNodeInternals } from '@xyflow/react';
 import {
 	createContext,
 	PropsWithChildren,
+	ReactNode,
 	useCallback,
 	useContext,
 	useEffect,
@@ -175,10 +176,11 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		handlesToDelete.current = handles;
 	}, []);
 
+	// TODO: update this after undo / redo
 	useEffect(() => {
 		if (settingsOpened) return;
 		// Create a copy of the data when the settings are closed
-		setSettings(data);
+		setSettings(JSON.parse(JSON.stringify(data)));
 	}, [settingsOpened, data]);
 
 	useEffect(() => {
@@ -240,14 +242,11 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	return (
 		<NodeSettingsPaneContext.Provider value={{ pane, settings, setHandlesToDelete }}>
 			{props.children}
-			{settingsOpened ? (
-				createPortal(
+			{settingsOpened &&
+				(createPortal(
 					<div ref={ref} onClick={e => e.stopPropagation()} />,
 					document.getElementById('settings-panels')!,
-				)
-			) : (
-				<div />
-			)}
+				) as ReactNode)}
 		</NodeSettingsPaneContext.Provider>
 	);
 }
