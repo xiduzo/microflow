@@ -112,7 +112,7 @@ function Settings() {
 			.addBinding(settings, 'type', {
 				index: 1,
 				options: [
-					{ text: 'standaard', value: 'standard' },
+					{ text: 'positional', value: 'standard' },
 					{ text: 'continuous', value: 'continuous' },
 				],
 			})

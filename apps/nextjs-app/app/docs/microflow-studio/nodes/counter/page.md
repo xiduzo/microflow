@@ -4,6 +4,7 @@ title: Counter
 
 {% tags %}
 {% tag title="Event" /%}
+{% tag title="Information" /%}
 {% /tags %}
 
 Sometimes it is neccessary to keep track of _things_.

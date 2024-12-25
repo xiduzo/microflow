@@ -22,18 +22,12 @@ A node can have 0 or more input handles. Other nodes can connect to these handle
 
 Output handles {% .text-green-500 .font-bold %}
 
-A node can have 0 or more output handles. These handles are used to connect the node to other nodes.
-
-Change handle {% .text-rose-300 .font-bold %}
-
-Some nodes have a change handle that allows you to do something when the node value changes.
+A node can have 0 or more output handles. These handles are used to connect the node to other nodes. Each node will have their own specific outputs which can be used to trigger other nodes.
 
 Node value {% .text-yellow-500 .font-bold %}
 
-The value of a node can be represented in different ways, depending on the node type. This could either be a number, a string, a toggle switch, or a color.
+The value of a node can be represented in different ways, depending on the node type. This could either be a number, a string, a toggle switch, a color an icon, etc. This value will give some insights in the current state of the node.
 
-### Node properties
+Settings {% .text-gay-400 .font-bold %}
 
-Each node has a set of properties that define its behavior and configuration. These properties can be set in the node's configuration panel.
-
-To open the configuration panel, click the icon in the top right corner of the node.
+Changing the behaviour of the node can be done by changing the settings of the node. This can be done by clicking the settings icon in the top right corner of the node.

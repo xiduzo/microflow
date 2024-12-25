@@ -14,8 +14,18 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
+				title: 'Compare',
+				href: '/docs/microflow-studio/nodes/compare',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
 				title: 'Counter',
 				href: '/docs/microflow-studio/nodes/counter',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Delay',
+				href: '/docs/microflow-studio/nodes/delay',
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
@@ -24,8 +34,8 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
-				title: 'If...else',
-				href: '/docs/microflow-studio/nodes/if-else',
+				title: 'Gate',
+				href: '/docs/microflow-studio/nodes/gate',
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
@@ -49,6 +59,11 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
+				title: 'Monitor',
+				href: '/docs/microflow-studio/nodes/monitor',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
 				title: 'Motion',
 				href: '/docs/microflow-studio/nodes/motion',
 				parent: '/docs/microflow-studio/nodes',
@@ -56,6 +71,11 @@ export const navigation = [
 			{
 				title: 'MQTT',
 				href: '/docs/microflow-studio/nodes/mqtt',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Oscillator',
+				href: '/docs/microflow-studio/nodes/oscillator',
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
@@ -71,6 +91,16 @@ export const navigation = [
 			{
 				title: 'Servo',
 				href: '/docs/microflow-studio/nodes/servo',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Smooth',
+				href: '/docs/microflow-studio/nodes/smooth',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
+				title: 'Trigger',
+				href: '/docs/microflow-studio/nodes/trigger',
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{

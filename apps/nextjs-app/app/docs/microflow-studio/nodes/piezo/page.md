@@ -4,10 +4,13 @@ title: Piezo
 
 {% tags %}
 {% tag title="Analog" /%}
+{% tag title="Digital" /%}
 {% tag title="Output" /%}
 {% /tags %}
 
 Play a tone or compose your own melody with the piezo node.
+
+![Piezo on a breadboard](/flow-examples/piezo.png)
 
 ## Resources
 

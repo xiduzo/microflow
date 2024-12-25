@@ -94,7 +94,7 @@ type Props = BaseNode<MotionData>;
 Motion.defaultProps = {
 	data: {
 		group: 'hardware',
-		tags: ['input', 'digital', 'analog'],
+		tags: ['input', 'digital'],
 		pin: '8',
 		label: 'Motion',
 		controller: 'HCSR501',

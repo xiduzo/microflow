@@ -3,16 +3,22 @@ title: LED
 ---
 
 {% tags %}
+{% tag title="Analog" /%}
 {% tag title="Digital" /%}
 {% tag title="Output" /%}
 {% /tags %}
 
-An LED (Light Emitting Diode) is a simple output device that emits light when an electric current passes through it.
+A Light Emitting Diode (LED) is a simple output device that emits light when an electric current passes through it.
 LEDs are commonly used in electronics projects to indicate the status of a circuit or to provide visual feedback.
+
+![LED on a breadboard](/flow-examples/led.png)
 
 ## LED - RGB
 
 Compared to a regular LED, a RGB LED allows you to individually control the intensity of each of the three primary colors (Red, Green, and Blue) that make up the LED.
+
+![LED RGB on a breadboard](/flow-examples/led-rgb.png)
+
 
 ## LED - matrix
 For now, only basic `8x8` LED matrixes are supported.
