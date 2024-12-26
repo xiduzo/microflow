@@ -71,6 +71,26 @@ const tags = {
 			return <Icon icon={name} className={className} />;
 		},
 	},
+	iframe: {
+		attributes: {
+			src: { type: String },
+			width: { type: Number | undefined },
+			height: { type: Number | undefined },
+		},
+		render: ({ src, width, height }) => {
+			return (
+				<iframe
+					src={src}
+					width={width ?? 725}
+					height={height ?? 453}
+					frameborder="0"
+					marginwidth="0"
+					marginheight="0"
+					scrolling="no"
+				/>
+			);
+		},
+	},
 };
 
 export default tags;

@@ -9,7 +9,8 @@ title: LDR
 
 A Light Dependent Resistor (LDR) allows you to detect the amount of light in a room.
 
-![LDR on a breadboard](/flow-examples/ldr.png)
+{% iframe src="https://www.tinkercad.com/embed/5LSQbhC6z73" /%}
+
 
 ## Resources
 

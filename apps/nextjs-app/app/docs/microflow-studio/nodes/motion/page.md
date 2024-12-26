@@ -9,8 +9,7 @@ title: Motion
 
 A motion node allows to detect motion in the environment. On the hardware component you can usually adjust the sensitivity of the sensor.
 
-![Motion sensor on a breadboard](/flow-examples/motion.png)
-
+{% iframe src="https://www.tinkercad.com/embed/79HFtaYr4U0" /%}
 
 ## Resources
 

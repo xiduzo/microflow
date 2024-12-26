@@ -10,7 +10,7 @@ title: Piezo
 
 Play a tone or compose your own melody with the piezo node.
 
-![Piezo on a breadboard](/flow-examples/piezo.png)
+{% iframe src="https://www.tinkercad.com/embed/3Dy7oSOycE0" /%}
 
 ## Resources
 

@@ -17,7 +17,7 @@ The `positional` servo can only be set to a specific angle, while the `continuou
 When the label on the servo mentions `360`, it is a `continuous` servo. Otherwise it is most likely a `positional` servo.
 {% /callout %}
 
-![Servos on a breadboard](/flow-examples/servo.png)
+{% iframe src="https://www.tinkercad.com/embed/5Vbfx7Fy56H" /%}
 
 {% callout type="warning" title="Power consumption" %}
 Servos can draw a lot of power, especially when they are moving. Make sure to use a power supply that can provide enough current to power your servo.
