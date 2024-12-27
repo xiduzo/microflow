@@ -16,7 +16,9 @@ export function useUpdateNode<T extends Record<string, any>>(nodeId: string) {
 
 			if (!updateCode) return;
 
-			uploadCode();
+			setTimeout(() => {
+				uploadCode();
+			}, 50); // Give xyFlow some time to process the update
 		},
 		[uploadCode, getNode, nodeId, onNodesChange],
 	);

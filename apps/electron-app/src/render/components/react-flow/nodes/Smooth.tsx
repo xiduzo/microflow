@@ -3,6 +3,8 @@ import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BindingApi } from '@tweakpane/core';
+import { Icons } from '@ui/index';
 
 export function Smooth(props: Props) {
 	return (
@@ -18,7 +20,21 @@ export function Smooth(props: Props) {
 function Value() {
 	const data = useNodeData<SmoothData>();
 
-	return <section className="tabular-nums">{data.attenuation.toFixed(3)}</section>;
+	if (data.type === 'movingAverage') {
+		return (
+			<section className="flex flex-col text-center gap-1">
+				<Icons.Highlighter size={48} />
+				<div className="text-muted-foreground text-xs">{data.windowSize}</div>
+			</section>
+		);
+	}
+
+	return (
+		<section className="flex flex-col text-center gap-1">
+			<Icons.Eraser size={48} />
+			<div className="text-muted-foreground text-xs">{data.attenuation.toFixed(3)}</div>
+		</section>
+	);
 }
 
 function Settings() {
@@ -27,13 +43,55 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'attenuation', {
+		let binding: BindingApi;
+
+		function addBinding() {
+			binding?.dispose();
+			if (!pane) return;
+
+			switch (settings.type) {
+				case 'movingAverage':
+					settings.windowSize = settings.windowSize ?? 1;
+					binding = pane.addBinding(settings, 'windowSize', {
+						index: 1,
+						min: 1,
+						step: 1,
+						label: 'window size',
+					});
+					break;
+				case 'smooth':
+					settings.attenuation = settings.attenuation ?? 0.995;
+					binding = pane.addBinding(settings, 'attenuation', {
+						index: 1,
+						min: 0.0,
+						max: 1.0,
+						step: 0.001,
+						label: 'attenuation',
+					});
+					break;
+			}
+		}
+
+		const type = pane.addBinding(settings, 'type', {
 			index: 0,
-			min: 0.0,
-			max: 1.0,
-			step: 0.001,
-			label: 'attenuation',
+			view: 'list',
+			options: [
+				{ value: 'smooth', text: 'Smooth' },
+				{ value: 'movingAverage', text: 'Moving average' },
+			],
 		});
+
+		type.on('change', () => {
+			console.log(settings.type);
+			addBinding();
+		});
+
+		addBinding();
+
+		return () => {
+			binding?.dispose();
+			type.dispose();
+		};
 	}, [pane, settings]);
 
 	return null;
@@ -45,6 +103,7 @@ Smooth.defaultProps = {
 		group: 'flow',
 		tags: ['transformation'],
 		label: 'Smooth',
+		type: 'smooth',
 		attenuation: 0.995,
 	} satisfies Props['data'],
 };
