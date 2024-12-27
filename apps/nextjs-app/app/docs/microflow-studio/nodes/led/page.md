@@ -30,7 +30,7 @@ The frame that will be displayed can be configured by passing in a the numeric v
 The frames start counting from `0`, meaning the first frame is `0`, the second frame is `1`, and so on.
 {% /callout %}
 
-[Download LED matrix example](/flow-examples/led_matrix.microflow)
+[Download LED matrix example flow](/flow-examples/led_matrix.microflow)
 
 ## Resources
 
