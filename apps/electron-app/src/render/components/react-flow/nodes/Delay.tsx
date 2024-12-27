@@ -2,8 +2,8 @@ import { DelayData } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { Handle } from './Handle';
 import { Position } from '@xyflow/react';
-import { Icons } from '@ui/index';
 import { useEffect } from 'react';
+import { IconWithValue } from '../IconWithValue';
 
 export function Delay(props: Props) {
 	return (
@@ -19,12 +19,7 @@ export function Delay(props: Props) {
 function Value() {
 	const data = useNodeData<DelayData>();
 
-	return (
-		<section className="flex flex-col text-center gap-1">
-			<Icons.Snail size={48} />
-			<div className="text-muted-foreground text-xs">{data.delay / 1000}s</div>
-		</section>
-	);
+	return <IconWithValue icon="Snail" value={data.delay / 1000} suffix="s" />;
 }
 
 function Settings() {
