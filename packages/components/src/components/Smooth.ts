@@ -15,7 +15,6 @@ export type SmoothData = SmoothAverage | MovingAverage;
 export type SmoothValueType = number;
 
 export class Smooth extends BaseComponent<SmoothValueType> {
-	private average = 0;
 	private history: number[] = [];
 
 	constructor(private readonly data: BaseComponentData & SmoothData) {
@@ -23,26 +22,29 @@ export class Smooth extends BaseComponent<SmoothValueType> {
 	}
 
 	signal(value: unknown) {
+		const valueAsNumber = Number(value);
+
 		switch (this.data.type) {
 			case 'movingAverage':
-				this.movingAverage(Number(value), this.data.windowSize);
+				this.movingAverage(valueAsNumber, this.data.windowSize);
 				break;
 			case 'smooth':
-				this.smooth(Number(value), this.data.attenuation);
+				this.smooth(valueAsNumber, this.data.attenuation);
 				break;
 		}
 	}
 
 	private smooth(value: number, attenuation: number) {
-		this.average = attenuation * this.average + (1.0 - attenuation) * value;
-		this.value = this.average;
+		this.value = attenuation * this.value + (1.0 - attenuation) * value;
 	}
 
 	private movingAverage(value: number, windowSize: number) {
 		this.history.push(value);
+
 		if (this.history.length > windowSize) {
 			this.history.shift();
 		}
+
 		this.value = this.history.reduce((acc, val) => acc + val, 0) / this.history.length;
 	}
 }
