@@ -32,7 +32,7 @@ export class RangeMap extends BaseComponent<RangeMapValueType> {
 		this.value = [input, normalizedOutput];
 
 		if (prevValue[1] !== normalizedOutput) {
-			this.eventEmitter.emit('to', normalizedOutput, false);
+			this.eventEmitter.emit('to', normalizedOutput);
 		}
 	}
 }

@@ -43,7 +43,7 @@ export class Compare extends BaseComponent<CompateValueType> {
 	check(input: never) {
 		const validator = this.getValidator();
 		this.value = validator(input);
-		this.eventEmitter.emit(this.value ? 'true' : 'false', this.value, false);
+		this.eventEmitter.emit(this.value ? 'true' : 'false', this.value);
 	}
 
 	private getValidator() {

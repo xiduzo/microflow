@@ -14,11 +14,11 @@ export class Button extends BaseComponent<ButtonValueType> {
 
 		this.component.on('up', () => {
 			this.value = false;
-			this.eventEmitter.emit('inactive', this.value, false);
+			this.eventEmitter.emit('inactive', this.value);
 		});
 		this.component.on('down', () => {
 			this.value = true;
-			this.eventEmitter.emit('active', this.value, false);
+			this.eventEmitter.emit('active', this.value);
 		});
 		this.component.on('hold', () => {
 			this.eventEmitter.emit('hold', this.value);

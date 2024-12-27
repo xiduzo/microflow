@@ -1,9 +1,10 @@
-import type { TriggerData } from '@microflow/components';
+import type { TriggerData, TriggerValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { IconWithValue } from '../IconWithValue';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Trigger(props: Props) {
 	return (
@@ -18,10 +19,12 @@ export function Trigger(props: Props) {
 
 function Value() {
 	const data = useNodeData<TriggerData>();
+	const value = useNodeValue<TriggerValueType>(false);
 
 	return (
 		<IconWithValue
 			icon={data.behaviour === 'increasing' ? 'TrendingUp' : 'TrendingDown'}
+			iconClassName={value ? 'text-green-500' : 'text-red-500'}
 			value={data.threshold}
 			suffix={data.relative ? '%' : ''}
 		/>

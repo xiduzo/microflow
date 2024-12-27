@@ -6,26 +6,25 @@ export type TriggerData = {
 	threshold: number;
 };
 
-export type TriggerValueType = number;
+export type TriggerValueType = boolean;
 
 export class Trigger extends BaseComponent<TriggerValueType> {
 	private previousValue = Number.NaN; // safe initial value
-	private thresholdCrossed = false;
 
 	constructor(private readonly data: BaseComponentData & TriggerData) {
-		super(data, 0);
+		super(data, false);
 	}
 
-	signal(value: number) {
-		this.value = Number(value);
+	signal(value: unknown) {
+		const valueAsNumber = Number(value);
 
-		const shouldBang = this.checkDifference(this.value);
+		const shouldBang = this.checkDifference(valueAsNumber);
 
-		this.previousValue = this.value;
+		this.previousValue = valueAsNumber;
 
 		if (!shouldBang) return;
 
-		this.eventEmitter.emit('bang', this.value);
+		this.eventEmitter.emit('bang', valueAsNumber);
 	}
 
 	private checkDifference(value: number): boolean {
@@ -34,8 +33,8 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		const difference = value - this.previousValue;
 		const correctDirection = this.valueChangesInCorrectDirection(difference);
 
-		if (this.thresholdCrossed) {
-			this.thresholdCrossed = correctDirection;
+		if (this.value) {
+			this.value = correctDirection;
 			return false;
 		}
 
@@ -43,9 +42,8 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 			? Math.abs((difference / this.previousValue) * 100) >= this.data.threshold
 			: Math.abs(difference) >= this.data.threshold;
 
-		this.thresholdCrossed = correctDirection && reachedThreshold;
-
-		return this.thresholdCrossed;
+		this.value = correctDirection && reachedThreshold;
+		return this.value;
 	}
 
 	private valueChangesInCorrectDirection(difference: number): boolean {
