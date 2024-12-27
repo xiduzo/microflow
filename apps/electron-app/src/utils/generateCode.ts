@@ -78,27 +78,20 @@ if (!port) {
 
 		// React to actions
 		Object.entries(actionsGroupedByHandle).forEach(([action, actionEdges]) => {
-			innerCode += `  ${node.type}_${node.id}.on("${action}", () => {`;
+			innerCode += `  ${node.type}_${node.id}.on("${action}", (value) => {`;
 
 			actionEdges.forEach(edge => {
 				const targetNode = nodes.find(node => node.id === edge.target);
 				if (!targetNode) return;
 
-				let value = `${node.type}_${node.id}.value`;
-
-				if (node.type?.toLowerCase() === 'rangemap') {
-					// Mapper node
-					innerCode += addEnter();
-					value = `${node.type}_${node.id}.value[1]`;
-				}
-
 				if (targetNode.type?.toLowerCase() === 'gate') {
-					value = getAllEdgesValues(targetNode.id, edges, nodes);
+					innerCode += addEnter();
+					innerCode += `value = ${getAllEdgesValues(targetNode.id, edges, nodes)}`;
 					edge.targetHandle = 'check'; // Naughty override, make sure this is in line with the actual implementation
 				}
 
 				// TODO: add support for increment and decrement bigger than 1
-				const handler = `${targetNode.type}_${targetNode.id}.${edge.targetHandle}(${value});`;
+				const handler = `${targetNode.type}_${targetNode.id}.${edge.targetHandle}(value);`;
 				innerCode += wrapInTryCatch(handler);
 				innerCode += addEnter();
 			});

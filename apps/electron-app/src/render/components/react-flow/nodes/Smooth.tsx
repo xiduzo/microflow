@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { BindingApi } from '@tweakpane/core';
-import { Icons } from '@ui/index';
+import { IconWithValue } from '../IconWithValue';
 
 export function Smooth(props: Props) {
 	return (
@@ -20,20 +20,11 @@ export function Smooth(props: Props) {
 function Value() {
 	const data = useNodeData<SmoothData>();
 
-	if (data.type === 'movingAverage') {
-		return (
-			<section className="flex flex-col text-center gap-1">
-				<Icons.Highlighter size={48} />
-				<div className="text-muted-foreground text-xs">{data.windowSize}</div>
-			</section>
-		);
-	}
-
 	return (
-		<section className="flex flex-col text-center gap-1">
-			<Icons.Eraser size={48} />
-			<div className="text-muted-foreground text-xs">{data.attenuation.toFixed(3)}</div>
-		</section>
+		<IconWithValue
+			icon={data.type === 'movingAverage' ? 'Highlighter' : 'Eraser'}
+			value={data.type === 'movingAverage' ? data.windowSize : data.attenuation}
+		/>
 	);
 }
 

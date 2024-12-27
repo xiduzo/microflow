@@ -1,9 +1,10 @@
-import type { TriggerData } from '@microflow/components';
+import type { TriggerData, TriggerValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { Icons } from '@ui/index';
+import { IconWithValue } from '../IconWithValue';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Trigger(props: Props) {
 	return (
@@ -18,14 +19,15 @@ export function Trigger(props: Props) {
 
 function Value() {
 	const data = useNodeData<TriggerData>();
+	const value = useNodeValue<TriggerValueType>(false);
 
 	return (
-		<section className="flex flex-col text-center gap-1">
-			{data.behaviour === 'exact' && <Icons.Equal size={48} />}
-			{data.behaviour === 'increasing' && <Icons.TrendingUp size={48} />}
-			{data.behaviour === 'decreasing' && <Icons.TrendingDown size={48} />}
-			<div className="text-muted-foreground text-xs">{data.threshold}</div>
-		</section>
+		<IconWithValue
+			icon={data.behaviour === 'increasing' ? 'TrendingUp' : 'TrendingDown'}
+			iconClassName={value ? 'text-green-500' : 'text-red-500'}
+			value={data.threshold}
+			suffix={data.relative ? '%' : ''}
+		/>
 	);
 }
 
@@ -35,29 +37,32 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'behaviour', {
+		const behaviourBinding = pane.addBinding(settings, 'behaviour', {
 			index: 0,
 			view: 'list',
-			label: 'behaviour',
+			label: 'triggers',
 			options: [
 				{ value: 'increasing', text: 'when increasing' },
-				{ value: 'exact', text: 'when exactly equal' },
 				{ value: 'decreasing', text: 'when decreasing' },
 			],
 		});
 
-		pane.addBinding(settings, 'threshold', {
+		const thresholdBinding = pane.addBinding(settings, 'threshold', {
 			index: 1,
-			label: 'threshold value',
+			label: 'by',
+			min: 0,
 		});
 
-		pane.addBinding(settings, 'duration', {
+		const relativeBinding = pane.addBinding(settings, 'relative', {
 			index: 2,
-			min: 0.1,
-			max: 1000,
-			step: 0.1,
-			label: 'duration',
+			label: 'percentage',
 		});
+
+		return () => {
+			behaviourBinding.dispose();
+			thresholdBinding.dispose();
+			relativeBinding.dispose();
+		};
 	}, [pane, settings]);
 
 	return null;
@@ -69,8 +74,8 @@ Trigger.defaultProps = {
 		group: 'flow',
 		tags: ['event', 'control'],
 		label: 'Trigger',
-		behaviour: 'exact',
+		relative: false,
+		behaviour: 'decreasing',
 		threshold: 0.5,
-		duration: 250,
 	} satisfies Props['data'],
 };

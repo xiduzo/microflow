@@ -24,7 +24,7 @@ export function useCelebration() {
 export function CelebrationProvider(props: PropsWithChildren) {
 	const [init, setInit] = useState(false);
 
-	const container = useRef<Container>(null);
+	const container = useRef<Container | undefined>(undefined);
 
 	const options = useMemo(
 		(): ISourceOptions => ({
@@ -148,7 +148,7 @@ export function CelebrationProvider(props: PropsWithChildren) {
 		[],
 	);
 
-	async function particlesLoaded(loadedContainer: Container) {
+	async function particlesLoaded(loadedContainer: Container | undefined) {
 		container.current = loadedContainer;
 	}
 

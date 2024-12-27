@@ -1,9 +1,10 @@
 import type { OscillatorData } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { Icons } from '@ui/index';
+import { IconName } from '@ui/index';
+import { IconWithValue } from '../IconWithValue';
 
 export function Oscillator(props: Props) {
 	return (
@@ -21,16 +22,24 @@ export function Oscillator(props: Props) {
 function Value() {
 	const data = useNodeData<OscillatorData>();
 
-	return (
-		<section className="flex flex-col text-center gap-1">
-			{data.waveform === 'random' && <Icons.Dices size={48} />}
-			{data.waveform === 'sawtooth' && <Icons.TriangleRight size={48} />}
-			{data.waveform === 'sinus' && <Icons.AudioWaveform size={48} />}
-			{data.waveform === 'square' && <Icons.Square size={48} />}
-			{data.waveform === 'triangle' && <Icons.Triangle size={48} />}
-			<div className="text-muted-foreground text-xs">{data.period / 1000}s</div>
-		</section>
-	);
+	const icon = useMemo((): IconName => {
+		switch (data.waveform) {
+			case 'sinus':
+				return 'AudioWaveform';
+			case 'triangle':
+				return 'Triangle';
+			case 'sawtooth':
+				return 'TriangleRight';
+			case 'square':
+				return 'Square';
+			case 'random':
+				return 'Dices';
+			default:
+				return 'AudioWaveform';
+		}
+	}, [data.waveform]);
+
+	return <IconWithValue icon={icon} value={data.period / 1000} suffix="s" />;
 }
 
 function Settings() {

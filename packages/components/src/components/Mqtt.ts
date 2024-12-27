@@ -12,7 +12,7 @@ export class Mqtt extends BaseComponent<MqttValueType> {
 
 	setExternal(value: string) {
 		this.value = value;
-		this.eventEmitter.emit('subscribe', this.value, false);
+		this.eventEmitter.emit('subscribe', this.value);
 	}
 
 	publish(message: string) {

@@ -1,108 +1,54 @@
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
-export type TriggerBehaviour = 'increasing' | 'exact' | 'decreasing';
-
 export type TriggerData = {
-	behaviour: TriggerBehaviour;
+	relative?: boolean;
+	behaviour: 'increasing' | 'decreasing';
 	threshold: number;
-	duration: number;
 };
-export type TriggerValueType = number;
+
+export type TriggerValueType = boolean;
 
 export class Trigger extends BaseComponent<TriggerValueType> {
-	private previousValue: number = Number.NaN; // safe initial value
-	private firstDerivative: number = Number.NaN;
-	private thresholdCrossed: boolean = false;
+	private previousValue = Number.NaN; // safe initial value
 
 	constructor(private readonly data: BaseComponentData & TriggerData) {
-		super(data, 0);
+		super(data, false);
 	}
 
-	signal(value: number) {
-		let shouldBang = false;
+	signal(value: unknown) {
+		const valueAsNumber = Number(value);
 
-		// console.log(
-		// 	`style:  ${this.options.behaviour} / thresh: ${this.options.threshold} / fd: ${this.firstDerivative}  / prev: ${this.previousValue}  / crossed: ${this.thresholdCrossed}`,
-		// );
+		const shouldBang = this.checkDifference(valueAsNumber);
 
-		switch (this.data.behaviour) {
-			case 'increasing': {
-				shouldBang = this.checkIncreasing(Number(value));
-				//console.log(`[>] trigger ${this.value} < ${value}`);
-				break;
-			}
-			case 'exact': {
-				shouldBang = this.value === Number(value);
-				//console.log(`[=] trigger  ${this.value} = ${value}`);
-				break;
-			}
-			case 'decreasing': {
-				shouldBang = this.checkDecreasing(Number(value)); //this.value > value ? true : false;
-				//console.log(`[<] trigger  ${this.value} > ${value}`);
-				break;
-			}
-		}
-
-		this.value = Number(value);
+		this.previousValue = valueAsNumber;
 
 		if (!shouldBang) return;
 
-		this.eventEmitter.emit('bang', this.value);
+		this.eventEmitter.emit('bang', valueAsNumber);
 	}
 
-	private checkIncreasing(value: number): boolean {
-		if (this.thresholdCrossed) {
-			this.firstDerivative = value - this.previousValue;
+	private checkDifference(value: number): boolean {
+		if (isNaN(this.previousValue)) return false;
 
-			// is decreasing
-			if (this.firstDerivative < 0) {
-				this.thresholdCrossed = false; // reset when decreasing
-			}
+		const difference = value - this.previousValue;
+		const correctDirection = this.valueChangesInCorrectDirection(difference);
 
-			this.previousValue = value;
+		if (this.value) {
+			this.value = correctDirection;
 			return false;
 		}
 
-		if (this.previousValue !== Number.NaN) {
-			this.firstDerivative = value - this.previousValue;
+		const reachedThreshold = this.data.relative
+			? Math.abs((difference / this.previousValue) * 100) >= this.data.threshold
+			: Math.abs(difference) >= this.data.threshold;
 
-			// is increasing
-			if (this.firstDerivative > 0) {
-				if (value >= this.data.threshold) {
-					this.thresholdCrossed = true;
-				}
-			}
-		}
-
-		this.previousValue = value;
-		return this.thresholdCrossed;
+		this.value = correctDirection && reachedThreshold;
+		return this.value;
 	}
 
-	private checkDecreasing(value: number): boolean {
-		if (this.thresholdCrossed) {
-			this.firstDerivative = value - this.previousValue;
+	private valueChangesInCorrectDirection(difference: number): boolean {
+		const isPositive = difference > 0;
 
-			// is increasing
-			if (this.firstDerivative > 0) {
-				this.thresholdCrossed = false; // reset when decreasing
-			}
-
-			this.previousValue = value;
-			return false;
-		}
-
-		if (this.previousValue !== Number.NaN) {
-			this.firstDerivative = value - this.previousValue;
-
-			// is decreasing
-			if (this.firstDerivative < 0) {
-				if (value <= this.data.threshold) {
-					this.thresholdCrossed = true;
-				}
-			}
-		}
-
-		this.previousValue = value;
-		return this.thresholdCrossed;
+		return this.data.behaviour === 'increasing' ? isPositive : !isPositive;
 	}
-} // Trigger component
+}
