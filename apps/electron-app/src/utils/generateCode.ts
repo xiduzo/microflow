@@ -56,7 +56,7 @@ if (!port) {
 	 * Initial triggers
      */`;
 	nodes.forEach(node => {
-		if (node.type?.toLowerCase() === 'gate') {
+		if (['gate', 'calculate'].includes(node.type!.toLowerCase())) {
 			const trigger = `${node.type}_${node.id}.check(${getAllEdgesValues(node.id, edges, nodes)});`;
 			innerCode += wrapInTryCatch(trigger);
 			innerCode += addEnter();
@@ -90,15 +90,16 @@ if (!port) {
 				const targetNode = nodes.find(node => node.id === edge.target);
 				if (!targetNode) return;
 
-				if (targetNode.type?.toLowerCase() === 'gate') {
-					innerCode += addEnter();
-					innerCode += `value = ${getAllEdgesValues(targetNode.id, edges, nodes)}`;
-					edge.targetHandle = 'check'; // Naughty override, make sure this is in line with the actual implementation
+				if (['gate', 'calculate'].includes(targetNode.type!.toLowerCase())) {
+					innerCode += wrapInTryCatch(
+						`${targetNode.type}_${targetNode.id}.check(${getAllEdgesValues(targetNode.id, edges, nodes)});`,
+					);
+					return;
 				}
 
-				// TODO: add support for increment and decrement bigger than 1
-				const handler = `${targetNode.type}_${targetNode.id}.${edge.targetHandle}(value);`;
-				innerCode += wrapInTryCatch(handler);
+				innerCode += wrapInTryCatch(
+					`${targetNode.type}_${targetNode.id}.${edge.targetHandle}(value);`,
+				);
 				innerCode += addEnter();
 			});
 
@@ -206,7 +207,12 @@ function getAllEdgesValues(nodeId: string, edges: Edge[], nodes: Node[]) {
 		.filter(edge => edge.target === nodeId)
 		.map(edge => {
 			const sourceNode = nodes.find(node => node.id === edge.source);
-			return `${sourceNode?.type}_${sourceNode?.id}.value`;
+			if (!sourceNode) return 'undefined';
+
+			if (sourceNode.type?.toLowerCase() === 'rangemap')
+				return `${sourceNode.type}_${sourceNode.id}.value[1]`;
+
+			return `${sourceNode.type}_${sourceNode.id}.value`;
 		})
 		.join(',');
 

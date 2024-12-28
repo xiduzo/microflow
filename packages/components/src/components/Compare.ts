@@ -1,4 +1,4 @@
-import { transformValueToBoolean } from '../utils/transformValueToBoolean';
+import { transformValueToBoolean } from '../utils/transformUnknownValues';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 type BooleanData = {

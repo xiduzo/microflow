@@ -8,3 +8,13 @@ export function transformValueToBoolean(value: unknown) {
 
 	return isTruthy || isSecretlyPositiveNumber;
 }
+
+export function transformValueToNumber(value: unknown) {
+	if (typeof value === 'number') return value;
+
+	if (typeof value === 'boolean') return value ? 1 : 0;
+
+	const parsed = parseFloat(String(value));
+
+	return Number.isNaN(parsed) ? 0 : parsed;
+}
