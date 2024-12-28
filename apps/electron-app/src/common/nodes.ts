@@ -20,11 +20,13 @@ import { Trigger } from '../render/components/react-flow/nodes/Trigger';
 import { Gate } from '../render/components/react-flow/nodes/Gate';
 import { Delay } from '../render/components/react-flow/nodes/Delay';
 import { Calculate } from '../render/components/react-flow/nodes/Calculate';
+import { Constant } from '../render/components/react-flow/nodes/Constant';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Button: Button,
 	Calculate: Calculate,
 	Compare: Compare,
+	Constant: Constant,
 	Counter: Counter,
 	Delay: Delay,
 	Figma: Figma,
