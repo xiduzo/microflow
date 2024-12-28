@@ -19,9 +19,11 @@ import { Smooth } from '../render/components/react-flow/nodes/Smooth';
 import { Trigger } from '../render/components/react-flow/nodes/Trigger';
 import { Gate } from '../render/components/react-flow/nodes/Gate';
 import { Delay } from '../render/components/react-flow/nodes/Delay';
+import { Calculate } from '../render/components/react-flow/nodes/Calculate';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Button: Button,
+	Calculate: Calculate,
 	Compare: Compare,
 	Counter: Counter,
 	Delay: Delay,

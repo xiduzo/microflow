@@ -4,19 +4,18 @@ import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
-import { Icons } from '@ui/index';
 import { uuid } from '../../../../utils/uuid';
 
 export function Gate(props: Props) {
 	function getOffset(index: number) {
-		return index - (props.data.inputs - 1) / 2;
+		return index - ((props.data.gate === 'not' ? 1 : 2) - 1) / 2;
 	}
 
 	return (
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			{Array.from({ length: props.data.inputs }).map((_item, index) => {
+			{Array.from({ length: props.data.gate === 'not' ? 1 : 2 }).map((_item, index) => {
 				return (
 					<Handle
 						key={uuid()}
@@ -48,9 +47,7 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		const initialAmount = Number(settings.inputs);
-
-		pane.addBinding(settings, 'gate', {
+		const gateType = pane.addBinding(settings, 'gate', {
 			index: 0,
 			type: 'list',
 			options: [
@@ -64,21 +61,15 @@ function Settings() {
 			],
 		});
 
-		pane
-			.addBinding(settings, 'inputs', {
-				index: 1,
-				min: 2,
-				step: 1,
-				max: 4,
-			})
-			.on('change', ({ value }) => {
-				if (value === initialAmount) {
-					setHandlesToDelete([]);
-					return;
-				}
+		gateType.on('change', gate => {
+			setHandlesToDelete(
+				Array.from({ length: gate.value === 'not' ? 1 : 0 }).map((_, index) => String(index)),
+			);
+		});
 
-				setHandlesToDelete(Array.from({ length: value }).map((_, index) => String(index)));
-			});
+		return () => {
+			gateType.dispose();
+		};
 	}, [pane, settings]);
 
 	return null;
@@ -91,7 +82,6 @@ Gate.defaultProps = {
 		tags: ['control', 'transformation'],
 		label: 'Gate',
 		gate: 'and',
-		inputs: 2,
 	} satisfies Props['data'],
 };
 

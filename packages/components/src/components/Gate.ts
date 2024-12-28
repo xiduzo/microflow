@@ -1,4 +1,4 @@
-import { transformValueToBoolean } from '../utils/transformValueToBoolean';
+import { transformValueToBoolean } from '../utils/transformUnknownValues';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type GateValueType = boolean;
@@ -7,7 +7,6 @@ type GateType = 'or' | 'and' | 'xor' | 'not' | 'nor' | 'nand' | 'xnor';
 
 export type GateData = {
 	gate: GateType;
-	inputs: number;
 };
 
 export class Gate extends BaseComponent<GateValueType> {
@@ -25,14 +24,13 @@ export class Gate extends BaseComponent<GateValueType> {
 
 	private passesGate(inputs: boolean[]) {
 		const amountOfTrue = inputs.filter(Boolean).length;
-		console.log(`Amount true: ${amountOfTrue}, inputs: ${this.data.inputs}`);
 		switch (this.data.gate) {
 			case 'not':
-				return !(amountOfTrue === this.data.inputs);
+				return !amountOfTrue;
 			case 'and':
-				return amountOfTrue === this.data.inputs;
+				return amountOfTrue === 2;
 			case 'nand':
-				return amountOfTrue !== this.data.inputs;
+				return amountOfTrue !== 2;
 			case 'or':
 				return amountOfTrue > 0;
 			case 'xor':
@@ -40,7 +38,7 @@ export class Gate extends BaseComponent<GateValueType> {
 			case 'nor':
 				return amountOfTrue === 0;
 			case 'xnor':
-				return amountOfTrue === 0 || amountOfTrue === this.data.inputs;
+				return amountOfTrue !== 1;
 			default:
 				return false;
 		}
