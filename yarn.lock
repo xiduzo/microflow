@@ -1093,7 +1093,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@formkit/auto-animate@npm:^0.8.2":
+"@formkit/auto-animate@npm:0.8.2":
   version: 0.8.2
   resolution: "@formkit/auto-animate@npm:0.8.2"
   checksum: c8233a9dda70d4b40f1239bb1b0d60ebf8187553e680f1cbde4f28f329b9cf12d0eb4cca99d5adc620087c1f1e0fb1d44909db9bd0ef87d521b51e69d331ae56
@@ -1543,9 +1543,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@microflow/ui@workspace:packages/ui"
   dependencies:
-    "@formkit/auto-animate": ^0.8.2
+    "@formkit/auto-animate": 0.8.2
     "@hookform/resolvers": 3.9.0
-    "@pangenerator/tweakpane-textarea-plugin": ^2.0.0
+    "@pangenerator/tweakpane-textarea-plugin": 2.0.0
     "@radix-ui/react-checkbox": 1.1.2
     "@radix-ui/react-collapsible": 1.1.1
     "@radix-ui/react-context-menu": 2.2.2
@@ -1564,8 +1564,8 @@ __metadata:
     "@radix-ui/react-tabs": 1.1.1
     "@radix-ui/react-toggle": 1.1.0
     "@radix-ui/react-tooltip": 1.1.3
-    "@tweakpane/plugin-camerakit": ^0.3.0
-    "@tweakpane/plugin-essentials": ^0.2.1
+    "@tweakpane/plugin-camerakit": 0.3.0
+    "@tweakpane/plugin-essentials": 0.2.1
     "@types/johnny-five": 2.1.10
     "@types/react": 18.3.11
     class-variance-authority: 0.7.0
@@ -1580,7 +1580,7 @@ __metadata:
     tailwind-merge: 2.5.3
     tailwindcss: 3.4.13
     tailwindcss-animate: 1.0.7
-    tweakpane: ^4.0.5
+    tweakpane: 4.0.5
     vaul: 1.0.0
     zod: 3.23.8
   languageName: unknown
@@ -2062,7 +2062,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@pangenerator/tweakpane-textarea-plugin@npm:^2.0.0":
+"@pangenerator/tweakpane-textarea-plugin@npm:2.0.0":
   version: 2.0.0
   resolution: "@pangenerator/tweakpane-textarea-plugin@npm:2.0.0"
   peerDependencies:
@@ -4088,7 +4088,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@total-typescript/ts-reset@npm:^0.5.1":
+"@total-typescript/ts-reset@npm:0.5.1":
   version: 0.5.1
   resolution: "@total-typescript/ts-reset@npm:0.5.1"
   checksum: f773a2b91707fab677c361837ef7855522d470e8a3abc0b9209a04832715feb0aa1ef0d10db880c1232acbd2c84222ec7c1bbf3f92d1d34d18c18ce08d304e45
@@ -4615,7 +4615,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tweakpane/plugin-camerakit@npm:^0.3.0":
+"@tweakpane/plugin-camerakit@npm:0.3.0":
   version: 0.3.0
   resolution: "@tweakpane/plugin-camerakit@npm:0.3.0"
   peerDependencies:
@@ -4624,7 +4624,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tweakpane/plugin-essentials@npm:^0.2.1":
+"@tweakpane/plugin-essentials@npm:0.2.1":
   version: 0.2.1
   resolution: "@tweakpane/plugin-essentials@npm:0.2.1"
   peerDependencies:
@@ -6489,7 +6489,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"concurrently@npm:^9.1.0":
+"concurrently@npm:9.1.0":
   version: 9.1.0
   resolution: "concurrently@npm:9.1.0"
   dependencies:
@@ -10649,6 +10649,7 @@ __metadata:
     firmata: "https://github.com/xiduzo/firmata.js.git"
     mqtt: 5.10.3
     postcss: 8.4.47
+    prettier: 3.4.2
     react: 18.3.1
     react-colorful: 5.6.1
     react-dom: 18.3.1
@@ -11876,7 +11877,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"patch-package@npm:^8.0.0":
+"patch-package@npm:8.0.0":
   version: 8.0.0
   resolution: "patch-package@npm:8.0.0"
   dependencies:
@@ -12228,7 +12229,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.3.3":
+"prettier@npm:3.4.2":
   version: 3.4.2
   resolution: "prettier@npm:3.4.2"
   bin:
@@ -14377,7 +14378,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tweakpane@npm:^4.0.5":
+"tweakpane@npm:4.0.5":
   version: 4.0.5
   resolution: "tweakpane@npm:4.0.5"
   checksum: 0175d754a0ef8aea16a29513b6996bd6b73ec4199be25a8764d84046edb58cd9b4463494b64a47948deb8116334cf84497f954f4e2707ef0381566f2833d1763
@@ -15278,10 +15279,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "yarn-workspace-electron@workspace:."
   dependencies:
-    "@total-typescript/ts-reset": ^0.5.1
-    concurrently: ^9.1.0
-    patch-package: ^8.0.0
-    prettier: ^3.3.3
+    "@total-typescript/ts-reset": 0.5.1
+    concurrently: 9.1.0
+    patch-package: 8.0.0
+    prettier: 3.4.2
   languageName: unknown
   linkType: soft
 

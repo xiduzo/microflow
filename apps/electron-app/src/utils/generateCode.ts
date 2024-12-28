@@ -21,9 +21,7 @@ export function generateCode(nodes: Node<{ baseType?: string; id?: string }>[], 
 const port = process.argv.at(-1);
 
 if (!port) {
-	console.warn(
-		'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
-	);
+	console.warn('No port provided, johnny five usualy can handle this. This might cause unforseen behavior.');
 }
 `;
 
@@ -44,27 +42,35 @@ if (!port) {
 
 	nodes.forEach(node => {
 		node.data.id = node.id; // Expose the Id to the options
-		innerCode += `  const ${node.type}_${node.id} = new MicroflowComponents.${node.data.baseType ?? node.type}(${JSON.stringify(node.data)});`;
+		innerCode += `const ${node.type}_${node.id} = new MicroflowComponents.${node.data.baseType ?? node.type}(${JSON.stringify(node.data)});`;
 		innerCode += addEnter();
-		innerCode += `  nodes.set("${node.id}", ${node.type}_${node.id});`;
+		innerCode += `nodes.set("${node.id}", ${node.type}_${node.id});`;
+		innerCode += addEnter();
 		innerCode += addEnter();
 	});
 
 	innerCode += addEnter();
-	innerCode += addEnter();
 
-	// Initial triggers
+	innerCode += `
+	/*
+	 * Initial triggers
+     */`;
 	nodes.forEach(node => {
 		if (node.type?.toLowerCase() === 'gate') {
-			const trigger = `  ${node.type}_${node.id}.check(${getAllEdgesValues(node.id, edges, nodes)});`;
+			const trigger = `${node.type}_${node.id}.check(${getAllEdgesValues(node.id, edges, nodes)});`;
 			innerCode += wrapInTryCatch(trigger);
-			innerCode += addEnter();
 			innerCode += addEnter();
 		}
 	});
 
+	innerCode += addEnter();
+
 	const nodesWithActionListener = nodes.filter(node => edges.some(edge => edge.source === node.id));
 
+	innerCode += `
+	/*
+	 * Handlers
+     */`;
 	nodesWithActionListener.forEach(node => {
 		const actions = edges.filter(edge => edge.source === node.id);
 
@@ -78,7 +84,7 @@ if (!port) {
 
 		// React to actions
 		Object.entries(actionsGroupedByHandle).forEach(([action, actionEdges]) => {
-			innerCode += `  ${node.type}_${node.id}.on("${action}", (value) => {`;
+			innerCode += `${node.type}_${node.id}.on("${action}", (value) => {`;
 
 			actionEdges.forEach(edge => {
 				const targetNode = nodes.find(node => node.id === edge.target);
@@ -118,19 +124,16 @@ function addEnter() {
 }
 
 function addImports() {
-	return `
-const MicroflowComponents = require("@microflow/components");
-`;
+	return `const MicroflowComponents = require("@microflow/components");`;
 }
 
 function addBoard() {
 	return `
 const ipRegex = new RegExp(/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/);
-const portIsIp = ipRegex.test(String(port));
 
-let connection;
+let connection = port;
 
-if(portIsIp) {
+if(ipRegex.test(String(port))) {
     connection = new MicroflowComponents.TcpSerial({
         host: port,
         port: 3030,
@@ -144,7 +147,7 @@ if(portIsIp) {
 const board = new MicroflowComponents.Board({
   repl: false,
   debug: false,
-  port: connection || port,
+  port: connection,
 });
 `;
 }
@@ -167,7 +170,9 @@ ${selfClosing ? `}); // board - ${type}` : ``}
 
 function addNodeProcessListener() {
 	let code = `
-// Listen to events from electron
+/*
+ * Listen to events from electron
+*/
 process.on('message', (e) => {`;
 
 	let innerCode = ``;

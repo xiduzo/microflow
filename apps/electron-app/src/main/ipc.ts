@@ -21,6 +21,7 @@ import {
 } from '../common/types';
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
+import { format } from 'prettier';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -164,9 +165,13 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	log.debug(`[UPLOAD] generate code`, timer.duration);
 	const code = generateCode(data.nodes as Node[], data.edges as Edge[]);
 
+	log.debug(`[UPLOAD] prettier code`, timer.duration);
+	const formattedCode = await format(code, { parser: 'babel' });
+
 	log.debug('[UPLOAD] writing file', timer.duration);
 	const filePath = join(__dirname, 'temp.js');
-	writeFile(filePath, code, error => {
+	writeFile(filePath, formattedCode, error => {
+		// Run prettier node command against the file
 		if (error) {
 			log.debug('[UPLOAD] write file error', { error });
 			event.reply('ipc-upload-code', {
