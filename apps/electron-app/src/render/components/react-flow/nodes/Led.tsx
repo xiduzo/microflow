@@ -56,7 +56,7 @@ function LedValue(props: { value: number }) {
 			className="text-yellow-500"
 			size={48}
 			style={{
-				opacity: props.value > 1 ? props.value / 255 : 1, // Rhough dimmable LED
+				opacity: props.value !== 1 ? props.value / 255 + 0.1 : 1, // Rhough dimmable LED
 			}}
 		/>
 	);

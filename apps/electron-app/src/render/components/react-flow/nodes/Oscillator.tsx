@@ -82,6 +82,7 @@ function Settings() {
 
 		pane.addBinding(settings, 'autoStart', {
 			index: 5,
+			label: 'auto start',
 		});
 	}, [pane, settings]);
 

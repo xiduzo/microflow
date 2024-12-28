@@ -4,7 +4,7 @@ import { BaseComponent, BaseComponentData } from './BaseComponent';
 export type CalculateValueType = number;
 
 export type CalculateData = {
-	function: 'add' | 'subtract' | 'multiply' | 'divide' | 'modulo' | 'max' | 'min';
+	function: 'add' | 'subtract' | 'multiply' | 'divide' | 'modulo' | keyof typeof Math;
 };
 
 export class Calculate extends BaseComponent<CalculateValueType> {
@@ -33,10 +33,14 @@ export class Calculate extends BaseComponent<CalculateValueType> {
 				this.value = one % two;
 				break;
 			case 'max':
-				this.value = Math.max(one, two);
-				break;
 			case 'min':
-				this.value = Math.min(one, two);
+			case 'pow':
+				this.value = Math[this.data.function](one, two);
+				break;
+			case 'ceil':
+			case 'floor':
+			case 'round':
+				this.value = Math[this.data.function](one);
 				break;
 		}
 	}

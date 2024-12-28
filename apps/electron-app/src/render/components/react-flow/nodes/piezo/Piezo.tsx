@@ -44,7 +44,7 @@ function Value() {
 
 function Settings() {
 	// @ts-expect-error PiezoData is not of type `Record<string, unknown>`
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<PiezoData>();
+	const { pane, settings, setHandlesToDelete, saveSettings } = useNodeSettings<PiezoData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
@@ -142,7 +142,8 @@ function Settings() {
 				setEditorOpened(false);
 			}}
 			onSave={data => {
-				data.song = data.song;
+				settings.song = data.song;
+				saveSettings();
 				setEditorOpened(false);
 			}}
 		/>
