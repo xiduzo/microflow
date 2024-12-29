@@ -28,13 +28,13 @@ export function DownloadApp() {
 
 		switch (os) {
 			case 'MacOS (Apple Silicon)':
-				window.open(`${baseUrl}/Microflow-studio-${version}-arm64.dmg`);
+				window.open(`${baseUrl}/Microflow.studio-${version}-arm64.dmg`);
 				break;
 			case 'MacOS (Intel)':
-				window.open(`${baseUrl}/Microflow-studio-${version}-x64.dmg`);
+				window.open(`${baseUrl}/Microflow.studio-${version}-x64.dmg`);
 				break;
 			case 'Windows':
-				window.open(`${baseUrl}/Microflow-studio-${version}-Setup.exe`);
+				window.open(`${baseUrl}/Microflow.studio-${version}.Setup.exe`);
 				break;
 			case 'Debian':
 				window.open(`${baseUrl}/microflow-studio_${version}_amd64.deb`);
