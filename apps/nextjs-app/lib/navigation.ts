@@ -34,6 +34,11 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes',
 			},
 			{
+				title: 'Force',
+				href: '/docs/microflow-studio/nodes/force',
+				parent: '/docs/microflow-studio/nodes',
+			},
+			{
 				title: 'Gate',
 				href: '/docs/microflow-studio/nodes/gate',
 				parent: '/docs/microflow-studio/nodes',

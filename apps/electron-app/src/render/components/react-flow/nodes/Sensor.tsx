@@ -1,5 +1,5 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import { Icons, Progress } from '@microflow/ui';
+import { cva, Icons, Progress } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { MODES } from '../../../../common/types';
@@ -27,14 +27,17 @@ function Value() {
 
 	switch (data.subType) {
 		case 'ldr':
+			if (progress <= 33) return <Icons.SunDim className={`text-yellow-500/30`} size={48} />;
+			if (progress <= 66) return <Icons.SunMedium className={`text-yellow-500/60`} size={48} />;
+			if (progress > 66) return <Icons.Sun className={`text-yellow-500`} size={48} />;
+			break;
+		case 'force':
 			return (
-				<section className="flex flex-col text-center gap-2">
-					{progress <= 33 && <Icons.SunDim className={`text-yellow-500/30`} size={48} />}
-					{progress > 33 && progress <= 66 && (
-						<Icons.SunMedium className={`text-yellow-500/60`} size={48} />
-					)}
-					{progress > 66 && <Icons.Sun className={`text-yellow-500`} size={48} />}
-				</section>
+				<Icons.BicepsFlexed
+					size={48}
+					className="transition-all"
+					style={{ transform: `scale(${1 + progress / 100})` }}
+				/>
 			);
 		default:
 			return (
@@ -97,6 +100,16 @@ Potentiometer.defaultProps = {
 		...Sensor.defaultProps.data,
 		label: 'Potentiometer',
 		subType: 'potentiometer',
+		baseType: 'Sensor',
+	} satisfies Props['data'],
+};
+
+export const Force = (props: Props) => <Sensor {...props} />;
+Force.defaultProps = {
+	data: {
+		...Sensor.defaultProps.data,
+		label: 'Force',
+		subType: 'force',
 		baseType: 'Sensor',
 	} satisfies Props['data'],
 };

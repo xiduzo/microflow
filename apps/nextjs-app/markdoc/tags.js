@@ -83,9 +83,9 @@ const tags = {
 					src={src}
 					width={width ?? 725}
 					height={height ?? 453}
-					frameborder="0"
-					marginwidth="0"
-					marginheight="0"
+					frameBorder="0"
+					marginWidth="0"
+					marginHeight="0"
 					scrolling="no"
 				/>
 			);
