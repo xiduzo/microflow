@@ -21,6 +21,7 @@ import { Gate } from '../render/components/react-flow/nodes/Gate';
 import { Delay } from '../render/components/react-flow/nodes/Delay';
 import { Calculate } from '../render/components/react-flow/nodes/Calculate';
 import { Constant } from '../render/components/react-flow/nodes/Constant';
+import { Relay } from '../render/components/react-flow/nodes/Relay';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Button: Button,
@@ -44,6 +45,7 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Piezo: Piezo,
 	Potentiometer: Potentiometer,
 	RangeMap: RangeMap,
+	Relay: Relay,
 	Rgb: Rgb,
 	Servo: Servo,
 	Smooth: Smooth,

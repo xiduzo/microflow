@@ -10,6 +10,16 @@ By connecting nodes together, using [edges](/docs/microflow-studio/edges), you c
 
 For example, you can create a flow that reads data from a sensor, processes the data, and then sends the result to an output device.
 
+{% quick-links %}
+
+{% quick-link title="Hardware nodes" href="/docs/microflow-studio/nodes/hardware" description="Connect various hardware components." /%}
+{% quick-link title="Flow nodes" href="/docs/microflow-studio/nodes/hardware" description="Control the data in your flow." /%}
+{% quick-link title="External nodes" href="/docs/microflow-studio/nodes/hardware" description="Interact with 3rd party services." /%}
+
+
+{% /quick-links %}
+
+
 ## Atonomy of a Node
 
 Nodes are being connected with [edges](/docs/microflow-studio/edges) to form a flow. Each node has a set of handles that can be connected to other nodes.

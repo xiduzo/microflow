@@ -22,7 +22,7 @@ export function SerialConnectionStatusPanel() {
 			return (
 				<Badge className={badge({ variant: 'warning' })}>
 					Uploading your flow
-					<Icons.Zap className="ml-2 h-3 w-3 animate-pulse" />
+					<Icons.FileUp className="ml-2 h-3 w-3 animate-pulse" />
 				</Badge>
 			);
 		}
@@ -30,7 +30,7 @@ export function SerialConnectionStatusPanel() {
 		return (
 			<Badge className={badge({ variant: 'success' })}>
 				Microcontroller in sync with flow
-				<Icons.ChevronsLeftRightEllipsis className="ml-2 h-3 w-3" />
+				<Icons.FolderSync className="ml-2 h-3 w-3" />
 			</Badge>
 		);
 	}

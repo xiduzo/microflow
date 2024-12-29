@@ -18,6 +18,7 @@ export * from './src/components/Motion';
 export * from './src/components/Mqtt';
 export * from './src/components/Piezo';
 export * from './src/components/RangeMap';
+export * from './src/components/Relay';
 export * from './src/components/RGB';
 export * from './src/components/Sensor';
 export * from './src/components/Servo';

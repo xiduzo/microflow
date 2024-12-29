@@ -27,6 +27,19 @@ export function Navigation({
 		return pathname === href || pathname.startsWith(href);
 	}
 
+	function getIdentation(link: { parent?: string; href: string }, identation = 14) {
+		if (link.parent) identation += 14;
+
+		const allLinks = navigation.reduce(
+			(acc, curr) => acc.concat(curr.links),
+			[] as { parent?: string; href: string }[],
+		);
+		const parentLink = allLinks.find(({ href }) => href === link.parent);
+		if (parentLink) return getIdentation(parentLink, identation);
+
+		return identation;
+	}
+
 	return (
 		<nav className={clsx('text-base lg:text-sm', className)}>
 			<ul role="list" className="space-y-9">
@@ -56,8 +69,9 @@ export function Navigation({
 												link.href === pathname
 													? 'font-semibold text-sky-500 before:bg-sky-500'
 													: 'text-slate-500 before:hidden before:bg-slate-300 hover:text-slate-600 hover:before:block dark:text-slate-400 dark:before:bg-slate-700 dark:hover:text-slate-300',
-												link.parent ? 'pl-6 text-xs' : '',
+												link.parent ? `text-xs` : '',
 											)}
+											style={{ paddingLeft: getIdentation(link) }}
 										>
 											{link.title}
 											{getChildLinks(link.href) > 0 &&
