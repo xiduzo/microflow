@@ -39,26 +39,17 @@ export class BaseComponent<T> {
 	 *
 	 */
 	on(action: string, callback: (...args: any[]) => void) {
-		this.eventEmitter.on(action, args => callback(args));
+		this.eventEmitter.on(action, args => {
+			callback(args);
+			this.postMessage(action);
+		});
 	}
 
-	protected postMessage(action: string, emitChange = true) {
-		if (action !== 'change' && emitChange) {
-			this.eventEmitter.emit('change', this._value);
-		}
-
+	private postMessage(action: string) {
 		postMessageToElectronMain({
 			action,
 			nodeId: this._id,
 			value: this.value,
-		});
-	}
-
-	protected postErrorMessage(action: string, error: Error) {
-		postMessageToElectronMain({
-			action: action,
-			nodeId: this._id,
-			value: error,
 		});
 	}
 }

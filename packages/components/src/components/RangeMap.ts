@@ -28,11 +28,8 @@ export class RangeMap extends BaseComponent<RangeMapValueType> {
 		const distance = outMax - outMin;
 		const normalizedOutput = parseFloat(mapped.toFixed(distance <= 10 ? 1 : 0));
 
-		const prevValue = this.value;
-		this.value = [input, normalizedOutput];
+		this.eventEmitter.emit('to', normalizedOutput);
 
-		if (prevValue[1] !== normalizedOutput) {
-			this.eventEmitter.emit('to', normalizedOutput);
-		}
+		this.value = [input, normalizedOutput];
 	}
 }

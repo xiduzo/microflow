@@ -62,7 +62,6 @@ export class Figma extends BaseComponent<FigmaValueType> {
 			}
 		} catch (error) {
 			Logger.warn('Invalid value type to set figma', { value, error });
-			this.postErrorMessage('set', new Error(`${value} is not a valid value`));
 		}
 	}
 

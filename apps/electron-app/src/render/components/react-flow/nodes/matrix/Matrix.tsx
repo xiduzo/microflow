@@ -2,7 +2,7 @@ import { type MatrixData, type MatrixValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from '../Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
 import { useNodeValue } from '../../../../stores/node-data';
 import { MODES } from '../../../../../common/types';
@@ -53,12 +53,13 @@ function Value() {
 }
 
 function Settings() {
+	const data = useNodeData<MatrixData>();
 	const { pane, settings, saveSettings } = useNodeSettings<MatrixData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
 	const [shapes, setShapes] = useState(
-		(settings.shapes ?? [DEFAULT_MATRIX_SHAPE]).map(shape => ({
+		(settings.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]).map(shape => ({
 			id: uuid(),
 			shape,
 		})),
@@ -202,7 +203,7 @@ function Settings() {
 						updateShapes([...shapes, { id: uuid(), shape: newShape }]);
 					}}
 					dimensions={settings.dims}
-					shape={DEFAULT_MATRIX_SHAPE}
+					shape={[]}
 				>
 					<Button variant="outline">Add new shape</Button>
 				</MatrixEditor>
