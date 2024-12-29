@@ -44,7 +44,7 @@ export function Calculate(props: Props) {
 			{!hasSingleInput && (
 				<Handle type="target" position={Position.Left} id="2" title={second} offset={0.5} />
 			)}
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type="source" position={Position.Right} id="change" title="result" />
 		</NodeContainer>
 	);
 }
@@ -88,16 +88,16 @@ function Settings() {
 			index: 0,
 			type: 'list',
 			options: [
-				{ text: 'add', value: 'add' },
-				{ text: 'subtract', value: 'subtract' },
-				{ text: 'multiply', value: 'multiply' },
-				{ text: 'divide', value: 'divide' },
+				{ text: 'addition', value: 'add' },
+				{ text: 'subtraction', value: 'subtract' },
+				{ text: 'multiplication', value: 'multiply' },
+				{ text: 'division', value: 'divide' },
 				{ text: 'modulo', value: 'modulo' },
-				{ text: 'max', value: 'max' },
-				{ text: 'min', value: 'min' },
+				{ text: 'maximum', value: 'max' },
+				{ text: 'minimum', value: 'min' },
 				{ text: 'round up', value: 'ceil' },
 				{ text: 'round down', value: 'floor' },
-				{ text: 'round', value: 'round' },
+				{ text: 'round closest', value: 'round' },
 			],
 		});
 
