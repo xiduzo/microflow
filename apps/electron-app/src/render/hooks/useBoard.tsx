@@ -24,7 +24,6 @@ export function useCelebrateFirstUpload() {
 
 export function useCheckBoard() {
 	const { setBoardResult, setUploadResult } = useBoardStore();
-	const uploadCode = useCodeUploader();
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', {
 		ip: undefined,
 	});
@@ -58,10 +57,7 @@ export function useCheckBoard() {
 					console.debug(`[CHECK] >>>`, { ip });
 					window.electron.ipcRenderer.send('ipc-check-board', { ip });
 					break;
-				case 'ready':
-					uploadCode();
-					break;
 			}
 		});
-	}, [ip, setUploadResult, uploadCode]);
+	}, [ip, setUploadResult]);
 }

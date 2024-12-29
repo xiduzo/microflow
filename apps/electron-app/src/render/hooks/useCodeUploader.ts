@@ -1,7 +1,7 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isNodeTypeACodeType } from '../../utils/generateCode';
-import { useBoardPort, useBoardStore, useUploadResult } from '../stores/board';
+import { useBoardCheckResult, useBoardPort, useBoardStore, useUploadResult } from '../stores/board';
 import { UploadRequest, UploadResponse } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
@@ -90,47 +90,28 @@ export function useUploadResultListener() {
 	}, [config.ip]);
 }
 
-function useHasChangesToUpload() {
+export function useAutoUploadCode() {
 	const nodeToAdd = useNewNodeStore(useShallow(state => state.nodeToAdd));
-	const uploadResult = useUploadResult();
-
-	const [hasChangesToUpload, setHasChangesToUpload] = useState(false);
+	const checkResult = useBoardCheckResult();
+	const uploadCode = useCodeUploader();
 
 	const lastNodesCount = useRef(-1);
 	const lastEdgesCount = useRef(-1);
 	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
 
 	useEffect(() => {
-		// We do not want to probe the user to upload code while they are adding a new node
+		if (checkResult !== 'ready') return;
+
+		// We do not want to upload code while they are adding a new node
 		if (nodeToAdd?.length) return;
 
 		// Nothing changed
 		if (lastNodesCount.current === nodesCount && lastEdgesCount.current === edgesCount) return;
 
-		const shouldUpload = lastNodesCount.current !== -1 || lastEdgesCount.current !== -1;
 		lastNodesCount.current = nodesCount;
 		lastEdgesCount.current = edgesCount;
 
-		if (!shouldUpload) return;
-		setHasChangesToUpload(true);
-	}, [nodesCount, edgesCount, nodeToAdd]);
-
-	useEffect(() => {
-		if (uploadResult !== 'ready') return;
-
-		// We have just uploaded the code, so we can reset the flag
-		setHasChangesToUpload(false);
-	}, [uploadResult]);
-
-	return hasChangesToUpload;
-}
-
-export function useAutoUploadCode() {
-	const hasChangesToUpload = useHasChangesToUpload();
-	const uploadCode = useCodeUploader();
-
-	useEffect(() => {
-		if (!hasChangesToUpload) return;
+		console.debug(`[UPLOAD] trigger`);
 		uploadCode();
-	}, [hasChangesToUpload, uploadCode]);
+	}, [nodesCount, edgesCount, nodeToAdd, uploadCode, checkResult]);
 }
