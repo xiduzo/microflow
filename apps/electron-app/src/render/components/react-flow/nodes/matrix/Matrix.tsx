@@ -2,12 +2,16 @@ import { type MatrixData, type MatrixValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from '../Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
 import { useNodeValue } from '../../../../stores/node-data';
 import { MODES } from '../../../../../common/types';
 import { mapPinToPaneOption } from '../../../../../utils/pin';
-import { DEFAULT_MATRIX_SHAPE, DEFAULT_MATRIX_START_SHAPE } from '@microflow/components/contants';
+import {
+	DEFAULT_MATRIX_SHAPE,
+	DEFAULT_MATRIX_START_SHAPE,
+	MatrixShape,
+} from '@microflow/components/contants';
 import {
 	Button,
 	Dialog,
@@ -49,16 +53,23 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<MatrixData>();
+	const data = useNodeData<MatrixData>();
+	const { pane, settings, saveSettings } = useNodeSettings<MatrixData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
 	const [shapes, setShapes] = useState(
-		settings.shapes?.map(shape => ({
+		(settings.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]).map(shape => ({
 			id: uuid(),
 			shape,
-		})) ?? [DEFAULT_MATRIX_SHAPE],
+		})),
 	);
+
+	function updateShapes(newShapes: { id: string; shape: MatrixShape }[]) {
+		setShapes(newShapes);
+		settings.shapes = newShapes.map(({ shape }) => shape);
+		saveSettings();
+	}
 
 	function swapShapes(id: string, hoveredId: string) {
 		const nextShapes = [...shapes];
@@ -67,7 +78,7 @@ function Settings() {
 
 		nextShapes[leftIndex] = shapes[rightIndex];
 		nextShapes[rightIndex] = shapes[leftIndex];
-		setShapes(nextShapes);
+		updateShapes(nextShapes);
 	}
 
 	useEffect(() => {
@@ -171,13 +182,13 @@ function Settings() {
 												...nextShapes[index],
 												shape: newShape,
 											};
-											setShapes(nextShapes);
+											updateShapes(nextShapes);
 										}}
 										dimensions={settings.dims}
 										onDelete={() => {
 											const nextShapes = [...shapes];
 											nextShapes.splice(index, 1);
-											setShapes(nextShapes);
+											updateShapes(nextShapes);
 										}}
 										shape={shape}
 									/>
@@ -189,10 +200,10 @@ function Settings() {
 				<MatrixEditor
 					key={shapes.length}
 					onSave={newShape => {
-						setShapes([...shapes, { id: uuid(), shape: newShape }]);
+						updateShapes([...shapes, { id: uuid(), shape: newShape }]);
 					}}
 					dimensions={settings.dims}
-					shape={DEFAULT_MATRIX_SHAPE}
+					shape={[]}
 				>
 					<Button variant="outline">Add new shape</Button>
 				</MatrixEditor>

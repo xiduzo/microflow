@@ -1,5 +1,5 @@
 import { ListParamsOptions } from '@tweakpane/core';
-import { MODES, Pin, PIN_MODES } from '../common/types';
+import { MODES, Pin } from '../common/types';
 
 export function pinValue(pin: Pin) {
 	return !pin.supportedModes.includes(MODES.ANALOG) ? pin.pin : `A${pin.analogChannel}`;
@@ -8,6 +8,6 @@ export function pinValue(pin: Pin) {
 export function mapPinToPaneOption(pin: Pin): ListParamsOptions<string | number> {
 	return {
 		value: pinValue(pin),
-		text: `${pinValue(pin)}`,
+		text: `${pinValue(pin)}${pin.supportedModes.includes(MODES.PWM) ? ' (~)' : ''}`,
 	};
 }

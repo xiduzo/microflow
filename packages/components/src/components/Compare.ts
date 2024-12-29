@@ -67,7 +67,7 @@ export class Compare extends BaseComponent<CompateValueType> {
 							Number(input) < (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'outside':
 						return (input: unknown) =>
-							Number(input) < (this.data.validatorArg as DoubleNumberData['validatorArg']).min &&
+							Number(input) < (this.data.validatorArg as DoubleNumberData['validatorArg']).min ||
 							Number(input) > (this.data.validatorArg as DoubleNumberData['validatorArg']).max;
 					case 'even':
 						return (input: unknown) => Math.round(Number(input)) % 2 === 0;

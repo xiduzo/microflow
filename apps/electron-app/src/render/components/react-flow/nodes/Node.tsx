@@ -147,6 +147,7 @@ type SettingsContextProps<T extends Record<string, unknown>> = {
 	pane: Pane | null;
 	settings: T;
 	setHandlesToDelete: (handles: string[]) => void;
+	saveSettings: () => void;
 };
 
 const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
@@ -176,6 +177,15 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		handlesToDelete.current = handles;
 	}, []);
 
+	const saveSettings = useCallback(() => {
+		if (handlesToDelete.current.length > 0) {
+			deleteEdes(id, handlesToDelete.current);
+			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
+		}
+
+		updateNode(settings, type !== 'Note');
+	}, [updateNode, deleteEdes, updateNodeInternals, id, settings]);
+
 	// TODO: update this after undo / redo
 	useEffect(() => {
 		if (settingsOpened) return;
@@ -190,15 +200,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			title: `${settings.label} (${id})`,
 			container: ref.current ?? undefined,
 		});
-
-		function saveSettings() {
-			if (handlesToDelete.current.length > 0) {
-				deleteEdes(id, handlesToDelete.current);
-				updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
-			}
-
-			updateNode(settings, type !== 'Note');
-		}
 
 		pane.registerPlugin(TweakpaneEssentialPlugin);
 		pane.registerPlugin(TweakpaneTextareaPlugin);
@@ -237,10 +238,10 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			setPane(null);
 			pane.dispose();
 		};
-	}, [settingsOpened, deleteEdes, type, id, updateNode, updateNodeInternals]);
+	}, [settingsOpened, type, id, saveSettings]);
 
 	return (
-		<NodeSettingsPaneContext.Provider value={{ pane, settings, setHandlesToDelete }}>
+		<NodeSettingsPaneContext.Provider value={{ pane, settings, saveSettings, setHandlesToDelete }}>
 			{props.children}
 			{settingsOpened &&
 				(createPortal(

@@ -6,6 +6,8 @@ import { useEffect, useMemo } from 'react';
 import { Icons } from '@ui/index';
 
 export function Calculate(props: Props) {
+	const hasSingleInput = ['ceil', 'floor', 'round'].includes(props.data.function as string);
+
 	const [first, second] = useMemo(() => {
 		switch (props.data.function) {
 			case 'add':
@@ -23,17 +25,26 @@ export function Calculate(props: Props) {
 			case 'min':
 				return ['first operand', 'second operand'];
 			default:
-				return ['first', 'second'];
+				return ['input', 'input'];
 		}
 	}, [props.data.function]);
+
 	return (
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
 
-			<Handle type="target" position={Position.Left} id="1" title={first} offset={-0.5} />
-			<Handle type="target" position={Position.Left} id="2" title={second} offset={0.5} />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle
+				type="target"
+				position={Position.Left}
+				id="1"
+				title={first}
+				offset={!hasSingleInput ? -0.5 : 0}
+			/>
+			{!hasSingleInput && (
+				<Handle type="target" position={Position.Left} id="2" title={second} offset={0.5} />
+			)}
+			<Handle type="source" position={Position.Right} id="change" title="result" />
 		</NodeContainer>
 	);
 }
@@ -56,13 +67,19 @@ function Value() {
 			return <Icons.ArrowUpToLine size={48} className="text-muted-foreground" />;
 		case 'min':
 			return <Icons.ArrowDownToLine size={48} className="text-muted-foreground" />;
+		case 'ceil':
+			return <Icons.ChevronUp size={48} className="text-muted-foreground" />;
+		case 'floor':
+			return <Icons.ChevronDown size={48} className="text-muted-foreground" />;
+		case 'round':
+			return <Icons.ChevronsUpDown size={48} className="text-muted-foreground" />;
 		default:
-			return <div>{data.function}</div>;
+			return <Icons.CircleHelp size={48} className="text-muted-foreground" />;
 	}
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<CalculateData>();
+	const { pane, settings, setHandlesToDelete } = useNodeSettings<CalculateData>();
 
 	useEffect(() => {
 		if (!pane) return;
@@ -71,14 +88,23 @@ function Settings() {
 			index: 0,
 			type: 'list',
 			options: [
-				{ text: 'add', value: 'add' },
-				{ text: 'subtract', value: 'subtract' },
-				{ text: 'multiply', value: 'multiply' },
-				{ text: 'divide', value: 'divide' },
+				{ text: 'addition', value: 'add' },
+				{ text: 'subtraction', value: 'subtract' },
+				{ text: 'multiplication', value: 'multiply' },
+				{ text: 'division', value: 'divide' },
 				{ text: 'modulo', value: 'modulo' },
-				{ text: 'max', value: 'max' },
-				{ text: 'min', value: 'min' },
+				{ text: 'maximum', value: 'max' },
+				{ text: 'minimum', value: 'min' },
+				{ text: 'round up', value: 'ceil' },
+				{ text: 'round down', value: 'floor' },
+				{ text: 'round closest', value: 'round' },
 			],
+		});
+
+		gateType.on('change', event => {
+			const hasSingleInput = ['ceil', 'floor', 'round'].includes(event.value as string);
+
+			setHandlesToDelete(hasSingleInput ? ['2'] : []);
 		});
 
 		return () => {

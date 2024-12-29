@@ -116,7 +116,7 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	}
 
 	private random() {
-		return this.data.shift + this.data.amplitude * Math.random();
+		return (this.data.shift + this.data.amplitude) * Math.random();
 	}
 
 	private ellapsed() {

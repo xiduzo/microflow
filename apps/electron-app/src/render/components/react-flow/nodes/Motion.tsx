@@ -60,9 +60,9 @@ function Settings() {
 							pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
 
 						if (settings.controller === 'HCSR501') {
-							return isCorrectMode && pin.supportedModes.includes(MODES.ANALOG);
-						} else {
 							return isCorrectMode && !pin.supportedModes.includes(MODES.ANALOG);
+						} else {
+							return isCorrectMode && pin.supportedModes.includes(MODES.ANALOG);
 						}
 					})
 					.map(mapPinToPaneOption),

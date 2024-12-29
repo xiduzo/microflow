@@ -28,11 +28,21 @@ function Settings() {
 	useEffect(() => {
 		if (!pane) return;
 
-		pane.addBinding(settings, 'delay', {
+		const delayBinding = pane.addBinding(settings, 'delay', {
 			index: 0,
 			min: 100,
 			step: 100,
 		});
+
+		const forgetPriviousBinding = pane.addBinding(settings, 'forgetPrevious', {
+			index: 1,
+			label: 'debounce',
+		});
+
+		return () => {
+			delayBinding.dispose();
+			forgetPriviousBinding.dispose();
+		};
 	}, [pane, settings]);
 
 	return null;
@@ -45,5 +55,6 @@ Delay.defaultProps = {
 		tags: ['event', 'control'],
 		label: 'Delay',
 		delay: 1000,
+		forgetPrevious: false,
 	} satisfies Props['data'],
 };
