@@ -13,7 +13,12 @@ import { Oscillator } from '../render/components/react-flow/nodes/Oscillator';
 import { Piezo } from '../render/components/react-flow/nodes/piezo/Piezo';
 import { RangeMap } from '../render/components/react-flow/nodes/RangeMap';
 import { Rgb } from '../render/components/react-flow/nodes/RGB';
-import { Force, Ldr, Potentiometer } from '../render/components/react-flow/nodes/Sensor';
+import {
+	Force,
+	HallEffect,
+	Ldr,
+	Potentiometer,
+} from '../render/components/react-flow/nodes/Sensor';
 import { Servo } from '../render/components/react-flow/nodes/Servo';
 import { Smooth } from '../render/components/react-flow/nodes/Smooth';
 import { Trigger } from '../render/components/react-flow/nodes/Trigger';
@@ -34,6 +39,7 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Figma: Figma,
 	Force: Force,
 	Gate: Gate,
+	HallEffect: HallEffect,
 	Interval: Interval,
 	Ldr: Ldr,
 	Led: Led,

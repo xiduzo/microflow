@@ -33,7 +33,7 @@ The wiring examples are for illustrative purposes, it might not work with your p
 
 A 2 pin switch requires a _resistor_ to work properly.
 
-![2 pin on-off switch](/images/2-pin-on-off-switch.svg)
+![2 pin on-off switch](/images/2-pin-on-off-switch.svg) {%  .w-60  %}
 
 ### 3 pin on-off switch
 
@@ -41,7 +41,7 @@ A 3 pin switch is similar to a 2 pin switch, it does not require a _resistor_ bu
 
 The input pin is usually connected to the middle pin, while the other two pins are connected to the ground and power.
 
-![3 pin switch](/images/3-pin-on-off-switch.svg)
+![3 pin switch](/images/3-pin-on-off-switch.svg) {%  .w-52  %}
 
 ## Resources
 
