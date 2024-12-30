@@ -60,6 +60,11 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes/hardware',
 			},
 			{
+				title: 'Switch',
+				href: '/docs/microflow-studio/nodes/hardware/switch',
+				parent: '/docs/microflow-studio/nodes/hardware',
+			},
+			{
 				title: 'Vibration',
 				href: '/docs/microflow-studio/nodes/hardware/vibration',
 				parent: '/docs/microflow-studio/nodes/hardware',

@@ -22,6 +22,7 @@ import { Delay } from '../render/components/react-flow/nodes/Delay';
 import { Calculate } from '../render/components/react-flow/nodes/Calculate';
 import { Constant } from '../render/components/react-flow/nodes/Constant';
 import { Relay } from '../render/components/react-flow/nodes/Relay';
+import { Switch } from '../render/components/react-flow/nodes/Switch';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Button: Button,
@@ -49,6 +50,7 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Rgb: Rgb,
 	Servo: Servo,
 	Smooth: Smooth,
+	Switch: Switch,
 	Trigger: Trigger,
 	Vibration: Vibration,
 } as const;
