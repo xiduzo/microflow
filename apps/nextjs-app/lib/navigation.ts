@@ -25,6 +25,11 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes/hardware',
 			},
 			{
+				title: 'Hall effect',
+				href: '/docs/microflow-studio/nodes/hardware/hall-effect',
+				parent: '/docs/microflow-studio/nodes/hardware',
+			},
+			{
 				title: 'LDR',
 				href: '/docs/microflow-studio/nodes/hardware/ldr',
 				parent: '/docs/microflow-studio/nodes/hardware',

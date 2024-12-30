@@ -1,5 +1,5 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import { cva, Icons, Progress } from '@microflow/ui';
+import { cva, Icons, Progress, VariantProps } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { MODES } from '../../../../common/types';
@@ -39,12 +39,46 @@ function Value() {
 					style={{ transform: `scale(${1 + progress / 100})` }}
 				/>
 			);
+		case 'hall-effect':
+			return (
+				<>
+					<Icons.Magnet
+						size={48}
+						className={hallEffect({
+							polarity: (Math.round(progress / 10) * 10) as HallEffectProps['polarity'],
+						})}
+						style={{
+							transform: `rotate(${progress * (360 / 100 / 2) + 135}deg)`,
+						}}
+					/>
+					<span className="text-xs">{progress}%</span>
+				</>
+			);
 		default:
 			return (
 				<Progress max={1023} value={progress} className="border border-muted-foreground mx-4" />
 			);
 	}
 }
+
+type HallEffectProps = VariantProps<typeof hallEffect>;
+const hallEffect = cva('transition-all', {
+	variants: {
+		polarity: {
+			0: 'text-red-600',
+			10: 'text-red-500',
+			20: 'text-red-400',
+			30: 'text-red-300',
+			40: 'text-red-200',
+			50: 'text-gray-200',
+			60: 'text-blue-200',
+			70: 'text-blue-300',
+			80: 'text-blue-400',
+			90: 'text-blue-500',
+			100: 'text-blue-600',
+		},
+	},
+});
 
 function Settings() {
 	const { pane, settings } = useNodeSettings<SensorData>();
@@ -110,6 +144,16 @@ Force.defaultProps = {
 		...Sensor.defaultProps.data,
 		label: 'Force',
 		subType: 'force',
+		baseType: 'Sensor',
+	} satisfies Props['data'],
+};
+
+export const HallEffect = (props: Props) => <Sensor {...props} />;
+HallEffect.defaultProps = {
+	data: {
+		...Sensor.defaultProps.data,
+		label: 'Hall Effect',
+		subType: 'hall-effect',
 		baseType: 'Sensor',
 	} satisfies Props['data'],
 };
