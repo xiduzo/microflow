@@ -13,7 +13,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from '@microflow/ui';
-import { Position } from '@xyflow/react';
+import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
@@ -41,20 +41,16 @@ export function Figma(props: Props) {
 		return window.electron.ipcRenderer.on<{ from: string; variableId: string; value: unknown }>(
 			'ipc-deep-link',
 			result => {
-				console.log(result);
+				console.debug(`[IPC-DEEP-LINK] <<<`, result);
+
 				if (!result.success) return;
 				if (result.data.from !== 'figma') return;
 				if (result.data.variableId !== variable?.id) return;
 
-				// TODO: do some processing on the value received from the plugin
-				// Eg. convert the color value to rgba
-				// +<number> of -<number> to increment or decrement the value
-				// true/false values
-				window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
-
-				// TODO: should we already publish the value?
-				// this would probably mean we publish it twice but it does not require a
-				// microcontroller to be connected and active
+				window.electron.ipcRenderer.send('ipc-external-value', {
+					nodeId: props.id,
+					value: result.data.value,
+				});
 			},
 		);
 	}, [variable?.id, props.id]);
@@ -63,12 +59,21 @@ export function Figma(props: Props) {
 		<NodeContainer {...props} error={isDisconnected ? 'Figma plugin is not connected' : undefined}>
 			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
 			<Settings />
-			<FigmaHandles variable={variable} />
+			<FigmaHandles variable={variable} id={props.id} />
 		</NodeContainer>
 	);
 }
 
-function FigmaHandles(props: { variable?: FigmaVariable }) {
+function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
+	const updateNodeInternals = useUpdateNodeInternals();
+
+	useEffect(() => {
+		if (!props.variable?.resolvedType) return;
+		// We need to update the internals when we have the resolvedType
+		// So that we do not get the xyflow error: `Couldn't create edge for target handle id...`
+		updateNodeInternals(props.id);
+	}, [props.id, props.variable?.resolvedType, updateNodeInternals]);
+
 	return (
 		<>
 			{props.variable?.resolvedType === 'BOOLEAN' && (
@@ -129,15 +134,6 @@ function Settings() {
 				const selectedVariableType = Array.from(Object.values(variableTypes)).find(
 					({ id }) => id === value,
 				)?.resolvedType;
-
-				const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
-				const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], FigmaValueType> =
-					{
-						BOOLEAN: false,
-						FLOAT: 0,
-						STRING: '-',
-						COLOR: DEFAULT_COLOR,
-					};
 
 				if (selectedVariableType) {
 					settings.resolvedType = selectedVariableType;
@@ -241,7 +237,14 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 		case 'COLOR':
 			return (
 				<section className="flex flex-col items-center gap-1">
-					<RgbaColorPicker color={value as RGBA} />
+					<RgbaColorPicker
+						color={{
+							r: Math.round((value as RGBA).r * 255),
+							g: Math.round((value as RGBA).g * 255),
+							b: Math.round((value as RGBA).b * 255),
+							a: (value as RGBA).a,
+						}}
+					/>
 					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
 				</section>
 			);
@@ -265,4 +268,11 @@ Figma.defaultProps = {
 		resolvedType: 'STRING',
 		initialValue: '',
 	} satisfies Props['data'],
+};
+
+const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], FigmaValueType> = {
+	BOOLEAN: false,
+	FLOAT: 0,
+	STRING: '-',
+	COLOR: { r: 0, g: 0, b: 0, a: 1 },
 };

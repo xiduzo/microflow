@@ -14,15 +14,21 @@ export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 		const [, collectionId, variableId, value] = data;
 
 		mainWindow.webContents.send('ipc-deep-link', {
-			from: 'figma',
-			variableId: `VariableID:${collectionId}:${variableId}`,
-			value: decodeURIComponent(value),
+			success: true,
+			data: {
+				from: 'figma',
+				variableId: `VariableID:${collectionId}:${variableId}`,
+				value: decodeURIComponent(value),
+			},
 		});
 		return;
 	}
 
 	if (link.endsWith('://link-web')) {
-		mainWindow.webContents.send('ipc-deep-link', { from: 'web' });
+		mainWindow.webContents.send('ipc-deep-link', {
+			success: true,
+			data: { from: 'web' },
+		});
 		return;
 	}
 }
