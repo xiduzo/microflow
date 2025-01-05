@@ -5,7 +5,6 @@ import { useCelebration } from '../providers/CelebrationProvider';
 import { useBoardCheckResult, useBoardStore } from '../stores/board';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
 import { toast } from '@microflow/ui';
-import { useCodeUploader } from './useCodeUploader';
 
 export function useCelebrateFirstUpload() {
 	const [isFirstUpload, setIsFirstUpload] = useLocalStorage('isFirstUpload', true);

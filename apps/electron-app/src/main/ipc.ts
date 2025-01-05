@@ -54,7 +54,6 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
 	const timer = new Timer();
 	log.debug('[CHECK] requested to check board', data, timer.duration);
-	cleanupProcesses();
 
 	const boardOverIp: Awaited<ReturnType<typeof getKnownBoardsWithPorts>> = [
 		['BOARD_OVER_IP' as BoardName, [{ path: data.ip ?? '' } as PortInfo]],
@@ -90,7 +89,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 					error: (error as any).message ?? 'Unknown error',
 				} satisfies IpcResponse<BoardCheckResult>);
 			} finally {
-				cleanupProcesses();
+				await cleanupProcesses();
 			}
 		}
 	}
@@ -103,6 +102,8 @@ const ipRegex = new RegExp(
 );
 
 async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) {
+	await cleanupProcesses();
+
 	const timer = new Timer();
 	const filePath = join(__dirname, 'workers', 'check.js');
 
@@ -118,23 +119,27 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 			processes.set(Number(checkProcess.pid), checkProcess);
 		});
 
-		checkProcess.stderr?.on('data', data => {
+		checkProcess.stderr?.on('data', async data => {
 			log.debug('[CHECK] [${checkProcess.pid}] stderr', data.toString(), timer.duration);
-			cleanupProcesses();
+			await cleanupProcesses();
 		});
 
 		checkProcess.stdout?.on('data', async data => {
 			log.debug(`[CHECK] [${checkProcess.pid}] stdout`, data.toString(), timer.duration);
 		});
 
-		checkProcess.on('message', async (data: UploadResponse) => {
+		async function handleMessage(data: UploadResponse) {
 			log.debug(`[CHECK] [${checkProcess.pid}] message: ${data.type}`, timer.duration);
 			try {
 				switch (data.type) {
 					case 'error':
 						try {
-							if (ipRegex.test(port.path))
+							if (ipRegex.test(port.path)) {
 								return reject(new Error(data.message ?? 'Unknown error'));
+							}
+
+							// Prevents double error messages from causing multiple flashers
+							checkProcess.off('message', handleMessage);
 							await flashBoard(board, port);
 							resolve();
 						} catch (error) {
@@ -146,32 +151,34 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 					case 'fail':
 						reject(new Error(data.message ?? 'Unknown error'));
 					case 'ready':
-						cleanupProcesses();
 						resolve();
 						break;
 				}
 			} catch (e) {
 				reject(e);
 			}
-		});
+		}
+
+		checkProcess.on('message', handleMessage);
 	});
 }
 
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	const timer = new Timer();
 	log.debug(`[UPLOAD] Uploading code to port ${data.port}`, timer.duration);
-	cleanupProcesses();
+	await cleanupProcesses();
 
 	log.debug(`[UPLOAD] generate code`, timer.duration);
 	const code = generateCode(data.nodes as Node[], data.edges as Edge[]);
 
 	log.debug(`[UPLOAD] prettier code`, timer.duration);
+	// Run prettier node command against the file
 	const formattedCode = await format(code, { parser: 'babel' });
 
 	log.debug('[UPLOAD] writing file', timer.duration);
 	const filePath = join(__dirname, 'temp.js');
+
 	writeFile(filePath, formattedCode, error => {
-		// Run prettier node command against the file
 		if (error) {
 			log.debug('[UPLOAD] write file error', { error });
 			event.reply('ipc-upload-code', {
@@ -193,7 +200,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 			latestUploadProcessId = uploadProcess.pid;
 		});
 
-		uploadProcess.on('message', (message: UploadedCodeMessage | UploadResponse) => {
+		uploadProcess.on('message', async (message: UploadedCodeMessage | UploadResponse) => {
 			if ('type' in message) {
 				log.debug(`[UPLOAD] [${uploadProcess.pid}] message: ${message.type}`, timer.duration);
 				switch (message.type) {
@@ -201,7 +208,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 					case 'exit':
 					case 'fail':
 					case 'close':
-						cleanupProcesses();
+						await cleanupProcesses();
 						event.reply('ipc-upload-code', {
 							success: false,
 							error: message.message ?? 'Unknown error',
@@ -248,7 +255,7 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 	const flashTimer = new Timer();
 
 	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
-	cleanupProcesses();
+	await cleanupProcesses();
 
 	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
 
@@ -349,7 +356,7 @@ async function getKnownBoardsWithPorts() {
 	}
 }
 
-function cleanupProcesses() {
+async function cleanupProcesses() {
 	const timer = new Timer();
 	log.debug(`[CLEANUP] started`);
 	for (const [pid, childProcess] of Array.from(processes)) {
@@ -360,11 +367,14 @@ function cleanupProcesses() {
 		processes.delete(pid);
 		log.debug(`[CLEANUP] [${pid}] killed`, timer.duration);
 	}
+
+	// Arbitrary wait time to let the processes die
+	await new Promise(resolve => setTimeout(resolve, 500));
 }
 
 process.on('exit', async code => {
 	log.debug(`[PROCESS] about to leave app`, code);
-	cleanupProcesses();
+	void cleanupProcesses();
 });
 
 class Timer {
