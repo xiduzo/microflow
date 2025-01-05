@@ -15,32 +15,33 @@ export class Calculate extends BaseComponent<CalculateValueType> {
 	check(inputs: unknown[]) {
 		const inputsAsNumbers = inputs.map(transformValueToNumber);
 
-		const [one, two] = inputsAsNumbers;
 		switch (this.data.function) {
 			case 'add':
-				this.value = one + two;
+				this.value = inputsAsNumbers.reduce((acc, val) => acc + val, 0);
 				break;
 			case 'subtract':
-				this.value = one - two;
+				this.value = inputsAsNumbers.reduce((acc, val) => acc - val, 0);
 				break;
 			case 'multiply':
-				this.value = one * two;
+				this.value = inputsAsNumbers.reduce((acc, val) => acc * val, 1);
 				break;
 			case 'divide':
-				this.value = one / two;
+				this.value = inputsAsNumbers.reduce((acc, val) => acc / val, 1);
 				break;
 			case 'modulo':
-				this.value = one % two;
+				this.value = inputsAsNumbers.reduce((acc, val) => acc % val, 0);
 				break;
 			case 'max':
 			case 'min':
+				this.value = Math[this.data.function](...inputsAsNumbers);
+				break;
 			case 'pow':
-				this.value = Math[this.data.function](one, two);
+				this.value = Math[this.data.function](inputsAsNumbers[0], inputsAsNumbers[1]);
 				break;
 			case 'ceil':
 			case 'floor':
 			case 'round':
-				this.value = Math[this.data.function](one);
+				this.value = Math[this.data.function](inputsAsNumbers[0]);
 				break;
 		}
 	}

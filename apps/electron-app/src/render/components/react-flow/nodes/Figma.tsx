@@ -1,6 +1,7 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
 import {
 	FigmaVariable,
+	SequenceNumber,
 	useFigma,
 	useFigmaVariable,
 	useMqtt,
@@ -14,21 +15,20 @@ import {
 	TooltipTrigger,
 } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useUploadResult } from '../../../stores/board';
 import { RgbaColorPicker } from 'react-colorful';
+import { useDebounceValue } from 'usehooks-ts';
 
 export function Figma(props: Props) {
 	const updateNodeInternals = useUpdateNodeInternals();
 	const uploadResult = useUploadResult();
-	const lastPublishedValue = useRef<string>();
 
-	const { status, publish, appName, connectedClients, uniqueId } = useMqtt();
-	const componentValue = useNodeValue<FigmaValueType>('');
+	const { connectedClients } = useMqtt();
 
 	const updateNode = useUpdateNode<FigmaData>(props.id);
 
@@ -42,35 +42,26 @@ export function Figma(props: Props) {
 		// and the plugin has not processed the previous value yet
 		if (value === undefined || value === null) return;
 
-		console.debug('<<<', value);
-
 		window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
 	}, [value, props.id]);
-
-	useEffect(() => {
-		if (status !== 'connected') return;
-		if (componentValue === undefined) return;
-		if (!variable) return;
-
-		const valueToPublish = JSON.stringify(componentValue);
-
-		if (lastPublishedValue.current === valueToPublish) return;
-		lastPublishedValue.current = valueToPublish;
-
-		console.debug('>>>', valueToPublish);
-		publish(`microflow/v1/${uniqueId}/${appName}/variable/${variable.id}/set`, valueToPublish);
-	}, [componentValue, variable, status, appName, uniqueId]);
 
 	useEffect(() => {
 		if (!variable?.resolvedType) return;
 
 		updateNodeInternals(props.id);
-		updateNode({}); // Make sure the handles are updated when connection takes place
+		updateNode({}, false); // Make sure the handles are updated when connection takes place
 	}, [variable?.resolvedType, props.id]);
 
 	useEffect(() => {
 		if (uploadResult !== 'ready') return;
 		if (!variable?.resolvedType) return;
+		const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
+		const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
+			BOOLEAN: false,
+			FLOAT: 0,
+			STRING: '-',
+			COLOR: DEFAULT_COLOR,
+		};
 
 		const value = DEFAULT_FIGMA_VALUE_PER_TYPE[variable.resolvedType];
 		window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
@@ -151,7 +142,7 @@ function Settings() {
 			({ id }) => id === settings.variableId,
 		)?.resolvedType;
 
-		pane
+		const variableIdbinding = pane
 			.addBinding(settings, 'variableId', {
 				index: 0,
 				view: 'list',
@@ -167,7 +158,11 @@ function Settings() {
 				const selectedVariableType = Array.from(Object.values(variableTypes)).find(
 					({ id }) => id === value,
 				)?.resolvedType;
-				if (selectedVariableType === initialVariableType) setHandlesToDelete([]);
+				if (selectedVariableType === initialVariableType) {
+					setHandlesToDelete([]);
+					return;
+				}
+
 				switch (initialVariableType) {
 					case 'BOOLEAN':
 						setHandlesToDelete(['true', 'toggle', 'false']);
@@ -183,13 +178,40 @@ function Settings() {
 						break;
 				}
 			});
+
+		return () => {
+			variableIdbinding.dispose();
+		};
 	}, [pane, settings, variableTypes]);
 
 	return null;
 }
 
+const numberFormat = new Intl.NumberFormat('en-US', {
+	maximumFractionDigits: 2,
+});
+
 function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
-	const value = useNodeValue<FigmaValueType>('');
+	const value = useNodeValue<FigmaValueType | undefined>(undefined);
+	const lastPublishedValue = useRef<string>();
+	const { publish, appName, uniqueId } = useMqtt();
+	const [debouncedValue] = useDebounceValue(value, 50);
+
+	const topic = useMemo(
+		() => `microflow/v1/${uniqueId}/${appName}/variable/${props.variable?.id}/set`,
+		[uniqueId, appName, props.variable],
+	);
+
+	useEffect(() => {
+		if (debouncedValue === undefined) return;
+
+		const valueToPublish = JSON.stringify(debouncedValue);
+
+		if (lastPublishedValue.current === valueToPublish) return;
+		lastPublishedValue.current = valueToPublish;
+
+		publish(topic, valueToPublish);
+	}, [debouncedValue, topic]);
 
 	if (!props.hasVariables) return <Icons.CloudOff className="text-muted-foreground" size={48} />;
 	if (!props.variable) return <Icons.Variable className="text-muted-foreground" size={48} />;
@@ -197,36 +219,56 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 	switch (props.variable.resolvedType) {
 		case 'BOOLEAN':
 			return (
-				<Switch
-					className="scale-150 border border-muted-foreground/10"
-					disabled
-					checked={Boolean(value)}
-				/>
+				<section className="flex flex-col items-center gap-2">
+					<Switch
+						className="scale-150 border border-muted-foreground/10"
+						disabled
+						checked={Boolean(value)}
+					/>
+					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
+				</section>
 			);
 		case 'FLOAT':
-			return <span className="text-4xl tabular-nums">{Number(value)}</span>;
+			return (
+				<section className="flex flex-col items-center gap-1">
+					<span className="text-4xl tabular-nums">{numberFormat.format(Number(value))}</span>
+					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
+				</section>
+			);
 		case 'STRING':
 			return (
-				<TooltipProvider>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<div className="-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto">
-								{String(value)}
-							</div>
-						</TooltipTrigger>
-						<TooltipContent className="max-w-64">{String(value)}</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
+				<section className="flex flex-col items-center gap-1">
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<div className="-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto">
+									{String(value)}
+								</div>
+							</TooltipTrigger>
+							<TooltipContent className="max-w-64">{String(value)}</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
+				</section>
 			);
 		case 'COLOR':
-			return <RgbaColorPicker color={value as RGBA} />;
+			return (
+				<section className="flex flex-col items-center gap-1">
+					<RgbaColorPicker color={value as RGBA} />
+					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
+				</section>
+			);
 		default:
-			return <div>Unknown type</div>;
+			return (
+				<section className="flex flex-col items-center gap-1">
+					<div>Unknown type</div>
+					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
+				</section>
+			);
 	}
 }
 
 type Props = BaseNode<FigmaData>;
-const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
 Figma.defaultProps = {
 	data: {
 		group: 'external',
@@ -234,11 +276,4 @@ Figma.defaultProps = {
 		label: 'Figma',
 		variableId: '',
 	} satisfies Props['data'],
-};
-
-export const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
-	BOOLEAN: false,
-	FLOAT: 0,
-	STRING: '-',
-	COLOR: DEFAULT_COLOR,
 };

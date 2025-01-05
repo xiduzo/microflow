@@ -16,6 +16,7 @@ export type SmoothValueType = number;
 
 export class Smooth extends BaseComponent<SmoothValueType> {
 	private history: number[] = [];
+	private average = 0;
 
 	constructor(private readonly data: BaseComponentData & SmoothData) {
 		super(data, 0);
@@ -35,7 +36,8 @@ export class Smooth extends BaseComponent<SmoothValueType> {
 	}
 
 	private smooth(value: number, attenuation: number) {
-		this.value = attenuation * this.value + (1.0 - attenuation) * value;
+		this.average = attenuation * this.average + (1.0 - attenuation) * value;
+		this.value = value - this.average;
 	}
 
 	private movingAverage(value: number, windowSize: number) {

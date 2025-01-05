@@ -174,13 +174,15 @@ function addNodeProcessListener() {
 /*
  * Listen to events from electron
 */
-process.on('message', (e) => {`;
+process.on('message', (data) => {`;
 
 	let innerCode = ``;
 
-	innerCode += 'const node = nodes.get(e.data.nodeId);';
+	innerCode += `console.log("[MESSAGE] <<<", JSON.stringify(data));`;
 	innerCode += addEnter();
-	innerCode += 'node?.setExternal?.(e.data.value);';
+	innerCode += 'const node = nodes.get(data.nodeId);';
+	innerCode += addEnter();
+	innerCode += 'node?.setExternal?.(data.value);';
 
 	code += wrapInTryCatch(innerCode);
 
@@ -199,10 +201,9 @@ try {
 }
 
 /**
- * @returns {string} The values of the source node as a string array
  * @example `'[true, 5, 0, 'what']'`
  */
-function getAllEdgesValues(nodeId: string, edges: Edge[], nodes: Node[]) {
+function getAllEdgesValues(nodeId: string, edges: Edge[], nodes: Node[]): string {
 	const values = edges
 		.filter(edge => edge.target === nodeId)
 		.map(edge => {

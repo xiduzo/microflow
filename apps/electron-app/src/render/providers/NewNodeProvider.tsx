@@ -13,7 +13,7 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
-import { memo, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { NODE_TYPES } from '../../common/nodes';
 import { useDeleteSelectedNodesAndEdges, useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
@@ -25,7 +25,7 @@ const NODE_SIZE = {
 	height: 176,
 };
 
-export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
+export function NewNodeCommandDialog() {
 	useDraggableNewNode();
 	useBackspaceOverwrite();
 
@@ -101,7 +101,7 @@ export const NewNodeCommandDialog = memo(function NewNodeCommandDialog() {
 			</CommandList>
 		</CommandDialog>
 	);
-});
+}
 
 function useDraggableNewNode() {
 	const { nodeToAdd, setNodeToAdd } = useNewNodeStore();

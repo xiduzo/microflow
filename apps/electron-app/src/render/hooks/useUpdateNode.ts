@@ -12,7 +12,9 @@ export function useUpdateNode<T extends Record<string, any>>(nodeId: string) {
 		(data: T, updateCode = true) => {
 			const node = getNode(nodeId);
 
-			onNodesChange([{ id: nodeId, type: 'replace', item: { ...node!, data } }]);
+			onNodesChange([
+				{ id: nodeId, type: 'replace', item: { ...node!, data: { ...node!.data, ...data } } },
+			]);
 
 			if (!updateCode) return;
 

@@ -2,48 +2,16 @@ import { CalculateData } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { Handle } from './Handle';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { Icons } from '@ui/index';
 
 export function Calculate(props: Props) {
-	const hasSingleInput = ['ceil', 'floor', 'round'].includes(props.data.function as string);
-
-	const [first, second] = useMemo(() => {
-		switch (props.data.function) {
-			case 'add':
-				return ['first addend', 'second addend'];
-			case 'subtract':
-				return ['minuend', 'subtrahend'];
-			case 'multiply':
-				return ['first factor', 'second factor'];
-			case 'divide':
-				return ['dividend', 'divisor'];
-			case 'modulo':
-				return ['dividend', 'divisor'];
-			case 'max':
-				return ['first operand', 'second operand'];
-			case 'min':
-				return ['first operand', 'second operand'];
-			default:
-				return ['input', 'input'];
-		}
-	}, [props.data.function]);
-
 	return (
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
 
-			<Handle
-				type="target"
-				position={Position.Left}
-				id="1"
-				title={first}
-				offset={!hasSingleInput ? -0.5 : 0}
-			/>
-			{!hasSingleInput && (
-				<Handle type="target" position={Position.Left} id="2" title={second} offset={0.5} />
-			)}
+			<Handle type="target" position={Position.Left} id="input" />
 			<Handle type="source" position={Position.Right} id="change" title="result" />
 		</NodeContainer>
 	);
