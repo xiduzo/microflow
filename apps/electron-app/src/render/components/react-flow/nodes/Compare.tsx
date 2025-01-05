@@ -6,11 +6,12 @@ import {
 } from '@microflow/components/contants';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { BindingApi, BladeApi } from '@tweakpane/core';
 import { useNodeValue } from '../../../stores/node-data';
+import { IconWithValue } from '../IconWithValue';
 
 export function Compare(props: Props) {
 	return (
@@ -25,9 +26,51 @@ export function Compare(props: Props) {
 	);
 }
 
+const formatter = new Intl.NumberFormat('en-US');
+
 function Value() {
 	const value = useNodeValue<CompateValueType>(false);
+	const data = useNodeData<CompareData>();
 
+	const textValue = useMemo(() => {
+		switch (data.validator) {
+			case 'boolean':
+				return 'boolean';
+			case 'number':
+				switch (data.subValidator) {
+					case 'equal to':
+					case 'less than':
+					case 'greater than':
+						return `is ${data.subValidator} ${data.validatorArg}`;
+					case 'even':
+					case 'odd':
+						return `is ${data.subValidator}`;
+					case 'between':
+					case 'outside':
+						return `is ${data.subValidator} ${formatter.format(data.validatorArg.min)} and ${formatter.format(data.validatorArg.max)}`;
+				}
+				break;
+			case 'text':
+				switch (data.subValidator) {
+					case 'includes':
+					case 'starts with':
+					case 'ends with':
+						return `${data.subValidator} ${data.validatorArg}`;
+					case 'equal to':
+						return `is ${data.subValidator} ${data.validatorArg}`;
+				}
+			default:
+				return '';
+		}
+	}, [data]);
+
+	return (
+		<IconWithValue
+			icon={value ? 'ShieldCheck' : 'ShieldX'}
+			iconClassName={value ? 'text-green-500' : 'text-red-500'}
+			value={textValue}
+		/>
+	);
 	if (value) return <Icons.ShieldCheck className="text-green-500" size={48} />;
 	return <Icons.ShieldX className="text-red-500" size={48} />;
 }
@@ -105,7 +148,7 @@ function Settings() {
 			addValidatorArgs();
 		}
 
-		pane
+		const validatorBinding = pane
 			.addBinding(settings, 'validator', {
 				index: 0,
 				view: 'list',
@@ -135,6 +178,12 @@ function Settings() {
 			});
 
 		if (settings.validator !== 'boolean') addSubValidator(settings.validator);
+
+		return () => {
+			validatorBinding.dispose();
+			subValidatorPane?.dispose();
+			validatorArgPane?.dispose();
+		};
 	}, [pane, settings]);
 
 	return null;

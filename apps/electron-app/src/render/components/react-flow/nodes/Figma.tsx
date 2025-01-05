@@ -1,7 +1,6 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
 import {
 	FigmaVariable,
-	SequenceNumber,
 	useFigma,
 	useFigmaVariable,
 	useMqtt,
@@ -14,23 +13,16 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from '@microflow/ui';
-import { Position, useUpdateNodeInternals } from '@xyflow/react';
+import { Position } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
-import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { useUploadResult } from '../../../stores/board';
 import { RgbaColorPicker } from 'react-colorful';
 import { useDebounceValue } from 'usehooks-ts';
 
 export function Figma(props: Props) {
-	const updateNodeInternals = useUpdateNodeInternals();
-	const uploadResult = useUploadResult();
-
 	const { connectedClients } = useMqtt();
-
-	const updateNode = useUpdateNode<FigmaData>(props.id);
 
 	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
 
@@ -46,31 +38,10 @@ export function Figma(props: Props) {
 	}, [value, props.id]);
 
 	useEffect(() => {
-		if (!variable?.resolvedType) return;
-
-		updateNodeInternals(props.id);
-		updateNode({}, false); // Make sure the handles are updated when connection takes place
-	}, [variable?.resolvedType, props.id]);
-
-	useEffect(() => {
-		if (uploadResult !== 'ready') return;
-		if (!variable?.resolvedType) return;
-		const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
-		const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], unknown> = {
-			BOOLEAN: false,
-			FLOAT: 0,
-			STRING: '-',
-			COLOR: DEFAULT_COLOR,
-		};
-
-		const value = DEFAULT_FIGMA_VALUE_PER_TYPE[variable.resolvedType];
-		window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
-	}, [uploadResult, variable?.resolvedType, props.id]);
-
-	useEffect(() => {
 		return window.electron.ipcRenderer.on<{ from: string; variableId: string; value: unknown }>(
 			'ipc-deep-link',
 			result => {
+				console.log(result);
 				if (!result.success) return;
 				if (result.data.from !== 'figma') return;
 				if (result.data.variableId !== variable?.id) return;
@@ -158,6 +129,21 @@ function Settings() {
 				const selectedVariableType = Array.from(Object.values(variableTypes)).find(
 					({ id }) => id === value,
 				)?.resolvedType;
+
+				const DEFAULT_COLOR: RGBA = { r: 0, g: 0, b: 0, a: 1 };
+				const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], FigmaValueType> =
+					{
+						BOOLEAN: false,
+						FLOAT: 0,
+						STRING: '-',
+						COLOR: DEFAULT_COLOR,
+					};
+
+				if (selectedVariableType) {
+					settings.resolvedType = selectedVariableType;
+					settings.initialValue = DEFAULT_FIGMA_VALUE_PER_TYPE[selectedVariableType];
+				}
+
 				if (selectedVariableType === initialVariableType) {
 					setHandlesToDelete([]);
 					return;
@@ -192,10 +178,12 @@ const numberFormat = new Intl.NumberFormat('en-US', {
 });
 
 function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
-	const value = useNodeValue<FigmaValueType | undefined>(undefined);
+	const data = useNodeData<FigmaData>();
+	const value = useNodeValue<FigmaValueType>(data.initialValue!);
+
 	const lastPublishedValue = useRef<string>();
 	const { publish, appName, uniqueId } = useMqtt();
-	const [debouncedValue] = useDebounceValue(value, 50);
+	const [debouncedValue] = useDebounceValue(value, 100);
 
 	const topic = useMemo(
 		() => `microflow/v1/${uniqueId}/${appName}/variable/${props.variable?.id}/set`,
@@ -222,7 +210,6 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 				<section className="flex flex-col items-center gap-2">
 					<Switch
 						className="scale-150 border border-muted-foreground/10"
-						disabled
 						checked={Boolean(value)}
 					/>
 					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
@@ -275,5 +262,7 @@ Figma.defaultProps = {
 		tags: ['input', 'output'],
 		label: 'Figma',
 		variableId: '',
+		resolvedType: 'STRING',
+		initialValue: '',
 	} satisfies Props['data'],
 };

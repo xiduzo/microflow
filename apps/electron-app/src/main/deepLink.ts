@@ -2,28 +2,26 @@ import { BrowserWindow } from 'electron';
 import logger from 'electron-log/node';
 
 export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
-	logger.debug('Received deep link', { link });
+	// const figmaVariableRegex = new RegExp(
+	// 	/^(?:mfs|microflow-studio):\/\/(VariableID(?::|%3A)\d+(?::|%3A)\d+)\/(\S+)$/,
+	// );
+	const figmaVariableRegex = /VariableID%3A(\d+)%3A(\d+)\/(.+)/;
 
-	const figmaVariableRegex = new RegExp(
-		/^(?:mfs|microflow-studio):\/\/(VariableID(?::|%3A)\d+(?::|%3A)\d+)\/(\S+)$/,
-	);
-	const figmaVariableMatch = figmaVariableRegex.exec(link);
+	const data = figmaVariableRegex.exec(link);
+	logger.debug('[DEEP LINK] <<<', { link, data });
 
-	if (figmaVariableMatch?.length) {
-		const [_link, variableId, value] = figmaVariableMatch;
+	if (data) {
+		const [, collectionId, variableId, value] = data;
 
 		mainWindow.webContents.send('ipc-deep-link', {
 			from: 'figma',
-			variableId: decodeURIComponent(variableId),
+			variableId: `VariableID:${collectionId}:${variableId}`,
 			value: decodeURIComponent(value),
 		});
 		return;
 	}
 
-	const linkWebRegex = new RegExp(/^(?:mfs|microflow-studio):\/\/link-web$/);
-	const linkWebMatch = linkWebRegex.exec(link);
-
-	if (linkWebMatch?.length) {
+	if (link.endsWith('://link-web')) {
 		mainWindow.webContents.send('ipc-deep-link', { from: 'web' });
 		return;
 	}

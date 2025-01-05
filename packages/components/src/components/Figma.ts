@@ -1,25 +1,25 @@
-import Logger from 'electron-log/node';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 import { RGBA } from '../types';
+import { transformValueToNumber, transformValueToBoolean } from '../utils/transformUnknownValues';
 
 export type FigmaData = {
 	variableId?: string;
+	resolvedType?: 'FLOAT' | 'STRING' | 'BOOLEAN' | 'COLOR' | undefined;
+	initialValue?: FigmaValueType;
 };
 export type FigmaValueType = string | number | boolean | RGBA;
 
 export class Figma extends BaseComponent<FigmaValueType> {
 	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 1 };
 
-	constructor(data: BaseComponentData & FigmaData) {
-		super(data, '');
+	constructor(private readonly data: BaseComponentData & FigmaData) {
+		super(data, data.initialValue ?? '');
 	}
 
-	// TODO: get value from edge
 	increment() {
 		this.value = Number(this.value) + 1;
 	}
 
-	// TODO: get value from edge
 	decrement() {
 		this.value = Number(this.value) - 1;
 	}
@@ -36,37 +36,12 @@ export class Figma extends BaseComponent<FigmaValueType> {
 		this.value = !Boolean(this.value);
 	}
 
-	set(value: string | number | boolean | RGBA) {
-		try {
-			switch (typeof this.value) {
-				case 'string':
-					this.value = String(value ?? '-');
-					break;
-				case 'number':
-					const num = Number(value);
-					if (isNaN(num)) {
-						throw new Error('Invalid number');
-					}
-					this.value = this.formatNumberWithMaxDecimals(num);
-					break;
-				case 'boolean':
-					this.value = Boolean(value);
-					break;
-				case 'object':
-					const convertedValue = this.convertValue(value);
-					if (typeof convertedValue !== 'object') {
-						throw new Error('Invalid object');
-					}
-					this.value = convertedValue;
-					break;
-			}
-		} catch (error) {
-			Logger.warn('Invalid value type to set figma', { value, error });
-		}
+	set(value: unknown) {
+		this.convertValue(value);
 	}
 
-	setExternal(value: string | number | boolean | RGBA) {
-		this.value = this.convertValue(value);
+	setExternal(value: unknown) {
+		this.convertValue(value);
 	}
 
 	red(value: number) {
@@ -110,28 +85,30 @@ export class Figma extends BaseComponent<FigmaValueType> {
 	}
 
 	private convertValue(value: unknown) {
-		if (typeof value === 'object') {
-			const obj = { ...this.defaultRGBA, ...value };
-			return {
-				r: this.formatNumberWithMaxDecimals(obj.r),
-				g: this.formatNumberWithMaxDecimals(obj.g),
-				b: this.formatNumberWithMaxDecimals(obj.b),
-				a: this.formatNumberWithMaxDecimals(obj.a),
-			};
-		}
+		switch (this.data.resolvedType) {
+			case 'BOOLEAN':
+				this.value = transformValueToBoolean(value);
+				break;
+			case 'FLOAT':
+				this.value = transformValueToNumber(value);
+				break;
+			case 'STRING':
+				this.value = String(value);
+				break;
+			case 'COLOR':
+				if (typeof value === 'object') {
+					const obj = { ...this.defaultRGBA, ...value };
+					this.value = {
+						r: this.formatNumberWithMaxDecimals(obj.r),
+						g: this.formatNumberWithMaxDecimals(obj.g),
+						b: this.formatNumberWithMaxDecimals(obj.b),
+						a: this.formatNumberWithMaxDecimals(obj.a),
+					};
+					return;
+				}
 
-		if (typeof value === 'number') {
-			return this.formatNumberWithMaxDecimals(value);
+				this.value = { r: 0, g: 0, b: 0, a: 0 };
+				break;
 		}
-
-		if (typeof value === 'boolean') {
-			return value;
-		}
-
-		if (typeof value === 'string') {
-			return value ?? '-';
-		}
-
-		throw new Error('Invalid value type');
 	}
 }

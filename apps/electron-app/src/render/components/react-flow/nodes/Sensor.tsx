@@ -51,7 +51,6 @@ function Value() {
 							transform: `rotate(${progress * (360 / 100 / 2) + 135}deg)`,
 						}}
 					/>
-					<span className="text-xs">{progress}%</span>
 				</>
 			);
 		default:
