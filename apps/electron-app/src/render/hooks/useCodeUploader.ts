@@ -100,7 +100,11 @@ export function useAutoUploadCode() {
 	const { nodesCount, edgesCount } = useNodeAndEdgeCount();
 
 	useEffect(() => {
-		if (checkResult !== 'ready') return;
+		if (checkResult !== 'ready') {
+			lastNodesCount.current = -1;
+			lastEdgesCount.current = -1;
+			return;
+		}
 
 		// We do not want to upload code while they are adding a new node
 		if (nodeToAdd?.length) return;

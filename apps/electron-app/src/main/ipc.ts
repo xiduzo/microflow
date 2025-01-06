@@ -74,7 +74,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 					data: { type: 'info', port: port.path },
 				} satisfies IpcResponse<BoardCheckResult>);
 
-				await checkBoardOnPort(port, board);
+				await checkBoardOnPort(port, board, event);
 				connectedPort = port;
 				event.reply('ipc-check-board', {
 					success: true,
@@ -85,8 +85,13 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 				log.warn('[CHECK]', board, port, error);
 
 				event.reply('ipc-check-board', {
-					success: false,
-					error: (error as any).message ?? 'Unknown error',
+					success: true,
+					data: {
+						type: 'connect',
+						message:
+							(error as any).message ??
+							feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+					},
 				} satisfies IpcResponse<BoardCheckResult>);
 			} finally {
 				await cleanupProcesses();
@@ -101,7 +106,11 @@ const ipRegex = new RegExp(
 	/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/,
 );
 
-async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) {
+async function checkBoardOnPort(
+	port: Pick<PortInfo, 'path'>,
+	board: BoardName,
+	event: Electron.IpcMainEvent,
+) {
 	await cleanupProcesses();
 
 	const timer = new Timer();
@@ -133,6 +142,7 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 			try {
 				switch (data.type) {
 					case 'error':
+						let notificationTimeout: NodeJS.Timeout | null = null;
 						try {
 							if (ipRegex.test(port.path)) {
 								return reject(new Error(data.message ?? 'Unknown error'));
@@ -140,9 +150,22 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 
 							// Prevents double error messages from causing multiple flashers
 							checkProcess.off('message', handleMessage);
+
+							notificationTimeout = setTimeout(() => {
+								event.reply('ipc-check-board', {
+									success: true,
+									data: {
+										type: 'connect',
+										message: feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+									},
+								} satisfies IpcResponse<BoardCheckResult>);
+							}, 7500);
 							await flashBoard(board, port);
 							resolve();
 						} catch (error) {
+							if (notificationTimeout) {
+								clearTimeout(notificationTimeout);
+							}
 							reject(error);
 						}
 						break;
@@ -162,6 +185,73 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 		checkProcess.on('message', handleMessage);
 	});
 }
+
+async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
+	const flashTimer = new Timer();
+
+	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
+	await cleanupProcesses();
+
+	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
+
+	// Check if file exists
+	if (!existsSync(firmataPath)) {
+		log.error(`[FLASH] Firmata file not found at ${firmataPath}`);
+		throw new Error(`[FLASH] Firmata file not found at ${firmataPath}`);
+	}
+
+	return new Promise(async (resolve, reject) => {
+		try {
+			log.debug(`[FLASH] Flashing firmata from ${firmataPath}`, flashTimer.duration);
+			await new Flasher(board, port.path).flash(firmataPath);
+			log.debug(`[FLASH] Flashing done`, flashTimer.duration);
+			resolve();
+		} catch (flashError) {
+			log.error(
+				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
+				{
+					flashError,
+				},
+				flashTimer.duration,
+			);
+			const randomMessage = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+			reject(new Error(randomMessage));
+		}
+	});
+}
+
+const feedbackMessages = [
+	'Hang tight, almost there!',
+	'Just a moment, working on it!',
+	'Getting things sorted!',
+	'Hold on, making progress!',
+	'Almost there, just a little longer!',
+	'Stay tight, fixing it up!',
+	'One moment, on it!',
+	"Don't worry, nearly done!",
+	'Please wait, resolving the issue!',
+	'Sit tight, handling it!',
+	'Almost there!',
+	'Hold tight, getting things back on track!',
+	'Just a bit longer, working through it!',
+	'Nearly finished!',
+	'Hang in there, sorting it out!',
+	'On it, just a few more moments!',
+	'Stay tuned, fixing things up!',
+	'Almost done!',
+	'Nearly there!',
+	'Please hold on, resolving the issue!',
+	'Just a little bit longer!',
+	'Getting close!',
+	'Hold tight, nearly there!',
+	'Just a moment more,working on it!',
+	'Almost through!',
+	'On the case, just a bit longer!',
+	'Please hold on, fixing things up!',
+	'Just a moment, getting things back on track!',
+	'Stay tuned, handling it!',
+	'Just a bit longer, resolving the issue!',
+];
 
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	const timer = new Timer();
@@ -251,37 +341,6 @@ ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown
 	// runner.postMessage(data);
 });
 
-async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
-	const flashTimer = new Timer();
-
-	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
-	await cleanupProcesses();
-
-	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
-
-	// Check if file exists
-	if (!existsSync(firmataPath)) {
-		throw new Error(`[FLASH] Firmata file not found at ${firmataPath}`);
-	}
-
-	return new Promise(async (resolve, reject) => {
-		log.debug(`[FLASH] Flashing firmata from ${firmataPath}`, flashTimer.duration);
-		try {
-			await new Flasher(board, port.path).flash(firmataPath);
-			resolve();
-		} catch (flashError) {
-			log.error(
-				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-				{
-					flashError,
-				},
-				flashTimer.duration,
-			);
-			reject(flashError);
-		}
-	});
-}
-
 let portSniffer: NodeJS.Timeout | null = null;
 const PORT_SNIFFER_INTERVAL_IN_MS = 250;
 
@@ -342,12 +401,10 @@ async function getKnownBoardsWithPorts() {
 			[] as [BoardName, PortInfo[]][],
 		);
 
-		if (boardsWithPorts.length) {
-			log.debug('Found boards on ports:');
-			boardsWithPorts.forEach(([board, devices]) => {
-				log.debug(`  - ${board} on ${devices.map(device => device.path).join(', ')}`);
-			});
-		}
+		log.debug(`Found ${boardsWithPorts.length} known boards with ports:`);
+		boardsWithPorts.forEach(([board, devices]) => {
+			log.debug(`  - ${board} on ${devices.map(device => device.path).join(', ')}`);
+		});
 
 		return boardsWithPorts;
 	} catch (error) {
@@ -387,3 +444,5 @@ class Timer {
 		return `(${this.name ? this.name + ' took ' : ''}${Date.now() - this.start}ms)`;
 	}
 }
+
+cleanupProcesses().catch(log.debug);

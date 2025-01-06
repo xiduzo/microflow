@@ -161,8 +161,17 @@ function Settings() {
 				}
 			});
 
+		settings.debounceTime ??= 100; // TODO: in next version make sure this is set in the default props
+		const debounceTimeBinding = pane.addBinding(settings, 'debounceTime', {
+			index: 1,
+			min: 10,
+			max: 500,
+			step: 10,
+		});
+
 		return () => {
 			variableIdbinding.dispose();
+			debounceTimeBinding.dispose();
 		};
 	}, [pane, settings, variableTypes]);
 
@@ -179,7 +188,7 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 
 	const lastPublishedValue = useRef<string>();
 	const { publish, appName, uniqueId } = useMqtt();
-	const [debouncedValue] = useDebounceValue(value, 100);
+	const [debouncedValue] = useDebounceValue(value, data.debounceTime ?? 100);
 
 	const topic = useMemo(
 		() => `microflow/v1/${uniqueId}/${appName}/variable/${props.variable?.id}/set`,
@@ -267,6 +276,7 @@ Figma.defaultProps = {
 		variableId: '',
 		resolvedType: 'STRING',
 		initialValue: '',
+		debounceTime: 100,
 	} satisfies Props['data'],
 };
 
