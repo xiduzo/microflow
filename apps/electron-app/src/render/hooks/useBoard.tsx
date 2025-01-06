@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { BoardCheckResult } from '../../common/types';
 import { useCelebration } from '../providers/CelebrationProvider';
 import { useBoardCheckResult, useBoardStore } from '../stores/board';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
 import { toast } from '@microflow/ui';
+import { useCodeUploader } from './useCodeUploader';
 
 export function useCelebrateFirstUpload() {
 	const [isFirstUpload, setIsFirstUpload] = useLocalStorage('isFirstUpload', true);
@@ -26,6 +27,7 @@ export function useCheckBoard() {
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', {
 		ip: undefined,
 	});
+	const uploadCode = useCodeUploader();
 
 	useEffect(() => {
 		console.debug(`[CHECK] >>>`, { ip });
@@ -36,7 +38,7 @@ export function useCheckBoard() {
 		return window.electron.ipcRenderer.on<BoardCheckResult>('ipc-check-board', result => {
 			console.debug(`[CHECK] <<<`, result);
 
-			setUploadResult({ type: 'close' }); // When we received a check result, we can close the upload result
+			setUploadResult({ type: 'info' }); // When we received a check result, we can close the upload result
 
 			if (!result.success) {
 				toast.warning(result.error);
@@ -58,5 +60,5 @@ export function useCheckBoard() {
 					break;
 			}
 		});
-	}, [ip, setUploadResult]);
+	}, [ip, setUploadResult, uploadCode]);
 }

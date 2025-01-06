@@ -163,6 +163,81 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 	});
 }
 
+async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
+	const flashTimer = new Timer();
+
+	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
+	await cleanupProcesses();
+
+	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
+
+	// Check if file exists
+	if (!existsSync(firmataPath)) {
+		log.error(`[FLASH] Firmata file not found at ${firmataPath}`);
+		throw new Error(`[FLASH] Firmata file not found at ${firmataPath}`);
+	}
+
+	return new Promise(async (resolve, reject) => {
+		try {
+			log.debug(`[FLASH] Flashing firmata from ${firmataPath}`, flashTimer.duration);
+			await new Flasher(board, port.path).flash(firmataPath);
+			log.debug(`[FLASH] Flashing done`, flashTimer.duration);
+			resolve();
+		} catch (flashError) {
+			log.error(
+				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
+				{
+					flashError,
+				},
+				flashTimer.duration,
+			);
+			const randomMessage = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+			reject(new Error(randomMessage));
+		}
+	});
+}
+
+const feedbackMessages = [
+	"Hang tight, we're almost there!",
+	"Just a moment, we're working on it!",
+	"Please bear with us, we're getting things sorted!",
+	"Hold on, we're making progress!",
+	'Almost there, just a little longer!',
+	"Stay with us, we're fixing it up!",
+	"One moment, we're on it!",
+	"Don't worry, we're nearly done!",
+	"Please wait, we're resolving the issue!",
+	"Sit tight, we're handling it!",
+	"Thanks for your patience, we're almost there!",
+	"Hold tight, we're getting things back on track!",
+	"Just a bit longer, we're working through it!",
+	"Bear with us, we're nearly finished!",
+	"Hang in there, we're sorting it out!",
+	"We're on it, just a few more moments!",
+	"Stay tuned, we're fixing things up!",
+	'Almost done, thanks for waiting!',
+	"We're nearly there, thanks for your patience!",
+	"Please hold on, we're resolving the issue!",
+	"Thanks for hanging in there, we're almost done!",
+	"We're on it, just a little bit longer!",
+	"Appreciate your patience, we're getting close!",
+	"Hold tight, we're nearly there!",
+	"Just a moment more, we're working on it!",
+	"Thanks for waiting, we're almost through!",
+	"We're almost there, thanks for your patience!",
+	"Stay with us, we're resolving the issue!",
+	"We're on the case, just a bit longer!",
+	"Please hold on, we're fixing things up!",
+	'Almost done, thanks for your patience!',
+	"We're nearly there, thanks for waiting!",
+	"Just a moment, we're getting things back on track!",
+	"Thanks for your patience, we're almost through!",
+	"Hold on, we're making progress!",
+	"Stay tuned, we're handling it!",
+	"We're nearly finished, thanks for your patience!",
+	"Just a bit longer, we're resolving the issue!",
+];
+
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	const timer = new Timer();
 	log.debug(`[UPLOAD] Uploading code to port ${data.port}`, timer.duration);
@@ -251,37 +326,6 @@ ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown
 	// runner.postMessage(data);
 });
 
-async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
-	const flashTimer = new Timer();
-
-	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
-	await cleanupProcesses();
-
-	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
-
-	// Check if file exists
-	if (!existsSync(firmataPath)) {
-		throw new Error(`[FLASH] Firmata file not found at ${firmataPath}`);
-	}
-
-	return new Promise(async (resolve, reject) => {
-		log.debug(`[FLASH] Flashing firmata from ${firmataPath}`, flashTimer.duration);
-		try {
-			await new Flasher(board, port.path).flash(firmataPath);
-			resolve();
-		} catch (flashError) {
-			log.error(
-				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-				{
-					flashError,
-				},
-				flashTimer.duration,
-			);
-			reject(flashError);
-		}
-	});
-}
-
 let portSniffer: NodeJS.Timeout | null = null;
 const PORT_SNIFFER_INTERVAL_IN_MS = 250;
 
@@ -342,12 +386,10 @@ async function getKnownBoardsWithPorts() {
 			[] as [BoardName, PortInfo[]][],
 		);
 
-		if (boardsWithPorts.length) {
-			log.debug('Found boards on ports:');
-			boardsWithPorts.forEach(([board, devices]) => {
-				log.debug(`  - ${board} on ${devices.map(device => device.path).join(', ')}`);
-			});
-		}
+		log.debug(`Found ${boardsWithPorts.length} known boards with ports:`);
+		boardsWithPorts.forEach(([board, devices]) => {
+			log.debug(`  - ${board} on ${devices.map(device => device.path).join(', ')}`);
+		});
 
 		return boardsWithPorts;
 	} catch (error) {
@@ -387,3 +429,5 @@ class Timer {
 		return `(${this.name ? this.name + ' took ' : ''}${Date.now() - this.start}ms)`;
 	}
 }
+
+cleanupProcesses().catch(log.debug);

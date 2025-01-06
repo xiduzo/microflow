@@ -6,6 +6,7 @@ export type FigmaData = {
 	variableId?: string;
 	resolvedType?: 'FLOAT' | 'STRING' | 'BOOLEAN' | 'COLOR' | undefined;
 	initialValue?: FigmaValueType;
+	debounceTime?: number;
 };
 export type FigmaValueType = string | number | boolean | RGBA;
 

@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron';
 import logger from 'electron-log/node';
+import { IpcResponse } from '../common/types';
 
 export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 	// const figmaVariableRegex = new RegExp(
@@ -20,7 +21,7 @@ export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 				variableId: `VariableID:${collectionId}:${variableId}`,
 				value: decodeURIComponent(value),
 			},
-		});
+		} satisfies IpcResponse<unknown>);
 		return;
 	}
 
@@ -28,7 +29,7 @@ export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 		mainWindow.webContents.send('ipc-deep-link', {
 			success: true,
 			data: { from: 'web' },
-		});
+		} satisfies IpcResponse<unknown>);
 		return;
 	}
 }
