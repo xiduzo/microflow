@@ -49,6 +49,9 @@ export function useCheckBoard() {
 			setBoardResult(result.data);
 
 			switch (result.data.type) {
+				case 'connect':
+					toast.info(result.data.message);
+					break;
 				case 'close':
 					console.debug(`[CHECK] >>>`, { ip });
 					window.electron.ipcRenderer.send('ipc-check-board', { ip });

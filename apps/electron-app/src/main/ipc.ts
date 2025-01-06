@@ -74,7 +74,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 					data: { type: 'info', port: port.path },
 				} satisfies IpcResponse<BoardCheckResult>);
 
-				await checkBoardOnPort(port, board);
+				await checkBoardOnPort(port, board, event);
 				connectedPort = port;
 				event.reply('ipc-check-board', {
 					success: true,
@@ -85,8 +85,13 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 				log.warn('[CHECK]', board, port, error);
 
 				event.reply('ipc-check-board', {
-					success: false,
-					error: (error as any).message ?? 'Unknown error',
+					success: true,
+					data: {
+						type: 'connect',
+						message:
+							(error as any).message ??
+							feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+					},
 				} satisfies IpcResponse<BoardCheckResult>);
 			} finally {
 				await cleanupProcesses();
@@ -101,7 +106,11 @@ const ipRegex = new RegExp(
 	/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/,
 );
 
-async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) {
+async function checkBoardOnPort(
+	port: Pick<PortInfo, 'path'>,
+	board: BoardName,
+	event: Electron.IpcMainEvent,
+) {
 	await cleanupProcesses();
 
 	const timer = new Timer();
@@ -133,6 +142,7 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 			try {
 				switch (data.type) {
 					case 'error':
+						let notificationTimeout: NodeJS.Timeout | null = null;
 						try {
 							if (ipRegex.test(port.path)) {
 								return reject(new Error(data.message ?? 'Unknown error'));
@@ -140,9 +150,22 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 
 							// Prevents double error messages from causing multiple flashers
 							checkProcess.off('message', handleMessage);
+
+							notificationTimeout = setTimeout(() => {
+								event.reply('ipc-check-board', {
+									success: true,
+									data: {
+										type: 'connect',
+										message: feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+									},
+								} satisfies IpcResponse<BoardCheckResult>);
+							}, 7500);
 							await flashBoard(board, port);
 							resolve();
 						} catch (error) {
+							if (notificationTimeout) {
+								clearTimeout(notificationTimeout);
+							}
 							reject(error);
 						}
 						break;

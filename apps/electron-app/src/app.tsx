@@ -21,7 +21,7 @@ export function App() {
 	return (
 		<>
 			<CelebrationProvider>
-				<Toaster position="top-left" className="z-20" />
+				<Toaster position="top-left" className="z-20" duration={5000} />
 				<IpcDeepLinkListener />
 				<MqttProvider appName="app" config={mqttConfig}>
 					<FigmaProvider>

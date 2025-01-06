@@ -35,7 +35,7 @@ export function SerialConnectionStatusPanel() {
 		);
 	}
 
-	if (boardCheckResult === 'info') {
+	if (boardCheckResult === 'info' || boardCheckResult === 'connect') {
 		return (
 			<Badge className={badge({ variant: 'info' })}>
 				Connecting to your microcontroller
