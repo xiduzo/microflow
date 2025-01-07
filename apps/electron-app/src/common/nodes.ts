@@ -30,6 +30,7 @@ import { Calculate } from '../render/components/react-flow/nodes/Calculate';
 import { Constant } from '../render/components/react-flow/nodes/Constant';
 import { Relay } from '../render/components/react-flow/nodes/Relay';
 import { Switch } from '../render/components/react-flow/nodes/Switch';
+import { Proximity } from '../render/components/react-flow/nodes/Proximity';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Button: Button,
@@ -51,6 +52,7 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Mqtt: Mqtt,
 	Note: Note,
 	Oscillator: Oscillator,
+	Proximity: Proximity,
 	Piezo: Piezo,
 	Potentiometer: Potentiometer,
 	RangeMap: RangeMap,
