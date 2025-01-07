@@ -25,6 +25,11 @@ export const navigation = [
 				parent: '/docs/microflow-studio/nodes/hardware',
 			},
 			{
+				title: 'Generic sensor',
+				href: '/docs/microflow-studio/nodes/hardware/sensor',
+				parent: '/docs/microflow-studio/nodes/hardware',
+			},
+			{
 				title: 'Hall effect',
 				href: '/docs/microflow-studio/nodes/hardware/hall-effect',
 				parent: '/docs/microflow-studio/nodes/hardware',
@@ -67,6 +72,11 @@ export const navigation = [
 			{
 				title: 'Switch',
 				href: '/docs/microflow-studio/nodes/hardware/switch',
+				parent: '/docs/microflow-studio/nodes/hardware',
+			},
+			{
+				title: 'Tilt',
+				href: '/docs/microflow-studio/nodes/hardware/tilt',
 				parent: '/docs/microflow-studio/nodes/hardware',
 			},
 			{

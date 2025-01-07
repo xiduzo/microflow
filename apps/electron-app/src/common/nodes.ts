@@ -18,6 +18,8 @@ import {
 	HallEffect,
 	Ldr,
 	Potentiometer,
+	Sensor,
+	Tilt,
 } from '../render/components/react-flow/nodes/Sensor';
 import { Servo } from '../render/components/react-flow/nodes/Servo';
 import { Smooth } from '../render/components/react-flow/nodes/Smooth';
@@ -54,9 +56,11 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	RangeMap: RangeMap,
 	Relay: Relay,
 	Rgb: Rgb,
+	Sensor: Sensor,
 	Servo: Servo,
 	Smooth: Smooth,
 	Switch: Switch,
+	Tilt: Tilt,
 	Trigger: Trigger,
 	Vibration: Vibration,
 } as const;

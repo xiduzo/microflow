@@ -1,5 +1,5 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import { cva, Icons, Progress, VariantProps } from '@microflow/ui';
+import { cva, FolderApi, Icons, Progress, VariantProps } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { MODES } from '../../../../common/types';
@@ -8,8 +8,9 @@ import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
+import { BindingApi } from '@tweakpane/core';
 
-function Sensor(props: Props) {
+export function Sensor(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
@@ -37,6 +38,26 @@ function Value() {
 					size={48}
 					className="transition-all"
 					style={{ transform: `scale(${1 + progress / 100})` }}
+				/>
+			);
+		case 'potentiometer':
+			return (
+				<Icons.CircleArrowOutUpLeft
+					size={48}
+					className="transition-all"
+					style={{
+						transform: `rotate(${progress * 2.7 - 90}deg)`,
+					}}
+				/>
+			);
+		case 'tilt':
+			return (
+				<Icons.MoveUp
+					size={48}
+					className="transition-all"
+					style={{
+						transform: `rotate(${progress < 50 ? 180 : 0}deg)`,
+					}}
 				/>
 			);
 		case 'hall-effect':
@@ -80,7 +101,7 @@ const hallEffect = cva('transition-all', {
 });
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<SensorData>();
+	const { pane, settings } = useNodeSettings<SensorData & { subType?: string }>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -99,8 +120,27 @@ function Settings() {
 				.map(mapPinToPaneOption),
 		});
 
+		const advancedbindings = pane.addFolder({
+			index: 1,
+			title: 'advanced',
+			expanded: false,
+		});
+
+		settings.threshold ??= 1;
+		advancedbindings.addBinding(settings, 'threshold', {
+			index: 0,
+			step: 1,
+		});
+
+		settings.freq ??= 25;
+		advancedbindings.addBinding(settings, 'freq', {
+			index: 1,
+			label: 'frequency (ms)',
+			min: 10,
+		});
+
 		return () => {
-			[pinBinding].forEach(disposable => disposable.dispose());
+			[pinBinding, advancedbindings].forEach(disposable => disposable?.dispose());
 		};
 	}, [pane, settings, pins]);
 
@@ -113,7 +153,20 @@ Sensor.defaultProps = {
 		group: 'hardware',
 		tags: ['input', 'analog'],
 		pin: 'A0',
-		label: 'Sensor',
+		label: 'Generic Sensor',
+		threshold: 1,
+		freq: 25,
+	} satisfies Props['data'],
+};
+
+export const Tilt = (props: Props) => <Sensor {...props} />;
+Tilt.defaultProps = {
+	data: {
+		...Sensor.defaultProps.data,
+		label: 'Tilt',
+		subType: 'tilt',
+		baseType: 'Sensor',
+		threshold: 10,
 	} satisfies Props['data'],
 };
 
