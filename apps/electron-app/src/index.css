@@ -130,3 +130,16 @@ body {
 .react-colorful .react-colorful__pointer {
 	@apply w-5 h-5 transition-all;
 }
+
+/**
+ * tweakpane style overwrites
+ */
+.tp-grlv_g polyline {
+	stroke: black !important;
+}
+
+@media (prefers-color-scheme: dark) {
+	.tp-grlv_g polyline {
+		stroke: white !important;
+	}
+}
