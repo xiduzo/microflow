@@ -38,7 +38,12 @@ function Value() {
 	const data = useNodeData<GateData>();
 	const value = useNodeValue<GateValueType>(false);
 
-	return <GateIcon gate={data.gate} className={`${value ? 'text-green-500' : 'text-red-500'}`} />;
+	return (
+		<section className="flex flex-col text-center items-center text-muted-foreground">
+			<GateIcon gate={data.gate} className={`${value ? 'text-green-500' : 'text-red-500'}`} />
+			<div className="text-xs tabular-nums">{data.gate}</div>
+		</section>
+	);
 }
 
 function Settings() {

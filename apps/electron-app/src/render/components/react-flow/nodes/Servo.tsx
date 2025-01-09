@@ -55,13 +55,13 @@ function Value() {
 				className="origin-bottom absolute transition-all"
 				style={{ rotate: `${data.range.min - 90}deg` }}
 			>
-				<Icons.Slash className="-rotate-45 text-red-500/10" size={48} />
+				<Icons.Slash className="-rotate-45 dark:text-red-500/20 text-red-500/30" size={48} />
 			</section>
 			<section
 				className="origin-bottom absolute transition-all"
 				style={{ rotate: `${data.range.max - 90}deg` }}
 			>
-				<Icons.Slash className="-rotate-45 text-green-500/10" size={48} />
+				<Icons.Slash className="-rotate-45 dark:text-green-500/20 text-green-500/30" size={48} />
 			</section>
 			<section className="origin-bottom transition-all" style={{ rotate: `${value - 90}deg` }}>
 				<Icons.Slash className="-rotate-45 text-muted-foreground" size={48} />

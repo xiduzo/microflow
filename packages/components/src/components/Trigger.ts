@@ -1,26 +1,38 @@
+import { transformValueToNumber } from '../utils/transformUnknownValues';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type TriggerData = {
 	relative?: boolean;
 	behaviour: 'increasing' | 'decreasing';
 	threshold: number;
+	within: number;
 };
 
 export type TriggerValueType = boolean;
 
+type ValueWithTimestamp = {
+	value: number;
+	timestamp: number;
+};
+
 export class Trigger extends BaseComponent<TriggerValueType> {
-	private previousValue = Number.NaN; // safe initial value
+	private history: ValueWithTimestamp[] = [];
 
 	constructor(private readonly data: BaseComponentData & TriggerData) {
 		super(data, false);
 	}
 
 	signal(value: unknown) {
-		const valueAsNumber = Number(value);
+		const valueAsNumber = transformValueToNumber(value);
+		const currentTime = performance.now();
+
+		this.history = this.history.filter(
+			({ timestamp }) => currentTime - timestamp <= (this.data.within ?? 250), // TODO: this can be removed when the within property is required
+		);
+
+		this.history.push({ value: valueAsNumber, timestamp: currentTime });
 
 		const shouldBang = this.checkDifference(valueAsNumber);
-
-		this.previousValue = valueAsNumber;
 
 		if (!shouldBang) return;
 
@@ -28,9 +40,8 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 	}
 
 	private checkDifference(value: number): boolean {
-		if (isNaN(this.previousValue)) return false;
-
-		const difference = value - this.previousValue;
+		const [first] = this.history;
+		const difference = value - first.value;
 		const correctDirection = this.valueChangesInCorrectDirection(difference);
 
 		if (this.value) {
@@ -39,7 +50,7 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		}
 
 		const reachedThreshold = this.data.relative
-			? Math.abs((difference / this.previousValue) * 100) >= this.data.threshold
+			? Math.abs((difference / first.value) * 100) >= this.data.threshold
 			: Math.abs(difference) >= this.data.threshold;
 
 		this.value = correctDirection && reachedThreshold;

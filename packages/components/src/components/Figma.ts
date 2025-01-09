@@ -89,6 +89,7 @@ export class Figma extends BaseComponent<FigmaValueType> {
 		switch (this.data.resolvedType) {
 			case 'BOOLEAN':
 				this.value = transformValueToBoolean(value);
+				this.eventEmitter.emit(this.value ? 'true' : 'false', this.value);
 				break;
 			case 'FLOAT':
 				this.value = transformValueToNumber(value);

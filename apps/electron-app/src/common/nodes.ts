@@ -38,6 +38,7 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Compare: Compare,
 	Constant: Constant,
 	Counter: Counter,
+	// DigitalSensor: DigitalSensor,
 	Delay: Delay,
 	Figma: Figma,
 	Force: Force,

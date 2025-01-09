@@ -10,8 +10,12 @@ body {
 */
 
 /* Nodes */
+.react-flow__panel.react-flow__minimap {
+	@apply dark:bg-neutral-950 bg-neutral-300;
+}
+
 .react-flow__minimap .react-flow__minimap-node {
-	@apply fill-muted transition-colors;
+	@apply dark:fill-neutral-400 fill-neutral-700 transition-colors;
 }
 .react-flow__minimap .react-flow__minimap-node.selected {
 	@apply fill-blue-500;
@@ -19,7 +23,7 @@ body {
 
 /* Edges */
 .react-flow__edges .react-flow__edge-path {
-	@apply stroke-[4] stroke-neutral-600 transition-colors;
+	@apply stroke-[4] dark:stroke-neutral-600 stroke-neutral-400 transition-colors;
 }
 
 .react-flow__edges .react-flow__edge.selected .react-flow__edge-path,
@@ -47,7 +51,7 @@ body {
 
 /* Handles */
 .react-flow__node .react-flow__handle {
-	@apply bg-neutral-600 rounded-md transition-all duration-150 border-none;
+	@apply dark:bg-neutral-600 bg-neutral-400 rounded-md transition-all duration-150 border-none;
 }
 
 /* Target handle - start connection */
@@ -55,7 +59,7 @@ body {
 		:has(.react-flow__handle.connectingto.valid)
 	)
 	.connectionindicator {
-	@apply bg-neutral-400;
+	@apply dark:bg-neutral-400 bg-neutral-500;
 }
 
 /* Target handle in same node - start connection */
@@ -125,4 +129,17 @@ body {
 
 .react-colorful .react-colorful__pointer {
 	@apply w-5 h-5 transition-all;
+}
+
+/**
+ * tweakpane style overwrites
+ */
+.tp-grlv_g polyline {
+	stroke: black !important;
+}
+
+@media (prefers-color-scheme: dark) {
+	.tp-grlv_g polyline {
+		stroke: white !important;
+	}
 }

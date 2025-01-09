@@ -1,5 +1,5 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import { cva, FolderApi, Icons, Progress, VariantProps } from '@microflow/ui';
+import { cva, Icons, Progress, Switch, VariantProps } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { MODES } from '../../../../common/types';
@@ -8,7 +8,6 @@ import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
-import { BindingApi } from '@tweakpane/core';
 
 export function Sensor(props: Props) {
 	return (
@@ -25,6 +24,10 @@ function Value() {
 	const data = useNodeData<SensorData>();
 
 	const progress = useMemo(() => Math.round((value / 1023) * 100), [value]);
+
+	if (data.type === 'digital') {
+		return <Switch checked={Boolean(value)} className="scale-150" />;
+	}
 
 	switch (data.subType) {
 		case 'ldr':
@@ -153,9 +156,20 @@ Sensor.defaultProps = {
 		group: 'hardware',
 		tags: ['input', 'analog'],
 		pin: 'A0',
-		label: 'Generic Sensor',
+		label: 'Analog Sensor',
 		threshold: 1,
 		freq: 25,
+	} satisfies Props['data'],
+};
+
+export const DigitalSensor = (props: Props) => <Sensor {...props} />;
+DigitalSensor.defaultProps = {
+	data: {
+		...Sensor.defaultProps.data,
+		label: 'Digital Sensor',
+		tags: ['input', 'digital'],
+		type: 'digital',
+		baseType: 'Sensor',
 	} satisfies Props['data'],
 };
 

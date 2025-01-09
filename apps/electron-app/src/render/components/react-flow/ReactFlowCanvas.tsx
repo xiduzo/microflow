@@ -1,4 +1,4 @@
-import { Background, Controls, MiniMap, Panel, ReactFlow } from '@xyflow/react';
+import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
 import { useShallow } from 'zustand/react/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useReactFlowStore } from '../../stores/react-flow';
@@ -35,9 +35,9 @@ export function ReactFlowCanvas() {
 	}, []);
 
 	return (
-		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode="dark" minZoom={0.2} maxZoom={2}>
+		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode={'system'} minZoom={0.2} maxZoom={2}>
 			<Controls />
-			<MiniMap nodeBorderRadius={12} />
+			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={32} />
 
 			<Panel position="top-center">
@@ -46,7 +46,7 @@ export function ReactFlowCanvas() {
 
 			<Panel
 				position="bottom-center"
-				className="text-gray-50/20 bg-neutral-950/5 backdrop-blur-sm rounded-md"
+				className="dark:bg-neutral-950/5 bg-neutral-500/5 backdrop-blur-sm rounded-md"
 			>
 				<a
 					href="https://www.sanderboer.nl"

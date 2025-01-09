@@ -6,7 +6,7 @@
 		"type": "git",
 		"url": "https://github.com/xiduzo/microflow"
 	},
-	"version": "0.7.7",
+	"version": "0.7.8",
 	"description": "An application which allows you to create flow-based logic for microcontrollers",
 	"author": {
 		"name": "Sander Boer",
@@ -73,6 +73,7 @@
 		"react": "18.3.1",
 		"react-colorful": "5.6.1",
 		"react-dom": "18.3.1",
+		"react-error-boundary": "^5.0.0",
 		"serialport": "12.0.0",
 		"tsparticles": "3.7.1",
 		"unique-names-generator": "4.7.1",

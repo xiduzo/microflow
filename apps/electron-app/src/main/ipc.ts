@@ -55,6 +55,8 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 	const timer = new Timer();
 	log.debug('[CHECK] requested to check board', data, timer.duration);
 
+	await cleanupProcesses();
+
 	const boardOverIp: Awaited<ReturnType<typeof getKnownBoardsWithPorts>> = [
 		['BOARD_OVER_IP' as BoardName, [{ path: data.ip ?? '' } as PortInfo]],
 	];
@@ -328,11 +330,12 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 
 let latestUploadProcessId: number | undefined;
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
+	log.debug(`[EXTERNAL] setting value`, data);
 	const process = Array.from(processes).find(
 		([_pid, process]) => process.pid === latestUploadProcessId,
 	);
 	if (!process) {
-		log.debug('Tried to set external value while no upload process is running');
+		log.debug('[EXTERNAL] Tried to set external value while no upload process is running');
 		return;
 	}
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { BoardCheckResult } from '../../common/types';
 import { useCelebration } from '../providers/CelebrationProvider';

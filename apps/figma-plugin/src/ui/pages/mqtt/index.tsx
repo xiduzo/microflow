@@ -163,8 +163,8 @@ export function Mqtt() {
 						<Button type="submit" className="w-full">
 							Save MQTT settings
 						</Button>
-						<div className="text-orange-500 text-sm">
-							<Icons.TriangleAlert className="w-3.5 h-3.5 pb-0.5 inline-block mr-1" />
+						<div className="text-blue-500 text-sm">
+							<Icons.Info className="w-3.5 h-3.5 pb-0.5 inline-block mr-1" />
 							This plugin will force a connection over <code>wss://</code>, make sure your settings
 							will connect to an encrypted websocket.
 						</div>

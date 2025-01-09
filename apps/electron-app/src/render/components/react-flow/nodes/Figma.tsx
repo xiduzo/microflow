@@ -81,6 +81,8 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 					<Handle type="target" position={Position.Left} id="true" offset={-1} />
 					<Handle type="target" position={Position.Left} id="toggle" />
 					<Handle type="target" position={Position.Left} id="false" offset={1} />
+					<Handle type="target" position={Position.Right} id="true" offset={-1} />
+					<Handle type="target" position={Position.Right} id="false" offset={1} />
 				</>
 			)}
 			{props.variable?.resolvedType === 'COLOR' && (
@@ -167,6 +169,7 @@ function Settings() {
 			min: 10,
 			max: 500,
 			step: 10,
+			label: 'update frequency (ms)',
 		});
 
 		return () => {
@@ -213,11 +216,9 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 		case 'BOOLEAN':
 			return (
 				<section className="flex flex-col items-center gap-2">
-					<Switch
-						className="scale-150 border border-muted-foreground/10"
-						checked={Boolean(value)}
-					/>
+					<Switch className="scale-150 border" checked={Boolean(value)} />
 					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
+					<span className="text-muted-foreground text-xs">{props.variable?.id}</span>
 				</section>
 			);
 		case 'FLOAT':

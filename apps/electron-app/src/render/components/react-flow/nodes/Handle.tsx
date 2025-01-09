@@ -10,7 +10,7 @@ import {
 import { useMemo } from 'react';
 
 const HANDLE_SPACING = 26;
-const NODER_HEADER_HEIGHT_SPACING = 26;
+const NODER_HEADER_HEIGHT_SPACING = 29;
 
 export function Handle(props: Props) {
 	const edges = useEdges();
@@ -22,7 +22,7 @@ export function Handle(props: Props) {
 	}, [props.isConnectable, edges]);
 	return (
 		<TooltipProvider>
-			<Tooltip>
+			<Tooltip delayDuration={350}>
 				<TooltipTrigger asChild>
 					<XyFlowHandle
 						{...props}

@@ -59,7 +59,7 @@ const badge = cva('pointer-events-none select-none transition-colors', {
 			destructive: 'bg-red-400 text-red-900',
 			warning: 'bg-orange-400 text-orange-900',
 			info: 'bg-blue-400 text-blue-900',
-			plain: 'bg-muted text-muted-foreground animate-pulse ',
+			plain: 'dark:bg-muted dark:text-muted-foreground bg-muted-foreground animate-pulse ',
 		},
 	},
 });

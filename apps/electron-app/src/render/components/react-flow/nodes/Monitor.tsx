@@ -5,7 +5,7 @@ import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef, useState } from 'react';
 import { Pane } from '@ui/index';
-import { BindingApi, BindingParams } from '@tweakpane/core';
+import { BindingParams } from '@tweakpane/core';
 import { useUploadResult } from '../../../stores/board';
 
 export function Monitor(props: Props) {
