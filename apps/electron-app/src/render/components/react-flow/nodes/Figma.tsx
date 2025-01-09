@@ -81,8 +81,8 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 					<Handle type="target" position={Position.Left} id="true" offset={-1} />
 					<Handle type="target" position={Position.Left} id="toggle" />
 					<Handle type="target" position={Position.Left} id="false" offset={1} />
-					<Handle type="target" position={Position.Right} id="true" offset={-1} />
-					<Handle type="target" position={Position.Right} id="false" offset={1} />
+					<Handle type="source" position={Position.Right} id="true" offset={-1} />
+					<Handle type="source" position={Position.Right} id="false" offset={1} />
 				</>
 			)}
 			{props.variable?.resolvedType === 'COLOR' && (
@@ -218,7 +218,6 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 				<section className="flex flex-col items-center gap-2">
 					<Switch className="scale-150 border" checked={Boolean(value)} />
 					<span className="text-muted-foreground text-xs">{props.variable?.name}</span>
-					<span className="text-muted-foreground text-xs">{props.variable?.id}</span>
 				</section>
 			);
 		case 'FLOAT':
