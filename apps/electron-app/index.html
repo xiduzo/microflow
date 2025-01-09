@@ -1,13 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no">
 	<head>
 		<meta charset="UTF-8" />
+		<meta name="google" content="notranslate" />
 		<title>Microflow studio</title>
 		<link rel="stylesheet" href="/src/index.css" />
 		<style>
+			@media (prefers-color-scheme: dark) {
+				body {
+					background-color: #171717 !important;
+					color: white;
+				}
+			}
+
+			@media (prefers-color-scheme: light) {
+				body {
+					background-color: #f5f5f5 !important;
+					color: black;
+				}
+			}
 			body {
-				background-color: #171717;
-				color: #f5f5f5;
 				width: 100%;
 				width: 100%;
 				margin: 0;
@@ -70,13 +82,20 @@
 			}
 		</style>
 	</head>
-	<body class="dark overflow-hidden">
+	<body class="overflow-hidden">
 		<main>
 			<div id="connecting"></div>
 			<div id="control"></div>
 			<div id="minimap"></div>
 			<div id="name">Made with ♥ by Xiduzo</div>
 		</main>
+		<script>
+			if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+				document.body.classList.add('dark');
+			} else {
+				document.body.classList.remove('dark');
+			}
+		</script>
 		<script type="module" src="/src/renderer.js"></script>
 	</body>
 </html>

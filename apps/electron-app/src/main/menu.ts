@@ -120,6 +120,17 @@ export function createMenu(mainWindow: BrowserWindow) {
 						} satisfies MenuResponse);
 					},
 				},
+				{ type: 'separator' },
+				{
+					label: 'Fit flow in view',
+					accelerator: isMac ? 'Cmd+O' : 'Ctrl+O',
+					click: async () => {
+						mainWindow.webContents.send('ipc-menu', {
+							success: true,
+							data: { button: 'fit-flow' },
+						} satisfies MenuResponse);
+					},
+				},
 			],
 		},
 		{

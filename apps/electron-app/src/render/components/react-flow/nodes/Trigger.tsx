@@ -17,6 +17,7 @@ export function Trigger(props: Props) {
 	);
 }
 
+const formatter = new Intl.NumberFormat('en-US');
 function Value() {
 	const data = useNodeData<TriggerData>();
 	const value = useNodeValue<TriggerValueType>(false);
@@ -25,8 +26,12 @@ function Value() {
 		<IconWithValue
 			icon={data.behaviour === 'increasing' ? 'TrendingUp' : 'TrendingDown'}
 			iconClassName={value ? 'text-green-500' : 'text-red-500'}
-			value={data.threshold}
-			suffix={data.relative ? '%' : ''}
+			value={`by ${data.threshold}`}
+			suffix={
+				data.relative
+					? `% within ${formatter.format(data.within / 1000)}s`
+					: ` within ${formatter.format(data.within / 1000)}s`
+			}
 		/>
 	);
 }
@@ -58,10 +63,18 @@ function Settings() {
 			label: 'percentage',
 		});
 
+		settings.within ??= 250;
+		const withinBinding = pane.addBinding(settings, 'within', {
+			index: 3,
+			label: 'within (ms)',
+			min: 1,
+		});
+
 		return () => {
 			behaviourBinding.dispose();
 			thresholdBinding.dispose();
 			relativeBinding.dispose();
+			withinBinding.dispose();
 		};
 	}, [pane, settings]);
 
@@ -76,6 +89,7 @@ Trigger.defaultProps = {
 		label: 'Trigger',
 		relative: false,
 		behaviour: 'decreasing',
-		threshold: 0.5,
+		threshold: 5,
+		within: 250,
 	} satisfies Props['data'],
 };

@@ -10,6 +10,7 @@ import { Home } from './pages/home';
 import { Mqtt } from './pages/mqtt';
 import { Variables } from './pages/variables';
 import { useMessageListener } from './hooks/useMessageListener';
+import { useEffect } from 'react';
 
 const router = createMemoryRouter([
 	{ path: '/', Component: Home },
@@ -41,11 +42,45 @@ export function App() {
 	if (brokerSettings === null) return null;
 
 	return (
-		<section className="dark">
+		<>
+			<DarkMode />
 			<MqttProvider appName="plugin" config={brokerSettings}>
 				<MqttVariableMessenger />
 				<RouterProvider router={router} />
 			</MqttProvider>
-		</section>
+		</>
 	);
+}
+
+function DarkMode() {
+	const [, setIsDarkMode] = useLocalStorage<boolean>(LOCAL_STORAGE_KEYS.DARK_MODE, {
+		initialValue: false,
+	});
+
+	useEffect(() => {
+		const likesDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+		toggleDarkMode(likesDarkMode.matches);
+
+		function toggleDarkMode(darkMode: boolean) {
+			setIsDarkMode(darkMode);
+
+			if (darkMode) {
+				window.document.body.classList.add('dark');
+			} else {
+				window.document.body.classList.remove('dark');
+			}
+		}
+
+		function handleEvent(event: MediaQueryListEvent) {
+			toggleDarkMode(event.matches);
+		}
+
+		likesDarkMode.addEventListener('change', handleEvent);
+
+		return () => {
+			likesDarkMode.removeEventListener('change', handleEvent);
+		};
+	}, []);
+
+	return null;
 }

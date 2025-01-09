@@ -11,7 +11,7 @@ import { useNewNodeStore } from '../stores/new-node';
 import { useShallow } from 'zustand/react/shallow';
 
 export function IpcMenuListeners() {
-	const { getNodes, getEdges } = useReactFlow();
+	const { getNodes, getEdges, fitView } = useReactFlow();
 	const { setEdges, setNodes, undo, redo } = useReactFlowStore();
 
 	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
@@ -21,7 +21,7 @@ export function IpcMenuListeners() {
 	const { settingsOpen, setSettingsOpen } = useAppStore();
 
 	useEffect(() => {
-		window.electron.ipcRenderer.on<{ button: string; args: any }>('ipc-menu', result => {
+		return window.electron.ipcRenderer.on<{ button: string; args: any }>('ipc-menu', result => {
 			if (!result.success) return;
 
 			switch (result.data.button) {
@@ -62,6 +62,8 @@ export function IpcMenuListeners() {
 				case 'redo':
 					redo();
 					break;
+				case 'fit-flow':
+					fitView({ duration: 400, padding: 0.15 });
 				default:
 					break;
 			}

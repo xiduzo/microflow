@@ -7,6 +7,7 @@ export type MatrixData = Omit<
 	'board'
 > & {
 	shapes: MatrixShape[];
+	dims: [number, number];
 };
 export type MatrixValueType = MatrixShape;
 

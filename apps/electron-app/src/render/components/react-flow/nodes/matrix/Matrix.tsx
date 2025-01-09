@@ -14,6 +14,7 @@ import {
 } from '@microflow/components/contants';
 import {
 	Button,
+	cva,
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -21,6 +22,7 @@ import {
 	DialogTitle,
 	ListBladeApi,
 	ScrollArea,
+	VariantProps,
 } from '@ui/index';
 import { uuid } from '../../../../../utils/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
@@ -47,10 +49,29 @@ export function Matrix(props: Props) {
 }
 
 function Value() {
+	const data = useNodeData<MatrixData>();
 	const value = useNodeValue<MatrixValueType>(DEFAULT_MATRIX_START_SHAPE);
 
-	return <MatrixDisplay className="m-4" size="small" dimensions={[8, 8]} shape={value} />;
+	return (
+		<MatrixDisplay
+			className={matrixDisplay({
+				width: data.dims[1] as VariantProps<typeof matrixDisplay>['width'],
+			})}
+			size="small"
+			dimensions={data.dims}
+			shape={value}
+		/>
+	);
 }
+
+const matrixDisplay = cva('m-4', {
+	variants: {
+		width: {
+			8: 'w-[200px]',
+			16: 'w-[400px]',
+		},
+	},
+});
 
 function Settings() {
 	const data = useNodeData<MatrixData>();
@@ -151,10 +172,28 @@ function Settings() {
 				setEditorOpened(true);
 			});
 
+		const dimensionsBlade = pane.addBlade({
+			view: 'list',
+			label: 'dimensions',
+			index: 4,
+			value: settings.dims,
+			options: [
+				{ text: '8x8', value: [8, 8] },
+				{ text: '16x8', value: [16, 8] },
+				{ text: '8x16', value: [8, 16] },
+			],
+		});
+
+		(dimensionsBlade as ListBladeApi<[number, number]>).on('change', event => {
+			settings.dims = event.value;
+		});
+
 		return () => {
-			[dataPinBlade, clockPinBlade, chipSeletPinBlade, shapesButton].forEach(disposable => {
-				disposable.dispose();
-			});
+			[dataPinBlade, clockPinBlade, chipSeletPinBlade, shapesButton, dimensionsBlade].forEach(
+				disposable => {
+					disposable.dispose();
+				},
+			);
 		};
 	}, [pane, settings, pins]);
 
@@ -190,7 +229,14 @@ function Settings() {
 											nextShapes.splice(index, 1);
 											updateShapes(nextShapes);
 										}}
-										shape={shape}
+										shape={shape
+											.map(row => row.padEnd(settings.dims[1], '0'))
+											.concat(
+												Array.from({ length: settings.dims[0] - shape.length }).fill(
+													''.padEnd(settings.dims[1], '0'),
+												) as string[],
+											)}
+										// shape.map(row => row.padEnd(settings.dims[1], '0'))
 									/>
 								);
 							})}

@@ -4,7 +4,7 @@ import { IconBackButton } from './IconBackButton';
 
 export function PageHeader(props: PageHeaderProps) {
 	return (
-		<header className="flex p-2 items-center h-12">
+		<header className="flex p-2 items-center h-12 sticky top-0 bg-muted z-10">
 			<IconBackButton />
 			{props.start}
 			<h1 className="flex-1">{props.title}</h1>

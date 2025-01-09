@@ -13,7 +13,7 @@ export function Variables() {
 
 	const [variables, setVariables] = useState<Variable[] | undefined>([]);
 
-	useSetWindowSize({ width: 450, height: variables?.length ? 550 : 300 });
+	useSetWindowSize({ width: 420, height: variables?.length ? 550 : 300 });
 
 	useMessageListener<Variable[] | undefined>(MESSAGE_TYPE.GET_LOCAL_VARIABLES, setVariables);
 
@@ -38,7 +38,7 @@ export function Variables() {
 					</Button>
 				}
 			/>
-			<PageContent className="divide-y divide-neutral-700 space-y-0">
+			<PageContent>
 				{!variables?.length && (
 					<section className="flex flex-col items-center space-y-7 w-full h-full">
 						<Icons.BookDashed className="w-16 h-16" opacity="40%" />
@@ -53,7 +53,7 @@ export function Variables() {
 				{variables?.map(variable => {
 					return (
 						<section key={variable.id} className="flex justify-between py-1 group">
-							<div className="flex space-x-2 items-center">
+							<div className="flex space-x-4 items-center">
 								<VariableIcon type={variable.resolvedType} />
 								<span>{variable.name}</span>
 							</div>
@@ -109,13 +109,21 @@ function CopyButton(props: { textToCopy: string; icon: IconName; title: string }
 function VariableIcon(props: { type: Variable['resolvedType'] }) {
 	switch (props.type) {
 		case 'BOOLEAN':
-			return <Icons.Hash className="w-3 h-3 opacity-40" />;
+			return <Icons.ToggleLeft className="text-muted-foreground" size={18} />;
 		case 'STRING':
-			return <Icons.Type className="w-3 h-3 opacity-40" />;
+			return (
+				<div className="border p-[2px] border-muted-foreground rounded-sm">
+					<Icons.Type className="text-muted-foreground" size={12} />
+				</div>
+			);
 		case 'COLOR':
-			return <Icons.Palette className="w-3 h-3 opacity-40" />;
+			return <Icons.Palette className="text-muted-foreground mr-1" size={16} />;
 		case 'FLOAT':
-			return <Icons.DiscAlbum className="w-3 h-3 opacity-40" />;
+			return (
+				<div className="border p-[2px] border-muted-foreground rounded-sm">
+					<Icons.Hash className="text-muted-foreground" size={12} />
+				</div>
+			);
 		default:
 			return null;
 	}

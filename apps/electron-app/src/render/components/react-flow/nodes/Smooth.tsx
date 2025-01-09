@@ -11,7 +11,7 @@ export function Smooth(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="signal" offset={-0.5} />
+			<Handle type="target" position={Position.Left} id="signal" />
 			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
@@ -42,7 +42,7 @@ function Settings() {
 
 			switch (settings.type) {
 				case 'movingAverage':
-					settings.windowSize = settings.windowSize ?? 1;
+					settings.windowSize = settings.windowSize ?? 25;
 					binding = pane.addBinding(settings, 'windowSize', {
 						index: 1,
 						min: 1,

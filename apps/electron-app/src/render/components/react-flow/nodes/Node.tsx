@@ -1,6 +1,5 @@
 import {
 	cn,
-	CommandShortcut,
 	cva,
 	Icons,
 	Pane,
@@ -27,43 +26,26 @@ import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
+import { usePins } from '../../../stores/board';
+import { useHotkey } from '../../../hooks/useHotkey';
 
 export function NodeSettingsButton() {
-	const { settingsOpened, setSettingsOpened, selected } = useNode();
+	const { settingsOpened, setSettingsOpened } = useNode();
 
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.code === 'KeyC' && selected) {
-				setSettingsOpened(!settingsOpened);
-			}
-		};
-
-		window.addEventListener('keydown', handleKeyDown);
-
-		return () => {
-			window.removeEventListener('keydown', handleKeyDown);
-		};
-	}, [selected, settingsOpened]);
+	useHotkey({ code: 'KeyP', withMetaKey: true }, () => {
+		setSettingsOpened(false);
+	});
 
 	return (
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger asChild className="cursor-context-menu">
-					<button
-						onClick={e => {
-							e.stopPropagation();
-							setSettingsOpened(!settingsOpened);
-						}}
-						className={settingsButton({ settingsOpened })}
-					>
-						<Icons.SlidersHorizontal size={16} />
-					</button>
-				</TooltipTrigger>
-				<TooltipContent>
-					<CommandShortcut>C</CommandShortcut>onfigure
-				</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
+		<button
+			onClick={e => {
+				e.stopPropagation();
+				setSettingsOpened(!settingsOpened);
+			}}
+			className={settingsButton({ settingsOpened })}
+		>
+			<Icons.SlidersHorizontal size={16} />
+		</button>
 	);
 }
 
@@ -72,19 +54,21 @@ const settingsButton = cva(
 	{
 		variants: {
 			settingsOpened: {
-				true: 'bg-black/40 hover:bg-black/30',
-				false: 'hover:bg-black/40',
+				true: 'dark:bg-black/40 bg-black/10 dark:hover:bg-black/30 hover:bg-black/5',
+				false: 'dark:hover:bg-black/40 hover:bg-black/10',
 			},
 		},
 	},
 );
 
 function NodeHeader(props: { error?: string; selected?: boolean }) {
-	const { data, id } = useNode();
+	const id = useNodeId();
+	const data = useNodeData();
+	const pins = usePins();
 
 	return (
 		<header className={header({ selected: props.selected, hasError: !!props.error })}>
-			<div className="flex flex-col">
+			<div className="flex flex-col flex-grow">
 				<div className="flex items-center space-x-2">
 					<h1 className="font-bold">{data.label}</h1>
 					{props.error && (
@@ -98,7 +82,20 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 						</TooltipProvider>
 					)}
 				</div>
-				<span className="text-muted-foreground text-xs font-extralight">{id}</span>
+				<div
+					className={subheader({
+						selected: props.selected,
+						hasError: !!props.error,
+					})}
+				>
+					{id}
+					{'pin' in data && (
+						<div className="flex items-center mr-1">
+							<Icons.Cable size={12} className="mr-0.5 stroke-1" />
+							<span className="text-xs font-extralight">{String(data.pin)}</span>
+						</div>
+					)}
+				</div>
 			</div>
 			<NodeSettingsButton />
 		</header>
@@ -106,7 +103,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 }
 
 const header = cva(
-	'p-2 pl-3.5 border-b-2 flex justify-between items-center rounded-t-md transition-all',
+	'p-2 pl-3.5 border-b-2 gap-1 flex justify-between items-center rounded-t-md transition-all',
 	{
 		variants: {
 			selected: {
@@ -122,7 +119,7 @@ const header = cva(
 			{
 				selected: false,
 				hasError: false,
-				className: 'text-muted-foreground border-muted',
+				className: 'text-muted-foreground dark:border-muted border-muted-foreground/20',
 			},
 			{
 				selected: true,
@@ -142,6 +139,41 @@ const header = cva(
 		],
 	},
 );
+
+const subheader = cva('text-xs font-extralight transition-all flex gap-3 items-center', {
+	variants: {
+		selected: {
+			true: '',
+			false: '',
+		},
+		hasError: {
+			true: '',
+			false: '',
+		},
+	},
+	compoundVariants: [
+		{
+			selected: false,
+			hasError: false,
+			className: 'text-muted-foreground',
+		},
+		{
+			selected: true,
+			hasError: false,
+			className: 'text-blue-200',
+		},
+		{
+			selected: false,
+			hasError: true,
+			className: 'text-red-200',
+		},
+		{
+			selected: true,
+			hasError: true,
+			className: 'text-blue-200',
+		},
+	],
+});
 
 type SettingsContextProps<T extends Record<string, unknown>> = {
 	pane: Pane | null;
@@ -299,7 +331,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 				)}
 			>
 				<NodeHeader error={props.error} selected={props.selected} />
-				<main className="flex grow justify-center items-center bg-muted/40">
+				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5">
 					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
 			</article>
@@ -308,7 +340,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 }
 
 const node = cva(
-	'outline outline-2 -outline-offset-1 outline-muted backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col transition-all',
+	'outline outline-2 -outline-offset-1 dark:outline-muted outline-muted-foreground/20 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col transition-all',
 	{
 		variants: {
 			selectable: { true: '', false: '' },
@@ -370,6 +402,5 @@ export type BaseNode<Data extends Record<string, unknown> = {}> = Node<
 		subType?: string;
 		baseType?: NodeType;
 		label: string;
-		settingsOpen?: boolean;
 	}
 >;
