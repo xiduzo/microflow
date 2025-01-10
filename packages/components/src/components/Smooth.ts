@@ -1,3 +1,4 @@
+import { transformValueToNumber } from '../utils/transformUnknownValues';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 type SmoothAverage = {
@@ -16,14 +17,13 @@ export type SmoothValueType = number;
 
 export class Smooth extends BaseComponent<SmoothValueType> {
 	private history: number[] = [];
-	private average = 0;
 
 	constructor(private readonly data: BaseComponentData & SmoothData) {
 		super(data, 0);
 	}
 
 	signal(value: unknown) {
-		const valueAsNumber = Number(value);
+		const valueAsNumber = transformValueToNumber(value);
 
 		switch (this.data.type) {
 			case 'movingAverage':
@@ -36,8 +36,7 @@ export class Smooth extends BaseComponent<SmoothValueType> {
 	}
 
 	private smooth(value: number, attenuation: number) {
-		this.average = attenuation * this.average + (1.0 - attenuation) * value;
-		this.value = value - this.average;
+		this.value = attenuation * value + (1.0 - attenuation) * this.value;
 	}
 
 	private movingAverage(value: number, windowSize: number) {
