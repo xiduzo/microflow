@@ -36,7 +36,7 @@ body {
 }
 
 .react-flow__connection .react-flow__connection-path {
-	@apply stroke-[4] stroke-neutral-400;
+	@apply stroke-[4] dark:stroke-neutral-400 stroke-neutral-500;
 	stroke-dasharray: 8, 8;
 	transition: stroke 0.15s;
 }
@@ -50,62 +50,42 @@ body {
 }
 
 /* Handles */
-.react-flow__node .react-flow__handle {
-	@apply dark:bg-neutral-600 bg-neutral-400 rounded-md transition-all duration-150 border-none;
+.react-flow__handle {
+	@apply dark:bg-neutral-600 text-neutral-500 bg-neutral-400 rounded-md transition-all duration-150 border-none;
 }
 
-/* Target handle - start connection */
-.react-flow:has(.react-flow__handle.connectingfrom):not(
-		:has(.react-flow__handle.connectingto.valid)
-	)
-	.connectionindicator {
-	@apply dark:bg-neutral-400 bg-neutral-500;
+/* possible allowed connections */
+.react-flow__handle.connectingfrom,
+/* target --> source */
+.react-flow:has(.react-flow__handle.connectingfrom.target) .react-flow__handle.connectable.source:not(:has(~ .react-flow__handle.connectingfrom)),
+/* source --> target */
+.react-flow:has(.react-flow__handle.connectingfrom.source) .react-flow__handle.connectable.target:not(:has(~ .react-flow__handle.connectingfrom)) {
+	@apply dark:bg-neutral-400 dark:text-neutral-500 text-neutral-400 bg-neutral-500;
 }
 
-/* Target handle in same node - start connection */
-.react-flow__node:has(.react-flow__handle.connectingfrom):not(
-		:has(.react-flow__handle.connectingto.valid)
-	)
-	.connectionindicator {
-	@apply bg-neutral-600;
+/* impossible connections */
+.react-flow__handle.connectingfrom ~ .react-flow__handle,
+/* target --> target */
+.react-flow:has(.react-flow__handle.connectingfrom.target) .react-flow__handle.target:not(.react-flow__handle.connectingfrom),
+/* source --> source */
+.react-flow:has(.react-flow__handle.connectingfrom.source) .react-flow__handle.source:not(.react-flow__handle.connectingfrom),
+/* connectingfrom --> sibbling */
+.react-flow:has(.react-flow__handle.connectingfrom) .react-flow__handle:has(~ .react-flow__handle.connectingfrom) {
+	@apply dark:bg-neutral-800 dark:text-neutral-700 text-neutral-300 bg-neutral-200;
 }
 
-/* Target handle in same node - not allowed */
-.react-flow__node:has(.react-flow__handle.connectingfrom):not(
-		:has(.react-flow__handle.connectingto.valid)
-	)
-	.connectingto.connectionindicator {
-	@apply bg-red-500 cursor-not-allowed pointer-events-none;
+/* valid connection */
+.react-flow:has(.react-flow__handle.connectingto.valid)
+	.react-flow__handle.connectable.connectingfrom,
+.react-flow:has(.react-flow__handle.connectingto.valid)
+	.react-flow__handle.valid:not(:has(~ .react-flow__handle.connectable.connectingfrom)) {
+	@apply bg-green-500 dark:bg-green-500 text-green-900 dark:text-green-900 cursor-crosshair;
 }
 
-/* Target handle - not allowed */
-.react-flow__handle.connectingto {
-	@apply bg-red-500 cursor-not-allowed;
-}
-
-/* Target handle - allowed */
-.react-flow__handle.connectingto.valid {
-	@apply bg-green-500 cursor-crosshair;
-}
-
-/* Source handle - start connection */
-.react-flow__handle.connectingfrom {
-	@apply bg-neutral-400;
-}
-
-/* Source handle - allowed */
-.react-flow:has(.react-flow__handle.connectingto.valid) .react-flow__handle.connectingfrom {
-	@apply bg-green-500;
-}
-
-/* Source handle - not allowed */
-.react-flow:has(.react-flow__connection.invalid) .react-flow__handle.connectingfrom {
-	@apply bg-red-500;
-}
-
-/* Set by `isConnectable` property */
-.react-flow__handle:not(.connectable) {
-	@apply cursor-not-allowed pointer-events-auto bg-red-500;
+/* invalid connection */
+.react-flow__handle:not(.connectable),
+.react-flow:has(.react-flow__connection.invalid) .react-flow__handle.connectable.connectingfrom {
+	@apply bg-red-500 dark:bg-red-500 text-red-900 dark:text-red-900;
 }
 
 /*
