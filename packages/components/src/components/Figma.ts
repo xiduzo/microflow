@@ -41,6 +41,23 @@ export class Figma extends BaseComponent<FigmaValueType> {
 		this.convertValue(value);
 	}
 
+	reset() {
+		switch (this.data.resolvedType) {
+			case 'BOOLEAN':
+				this.value = false;
+				break;
+			case 'FLOAT':
+				this.value = 0;
+				break;
+			case 'STRING':
+				this.value = '';
+				break;
+			case 'COLOR':
+				this.value = { r: 0, g: 0, b: 0, a: 0 };
+				break;
+		}
+	}
+
 	setExternal(value: unknown) {
 		this.convertValue(value);
 	}

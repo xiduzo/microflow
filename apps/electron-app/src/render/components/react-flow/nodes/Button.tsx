@@ -15,9 +15,9 @@ export function Button(props: Props) {
 			<Value />
 			<Settings />
 			<Handle type="source" position={Position.Right} id="active" offset={-1.5} />
-			<Handle type="source" position={Position.Right} id="hold" offset={-0.5} />
+			<Handle type="source" position={Position.Right} id="change" offset={-0.5} />
 			<Handle type="source" position={Position.Right} id="inactive" offset={0.5} />
-			<Handle type="source" position={Position.Right} id="change" offset={1.5} />
+			<Handle type="source" position={Position.Right} id="hold" offset={1.5} />
 		</NodeContainer>
 	);
 }

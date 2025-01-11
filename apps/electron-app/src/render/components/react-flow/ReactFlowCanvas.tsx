@@ -16,6 +16,7 @@ const selector = (state: AppState) => ({
 
 export function ReactFlowCanvas() {
 	const store = useReactFlowStore(useShallow(selector));
+	const { fitView } = useReactFlow();
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -33,6 +34,10 @@ export function ReactFlowCanvas() {
 			console.error = originalConsoleError;
 		};
 	}, []);
+
+	useEffect(() => {
+		fitView({ duration: 0, padding: 0.15 });
+	}, [fitView]);
 
 	return (
 		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode={'system'} minZoom={0.2} maxZoom={2}>

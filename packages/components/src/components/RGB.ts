@@ -34,7 +34,7 @@ export class Rgb extends BaseComponent<RgbValueType> {
 		});
 	}
 
-	brightness(value: number) {
+	alpha(value: number) {
 		this.enqueueUpdate(() => {
 			this.component.intensity(value);
 			this.setColor({ ...this.value, a: Math.min(value / 100, 1) });

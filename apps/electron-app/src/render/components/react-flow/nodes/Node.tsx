@@ -340,7 +340,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 }
 
 const node = cva(
-	'outline outline-2 -outline-offset-1 dark:outline-muted outline-muted-foreground/20 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col transition-all',
+	'outline outline-2 -outline-offset-1 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col transition-all',
 	{
 		variants: {
 			selectable: { true: '', false: '' },
@@ -362,7 +362,7 @@ const node = cva(
 			{
 				selected: false,
 				hasError: false,
-				className: '',
+				className: 'dark:outline-muted outline-muted-foreground/20',
 			},
 			{
 				selected: true,

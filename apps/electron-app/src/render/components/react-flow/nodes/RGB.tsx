@@ -17,7 +17,7 @@ export function Rgb(props: Props) {
 			<Handle type="target" position={Position.Left} id="red" hint="0-255" offset={-1.5} />
 			<Handle type="target" position={Position.Left} id="green" hint="0-255" offset={-0.5} />
 			<Handle type="target" position={Position.Left} id="blue" hint="0-255" offset={0.5} />
-			<Handle type="target" position={Position.Left} id="brightness" hint="0-100" offset={1.5} />
+			<Handle type="target" position={Position.Left} id="alpha" hint="0-100" offset={1.5} />
 			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
