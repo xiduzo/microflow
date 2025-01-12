@@ -75,7 +75,7 @@ type Props = BaseNode<ProximityData>;
 Proximity.defaultProps = {
 	data: {
 		group: 'hardware',
-		tags: ['analog', 'input'],
+		tags: ['input', 'analog'],
 		freq: 25,
 		pin: 'A0',
 		controller: 'GP2Y0A21YK',

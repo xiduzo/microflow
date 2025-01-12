@@ -18,7 +18,6 @@ const appMenu: (MenuItemConstructorOptions | MenuItem)[] = isMac
 					{ role: 'unhide' },
 					{ type: 'separator' },
 					{ role: 'quit' },
-					{ role: 'editMenu' },
 					isMac ? { role: 'close' } : {},
 				],
 			},
@@ -35,77 +34,31 @@ export function createMenu(mainWindow: BrowserWindow) {
 				{
 					label: 'Insert node',
 					accelerator: isMac ? 'Cmd+K' : 'Ctrl+K',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'add-node' },
-						} satisfies MenuResponse);
-					},
-				},
-				{ type: 'separator' },
-				{
-					label: 'Undo',
-					accelerator: isMac ? 'Cmd+U' : 'Ctrl+U',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'undo' },
-						} satisfies MenuResponse);
-					},
-				},
-				{
-					label: 'Redo',
-					accelerator: isMac ? 'Cmd+Shift+U' : 'Ctrl+Shift+U',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'redo' },
-						} satisfies MenuResponse);
-					},
+					click: () => sendMessage(mainWindow, 'add-node'),
 				},
 				{ type: 'separator' },
 				{
 					label: 'Save flow',
 					accelerator: isMac ? 'Cmd+S' : 'Ctrl+S',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'save-flow' },
-						} satisfies MenuResponse);
-					},
+					click: () => sendMessage(mainWindow, 'save-flow'),
 				},
 				{
 					id: 'autosave',
 					label: 'Auto save',
 					type: 'checkbox',
 					checked: true,
-					click: menuItem => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'toggle-autosave', args: menuItem.checked },
-						} satisfies MenuResponse);
-					},
+					click: ({ checked }) => sendMessage(mainWindow, 'toggle-autosave', checked),
 				},
 				{ type: 'separator' },
 				{
 					label: 'New flow',
 					accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'new-flow' },
-						} satisfies MenuResponse);
-					},
+					click: () => sendMessage(mainWindow, 'new-flow'),
 				},
 				{
 					label: 'Export flow',
 					accelerator: isMac ? 'Cmd+E' : 'Ctrl+E',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'export-flow' },
-						} satisfies MenuResponse);
-					},
+					click: () => sendMessage(mainWindow, 'export-flow'),
 				},
 				{
 					label: 'Import flow',
@@ -114,22 +67,86 @@ export function createMenu(mainWindow: BrowserWindow) {
 						const flow = await importFlow();
 						if (!flow) return;
 
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'import-flow', args: flow },
-						} satisfies MenuResponse);
+						sendMessage(mainWindow, 'import-flow', flow);
 					},
 				},
 				{ type: 'separator' },
 				{
 					label: 'Fit flow in view',
 					accelerator: isMac ? 'Cmd+O' : 'Ctrl+O',
-					click: async () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'fit-flow' },
-						} satisfies MenuResponse);
-					},
+					click: () => sendMessage(mainWindow, 'fit-flow'),
+				},
+				{ type: 'separator' },
+				{
+					label: 'Edit',
+					submenu: [
+						{
+							label: 'Undo',
+							accelerator: isMac ? 'Cmd+Z' : 'Ctrl+Z',
+							click: () => {
+								mainWindow.webContents.undo();
+								sendMessage(mainWindow, 'undo');
+							},
+						},
+						{
+							label: 'Redo',
+							accelerator: isMac ? 'Cmd+Shift+Z' : 'Ctrl+Shift+Z',
+							click: () => {
+								mainWindow.webContents.redo();
+								sendMessage(mainWindow, 'redo');
+							},
+						},
+						{ type: 'separator' },
+						{
+							label: 'Cut',
+							accelerator: isMac ? 'Cmd+X' : 'Ctrl+X',
+							click: () => {
+								mainWindow.webContents.cut();
+								sendMessage(mainWindow, 'cut');
+							},
+						},
+						{
+							label: 'Copy',
+							accelerator: isMac ? 'Cmd+C' : 'Ctrl+C',
+							click: () => {
+								mainWindow.webContents.copy();
+								sendMessage(mainWindow, 'copy');
+							},
+						},
+						{
+							label: 'Paste',
+							accelerator: isMac ? 'Cmd+V' : 'Ctrl+V',
+							click: () => {
+								mainWindow.webContents.paste();
+								sendMessage(mainWindow, 'paste');
+							},
+						},
+						{ type: 'separator' },
+						{
+							label: 'Select all',
+							accelerator: isMac ? 'Cmd+A' : 'Ctrl+A',
+							click: () => {
+								mainWindow.webContents.selectAll();
+								sendMessage(mainWindow, 'select-all');
+							},
+						},
+						{
+							label: 'Deselect all',
+							accelerator: 'Escape',
+							click: () => {
+								sendMessage(mainWindow, 'deselect-all');
+							},
+						},
+						{ type: 'separator' },
+						{
+							label: 'Delete',
+							accelerator: isMac ? 'Backspace' : 'Backspace',
+							click: () => {
+								mainWindow.webContents.delete();
+								sendMessage(mainWindow, 'delete');
+							},
+						},
+					],
 				},
 			],
 		},
@@ -138,21 +155,11 @@ export function createMenu(mainWindow: BrowserWindow) {
 			submenu: [
 				{
 					label: 'Microcontroller settings',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'board-settings' },
-						} satisfies MenuResponse);
-					},
+					click: () => sendMessage(mainWindow, 'board-settings'),
 				},
 				{
 					label: 'MQTT settings',
-					click: () => {
-						mainWindow.webContents.send('ipc-menu', {
-							success: true,
-							data: { button: 'mqtt-settings' },
-						} satisfies MenuResponse);
-					},
+					click: () => sendMessage(mainWindow, 'mqtt-settings'),
 				},
 			],
 		},
@@ -174,4 +181,11 @@ export function createMenu(mainWindow: BrowserWindow) {
 
 	const menu = Menu.buildFromTemplate(menuTemplate);
 	Menu.setApplicationMenu(menu);
+}
+
+function sendMessage(mainWindow: BrowserWindow, button: string, args?: any) {
+	mainWindow.webContents.send('ipc-menu', {
+		success: true,
+		data: { button, args },
+	} satisfies MenuResponse);
 }
