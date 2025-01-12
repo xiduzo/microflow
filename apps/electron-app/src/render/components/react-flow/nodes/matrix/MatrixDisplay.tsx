@@ -1,17 +1,15 @@
-import { cva, VariantProps } from '@microflow/ui';
+import { cva } from '@microflow/ui';
 import { MatrixEditorProps } from './MatrixEditor';
 
 export function MatrixDisplay(props: Props) {
 	const [rows, columns] = props.dimensions;
+
 	return (
 		<section
-			className={matrix({
-				size: props.size ?? (columns > 16 ? 'medium' : 'large'),
-				className: props.className,
-			})}
+			className={matrix({ className: props.className })}
 			style={{
-				gridTemplateRows: `repeat(${rows}, 1fr)`,
-				gridTemplateColumns: `repeat(${columns}, 1fr)`,
+				gridTemplateRows: `repeat(${rows}, 20px)`,
+				gridTemplateColumns: `repeat(${columns}, 20px)`,
 			}}
 		>
 			{Array.from({ length: rows }).map((_row, row) =>
@@ -21,7 +19,6 @@ export function MatrixDisplay(props: Props) {
 						key={column}
 						data-cell={`${row}-${column}`}
 						className={cell({
-							size: props.size ?? (columns > 16 ? 'medium' : 'large'),
 							active: Boolean(Number(props.shape[row]?.[column] ?? '0')),
 							editable: !!props.onCellClick,
 						})}
@@ -32,21 +29,17 @@ export function MatrixDisplay(props: Props) {
 	);
 }
 
-const matrix = cva('w-full grid', {
+const matrix = cva('grid gap-0.5', {
 	variants: {
 		size: {
-			tiny: 'gap-0.5',
-			small: 'gap-0.5',
-			medium: 'gap-1',
-			large: 'gap-2',
+			small: 'grid-cols-4',
+			medium: 'grid-cols-8',
+			large: 'grid-cols-12',
 		},
-	},
-	defaultVariants: {
-		size: 'large',
 	},
 });
 
-const cell = cva('place-self-center w-full ring-0 transition-all', {
+const cell = cva('place-self-center rounded-full ring-0 transition-all h-full w-full', {
 	variants: {
 		editable: {
 			true: 'hover:ring-4 cursor-pointer ring-blue-500',
@@ -56,16 +49,9 @@ const cell = cva('place-self-center w-full ring-0 transition-all', {
 			true: 'bg-red-500',
 			false: 'bg-muted-foreground/10',
 		},
-		size: {
-			tiny: 'h-2 rounded-[2px]',
-			small: 'h-4 rounded',
-			medium: 'h-8 rounded-sm',
-			large: 'h-12 rounded-sm',
-		},
 	},
 	defaultVariants: {
 		active: false,
-		size: 'large',
 	},
 });
 
@@ -73,4 +59,4 @@ type Props = Omit<MatrixEditorProps, 'onSave'> & {
 	onCellClick?: (row: number, column: number) => void;
 	cellClassName?: string;
 	className?: string;
-} & Pick<VariantProps<typeof cell>, 'size'>;
+};

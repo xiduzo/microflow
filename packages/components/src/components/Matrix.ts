@@ -1,13 +1,15 @@
 import JohnnyFive from 'johnny-five';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 import { DEFAULT_MATRIX_START_SHAPE, type MatrixShape } from '../constants/Matrix';
+import { transformValueToNumber } from '../utils/transformUnknownValues';
 
 export type MatrixData = Omit<
 	JohnnyFive.Led.MatrixOption & JohnnyFive.Led.MatrixIC2Option,
-	'board'
+	'board' | 'devices'
 > & {
 	shapes: MatrixShape[];
-	dims: [number, number];
+	dims: string;
+	devices: number;
 };
 export type MatrixValueType = MatrixShape;
 
@@ -23,10 +25,10 @@ export class Matrix extends BaseComponent<MatrixValueType> {
 		this.component.off();
 	}
 
-	show(index: number) {
+	show(index: unknown) {
 		this.component.on();
 
-		const shape = this.data.shapes[index];
+		const shape = this.data.shapes.at(Math.round(transformValueToNumber(index) - 1));
 
 		if (!shape) {
 			return;
