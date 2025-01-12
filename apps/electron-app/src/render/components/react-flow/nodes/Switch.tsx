@@ -66,7 +66,7 @@ Switch.defaultProps = {
 		pin: 2,
 		group: 'hardware',
 		label: 'Switch',
-		tags: ['digital', 'input'],
+		tags: ['input', 'digital'],
 		type: 'NC',
 		description: 'Control a switch to toggle between on and off states',
 	} satisfies Props['data'],

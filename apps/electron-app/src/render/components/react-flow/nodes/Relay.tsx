@@ -71,7 +71,7 @@ Relay.defaultProps = {
 		group: 'hardware',
 		label: 'Relay',
 		pin: 10,
-		tags: ['analog', 'digital', 'output'],
+		tags: ['output', 'analog', 'digital'],
 		type: 'NO',
 		description: 'Switch on or off high-power devices',
 	} satisfies Props['data'],

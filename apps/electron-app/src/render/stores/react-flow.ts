@@ -175,3 +175,37 @@ export function useEdges() {
 export function useDeleteSelectedNodesAndEdges() {
 	return useReactFlowStore(useShallow(state => state.deleteSelectedNodesAndEdges));
 }
+
+export function useSelectAll() {
+	return useReactFlowStore(
+		useShallow(state => () => {
+			state.onNodesChange(
+				state.nodes.map(node => ({ type: 'select', selected: true, id: node.id })),
+			);
+			state.onEdgesChange(
+				state.edges.map(edge => ({ type: 'select', selected: true, id: edge.id })),
+			);
+		}),
+	);
+}
+
+export function useDeselectAll() {
+	return useReactFlowStore(
+		useShallow(state => () => {
+			state.onNodesChange(
+				state.nodes.map(node => ({ type: 'select', selected: false, id: node.id })),
+			);
+			state.onEdgesChange(
+				state.edges.map(edge => ({ type: 'select', selected: false, id: edge.id })),
+			);
+		}),
+	);
+}
+
+export function useSelectNodes() {
+	return useReactFlowStore(useShallow(state => () => state.nodes.filter(node => node.selected)));
+}
+
+export function useSelectedEdges() {
+	return useReactFlowStore(useShallow(state => () => state.edges.filter(edge => edge.selected)));
+}

@@ -26,7 +26,6 @@ import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
-import { usePins } from '../../../stores/board';
 import { useHotkey } from '../../../hooks/useHotkey';
 
 export function NodeSettingsButton() {
@@ -383,7 +382,7 @@ const node = cva(
 );
 
 type NodeGroup = 'flow' | 'hardware' | 'external';
-type NodeTags =
+export type NodeTags =
 	| 'digital'
 	| 'analog'
 	| 'input'

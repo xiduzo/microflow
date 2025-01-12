@@ -1,5 +1,4 @@
 import {
-	Badge,
 	CommandDialog,
 	CommandEmpty,
 	CommandGroup,
@@ -16,7 +15,7 @@ import {
 import { Node, useReactFlow } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { NODE_TYPES } from '../../common/nodes';
-import { useDeleteSelectedNodesAndEdges, useNodesChange } from '../stores/react-flow';
+import { useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
 import { useWindowSize } from 'usehooks-ts';
 import { BaseNode } from '../components/react-flow/nodes/Node';
@@ -28,7 +27,6 @@ const NODE_SIZE = {
 
 export function NewNodeCommandDialog() {
 	useDraggableNewNode();
-	useBackspaceOverwrite();
 
 	const { open, setOpen, setNodeToAdd } = useNewNodeStore();
 	const { flowToScreenPosition, getZoom } = useReactFlow();
@@ -202,26 +200,4 @@ function useDraggableNewNode() {
 	}, [nodeToAdd, getZoom, changeNodes]);
 
 	return null;
-}
-
-// https://github.com/xyflow/xyflow/issues/4761
-export function useBackspaceOverwrite() {
-	const deleteSelectedNodesAndEdges = useDeleteSelectedNodesAndEdges();
-
-	useEffect(() => {
-		const handleKeyDown = (event: KeyboardEvent) => {
-			const element = event.target as HTMLElement;
-			if (element !== document.body && !element.classList.contains('react-flow__node')) return;
-			if (event.code !== 'Backspace') return;
-
-			console.log('deleteSelectedNodes');
-			deleteSelectedNodesAndEdges();
-		};
-
-		window.addEventListener('keydown', handleKeyDown);
-
-		return () => {
-			window.removeEventListener('keydown', handleKeyDown);
-		};
-	}, [deleteSelectedNodesAndEdges]);
 }

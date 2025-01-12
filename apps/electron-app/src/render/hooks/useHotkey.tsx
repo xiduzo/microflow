@@ -6,18 +6,35 @@ type Options = {
 	withShiftKey?: boolean;
 	withAltKey?: boolean;
 	isCorrectTarget?: (target: HTMLElement) => boolean;
+	/*
+	 * When `undefined`, the default behavior is to prevent the default action.
+	 */
+	preventDefault?: boolean;
 };
 
 type Action = (event: KeyboardEvent) => void;
+
+function checkKey(isPressed: boolean, shouldBePressed?: boolean) {
+	if (shouldBePressed === undefined && !isPressed) return true;
+	if (!shouldBePressed && !isPressed) return true;
+	if (shouldBePressed && isPressed) return true;
+
+	return false;
+}
 
 export function useHotkey(options: Options, action: Action) {
 	useEffect(() => {
 		function handleKeyDown(event: KeyboardEvent) {
 			if (event.code !== options.code) return;
-			if (options.withMetaKey && !event.metaKey) return;
-			if (options.withShiftKey && !event.shiftKey) return;
-			if (options.withAltKey && !event.altKey) return;
+			const checkMeta = checkKey(event.metaKey, options.withMetaKey);
+			const checkShift = checkKey(event.shiftKey, options.withShiftKey);
+			const checkAlt = checkKey(event.altKey, options.withAltKey);
+			if (!checkMeta || !checkShift || !checkAlt) return;
 			if (options.isCorrectTarget && !options.isCorrectTarget(event.target as HTMLElement)) return;
+
+			if (options.preventDefault === undefined) {
+				event.preventDefault();
+			}
 
 			action(event);
 		}
