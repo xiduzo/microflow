@@ -104,5 +104,6 @@ Button.defaultProps = {
 		invert: false,
 		pin: 6,
 		label: 'Button',
+		description: 'Simple user input control',
 	} satisfies Props['data'],
 };

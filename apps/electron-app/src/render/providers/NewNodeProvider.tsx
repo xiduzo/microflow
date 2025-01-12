@@ -11,6 +11,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
+	Icons,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
@@ -77,20 +78,21 @@ export function NewNodeCommandDialog() {
 				<DialogDescription>Search for a node or node type to add to the flow.</DialogDescription>
 			</DialogHeader>
 			<CommandInput placeholder="Seach node or node type..." />
-			<CommandList>
-				<CommandEmpty>No results found.</CommandEmpty>
+			<CommandList className="mb-2">
+				<CommandEmpty>No nodes found...</CommandEmpty>
 				{groups.map(([group, nodes], index) => (
 					<section key={group}>
 						<CommandGroup heading={group}>
 							{nodes.map(({ node, type }) => (
 								<CommandItem key={node.data.label} onSelect={selectNode(node, type)}>
-									<span className="first:first-letter:uppercase lowercase">{node.data.label}</span>
-									<CommandShortcut className="space-x-1">
-										{node.data.tags.map(tag => (
-											<Badge key={tag} variant="outline">
-												{tag}
-											</Badge>
-										))}
+									<div className="flex flex-col">
+										<span>{node.data.label}</span>
+										<span className="text-muted-foreground">{node.data.description ?? ''}</span>
+									</div>
+									<CommandShortcut className="divide-x-2 divide-muted-foreground">
+										<div className="text-muted-foreground ml-2 font-extralight">
+											{node.data.tags.join(', ')}
+										</div>
 									</CommandShortcut>
 								</CommandItem>
 							))}
@@ -99,6 +101,38 @@ export function NewNodeCommandDialog() {
 					</section>
 				))}
 			</CommandList>
+			<footer className="p-2 border-t flex gap-4 justify-between items-center">
+				<a
+					href="https://microflow.vercel.app/docs/microflow-studio/nodes"
+					target="_blank"
+					className="text-xs text-muted-foreground hover:underline"
+				>
+					Open the documentation
+				</a>
+				<section className="flex items-center gap-3">
+					<section className="flex items-center gap-2">
+						<span className="text-xs text-muted-foreground">Close</span>
+						<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">Esc</CommandShortcut>
+					</section>
+					<section className="flex items-center gap-2">
+						<span className="text-xs text-muted-foreground">Navigate</span>
+						<div className="flex items-center gap-1">
+							<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
+								<Icons.ChevronUp size={12} className="" />
+							</CommandShortcut>
+							<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
+								<Icons.ChevronDown size={12} className="" />
+							</CommandShortcut>
+						</div>
+					</section>
+					<section className="flex items-center gap-2">
+						<span className="text-xs text-muted-foreground">Select</span>
+						<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
+							<Icons.CornerDownLeft size={12} className="" />
+						</CommandShortcut>
+					</section>
+				</section>
+			</footer>
 		</CommandDialog>
 	);
 }

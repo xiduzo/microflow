@@ -48,5 +48,6 @@ Constant.defaultProps = {
 		group: 'flow',
 		tags: ['generator'],
 		label: 'Constant',
+		description: 'Generate a constant signal output',
 	} satisfies Props['data'],
 };

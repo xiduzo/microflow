@@ -49,5 +49,6 @@ Interval.defaultProps = {
 		tags: ['event'],
 		label: 'Interval',
 		interval: 500,
+		description: 'Emit a signal at a regular interval',
 	} satisfies Props['data'],
 };

@@ -258,7 +258,7 @@ Matrix.defaultProps = {
 	data: {
 		group: 'hardware',
 		tags: ['output', 'analog'],
-		label: 'LED Matrix',
+		label: 'Light Emitting Diode (LED) Matrix',
 		pins: {
 			data: 2,
 			clock: 3,
@@ -268,5 +268,6 @@ Matrix.defaultProps = {
 		dims: '8x8', // [rows, columns]
 		shapes: [DEFAULT_MATRIX_SHAPE],
 		devices: 1,
+		description: 'Control a LED matrix display to show various shapes',
 	} satisfies Props['data'],
 };

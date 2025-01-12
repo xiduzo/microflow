@@ -31,5 +31,6 @@ Counter.defaultProps = {
 		group: 'flow',
 		tags: ['event', 'information'],
 		label: 'Counter',
+		description: 'Track and manipulate a numerical value',
 	} satisfies Props['data'],
 };

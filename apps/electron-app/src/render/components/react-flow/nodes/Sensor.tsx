@@ -159,6 +159,7 @@ Sensor.defaultProps = {
 		label: 'Analog Sensor',
 		threshold: 1,
 		freq: 25,
+		description: 'Read analog sensor values',
 	} satisfies Props['data'],
 };
 
@@ -170,6 +171,7 @@ DigitalSensor.defaultProps = {
 		tags: ['input', 'digital'],
 		type: 'digital',
 		baseType: 'Sensor',
+		description: 'Read digital sensor values',
 	} satisfies Props['data'],
 };
 
@@ -181,6 +183,7 @@ Tilt.defaultProps = {
 		subType: 'tilt',
 		baseType: 'Sensor',
 		threshold: 10,
+		description: 'Detect if something is up or down',
 	} satisfies Props['data'],
 };
 
@@ -188,9 +191,10 @@ export const Ldr = (props: Props) => <Sensor {...props} />;
 Ldr.defaultProps = {
 	data: {
 		...Sensor.defaultProps.data,
-		label: 'LDR',
+		label: 'Light Dependent Resistor (LDR)',
 		subType: 'ldr',
 		baseType: 'Sensor',
+		description: 'Measure the luminosity of a place',
 	} satisfies Props['data'],
 };
 
@@ -201,6 +205,7 @@ Potentiometer.defaultProps = {
 		label: 'Potentiometer',
 		subType: 'potentiometer',
 		baseType: 'Sensor',
+		description: 'A rotary or linear controller',
 	} satisfies Props['data'],
 };
 
@@ -211,6 +216,7 @@ Force.defaultProps = {
 		label: 'Force',
 		subType: 'force',
 		baseType: 'Sensor',
+		description: 'Detect force applied to a surface',
 	} satisfies Props['data'],
 };
 
@@ -221,5 +227,6 @@ HallEffect.defaultProps = {
 		label: 'Hall Effect',
 		subType: 'hall-effect',
 		baseType: 'Sensor',
+		description: 'Detect magnetic fields',
 	} satisfies Props['data'],
 };

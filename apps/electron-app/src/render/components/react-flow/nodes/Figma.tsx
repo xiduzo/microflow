@@ -278,6 +278,7 @@ Figma.defaultProps = {
 		resolvedType: 'STRING',
 		initialValue: '',
 		debounceTime: 100,
+		description: 'Connect and manipulate Figma variables',
 	} satisfies Props['data'],
 };
 

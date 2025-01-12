@@ -87,6 +87,7 @@ Gate.defaultProps = {
 		tags: ['control', 'transformation'],
 		label: 'Gate',
 		gate: 'and',
+		description: 'Combine and validate input signals using logic gates',
 	} satisfies Props['data'],
 };
 

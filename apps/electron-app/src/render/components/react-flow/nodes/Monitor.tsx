@@ -148,5 +148,6 @@ Monitor.defaultProps = {
 		tags: ['output', 'information'],
 		label: 'Monitor',
 		type: 'graph',
+		description: 'Debug and visualize input signals',
 	} satisfies Props['data'],
 };

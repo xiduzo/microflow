@@ -111,5 +111,6 @@ Mqtt.defaultProps = {
 		label: 'MQTT',
 		direction: 'publish',
 		topic: '',
+		description: 'Publish or subscribe to MQTT topics',
 	} satisfies Props['data'],
 };

@@ -90,5 +90,6 @@ Calculate.defaultProps = {
 		group: 'flow',
 		tags: ['transformation', 'control'],
 		label: 'Calculate',
+		description: 'Performs math operations on input values',
 	} satisfies Props['data'],
 };

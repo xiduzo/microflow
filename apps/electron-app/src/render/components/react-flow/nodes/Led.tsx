@@ -109,8 +109,9 @@ Led.defaultProps = {
 	data: {
 		group: 'hardware',
 		tags: ['output', 'analog', 'digital'],
-		label: 'LED',
+		label: 'Light Emitting Diode (LED)',
 		pin: 13,
+		description: 'Control a LED',
 	} satisfies Props['data'],
 };
 
@@ -121,5 +122,6 @@ Vibration.defaultProps = {
 		label: 'Vibration',
 		subType: 'vibration',
 		baseType: 'Led',
+		description: 'Control a vibration motor',
 	} satisfies Props['data'],
 };

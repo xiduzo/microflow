@@ -101,5 +101,6 @@ Oscillator.defaultProps = {
 		phase: 0,
 		shift: 0,
 		autoStart: true,
+		description: 'Generate a periodic signal with various waveforms',
 	} satisfies Props['data'],
 };

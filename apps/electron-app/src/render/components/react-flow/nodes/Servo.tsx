@@ -142,5 +142,6 @@ Servo.defaultProps = {
 		label: 'Servo',
 		type: 'standard',
 		range: { min: 0, max: 180 },
+		description: 'A motor for precise movements or rotation',
 	} satisfies Props['data'],
 };

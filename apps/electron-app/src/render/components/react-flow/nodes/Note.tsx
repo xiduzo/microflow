@@ -50,5 +50,6 @@ Note.defaultProps = {
 		label: 'Note',
 		note: 'New note',
 		extraInfo: '',
+		description: 'Leave a note for yourself or others',
 	} satisfies Props['data'],
 };

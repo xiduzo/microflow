@@ -163,5 +163,6 @@ Piezo.defaultProps = {
 		frequency: DEFAULT_FREQUENCY!,
 		pin: 11,
 		type: 'buzz',
+		description: 'Play a tone or song',
 	} satisfies Props['data'],
 };

@@ -96,5 +96,6 @@ Smooth.defaultProps = {
 		label: 'Smooth',
 		type: 'smooth',
 		attenuation: 0.995,
+		description: 'Smooth incoming signals to reduce noise',
 	} satisfies Props['data'],
 };

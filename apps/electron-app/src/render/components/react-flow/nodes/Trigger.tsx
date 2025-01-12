@@ -91,5 +91,6 @@ Trigger.defaultProps = {
 		behaviour: 'decreasing',
 		threshold: 5,
 		within: 250,
+		description: 'Emit a signal when a threshold condition is met',
 	} satisfies Props['data'],
 };

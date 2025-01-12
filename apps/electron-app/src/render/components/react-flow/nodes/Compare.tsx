@@ -196,5 +196,6 @@ Compare.defaultProps = {
 		tags: ['control'],
 		label: 'Compare',
 		validator: 'boolean',
+		description: 'Validate and compare input signals',
 	} satisfies Props['data'],
 };

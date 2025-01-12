@@ -80,6 +80,7 @@ Proximity.defaultProps = {
 		pin: 'A0',
 		controller: 'GP2Y0A21YK',
 		label: 'Proximity',
+		description: 'Detect and measure distance to an object',
 	} satisfies Props['data'],
 };
 

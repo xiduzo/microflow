@@ -104,5 +104,6 @@ Motion.defaultProps = {
 		pin: '8',
 		label: 'Motion',
 		controller: 'HCSR501',
+		description: 'Detect and respond to (the absense of) motion',
 	} satisfies Props['data'],
 };

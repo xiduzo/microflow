@@ -56,5 +56,6 @@ Delay.defaultProps = {
 		label: 'Delay',
 		delay: 1000,
 		forgetPrevious: false,
+		description: 'Introduce a delay before passing on the signal',
 	} satisfies Props['data'],
 };

@@ -64,7 +64,6 @@ const settingsButton = cva(
 function NodeHeader(props: { error?: string; selected?: boolean }) {
 	const id = useNodeId();
 	const data = useNodeData();
-	const pins = usePins();
 
 	return (
 		<header className={header({ selected: props.selected, hasError: !!props.error })}>
@@ -402,5 +401,6 @@ export type BaseNode<Data extends Record<string, unknown> = {}> = Node<
 		subType?: string;
 		baseType?: NodeType;
 		label: string;
+		description: string;
 	}
 >;

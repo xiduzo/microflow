@@ -33,6 +33,7 @@ import { Switch } from '../render/components/react-flow/nodes/Switch';
 import { Proximity } from '../render/components/react-flow/nodes/Proximity';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
+	Sensor: Sensor,
 	Button: Button,
 	Calculate: Calculate,
 	Compare: Compare,
@@ -59,7 +60,6 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	RangeMap: RangeMap,
 	Relay: Relay,
 	Rgb: Rgb,
-	Sensor: Sensor,
 	Servo: Servo,
 	Smooth: Smooth,
 	Switch: Switch,

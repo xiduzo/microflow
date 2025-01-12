@@ -79,5 +79,6 @@ Rgb.defaultProps = {
 			blue: 11,
 		},
 		isAnode: false,
+		description: 'Control an RGB LED',
 	} satisfies Props['data'],
 };

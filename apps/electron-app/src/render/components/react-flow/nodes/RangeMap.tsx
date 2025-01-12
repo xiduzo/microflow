@@ -78,5 +78,6 @@ RangeMap.defaultProps = {
 		from: { min: 0, max: 1023 },
 		to: { min: 0, max: 1023 },
 		label: 'Map',
+		description: 'Transform a signal from one range to another',
 	} satisfies Props['data'],
 };
