@@ -11,16 +11,19 @@ import { handleDeepLink } from './main/deepLink';
 
 updateElectronApp({ logger: logger });
 
+/**
+ * @type {BrowserWindow | null}
+ */
 let mainWindow;
 
 if (process.defaultApp) {
 	if (process.argv.length >= 2) {
-		app.setAsDefaultProtocolClient('electron-fiddle', process.execPath, [
+		app.setAsDefaultProtocolClient('microflow-studio', process.execPath, [
 			path.resolve(process.argv[1]),
 		]);
 	}
 } else {
-	app.setAsDefaultProtocolClient('electron-fiddle');
+	app.setAsDefaultProtocolClient('microflow-studio');
 }
 
 if (!handleSquirrelEvent()) {
@@ -34,30 +37,40 @@ if (!handleSquirrelEvent()) {
 				mainWindow.focus();
 			}
 
-			logger.log('commandLine', _event, commandLine);
-			handleDeepLink(mainWindow, commandLine.pop().slice(0, -1) ?? '');
+			recreateWindowWhenNeeded().then(() => {
+				handleDeepLink(mainWindow, commandLine.pop().slice(0, -1) ?? '');
+			});
 		});
 
 		app.whenReady().then(() => {
-			createWindow();
+			void createWindow();
 		});
 
 		// MacOS
 		app.on('open-url', (_event, url) => {
-			handleDeepLink(mainWindow, url);
+			recreateWindowWhenNeeded().then(() => {
+				handleDeepLink(mainWindow, url);
+			});
 		});
 
 		app.on('activate', () => {
 			// On OS X it's common to re-create a window in the app when the
 			// dock icon is clicked and there are no other windows open.
-			if (BrowserWindow.getAllWindows().length === 0) {
-				createWindow();
-			}
+			recreateWindowWhenNeeded();
 		});
 	}
 }
 
-function createWindow() {
+async function recreateWindowWhenNeeded() {
+	if (BrowserWindow.getAllWindows().length === 0) {
+		await createWindow();
+		await new Promise(resolve => setTimeout(resolve, 1000));
+	}
+
+	return Promise.resolve();
+}
+
+async function createWindow() {
 	mainWindow = new BrowserWindow({
 		width: 1024,
 		minWidth: 1024,
@@ -73,12 +86,18 @@ function createWindow() {
 	createMenu(mainWindow);
 
 	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-		mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+		await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
 		mainWindow.webContents.openDevTools();
 		return;
 	}
 
-	mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+	await mainWindow.loadFile(
+		path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+	);
+
+	mainWindow.on('closed', () => {
+		mainWindow = null;
+	});
 }
 
 app.on('window-all-closed', () => {

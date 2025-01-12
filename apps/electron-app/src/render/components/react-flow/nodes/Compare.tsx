@@ -20,8 +20,8 @@ export function Compare(props: Props) {
 			<Settings />
 			<Handle type="target" position={Position.Left} id="check" />
 			<Handle type="source" position={Position.Right} id="true" offset={-1} />
-			<Handle type="source" position={Position.Right} id="false" />
-			<Handle type="source" position={Position.Right} id="change" offset={1} />
+			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type="source" position={Position.Right} id="false" offset={1} />
 		</NodeContainer>
 	);
 }

@@ -34,7 +34,7 @@ module.exports = {
 		protocols: [
 			{
 				name: 'microflow-studio',
-				schemes: ['mfs', 'microflow-studio'],
+				schemes: ['microflow-studio'],
 			},
 		],
 	},

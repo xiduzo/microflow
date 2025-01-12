@@ -95,9 +95,10 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 			)}
 			{props.variable?.resolvedType === 'FLOAT' && (
 				<>
-					<Handle type="target" position={Position.Left} id="increment" offset={-1} />
-					<Handle type="target" position={Position.Left} id="set" />
-					<Handle type="target" position={Position.Left} id="decrement" offset={1} />
+					<Handle type="target" position={Position.Left} id="increment" offset={-1.5} />
+					<Handle type="target" position={Position.Left} id="set" offset={-0.5} />
+					<Handle type="target" position={Position.Left} id="decrement" offset={0.5} />
+					<Handle type="target" position={Position.Left} id="reset" offset={1.5} />
 				</>
 			)}
 			{props.variable?.resolvedType === 'STRING' && (

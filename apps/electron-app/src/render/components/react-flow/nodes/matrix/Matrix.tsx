@@ -1,6 +1,6 @@
 import { type MatrixData, type MatrixValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
@@ -14,19 +14,19 @@ import {
 } from '@microflow/components/contants';
 import {
 	Button,
-	cva,
+	Carousel,
+	CarouselContent,
+	CarouselItem,
+	CarouselNext,
+	CarouselPrevious,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	ListBladeApi,
-	ScrollArea,
-	VariantProps,
 } from '@ui/index';
 import { uuid } from '../../../../../utils/uuid';
-import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
-import { DndMatrixEditor } from './DndMatrixEditor';
 import { MatrixEditor } from './MatrixEditor';
 import { usePins } from '../../../../stores/board';
 
@@ -35,17 +35,24 @@ export function Matrix(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle
-				type="target"
-				position={Position.Left}
-				id="show"
-				hint="shows the shape #"
-				offset={-0.5}
-			/>
+			<Handle type="target" position={Position.Left} id="show" hint="shows shape #" offset={-0.5} />
 			<Handle type="target" position={Position.Left} id="hide" offset={0.5} />
 			<Handle type="source" position={Position.Right} id="change" />
 		</NodeContainer>
 	);
+}
+
+function getShape(dimensions: string, devices: number): [number, number] {
+	switch (dimensions) {
+		case '8x8':
+			return [8, 8 * devices];
+		case '16x8':
+			return [16, 8 * devices];
+		case '8x16':
+			return [8, 16 * devices];
+		default:
+			return [8, 8];
+	}
 }
 
 function Value() {
@@ -53,25 +60,11 @@ function Value() {
 	const value = useNodeValue<MatrixValueType>(DEFAULT_MATRIX_START_SHAPE);
 
 	return (
-		<MatrixDisplay
-			className={matrixDisplay({
-				width: data.dims[1] as VariantProps<typeof matrixDisplay>['width'],
-			})}
-			size="small"
-			dimensions={data.dims}
-			shape={value}
-		/>
+		<section className="flex items-center justify-center m-4">
+			<MatrixDisplay dimensions={getShape(data.dims, data.devices)} shape={value} />
+		</section>
 	);
 }
-
-const matrixDisplay = cva('m-4', {
-	variants: {
-		width: {
-			8: 'w-[200px]',
-			16: 'w-[400px]',
-		},
-	},
-});
 
 function Settings() {
 	const data = useNodeData<MatrixData>();
@@ -90,16 +83,6 @@ function Settings() {
 		setShapes(newShapes);
 		settings.shapes = newShapes.map(({ shape }) => shape);
 		saveSettings();
-	}
-
-	function swapShapes(id: string, hoveredId: string) {
-		const nextShapes = [...shapes];
-		const leftIndex = shapes.findIndex(shape => shape.id === id);
-		const rightIndex = shapes.findIndex(shape => shape.id === hoveredId);
-
-		nextShapes[leftIndex] = shapes[rightIndex];
-		nextShapes[rightIndex] = shapes[leftIndex];
-		updateShapes(nextShapes);
 	}
 
 	useEffect(() => {
@@ -172,83 +155,95 @@ function Settings() {
 				setEditorOpened(true);
 			});
 
-		const dimensionsBlade = pane.addBlade({
+		const dimensionsBinding = pane.addBinding(settings, 'dims', {
 			view: 'list',
 			label: 'dimensions',
 			index: 4,
 			value: settings.dims,
 			options: [
-				{ text: '8x8', value: [8, 8] },
-				{ text: '16x8', value: [16, 8] },
-				{ text: '8x16', value: [8, 16] },
+				{ text: '8x8', value: '8x8' },
+				{ text: '16x8', value: '16x8' },
+				{ text: '8x16', value: '8x16' },
 			],
 		});
 
-		(dimensionsBlade as ListBladeApi<[number, number]>).on('change', event => {
-			settings.dims = event.value;
+		const devicesBinding = pane.addBinding(settings, 'devices', {
+			index: 5,
+			min: 1,
+			max: 8,
+			step: 1,
 		});
 
 		return () => {
-			[dataPinBlade, clockPinBlade, chipSeletPinBlade, shapesButton, dimensionsBlade].forEach(
-				disposable => {
-					disposable.dispose();
-				},
-			);
+			dataPinBlade.dispose();
+			clockPinBlade.dispose();
+			chipSeletPinBlade.dispose();
+			shapesButton.dispose();
+			dimensionsBinding.dispose();
+			devicesBinding.dispose();
 		};
 	}, [pane, settings, pins]);
+
+	const dimensions = useMemo(() => {
+		return getShape(settings.dims, settings.devices);
+	}, [settings.dims, settings.devices]);
 
 	if (!editorOpened) return null;
 
 	return (
 		<Dialog defaultOpen onOpenChange={setEditorOpened}>
-			<DialogContent>
+			<DialogContent className="max-w-screen-md">
 				<DialogHeader>
-					<DialogTitle>Shapes</DialogTitle>
-					<DialogDescription>Define the shapes for the matrix</DialogDescription>
+					<DialogTitle>Shapes ({shapes.length})</DialogTitle>
+					<DialogDescription>
+						When showing a shape the input handle will round to the closest shape number
+					</DialogDescription>
 				</DialogHeader>
-				<ScrollArea className="h-60 p-2 border">
-					<section className="grid grid-cols-12 gap-2">
-						<DragAndDropProvider swap={swapShapes}>
+				<section className="flex items-center justify-center">
+					<Carousel className="w-full max-w-xl">
+						<CarouselContent>
 							{shapes.map(({ id, shape }, index) => {
 								return (
-									<DndMatrixEditor
-										key={id}
-										index={index}
-										id={id}
-										onSave={newShape => {
-											const nextShapes = [...shapes];
-											nextShapes[index] = {
-												...nextShapes[index],
-												shape: newShape,
-											};
-											updateShapes(nextShapes);
-										}}
-										dimensions={settings.dims}
-										onDelete={() => {
-											const nextShapes = [...shapes];
-											nextShapes.splice(index, 1);
-											updateShapes(nextShapes);
-										}}
-										shape={shape
-											.map(row => row.padEnd(settings.dims[1], '0'))
-											.concat(
-												Array.from({ length: settings.dims[0] - shape.length }).fill(
-													''.padEnd(settings.dims[1], '0'),
-												) as string[],
-											)}
-										// shape.map(row => row.padEnd(settings.dims[1], '0'))
-									/>
+									<CarouselItem key={id}>
+										<MatrixEditor
+											dimensions={dimensions}
+											onSave={newShape => {
+												const nextShapes = [...shapes];
+												nextShapes[index] = {
+													...nextShapes[index],
+													shape: newShape,
+												};
+												updateShapes(nextShapes);
+											}}
+											onDelete={() => {
+												const nextShapes = [...shapes];
+												nextShapes.splice(index, 1);
+												updateShapes(nextShapes);
+											}}
+											shape={shape}
+										>
+											<section className="flex-col flex items-center justify-center">
+												<section className="max-w-xl overflow-x-scroll py-8">
+													<MatrixDisplay dimensions={dimensions} shape={shape} />
+												</section>
+												<div className="text-muted-foreground">Shape #{index + 1}</div>
+											</section>
+										</MatrixEditor>
+									</CarouselItem>
 								);
 							})}
-						</DragAndDropProvider>
-					</section>
-				</ScrollArea>
+						</CarouselContent>
+						<CarouselPrevious />
+						<CarouselNext />
+					</Carousel>
+				</section>
+
 				<MatrixEditor
 					key={shapes.length}
 					onSave={newShape => {
 						updateShapes([...shapes, { id: uuid(), shape: newShape }]);
 					}}
-					dimensions={settings.dims}
+					dimensions={dimensions}
 					shape={[]}
 				>
 					<Button variant="outline">Add new shape</Button>
@@ -270,7 +265,8 @@ Matrix.defaultProps = {
 			cs: 4,
 		},
 		controller: undefined as unknown as string,
-		dims: [8, 8], // [rows, columns]
+		dims: '8x8', // [rows, columns]
 		shapes: [DEFAULT_MATRIX_SHAPE],
+		devices: 1,
 	} satisfies Props['data'],
 };

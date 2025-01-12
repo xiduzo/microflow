@@ -13,7 +13,10 @@ export function Led(props: Props) {
 	const pins = usePins();
 
 	const isPmwPin = useMemo(() => {
-		return pins.find(pin => pinValue(pin) === props.data.pin)?.supportedModes.includes(MODES.PWM);
+		return (
+			pins.find(pin => pinValue(pin) === props.data.pin)?.supportedModes.includes(MODES.PWM) ??
+			false
+		);
 	}, [pins, props.data.pin]);
 
 	return (
@@ -28,7 +31,7 @@ export function Led(props: Props) {
 				id="brightness"
 				title={props.data.subType === 'vibration' ? 'intensity' : 'brightness'}
 				offset={0.5}
-				hint={`${isPmwPin ? '0-255' : 'requires PWM pin'}`}
+				hint={`${isPmwPin ? '0-255' : 'requires a ~ pin'}`}
 				isConnectable={isPmwPin}
 			/>
 			<Handle type="target" position={Position.Left} id="off" offset={1.5} />

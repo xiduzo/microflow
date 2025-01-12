@@ -2,7 +2,7 @@ import type { RangeMapData, RangeMapValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
 
@@ -23,12 +23,29 @@ export function RangeMap(props: Props) {
 
 function Value() {
 	const [from, to] = useNodeValue<RangeMapValueType>([0, 0]);
+	const data = useNodeData<RangeMapData>();
 
 	return (
-		<section className="flex items-center flex-col space-y-2 text-2xl">
-			<span>{numberFormat.format(from)}</span>
+		<section className="flex grow items-center flex-col space-y-2 text-2xl">
+			<div className="grow w-full grid grid-cols-12">
+				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+					{data.from.min}
+				</span>
+				<span className="col-span-6 text-center">{numberFormat.format(from)}</span>
+				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+					{data.from.max}
+				</span>
+			</div>
 			<Icons.Activity className="rotate-90 text-muted-foreground" size={16} />
-			<span>{numberFormat.format(to)}</span>
+			<div className="grid w-full grid-cols-12">
+				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+					{data.to.min}
+				</span>
+				<span className="col-span-6 text-center">{numberFormat.format(to)}</span>
+				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+					{data.to.max}
+				</span>
+			</div>
 		</section>
 	);
 }

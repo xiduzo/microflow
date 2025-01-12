@@ -1559,7 +1559,7 @@ __metadata:
     "@radix-ui/react-select": 2.1.2
     "@radix-ui/react-separator": 1.1.0
     "@radix-ui/react-slider": 1.2.1
-    "@radix-ui/react-slot": 1.1.0
+    "@radix-ui/react-slot": ^1.1.1
     "@radix-ui/react-switch": 1.1.1
     "@radix-ui/react-tabs": 1.1.1
     "@radix-ui/react-toggle": 1.1.0
@@ -1571,6 +1571,7 @@ __metadata:
     class-variance-authority: 0.7.0
     clsx: 2.1.1
     cmdk: 1.0.0
+    embla-carousel-react: ^8.5.2
     lucide-react: 0.456.0
     next-themes: 0.3.0
     react: 18.3.1
@@ -3150,7 +3151,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@radix-ui/react-slot@npm:1.1.1":
+"@radix-ui/react-slot@npm:1.1.1, @radix-ui/react-slot@npm:^1.1.1":
   version: 1.1.1
   resolution: "@radix-ui/react-slot@npm:1.1.1"
   dependencies:
@@ -7474,6 +7475,34 @@ __metadata:
   bin:
     electron: cli.js
   checksum: c5b7d5fe56f831da5d14be9d24d0a29fdb392d5b4e593b31200a9c01e6260d87bba1216c4cc17297b2f4838e0893428464b9e2ca71c3eaff499dbff1981c0670
+  languageName: node
+  linkType: hard
+
+"embla-carousel-react@npm:^8.5.2":
+  version: 8.5.2
+  resolution: "embla-carousel-react@npm:8.5.2"
+  dependencies:
+    embla-carousel: 8.5.2
+    embla-carousel-reactive-utils: 8.5.2
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.1 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+  checksum: 695e43b8675738a1257620fe5271b19bfcc61d885d56aa2d590a801c3f9d14a9bd8f1bbaf5a75b985f20edb6eee1171cccc0fa0c0a7d5cd278f72d5021354dea
+  languageName: node
+  linkType: hard
+
+"embla-carousel-reactive-utils@npm:8.5.2":
+  version: 8.5.2
+  resolution: "embla-carousel-reactive-utils@npm:8.5.2"
+  peerDependencies:
+    embla-carousel: 8.5.2
+  checksum: b2111b11ac41aed1910286ef9105c509ca531580d87d8e3531b3d73ab6adbfd58afd91542bce0440ac50ba3e0c2e7f6267b53c9554ed740cd105174d11598afd
+  languageName: node
+  linkType: hard
+
+"embla-carousel@npm:8.5.2":
+  version: 8.5.2
+  resolution: "embla-carousel@npm:8.5.2"
+  checksum: fd994984c846818ba466b0c62f4a3c2d386146705fa2082b7adeee7cf49b3b41f5c87c4f0009cb1439891ede7c5e5c854358bf4476164aa72b8b0ef45f6270bc
   languageName: node
   linkType: hard
 

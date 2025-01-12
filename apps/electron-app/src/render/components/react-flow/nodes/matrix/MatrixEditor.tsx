@@ -40,16 +40,17 @@ export function MatrixEditor(props: Props) {
 
 	return (
 		<Dialog>
-			<DialogTrigger asChild>{props.children}</DialogTrigger>
-			<DialogContent className={dialogContent({ width: props.dimensions[1] as unknown as null })}>
+			<DialogTrigger asChild className="hover:cursor-zoom-in">
+				{props.children}
+			</DialogTrigger>
+			<DialogContent className="max-w-screen-md">
 				<DialogHeader>
 					<DialogTitle>{!!props.onDelete ? 'Edit' : 'Add new'} shape</DialogTitle>
 				</DialogHeader>
-				<div className="space-y-4">
+				<div className="p-4 overflow-x-scroll flex items-center justify-center">
 					<MatrixDisplay
 						dimensions={props.dimensions}
 						shape={matrix}
-						size={props.dimensions[0] === 16 ? 'medium' : 'large'}
 						onCellClick={(row, column) => {
 							setMatrix(prevMatrix => {
 								const prev = prevMatrix[row].at(column);
@@ -62,37 +63,37 @@ export function MatrixEditor(props: Props) {
 							});
 						}}
 					/>
-					<section className="flex space-x-2">
-						<Button
-							className="grow"
-							variant="outline"
-							onClick={() => {
-								setMatrix(
-									newMatrix({
-										dimensions: props.dimensions,
-										fill: '1',
-									}),
-								);
-							}}
-						>
-							Fill all
-						</Button>
-						<Button
-							variant="outline"
-							className="grow"
-							onClick={() => {
-								setMatrix(
-									newMatrix({
-										dimensions: props.dimensions,
-										fill: '0',
-									}),
-								);
-							}}
-						>
-							Clear all
-						</Button>
-					</section>
 				</div>
+				<section className="flex space-x-2">
+					<Button
+						className="grow"
+						variant="outline"
+						onClick={() => {
+							setMatrix(
+								newMatrix({
+									dimensions: props.dimensions,
+									fill: '1',
+								}),
+							);
+						}}
+					>
+						Fill all
+					</Button>
+					<Button
+						variant="outline"
+						className="grow"
+						onClick={() => {
+							setMatrix(
+								newMatrix({
+									dimensions: props.dimensions,
+									fill: '0',
+								}),
+							);
+						}}
+					>
+						Clear all
+					</Button>
+				</section>
 				<DialogFooter className="gap-2 sm:gap-0">
 					{props.onDelete && (
 						<DialogClose asChild>
@@ -109,15 +110,6 @@ export function MatrixEditor(props: Props) {
 		</Dialog>
 	);
 }
-
-const dialogContent = cva('', {
-	variants: {
-		width: {
-			8: '',
-			16: 'max-w-screen-md',
-		},
-	},
-});
 
 type Props = PropsWithChildren & {
 	dimensions: [number, number];
