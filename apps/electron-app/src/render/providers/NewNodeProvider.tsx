@@ -13,7 +13,7 @@ import {
 	Icons,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NODE_TYPES } from '../../common/nodes';
 import { useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
@@ -32,6 +32,7 @@ export function NewNodeCommandDialog() {
 	const { flowToScreenPosition, getZoom } = useReactFlow();
 	const changeNodes = useNodesChange();
 	const windowSize = useWindowSize();
+	const [filter, setFilter] = useState('');
 
 	const position = useMemo(() => {
 		return flowToScreenPosition({
@@ -56,26 +57,71 @@ export function NewNodeCommandDialog() {
 	}
 
 	const groups = useMemo(() => {
-		const groups = Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
-			const node: BaseNode =
-				'defaultProps' in Component ? (Component.defaultProps as any) : { data: {} };
+		return Array.from(
+			Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
+				const node: BaseNode =
+					'defaultProps' in Component ? (Component.defaultProps as any) : { data: {} };
 
-			const group = groups.get(node.data.group) ?? [];
-			group.push({ node, type });
-			groups.set(node.data.group, group);
-			return groups;
-		}, new Map<string, { node: BaseNode; type: string }[]>());
+				const group = groups.get(node.data.group) ?? [];
+				group.push({ node, type });
+				groups.set(node.data.group, group);
+				return groups;
+			}, new Map<string, { node: BaseNode; type: string }[]>()),
+		);
+	}, []);
 
-		return Array.from(groups);
-	}, [NODE_TYPES]);
+	const searchTerm = useMemo(() => {
+		const terms = [
+			'Magnetic, Analog, Servo...',
+			'Input, Output, Event...',
+			'Generator, Transformation, Control...',
+			'Figma, Switch, signals...',
+			'Compare, Calculate, MQTT...',
+			'Delay, Gate, LED',
+			'Motion, Vibration, Oscillator',
+		];
+
+		return terms[Math.floor(Math.random() * terms.length)];
+	}, [filter]);
 
 	return (
-		<CommandDialog open={open} onOpenChange={setOpen}>
+		<CommandDialog
+			open={open}
+			onOpenChange={state => {
+				setOpen(state);
+				if (!state) setFilter('');
+			}}
+			filter={(value, search, keywords) => {
+				if (search === '') return 1;
+
+				let score = 0;
+
+				const labelMatch = value.toLowerCase().includes(search.toLowerCase());
+				if (labelMatch) score += 0.5;
+
+				const descriptionMatch = keywords.some(keyword =>
+					keyword.toLowerCase().includes(search.toLowerCase()),
+				);
+				if (descriptionMatch) score += 0.3;
+
+				const groupMatch = keywords.some(keyword =>
+					keyword.toLowerCase().includes(search.toLowerCase()),
+				);
+				if (groupMatch) score += 0.1;
+
+				const tagMatch = keywords.some(keyword =>
+					keyword.toLowerCase().includes(search.toLowerCase()),
+				);
+				if (tagMatch) score += 0.1;
+
+				return score;
+			}}
+		>
 			<DialogHeader className="hidden">
 				<DialogTitle>Add new node</DialogTitle>
-				<DialogDescription>Search for a node or node type to add to the flow.</DialogDescription>
+				<DialogDescription>Magnetic sensor...</DialogDescription>
 			</DialogHeader>
-			<CommandInput placeholder="Seach node or node type..." />
+			<CommandInput placeholder={searchTerm} onValueChange={setFilter} />
 			<CommandList className="mb-2">
 				<CommandEmpty>No nodes found...</CommandEmpty>
 				{groups.map(([group, nodes], index) => (

@@ -73,16 +73,11 @@ function Settings() {
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
-	const [shapes, setShapes] = useState(
-		(settings.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]).map(shape => ({
-			id: uuid(),
-			shape,
-		})),
-	);
+	const [shapes, setShapes] = useState(settings.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]);
 
-	function updateShapes(newShapes: { id: string; shape: MatrixShape }[]) {
+	function updateShapes(newShapes: MatrixShape[]) {
 		setShapes(newShapes);
-		settings.shapes = newShapes.map(({ shape }) => shape);
+		settings.shapes = newShapes;
 		saveSettings();
 	}
 
@@ -94,7 +89,7 @@ function Settings() {
 	}
 
 	useEffect(() => {
-		settings.shapes = shapes.map(({ shape }) => shape);
+		settings.shapes = shapes;
 	}, [shapes, settings.shapes]);
 
 	useEffect(() => {
@@ -202,7 +197,7 @@ function Settings() {
 		<Dialog defaultOpen onOpenChange={setEditorOpened}>
 			<DialogContent className="max-w-screen-md">
 				<DialogHeader>
-					<DialogTitle>Shapes ({shapes.length})</DialogTitle>
+					<DialogTitle>Shapes</DialogTitle>
 					<DialogDescription>
 						When showing a shape the input handle will round to the closest shape number
 					</DialogDescription>
@@ -210,17 +205,17 @@ function Settings() {
 				<section className="flex items-center justify-center">
 					<Carousel className="w-full max-w-xl">
 						<CarouselContent>
-							{shapes.map(({ id, shape }, index) => {
+							{shapes.map((shape, index) => {
 								return (
-									<CarouselItem key={id} className="flex flex-col items-center gap-3">
+									<CarouselItem
+										key={index}
+										className="flex flex-col items-center gap-3 cursor-grab active:cursor-grabbing"
+									>
 										<MatrixEditor
 											dimensions={dimensions}
 											onSave={newShape => {
 												const nextShapes = [...shapes];
-												nextShapes[index] = {
-													...nextShapes[index],
-													shape: newShape,
-												};
+												nextShapes[index] = newShape;
 												updateShapes(nextShapes);
 											}}
 											onDelete={() => {
@@ -248,7 +243,9 @@ function Settings() {
 											>
 												<Icons.ArrowLeftRight /> Swap
 											</Button>
-											<div>Shape #{index + 1}</div>
+											<div>
+												Shape #{index + 1} of {shapes.length}
+											</div>
 											<Button
 												variant="outline"
 												disabled={index === shapes.length - 1 || index + 1 >= shapes.length}
@@ -268,9 +265,7 @@ function Settings() {
 				</section>
 				<MatrixEditor
 					key={shapes.length}
-					onSave={newShape => {
-						updateShapes([...shapes, { id: uuid(), shape: newShape }]);
-					}}
+					onSave={newShape => updateShapes([...shapes, newShape])}
 					dimensions={dimensions}
 					shape={[]}
 				>
