@@ -36,11 +36,11 @@ export function ReactFlowCanvas() {
 	}, []);
 
 	useEffect(() => {
-		fitView({ duration: 0, padding: 0.15 });
+		fitView({ duration: 0, padding: 0.15, maxZoom: 1 });
 	}, [fitView]);
 
 	return (
-		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode={'system'} minZoom={0.2} maxZoom={2}>
+		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode={'system'} minZoom={0.1} maxZoom={2}>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={32} />

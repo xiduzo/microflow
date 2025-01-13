@@ -101,7 +101,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 }
 
 const header = cva(
-	'p-2 pl-3.5 border-b-2 gap-1 flex justify-between items-center rounded-t-md transition-all',
+	'p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-center rounded-t-md transition-all',
 	{
 		variants: {
 			selected: {

@@ -24,6 +24,7 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
+	Icons,
 	ListBladeApi,
 } from '@ui/index';
 import { uuid } from '../../../../../utils/uuid';
@@ -83,6 +84,13 @@ function Settings() {
 		setShapes(newShapes);
 		settings.shapes = newShapes.map(({ shape }) => shape);
 		saveSettings();
+	}
+
+	function swapShapes(left: number, right: number) {
+		const nextShapes = [...shapes];
+		nextShapes[left] = shapes[right];
+		nextShapes[right] = shapes[left];
+		updateShapes(nextShapes);
 	}
 
 	useEffect(() => {
@@ -204,7 +212,7 @@ function Settings() {
 						<CarouselContent>
 							{shapes.map(({ id, shape }, index) => {
 								return (
-									<CarouselItem key={id}>
+									<CarouselItem key={id} className="flex flex-col items-center gap-3">
 										<MatrixEditor
 											dimensions={dimensions}
 											onSave={newShape => {
@@ -223,12 +231,33 @@ function Settings() {
 											shape={shape}
 										>
 											<section className="flex-col flex items-center justify-center">
-												<section className="max-w-xl overflow-x-scroll py-8">
-													<MatrixDisplay dimensions={dimensions} shape={shape} />
+												<section className="max-w-xl overflow-x-scroll pb-8">
+													<MatrixDisplay
+														dimensions={dimensions}
+														shape={shape}
+														className="hover:cursor-zoom-in"
+													/>
 												</section>
-												<div className="text-muted-foreground">Shape #{index + 1}</div>
 											</section>
 										</MatrixEditor>
+										<section className="text-muted-foreground flex gap-20 items-center">
+											<Button
+												variant="outline"
+												disabled={index === 0 || index - 1 < 0}
+												onClick={() => swapShapes(index - 1, index)}
+											>
+												<Icons.ArrowLeftRight /> Swap
+											</Button>
+											<div>Shape #{index + 1}</div>
+											<Button
+												variant="outline"
+												disabled={index === shapes.length - 1 || index + 1 >= shapes.length}
+												onClick={() => swapShapes(index, index + 1)}
+											>
+												Swap
+												<Icons.ArrowRightLeft />
+											</Button>
+										</section>
 									</CarouselItem>
 								);
 							})}
@@ -237,7 +266,6 @@ function Settings() {
 						<CarouselNext />
 					</Carousel>
 				</section>
-
 				<MatrixEditor
 					key={shapes.length}
 					onSave={newShape => {

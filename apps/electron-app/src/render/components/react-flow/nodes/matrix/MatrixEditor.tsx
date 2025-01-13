@@ -1,6 +1,5 @@
 import {
 	Button,
-	cva,
 	Dialog,
 	DialogClose,
 	DialogContent,
@@ -40,9 +39,7 @@ export function MatrixEditor(props: Props) {
 
 	return (
 		<Dialog>
-			<DialogTrigger asChild className="hover:cursor-zoom-in">
-				{props.children}
-			</DialogTrigger>
+			<DialogTrigger asChild>{props.children}</DialogTrigger>
 			<DialogContent className="max-w-screen-md">
 				<DialogHeader>
 					<DialogTitle>{!!props.onDelete ? 'Edit' : 'Add new'} shape</DialogTitle>
