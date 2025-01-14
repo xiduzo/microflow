@@ -8,6 +8,7 @@ import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
 import './main/ipc';
 import { createMenu } from './main/menu';
 import { handleDeepLink } from './main/deepLink';
+import { createWebsocketServer } from './main/websocket';
 
 updateElectronApp({ logger: logger });
 
@@ -105,3 +106,5 @@ app.on('window-all-closed', () => {
 		app.quit();
 	}
 });
+
+createWebsocketServer();

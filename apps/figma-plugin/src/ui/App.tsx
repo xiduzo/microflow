@@ -11,6 +11,7 @@ import { Mqtt } from './pages/mqtt';
 import { Variables } from './pages/variables';
 import { useMessageListener } from './hooks/useMessageListener';
 import { useEffect } from 'react';
+import { io } from '@microflow/websocket/client';
 
 const router = createMemoryRouter([
 	{ path: '/', Component: Home },
@@ -23,6 +24,14 @@ export function App() {
 		LOCAL_STORAGE_KEYS.MQTT_CONNECTION,
 		{ initialValue: null },
 	);
+
+	useEffect(() => {
+		const socket = io('ws://localhost:8888');
+		socket.on('connect', () => {
+			console.log('[SOCKET] connected');
+		});
+		socket.emit('howdy', 'partner');
+	}, []);
 
 	// Due the the async nature of Figma's local-storage,
 	// we initially set the value to `null` and listen to the response.

@@ -13,11 +13,20 @@ import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
 import { useEffect } from 'react';
+import { io } from '@microflow/websocket/client';
 
 export function App() {
 	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
 		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
 	});
+
+	useEffect(() => {
+		const socket = io('ws://localhost:8888');
+		socket.on('connect', () => {
+			console.log('[SOCKET] connected');
+		});
+		socket.emit('howdy', 'partner');
+	}, []);
 
 	return (
 		<section className="h-screen w-screen">
