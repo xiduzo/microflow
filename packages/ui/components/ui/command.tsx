@@ -24,7 +24,7 @@ const Command = React.forwardRef<
 Command.displayName = CommandPrimitive.displayName;
 
 interface CommandDialogProps extends DialogProps {
-	filter?: (value: string, search: string, keywords: string[]) => number;
+	filter?: (value: string, search: string, keywords?: string[]) => number;
 }
 
 const CommandDialog = ({ children, filter, ...props }: CommandDialogProps) => {
