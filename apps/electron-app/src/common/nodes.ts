@@ -31,6 +31,7 @@ import { Constant } from '../render/components/react-flow/nodes/Constant';
 import { Relay } from '../render/components/react-flow/nodes/Relay';
 import { Switch } from '../render/components/react-flow/nodes/Switch';
 import { Proximity } from '../render/components/react-flow/nodes/Proximity';
+import { Llm } from '../render/components/react-flow/nodes/Llm';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Sensor: Sensor,
@@ -48,6 +49,7 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Interval: Interval,
 	Ldr: Ldr,
 	Led: Led,
+	Llm: Llm,
 	Matrix: Matrix,
 	Monitor: Monitor,
 	Motion: Motion,

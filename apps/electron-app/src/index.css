@@ -50,7 +50,7 @@ body {
 }
 
 /* Handles */
-.react-flow__handle {
+.react-flow .react-flow__handle {
 	@apply dark:bg-neutral-600 text-neutral-500 bg-neutral-400 rounded-md transition-all duration-150 border-none;
 }
 

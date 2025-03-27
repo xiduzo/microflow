@@ -61,7 +61,6 @@
 		"@microflow/mqtt-provider": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",
-		"@microflow/websocket": "workspaces:*",
 		"@tsparticles/engine": "3.7.1",
 		"@tsparticles/react": "3.0.0",
 		"@tweakpane/core": "2.0.5",

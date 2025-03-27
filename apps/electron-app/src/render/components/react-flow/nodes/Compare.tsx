@@ -49,7 +49,6 @@ function Value() {
 					case 'outside':
 						return `is ${data.subValidator} ${formatter.format(data.validatorArg.min)} and ${formatter.format(data.validatorArg.max)}`;
 				}
-				break;
 			case 'text':
 				switch (data.subValidator) {
 					case 'includes':
@@ -71,8 +70,6 @@ function Value() {
 			value={textValue}
 		/>
 	);
-	if (value) return <Icons.ShieldCheck className="text-green-500" size={48} />;
-	return <Icons.ShieldX className="text-red-500" size={48} />;
 }
 
 function Settings() {

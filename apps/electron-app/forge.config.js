@@ -25,11 +25,11 @@ module.exports = {
 				return false;
 			},
 		},
-		osxNotarize: {
-			appleId: process.env.APPLE_ID,
-			appleIdPassword: process.env.APPLE_PASSWORD,
-			teamId: process.env.APPLE_TEAM_ID,
-		},
+		// osxNotarize: {
+		// 	appleId: process.env.APPLE_ID,
+		// 	appleIdPassword: process.env.APPLE_PASSWORD,
+		// 	teamId: process.env.APPLE_TEAM_ID,
+		// },
 		prune: false, // Requires for monorepo
 		protocols: [
 			{

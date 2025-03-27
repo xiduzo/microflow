@@ -5,7 +5,7 @@ import { UploadedCodeMessage } from '../../common/types';
 import { useNodeDataStore } from '../stores/node-data';
 
 export function useSignalNodesAndEdges() {
-	const { updateNodeData, getEdges, updateEdge } = useReactFlow();
+	const { getEdges, updateEdge } = useReactFlow();
 	const { update } = useNodeDataStore();
 	const timeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -42,7 +42,7 @@ export function useSignalNodesAndEdges() {
 					);
 				});
 		});
-	}, [updateNodeData, getEdges, updateEdge, update]);
+	}, [getEdges, updateEdge, update]);
 
 	return null;
 }

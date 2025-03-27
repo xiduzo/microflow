@@ -97,6 +97,13 @@ if (!port) {
 					return;
 				}
 
+				if (['llm'].includes(targetNode.type!.toLowerCase()) && edge.targetHandle !== 'invoke') {
+					innerCode += wrapInTryCatch(
+						`${targetNode.type}_${targetNode.id}.setVariable("${edge.targetHandle}", value);`,
+					);
+					return;
+				}
+
 				innerCode += wrapInTryCatch(
 					`${targetNode.type}_${targetNode.id}.${edge.targetHandle}(value);`,
 				);

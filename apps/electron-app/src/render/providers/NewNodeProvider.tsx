@@ -134,8 +134,8 @@ export function NewNodeCommandDialog() {
 										<span className="text-muted-foreground">{node.data.description ?? ''}</span>
 									</div>
 									<CommandShortcut className="divide-x-2 divide-muted-foreground">
-										<div className="text-muted-foreground ml-2 font-extralight">
-											{node.data.tags.join(', ')}
+										<div className="text-muted-foreground ml-2 font-extralight text-xs">
+											{node.data.tags.sort((a, b) => a.localeCompare(b)).join(', ')}
 										</div>
 									</CommandShortcut>
 								</CommandItem>
