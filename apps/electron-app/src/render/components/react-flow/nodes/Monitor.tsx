@@ -39,7 +39,11 @@ function Value() {
 	useEffect(() => {
 		switch (data.type) {
 			case 'raw':
-				display.current.value = JSON.stringify(value, null, 2);
+				if (typeof value === 'string') {
+					display.current.value = value;
+				} else {
+					display.current.value = JSON.stringify(value, null, 2);
+				}
 				break;
 			case 'graph':
 			default:

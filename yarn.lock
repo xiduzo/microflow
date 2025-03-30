@@ -1662,7 +1662,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@microflow/websocket@workspace:packages/websocket, @microflow/websocket@workspaces:*":
+"@microflow/websocket@workspace:packages/websocket":
   version: 0.0.0-use.local
   resolution: "@microflow/websocket@workspace:packages/websocket"
   dependencies:
@@ -11054,7 +11054,6 @@ __metadata:
     "@figma/plugin-typings": 1.106.0
     "@microflow/mqtt-provider": "workspaces:*"
     "@microflow/ui": "workspaces:*"
-    "@microflow/websocket": "workspaces:*"
     "@types/node": 18.19.54
     "@types/postcss-url": 10.0.4
     "@types/react": 18.3.11
@@ -11099,7 +11098,6 @@ __metadata:
     "@microflow/mqtt-provider": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"
-    "@microflow/websocket": "workspaces:*"
     "@npmcli/arborist": 8.0.0
     "@rollup/plugin-alias": 5.1.1
     "@tsparticles/engine": 3.7.1
