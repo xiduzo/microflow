@@ -11099,6 +11099,7 @@ __metadata:
     "@microflow/mqtt-provider": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"
+    "@microflow/websocket": "workspaces:*"
     "@npmcli/arborist": 8.0.0
     "@rollup/plugin-alias": 5.1.1
     "@tsparticles/engine": 3.7.1

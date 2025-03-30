@@ -73,7 +73,6 @@ function Settings() {
 		});
 
 		type.on('change', () => {
-			console.log(settings.type);
 			addBinding();
 		});
 
