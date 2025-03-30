@@ -29,7 +29,7 @@ const graphNumberFormat = new Intl.NumberFormat('en-US', {
 function Value() {
 	const data = useNodeData<MonitorData>();
 	const uploadResult = useUploadResult();
-	const value = useNodeValue<DebugValueType>(0);
+	const value = useNodeValue<DebugValueType>(data.type === 'graph' ? 0 : '');
 
 	const container = useRef<HTMLDivElement>(null);
 	const display = useRef({ value });
@@ -39,7 +39,11 @@ function Value() {
 	useEffect(() => {
 		switch (data.type) {
 			case 'raw':
-				display.current.value = JSON.stringify(value, null, 2);
+				if (typeof value === 'string') {
+					display.current.value = value;
+				} else {
+					display.current.value = JSON.stringify(value, null, 2);
+				}
 				break;
 			case 'graph':
 			default:
@@ -106,13 +110,17 @@ function Value() {
 
 	return (
 		<div className="custom-tweak-pane-graph">
-			<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
-				{graphNumberFormat.format(minMax.max)}
-			</div>
+			{data.type === 'graph' && (
+				<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
+					{graphNumberFormat.format(minMax.max)}
+				</div>
+			)}
 			<div ref={container}></div>
-			<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
-				{graphNumberFormat.format(minMax.min)}
-			</div>
+			{data.type === 'graph' && (
+				<div className="text-muted-foreground text-xs tabular-nums px-4 text-right">
+					{graphNumberFormat.format(minMax.min)}
+				</div>
+			)}
 		</div>
 	);
 }

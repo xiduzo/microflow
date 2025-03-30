@@ -2,7 +2,7 @@ import type { IntervalData, IntervalValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from './Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 
 const numberFormat = new Intl.NumberFormat();
@@ -20,9 +20,15 @@ export function Interval(props: Props) {
 }
 
 function Value() {
+	const data = useNodeData<IntervalData>();
 	const value = useNodeValue<IntervalValueType>(0);
 
-	return <section className="tabular-nums">{numberFormat.format(Math.round(value))}</section>;
+	return (
+		<section className="flex flex-col text-center gap-1 items-center text-muted-foreground">
+			<div className="tabular-nums">{numberFormat.format(Math.round(value))}</div>
+			<div className="text-xs tabular-nums">each {numberFormat.format(data.interval / 1000)}s</div>
+		</section>
+	);
 }
 
 function Settings() {

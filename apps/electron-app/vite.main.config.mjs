@@ -7,7 +7,7 @@ const dest = '.vite/build';
 export default defineConfig({
 	build: {
 		rollupOptions: {
-			external: ['serialport'],
+			external: ['serialport', 'bufferutil', 'utf-8-validate'],
 		},
 	},
 	plugins: [

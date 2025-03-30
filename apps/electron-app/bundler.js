@@ -48,69 +48,11 @@ const getWorkspaceByPath = (node, realPath) =>
 		.find(depNode => depNode.realpath === realPath);
 
 /** @type {(node: Node) => Node[]} */
-const collectProdDeps = node => {
-	const stack = [node];
-	/** @type {Map<string, Node>} */
-	const result = new Map(); // Using a set to avoid duplicates and track visited nodes
-
-	while (stack.length > 0) {
-		const currentNode = stack.pop();
-		// Ignore types packages
-		if (currentNode.location.startsWith('node_modules/@types')) {
-			// console.debug(`IGNORE ${currentNode.location}`);
-			continue;
-		}
-
-		// Ignore radix-ui packages
-		if (currentNode.location.includes('@radix-ui')) {
-			// console.debug(`IGNORE ${currentNode.location}`);
-			continue;
-		}
-
-		const depEdges = [...currentNode.edgesOut.values()]
-			.filter(depEdge => depEdge.type === 'prod')
-			.filter(depEdge => !depEdge.to.location.startsWith('node_modules/@types'));
-
-		// Show dependencies
-		// console.debug(
-		// 	currentNode.location,
-		// 	depEdges.map(depEdge => depEdge.to.location),
-		// );
-
-		for (const depEdge of depEdges) {
-			const depNode = resolveLink(depEdge.to);
-
-			const addedNode = result.get(depNode.name);
-			if (addedNode) {
-				const addedVersion = Number(addedNode.version.replace(/[.]/g, ''));
-				const depVersion = Number(depNode.version.replace(/[.]/g, ''));
-
-				if (depVersion > addedVersion) {
-					console.log(
-						'newer version detected',
-						'from',
-						addedNode.name,
-						addedNode.location,
-						addedVersion,
-						'to',
-						depNode.name,
-						depNode.location,
-						depVersion,
-					);
-
-					stack.push(depNode);
-				}
-			} else {
-				stack.push(depNode);
-			}
-
-			console.log('adding module', depNode.name, depNode.version);
-			result.set(depNode.name, depNode);
-		}
-	}
-
-	return Array.from(result.values()); // Convert the set to an array if necessary
-};
+const collectProdDeps = node =>
+	[...node.edgesOut.values()]
+		.filter(depEdge => depEdge.type === 'prod')
+		.map(depEdge => resolveLink(depEdge.to))
+		.flatMap(depNode => [depNode, ...collectProdDeps(depNode)]);
 
 /** @type {(source: string, destination: string) => Promise<void>} */
 const bundle = async (source, destination) => {
@@ -141,7 +83,7 @@ const bundle = async (source, destination) => {
 			errorOnExist: false,
 			dereference: true,
 			filter: source => {
-				console.log('>> copying', source);
+				// console.log('>> copying', source);
 				return true;
 			},
 		});

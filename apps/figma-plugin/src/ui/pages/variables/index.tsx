@@ -29,7 +29,7 @@ export function Variables() {
 						onClick={() =>
 							sendMessageToFigma(
 								OpenLink(
-									'https://microflow.vercel.app/docs/microflow-hardware-bridge/variables#updating-variables-from-within-a-prototyp',
+									'https://microflow.vercel.app/docs/microflow-hardware-bridge/variables/manipulating#updating-variables-from-within-a-prototype',
 								),
 							)
 						}
@@ -52,7 +52,7 @@ export function Variables() {
 				)}
 				{variables?.map(variable => {
 					return (
-						<section key={variable.id} className="flex justify-between py-1 group">
+						<section key={variable.id} className="flex justify-between py-1 group pr-2">
 							<div className="flex space-x-4 items-center">
 								<VariableIcon type={variable.resolvedType} />
 								<span>{variable.name}</span>

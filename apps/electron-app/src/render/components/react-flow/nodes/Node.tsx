@@ -173,7 +173,7 @@ const subheader = cva('text-xs font-extralight transition-all flex gap-3 items-c
 	],
 });
 
-type SettingsContextProps<T extends Record<string, unknown>> = {
+type SettingsContextProps<T extends Record<string, any>> = {
 	pane: Pane | null;
 	settings: T;
 	setHandlesToDelete: (handles: string[]) => void;
@@ -184,7 +184,7 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 	{} as SettingsContextProps<{}>,
 );
 
-export function useNodeSettings<T extends Record<string, unknown>>() {
+export function useNodeSettings<T extends Record<string, any>>() {
 	// @ts-ignore-next-line
 	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
 }
@@ -299,7 +299,7 @@ export const useNodeId = () => {
 	return id;
 };
 
-export const useNodeData = <T extends Record<string, unknown>>() => {
+export const useNodeData = <T extends Record<string, any>>() => {
 	const { data } = useNode<T>();
 	return data;
 };
@@ -393,7 +393,7 @@ export type NodeTags =
 	| 'control'
 	| 'information';
 
-export type BaseNode<Data extends Record<string, unknown> = {}> = Node<
+export type BaseNode<Data extends Record<string, any> = {}> = Node<
 	Data & {
 		group: NodeGroup;
 		tags: NodeTags[];

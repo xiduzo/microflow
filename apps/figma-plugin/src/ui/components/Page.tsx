@@ -8,7 +8,7 @@ export function PageHeader(props: PageHeaderProps) {
 			<IconBackButton />
 			{props.start}
 			<h1 className="flex-1">{props.title}</h1>
-			{props.end}
+			{props.end && <div className="mr-4">{props.end}</div>}
 		</header>
 	);
 }

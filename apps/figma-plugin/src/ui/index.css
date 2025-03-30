@@ -1,5 +1,5 @@
 body {
-	@apply w-screen h-screen;
+	@apply w-screen h-screen overflow-x-hidden;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 	background: var(--figma-color-bg);
 }

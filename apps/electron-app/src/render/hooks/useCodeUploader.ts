@@ -1,7 +1,7 @@
 import { useReactFlow } from '@xyflow/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { isNodeTypeACodeType } from '../../utils/generateCode';
-import { useBoardCheckResult, useBoardPort, useBoardStore, useUploadResult } from '../stores/board';
+import { useBoardCheckResult, useBoardPort, useBoardStore } from '../stores/board';
 import { UploadRequest, UploadResponse } from '../../common/types';
 import { toast } from '@ui/index';
 import { useClearNodeData } from '../stores/node-data';
@@ -31,12 +31,8 @@ export function useCodeUploader() {
 			return node;
 		});
 		const edges = getEdges();
-
-		// const code = generateCode(nodes, allowedEdges);
-		// console.log(nodes, allowedEdges, code);
 		console.debug(`[UPLOAD] >>>`, { nodes: nodes.length, edges: edges.length });
 		window.electron.ipcRenderer.send<UploadRequest>('ipc-upload-code', {
-			// code,
 			nodes: nodes.map(node => {
 				const { group, tags, label, settingsOpen, subType, ...data } = node.data;
 

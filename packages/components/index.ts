@@ -9,6 +9,7 @@ export * from './src/components/Figma';
 export * from './src/components/Gate';
 export * from './src/components/Interval';
 export * from './src/components/Led';
+export * from './src/components/Llm';
 export * from './src/components/Matrix';
 export * from './src/components/Monitor';
 export * from './src/components/Motion';

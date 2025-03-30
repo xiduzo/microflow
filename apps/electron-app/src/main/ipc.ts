@@ -131,7 +131,7 @@ async function checkBoardOnPort(
 		});
 
 		checkProcess.stderr?.on('data', async data => {
-			log.debug('[CHECK] [${checkProcess.pid}] stderr', data.toString(), timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] stderr`, data.toString(), timer.duration);
 			await cleanupProcesses();
 		});
 
