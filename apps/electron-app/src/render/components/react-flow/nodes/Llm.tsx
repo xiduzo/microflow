@@ -62,7 +62,7 @@ function Value() {
 		<IconWithValue
 			icon={value ? 'BotMessageSquare' : 'Bot'}
 			iconClassName={value ? 'animate-pulse' : ''}
-			value={value ? 'Thinking...' : !!data.model ? data.model : 'No model selected'}
+			value={value ? 'Thinking...' : (!!data.model ? data.model : 'No model selected')}
 		/>
 	);
 }
