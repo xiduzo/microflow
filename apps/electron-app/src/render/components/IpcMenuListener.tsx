@@ -14,7 +14,7 @@ import { MqttSettingsForm } from './forms/MqttSettingsForm';
 import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
 import { useAppStore } from '../stores/app';
 import { useNewNodeStore } from '../stores/new-node';
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from 'zustand/shallow';
 
 export function IpcMenuListeners() {
 	const { getNodes, getEdges, fitView } = useReactFlow();

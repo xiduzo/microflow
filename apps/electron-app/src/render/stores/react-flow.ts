@@ -9,10 +9,11 @@ import {
 	applyNodeChanges,
 } from '@xyflow/react';
 
-import { create } from 'zustand';
 import { LinkedList } from '../../common/LinkedList';
 import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from 'zustand/shallow';
+// TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
+import { createWithEqualityFn as create } from 'zustand/traditional';
 
 const HISTORY_DEBOUNCE_TIME_IN_MS = 100;
 
@@ -33,6 +34,21 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 
 function getLocalItem<T>(item: string, fallback: T) {
 	return JSON.parse(localStorage.getItem(item) ?? JSON.stringify(fallback)) as T;
+}
+
+let historyUpdateDebounce: NodeJS.Timeout | undefined;
+
+function updateHistory(get: () => AppState<{}>) {
+	historyUpdateDebounce && clearTimeout(historyUpdateDebounce);
+	historyUpdateDebounce = setTimeout(() => {
+		const { nodes, edges, history } = get();
+		history.append({
+			nodes: JSON.parse(JSON.stringify(nodes)), // remove references
+			edges: JSON.parse(JSON.stringify(edges)), // remove references
+		});
+
+		console.debug(`[HISTORY]`, history);
+	}, HISTORY_DEBOUNCE_TIME_IN_MS);
 }
 
 export const useReactFlowStore = create<AppState>((set, get) => {
@@ -59,20 +75,6 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES;
 	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES;
 
-	let historyUpdateDebounce: NodeJS.Timeout | undefined;
-	function updateHistory() {
-		historyUpdateDebounce && clearTimeout(historyUpdateDebounce);
-		historyUpdateDebounce = setTimeout(() => {
-			const { nodes, edges, history } = get();
-			history.append({
-				nodes: JSON.parse(JSON.stringify(nodes)), // remove references
-				edges: JSON.parse(JSON.stringify(edges)), // remove references
-			});
-
-			console.debug(`[HISTORY]`, history);
-		}, HISTORY_DEBOUNCE_TIME_IN_MS);
-	}
-
 	return {
 		nodes: initialNodes,
 		edges: initialEdges,
@@ -85,7 +87,7 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 			const hasChangesWhichNeedSaving = changes.some(change => change.type !== 'select');
 
 			if (!hasChangesWhichNeedSaving) return;
-			updateHistory();
+			updateHistory(get);
 		},
 		onEdgesChange: changes => {
 			set({
@@ -96,13 +98,13 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 				change => change.type === 'add' || change.type === 'remove',
 			);
 			if (!hasChangesWhichNeedSaving) return;
-			updateHistory();
+			updateHistory(get);
 		},
 		onConnect: connection => {
 			set({
 				edges: addEdge(connection, get().edges),
 			});
-			updateHistory();
+			updateHistory(get);
 		},
 		setNodes: nodes => {
 			set({ nodes });

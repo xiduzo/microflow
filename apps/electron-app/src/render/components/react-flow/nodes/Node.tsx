@@ -255,10 +255,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 		pane.on('change', event => {
 			if (!event.last) return;
-
-			// TODO Automatically save changes is neat to have, unfortunately it will block the render process for now
-			// See https://github.com/electron/electron/issues/45053#issuecomment-2549711790
-			// When resolved, we can use this to save the settings on change instead of a button click
 			saveSettings();
 		});
 
