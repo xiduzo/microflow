@@ -45,6 +45,12 @@ An example topic could be: `microflow/v1/xiduzo/plugin/variable/VariableID:1:25`
 
 ## {% icon name="Link" /%} Updating variables from within a prototype
 
+{% callout type="warning" title="help us help you" %}
+We also think the following interaction is cumbersome and should be part of Figma's default functionality.
+
+If you would like to make the process simpler, by directly receiving the updates from changes in the prototype, please upvote or comment on [this Figma forum post](https://forum.figma.com/ask-the-community-7/communicating-between-prototype-and-figma-plugin-13868)
+{% /callout %}
+
 Listening to updates from within a prototype is a bit cumbersome because Figma does not allow plugins to access the values of variables from within prototypes.
 
 To get around this limitation, and avoid needing elevated permissions like [figproxy](https://edges.ideo.com/posts/figproxy), we're utulizing a small web app that opens [Microflow Studio](/docs/microflow-studio) and updates the variable value.

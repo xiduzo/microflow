@@ -8,6 +8,7 @@ export default {
 	capabilities: [],
 	enableProposedApi: false,
 	editorType: ['figma'],
+	documentAccess: 'dynamic-page',
 	networkAccess: {
 		allowedDomains: ['*'],
 		reasoning:
