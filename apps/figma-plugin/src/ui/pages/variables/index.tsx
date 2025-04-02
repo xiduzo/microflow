@@ -7,9 +7,10 @@ import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useMessageListener } from '../../hooks/useMessageListener';
 import { useSetWindowSize } from '../../hooks/useSetWindowSize';
 import { sendMessageToFigma } from '../../utils/sendMessageToFigma';
+import { MqttConfig } from '@microflow/mqtt-provider/client';
 
 export function Variables() {
-	const [uniqueId] = useLocalStorage<string>(LOCAL_STORAGE_KEYS.TOPIC_UID);
+	const [brokerSettings] = useLocalStorage<MqttConfig>(LOCAL_STORAGE_KEYS.MQTT_CONNECTION);
 
 	const [variables, setVariables] = useState<Variable[] | undefined>([]);
 
@@ -61,12 +62,12 @@ export function Variables() {
 								<CopyButton
 									title="Copy publish topic"
 									icon="RadioTower"
-									textToCopy={`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`}
+									textToCopy={`microflow/v1/${brokerSettings.uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`}
 								/>
 								<CopyButton
 									title="Copy subscribe topic"
 									icon="Antenna"
-									textToCopy={`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`}
+									textToCopy={`microflow/v1/${brokerSettings.uniqueId}/plugin/variable/${variable.id}`}
 								/>
 								<CopyButton
 									title="Copy prototype link"
