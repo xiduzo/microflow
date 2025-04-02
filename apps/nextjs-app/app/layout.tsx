@@ -1,4 +1,4 @@
-import '@microflow/ui/global.css';
+import '@microflow/ui/globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import type { Metadata } from 'next';
 import { PropsWithChildren } from 'react';
