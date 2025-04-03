@@ -35,13 +35,14 @@ export function useMqttClient() {
 			callback: mqtt.OnMessageCallback,
 			options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties,
 		) => {
-			console.debug('[SUBSCRIBE]', topic, options);
+			console.info('[SUBSCRIBE]', topic, options);
 			subscriptions.current.set(topic, { callback, options });
 			await client.current
-				?.subscribeAsync(topic, options) // tODO: these options should be passed by subscriber
+				?.subscribeAsync(topic, options) // TODO: these options should be passed by subscriber
 				.catch(console.error);
 
 			return () => {
+				console.info('[UNSUBSCRIBE]', topic, options);
 				unsubscribe?.(topic)?.catch(console.error);
 			};
 		},
@@ -49,7 +50,7 @@ export function useMqttClient() {
 	);
 
 	const publish = useCallback((topic: string, payload: string, options?: IClientPublishOptions) => {
-		console.debug('[PUBLISH]', topic, payload, options);
+		console.info('[PUBLISH]', topic, payload, options);
 		return client.current?.publishAsync(topic, payload, options);
 	}, []);
 

@@ -14,6 +14,7 @@ export enum MESSAGE_TYPE {
 
 export enum LOCAL_STORAGE_KEYS {
 	MQTT_CONNECTION = 'MQTT_CONNECTION',
+	DARK_MODE = 'DARK_MODE',
 }
 
 type SetUiOptionsMessage = {
