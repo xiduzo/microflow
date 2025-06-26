@@ -40,7 +40,26 @@ export function ReactFlowCanvas() {
 	}, [fitView]);
 
 	return (
-		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode={'system'} minZoom={0.1} maxZoom={2}>
+		<ReactFlow
+			{...store}
+			onNodesChange={changes => {
+				console.log("onNodesChange", changes[0])
+				changes.forEach(change => {
+					switch(change.type) {
+						case "add":
+							window.electron.ipcRenderer.send("ipc-flow-change", {
+								nodes: change,
+							})
+							break;
+					}
+				})
+				store.onNodesChange(changes);
+			}}
+			onEdgesChange={changes => {
+				store.onEdgesChange(changes);
+			}}
+			nodeTypes={NODE_TYPES}
+			colorMode={'system'} minZoom={0.1} maxZoom={2}>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={32} />

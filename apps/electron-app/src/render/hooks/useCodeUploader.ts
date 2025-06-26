@@ -1,4 +1,4 @@
-import { useReactFlow } from '@xyflow/react';
+import { Node, Edge, useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useRef } from 'react';
 import { isNodeTypeACodeType } from '../../utils/generateCode';
 import { useBoardCheckResult, useBoardPort, useBoardStore } from '../stores/board';
@@ -32,27 +32,40 @@ export function useCodeUploader() {
 		});
 		const edges = getEdges();
 		console.debug(`[UPLOAD] >>>`, { nodes: nodes.length, edges: edges.length });
-		window.electron.ipcRenderer.send<UploadRequest>('ipc-upload-code', {
-			nodes: nodes.map(node => {
-				const { group, tags, label, settingsOpen, subType, ...data } = node.data;
+		
+		// window.electron.ipcRenderer.send<UploadRequest>('ipc-upload-code', {
+		// 	nodes: nodes.map(node => {
+		// 		const { group, tags, label, settingsOpen, subType, ...data } = node.data;
 
-				return {
-					data,
-					id: node.id,
-					type: node.type,
-				};
-			}),
-			edges: edges.map(edge => ({
-				target: edge.target,
-				targetHandle: edge.targetHandle,
-				source: edge.source,
-				sourceHandle: edge.sourceHandle,
-			})),
-			port: config.ip || port || '',
-		});
+		// 		return {
+		// 			data,
+		// 			id: node.id,
+		// 			type: node.type,
+		// 		};
+		// 	}),
+		// 	edges: edges.map(edge => ({
+		// 		target: edge.target,
+		// 		targetHandle: edge.targetHandle,
+		// 		source: edge.source,
+		// 		sourceHandle: edge.sourceHandle,
+		// 	})),
+		// 	port: config.ip || port || '',
+		// });
 	}, [getNodes, getEdges, port, config.ip, clearNodeData, setUploadResult]);
 
-	return uploadCode;
+	const nodeChanged = useCallback((node: Node) => {
+		window.electron.ipcRenderer.send("ipc-flow-change", {
+			node
+		})
+	}, [])
+
+	const edgeChanged = useCallback((edge: Edge) => {
+		window.electron.ipcRenderer.send("ipc-flow-change", {
+			edge
+		})
+	}, [])
+
+	return {uploadCode, nodeChanged, edgeChanged};
 }
 
 export function useUploadResultListener() {
@@ -89,7 +102,7 @@ export function useUploadResultListener() {
 export function useAutoUploadCode() {
 	const nodeToAdd = useNewNodeStore(useShallow(state => state.nodeToAdd));
 	const checkResult = useBoardCheckResult();
-	const uploadCode = useCodeUploader();
+	const {uploadCode} = useCodeUploader();
 
 	const lastNodesCount = useRef(-1);
 	const lastEdgesCount = useRef(-1);

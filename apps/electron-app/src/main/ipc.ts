@@ -96,7 +96,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 					},
 				} satisfies IpcResponse<BoardCheckResult>);
 			} finally {
-				await cleanupProcesses();
+				// await cleanupProcesses();
 			}
 		}
 	}
@@ -128,6 +128,7 @@ async function checkBoardOnPort(
 		checkProcess.on('spawn', () => {
 			log.debug(`[CHECK] [${checkProcess.pid}] spawned`, timer.duration);
 			processes.set(Number(checkProcess.pid), checkProcess);
+			latestUploadProcessId = checkProcess.pid;
 		});
 
 		checkProcess.stderr?.on('data', async data => {
@@ -255,6 +256,33 @@ const feedbackMessages = [
 	'Just a bit longer, resolving the issue!',
 ];
 
+ipcMain.on("ipc-flow-change", async (event, data: { nodes?: Node; edge?: Edge }) => {
+	log.log("ipc-flow-change", data)
+	const process = Array.from(processes).find(
+		([_pid, process]) => process.pid === latestCheckProcessId,
+	);
+	if (!process) {
+		log.debug('[CHANGE] Tried to send change while no process is running');
+		return;
+	}
+
+	const [_pid, runner] = process;
+	runner.send({type: "update", data});
+})
+
+ipcMain.on("ipc-init-flow", async (event, data: { nodes: Node[]; edges: Edge[] }) => {
+	const process = Array.from(processes).find(
+		([_pid, process]) => process.pid === latestCheckProcessId,
+	);
+	if (!process) {
+		log.debug('[INIT] Tried to init flow while no process is running');
+		return;
+	}
+
+	const [_pid, runner] = process;
+	runner.send({type: "init", data});
+})
+
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	const timer = new Timer();
 	log.debug(`[UPLOAD] Uploading code to port ${data.port}`, timer.duration);
@@ -289,7 +317,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 		uploadProcess.on('spawn', () => {
 			log.debug(`[UPLOAD] [${uploadProcess.pid}] spawned`, timer.duration);
 			processes.set(Number(uploadProcess.pid), uploadProcess);
-			latestUploadProcessId = uploadProcess.pid;
+			latestCheckProcessId = uploadProcess.pid;
 		});
 
 		uploadProcess.on('message', async (message: UploadedCodeMessage | UploadResponse) => {
@@ -329,6 +357,8 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 });
 
 let latestUploadProcessId: number | undefined;
+let latestCheckProcessId: number | undefined;
+
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
 	log.debug(`[EXTERNAL] setting value`, data);
 	const process = Array.from(processes).find(

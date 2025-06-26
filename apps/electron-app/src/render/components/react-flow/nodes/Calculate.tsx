@@ -11,7 +11,7 @@ export function Calculate(props: Props) {
 			<Value />
 			<Settings />
 
-			<Handle type="target" position={Position.Left} id="input" />
+			<Handle type="target" position={Position.Left} id="check" title="input" />
 			<Handle type="source" position={Position.Right} id="change" title="result" />
 		</NodeContainer>
 	);

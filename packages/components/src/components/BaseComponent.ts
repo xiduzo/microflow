@@ -9,13 +9,15 @@ export class BaseComponent<T> {
 	private _value: T;
 	private readonly _id: string;
 
-	protected readonly eventEmitter = new EventEmitter();
+	private readonly eventEmitter = new EventEmitter();
 
 	constructor(data: BaseComponentData, initialValue: T) {
 		this._value = initialValue;
 		this._id = data.id;
 
-		this.eventEmitter.on('change', this.postMessage.bind(this, 'change'));
+		this.eventEmitter.on('change', () => {
+			this.emit('change', this.value);
+		});
 	}
 
 	get value() {
@@ -27,27 +29,36 @@ export class BaseComponent<T> {
 		this._value = value;
 
 		if (JSON.stringify(previousValue) !== JSON.stringify(value)) {
-			this.eventEmitter.emit('change', value);
+			this.emit('change', value);
 		}
 	}
 
+	emit(handle: string, value: T | undefined = undefined) {
+		this.eventEmitter.emit('event', { handle, value });
+	}
+
 	/**
-	 * Listen to an event
+	 * Listen to events
 	 *
 	 * @param action - The event to listen to
 	 * @param callback - The callback to run when the event is triggered
 	 *
 	 */
-	on(action: string, callback: (...args: any[]) => void) {
-		this.eventEmitter.on(action, args => {
+	subscribe(callback: (...args: any[]) => void) {
+		this.eventEmitter.on('event', args => {
+			const { handle } = args;
 			callback(args);
-			this.postMessage(action);
+			this.postMessage(handle);
 		});
 	}
 
-	private postMessage(action: string) {
+	unsubscribe() {
+		this.eventEmitter.removeAllListeners();
+	}
+
+	private postMessage(handle: string) {
 		postMessageToElectronMain({
-			action,
+			action: handle,
 			nodeId: this._id,
 			value: this.value,
 		});

@@ -1,4 +1,6 @@
-const { Board, TcpSerial } = require('@microflow/components');
+const Components = require('@microflow/components');
+const { Edge, Node } = require('@xyflow/react');
+const { comment } = require('postcss');
 
 const port = process?.argv?.at(-1);
 
@@ -34,7 +36,7 @@ try {
 		);
 	}
 
-	const board = new Board({
+	const board = new Components.Board({
 		repl: false,
 		debug: true,
 		port: connection || port,
@@ -61,4 +63,179 @@ try {
 	board.on('message', stdout);
 } catch (error) {
 	stdout({ type: 'error', message: 'catching error', ...error });
+}
+
+/**
+ * Map of node IDs to their corresponding components.
+ * @type {Map<string, keyof typeof Components>}
+ */
+const components = new Map();
+
+/**
+ * Map of actions between nodes.
+ * @type {Map<string, Map<string, function>>}
+ */
+const actions = new Map();
+
+process.on('message', message => {
+	switch (message.type) {
+		case 'init':
+			/**
+			 * @type {{ nodes: Node[], edges: Edge[] }}
+			 */
+			const { nodes, edges } = message.data;
+			nodes.forEach(addNode);
+			edges.forEach(addAction);
+			break;
+		case 'update':
+			/**
+			 * @type {{ node?: Node, edge?: Edge, type: "update" | "delete" | "add" }}
+			 */
+			const { node, edge, type } = message.data;
+			switch (type) {
+				case 'delete':
+					if (node) removeNode(node);
+					if (edge) removeAction(edge);
+					break;
+				case 'add':
+				case 'update':
+					if (node) addNode(node);
+					if (edge) addAction(edge);
+					break;
+			}
+			break;
+		default:
+			stdout({ type: 'error', message: `Unknown message type: ${message.type}` });
+			break;
+	}
+});
+
+/**
+ * Adds a subscription to a node's component.
+ * @param {Node} node - The node to subscribe to.
+ * @param {typeof Components} component - The component instance of the node.
+ */
+function addSubscription(node, component) {
+	component.subscribe(args => {
+		const { handle, value } = args;
+		const handleListeners = actions.get(`${node.id}_${handle}`);
+		if (!handleListeners) return; // skip if no actions for this handle
+		Object.entries(handleListeners).forEach(([listener, callback]) => {
+			if (typeof callback !== 'function') return;
+
+			const [targetId, targetHandle] = listener.split('_');
+
+			try {
+				const targetComponent = components.get(targetId);
+				if (!targetComponent) return; // Node must have been removed
+				const targetComponentName = targetComponent.constructor.name;
+
+				// Could be moved out of the loop, but this is more readable
+				const componentsThatRequireAllInputs = [Components['Gate'], Components['Calculate']].map(
+					({ constructor }) => constructor.name,
+				);
+
+				// If the target node requires all inputs, we need to ensure all inputs are provided
+				if (componentsThatRequireAllInputs.includes(targetComponentName)) {
+					const sourceIds = Object.entries(actions).reduce((acc, curr) => {
+						const [source, actionMap] = curr;
+						const [sourceId] = source.split('_');
+						const includesTargetInActions = Array.from(actionMap.keys()).some(key =>
+							key.startsWith(targetId),
+						);
+						if (includesTargetInActions) acc.push(sourceId);
+						return acc;
+					}, []);
+					callback(getNodeValues(sourceIds));
+					return;
+				}
+
+				// Handle the dynamic variable setting for LLM components
+				if (
+					targetComponentName === Components['Llm'].constructor.name &&
+					targetHandle !== Components['Llm'].prototype.invoke.name
+				) {
+					targetComponent[Components['Llm'].prototype.setVariable.name](targetHandle, value);
+					return;
+				}
+
+				callback(value);
+			} catch (error) {
+				stdout(`Error executing ${node.id}->${handle}->${targetId}->${targetHandle}`, error);
+			}
+		});
+	});
+}
+
+/**
+ * Adds an action to the actions map for a given edge.
+ * @param {Edge} edge - The edge containing source and target information.
+ */
+function addAction(edge) {
+	const target = components.get(edge.target);
+	if (!target) return; // skip if target node does not exist
+	const actions = actions.get(`${edge.source}_${edge.sourceHandle}`) ?? new Map();
+	actions.set(`${edge.target}_${edge.targetHandle}`, target[edge.targetHandle]);
+}
+
+/**
+ * Removes an action from the actions map for a given edge.
+ * @param {Edge} edge - The edge containing source and target information.
+ */
+function removeAction(edge) {
+	const actions = actions.get(`${edge.source}_${edge.sourceHandle}`);
+	actions?.delete(`${edge.target}_${edge.targetHandle}`);
+}
+
+/**
+ * Adds a node to the components map and sets up its subscription.
+ * @param {Node} node
+ */
+function addNode(node) {
+	try {
+		const component = new Components[node.type](node.data);
+		addSubscription(node, component);
+		// TODO initial trigger -- can be separate component?
+		components.set(node.id, component);
+	} catch (error) {
+		stdout({ type: 'error', message: `Error creating component for node ${node.id}`, error });
+	}
+}
+
+/**
+ * Removes a node from the components map and its actions.
+ * @param {Node} node
+ */
+function removeNode(node) {
+	const component = components.get(node.id);
+	component?.unsubscribe();
+	components.delete(node.id);
+	actions.forEach((actionMap, key) => {
+		if (key.startsWith(node.id)) {
+			actions.delete(key);
+			return;
+		}
+
+		actionMap.forEach((_, actionKey) => {
+			if (actionKey.startsWith(node.id)) actionMap.delete(actionKey);
+		});
+	});
+}
+
+/**
+ * Retrieves the values of nodes by their IDs.
+ * @param {string[]} ids - Array of node IDs.
+ */
+function getNodeValues(ids) {
+	return ids.reduce((acc, id) => {
+		const component = components.get(id);
+		if (component && 'value' in component) {
+			const { value } = component;
+			const name = component.constructor.name;
+
+			if (name === Components['RangeMap'].constructor.name) value = value.at(0);
+			acc.push(value);
+		}
+		return acc;
+	}, []);
 }

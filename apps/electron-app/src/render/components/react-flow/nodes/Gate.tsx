@@ -4,29 +4,13 @@ import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';
-import { uuid } from '../../../../utils/uuid';
 
 export function Gate(props: Props) {
-	function getOffset(index: number) {
-		return index - ((props.data.gate === 'not' ? 1 : 2) - 1) / 2;
-	}
-
 	return (
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			{Array.from({ length: props.data.gate === 'not' ? 1 : 2 }).map((_item, index) => {
-				return (
-					<Handle
-						key={uuid()}
-						type="target"
-						title={`Check ${index + 1}`}
-						position={Position.Left}
-						id={String(index)}
-						offset={getOffset(index)}
-					/>
-				);
-			})}
+			<Handle type="target" position={Position.Left} id="check" title="input" />
 			<Handle type="source" position={Position.Right} id="true" offset={-1} />
 			<Handle type="source" position={Position.Right} id="false" />
 			<Handle type="source" position={Position.Right} id="change" offset={1} />

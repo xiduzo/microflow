@@ -27,7 +27,7 @@ export function useCheckBoard() {
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', {
 		ip: undefined,
 	});
-	const uploadCode = useCodeUploader();
+	const {uploadCode} = useCodeUploader();
 
 	useEffect(() => {
 		console.debug(`[CHECK] >>>`, { ip });

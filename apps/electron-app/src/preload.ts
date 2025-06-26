@@ -10,7 +10,8 @@ type Channels =
 	| 'ipc-external-value'
 	| 'ipc-menu'
 	| 'ipc-deep-link'
-	| 'ipc-export-flow';
+	| 'ipc-export-flow'
+	| 'ipc-flow-change';
 
 type IpcCallback<Data> = (response: IpcResponse<Data>) => void;
 type Listener = (event: IpcRendererEvent, response: IpcResponse<any>) => void;
