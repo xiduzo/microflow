@@ -19,7 +19,7 @@ export class Gate extends BaseComponent<GateValueType> {
 
 		this.value = this.passesGate(inputsAsBooleans);
 
-		this.eventEmitter.emit(this.value ? 'true' : 'false', this.value);
+		this.emit(this.value ? 'true' : 'false', this.value);
 	}
 
 	private passesGate(inputs: boolean[]) {

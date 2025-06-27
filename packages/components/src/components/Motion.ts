@@ -17,11 +17,11 @@ export class Motion extends BaseComponent<MotionValueType> {
 		this.component = new JohnnyFive.Motion(data);
 
 		this.component.on('motionstart', () => {
-			this.eventEmitter.emit('motionstart');
+			this.emit('motionstart');
 		});
 
 		this.component.on('motionend', () => {
-			this.eventEmitter.emit('motionend');
+			this.emit('motionend');
 		});
 
 		this.component.on('data', data => {

@@ -33,7 +33,7 @@ export class BaseComponent<T> {
 		}
 	}
 
-	emit(handle: string, value: T | undefined = undefined) {
+	emit<Value>(handle: string, value: Value | undefined = undefined) {
 		this.eventEmitter.emit('event', { handle, value });
 	}
 

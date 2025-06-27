@@ -14,12 +14,12 @@ export class Switch extends BaseComponent<SwitchValueType> {
 
 		this.component.on('open', () => {
 			this.value = true;
-			this.eventEmitter.emit('open', this.value);
+			this.emit('open', this.value);
 		});
 
 		this.component.on('close', () => {
 			this.value = false;
-			this.eventEmitter.emit('close', this.value);
+			this.emit('close', this.value);
 		});
 	}
 }

@@ -1,6 +1,6 @@
 const Components = require('@microflow/components');
-const { Edge, Node } = require('@xyflow/react');
-const { comment } = require('postcss');
+const { Edge, Node, NodeChange, EdgeChange } = require('@xyflow/react');
+const { isNodeBase, isEdgeBase } = require('@xyflow/system');
 
 const port = process?.argv?.at(-1);
 
@@ -46,7 +46,15 @@ try {
 	// any hardware initialization that must take place before the program can operate.
 	// This process is asynchronous, and completion is signified to the program via a "ready" event
 	// For on-board execution, ready should emit after connect.
-	board.on('ready', () => stdout({ type: 'ready' }));
+	board.on('ready', () =>
+		stdout({
+			type: 'ready',
+			pins: Object.entries(board.pins).reduce((acc, [key, value]) => {
+				acc.push({ pin: Number(key), ...value });
+				return acc;
+			}, []),
+		}),
+	);
 	// When board is found but no Firmata is flashed
 	board.on('error', error => stdout({ type: 'error', message: error.message }));
 	// This event is emitted synchronously on SIGINT.
@@ -87,20 +95,22 @@ process.on('message', message => {
 			nodes.forEach(addNode);
 			edges.forEach(addAction);
 			break;
-		case 'update':
+		case 'change':
 			/**
-			 * @type {{ node?: Node, edge?: Edge, type: "update" | "delete" | "add" }}
+			 * @type {{ change?: NodeChange | EdgeChange }}
 			 */
-			const { node, edge, type } = message.data;
-			switch (type) {
-				case 'delete':
-					if (node) removeNode(node);
-					if (edge) removeAction(edge);
+			const { change } = message.data;
+			stdout({ type: 'info', message: `received change`, message });
+
+			switch (change.type) {
+				case 'remove':
+					if (isNodeBase(change)) removeNode(change);
+					if (isEdgeBase(change)) removeAction(change);
 					break;
 				case 'add':
-				case 'update':
-					if (node) addNode(node);
-					if (edge) addAction(edge);
+				case 'replace':
+					if (isNodeBase(change)) addNode(change);
+					if (isEdgeBase(change)) addAction(change);
 					break;
 			}
 			break;
@@ -137,16 +147,7 @@ function addSubscription(node, component) {
 
 				// If the target node requires all inputs, we need to ensure all inputs are provided
 				if (componentsThatRequireAllInputs.includes(targetComponentName)) {
-					const sourceIds = Object.entries(actions).reduce((acc, curr) => {
-						const [source, actionMap] = curr;
-						const [sourceId] = source.split('_');
-						const includesTargetInActions = Array.from(actionMap.keys()).some(key =>
-							key.startsWith(targetId),
-						);
-						if (includesTargetInActions) acc.push(sourceId);
-						return acc;
-					}, []);
-					callback(getNodeValues(sourceIds));
+					callback(getNodeValues(getInputHandleIds(targetId)));
 					return;
 				}
 
@@ -174,8 +175,8 @@ function addSubscription(node, component) {
 function addAction(edge) {
 	const target = components.get(edge.target);
 	if (!target) return; // skip if target node does not exist
-	const actions = actions.get(`${edge.source}_${edge.sourceHandle}`) ?? new Map();
-	actions.set(`${edge.target}_${edge.targetHandle}`, target[edge.targetHandle]);
+	const sourceHandles = actions.get(`${edge.source}_${edge.sourceHandle}`) ?? new Map();
+	sourceHandles.set(`${edge.target}_${edge.targetHandle}`, target[edge.targetHandle]);
 }
 
 /**
@@ -183,8 +184,8 @@ function addAction(edge) {
  * @param {Edge} edge - The edge containing source and target information.
  */
 function removeAction(edge) {
-	const actions = actions.get(`${edge.source}_${edge.sourceHandle}`);
-	actions?.delete(`${edge.target}_${edge.targetHandle}`);
+	const sourceHandles = actions.get(`${edge.source}_${edge.sourceHandle}`);
+	sourceHandles?.delete(`${edge.target}_${edge.targetHandle}`);
 }
 
 /**
@@ -193,12 +194,12 @@ function removeAction(edge) {
  */
 function addNode(node) {
 	try {
-		const component = new Components[node.type](node.data);
+		const component = new Components[node.data.baseType ?? node.type](node.data);
 		addSubscription(node, component);
 		// TODO initial trigger -- can be separate component?
 		components.set(node.id, component);
 	} catch (error) {
-		stdout({ type: 'error', message: `Error creating component for node ${node.id}`, error });
+		stdout({ type: 'error', message: `Error creating component for node ${node.id}`, node, error });
 	}
 }
 
@@ -224,10 +225,10 @@ function removeNode(node) {
 
 /**
  * Retrieves the values of nodes by their IDs.
- * @param {string[]} ids - Array of node IDs.
+ * @param {string[]} handleIds - Array of node IDs.
  */
-function getNodeValues(ids) {
-	return ids.reduce((acc, id) => {
+function getNodeValues(handleIds) {
+	return handleIds.reduce((acc, id) => {
 		const component = components.get(id);
 		if (component && 'value' in component) {
 			const { value } = component;
@@ -236,6 +237,23 @@ function getNodeValues(ids) {
 			if (name === Components['RangeMap'].constructor.name) value = value.at(0);
 			acc.push(value);
 		}
+		return acc;
+	}, []);
+}
+
+/**
+ *
+ * @param {string} targetId
+ * @returns {string[]} - Array of source IDs that have actions targeting the given targetId.
+ */
+function getInputHandleIds(targetId) {
+	return Object.entries(actions).reduce((acc, curr) => {
+		const [source, actionMap] = curr;
+		const [sourceId] = source.split('_');
+		const includesTargetInActions = Array.from(actionMap.keys()).some(key =>
+			key.startsWith(targetId),
+		);
+		if (includesTargetInActions) acc.push(sourceId);
 		return acc;
 	}, []);
 }

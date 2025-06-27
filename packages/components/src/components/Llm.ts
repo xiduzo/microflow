@@ -48,7 +48,7 @@ export class Llm extends BaseComponent<LlmValueType> {
 			const result = await this.model.invoke(messages, {
 				signal: this.abortController.signal,
 			});
-			this.eventEmitter.emit('output', result.content);
+			this.emit('output', result.content);
 			this.value = false;
 		} catch (e) {
 			console.log(e);

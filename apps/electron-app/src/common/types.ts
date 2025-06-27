@@ -56,6 +56,7 @@ export type BoardCheckResult = {
 	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error' | 'connect';
 	message?: string;
 	port?: string;
+	pins?: Pin[];
 };
 
 export type BoardFlashResult = {

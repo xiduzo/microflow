@@ -5,7 +5,7 @@ import {
 	type BoardName,
 	type PortInfo,
 } from '@microflow/flasher';
-import type { Edge, Node } from '@xyflow/react';
+import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 import { ipcMain, IpcMainEvent, Menu } from 'electron';
 import { fork, ChildProcess } from 'child_process';
 
@@ -52,8 +52,8 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
-	const timer = new Timer();
-	log.debug('[CHECK] requested to check board', data, timer.duration);
+	const checkBoardTimer = new Timer();
+	log.debug('[CHECK] requested to check board', data, checkBoardTimer.duration);
 
 	await cleanupProcesses();
 
@@ -68,7 +68,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
 			void sniffPorts(event, { connectedPort: port });
-			log.debug(`[CHECK] checking board ${board} on path ${port.path}`, timer.duration);
+			log.debug(`[CHECK] checking board ${board} on path ${port.path}`, checkBoardTimer.duration);
 
 			try {
 				event.reply('ipc-check-board', {
@@ -76,11 +76,12 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 					data: { type: 'info', port: port.path },
 				} satisfies IpcResponse<BoardCheckResult>);
 
-				await checkBoardOnPort(port, board, event);
+				const boardOnBoard = await checkBoardOnPort(port, board, event);
+				log.info(`[CHECK] board found`, boardOnBoard, checkBoardTimer.duration);
 				connectedPort = port;
 				event.reply('ipc-check-board', {
 					success: true,
-					data: { type: 'ready', port: port.path },
+					data: { type: 'ready', port: port.path, pins: boardOnBoard.pins },
 				} satisfies IpcResponse<BoardCheckResult>);
 				break checkBoard;
 			} catch (error) {
@@ -115,33 +116,37 @@ async function checkBoardOnPort(
 ) {
 	await cleanupProcesses();
 
-	const timer = new Timer();
+	const checkBoardTimer = new Timer();
 	const filePath = join(__dirname, 'workers', 'check.js');
 
-	return new Promise<void>((resolve, reject) => {
-		console.debug(`[CHECK] creating check worker from ${filePath}`, timer.duration);
+	return new Promise<UploadResponse>((resolve, reject) => {
+		console.debug(`[CHECK] creating check worker from ${filePath}`, checkBoardTimer.duration);
 		const checkProcess = fork(filePath, [port.path], {
 			// serviceName: 'Microflow studio - microcontroller validator',
 			stdio: 'pipe',
 		});
 
 		checkProcess.on('spawn', () => {
-			log.debug(`[CHECK] [${checkProcess.pid}] spawned`, timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] spawned`, checkBoardTimer.duration);
 			processes.set(Number(checkProcess.pid), checkProcess);
-			latestUploadProcessId = checkProcess.pid;
+			latestCheckProcessId = checkProcess.pid;
 		});
 
 		checkProcess.stderr?.on('data', async data => {
-			log.debug(`[CHECK] [${checkProcess.pid}] stderr`, data.toString(), timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] stderr`, data.toString(), checkBoardTimer.duration);
 			await cleanupProcesses();
 		});
 
 		checkProcess.stdout?.on('data', async data => {
-			log.debug(`[CHECK] [${checkProcess.pid}] stdout`, data.toString(), timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] stdout`, data.toString(), checkBoardTimer.duration);
 		});
 
 		async function handleMessage(data: UploadResponse) {
-			log.debug(`[CHECK] [${checkProcess.pid}] message: ${data.type}`, timer.duration);
+			log.debug(
+				`[CHECK] [${checkProcess.pid}] message: ${data.type}`,
+				data,
+				checkBoardTimer.duration,
+			);
 			try {
 				switch (data.type) {
 					case 'error':
@@ -164,11 +169,10 @@ async function checkBoardOnPort(
 								} satisfies IpcResponse<BoardCheckResult>);
 							}, 7500);
 							await flashBoard(board, port);
-							resolve();
+							resolve(data);
 						} catch (error) {
-							if (notificationTimeout) {
-								clearTimeout(notificationTimeout);
-							}
+							log.warn(`[CHECK] unable to flash`, checkBoardTimer.duration);
+							if (notificationTimeout) clearTimeout(notificationTimeout);
 							reject(error);
 						}
 						break;
@@ -177,7 +181,7 @@ async function checkBoardOnPort(
 					case 'fail':
 						reject(new Error(data.message ?? 'Unknown error'));
 					case 'ready':
-						resolve();
+						resolve(data);
 						break;
 				}
 			} catch (e) {
@@ -212,9 +216,7 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 		} catch (flashError) {
 			log.error(
 				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-				{
-					flashError,
-				},
+				{ flashError },
 				flashTimer.duration,
 			);
 			const randomMessage = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
@@ -256,8 +258,8 @@ const feedbackMessages = [
 	'Just a bit longer, resolving the issue!',
 ];
 
-ipcMain.on("ipc-flow-change", async (event, data: { nodes?: Node; edge?: Edge }) => {
-	log.log("ipc-flow-change", data)
+ipcMain.on('ipc-flow-change', async (event, data: { change: NodeChange | EdgeChange }) => {
+	log.log('ipc-flow-change', data);
 	const process = Array.from(processes).find(
 		([_pid, process]) => process.pid === latestCheckProcessId,
 	);
@@ -267,10 +269,10 @@ ipcMain.on("ipc-flow-change", async (event, data: { nodes?: Node; edge?: Edge })
 	}
 
 	const [_pid, runner] = process;
-	runner.send({type: "update", data});
-})
+	runner.send({ type: 'change', data });
+});
 
-ipcMain.on("ipc-init-flow", async (event, data: { nodes: Node[]; edges: Edge[] }) => {
+ipcMain.on('ipc-init-flow', async (event, data: { nodes: Node[]; edges: Edge[] }) => {
 	const process = Array.from(processes).find(
 		([_pid, process]) => process.pid === latestCheckProcessId,
 	);
@@ -280,8 +282,8 @@ ipcMain.on("ipc-init-flow", async (event, data: { nodes: Node[]; edges: Edge[] }
 	}
 
 	const [_pid, runner] = process;
-	runner.send({type: "init", data});
-})
+	runner.send({ type: 'init', data });
+});
 
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	const timer = new Timer();
@@ -317,7 +319,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 		uploadProcess.on('spawn', () => {
 			log.debug(`[UPLOAD] [${uploadProcess.pid}] spawned`, timer.duration);
 			processes.set(Number(uploadProcess.pid), uploadProcess);
-			latestCheckProcessId = uploadProcess.pid;
+			latestUploadProcessId = uploadProcess.pid;
 		});
 
 		uploadProcess.on('message', async (message: UploadedCodeMessage | UploadResponse) => {

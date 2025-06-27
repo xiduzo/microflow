@@ -36,7 +36,7 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 
 		if (!shouldBang) return;
 
-		this.eventEmitter.emit('bang', valueAsNumber);
+		this.emit('bang', valueAsNumber);
 	}
 
 	private checkDifference(value: number): boolean {

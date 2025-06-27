@@ -11,7 +11,8 @@ type Channels =
 	| 'ipc-menu'
 	| 'ipc-deep-link'
 	| 'ipc-export-flow'
-	| 'ipc-flow-change';
+	| 'ipc-flow-change'
+	| 'ipc-init-flow';
 
 type IpcCallback<Data> = (response: IpcResponse<Data>) => void;
 type Listener = (event: IpcRendererEvent, response: IpcResponse<any>) => void;

@@ -21,7 +21,7 @@ export class Delay extends BaseComponent<DelayValueType> {
 
 		this.lastTimeout = setTimeout(() => {
 			this.value = value;
-			this.eventEmitter.emit('bang', this.value);
+			this.emit('bang', this.value);
 		}, this.data.delay);
 	}
 }

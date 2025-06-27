@@ -13,14 +13,7 @@ export class Led extends BaseComponent<LedValueType> {
 		this.component = new JohnnyFive.Led(data);
 	}
 
-	// Highjack the on method
-	// to allow for a custom actions
-	on(action?: unknown, callback?: (...args: any[]) => void) {
-		if (typeof action === 'string' && typeof callback === 'function') {
-			super.on(action, callback);
-			return;
-		}
-
+	on() {
 		this.component.on();
 		this.value = 1;
 	}
