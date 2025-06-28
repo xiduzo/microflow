@@ -61,7 +61,6 @@ const settingsButton = cva(
 );
 
 function NodeHeader(props: { error?: string; selected?: boolean }) {
-	const id = useNodeId();
 	const data = useNodeData();
 
 	return (
@@ -86,7 +85,6 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 						hasError: !!props.error,
 					})}
 				>
-					{id}
 					{'pin' in data && (
 						<div className="flex items-center mr-1">
 							<Icons.Cable size={12} className="mr-0.5 stroke-1" />
@@ -100,7 +98,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 	);
 }
 
-const header = cva('p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-center transition-all', {
+const header = cva('p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-start transition-all', {
 	variants: {
 		selected: {
 			true: '',
@@ -135,7 +133,7 @@ const header = cva('p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-cente
 	],
 });
 
-const subheader = cva('text-xs font-extralight transition-all flex gap-3 items-center', {
+const subheader = cva('text-xs font-extralight transition-all flex gap-3 items-center justify-start', {
 	variants: {
 		selected: {
 			true: '',
