@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { Handle } from './Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeId, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
+import { useAppStore } from '../../../stores/app';
 
 export function Mqtt(props: Props) {
 	const { status } = useMqtt();
@@ -75,13 +76,14 @@ function Value() {
 
 function Settings() {
 	const { pane, settings, setHandlesToDelete } = useNodeSettings<MqttData>();
+	const { settingsOpen, setSettingsOpen } = useAppStore();
 
 	useEffect(() => {
 		if (!pane) return;
 
 		const initialType = settings.direction;
 
-		pane
+		const direction = pane
 			.addBinding(settings, 'direction', {
 				view: 'list',
 				index: 0,
@@ -95,9 +97,24 @@ function Settings() {
 				else setHandlesToDelete(value === 'publish' ? ['subscribe'] : ['publish']);
 			});
 
-		pane.addBinding(settings, 'topic', {
+		const topic = pane.addBinding(settings, 'topic', {
 			index: 1,
 		});
+
+		const button = pane.addButton({
+			title: 'Broker settings',
+			index: 2,
+		});
+
+		button.on('click', () => {
+			setSettingsOpen('mqtt-settings');
+		});
+
+		return () => {
+			direction.dispose();
+			topic.dispose();
+			button.dispose();
+		};
 	}, [pane, settings, setHandlesToDelete]);
 
 	return null;

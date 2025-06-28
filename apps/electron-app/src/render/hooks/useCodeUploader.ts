@@ -8,7 +8,7 @@ import { useClearNodeData } from '../stores/node-data';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
 import { useNewNodeStore } from '../stores/new-node';
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from 'zustand/shallow';
 import { useNodeAndEdgeCount } from '../stores/react-flow';
 
 export function useCodeUploader() {

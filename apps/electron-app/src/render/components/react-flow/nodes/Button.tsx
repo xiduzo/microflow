@@ -41,7 +41,14 @@ function Settings() {
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
+			options: pins
+				.filter(pin => pin.supportedModes.includes(MODES.INPUT))
+				.filter(pin =>
+					settings.isPullup || settings.isPulldown
+						? pin.supportedModes.includes(MODES.PULLUP)
+						: pin,
+				)
+				.map(mapPinToPaneOption),
 		});
 
 		const advancedFolder = pane.addFolder({

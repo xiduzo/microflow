@@ -9,12 +9,10 @@ export class Counter extends BaseComponent<CounterValueType> {
 		super(data, 0);
 	}
 
-	// TODO: get value from edge
 	increment() {
 		this.value = this.value + 1;
 	}
 
-	// TODO: get value from edge
 	decrement() {
 		this.value = this.value - 1;
 	}

@@ -10,7 +10,7 @@ Download the [latest release](https://github.com/xiduzo/microflow/releases) to g
 
 ## Connect your microcontroller
 
-Microflow studio is nothing more than a _fancy_ wrapper around the [Johnny-Five](https://johnny-five.io/) platform. Microflow studio should automatically detect your microcontroller and connect to it following the steps below.
+Microflow studio should automatically detect your microcontroller when connected to your computer. It will run through the following steps:
 
 1. Waiting for a microcontroller to be connected to your computer
 2. Detecting the type of microcontroller.
@@ -26,7 +26,7 @@ If your microcontroller does not reach step 4 automatically, your microcontrolle
 
 ### Supported microcontroller boards
 
-While Johnny-Five supports a broad range of boards, as of right now Microflow studio support the following boards
+As of right now Microflow studio support the following boards officially:
 
 - Arduino uno
 - Arduino mega
@@ -34,6 +34,8 @@ While Johnny-Five supports a broad range of boards, as of right now Microflow st
 - Arduino micro
 - Arduino nano
 - Arduino yun
+
+[Other boards](https://johnny-five.io/platform-support/) might connected but can give unexpected results.
 
 ### Not connecting?
 

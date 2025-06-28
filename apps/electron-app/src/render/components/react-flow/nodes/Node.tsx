@@ -61,7 +61,6 @@ const settingsButton = cva(
 );
 
 function NodeHeader(props: { error?: string; selected?: boolean }) {
-	const id = useNodeId();
 	const data = useNodeData();
 
 	return (
@@ -86,7 +85,6 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 						hasError: !!props.error,
 					})}
 				>
-					{id}
 					{'pin' in data && (
 						<div className="flex items-center mr-1">
 							<Icons.Cable size={12} className="mr-0.5 stroke-1" />
@@ -100,45 +98,42 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 	);
 }
 
-const header = cva(
-	'p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-center rounded-t-md transition-all',
-	{
-		variants: {
-			selected: {
-				true: '',
-				false: '',
-			},
-			hasError: {
-				true: '',
-				false: '',
-			},
+const header = cva('p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-start transition-all', {
+	variants: {
+		selected: {
+			true: '',
+			false: '',
 		},
-		compoundVariants: [
-			{
-				selected: false,
-				hasError: false,
-				className: 'text-muted-foreground dark:border-muted border-muted-foreground/20',
-			},
-			{
-				selected: true,
-				hasError: false,
-				className: 'bg-blue-600 text-blue-200 border-blue-600',
-			},
-			{
-				selected: false,
-				hasError: true,
-				className: 'bg-red-600 text-red-200 border-red-600',
-			},
-			{
-				selected: true,
-				hasError: true,
-				className: 'bg-blue-600 text-blue-200 border-blue-600',
-			},
-		],
+		hasError: {
+			true: '',
+			false: '',
+		},
 	},
-);
+	compoundVariants: [
+		{
+			selected: false,
+			hasError: false,
+			className: 'text-muted-foreground dark:border-muted border-muted-foreground/20',
+		},
+		{
+			selected: true,
+			hasError: false,
+			className: 'bg-blue-600 text-blue-200 border-blue-600',
+		},
+		{
+			selected: false,
+			hasError: true,
+			className: 'bg-red-600 text-red-200 border-red-600',
+		},
+		{
+			selected: true,
+			hasError: true,
+			className: 'bg-blue-600 text-blue-200 border-blue-600',
+		},
+	],
+});
 
-const subheader = cva('text-xs font-extralight transition-all flex gap-3 items-center', {
+const subheader = cva('text-xs font-extralight transition-all flex gap-3 items-center justify-start', {
 	variants: {
 		selected: {
 			true: '',
@@ -255,10 +250,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 		pane.on('change', event => {
 			if (!event.last) return;
-
-			// TODO Automatically save changes is neat to have, unfortunately it will block the render process for now
-			// See https://github.com/electron/electron/issues/45053#issuecomment-2549711790
-			// When resolved, we can use this to save the settings on change instead of a button click
 			saveSettings();
 		});
 
@@ -338,11 +329,11 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 }
 
 const node = cva(
-	'outline outline-2 -outline-offset-1 backdrop-blur-sm rounded-md min-w-52 min-h-44 flex flex-col transition-all',
+	'border border-2 rounded-sm backdrop-blur-sm min-w-52 min-h-44 flex flex-col transition-all',
 	{
 		variants: {
 			selectable: { true: '', false: '' },
-			selected: { true: 'outline-blue-600', false: '' },
+			selected: { true: 'border-blue-600', false: '' },
 			draggable: { true: 'active:cursor-grabbing', false: '' },
 			dragging: { true: '', false: '' },
 			deletabled: { true: '', false: '' },
@@ -360,22 +351,22 @@ const node = cva(
 			{
 				selected: false,
 				hasError: false,
-				className: 'dark:outline-muted outline-muted-foreground/20',
+				className: 'dark:border-muted border-muted-foreground/20',
 			},
 			{
 				selected: true,
 				hasError: false,
-				className: 'outline-blue-600',
+				className: 'border-blue-600',
 			},
 			{
 				selected: false,
 				hasError: true,
-				className: 'outline-red-600',
+				className: 'border-red-600',
 			},
 			{
 				selected: true,
 				hasError: true,
-				className: 'outline-blue-600',
+				className: 'border-blue-600',
 			},
 		],
 	},

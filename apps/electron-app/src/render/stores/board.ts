@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { BoardCheckResult, UploadResponse } from '../../common/types';
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from 'zustand/shallow';
 
 type BoardState = {
 	board: BoardCheckResult;

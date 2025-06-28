@@ -27,7 +27,7 @@
  */
 
 // Styling
-import '@microflow/ui/global.css';
+import '@microflow/ui/globals.css';
 import '@xyflow/react/dist/style.css';
 import './index.css';
 
