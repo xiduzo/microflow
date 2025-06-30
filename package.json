@@ -14,7 +14,7 @@
 		"publish:intel": "yarn workspace microflow-studio publish:intel",
 		"postinstall": "patch-package"
 	},
-	"packageManager": "yarn@3.3.0",
+	"packageManager": "yarn@3.8.7",
 	"engines": {
 		"node": "20.13.1",
 		"yarn": "3.3.0"
