@@ -9,7 +9,7 @@
 	},
 	"devDependencies": {
 		"@types/johnny-five": "2.1.10",
-		"typescript": "5.6.2"
+		"typescript": "5.8.2"
 	},
 	"dependencies": {
 		"@langchain/core": "^0.3.42",
