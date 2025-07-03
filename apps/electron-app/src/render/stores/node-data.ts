@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from 'zustand/shallow';
 import { useNodeId } from '../components/react-flow/nodes/Node';
 
 type NodeData<T extends unknown = unknown> = {

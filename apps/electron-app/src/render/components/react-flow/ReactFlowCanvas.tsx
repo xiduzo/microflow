@@ -1,5 +1,5 @@
 import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from 'zustand/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
 import { AppState, useReactFlowStore } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';

@@ -60,6 +60,7 @@ export function Handle(props: Props) {
 							marginTop: [Position.Left, Position.Right].includes(props.position)
 								? HANDLE_SPACING * (props.offset ?? 0) + NODER_HEADER_HEIGHT_SPACING
 								: 0,
+							translate: [Position.Left, Position.Top].includes(props.position) ? -1 : 1,
 							...props.style,
 						}}
 					>

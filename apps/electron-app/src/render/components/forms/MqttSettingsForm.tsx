@@ -80,7 +80,7 @@ export function MqttSettingsForm(props: Props) {
 				<SheetHeader>
 					<SheetTitle className="flex gap-2 items-center">
 						<Icons.Globe size={16} />
-						MQTT settings
+						Broker settings
 					</SheetTitle>
 					<SheetDescription>
 						When using Figma nodes, make sure to configure the same MQTT broker in the{' '}
