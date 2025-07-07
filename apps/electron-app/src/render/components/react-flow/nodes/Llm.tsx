@@ -1,5 +1,5 @@
 import { Position, useReactFlow, useUpdateNodeInternals } from '@xyflow/react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeId, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -62,7 +62,7 @@ function Value() {
 		<IconWithValue
 			icon={value ? 'BotMessageSquare' : 'Bot'}
 			iconClassName={value ? 'animate-pulse' : ''}
-			value={value ? 'Thinking...' : (!!data.model ? data.model : 'No model selected')}
+			value={value ? 'Thinking...' : !!data.model ? data.model : 'No model selected'}
 		/>
 	);
 }

@@ -1,7 +1,7 @@
 import { type MatrixData, type MatrixValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Handle } from '../Handle';
+import { Handle } from '../../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
 import { useNodeValue } from '../../../../stores/node-data';
@@ -27,7 +27,6 @@ import {
 	Icons,
 	ListBladeApi,
 } from '@ui/index';
-import { uuid } from '../../../../../utils/uuid';
 import { MatrixEditor } from './MatrixEditor';
 import { usePins } from '../../../../stores/board';
 

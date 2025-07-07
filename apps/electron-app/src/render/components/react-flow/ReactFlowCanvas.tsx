@@ -5,6 +5,7 @@ import { AppState, useReactFlowStore } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
 import { useEffect } from 'react';
+import { EDGE_TYPES } from '../../../common/edges';
 
 const selector = (state: AppState) => ({
 	nodes: state.nodes,
@@ -16,7 +17,7 @@ const selector = (state: AppState) => ({
 
 export function ReactFlowCanvas() {
 	const store = useReactFlowStore(useShallow(selector));
-	const { fitView } = useReactFlow();
+	const { fitView, screenToFlowPosition } = useReactFlow();
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -40,7 +41,21 @@ export function ReactFlowCanvas() {
 	}, [fitView]);
 
 	return (
-		<ReactFlow {...store} nodeTypes={NODE_TYPES} colorMode={'system'} minZoom={0.1} maxZoom={2}>
+		<ReactFlow
+			{...store}
+			onPaneMouseMove={event => {
+				const flowPos = screenToFlowPosition({
+					x: event.clientX,
+					y: event.clientY,
+				});
+				// console.log(flowPos);
+			}}
+			edgeTypes={EDGE_TYPES}
+			nodeTypes={NODE_TYPES}
+			colorMode={'system'}
+			minZoom={0.1}
+			maxZoom={2}
+		>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={32} />

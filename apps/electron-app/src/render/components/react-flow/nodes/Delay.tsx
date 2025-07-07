@@ -1,6 +1,6 @@
 import { DelayData } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { IconWithValue } from '../IconWithValue';

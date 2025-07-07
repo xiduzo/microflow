@@ -4,10 +4,9 @@ import {
 	COMPARE_VALIDATORS,
 	CompareValidator,
 } from '@microflow/components/contants';
-import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { BindingApi, BladeApi } from '@tweakpane/core';
 import { useNodeValue } from '../../../stores/node-data';

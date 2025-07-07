@@ -1,6 +1,6 @@
 import type { CounterData, CounterValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 

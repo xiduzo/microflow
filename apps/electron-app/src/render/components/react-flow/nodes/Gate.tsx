@@ -1,5 +1,5 @@
 import { Position } from '@xyflow/react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';

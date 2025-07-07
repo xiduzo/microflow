@@ -3,7 +3,7 @@ import { MOTION_CONTROLLERS } from '@microflow/components/contants';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';

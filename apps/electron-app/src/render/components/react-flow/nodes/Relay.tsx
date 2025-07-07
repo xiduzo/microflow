@@ -1,6 +1,6 @@
 import { RelayData, RelayValueType } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeSettings } from './Node';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { Icons } from '@ui/index';

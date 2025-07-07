@@ -1,6 +1,6 @@
 import { SwitchData, SwitchValueType } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeSettings } from './Node';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { Switch as UiSwitch } from '@ui/index';

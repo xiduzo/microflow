@@ -1,7 +1,7 @@
 import type { PiezoData, PiezoValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { Handle } from '../Handle';
+import { Handle } from '../../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from '../Node';
 import { DEFAULT_NOTE, DEFAULT_SONG, NOTES_AND_FREQUENCIES } from './constants';
 import { useNodeValue } from '../../../../stores/node-data';
@@ -29,7 +29,6 @@ export function Piezo(props: Props) {
 }
 
 function Value() {
-	// @ts-expect-error PiezoData is not of type `Record<string, unknown>`
 	const data = useNodeData<PiezoData>();
 	const value = useNodeValue<PiezoValueType>(false);
 
@@ -43,7 +42,6 @@ function Value() {
 }
 
 function Settings() {
-	// @ts-expect-error PiezoData is not of type `Record<string, unknown>`
 	const { pane, settings, setHandlesToDelete, saveSettings } = useNodeSettings<PiezoData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
@@ -152,7 +150,6 @@ function Settings() {
 
 export const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
 
-// @ts-expect-error PiezoData is not of type `Record<string, unknown>`
 type Props = BaseNode<PiezoData>;
 Piezo.defaultProps = {
 	data: {

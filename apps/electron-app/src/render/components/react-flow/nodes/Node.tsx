@@ -133,40 +133,43 @@ const header = cva('p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-start
 	],
 });
 
-const subheader = cva('text-xs font-extralight transition-all flex gap-3 items-center justify-start', {
-	variants: {
-		selected: {
-			true: '',
-			false: '',
+const subheader = cva(
+	'text-xs font-extralight transition-all flex gap-3 items-center justify-start',
+	{
+		variants: {
+			selected: {
+				true: '',
+				false: '',
+			},
+			hasError: {
+				true: '',
+				false: '',
+			},
 		},
-		hasError: {
-			true: '',
-			false: '',
-		},
+		compoundVariants: [
+			{
+				selected: false,
+				hasError: false,
+				className: 'text-muted-foreground',
+			},
+			{
+				selected: true,
+				hasError: false,
+				className: 'text-blue-200',
+			},
+			{
+				selected: false,
+				hasError: true,
+				className: 'text-red-200',
+			},
+			{
+				selected: true,
+				hasError: true,
+				className: 'text-blue-200',
+			},
+		],
 	},
-	compoundVariants: [
-		{
-			selected: false,
-			hasError: false,
-			className: 'text-muted-foreground',
-		},
-		{
-			selected: true,
-			hasError: false,
-			className: 'text-blue-200',
-		},
-		{
-			selected: false,
-			hasError: true,
-			className: 'text-red-200',
-		},
-		{
-			selected: true,
-			hasError: true,
-			className: 'text-blue-200',
-		},
-	],
-});
+);
 
 type SettingsContextProps<T extends Record<string, any>> = {
 	pane: Pane | null;

@@ -1,6 +1,6 @@
 import { RgbData, RgbValueType } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeSettings } from './Node';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { usePins } from '../../../stores/board';
 import { useEffect } from 'react';

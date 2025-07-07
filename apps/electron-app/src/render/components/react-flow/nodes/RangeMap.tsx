@@ -1,7 +1,7 @@
 import type { RangeMapData, RangeMapValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect } from 'react';

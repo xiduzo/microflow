@@ -3,7 +3,7 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { mapPinToPaneOption } from '../../../../utils/pin';

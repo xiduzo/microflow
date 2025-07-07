@@ -31,6 +31,7 @@ export function App() {
 							<NewNodeCommandDialog />
 							<NodeAndEdgeSignaler />
 							<ReactFlowCanvas />
+							<Cursors />
 							<IpcMenuListeners />
 							<BoardHooks />
 						</ReactFlowProvider>
@@ -43,6 +44,10 @@ export function App() {
 
 const root = createRoot(document.body.querySelector('main')!);
 root.render(<App />);
+
+function Cursors() {
+	return null;
+}
 
 function NodeAndEdgeSignaler() {
 	useSignalNodesAndEdges();

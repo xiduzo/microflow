@@ -1,7 +1,7 @@
 import type { SmoothData } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { BindingApi } from '@tweakpane/core';
 import { IconWithValue } from '../IconWithValue';

@@ -2,7 +2,7 @@ import type { LedData, LedValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useEffect, useMemo } from 'react';
 import { mapPinToPaneOption, pinValue } from '../../../../utils/pin';

@@ -1,7 +1,7 @@
 import { ConstantData } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { useEffect } from 'react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 
 const numberFormat = new Intl.NumberFormat();

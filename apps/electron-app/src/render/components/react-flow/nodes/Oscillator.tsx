@@ -1,7 +1,7 @@
 import type { OscillatorData } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
-import { Handle } from './Handle';
+import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
 import { IconName } from '@ui/index';
 import { IconWithValue } from '../IconWithValue';
