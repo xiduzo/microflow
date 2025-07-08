@@ -27,7 +27,7 @@ export function useCodeUploader() {
 		setUploadResult({ type: 'info' });
 
 		const nodes = getNodes().filter(node => {
-			if (!isNodeTypeACodeType(node.type)) return;
+			if (!isNodeTypeACodeType(node)) return;
 			return node;
 		});
 		const edges = getEdges();

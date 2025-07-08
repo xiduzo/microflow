@@ -55,6 +55,7 @@ export function ReactFlowCanvas() {
 			colorMode={'system'}
 			minZoom={0.1}
 			maxZoom={2}
+			selectNodesOnDrag={false}
 		>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} pannable />

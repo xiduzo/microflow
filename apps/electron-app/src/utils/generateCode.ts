@@ -1,8 +1,10 @@
 import { Edge, Node } from '@xyflow/react';
 
-export function isNodeTypeACodeType(type?: string) {
-	if (!type) return false;
-	return !['note'].includes(type.toLowerCase());
+export function isNodeTypeACodeType(node?: Node) {
+	if (!node?.type) return false;
+	const { group } = node.data;
+	if (group === 'internal') return false;
+	return !['note'].includes(node.type.toLowerCase());
 }
 
 export function generateCode(nodes: Node<{ baseType?: string; id?: string }>[], edges: Edge[]) {

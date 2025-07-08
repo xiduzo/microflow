@@ -26,79 +26,28 @@ import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
-import { useHotkey } from '../../../hooks/useHotkey';
-
-export function NodeSettingsButton() {
-	const { settingsOpened, setSettingsOpened } = useNode();
-
-	useHotkey({ code: 'KeyP', withMetaKey: true }, () => {
-		setSettingsOpened(false);
-	});
-
-	return (
-		<button
-			onClick={e => {
-				e.stopPropagation();
-				setSettingsOpened(!settingsOpened);
-			}}
-			className={settingsButton({ settingsOpened })}
-		>
-			<Icons.SlidersHorizontal size={16} />
-		</button>
-	);
-}
-
-const settingsButton = cva(
-	'h-10 w-10 inline-flex items-center justify-center rounded-md transition-all',
-	{
-		variants: {
-			settingsOpened: {
-				true: 'dark:bg-black/40 bg-black/10 dark:hover:bg-black/30 hover:bg-black/5',
-				false: 'dark:hover:bg-black/40 hover:bg-black/10',
-			},
-		},
-	},
-);
 
 function NodeHeader(props: { error?: string; selected?: boolean }) {
 	const data = useNodeData();
 
 	return (
 		<header className={header({ selected: props.selected, hasError: !!props.error })}>
-			<div className="flex flex-col flex-grow">
-				<div className="flex items-center space-x-2">
-					<h1 className="font-bold">{data.label}</h1>
-					{props.error && (
-						<TooltipProvider>
-							<Tooltip>
-								<TooltipTrigger asChild className="cursor-help">
-									<Icons.OctagonAlert size={16} />
-								</TooltipTrigger>
-								<TooltipContent className="text-red-500">{props.error}</TooltipContent>
-							</Tooltip>
-						</TooltipProvider>
-					)}
-				</div>
-				<div
-					className={subheader({
-						selected: props.selected,
-						hasError: !!props.error,
-					})}
-				>
-					{'pin' in data && (
-						<div className="flex items-center mr-1">
-							<Icons.Cable size={12} className="mr-0.5 stroke-1" />
-							<span className="text-xs font-extralight">{String(data.pin)}</span>
-						</div>
-					)}
-				</div>
-			</div>
-			<NodeSettingsButton />
+			<h1 className="font-bold flex-grow">{data.label}</h1>
+			<TooltipProvider>
+				{props.error && (
+					<Tooltip delayDuration={0}>
+						<TooltipTrigger asChild className="cursor-help">
+							<Icons.OctagonAlert size={16} />
+						</TooltipTrigger>
+						<TooltipContent className="text-red-500">{props.error}</TooltipContent>
+					</Tooltip>
+				)}
+			</TooltipProvider>
 		</header>
 	);
 }
 
-const header = cva('p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-start transition-all', {
+const header = cva('p-2 px-4 border-b-2 gap-4 flex items-center transition-all', {
 	variants: {
 		selected: {
 			true: '',
@@ -133,43 +82,33 @@ const header = cva('p-2 pl-3.5 border-b-2 gap-3 flex justify-between items-start
 	],
 });
 
-const subheader = cva(
-	'text-xs font-extralight transition-all flex gap-3 items-center justify-start',
-	{
-		variants: {
-			selected: {
-				true: '',
-				false: '',
-			},
-			hasError: {
-				true: '',
-				false: '',
-			},
-		},
-		compoundVariants: [
-			{
-				selected: false,
-				hasError: false,
-				className: 'text-muted-foreground',
-			},
-			{
-				selected: true,
-				hasError: false,
-				className: 'text-blue-200',
-			},
-			{
-				selected: false,
-				hasError: true,
-				className: 'text-red-200',
-			},
-			{
-				selected: true,
-				hasError: true,
-				className: 'text-blue-200',
-			},
-		],
-	},
-);
+function NodeFooter() {
+	const data = useNodeData();
+
+	const hasData = 'pin' in data || 'pins' in data;
+
+	if (!hasData) return null;
+
+	return (
+		<footer className="text-muted-foreground border-t-2 p-1 px-2 flex items-center gap-2">
+			{'pin' in data && (
+				<div className="flex items-center mr-1">
+					<Icons.Cable size={12} className="mr-0.5 stroke-1" />
+					<span className="text-xs font-extralight">{String(data.pin)}</span>
+				</div>
+			)}
+			{'pins' in data &&
+				Object.entries(data.pins).map(([key, value]) => (
+					<div key={key} className="flex items-center mr-1">
+						<Icons.Cable size={12} className="mr-0.5 stroke-1" />
+						<span className="text-xs font-extralight">
+							{key}: {String(value)}
+						</span>
+					</div>
+				))}
+		</footer>
+	);
+}
 
 type SettingsContextProps<T extends Record<string, any>> = {
 	pane: Pane | null;
@@ -194,7 +133,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const updateNodeInternals = useUpdateNodeInternals();
 	const deleteEdes = useDeleteEdges();
 
-	const { data, settingsOpened, setSettingsOpened, id, type } = useNode<T>();
+	const { data, id, type, selected } = useNode<T>();
 	const updateNode = useUpdateNode(id);
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -216,13 +155,14 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 	// TODO: update this after undo / redo
 	useEffect(() => {
-		if (settingsOpened) return;
+		if (selected) return;
 		// Create a copy of the data when the settings are closed
 		setSettings(JSON.parse(JSON.stringify(data)));
-	}, [settingsOpened, data]);
+	}, [selected, data]);
 
 	useEffect(() => {
-		if (!settingsOpened) return;
+		if (!selected) return;
+		if (!settings.label) return;
 
 		const pane = new Pane({
 			title: `${settings.label} (${id})`,
@@ -248,7 +188,8 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 				index: 9999,
 			})
 			.on('click', () => {
-				setSettingsOpened(false);
+				// TODO: close the settings pane
+				// setSettingsOpened(false);
 			});
 
 		pane.on('change', event => {
@@ -262,12 +203,12 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			setPane(null);
 			pane.dispose();
 		};
-	}, [settingsOpened, type, id, saveSettings]);
+	}, [selected, type, id, saveSettings]);
 
 	return (
 		<NodeSettingsPaneContext.Provider value={{ pane, settings, saveSettings, setHandlesToDelete }}>
 			{props.children}
-			{settingsOpened &&
+			{selected &&
 				(createPortal(
 					<div ref={ref} onClick={e => e.stopPropagation()} />,
 					document.getElementById('settings-panels')!,
@@ -276,10 +217,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	);
 }
 
-type ContainerProps<T extends Record<string, unknown>> = BaseNode<T> & {
-	settingsOpened: boolean;
-	setSettingsOpened: (open: boolean) => void;
-};
+type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
 
 const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
 	{} as ContainerProps<Record<string, unknown>>,
@@ -299,16 +237,8 @@ export const useNodeData = <T extends Record<string, any>>() => {
 };
 
 export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
-	const [settingsOpened, setSettingsOpened] = useState(false);
-
 	return (
-		<NodeContainerContext.Provider
-			value={{
-				...props,
-				settingsOpened,
-				setSettingsOpened,
-			}}
-		>
+		<NodeContainerContext.Provider value={props}>
 			<article
 				className={cn(
 					node({
@@ -326,8 +256,15 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5">
 					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
+				<NodeFooter />
 			</article>
 		</NodeContainerContext.Provider>
+	);
+}
+
+export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
+	return (
+		<NodeContainerContext.Provider value={props}>{props.children}</NodeContainerContext.Provider>
 	);
 }
 
@@ -375,7 +312,10 @@ const node = cva(
 	},
 );
 
-type NodeGroup = 'flow' | 'hardware' | 'external';
+/**
+ * Internal nodes should only be used by Microflow and not exposed to the end-user
+ */
+type NodeGroup = 'flow' | 'hardware' | 'external' | 'internal';
 export type NodeTags =
 	| 'digital'
 	| 'analog'

@@ -62,6 +62,7 @@ export function NewNodeCommandDialog() {
 				const node: BaseNode =
 					'defaultProps' in Component ? (Component.defaultProps as any) : { data: {} };
 
+				if (node.data.group === 'internal') return groups; // Skip internal nodes
 				const group = groups.get(node.data.group) ?? [];
 				group.push({ node, type });
 				groups.set(node.data.group, group);
@@ -90,31 +91,6 @@ export function NewNodeCommandDialog() {
 			onOpenChange={state => {
 				setOpen(state);
 				if (!state) setFilter('');
-			}}
-			filter={(value, search, keywords) => {
-				if (search === '') return 1;
-
-				let score = 0;
-
-				const labelMatch = value.toLowerCase().includes(search.toLowerCase());
-				if (labelMatch) score += 0.5;
-
-				const descriptionMatch = keywords.some(keyword =>
-					keyword.toLowerCase().includes(search.toLowerCase()),
-				);
-				if (descriptionMatch) score += 0.3;
-
-				const groupMatch = keywords.some(keyword =>
-					keyword.toLowerCase().includes(search.toLowerCase()),
-				);
-				if (groupMatch) score += 0.1;
-
-				const tagMatch = keywords.some(keyword =>
-					keyword.toLowerCase().includes(search.toLowerCase()),
-				);
-				if (tagMatch) score += 0.1;
-
-				return score;
 			}}
 		>
 			<DialogHeader className="hidden">

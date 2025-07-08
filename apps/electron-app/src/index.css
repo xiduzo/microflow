@@ -21,6 +21,15 @@ body {
 	@apply fill-blue-500;
 }
 
+.react-flow__node.dragging {
+	z-index: 999998 !important;
+}
+
+.react-flow__node.react-flow__node-User {
+	pointer-events: none !important;
+	z-index: 999999 !important;
+}
+
 /* Edges */
 .react-flow__edges .react-flow__edge-path {
 	@apply stroke-[4] dark:stroke-neutral-600 stroke-neutral-400 transition-colors;
