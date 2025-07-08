@@ -30,13 +30,12 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<ButtonData>();
+	const { settings, addBinding, addFolder, addBlade, updateSettings } =
+		useNodeSettings<ButtonData>();
 	const pins = usePins();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
+		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
@@ -51,18 +50,19 @@ function Settings() {
 				.map(mapPinToPaneOption),
 		});
 
-		const advancedFolder = pane.addFolder({
+		addFolder({
 			title: 'advanced',
 			expanded: false,
 			index: 1,
 		});
 
-		advancedFolder.addBinding(settings, 'holdtime', {
+		addBinding('holdtime', {
 			min: 100,
 			step: 50,
+			tag: 'advanced',
 		});
 
-		const typeBlade = advancedFolder.addBlade({
+		addBlade({
 			view: 'list',
 			label: 'type',
 			value: settings.isPulldown ? 2 : settings.isPullup ? 1 : 0,
@@ -71,31 +71,30 @@ function Settings() {
 				{ value: 1, text: 'pull-up' },
 				{ value: 2, text: 'pull-down' },
 			],
+			tag: 'advanced',
+			change: event => {
+				switch (Number(event.value)) {
+					case 0:
+						return updateSettings({
+							isPulldown: false,
+							isPullup: false,
+						});
+					case 1:
+						return updateSettings({
+							isPulldown: false,
+							isPullup: true,
+						});
+					case 2:
+						return updateSettings({
+							isPulldown: true,
+							isPullup: false,
+						});
+				}
+			},
 		});
 
-		(typeBlade as ListBladeApi<number>).on('change', event => {
-			switch (event.value) {
-				case 0:
-					settings.isPulldown = false;
-					settings.isPullup = false;
-					break;
-				case 1:
-					settings.isPulldown = false;
-					settings.isPullup = true;
-					break;
-				case 2:
-					settings.isPulldown = true;
-					settings.isPullup = false;
-					break;
-			}
-		});
-
-		advancedFolder.addBinding(settings, 'invert');
-
-		return () => {
-			[pinBinding, advancedFolder].forEach(disposable => disposable.dispose());
-		};
-	}, [pane, settings, pins]);
+		addBinding('invert', {});
+	}, [settings, pins, addBinding, addFolder, addBlade, updateSettings]);
 
 	return null;
 }

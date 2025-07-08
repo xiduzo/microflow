@@ -23,20 +23,14 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<ConstantData>();
+	const { addBinding } = useNodeSettings<ConstantData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const valueBinding = pane.addBinding(settings, 'value', {
+		addBinding('value', {
 			index: 0,
 			type: 'number',
 		});
-
-		return () => {
-			valueBinding.dispose();
-		};
-	}, [pane]);
+	}, [addBinding]);
 
 	return null;
 }

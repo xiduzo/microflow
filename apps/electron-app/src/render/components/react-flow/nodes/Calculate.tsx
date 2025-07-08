@@ -47,12 +47,10 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<CalculateData>();
+	const { addBinding } = useNodeSettings<CalculateData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const gateType = pane.addBinding(settings, 'function', {
+		addBinding('function', {
 			index: 0,
 			type: 'list',
 			options: [
@@ -68,17 +66,7 @@ function Settings() {
 				{ text: 'round closest', value: 'round' },
 			],
 		});
-
-		gateType.on('change', event => {
-			const hasSingleInput = ['ceil', 'floor', 'round'].includes(event.value as string);
-
-			setHandlesToDelete(hasSingleInput ? ['2'] : []);
-		});
-
-		return () => {
-			gateType.dispose();
-		};
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }

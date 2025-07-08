@@ -82,24 +82,18 @@ function VibrationValue(props: { value: number }) {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<LedData>();
+	const { addBinding } = useNodeSettings<LedData>();
 	const pins = usePins();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
+		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
 			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
 		});
-
-		return () => {
-			[pinBinding].forEach(disposable => disposable.dispose());
-		};
-	}, [pane, settings, pins]);
+	}, [pins, addBinding]);
 
 	return null;
 }

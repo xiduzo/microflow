@@ -66,6 +66,7 @@ function Settings() {
 			],
 		});
 
+		// TODO ==> 1 input handle for all
 		gateType.on('change', gate => {
 			setHandlesToDelete(
 				Array.from({ length: gate.value === 'not' ? 1 : 0 }).map((_, index) => String(index)),

@@ -1,4 +1,5 @@
 import {
+	BindingParams,
 	cn,
 	cva,
 	Icons,
@@ -20,12 +21,18 @@ import {
 	useContext,
 	useEffect,
 	useRef,
-	useState,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
+import {
+	BaseBladeParams,
+	BindingApi,
+	BladeApi,
+	FolderParams,
+	TpChangeEvent,
+} from '@tweakpane/core';
 
 function NodeHeader(props: { error?: string; selected?: boolean }) {
 	const data = useNodeData();
@@ -110,11 +117,24 @@ function NodeFooter() {
 	);
 }
 
+type ChangeHandler<T> = (event: TpChangeEvent<T>) => void;
+type ChangeParam<T = unknown> = {
+	change?: ChangeHandler<T>;
+};
+type BladeParams = BaseBladeParams & {
+	label: string;
+	tag?: string;
+};
+
 type SettingsContextProps<T extends Record<string, any>> = {
 	pane: Pane | null;
 	settings: T;
 	setHandlesToDelete: (handles: string[]) => void;
 	saveSettings: () => void;
+	addBinding: (property: keyof T, options: BindingParams & ChangeParam) => void;
+	addFolder: (params: FolderParams & ChangeParam) => void;
+	addBlade: (params: BladeParams & ChangeParam) => void;
+	updateSettings: (settings: Partial<T>) => void;
 };
 
 const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
@@ -129,19 +149,35 @@ export function useNodeSettings<T extends Record<string, any>>() {
 function NodeSettingsPane<T extends Record<string, unknown>>(
 	props: PropsWithChildren & { options?: unknown },
 ) {
-	const [pane, setPane] = useState<Pane | null>(null);
+	const pane = useRef<Pane | null>(null);
 	const updateNodeInternals = useUpdateNodeInternals();
 	const deleteEdes = useDeleteEdges();
 
 	const { data, id, type, selected } = useNode<T>();
 	const updateNode = useUpdateNode(id);
+	const bindings = useRef<Map<keyof T, BindingParams & ChangeParam>>(new Map());
+	const folders = useRef<Map<string, FolderParams & ChangeParam>>(new Map());
+	const blades = useRef<Map<string, BladeParams & ChangeParam>>(new Map());
 
 	const ref = useRef<HTMLDivElement>(null);
-	const [settings, setSettings] = useState<T & { label: string }>({} as T & { label: string });
+	// TODO: update this after undo / redo
+	const settings = useRef<T & { label: string }>(data as T & { label: string });
 	const handlesToDelete = useRef<string[]>([]);
 
 	const setHandlesToDelete = useCallback((handles: string[]) => {
 		handlesToDelete.current = handles;
+	}, []);
+
+	const addBinding = useCallback((property: keyof T, params: BindingParams) => {
+		bindings.current.set(property, params);
+	}, []);
+
+	const addFolder = useCallback((params: FolderParams) => {
+		folders.current.set(params.title, params);
+	}, []);
+
+	const addBlade = useCallback((params: BladeParams) => {
+		blades.current.set(params.label, params);
 	}, []);
 
 	const saveSettings = useCallback(() => {
@@ -150,63 +186,96 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
 		}
 
-		updateNode(settings, type !== 'Note');
-	}, [updateNode, deleteEdes, updateNodeInternals, id, settings]);
+		updateNode(settings.current, type !== 'Note');
+	}, [updateNode, deleteEdes, updateNodeInternals, id]);
 
-	// TODO: update this after undo / redo
-	useEffect(() => {
-		if (selected) return;
-		// Create a copy of the data when the settings are closed
-		setSettings(JSON.parse(JSON.stringify(data)));
-	}, [selected, data]);
+	const updateSettings = useCallback(
+		(newSettings: Partial<T>) => {
+			settings.current = { ...settings.current, ...newSettings };
+			saveSettings();
+		},
+		[saveSettings],
+	);
 
 	useEffect(() => {
 		if (!selected) return;
-		if (!settings.label) return;
+		if (!settings.current.label) return;
 
-		const pane = new Pane({
-			title: `${settings.label} (${id})`,
+		const newPane = new Pane({
+			title: `${settings.current.label} (${id})`,
 			container: ref.current ?? undefined,
 		});
 
-		pane.registerPlugin(TweakpaneEssentialPlugin);
-		pane.registerPlugin(TweakpaneTextareaPlugin);
-		pane.registerPlugin(TweakpaneCameraPlugin);
+		newPane.registerPlugin(TweakpaneEssentialPlugin);
+		newPane.registerPlugin(TweakpaneTextareaPlugin);
+		newPane.registerPlugin(TweakpaneCameraPlugin);
 
-		pane.addBinding(settings, 'label', {
-			index: 9997,
+		newPane.addBinding(settings.current, 'label', {
+			index: 9999,
 		});
 
-		pane.addBlade({
-			view: 'separator',
-			index: 9998,
-		});
-
-		pane
-			.addButton({
-				title: 'Close',
-				index: 9999,
-			})
-			.on('click', () => {
-				// TODO: close the settings pane
-				// setSettingsOpened(false);
-			});
-
-		pane.on('change', event => {
+		newPane.on('change', event => {
 			if (!event.last) return;
 			saveSettings();
 		});
 
-		setPane(pane);
+		function _addChangeHandler(api: BladeApi | BindingApi, params: ChangeParam) {
+			if (!params.change) return;
+			if (!('on' in api)) return;
+			api.on('change', params.change);
+		}
+
+		folders.current.forEach((params, title) => {
+			const folder = newPane.addFolder(params);
+
+			Array.from(bindings.current)
+				.filter(([, params]) => params.tag === title)
+				.forEach(([property, params]) => {
+					const binding = folder.addBinding(settings.current, property, params);
+					_addChangeHandler(binding, params);
+				});
+			Array.from(blades.current)
+				.filter(([, params]) => params.tag === title)
+				.forEach(([_title, params]) => {
+					const blade = folder.addBlade(params);
+					_addChangeHandler(blade, params);
+				});
+		});
+
+		Array.from(bindings.current)
+			.filter(([, params]) => !params.tag)
+			.forEach(([property, params]) => {
+				const binding = newPane.addBinding(settings.current, property, params);
+				_addChangeHandler(binding, params);
+			});
+		Array.from(blades.current)
+			.filter(([, params]) => !params.tag)
+			.forEach(([_title, params]) => {
+				const blade = newPane.addBlade(params);
+				_addChangeHandler(blade, params);
+			});
+
+		pane.current = newPane;
 
 		return () => {
-			setPane(null);
-			pane.dispose();
+			newPane.dispose();
+			pane.current = null;
 		};
-	}, [selected, type, id, saveSettings]);
+	}, [selected, id, saveSettings]);
 
 	return (
-		<NodeSettingsPaneContext.Provider value={{ pane, settings, saveSettings, setHandlesToDelete }}>
+		<NodeSettingsPaneContext.Provider
+			value={{
+				pane: pane.current,
+				settings: settings.current,
+				addBinding,
+				addFolder,
+				addBlade,
+				saveSettings,
+				updateSettings,
+				setHandlesToDelete,
+			}}
+		>
 			{props.children}
 			{selected &&
 				(createPortal(

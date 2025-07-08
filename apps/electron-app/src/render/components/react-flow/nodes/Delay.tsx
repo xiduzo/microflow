@@ -23,27 +23,20 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<DelayData>();
+	const { addBinding } = useNodeSettings<DelayData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const delayBinding = pane.addBinding(settings, 'delay', {
+		addBinding('delay', {
 			index: 0,
 			min: 100,
 			step: 100,
 		});
 
-		const forgetPriviousBinding = pane.addBinding(settings, 'forgetPrevious', {
+		addBinding('forgetPrevious', {
 			index: 1,
 			label: 'debounce',
 		});
-
-		return () => {
-			delayBinding.dispose();
-			forgetPriviousBinding.dispose();
-		};
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }
