@@ -10,7 +10,7 @@ import {
 import { useMemo } from 'react';
 
 const HANDLE_SPACING = 26;
-const NODER_HEADER_HEIGHT_SPACING = 21;
+const NODER_HEADER_HEIGHT_SPACING = 19;
 
 export function Handle(props: Props) {
 	const edges = useEdges();

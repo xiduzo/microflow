@@ -69,7 +69,7 @@ function Value() {
 function Settings() {
 	const data = useNodeData<MatrixData>();
 	const { settings, saveSettings, addBlade, addBinding, addButton } = useNodeSettings<MatrixData>();
-	const pins = usePins();
+	const pins = usePins([MODES.INPUT]);
 	const [editorOpened, setEditorOpened] = useState(false);
 
 	const [shapes, setShapes] = useState(settings.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]);
@@ -93,16 +93,13 @@ function Settings() {
 
 	useEffect(() => {
 		addBlade({
+			index: 0,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'data (DIN)',
-			index: 0,
 			value: settings.pins.data,
 			options: pins
-				.filter(
-					pin =>
-						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG),
-				)
+				.filter(pin => !pin.supportedModes.includes(MODES.ANALOG))
 				.map(mapPinToPaneOption),
 			change: event => {
 				return {
@@ -114,16 +111,12 @@ function Settings() {
 		});
 
 		addBlade({
+			index: 1,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'clock (CLK)',
-			index: 1,
 			value: settings.pins.clock,
-			options: pins
-				.filter(
-					pin => pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM),
-				)
-				.map(mapPinToPaneOption),
+			options: pins.filter(pin => pin.supportedModes.includes(MODES.PWM)).map(mapPinToPaneOption),
 			change: event => {
 				return {
 					pins: {
@@ -134,16 +127,13 @@ function Settings() {
 		});
 
 		addBlade({
+			index: 2,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'chip select (CS)',
-			index: 2,
 			value: settings.pins.cs,
 			options: pins
-				.filter(
-					pin =>
-						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG),
-				)
+				.filter(pin => !pin.supportedModes.includes(MODES.ANALOG))
 				.map(mapPinToPaneOption),
 			change: event => {
 				return {
@@ -155,16 +145,16 @@ function Settings() {
 		});
 
 		addButton({
+			index: 3,
 			label: 'shapes',
 			title: 'edit shapes',
-			index: 3,
 			click: () => setEditorOpened(true),
 		});
 
 		addBinding('dims', {
+			index: 4,
 			view: 'list',
 			label: 'dimensions',
-			index: 4,
 			value: settings.dims,
 			options: [
 				{ text: '8x8', value: '8x8' },
@@ -173,12 +163,7 @@ function Settings() {
 			],
 		});
 
-		addBinding('devices', {
-			index: 5,
-			min: 1,
-			max: 8,
-			step: 1,
-		});
+		addBinding('devices', { index: 5, min: 1, max: 8, step: 1 });
 	}, [settings, pins, addBlade, addBinding, addButton]);
 
 	const dimensions = useMemo(() => {

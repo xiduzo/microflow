@@ -1,5 +1,5 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Icons, ListBladeApi } from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
@@ -29,6 +29,10 @@ function Value() {
 	return <Icons.Pointer className="text-green-500" size={48} />;
 }
 
+const DEFAULT = 0;
+const PULL_UP = 1;
+const PULL_DOWN = 2;
+
 function Settings() {
 	const { settings, addBinding, addFolder, addBlade } = useNodeSettings<ButtonData>();
 	const requiresPullup = settings.isPullup || settings.isPulldown;
@@ -49,18 +53,18 @@ function Settings() {
 		addBlade({
 			view: 'list',
 			label: 'type',
-			value: settings.isPulldown ? 2 : settings.isPullup ? 1 : 0,
+			value: settings.isPulldown ? PULL_DOWN : settings.isPullup ? PULL_UP : DEFAULT,
 			options: [
-				{ value: 0, text: 'default' },
-				{ value: 1, text: 'pull-up' },
-				{ value: 2, text: 'pull-down' },
+				{ value: DEFAULT, text: 'default' },
+				{ value: PULL_UP, text: 'pull-up' },
+				{ value: PULL_DOWN, text: 'pull-down' },
 			],
 			tag: 'advanced',
 			change: event => {
 				const value = Number(event.value);
 				return {
-					isPulldown: value === 2,
-					isPullup: value === 1,
+					isPullup: value === PULL_UP,
+					isPulldown: value === PULL_DOWN,
 				};
 			},
 		});

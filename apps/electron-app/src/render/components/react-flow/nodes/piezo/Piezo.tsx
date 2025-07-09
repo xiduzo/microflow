@@ -43,7 +43,7 @@ function Value() {
 
 function Settings() {
 	const { pane, settings, setHandlesToDelete, saveSettings } = useNodeSettings<PiezoData>();
-	const pins = usePins();
+	const pins = usePins([MODES.INPUT, MODES.PWM]);
 	const [editorOpened, setEditorOpened] = useState(false);
 
 	useEffect(() => {
@@ -96,20 +96,16 @@ function Settings() {
 		}
 
 		const pinBinding = pane.addBinding(settings, 'pin', {
+			index: 0,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
-			index: 0,
-			options: pins
-				.filter(
-					pin => pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM),
-				)
-				.map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 
 		const typeBinding = pane.addBinding(settings, 'type', {
-			view: 'list',
 			index: 1,
+			view: 'list',
 			options: [
 				{ text: 'buzz', value: 'buzz' },
 				{ text: 'song', value: 'song' },

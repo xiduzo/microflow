@@ -41,7 +41,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 
 	return (
 		<header className={header({ selected: props.selected, hasError: !!props.error })}>
-			<h1 className="font-bold flex-grow">{data.label}</h1>
+			<h1 className="text-xs flex-grow font-bold">{data.label}</h1>
 			<TooltipProvider>
 				{props.error && (
 					<Tooltip delayDuration={0}>
@@ -56,7 +56,7 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 	);
 }
 
-const header = cva('p-2 px-4 border-b-2 gap-4 flex items-center transition-all', {
+const header = cva('p-2 border-b-2 gap-4 flex items-center transition-all', {
 	variants: {
 		selected: {
 			true: '',
