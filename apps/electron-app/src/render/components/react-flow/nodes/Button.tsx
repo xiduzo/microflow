@@ -1,11 +1,11 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Icons } from '@microflow/ui';
+import { folder, Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
 import { mapPinToPaneOption } from '../../../../utils/pin';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData, useNodeSettings } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 
@@ -34,45 +34,66 @@ const PULL_UP = 1;
 const PULL_DOWN = 2;
 
 function Settings() {
-	const { settings, addBinding, addFolder, addBlade } = useNodeSettings<ButtonData>();
-	const requiresPullup = settings.isPullup || settings.isPulldown;
+	const data = useNodeData<ButtonData>();
+	const requiresPullup = data.isPullup || data.isPulldown;
 	const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
 
-	useEffect(() => {
-		addBinding('pin', {
-			index: 0,
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			options: pins.map(mapPinToPaneOption),
-		});
+	return (
+		<NodeSettings
+			settings={{
+				label: { value: data.label },
+				pin: { options: pins.map(mapPinToPaneOption), value: data.pin, disabled: !pins.length },
+				advanced: folder(
+					{
+						holdtime: { min: 100, step: 50, value: data.holdtime!, label: 'hold time (ms)' },
+					},
+					{ collapsed: true },
+				),
+				// delay: { min: 100, step: 100, value: data.delay, label: 'delay (ms)' },
+				// forgetPrevious: { value: data.forgetPrevious, label: 'debounce' },
+			}}
+		/>
+	);
 
-		addFolder({ index: 1, title: 'advanced', expanded: false });
-		addBinding('holdtime', { min: 100, step: 50, tag: 'advanced' });
+	// const { settings, addBinding, addFolder, addBlade } = useNodeSettings<ButtonData>();
+	// const requiresPullup = settings.isPullup || settings.isPulldown;
+	// const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
 
-		addBlade({
-			view: 'list',
-			label: 'type',
-			value: settings.isPulldown ? PULL_DOWN : settings.isPullup ? PULL_UP : DEFAULT,
-			options: [
-				{ value: DEFAULT, text: 'default' },
-				{ value: PULL_UP, text: 'pull-up' },
-				{ value: PULL_DOWN, text: 'pull-down' },
-			],
-			tag: 'advanced',
-			change: event => {
-				const value = Number(event.value);
-				return {
-					isPullup: value === PULL_UP,
-					isPulldown: value === PULL_DOWN,
-				};
-			},
-		});
+	// useEffect(() => {
+	// 	addBinding('pin', {
+	// 		index: 0,
+	// 		view: 'list',
+	// 		disabled: !pins.length,
+	// 		label: 'pin',
+	// 		options: pins.map(mapPinToPaneOption),
+	// 	});
 
-		addBinding('invert', {});
-	}, [settings, pins, addBinding, addFolder, addBlade]);
+	// 	addFolder({ index: 1, title: 'advanced', expanded: false });
+	// 	addBinding('holdtime', { min: 100, step: 50, tag: 'advanced' });
 
-	return null;
+	// 	addBlade({
+	// 		view: 'list',
+	// 		label: 'type',
+	// 		value: settings.isPulldown ? PULL_DOWN : settings.isPullup ? PULL_UP : DEFAULT,
+	// 		options: [
+	// 			{ value: DEFAULT, text: 'default' },
+	// 			{ value: PULL_UP, text: 'pull-up' },
+	// 			{ value: PULL_DOWN, text: 'pull-down' },
+	// 		],
+	// 		tag: 'advanced',
+	// 		change: event => {
+	// 			const value = Number(event.value);
+	// 			return {
+	// 				isPullup: value === PULL_UP,
+	// 				isPulldown: value === PULL_DOWN,
+	// 			};
+	// 		},
+	// 	});
+
+	// 	addBinding('invert', {});
+	// }, [settings, pins, addBinding, addFolder, addBlade]);
+
+	// return null;
 }
 
 type Props = BaseNode<ButtonData>;

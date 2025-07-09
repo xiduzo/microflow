@@ -9,7 +9,7 @@ import {
 } from '@xyflow/react';
 import { useMemo } from 'react';
 
-const HANDLE_SPACING = 26;
+const HANDLE_SPACING = 24;
 const NODER_HEADER_HEIGHT_SPACING = 19;
 
 export function Handle(props: Props) {
@@ -42,9 +42,7 @@ export function Handle(props: Props) {
 						{...props}
 						isConnectable={isConnectable}
 						isValidConnection={edge => {
-							if (props.isValidConnection) {
-								return props.isValidConnection(edges, edge);
-							}
+							if (props.isValidConnection) props.isValidConnection(edges, edge);
 
 							// Can not connect to self
 							if (edge.source === edge.target) return false;

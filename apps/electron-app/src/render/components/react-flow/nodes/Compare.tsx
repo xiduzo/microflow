@@ -8,7 +8,6 @@ import { Position } from '@xyflow/react';
 import { useEffect, useMemo } from 'react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { BindingApi, BladeApi } from '@tweakpane/core';
 import { useNodeValue } from '../../../stores/node-data';
 import { IconWithValue } from '../IconWithValue';
 
@@ -40,7 +39,7 @@ function Value() {
 					case 'equal to':
 					case 'less than':
 					case 'greater than':
-						return `is ${data.subValidator} ${data.validatorArg}`;
+						return `is ${data.subValidator} ${formatter.format(data.validatorArg)}`;
 					case 'even':
 					case 'odd':
 						return `is ${data.subValidator}`;
@@ -72,116 +71,108 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<CompareData>();
+	const { settings, addBinding } = useNodeSettings<CompareData>();
 
 	useEffect(() => {
-		if (!pane) return;
+		// if (!pane) return;
 
-		let subValidatorPane: BindingApi | undefined;
-		let validatorArgPane: BladeApi | undefined;
+		// let subValidatorPane: BindingApi | undefined;
+		// let validatorArgPane: BladeApi | undefined;
 
-		// TODO: dynamic bindings
-		function addValidatorArgs() {
-			if (!pane) return;
+		// // TODO: dynamic bindings
+		// function addValidatorArgs() {
+		// 	if (!pane) return;
 
-			validatorArgPane?.dispose();
+		// 	validatorArgPane?.dispose();
 
-			validatorArgPane = pane.addBinding(settings, 'validatorArg', {
-				index: 2,
-				label: '',
-			});
-		}
+		// 	validatorArgPane = pane.addBinding(settings, 'validatorArg', {
+		// 		index: 2,
+		// 		label: '',
+		// 	});
+		// }
 
-		function addSubValidator(validator: CompareValidator) {
-			if (!pane) return;
-			subValidatorPane?.dispose();
+		// function addSubValidator(validator: CompareValidator) {
+		// 	if (!pane) return;
+		// 	subValidatorPane?.dispose();
 
-			subValidatorPane = pane
-				.addBinding(settings, 'subValidator', {
-					view: 'list',
-					index: 1,
-					label: 'is',
-					options: COMPARE_SUB_VALIDATORS[validator].map(item => ({
-						text: item,
-						value: item,
-					})),
-				})
-				.on('change', event => {
-					switch (event.value) {
-						case 'equal to':
-						case 'includes':
-						case 'starts with':
-						case 'ends with':
-							settings.validatorArg = settings.validatorArg ?? '';
-							addValidatorArgs();
-							break;
-						case 'less than':
-						case 'greater than':
-							settings.validatorArg = isNaN(Number(settings.validatorArg))
-								? 0
-								: (settings.validatorArg ?? 0);
-							addValidatorArgs();
-							break;
-						case 'between':
-						case 'outside':
-							settings.validatorArg = isNaN(Number(settings.validatorArg))
-								? (settings.validatorArg ?? { min: 100, max: 500 })
-								: { min: 100, max: 500 };
-							addValidatorArgs();
-							break;
-						case 'even':
-						case 'odd':
-							validatorArgPane?.dispose();
-							break;
-						default:
-							// Boolean
-							break;
-					}
-				});
+		// 	if (settings.subValidator === 'odd') return;
+		// 	if (settings.subValidator === 'even') return;
 
-			if (settings.subValidator === 'odd') return;
-			if (settings.subValidator === 'even') return;
+		// 	addValidatorArgs();
+		// }
 
-			addValidatorArgs();
-		}
-
-		const validatorBinding = pane
-			.addBinding(settings, 'validator', {
-				index: 0,
-				view: 'list',
-				label: 'validate',
-				options: COMPARE_VALIDATORS.map(validator => ({
-					text: validator,
-					value: validator,
-				})),
-			})
-			.on('change', event => {
+		addBinding('validator', {
+			index: 0,
+			view: 'list',
+			label: 'validate',
+			options: COMPARE_VALIDATORS.map(validator => ({ text: validator, value: validator })),
+			change: event => {
 				switch (event.value) {
 					case 'boolean':
-						subValidatorPane?.dispose();
-						validatorArgPane?.dispose();
+						// subValidatorPane?.dispose();
+						// validatorArgPane?.dispose();
 						return;
 					case 'number':
 						settings.subValidator = 'equal to';
 						settings.validatorArg = 0;
-						addSubValidator(event.value);
+						// addSubValidator(event.value);
 						break;
 					case 'text':
 						settings.subValidator = 'includes';
 						settings.validatorArg = '';
-						addSubValidator(event.value);
+						// addSubValidator(event.value);
 						return;
 				}
-			});
+			},
+		});
 
-		if (settings.validator !== 'boolean') addSubValidator(settings.validator);
-
-		return () => {
-			validatorBinding.dispose();
-			subValidatorPane?.dispose();
-			validatorArgPane?.dispose();
-		};
-	}, [pane, settings]);
+		// addBinding('subValidator', {
+		// 	view: 'list',
+		// 	index: 1,
+		// 	label: 'is',
+		// 	options: COMPARE_SUB_VALIDATORS[settings.validator].map(item => ({
+		// 		text: item,
+		// 		value: item,
+		// 	})),
+		// 	change: event => {
+		// 		console.log(event);
+		// 	},
+		// });
+		// .on('change', event => {
+		// 	switch (event.value) {
+		// 		case 'equal to':
+		// 		case 'includes':
+		// 		case 'starts with':
+		// 		case 'ends with':
+		// 			settings.validatorArg = settings.validatorArg ?? '';
+		// 			addValidatorArgs();
+		// 			break;
+		// 		case 'less than':
+		// 		case 'greater than':
+		// 			settings.validatorArg = isNaN(Number(settings.validatorArg))
+		// 				? 0
+		// 				: (settings.validatorArg ?? 0);
+		// 			addValidatorArgs();
+		// 			break;
+		// 		case 'between':
+		// 		case 'outside':
+		// 			settings.validatorArg = isNaN(Number(settings.validatorArg))
+		// 				? (settings.validatorArg ?? { min: 100, max: 500 })
+		// 				: { min: 100, max: 500 };
+		// 			addValidatorArgs();
+		// 			break;
+		// 		case 'even':
+		// 		case 'odd':
+		// 			validatorArgPane?.dispose();
+		// 			break;
+		// 		default:
+		// 			// Boolean
+		// 			break;
+		// 	}
+		// });
+		//
+		// addBinding('validatorArg', { index: 2, label: '', hidden: settings.validator === 'boolean' });
+	}, [settings, addBinding]);
 
 	return null;
 }
@@ -193,6 +184,8 @@ Compare.defaultProps = {
 		tags: ['control'],
 		label: 'Compare',
 		validator: 'boolean',
+		subValidator: undefined,
+		validatorArg: undefined,
 		description: 'Validate and compare signals',
 	} satisfies Props['data'],
 };

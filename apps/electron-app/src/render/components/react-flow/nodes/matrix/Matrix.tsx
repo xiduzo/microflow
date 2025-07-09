@@ -92,6 +92,7 @@ function Settings() {
 	}, [shapes, settings.shapes]);
 
 	useEffect(() => {
+		// TODO: nested blades on `settings`
 		addBlade({
 			index: 0,
 			view: 'list',
@@ -102,11 +103,7 @@ function Settings() {
 				.filter(pin => !pin.supportedModes.includes(MODES.ANALOG))
 				.map(mapPinToPaneOption),
 			change: event => {
-				return {
-					pins: {
-						data: event.value,
-					},
-				};
+				return { pins: { data: event.value } };
 			},
 		});
 
@@ -118,11 +115,7 @@ function Settings() {
 			value: settings.pins.clock,
 			options: pins.filter(pin => pin.supportedModes.includes(MODES.PWM)).map(mapPinToPaneOption),
 			change: event => {
-				return {
-					pins: {
-						clock: event.value,
-					},
-				};
+				return { pins: { clock: event.value } };
 			},
 		});
 
@@ -136,11 +129,7 @@ function Settings() {
 				.filter(pin => !pin.supportedModes.includes(MODES.ANALOG))
 				.map(mapPinToPaneOption),
 			change: event => {
-				return {
-					pins: {
-						cs: event.value,
-					},
-				};
+				return { pins: { cs: event.value } };
 			},
 		});
 

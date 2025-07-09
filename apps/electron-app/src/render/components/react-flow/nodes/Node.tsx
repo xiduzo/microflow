@@ -3,6 +3,7 @@ import {
 	cn,
 	cva,
 	Icons,
+	LevaPanel,
 	Pane,
 	Tooltip,
 	TooltipContent,
@@ -11,6 +12,8 @@ import {
 	TweakpaneCameraPlugin,
 	TweakpaneEssentialPlugin,
 	TweakpaneTextareaPlugin,
+	useControls,
+	useCreateStore,
 } from '@microflow/ui';
 import { Node, useUpdateNodeInternals } from '@xyflow/react';
 import {
@@ -21,6 +24,7 @@ import {
 	useContext,
 	useEffect,
 	useRef,
+	useState,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
@@ -35,12 +39,13 @@ import {
 	FolderParams,
 	TpChangeEvent,
 } from '@tweakpane/core';
+import { useDebounceValue, useIsMounted } from 'usehooks-ts';
 
-function NodeHeader(props: { error?: string; selected?: boolean }) {
+function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
 
 	return (
-		<header className={header({ selected: props.selected, hasError: !!props.error })}>
+		<header className="p-2 border-b-2 gap-4 flex items-center transition-all">
 			<h1 className="text-xs flex-grow font-bold">{data.label}</h1>
 			<TooltipProvider>
 				{props.error && (
@@ -55,41 +60,6 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 		</header>
 	);
 }
-
-const header = cva('p-2 border-b-2 gap-4 flex items-center transition-all', {
-	variants: {
-		selected: {
-			true: '',
-			false: '',
-		},
-		hasError: {
-			true: '',
-			false: '',
-		},
-	},
-	compoundVariants: [
-		{
-			selected: false,
-			hasError: false,
-			className: 'text-muted-foreground dark:border-muted border-muted-foreground/20',
-		},
-		{
-			selected: true,
-			hasError: false,
-			className: 'bg-blue-600 text-blue-200 border-blue-600',
-		},
-		{
-			selected: false,
-			hasError: true,
-			className: 'bg-red-600 text-red-200 border-red-600',
-		},
-		{
-			selected: true,
-			hasError: true,
-			className: 'bg-blue-600 text-blue-200 border-blue-600',
-		},
-	],
-});
 
 function NodeFooter() {
 	const data = useNodeData();
@@ -148,6 +118,34 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 	{} as SettingsContextProps<{}>,
 );
 
+type UseControlParameters = Parameters<typeof useControls>;
+type Schema = UseControlParameters[0];
+
+export const useNodeControls = <S extends Schema>(schemaOrFolderName: S) => {
+	const store = useCreateStore();
+	const { selected, type, id } = useNode();
+	const updateNodeInternals = useUpdateNodeInternals();
+	const updateNode = useUpdateNode(id);
+
+	const data = useControls(schemaOrFolderName, { store });
+
+	const [debouncedData] = useDebounceValue(data, 250);
+
+	useEffect(() => {
+		updateNode(debouncedData, type !== 'Note');
+		updateNodeInternals(id);
+	}, [debouncedData, type, id, updateNodeInternals, updateNode]);
+
+	return <LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selected} />;
+};
+
+export function NodeSettings(props: { settings: Schema }) {
+	const element = useNodeControls(props.settings);
+	console.log(props.settings);
+
+	return <>{createPortal(element, document.getElementById('settings-panels')!)}</>;
+}
+
 export function useNodeSettings<T extends Record<string, any>>() {
 	// @ts-ignore-next-line
 	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
@@ -201,6 +199,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		updateNode(settings.current, type !== 'Note');
 	}, [updateNode, deleteEdes, updateNodeInternals, id]);
 
+	// Might be good next step to move to https://github.com/pmndrs/leva which is more react native
 	useEffect(() => {
 		if (!selected) return;
 		if (!settings.current.label) return;
@@ -219,13 +218,30 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			saveSettings();
 		});
 
+		function _deepMerge<Target extends Record<string, unknown>, Source extends Partial<T>>(
+			target: Target,
+			source: Source,
+		) {
+			for (const key in source) {
+				if (source[key] && typeof source[key] === 'object') {
+					target[key] = _deepMerge(target[key] ?? {}, source[key]) as unknown as Target[Extract<
+						keyof Source,
+						string
+					>];
+				} else {
+					target[key] = source[key] as unknown as Target[Extract<keyof Source, string>];
+				}
+			}
+			return target;
+		}
+
 		function _addChangeHandler(api: BladeApi | BindingApi, params: ChangeParam) {
 			if (!params.change) return;
 			if (!('on' in api)) return;
 			api.on('change', event => {
 				const response = params.change?.(event);
 				if (!response) return;
-				settings.current = { ...settings.current, ...response };
+				settings.current = _deepMerge(settings.current, response);
 				saveSettings();
 			});
 		}
@@ -277,9 +293,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 				_addButtonHandler(blade, params);
 			});
 
-		newPane.addBinding(settings.current, 'label', {
-			index: 9999,
-		});
+		newPane.addBinding(settings.current, 'label', { index: 9999 });
 
 		pane.current = newPane;
 
@@ -338,7 +352,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 				className={cn(
 					node({
 						className: props.className,
-						deletabled: props.deletable,
+						deletable: props.deletable,
 						draggable: props.draggable,
 						dragging: props.dragging,
 						selectable: props.selectable,
@@ -347,8 +361,8 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 					}),
 				)}
 			>
-				<NodeHeader error={props.error} selected={props.selected} />
-				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5">
+				<NodeHeader error={props.error} />
+				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 ">
 					<NodeSettingsPane>{props.children}</NodeSettingsPane>
 				</main>
 				<NodeFooter />
@@ -364,14 +378,14 @@ export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
 }
 
 const node = cva(
-	'border border-2 rounded-sm backdrop-blur-sm min-w-52 min-h-44 flex flex-col transition-all',
+	'round border-2 rounded-sm backdrop-blur-sm min-w-52 min-h-44 flex flex-col transition-all',
 	{
 		variants: {
 			selectable: { true: '', false: '' },
 			selected: { true: 'border-blue-600', false: '' },
 			draggable: { true: 'active:cursor-grabbing', false: '' },
 			dragging: { true: '', false: '' },
-			deletabled: { true: '', false: '' },
+			deletable: { true: '', false: '' },
 			hasError: { true: '', false: '' },
 		},
 		defaultVariants: {
@@ -379,7 +393,7 @@ const node = cva(
 			selected: false,
 			draggable: false,
 			dragging: false,
-			deletabled: false,
+			deletable: false,
 			hasError: false,
 		},
 		compoundVariants: [
