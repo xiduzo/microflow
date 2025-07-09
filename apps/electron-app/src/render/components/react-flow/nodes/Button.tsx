@@ -30,8 +30,7 @@ function Value() {
 }
 
 function Settings() {
-	const { settings, addBinding, addFolder, addBlade, updateSettings } =
-		useNodeSettings<ButtonData>();
+	const { settings, addBinding, addFolder, addBlade } = useNodeSettings<ButtonData>();
 	const pins = usePins();
 
 	useEffect(() => {
@@ -75,26 +74,26 @@ function Settings() {
 			change: event => {
 				switch (Number(event.value)) {
 					case 0:
-						return updateSettings({
+						return {
 							isPulldown: false,
 							isPullup: false,
-						});
+						};
 					case 1:
-						return updateSettings({
+						return {
 							isPulldown: false,
 							isPullup: true,
-						});
+						};
 					case 2:
-						return updateSettings({
+						return {
 							isPulldown: true,
 							isPullup: false,
-						});
+						};
 				}
 			},
 		});
 
 		addBinding('invert', {});
-	}, [settings, pins, addBinding, addFolder, addBlade, updateSettings]);
+	}, [settings, pins, addBinding, addFolder, addBlade]);
 
 	return null;
 }

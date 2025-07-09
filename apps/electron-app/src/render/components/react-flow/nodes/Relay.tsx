@@ -29,13 +29,11 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<RelayData>();
+	const { addBinding } = useNodeSettings<RelayData>();
 	const pins = usePins();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
+		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
@@ -45,7 +43,7 @@ function Settings() {
 				.map(mapPinToPaneOption),
 		});
 
-		const typeBinding = pane.addBinding(settings, 'type', {
+		addBinding('type', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'mode',
@@ -55,12 +53,7 @@ function Settings() {
 				{ value: 'NC', text: 'Normally closed' },
 			],
 		});
-
-		return () => {
-			pinBinding.dispose();
-			typeBinding.dispose();
-		};
-	}, [settings, pane, pins]);
+	}, [addBinding, pins]);
 
 	return null;
 }

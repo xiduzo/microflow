@@ -51,21 +51,19 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings();
+	const { addBinding } = useNodeSettings();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'from', {
+		addBinding('from', {
 			index: 0,
 			step: 1,
 		});
 
-		pane.addBinding(settings, 'to', {
+		addBinding('to', {
 			index: 1,
 			step: 1,
 		});
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }

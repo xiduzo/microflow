@@ -43,12 +43,10 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<OscillatorData>();
+	const { addBinding } = useNodeSettings<OscillatorData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'waveform', {
+		addBinding('waveform', {
 			index: 0,
 			view: 'list',
 			label: 'validate',
@@ -61,30 +59,30 @@ function Settings() {
 			],
 		});
 
-		pane.addBinding(settings, 'period', {
+		addBinding('period', {
 			index: 1,
 			step: 1,
 			min: 100,
 		});
 
-		pane.addBinding(settings, 'amplitude', {
+		addBinding('amplitude', {
 			index: 2,
 			min: 0.1,
 		});
 
-		pane.addBinding(settings, 'phase', {
+		addBinding('phase', {
 			index: 3,
 		});
 
-		pane.addBinding(settings, 'shift', {
+		addBinding('shift', {
 			index: 4,
 		});
 
-		pane.addBinding(settings, 'autoStart', {
+		addBinding('autoStart', {
 			index: 5,
 			label: 'auto start',
 		});
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }

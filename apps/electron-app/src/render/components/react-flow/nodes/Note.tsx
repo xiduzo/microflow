@@ -22,23 +22,21 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<NoteData>();
+	const { addBinding } = useNodeSettings<NoteData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'note', {
+		addBinding('note', {
 			index: 0,
 			view: 'textarea',
 			rows: 3,
 		});
-		pane.addBinding(settings, 'extraInfo', {
+		addBinding('extraInfo', {
 			index: 1,
 			label: 'Extra info',
 			view: 'textarea',
 			rows: 3,
 		});
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }

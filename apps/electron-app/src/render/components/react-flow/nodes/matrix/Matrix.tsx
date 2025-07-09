@@ -68,7 +68,7 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<MatrixData>();
-	const { pane, settings, saveSettings } = useNodeSettings<MatrixData>();
+	const { settings, saveSettings, addBlade, addBinding, addButton } = useNodeSettings<MatrixData>();
 	const pins = usePins();
 	const [editorOpened, setEditorOpened] = useState(false);
 
@@ -92,9 +92,7 @@ function Settings() {
 	}, [shapes, settings.shapes]);
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const dataPinBlade = pane.addBlade({
+		addBlade({
 			view: 'list',
 			disabled: !pins.length,
 			label: 'data (DIN)',
@@ -106,13 +104,16 @@ function Settings() {
 						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG),
 				)
 				.map(mapPinToPaneOption),
+			change: event => {
+				return {
+					pins: {
+						data: event.value,
+					},
+				};
+			},
 		});
 
-		(dataPinBlade as ListBladeApi<number | string>).on('change', event => {
-			settings.pins.data = event.value;
-		});
-
-		const clockPinBlade = pane.addBlade({
+		addBlade({
 			view: 'list',
 			disabled: !pins.length,
 			label: 'clock (CLK)',
@@ -123,13 +124,16 @@ function Settings() {
 					pin => pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.PWM),
 				)
 				.map(mapPinToPaneOption),
+			change: event => {
+				return {
+					pins: {
+						clock: event.value,
+					},
+				};
+			},
 		});
 
-		(clockPinBlade as ListBladeApi<number | string>).on('change', event => {
-			settings.pins.clock = event.value;
-		});
-
-		const chipSeletPinBlade = pane.addBlade({
+		addBlade({
 			view: 'list',
 			disabled: !pins.length,
 			label: 'chip select (CS)',
@@ -141,23 +145,23 @@ function Settings() {
 						pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.ANALOG),
 				)
 				.map(mapPinToPaneOption),
+			change: event => {
+				return {
+					pins: {
+						cs: event.value,
+					},
+				};
+			},
 		});
 
-		(chipSeletPinBlade as ListBladeApi<number | string>).on('change', event => {
-			settings.pins.cs = event.value;
+		addButton({
+			label: 'shapes',
+			title: 'edit shapes',
+			index: 3,
+			click: () => setEditorOpened(true),
 		});
 
-		const shapesButton = pane
-			.addButton({
-				label: 'shapes',
-				title: 'edit shapes',
-				index: 3,
-			})
-			.on('click', () => {
-				setEditorOpened(true);
-			});
-
-		const dimensionsBinding = pane.addBinding(settings, 'dims', {
+		addBinding('dims', {
 			view: 'list',
 			label: 'dimensions',
 			index: 4,
@@ -169,22 +173,13 @@ function Settings() {
 			],
 		});
 
-		const devicesBinding = pane.addBinding(settings, 'devices', {
+		addBinding('devices', {
 			index: 5,
 			min: 1,
 			max: 8,
 			step: 1,
 		});
-
-		return () => {
-			dataPinBlade.dispose();
-			clockPinBlade.dispose();
-			chipSeletPinBlade.dispose();
-			shapesButton.dispose();
-			dimensionsBinding.dispose();
-			devicesBinding.dispose();
-		};
-	}, [pane, settings, pins]);
+	}, [settings, pins, addBlade, addBinding, addButton]);
 
 	const dimensions = useMemo(() => {
 		return getShape(settings.dims, settings.devices);

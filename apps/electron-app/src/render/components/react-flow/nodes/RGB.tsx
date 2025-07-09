@@ -30,16 +30,14 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<RgbData>();
+	const { addBinding } = useNodeSettings<RgbData>();
 	const pins = usePins();
 
 	useEffect(() => {
-		if (!pane) return;
-
 		const colors = ['red', 'green', 'blue'];
 
-		const colorBindings = colors.map((color, index) => {
-			return pane.addBinding(settings.pins, color, {
+		colors.map((color, index) => {
+			addBinding(color, {
 				view: 'list',
 				disabled: !pins.length,
 				label: color,
@@ -53,16 +51,12 @@ function Settings() {
 			});
 		});
 
-		const isAnodeBinding = pane.addBinding(settings, 'isAnode', {
+		addBinding('isAnode', {
 			view: 'toggle',
 			label: 'anode',
-			index: 3,
+			index: colors.length,
 		});
-
-		return () => {
-			[...colorBindings, isAnodeBinding].forEach(disposable => disposable.dispose());
-		};
-	}, [pane, settings, pins]);
+	}, [addBinding, pins]);
 
 	return null;
 }

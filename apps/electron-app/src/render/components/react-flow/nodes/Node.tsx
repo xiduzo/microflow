@@ -30,6 +30,8 @@ import {
 	BaseBladeParams,
 	BindingApi,
 	BladeApi,
+	ButtonApi,
+	ButtonParams,
 	FolderParams,
 	TpChangeEvent,
 } from '@tweakpane/core';
@@ -117,9 +119,14 @@ function NodeFooter() {
 	);
 }
 
-type ChangeHandler<T> = (event: TpChangeEvent<T>) => void;
-type ChangeParam<T = unknown> = {
-	change?: ChangeHandler<T>;
+type ChangeHandler<ChangeValue, ReturnValue> = (
+	event: TpChangeEvent<ChangeValue>,
+) => ReturnValue | void;
+type ChangeParam<ChangeValue = unknown, ReturnValue = unknown> = {
+	change?: ChangeHandler<ChangeValue, ReturnValue>;
+};
+type ClickParam = {
+	click?: () => void;
 };
 type BladeParams = BaseBladeParams & {
 	label: string;
@@ -131,10 +138,10 @@ type SettingsContextProps<T extends Record<string, any>> = {
 	settings: T;
 	setHandlesToDelete: (handles: string[]) => void;
 	saveSettings: () => void;
-	addBinding: (property: keyof T, options: BindingParams & ChangeParam) => void;
-	addFolder: (params: FolderParams & ChangeParam) => void;
-	addBlade: (params: BladeParams & ChangeParam) => void;
-	updateSettings: (settings: Partial<T>) => void;
+	addBinding: (property: keyof T, params: BindingParams & ChangeParam<unknown, Partial<T>>) => void;
+	addFolder: (params: FolderParams & ChangeParam<unknown, Partial<T>>) => void;
+	addBlade: (params: BladeParams & ChangeParam<unknown, Partial<T>>) => void;
+	addButton: (params: ButtonParams & ClickParam & { tag?: string }) => void;
 };
 
 const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
@@ -155,9 +162,10 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 	const { data, id, type, selected } = useNode<T>();
 	const updateNode = useUpdateNode(id);
-	const bindings = useRef<Map<keyof T, BindingParams & ChangeParam>>(new Map());
-	const folders = useRef<Map<string, FolderParams & ChangeParam>>(new Map());
-	const blades = useRef<Map<string, BladeParams & ChangeParam>>(new Map());
+	const bindings = useRef(new Map<keyof T, BindingParams & ChangeParam>());
+	const folders = useRef(new Map<string, FolderParams & ChangeParam>());
+	const blades = useRef(new Map<string, BladeParams & ChangeParam>());
+	const buttons = useRef(new Map<string, ButtonParams & ClickParam & { tag?: string }>());
 
 	const ref = useRef<HTMLDivElement>(null);
 	// TODO: update this after undo / redo
@@ -168,16 +176,20 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		handlesToDelete.current = handles;
 	}, []);
 
-	const addBinding = useCallback((property: keyof T, params: BindingParams) => {
+	const addBinding = useCallback((property: keyof T, params: BindingParams & ChangeParam) => {
 		bindings.current.set(property, params);
 	}, []);
 
-	const addFolder = useCallback((params: FolderParams) => {
+	const addFolder = useCallback((params: FolderParams & ChangeParam) => {
 		folders.current.set(params.title, params);
 	}, []);
 
-	const addBlade = useCallback((params: BladeParams) => {
+	const addBlade = useCallback((params: BladeParams & ChangeParam) => {
 		blades.current.set(params.label, params);
+	}, []);
+
+	const addButton = useCallback((params: ButtonParams & ClickParam) => {
+		buttons.current.set(params.title, params);
 	}, []);
 
 	const saveSettings = useCallback(() => {
@@ -188,14 +200,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 
 		updateNode(settings.current, type !== 'Note');
 	}, [updateNode, deleteEdes, updateNodeInternals, id]);
-
-	const updateSettings = useCallback(
-		(newSettings: Partial<T>) => {
-			settings.current = { ...settings.current, ...newSettings };
-			saveSettings();
-		},
-		[saveSettings],
-	);
 
 	useEffect(() => {
 		if (!selected) return;
@@ -210,10 +214,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		newPane.registerPlugin(TweakpaneTextareaPlugin);
 		newPane.registerPlugin(TweakpaneCameraPlugin);
 
-		newPane.addBinding(settings.current, 'label', {
-			index: 9999,
-		});
-
 		newPane.on('change', event => {
 			if (!event.last) return;
 			saveSettings();
@@ -222,7 +222,17 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		function _addChangeHandler(api: BladeApi | BindingApi, params: ChangeParam) {
 			if (!params.change) return;
 			if (!('on' in api)) return;
-			api.on('change', params.change);
+			api.on('change', event => {
+				const response = params.change?.(event);
+				if (!response) return;
+				settings.current = { ...settings.current, ...response };
+				saveSettings();
+			});
+		}
+
+		function _addButtonHandler(api: ButtonApi, params: ClickParam) {
+			if (!params.click) return;
+			api.on('click', params.click);
 		}
 
 		folders.current.forEach((params, title) => {
@@ -240,6 +250,12 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 					const blade = folder.addBlade(params);
 					_addChangeHandler(blade, params);
 				});
+			Array.from(buttons.current)
+				.filter(([, params]) => params.tag === title)
+				.forEach(([_title, params]) => {
+					const blade = folder.addButton(params);
+					_addButtonHandler(blade, params);
+				});
 		});
 
 		Array.from(bindings.current)
@@ -254,6 +270,16 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 				const blade = newPane.addBlade(params);
 				_addChangeHandler(blade, params);
 			});
+		Array.from(buttons.current)
+			.filter(([, params]) => !params.tag)
+			.forEach(([_title, params]) => {
+				const blade = newPane.addButton(params);
+				_addButtonHandler(blade, params);
+			});
+
+		newPane.addBinding(settings.current, 'label', {
+			index: 9999,
+		});
 
 		pane.current = newPane;
 
@@ -271,8 +297,8 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 				addBinding,
 				addFolder,
 				addBlade,
+				addButton,
 				saveSettings,
-				updateSettings,
 				setHandlesToDelete,
 			}}
 		>

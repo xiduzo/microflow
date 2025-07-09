@@ -25,13 +25,11 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<ProximityData>();
+	const { pane, settings, addBinding } = useNodeSettings<ProximityData>();
 	const pins = usePins();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
+		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			index: 0,
@@ -43,7 +41,7 @@ function Settings() {
 				.map(mapPinToPaneOption),
 		});
 
-		const constrollerBinding = pane.addBinding(settings, 'controller', {
+		addBinding('controller', {
 			view: 'list',
 			index: 1,
 			options: [
@@ -55,18 +53,12 @@ function Settings() {
 			],
 		});
 
-		const freqBinding = pane.addBinding(settings, 'freq', {
+		addBinding('freq', {
 			index: 2,
 			label: 'frequency (ms)',
 			min: 10,
 		});
-
-		return () => {
-			pinBinding.dispose();
-			constrollerBinding.dispose();
-			freqBinding.dispose();
-		};
-	}, [pane, settings, pins]);
+	}, [addBinding, pins]);
 
 	return null;
 }
