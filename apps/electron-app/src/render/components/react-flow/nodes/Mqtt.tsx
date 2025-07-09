@@ -75,47 +75,32 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<MqttData>();
-	const { settingsOpen, setSettingsOpen } = useAppStore();
+	const { settings, setHandlesToDelete, addBinding, addButton } = useNodeSettings<MqttData>();
+	const { setSettingsOpen } = useAppStore();
 
 	useEffect(() => {
-		if (!pane) return;
-
 		const initialType = settings.direction;
 
-		const direction = pane
-			.addBinding(settings, 'direction', {
-				view: 'list',
-				index: 0,
-				options: [
-					{ text: 'publish', value: 'publish' },
-					{ text: 'subscribe', value: 'subscribe' },
-				],
-			})
-			.on('change', ({ value }) => {
-				if (value === initialType) setHandlesToDelete([]);
-				else setHandlesToDelete(value === 'publish' ? ['subscribe'] : ['publish']);
-			});
-
-		const topic = pane.addBinding(settings, 'topic', {
-			index: 1,
+		addBinding('direction', {
+			index: 0,
+			view: 'list',
+			options: [
+				{ text: 'publish', value: 'publish' },
+				{ text: 'subscribe', value: 'subscribe' },
+			],
+			change: event => {
+				if (event.value === initialType) setHandlesToDelete([]);
+				else setHandlesToDelete(event.value === 'publish' ? ['subscribe'] : ['publish']);
+			},
 		});
 
-		const button = pane.addButton({
-			title: 'Broker settings',
+		addBinding('topic', { index: 1 });
+		addButton({
 			index: 2,
+			title: 'Broker settings',
+			click: () => setSettingsOpen('mqtt-settings'),
 		});
-
-		button.on('click', () => {
-			setSettingsOpen('mqtt-settings');
-		});
-
-		return () => {
-			direction.dispose();
-			topic.dispose();
-			button.dispose();
-		};
-	}, [pane, settings, setHandlesToDelete]);
+	}, [settings, setHandlesToDelete, addBinding, addButton]);
 
 	return null;
 }

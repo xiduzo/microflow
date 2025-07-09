@@ -51,15 +51,16 @@ function Settings() {
 
 		let pinBinding: BindingApi | undefined;
 
+		// TODO: dynamic bindings
 		function createPinPane() {
 			if (!pane) return;
 			pinBinding?.dispose();
 
 			pinBinding = pane.addBinding(settings, 'pin', {
+				index: 1,
 				view: 'list',
 				disabled: !pins.length,
 				label: 'pin',
-				index: 1,
 				options: pins
 					.filter(pin => {
 						const isCorrectMode =

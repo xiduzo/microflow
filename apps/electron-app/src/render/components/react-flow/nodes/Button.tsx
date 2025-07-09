@@ -36,24 +36,15 @@ function Settings() {
 
 	useEffect(() => {
 		addBinding('pin', {
+			index: 0,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
-			index: 0,
 			options: pins.map(mapPinToPaneOption),
 		});
 
-		addFolder({
-			title: 'advanced',
-			expanded: false,
-			index: 1,
-		});
-
-		addBinding('holdtime', {
-			min: 100,
-			step: 50,
-			tag: 'advanced',
-		});
+		addFolder({ index: 1, title: 'advanced', expanded: false });
+		addBinding('holdtime', { min: 100, step: 50, tag: 'advanced' });
 
 		addBlade({
 			view: 'list',
@@ -66,23 +57,11 @@ function Settings() {
 			],
 			tag: 'advanced',
 			change: event => {
-				switch (Number(event.value)) {
-					case 0:
-						return {
-							isPulldown: false,
-							isPullup: false,
-						};
-					case 1:
-						return {
-							isPulldown: false,
-							isPullup: true,
-						};
-					case 2:
-						return {
-							isPulldown: true,
-							isPullup: false,
-						};
-				}
+				const value = Number(event.value);
+				return {
+					isPulldown: value === 2,
+					isPullup: value === 1,
+				};
 			},
 		});
 

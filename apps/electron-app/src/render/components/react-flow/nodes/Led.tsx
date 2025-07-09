@@ -87,10 +87,10 @@ function Settings() {
 
 	useEffect(() => {
 		addBinding('pin', {
+			index: 0,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
-			index: 0,
 			options: pins.map(mapPinToPaneOption),
 		});
 	}, [pins, addBinding]);

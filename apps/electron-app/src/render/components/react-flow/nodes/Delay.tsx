@@ -26,16 +26,8 @@ function Settings() {
 	const { addBinding } = useNodeSettings<DelayData>();
 
 	useEffect(() => {
-		addBinding('delay', {
-			index: 0,
-			min: 100,
-			step: 100,
-		});
-
-		addBinding('forgetPrevious', {
-			index: 1,
-			label: 'debounce',
-		});
+		addBinding('delay', { index: 0, min: 100, step: 100 });
+		addBinding('forgetPrevious', { index: 1, label: 'debounce' });
 	}, [addBinding]);
 
 	return null;

@@ -47,12 +47,10 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<GateData>();
+	const { setHandlesToDelete, addBinding } = useNodeSettings<GateData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const gateType = pane.addBinding(settings, 'gate', {
+		addBinding('gate', {
 			index: 0,
 			type: 'list',
 			options: [
@@ -64,19 +62,14 @@ function Settings() {
 				{ text: 'xor', value: 'xor' },
 				{ text: 'xnor', value: 'xnor' },
 			],
+			change: event => {
+				// TODO ==> 1 input handle for all
+				setHandlesToDelete(
+					Array.from({ length: event.value === 'not' ? 1 : 0 }).map((_, index) => String(index)),
+				);
+			},
 		});
-
-		// TODO ==> 1 input handle for all
-		gateType.on('change', gate => {
-			setHandlesToDelete(
-				Array.from({ length: gate.value === 'not' ? 1 : 0 }).map((_, index) => String(index)),
-			);
-		});
-
-		return () => {
-			gateType.dispose();
-		};
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }

@@ -59,29 +59,11 @@ function Settings() {
 			],
 		});
 
-		addBinding('period', {
-			index: 1,
-			step: 1,
-			min: 100,
-		});
-
-		addBinding('amplitude', {
-			index: 2,
-			min: 0.1,
-		});
-
-		addBinding('phase', {
-			index: 3,
-		});
-
-		addBinding('shift', {
-			index: 4,
-		});
-
-		addBinding('autoStart', {
-			index: 5,
-			label: 'auto start',
-		});
+		addBinding('period', { index: 1, step: 1, min: 100 });
+		addBinding('amplitude', { index: 2, min: 0.1 });
+		addBinding('phase', { index: 3 });
+		addBinding('shift', { index: 4 });
+		addBinding('autoStart', { index: 5, label: 'auto start' });
 	}, [addBinding]);
 
 	return null;

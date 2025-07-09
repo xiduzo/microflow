@@ -126,25 +126,19 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<MonitorData>();
+	const { addBinding } = useNodeSettings<MonitorData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const typeBinding = pane.addBinding(settings, 'type', {
-			label: 'type',
+		addBinding('type', {
 			index: 0,
+			label: 'type',
 			view: 'list',
 			options: [
 				{ value: 'graph', text: 'graph' },
 				{ value: 'raw', text: 'raw' },
 			],
 		});
-
-		return () => {
-			[typeBinding].forEach(binding => binding.dispose());
-		};
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }

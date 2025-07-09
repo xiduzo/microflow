@@ -32,18 +32,11 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<IntervalData>();
+	const { addBinding } = useNodeSettings<IntervalData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'interval', {
-			index: 0,
-			min: 100,
-			max: 5000,
-			step: 100,
-		});
-	}, [pane, settings]);
+		addBinding('interval', { index: 0, min: 100, max: 5000, step: 100 });
+	}, [addBinding]);
 
 	return null;
 }

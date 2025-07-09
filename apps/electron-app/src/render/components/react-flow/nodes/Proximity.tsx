@@ -30,15 +30,15 @@ function Settings() {
 
 	useEffect(() => {
 		addBinding('pin', {
+			index: 0,
 			view: 'list',
 			disabled: !pins.length,
-			index: 0,
 			options: pins.map(mapPinToPaneOption),
 		});
 
 		addBinding('controller', {
-			view: 'list',
 			index: 1,
+			view: 'list',
 			options: [
 				{ value: 'GP2Y0A21YK', text: 'GP2Y0A21YK' },
 				{ value: 'GP2Y0A710K0F', text: 'GP2Y0A710K0F' },
@@ -48,11 +48,7 @@ function Settings() {
 			],
 		});
 
-		addBinding('freq', {
-			index: 2,
-			label: 'frequency (ms)',
-			min: 10,
-		});
+		addBinding('freq', { index: 2, label: 'frequency (ms)', min: 10 });
 	}, [addBinding, pins]);
 
 	return null;

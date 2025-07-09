@@ -50,22 +50,9 @@ function Settings() {
 			],
 		});
 
-		addBinding('threshold', {
-			index: 1,
-			label: 'by',
-			min: 0,
-		});
-
-		addBinding('relative', {
-			index: 2,
-			label: 'percentage',
-		});
-
-		addBinding('within', {
-			index: 3,
-			label: 'within (ms)',
-			min: 1,
-		});
+		addBinding('threshold', { index: 1, label: 'by', min: 0 });
+		addBinding('relative', { index: 2, label: 'percentage' });
+		addBinding('within', { index: 3, label: 'within (ms)', min: 1 });
 	}, [addBinding]);
 
 	return null;

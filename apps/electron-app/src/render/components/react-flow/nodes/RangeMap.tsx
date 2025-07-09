@@ -54,15 +54,8 @@ function Settings() {
 	const { addBinding } = useNodeSettings();
 
 	useEffect(() => {
-		addBinding('from', {
-			index: 0,
-			step: 1,
-		});
-
-		addBinding('to', {
-			index: 1,
-			step: 1,
-		});
+		addBinding('from', { index: 0, step: 1 });
+		addBinding('to', { index: 1, step: 1 });
 	}, [addBinding]);
 
 	return null;

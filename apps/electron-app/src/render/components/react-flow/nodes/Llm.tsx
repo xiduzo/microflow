@@ -68,7 +68,7 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<LlmData>();
+	const { settings, addBinding, addFolder } = useNodeSettings<LlmData>();
 	const [models, setModels] = useState<string[]>([]);
 
 	useEffect(() => {
@@ -88,105 +88,37 @@ function Settings() {
 	}, [settings.provider, settings.baseUrl]);
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const provider = pane.addBinding(settings, 'provider', {
+		addBinding('provider', {
+			index: 0,
 			type: 'list',
 			disabled: true,
-			index: 0,
 			options: [{ text: 'ollama', value: 'ollama' }],
 		});
 
-		const model = pane.addBinding(settings, 'model', {
+		addBinding('model', {
 			index: 1,
 			type: 'list',
-			options: models.map((model: string) => ({ text: model, value: model })),
+			options: models.map(model => ({ text: model, value: model })),
 		});
 
-		const system = pane.addBinding(settings, 'system', {
-			index: 2,
-			view: 'textarea',
-			rows: 5,
-		});
+		addBinding('system', { index: 2, view: 'textarea', rows: 5 });
+		addBinding('prompt', { index: 3, view: 'textarea', rows: 5 });
 
-		const prompt = pane.addBinding(settings, 'prompt', {
-			index: 3,
-			view: 'textarea',
-			rows: 5,
-		});
+		addFolder({ index: 4, title: 'advanced', expanded: false });
 
-		const advancedFolder = pane.addFolder({
-			title: 'advanced',
-			expanded: false,
-			index: 4,
-		});
-
-		if (!settings.baseUrl) settings.baseUrl = '';
-		advancedFolder.addBinding(settings, 'baseUrl');
-		advancedFolder.addBinding(settings, 'frequencyPenalty', {
-			min: 0,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'temperature', {
-			min: 0.1,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'topK', {
-			min: 1,
-			max: 100,
-			step: 1,
-		});
-		advancedFolder.addBinding(settings, 'topP', {
-			min: 0.1,
-			max: 1,
-			step: 0.05,
-		});
-		advancedFolder.addBinding(settings, 'mirostat', {
-			min: 0,
-			max: 1,
-			step: 1,
-		});
-		advancedFolder.addBinding(settings, 'mirostatTau', {
-			min: 1,
-			max: 10,
-			step: 0.5,
-		});
-		advancedFolder.addBinding(settings, 'mirostatEta', {
-			min: 0.01,
-			max: 1,
-			step: 0.05,
-		});
-		advancedFolder.addBinding(settings, 'repeatPenalty', {
-			min: 1,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'typicalP', {
-			min: 0.1,
-			max: 1,
-			step: 0.05,
-		});
-		advancedFolder.addBinding(settings, 'presencePenalty', {
-			min: 0,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'repeatLastN', {
-			min: 1,
-			max: 256,
-			step: 1,
-		});
-
-		return () => {
-			provider.dispose();
-			model.dispose();
-			system.dispose();
-			prompt.dispose();
-			advancedFolder.dispose();
-		};
-	}, [pane, settings, models]);
+		addBinding('baseUrl', { tag: 'advanced' });
+		addBinding('frequencyPenalty', { min: 0, max: 2, step: 0.1, tag: 'advanced' });
+		addBinding('temperature', { min: 0.1, max: 2, step: 0.1, tag: 'advanced' });
+		addBinding('topK', { min: 1, max: 100, step: 1, tag: 'advanced' });
+		addBinding('topP', { min: 0.1, max: 1, step: 0.05, tag: 'advanced' });
+		addBinding('mirostat', { min: 0, max: 1, step: 1, tag: 'advanced' });
+		addBinding('mirostatTau', { min: 1, max: 10, step: 0.5, tag: 'advanced' });
+		addBinding('mirostatEta', { min: 0.01, max: 1, step: 0.05, tag: 'advanced' });
+		addBinding('repeatPenalty', { min: 1, max: 2, step: 0.1, tag: 'advanced' });
+		addBinding('typicalP', { min: 0.1, max: 1, step: 0.05, tag: 'advanced' });
+		addBinding('presencePenalty', { min: 0, max: 2, step: 0.1, tag: 'advanced' });
+		addBinding('repeatLastN', { min: 1, max: 256, step: 1, tag: 'advanced' });
+	}, [models, addBinding, addFolder]);
 
 	return null;
 }

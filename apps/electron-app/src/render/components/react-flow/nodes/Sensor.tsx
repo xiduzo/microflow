@@ -109,31 +109,16 @@ function Settings() {
 
 	useEffect(() => {
 		addBinding('pin', {
+			index: 0,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
-			index: 0,
 			options: pins.map(mapPinToPaneOption),
 		});
 
-		addFolder({
-			index: 1,
-			title: 'advanced',
-			expanded: false,
-		});
-
-		addBinding('threshold', {
-			index: 0,
-			step: 1,
-			tag: 'advanced',
-		});
-
-		addBinding('freq', {
-			index: 1,
-			label: 'frequency (ms)',
-			min: 10,
-			tag: 'advanced',
-		});
+		addFolder({ index: 1, title: 'advanced', expanded: false });
+		addBinding('threshold', { index: 0, step: 1, tag: 'advanced' });
+		addBinding('freq', { index: 1, label: 'frequency (ms)', min: 10, tag: 'advanced' });
 	}, [pins, addBinding, addFolder]);
 
 	return null;

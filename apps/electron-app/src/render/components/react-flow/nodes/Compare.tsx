@@ -80,6 +80,7 @@ function Settings() {
 		let subValidatorPane: BindingApi | undefined;
 		let validatorArgPane: BladeApi | undefined;
 
+		// TODO: dynamic bindings
 		function addValidatorArgs() {
 			if (!pane) return;
 

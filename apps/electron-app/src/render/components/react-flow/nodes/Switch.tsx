@@ -33,17 +33,17 @@ function Settings() {
 
 	useEffect(() => {
 		addBinding('pin', {
+			index: 0,
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
-			index: 0,
 			options: pins.map(mapPinToPaneOption),
 		});
 
 		addBinding('type', {
+			index: 1,
 			view: 'list',
 			label: 'type',
-			index: 1,
 			options: [
 				{ value: 'NC', text: 'normally closed' },
 				{ value: 'NO', text: 'normally open' },

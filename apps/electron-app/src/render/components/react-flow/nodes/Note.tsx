@@ -25,17 +25,8 @@ function Settings() {
 	const { addBinding } = useNodeSettings<NoteData>();
 
 	useEffect(() => {
-		addBinding('note', {
-			index: 0,
-			view: 'textarea',
-			rows: 3,
-		});
-		addBinding('extraInfo', {
-			index: 1,
-			label: 'Extra info',
-			view: 'textarea',
-			rows: 3,
-		});
+		addBinding('note', { index: 0, view: 'textarea', rows: 3 });
+		addBinding('extraInfo', { index: 1, label: 'Extra info', view: 'textarea', rows: 3 });
 	}, [addBinding]);
 
 	return null;

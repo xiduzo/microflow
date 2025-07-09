@@ -26,10 +26,7 @@ function Settings() {
 	const { addBinding } = useNodeSettings<ConstantData>();
 
 	useEffect(() => {
-		addBinding('value', {
-			index: 0,
-			type: 'number',
-		});
+		addBinding('value', { index: 0, type: 'number' });
 	}, [addBinding]);
 
 	return null;

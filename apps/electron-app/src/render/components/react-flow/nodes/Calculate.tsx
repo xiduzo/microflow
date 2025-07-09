@@ -51,7 +51,6 @@ function Settings() {
 
 	useEffect(() => {
 		addBinding('function', {
-			index: 0,
 			type: 'list',
 			options: [
 				{ text: 'addition', value: 'add' },

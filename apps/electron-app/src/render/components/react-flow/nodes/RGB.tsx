@@ -38,19 +38,15 @@ function Settings() {
 
 		colors.map((color, index) => {
 			addBinding(color, {
+				index,
 				view: 'list',
 				disabled: !pins.length,
 				label: color,
-				index: index,
 				options: pins.map(mapPinToPaneOption),
 			});
 		});
 
-		addBinding('isAnode', {
-			view: 'toggle',
-			label: 'anode',
-			index: colors.length,
-		});
+		addBinding('isAnode', { index: colors.length, view: 'toggle', label: 'anode' });
 	}, [addBinding, pins]);
 
 	return null;

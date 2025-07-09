@@ -110,43 +110,29 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<FigmaData>();
+	const { pane, settings, setHandlesToDelete, addBinding } = useNodeSettings<FigmaData>();
 
 	const { variableTypes } = useFigma();
 
+	const initialVariableType = Array.from(Object.values(variableTypes)).find(
+		({ id }) => id === settings.variableId,
+	)?.resolvedType;
+
 	useEffect(() => {
-		if (!pane) return;
-
-		const initialVariableType = Array.from(Object.values(variableTypes)).find(
-			({ id }) => id === settings.variableId,
-		)?.resolvedType;
-
-		const variableIdbinding = pane
-			.addBinding(settings, 'variableId', {
-				index: 0,
-				view: 'list',
-				label: 'variable',
-				disabled: !Object.keys(variableTypes).length,
-				value: settings.variableId,
-				options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
-					value: variable.id,
-					text: variable.name,
-				})),
-			})
-			.on('change', ({ value }) => {
+		addBinding('variableId', {
+			index: 0,
+			view: 'list',
+			label: 'variable',
+			disabled: !Object.keys(variableTypes).length,
+			value: settings.variableId,
+			options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
+				value: variable.id,
+				text: variable.name,
+			})),
+			change: event => {
 				const selectedVariableType = Array.from(Object.values(variableTypes)).find(
-					({ id }) => id === value,
+					({ id }) => id === event.value,
 				)?.resolvedType;
-
-				if (selectedVariableType) {
-					settings.resolvedType = selectedVariableType;
-					settings.initialValue = DEFAULT_FIGMA_VALUE_PER_TYPE[selectedVariableType];
-				}
-
-				if (selectedVariableType === initialVariableType) {
-					setHandlesToDelete([]);
-					return;
-				}
 
 				switch (initialVariableType) {
 					case 'BOOLEAN':
@@ -162,22 +148,26 @@ function Settings() {
 						setHandlesToDelete(['set']);
 						break;
 				}
-			});
 
-		settings.debounceTime ??= 100; // TODO: in next version make sure this is set in the default props
-		const debounceTimeBinding = pane.addBinding(settings, 'debounceTime', {
+				if (selectedVariableType === initialVariableType) setHandlesToDelete([]);
+
+				if (!selectedVariableType) return;
+
+				return {
+					resolvedType: selectedVariableType,
+					initialValue: DEFAULT_FIGMA_VALUE_PER_TYPE[selectedVariableType],
+				};
+			},
+		});
+
+		addBinding('debounceTime', {
 			index: 1,
 			min: 10,
 			max: 500,
 			step: 10,
 			label: 'update frequency (ms)',
 		});
-
-		return () => {
-			variableIdbinding.dispose();
-			debounceTimeBinding.dispose();
-		};
-	}, [pane, settings, variableTypes]);
+	}, [pane, settings, initialVariableType, variableTypes]);
 
 	return null;
 }
