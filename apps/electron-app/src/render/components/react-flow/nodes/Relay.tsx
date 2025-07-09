@@ -30,7 +30,7 @@ function Value() {
 
 function Settings() {
 	const { addBinding } = useNodeSettings<RelayData>();
-	const pins = usePins();
+	const pins = usePins([MODES.OUTPUT]);
 
 	useEffect(() => {
 		addBinding('pin', {
@@ -38,9 +38,7 @@ function Settings() {
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins
-				.filter(pin => pin.supportedModes.includes(MODES.OUTPUT))
-				.map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 
 		addBinding('type', {

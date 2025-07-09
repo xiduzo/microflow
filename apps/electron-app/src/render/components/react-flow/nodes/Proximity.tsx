@@ -25,20 +25,15 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, addBinding } = useNodeSettings<ProximityData>();
-	const pins = usePins();
+	const { addBinding } = useNodeSettings<ProximityData>();
+	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
 
 	useEffect(() => {
 		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			index: 0,
-			options: pins
-				.filter(
-					pin =>
-						pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG),
-				)
-				.map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 
 		addBinding('controller', {

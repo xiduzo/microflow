@@ -104,48 +104,37 @@ const hallEffect = cva('transition-all', {
 });
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<SensorData & { subType?: string }>();
-	const pins = usePins();
+	const { addBinding, addFolder } = useNodeSettings<SensorData & { subType?: string }>();
+	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
+		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins
-				.filter(
-					pin =>
-						pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG),
-				)
-				.map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 
-		const advancedbindings = pane.addFolder({
+		addFolder({
 			index: 1,
 			title: 'advanced',
 			expanded: false,
 		});
 
-		settings.threshold ??= 1;
-		advancedbindings.addBinding(settings, 'threshold', {
+		addBinding('threshold', {
 			index: 0,
 			step: 1,
+			tag: 'advanced',
 		});
 
-		settings.freq ??= 25;
-		advancedbindings.addBinding(settings, 'freq', {
+		addBinding('freq', {
 			index: 1,
 			label: 'frequency (ms)',
 			min: 10,
+			tag: 'advanced',
 		});
-
-		return () => {
-			[pinBinding, advancedbindings].forEach(disposable => disposable?.dispose());
-		};
-	}, [pane, settings, pins]);
+	}, [pins, addBinding, addFolder]);
 
 	return null;
 }

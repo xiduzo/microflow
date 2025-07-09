@@ -31,7 +31,8 @@ function Value() {
 
 function Settings() {
 	const { settings, addBinding, addFolder, addBlade } = useNodeSettings<ButtonData>();
-	const pins = usePins();
+	const requiresPullup = settings.isPullup || settings.isPulldown;
+	const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
 
 	useEffect(() => {
 		addBinding('pin', {
@@ -39,14 +40,7 @@ function Settings() {
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins
-				.filter(pin => pin.supportedModes.includes(MODES.INPUT))
-				.filter(pin =>
-					settings.isPullup || settings.isPulldown
-						? pin.supportedModes.includes(MODES.PULLUP)
-						: pin,
-				)
-				.map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 
 		addFolder({

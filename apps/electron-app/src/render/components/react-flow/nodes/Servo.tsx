@@ -72,8 +72,8 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<ServoData>();
-	const pins = usePins();
+	const { pane, settings, setHandlesToDelete, addBinding } = useNodeSettings<ServoData>();
+	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
 
 	useEffect(() => {
 		if (!pane) return;
@@ -82,6 +82,7 @@ function Settings() {
 
 		const intialType = settings.type;
 
+		// TODO: dynamic bindings
 		function setRangePane() {
 			if (!pane) return;
 			rangeBinding?.dispose();
@@ -95,40 +96,33 @@ function Settings() {
 			});
 		}
 
-		const pinBinding = pane.addBinding(settings, 'pin', {
+		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins
-				.filter(
-					pin =>
-						pin.supportedModes.includes(MODES.OUTPUT) && pin.supportedModes.includes(MODES.PWM),
-				)
-				.map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 
-		const typeBinding = pane
-			.addBinding(settings, 'type', {
-				index: 1,
-				options: [
-					{ text: 'positional', value: 'standard' },
-					{ text: 'continuous', value: 'continuous' },
-				],
-			})
-			.on('change', ({ value }) => {
+		addBinding('type', {
+			index: 1,
+			options: [
+				{ text: 'positional', value: 'standard' },
+				{ text: 'continuous', value: 'continuous' },
+			],
+			change: event => {
 				setRangePane();
 
-				if (value === intialType) setHandlesToDelete([]);
-				else setHandlesToDelete(value === 'standard' ? ['min', 'to', 'max'] : ['rotate', 'stop']);
-			});
+				if (event.value === intialType) setHandlesToDelete([]);
+				else
+					setHandlesToDelete(
+						event.value === 'standard' ? ['min', 'to', 'max'] : ['rotate', 'stop'],
+					);
+			},
+		});
 
 		setRangePane();
-
-		return () => {
-			[rangeBinding, pinBinding, typeBinding].forEach(disposable => disposable?.dispose());
-		};
-	}, [pane, settings, pins, setHandlesToDelete]);
+	}, [pane, settings, pins, setHandlesToDelete, addBinding]);
 
 	return null;
 }

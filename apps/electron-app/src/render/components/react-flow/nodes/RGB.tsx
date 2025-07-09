@@ -31,7 +31,7 @@ function Value() {
 
 function Settings() {
 	const { addBinding } = useNodeSettings<RgbData>();
-	const pins = usePins();
+	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
 
 	useEffect(() => {
 		const colors = ['red', 'green', 'blue'];
@@ -42,12 +42,7 @@ function Settings() {
 				disabled: !pins.length,
 				label: color,
 				index: index,
-				options: pins
-					.filter(
-						pin =>
-							pin.supportedModes.includes(MODES.OUTPUT) && pin.supportedModes.includes(MODES.PWM),
-					)
-					.map(mapPinToPaneOption),
+				options: pins.map(mapPinToPaneOption),
 			});
 		});
 

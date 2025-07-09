@@ -28,21 +28,19 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<SwitchData>();
-	const pins = usePins();
+	const { addBinding } = useNodeSettings<SwitchData>();
+	const pins = usePins([MODES.INPUT]);
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
+		addBinding('pin', {
 			view: 'list',
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 
-		const typeBinding = pane.addBinding(settings, 'type', {
+		addBinding('type', {
 			view: 'list',
 			label: 'type',
 			index: 1,
@@ -51,12 +49,7 @@ function Settings() {
 				{ value: 'NO', text: 'normally open' },
 			],
 		});
-
-		return () => {
-			pinBinding.dispose();
-			typeBinding.dispose();
-		};
-	}, [pins, pane, settings]);
+	}, [pins, addBinding]);
 	return null;
 }
 

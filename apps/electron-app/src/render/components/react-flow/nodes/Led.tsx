@@ -83,7 +83,7 @@ function VibrationValue(props: { value: number }) {
 
 function Settings() {
 	const { addBinding } = useNodeSettings<LedData>();
-	const pins = usePins();
+	const pins = usePins([MODES.INPUT]);
 
 	useEffect(() => {
 		addBinding('pin', {
@@ -91,7 +91,7 @@ function Settings() {
 			disabled: !pins.length,
 			label: 'pin',
 			index: 0,
-			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
+			options: pins.map(mapPinToPaneOption),
 		});
 	}, [pins, addBinding]);
 

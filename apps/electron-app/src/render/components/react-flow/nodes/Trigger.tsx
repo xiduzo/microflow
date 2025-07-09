@@ -37,12 +37,10 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<TriggerData>();
+	const { addBinding } = useNodeSettings<TriggerData>();
 
 	useEffect(() => {
-		if (!pane) return;
-
-		const behaviourBinding = pane.addBinding(settings, 'behaviour', {
+		addBinding('behaviour', {
 			index: 0,
 			view: 'list',
 			label: 'triggers',
@@ -52,31 +50,23 @@ function Settings() {
 			],
 		});
 
-		const thresholdBinding = pane.addBinding(settings, 'threshold', {
+		addBinding('threshold', {
 			index: 1,
 			label: 'by',
 			min: 0,
 		});
 
-		const relativeBinding = pane.addBinding(settings, 'relative', {
+		addBinding('relative', {
 			index: 2,
 			label: 'percentage',
 		});
 
-		settings.within ??= 250;
-		const withinBinding = pane.addBinding(settings, 'within', {
+		addBinding('within', {
 			index: 3,
 			label: 'within (ms)',
 			min: 1,
 		});
-
-		return () => {
-			behaviourBinding.dispose();
-			thresholdBinding.dispose();
-			relativeBinding.dispose();
-			withinBinding.dispose();
-		};
-	}, [pane, settings]);
+	}, [addBinding]);
 
 	return null;
 }
