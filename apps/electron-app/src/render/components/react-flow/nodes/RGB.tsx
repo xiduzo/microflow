@@ -38,17 +38,14 @@ function Settings() {
 				red: {
 					value: data.pins.red,
 					options: pins.reduce(mapPinsToSettings, {}),
-					disabled: !pins.length,
 				},
 				green: {
 					value: data.pins.green,
 					options: pins.reduce(mapPinsToSettings, {}),
-					disabled: !pins.length,
 				},
 				blue: {
 					value: data.pins.blue,
 					options: pins.reduce(mapPinsToSettings, {}),
-					disabled: !pins.length,
 				},
 				isAnode: { value: data.isAnode, label: 'anode' },
 			}}

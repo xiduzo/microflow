@@ -37,7 +37,6 @@ function Settings() {
 				pin: {
 					value: data.pin,
 					options: pins.reduce(mapPinsToSettings, {}),
-					disabled: !pins.length,
 				},
 				type: {
 					value: data.type,

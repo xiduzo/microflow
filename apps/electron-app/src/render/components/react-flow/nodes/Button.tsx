@@ -4,10 +4,9 @@ import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { mapPinsToSettings } from '../../../../utils/pin';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
-import { useUpdateNode } from '../../../hooks/useUpdateNode';
 
 export function Button(props: Props) {
 	return (
@@ -35,46 +34,45 @@ const PULL_DOWN = 2;
 
 function Settings() {
 	const data = useNodeData<ButtonData>();
+
 	const requiresPullup = data.isPullup || data.isPulldown;
 	const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
-	return (
-		<NodeSettings
-			settings={{
-				pin: {
-					options: pins.reduce(mapPinsToSettings, {}),
-					value: data.pin,
-					disabled: !pins.length,
+
+	const { render, set } = useNodeControls(
+		{
+			pin: {
+				options: pins.reduce(mapPinsToSettings, {}),
+				value: data.pin,
+			},
+			isPullup: { value: data.isPullup!, render: () => false },
+			isPulldown: { value: data.isPulldown!, render: () => false },
+			type: {
+				value: data.isPulldown ? PULL_DOWN : data.isPullup ? PULL_UP : DEFAULT,
+				options: {
+					default: DEFAULT,
+					'pull up': PULL_UP,
+					'pull down': PULL_DOWN,
 				},
-				type: {
-					value: data.isPulldown ? PULL_DOWN : data.isPullup ? PULL_UP : DEFAULT,
-					options: {
-						default: DEFAULT,
-						'Pull Up': PULL_UP,
-						'Pull Down': PULL_DOWN,
-					},
-					onChange: value => {
-						// TODO: set `isPulldown` or `isPullup` based on value
-						// 			return {
-						// 				isPullup: value === PULL_UP,
-						// 				isPulldown: value === PULL_DOWN,
-						// 			};
-						console.log(value);
+				onChange: value => {
+					set({ isPullup: value === PULL_UP, isPulldown: value === PULL_DOWN });
+				},
+			},
+			advanced: folder(
+				{
+					holdtime: {
+						min: 100,
+						step: 50,
+						value: data.holdtime!,
+						label: 'hold time (ms)',
 					},
 				},
-				advanced: folder(
-					{
-						holdtime: {
-							min: 100,
-							step: 50,
-							value: data.holdtime!,
-							label: 'hold time (ms)',
-						},
-					},
-					{ collapsed: true },
-				),
-			}}
-		/>
+				{ collapsed: true },
+			),
+		},
+		[pins],
 	);
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<ButtonData>;

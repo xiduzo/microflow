@@ -1,12 +1,12 @@
 import { transformValueToNumber } from '../utils/transformUnknownValues';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
-type SmoothAverage = {
+export type SmoothAverage = {
 	type: 'smooth';
 	attenuation: number;
 };
 
-type MovingAverage = {
+export type MovingAverage = {
 	type: 'movingAverage';
 	windowSize: number;
 };

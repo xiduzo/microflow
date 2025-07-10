@@ -22,8 +22,6 @@ function Value() {
 	const data = useNodeData<TriggerData>();
 	const value = useNodeValue<TriggerValueType>(false);
 
-	console.log({ data });
-
 	return (
 		<IconWithValue
 			icon={data.behaviour === 'increasing' ? 'TrendingUp' : 'TrendingDown'}

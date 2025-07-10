@@ -1,9 +1,7 @@
-import type { SmoothData } from '@microflow/components';
+import type { MovingAverage, SmoothAverage, SmoothData } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { BindingApi } from '@tweakpane/core';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { IconWithValue } from '../IconWithValue';
 
 export function Smooth(props: Props) {
@@ -29,62 +27,31 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<SmoothData>();
+	const data = useNodeData<SmoothData>();
 
-	useEffect(() => {
-		if (!pane) return;
-
-		let binding: BindingApi;
-
-		function addBinding() {
-			binding?.dispose();
-			if (!pane) return;
-
-			switch (settings.type) {
-				case 'movingAverage':
-					settings.windowSize = settings.windowSize ?? 25;
-					binding = pane.addBinding(settings, 'windowSize', {
-						index: 1,
-						min: 1,
-						step: 1,
-						label: 'window size',
-					});
-					break;
-				case 'smooth':
-					settings.attenuation = settings.attenuation ?? 0.995;
-					binding = pane.addBinding(settings, 'attenuation', {
-						index: 1,
-						min: 0.0,
-						max: 1.0,
-						step: 0.001,
-						label: 'attenuation',
-					});
-					break;
-			}
-		}
-
-		const type = pane.addBinding(settings, 'type', {
-			index: 0,
-			view: 'list',
-			options: [
-				{ value: 'smooth', text: 'Smooth' },
-				{ value: 'movingAverage', text: 'Moving average' },
-			],
-		});
-
-		type.on('change', () => {
-			addBinding();
-		});
-
-		addBinding();
-
-		return () => {
-			binding?.dispose();
-			type.dispose();
-		};
-	}, [pane, settings]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				type: {
+					value: data.type,
+					options: { smooth: 'smooth', movingAverage: 'moving average' },
+				},
+				windowSize: {
+					value: (data as MovingAverage).windowSize ?? 25,
+					min: 1,
+					step: 1,
+					render: get => get('type') === 'movingAverage',
+				},
+				attenuation: {
+					value: (data as SmoothAverage).attenuation ?? 0.995,
+					min: 0.0,
+					max: 1.0,
+					step: 0.001,
+					render: get => get('type') === 'movingAverage',
+				},
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<SmoothData>;

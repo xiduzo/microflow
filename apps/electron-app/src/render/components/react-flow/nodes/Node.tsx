@@ -9,9 +9,6 @@ import {
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-	TweakpaneCameraPlugin,
-	TweakpaneEssentialPlugin,
-	TweakpaneTextareaPlugin,
 	useControls,
 	useCreateStore,
 } from '@microflow/ui';
@@ -24,20 +21,13 @@ import {
 	useContext,
 	useEffect,
 	useRef,
+	useMemo,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
-import {
-	BaseBladeParams,
-	BindingApi,
-	BladeApi,
-	ButtonApi,
-	ButtonParams,
-	FolderParams,
-	TpChangeEvent,
-} from '@tweakpane/core';
+import { BaseBladeParams, ButtonParams, TpChangeEvent } from '@tweakpane/core';
 import { useDebounceValue } from 'usehooks-ts';
 
 function NodeHeader(props: { error?: string }) {
@@ -108,7 +98,6 @@ type SettingsContextProps<T extends Record<string, any>> = {
 	setHandlesToDelete: (handles: string[]) => void;
 	saveSettings: () => void;
 	addBinding: (property: keyof T, params: BindingParams & ChangeParam<unknown, Partial<T>>) => void;
-	addFolder: (params: FolderParams & ChangeParam<unknown, Partial<T>>) => void;
 	addBlade: (params: BladeParams & ChangeParam<unknown, Partial<T>>) => void;
 	addButton: (params: ButtonParams & ClickParam & { tag?: string }) => void;
 };
@@ -118,34 +107,44 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 );
 
 type UseControlParameters = Parameters<typeof useControls>;
-type Schema = Exclude<UseControlParameters[0], string>;
+export type Schema = Exclude<UseControlParameters[0], string | Function>;
 
-export const useNodeControls = <S extends Schema>(schema: S) => {
+export const useNodeControls = <S extends Schema>(schema: S, dependencies: unknown[] = []) => {
 	const store = useCreateStore();
-	const { selected, type, id } = useNode();
-	const updateNodeInternals = useUpdateNodeInternals();
+	const { selected, id, data } = useNode();
 	const updateNode = useUpdateNode(id);
 
-	const data = useControls(schema, { store });
+	const [controlsData, set] = useControls(
+		() => ({ label: data.label, ...schema }),
+		{ store },
+		dependencies,
+	);
 
-	const [debouncedData] = useDebounceValue(data, 250);
+	const [debouncedControlData] = useDebounceValue(controlsData, 500);
+
+	const render = useCallback(() => {
+		return createPortal(
+			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selected} />,
+			document.getElementById('settings-panels')!,
+		);
+	}, [store, selected]);
 
 	useEffect(() => {
-		updateNode(debouncedData, type !== 'Note');
-		updateNodeInternals(id);
-	}, [debouncedData, type, id, updateNodeInternals, updateNode]);
+		updateNode(controlsData as Record<string, unknown>);
+	}, [controlsData, updateNode]);
 
-	return <LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selected} />;
+	useEffect(() => {
+		// TODO use for code upload
+		console.log(debouncedControlData);
+	}, [debouncedControlData]);
+
+	return { render, set };
 };
 
-export function NodeSettings(props: { settings: Schema }) {
-	const data = useNodeData();
-	const element = useNodeControls({
-		label: { value: data.label },
-		...props.settings,
-	});
+export function NodeSettings(props: { settings: Schema; dependencies?: unknown[] }) {
+	const { render } = useNodeControls(props.settings, props.dependencies);
 
-	return <>{createPortal(element, document.getElementById('settings-panels')!)}</>;
+	return <>{render()}</>;
 }
 
 export function useNodeSettings<T extends Record<string, any>>() {
@@ -180,7 +179,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 	const { data, id, type, selected } = useNode<T>();
 	const updateNode = useUpdateNode(id);
 	const bindings = useRef(new Map<keyof T, BindingParams & ChangeParam>());
-	const folders = useRef(new Map<string, FolderParams & ChangeParam>());
 	const blades = useRef(new Map<string, BladeParams & ChangeParam>());
 	const buttons = useRef(new Map<string, ButtonParams & ClickParam & { tag?: string }>());
 
@@ -197,10 +195,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		bindings.current.set(property, params);
 	}, []);
 
-	const addFolder = useCallback((params: FolderParams & ChangeParam) => {
-		folders.current.set(params.title, params);
-	}, []);
-
 	const addBlade = useCallback((params: BladeParams & ChangeParam) => {
 		blades.current.set(params.label, params);
 	}, []);
@@ -215,7 +209,7 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
 		}
 
-		updateNode(settings.current, type !== 'Note');
+		updateNode(settings.current);
 	}, [updateNode, deleteEdes, updateNodeInternals, id]);
 
 	// Might be good next step to move to https://github.com/pmndrs/leva which is more react native
@@ -223,103 +217,103 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 		if (!selected) return;
 		if (!settings.current.label) return;
 
-		const newPane = new Pane({
-			title: `${settings.current.label} (${id})`,
-			container: ref.current ?? undefined,
-		});
+		// const newPane = new Pane({
+		// 	title: `${settings.current.label} (${id})`,
+		// 	container: ref.current ?? undefined,
+		// });
 
-		newPane.registerPlugin(TweakpaneEssentialPlugin);
-		newPane.registerPlugin(TweakpaneTextareaPlugin);
-		newPane.registerPlugin(TweakpaneCameraPlugin);
+		// newPane.registerPlugin(TweakpaneEssentialPlugin);
+		// newPane.registerPlugin(TweakpaneTextareaPlugin);
+		// newPane.registerPlugin(TweakpaneCameraPlugin);
 
-		newPane.on('change', event => {
-			if (!event.last) return;
-			saveSettings();
-		});
+		// newPane.on('change', event => {
+		// 	if (!event.last) return;
+		// 	saveSettings();
+		// });
 
-		function _deepMerge<Target extends Record<string, unknown>, Source extends Partial<T>>(
-			target: Target,
-			source: Source,
-		) {
-			for (const key in source) {
-				if (source[key] && typeof source[key] === 'object') {
-					target[key] = _deepMerge(target[key] ?? {}, source[key]) as unknown as Target[Extract<
-						keyof Source,
-						string
-					>];
-				} else {
-					target[key] = source[key] as unknown as Target[Extract<keyof Source, string>];
-				}
-			}
-			return target;
-		}
+		// function _deepMerge<Target extends Record<string, unknown>, Source extends Partial<T>>(
+		// 	target: Target,
+		// 	source: Source,
+		// ) {
+		// 	for (const key in source) {
+		// 		if (source[key] && typeof source[key] === 'object') {
+		// 			target[key] = _deepMerge(target[key] ?? {}, source[key]) as unknown as Target[Extract<
+		// 				keyof Source,
+		// 				string
+		// 			>];
+		// 		} else {
+		// 			target[key] = source[key] as unknown as Target[Extract<keyof Source, string>];
+		// 		}
+		// 	}
+		// 	return target;
+		// }
 
-		function _addChangeHandler(api: BladeApi | BindingApi, params: ChangeParam) {
-			if (!params.change) return;
-			if (!('on' in api)) return;
-			api.on('change', event => {
-				const response = params.change?.(event);
-				if (!response) return;
-				settings.current = _deepMerge(settings.current, response);
-				saveSettings();
-			});
-		}
+		// function _addChangeHandler(api: BladeApi | BindingApi, params: ChangeParam) {
+		// 	if (!params.change) return;
+		// 	if (!('on' in api)) return;
+		// 	api.on('change', event => {
+		// 		const response = params.change?.(event);
+		// 		if (!response) return;
+		// 		settings.current = _deepMerge(settings.current, response);
+		// 		saveSettings();
+		// 	});
+		// }
 
-		function _addButtonHandler(api: ButtonApi, params: ClickParam) {
-			if (!params.click) return;
-			api.on('click', params.click);
-		}
+		// function _addButtonHandler(api: ButtonApi, params: ClickParam) {
+		// 	if (!params.click) return;
+		// 	api.on('click', params.click);
+		// }
 
-		folders.current.forEach((params, title) => {
-			const folder = newPane.addFolder(params);
+		// folders.current.forEach((params, title) => {
+		// 	const folder = newPane.addFolder(params);
 
-			Array.from(bindings.current)
-				.filter(([, params]) => params.tag === title)
-				.forEach(([property, params]) => {
-					const binding = folder.addBinding(settings.current, property, params);
-					_addChangeHandler(binding, params);
-				});
-			Array.from(blades.current)
-				.filter(([, params]) => params.tag === title)
-				.forEach(([_title, params]) => {
-					const blade = folder.addBlade(params);
-					_addChangeHandler(blade, params);
-				});
-			Array.from(buttons.current)
-				.filter(([, params]) => params.tag === title)
-				.forEach(([_title, params]) => {
-					const blade = folder.addButton(params);
-					_addButtonHandler(blade, params);
-				});
-		});
+		// 	Array.from(bindings.current)
+		// 		.filter(([, params]) => params.tag === title)
+		// 		.forEach(([property, params]) => {
+		// 			const binding = folder.addBinding(settings.current, property, params);
+		// 			_addChangeHandler(binding, params);
+		// 		});
+		// 	Array.from(blades.current)
+		// 		.filter(([, params]) => params.tag === title)
+		// 		.forEach(([_title, params]) => {
+		// 			const blade = folder.addBlade(params);
+		// 			_addChangeHandler(blade, params);
+		// 		});
+		// 	Array.from(buttons.current)
+		// 		.filter(([, params]) => params.tag === title)
+		// 		.forEach(([_title, params]) => {
+		// 			const blade = folder.addButton(params);
+		// 			_addButtonHandler(blade, params);
+		// 		});
+		// });
 
-		Array.from(bindings.current)
-			.filter(([, params]) => !params.tag)
-			.forEach(([property, params]) => {
-				const binding = newPane.addBinding(settings.current, property, params);
-				_addChangeHandler(binding, params);
-			});
-		Array.from(blades.current)
-			.filter(([, params]) => !params.tag)
-			.forEach(([_title, params]) => {
-				const blade = newPane.addBlade(params);
-				_addChangeHandler(blade, params);
-			});
-		Array.from(buttons.current)
-			.filter(([, params]) => !params.tag)
-			.forEach(([_title, params]) => {
-				const blade = newPane.addButton(params);
-				_addButtonHandler(blade, params);
-			});
+		// Array.from(bindings.current)
+		// 	.filter(([, params]) => !params.tag)
+		// 	.forEach(([property, params]) => {
+		// 		const binding = newPane.addBinding(settings.current, property, params);
+		// 		_addChangeHandler(binding, params);
+		// 	});
+		// Array.from(blades.current)
+		// 	.filter(([, params]) => !params.tag)
+		// 	.forEach(([_title, params]) => {
+		// 		const blade = newPane.addBlade(params);
+		// 		_addChangeHandler(blade, params);
+		// 	});
+		// Array.from(buttons.current)
+		// 	.filter(([, params]) => !params.tag)
+		// 	.forEach(([_title, params]) => {
+		// 		const blade = newPane.addButton(params);
+		// 		_addButtonHandler(blade, params);
+		// 	});
 
-		newPane.addBinding(settings.current, 'label', { index: 9999 });
+		// newPane.addBinding(settings.current, 'label', { index: 9999 });
 
-		pane.current = newPane;
+		// pane.current = newPane;
 
-		return () => {
-			newPane.dispose();
-			pane.current = null;
-		};
+		// return () => {
+		// 	newPane.dispose();
+		// 	pane.current = null;
+		// };
 	}, [selected, id, saveSettings]);
 
 	return (
@@ -328,7 +322,6 @@ function NodeSettingsPane<T extends Record<string, unknown>>(
 				pane: pane.current,
 				settings: settings.current,
 				addBinding,
-				addFolder,
 				addBlade,
 				addButton,
 				saveSettings,

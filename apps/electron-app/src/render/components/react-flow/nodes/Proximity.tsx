@@ -33,7 +33,6 @@ function Settings() {
 				pin: {
 					value: data.pin,
 					options: pins.reduce(mapPinsToSettings, {}),
-					disabled: !pins.length,
 				},
 				controller: { value: data.controller, options: ['GP2Y0A21YK', 'GP2Y0A710K0F'] }, // MB1000, MB1003, MB1020
 				freq: { value: data.freq!, min: 10, label: 'frequency (ms)' },

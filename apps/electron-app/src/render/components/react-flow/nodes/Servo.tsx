@@ -1,13 +1,11 @@
 import type { ServoData, ServoValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useDeleteHandles, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { mapPinToPaneOption } from '../../../../utils/pin';
-import { BindingApi } from '@tweakpane/core';
+import { mapPinsToSettings } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
 
 export function Servo(props: Props) {
@@ -72,59 +70,36 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete, addBinding } = useNodeSettings<ServoData>();
+	const data = useNodeData<ServoData>();
+	const deleteHandles = useDeleteHandles();
 	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
 
-	useEffect(() => {
-		if (!pane) return;
-
-		let rangeBinding: BindingApi | undefined;
-
-		const intialType = settings.type;
-
-		// TODO: dynamic bindings
-		function setRangePane() {
-			if (!pane) return;
-			rangeBinding?.dispose();
-			if (settings.type === 'continuous') return;
-
-			rangeBinding = pane.addBinding(settings, 'range', {
-				index: 2,
-				step: 1,
-				min: 0,
-				max: 180,
-			});
-		}
-
-		addBinding('pin', {
-			index: 0,
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			options: pins.map(mapPinToPaneOption),
-		});
-
-		addBinding('type', {
-			index: 1,
-			options: [
-				{ text: 'positional', value: 'standard' },
-				{ text: 'continuous', value: 'continuous' },
-			],
-			change: event => {
-				setRangePane();
-
-				if (event.value === intialType) setHandlesToDelete([]);
-				else
-					setHandlesToDelete(
-						event.value === 'standard' ? ['min', 'to', 'max'] : ['rotate', 'stop'],
-					);
-			},
-		});
-
-		setRangePane();
-	}, [pane, settings, pins, setHandlesToDelete, addBinding]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				pin: {
+					value: data.pin,
+					options: pins.reduce(mapPinsToSettings, {}),
+				},
+				type: {
+					value: data.type,
+					options: ['standard', 'continuous'],
+					transient: false,
+					onChange: event => {
+						console.log(event);
+						deleteHandles(event === 'standard' ? ['rotate', 'stop'] : ['min', 'to', 'max']);
+					},
+				},
+				range: {
+					value: data.range,
+					step: 1,
+					min: 0,
+					max: 180,
+					render: get => get('type') === 'standard',
+				},
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<ServoData>;

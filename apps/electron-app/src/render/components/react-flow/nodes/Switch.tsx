@@ -1,13 +1,12 @@
 import { SwitchData, SwitchValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { Switch as UiSwitch } from '@ui/index';
-import { useEffect } from 'react';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { mapPinsToSettings, mapPinToPaneOption } from '../../../../utils/pin';
+import { mapPinsToSettings } from '../../../../utils/pin';
 
 export function Switch(props: Props) {
 	return (
@@ -28,7 +27,6 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<SwitchData>();
 	const data = useNodeData<SwitchData>();
 	const pins = usePins([MODES.INPUT]);
 
@@ -38,7 +36,6 @@ function Settings() {
 				pin: {
 					value: data.pin,
 					options: pins.reduce(mapPinsToSettings, {}),
-					disabled: !pins.length,
 				},
 				type: {
 					value: data.type,
