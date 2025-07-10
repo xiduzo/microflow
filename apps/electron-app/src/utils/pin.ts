@@ -11,3 +11,9 @@ export function mapPinToPaneOption(pin: Pin): ListParamsOptions<string | number>
 		text: `${pinValue(pin)}${pin.supportedModes.includes(MODES.PWM) ? ' (~)' : ''}`,
 	};
 }
+
+export function mapPinsToSettings(prev: Record<string, string>, next: Pin) {
+	prev[next.pin] = `${pinValue(next)}${next.supportedModes.includes(MODES.PWM) ? ' (~)' : ''}`;
+
+	return prev;
+}

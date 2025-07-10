@@ -3,21 +3,15 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { useEffect, useMemo } from 'react';
-import { mapPinToPaneOption, pinValue } from '../../../../utils/pin';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { mapPinsToSettings, mapPinToPaneOption, pinValue } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 
 export function Led(props: Props) {
-	const pins = usePins();
+	const pins = usePins([MODES.PWM]);
 
-	const isPmwPin = useMemo(() => {
-		return (
-			pins.find(pin => pinValue(pin) === props.data.pin)?.supportedModes.includes(MODES.PWM) ??
-			false
-		);
-	}, [pins, props.data.pin]);
+	const isPmwPin = pins.find(pin => pinValue(pin) === props.data.pin);
 
 	return (
 		<NodeContainer {...props}>
@@ -32,7 +26,7 @@ export function Led(props: Props) {
 				title={props.data.subType === 'vibration' ? 'intensity' : 'brightness'}
 				offset={0.5}
 				hint={`${isPmwPin ? '0-255' : 'requires a ~ pin'}`}
-				isConnectable={isPmwPin}
+				isConnectable={!!isPmwPin}
 			/>
 			<Handle type="target" position={Position.Left} id="off" offset={1.5} />
 			<Handle type="source" position={Position.Right} id="change" />
@@ -82,20 +76,20 @@ function VibrationValue(props: { value: number }) {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<LedData>();
+	const data = useNodeData<LedData>();
 	const pins = usePins([MODES.INPUT]);
 
-	useEffect(() => {
-		addBinding('pin', {
-			index: 0,
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			options: pins.map(mapPinToPaneOption),
-		});
-	}, [pins, addBinding]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				pin: {
+					value: data.pin,
+					options: pins.reduce(mapPinsToSettings, {}),
+					disabled: !pins.length,
+				},
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<LedData>;

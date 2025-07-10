@@ -1,11 +1,10 @@
 import { RgbData, RgbValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { usePins } from '../../../stores/board';
-import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { mapPinsToSettings } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { RgbaColorPicker } from 'react-colorful';
 
@@ -30,26 +29,31 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<RgbData>();
 	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
+	const data = useNodeData<RgbData>();
 
-	useEffect(() => {
-		const colors = ['red', 'green', 'blue'];
-
-		colors.map((color, index) => {
-			addBinding(color, {
-				index,
-				view: 'list',
-				disabled: !pins.length,
-				label: color,
-				options: pins.map(mapPinToPaneOption),
-			});
-		});
-
-		addBinding('isAnode', { index: colors.length, view: 'toggle', label: 'anode' });
-	}, [addBinding, pins]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				red: {
+					value: data.pins.red,
+					options: pins.reduce(mapPinsToSettings, {}),
+					disabled: !pins.length,
+				},
+				green: {
+					value: data.pins.green,
+					options: pins.reduce(mapPinsToSettings, {}),
+					disabled: !pins.length,
+				},
+				blue: {
+					value: data.pins.blue,
+					options: pins.reduce(mapPinsToSettings, {}),
+					disabled: !pins.length,
+				},
+				isAnode: { value: data.isAnode, label: 'anode' },
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<RgbData>;

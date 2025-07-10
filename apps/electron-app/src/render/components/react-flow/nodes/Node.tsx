@@ -24,7 +24,6 @@ import {
 	useContext,
 	useEffect,
 	useRef,
-	useState,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
@@ -39,7 +38,7 @@ import {
 	FolderParams,
 	TpChangeEvent,
 } from '@tweakpane/core';
-import { useDebounceValue, useIsMounted } from 'usehooks-ts';
+import { useDebounceValue } from 'usehooks-ts';
 
 function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
@@ -119,15 +118,15 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 );
 
 type UseControlParameters = Parameters<typeof useControls>;
-type Schema = UseControlParameters[0];
+type Schema = Exclude<UseControlParameters[0], string>;
 
-export const useNodeControls = <S extends Schema>(schemaOrFolderName: S) => {
+export const useNodeControls = <S extends Schema>(schema: S) => {
 	const store = useCreateStore();
 	const { selected, type, id } = useNode();
 	const updateNodeInternals = useUpdateNodeInternals();
 	const updateNode = useUpdateNode(id);
 
-	const data = useControls(schemaOrFolderName, { store });
+	const data = useControls(schema, { store });
 
 	const [debouncedData] = useDebounceValue(data, 250);
 
@@ -140,8 +139,11 @@ export const useNodeControls = <S extends Schema>(schemaOrFolderName: S) => {
 };
 
 export function NodeSettings(props: { settings: Schema }) {
-	const element = useNodeControls(props.settings);
-	console.log(props.settings);
+	const data = useNodeData();
+	const element = useNodeControls({
+		label: { value: data.label },
+		...props.settings,
+	});
 
 	return <>{createPortal(element, document.getElementById('settings-panels')!)}</>;
 }
@@ -149,6 +151,23 @@ export function NodeSettings(props: { settings: Schema }) {
 export function useNodeSettings<T extends Record<string, any>>() {
 	// @ts-ignore-next-line
 	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
+}
+
+export function useDeleteHandles() {
+	const id = useNodeId();
+	const deleteEdes = useDeleteEdges();
+
+	const updateNodeInternals = useUpdateNodeInternals();
+
+	const deleteHandles = useCallback(
+		(handles: string[]) => {
+			deleteEdes(id, handles);
+			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
+		},
+		[id, updateNodeInternals, deleteEdes],
+	);
+
+	return deleteHandles;
 }
 
 function NodeSettingsPane<T extends Record<string, unknown>>(

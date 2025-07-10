@@ -1,6 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef, useState } from 'react';
@@ -126,21 +126,18 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<MonitorData>();
+	const data = useNodeData<MonitorData>();
 
-	useEffect(() => {
-		addBinding('type', {
-			index: 0,
-			label: 'type',
-			view: 'list',
-			options: [
-				{ value: 'graph', text: 'graph' },
-				{ value: 'raw', text: 'raw' },
-			],
-		});
-	}, [addBinding]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				type: {
+					value: data.type,
+					options: ['graph', 'raw'],
+				},
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<MonitorData>;

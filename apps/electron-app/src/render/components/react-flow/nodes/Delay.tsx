@@ -27,7 +27,6 @@ function Settings() {
 	return (
 		<NodeSettings
 			settings={{
-				label: { value: data.label },
 				delay: { min: 100, step: 100, value: data.delay, label: 'delay (ms)' },
 				forgetPrevious: { value: data.forgetPrevious, label: 'debounce' },
 			}}

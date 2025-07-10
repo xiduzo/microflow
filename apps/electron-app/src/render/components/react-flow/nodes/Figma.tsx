@@ -16,7 +16,7 @@ import {
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { RgbaColorPicker } from 'react-colorful';
 import { useDebounceValue } from 'usehooks-ts';
@@ -110,66 +110,99 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete, addBinding } = useNodeSettings<FigmaData>();
-
+	const data = useNodeData<FigmaData>();
 	const { variableTypes } = useFigma();
 
-	const initialVariableType = Array.from(Object.values(variableTypes)).find(
-		({ id }) => id === settings.variableId,
-	)?.resolvedType;
+	return (
+		<NodeSettings
+			settings={{
+				variableId: {
+					label: 'variable',
+					value: data.variableId!,
+					disabled: !Object.keys(variableTypes).length,
+					options: Object.values(variableTypes).reduce(
+						(curr, variable) => {
+							curr[variable.id] = variable.name;
+							return curr;
+						},
+						{} as Record<string, string>,
+					),
+					onChange: event => {
+						// TODO: handle the change of variableId (add / remove handlers) --> use `useDeleteHandles`
+						// TODO: set initial value
+						console.log(event);
+					},
+				},
+				debounceTime: {
+					value: data.debounceTime!,
+					min: 10,
+					max: 500,
+					step: 10,
+					label: 'update frequency (ms)',
+				},
+			}}
+		/>
+	);
+	// const { pane, settings, setHandlesToDelete, addBinding } = useNodeSettings<FigmaData>();
 
-	useEffect(() => {
-		addBinding('variableId', {
-			index: 0,
-			view: 'list',
-			label: 'variable',
-			disabled: !Object.keys(variableTypes).length,
-			value: settings.variableId,
-			options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
-				value: variable.id,
-				text: variable.name,
-			})),
-			change: event => {
-				const selectedVariableType = Array.from(Object.values(variableTypes)).find(
-					({ id }) => id === event.value,
-				)?.resolvedType;
+	// const { variableTypes } = useFigma();
 
-				switch (initialVariableType) {
-					case 'BOOLEAN':
-						setHandlesToDelete(['true', 'toggle', 'false']);
-						break;
-					case 'COLOR':
-						setHandlesToDelete(['red', 'green', 'blue', 'opacity']);
-						break;
-					case 'FLOAT':
-						setHandlesToDelete(['increment', 'set', 'decrement']);
-						break;
-					case 'STRING':
-						setHandlesToDelete(['set']);
-						break;
-				}
+	// const initialVariableType = Array.from(Object.values(variableTypes)).find(
+	// 	({ id }) => id === settings.variableId,
+	// )?.resolvedType;
 
-				if (selectedVariableType === initialVariableType) setHandlesToDelete([]);
+	// useEffect(() => {
+	// 	addBinding('variableId', {
+	// 		index: 0,
+	// 		view: 'list',
+	// 		label: 'variable',
+	// 		disabled: !Object.keys(variableTypes).length,
+	// 		value: settings.variableId,
+	// 		options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
+	// 			value: variable.id,
+	// 			text: variable.name,
+	// 		})),
+	// 		change: event => {
+	// 			const selectedVariableType = Array.from(Object.values(variableTypes)).find(
+	// 				({ id }) => id === event.value,
+	// 			)?.resolvedType;
 
-				if (!selectedVariableType) return;
+	// 			switch (initialVariableType) {
+	// 				case 'BOOLEAN':
+	// 					setHandlesToDelete(['true', 'toggle', 'false']);
+	// 					break;
+	// 				case 'COLOR':
+	// 					setHandlesToDelete(['red', 'green', 'blue', 'opacity']);
+	// 					break;
+	// 				case 'FLOAT':
+	// 					setHandlesToDelete(['increment', 'set', 'decrement']);
+	// 					break;
+	// 				case 'STRING':
+	// 					setHandlesToDelete(['set']);
+	// 					break;
+	// 			}
 
-				return {
-					resolvedType: selectedVariableType,
-					initialValue: DEFAULT_FIGMA_VALUE_PER_TYPE[selectedVariableType],
-				};
-			},
-		});
+	// 			if (selectedVariableType === initialVariableType) setHandlesToDelete([]);
 
-		addBinding('debounceTime', {
-			index: 1,
-			min: 10,
-			max: 500,
-			step: 10,
-			label: 'update frequency (ms)',
-		});
-	}, [pane, settings, initialVariableType, variableTypes]);
+	// 			if (!selectedVariableType) return;
 
-	return null;
+	// 			return {
+	// 				resolvedType: selectedVariableType,
+	// 				initialValue: DEFAULT_FIGMA_VALUE_PER_TYPE[selectedVariableType],
+	// 			};
+	// 		},
+	// 	});
+
+	// 	addBinding('debounceTime', {
+	// 		index: 1,
+	// 		min: 10,
+	// 		max: 500,
+	// 		step: 10,
+	// 		label: 'update frequency (ms)',
+	// 	});
+	// }, [pane, settings, initialVariableType, variableTypes]);
+
+	// return null;
 }
 
 const numberFormat = new Intl.NumberFormat('en-US', {

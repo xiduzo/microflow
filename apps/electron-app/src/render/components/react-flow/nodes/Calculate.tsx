@@ -1,8 +1,7 @@
 import { CalculateData } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
 import { Icons } from '@ui/index';
 
 export function Calculate(props: Props) {
@@ -47,27 +46,29 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<CalculateData>();
+	const data = useNodeData<CalculateData>();
 
-	useEffect(() => {
-		addBinding('function', {
-			type: 'list',
-			options: [
-				{ text: 'addition', value: 'add' },
-				{ text: 'subtraction', value: 'subtract' },
-				{ text: 'multiplication', value: 'multiply' },
-				{ text: 'division', value: 'divide' },
-				{ text: 'modulo', value: 'modulo' },
-				{ text: 'maximum', value: 'max' },
-				{ text: 'minimum', value: 'min' },
-				{ text: 'round up', value: 'ceil' },
-				{ text: 'round down', value: 'floor' },
-				{ text: 'round closest', value: 'round' },
-			],
-		});
-	}, [addBinding]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				function: {
+					value: data.function,
+					options: {
+						addition: 'add',
+						subtraction: 'subtract',
+						multiplication: 'multiply',
+						division: 'divide',
+						modulo: 'modulo',
+						maximum: 'max',
+						minimum: 'min',
+						'round up': 'ceil',
+						'round down': 'floor',
+						'round closest': 'round',
+					},
+				},
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<CalculateData>;

@@ -1,10 +1,10 @@
 import type { TriggerData, TriggerValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { IconWithValue } from '../IconWithValue';
 import { useNodeValue } from '../../../stores/node-data';
+import { folder } from '@microflow/ui';
 
 export function Trigger(props: Props) {
 	return (
@@ -22,11 +22,13 @@ function Value() {
 	const data = useNodeData<TriggerData>();
 	const value = useNodeValue<TriggerValueType>(false);
 
+	console.log({ data });
+
 	return (
 		<IconWithValue
 			icon={data.behaviour === 'increasing' ? 'TrendingUp' : 'TrendingDown'}
 			iconClassName={value ? 'text-green-500' : 'text-red-500'}
-			value={`by ${data.threshold}`}
+			value={`by ${formatter.format(data.threshold)}`}
 			suffix={
 				data.relative
 					? `% within ${formatter.format(data.within / 1000)}s`
@@ -37,25 +39,35 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<TriggerData>();
+	const data = useNodeData<TriggerData>();
 
-	useEffect(() => {
-		addBinding('behaviour', {
-			index: 0,
-			view: 'list',
-			label: 'triggers',
-			options: [
-				{ value: 'increasing', text: 'when increasing' },
-				{ value: 'decreasing', text: 'when decreasing' },
-			],
-		});
-
-		addBinding('threshold', { index: 1, label: 'by', min: 0 });
-		addBinding('relative', { index: 2, label: 'percentage' });
-		addBinding('within', { index: 3, label: 'within (ms)', min: 1 });
-	}, [addBinding]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				behaviour: {
+					value: data.behaviour,
+					options: [
+						{
+							increasing: 'when increasing',
+							decreasing: 'when decreasing',
+						},
+					],
+				},
+				threshold: {
+					value: data.threshold!,
+					min: 0,
+					label: 'by',
+				},
+				within: { value: data.within, min: 1, step: 50, label: 'within (ms)' },
+				advanced: folder(
+					{
+						relative: { value: data.relative!, label: 'percentage' },
+					},
+					{ collapsed: true },
+				),
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<TriggerData>;

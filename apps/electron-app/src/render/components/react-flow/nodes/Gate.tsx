@@ -1,9 +1,8 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect } from 'react';
 import { uuid } from '../../../../utils/uuid';
 
 export function Gate(props: Props) {
@@ -15,6 +14,7 @@ export function Gate(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
+			{/* TODO all use 1 input */}
 			{Array.from({ length: props.data.gate === 'not' ? 1 : 2 }).map((_item, index) => {
 				return (
 					<Handle
@@ -47,31 +47,18 @@ function Value() {
 }
 
 function Settings() {
-	const { setHandlesToDelete, addBinding } = useNodeSettings<GateData>();
+	const data = useNodeData<GateData>();
 
-	useEffect(() => {
-		addBinding('gate', {
-			index: 0,
-			type: 'list',
-			options: [
-				{ text: 'not', value: 'not' },
-				{ text: 'and', value: 'and' },
-				{ text: 'nand', value: 'nand' },
-				{ text: 'or', value: 'or' },
-				{ text: 'nor', value: 'nor' },
-				{ text: 'xor', value: 'xor' },
-				{ text: 'xnor', value: 'xnor' },
-			],
-			change: event => {
-				// TODO ==> 1 input handle for all
-				setHandlesToDelete(
-					Array.from({ length: event.value === 'not' ? 1 : 0 }).map((_, index) => String(index)),
-				);
-			},
-		});
-	}, [addBinding]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				gate: {
+					value: data.gate,
+					options: ['not', 'and', 'nand', 'or', 'nor', 'xor', 'xnor'],
+				},
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<GateData>;

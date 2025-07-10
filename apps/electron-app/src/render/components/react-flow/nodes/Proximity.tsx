@@ -1,12 +1,11 @@
 import { ProximityData, ProximityValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
-import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { mapPinsToSettings, mapPinToPaneOption } from '../../../../utils/pin';
 
 export function Proximity(props: Props) {
 	return (
@@ -25,33 +24,22 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<ProximityData>();
+	const data = useNodeData<ProximityData>();
 	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
 
-	useEffect(() => {
-		addBinding('pin', {
-			index: 0,
-			view: 'list',
-			disabled: !pins.length,
-			options: pins.map(mapPinToPaneOption),
-		});
-
-		addBinding('controller', {
-			index: 1,
-			view: 'list',
-			options: [
-				{ value: 'GP2Y0A21YK', text: 'GP2Y0A21YK' },
-				{ value: 'GP2Y0A710K0F', text: 'GP2Y0A710K0F' },
-				// { value: "MB1000", text: "MB1000 (untested)"},
-				// { value: "MB1003", text: "MB1003 (untested)"},
-				// { value: "MB1230", text: "MB1230 (untested)"},
-			],
-		});
-
-		addBinding('freq', { index: 2, label: 'frequency (ms)', min: 10 });
-	}, [addBinding, pins]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				pin: {
+					value: data.pin,
+					options: pins.reduce(mapPinsToSettings, {}),
+					disabled: !pins.length,
+				},
+				controller: { value: data.controller, options: ['GP2Y0A21YK', 'GP2Y0A710K0F'] }, // MB1000, MB1003, MB1020
+				freq: { value: data.freq!, min: 10, label: 'frequency (ms)' },
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<ProximityData>;

@@ -1,12 +1,21 @@
 import type { MqttData, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
-import { Icons } from '@microflow/ui';
-import { Position } from '@xyflow/react';
+import { button, Icons } from '@microflow/ui';
+import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeId, useNodeSettings } from './Node';
+import {
+	BaseNode,
+	NodeContainer,
+	NodeSettings,
+	useDeleteHandles,
+	useNodeData,
+	useNodeId,
+	useNodeSettings,
+} from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useAppStore } from '../../../stores/app';
+import { useDeleteEdges } from '../../../stores/react-flow';
 
 export function Mqtt(props: Props) {
 	const { status } = useMqtt();
@@ -75,34 +84,27 @@ function Value() {
 }
 
 function Settings() {
-	const { settings, setHandlesToDelete, addBinding, addButton } = useNodeSettings<MqttData>();
 	const { setSettingsOpen } = useAppStore();
+	const deleteHandles = useDeleteHandles();
 
-	useEffect(() => {
-		const initialType = settings.direction;
+	const data = useNodeData<MqttData>();
 
-		addBinding('direction', {
-			index: 0,
-			view: 'list',
-			options: [
-				{ text: 'publish', value: 'publish' },
-				{ text: 'subscribe', value: 'subscribe' },
-			],
-			change: event => {
-				if (event.value === initialType) setHandlesToDelete([]);
-				else setHandlesToDelete(event.value === 'publish' ? ['subscribe'] : ['publish']);
-			},
-		});
-
-		addBinding('topic', { index: 1 });
-		addButton({
-			index: 2,
-			title: 'Broker settings',
-			click: () => setSettingsOpen('mqtt-settings'),
-		});
-	}, [settings, setHandlesToDelete, addBinding, addButton]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				direction: {
+					value: data.direction,
+					options: ['publish', 'subscribe'],
+					onChange: value => {
+						deleteHandles(value === 'publish' ? ['subscribe'] : ['publish']);
+					},
+					transient: false,
+				},
+				topic: { value: data.topic! }, // , hint: 'mqtt/xiduzo/#'
+				'broker settings': button(() => setSettingsOpen('mqtt-settings')),
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<MqttData>;

@@ -1,8 +1,8 @@
 import type { OscillatorData } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { IconName } from '@ui/index';
 import { IconWithValue } from '../IconWithValue';
 
@@ -43,30 +43,28 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<OscillatorData>();
+	const data = useNodeData<OscillatorData>();
 
-	useEffect(() => {
-		addBinding('waveform', {
-			index: 0,
-			view: 'list',
-			label: 'validate',
-			options: [
-				{ value: 'sinus', text: 'sinus' },
-				{ value: 'triangle', text: 'triangle' },
-				{ value: 'sawtooth', text: 'sawtooth' },
-				{ value: 'square', text: 'square' },
-				{ value: 'random', text: 'random' },
-			],
-		});
-
-		addBinding('period', { index: 1, step: 1, min: 100 });
-		addBinding('amplitude', { index: 2, min: 0.1 });
-		addBinding('phase', { index: 3 });
-		addBinding('shift', { index: 4 });
-		addBinding('autoStart', { index: 5, label: 'auto start' });
-	}, [addBinding]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				waveform: {
+					value: data.waveform,
+					options: ['sinus', 'triangle', 'sawtooth', 'square', 'random'],
+				},
+				period: {
+					value: data.period,
+					min: 100,
+					step: 100,
+					label: 'period (ms)',
+				},
+				amplitude: { value: data.amplitude, min: 0.1, label: 'amplitude' },
+				phase: { value: data.phase, label: 'phase' },
+				shift: { value: data.shift, label: 'shift' },
+				autoStart: { value: data.autoStart ?? true, label: 'auto start' },
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<OscillatorData>;

@@ -1,13 +1,12 @@
 import { RelayData, RelayValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { Icons } from '@ui/index';
-import { useEffect } from 'react';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { mapPinsToSettings } from '../../../../utils/pin';
 
 export function Relay(props: Props) {
 	return (
@@ -29,31 +28,27 @@ function Value() {
 }
 
 function Settings() {
-	const { addBinding } = useNodeSettings<RelayData>();
 	const pins = usePins([MODES.OUTPUT]);
+	const data = useNodeData<RelayData>();
 
-	useEffect(() => {
-		addBinding('pin', {
-			index: 0,
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			options: pins.map(mapPinToPaneOption),
-		});
-
-		addBinding('type', {
-			index: 1,
-			view: 'list',
-			disabled: !pins.length,
-			label: 'mode',
-			options: [
-				{ value: 'NO', text: 'Normally open' },
-				{ value: 'NC', text: 'Normally closed' },
-			],
-		});
-	}, [addBinding, pins]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				pin: {
+					value: data.pin,
+					options: pins.reduce(mapPinsToSettings, {}),
+					disabled: !pins.length,
+				},
+				type: {
+					value: data.type,
+					options: [
+						{ value: 'NO', text: 'Normally open (NO)' },
+						{ value: 'NC', text: 'Normally closed (NC)' },
+					],
+				},
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<RelayData>;

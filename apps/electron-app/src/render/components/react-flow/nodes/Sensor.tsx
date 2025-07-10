@@ -1,12 +1,11 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import { cva, Icons, Progress, Switch, VariantProps } from '@microflow/ui';
+import { cva, folder, Icons, Progress, Switch, VariantProps } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo } from 'react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { mapPinsToSettings } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
 
 export function Sensor(props: Props) {
@@ -23,7 +22,7 @@ function Value() {
 	const value = useNodeValue<SensorValueType>(0);
 	const data = useNodeData<SensorData>();
 
-	const progress = useMemo(() => Math.round((value / 1023) * 100), [value]);
+	const progress = Math.round((value / 1023) * 100);
 
 	if (data.type === 'digital') {
 		return <Switch checked={Boolean(value)} className="scale-150" />;
@@ -104,24 +103,24 @@ const hallEffect = cva('transition-all', {
 });
 
 function Settings() {
-	const { addBinding, addFolder } = useNodeSettings<SensorData & { subType?: string }>();
+	const data = useNodeData<SensorData & { subType?: string }>();
 	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
 
-	useEffect(() => {
-		addBinding('pin', {
-			index: 0,
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			options: pins.map(mapPinToPaneOption),
-		});
-
-		addFolder({ index: 1, title: 'advanced', expanded: false });
-		addBinding('threshold', { index: 0, step: 1, tag: 'advanced' });
-		addBinding('freq', { index: 1, label: 'frequency (ms)', min: 10, tag: 'advanced' });
-	}, [pins, addBinding, addFolder]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				pin: {
+					value: data.pin,
+					options: pins.reduce(mapPinsToSettings, {}),
+					disabled: !pins.length,
+				},
+				advanced: folder({
+					threshold: { min: 0, step: 1, value: data.threshold! },
+					freq: { min: 10, step: 1, value: data.freq! },
+				}),
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<SensorData>;

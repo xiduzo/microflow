@@ -1,10 +1,18 @@
-import { Position, useReactFlow, useUpdateNodeInternals } from '@xyflow/react';
+import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeId, useNodeSettings } from './Node';
+import {
+	BaseNode,
+	NodeContainer,
+	NodeSettings,
+	useNodeData,
+	useNodeId,
+	useNodeSettings,
+} from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LlmData, LlmValueType } from '@microflow/components';
 import { IconWithValue } from '../IconWithValue';
+import { folder } from '@ui/index';
 
 export function Llm(props: Props) {
 	return (
@@ -68,14 +76,14 @@ function Value() {
 }
 
 function Settings() {
-	const { settings, addBinding, addFolder } = useNodeSettings<LlmData>();
 	const [models, setModels] = useState<string[]>([]);
+	const data = useNodeData<LlmData>();
 
 	useEffect(() => {
 		async function getModels() {
-			switch (settings.provider) {
+			switch (data.provider) {
 				case 'ollama':
-					const ollamaModelsResponse = await fetch(`${settings.baseUrl}/api/tags`);
+					const ollamaModelsResponse = await fetch(`${data.baseUrl}/api/tags`);
 					const ollamaModels = await ollamaModelsResponse.json();
 					setModels(ollamaModels.models.map((model: { model: string }) => model.model));
 					break;
@@ -85,42 +93,35 @@ function Settings() {
 		}
 
 		getModels();
-	}, [settings.provider, settings.baseUrl]);
+	}, [data.provider, data.baseUrl]);
 
-	useEffect(() => {
-		addBinding('provider', {
-			index: 0,
-			type: 'list',
-			disabled: true,
-			options: [{ text: 'ollama', value: 'ollama' }],
-		});
-
-		addBinding('model', {
-			index: 1,
-			type: 'list',
-			options: models.map(model => ({ text: model, value: model })),
-		});
-
-		addBinding('system', { index: 2, view: 'textarea', rows: 5 });
-		addBinding('prompt', { index: 3, view: 'textarea', rows: 5 });
-
-		addFolder({ index: 4, title: 'advanced', expanded: false });
-
-		addBinding('baseUrl', { tag: 'advanced' });
-		addBinding('frequencyPenalty', { min: 0, max: 2, step: 0.1, tag: 'advanced' });
-		addBinding('temperature', { min: 0.1, max: 2, step: 0.1, tag: 'advanced' });
-		addBinding('topK', { min: 1, max: 100, step: 1, tag: 'advanced' });
-		addBinding('topP', { min: 0.1, max: 1, step: 0.05, tag: 'advanced' });
-		addBinding('mirostat', { min: 0, max: 1, step: 1, tag: 'advanced' });
-		addBinding('mirostatTau', { min: 1, max: 10, step: 0.5, tag: 'advanced' });
-		addBinding('mirostatEta', { min: 0.01, max: 1, step: 0.05, tag: 'advanced' });
-		addBinding('repeatPenalty', { min: 1, max: 2, step: 0.1, tag: 'advanced' });
-		addBinding('typicalP', { min: 0.1, max: 1, step: 0.05, tag: 'advanced' });
-		addBinding('presencePenalty', { min: 0, max: 2, step: 0.1, tag: 'advanced' });
-		addBinding('repeatLastN', { min: 1, max: 256, step: 1, tag: 'advanced' });
-	}, [models, addBinding, addFolder]);
-
-	return null;
+	return (
+		<NodeSettings
+			settings={{
+				provider: { value: data.provider, options: ['ollama'], disabled: true },
+				models: { value: data.model, options: models },
+				system: { value: data.system, rows: 5 },
+				prompt: { value: data.prompt, rows: 5 },
+				advanced: folder(
+					{
+						baseUrl: { value: data.baseUrl!, label: 'Base URL' },
+						frequencyPenalty: { value: data.frequencyPenalty!, label: 'Frequency Penalty' },
+						temperature: { value: data.temperature!, label: 'Temperature' },
+						topK: { value: data.topK!, label: 'Top K' },
+						topP: { value: data.topP!, label: 'Top P' },
+						mirostat: { value: data.mirostat!, label: 'Mirostat' },
+						mirostatTau: { value: data.mirostatTau!, label: 'Mirostat Tau' },
+						mirostatEta: { value: data.mirostatEta!, label: 'Mirostat Eta' },
+						repeatPenalty: { value: data.repeatPenalty!, label: 'Repeat Penalty' },
+						typicalP: { value: data.typicalP!, label: 'Typical P' },
+						presencePenalty: { value: data.presencePenalty!, label: 'Presence Penalty' },
+						repeatLastN: { value: data.repeatLastN!, label: 'Repeat Last N' },
+					},
+					{ collapsed: true },
+				),
+			}}
+		/>
+	);
 }
 
 type Props = BaseNode<LlmData>;
