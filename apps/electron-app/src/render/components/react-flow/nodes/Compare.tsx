@@ -1,9 +1,13 @@
 import type { CompareData, CompateValueType } from '@microflow/components';
-import { COMPARE_SUB_VALIDATORS, COMPARE_VALIDATORS } from '@microflow/components/contants';
+import {
+	COMPARE_SUB_VALIDATORS,
+	COMPARE_VALIDATORS,
+	CompareSubValidator,
+} from '@microflow/components/contants';
 import { Position } from '@xyflow/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeControls, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { IconWithValue } from '../IconWithValue';
 
@@ -32,26 +36,19 @@ function Value() {
 				return 'boolean';
 			case 'number':
 				switch (data.subValidator) {
+					case 'even':
+					case 'odd':
+						return `is ${data.subValidator}`;
 					case 'equal to':
 					case 'less than':
 					case 'greater than':
 						return `is ${data.subValidator} ${formatter.format(data.validatorArg)}`;
-					case 'even':
-					case 'odd':
-						return `is ${data.subValidator}`;
 					case 'between':
 					case 'outside':
-						return `is ${data.subValidator} ${formatter.format(data.validatorArg.min)} and ${formatter.format(data.validatorArg.max)}`;
+						return `is ${data.subValidator} ${formatter.format(data.validatorArg?.min)} and ${formatter.format(data.validatorArg?.max)}`;
 				}
 			case 'text':
-				switch (data.subValidator) {
-					case 'includes':
-					case 'starts with':
-					case 'ends with':
-						return `${data.subValidator} ${data.validatorArg}`;
-					case 'equal to':
-						return `is ${data.subValidator} ${data.validatorArg}`;
-				}
+				return `is ${data.subValidator} "${data.validatorArg}"`;
 			default:
 				return '';
 		}
@@ -67,125 +64,65 @@ function Value() {
 }
 
 function Settings() {
+	const [subValidatorOptions, setSubValidatorOptions] = useState<readonly CompareSubValidator[]>(
+		[],
+	);
 	const data = useNodeData<CompareData>();
 
-	const { render } = useNodeControls(
+	const { render, set } = useNodeControls(
 		{
-			validator: { value: data.validator, options: COMPARE_VALIDATORS },
-			subvalidator: {
-				value: data.subValidator ?? COMPARE_SUB_VALIDATORS[data.validator].at(0),
-				options: COMPARE_SUB_VALIDATORS[data.validator],
+			validator: {
+				value: data.validator,
+				options: [...COMPARE_VALIDATORS],
+				label: 'validate that a',
+			},
+			subValidator: {
+				label: 'is',
+				value: data.subValidator,
+				options: subValidatorOptions,
 				render: get => get('validator') !== 'boolean',
 			},
-			validatorArgs: data.validatorArg!,
+			validatorArg: { value: '', render: () => false },
+			range: {
+				value: { min: 100, max: 500 },
+				label: '',
+				joystick: false,
+				render: get => ['between', 'outside'].includes(get('subValidator')),
+				onChange: value => set({ validatorArg: value }),
+			},
+			numerical: {
+				value: 0,
+				label: '',
+				step: 1,
+				render: get =>
+					get('validator') === 'number' &&
+					!['between', 'outside', 'even', 'odd'].includes(get('subValidator')),
+				onChange: value => set({ validatorArg: value }),
+			},
+			textual: {
+				value: '',
+				label: '',
+				render: get => get('validator') === 'text',
+				onChange: value => set({ validatorArg: value }),
+			},
 		},
-		[data.validator, data.subValidator],
+		[subValidatorOptions],
 	);
 
+	useEffect(() => {
+		const options = [...COMPARE_SUB_VALIDATORS[data.validator]];
+		const subValidator = options.includes(data.subValidator as never)
+			? data.subValidator
+			: options.at(0);
+
+		setSubValidatorOptions(options);
+
+		if (data.subValidator === subValidator) return;
+
+		set({ subValidator });
+	}, [data.validator, data.subValidator, set]);
+
 	return <>{render()}</>;
-
-	// useEffect(() => {
-	// 	// if (!pane) return;
-
-	// 	// let subValidatorPane: BindingApi | undefined;
-	// 	// let validatorArgPane: BladeApi | undefined;
-
-	// 	// // TODO: dynamic bindings
-	// 	// function addValidatorArgs() {
-	// 	// 	if (!pane) return;
-
-	// 	// 	validatorArgPane?.dispose();
-
-	// 	// 	validatorArgPane = pane.addBinding(settings, 'validatorArg', {
-	// 	// 		index: 2,
-	// 	// 		label: '',
-	// 	// 	});
-	// 	// }
-
-	// 	// function addSubValidator(validator: CompareValidator) {
-	// 	// 	if (!pane) return;
-	// 	// 	subValidatorPane?.dispose();
-
-	// 	// 	if (settings.subValidator === 'odd') return;
-	// 	// 	if (settings.subValidator === 'even') return;
-
-	// 	// 	addValidatorArgs();
-	// 	// }
-
-	// 	addBinding('validator', {
-	// 		index: 0,
-	// 		view: 'list',
-	// 		label: 'validate',
-	// 		options: COMPARE_VALIDATORS.map(validator => ({ text: validator, value: validator })),
-	// 		change: event => {
-	// 			switch (event.value) {
-	// 				case 'boolean':
-	// 					// subValidatorPane?.dispose();
-	// 					// validatorArgPane?.dispose();
-	// 					return;
-	// 				case 'number':
-	// 					settings.subValidator = 'equal to';
-	// 					settings.validatorArg = 0;
-	// 					// addSubValidator(event.value);
-	// 					break;
-	// 				case 'text':
-	// 					settings.subValidator = 'includes';
-	// 					settings.validatorArg = '';
-	// 					// addSubValidator(event.value);
-	// 					return;
-	// 			}
-	// 		},
-	// 	});
-
-	// 	// addBinding('subValidator', {
-	// 	// 	view: 'list',
-	// 	// 	index: 1,
-	// 	// 	label: 'is',
-	// 	// 	options: COMPARE_SUB_VALIDATORS[settings.validator].map(item => ({
-	// 	// 		text: item,
-	// 	// 		value: item,
-	// 	// 	})),
-	// 	// 	change: event => {
-	// 	// 		console.log(event);
-	// 	// 	},
-	// 	// });
-	// 	// .on('change', event => {
-	// 	// 	switch (event.value) {
-	// 	// 		case 'equal to':
-	// 	// 		case 'includes':
-	// 	// 		case 'starts with':
-	// 	// 		case 'ends with':
-	// 	// 			settings.validatorArg = settings.validatorArg ?? '';
-	// 	// 			addValidatorArgs();
-	// 	// 			break;
-	// 	// 		case 'less than':
-	// 	// 		case 'greater than':
-	// 	// 			settings.validatorArg = isNaN(Number(settings.validatorArg))
-	// 	// 				? 0
-	// 	// 				: (settings.validatorArg ?? 0);
-	// 	// 			addValidatorArgs();
-	// 	// 			break;
-	// 	// 		case 'between':
-	// 	// 		case 'outside':
-	// 	// 			settings.validatorArg = isNaN(Number(settings.validatorArg))
-	// 	// 				? (settings.validatorArg ?? { min: 100, max: 500 })
-	// 	// 				: { min: 100, max: 500 };
-	// 	// 			addValidatorArgs();
-	// 	// 			break;
-	// 	// 		case 'even':
-	// 	// 		case 'odd':
-	// 	// 			validatorArgPane?.dispose();
-	// 	// 			break;
-	// 	// 		default:
-	// 	// 			// Boolean
-	// 	// 			break;
-	// 	// 	}
-	// 	// });
-	// 	//
-	// 	// addBinding('validatorArg', { index: 2, label: '', hidden: settings.validator === 'boolean' });
-	// }, [settings, addBinding]);
-
-	// return null;
 }
 
 type Props = BaseNode<CompareData>;

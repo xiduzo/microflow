@@ -1,12 +1,12 @@
 import { RelayData, RelayValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { Icons } from '@ui/index';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { mapPinsToSettings } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 
 export function Relay(props: Props) {
 	return (
@@ -30,24 +30,21 @@ function Value() {
 function Settings() {
 	const pins = usePins([MODES.OUTPUT]);
 	const data = useNodeData<RelayData>();
-
-	return (
-		<NodeSettings
-			settings={{
-				pin: {
-					value: data.pin,
-					options: pins.reduce(mapPinsToSettings, {}),
-				},
-				type: {
-					value: data.type,
-					options: [
-						{ value: 'NO', text: 'Normally open (NO)' },
-						{ value: 'NC', text: 'Normally closed (NC)' },
-					],
-				},
-			}}
-		/>
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+			type: {
+				value: data.type,
+				options: [
+					{ value: 'NO', text: 'Normally open (NO)' },
+					{ value: 'NC', text: 'Normally closed (NC)' },
+				],
+			},
+		},
+		[pins],
 	);
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<RelayData>;

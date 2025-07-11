@@ -2,9 +2,9 @@ import type { ButtonData, ButtonValueType } from '@microflow/components';
 import { folder, Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
-import { mapPinsToSettings } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeControls, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 
@@ -40,31 +40,23 @@ function Settings() {
 
 	const { render, set } = useNodeControls(
 		{
-			pin: {
-				options: pins.reduce(mapPinsToSettings, {}),
-				value: data.pin,
-			},
+			pin: { options: pins.reduce(reducePinsToOptions, {}), value: data.pin },
 			isPullup: { value: data.isPullup!, render: () => false },
 			isPulldown: { value: data.isPulldown!, render: () => false },
-			type: {
-				value: data.isPulldown ? PULL_DOWN : data.isPullup ? PULL_UP : DEFAULT,
-				options: {
-					default: DEFAULT,
-					'pull up': PULL_UP,
-					'pull down': PULL_DOWN,
-				},
-				onChange: value => {
-					set({ isPullup: value === PULL_UP, isPulldown: value === PULL_DOWN });
-				},
-			},
+
 			advanced: folder(
 				{
-					holdtime: {
-						min: 100,
-						step: 50,
-						value: data.holdtime!,
-						label: 'hold time (ms)',
+					type: {
+						value: data.isPulldown ? PULL_DOWN : data.isPullup ? PULL_UP : DEFAULT,
+						options: {
+							default: DEFAULT,
+							'pull up': PULL_UP,
+							'pull down': PULL_DOWN,
+						},
+						onChange: value =>
+							set({ isPullup: value === PULL_UP, isPulldown: value === PULL_DOWN }),
 					},
+					holdtime: { min: 100, step: 50, value: data.holdtime!, label: 'hold time (ms)' },
 				},
 				{ collapsed: true },
 			),

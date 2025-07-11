@@ -3,8 +3,8 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
-import { mapPinsToSettings, mapPinToPaneOption, pinValue } from '../../../../utils/pin';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
+import { reducePinsToOptions, pinValue } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 
@@ -79,16 +79,14 @@ function Settings() {
 	const data = useNodeData<LedData>();
 	const pins = usePins([MODES.INPUT]);
 
-	return (
-		<NodeSettings
-			settings={{
-				pin: {
-					value: data.pin,
-					options: pins.reduce(mapPinsToSettings, {}),
-				},
-			}}
-		/>
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+		},
+		[pins],
 	);
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<LedData>;

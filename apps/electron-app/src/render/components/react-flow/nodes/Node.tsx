@@ -107,45 +107,41 @@ const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
 );
 
 type UseControlParameters = Parameters<typeof useControls>;
-export type Schema = Exclude<UseControlParameters[0], string | Function>;
+export type Controls = Exclude<UseControlParameters[0], string | Function>;
 
-export const useNodeControls = <S extends Schema>(schema: S, dependencies: unknown[] = []) => {
+export const useNodeControls = <S extends Controls>(controls: S, dependencies: unknown[] = []) => {
 	const store = useCreateStore();
 	const { selected, id, data } = useNode();
 	const updateNode = useUpdateNode(id);
 
-	const [controlsData, set] = useControls(
-		() => ({ label: data.label, ...schema }),
+	const [controlsData, set, get] = useControls(
+		() => ({ label: data.label, ...controls }),
 		{ store },
 		dependencies,
 	);
 
 	const [debouncedControlData] = useDebounceValue(controlsData, 500);
+	const [selectedDebounce] = useDebounceValue(selected, 30);
 
 	const render = useCallback(() => {
 		return createPortal(
-			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selected} />,
+			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selectedDebounce} />,
 			document.getElementById('settings-panels')!,
 		);
-	}, [store, selected]);
+	}, [store, selectedDebounce]);
 
 	useEffect(() => {
+		console.debug('<controlsData>', controlsData);
 		updateNode(controlsData as Record<string, unknown>);
 	}, [controlsData, updateNode]);
 
 	useEffect(() => {
 		// TODO use for code upload
-		console.log(debouncedControlData);
+		console.debug('<debouncedControlData>', debouncedControlData);
 	}, [debouncedControlData]);
 
 	return { render, set };
 };
-
-export function NodeSettings(props: { settings: Schema; dependencies?: unknown[] }) {
-	const { render } = useNodeControls(props.settings, props.dependencies);
-
-	return <>{render()}</>;
-}
 
 export function useNodeSettings<T extends Record<string, any>>() {
 	// @ts-ignore-next-line

@@ -1,7 +1,7 @@
 import type { TriggerData, TriggerValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { IconWithValue } from '../IconWithValue';
 import { useNodeValue } from '../../../stores/node-data';
 import { folder } from '@microflow/ui';
@@ -38,34 +38,25 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<TriggerData>();
+	const { render } = useNodeControls({
+		behaviour: {
+			value: data.behaviour,
+			options: {
+				'when increasing': 'increasing',
+				'when decreasing': 'decreasing',
+			},
+		},
+		threshold: { value: data.threshold!, min: 0, label: 'by' },
+		within: { value: data.within, min: 1, step: 50, label: 'within (ms)' },
+		advanced: folder(
+			{
+				relative: { value: data.relative!, label: 'percentage' },
+			},
+			{ collapsed: true },
+		),
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				behaviour: {
-					value: data.behaviour,
-					options: [
-						{
-							increasing: 'when increasing',
-							decreasing: 'when decreasing',
-						},
-					],
-				},
-				threshold: {
-					value: data.threshold!,
-					min: 0,
-					label: 'by',
-				},
-				within: { value: data.within, min: 1, step: 50, label: 'within (ms)' },
-				advanced: folder(
-					{
-						relative: { value: data.relative!, label: 'percentage' },
-					},
-					{ collapsed: true },
-				),
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<TriggerData>;

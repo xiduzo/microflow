@@ -3,7 +3,7 @@ import { Handle } from '../Handle';
 import {
 	BaseNode,
 	NodeContainer,
-	NodeSettings,
+	useNodeControls,
 	useNodeData,
 	useNodeId,
 	useNodeSettings,
@@ -79,6 +79,33 @@ function Settings() {
 	const [models, setModels] = useState<string[]>([]);
 	const data = useNodeData<LlmData>();
 
+	const { render } = useNodeControls(
+		{
+			provider: { value: data.provider, options: ['ollama'], disabled: true },
+			models: { value: data.model, options: models },
+			system: { value: data.system, rows: 5 },
+			prompt: { value: data.prompt, rows: 5 },
+			advanced: folder(
+				{
+					baseUrl: { value: data.baseUrl!, label: 'Base URL' },
+					frequencyPenalty: { value: data.frequencyPenalty!, label: 'Frequency Penalty' },
+					temperature: { value: data.temperature!, label: 'Temperature' },
+					topK: { value: data.topK!, label: 'Top K' },
+					topP: { value: data.topP!, label: 'Top P' },
+					mirostat: { value: data.mirostat!, label: 'Mirostat' },
+					mirostatTau: { value: data.mirostatTau!, label: 'Mirostat Tau' },
+					mirostatEta: { value: data.mirostatEta!, label: 'Mirostat Eta' },
+					repeatPenalty: { value: data.repeatPenalty!, label: 'Repeat Penalty' },
+					typicalP: { value: data.typicalP!, label: 'Typical P' },
+					presencePenalty: { value: data.presencePenalty!, label: 'Presence Penalty' },
+					repeatLastN: { value: data.repeatLastN!, label: 'Repeat Last N' },
+				},
+				{ collapsed: true },
+			),
+		},
+		[models],
+	);
+
 	useEffect(() => {
 		async function getModels() {
 			switch (data.provider) {
@@ -95,33 +122,7 @@ function Settings() {
 		getModels();
 	}, [data.provider, data.baseUrl]);
 
-	return (
-		<NodeSettings
-			settings={{
-				provider: { value: data.provider, options: ['ollama'], disabled: true },
-				models: { value: data.model, options: models },
-				system: { value: data.system, rows: 5 },
-				prompt: { value: data.prompt, rows: 5 },
-				advanced: folder(
-					{
-						baseUrl: { value: data.baseUrl!, label: 'Base URL' },
-						frequencyPenalty: { value: data.frequencyPenalty!, label: 'Frequency Penalty' },
-						temperature: { value: data.temperature!, label: 'Temperature' },
-						topK: { value: data.topK!, label: 'Top K' },
-						topP: { value: data.topP!, label: 'Top P' },
-						mirostat: { value: data.mirostat!, label: 'Mirostat' },
-						mirostatTau: { value: data.mirostatTau!, label: 'Mirostat Tau' },
-						mirostatEta: { value: data.mirostatEta!, label: 'Mirostat Eta' },
-						repeatPenalty: { value: data.repeatPenalty!, label: 'Repeat Penalty' },
-						typicalP: { value: data.typicalP!, label: 'Typical P' },
-						presencePenalty: { value: data.presencePenalty!, label: 'Presence Penalty' },
-						repeatLastN: { value: data.repeatLastN!, label: 'Repeat Last N' },
-					},
-					{ collapsed: true },
-				),
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<LlmData>;

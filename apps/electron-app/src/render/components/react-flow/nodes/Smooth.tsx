@@ -1,7 +1,7 @@
 import type { MovingAverage, SmoothAverage, SmoothData } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { IconWithValue } from '../IconWithValue';
 
 export function Smooth(props: Props) {
@@ -29,29 +29,24 @@ function Value() {
 function Settings() {
 	const data = useNodeData<SmoothData>();
 
-	return (
-		<NodeSettings
-			settings={{
-				type: {
-					value: data.type,
-					options: { smooth: 'smooth', movingAverage: 'moving average' },
-				},
-				windowSize: {
-					value: (data as MovingAverage).windowSize ?? 25,
-					min: 1,
-					step: 1,
-					render: get => get('type') === 'movingAverage',
-				},
-				attenuation: {
-					value: (data as SmoothAverage).attenuation ?? 0.995,
-					min: 0.0,
-					max: 1.0,
-					step: 0.001,
-					render: get => get('type') === 'movingAverage',
-				},
-			}}
-		/>
-	);
+	const { render } = useNodeControls({
+		type: { value: data.type, options: { smooth: 'smooth', movingAverage: 'moving average' } },
+		windowSize: {
+			value: (data as MovingAverage).windowSize ?? 25,
+			min: 1,
+			step: 1,
+			render: get => get('type') === 'movingAverage',
+		},
+		attenuation: {
+			value: (data as SmoothAverage).attenuation ?? 0.995,
+			min: 0.0,
+			max: 1.0,
+			step: 0.001,
+			render: get => get('type') === 'movingAverage',
+		},
+	});
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<SmoothData>;

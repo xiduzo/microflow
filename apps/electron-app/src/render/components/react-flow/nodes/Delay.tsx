@@ -1,5 +1,5 @@
 import { DelayData } from '@microflow/components';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { IconWithValue } from '../IconWithValue';
@@ -23,15 +23,12 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<DelayData>();
+	const { render } = useNodeControls({
+		delay: { min: 100, step: 100, value: data.delay },
+		forgetPrevious: { value: data.forgetPrevious },
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				delay: { min: 100, step: 100, value: data.delay, label: 'delay (ms)' },
-				forgetPrevious: { value: data.forgetPrevious, label: 'debounce' },
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<DelayData>;

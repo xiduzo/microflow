@@ -1,11 +1,11 @@
 import { ProximityData, ProximityValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { mapPinsToSettings, mapPinToPaneOption } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 
 export function Proximity(props: Props) {
 	return (
@@ -27,18 +27,16 @@ function Settings() {
 	const data = useNodeData<ProximityData>();
 	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
 
-	return (
-		<NodeSettings
-			settings={{
-				pin: {
-					value: data.pin,
-					options: pins.reduce(mapPinsToSettings, {}),
-				},
-				controller: { value: data.controller, options: ['GP2Y0A21YK', 'GP2Y0A710K0F'] }, // MB1000, MB1003, MB1020
-				freq: { value: data.freq!, min: 10, label: 'frequency (ms)' },
-			}}
-		/>
-	);
+	const { render } = useNodeControls({
+		pin: {
+			value: data.pin,
+			options: pins.reduce(reducePinsToOptions, {}),
+		},
+		controller: { value: data.controller, options: ['GP2Y0A21YK', 'GP2Y0A710K0F'] }, // MB1000, MB1003, MB1020
+		freq: { value: data.freq!, min: 10, label: 'frequency (ms)' },
+	});
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<ProximityData>;

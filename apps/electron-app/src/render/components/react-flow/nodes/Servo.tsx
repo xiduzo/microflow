@@ -3,9 +3,9 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useDeleteHandles, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { mapPinsToSettings } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
 
 export function Servo(props: Props) {
@@ -74,32 +74,28 @@ function Settings() {
 	const deleteHandles = useDeleteHandles();
 	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
 
-	return (
-		<NodeSettings
-			settings={{
-				pin: {
-					value: data.pin,
-					options: pins.reduce(mapPinsToSettings, {}),
-				},
-				type: {
-					value: data.type,
-					options: ['standard', 'continuous'],
-					transient: false,
-					onChange: event => {
-						console.log(event);
-						deleteHandles(event === 'standard' ? ['rotate', 'stop'] : ['min', 'to', 'max']);
-					},
-				},
-				range: {
-					value: data.range,
-					step: 1,
-					min: 0,
-					max: 180,
-					render: get => get('type') === 'standard',
-				},
-			}}
-		/>
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+			type: {
+				value: data.type,
+				options: ['standard', 'continuous'],
+				transient: false,
+				onChange: event =>
+					deleteHandles(event === 'standard' ? ['rotate', 'stop'] : ['min', 'to', 'max']),
+			},
+			range: {
+				value: data.range,
+				step: 1,
+				min: 0,
+				max: 180,
+				render: get => get('type') === 'standard',
+			},
+		},
+		[pins],
 	);
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<ServoData>;

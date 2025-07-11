@@ -1,5 +1,5 @@
 import { CalculateData } from '@microflow/components';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { Icons } from '@ui/index';
@@ -47,28 +47,25 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<CalculateData>();
+	const { render } = useNodeControls({
+		function: {
+			value: data.function,
+			options: {
+				addition: 'add',
+				subtraction: 'subtract',
+				multiplication: 'multiply',
+				division: 'divide',
+				modulo: 'modulo',
+				maximum: 'max',
+				minimum: 'min',
+				'round up': 'ceil',
+				'round down': 'floor',
+				'round closest': 'round',
+			},
+		},
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				function: {
-					value: data.function,
-					options: {
-						addition: 'add',
-						subtraction: 'subtract',
-						multiplication: 'multiply',
-						division: 'divide',
-						modulo: 'modulo',
-						maximum: 'max',
-						minimum: 'min',
-						'round up': 'ceil',
-						'round down': 'floor',
-						'round closest': 'round',
-					},
-				},
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<CalculateData>;

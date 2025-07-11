@@ -1,6 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef, useState } from 'react';
@@ -127,17 +127,11 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<MonitorData>();
+	const { render } = useNodeControls({
+		type: { value: data.type, options: ['graph', 'raw'] },
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				type: {
-					value: data.type,
-					options: ['graph', 'raw'],
-				},
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<MonitorData>;

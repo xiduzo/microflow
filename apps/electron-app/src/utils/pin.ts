@@ -12,7 +12,7 @@ export function mapPinToPaneOption(pin: Pin): ListParamsOptions<string | number>
 	};
 }
 
-export function mapPinsToSettings(prev: Record<string, string | number>, next: Pin) {
+export function reducePinsToOptions(prev: Record<string, string | number>, next: Pin) {
 	const key = `${pinValue(next)}${next.supportedModes.includes(MODES.PWM) ? ' (~)' : ''}`;
 	prev[key] = next.pin;
 

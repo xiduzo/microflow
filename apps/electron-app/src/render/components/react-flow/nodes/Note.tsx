@@ -1,4 +1,4 @@
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 
 export function Note(props: Props) {
 	return (
@@ -22,15 +22,12 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<NoteData>();
+	const { render } = useNodeControls({
+		note: { value: data.note, label: 'Note', rows: 3 },
+		extraInfo: { value: data.extraInfo!, label: 'Extra info', rows: 3 },
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				note: { value: data.note!, label: 'Note', rows: 3 },
-				extraInfo: { value: data.extraInfo!, label: 'Extra info', rows: 3 },
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type NoteData = {

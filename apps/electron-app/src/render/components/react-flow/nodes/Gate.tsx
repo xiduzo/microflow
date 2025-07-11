@@ -1,6 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { uuid } from '../../../../utils/uuid';
@@ -48,17 +48,11 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<GateData>();
+	const { render } = useNodeControls({
+		gate: { value: data.gate, options: ['not', 'and', 'nand', 'or', 'nor', 'xor', 'xnor'] },
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				gate: {
-					value: data.gate,
-					options: ['not', 'and', 'nand', 'or', 'nor', 'xor', 'xnor'],
-				},
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<GateData>;

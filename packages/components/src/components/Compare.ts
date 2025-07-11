@@ -1,5 +1,6 @@
 import { transformValueToBoolean } from '../utils/transformUnknownValues';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { COMPARE_SUB_VALIDATORS } from '../constants/Compare';
 
 type BooleanData = {
 	validator: 'boolean';
@@ -9,25 +10,28 @@ type BooleanData = {
 
 type TextData = {
 	validator: 'text';
-	subValidator: 'equal to' | 'includes' | 'starts with' | 'ends with';
+	subValidator: (typeof COMPARE_SUB_VALIDATORS)['text'][number];
 	validatorArg: string;
 };
 
 type NumberData = {
 	validator: 'number';
-	subValidator: 'even' | 'odd';
+	subValidator: Extract<(typeof COMPARE_SUB_VALIDATORS)['number'][number], 'even' | 'odd'>;
 	validatorArg: never;
 };
 
 type SingleNumberData = {
 	validator: 'number';
-	subValidator: 'equal to' | 'greater than' | 'less than';
+	subValidator: Exclude<
+		(typeof COMPARE_SUB_VALIDATORS)['number'][number],
+		'between' | 'outside' | 'even' | 'odd'
+	>;
 	validatorArg: number;
 };
 
 type DoubleNumberData = {
 	validator: 'number';
-	subValidator: 'between' | 'outside';
+	subValidator: Extract<(typeof COMPARE_SUB_VALIDATORS)['number'][number], 'between' | 'outside'>;
 	validatorArg: { min: number; max: number };
 };
 
@@ -81,11 +85,11 @@ export class Compare extends BaseComponent<CompateValueType> {
 				switch (this.data.subValidator) {
 					case 'equal to':
 						return (input: unknown) => String(input) === expected;
-					case 'includes':
+					case 'including':
 						return (input: unknown) => String(input).includes(expected);
-					case 'starts with':
+					case 'starting with':
 						return (input: unknown) => String(input).startsWith(expected);
-					case 'ends with':
+					case 'ending with':
 						return (input: unknown) => String(input).endsWith(expected);
 					default:
 						return () => false;

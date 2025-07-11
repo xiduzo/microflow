@@ -3,9 +3,9 @@ import { cva, folder, Icons, Progress, Switch, VariantProps } from '@microflow/u
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { mapPinsToSettings } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
 
 export function Sensor(props: Props) {
@@ -105,21 +105,18 @@ const hallEffect = cva('transition-all', {
 function Settings() {
 	const data = useNodeData<SensorData & { subType?: string }>();
 	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
-
-	return (
-		<NodeSettings
-			settings={{
-				pin: {
-					value: data.pin,
-					options: pins.reduce(mapPinsToSettings, {}),
-				},
-				advanced: folder({
-					threshold: { min: 0, step: 1, value: data.threshold! },
-					freq: { min: 10, step: 1, value: data.freq! },
-				}),
-			}}
-		/>
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+			advanced: folder({
+				threshold: { min: 0, step: 1, value: data.threshold! },
+				freq: { min: 10, step: 1, value: data.freq! },
+			}),
+		},
+		[pins],
 	);
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<SensorData>;

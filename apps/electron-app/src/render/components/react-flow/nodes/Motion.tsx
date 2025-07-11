@@ -4,9 +4,9 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { mapPinsToSettings } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
 
 export function Motion(props: Props) {
@@ -42,28 +42,19 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<MotionData>();
-	const pins = usePins([MODES.INPUT]);
-
-	return (
-		<NodeSettings
-			settings={{
-				// TODO: filter pins dynamically
-				// const isCorrectMode =
-				// 	pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
-
-				// if (settings.controller === 'HCSR501') {
-				// 	return isCorrectMode && !pin.supportedModes.includes(MODES.ANALOG);
-				// } else {
-				// 	return isCorrectMode && pin.supportedModes.includes(MODES.ANALOG);
-				// }
-				pin: {
-					value: data.pin,
-					options: pins.reduce(mapPinsToSettings, {}),
-				},
-				controller: { value: data.controller, options: MOTION_CONTROLLERS },
-			}}
-		/>
+	const pins = usePins(
+		data.controller === 'HCSR501' ? [MODES.INPUT] : [MODES.INPUT, MODES.ANALOG],
+		data.controller === 'HCSR501' ? [MODES.I2C, MODES.ANALOG] : [MODES.I2C],
 	);
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+			controller: { value: data.controller, options: MOTION_CONTROLLERS },
+		},
+		[pins],
+	);
+
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<MotionData>;

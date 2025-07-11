@@ -1,5 +1,5 @@
 import { ConstantData } from '@microflow/components';
-import { BaseNode, NodeContainer, NodeSettings, useNodeData } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 
@@ -23,14 +23,11 @@ function Value() {
 
 function Settings() {
 	const data = useNodeData<ConstantData>();
+	const { render } = useNodeControls({
+		value: { value: data.value },
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				value: { value: data.value },
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<ConstantData>;

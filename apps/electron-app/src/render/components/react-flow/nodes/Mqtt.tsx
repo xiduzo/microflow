@@ -1,21 +1,19 @@
 import type { MqttData, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
 import { button, Icons } from '@microflow/ui';
-import { Position, useUpdateNodeInternals } from '@xyflow/react';
+import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from '../Handle';
 import {
 	BaseNode,
 	NodeContainer,
-	NodeSettings,
 	useDeleteHandles,
+	useNodeControls,
 	useNodeData,
 	useNodeId,
-	useNodeSettings,
 } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useAppStore } from '../../../stores/app';
-import { useDeleteEdges } from '../../../stores/react-flow';
 
 export function Mqtt(props: Props) {
 	const { status } = useMqtt();
@@ -88,23 +86,20 @@ function Settings() {
 	const deleteHandles = useDeleteHandles();
 
 	const data = useNodeData<MqttData>();
+	const { render } = useNodeControls({
+		direction: {
+			value: data.direction,
+			options: ['publish', 'subscribe'],
+			onChange: value => {
+				deleteHandles(value === 'publish' ? ['subscribe'] : ['publish']);
+			},
+			transient: false,
+		},
+		topic: { value: data.topic! }, // , hint: 'mqtt/xiduzo/#'
+		'broker settings': button(() => setSettingsOpen('mqtt-settings')),
+	});
 
-	return (
-		<NodeSettings
-			settings={{
-				direction: {
-					value: data.direction,
-					options: ['publish', 'subscribe'],
-					onChange: value => {
-						deleteHandles(value === 'publish' ? ['subscribe'] : ['publish']);
-					},
-					transient: false,
-				},
-				topic: { value: data.topic! }, // , hint: 'mqtt/xiduzo/#'
-				'broker settings': button(() => setSettingsOpen('mqtt-settings')),
-			}}
-		/>
-	);
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<MqttData>;

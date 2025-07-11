@@ -13,6 +13,7 @@ export function useUpdateNode<T extends Record<string, unknown>>(nodeId: string)
 		(data: T) => {
 			const node = getNode(nodeId);
 
+			console.log('<updateNode>', node, data);
 			onNodesChange([
 				{ id: nodeId, type: 'replace', item: { ...node!, data: { ...node!.data, ...data } } },
 			]);

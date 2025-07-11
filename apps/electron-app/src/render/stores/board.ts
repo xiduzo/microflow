@@ -22,14 +22,18 @@ export const useBoardStore = create<BoardState>((set, get) => {
 	};
 });
 
-export const usePins = (modes?: MODES[]) =>
+export const usePins = (shouldHaveMode?: MODES[], shouldNotHaveMode?: MODES[]) =>
 	useBoardStore(
 		useShallow((state: BoardState) => {
 			if (!state.upload.pins) return [];
-			if (!modes?.length) return state.upload.pins;
-			return state.upload.pins.filter(pin =>
-				modes.every(mode => pin.supportedModes.includes(mode)),
+			if (!shouldHaveMode?.length) return state.upload.pins;
+			const pins = state.upload.pins.filter(pin =>
+				shouldHaveMode.every(mode => pin.supportedModes.includes(mode)),
 			);
+
+			if (!shouldNotHaveMode?.length) return pins;
+
+			return pins.filter(pin => !shouldNotHaveMode.some(mode => pin.supportedModes.includes(mode)));
 		}),
 	);
 
