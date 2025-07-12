@@ -3,21 +3,15 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { useEffect, useMemo } from 'react';
-import { mapPinToPaneOption, pinValue } from '../../../../utils/pin';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
+import { reducePinsToOptions, pinValue } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 
 export function Led(props: Props) {
-	const pins = usePins();
+	const pins = usePins([MODES.PWM]);
 
-	const isPmwPin = useMemo(() => {
-		return (
-			pins.find(pin => pinValue(pin) === props.data.pin)?.supportedModes.includes(MODES.PWM) ??
-			false
-		);
-	}, [pins, props.data.pin]);
+	const isPmwPin = pins.find(pin => pinValue(pin) === props.data.pin);
 
 	return (
 		<NodeContainer {...props}>
@@ -32,7 +26,7 @@ export function Led(props: Props) {
 				title={props.data.subType === 'vibration' ? 'intensity' : 'brightness'}
 				offset={0.5}
 				hint={`${isPmwPin ? '0-255' : 'requires a ~ pin'}`}
-				isConnectable={isPmwPin}
+				isConnectable={!!isPmwPin}
 			/>
 			<Handle type="target" position={Position.Left} id="off" offset={1.5} />
 			<Handle type="source" position={Position.Right} id="change" />
@@ -82,26 +76,17 @@ function VibrationValue(props: { value: number }) {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<LedData>();
-	const pins = usePins();
+	const data = useNodeData<LedData>();
+	const pins = usePins([MODES.INPUT]);
 
-	useEffect(() => {
-		if (!pane) return;
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+		},
+		[pins],
+	);
 
-		const pinBinding = pane.addBinding(settings, 'pin', {
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			index: 0,
-			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
-		});
-
-		return () => {
-			[pinBinding].forEach(disposable => disposable.dispose());
-		};
-	}, [pane, settings, pins]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<LedData>;
@@ -109,7 +94,7 @@ Led.defaultProps = {
 	data: {
 		group: 'hardware',
 		tags: ['output', 'analog', 'digital'],
-		label: 'Light Emitting Diode (LED)',
+		label: 'LED',
 		pin: 13,
 		description: 'Control a LED',
 	} satisfies Props['data'],

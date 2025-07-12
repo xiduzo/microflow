@@ -78,6 +78,8 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 
 				await checkBoardOnPort(port, board, event);
 				connectedPort = port;
+				log.debug(`[CHECK] <connected> ${port.path}`, timer.duration);
+				await cleanupProcesses();
 				event.reply('ipc-check-board', {
 					success: true,
 					data: { type: 'ready', port: port.path },
@@ -119,28 +121,28 @@ async function checkBoardOnPort(
 	const filePath = join(__dirname, 'workers', 'check.js');
 
 	return new Promise<void>((resolve, reject) => {
-		console.debug(`[CHECK] creating check worker from ${filePath}`, timer.duration);
+		log.debug(`[CHECK] creating check worker from ${filePath}`, timer.duration);
 		const checkProcess = fork(filePath, [port.path], {
 			// serviceName: 'Microflow studio - microcontroller validator',
 			stdio: 'pipe',
 		});
 
 		checkProcess.on('spawn', () => {
-			log.debug(`[CHECK] [${checkProcess.pid}] spawned`, timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] <spawn>`, timer.duration);
 			processes.set(Number(checkProcess.pid), checkProcess);
 		});
 
 		checkProcess.stderr?.on('data', async data => {
-			log.debug(`[CHECK] [${checkProcess.pid}] stderr`, data.toString(), timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] <stderr> ${data.toString()}`, timer.duration);
 			await cleanupProcesses();
 		});
 
 		checkProcess.stdout?.on('data', async data => {
-			log.debug(`[CHECK] [${checkProcess.pid}] stdout`, data.toString(), timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] <stdout> ${data.toString()}`, timer.duration);
 		});
 
 		async function handleMessage(data: UploadResponse) {
-			log.debug(`[CHECK] [${checkProcess.pid}] message: ${data.type}`, timer.duration);
+			log.debug(`[CHECK] [${checkProcess.pid}] <message> ${data.type}`, timer.duration);
 			try {
 				switch (data.type) {
 					case 'error':
@@ -175,7 +177,9 @@ async function checkBoardOnPort(
 					case 'exit':
 					case 'fail':
 						reject(new Error(data.message ?? 'Unknown error'));
+						break;
 					case 'ready':
+						log.debug(`[CHECK] [${checkProcess.pid}] <ready>`, timer.duration);
 						resolve();
 						break;
 				}
@@ -272,7 +276,7 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 
 	writeFile(filePath, formattedCode, error => {
 		if (error) {
-			log.debug('[UPLOAD] write file error', { error });
+			log.debug('[UPLOAD] write file error', { error }, timer.duration);
 			event.reply('ipc-upload-code', {
 				error: error.message,
 				success: false,
@@ -287,14 +291,14 @@ ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 		});
 
 		uploadProcess.on('spawn', () => {
-			log.debug(`[UPLOAD] [${uploadProcess.pid}] spawned`, timer.duration);
+			log.debug(`[UPLOAD] [${uploadProcess.pid}] <spawn>`, timer.duration);
 			processes.set(Number(uploadProcess.pid), uploadProcess);
 			latestUploadProcessId = uploadProcess.pid;
 		});
 
 		uploadProcess.on('message', async (message: UploadedCodeMessage | UploadResponse) => {
 			if ('type' in message) {
-				log.debug(`[UPLOAD] [${uploadProcess.pid}] message: ${message.type}`, timer.duration);
+				log.debug(`[UPLOAD] [${uploadProcess.pid}] <message> ${message.type}`, timer.duration);
 				switch (message.type) {
 					case 'error':
 					case 'exit':
@@ -429,7 +433,7 @@ async function cleanupProcesses() {
 	}
 
 	// Arbitrary wait time to let the processes die
-	await new Promise(resolve => setTimeout(resolve, 500));
+	await new Promise(resolve => setTimeout(resolve, 1000));
 }
 
 process.on('exit', async code => {

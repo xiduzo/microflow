@@ -16,12 +16,13 @@ export function useCodeUploader() {
 
 	const port = useBoardPort();
 	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
-	const { setUploadResult } = useBoardStore();
+	const { setUploadResult, board } = useBoardStore();
 
 	const { getNodes, getEdges } = useReactFlow();
 
 	const uploadCode = useCallback(() => {
 		if (!config.ip && !port) return;
+		if (board.type !== 'ready') return;
 
 		clearNodeData();
 		setUploadResult({ type: 'info' });
@@ -50,7 +51,7 @@ export function useCodeUploader() {
 			})),
 			port: config.ip || port || '',
 		});
-	}, [getNodes, getEdges, port, config.ip, clearNodeData, setUploadResult]);
+	}, [getNodes, getEdges, board.type, port, config.ip, clearNodeData, setUploadResult]);
 
 	return uploadCode;
 }
@@ -111,7 +112,7 @@ export function useAutoUploadCode() {
 		lastNodesCount.current = nodesCount;
 		lastEdgesCount.current = edgesCount;
 
-		console.debug(`[UPLOAD] trigger`);
+		console.debug(`[UPLOAD] <trigger>`);
 		uploadCode();
 	}, [nodesCount, edgesCount, nodeToAdd, uploadCode, checkResult]);
 }

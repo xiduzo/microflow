@@ -125,11 +125,10 @@ export function IpcMenuListeners() {
 								...node,
 								id: Math.random().toString(36).substring(2, 8),
 								position: {
+									// TODO center of mouse on canvas
 									x: node.position.x + 20,
 									y: node.position.y + 20,
 								},
-								selected: true,
-								dragging: true,
 							},
 						})),
 					);

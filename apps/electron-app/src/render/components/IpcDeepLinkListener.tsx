@@ -6,7 +6,7 @@ export function IpcDeepLinkListener() {
 		return window.electron.ipcRenderer.on<{ from: string }>('ipc-deep-link', result => {
 			if (!result.success) return;
 
-			console.log('ipc-deep-link', result);
+			console.debug('<<< ipc-deep-link', result);
 
 			switch (result.data.from) {
 				case 'web':

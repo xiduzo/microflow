@@ -2,9 +2,8 @@ import type { RangeMapData, RangeMapValueType } from '@microflow/components';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect } from 'react';
 
 const numberFormat = new Intl.NumberFormat('en-US', {
 	maximumFractionDigits: 2,
@@ -51,23 +50,13 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings();
+	const data = useNodeData<RangeMapData>();
+	const { render } = useNodeControls({
+		from: { value: data.from, min: 0, max: 1023, step: 1 },
+		to: { value: data.to, min: 0, max: 1023, step: 1 },
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'from', {
-			index: 0,
-			step: 1,
-		});
-
-		pane.addBinding(settings, 'to', {
-			index: 1,
-			step: 1,
-		});
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<RangeMapData>;

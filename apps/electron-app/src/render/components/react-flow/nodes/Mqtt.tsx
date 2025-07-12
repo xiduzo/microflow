@@ -1,10 +1,17 @@
 import type { MqttData, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
-import { Icons } from '@microflow/ui';
+import { button, Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeId, useNodeSettings } from './Node';
+import {
+	BaseNode,
+	NodeContainer,
+	useDeleteHandles,
+	useNodeControls,
+	useNodeData,
+	useNodeId,
+} from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useAppStore } from '../../../stores/app';
 
@@ -75,49 +82,24 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<MqttData>();
-	const { settingsOpen, setSettingsOpen } = useAppStore();
+	const { setSettingsOpen } = useAppStore();
+	const deleteHandles = useDeleteHandles();
 
-	useEffect(() => {
-		if (!pane) return;
+	const data = useNodeData<MqttData>();
+	const { render } = useNodeControls({
+		direction: {
+			value: data.direction,
+			options: ['publish', 'subscribe'],
+			onChange: value => {
+				deleteHandles(value === 'publish' ? ['subscribe'] : ['publish']);
+			},
+			transient: false,
+		},
+		topic: { value: data.topic! }, // , hint: 'mqtt/xiduzo/#'
+		'broker settings': button(() => setSettingsOpen('mqtt-settings')),
+	});
 
-		const initialType = settings.direction;
-
-		const direction = pane
-			.addBinding(settings, 'direction', {
-				view: 'list',
-				index: 0,
-				options: [
-					{ text: 'publish', value: 'publish' },
-					{ text: 'subscribe', value: 'subscribe' },
-				],
-			})
-			.on('change', ({ value }) => {
-				if (value === initialType) setHandlesToDelete([]);
-				else setHandlesToDelete(value === 'publish' ? ['subscribe'] : ['publish']);
-			});
-
-		const topic = pane.addBinding(settings, 'topic', {
-			index: 1,
-		});
-
-		const button = pane.addButton({
-			title: 'Broker settings',
-			index: 2,
-		});
-
-		button.on('click', () => {
-			setSettingsOpen('mqtt-settings');
-		});
-
-		return () => {
-			direction.dispose();
-			topic.dispose();
-			button.dispose();
-		};
-	}, [pane, settings, setHandlesToDelete]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<MqttData>;

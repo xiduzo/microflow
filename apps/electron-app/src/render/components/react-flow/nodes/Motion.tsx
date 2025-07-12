@@ -4,11 +4,9 @@ import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { useEffect } from 'react';
-import { mapPinToPaneOption } from '../../../../utils/pin';
-import { BindingApi } from '@tweakpane/core';
+import { reducePinsToOptions } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
 
 export function Motion(props: Props) {
@@ -43,57 +41,20 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<MotionData>();
-	const pins = usePins();
+	const data = useNodeData<MotionData>();
+	const pins = usePins(
+		data.controller === 'HCSR501' ? [MODES.INPUT] : [MODES.INPUT, MODES.ANALOG],
+		data.controller === 'HCSR501' ? [MODES.I2C, MODES.ANALOG] : [MODES.I2C],
+	);
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+			controller: { value: data.controller, options: MOTION_CONTROLLERS },
+		},
+		[pins],
+	);
 
-	useEffect(() => {
-		if (!pane) return;
-
-		let pinBinding: BindingApi | undefined;
-
-		function createPinPane() {
-			if (!pane) return;
-			pinBinding?.dispose();
-
-			pinBinding = pane.addBinding(settings, 'pin', {
-				view: 'list',
-				disabled: !pins.length,
-				label: 'pin',
-				index: 1,
-				options: pins
-					.filter(pin => {
-						const isCorrectMode =
-							pin.supportedModes.includes(MODES.INPUT) && !pin.supportedModes.includes(MODES.I2C);
-
-						if (settings.controller === 'HCSR501') {
-							return isCorrectMode && !pin.supportedModes.includes(MODES.ANALOG);
-						} else {
-							return isCorrectMode && pin.supportedModes.includes(MODES.ANALOG);
-						}
-					})
-					.map(mapPinToPaneOption),
-			});
-		}
-
-		const controllerBinding = pane
-			.addBinding(settings, 'controller', {
-				view: 'list',
-				index: 0,
-				options: MOTION_CONTROLLERS.map(controller => ({
-					value: controller,
-					text: controller,
-				})),
-			})
-			.on('change', createPinPane);
-
-		createPinPane();
-
-		return () => {
-			[pinBinding, controllerBinding].forEach(disposable => disposable?.dispose());
-		};
-	}, [pane, pins]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<MotionData>;

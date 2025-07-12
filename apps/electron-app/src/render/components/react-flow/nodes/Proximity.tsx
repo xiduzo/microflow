@@ -1,12 +1,11 @@
 import { ProximityData, ProximityValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
-import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 
 export function Proximity(props: Props) {
 	return (
@@ -25,50 +24,19 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<ProximityData>();
-	const pins = usePins();
+	const data = useNodeData<ProximityData>();
+	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
 
-	useEffect(() => {
-		if (!pane) return;
+	const { render } = useNodeControls({
+		pin: {
+			value: data.pin,
+			options: pins.reduce(reducePinsToOptions, {}),
+		},
+		controller: { value: data.controller, options: ['GP2Y0A21YK', 'GP2Y0A710K0F'] }, // MB1000, MB1003, MB1020
+		freq: { value: data.freq!, min: 10, label: 'frequency (ms)' },
+	});
 
-		const pinBinding = pane.addBinding(settings, 'pin', {
-			view: 'list',
-			disabled: !pins.length,
-			index: 0,
-			options: pins
-				.filter(
-					pin =>
-						pin.supportedModes.includes(MODES.INPUT) && pin.supportedModes.includes(MODES.ANALOG),
-				)
-				.map(mapPinToPaneOption),
-		});
-
-		const constrollerBinding = pane.addBinding(settings, 'controller', {
-			view: 'list',
-			index: 1,
-			options: [
-				{ value: 'GP2Y0A21YK', text: 'GP2Y0A21YK' },
-				{ value: 'GP2Y0A710K0F', text: 'GP2Y0A710K0F' },
-				// { value: "MB1000", text: "MB1000 (untested)"},
-				// { value: "MB1003", text: "MB1003 (untested)"},
-				// { value: "MB1230", text: "MB1230 (untested)"},
-			],
-		});
-
-		const freqBinding = pane.addBinding(settings, 'freq', {
-			index: 2,
-			label: 'frequency (ms)',
-			min: 10,
-		});
-
-		return () => {
-			pinBinding.dispose();
-			constrollerBinding.dispose();
-			freqBinding.dispose();
-		};
-	}, [pane, settings, pins]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<ProximityData>;

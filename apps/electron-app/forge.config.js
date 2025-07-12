@@ -14,7 +14,7 @@ module.exports = {
 			ignore: filePath => {
 				// https://github.com/nodejs/node-gyp/issues/2713
 				if (filePath.includes('build/node_gyp_bins')) {
-					console.log('>> ignore signing', filePath);
+					console.log('>>> ignore signing', filePath);
 					fs.rm(filePath, { recursive: true })
 						.then(() => {
 							console.log('>> removed folder', filePath);

@@ -1,6 +1,6 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef, useState } from 'react';
@@ -126,27 +126,12 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<MonitorData>();
+	const data = useNodeData<MonitorData>();
+	const { render } = useNodeControls({
+		type: { value: data.type, options: ['graph', 'raw'] },
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const typeBinding = pane.addBinding(settings, 'type', {
-			label: 'type',
-			index: 0,
-			view: 'list',
-			options: [
-				{ value: 'graph', text: 'graph' },
-				{ value: 'raw', text: 'raw' },
-			],
-		});
-
-		return () => {
-			[typeBinding].forEach(binding => binding.dispose());
-		};
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<MonitorData>;

@@ -48,7 +48,6 @@ export function NewNodeCommandDialog() {
 				id: Math.random().toString(36).substring(2, 8),
 				type,
 				position,
-				selected: true,
 			};
 
 			changeNodes([{ item, type: 'add' }]);
