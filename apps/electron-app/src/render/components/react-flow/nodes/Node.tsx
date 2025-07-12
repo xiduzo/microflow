@@ -1,10 +1,8 @@
 import {
-	BindingParams,
 	cn,
 	cva,
 	Icons,
 	LevaPanel,
-	Pane,
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
@@ -13,21 +11,11 @@ import {
 	useCreateStore,
 } from '@microflow/ui';
 import { Node, useUpdateNodeInternals } from '@xyflow/react';
-import {
-	createContext,
-	PropsWithChildren,
-	ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useMemo,
-} from 'react';
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
-import { BaseBladeParams, ButtonParams, TpChangeEvent } from '@tweakpane/core';
 import { useDebounceValue } from 'usehooks-ts';
 
 function NodeHeader(props: { error?: string }) {
@@ -78,43 +66,21 @@ function NodeFooter() {
 	);
 }
 
-type ChangeHandler<ChangeValue, ReturnValue> = (
-	event: TpChangeEvent<ChangeValue>,
-) => ReturnValue | void;
-type ChangeParam<ChangeValue = unknown, ReturnValue = unknown> = {
-	change?: ChangeHandler<ChangeValue, ReturnValue>;
-};
-type ClickParam = {
-	click?: () => void;
-};
-type BladeParams = BaseBladeParams & {
-	label: string;
-	tag?: string;
-};
-
-type SettingsContextProps<T extends Record<string, any>> = {
-	pane: Pane | null;
-	settings: T;
-	setHandlesToDelete: (handles: string[]) => void;
-	saveSettings: () => void;
-	addBinding: (property: keyof T, params: BindingParams & ChangeParam<unknown, Partial<T>>) => void;
-	addBlade: (params: BladeParams & ChangeParam<unknown, Partial<T>>) => void;
-	addButton: (params: ButtonParams & ClickParam & { tag?: string }) => void;
-};
-
-const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
-	{} as SettingsContextProps<{}>,
-);
-
 type UseControlParameters = Parameters<typeof useControls>;
 export type Controls = Exclude<UseControlParameters[0], string | Function>;
 
-export const useNodeControls = <S extends Controls>(controls: S, dependencies: unknown[] = []) => {
+export const useNodeControls = <
+	Data extends Record<string, any> = Record<string, any>,
+	S extends Controls = Controls,
+>(
+	controls: S,
+	dependencies: unknown[] = [],
+) => {
 	const store = useCreateStore();
 	const { selected, id, data } = useNode();
 	const updateNode = useUpdateNode(id);
 
-	const [controlsData, set, get] = useControls(
+	const [controlsData, set] = useControls(
 		() => ({ label: data.label, ...controls }),
 		{ store },
 		dependencies,
@@ -130,6 +96,18 @@ export const useNodeControls = <S extends Controls>(controls: S, dependencies: u
 		);
 	}, [store, selectedDebounce]);
 
+	/**
+	 * Sometimes it is impossible to set the node data using the controls,
+	 * use this handler to forcefully update the node
+	 * ⚠️ this might cause descrepencies between the `data` from `useNodeData` and the actual data
+	 */
+	const setNodeData = useCallback(
+		<T extends Record<string, unknown>>(node: Partial<Data>) => {
+			updateNode(node);
+		},
+		[updateNode],
+	);
+
 	useEffect(() => {
 		console.debug('<controlsData>', controlsData);
 		updateNode(controlsData as Record<string, unknown>);
@@ -140,13 +118,8 @@ export const useNodeControls = <S extends Controls>(controls: S, dependencies: u
 		console.debug('<debouncedControlData>', debouncedControlData);
 	}, [debouncedControlData]);
 
-	return { render, set };
+	return { render, set, setNodeData };
 };
-
-export function useNodeSettings<T extends Record<string, any>>() {
-	// @ts-ignore-next-line
-	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
-}
 
 export function useDeleteHandles() {
 	const id = useNodeId();
@@ -163,175 +136,6 @@ export function useDeleteHandles() {
 	);
 
 	return deleteHandles;
-}
-
-function NodeSettingsPane<T extends Record<string, unknown>>(
-	props: PropsWithChildren & { options?: unknown },
-) {
-	const pane = useRef<Pane | null>(null);
-	const updateNodeInternals = useUpdateNodeInternals();
-	const deleteEdes = useDeleteEdges();
-
-	const { data, id, type, selected } = useNode<T>();
-	const updateNode = useUpdateNode(id);
-	const bindings = useRef(new Map<keyof T, BindingParams & ChangeParam>());
-	const blades = useRef(new Map<string, BladeParams & ChangeParam>());
-	const buttons = useRef(new Map<string, ButtonParams & ClickParam & { tag?: string }>());
-
-	const ref = useRef<HTMLDivElement>(null);
-	// TODO: update this after undo / redo
-	const settings = useRef<T & { label: string }>(data as T & { label: string });
-	const handlesToDelete = useRef<string[]>([]);
-
-	const setHandlesToDelete = useCallback((handles: string[]) => {
-		handlesToDelete.current = handles;
-	}, []);
-
-	const addBinding = useCallback((property: keyof T, params: BindingParams & ChangeParam) => {
-		bindings.current.set(property, params);
-	}, []);
-
-	const addBlade = useCallback((params: BladeParams & ChangeParam) => {
-		blades.current.set(params.label, params);
-	}, []);
-
-	const addButton = useCallback((params: ButtonParams & ClickParam) => {
-		buttons.current.set(params.title, params);
-	}, []);
-
-	const saveSettings = useCallback(() => {
-		if (handlesToDelete.current.length > 0) {
-			deleteEdes(id, handlesToDelete.current);
-			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
-		}
-
-		updateNode(settings.current);
-	}, [updateNode, deleteEdes, updateNodeInternals, id]);
-
-	// Might be good next step to move to https://github.com/pmndrs/leva which is more react native
-	useEffect(() => {
-		if (!selected) return;
-		if (!settings.current.label) return;
-
-		// const newPane = new Pane({
-		// 	title: `${settings.current.label} (${id})`,
-		// 	container: ref.current ?? undefined,
-		// });
-
-		// newPane.registerPlugin(TweakpaneEssentialPlugin);
-		// newPane.registerPlugin(TweakpaneTextareaPlugin);
-		// newPane.registerPlugin(TweakpaneCameraPlugin);
-
-		// newPane.on('change', event => {
-		// 	if (!event.last) return;
-		// 	saveSettings();
-		// });
-
-		// function _deepMerge<Target extends Record<string, unknown>, Source extends Partial<T>>(
-		// 	target: Target,
-		// 	source: Source,
-		// ) {
-		// 	for (const key in source) {
-		// 		if (source[key] && typeof source[key] === 'object') {
-		// 			target[key] = _deepMerge(target[key] ?? {}, source[key]) as unknown as Target[Extract<
-		// 				keyof Source,
-		// 				string
-		// 			>];
-		// 		} else {
-		// 			target[key] = source[key] as unknown as Target[Extract<keyof Source, string>];
-		// 		}
-		// 	}
-		// 	return target;
-		// }
-
-		// function _addChangeHandler(api: BladeApi | BindingApi, params: ChangeParam) {
-		// 	if (!params.change) return;
-		// 	if (!('on' in api)) return;
-		// 	api.on('change', event => {
-		// 		const response = params.change?.(event);
-		// 		if (!response) return;
-		// 		settings.current = _deepMerge(settings.current, response);
-		// 		saveSettings();
-		// 	});
-		// }
-
-		// function _addButtonHandler(api: ButtonApi, params: ClickParam) {
-		// 	if (!params.click) return;
-		// 	api.on('click', params.click);
-		// }
-
-		// folders.current.forEach((params, title) => {
-		// 	const folder = newPane.addFolder(params);
-
-		// 	Array.from(bindings.current)
-		// 		.filter(([, params]) => params.tag === title)
-		// 		.forEach(([property, params]) => {
-		// 			const binding = folder.addBinding(settings.current, property, params);
-		// 			_addChangeHandler(binding, params);
-		// 		});
-		// 	Array.from(blades.current)
-		// 		.filter(([, params]) => params.tag === title)
-		// 		.forEach(([_title, params]) => {
-		// 			const blade = folder.addBlade(params);
-		// 			_addChangeHandler(blade, params);
-		// 		});
-		// 	Array.from(buttons.current)
-		// 		.filter(([, params]) => params.tag === title)
-		// 		.forEach(([_title, params]) => {
-		// 			const blade = folder.addButton(params);
-		// 			_addButtonHandler(blade, params);
-		// 		});
-		// });
-
-		// Array.from(bindings.current)
-		// 	.filter(([, params]) => !params.tag)
-		// 	.forEach(([property, params]) => {
-		// 		const binding = newPane.addBinding(settings.current, property, params);
-		// 		_addChangeHandler(binding, params);
-		// 	});
-		// Array.from(blades.current)
-		// 	.filter(([, params]) => !params.tag)
-		// 	.forEach(([_title, params]) => {
-		// 		const blade = newPane.addBlade(params);
-		// 		_addChangeHandler(blade, params);
-		// 	});
-		// Array.from(buttons.current)
-		// 	.filter(([, params]) => !params.tag)
-		// 	.forEach(([_title, params]) => {
-		// 		const blade = newPane.addButton(params);
-		// 		_addButtonHandler(blade, params);
-		// 	});
-
-		// newPane.addBinding(settings.current, 'label', { index: 9999 });
-
-		// pane.current = newPane;
-
-		// return () => {
-		// 	newPane.dispose();
-		// 	pane.current = null;
-		// };
-	}, [selected, id, saveSettings]);
-
-	return (
-		<NodeSettingsPaneContext.Provider
-			value={{
-				pane: pane.current,
-				settings: settings.current,
-				addBinding,
-				addBlade,
-				addButton,
-				saveSettings,
-				setHandlesToDelete,
-			}}
-		>
-			{props.children}
-			{selected &&
-				(createPortal(
-					<div ref={ref} onClick={e => e.stopPropagation()} />,
-					document.getElementById('settings-panels')!,
-				) as ReactNode)}
-		</NodeSettingsPaneContext.Provider>
-	);
 }
 
 type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
@@ -371,7 +175,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 			>
 				<NodeHeader error={props.error} />
 				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 ">
-					<NodeSettingsPane>{props.children}</NodeSettingsPane>
+					{props.children}
 				</main>
 				<NodeFooter />
 			</article>

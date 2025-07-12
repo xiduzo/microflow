@@ -1,14 +1,13 @@
-import type { PiezoData, PiezoValueType } from '@microflow/components';
-import { Icons } from '@microflow/ui';
+import type { BuzzData, PiezoData, PiezoValueType, SongData } from '@microflow/components';
+import { button, folder, Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from '../Node';
+import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from '../Node';
 import { DEFAULT_NOTE, DEFAULT_SONG, NOTES_AND_FREQUENCIES } from './constants';
 import { useNodeValue } from '../../../../stores/node-data';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { MODES } from '../../../../../common/types';
-import { mapPinToPaneOption } from '../../../../../utils/pin';
-import { FolderApi } from '@tweakpane/core';
+import { reducePinsToOptions } from '../../../../../utils/pin';
 import { SongEditor } from './SongEditor';
 import { usePins } from '../../../../stores/board';
 
@@ -42,105 +41,78 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete, saveSettings } = useNodeSettings<PiezoData>();
+	const data = useNodeData<PiezoData>();
 	const pins = usePins([MODES.INPUT, MODES.PWM]);
 	const [editorOpened, setEditorOpened] = useState(false);
+	const deleteHandles = useDeleteHandles();
 
-	useEffect(() => {
-		if (!pane) return;
-		const initialType = settings.type;
-
-		let settingsFolder: FolderApi | undefined;
-
-		function addTypeBindings() {
-			if (!pane) return;
-			settingsFolder?.dispose();
-			settingsFolder = pane.addFolder({
-				title: 'settings',
-				expanded: true,
-				index: 2,
-			});
-			if (settings.type === 'buzz') {
-				settingsFolder.addBinding(settings, 'duration', {
-					min: 100,
-					max: 2500,
-					step: 100,
-				});
-
-				settingsFolder.addBinding(settings, 'frequency', {
-					view: 'list',
-					options: Array.from(NOTES_AND_FREQUENCIES.entries()).map(([note, frequency]) => ({
-						text: note,
-						value: frequency,
-					})),
-				});
-
-				return;
-			}
-
-			settings.tempo = settings.tempo || 120;
-			settings.song = settings.song || DEFAULT_SONG;
-			settingsFolder.addBinding(settings, 'tempo', {
-				min: 40,
-				max: 240,
-				step: 10,
-			});
-			settingsFolder
-				.addButton({
-					label: 'song',
-					title: 'edit song',
-				})
-				.on('click', () => {
-					setEditorOpened(true);
-				});
-		}
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
-			index: 0,
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			options: pins.map(mapPinToPaneOption),
-		});
-
-		const typeBinding = pane.addBinding(settings, 'type', {
-			index: 1,
-			view: 'list',
-			options: [
-				{ text: 'buzz', value: 'buzz' },
-				{ text: 'song', value: 'song' },
-			],
-		});
-
-		typeBinding.on('change', ({ value }) => {
-			addTypeBindings();
-
-			if (value === initialType) setHandlesToDelete([]);
-			else setHandlesToDelete(value === 'song' ? ['buzz'] : ['play']);
-		});
-
-		addTypeBindings();
-
-		return () => {
-			[settingsFolder, pinBinding, typeBinding].forEach(disposable => disposable?.dispose());
-		};
-	}, [pane, settings, pins, setHandlesToDelete]);
-
-	if (!editorOpened) return null;
-	if (settings.type === 'buzz') return null;
+	const { render, setNodeData } = useNodeControls<PiezoData>(
+		{
+			pin: { options: pins.reduce(reducePinsToOptions, {}), value: data.pin },
+			type: {
+				options: ['buzz', 'song'],
+				value: data.type,
+				transient: false,
+				onChange: event => deleteHandles(event === 'song' ? ['buzz'] : ['play']),
+			},
+			buzz: folder(
+				{
+					duration: {
+						min: 100,
+						max: 2500,
+						step: 100,
+						value: (data as BuzzData).duration!,
+						render: get => get('type') === 'buzz',
+					},
+					frequency: {
+						options: Object.fromEntries(NOTES_AND_FREQUENCIES.entries()),
+						value: (data as BuzzData).frequency!,
+						render: get => get('type') === 'buzz',
+					},
+					tempo: {
+						min: 40,
+						max: 240,
+						step: 10,
+						value: (data as SongData).tempo!,
+						render: get => get('type') === 'song',
+					},
+				},
+				{
+					render: get => get('type') === 'buzz',
+				},
+			),
+			song: folder(
+				{
+					'edit song': button(e => {
+						console.log(e);
+						setEditorOpened(true);
+					}),
+				},
+				{
+					render: get => get('type') === 'song',
+				},
+			),
+		},
+		[pins],
+	);
 
 	return (
-		<SongEditor
-			song={settings.song}
-			onClose={() => {
-				setEditorOpened(false);
-			}}
-			onSave={data => {
-				settings.song = data.song;
-				saveSettings();
-				setEditorOpened(false);
-			}}
-		/>
+		<>
+			{render()}
+			{editorOpened && (
+				<SongEditor
+					song={(data as SongData).song ?? DEFAULT_SONG}
+					onClose={() => {
+						setEditorOpened(false);
+					}}
+					onSave={data => {
+						data.song = data.song;
+						setNodeData(data);
+						setEditorOpened(false);
+					}}
+				/>
+			)}
+		</>
 	);
 }
 

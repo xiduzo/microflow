@@ -3,10 +3,10 @@ import { Handle } from '../Handle';
 import {
 	BaseNode,
 	NodeContainer,
+	useDeleteHandles,
 	useNodeControls,
 	useNodeData,
 	useNodeId,
-	useNodeSettings,
 } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -27,25 +27,26 @@ export function Llm(props: Props) {
 }
 
 function DynamicHandles() {
-	const { settings, setHandlesToDelete } = useNodeSettings<LlmData>();
+	const data = useNodeData<LlmData>();
 	const id = useNodeId();
 	const previousHandles = useRef<string[]>([]);
+	const deleteHandles = useDeleteHandles();
 
 	const update = useUpdateNodeInternals();
 
 	const handles = useMemo(() => {
-		const matches = settings.prompt?.match(/{{(.*?)}}/g) ?? [];
+		const matches = data.prompt?.match(/{{(.*?)}}/g) ?? [];
 		return Array.from(
 			new Set(matches.map(match => match.replace('{{', '').replace('}}', ''))),
 		).filter(Boolean);
-	}, [settings.prompt]);
+	}, [data.prompt]);
 
 	useEffect(() => {
 		const difference = handles.filter(handle => !previousHandles.current.includes(handle));
-		setHandlesToDelete(difference);
+		deleteHandles(difference);
 		previousHandles.current = handles;
 		update(id);
-	}, [handles, id, update, setHandlesToDelete]);
+	}, [handles, id, update, deleteHandles]);
 
 	return (
 		<>

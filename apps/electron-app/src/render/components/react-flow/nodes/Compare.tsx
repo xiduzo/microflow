@@ -42,13 +42,13 @@ function Value() {
 					case 'equal to':
 					case 'less than':
 					case 'greater than':
-						return `is ${data.subValidator} ${formatter.format(data.validatorArg)}`;
+						return `is ${data.subValidator} ${formatter.format(data.numberCompare)}`;
 					case 'between':
 					case 'outside':
-						return `is ${data.subValidator} ${formatter.format(data.validatorArg?.min)} and ${formatter.format(data.validatorArg?.max)}`;
+						return `is ${data.subValidator} ${formatter.format(data.rangeCompare?.min)} and ${formatter.format(data.rangeCompare?.max)}`;
 				}
 			case 'text':
-				return `is ${data.subValidator} "${data.validatorArg}"`;
+				return `is ${data.subValidator} "${data.textCompare}"`;
 			default:
 				return '';
 		}
@@ -82,28 +82,27 @@ function Settings() {
 				options: subValidatorOptions,
 				render: get => get('validator') !== 'boolean',
 			},
-			validatorArg: { value: '', render: () => false },
-			range: {
-				value: { min: 100, max: 500 },
+			rangeCompare: {
+				value: (data as { rangeCompare: { min: number; max: number } }).rangeCompare ?? {
+					min: 100,
+					max: 500,
+				},
 				label: '',
 				joystick: false,
 				render: get => ['between', 'outside'].includes(get('subValidator')),
-				onChange: value => set({ validatorArg: value }),
 			},
-			numerical: {
-				value: 0,
+			numberCompare: {
+				value: (data as { numberCompare: number }).numberCompare ?? 0,
 				label: '',
 				step: 1,
 				render: get =>
 					get('validator') === 'number' &&
 					!['between', 'outside', 'even', 'odd'].includes(get('subValidator')),
-				onChange: value => set({ validatorArg: value }),
 			},
-			textual: {
-				value: '',
+			textCompare: {
+				value: (data as { textCompare: string }).textCompare ?? '',
 				label: '',
 				render: get => get('validator') === 'text',
-				onChange: value => set({ validatorArg: value }),
 			},
 		},
 		[subValidatorOptions],

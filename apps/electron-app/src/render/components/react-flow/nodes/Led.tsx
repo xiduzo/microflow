@@ -94,7 +94,7 @@ Led.defaultProps = {
 	data: {
 		group: 'hardware',
 		tags: ['output', 'analog', 'digital'],
-		label: 'Light Emitting Diode (LED)',
+		label: 'LED',
 		pin: 13,
 		description: 'Control a LED',
 	} satisfies Props['data'],
