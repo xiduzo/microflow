@@ -40,4 +40,3 @@ export * as TweakpaneTextareaPlugin from '@pangenerator/tweakpane-textarea-plugi
 export * as TweakpaneCameraPlugin from '@tweakpane/plugin-camerakit';
 export * as Zod from 'zod';
 export * from './lib/utils';
-export * from 'leva';

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { isNodeTypeACodeType } from '../../utils/generateCode';
 import { useBoardCheckResult, useBoardPort, useBoardStore } from '../stores/board';
 import { UploadRequest, UploadResponse } from '../../common/types';
-import { toast } from '@ui/index';
+import { toast } from '@microflow/ui';
 import { useClearNodeData } from '../stores/node-data';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';

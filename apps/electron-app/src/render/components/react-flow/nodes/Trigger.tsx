@@ -4,7 +4,7 @@ import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { IconWithValue } from '../IconWithValue';
 import { useNodeValue } from '../../../stores/node-data';
-import { folder } from '@microflow/ui';
+import { folder } from 'leva';
 
 export function Trigger(props: Props) {
 	return (

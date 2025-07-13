@@ -3,7 +3,7 @@ import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
-import { Switch as UiSwitch } from '@ui/index';
+import { Switch as UiSwitch } from '@microflow/ui';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
 import { reducePinsToOptions } from '../../../../utils/pin';

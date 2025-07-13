@@ -1,4 +1,4 @@
-import { toast } from '@ui/index';
+import { toast } from '@microflow/ui';
 import { useEffect } from 'react';
 
 export function IpcDeepLinkListener() {

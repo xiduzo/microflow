@@ -1,5 +1,5 @@
 import type { SensorData, SensorValueType } from '@microflow/components';
-import { cva, folder, Icons, Progress, Switch, VariantProps } from '@microflow/ui';
+import { cva, Icons, Progress, Switch, VariantProps } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
@@ -7,6 +7,7 @@ import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { reducePinsToOptions } from '../../../../utils/pin';
 import { usePins } from '../../../stores/board';
+import { folder } from 'leva';
 
 export function Sensor(props: Props) {
 	return (

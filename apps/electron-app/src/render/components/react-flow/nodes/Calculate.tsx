@@ -2,7 +2,7 @@ import { CalculateData } from '@microflow/components';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
-import { Icons } from '@ui/index';
+import { Icons } from '@microflow/ui';
 
 export function Calculate(props: Props) {
 	return (

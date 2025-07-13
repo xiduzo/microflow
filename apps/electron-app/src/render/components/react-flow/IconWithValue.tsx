@@ -1,4 +1,4 @@
-import { Icon, IconName } from '@ui/index';
+import { Icon, IconName } from '@microflow/ui';
 
 const formatter = new Intl.NumberFormat();
 

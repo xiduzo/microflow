@@ -3,7 +3,7 @@ import { Position } from '@xyflow/react';
 import { useMemo } from 'react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
-import { IconName } from '@ui/index';
+import { IconName } from '@microflow/ui';
 import { IconWithValue } from '../IconWithValue';
 
 export function Oscillator(props: Props) {
@@ -55,9 +55,9 @@ function Settings() {
 			step: 100,
 			label: 'period (ms)',
 		},
-		amplitude: { value: data.amplitude, min: 0.1, label: 'amplitude' },
-		phase: { value: data.phase, label: 'phase' },
-		shift: { value: data.shift, label: 'shift' },
+		amplitude: { value: data.amplitude, min: 0.1 },
+		phase: { value: data.phase },
+		shift: { value: data.shift },
 		autoStart: { value: data.autoStart ?? true, label: 'auto start' },
 	});
 

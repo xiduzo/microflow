@@ -4,7 +4,7 @@ import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import type { DebugValueType, MonitorData } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef, useState } from 'react';
-import { Pane } from '@ui/index';
+import { Pane } from '@microflow/ui';
 import { BindingParams } from '@tweakpane/core';
 import { useUploadResult } from '../../../stores/board';
 

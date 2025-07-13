@@ -1,5 +1,5 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { folder, Icons } from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { reducePinsToOptions } from '../../../../utils/pin';
@@ -7,6 +7,7 @@ import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
+import { folder } from 'leva';
 
 export function Button(props: Props) {
 	return (

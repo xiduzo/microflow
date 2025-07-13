@@ -1,7 +1,7 @@
 import { XYPosition } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { BaseNode, BlankNodeContainer } from './Node';
-import { Icon } from '@ui/index';
+import { Icon } from '@microflow/ui';
 
 export function User(props: Props) {
 	return (

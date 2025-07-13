@@ -1,5 +1,5 @@
 import type { BuzzData, PiezoData, PiezoValueType, SongData } from '@microflow/components';
-import { button, folder, Icons } from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../../Handle';
 import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from '../Node';
@@ -10,6 +10,7 @@ import { MODES } from '../../../../../common/types';
 import { reducePinsToOptions } from '../../../../../utils/pin';
 import { SongEditor } from './SongEditor';
 import { usePins } from '../../../../stores/board';
+import { button, folder } from 'leva';
 
 export function Piezo(props: Props) {
 	return (
@@ -83,10 +84,7 @@ function Settings() {
 			),
 			song: folder(
 				{
-					'edit song': button(e => {
-						console.log(e);
-						setEditorOpened(true);
-					}),
+					'edit song': button(e => setEditorOpened(true)),
 				},
 				{
 					render: get => get('type') === 'song',

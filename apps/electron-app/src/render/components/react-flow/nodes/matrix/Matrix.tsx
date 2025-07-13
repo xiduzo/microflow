@@ -13,7 +13,6 @@ import {
 	MatrixShape,
 } from '@microflow/components/contants';
 import {
-	button,
 	Button,
 	Carousel,
 	CarouselContent,
@@ -25,11 +24,11 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-	folder,
 	Icons,
 } from '@microflow/ui';
 import { usePins } from '../../../../stores/board';
 import { MatrixEditor } from './MatrixEditor';
+import { button, folder } from 'leva';
 
 export function Matrix(props: Props) {
 	return (
