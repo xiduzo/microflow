@@ -24,15 +24,21 @@ function Value() {
 
 	useControls(
 		{
-			' ': monitor(ref, { graph: data.type === 'graph', interval: data.interval }),
+			' ': monitor(ref, { graph: data.type === 'graph', interval: 1000 / data.fps }),
 		},
 		{ store },
-		[data.type, data.interval],
+		[data.type, data.fps],
 	);
 	useEffect(() => {
 		ref.current = value;
 	}, [value]);
 
+	if (data.type === 'raw')
+		return (
+			<div className="text-xs text-gray-500 text-start grow p-4">
+				{typeof value === 'string' ? value : <pre>{JSON.stringify(value, null, 2)}</pre>}
+			</div>
+		);
 	return <LevaPanel store={store} fill={true} flat titleBar={false} />;
 }
 
@@ -40,7 +46,13 @@ function Settings() {
 	const data = useNodeData<MonitorData>();
 	const { render } = useNodeControls({
 		type: { value: data.type, options: ['graph', 'raw'] },
-		interval: { value: data.interval, min: 16.6, label: 'interval (ms)' },
+		fps: {
+			value: data.fps,
+			min: 1,
+			max: 240,
+			step: 1,
+			label: 'frames per second (FPS)',
+		},
 	});
 
 	return <>{render()}</>;
@@ -53,7 +65,7 @@ Monitor.defaultProps = {
 		tags: ['output', 'information'],
 		label: 'Monitor',
 		type: 'graph',
-		interval: 1000 / 60,
+		fps: 60,
 		description: 'Debug and visualize signals',
 	} satisfies Props['data'],
 };

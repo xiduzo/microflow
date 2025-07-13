@@ -59,7 +59,7 @@ export function ReactFlowCanvas() {
 		>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} pannable />
-			<Background gap={32} />
+			<Background gap={140} />
 
 			<Panel position="top-center">
 				<SerialConnectionStatusPanel />

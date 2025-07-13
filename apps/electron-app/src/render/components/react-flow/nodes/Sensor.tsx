@@ -109,10 +109,15 @@ function Settings() {
 	const { render } = useNodeControls(
 		{
 			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
-			advanced: folder({
-				threshold: { min: 0, step: 1, value: data.threshold! },
-				freq: { min: 10, step: 1, value: data.freq! },
-			}),
+			advanced: folder(
+				{
+					threshold: { min: 0, step: 1, value: data.threshold! },
+					freq: { min: 10, step: 1, value: data.freq! },
+				},
+				{
+					collapsed: true,
+				},
+			),
 		},
 		[pins],
 	);
