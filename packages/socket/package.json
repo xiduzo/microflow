@@ -1,0 +1,21 @@
+{
+	"name": "@microflow/socket",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "tsc -w",
+		"build": "tsc",
+		"test": "node --loader ts-node/esm server.ts",
+		"start": "node dist/server.js"
+	},
+	"dependencies": {
+		"cloudflared": "^0.7.0",
+		"socket.io": "^4.8.1",
+		"socket.io-client": "^4.8.1"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.13",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.8.3"
+	}
+}

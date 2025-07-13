@@ -22,6 +22,7 @@ import {
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
 import { format } from 'prettier';
+import { socketServerManager } from './socketServer';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -49,6 +50,76 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 			menuItem.checked = checked;
 			break;
 	}
+});
+
+// Socket server sharing functionality
+ipcMain.handle('ipc-start-share', async () => {
+	try {
+		await socketServerManager.start();
+		const shareInfo = socketServerManager.getShareInfo();
+		return {
+			success: true,
+			data: { 
+				running: true, 
+				message: 'Socket server started successfully',
+				shareInfo
+			}
+		};
+	} catch (error) {
+		log.error('Failed to start socket server:', error);
+		return {
+			success: false,
+			data: { 
+				running: false, 
+				message: error instanceof Error ? error.message : 'Failed to start socket server' 
+			}
+		};
+	}
+});
+
+ipcMain.handle('ipc-stop-share', async () => {
+	try {
+		socketServerManager.stop();
+		return {
+			success: true,
+			data: { 
+				running: false, 
+				message: 'Socket server stopped successfully' 
+			}
+		};
+	} catch (error) {
+		log.error('Failed to stop socket server:', error);
+		return {
+			success: false,
+			data: { 
+				running: false, 
+				message: error instanceof Error ? error.message : 'Failed to stop socket server' 
+			}
+		};
+	}
+});
+
+ipcMain.handle('ipc-get-share-status', async () => {
+	const shareInfo = socketServerManager.getShareInfo();
+	return {
+		success: true,
+		data: { 
+			running: shareInfo.running, 
+			message: shareInfo.running ? 'Socket server is running' : 'Socket server is not running',
+			shareInfo
+		}
+	};
+});
+
+ipcMain.handle('ipc-get-tunnel-url', async () => {
+	const tunnelUrl = socketServerManager.getTunnelUrl();
+	return {
+		success: true,
+		data: { 
+			tunnelUrl,
+			available: !!tunnelUrl
+		}
+	};
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {

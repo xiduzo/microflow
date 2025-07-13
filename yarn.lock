@@ -1670,6 +1670,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@microflow/socket@workspace:packages/socket":
+  version: 0.0.0-use.local
+  resolution: "@microflow/socket@workspace:packages/socket"
+  dependencies:
+    "@types/node": ^24.0.13
+    cloudflared: ^0.7.0
+    socket.io: ^4.8.1
+    socket.io-client: ^4.8.1
+    ts-node: ^10.9.2
+    typescript: ^5.8.3
+  languageName: unknown
+  linkType: soft
+
 "@microflow/test-package@workspace:packages/test":
   version: 0.0.0-use.local
   resolution: "@microflow/test-package@workspace:packages/test"
@@ -5452,6 +5465,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/node@npm:^24.0.13":
+  version: 24.0.13
+  resolution: "@types/node@npm:24.0.13"
+  dependencies:
+    undici-types: ~7.8.0
+  checksum: a98c3c7979e3c17e2853af4b5c4adfb0cbeaf3747a85bc349048ec068cf16d2a96186e005b76ad05f8f533f9b067f499e45ff0296dab0111297af634f71c792c
+  languageName: node
+  linkType: hard
+
 "@types/npm-package-arg@npm:*":
   version: 6.1.4
   resolution: "@types/npm-package-arg@npm:6.1.4"
@@ -7072,6 +7094,15 @@ __metadata:
   version: 1.0.4
   resolution: "clone@npm:1.0.4"
   checksum: d06418b7335897209e77bdd430d04f882189582e67bd1f75a04565f3f07f5b3f119a9d670c943b6697d0afb100f03b866b3b8a1f91d4d02d72c4ecf2bb64b5dd
+  languageName: node
+  linkType: hard
+
+"cloudflared@npm:^0.7.0":
+  version: 0.7.0
+  resolution: "cloudflared@npm:0.7.0"
+  bin:
+    cloudflared: lib/cloudflared.js
+  checksum: 17bf4a432a3e586c80a39f32fd0d2fa675a19cfc0681670dd74fdc80bec04f8ca7ccdae503791d72732dae919f0072fd3fb4213bf809e6ce5f8ae00c3ebadac3
   languageName: node
   linkType: hard
 
@@ -15010,7 +15041,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socket.io-client@npm:4.8.1":
+"socket.io-client@npm:4.8.1, socket.io-client@npm:^4.8.1":
   version: 4.8.1
   resolution: "socket.io-client@npm:4.8.1"
   dependencies:
@@ -15032,7 +15063,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socket.io@npm:4.8.1":
+"socket.io@npm:4.8.1, socket.io@npm:^4.8.1":
   version: 4.8.1
   resolution: "socket.io@npm:4.8.1"
   dependencies:
@@ -15763,7 +15794,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-node@npm:10.9.2":
+"ts-node@npm:10.9.2, ts-node@npm:^10.9.2":
   version: 10.9.2
   resolution: "ts-node@npm:10.9.2"
   dependencies:
@@ -15959,7 +15990,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:5.8.3":
+"typescript@npm:5.8.3, typescript@npm:^5.8.3":
   version: 5.8.3
   resolution: "typescript@npm:5.8.3"
   bin:
@@ -15969,7 +16000,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@5.8.3#~builtin<compat/typescript>":
+"typescript@patch:typescript@5.8.3#~builtin<compat/typescript>, typescript@patch:typescript@^5.8.3#~builtin<compat/typescript>":
   version: 5.8.3
   resolution: "typescript@patch:typescript@npm%3A5.8.3#~builtin<compat/typescript>::version=5.8.3&hash=5786d5"
   bin:

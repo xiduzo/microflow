@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Test Client</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+        .connecting { background: #fff3cd; color: #856404; }
+        .error { background: #f8d7da; color: #721c24; }
+        .log {
+            background: #1e1e1e;
+            color: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        input, button {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Socket.IO Connection Test</h1>
+    
+    <div class="container">
+        <h3>Connection Settings</h3>
+        <input type="text" id="serverUrl" placeholder="Enter server URL (e.g., https://your-tunnel.trycloudflare.com)" style="width: 400px;">
+        <button onclick="connect()" id="connectBtn">Connect</button>
+        <button onclick="disconnect()" id="disconnectBtn" disabled>Disconnect</button>
+    </div>
+
+    <div class="container">
+        <h3>Connection Status</h3>
+        <div id="status" class="status disconnected">Disconnected</div>
+    </div>
+
+    <div class="container">
+        <h3>Test Messages</h3>
+        <input type="text" id="messageInput" placeholder="Enter a message to send" style="width: 300px;">
+        <button onclick="sendMessage()" id="sendBtn" disabled>Send Message</button>
+    </div>
+
+    <div class="container">
+        <h3>Connection Log</h3>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        let socket = null;
+        let isConnected = false;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function updateButtons() {
+            document.getElementById('connectBtn').disabled = isConnected;
+            document.getElementById('disconnectBtn').disabled = !isConnected;
+            document.getElementById('sendBtn').disabled = !isConnected;
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            if (!serverUrl) {
+                alert('Please enter a server URL');
+                return;
+            }
+
+            log(`Attempting to connect to: ${serverUrl}`, 'info');
+            updateStatus('Connecting...', 'connecting');
+
+            try {
+                socket = io(serverUrl, {
+                    transports: ['websocket', 'polling'],
+                    timeout: 10000
+                });
+
+                socket.on('connect', () => {
+                    isConnected = true;
+                    updateStatus('Connected!', 'connected');
+                    updateButtons();
+                    log('✅ Successfully connected to server', 'success');
+                });
+
+                socket.on('disconnect', (reason) => {
+                    isConnected = false;
+                    updateStatus('Disconnected', 'disconnected');
+                    updateButtons();
+                    log(`❌ Disconnected: ${reason}`, 'error');
+                });
+
+                socket.on('connect_error', (error) => {
+                    isConnected = false;
+                    updateStatus('Connection Failed', 'error');
+                    updateButtons();
+                    log(`❌ Connection error: ${error.message}`, 'error');
+                });
+
+                socket.on('message', (data) => {
+                    log(`📨 Received: ${data}`, 'message');
+                });
+
+                socket.on('error', (error) => {
+                    log(`❌ Socket error: ${error}`, 'error');
+                });
+
+            } catch (error) {
+                log(`❌ Failed to create connection: ${error.message}`, 'error');
+                updateStatus('Connection Failed', 'error');
+            }
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                isConnected = false;
+                updateStatus('Disconnected', 'disconnected');
+                updateButtons();
+                log('🔌 Manually disconnected', 'info');
+            }
+        }
+
+        function sendMessage() {
+            if (!socket || !isConnected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const message = document.getElementById('messageInput').value.trim();
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+
+            socket.emit('message', message);
+            log(`📤 Sent: ${message}`, 'send');
+            document.getElementById('messageInput').value = '';
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Handle Enter key in message input
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Handle Enter key in server URL input
+        document.getElementById('serverUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                connect();
+            }
+        });
+
+        // Auto-fill with common test URLs
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const testUrl = urlParams.get('url');
+            if (testUrl) {
+                document.getElementById('serverUrl').value = testUrl;
+            }
+        });
+
+        log('🚀 Socket.IO Test Client loaded. Enter a server URL and click Connect.', 'info');
+    </script>
+</body>
+</html> 

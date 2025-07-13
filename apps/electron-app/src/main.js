@@ -8,6 +8,7 @@ import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
 import './main/ipc';
 import { createMenu } from './main/menu';
 import { handleDeepLink } from './main/deepLink';
+import { socketServerManager } from './main/socketServer';
 
 updateElectronApp({ logger: logger });
 
