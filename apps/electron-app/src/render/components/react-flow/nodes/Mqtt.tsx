@@ -1,6 +1,6 @@
 import type { MqttData, MqttValueType } from '@microflow/components';
 import { useMqtt } from '@microflow/mqtt-provider/client';
-import { button, Icons } from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from '../Handle';
@@ -14,6 +14,7 @@ import {
 } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useAppStore } from '../../../stores/app';
+import { button } from 'leva';
 
 export function Mqtt(props: Props) {
 	const { status } = useMqtt();

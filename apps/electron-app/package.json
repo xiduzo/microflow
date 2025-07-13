@@ -64,7 +64,6 @@
 		"@microflow/utils": "workspaces:*",
 		"@tsparticles/engine": "3.8.1",
 		"@tsparticles/react": "3.0.0",
-		"@tweakpane/core": "2.0.5",
 		"@xyflow/react": "12.5.1",
 		"abcjs": "6.4.4",
 		"electron-log": "5.3.3",
