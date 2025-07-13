@@ -6,14 +6,17 @@ import {
 	Edge,
 	Connection,
 	useEdges,
+	useReactFlow,
 } from '@xyflow/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const HANDLE_SPACING = 24;
-const NODER_HEADER_HEIGHT_SPACING = 19;
 
 export function Handle(props: Props) {
 	const edges = useEdges();
+	const ref = useRef<HTMLDivElement>(null);
+	const { getZoom } = useReactFlow();
+	const [showHandle, setShowHandle] = useState(false);
 
 	const isConnectable = useMemo(() => {
 		return typeof props.isConnectable === 'boolean'
@@ -21,25 +24,70 @@ export function Handle(props: Props) {
 			: (props.isConnectable?.(edges) ?? true);
 	}, [props.isConnectable, edges]);
 
-	const tooltipSide = useMemo(() => {
+	const translate = useMemo(() => {
 		switch (props.position) {
 			case Position.Top:
-				return 'bottom';
+				return '0 4px';
 			case Position.Bottom:
-				return 'top';
+				return '0 4px';
 			case Position.Left:
-				return 'right';
+				return '-4px';
 			case Position.Right:
-				return 'left';
+				return '4px';
 		}
 	}, [props.position]);
 
+	useEffect(() => {
+		function handleMouseClose(event: MouseEvent) {
+			const zoom = getZoom();
+			if (zoom < 0.75) {
+				setShowHandle(false);
+				return; // Ignore if zoomed out too much
+			}
+
+			const threshhold = zoom * 200;
+			if (!ref.current) return;
+
+			const mouseX = event.clientX;
+			const mouseY = event.clientY;
+
+			const boundingBox = ref.current.getBoundingClientRect();
+
+			// Calculate the distance to each edge of the bounding box
+			const distanceToLeft = mouseX < boundingBox.left ? boundingBox.left - mouseX : 0;
+			const distanceToRight = mouseX > boundingBox.right ? mouseX - boundingBox.right : 0;
+			const distanceToTop = mouseY < boundingBox.top ? boundingBox.top - mouseY : 0;
+			const distanceToBottom = mouseY > boundingBox.bottom ? mouseY - boundingBox.bottom : 0;
+
+			// Calculate the shortest distance to the bounding box
+			const horizontalDistance = Math.max(distanceToLeft, distanceToRight);
+			const verticalDistance = Math.max(distanceToTop, distanceToBottom);
+			const distance = Math.sqrt(horizontalDistance ** 2 + verticalDistance ** 2);
+
+			if (distance > threshhold) {
+				setShowHandle(false);
+				return; // Ignore if mouse is too far away
+			}
+
+			setShowHandle(true);
+			console.log(props.id, { zoom, distance });
+			// Set distance in steps
+		}
+
+		window.addEventListener('mousemove', handleMouseClose);
+
+		return () => {
+			window.removeEventListener('mousemove', handleMouseClose);
+		};
+	}, [props.id, getZoom]);
+
 	return (
 		<TooltipProvider>
-			<Tooltip delayDuration={0}>
+			<Tooltip>
 				<TooltipTrigger asChild>
 					<XyFlowHandle
 						{...props}
+						ref={ref}
 						isConnectable={isConnectable}
 						isValidConnection={edge => {
 							if (props.isValidConnection) props.isValidConnection(edges, edge);
@@ -48,29 +96,32 @@ export function Handle(props: Props) {
 							if (edge.source === edge.target) return false;
 							return true;
 						}}
-						className={handle({ className: props.className })}
+						className={handle({ position: props.position, className: props.className })}
 						style={{
-							width: [Position.Top, Position.Bottom].includes(props.position) ? 20 : 10,
-							height: [Position.Left, Position.Right].includes(props.position) ? 20 : 10,
+							width: [Position.Top, Position.Bottom].includes(props.position) ? 20 : 5,
+							height: [Position.Left, Position.Right].includes(props.position) ? 20 : 5,
 							marginLeft: [Position.Top, Position.Bottom].includes(props.position)
 								? HANDLE_SPACING * (props.offset ?? 0)
 								: 0,
 							marginTop: [Position.Left, Position.Right].includes(props.position)
-								? HANDLE_SPACING * (props.offset ?? 0) + NODER_HEADER_HEIGHT_SPACING
+								? HANDLE_SPACING * (props.offset ?? 0)
 								: 0,
-							translate: [Position.Left, Position.Top].includes(props.position) ? -1 : 1,
+							borderRadius: `
+               					    ${[Position.Left, Position.Top].includes(props.position) ? '6px' : 0}
+              						${[Position.Top, Position.Right].includes(props.position) ? '6px' : 0}
+              						${[Position.Right, Position.Bottom].includes(props.position) ? '6px' : 0}
+              						${[Position.Bottom, Position.Left].includes(props.position) ? '6px' : 0}
+                                `,
+							translate,
 							...props.style,
 						}}
 					>
-						<span className="mb-0.5 pointer-events-none">
-							{(props.title ?? props.id ?? '').slice(0, 1).toLowerCase()}
+						<span className={handleText({ position: props.position, showHandle: showHandle })}>
+							{String(props.title ?? props.id).toLowerCase()}
 						</span>
 					</XyFlowHandle>
 				</TooltipTrigger>
-				<TooltipContent className="text-center" side={tooltipSide}>
-					<p>{props.title ?? props.id}</p>
-					{props.hint && <p className="text-muted-foreground">{props.hint}</p>}
-				</TooltipContent>
+				{props.hint && <TooltipContent side={props.position}>{props.hint}</TooltipContent>}
 			</Tooltip>
 		</TooltipProvider>
 	);
@@ -83,4 +134,28 @@ type Props = Omit<HandleProps, 'isConnectable' | 'isValidConnection'> & {
 	isValidConnection?: (edges: Edge[], edge: Edge | Connection) => boolean;
 };
 
-const handle = cva('text-xs flex items-center justify-center z-50');
+const handle = cva('text-xs flex z-50 shadow-none', {
+	variants: {
+		position: {
+			left: 'items-center justify-start',
+			right: 'items-center justify-end',
+			top: 'justify-center',
+			bottom: 'justify-center',
+		},
+	},
+});
+
+const handleText = cva('pointer-events-none mb-[1px] transition-all', {
+	variants: {
+		position: {
+			left: 'translate-x-2.5',
+			right: '-translate-x-2.5',
+			top: 'translate-y-4',
+			bottom: '-translate-y-4',
+		},
+		showHandle: {
+			true: 'opacity-100',
+			false: 'opacity-0',
+		},
+	},
+});

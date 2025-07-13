@@ -60,7 +60,7 @@ body {
 
 /* Handles */
 .react-flow .react-flow__handle {
-	@apply dark:bg-neutral-600 text-neutral-500 bg-neutral-400 rounded-md transition-all duration-150 border-none;
+	@apply bg-muted text-neutral-500 rounded-md transition-all duration-150 border-none;
 }
 
 /* possible allowed connections */
@@ -70,6 +70,19 @@ body {
 /* source --> target */
 .react-flow:has(.react-flow__handle.connectingfrom.source) .react-flow__handle.connectable.target:not(:has(~ .react-flow__handle.connectingfrom)) {
 	@apply dark:bg-neutral-400 dark:text-neutral-500 text-neutral-400 bg-neutral-500;
+}
+
+/* show handle text when connecting from on allowed handles */
+.react-flow__handle.connectingfrom span,
+/* target --> source */
+.react-flow:has(.react-flow__handle.connectingfrom.target)
+	.react-flow__handle.connectable.source:not(:has(~ .react-flow__handle.connectingfrom))
+	span,
+/* source --> target */
+.react-flow:has(.react-flow__handle.connectingfrom.source)
+	.react-flow__handle.connectable.target:not(:has(~ .react-flow__handle.connectingfrom))
+	span {
+	opacity: 1 !important;
 }
 
 /* impossible connections */
@@ -83,18 +96,35 @@ body {
 	@apply dark:bg-neutral-800 dark:text-neutral-700 text-neutral-300 bg-neutral-200;
 }
 
+/* hide handle text when connecting from on impossible connections */
+.react-flow__handle.connectingfrom ~ .react-flow__handle span,
+/* target --> target */
+.react-flow:has(.react-flow__handle.connectingfrom.target)
+	.react-flow__handle.target:not(.react-flow__handle.connectingfrom)
+	span,
+/* source --> source */
+.react-flow:has(.react-flow__handle.connectingfrom.source)
+	.react-flow__handle.source:not(.react-flow__handle.connectingfrom)
+	span,
+/* connectingfrom --> sibbling */
+.react-flow:has(.react-flow__handle.connectingfrom)
+	.react-flow__handle:has(~ .react-flow__handle.connectingfrom)
+	span {
+	opacity: 0 !important;
+}
+
 /* valid connection */
 .react-flow:has(.react-flow__handle.connectingto.valid)
 	.react-flow__handle.connectable.connectingfrom,
 .react-flow:has(.react-flow__handle.connectingto.valid)
 	.react-flow__handle.valid:not(:has(~ .react-flow__handle.connectable.connectingfrom)) {
-	@apply bg-green-500 dark:bg-green-500 text-green-900 dark:text-green-900 cursor-crosshair;
+	@apply bg-green-500 dark:bg-green-500 text-green-500 dark:text-green-500 cursor-crosshair;
 }
 
 /* invalid connection */
 .react-flow__handle:not(.connectable),
 .react-flow:has(.react-flow__connection.invalid) .react-flow__handle.connectable.connectingfrom {
-	@apply bg-red-500 dark:bg-red-500 text-red-900 dark:text-red-900;
+	@apply bg-red-500 dark:bg-red-500 text-red-500 dark:text-red-500;
 }
 
 /*

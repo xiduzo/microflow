@@ -54,12 +54,12 @@ export function ReactFlowCanvas() {
 			nodeTypes={NODE_TYPES}
 			colorMode={'system'}
 			minZoom={0.1}
-			maxZoom={2}
+			maxZoom={4}
 			selectNodesOnDrag={false}
 		>
 			<Controls />
 			<MiniMap nodeBorderRadius={12} pannable />
-			<Background gap={32} />
+			<Background gap={140} />
 
 			<Panel position="top-center">
 				<SerialConnectionStatusPanel />

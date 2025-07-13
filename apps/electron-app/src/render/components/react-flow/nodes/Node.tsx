@@ -172,7 +172,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 				)}
 			>
 				<NodeHeader error={props.error} />
-				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 ">
+				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 px-12">
 					{props.children}
 				</main>
 				<NodeFooter />
