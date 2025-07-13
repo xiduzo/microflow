@@ -75,7 +75,8 @@ function Settings() {
 	const pins = usePins([MODES.INPUT], [MODES.ANALOG]);
 	const { render, setNodeData } = useNodeControls(
 		{
-			dimensions: { value: data.dims, label: 'dimensions', options: ['8x8', '16x8', '8x16'] },
+			dims: { value: data.dims, label: 'dimensions', options: ['8x8', '16x8', '8x16'] },
+			devices: { value: data.devices, min: 1, max: 8, step: 1 },
 			pins: folder({
 				data: {
 					value: data.pins.data,

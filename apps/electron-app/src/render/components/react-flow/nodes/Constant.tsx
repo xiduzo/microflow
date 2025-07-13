@@ -24,7 +24,7 @@ function Value() {
 function Settings() {
 	const data = useNodeData<ConstantData>();
 	const { render } = useNodeControls({
-		value: { value: data.value },
+		value: { value: data.value, step: 1 },
 	});
 
 	return <>{render()}</>;

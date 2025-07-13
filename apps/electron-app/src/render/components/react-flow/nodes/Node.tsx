@@ -103,7 +103,7 @@ export const useNodeControls = <
 	 */
 	const setNodeData = useCallback(
 		<T extends Record<string, unknown>>(node: Partial<Data>) => {
-			updateNode(node);
+			updateNode(node as T);
 		},
 		[updateNode],
 	);

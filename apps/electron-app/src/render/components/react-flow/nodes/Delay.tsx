@@ -25,7 +25,7 @@ function Settings() {
 	const data = useNodeData<DelayData>();
 	const { render } = useNodeControls({
 		delay: { min: 100, step: 100, value: data.delay },
-		forgetPrevious: { value: data.forgetPrevious },
+		forgetPrevious: { value: data.forgetPrevious, label: 'debounce' },
 	});
 
 	return <>{render()}</>;

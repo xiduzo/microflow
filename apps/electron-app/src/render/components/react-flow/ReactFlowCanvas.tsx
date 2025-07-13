@@ -54,7 +54,7 @@ export function ReactFlowCanvas() {
 			nodeTypes={NODE_TYPES}
 			colorMode={'system'}
 			minZoom={0.1}
-			maxZoom={5}
+			maxZoom={2}
 			selectNodesOnDrag={false}
 		>
 			<Controls />

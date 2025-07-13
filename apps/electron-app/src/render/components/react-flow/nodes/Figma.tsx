@@ -173,7 +173,7 @@ function Settings() {
 				min: 10,
 				max: 500,
 				step: 10,
-				label: 'update frequency (ms)',
+				label: 'debounce (ms)',
 			},
 		},
 		[variableTypes],
