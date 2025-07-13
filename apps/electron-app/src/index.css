@@ -60,7 +60,7 @@ body {
 
 /* Handles */
 .react-flow .react-flow__handle {
-	@apply bg-muted text-neutral-500 rounded-md transition-all duration-150 border-none;
+	@apply bg-muted-foreground text-neutral-500 rounded-md transition-all duration-150 border-none;
 }
 
 /* possible allowed connections */

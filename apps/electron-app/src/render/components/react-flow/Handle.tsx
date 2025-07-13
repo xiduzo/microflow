@@ -10,7 +10,7 @@ import {
 } from '@xyflow/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const HANDLE_SPACING = 24;
+const HANDLE_SPACING = 20;
 
 export function Handle(props: Props) {
 	const edges = useEdges();
@@ -70,8 +70,6 @@ export function Handle(props: Props) {
 			}
 
 			setShowHandle(true);
-			console.log(props.id, { zoom, distance });
-			// Set distance in steps
 		}
 
 		window.addEventListener('mousemove', handleMouseClose);
@@ -81,6 +79,7 @@ export function Handle(props: Props) {
 		};
 	}, [props.id, getZoom]);
 
+	console.log(props.hint);
 	return (
 		<TooltipProvider>
 			<Tooltip>
@@ -98,8 +97,8 @@ export function Handle(props: Props) {
 						}}
 						className={handle({ position: props.position, className: props.className })}
 						style={{
-							width: [Position.Top, Position.Bottom].includes(props.position) ? 20 : 5,
-							height: [Position.Left, Position.Right].includes(props.position) ? 20 : 5,
+							width: [Position.Top, Position.Bottom].includes(props.position) ? 16 : 4,
+							height: [Position.Left, Position.Right].includes(props.position) ? 16 : 4,
 							marginLeft: [Position.Top, Position.Bottom].includes(props.position)
 								? HANDLE_SPACING * (props.offset ?? 0)
 								: 0,
@@ -107,10 +106,10 @@ export function Handle(props: Props) {
 								? HANDLE_SPACING * (props.offset ?? 0)
 								: 0,
 							borderRadius: `
-               					    ${[Position.Left, Position.Top].includes(props.position) ? '6px' : 0}
-              						${[Position.Top, Position.Right].includes(props.position) ? '6px' : 0}
-              						${[Position.Right, Position.Bottom].includes(props.position) ? '6px' : 0}
-              						${[Position.Bottom, Position.Left].includes(props.position) ? '6px' : 0}
+               					    ${[Position.Left, Position.Top].includes(props.position) ? '3px' : 0}
+              						${[Position.Top, Position.Right].includes(props.position) ? '3px' : 0}
+              						${[Position.Right, Position.Bottom].includes(props.position) ? '3px' : 0}
+              						${[Position.Bottom, Position.Left].includes(props.position) ? '3px' : 0}
                                 `,
 							translate,
 							...props.style,
