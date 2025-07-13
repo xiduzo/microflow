@@ -1,8 +1,7 @@
 import { DelayData } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
 import { IconWithValue } from '../IconWithValue';
 
 export function Delay(props: Props) {
@@ -23,29 +22,13 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<DelayData>();
+	const data = useNodeData<DelayData>();
+	const { render } = useNodeControls({
+		delay: { min: 100, step: 100, value: data.delay },
+		forgetPrevious: { value: data.forgetPrevious, label: 'debounce' },
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const delayBinding = pane.addBinding(settings, 'delay', {
-			index: 0,
-			min: 100,
-			step: 100,
-		});
-
-		const forgetPriviousBinding = pane.addBinding(settings, 'forgetPrevious', {
-			index: 1,
-			label: 'debounce',
-		});
-
-		return () => {
-			delayBinding.dispose();
-			forgetPriviousBinding.dispose();
-		};
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<DelayData>;

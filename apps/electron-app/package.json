@@ -56,6 +56,7 @@
 		"typescript": "5.8.3"
 	},
 	"dependencies": {
+		"@leva-ui/plugin-plot": "^0.10.0",
 		"@microflow/components": "workspaces:*",
 		"@microflow/flasher": "workspaces:*",
 		"@microflow/mqtt-provider": "workspaces:*",
@@ -63,11 +64,11 @@
 		"@microflow/utils": "workspaces:*",
 		"@tsparticles/engine": "3.8.1",
 		"@tsparticles/react": "3.0.0",
-		"@tweakpane/core": "2.0.5",
 		"@xyflow/react": "12.5.1",
 		"abcjs": "6.4.4",
 		"electron-log": "5.3.3",
 		"firmata": "https://github.com/xiduzo/firmata.js.git",
+		"leva": "^0.10.0",
 		"mqtt": "5.10.4",
 		"prettier": "3.5.3",
 		"react": "18.3.1",

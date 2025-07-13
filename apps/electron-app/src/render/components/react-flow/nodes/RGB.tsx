@@ -1,11 +1,10 @@
 import { RgbData, RgbValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { usePins } from '../../../stores/board';
-import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { RgbaColorPicker } from 'react-colorful';
 
@@ -30,41 +29,16 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<RgbData>();
-	const pins = usePins();
+	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
+	const data = useNodeData<RgbData>();
+	const { render } = useNodeControls({
+		red: { value: data.pins.red, options: pins.reduce(reducePinsToOptions, {}) },
+		green: { value: data.pins.green, options: pins.reduce(reducePinsToOptions, {}) },
+		blue: { value: data.pins.blue, options: pins.reduce(reducePinsToOptions, {}) },
+		isAnode: { value: data.isAnode, label: 'anode' },
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const colors = ['red', 'green', 'blue'];
-
-		const colorBindings = colors.map((color, index) => {
-			return pane.addBinding(settings.pins, color, {
-				view: 'list',
-				disabled: !pins.length,
-				label: color,
-				index: index,
-				options: pins
-					.filter(
-						pin =>
-							pin.supportedModes.includes(MODES.OUTPUT) && pin.supportedModes.includes(MODES.PWM),
-					)
-					.map(mapPinToPaneOption),
-			});
-		});
-
-		const isAnodeBinding = pane.addBinding(settings, 'isAnode', {
-			view: 'toggle',
-			label: 'anode',
-			index: 3,
-		});
-
-		return () => {
-			[...colorBindings, isAnodeBinding].forEach(disposable => disposable.dispose());
-		};
-	}, [pane, settings, pins]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<RgbData>;

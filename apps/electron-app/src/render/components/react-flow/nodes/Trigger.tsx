@@ -1,10 +1,10 @@
 import type { TriggerData, TriggerValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { IconWithValue } from '../IconWithValue';
 import { useNodeValue } from '../../../stores/node-data';
+import { folder } from 'leva';
 
 export function Trigger(props: Props) {
 	return (
@@ -26,7 +26,7 @@ function Value() {
 		<IconWithValue
 			icon={data.behaviour === 'increasing' ? 'TrendingUp' : 'TrendingDown'}
 			iconClassName={value ? 'text-green-500' : 'text-red-500'}
-			value={`by ${data.threshold}`}
+			value={`by ${formatter.format(data.threshold)}`}
 			suffix={
 				data.relative
 					? `% within ${formatter.format(data.within / 1000)}s`
@@ -37,48 +37,26 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<TriggerData>();
+	const data = useNodeData<TriggerData>();
+	const { render } = useNodeControls({
+		behaviour: {
+			value: data.behaviour,
+			options: {
+				'when increasing': 'increasing',
+				'when decreasing': 'decreasing',
+			},
+		},
+		threshold: { value: data.threshold!, min: 0, label: 'by' },
+		within: { value: data.within, min: 1, step: 50, label: 'within (ms)' },
+		advanced: folder(
+			{
+				relative: { value: data.relative!, label: 'percentage' },
+			},
+			{ collapsed: true },
+		),
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const behaviourBinding = pane.addBinding(settings, 'behaviour', {
-			index: 0,
-			view: 'list',
-			label: 'triggers',
-			options: [
-				{ value: 'increasing', text: 'when increasing' },
-				{ value: 'decreasing', text: 'when decreasing' },
-			],
-		});
-
-		const thresholdBinding = pane.addBinding(settings, 'threshold', {
-			index: 1,
-			label: 'by',
-			min: 0,
-		});
-
-		const relativeBinding = pane.addBinding(settings, 'relative', {
-			index: 2,
-			label: 'percentage',
-		});
-
-		settings.within ??= 250;
-		const withinBinding = pane.addBinding(settings, 'within', {
-			index: 3,
-			label: 'within (ms)',
-			min: 1,
-		});
-
-		return () => {
-			behaviourBinding.dispose();
-			thresholdBinding.dispose();
-			relativeBinding.dispose();
-			withinBinding.dispose();
-		};
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<TriggerData>;

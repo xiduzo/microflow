@@ -12,7 +12,7 @@ import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard'
 import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
-import { useEffect } from 'react';
+import { StrictMode, useEffect } from 'react';
 
 export function App() {
 	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
@@ -43,7 +43,11 @@ export function App() {
 }
 
 const root = createRoot(document.body.querySelector('main')!);
-root.render(<App />);
+root.render(
+	<StrictMode>
+		<App />
+	</StrictMode>,
+);
 
 function Cursors() {
 	return null;

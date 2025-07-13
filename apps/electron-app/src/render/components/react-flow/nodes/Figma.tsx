@@ -16,7 +16,7 @@ import {
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { RgbaColorPicker } from 'react-colorful';
 import { useDebounceValue } from 'usehooks-ts';
@@ -110,76 +110,76 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 }
 
 function Settings() {
-	const { pane, settings, setHandlesToDelete } = useNodeSettings<FigmaData>();
-
+	const data = useNodeData<FigmaData>();
 	const { variableTypes } = useFigma();
+	const deleteHandles = useDeleteHandles();
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const initialVariableType = Array.from(Object.values(variableTypes)).find(
-			({ id }) => id === settings.variableId,
-		)?.resolvedType;
-
-		const variableIdbinding = pane
-			.addBinding(settings, 'variableId', {
-				index: 0,
-				view: 'list',
+	const { render } = useNodeControls(
+		{
+			variableId: {
 				label: 'variable',
-				disabled: !Object.keys(variableTypes).length,
-				value: settings.variableId,
-				options: Array.from(Object.entries(variableTypes)).map(([, variable]) => ({
-					value: variable.id,
-					text: variable.name,
-				})),
-			})
-			.on('change', ({ value }) => {
-				const selectedVariableType = Array.from(Object.values(variableTypes)).find(
-					({ id }) => id === value,
-				)?.resolvedType;
+				value: data.variableId!,
+				options: Object.values(variableTypes).reduce(
+					(curr, variable) => {
+						curr[variable.name] = variable.id;
+						return curr;
+					},
+					{} as Record<string, string>,
+				),
+				onChange: event => {
+					const selectedVariableType = Array.from(Object.values(variableTypes)).find(
+						({ id }) => id === event,
+					)?.resolvedType;
 
-				if (selectedVariableType) {
-					settings.resolvedType = selectedVariableType;
-					settings.initialValue = DEFAULT_FIGMA_VALUE_PER_TYPE[selectedVariableType];
-				}
+					const allHandles = [
+						'true',
+						'toggle',
+						'false',
+						'red',
+						'green',
+						'blue',
+						'opacity',
+						'increment',
+						'set',
+						'decrement',
+						'set',
+					];
 
-				if (selectedVariableType === initialVariableType) {
-					setHandlesToDelete([]);
-					return;
-				}
+					switch (selectedVariableType) {
+						case 'BOOLEAN':
+							deleteHandles(
+								allHandles.filter(handle => !['true', 'toggle', 'false'].includes(handle)),
+							);
+							break;
+						case 'COLOR':
+							deleteHandles(
+								allHandles.filter(handle => !['red', 'green', 'blue', 'opacity'].includes(handle)),
+							);
+							break;
+						case 'FLOAT':
+							deleteHandles(
+								allHandles.filter(handle => !['increment', 'set', 'decrement'].includes(handle)),
+							);
+							break;
+						case 'STRING':
+							deleteHandles(allHandles.filter(handle => !['set'].includes(handle)));
+							break;
+					}
+					// TODO: set initial value?
+				},
+			},
+			debounceTime: {
+				value: data.debounceTime!,
+				min: 10,
+				max: 500,
+				step: 10,
+				label: 'debounce (ms)',
+			},
+		},
+		[variableTypes],
+	);
 
-				switch (initialVariableType) {
-					case 'BOOLEAN':
-						setHandlesToDelete(['true', 'toggle', 'false']);
-						break;
-					case 'COLOR':
-						setHandlesToDelete(['red', 'green', 'blue', 'opacity']);
-						break;
-					case 'FLOAT':
-						setHandlesToDelete(['increment', 'set', 'decrement']);
-						break;
-					case 'STRING':
-						setHandlesToDelete(['set']);
-						break;
-				}
-			});
-
-		settings.debounceTime ??= 100; // TODO: in next version make sure this is set in the default props
-		const debounceTimeBinding = pane.addBinding(settings, 'debounceTime', {
-			index: 1,
-			min: 10,
-			max: 500,
-			step: 10,
-			label: 'update frequency (ms)',
-		});
-
-		return () => {
-			variableIdbinding.dispose();
-			debounceTimeBinding.dispose();
-		};
-	}, [pane, settings, variableTypes]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 const numberFormat = new Intl.NumberFormat('en-US', {

@@ -1,13 +1,13 @@
 import type { ButtonData, ButtonValueType } from '@microflow/components';
-import { Icons, ListBladeApi } from '@microflow/ui';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
-import { useEffect } from 'react';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
+import { folder } from 'leva';
 
 export function Button(props: Props) {
 	return (
@@ -29,75 +29,43 @@ function Value() {
 	return <Icons.Pointer className="text-green-500" size={48} />;
 }
 
+const DEFAULT = 0;
+const PULL_UP = 1;
+const PULL_DOWN = 2;
+
 function Settings() {
-	const { pane, settings } = useNodeSettings<ButtonData>();
-	const pins = usePins();
+	const data = useNodeData<ButtonData>();
 
-	useEffect(() => {
-		if (!pane) return;
+	const requiresPullup = data.isPullup || data.isPulldown;
+	const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
 
-		const pinBinding = pane.addBinding(settings, 'pin', {
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			index: 0,
-			options: pins
-				.filter(pin => pin.supportedModes.includes(MODES.INPUT))
-				.filter(pin =>
-					settings.isPullup || settings.isPulldown
-						? pin.supportedModes.includes(MODES.PULLUP)
-						: pin,
-				)
-				.map(mapPinToPaneOption),
-		});
+	const { render, set } = useNodeControls(
+		{
+			pin: { options: pins.reduce(reducePinsToOptions, {}), value: data.pin },
+			isPullup: { value: data.isPullup!, render: () => false },
+			isPulldown: { value: data.isPulldown!, render: () => false },
 
-		const advancedFolder = pane.addFolder({
-			title: 'advanced',
-			expanded: false,
-			index: 1,
-		});
+			advanced: folder(
+				{
+					type: {
+						value: data.isPulldown ? PULL_DOWN : data.isPullup ? PULL_UP : DEFAULT,
+						options: {
+							default: DEFAULT,
+							'pull up': PULL_UP,
+							'pull down': PULL_DOWN,
+						},
+						onChange: value =>
+							set({ isPullup: value === PULL_UP, isPulldown: value === PULL_DOWN }),
+					},
+					holdtime: { min: 100, step: 50, value: data.holdtime!, label: 'hold time (ms)' },
+				},
+				{ collapsed: true },
+			),
+		},
+		[pins],
+	);
 
-		advancedFolder.addBinding(settings, 'holdtime', {
-			min: 100,
-			step: 50,
-		});
-
-		const typeBlade = advancedFolder.addBlade({
-			view: 'list',
-			label: 'type',
-			value: settings.isPulldown ? 2 : settings.isPullup ? 1 : 0,
-			options: [
-				{ value: 0, text: 'default' },
-				{ value: 1, text: 'pull-up' },
-				{ value: 2, text: 'pull-down' },
-			],
-		});
-
-		(typeBlade as ListBladeApi<number>).on('change', event => {
-			switch (event.value) {
-				case 0:
-					settings.isPulldown = false;
-					settings.isPullup = false;
-					break;
-				case 1:
-					settings.isPulldown = false;
-					settings.isPullup = true;
-					break;
-				case 2:
-					settings.isPulldown = true;
-					settings.isPullup = false;
-					break;
-			}
-		});
-
-		advancedFolder.addBinding(settings, 'invert');
-
-		return () => {
-			[pinBinding, advancedFolder].forEach(disposable => disposable.dispose());
-		};
-	}, [pane, settings, pins]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<ButtonData>;

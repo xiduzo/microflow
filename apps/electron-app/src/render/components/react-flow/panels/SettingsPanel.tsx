@@ -1,4 +1,4 @@
-import { useAutoAnimate } from '@ui/index';
+import { useAutoAnimate } from '@microflow/ui';
 
 export function SettingsPanel() {
 	const [animationRef] = useAutoAnimate({
@@ -7,7 +7,7 @@ export function SettingsPanel() {
 
 	return (
 		<section id="settings-panels" className="flex flex-col space-y-2" ref={animationRef}>
-			{/* Filled by settings */}
+			{/* Filled component by settings */}
 		</section>
 	);
 }

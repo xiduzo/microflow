@@ -1,13 +1,12 @@
 import { RelayData, RelayValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
-import { Icons } from '@ui/index';
-import { useEffect } from 'react';
+import { Icons } from '@microflow/ui';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 
 export function Relay(props: Props) {
 	return (
@@ -29,40 +28,23 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<RelayData>();
-	const pins = usePins();
+	const pins = usePins([MODES.OUTPUT]);
+	const data = useNodeData<RelayData>();
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+			type: {
+				value: data.type,
+				options: [
+					{ value: 'NO', text: 'Normally open (NO)' },
+					{ value: 'NC', text: 'Normally closed (NC)' },
+				],
+			},
+		},
+		[pins],
+	);
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			index: 0,
-			options: pins
-				.filter(pin => pin.supportedModes.includes(MODES.OUTPUT))
-				.map(mapPinToPaneOption),
-		});
-
-		const typeBinding = pane.addBinding(settings, 'type', {
-			view: 'list',
-			disabled: !pins.length,
-			label: 'mode',
-			index: 1,
-			options: [
-				{ value: 'NO', text: 'Normally open' },
-				{ value: 'NC', text: 'Normally closed' },
-			],
-		});
-
-		return () => {
-			pinBinding.dispose();
-			typeBinding.dispose();
-		};
-	}, [settings, pane, pins]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<RelayData>;

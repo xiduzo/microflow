@@ -1,6 +1,5 @@
 import { ConstantData } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { useEffect } from 'react';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 
@@ -23,22 +22,12 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<ConstantData>();
+	const data = useNodeData<ConstantData>();
+	const { render } = useNodeControls({
+		value: { value: data.value, step: 1 },
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const valueBinding = pane.addBinding(settings, 'value', {
-			index: 0,
-			type: 'number',
-		});
-
-		return () => {
-			valueBinding.dispose();
-		};
-	}, [pane]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<ConstantData>;

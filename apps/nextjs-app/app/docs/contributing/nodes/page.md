@@ -72,30 +72,13 @@ function Value() {
 
 ```tsx
 function Settings() {
-	const { pane, settings } = useNodeSettingsPane<MyNodeData>();
+    const data = useNodeData<MyNodeData>();
+	const { render } = useNodeControls<MyNodeData>({
+    	emotion: { value: data.emotion, label: 'validate', options: ['happy', 'sad'] },
+        joy: { value: data.joy, min: 1, max: 100, step: 0.5 },
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'emotion', {
-			index: 0,
-			view: 'list',
-			label: 'validate',
-			options: [
-				{ value: 'happy', text: 'Happy' },
-				{ value: 'sad', text: 'Sad' },
-			],
-		});
-
-		pane.addBinding(settings, 'joy', {
-			index: 1,
-			min: 1,
-			max: 100,
-			step: 0.5,
-		});
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 ```
 
@@ -120,8 +103,8 @@ MyNode.defaultProps = {
 import { MyNode } from '../render/components/react-flow/nodes/MyNode';
 
 export const NODE_TYPES = {
-  ...
+  //...
   MyNode: MyNode,
-  ...
+  //...
 };
 ```

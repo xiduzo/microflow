@@ -2,13 +2,12 @@ import type { CompareData, CompateValueType } from '@microflow/components';
 import {
 	COMPARE_SUB_VALIDATORS,
 	COMPARE_VALIDATORS,
-	CompareValidator,
+	CompareSubValidator,
 } from '@microflow/components/contants';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { BindingApi, BladeApi } from '@tweakpane/core';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { IconWithValue } from '../IconWithValue';
 
@@ -37,26 +36,19 @@ function Value() {
 				return 'boolean';
 			case 'number':
 				switch (data.subValidator) {
-					case 'equal to':
-					case 'less than':
-					case 'greater than':
-						return `is ${data.subValidator} ${data.validatorArg}`;
 					case 'even':
 					case 'odd':
 						return `is ${data.subValidator}`;
+					case 'equal to':
+					case 'less than':
+					case 'greater than':
+						return `is ${data.subValidator} ${formatter.format(data.numberCompare)}`;
 					case 'between':
 					case 'outside':
-						return `is ${data.subValidator} ${formatter.format(data.validatorArg.min)} and ${formatter.format(data.validatorArg.max)}`;
+						return `is ${data.subValidator} ${formatter.format(data.rangeCompare?.min)} and ${formatter.format(data.rangeCompare?.max)}`;
 				}
 			case 'text':
-				switch (data.subValidator) {
-					case 'includes':
-					case 'starts with':
-					case 'ends with':
-						return `${data.subValidator} ${data.validatorArg}`;
-					case 'equal to':
-						return `is ${data.subValidator} ${data.validatorArg}`;
-				}
+				return `is ${data.subValidator} "${data.textCompare}"`;
 			default:
 				return '';
 		}
@@ -72,117 +64,64 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<CompareData>();
+	const [subValidatorOptions, setSubValidatorOptions] = useState<readonly CompareSubValidator[]>(
+		[],
+	);
+	const data = useNodeData<CompareData>();
+
+	const { render, set } = useNodeControls(
+		{
+			validator: {
+				value: data.validator,
+				options: [...COMPARE_VALIDATORS],
+				label: 'validate that a',
+			},
+			subValidator: {
+				label: 'is',
+				value: data.subValidator,
+				options: subValidatorOptions,
+				render: get => get('validator') !== 'boolean',
+			},
+			rangeCompare: {
+				value: (data as { rangeCompare: { min: number; max: number } }).rangeCompare ?? {
+					min: 100,
+					max: 500,
+				},
+				label: '',
+				joystick: false,
+				render: get => ['between', 'outside'].includes(get('subValidator')),
+			},
+			numberCompare: {
+				value: (data as { numberCompare: number }).numberCompare ?? 0,
+				label: '',
+				step: 1,
+				render: get =>
+					get('validator') === 'number' &&
+					!['between', 'outside', 'even', 'odd'].includes(get('subValidator')),
+			},
+			textCompare: {
+				value: (data as { textCompare: string }).textCompare ?? '',
+				label: '',
+				render: get => get('validator') === 'text',
+			},
+		},
+		[subValidatorOptions],
+	);
 
 	useEffect(() => {
-		if (!pane) return;
+		const options = [...COMPARE_SUB_VALIDATORS[data.validator]];
+		const subValidator = options.includes(data.subValidator as never)
+			? data.subValidator
+			: options.at(0);
 
-		let subValidatorPane: BindingApi | undefined;
-		let validatorArgPane: BladeApi | undefined;
+		setSubValidatorOptions(options);
 
-		function addValidatorArgs() {
-			if (!pane) return;
+		if (data.subValidator === subValidator) return;
 
-			validatorArgPane?.dispose();
+		set({ subValidator });
+	}, [data.validator, data.subValidator, set]);
 
-			validatorArgPane = pane.addBinding(settings, 'validatorArg', {
-				index: 2,
-				label: '',
-			});
-		}
-
-		function addSubValidator(validator: CompareValidator) {
-			if (!pane) return;
-			subValidatorPane?.dispose();
-
-			subValidatorPane = pane
-				.addBinding(settings, 'subValidator', {
-					view: 'list',
-					index: 1,
-					label: 'is',
-					options: COMPARE_SUB_VALIDATORS[validator].map(item => ({
-						text: item,
-						value: item,
-					})),
-				})
-				.on('change', event => {
-					switch (event.value) {
-						case 'equal to':
-						case 'includes':
-						case 'starts with':
-						case 'ends with':
-							settings.validatorArg = settings.validatorArg ?? '';
-							addValidatorArgs();
-							break;
-						case 'less than':
-						case 'greater than':
-							settings.validatorArg = isNaN(Number(settings.validatorArg))
-								? 0
-								: (settings.validatorArg ?? 0);
-							addValidatorArgs();
-							break;
-						case 'between':
-						case 'outside':
-							settings.validatorArg = isNaN(Number(settings.validatorArg))
-								? (settings.validatorArg ?? { min: 100, max: 500 })
-								: { min: 100, max: 500 };
-							addValidatorArgs();
-							break;
-						case 'even':
-						case 'odd':
-							validatorArgPane?.dispose();
-							break;
-						default:
-							// Boolean
-							break;
-					}
-				});
-
-			if (settings.subValidator === 'odd') return;
-			if (settings.subValidator === 'even') return;
-
-			addValidatorArgs();
-		}
-
-		const validatorBinding = pane
-			.addBinding(settings, 'validator', {
-				index: 0,
-				view: 'list',
-				label: 'validate',
-				options: COMPARE_VALIDATORS.map(validator => ({
-					text: validator,
-					value: validator,
-				})),
-			})
-			.on('change', event => {
-				switch (event.value) {
-					case 'boolean':
-						subValidatorPane?.dispose();
-						validatorArgPane?.dispose();
-						return;
-					case 'number':
-						settings.subValidator = 'equal to';
-						settings.validatorArg = 0;
-						addSubValidator(event.value);
-						break;
-					case 'text':
-						settings.subValidator = 'includes';
-						settings.validatorArg = '';
-						addSubValidator(event.value);
-						return;
-				}
-			});
-
-		if (settings.validator !== 'boolean') addSubValidator(settings.validator);
-
-		return () => {
-			validatorBinding.dispose();
-			subValidatorPane?.dispose();
-			validatorArgPane?.dispose();
-		};
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<CompareData>;
@@ -192,6 +131,8 @@ Compare.defaultProps = {
 		tags: ['control'],
 		label: 'Compare',
 		validator: 'boolean',
+		subValidator: undefined,
+		validatorArg: undefined,
 		description: 'Validate and compare signals',
 	} satisfies Props['data'],
 };

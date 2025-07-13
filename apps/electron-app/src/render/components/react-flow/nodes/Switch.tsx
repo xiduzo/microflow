@@ -1,13 +1,12 @@
 import { SwitchData, SwitchValueType } from '@microflow/components';
-import { BaseNode, NodeContainer, useNodeSettings } from './Node';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
-import { Switch as UiSwitch } from '@ui/index';
-import { useEffect } from 'react';
+import { Switch as UiSwitch } from '@microflow/ui';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { mapPinToPaneOption } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../utils/pin';
 
 export function Switch(props: Props) {
 	return (
@@ -28,36 +27,23 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<SwitchData>();
-	const pins = usePins();
+	const data = useNodeData<SwitchData>();
+	const pins = usePins([MODES.INPUT]);
+	const { render } = useNodeControls(
+		{
+			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+			type: {
+				value: data.type,
+				options: [
+					{ value: 'NC', text: 'normally closed (NC)' },
+					{ value: 'NO', text: 'normally open (NO)' },
+				],
+			},
+		},
+		[pins],
+	);
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const pinBinding = pane.addBinding(settings, 'pin', {
-			view: 'list',
-			disabled: !pins.length,
-			label: 'pin',
-			index: 0,
-			options: pins.filter(pin => pin.supportedModes.includes(MODES.INPUT)).map(mapPinToPaneOption),
-		});
-
-		const typeBinding = pane.addBinding(settings, 'type', {
-			view: 'list',
-			label: 'type',
-			index: 1,
-			options: [
-				{ value: 'NC', text: 'normally closed' },
-				{ value: 'NO', text: 'normally open' },
-			],
-		});
-
-		return () => {
-			pinBinding.dispose();
-			typeBinding.dispose();
-		};
-	}, [pins, pane, settings]);
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<SwitchData>;

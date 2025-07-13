@@ -1,5 +1,4 @@
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { useEffect } from 'react';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 
 export function Note(props: Props) {
 	return (
@@ -22,25 +21,13 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<NoteData>();
+	const data = useNodeData<NoteData>();
+	const { render } = useNodeControls({
+		note: { value: data.note, label: 'Note', rows: 3 },
+		extraInfo: { value: data.extraInfo!, label: 'Extra info', rows: 3 },
+	});
 
-	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'note', {
-			index: 0,
-			view: 'textarea',
-			rows: 3,
-		});
-		pane.addBinding(settings, 'extraInfo', {
-			index: 1,
-			label: 'Extra info',
-			view: 'textarea',
-			rows: 3,
-		});
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type NoteData = {

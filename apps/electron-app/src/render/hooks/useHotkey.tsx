@@ -22,7 +22,7 @@ function checkKey(isPressed: boolean, shouldBePressed?: boolean) {
 	return false;
 }
 
-export function useHotkey(options: Options, action: Action) {
+export function useHotkey(options: Options, action: Action, release?: Action) {
 	useEffect(() => {
 		function handleKeyDown(event: KeyboardEvent) {
 			if (event.code !== options.code) return;
@@ -39,12 +39,20 @@ export function useHotkey(options: Options, action: Action) {
 			action(event);
 		}
 
+		function handleKeyUp(event: KeyboardEvent) {
+			if (event.code !== options.code) return;
+
+			release?.(event);
+		}
+
 		window.addEventListener('keydown', handleKeyDown);
+		window.addEventListener('keyup', handleKeyUp);
 
 		return () => {
 			window.removeEventListener('keydown', handleKeyDown);
+			window.removeEventListener('keyup', handleKeyUp);
 		};
-	}, [options, action]);
+	}, [options, action, release]);
 }
 
 type KeyCode =

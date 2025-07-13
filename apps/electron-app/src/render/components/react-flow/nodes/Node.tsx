@@ -2,37 +2,26 @@ import {
 	cn,
 	cva,
 	Icons,
-	Pane,
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-	TweakpaneCameraPlugin,
-	TweakpaneEssentialPlugin,
-	TweakpaneTextareaPlugin,
 } from '@microflow/ui';
+import { LevaPanel, useControls, useCreateStore } from 'leva';
 import { Node, useUpdateNodeInternals } from '@xyflow/react';
-import {
-	createContext,
-	PropsWithChildren,
-	ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from 'react';
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
+import { useDebounceValue } from 'usehooks-ts';
 
-function NodeHeader(props: { error?: string; selected?: boolean }) {
+function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
 
 	return (
-		<header className={header({ selected: props.selected, hasError: !!props.error })}>
-			<h1 className="font-bold flex-grow">{data.label}</h1>
+		<header className="p-2 border-b-2 gap-4 flex items-center transition-all">
+			<h1 className="text-xs flex-grow font-bold">{data.label}</h1>
 			<TooltipProvider>
 				{props.error && (
 					<Tooltip delayDuration={0}>
@@ -46,41 +35,6 @@ function NodeHeader(props: { error?: string; selected?: boolean }) {
 		</header>
 	);
 }
-
-const header = cva('p-2 px-4 border-b-2 gap-4 flex items-center transition-all', {
-	variants: {
-		selected: {
-			true: '',
-			false: '',
-		},
-		hasError: {
-			true: '',
-			false: '',
-		},
-	},
-	compoundVariants: [
-		{
-			selected: false,
-			hasError: false,
-			className: 'text-muted-foreground dark:border-muted border-muted-foreground/20',
-		},
-		{
-			selected: true,
-			hasError: false,
-			className: 'bg-blue-600 text-blue-200 border-blue-600',
-		},
-		{
-			selected: false,
-			hasError: true,
-			className: 'bg-red-600 text-red-200 border-red-600',
-		},
-		{
-			selected: true,
-			hasError: true,
-			className: 'bg-blue-600 text-blue-200 border-blue-600',
-		},
-	],
-});
 
 function NodeFooter() {
 	const data = useNodeData();
@@ -110,111 +64,76 @@ function NodeFooter() {
 	);
 }
 
-type SettingsContextProps<T extends Record<string, any>> = {
-	pane: Pane | null;
-	settings: T;
-	setHandlesToDelete: (handles: string[]) => void;
-	saveSettings: () => void;
-};
+type UseControlParameters = Parameters<typeof useControls>;
+export type Controls = Exclude<UseControlParameters[0], string | Function>;
 
-const NodeSettingsPaneContext = createContext<SettingsContextProps<{}>>(
-	{} as SettingsContextProps<{}>,
-);
-
-export function useNodeSettings<T extends Record<string, any>>() {
-	// @ts-ignore-next-line
-	return useContext(NodeSettingsPaneContext as React.Context<SettingsContextProps<T>>);
-}
-
-function NodeSettingsPane<T extends Record<string, unknown>>(
-	props: PropsWithChildren & { options?: unknown },
-) {
-	const [pane, setPane] = useState<Pane | null>(null);
-	const updateNodeInternals = useUpdateNodeInternals();
-	const deleteEdes = useDeleteEdges();
-
-	const { data, id, type, selected } = useNode<T>();
+export const useNodeControls = <
+	Data extends Record<string, any> = Record<string, any>,
+	S extends Controls = Controls,
+>(
+	controls: S,
+	dependencies: unknown[] = [],
+) => {
+	const store = useCreateStore();
+	const { selected, id, data } = useNode();
 	const updateNode = useUpdateNode(id);
 
-	const ref = useRef<HTMLDivElement>(null);
-	const [settings, setSettings] = useState<T & { label: string }>({} as T & { label: string });
-	const handlesToDelete = useRef<string[]>([]);
-
-	const setHandlesToDelete = useCallback((handles: string[]) => {
-		handlesToDelete.current = handles;
-	}, []);
-
-	const saveSettings = useCallback(() => {
-		if (handlesToDelete.current.length > 0) {
-			deleteEdes(id, handlesToDelete.current);
-			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
-		}
-
-		updateNode(settings, type !== 'Note');
-	}, [updateNode, deleteEdes, updateNodeInternals, id, settings]);
-
-	// TODO: update this after undo / redo
-	useEffect(() => {
-		if (selected) return;
-		// Create a copy of the data when the settings are closed
-		setSettings(JSON.parse(JSON.stringify(data)));
-	}, [selected, data]);
-
-	useEffect(() => {
-		if (!selected) return;
-		if (!settings.label) return;
-
-		const pane = new Pane({
-			title: `${settings.label} (${id})`,
-			container: ref.current ?? undefined,
-		});
-
-		pane.registerPlugin(TweakpaneEssentialPlugin);
-		pane.registerPlugin(TweakpaneTextareaPlugin);
-		pane.registerPlugin(TweakpaneCameraPlugin);
-
-		pane.addBinding(settings, 'label', {
-			index: 9997,
-		});
-
-		pane.addBlade({
-			view: 'separator',
-			index: 9998,
-		});
-
-		pane
-			.addButton({
-				title: 'Close',
-				index: 9999,
-			})
-			.on('click', () => {
-				// TODO: close the settings pane
-				// setSettingsOpened(false);
-			});
-
-		pane.on('change', event => {
-			if (!event.last) return;
-			saveSettings();
-		});
-
-		setPane(pane);
-
-		return () => {
-			setPane(null);
-			pane.dispose();
-		};
-	}, [selected, type, id, saveSettings]);
-
-	return (
-		<NodeSettingsPaneContext.Provider value={{ pane, settings, saveSettings, setHandlesToDelete }}>
-			{props.children}
-			{selected &&
-				(createPortal(
-					<div ref={ref} onClick={e => e.stopPropagation()} />,
-					document.getElementById('settings-panels')!,
-				) as ReactNode)}
-		</NodeSettingsPaneContext.Provider>
+	const [controlsData, set] = useControls(
+		() => ({ label: data.label, ...controls }),
+		{ store },
+		dependencies,
 	);
+
+	const [debouncedControlData] = useDebounceValue(controlsData, 500);
+	const [selectedDebounce] = useDebounceValue(selected, 30);
+
+	const render = useCallback(() => {
+		return createPortal(
+			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selectedDebounce} />,
+			document.getElementById('settings-panels')!,
+		);
+	}, [store, selectedDebounce]);
+
+	/**
+	 * Sometimes it is impossible to set the node data using the controls,
+	 * use this handler to forcefully update the node
+	 * ⚠️ this might cause descrepencies between the `data` from `useNodeData` and the actual data
+	 */
+	const setNodeData = useCallback(
+		<T extends Record<string, unknown>>(node: Partial<Data>) => {
+			updateNode(node as T);
+		},
+		[updateNode],
+	);
+
+	useEffect(() => {
+		console.debug('<controlsData>', controlsData);
+		updateNode(controlsData as Record<string, unknown>);
+	}, [controlsData, updateNode]);
+
+	useEffect(() => {
+		// TODO use for code upload
+		console.debug('<debouncedControlData>', debouncedControlData);
+	}, [debouncedControlData]);
+
+	return { render, set, setNodeData };
+};
+
+export function useDeleteHandles() {
+	const id = useNodeId();
+	const deleteEdes = useDeleteEdges();
+
+	const updateNodeInternals = useUpdateNodeInternals();
+
+	const deleteHandles = useCallback(
+		(handles: string[]) => {
+			deleteEdes(id, handles);
+			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
+		},
+		[id, updateNodeInternals, deleteEdes],
+	);
+
+	return deleteHandles;
 }
 
 type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
@@ -243,7 +162,7 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 				className={cn(
 					node({
 						className: props.className,
-						deletabled: props.deletable,
+						deletable: props.deletable,
 						draggable: props.draggable,
 						dragging: props.dragging,
 						selectable: props.selectable,
@@ -252,9 +171,9 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 					}),
 				)}
 			>
-				<NodeHeader error={props.error} selected={props.selected} />
-				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5">
-					<NodeSettingsPane>{props.children}</NodeSettingsPane>
+				<NodeHeader error={props.error} />
+				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 ">
+					{props.children}
 				</main>
 				<NodeFooter />
 			</article>
@@ -269,14 +188,14 @@ export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
 }
 
 const node = cva(
-	'border border-2 rounded-sm backdrop-blur-sm min-w-52 min-h-44 flex flex-col transition-all',
+	'round border-2 rounded-sm backdrop-blur-sm min-w-52 min-h-44 flex flex-col transition-all',
 	{
 		variants: {
 			selectable: { true: '', false: '' },
 			selected: { true: 'border-blue-600', false: '' },
 			draggable: { true: 'active:cursor-grabbing', false: '' },
 			dragging: { true: '', false: '' },
-			deletabled: { true: '', false: '' },
+			deletable: { true: '', false: '' },
 			hasError: { true: '', false: '' },
 		},
 		defaultVariants: {
@@ -284,7 +203,7 @@ const node = cva(
 			selected: false,
 			draggable: false,
 			dragging: false,
-			deletabled: false,
+			deletable: false,
 			hasError: false,
 		},
 		compoundVariants: [

@@ -4,6 +4,7 @@ export type DebugValueType = unknown;
 
 export type MonitorData = {
 	type: 'graph' | 'raw';
+	interval: number;
 };
 
 export class Monitor extends BaseComponent<DebugValueType> {

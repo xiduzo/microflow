@@ -1,9 +1,9 @@
 import type { OscillatorData } from '@microflow/components';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeSettings } from './Node';
-import { IconName } from '@ui/index';
+import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
+import { IconName } from '@microflow/ui';
 import { IconWithValue } from '../IconWithValue';
 
 export function Oscillator(props: Props) {
@@ -43,50 +43,25 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<OscillatorData>();
-
-	useEffect(() => {
-		if (!pane) return;
-
-		pane.addBinding(settings, 'waveform', {
-			index: 0,
-			view: 'list',
-			label: 'validate',
-			options: [
-				{ value: 'sinus', text: 'sinus' },
-				{ value: 'triangle', text: 'triangle' },
-				{ value: 'sawtooth', text: 'sawtooth' },
-				{ value: 'square', text: 'square' },
-				{ value: 'random', text: 'random' },
-			],
-		});
-
-		pane.addBinding(settings, 'period', {
-			index: 1,
-			step: 1,
+	const data = useNodeData<OscillatorData>();
+	const { render } = useNodeControls({
+		waveform: {
+			value: data.waveform,
+			options: ['sinus', 'triangle', 'sawtooth', 'square', 'random'],
+		},
+		period: {
+			value: data.period,
 			min: 100,
-		});
+			step: 100,
+			label: 'period (ms)',
+		},
+		amplitude: { value: data.amplitude, min: 0.1 },
+		phase: { value: data.phase },
+		shift: { value: data.shift },
+		autoStart: { value: data.autoStart ?? true, label: 'auto start' },
+	});
 
-		pane.addBinding(settings, 'amplitude', {
-			index: 2,
-			min: 0.1,
-		});
-
-		pane.addBinding(settings, 'phase', {
-			index: 3,
-		});
-
-		pane.addBinding(settings, 'shift', {
-			index: 4,
-		});
-
-		pane.addBinding(settings, 'autoStart', {
-			index: 5,
-			label: 'auto start',
-		});
-	}, [pane, settings]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<OscillatorData>;

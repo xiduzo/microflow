@@ -1,10 +1,18 @@
-import { Position, useReactFlow, useUpdateNodeInternals } from '@xyflow/react';
+import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useNodeData, useNodeId, useNodeSettings } from './Node';
+import {
+	BaseNode,
+	NodeContainer,
+	useDeleteHandles,
+	useNodeControls,
+	useNodeData,
+	useNodeId,
+} from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LlmData, LlmValueType } from '@microflow/components';
 import { IconWithValue } from '../IconWithValue';
+import { folder } from 'leva';
 
 export function Llm(props: Props) {
 	return (
@@ -19,25 +27,26 @@ export function Llm(props: Props) {
 }
 
 function DynamicHandles() {
-	const { settings, setHandlesToDelete } = useNodeSettings<LlmData>();
+	const data = useNodeData<LlmData>();
 	const id = useNodeId();
 	const previousHandles = useRef<string[]>([]);
+	const deleteHandles = useDeleteHandles();
 
 	const update = useUpdateNodeInternals();
 
 	const handles = useMemo(() => {
-		const matches = settings.prompt?.match(/{{(.*?)}}/g) ?? [];
+		const matches = data.prompt?.match(/{{(.*?)}}/g) ?? [];
 		return Array.from(
 			new Set(matches.map(match => match.replace('{{', '').replace('}}', ''))),
 		).filter(Boolean);
-	}, [settings.prompt]);
+	}, [data.prompt]);
 
 	useEffect(() => {
 		const difference = handles.filter(handle => !previousHandles.current.includes(handle));
-		setHandlesToDelete(difference);
+		deleteHandles(difference);
 		previousHandles.current = handles;
 		update(id);
-	}, [handles, id, update, setHandlesToDelete]);
+	}, [handles, id, update, deleteHandles]);
 
 	return (
 		<>
@@ -68,14 +77,41 @@ function Value() {
 }
 
 function Settings() {
-	const { pane, settings } = useNodeSettings<LlmData>();
 	const [models, setModels] = useState<string[]>([]);
+	const data = useNodeData<LlmData>();
+
+	const { render } = useNodeControls(
+		{
+			provider: { value: data.provider, options: ['ollama'], disabled: true },
+			models: { value: data.model, options: models },
+			system: { value: data.system, rows: 5 },
+			prompt: { value: data.prompt, rows: 5 },
+			advanced: folder(
+				{
+					baseUrl: { value: data.baseUrl!, label: 'Base URL' },
+					frequencyPenalty: { value: data.frequencyPenalty!, label: 'Frequency Penalty' },
+					temperature: { value: data.temperature!, label: 'Temperature' },
+					topK: { value: data.topK!, label: 'Top K' },
+					topP: { value: data.topP!, label: 'Top P' },
+					mirostat: { value: data.mirostat!, label: 'Mirostat' },
+					mirostatTau: { value: data.mirostatTau!, label: 'Mirostat Tau' },
+					mirostatEta: { value: data.mirostatEta!, label: 'Mirostat Eta' },
+					repeatPenalty: { value: data.repeatPenalty!, label: 'Repeat Penalty' },
+					typicalP: { value: data.typicalP!, label: 'Typical P' },
+					presencePenalty: { value: data.presencePenalty!, label: 'Presence Penalty' },
+					repeatLastN: { value: data.repeatLastN!, label: 'Repeat Last N' },
+				},
+				{ collapsed: true },
+			),
+		},
+		[models],
+	);
 
 	useEffect(() => {
 		async function getModels() {
-			switch (settings.provider) {
+			switch (data.provider) {
 				case 'ollama':
-					const ollamaModelsResponse = await fetch(`${settings.baseUrl}/api/tags`);
+					const ollamaModelsResponse = await fetch(`${data.baseUrl}/api/tags`);
 					const ollamaModels = await ollamaModelsResponse.json();
 					setModels(ollamaModels.models.map((model: { model: string }) => model.model));
 					break;
@@ -85,110 +121,9 @@ function Settings() {
 		}
 
 		getModels();
-	}, [settings.provider, settings.baseUrl]);
+	}, [data.provider, data.baseUrl]);
 
-	useEffect(() => {
-		if (!pane) return;
-
-		const provider = pane.addBinding(settings, 'provider', {
-			type: 'list',
-			disabled: true,
-			index: 0,
-			options: [{ text: 'ollama', value: 'ollama' }],
-		});
-
-		const model = pane.addBinding(settings, 'model', {
-			index: 1,
-			type: 'list',
-			options: models.map((model: string) => ({ text: model, value: model })),
-		});
-
-		const system = pane.addBinding(settings, 'system', {
-			index: 2,
-			view: 'textarea',
-			rows: 5,
-		});
-
-		const prompt = pane.addBinding(settings, 'prompt', {
-			index: 3,
-			view: 'textarea',
-			rows: 5,
-		});
-
-		const advancedFolder = pane.addFolder({
-			title: 'advanced',
-			expanded: false,
-			index: 4,
-		});
-
-		if (!settings.baseUrl) settings.baseUrl = '';
-		advancedFolder.addBinding(settings, 'baseUrl');
-		advancedFolder.addBinding(settings, 'frequencyPenalty', {
-			min: 0,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'temperature', {
-			min: 0.1,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'topK', {
-			min: 1,
-			max: 100,
-			step: 1,
-		});
-		advancedFolder.addBinding(settings, 'topP', {
-			min: 0.1,
-			max: 1,
-			step: 0.05,
-		});
-		advancedFolder.addBinding(settings, 'mirostat', {
-			min: 0,
-			max: 1,
-			step: 1,
-		});
-		advancedFolder.addBinding(settings, 'mirostatTau', {
-			min: 1,
-			max: 10,
-			step: 0.5,
-		});
-		advancedFolder.addBinding(settings, 'mirostatEta', {
-			min: 0.01,
-			max: 1,
-			step: 0.05,
-		});
-		advancedFolder.addBinding(settings, 'repeatPenalty', {
-			min: 1,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'typicalP', {
-			min: 0.1,
-			max: 1,
-			step: 0.05,
-		});
-		advancedFolder.addBinding(settings, 'presencePenalty', {
-			min: 0,
-			max: 2,
-			step: 0.1,
-		});
-		advancedFolder.addBinding(settings, 'repeatLastN', {
-			min: 1,
-			max: 256,
-			step: 1,
-		});
-
-		return () => {
-			provider.dispose();
-			model.dispose();
-			system.dispose();
-			prompt.dispose();
-			advancedFolder.dispose();
-		};
-	}, [pane, settings, models]);
-
-	return null;
+	return <>{render()}</>;
 }
 
 type Props = BaseNode<LlmData>;
