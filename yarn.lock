@@ -1670,7 +1670,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@microflow/socket@workspace:packages/socket":
+"@microflow/socket@workspace:packages/socket, @microflow/socket@workspaces:*":
   version: 0.0.0-use.local
   resolution: "@microflow/socket@workspace:packages/socket"
   dependencies:
@@ -11886,6 +11886,7 @@ __metadata:
     "@microflow/components": "workspaces:*"
     "@microflow/flasher": "workspaces:*"
     "@microflow/mqtt-provider": "workspaces:*"
+    "@microflow/socket": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"
     "@npmcli/arborist": 9.0.1

@@ -6,7 +6,7 @@ import {
 	type PortInfo,
 } from '@microflow/flasher';
 import type { Edge, Node } from '@xyflow/react';
-import { ipcMain, IpcMainEvent, Menu } from 'electron';
+import { app, ipcMain, IpcMainEvent, Menu } from 'electron';
 import { fork, ChildProcess } from 'child_process';
 
 import log from 'electron-log/node';
@@ -22,7 +22,7 @@ import {
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
 import { format } from 'prettier';
-import { socketServerManager } from './socketServer';
+import { initSocketServer, stopTunnel } from '@microflow/socket/server';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
@@ -52,74 +52,76 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 	}
 });
 
-// Socket server sharing functionality
-ipcMain.handle('ipc-start-share', async () => {
+async function startLiveShare(event: IpcMainEvent) {
+	const timer = new Timer();
+
 	try {
-		await socketServerManager.start();
-		const shareInfo = socketServerManager.getShareInfo();
-		return {
+		log.debug('[SHARE] <init>', timer.duration);
+		await stopTunnel();
+		const tunnelUrl = await initSocketServer();
+		log.debug(`[SHARE] <started> '${tunnelUrl}'`, timer.duration);
+		return event.reply('ipc-live-share', {
 			success: true,
-			data: { 
-				running: true, 
-				message: 'Socket server started successfully',
-				shareInfo
-			}
-		};
+			data: {
+				type: 'connected',
+				tunnelUrl: tunnelUrl,
+			},
+		});
 	} catch (error) {
-		log.error('Failed to start socket server:', error);
-		return {
+		log.error(`[SHARE] <error> ${error?.toString()}`, timer.duration);
+		return event.reply('ipc-live-share', {
 			success: false,
-			data: { 
-				running: false, 
-				message: error instanceof Error ? error.message : 'Failed to start socket server' 
-			}
-		};
+			data: {
+				type: 'error',
+				message: error instanceof Error ? error.message : 'Failed to start socket server',
+			},
+		});
 	}
-});
+}
 
-ipcMain.handle('ipc-stop-share', async () => {
+async function stopLiveShare(event: IpcMainEvent) {
+	const timer = new Timer();
+
 	try {
-		socketServerManager.stop();
-		return {
+		log.debug('[SHARE] <stop>', timer.duration);
+		await stopTunnel();
+		return event.reply('ipc-live-share', {
 			success: true,
-			data: { 
-				running: false, 
-				message: 'Socket server stopped successfully' 
-			}
-		};
+			data: {
+				type: 'disconnected',
+				message: 'Socket server stopped successfully',
+			},
+		});
 	} catch (error) {
-		log.error('Failed to stop socket server:', error);
-		return {
+		log.debug(`[SHARE] <error> failed to stop ${error?.toString()}`, timer.duration);
+		return event.reply('ipc-live-share', {
 			success: false,
-			data: { 
-				running: false, 
-				message: error instanceof Error ? error.message : 'Failed to stop socket server' 
-			}
-		};
+			data: {
+				type: 'error',
+				message: error instanceof Error ? error.message : 'Failed to stop socket server',
+			},
+		});
 	}
-});
+}
 
-ipcMain.handle('ipc-get-share-status', async () => {
-	const shareInfo = socketServerManager.getShareInfo();
-	return {
-		success: true,
-		data: { 
-			running: shareInfo.running, 
-			message: shareInfo.running ? 'Socket server is running' : 'Socket server is not running',
-			shareInfo
-		}
-	};
-});
-
-ipcMain.handle('ipc-get-tunnel-url', async () => {
-	const tunnelUrl = socketServerManager.getTunnelUrl();
-	return {
-		success: true,
-		data: { 
-			tunnelUrl,
-			available: !!tunnelUrl
-		}
-	};
+ipcMain.on('ipc-live-share', async (event, type: 'start' | 'stop') => {
+	switch (type) {
+		case 'start':
+			log.debug('[SHARE] <start> requested to start live share');
+			return startLiveShare(event);
+		case 'stop':
+			log.debug('[SHARE] <stop> requested to stop live share');
+			return stopLiveShare(event);
+		default:
+			log.warn('[SHARE] <unknown> requested with unknown type', type);
+			return event.reply('ipc-live-share', {
+				success: false,
+				data: {
+					type: 'error',
+					message: 'Unknown action type for live share',
+				},
+			});
+	}
 });
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
@@ -507,11 +509,6 @@ async function cleanupProcesses() {
 	await new Promise(resolve => setTimeout(resolve, 1000));
 }
 
-process.on('exit', async code => {
-	log.debug(`[PROCESS] about to leave app`, code);
-	void cleanupProcesses();
-});
-
 class Timer {
 	private start: number;
 	constructor(private readonly name?: string) {
@@ -524,3 +521,9 @@ class Timer {
 }
 
 cleanupProcesses().catch(log.debug);
+
+app.on('before-quit', async event => {
+	log.debug(`[PROCESS] <before-quit> about to leave app`, event);
+	await stopTunnel();
+	void cleanupProcesses();
+});

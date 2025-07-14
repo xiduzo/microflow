@@ -6,6 +6,7 @@ import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPane
 import { SettingsPanel } from './panels/SettingsPanel';
 import { useEffect } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
+import { SharePanel } from './panels/SharePanel';
 
 const selector = (state: AppState) => ({
 	nodes: state.nodes,
@@ -80,6 +81,9 @@ export function ReactFlowCanvas() {
 
 			<Panel position="top-right">
 				<SettingsPanel />
+			</Panel>
+			<Panel position="top-left">
+				<SharePanel />
 			</Panel>
 		</ReactFlow>
 	);

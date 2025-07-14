@@ -79,7 +79,6 @@ export function Handle(props: Props) {
 		};
 	}, [props.id, getZoom]);
 
-	console.log(props.hint);
 	return (
 		<TooltipProvider>
 			<Tooltip>
