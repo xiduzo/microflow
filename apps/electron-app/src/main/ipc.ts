@@ -68,7 +68,17 @@ async function startLiveShare(event: IpcMainEvent) {
 			},
 		});
 
-		await new Promise(resolve => setTimeout(resolve, 5000)); // arbitrary delay to ensure the tunnel is ready
+		await new Promise(resolve => setTimeout(resolve, 4000)); // arbitrary delay to ensure the tunnel is ready
+
+		event.reply('ipc-live-share', {
+			success: true,
+			data: {
+				type: 'initializing',
+				message: getRandomMessage('wait'),
+			},
+		});
+
+		await new Promise(resolve => setTimeout(resolve, 4000)); // arbitrary delay to ensure the tunnel is ready
 
 		log.debug(`[SHARE] <started> '${tunnelUrl}'`, timer.duration);
 		return event.reply('ipc-live-share', {

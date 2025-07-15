@@ -24,7 +24,7 @@ export function SharePanel() {
 		const type = sharing.type === 'disconnected' ? 'start' : 'stop';
 		const promise = new Promise(resolve => (resolveRef.current = resolve));
 		window.electron.ipcRenderer.send('ipc-live-share', type);
-		toast.promise(promise, { loading: `${type}ing live session...` });
+		toast.promise(promise, { loading: `${type}ing collaboration session` });
 		setSharing({ type: 'initializing' });
 	}
 
@@ -51,13 +51,14 @@ export function SharePanel() {
 					break;
 				case 'connected':
 					const tunnelUrl = result.data.tunnelUrl;
-					const textToCopy = `Check out my Microflow Studio project: https://microflow.vercel.app/share/${toBase64(tunnelUrl)}\n
-Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
+					const textToCopy = `Collaborate with me on Microflow Studio: https://microflow.vercel.app/share/${toBase64(tunnelUrl)}\n
+Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my collaboration session.`;
 					try {
 						const copied = await copy(textToCopy);
 						if (!copied) throw new Error('Failed to copy');
 						toast.success('Live session started', {
-							description: 'We copied the share link to your clipboard',
+							id: 'copy',
+							description: 'Invitation details copied to clipboard!',
 							duration: Infinity,
 							action: {
 								label: getRandomMessage('action'),
@@ -65,14 +66,15 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 						});
 					} catch {
 						toast.warning('Ooops...', {
-							description: 'Failed to copy share link to clipboard',
+							id: 'copy',
+							description: 'Failed to copy invitation details',
 							duration: Infinity,
 							action: {
-								label: 'Copy link',
+								label: 'Copy details',
 								onClick: () => {
 									toast.promise(copy(textToCopy), {
-										loading: 'Copying share link...',
-										success: 'Share link copied to clipboard',
+										loading: 'Copying invitation details',
+										success: 'Invitation details copied to clipboard!',
 										error: textToCopy,
 									});
 								},
@@ -83,6 +85,7 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 					break;
 				case 'disconnected':
 					toast.success('Sharing stopped');
+					toast.dismiss('copy');
 					break;
 				default:
 					break;
@@ -99,7 +102,11 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 				transports: ['websocket'],
 				retries: 3,
 			});
-			socket.io.on('error', console.error);
+			socket.io.on('error', error => {
+				console.error('Socket connection error', error);
+				toast.error('Failed to connect to the collaboration session');
+				window.electron.ipcRenderer.send('ipc-live-share', 'stop');
+			});
 
 			socket.io.on('close', console.warn);
 			socket.io.on('ping', console.info);
@@ -121,11 +128,11 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 	const [title, icon] = useMemo((): [string, IconName] => {
 		switch (sharing.type) {
 			case 'connected':
-				return ['Hosting live session', 'Router'];
+				return ['Shared', 'Router'];
 			case 'initializing':
 				return ['Connecting...', 'RectangleEllipsis'];
 			case 'joined':
-				return ['Joined live session', 'RadioReceiver'];
+				return ['Joined', 'RadioReceiver'];
 			case 'disconnected':
 			default:
 				return ['Live share', 'Radio'];
@@ -145,7 +152,7 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 					<>
 						<DropdownMenuItem onClick={hostAction}>
 							<Icon icon="Unplug" />
-							Stop your live session
+							Stop your collaboration session
 						</DropdownMenuItem>
 					</>
 				)}
@@ -153,11 +160,11 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 					<>
 						<DropdownMenuItem onClick={hostAction}>
 							<Icon icon="Router" />
-							Start a live session
+							Start a collaboration session
 						</DropdownMenuItem>
 						<DropdownMenuItem onClick={clientAction}>
 							<Icon icon="RadioReceiver" />
-							Join a live session
+							Join a collaboration session
 						</DropdownMenuItem>
 					</>
 				)}
@@ -165,7 +172,7 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 					<>
 						<DropdownMenuItem onClick={clientAction}>
 							<Icon icon="RadioReceiver" />
-							Leave the live session
+							Leave the collaboration session
 						</DropdownMenuItem>
 					</>
 				)}
