@@ -37,24 +37,6 @@ export function Figma(props: Props) {
 		window.electron.ipcRenderer.send('ipc-external-value', { nodeId: props.id, value });
 	}, [value, props.id]);
 
-	useEffect(() => {
-		return window.electron.ipcRenderer.on<{ from: string; variableId: string; value: unknown }>(
-			'ipc-deep-link',
-			result => {
-				console.debug(`[IPC-DEEP-LINK] <<<`, result);
-
-				if (!result.success) return;
-				if (result.data.from !== 'figma') return;
-				if (result.data.variableId !== variable?.id) return;
-
-				window.electron.ipcRenderer.send('ipc-external-value', {
-					nodeId: props.id,
-					value: result.data.value,
-				});
-			},
-		);
-	}, [variable?.id, props.id]);
-
 	return (
 		<NodeContainer {...props} error={isDisconnected ? 'Figma plugin is not connected' : undefined}>
 			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
@@ -131,19 +113,10 @@ function Settings() {
 						({ id }) => id === event,
 					)?.resolvedType;
 
-					const allHandles = [
-						'true',
-						'toggle',
-						'false',
-						'red',
-						'green',
-						'blue',
-						'opacity',
-						'increment',
-						'set',
-						'decrement',
-						'set',
-					];
+					const booleanHandles = ['true', 'toggle', 'false'] as const;
+					const colorHandles = ['red', 'green', 'blue', 'opacity'] as const;
+					const floatHandles = ['increment', 'set', 'decrement', 'reset'] as const;
+					const allHandles = [...booleanHandles, ...colorHandles, ...floatHandles] as const;
 
 					switch (selectedVariableType) {
 						case 'BOOLEAN':

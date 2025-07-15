@@ -5,6 +5,15 @@
 		<meta name="google" content="notranslate" />
 		<title>Microflow studio</title>
 		<link rel="stylesheet" href="/src/index.css" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="
+                default-src 'self';
+                script-src 'self' 'unsafe-inline' blob:;
+                style-src 'self' 'unsafe-inline';
+                connect-src 'self' https://*.trycloudflare.com wss: ws:;
+            "
+		/>
 		<style>
 			@media (prefers-color-scheme: dark) {
 				body {

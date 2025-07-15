@@ -23,13 +23,13 @@ import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
 import { format } from 'prettier';
 import { initSocketServer, stopTunnel } from '@microflow/socket/server';
+import { getRandomMessage } from '../common/messages';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
 //   const pagePath = path.join('file://', pageDirectory, 'index.html')
 //   shell.openExternal(pagePath)
 // })
-//
 
 const processes = new Map<number, ChildProcess>();
 
@@ -59,6 +59,17 @@ async function startLiveShare(event: IpcMainEvent) {
 		log.debug('[SHARE] <init>', timer.duration);
 		await stopTunnel();
 		const tunnelUrl = await initSocketServer();
+
+		event.reply('ipc-live-share', {
+			success: true,
+			data: {
+				type: 'initializing',
+				message: getRandomMessage('wait'),
+			},
+		});
+
+		await new Promise(resolve => setTimeout(resolve, 5000)); // arbitrary delay to ensure the tunnel is ready
+
 		log.debug(`[SHARE] <started> '${tunnelUrl}'`, timer.duration);
 		return event.reply('ipc-live-share', {
 			success: true,
@@ -104,7 +115,14 @@ async function stopLiveShare(event: IpcMainEvent) {
 	}
 }
 
-ipcMain.on('ipc-live-share', async (event, type: 'start' | 'stop') => {
+ipcMain.on('ipc-live-share', async (event, type: 'start' | 'stop' | 'join') => {
+	event.reply('ipc-live-share', {
+		success: true,
+		data: {
+			type: 'initializing',
+		},
+	});
+
 	switch (type) {
 		case 'start':
 			log.debug('[SHARE] <start> requested to start live share');
@@ -165,9 +183,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 					success: true,
 					data: {
 						type: 'connect',
-						message:
-							(error as any).message ??
-							feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+						message: (error as any).message ?? getRandomMessage('wait'),
 					},
 				} satisfies IpcResponse<BoardCheckResult>);
 			} finally {
@@ -233,7 +249,7 @@ async function checkBoardOnPort(
 									success: true,
 									data: {
 										type: 'connect',
-										message: feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+										message: getRandomMessage('wait'),
 									},
 								} satisfies IpcResponse<BoardCheckResult>);
 							}, 7500);
@@ -293,44 +309,10 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 				},
 				flashTimer.duration,
 			);
-			const randomMessage = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
-			reject(new Error(randomMessage));
+			reject(new Error(getRandomMessage('wait')));
 		}
 	});
 }
-
-const feedbackMessages = [
-	'Hang tight, almost there!',
-	'Just a moment, working on it!',
-	'Getting things sorted!',
-	'Hold on, making progress!',
-	'Almost there, just a little longer!',
-	'Stay tight, fixing it up!',
-	'One moment, on it!',
-	"Don't worry, nearly done!",
-	'Please wait, resolving the issue!',
-	'Sit tight, handling it!',
-	'Almost there!',
-	'Hold tight, getting things back on track!',
-	'Just a bit longer, working through it!',
-	'Nearly finished!',
-	'Hang in there, sorting it out!',
-	'On it, just a few more moments!',
-	'Stay tuned, fixing things up!',
-	'Almost done!',
-	'Nearly there!',
-	'Please hold on, resolving the issue!',
-	'Just a little bit longer!',
-	'Getting close!',
-	'Hold tight, nearly there!',
-	'Just a moment more,working on it!',
-	'Almost through!',
-	'On the case, just a bit longer!',
-	'Please hold on, fixing things up!',
-	'Just a moment, getting things back on track!',
-	'Stay tuned, handling it!',
-	'Just a bit longer, resolving the issue!',
-];
 
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	const timer = new Timer();

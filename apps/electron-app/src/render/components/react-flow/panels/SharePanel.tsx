@@ -1,32 +1,39 @@
-import { Icon, toast, Toggle } from '@microflow/ui';
-import { useEffect, useRef } from 'react';
+import {
+	Button,
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+	Icon,
+	IconName,
+	toast,
+} from '@microflow/ui';
+import { useEffect, useMemo, useRef } from 'react';
 import { SharingState, useSharing } from '../../../stores/app';
 import { useCopyToClipboard } from 'usehooks-ts';
-import { io } from '@microflow/socket/client';
+import { io, Socket } from '@microflow/socket/client';
+import { getRandomMessage } from '../../../../common/messages';
+import { compressToEncodedURIComponent } from 'lz-string';
+import { toBase64 } from '../../../../common/helpers';
 
 export function SharePanel() {
 	const { sharing, setSharing } = useSharing();
 	const [, copy] = useCopyToClipboard();
 	const resolveRef = useRef<(value: string) => void>();
 
-	function toggleShare() {
+	function hostAction() {
+		const type = sharing.type === 'disconnected' ? 'start' : 'stop';
 		const promise = new Promise(resolve => (resolveRef.current = resolve));
+		window.electron.ipcRenderer.send('ipc-live-share', type);
+		toast.promise(promise, { loading: `${type}ing live session...` });
+		setSharing({ type: 'initializing' });
+	}
 
-		switch (sharing.type) {
-			case 'connected':
-				window.electron.ipcRenderer.send('ipc-live-share', 'stop');
-				toast.promise(promise, { loading: 'Stopping live share...' });
-				break;
-			case 'disconnected':
-			case 'error':
-				window.electron.ipcRenderer.send('ipc-live-share', 'start');
-				toast.promise(promise, { loading: 'Staring live share...' });
-				break;
-			case 'initializing':
-			default:
-				// Do nothing if already initializing
-				break;
-		}
+	function clientAction() {
+		// When leaving -> just stop connecting to the socket
+		// when joining -> connect to the socket url passed from the user
+		// const promise = new Promise(resolve => (resolveRef.current = resolve));
+		//    toast.promise(promise, { loading: `${type}ing live share...` });
 	}
 
 	useEffect(() => {
@@ -36,33 +43,25 @@ export function SharePanel() {
 			console.debug('<<< ipc-live-share', result);
 			setSharing(result.data);
 
-			const actionLabels = [
-				'Roger that',
-				'Got it',
-				'Understood',
-				'Copy that',
-				'Affirmative',
-				'Okay',
-				'Will do',
-				'On it',
-				'Sure thing',
-				'Absolutely',
-				'Right away',
-				'You got it',
-			];
+			if (result.data.type !== 'initializing') resolveRef.current?.('');
 
 			switch (result.data.type) {
+				case 'initializing':
+					if (!result.data.message) return;
+					toast.info(result.data.message);
+					break;
 				case 'connected':
 					const tunnelUrl = result.data.tunnelUrl;
-					resolveRef.current?.(tunnelUrl);
+					const textToCopy = `Check out my Microflow Studio project: https://microflow.vercel.app/share/${toBase64(tunnelUrl)}\n
+Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 					try {
-						const copied = await copy(tunnelUrl);
+						const copied = await copy(textToCopy);
 						if (!copied) throw new Error('Failed to copy');
-						toast.success('Sharing started', {
+						toast.success('Live session started', {
 							description: 'We copied the share link to your clipboard',
 							duration: Infinity,
 							action: {
-								label: actionLabels.at(Math.floor(Math.random() * actionLabels.length)),
+								label: getRandomMessage('action'),
 							},
 						});
 					} catch {
@@ -72,10 +71,10 @@ export function SharePanel() {
 							action: {
 								label: 'Copy link',
 								onClick: () => {
-									toast.promise(copy(tunnelUrl), {
+									toast.promise(copy(textToCopy), {
 										loading: 'Copying share link...',
 										success: 'Share link copied to clipboard',
-										error: tunnelUrl,
+										error: textToCopy,
 									});
 								},
 							},
@@ -84,7 +83,6 @@ export function SharePanel() {
 
 					break;
 				case 'disconnected':
-					resolveRef.current?.('');
 					toast.success('Sharing stopped');
 					break;
 				default:
@@ -95,60 +93,85 @@ export function SharePanel() {
 
 	useEffect(() => {
 		if (sharing.type !== 'connected') return;
-		// console.log(io, sharing.tunnelUrl);
-		// const url = sharing.tunnelUrl;
-		// const socket = new WebSocket(url.replace('https://', 'wss://'));
-		// socket.onmessage = event => {
-		// 	const data = JSON.parse(event.data);
-		// 	console.log('Received message:', data);
-		// };
-		// socket.onerror = error => {
-		// 	console.error('WebSocket error:', error);
-		// 	// window.electron.ipcRenderer.send('ipc-live-share', 'stop');
-		// };
-		// socket.onclose = () => {
-		// 	console.warn('WebSocket connection closed');
-		// 	// window.electron.ipcRenderer.send('ipc-live-share', 'stop');
-		// };
-		// socket.onopen = () => {
-		// 	console.log('WebSocket connection established');
-		// 	// You can send messages to the server here if needed
-		// 	// socket.send(JSON.stringify({ foo: 'bar', baz: 6 }));
-		// };
-		// console.log('connecting to', url);
-		// const socket = io(url.replace('https://', 'wss://'), {
-		// 	transports: ['websocket'],
-		// 	secure: true,
-		// 	upgrade: false,
-		// });
-		// socket.io.on('error', console.error);
-		// socket.on('connect_error', err => {
-		// 	// the reason of the error, for example "xhr poll error"
-		// 	console.log(err.message);
 
-		// 	// some additional description, for example the status code of the initial HTTP response
-		// 	console.log(err.description);
+		let socket: Socket | null;
+		try {
+			console.log('>>>>', compressToEncodedURIComponent(sharing.tunnelUrl));
+			socket = io(sharing.tunnelUrl, {
+				transports: ['websocket'],
+				retries: 3,
+			});
+			socket.io.on('error', console.error);
 
-		// 	// some additional context, for example the XMLHttpRequest object
-		// 	console.log(err.context);
-		// 	window.electron.ipcRenderer.send('ipc-live-share', 'stop');
-		// });
-		// socket.io.on('close', console.warn);
-		// // socket.io.on('ping', console.info);
-		// socket.on('connect', () => {
-		// 	console.log('Socket connected');
-		// 	// socket.emit('message', { foo: 'bar', baz: 6 });
-		// });
+			socket.io.on('close', console.warn);
+			socket.io.on('ping', console.info);
+			socket.on('connect', () => {
+				console.log('Socket connected');
+				socket?.emit('message', { foo: 'bar', baz: 6 });
+			});
+		} catch (error) {
+			console.error('Failed to connect to socket:', error);
+			window.electron.ipcRenderer.send('ipc-live-share', 'stop');
+		}
 
 		return () => {
-			// socket.close();
+			socket?.close();
+			socket = null;
 		};
 	}, [sharing]);
 
+	const [title, icon] = useMemo((): [string, IconName] => {
+		switch (sharing.type) {
+			case 'connected':
+				return ['Hosting live session', 'Router'];
+			case 'initializing':
+				return ['Connecting...', 'RectangleEllipsis'];
+			case 'joined':
+				return ['Joined live session', 'RadioReceiver'];
+			case 'disconnected':
+			default:
+				return ['Live share', 'Radio'];
+		}
+	}, [sharing.type]);
+
 	return (
-		<Toggle onClick={toggleShare} disabled={sharing.type === 'initializing'}>
-			{sharing.type === 'connected' && <Icon icon="Zap" className="text-green-500" />}
-			{sharing.type === 'disconnected' && <Icon icon="ZapOff" />}
-		</Toggle>
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button size="sm" disabled={sharing.type === 'initializing'}>
+					<Icon icon={icon} />
+					{title}
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start">
+				{sharing.type === 'connected' && (
+					<>
+						<DropdownMenuItem onClick={hostAction}>
+							<Icon icon="Unplug" />
+							Stop your live session
+						</DropdownMenuItem>
+					</>
+				)}
+				{sharing.type === 'disconnected' && (
+					<>
+						<DropdownMenuItem onClick={hostAction}>
+							<Icon icon="Router" />
+							Start a live session
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={clientAction}>
+							<Icon icon="RadioReceiver" />
+							Join a live session
+						</DropdownMenuItem>
+					</>
+				)}
+				{sharing.type === 'joined' && (
+					<>
+						<DropdownMenuItem onClick={clientAction}>
+							<Icon icon="RadioReceiver" />
+							Leave the live session
+						</DropdownMenuItem>
+					</>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }

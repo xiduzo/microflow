@@ -10,6 +10,7 @@ const PORT = 9876;
 let socketServer: Server | null = null;
 function createSocketServer() {
 	return new Promise<Server>(resolve => {
+		// TODO: check if port is already in use and used by electron --> close it
 		const httpServer = http.createServer((_req, res) => {
 			res.writeHead(200, { 'Content-Type': 'text/plain' });
 			res.end('Socket server is running');
