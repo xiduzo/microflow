@@ -124,7 +124,7 @@ if (!port) {
 
 	code += addNodeProcessListener();
 
-	// TODO: prettier formatting
+	// IDEA prettier formatting
 	return code;
 }
 

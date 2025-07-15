@@ -13,7 +13,6 @@ import { SharingState, useSharing } from '../../../stores/app';
 import { useCopyToClipboard } from 'usehooks-ts';
 import { io, Socket } from '@microflow/socket/client';
 import { getRandomMessage } from '../../../../common/messages';
-import { compressToEncodedURIComponent } from 'lz-string';
 import { toBase64 } from '../../../../common/helpers';
 
 export function SharePanel() {
@@ -96,7 +95,6 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my live session.`;
 
 		let socket: Socket | null;
 		try {
-			console.log('>>>>', compressToEncodedURIComponent(sharing.tunnelUrl));
 			socket = io(sharing.tunnelUrl, {
 				transports: ['websocket'],
 				retries: 3,

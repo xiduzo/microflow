@@ -138,7 +138,7 @@ function Settings() {
 							deleteHandles(allHandles.filter(handle => !['set'].includes(handle)));
 							break;
 					}
-					// TODO: set initial value?
+					// IDEA set initial value?
 				},
 			},
 			debounceTime: {

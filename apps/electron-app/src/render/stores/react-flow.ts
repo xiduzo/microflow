@@ -63,7 +63,6 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 	const localNodes = getLocalItem<Node[]>('nodes', []).map(node => ({
 		...node,
 		selected: false,
-		data: { ...node.data, settingsOpen: false },
 	}));
 
 	const localEdges = getLocalItem<Edge[]>('edges', []).map(edge => ({
@@ -84,6 +83,7 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 				nodes: applyNodeChanges(changes, get().nodes),
 			});
 
+			// IDEA maybe select and unselect all edges connected to the node?
 			const hasChangesWhichNeedSaving = changes.some(change => change.type !== 'select');
 
 			if (!hasChangesWhichNeedSaving) return;

@@ -38,7 +38,7 @@ export function useMqttClient() {
 			console.info('[SUBSCRIBE]', topic, options);
 			subscriptions.current.set(topic, { callback, options });
 			await client.current
-				?.subscribeAsync(topic, options) // TODO: these options should be passed by subscriber
+				?.subscribeAsync(topic, options) // TODO these options should be passed by subscriber
 				.catch(console.error);
 
 			return () => {

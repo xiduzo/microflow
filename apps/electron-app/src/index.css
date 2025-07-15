@@ -63,6 +63,10 @@ body {
 	@apply bg-muted-foreground text-neutral-500 rounded-md transition-all duration-150 border-none;
 }
 
+.react-flow .react-flow__handle.selected-via-edge {
+	@apply bg-blue-500 text-blue-500 font-bold;
+}
+
 /* possible allowed connections */
 .react-flow__handle.connectingfrom,
 /* target --> source */
@@ -118,7 +122,7 @@ body {
 	.react-flow__handle.connectable.connectingfrom,
 .react-flow:has(.react-flow__handle.connectingto.valid)
 	.react-flow__handle.valid:not(:has(~ .react-flow__handle.connectable.connectingfrom)) {
-	@apply bg-green-500 dark:bg-green-500 text-green-500 dark:text-green-500 cursor-crosshair;
+	@apply bg-green-500 dark:bg-green-500 text-green-500 font-bold dark:text-green-500 cursor-crosshair;
 }
 
 /* invalid connection */

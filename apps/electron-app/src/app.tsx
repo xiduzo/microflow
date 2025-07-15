@@ -24,10 +24,10 @@ export function App() {
 			<DarkMode />
 			<Toaster position="top-left" className="z-20" duration={5000} />
 			<CelebrationProvider>
-				<IpcDeepLinkListener />
 				<MqttProvider appName="app" config={mqttConfig}>
 					<FigmaProvider>
 						<ReactFlowProvider>
+							<IpcDeepLinkListener />
 							<NewNodeCommandDialog />
 							<NodeAndEdgeSignaler />
 							<ReactFlowCanvas />
