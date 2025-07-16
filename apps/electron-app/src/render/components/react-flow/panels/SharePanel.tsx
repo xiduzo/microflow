@@ -25,7 +25,6 @@ export function SharePanel() {
 		const promise = new Promise(resolve => (resolveRef.current = resolve));
 		window.electron.ipcRenderer.send('ipc-live-share', type);
 		toast.promise(promise, { loading: `${type}ing collaboration session` });
-		setSharing({ type: 'initializing' });
 	}
 
 	function clientAction() {
@@ -84,7 +83,6 @@ Or enter "${toBase64(tunnelUrl)}" in Microflow Studio to join my collaboration s
 
 					break;
 				case 'disconnected':
-					toast.success('Sharing stopped');
 					toast.dismiss('copy');
 					break;
 				default:
