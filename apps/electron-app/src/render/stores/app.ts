@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { useShallow } from 'zustand/shallow';
 
 type ShareingConnected = { type: 'connected'; tunnelUrl: string };
-type SharingDisconnected = { type: 'disconnected' };
+type SharingDisconnected = { type: 'disconnected'; message?: string };
 type SharingError = { type: 'error'; message: string };
 type SharingInitializing = { type: 'initializing'; message?: string };
 type SharingJoined = { type: 'joined'; tunnelUrl: string };

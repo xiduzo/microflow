@@ -22,7 +22,7 @@ import {
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
 import { format } from 'prettier';
-import { initSocketServer, stopTunnel } from '@microflow/socket/server';
+import { initSocketTunnel, stopSocketTunnel } from '@microflow/socket/server';
 import { getRandomMessage } from '../common/messages';
 
 // ipcMain.on("shell:open", () => {
@@ -57,8 +57,8 @@ async function startLiveShare(event: IpcMainEvent) {
 
 	try {
 		log.debug('[SHARE] <init>', timer.duration);
-		await stopTunnel();
-		const tunnelUrl = await initSocketServer();
+		await stopSocketTunnel();
+		const tunnelUrl = await initSocketTunnel();
 
 		event.reply('ipc-live-share', {
 			success: true,
@@ -105,12 +105,12 @@ async function stopLiveShare(event: IpcMainEvent) {
 
 	try {
 		log.debug('[SHARE] <stop>', timer.duration);
-		await stopTunnel();
+		await stopSocketTunnel();
 		return event.reply('ipc-live-share', {
 			success: true,
 			data: {
 				type: 'disconnected',
-				message: 'Socket server stopped successfully',
+				message: 'Your collaboration session has stopped',
 			},
 		});
 	} catch (error) {
@@ -125,32 +125,53 @@ async function stopLiveShare(event: IpcMainEvent) {
 	}
 }
 
-ipcMain.on('ipc-live-share', async (event, type: 'start' | 'stop' | 'join') => {
-	event.reply('ipc-live-share', {
-		success: true,
-		data: {
-			type: 'initializing',
-		},
-	});
+ipcMain.on(
+	'ipc-live-share',
+	async (event, data: { type: 'start' | 'stop' | 'join' | 'leave'; code?: string }) => {
+		event.reply('ipc-live-share', {
+			success: true,
+			data: {
+				type: 'initializing',
+			},
+		});
 
-	switch (type) {
-		case 'start':
-			log.debug('[SHARE] <start> requested to start live share');
-			return startLiveShare(event);
-		case 'stop':
-			log.debug('[SHARE] <stop> requested to stop live share');
-			return stopLiveShare(event);
-		default:
-			log.warn('[SHARE] <unknown> requested with unknown type', type);
-			return event.reply('ipc-live-share', {
-				success: false,
-				data: {
-					type: 'error',
-					message: 'Unknown action type for live share',
-				},
-			});
-	}
-});
+		switch (data.type) {
+			case 'start':
+				log.debug('[SHARE] <start> requested to start live share');
+				return startLiveShare(event);
+			case 'stop':
+				log.debug('[SHARE] <stop> requested to stop live share');
+				return stopLiveShare(event);
+			case 'join':
+				log.debug('[SHARE] <join> requested to join live share');
+				return event.reply('ipc-live-share', {
+					success: true,
+					data: {
+						type: 'joined',
+						tunnelUrl: data.code,
+					},
+				});
+			case 'leave':
+				log.debug('[SHARE] <leave> requested to leave live share');
+				return event.reply('ipc-live-share', {
+					success: true,
+					data: {
+						type: 'disconnected',
+						message: 'You have left the collaboration session',
+					},
+				});
+			default:
+				log.warn('[SHARE] <unknown> requested with unknown type', data.type);
+				return event.reply('ipc-live-share', {
+					success: false,
+					data: {
+						type: 'error',
+						message: 'Unknown action type for live share',
+					},
+				});
+		}
+	},
+);
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
 	const timer = new Timer();
@@ -516,6 +537,6 @@ cleanupProcesses().catch(log.debug);
 
 app.on('before-quit', async event => {
 	log.debug(`[PROCESS] <before-quit> about to leave app`, event);
-	await stopTunnel();
+	await stopSocketTunnel();
 	void cleanupProcesses();
 });

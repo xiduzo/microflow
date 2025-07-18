@@ -1,7 +1,7 @@
 import { BrowserWindow } from 'electron';
 import logger from 'electron-log/node';
 import { IpcResponse } from '../common/types';
-import { fromBase64 } from '../common/helpers';
+import { fromBase64 } from '@microflow/utils/base64';
 
 export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 	logger.info('[DEEP LINK] recevied deeplink', { link });
@@ -31,6 +31,7 @@ export function handleDeepLink(mainWindow: BrowserWindow, link: string) {
 	}
 
 	if (link.includes('://figma')) {
+		// Format of the link: microflow-studio://figma?id=VariableID%3A<collectionId>%3A<variableId>&value=<value>
 		const regex = /microflow-studio:\/\/figma\?id=VariableID%3A(\d+)%3A(\d+)&value=(.+)/;
 		const match = link.match(regex);
 		if (!match) return logger.error('[DEEP LINK] Invalid Figma link format', { link });

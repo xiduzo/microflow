@@ -1,1 +1,1 @@
-export * from 'socket.io-client';
+export * from './src/client/useSocket';
