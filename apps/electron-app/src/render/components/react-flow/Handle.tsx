@@ -7,6 +7,7 @@ import {
 	Connection,
 	useEdges,
 	useReactFlow,
+	useNodeId,
 } from '@xyflow/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -17,6 +18,18 @@ export function Handle(props: Props) {
 	const ref = useRef<HTMLDivElement>(null);
 	const { getZoom } = useReactFlow();
 	const [showHandle, setShowHandle] = useState(false);
+
+	const nodeId = useNodeId();
+	const selectedEdges = useMemo(() => {
+		return edges.filter(edge => edge.selected);
+	}, [edges]);
+	const isHandleSelectedViaEdge = useMemo(() => {
+		return !!selectedEdges.find(
+			edge =>
+				(edge.target === nodeId && edge.targetHandle === props.id) ||
+				(edge.source === nodeId && edge.sourceHandle === props.id),
+		);
+	}, [selectedEdges, nodeId, props.id]);
 
 	const isConnectable = useMemo(() => {
 		return typeof props.isConnectable === 'boolean'
@@ -79,7 +92,6 @@ export function Handle(props: Props) {
 		};
 	}, [props.id, getZoom]);
 
-	console.log(props.hint);
 	return (
 		<TooltipProvider>
 			<Tooltip>
@@ -95,7 +107,11 @@ export function Handle(props: Props) {
 							if (edge.source === edge.target) return false;
 							return true;
 						}}
-						className={handle({ position: props.position, className: props.className })}
+						className={handle({
+							position: props.position,
+							className: props.className,
+							isHandleSelectedViaEdge: isHandleSelectedViaEdge,
+						})}
 						style={{
 							width: [Position.Top, Position.Bottom].includes(props.position) ? 16 : 4,
 							height: [Position.Left, Position.Right].includes(props.position) ? 16 : 4,
@@ -115,7 +131,13 @@ export function Handle(props: Props) {
 							...props.style,
 						}}
 					>
-						<span className={handleText({ position: props.position, showHandle: showHandle })}>
+						<span
+							className={handleText({
+								position: props.position,
+								showHandle: showHandle || isHandleSelectedViaEdge,
+								isHandleSelectedViaEdge: isHandleSelectedViaEdge,
+							})}
+						>
 							{String(props.title ?? props.id).toLowerCase()}
 						</span>
 					</XyFlowHandle>
@@ -141,6 +163,10 @@ const handle = cva('text-xs flex z-50 shadow-none', {
 			top: 'justify-center',
 			bottom: 'justify-center',
 		},
+		isHandleSelectedViaEdge: {
+			true: 'selected-via-edge',
+			false: '',
+		},
 	},
 });
 
@@ -155,6 +181,10 @@ const handleText = cva('pointer-events-none mb-[1px] transition-all', {
 		showHandle: {
 			true: 'opacity-100',
 			false: 'opacity-0',
+		},
+		isHandleSelectedViaEdge: {
+			true: 'selected-via-edge',
+			false: '',
 		},
 	},
 });

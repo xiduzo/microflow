@@ -63,7 +63,7 @@ export function useUploadResultListener() {
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
-			console.debug(`[UPLOAD] <<<`, result);
+			console.debug(`<<<< [UPLOAD] <ipc-upload-code>`, result);
 
 			if (!result.success) {
 				toast.error(result.error);

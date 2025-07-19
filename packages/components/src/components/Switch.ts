@@ -24,7 +24,7 @@ export class Switch extends BaseComponent<SwitchValueType> {
 	}
 }
 
-// TODO: when implementing a 3 pin on-off-on switch switch, check the following code.
+// IDEA when implementing a 3 pin on-off-on switch switch, check the following code.
 // const switch1 = new Switch(2); // Switch component for ON1 terminal
 //   const switch2 = new Switch(3); // Switch component for ON2 terminal
 

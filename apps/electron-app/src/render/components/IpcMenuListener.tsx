@@ -73,7 +73,7 @@ export function IpcMenuListeners() {
 					});
 					break;
 				case 'import-flow':
-					// TODO: data validation
+					// IDEA data validation
 					const { nodes, edges } = result.data.args as FlowFile;
 					setNodes(nodes);
 					setEdges(edges);
@@ -125,7 +125,7 @@ export function IpcMenuListeners() {
 								...node,
 								id: Math.random().toString(36).substring(2, 8),
 								position: {
-									// TODO center of mouse on canvas
+									// IDEA center of mouse on canvas
 									x: node.position.x + 20,
 									y: node.position.y + 20,
 								},

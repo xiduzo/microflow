@@ -20,9 +20,9 @@ import {
 	Zod,
 	zodResolver,
 } from '@microflow/ui';
-import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useLocalStorage } from 'usehooks-ts';
 import { useAppStore } from '../../stores/app';
+import { getRandomUniqueUserName } from '../../../common/unique';
 
 const schema = Zod.object({
 	host: Zod.string().optional(),
@@ -38,8 +38,9 @@ const schema = Zod.object({
 type Schema = Zod.infer<typeof schema>;
 
 export function MqttSettingsForm(props: Props) {
+	const { user } = useAppStore();
 	const [mqttConfig, setMqttConfig] = useLocalStorage<Schema | undefined>('mqtt-config', {
-		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
+		uniqueId: user?.name ?? '',
 		host: 'test.mosquitto.org',
 		port: 8081,
 		protocol: 'wss',
@@ -54,7 +55,7 @@ export function MqttSettingsForm(props: Props) {
 
 	function setRandomUniqueName() {
 		form.clearErrors('uniqueId');
-		form.setValue('uniqueId', uniqueNamesGenerator({ dictionaries: [adjectives, animals] }));
+		form.setValue('uniqueId', getRandomUniqueUserName());
 	}
 
 	function onSubmit(data: Schema) {

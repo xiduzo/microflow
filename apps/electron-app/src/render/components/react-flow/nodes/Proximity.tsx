@@ -5,7 +5,7 @@ import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 
 export function Proximity(props: Props) {
 	return (

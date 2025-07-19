@@ -1,22 +1,16 @@
 import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
-import { useShallow } from 'zustand/shallow';
 import { NODE_TYPES } from '../../../common/nodes';
-import { AppState, useReactFlowStore } from '../../stores/react-flow';
+import { useReactFlowCanvas } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
 import { useEffect } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
-
-const selector = (state: AppState) => ({
-	nodes: state.nodes,
-	edges: state.edges,
-	onNodesChange: state.onNodesChange,
-	onEdgesChange: state.onEdgesChange,
-	onConnect: state.onConnect,
-});
+import { SharePanel } from './panels/live-share/SharePanel';
+import { useSocketSender } from '../../stores/socket';
 
 export function ReactFlowCanvas() {
-	const store = useReactFlowStore(useShallow(selector));
+	const { send } = useSocketSender();
+	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
 
 	useEffect(() => {
@@ -24,9 +18,7 @@ export function ReactFlowCanvas() {
 
 		console.error = (...args: any[]) => {
 			// We are abusing the `defaultProps` to set the default values of the nodes
-			if (typeof args[0] === 'string' && /defaultProps/.test(args[0])) {
-				return;
-			}
+			if (typeof args[0] === 'string' && /defaultProps/.test(args[0])) return;
 
 			originalConsoleError(...args);
 		};
@@ -48,7 +40,7 @@ export function ReactFlowCanvas() {
 					x: event.clientX,
 					y: event.clientY,
 				});
-				// console.log(flowPos);
+				send({ type: 'mouse', data: flowPos });
 			}}
 			edgeTypes={EDGE_TYPES}
 			nodeTypes={NODE_TYPES}
@@ -80,6 +72,9 @@ export function ReactFlowCanvas() {
 
 			<Panel position="top-right">
 				<SettingsPanel />
+			</Panel>
+			<Panel position="top-left">
+				<SharePanel />
 			</Panel>
 		</ReactFlow>
 	);

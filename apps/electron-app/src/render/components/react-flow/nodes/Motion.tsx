@@ -6,7 +6,7 @@ import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 import { usePins } from '../../../stores/board';
 
 export function Motion(props: Props) {

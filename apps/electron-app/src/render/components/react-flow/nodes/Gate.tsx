@@ -3,7 +3,7 @@ import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { uuid } from '../../../../utils/uuid';
+import { uuid } from '../../../../common/uuid';
 
 export function Gate(props: Props) {
 	function getOffset(index: number) {

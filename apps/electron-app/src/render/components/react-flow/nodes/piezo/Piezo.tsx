@@ -7,7 +7,7 @@ import { DEFAULT_NOTE, DEFAULT_SONG, NOTES_AND_FREQUENCIES } from './constants';
 import { useNodeValue } from '../../../../stores/node-data';
 import { useState } from 'react';
 import { MODES } from '../../../../../common/types';
-import { reducePinsToOptions } from '../../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../../common/pin';
 import { SongEditor } from './SongEditor';
 import { usePins } from '../../../../stores/board';
 import { button, folder } from 'leva';

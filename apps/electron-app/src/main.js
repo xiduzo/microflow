@@ -8,6 +8,7 @@ import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
 import './main/ipc';
 import { createMenu } from './main/menu';
 import { handleDeepLink } from './main/deepLink';
+import { socketServerManager } from './main/socketServer';
 
 updateElectronApp({ logger: logger });
 
@@ -79,6 +80,7 @@ async function createWindow() {
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
+			nodeIntegration: false,
 			backgroundThrottling: false,
 		},
 	});
