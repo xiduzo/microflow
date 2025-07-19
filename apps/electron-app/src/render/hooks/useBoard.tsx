@@ -30,13 +30,13 @@ export function useCheckBoard() {
 	const uploadCode = useCodeUploader();
 
 	useEffect(() => {
-		console.debug(`[CHECK] >>>`, { ip });
+		console.debug(`>>> [CHECK] <ipc-check-board>`, { ip });
 		window.electron.ipcRenderer.send('ipc-check-board', { ip });
 	}, []);
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<BoardCheckResult>('ipc-check-board', result => {
-			console.debug(`[CHECK] <<<`, result);
+			console.debug(`<<<< [CHECK] <ipc-check-board>`, result);
 
 			setUploadResult({ type: 'info' }); // When we received a check result, we can close the upload result
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { fromBase64 } from '@microflow/utils/base64';
-import { io, Socket, ManagerOptions, SocketOptions } from 'socket.io-client';
+import { io, type Socket, type ManagerOptions, type SocketOptions } from 'socket.io-client';
+import { ClientMessage, ServerMessage } from '../common/types';
 
 function isBase64(str: string) {
 	return /^[A-Za-z0-9+/=]+$/.test(str) && !/^https?:\/\//.test(str);
@@ -8,15 +9,22 @@ function isBase64(str: string) {
 
 type ErrorCallback = (error?: unknown) => void;
 type SuccessCallback = () => void;
+type MessageCallback<ReceiveType = ServerMessage> = (message: ReceiveType) => void;
 
-type CustomOptions = {
+type CustomOptions<ReceiveType = ServerMessage> = {
 	onError?: ErrorCallback;
 	onSuccess?: SuccessCallback;
+	onMessage?: MessageCallback<ReceiveType>;
+	subscriptions?: string[];
 };
 
-export function useSocket(
+export function useSocket<
+	ReceiveType = ServerMessage,
+	SendType = ClientMessage,
+	AllowedMessages extends string = 'message',
+>(
 	urlOrBase64?: string,
-	options?: Partial<ManagerOptions & SocketOptions & CustomOptions>,
+	options?: Partial<ManagerOptions & SocketOptions & CustomOptions<ReceiveType>>,
 ) {
 	const socketRef = useRef<Socket | null>(null);
 
@@ -28,18 +36,33 @@ export function useSocket(
 			retries: 3,
 			...options,
 		});
+		socketRef.current = socket;
+
 		socket.io.on('error', error => options?.onError?.(error));
 		socket.io.on('close', console.warn);
 		socket.on('connect', () => options?.onSuccess?.());
-		socketRef.current = socket;
+		socket.on('message', (message: ServerMessage) => {
+			console.debug('<<<< [SOCKET] <message>', message);
+			let parsedMessage = message;
+			if (typeof message === 'string') {
+				try {
+					parsedMessage = JSON.parse(message) as ServerMessage;
+					console.debug('<<<< [SOCKET] <parsedMessage>', parsedMessage);
+				} catch (error) {
+					console.debug('[SOCKET] <parse>', message, error);
+				}
+			}
+			options?.onMessage?.(parsedMessage as unknown as ReceiveType);
+		});
 		return () => {
 			socket.disconnect();
 			socketRef.current = null;
 		};
 	}, [urlOrBase64, options]);
 
-	const send = useCallback((event: string, ...args: any[]) => {
-		socketRef.current?.emit(event, ...args);
+	const send = useCallback((event: AllowedMessages, send: SendType) => {
+		console.debug('>>>> [SOCKET] <send>', event, send);
+		socketRef.current?.emit(event, send);
 	}, []);
 
 	return { send };

@@ -35,14 +35,14 @@ export function useMqttClient() {
 			callback: mqtt.OnMessageCallback,
 			options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties,
 		) => {
-			console.info('[SUBSCRIBE]', topic, options);
+			console.debug('[MQTT] <subscribe>', topic, options);
 			subscriptions.current.set(topic, { callback, options });
 			await client.current
 				?.subscribeAsync(topic, options) // TODO these options should be passed by subscriber
 				.catch(console.error);
 
 			return () => {
-				console.info('[UNSUBSCRIBE]', topic, options);
+				console.debug('[MQTT] <unsubscribe>', topic, options);
 				unsubscribe?.(topic)?.catch(console.error);
 			};
 		},
@@ -50,7 +50,7 @@ export function useMqttClient() {
 	);
 
 	const publish = useCallback((topic: string, payload: string, options?: IClientPublishOptions) => {
-		console.info('[PUBLISH]', topic, payload, options);
+		console.debug('[MQTT] <publish>', topic, payload, options);
 		return client.current?.publishAsync(topic, payload, options);
 	}, []);
 
@@ -106,25 +106,25 @@ export function useMqttClient() {
 					await resubscribe(options);
 				})
 				.on('reconnect', async () => {
-					console.debug('reconnect');
+					console.debug('[MQTT] <reconnect>');
 					setStatus('connecting');
 					await resubscribe(options);
 				})
 				.on('error', error => {
-					console.debug('error event received', error);
+					console.debug('[MQTT] <error>', error);
 					disconnect();
 				})
 				.on('disconnect', error => {
-					console.debug('disconnect event received', error);
+					console.debug('[MQTT] <disconnect>', error);
 					disconnect();
 				})
 				.on('close', async () => {
-					console.debug('close event received');
+					console.debug('[MQTT] <close>');
 					setStatus('connecting');
 					await resubscribe(options);
 				})
 				.on('message', (topic, payload, packet) => {
-					console.debug('[MESSAGE]', topic, payload);
+					console.debug('[MQTT] <message>', topic, payload);
 					Array.from(subscriptions.current.keys()).forEach(subscription => {
 						const regexp = new RegExp(
 							subscription.replace(/\//g, '\\/').replace(/\+/g, '\\S+').replace(/#/, '\\S+'),

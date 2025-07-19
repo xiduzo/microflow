@@ -72,7 +72,7 @@ export function MqttVariableMessenger() {
 				value = message.toString();
 			}
 
-			console.debug('[SET] <<<', value);
+			console.debug('[SET] <<<<', value);
 
 			// Make sure we don't send the same value back to the app
 			publishedVariableValues.current.set(variableId, JSON.stringify(value));

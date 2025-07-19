@@ -5,7 +5,7 @@
 	"scripts": {
 		"dev": "tsc -w",
 		"build": "tsc",
-		"test": "node --loader ts-node/esm server.ts",
+		"test": "npx tsx ./test.ts",
 		"start": "node dist/server.js"
 	},
 	"dependencies": {

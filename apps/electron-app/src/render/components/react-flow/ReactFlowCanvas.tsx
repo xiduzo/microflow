@@ -6,7 +6,7 @@ import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPane
 import { SettingsPanel } from './panels/SettingsPanel';
 import { useEffect } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
-import { SharePanel } from './panels/SharePanel';
+import { SharePanel } from './panels/live-share/SharePanel';
 
 const selector = (state: AppState) => ({
 	nodes: state.nodes,

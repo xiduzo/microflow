@@ -20,7 +20,7 @@ const listeners = new Map<string, Listener>();
 export const electronHandler = {
 	ipcRenderer: {
 		send<Data>(channel: Channels, data?: Data) {
-			console.log(`>>>> [SEND] <${channel}>`, data);
+			console.log('>>>> [IPC] <send>', channel, data);
 			console.time(`send ${channel}`);
 			ipcRenderer.send(channel, data);
 			console.timeEnd(`send ${channel}`);
@@ -31,7 +31,7 @@ export const electronHandler = {
 		 * Adding multiple listeners will overwrite the previous one.
 		 */
 		on<Data>(channel: Channels, callback: IpcCallback<Data>): () => void {
-			console.log(`<<<< [ON] <${channel}>`);
+			console.log('<<<< [IPC] <on>', channel);
 			const listener = (_event: IpcRendererEvent, response: IpcResponse<Data>) =>
 				callback(response);
 
@@ -49,6 +49,7 @@ export const electronHandler = {
 			};
 		},
 		once<Data>(channel: Channels, callback: (response: IpcResponse<Data>) => void) {
+			console.log('<<<< [IPC] <once>', channel);
 			ipcRenderer.once(channel, (_event, args) => callback(args));
 		},
 	},

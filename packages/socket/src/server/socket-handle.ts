@@ -1,39 +1,38 @@
 import { Socket, Server } from 'socket.io';
-
-type Connection = {
-	id: string;
-	name: string;
-};
+import { ClientMessage, Connection, ServerMessage } from '../common/types';
 
 const connectedClients = new Map<string, Connection>();
 
 export function handleSocket(socket: Socket, server: Server) {
-	console.log('A user connected');
+	console.debug('[SOCKET] <connection>', socket.id);
+	connectedClients.set(socket.id, { id: socket.id, name: 'unknown' });
 
-	// Listen for messages from the client
-	socket.on('message', msg => {
-		console.log('Message received:', msg);
+	socket.on('message', (message: ClientMessage) => {
+		let parsedMessage = message;
+		if (typeof message === 'string') {
+			try {
+				// Attempt to parse the message as JSON
+				parsedMessage = JSON.parse(message) as ClientMessage;
+			} catch (error) {
+				console.error('[SOCKET] <parse error>', message, error);
+			}
+		}
+		console.debug(`<<<< [SOCKET] <message> by ${socket.id}`, parsedMessage, typeof parsedMessage);
 
-		// Send a response back to the client
-		socket.emit('message', `Server received: ${msg}`);
-
-		// Sending data to all connected clients
-		socket.emit('message', `Broadcast: ${msg}`);
+		switch (parsedMessage.type) {
+			case 'identify':
+				connectedClients.set(socket.id, { id: socket.id, name: parsedMessage.data.name });
+				server.emit('message', {
+					type: 'identify',
+					data: { connections: Array.from(connectedClients.values()) },
+				} satisfies ServerMessage);
+				break;
+		}
 	});
 
 	// Handle disconnection
 	socket.on('disconnect', () => {
-		console.log('A user disconnected');
+		console.debug('[SOCKET] <disconnect>', socket.id);
+		connectedClients.delete(socket.id);
 	});
-	// connectedClients.set(socket.id, { id: socket.id, name: `User ${socket.id}` });
-	// socket.broadcast.emit('message', { type: 'connect', id: socket.id });
-
-	// socket.on('message', msg => {
-	// 	socket.broadcast.emit('message', { type: 'message', id: socket.id, message: msg });
-	// });
-
-	// socket.on('disconnect', () => {
-	// 	socket.broadcast.emit('message', { type: 'disconnect', id: socket.id });
-	// 	connectedClients.delete(socket.id);
-	// });
 }

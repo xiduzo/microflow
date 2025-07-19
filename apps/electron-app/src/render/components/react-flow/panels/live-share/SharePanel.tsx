@@ -26,11 +26,12 @@ import {
 	FormMessage,
 } from '@microflow/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SharingState, useSharing } from '../../../stores/app';
+import { SharingState, useSharing } from '../../../../stores/app';
 import { useCopyToClipboard } from 'usehooks-ts';
 import { useSocket } from '@microflow/socket/client';
-import { getRandomMessage } from '../../../../common/messages';
+import { getRandomMessage } from '../../../../../common/messages';
 import { toBase64 } from '@microflow/utils/base64';
+import { SocketMessageListener } from './SocketMessageListener';
 
 const schema = Zod.object({
 	code: Zod.string().min(1, 'Tunnel code is required'),
@@ -45,6 +46,9 @@ export function SharePanel() {
 	const [joining, setJoining] = useState(false);
 	const form = useForm({
 		resolver: zodResolver(schema),
+		defaultValues: {
+			code: '',
+		},
 	});
 
 	const { send } = useSocket('tunnelUrl' in sharing ? sharing.tunnelUrl : undefined, {
@@ -52,7 +56,9 @@ export function SharePanel() {
 			window.electron.ipcRenderer.send('ipc-live-share', {
 				type: sharing.type === 'disconnected' ? 'stop' : 'leave',
 			}),
-		onSuccess: () => console.log('Socket connected'),
+		onSuccess: () => {
+			send('message', { type: 'identify', data: { name: 'xiduzo' } });
+		},
 	});
 
 	function hostAction() {
@@ -73,7 +79,7 @@ export function SharePanel() {
 		return window.electron.ipcRenderer.on<SharingState>('ipc-live-share', async result => {
 			if (!result.success) return;
 
-			console.debug('<<< ipc-live-share', result);
+			console.debug('<<<< [SharePanel] <ipc-live-share>', result);
 			setSharing(result.data);
 
 			if (result.data.type !== 'initializing') resolveRef.current?.('');
@@ -119,6 +125,8 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 					break;
 				case 'joined':
 					toast.success('Joined collaboration session');
+					setJoining(false);
+					form.reset();
 					break;
 				case 'disconnected':
 					toast.dismiss('copy');
@@ -146,6 +154,7 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 
 	return (
 		<>
+			{'tunnelUrl' in sharing && <SocketMessageListener tunnelUrl={sharing.tunnelUrl} />}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button size="sm" disabled={sharing.type === 'initializing'}>
@@ -176,7 +185,7 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 					)}
 					{sharing.type === 'joined' && (
 						<>
-							<DropdownMenuItem>
+							<DropdownMenuItem onClick={() => clientAction()}>
 								<Icon icon="RadioReceiver" />
 								Leave the collaboration session
 							</DropdownMenuItem>
@@ -185,44 +194,46 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<Dialog open={joining} onOpenChange={setJoining}>
-				<Form {...form}>
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle>Join a collaboration session</DialogTitle>
-							<DialogDescription>
-								Enter the tunnel code to join a collaboration session.
-							</DialogDescription>
-						</DialogHeader>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Join a collaboration session</DialogTitle>
+						<DialogDescription>
+							Enter the session code to join a collaboration session.
+						</DialogDescription>
+					</DialogHeader>
+					<Form {...form}>
 						<form onSubmit={form.handleSubmit(clientAction)}>
-							<FormField
-								control={form.control}
-								name="code"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Session code</FormLabel>
-										<FormControl>
-											<Input
-												placeholder="aHR0cHM6Ly93aW4tZG9taW5pY2FuLWhlYWQtd2luc3Rvbi50cnljbG91ZGZsYXJlLmNvbQ=="
-												{...field}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</form>
-						<DialogFooter>
-							<DialogClose asChild>
-								<Button type="button" variant="secondary">
-									Cancel
+							<fieldset className="mb-6">
+								<FormField
+									control={form.control}
+									name="code"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Session code</FormLabel>
+											<FormControl>
+												<Input
+													placeholder="aHR0cHM6Ly93aW4tZG9taW5pY2FuLWhlYWQtd2luc3Rvbi50cnljbG91ZGZsYXJlLmNvbQ=="
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</fieldset>
+							<DialogFooter>
+								<DialogClose asChild>
+									<Button type="button" variant="secondary">
+										Cancel
+									</Button>
+								</DialogClose>
+								<Button type="submit" disabled={sharing.type === 'initializing'}>
+									Join session
 								</Button>
-							</DialogClose>
-							<Button type="submit" className="ml-2">
-								Join
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Form>
+							</DialogFooter>
+						</form>
+					</Form>
+				</DialogContent>
 			</Dialog>
 		</>
 	);

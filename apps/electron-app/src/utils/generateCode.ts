@@ -187,7 +187,7 @@ process.on('message', (data) => {`;
 
 	let innerCode = ``;
 
-	innerCode += `console.log("[MESSAGE] <<<", JSON.stringify(data));`;
+	innerCode += `console.log("<<<< [MESSAGE]", JSON.stringify(data));`;
 	innerCode += addEnter();
 	innerCode += 'const node = nodes.get(data.nodeId);';
 	innerCode += addEnter();
