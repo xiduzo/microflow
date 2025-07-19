@@ -1,6 +1,7 @@
 const { bundle } = require('./bundler');
 require('dotenv').config();
 const fs = require('fs/promises');
+const path = require('path')
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
@@ -8,28 +9,28 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
-		osxSign: {
-			strictVerify: false,
-			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
-			ignore: filePath => {
-				// https://github.com/nodejs/node-gyp/issues/2713
-				if (filePath.includes('build/node_gyp_bins')) {
-					console.log('>>> ignore signing', filePath);
-					fs.rm(filePath, { recursive: true })
-						.then(() => {
-							console.log('>> removed folder', filePath);
-						})
-						.catch(console.error);
-					return true;
-				}
-				return false;
-			},
-		},
-		osxNotarize: {
-			appleId: process.env.APPLE_ID,
-			appleIdPassword: process.env.APPLE_PASSWORD,
-			teamId: process.env.APPLE_TEAM_ID,
-		},
+		// osxSign: {
+		// 	strictVerify: false,
+		// 	identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+		// 	ignore: filePath => {
+		// 		// https://github.com/nodejs/node-gyp/issues/2713
+		// 		if (filePath.includes('build/node_gyp_bins')) {
+		// 			console.log('>>> ignore signing', filePath);
+		// 			fs.rm(filePath, { recursive: true })
+		// 				.then(() => {
+		// 					console.log('>> removed folder', filePath);
+		// 				})
+		// 				.catch(console.error);
+		// 			return true;
+		// 		}
+		// 		return false;
+		// 	},
+		// },
+		// osxNotarize: {
+		// 	appleId: process.env.APPLE_ID,
+		// 	appleIdPassword: process.env.APPLE_PASSWORD,
+		// 	teamId: process.env.APPLE_TEAM_ID,
+		// },
 		prune: false, // Requires for monorepo
 		protocols: [
 			{
@@ -37,6 +38,9 @@ module.exports = {
 				schemes: ['microflow-studio'],
 			},
 		],
+		extraResource: [
+			path.resolve(__dirname, 'node_modules/cloudflared/bin')
+		]
 	},
 	hooks: {
 		packageAfterCopy: async (_forgeConfig, buildPath, _electronVersion, _platform, _arch) => {

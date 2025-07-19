@@ -1,11 +1,14 @@
 import http from 'http';
 import { Server, ServerOptions } from 'socket.io';
-import { bin, install } from 'cloudflared';
-import fs from 'node:fs';
+// import { bin, install } from 'cloudflared';
+// import fs from 'node:fs';
 import { ChildProcess, spawn } from 'node:child_process';
 import { handleSocket } from './socket-handle';
+import path from 'path';
 
 const PORT = 9876;
+
+const binaryPath = path.resolve(__dirname, '../../bin/cloudflared');
 
 let socketServer: Server | null = null;
 function createSocketServer() {
@@ -47,7 +50,7 @@ async function processLogs(output: string) {
 let cloudflaredProcess: ChildProcess | null = null;
 async function createTunnel() {
 	return new Promise<string>(resolve => {
-		const cloudflared = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${PORT}`]);
+		const cloudflared = spawn(binaryPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
 
 		cloudflared.on('spawn', () => {
 			cloudflaredProcess = cloudflared;
@@ -69,20 +72,12 @@ async function createTunnel() {
 		});
 
 		cloudflared.on('error', error => {
-			console.log('Cloudflared not available, server running locally only');
-			console.log(
+			console.log('Cloudflared not available, server running locally only', error);
+			console.info(
 				'To enable cloudflared, ensure the binary is installed: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/',
 			);
 		});
 	});
-}
-
-async function installCloudflared() {
-	if (!fs.existsSync(bin)) {
-		await install(bin);
-	}
-
-	console.log('Cloudflared installed');
 }
 
 function getCors(tunnel?: string): ServerOptions['cors'] {
@@ -93,7 +88,6 @@ function getCors(tunnel?: string): ServerOptions['cors'] {
 }
 
 async function initSocketTunnel() {
-	await installCloudflared();
 	const io = await createSocketServer();
 	const tunnel = await createTunnel();
 
