@@ -25,13 +25,10 @@ import {
 	FormLabel,
 	FormMessage,
 } from '@microflow/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { SharingState, useSharing } from '../../../../stores/app';
-import { useCopyToClipboard } from 'usehooks-ts';
-import { useSocket } from '@microflow/socket/client';
-import { getRandomMessage } from '../../../../../common/messages';
-import { toBase64 } from '@microflow/utils/base64';
-import { SocketMessageListener } from './SocketMessageListener';
+import { useMemo, useState } from 'react';
+import { useSocketStore } from '../../../../stores/socket';
+import { useShareListener } from './useShareListener';
+import { useSocketManager } from './useSockerManager';
 
 const schema = Zod.object({
 	code: Zod.string().min(1, 'Tunnel code is required'),
@@ -40,9 +37,7 @@ const schema = Zod.object({
 type Schema = Zod.infer<typeof schema>;
 
 export function SharePanel() {
-	const { sharing, setSharing } = useSharing();
-	const [, copy] = useCopyToClipboard();
-	const resolveRef = useRef<(value: string) => void>();
+	const { status } = useSocketStore();
 	const [joining, setJoining] = useState(false);
 	const form = useForm({
 		resolver: zodResolver(schema),
@@ -50,97 +45,26 @@ export function SharePanel() {
 			code: '',
 		},
 	});
-
-	const { send } = useSocket('tunnelUrl' in sharing ? sharing.tunnelUrl : undefined, {
-		onError: () =>
-			window.electron.ipcRenderer.send('ipc-live-share', {
-				type: sharing.type === 'disconnected' ? 'stop' : 'leave',
-			}),
-		onSuccess: () => {
-			send('message', { type: 'identify', data: { name: 'xiduzo' } });
-		},
-	});
+	useShareListener();
+	useSocketManager();
 
 	function hostAction() {
-		const type = sharing.type === 'disconnected' ? 'start' : 'stop';
-		const promise = new Promise(resolve => (resolveRef.current = resolve));
+		const type = status.type === 'disconnected' ? 'start' : 'stop';
 		window.electron.ipcRenderer.send('ipc-live-share', { type });
-		toast.promise(promise, { loading: `${type}ing collaboration session` });
+		toast.info(`${type}ing collaboration session`);
 	}
 
 	function clientAction(data?: Schema) {
-		const type = sharing.type === 'disconnected' ? 'join' : 'leave';
+		const type = status.type === 'disconnected' ? 'join' : 'leave';
 		window.electron.ipcRenderer.send('ipc-live-share', { type, code: data?.code });
-		const promise = new Promise(resolve => (resolveRef.current = resolve));
-		toast.promise(promise, { id: 'client', loading: `${type}ing live share...` });
+		toast.info(`${type}ing live share...`);
+		form.reset();
+		setJoining(false);
 	}
 
-	useEffect(() => {
-		return window.electron.ipcRenderer.on<SharingState>('ipc-live-share', async result => {
-			if (!result.success) return;
-
-			console.debug('<<<< [SharePanel] <ipc-live-share>', result);
-			setSharing(result.data);
-
-			if (result.data.type !== 'initializing') resolveRef.current?.('');
-
-			switch (result.data.type) {
-				case 'initializing':
-					if (!result.data.message) return;
-					toast.info(result.data.message);
-					break;
-				case 'connected':
-					const tunnelUrl = result.data.tunnelUrl;
-					const textToCopy = `Collaborate with me on Microflow Studio: https://microflow.vercel.app/share/${toBase64(tunnelUrl)}\n
-Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my collaboration session.`;
-					try {
-						const copied = await copy(textToCopy);
-						if (!copied) throw new Error('Failed to copy');
-						toast.success('Live session started', {
-							id: 'copy',
-							description: 'Invitation details copied to clipboard!',
-							duration: Infinity,
-							action: {
-								label: getRandomMessage('action'),
-							},
-						});
-					} catch {
-						toast.warning('Ooops...', {
-							id: 'copy',
-							description: 'Failed to copy invitation details',
-							duration: Infinity,
-							action: {
-								label: 'Copy details',
-								onClick: () => {
-									toast.promise(copy(textToCopy), {
-										loading: 'Copying invitation details',
-										success: 'Invitation details copied to clipboard!',
-										error: textToCopy,
-									});
-								},
-							},
-						});
-					}
-
-					break;
-				case 'joined':
-					toast.success('Joined collaboration session');
-					setJoining(false);
-					form.reset();
-					break;
-				case 'disconnected':
-					toast.dismiss('copy');
-					if (result.data.message) toast.info(result.data.message);
-					break;
-				default:
-					break;
-			}
-		});
-	}, []);
-
 	const [title, icon] = useMemo((): [string, IconName] => {
-		switch (sharing.type) {
-			case 'connected':
+		switch (status.type) {
+			case 'shared':
 				return ['Shared', 'Router'];
 			case 'initializing':
 				return ['Connecting...', 'RectangleEllipsis'];
@@ -150,20 +74,19 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 			default:
 				return ['Live share', 'Radio'];
 		}
-	}, [sharing.type]);
+	}, [status.type]);
 
 	return (
 		<>
-			{'tunnelUrl' in sharing && <SocketMessageListener tunnelUrl={sharing.tunnelUrl} />}
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					<Button size="sm" disabled={sharing.type === 'initializing'}>
+					<Button size="sm" disabled={status.type === 'initializing'}>
 						<Icon icon={icon} />
 						{title}
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start">
-					{sharing.type === 'connected' && (
+					{status.type === 'shared' && (
 						<>
 							<DropdownMenuItem onClick={hostAction}>
 								<Icon icon="Unplug" />
@@ -171,7 +94,7 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 							</DropdownMenuItem>
 						</>
 					)}
-					{sharing.type === 'disconnected' && (
+					{status.type === 'disconnected' && (
 						<>
 							<DropdownMenuItem onClick={hostAction}>
 								<Icon icon="Router" />
@@ -183,7 +106,7 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 							</DropdownMenuItem>
 						</>
 					)}
-					{sharing.type === 'joined' && (
+					{status.type === 'joined' && (
 						<>
 							<DropdownMenuItem onClick={() => clientAction()}>
 								<Icon icon="RadioReceiver" />
@@ -227,7 +150,7 @@ Or enter the tunnel code "${toBase64(tunnelUrl)}" in Microflow Studio to join my
 										Cancel
 									</Button>
 								</DialogClose>
-								<Button type="submit" disabled={sharing.type === 'initializing'}>
+								<Button type="submit" disabled={status.type === 'initializing'}>
 									Join session
 								</Button>
 							</DialogFooter>

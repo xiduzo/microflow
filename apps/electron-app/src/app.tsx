@@ -2,7 +2,6 @@ import { FigmaProvider, MqttConfig, MqttProvider } from '@microflow/mqtt-provide
 import { Toaster } from '@microflow/ui';
 import { ReactFlowProvider } from '@xyflow/react';
 import { createRoot } from 'react-dom/client';
-import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
 import { useDarkMode, useLocalStorage } from 'usehooks-ts';
 import { IpcDeepLinkListener } from './render/components/IpcDeepLinkListener';
 import { IpcMenuListeners } from './render/components/IpcMenuListener';
@@ -13,10 +12,15 @@ import { CelebrationProvider } from './render/providers/CelebrationProvider';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
 import { StrictMode, useEffect } from 'react';
+import { useAppStore } from './render/stores/app';
+import { getRandomUniqueUserName } from './common/unique';
+import { useSocketListener } from './render/stores/socket';
 
 export function App() {
+	const { user } = useAppStore();
+
 	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
-		uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
+		uniqueId: user?.name ?? getRandomUniqueUserName(),
 	});
 
 	return (
@@ -29,7 +33,6 @@ export function App() {
 						<ReactFlowProvider>
 							<IpcDeepLinkListener />
 							<NewNodeCommandDialog />
-							<NodeAndEdgeSignaler />
 							<ReactFlowCanvas />
 							<Cursors />
 							<IpcMenuListeners />
@@ -50,16 +53,14 @@ root.render(
 );
 
 function Cursors() {
-	return null;
-}
-
-function NodeAndEdgeSignaler() {
-	useSignalNodesAndEdges();
-
+	useSocketListener('mouse', message => {
+		console.log(message);
+	});
 	return null;
 }
 
 function BoardHooks() {
+	useSignalNodesAndEdges();
 	useCelebrateFirstUpload();
 	useCheckBoard();
 	useAutoUploadCode();

@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { useState } from 'react';
-import { uuid } from '../../../../../utils/uuid';
+import { uuid } from '../../../../../common/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { MusicSheet } from '../../../MusicSheet';
 import { DEFAULT_NOTE, DEFAULT_NOTE_DURATION } from './constants';

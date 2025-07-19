@@ -4,7 +4,7 @@ import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { RgbaColorPicker } from 'react-colorful';
 

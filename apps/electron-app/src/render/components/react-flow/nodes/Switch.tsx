@@ -6,7 +6,7 @@ import { useNodeValue } from '../../../stores/node-data';
 import { Switch as UiSwitch } from '@microflow/ui';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 
 export function Switch(props: Props) {
 	return (

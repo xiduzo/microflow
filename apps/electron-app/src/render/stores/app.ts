@@ -1,41 +1,26 @@
 import { create } from 'zustand';
-import { useShallow } from 'zustand/shallow';
+import { getLocalItem, setLocalItem } from '../../common/local-storage';
 
-type ShareingConnected = { type: 'connected'; tunnelUrl: string };
-type SharingDisconnected = { type: 'disconnected'; message?: string };
-type SharingError = { type: 'error'; message: string };
-type SharingInitializing = { type: 'initializing'; message?: string };
-type SharingJoined = { type: 'joined'; tunnelUrl: string };
-
-export type SharingState =
-	| ShareingConnected
-	| SharingDisconnected
-	| SharingError
-	| SharingInitializing
-	| SharingJoined;
+export type User = {
+	name: string;
+};
 
 type AppState = {
 	settingsOpen: string | undefined;
 	setSettingsOpen: (settings: string | undefined) => void;
-	sharing: SharingState;
-	setSharing: (state: SharingState) => void;
+	user: User | null;
+	setUser: (user: User | null) => void;
 };
 
 export const useAppStore = create<AppState>(set => {
+	const user = getLocalItem<User | null>('user', null);
 	return {
 		settingsOpen: undefined,
-		setSettingsOpen: (settingsOpen: string | undefined) => {
-			set({ settingsOpen });
-		},
-		sharing: { type: 'disconnected' },
-		setSharing: (state: SharingState) => {
-			set({ sharing: state });
+		setSettingsOpen: (settingsOpen: string | undefined) => set({ settingsOpen }),
+		user: user,
+		setUser: user => {
+			setLocalItem('user', user);
+			set({ user });
 		},
 	};
 });
-
-export function useSharing() {
-	return useAppStore(
-		useShallow(state => ({ sharing: state.sharing, setSharing: state.setSharing })),
-	);
-}

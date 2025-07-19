@@ -1,11 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { fromBase64 } from '@microflow/utils/base64';
+import { fromBase64, isBase64 } from '@microflow/utils/base64';
 import { io, type Socket, type ManagerOptions, type SocketOptions } from 'socket.io-client';
 import { ClientMessage, ServerMessage } from '../common/types';
-
-function isBase64(str: string) {
-	return /^[A-Za-z0-9+/=]+$/.test(str) && !/^https?:\/\//.test(str);
-}
 
 type ErrorCallback = (error?: unknown) => void;
 type SuccessCallback = () => void;

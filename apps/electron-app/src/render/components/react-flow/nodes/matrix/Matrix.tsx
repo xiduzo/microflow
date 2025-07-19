@@ -6,7 +6,7 @@ import { BaseNode, NodeContainer, useNodeControls, useNodeData } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
 import { useNodeValue } from '../../../../stores/node-data';
 import { MODES } from '../../../../../common/types';
-import { reducePinsToOptions } from '../../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../../common/pin';
 import {
 	DEFAULT_MATRIX_SHAPE,
 	DEFAULT_MATRIX_START_SHAPE,

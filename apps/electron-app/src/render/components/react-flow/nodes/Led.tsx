@@ -4,7 +4,7 @@ import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
-import { reducePinsToOptions, pinValue } from '../../../../utils/pin';
+import { reducePinsToOptions, pinValue } from '../../../../common/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 

@@ -14,10 +14,11 @@ import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
 import { useShallow } from 'zustand/shallow';
 // TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
 import { createWithEqualityFn as create } from 'zustand/traditional';
+import { getLocalItem, setLocalItem } from '../../common/local-storage';
 
 const HISTORY_DEBOUNCE_TIME_IN_MS = 100;
 
-export type AppState<NodeData extends Record<string, unknown> = {}> = {
+export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
 	edges: Edge[];
 	onNodesChange: OnNodesChange<Node<NodeData>>;
@@ -32,13 +33,9 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	redo: () => void;
 };
 
-function getLocalItem<T>(item: string, fallback: T) {
-	return JSON.parse(localStorage.getItem(item) ?? JSON.stringify(fallback)) as T;
-}
-
 let historyUpdateDebounce: NodeJS.Timeout | undefined;
 
-function updateHistory(get: () => AppState<{}>) {
+function updateHistory(get: () => ReactFlowState<{}>) {
 	historyUpdateDebounce && clearTimeout(historyUpdateDebounce);
 	historyUpdateDebounce = setTimeout(() => {
 		const { nodes, edges, history } = get();
@@ -51,13 +48,13 @@ function updateHistory(get: () => AppState<{}>) {
 	}, HISTORY_DEBOUNCE_TIME_IN_MS);
 }
 
-export const useReactFlowStore = create<AppState>((set, get) => {
+export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
 
 	if (!hasSeenIntroduction) {
-		localStorage.setItem('has-seen-introduction', 'true');
-		localStorage.setItem('nodes', JSON.stringify(INTRODUCTION_NODES));
-		localStorage.setItem('edges', JSON.stringify(INTRODUCTION_EDGES));
+		setLocalItem('has-seen-introduction', true);
+		setLocalItem('nodes', JSON.stringify(INTRODUCTION_NODES));
+		setLocalItem('edges', JSON.stringify(INTRODUCTION_EDGES));
 	}
 
 	const localNodes = getLocalItem<Node[]>('nodes', []).map(node => ({
@@ -152,6 +149,18 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 		},
 	};
 });
+
+export function useReactFlowCanvas() {
+	return useReactFlowStore(
+		useShallow(state => ({
+			nodes: state.nodes,
+			edges: state.edges,
+			onNodesChange: state.onNodesChange,
+			onEdgesChange: state.onEdgesChange,
+			onConnect: state.onConnect,
+		})),
+	);
+}
 
 export function useNodeAndEdgeCount() {
 	return useReactFlowStore(

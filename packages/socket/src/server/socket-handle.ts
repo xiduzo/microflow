@@ -22,10 +22,21 @@ export function handleSocket(socket: Socket, server: Server) {
 		switch (parsedMessage.type) {
 			case 'identify':
 				connectedClients.set(socket.id, { id: socket.id, name: parsedMessage.data.name });
-				server.emit('message', {
+				server.emit(parsedMessage.type, {
 					type: 'identify',
 					data: { connections: Array.from(connectedClients.values()) },
 				} satisfies ServerMessage);
+				break;
+			case 'mouse':
+				const user = connectedClients.get(socket.id);
+				if (!user) return console.debug('[SOCKET] <mouse> <no user found>', socket.id);
+				server.emit(parsedMessage.type, {
+					type: 'mouse',
+					data: { x: parsedMessage.data.x, y: parsedMessage.data.y, user },
+				} satisfies ServerMessage);
+				break;
+			default:
+				console.warn('[SOCKET] <unknown message type>', parsedMessage);
 				break;
 		}
 	});

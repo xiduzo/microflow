@@ -1,10 +1,10 @@
 import { toast } from '@microflow/ui';
 import { useEffect } from 'react';
-import { useSharing } from '../stores/app';
 import { useReactFlow } from '@xyflow/react';
+import { useSocketStore } from '../stores/socket';
 
 export function IpcDeepLinkListener() {
-	const { setSharing } = useSharing();
+	const { setStatus } = useSocketStore();
 	const { getNodes } = useReactFlow();
 
 	useEffect(() => {
@@ -20,7 +20,7 @@ export function IpcDeepLinkListener() {
 						toast.success('Microflow studio successfully linked!');
 						break;
 					case 'share':
-						setSharing({
+						setStatus({
 							type: 'joined',
 							tunnelUrl: String(result.data.tunnelUrl),
 						});

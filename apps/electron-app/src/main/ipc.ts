@@ -84,7 +84,7 @@ async function startLiveShare(event: IpcMainEvent) {
 		return event.reply('ipc-live-share', {
 			success: true,
 			data: {
-				type: 'connected',
+				type: 'shared',
 				tunnelUrl: tunnelUrl,
 			},
 		});

@@ -19,3 +19,11 @@ export function fromBase64(base64) {
 	const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
 	return new TextDecoder().decode(bytes);
 }
+
+/**
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function isBase64(str) {
+	return /^[A-Za-z0-9+/]+={0,2}$/.test(str) && str.length % 4 === 0;
+}
