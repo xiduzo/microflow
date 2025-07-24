@@ -58,6 +58,7 @@ async function startLiveShare(event: IpcMainEvent) {
 	try {
 		log.debug('[SHARE] <init>', timer.duration);
 		await stopSocketTunnel();
+		log.debug('[SHARE] starting tunnel', timer.duration);
 		const tunnelUrl = await initSocketTunnel();
 
 		event.reply('ipc-live-share', {

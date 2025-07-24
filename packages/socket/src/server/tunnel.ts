@@ -1,14 +1,13 @@
 import http from 'http';
 import { Server, ServerOptions } from 'socket.io';
-// import { bin, install } from 'cloudflared';
-// import fs from 'node:fs';
+import { bin } from 'cloudflared';
 import { ChildProcess, spawn } from 'node:child_process';
 import { handleSocket } from './socket-handle';
-import path from 'path';
+import log from 'electron-log/node';
 
 const PORT = 9876;
 
-const binaryPath = path.resolve(__dirname, '../../bin/cloudflared');
+log.debug('[SOCKET] cloudflared binary path', bin);
 
 let socketServer: Server | null = null;
 function createSocketServer() {
@@ -25,18 +24,18 @@ function createSocketServer() {
 
 		io.on('connection', socket => handleSocket(socket, io!));
 		io.on('close', () => {
-			console.log('[SOCKET] Socket server closed');
+			log.debug('[SOCKET] Socket server closed');
 			socketServer = null;
 		});
 
 		socketServer = io;
 
 		httpServer.listen(PORT, () => {
-			console.log(`[SOCKET] Http server listening on port ${PORT}`);
+			log.debug(`[SOCKET] Http server listening on port ${PORT}`);
 			resolve(io);
 		});
 		httpServer.on('close', () => {
-			console.log('[SOCKET] Http server closed');
+			log.debug('[SOCKET] Http server closed');
 			socketServer = null;
 		});
 	});
@@ -50,11 +49,11 @@ async function processLogs(output: string) {
 let cloudflaredProcess: ChildProcess | null = null;
 async function createTunnel() {
 	return new Promise<string>(resolve => {
-		const cloudflared = spawn(binaryPath, ['tunnel', '--url', `http://localhost:${PORT}`]);
+		const cloudflared = spawn(bin, ['tunnel', '--url', `http://localhost:${PORT}`]);
 
 		cloudflared.on('spawn', () => {
 			cloudflaredProcess = cloudflared;
-			console.log('Cloudflared process started successfully');
+			log.debug('[SOCKET] Cloudflared process started successfully');
 		});
 		cloudflared.stdout.on('data', data => {
 			const output = data.toString();
@@ -67,15 +66,16 @@ async function createTunnel() {
 		});
 
 		cloudflared.on('close', code => {
-			console.log(`Cloudflared process exited with code ${code}`);
-			cloudflaredProcess = null;
+			log.debug(`[SOCKET] Cloudflared process exited with code ${code}`);
+			stopSocketTunnel();
 		});
 
 		cloudflared.on('error', error => {
-			console.log('Cloudflared not available, server running locally only', error);
-			console.info(
-				'To enable cloudflared, ensure the binary is installed: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/',
+			log.warn('[SOCKET] Cloudflared not available, server running locally only', error);
+			log.info(
+				'[SOCKET]To enable cloudflared, ensure the binary is installed: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/',
 			);
+			stopSocketTunnel();
 		});
 	});
 }
@@ -88,6 +88,7 @@ function getCors(tunnel?: string): ServerOptions['cors'] {
 }
 
 async function initSocketTunnel() {
+	
 	const io = await createSocketServer();
 	const tunnel = await createTunnel();
 

@@ -37,9 +37,6 @@ module.exports = {
 				name: 'microflow-studio',
 				schemes: ['microflow-studio'],
 			},
-		],
-		extraResource: [
-			path.resolve(__dirname, 'node_modules/cloudflared/bin')
 		]
 	},
 	hooks: {
