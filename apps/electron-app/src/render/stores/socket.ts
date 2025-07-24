@@ -65,8 +65,7 @@ export const useSocketStore = create<SocketState>((set, get) => {
 		closeSocket: () => {
 			console.debug('[SOCKET] <close socket>');
 			const { socket } = get();
-			if (!socket) return;
-			socket.close();
+			socket?.close();
 			set({ socket: null });
 		},
 	};
@@ -85,7 +84,7 @@ export function useSocketListener<
 
 	useEffect(() => {
 		socket?.on(type as string, message => {
-			console.debug('<<<< [SOCKET] <message>', type, message);
+			console.debug('[SOCKET] <<<< <message>', type, message);
 			let parsedMessage = message;
 			if (typeof message === 'string') {
 				try {
@@ -107,9 +106,10 @@ export function useSocketListener<
 export function useSocketSender<SendType = ClientMessage>(event: string = 'message') {
 	const { socket } = useSocketStore(useShallow(state => ({ socket: state.socket })));
 
+	console.log("RENDERRRRRR")
 	const send = useCallback(
 		(message: SendType) => {
-			// if (socket) console.debug('>>>> [SOCKET] <send>', event, message);
+			if (socket) console.debug('[SOCKET] >>>> <send> from', socket.id, socket.connected, event, message);
 			socket?.emit(event, message);
 		},
 		[socket, event],

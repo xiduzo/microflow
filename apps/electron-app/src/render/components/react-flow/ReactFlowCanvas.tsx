@@ -3,20 +3,45 @@ import { NODE_TYPES } from '../../../common/nodes';
 import { useReactFlowCanvas } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
 import { SharePanel } from './panels/live-share/SharePanel';
 import { useSocketSender } from '../../stores/socket';
+import { ClientMouseMessage } from '@microflow/socket/client';
+
+const MOUSE_DISTANCE_DEBOUNCE_OVERRIDE = 50;
+const MOUSE_DEBOUNCE_DURATION = 30;
 
 export function ReactFlowCanvas() {
 	const { send } = useSocketSender();
 	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
 
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const lastPositionRef = useRef<{ x: number; y: number } | null>(null);
+
+	const debouncedSend = useCallback((data: ClientMouseMessage) => {
+		const currentPos = data.data;
+		const lastPos = lastPositionRef.current;
+		
+		const distance = lastPos 
+			? Math.sqrt(Math.pow(currentPos.x - lastPos.x, 2) + Math.pow(currentPos.y - lastPos.y, 2))
+			: 0;
+		
+		const timeoutDuration = distance > MOUSE_DISTANCE_DEBOUNCE_OVERRIDE ? 0 : MOUSE_DEBOUNCE_DURATION;
+		
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		debounceRef.current = setTimeout(() => {
+			send(data);
+		}, timeoutDuration);
+		
+		lastPositionRef.current = currentPos;
+	}, [send]);
+
 	useEffect(() => {
 		const originalConsoleError = console.error;
 
-		console.error = (...args: any[]) => {
+		console.error = (...args: unknown[]) => {
 			// We are abusing the `defaultProps` to set the default values of the nodes
 			if (typeof args[0] === 'string' && /defaultProps/.test(args[0])) return;
 
@@ -40,7 +65,7 @@ export function ReactFlowCanvas() {
 					x: event.clientX,
 					y: event.clientY,
 				});
-				send({ type: 'mouse', data: flowPos });
+				debouncedSend({ type: 'mouse', data: flowPos });
 			}}
 			edgeTypes={EDGE_TYPES}
 			nodeTypes={NODE_TYPES}

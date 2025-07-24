@@ -135,7 +135,7 @@ export function SharePanel() {
 											<FormLabel>Session code</FormLabel>
 											<FormControl>
 												<Input
-													placeholder="aHR0cHM6Ly93aW4tZG9taW5pY2FuLWhlYWQtd2luc3Rvbi50cnljbG91ZGZsYXJlLmNvbQ=="
+													placeholder="Enter session code or URL"
 													{...field}
 												/>
 											</FormControl>

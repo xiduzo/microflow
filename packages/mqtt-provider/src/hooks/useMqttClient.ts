@@ -50,7 +50,7 @@ export function useMqttClient() {
 	);
 
 	const publish = useCallback((topic: string, payload: string, options?: IClientPublishOptions) => {
-		console.debug('[MQTT] <publish>', topic, payload, options);
+		console.debug('[MQTT] >>>> <publish>', topic, payload, options);
 		return client.current?.publishAsync(topic, payload, options);
 	}, []);
 
@@ -124,7 +124,7 @@ export function useMqttClient() {
 					await resubscribe(options);
 				})
 				.on('message', (topic, payload, packet) => {
-					console.debug('[MQTT] <message>', topic, payload);
+					console.debug('[MQTT] <<<< <message>', topic, payload);
 					Array.from(subscriptions.current.keys()).forEach(subscription => {
 						const regexp = new RegExp(
 							subscription.replace(/\//g, '\\/').replace(/\+/g, '\\S+').replace(/#/, '\\S+'),

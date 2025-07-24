@@ -1,5 +1,5 @@
 import http from 'http';
-import { Server, ServerOptions } from 'socket.io';
+import { Server } from 'socket.io';
 import { bin } from 'cloudflared';
 import { ChildProcess, spawn } from 'node:child_process';
 import { handleSocket } from './socket-handle';
@@ -10,7 +10,7 @@ const PORT = 9876;
 log.debug('[SOCKET] cloudflared binary path', bin);
 
 let socketServer: Server | null = null;
-function createSocketServer() {
+function createSocketServer(tunnel: string) {
 	return new Promise<Server>(resolve => {
 		// TODO check if port is already in use and used by electron --> close it
 		const httpServer = http.createServer((_req, res) => {
@@ -19,13 +19,19 @@ function createSocketServer() {
 		});
 
 		const io = new Server(httpServer, {
-			cors: getCors(),
+			cors: {
+				origin: [`http://localhost:${PORT}`, tunnel],
+				methods: ['GET', 'POST'],
+			}
 		});
 
 		io.on('connection', socket => handleSocket(socket, io!));
 		io.on('close', () => {
 			log.debug('[SOCKET] Socket server closed');
 			socketServer = null;
+		});
+		io.on('error', error => {
+			log.error('[SOCKET] Socket server error', error);
 		});
 
 		socketServer = io;
@@ -80,23 +86,10 @@ async function createTunnel() {
 	});
 }
 
-function getCors(tunnel?: string): ServerOptions['cors'] {
-	return {
-		origin: tunnel ? [`http://localhost:${PORT}`, tunnel] : [`http://localhost:${PORT}`],
-		methods: ['GET', 'POST'],
-	};
-}
-
 async function initSocketTunnel() {
-	
-	const io = await createSocketServer();
-	const tunnel = await createTunnel();
 
-	// add tunnel to CORS
-	// This is a workaround to ensure the tunnel URL is added to the CORS origins
-	// since the tunnel URL is not known until the cloudflared process starts
-	// and the logs are processed.
-	io.engine.opts.cors = getCors(tunnel);
+	const tunnel = await createTunnel();
+	await createSocketServer(tunnel);
 
 	return tunnel;
 }

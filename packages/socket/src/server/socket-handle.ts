@@ -17,7 +17,7 @@ export function handleSocket(socket: Socket, server: Server) {
 				console.error('[SOCKET] <parse error>', message, error);
 			}
 		}
-		console.debug(`<<<< [SOCKET] <message> by ${socket.id}`, parsedMessage, typeof parsedMessage);
+		console.debug(`[SOCKET] <<<< <message> by ${socket.id}`, parsedMessage, typeof parsedMessage);
 
 		switch (parsedMessage.type) {
 			case 'identify':

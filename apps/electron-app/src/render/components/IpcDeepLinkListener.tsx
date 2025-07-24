@@ -13,7 +13,7 @@ export function IpcDeepLinkListener() {
 			result => {
 				if (!result.success) return;
 
-				console.debug('<<<< [IpcDeepLinkListener] <ipc-deep-link>', result);
+				console.debug('[IpcDeepLinkListener] <<<< <ipc-deep-link>', result);
 
 				switch (result.data.type) {
 					case 'web':
