@@ -6,8 +6,8 @@ import { SettingsPanel } from './panels/SettingsPanel';
 import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
 import { SharePanel } from './panels/live-share/SharePanel';
-import { useSocketSender } from '../../stores/socket';
 import { ClientMouseMessage } from '@microflow/socket/client';
+import { useSocketSender } from '../../stores/socket';
 
 const MOUSE_DISTANCE_DEBOUNCE_OVERRIDE = 50;
 const MOUSE_DEBOUNCE_DURATION = 30;

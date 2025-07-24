@@ -40,12 +40,12 @@ export function useSocket<
 		socket.io.on('close', console.warn);
 		socket.on('connect', () => memoizedOptions?.onSuccess?.());
 		socket.on('message', (message: ServerMessage) => {
-			console.debug('[SOCKET] <<<< <message>', message);
+			console.debug('[SOCKET] <message>', message);
 			let parsedMessage = message;
 			if (typeof message === 'string') {
 				try {
 					parsedMessage = JSON.parse(message) as ServerMessage;
-					console.debug('[SOCKET] <<<< <parsedMessage>', parsedMessage);
+					console.debug('[SOCKET] <parsedMessage>', parsedMessage);
 				} catch (error) {
 					console.debug('[SOCKET] <parse>', message, error);
 				}
@@ -59,7 +59,7 @@ export function useSocket<
 	}, [urlOrBase64, options]);
 
 	const send = useCallback((event: AllowedMessages, send: SendType) => {
-		console.debug('[SOCKET] >>>> <send>', event, send);
+		console.debug('[SOCKET] <send>', event, send);
 		socketRef.current?.emit(event, send);
 	}, []);
 

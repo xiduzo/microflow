@@ -42,6 +42,14 @@ export const useSocketStore = create<SocketState>((set, get) => {
 		createSocket: (urlOrBase64, options = {}) => {
 			console.debug('[SOCKET] <create socket>');
 			const url = isBase64(urlOrBase64) ? fromBase64(urlOrBase64) : urlOrBase64;
+			
+			// Close existing socket if it exists
+			const { socket: existingSocket } = get();
+			if (existingSocket) {
+				console.debug('[SOCKET] <closing existing socket>', existingSocket.id);
+				existingSocket.close();
+			}
+			
 			const socket = io(url, {
 				transports: ['websocket'],
 				retries: 3,
@@ -51,13 +59,13 @@ export const useSocketStore = create<SocketState>((set, get) => {
 			socket.io.on('error', error => {
 				console.debug('[SOCKET] <error>', error);
 				window.electron.ipcRenderer.send('ipc-live-share', {
-					type: status.type === 'disconnected' ? 'stop' : 'leave',
+					type: status.type === 'shared' ? 'stop' : 'leave',
 				});
 			});
 			socket.io.on('close', error => {
 				console.debug('[SOCKET] <close>', error);
 				window.electron.ipcRenderer.send('ipc-live-share', {
-					type: status.type === 'disconnected' ? 'stop' : 'leave',
+					type: status.type === 'shared' ? 'stop' : 'leave',
 				});
 			});
 			set({ socket });
@@ -84,7 +92,7 @@ export function useSocketListener<
 
 	useEffect(() => {
 		socket?.on(type as string, message => {
-			console.debug('[SOCKET] <<<< <message>', type, message);
+			console.debug('[SOCKET] <message>', type, message);
 			let parsedMessage = message;
 			if (typeof message === 'string') {
 				try {
@@ -103,16 +111,22 @@ export function useSocketListener<
 	}, [socket, type, callback]);
 }
 
-export function useSocketSender<SendType = ClientMessage>(event: string = 'message') {
+export function useSocketSender<SendType = ClientMessage>() {
 	const { socket } = useSocketStore(useShallow(state => ({ socket: state.socket })));
 
-	console.log("RENDERRRRRR")
 	const send = useCallback(
 		(message: SendType) => {
-			if (socket) console.debug('[SOCKET] >>>> <send> from', socket.id, socket.connected, event, message);
-			socket?.emit(event, message);
+			if (!socket?.connected) return console.debug('[SOCKET] <send> socket not connected!');
+			console.debug('[SOCKET] <send> from', socket.id, message);
+			console.debug('[SOCKET] <socket state>', {
+				id: socket.id,
+				connected: socket.connected,
+				disconnected: socket.disconnected,
+				transport: socket.io.engine.transport.name,
+			});
+			socket?.send(message);
 		},
-		[socket, event],
+		[socket],
 	);
 
 	return { send };

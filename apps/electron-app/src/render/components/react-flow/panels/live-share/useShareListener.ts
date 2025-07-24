@@ -13,7 +13,7 @@ export function useShareListener() {
 		return window.electron.ipcRenderer.on<SocketStatus>('ipc-live-share', async result => {
 			if (!result.success) return;
 
-			console.debug('[SharePanel] <<<< <ipc-live-share>', result);
+			console.debug('[SharePanel] <ipc-live-share>', result);
 			setStatus(result.data);
 
 			switch (result.data.type) {

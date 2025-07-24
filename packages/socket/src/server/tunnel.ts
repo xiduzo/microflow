@@ -1,4 +1,3 @@
-import http from 'http';
 import { Server } from 'socket.io';
 import { bin } from 'cloudflared';
 import { ChildProcess, spawn } from 'node:child_process';
@@ -7,43 +6,27 @@ import log from 'electron-log/node';
 
 const PORT = 9876;
 
-log.debug('[SOCKET] cloudflared binary path', bin);
-
 let socketServer: Server | null = null;
-function createSocketServer(tunnel: string) {
+function createSocketServer(tunnel?: string) {
 	return new Promise<Server>(resolve => {
-		// TODO check if port is already in use and used by electron --> close it
-		const httpServer = http.createServer((_req, res) => {
-			res.writeHead(200, { 'Content-Type': 'text/plain' });
-			res.end('Socket server is running');
-		});
-
-		const io = new Server(httpServer, {
+		const io = new Server(PORT, {
 			cors: {
-				origin: [`http://localhost:${PORT}`, tunnel],
+				origin: tunnel ? [`http://localhost:${PORT}`, tunnel] : [`http://localhost:${PORT}`],
 				methods: ['GET', 'POST'],
 			}
 		});
 
-		io.on('connection', socket => handleSocket(socket, io!));
+		io.on('connection', socket => handleSocket(socket, io));
 		io.on('close', () => {
 			log.debug('[SOCKET] Socket server closed');
-			socketServer = null;
+			stopSocketTunnel();
 		});
 		io.on('error', error => {
 			log.error('[SOCKET] Socket server error', error);
+			stopSocketTunnel();
 		});
 
-		socketServer = io;
-
-		httpServer.listen(PORT, () => {
-			log.debug(`[SOCKET] Http server listening on port ${PORT}`);
-			resolve(io);
-		});
-		httpServer.on('close', () => {
-			log.debug('[SOCKET] Http server closed');
-			socketServer = null;
-		});
+		resolve(io);
 	});
 }
 
@@ -55,6 +38,8 @@ async function processLogs(output: string) {
 let cloudflaredProcess: ChildProcess | null = null;
 async function createTunnel() {
 	return new Promise<string>(resolve => {
+		log.debug('[SOCKET] cloudflared binary path', bin);
+
 		const cloudflared = spawn(bin, ['tunnel', '--url', `http://localhost:${PORT}`]);
 
 		cloudflared.on('spawn', () => {
@@ -88,15 +73,18 @@ async function createTunnel() {
 
 async function initSocketTunnel() {
 
-	const tunnel = await createTunnel();
-	await createSocketServer(tunnel);
+	const tunnel = undefined
+	// const tunnel = await createTunnel();
+	socketServer = await createSocketServer(tunnel);
 
 	return tunnel;
 }
 
 async function stopSocketTunnel() {
 	cloudflaredProcess?.kill();
+	cloudflaredProcess = null;
 	socketServer?.close();
+	socketServer = null;
 }
 
 export { initSocketTunnel, stopSocketTunnel };
