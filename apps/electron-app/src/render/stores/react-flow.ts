@@ -57,7 +57,7 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 		setLocalItem('edges', JSON.stringify(INTRODUCTION_EDGES));
 	}
 
-	const localNodes = getLocalItem<Node[]>('nodes', []).map(node => ({
+	const localNodes = getLocalItem<Node[]>('nodes', []).filter(node => node.data.group !== 'internal').map(node => ({
 		...node,
 		selected: false,
 	}));

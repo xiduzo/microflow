@@ -1,7 +1,7 @@
-import { XYPosition } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
-import { BaseNode, BlankNodeContainer } from './Node';
+import { BaseNode, BlankNodeContainer, useNodeData } from './Node';
 import { Icon } from '@microflow/ui';
+import { Connection } from '@microflow/socket/client';
 
 export function User(props: Props) {
 	return (
@@ -12,10 +12,7 @@ export function User(props: Props) {
 }
 
 function Value() {
-	const value = useNodeValue<UserData>({
-		position: { x: 0, y: 0 },
-		user: { id: '', name: 'foo bar' },
-	});
+	const value = useNodeData<UserData>();
 
 	console.log({ value });
 	return (
@@ -29,17 +26,14 @@ function Value() {
 }
 
 type UserData = {
-	position: XYPosition;
-	user: {
-		id: string;
-		name: string;
-	};
+	user: Connection;
 };
 type Props = BaseNode<UserData>;
 User.defaultProps = {
 	draggable: false,
+	selectable: false,
+	type: 'User',
 	data: {
-		position: { x: 0, y: 0 },
 		user: {
 			id: 'user-id',
 			name: 'User Name',
@@ -50,3 +44,5 @@ User.defaultProps = {
 		description: 'Used to display an user cursor position when collaborating on a flow',
 	} satisfies Props['data'],
 };
+
+export type UserProps = Props

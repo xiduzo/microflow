@@ -14,7 +14,6 @@ import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCo
 import { StrictMode, useEffect } from 'react';
 import { useAppStore } from './render/stores/app';
 import { getRandomUniqueUserName } from './common/unique';
-import { useSocketListener } from './render/stores/socket';
 
 export function App() {
 	const { user } = useAppStore();
@@ -34,7 +33,6 @@ export function App() {
 							<IpcDeepLinkListener />
 							<NewNodeCommandDialog />
 							<ReactFlowCanvas />
-							<Cursors />
 							<IpcMenuListeners />
 							<BoardHooks />
 						</ReactFlowProvider>
@@ -51,13 +49,6 @@ root.render(
 		<App />
 	</StrictMode>,
 );
-
-function Cursors() {
-	useSocketListener('mouse', message => {
-		console.log(message);
-	});
-	return null;
-}
 
 function BoardHooks() {
 	useSignalNodesAndEdges();

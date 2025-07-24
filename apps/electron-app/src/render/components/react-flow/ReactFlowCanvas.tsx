@@ -6,37 +6,16 @@ import { SettingsPanel } from './panels/SettingsPanel';
 import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
 import { SharePanel } from './panels/live-share/SharePanel';
-import { ClientMouseMessage } from '@microflow/socket/client';
 import { useSocketSender } from '../../stores/socket';
 
-const MOUSE_DISTANCE_DEBOUNCE_OVERRIDE = 50;
-const MOUSE_DEBOUNCE_DURATION = 30;
+const MOUSE_DEBOUNCE_DURATION = 1000 / 30; // ~30fps
 
 export function ReactFlowCanvas() {
 	const { send } = useSocketSender();
 	const store = useReactFlowCanvas();
-	const { fitView, screenToFlowPosition } = useReactFlow();
+	const { fitView, screenToFlowPosition, getZoom } = useReactFlow();
 
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const lastPositionRef = useRef<{ x: number; y: number } | null>(null);
-
-	const debouncedSend = useCallback((data: ClientMouseMessage) => {
-		const currentPos = data.data;
-		const lastPos = lastPositionRef.current;
-		
-		const distance = lastPos 
-			? Math.sqrt(Math.pow(currentPos.x - lastPos.x, 2) + Math.pow(currentPos.y - lastPos.y, 2))
-			: 0;
-		
-		const timeoutDuration = distance > MOUSE_DISTANCE_DEBOUNCE_OVERRIDE ? 0 : MOUSE_DEBOUNCE_DURATION;
-		
-		if (debounceRef.current) clearTimeout(debounceRef.current);
-		debounceRef.current = setTimeout(() => {
-			send(data);
-		}, timeoutDuration);
-		
-		lastPositionRef.current = currentPos;
-	}, [send]);
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -53,6 +32,21 @@ export function ReactFlowCanvas() {
 		};
 	}, []);
 
+	const handlePaneMouseMove = useCallback((event: React.MouseEvent<Element, MouseEvent>) => {
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+
+		const zoom = getZoom();
+		const flowPos = screenToFlowPosition({
+			x: event.clientX * zoom,
+			y: event.clientY * zoom,
+		});
+
+		debounceRef.current = setTimeout(() => {
+			console.debug("sending mouse message", flowPos)
+			send({ type: 'mouse', data: flowPos });
+		}, MOUSE_DEBOUNCE_DURATION);
+	}, [getZoom, screenToFlowPosition, send]);
+
 	useEffect(() => {
 		fitView({ duration: 0, padding: 0.15, maxZoom: 1 });
 	}, [fitView]);
@@ -60,13 +54,7 @@ export function ReactFlowCanvas() {
 	return (
 		<ReactFlow
 			{...store}
-			onPaneMouseMove={event => {
-				const flowPos = screenToFlowPosition({
-					x: event.clientX,
-					y: event.clientY,
-				});
-				debouncedSend({ type: 'mouse', data: flowPos });
-			}}
+			onPaneMouseMove={handlePaneMouseMove}
 			edgeTypes={EDGE_TYPES}
 			nodeTypes={NODE_TYPES}
 			colorMode={'system'}

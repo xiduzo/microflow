@@ -1,12 +1,15 @@
 import { Server } from 'socket.io';
 import { bin } from 'cloudflared';
 import { ChildProcess, spawn } from 'node:child_process';
-import { handleSocket } from './socket-handle';
 import log from 'electron-log/node';
+import { handleSocket } from './handle-message';
+import { Connection } from '../common/types';
 
 const PORT = 9876;
 
 let socketServer: Server | null = null;
+
+const connectedClients = new Map<string, Connection>();
 function createSocketServer(tunnel?: string) {
 	return new Promise<Server>(resolve => {
 		const io = new Server(PORT, {
@@ -16,7 +19,7 @@ function createSocketServer(tunnel?: string) {
 			}
 		});
 
-		io.on('connection', socket => handleSocket(socket, io));
+		io.on('connection', socket => handleSocket(socket, io, connectedClients));
 		io.on('close', () => {
 			log.debug('[SOCKET] Socket server closed');
 			stopSocketTunnel();
@@ -85,6 +88,7 @@ async function stopSocketTunnel() {
 	cloudflaredProcess = null;
 	socketServer?.close();
 	socketServer = null;
+	connectedClients.clear();
 }
 
 export { initSocketTunnel, stopSocketTunnel };

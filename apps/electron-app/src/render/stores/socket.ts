@@ -1,5 +1,6 @@
 import {
 	ClientMessage,
+	Connection,
 	io,
 	ManagerOptions,
 	ServerMessage,
@@ -30,6 +31,9 @@ type SocketState = {
 	socket: Socket | null;
 	createSocket: (urlOrBase64: string, options?: Partial<ManagerOptions & SocketOptions>) => void;
 	closeSocket: () => void;
+	connections: Connection[];
+	addConnection: (connection: Connection) => void;
+	removeConnection: (connection: Connection) => void;
 };
 
 export const useSocketStore = create<SocketState>((set, get) => {
@@ -42,17 +46,8 @@ export const useSocketStore = create<SocketState>((set, get) => {
 		createSocket: (urlOrBase64, options = {}) => {
 			console.debug('[SOCKET] <create socket>');
 			const url = isBase64(urlOrBase64) ? fromBase64(urlOrBase64) : urlOrBase64;
-			
-			// Close existing socket if it exists
-			const { socket: existingSocket } = get();
-			if (existingSocket) {
-				console.debug('[SOCKET] <closing existing socket>', existingSocket.id);
-				existingSocket.close();
-			}
-			
 			const socket = io(url, {
 				transports: ['websocket'],
-				retries: 3,
 				...options,
 			});
 			const { status } = get();
@@ -76,6 +71,13 @@ export const useSocketStore = create<SocketState>((set, get) => {
 			socket?.close();
 			set({ socket: null });
 		},
+		connections: [],
+		addConnection: (connection: Connection) => {
+			set(state => ({ connections: [...state.connections, connection] }));
+		},
+		removeConnection: (connection: Connection) => {
+			set(state => ({ connections: state.connections.filter(c => c.id !== connection.id) }));
+		},
 	};
 });
 
@@ -91,6 +93,7 @@ export function useSocketListener<
 	const { socket } = useSocketStore(useShallow(state => ({ socket: state.socket })));
 
 	useEffect(() => {
+		console.debug('[SOCKET] <on>', type);
 		socket?.on(type as string, message => {
 			console.debug('[SOCKET] <message>', type, message);
 			let parsedMessage = message;
@@ -106,6 +109,7 @@ export function useSocketListener<
 		});
 
 		return () => {
+			console.debug('[SOCKET] <off>', type);
 			socket?.off(type as string, callback);
 		};
 	}, [socket, type, callback]);
@@ -117,13 +121,7 @@ export function useSocketSender<SendType = ClientMessage>() {
 	const send = useCallback(
 		(message: SendType) => {
 			if (!socket?.connected) return console.debug('[SOCKET] <send> socket not connected!');
-			console.debug('[SOCKET] <send> from', socket.id, message);
-			console.debug('[SOCKET] <socket state>', {
-				id: socket.id,
-				connected: socket.connected,
-				disconnected: socket.disconnected,
-				transport: socket.io.engine.transport.name,
-			});
+			console.debug('[SOCKET] <send>', message);
 			socket?.send(message);
 		},
 		[socket],

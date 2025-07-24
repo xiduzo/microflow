@@ -48,6 +48,7 @@ export function SharePanel() {
 	useShareListener();
 	useSocketManager();
 
+
 	function hostAction() {
 		const type = status.type === 'disconnected' ? 'start' : 'stop';
 		window.electron.ipcRenderer.send('ipc-live-share', { type });
