@@ -1676,6 +1676,7 @@ __metadata:
   dependencies:
     "@microflow/utils": "workspaces:*"
     "@types/node": ^24.0.13
+    "@xyflow/system": ^0.0.66
     cloudflared: ^0.7.0
     socket.io: ^4.8.1
     socket.io-client: ^4.8.1
@@ -1750,15 +1751,6 @@ __metadata:
 "@microflow/utils@workspace:packages/utils, @microflow/utils@workspaces:*":
   version: 0.0.0-use.local
   resolution: "@microflow/utils@workspace:packages/utils"
-  languageName: unknown
-  linkType: soft
-
-"@microflow/websocket@workspace:packages/websocket":
-  version: 0.0.0-use.local
-  resolution: "@microflow/websocket@workspace:packages/websocket"
-  dependencies:
-    socket.io: 4.8.1
-    socket.io-client: 4.8.1
   languageName: unknown
   linkType: soft
 
@@ -5233,7 +5225,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/d3-interpolate@npm:*, @types/d3-interpolate@npm:^3.0.1":
+"@types/d3-interpolate@npm:*, @types/d3-interpolate@npm:^3.0.1, @types/d3-interpolate@npm:^3.0.4":
   version: 3.0.4
   resolution: "@types/d3-interpolate@npm:3.0.4"
   dependencies:
@@ -6032,6 +6024,23 @@ __metadata:
     d3-selection: ^3.0.0
     d3-zoom: ^3.0.0
   checksum: d28e3c8166b77a097b4e8b820e9670f7d1c72e90dc26e043c777d67b6a60eaec1cf43c68d49cf0e1a987adb90a462bb714a852546fb6b5390c90aa2ae8bb4403
+  languageName: node
+  linkType: hard
+
+"@xyflow/system@npm:^0.0.66":
+  version: 0.0.66
+  resolution: "@xyflow/system@npm:0.0.66"
+  dependencies:
+    "@types/d3-drag": ^3.0.7
+    "@types/d3-interpolate": ^3.0.4
+    "@types/d3-selection": ^3.0.10
+    "@types/d3-transition": ^3.0.8
+    "@types/d3-zoom": ^3.0.8
+    d3-drag: ^3.0.0
+    d3-interpolate: ^3.0.1
+    d3-selection: ^3.0.0
+    d3-zoom: ^3.0.0
+  checksum: 224e94f43495980cfcf437ad9632474926cd06cf7b6c57a315605cc5e2449cb9cff2b2b43d602a163d43ead9d7458f3f83631cd020f89ce53eccfde62b55c3a5
   languageName: node
   linkType: hard
 
@@ -15043,7 +15052,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socket.io-client@npm:4.8.1, socket.io-client@npm:^4.8.1":
+"socket.io-client@npm:^4.8.1":
   version: 4.8.1
   resolution: "socket.io-client@npm:4.8.1"
   dependencies:
@@ -15065,7 +15074,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socket.io@npm:4.8.1, socket.io@npm:^4.8.1":
+"socket.io@npm:^4.8.1":
   version: 4.8.1
   resolution: "socket.io@npm:4.8.1"
   dependencies:

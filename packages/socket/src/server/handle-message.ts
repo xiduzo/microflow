@@ -2,15 +2,11 @@ import { Server, Socket } from 'socket.io';
 import {
 	ClientMessage,
 	Connection,
-	ServerEdgeAddMessage,
-	ServerEdgeRemoveMessage,
+	ConnectedMessage,
 	ServerIdentifyMessage,
-	ServerMessage,
-	ServerMouseMessage,
-	ServerNodeAddMessage,
-	ServerNodeDataMessage,
-	ServerNodePositionMessage,
-	ServerNodeRemoveMessage,
+	DisconnectedMessage,
+	XyFlowMessage,
+	ServerCursorMessage,
 } from '../common/types';
 import log from 'electron-log/node';
 
@@ -40,7 +36,7 @@ export function handleSocket(
 			user: connection!,
 			connections: Array.from(connectedClients.values()),
 		},
-	} satisfies ServerMessage);
+	} satisfies ConnectedMessage);
 
 	// Add error handler for the socket
 	socket.on('error', error => {
@@ -67,56 +63,54 @@ export function handleSocket(
 					},
 				} satisfies ServerIdentifyMessage);
 				break;
-			case 'mouse':
+			case 'cursor':
 				const user = connectedClients.get(socket.id);
 				if (!user) return log.debug('[SOCKET] <mouse> <no user found>', socket.id);
 				const mouseMessage = {
 					type: parsedMessage.type,
-					data: { x: parsedMessage.data.x, y: parsedMessage.data.y, user },
-				} satisfies ServerMouseMessage;
+					data: { change: { ...parsedMessage.data.change, id: user!.id } },
+				} satisfies ServerCursorMessage;
 				server.emit(parsedMessage.type, mouseMessage);
 				break;
 			case 'node-add':
 				server.emit(parsedMessage.type, {
 					type: parsedMessage.type,
-					data: { node: parsedMessage.data.node },
-				} satisfies ServerNodeAddMessage);
+					data: { change: parsedMessage.data.change },
+				} satisfies XyFlowMessage);
 				break;
 			case 'node-remove':
 				server.emit(parsedMessage.type, {
 					type: parsedMessage.type,
-					data: { nodeId: parsedMessage.data.nodeId },
-				} satisfies ServerNodeRemoveMessage);
+					data: { change: parsedMessage.data.change },
+				} satisfies XyFlowMessage);
 				break;
 			case 'node-position':
 				server.emit(parsedMessage.type, {
 					type: parsedMessage.type,
 					data: {
-						nodeId: parsedMessage.data.nodeId,
-						position: parsedMessage.data.position,
+						change: parsedMessage.data.change,
 					},
-				} satisfies ServerNodePositionMessage);
+				} satisfies XyFlowMessage);
 				break;
 			case 'node-data':
 				server.emit(parsedMessage.type, {
 					type: parsedMessage.type,
 					data: {
-						nodeId: parsedMessage.data.nodeId,
-						data: parsedMessage.data.data,
+						change: parsedMessage.data.change,
 					},
-				} satisfies ServerNodeDataMessage);
+				} satisfies XyFlowMessage);
 				break;
 			case 'edge-remove':
 				server.emit(parsedMessage.type, {
 					type: parsedMessage.type,
-					data: { edgeId: parsedMessage.data.edgeId },
-				} satisfies ServerEdgeRemoveMessage);
+					data: { change: parsedMessage.data.change },
+				} satisfies XyFlowMessage);
 				break;
 			case 'edge-add':
 				server.emit(parsedMessage.type, {
 					type: parsedMessage.type,
-					data: { edge: parsedMessage.data.edge },
-				} satisfies ServerEdgeAddMessage);
+					data: { change: parsedMessage.data.change },
+				} satisfies XyFlowMessage);
 				break;
 			default:
 				log.warn('[SOCKET] <unknown message type>', parsedMessage);
@@ -135,6 +129,6 @@ export function handleSocket(
 				user: connection!,
 				connections: Array.from(connectedClients.values()),
 			},
-		} satisfies ServerMessage);
+		} satisfies DisconnectedMessage);
 	});
 }

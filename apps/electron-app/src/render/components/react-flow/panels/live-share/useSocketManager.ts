@@ -60,32 +60,28 @@ export function useSocketManager() {
 		]);
 	});
 
-	useSocketListener('mouse', event => {
-		onNodesChange([
-			{
-				id: event.data.user.id,
-				type: 'position',
-				position: event.data,
-			},
-		]);
+	useSocketListener('cursor', event => {
+		onNodesChange([event.data.change]);
 	});
 
 	useSocketListener('node-remove', event => {
-		onNodesChange([
-			{
-				type: 'remove',
-				id: event.data.nodeId,
-			},
-		]);
+		onNodesChange([event.data.change]);
+	});
+	useSocketListener('node-add', event => {
+		onNodesChange([event.data.change]);
+	});
+	useSocketListener('node-position', event => {
+		onNodesChange([event.data.change]);
+	});
+	useSocketListener('node-data', event => {
+		onNodesChange([event.data.change]);
 	});
 
 	useSocketListener('edge-remove', event => {
-		onEdgesChange([
-			{
-				type: 'remove',
-				id: event.data.edgeId,
-			},
-		]);
+		onEdgesChange([event.data.change]);
+	});
+	useSocketListener('edge-add', event => {
+		onEdgesChange([event.data.change]);
 	});
 
 	useEffect(() => {

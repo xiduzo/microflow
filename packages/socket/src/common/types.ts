@@ -1,3 +1,12 @@
+import type {
+	EdgeAddChange,
+	EdgeRemoveChange,
+	NodeAddChange,
+	NodeRemoveChange,
+	NodePositionChange,
+	NodeReplaceChange,
+} from '@xyflow/system';
+
 export type Connection = { id: string; name: string };
 
 export type ClientIdentifyMessage = { type: 'identify'; data: { name: string } };
@@ -6,60 +15,45 @@ export type ServerIdentifyMessage = {
 	data: { user: Connection; connections: Connection[] };
 };
 
-export type ClientMouseMessage = { type: 'mouse'; data: { x: number; y: number } };
-export type ServerMouseMessage = {
-	type: 'mouse';
-	data: { x: number; y: number; user: Connection };
+export type ClientCursorMessage = {
+	type: 'cursor';
+	data: { change: Omit<NodePositionChange, 'id'> };
+};
+export type ServerCursorMessage = {
+	type: 'cursor';
+	data: { change: NodePositionChange };
 };
 
 // Node operation messages
-export type ClientNodeAddMessage = { type: 'node-add'; data: { node: unknown } };
-export type ClientNodeRemoveMessage = { type: 'node-remove'; data: { nodeId: string } };
-export type ClientNodePositionMessage = {
-	type: 'node-position';
-	data: { nodeId: string; position: { x: number; y: number } };
-};
-export type ClientNodeDataMessage = { type: 'node-data'; data: { nodeId: string; data: unknown } };
+export type NodeAddMessage = { type: 'node-add'; data: { change: NodeAddChange } };
+export type NodeRemoveMessage = { type: 'node-remove'; data: { change: NodeRemoveChange } };
+export type NodePositionMessage = { type: 'node-position'; data: { change: NodePositionChange } };
+export type NodeDataMessage = { type: 'node-data'; data: { change: NodeReplaceChange } };
 
-export type ClientEdgeRemoveMessage = { type: 'edge-remove'; data: { edgeId: string } };
-export type ClientEdgeAddMessage = { type: 'edge-add'; data: { edge: unknown } };
+export type EdgeRemoveMessage = { type: 'edge-remove'; data: { change: EdgeRemoveChange } };
+export type EdgeAddMessage = { type: 'edge-add'; data: { change: EdgeAddChange } };
 
-export type ServerNodeAddMessage = { type: 'node-add'; data: { node: unknown } };
-export type ServerNodeRemoveMessage = { type: 'node-remove'; data: { nodeId: string } };
-export type ServerNodePositionMessage = {
-	type: 'node-position';
-	data: { nodeId: string; position: { x: number; y: number } };
-};
-export type ServerNodeDataMessage = { type: 'node-data'; data: { nodeId: string; data: unknown } };
-export type ServerEdgeRemoveMessage = { type: 'edge-remove'; data: { edgeId: string } };
-export type ServerEdgeAddMessage = { type: 'edge-add'; data: { edge: unknown } };
-
-export type ServerConnectedMessage = {
+export type ConnectedMessage = {
 	type: 'connected';
 	data: { user: Connection; connections: Connection[] };
 };
-export type ServerDisconnectedMessage = {
+export type DisconnectedMessage = {
 	type: 'disconnected';
 	data: { user: Connection; connections: Connection[] };
 };
 
-export type ClientMessage =
-	| ClientIdentifyMessage
-	| ClientMouseMessage
-	| ClientNodeAddMessage
-	| ClientNodeRemoveMessage
-	| ClientNodePositionMessage
-	| ClientNodeDataMessage
-	| ClientEdgeRemoveMessage
-	| ClientEdgeAddMessage;
+export type XyFlowMessage =
+	| NodeAddMessage
+	| NodeRemoveMessage
+	| NodePositionMessage
+	| NodeDataMessage
+	| EdgeAddMessage
+	| EdgeRemoveMessage;
+
+export type ClientMessage = ClientIdentifyMessage | ClientCursorMessage | XyFlowMessage;
 export type ServerMessage =
 	| ServerIdentifyMessage
-	| ServerMouseMessage
-	| ServerNodeAddMessage
-	| ServerNodeRemoveMessage
-	| ServerNodePositionMessage
-	| ServerNodeDataMessage
-	| ServerConnectedMessage
-	| ServerDisconnectedMessage
-	| ServerEdgeRemoveMessage
-	| ServerEdgeAddMessage;
+	| ConnectedMessage
+	| DisconnectedMessage
+	| XyFlowMessage
+	| ServerCursorMessage;

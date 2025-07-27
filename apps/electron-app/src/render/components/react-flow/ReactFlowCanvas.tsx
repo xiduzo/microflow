@@ -7,6 +7,7 @@ import {
 	Panel,
 	ReactFlow,
 	useReactFlow,
+	EdgeAddChange,
 } from '@xyflow/react';
 import { NODE_TYPES } from '../../../common/nodes';
 import { useReactFlowCanvas } from '../../stores/react-flow';
@@ -22,7 +23,7 @@ export function ReactFlowCanvas() {
 	const { send } = useSocketSender();
 	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
-	const debounceMouseMouse = useRef<NodeJS.Timeout | null>(null);
+	const debounceCursorPostion = useRef<NodeJS.Timeout | undefined>(undefined);
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -41,31 +42,18 @@ export function ReactFlowCanvas() {
 
 	const handlePaneMouseMove = useCallback(
 		(event: React.MouseEvent<Element, MouseEvent>) => {
-			if (debounceMouseMouse.current) clearTimeout(debounceMouseMouse.current);
+			clearTimeout(debounceCursorPostion.current);
 
-			debounceMouseMouse.current = setTimeout(() => {
-				const flowPos = screenToFlowPosition({
+			debounceCursorPostion.current = setTimeout(() => {
+				const position = screenToFlowPosition({
 					x: event.clientX,
 					y: event.clientY,
 				});
 
-				send({ type: 'mouse', data: flowPos });
+				send({ type: 'cursor', data: { change: { type: 'position', position } } });
 			}, 16);
 		},
 		[screenToFlowPosition, send]
-	);
-
-	const handleDelete = useCallback(
-		({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => {
-			console.log(nodes, edges);
-			nodes.forEach(node => {
-				send({ type: 'node-remove', data: { nodeId: node.id } });
-			});
-			edges.forEach(edge => {
-				send({ type: 'edge-remove', data: { edgeId: edge.id } });
-			});
-		},
-		[send]
 	);
 
 	useEffect(() => {
@@ -76,7 +64,15 @@ export function ReactFlowCanvas() {
 		<ReactFlow
 			{...store}
 			onConnect={connection => {
-				send({ type: 'edge-add', data: { edge: connection } });
+				send({
+					type: 'edge-add',
+					data: {
+						change: {
+							type: 'add',
+							item: { ...connection, id: crypto.randomUUID() },
+						} satisfies EdgeAddChange,
+					},
+				});
 				store.onConnect(connection);
 			}}
 			onNodesChange={changes => {
@@ -84,16 +80,13 @@ export function ReactFlowCanvas() {
 					console.log(change);
 					switch (change.type) {
 						case 'add':
-							send({ type: 'node-add', data: { node: change.item } });
+							send({ type: 'node-add', data: { change } });
 							break;
 						case 'remove':
-							send({ type: 'node-remove', data: { nodeId: change.id } });
+							send({ type: 'node-remove', data: { change } });
 							break;
 						case 'position':
-							send({
-								type: 'node-position',
-								data: { nodeId: change.id, position: change.position! },
-							});
+							send({ type: 'node-position', data: { change } });
 							break;
 						case 'replace':
 						case 'select':
@@ -112,10 +105,11 @@ export function ReactFlowCanvas() {
 					console.log(change);
 					switch (change.type) {
 						case 'add':
-							send({ type: 'edge-add', data: { edge: change.item } });
+							console.log(change);
+							send({ type: 'edge-add', data: { change } });
 							break;
 						case 'remove':
-							send({ type: 'edge-remove', data: { edgeId: change.id } });
+							send({ type: 'edge-remove', data: { change } });
 							break;
 						case 'replace':
 						case 'select':
