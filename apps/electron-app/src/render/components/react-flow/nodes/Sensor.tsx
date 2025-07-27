@@ -14,7 +14,7 @@ export function Sensor(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -26,7 +26,7 @@ function Value() {
 	const progress = Math.round((value / 1023) * 100);
 
 	if (data.type === 'digital') {
-		return <Switch checked={Boolean(value)} className="scale-150" />;
+		return <Switch checked={Boolean(value)} className='scale-150' />;
 	}
 
 	switch (data.subType) {
@@ -39,7 +39,7 @@ function Value() {
 			return (
 				<Icons.BicepsFlexed
 					size={48}
-					className="transition-all"
+					className='transition-all'
 					style={{ transform: `scale(${1 + progress / 100})` }}
 				/>
 			);
@@ -47,7 +47,7 @@ function Value() {
 			return (
 				<Icons.CircleArrowOutUpLeft
 					size={48}
-					className="transition-all"
+					className='transition-all'
 					style={{
 						transform: `rotate(${progress * 2.7 - 90}deg)`,
 					}}
@@ -57,7 +57,7 @@ function Value() {
 			return (
 				<Icons.MoveUp
 					size={48}
-					className="transition-all"
+					className='transition-all'
 					style={{
 						transform: `rotate(${progress < 50 ? 180 : 0}deg)`,
 					}}
@@ -79,7 +79,7 @@ function Value() {
 			);
 		default:
 			return (
-				<Progress max={1023} value={progress} className="border border-muted-foreground mx-4" />
+				<Progress max={1023} value={progress} className='border border-muted-foreground mx-4' />
 			);
 	}
 }
@@ -116,10 +116,10 @@ function Settings() {
 				},
 				{
 					collapsed: true,
-				},
+				}
 			),
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

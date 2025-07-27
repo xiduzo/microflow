@@ -11,9 +11,9 @@ export function Interval(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="start" offset={-0.5} />
-			<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='target' position={Position.Left} id='start' offset={-0.5} />
+			<Handle type='target' position={Position.Left} id='stop' offset={0.5} />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -23,9 +23,9 @@ function Value() {
 	const value = useNodeValue<IntervalValueType>(0);
 
 	return (
-		<section className="flex flex-col text-center gap-1 items-center text-muted-foreground">
-			<div className="tabular-nums">{numberFormat.format(Math.round(value))}</div>
-			<div className="text-xs tabular-nums">each {numberFormat.format(data.interval / 1000)}s</div>
+		<section className='flex flex-col text-center gap-1 items-center text-muted-foreground'>
+			<div className='tabular-nums'>{numberFormat.format(Math.round(value))}</div>
+			<div className='text-xs tabular-nums'>each {numberFormat.format(data.interval / 1000)}s</div>
 		</section>
 	);
 }

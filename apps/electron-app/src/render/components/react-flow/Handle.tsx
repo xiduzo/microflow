@@ -27,7 +27,7 @@ export function Handle(props: Props) {
 		return !!selectedEdges.find(
 			edge =>
 				(edge.target === nodeId && edge.targetHandle === props.id) ||
-				(edge.source === nodeId && edge.sourceHandle === props.id),
+				(edge.source === nodeId && edge.sourceHandle === props.id)
 		);
 	}, [selectedEdges, nodeId, props.id]);
 

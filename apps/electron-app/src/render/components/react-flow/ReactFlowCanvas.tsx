@@ -8,12 +8,12 @@ import { EDGE_TYPES } from '../../../common/edges';
 import { SharePanel } from './panels/live-share/SharePanel';
 import { useSocketSender } from '../../stores/socket';
 
-const MOUSE_DEBOUNCE_DURATION = 1000 / 30; // ~30fps
+const MOUSE_DEBOUNCE_DURATION = 10; // ~30fps
 
 export function ReactFlowCanvas() {
 	const { send } = useSocketSender();
 	const store = useReactFlowCanvas();
-	const { fitView, screenToFlowPosition, getZoom } = useReactFlow();
+	const { fitView, screenToFlowPosition } = useReactFlow();
 
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -32,20 +32,22 @@ export function ReactFlowCanvas() {
 		};
 	}, []);
 
-	const handlePaneMouseMove = useCallback((event: React.MouseEvent<Element, MouseEvent>) => {
-		if (debounceRef.current) clearTimeout(debounceRef.current);
+	const handlePaneMouseMove = useCallback(
+		(event: React.MouseEvent<Element, MouseEvent>) => {
+			if (debounceRef.current) clearTimeout(debounceRef.current);
 
-		const zoom = getZoom();
-		const flowPos = screenToFlowPosition({
-			x: event.clientX * zoom,
-			y: event.clientY * zoom,
-		});
+			const flowPos = screenToFlowPosition({
+				x: event.clientX,
+				y: event.clientY,
+			});
 
-		debounceRef.current = setTimeout(() => {
-			console.debug("sending mouse message", flowPos)
-			send({ type: 'mouse', data: flowPos });
-		}, MOUSE_DEBOUNCE_DURATION);
-	}, [getZoom, screenToFlowPosition, send]);
+			debounceRef.current = setTimeout(() => {
+				console.debug('sending mouse message', flowPos);
+				send({ type: 'mouse', data: flowPos });
+			}, MOUSE_DEBOUNCE_DURATION);
+		},
+		[screenToFlowPosition, send]
+	);
 
 	useEffect(() => {
 		fitView({ duration: 0, padding: 0.15, maxZoom: 1 });
@@ -66,27 +68,27 @@ export function ReactFlowCanvas() {
 			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={140} />
 
-			<Panel position="top-center">
+			<Panel position='top-center'>
 				<SerialConnectionStatusPanel />
 			</Panel>
 
 			<Panel
-				position="bottom-center"
-				className="dark:bg-neutral-950/5 bg-neutral-500/5 backdrop-blur-sm rounded-md"
+				position='bottom-center'
+				className='dark:bg-neutral-950/5 bg-neutral-500/5 backdrop-blur-sm rounded-md'
 			>
 				<a
-					href="https://www.sanderboer.nl"
-					target="_blank"
-					className="text-center text-muted-foreground transition-all hover:opacity-100 hover:underline text-xs select-none px-2"
+					href='https://www.sanderboer.nl'
+					target='_blank'
+					className='text-center text-muted-foreground transition-all hover:opacity-100 hover:underline text-xs select-none px-2'
 				>
 					Made with ♥ by Xiduzo
 				</a>
 			</Panel>
 
-			<Panel position="top-right">
+			<Panel position='top-right'>
 				<SettingsPanel />
 			</Panel>
-			<Panel position="top-left">
+			<Panel position='top-left'>
 				<SharePanel />
 			</Panel>
 		</ReactFlow>

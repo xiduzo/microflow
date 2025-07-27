@@ -14,10 +14,10 @@ export function Button(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="active" offset={-1.5} />
-			<Handle type="source" position={Position.Right} id="change" offset={-0.5} />
-			<Handle type="source" position={Position.Right} id="inactive" offset={0.5} />
-			<Handle type="source" position={Position.Right} id="hold" offset={1.5} />
+			<Handle type='source' position={Position.Right} id='active' offset={-1.5} />
+			<Handle type='source' position={Position.Right} id='change' offset={-0.5} />
+			<Handle type='source' position={Position.Right} id='inactive' offset={0.5} />
+			<Handle type='source' position={Position.Right} id='hold' offset={1.5} />
 		</NodeContainer>
 	);
 }
@@ -25,8 +25,8 @@ export function Button(props: Props) {
 function Value() {
 	const value = useNodeValue<ButtonValueType>(false);
 
-	if (!value) return <Icons.PointerOff className="text-muted-foreground" size={48} />;
-	return <Icons.Pointer className="text-green-500" size={48} />;
+	if (!value) return <Icons.PointerOff className='text-muted-foreground' size={48} />;
+	return <Icons.Pointer className='text-green-500' size={48} />;
 }
 
 const DEFAULT = 0;
@@ -55,14 +55,22 @@ function Settings() {
 							'pull down': PULL_DOWN,
 						},
 						onChange: value =>
-							set({ isPullup: value === PULL_UP, isPulldown: value === PULL_DOWN }),
+							set({
+								isPullup: value === PULL_UP,
+								isPulldown: value === PULL_DOWN,
+							}),
 					},
-					holdtime: { min: 100, step: 50, value: data.holdtime!, label: 'hold time (ms)' },
+					holdtime: {
+						min: 100,
+						step: 50,
+						value: data.holdtime!,
+						label: 'hold time (ms)',
+					},
 				},
-				{ collapsed: true },
+				{ collapsed: true }
 			),
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

@@ -15,7 +15,9 @@ export function useCodeUploader() {
 	const clearNodeData = useClearNodeData();
 
 	const port = useBoardPort();
-	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
+	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', {
+		ip: undefined,
+	});
 	const { setUploadResult, board } = useBoardStore();
 
 	const { getNodes, getEdges } = useReactFlow();
@@ -59,7 +61,9 @@ export function useCodeUploader() {
 export function useUploadResultListener() {
 	const { setUploadResult, setBoardResult } = useBoardStore();
 
-	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', { ip: undefined });
+	const [config] = useLocalStorage<AdvancedConfig>('advanced-config', {
+		ip: undefined,
+	});
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<UploadResponse>('ipc-upload-code', result => {
@@ -77,7 +81,9 @@ export function useUploadResultListener() {
 					toast.warning(result.data.message);
 					setBoardResult({ type: 'close' });
 					console.debug(`[CHECK] >>>`, { ip: config.ip });
-					window.electron.ipcRenderer.send('ipc-check-board', { ip: config.ip });
+					window.electron.ipcRenderer.send('ipc-check-board', {
+						ip: config.ip,
+					});
 					break;
 				case 'error':
 					toast.error(result.data.message);

@@ -1,7 +1,7 @@
 const { bundle } = require('./bundler');
 require('dotenv').config();
 const fs = require('fs/promises');
-const path = require('path')
+const path = require('path');
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
@@ -37,7 +37,7 @@ module.exports = {
 				name: 'microflow-studio',
 				schemes: ['microflow-studio'],
 			},
-		]
+		],
 	},
 	hooks: {
 		packageAfterCopy: async (_forgeConfig, buildPath, _electronVersion, _platform, _arch) => {

@@ -16,10 +16,10 @@ export function Compare(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="check" />
-			<Handle type="source" position={Position.Right} id="true" offset={-1} />
-			<Handle type="source" position={Position.Right} id="change" />
-			<Handle type="source" position={Position.Right} id="false" offset={1} />
+			<Handle type='target' position={Position.Left} id='check' />
+			<Handle type='source' position={Position.Right} id='true' offset={-1} />
+			<Handle type='source' position={Position.Right} id='change' />
+			<Handle type='source' position={Position.Right} id='false' offset={1} />
 		</NodeContainer>
 	);
 }
@@ -65,7 +65,7 @@ function Value() {
 
 function Settings() {
 	const [subValidatorOptions, setSubValidatorOptions] = useState<readonly CompareSubValidator[]>(
-		[],
+		[]
 	);
 	const data = useNodeData<CompareData>();
 
@@ -105,7 +105,7 @@ function Settings() {
 				render: get => get('validator') === 'text',
 			},
 		},
-		[subValidatorOptions],
+		[subValidatorOptions]
 	);
 
 	useEffect(() => {
@@ -131,8 +131,7 @@ Compare.defaultProps = {
 		tags: ['control'],
 		label: 'Compare',
 		validator: 'boolean',
-		subValidator: undefined,
-		validatorArg: undefined,
+		subValidator: 'true',
 		description: 'Validate and compare signals',
 	} satisfies Props['data'],
 };

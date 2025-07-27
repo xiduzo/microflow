@@ -171,7 +171,7 @@ ipcMain.on(
 					},
 				});
 		}
-	},
+	}
 );
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
@@ -228,13 +228,13 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 });
 
 const ipRegex = new RegExp(
-	/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/,
+	/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/
 );
 
 async function checkBoardOnPort(
 	port: Pick<PortInfo, 'path'>,
 	board: BoardName,
-	event: Electron.IpcMainEvent,
+	event: Electron.IpcMainEvent
 ) {
 	await cleanupProcesses();
 
@@ -339,7 +339,7 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 				{
 					flashError,
 				},
-				flashTimer.duration,
+				flashTimer.duration
 			);
 			reject(new Error(getRandomMessage('wait')));
 		}
@@ -423,7 +423,7 @@ let latestUploadProcessId: number | undefined;
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
 	log.debug(`[EXTERNAL] setting value`, data);
 	const process = Array.from(processes).find(
-		([_pid, process]) => process.pid === latestUploadProcessId,
+		([_pid, process]) => process.pid === latestUploadProcessId
 	);
 	if (!process) {
 		log.debug('[EXTERNAL] Tried to set external value while no upload process is running');
@@ -443,7 +443,7 @@ async function sniffPorts(
 	options: {
 		connectedPort?: Pick<PortInfo, 'path'>;
 		portsConnected?: PortInfo[];
-	} = {},
+	} = {}
 ) {
 	portSniffer && clearTimeout(portSniffer);
 
@@ -492,7 +492,7 @@ async function getKnownBoardsWithPorts() {
 
 				return acc;
 			},
-			[] as [BoardName, PortInfo[]][],
+			[] as [BoardName, PortInfo[]][]
 		);
 
 		log.debug(`Found ${boardsWithPorts.length} known boards with ports:`);

@@ -20,15 +20,15 @@ function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
 
 	return (
-		<header className="p-2 border-b-2 gap-4 flex items-center transition-all">
-			<h1 className="text-xs flex-grow font-bold">{data.label}</h1>
+		<header className='p-2 border-b-2 gap-4 flex items-center transition-all'>
+			<h1 className='text-xs flex-grow font-bold'>{data.label}</h1>
 			<TooltipProvider>
 				{props.error && (
 					<Tooltip delayDuration={0}>
-						<TooltipTrigger asChild className="cursor-help">
+						<TooltipTrigger asChild className='cursor-help'>
 							<Icons.OctagonAlert size={16} />
 						</TooltipTrigger>
-						<TooltipContent className="text-red-500">{props.error}</TooltipContent>
+						<TooltipContent className='text-red-500'>{props.error}</TooltipContent>
 					</Tooltip>
 				)}
 			</TooltipProvider>
@@ -44,18 +44,18 @@ function NodeFooter() {
 	if (!hasData) return null;
 
 	return (
-		<footer className="text-muted-foreground border-t-2 p-1 px-2 flex items-center gap-2">
+		<footer className='text-muted-foreground border-t-2 p-1 px-2 flex items-center gap-2'>
 			{'pin' in data && (
-				<div className="flex items-center mr-1">
-					<Icons.Cable size={12} className="mr-0.5 stroke-1" />
-					<span className="text-xs font-extralight">{String(data.pin)}</span>
+				<div className='flex items-center mr-1'>
+					<Icons.Cable size={12} className='mr-0.5 stroke-1' />
+					<span className='text-xs font-extralight'>{String(data.pin)}</span>
 				</div>
 			)}
 			{'pins' in data &&
 				Object.entries(data.pins).map(([key, value]) => (
-					<div key={key} className="flex items-center mr-1">
-						<Icons.Cable size={12} className="mr-0.5 stroke-1" />
-						<span className="text-xs font-extralight">
+					<div key={key} className='flex items-center mr-1'>
+						<Icons.Cable size={12} className='mr-0.5 stroke-1' />
+						<span className='text-xs font-extralight'>
 							{key}: {String(value)}
 						</span>
 					</div>
@@ -72,7 +72,7 @@ export const useNodeControls = <
 	S extends Controls = Controls,
 >(
 	controls: S,
-	dependencies: unknown[] = [],
+	dependencies: unknown[] = []
 ) => {
 	const store = useCreateStore();
 	const { selected, id, data } = useNode();
@@ -81,7 +81,7 @@ export const useNodeControls = <
 	const [controlsData, set] = useControls(
 		() => ({ label: data.label, ...controls }),
 		{ store },
-		dependencies,
+		dependencies
 	);
 
 	const [debouncedControlData] = useDebounceValue(controlsData, 500);
@@ -90,7 +90,7 @@ export const useNodeControls = <
 	const render = useCallback(() => {
 		return createPortal(
 			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selectedDebounce} />,
-			document.getElementById('settings-panels')!,
+			document.getElementById('settings-panels')!
 		);
 	}, [store, selectedDebounce]);
 
@@ -103,7 +103,7 @@ export const useNodeControls = <
 		<T extends Record<string, unknown>>(node: Partial<Data>) => {
 			updateNode(node as T);
 		},
-		[updateNode],
+		[updateNode]
 	);
 
 	useEffect(() => {
@@ -130,7 +130,7 @@ export function useDeleteHandles() {
 			deleteEdes(id, handles);
 			updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
 		},
-		[id, updateNodeInternals, deleteEdes],
+		[id, updateNodeInternals, deleteEdes]
 	);
 
 	return deleteHandles;
@@ -139,7 +139,7 @@ export function useDeleteHandles() {
 type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
 
 const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
-	{} as ContainerProps<Record<string, unknown>>,
+	{} as ContainerProps<Record<string, unknown>>
 );
 
 const useNode = <T extends Record<string, unknown>>() =>
@@ -168,11 +168,11 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 						selectable: props.selectable,
 						selected: props.selected,
 						hasError: !!props.error,
-					}),
+					})
 				)}
 			>
 				<NodeHeader error={props.error} />
-				<main className="flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 px-12">
+				<main className='flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 px-12'>
 					{props.children}
 				</main>
 				<NodeFooter />
@@ -228,7 +228,7 @@ const node = cva(
 				className: 'border-blue-600',
 			},
 		],
-	},
+	}
 );
 
 /**

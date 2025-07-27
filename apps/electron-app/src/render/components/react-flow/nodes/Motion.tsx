@@ -15,18 +15,18 @@ export function Motion(props: Props) {
 			<Value />
 			<Settings />
 			<Handle
-				type="source"
+				type='source'
 				position={Position.Right}
-				id="motionstart"
-				title="Started motion"
+				id='motionstart'
+				title='Started motion'
 				offset={-1}
 			/>
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='source' position={Position.Right} id='change' />
 			<Handle
-				type="source"
+				type='source'
 				position={Position.Right}
-				id="motionend"
-				title="Ended motion"
+				id='motionend'
+				title='Ended motion'
 				offset={1}
 			/>
 		</NodeContainer>
@@ -36,22 +36,22 @@ export function Motion(props: Props) {
 function Value() {
 	const value = useNodeValue<MotionValueType>(false);
 
-	if (!value) return <Icons.EyeClosed className="text-muted-foreground" size={48} />;
-	return <Icons.Eye className="text-green-500" size={48} />;
+	if (!value) return <Icons.EyeClosed className='text-muted-foreground' size={48} />;
+	return <Icons.Eye className='text-green-500' size={48} />;
 }
 
 function Settings() {
 	const data = useNodeData<MotionData>();
 	const pins = usePins(
 		data.controller === 'HCSR501' ? [MODES.INPUT] : [MODES.INPUT, MODES.ANALOG],
-		data.controller === 'HCSR501' ? [MODES.I2C, MODES.ANALOG] : [MODES.I2C],
+		data.controller === 'HCSR501' ? [MODES.I2C, MODES.ANALOG] : [MODES.I2C]
 	);
 	const { render } = useNodeControls(
 		{
 			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
 			controller: { value: data.controller, options: MOTION_CONTROLLERS },
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

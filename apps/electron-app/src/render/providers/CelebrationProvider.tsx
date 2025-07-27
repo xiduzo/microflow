@@ -55,8 +55,8 @@ export function CelebrationProvider(props: PropsWithChildren) {
 		<CelebrationContext.Provider value={{ celebrate }}>
 			{init && (
 				<Particles
-					className="z-10 pointer-events-none"
-					id="tsparticles"
+					className='z-10 pointer-events-none'
+					id='tsparticles'
 					particlesLoaded={particlesLoaded}
 					options={PARTICLE_OPTIONS}
 				/>

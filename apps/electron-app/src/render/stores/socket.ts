@@ -76,7 +76,9 @@ export const useSocketStore = create<SocketState>((set, get) => {
 			set(state => ({ connections: [...state.connections, connection] }));
 		},
 		removeConnection: (connection: Connection) => {
-			set(state => ({ connections: state.connections.filter(c => c.id !== connection.id) }));
+			set(state => ({
+				connections: state.connections.filter(c => c.id !== connection.id),
+			}));
 		},
 	};
 });
@@ -124,7 +126,7 @@ export function useSocketSender<SendType = ClientMessage>() {
 			console.debug('[SOCKET] <send>', message);
 			socket?.send(message);
 		},
-		[socket],
+		[socket]
 	);
 
 	return { send };

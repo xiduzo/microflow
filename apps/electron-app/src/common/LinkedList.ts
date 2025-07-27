@@ -1,48 +1,48 @@
 class Link<T> {
-    value: T;
-    next: Link<T> | null = null;
-    prev: Link<T> | null = null;
+	value: T;
+	next: Link<T> | null = null;
+	prev: Link<T> | null = null;
 
-    constructor(value: T) {
-        this.value = value;
-    }
+	constructor(value: T) {
+		this.value = value;
+	}
 }
 
 export class LinkedList<T> {
-  private head: Link<T> | null = null;
-  private tail: Link<T> | null = null;
+	private head: Link<T> | null = null;
+	private tail: Link<T> | null = null;
 
-  constructor(readonly init: T) {
-    this.append(init);
-  }
+	constructor(readonly init: T) {
+		this.append(init);
+	}
 
-  append(value: T): LinkedList<T> {
-    const newNode = new Link(value);
-    if (!this.head) {
-      this.head = newNode;
-      this.tail = newNode;
-    } else if (this.tail) {
-      this.tail.next = newNode;
-      newNode.prev = this.tail;
-      this.tail = newNode;
-    }
+	append(value: T): LinkedList<T> {
+		const newNode = new Link(value);
+		if (!this.head) {
+			this.head = newNode;
+			this.tail = newNode;
+		} else if (this.tail) {
+			this.tail.next = newNode;
+			newNode.prev = this.tail;
+			this.tail = newNode;
+		}
 
-    return this;
-  }
+		return this;
+	}
 
-  forward(): T | null {
-    if (!this.tail?.next) return null;
+	forward(): T | null {
+		if (!this.tail?.next) return null;
 
-    this.tail = this.tail.next;
+		this.tail = this.tail.next;
 
-    return this.tail.value;
-  }
+		return this.tail.value;
+	}
 
-  backward(): T | null {
-    if (!this.tail?.prev) return null;
+	backward(): T | null {
+		if (!this.tail?.prev) return null;
 
-    this.tail = this.tail.prev;
+		this.tail = this.tail.prev;
 
-    return this.tail.value;
-  }
+		return this.tail.value;
+	}
 }

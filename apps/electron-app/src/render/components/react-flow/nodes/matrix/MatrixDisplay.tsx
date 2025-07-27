@@ -23,7 +23,7 @@ export function MatrixDisplay(props: Props) {
 							editable: !!props.onCellClick,
 						})}
 					/>
-				)),
+				))
 			)}
 		</section>
 	);

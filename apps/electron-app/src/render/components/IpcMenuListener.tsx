@@ -112,7 +112,7 @@ export function IpcMenuListeners() {
 						selectedNodes().map(node => ({
 							type: 'remove',
 							id: node.id,
-						})),
+						}))
 					);
 					break;
 				case 'paste':
@@ -130,7 +130,7 @@ export function IpcMenuListeners() {
 									y: node.position.y + 20,
 								},
 							},
-						})),
+						}))
 					);
 					break;
 				case 'delete':
@@ -139,13 +139,13 @@ export function IpcMenuListeners() {
 						selectedNodes().map(node => ({
 							type: 'remove',
 							id: node.id,
-						})),
+						}))
 					);
 					onEdgesChange(
 						selectedEdges().map(edge => ({
 							type: 'remove',
 							id: edge.id,
-						})),
+						}))
 					);
 					break;
 				default:

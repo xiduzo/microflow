@@ -21,27 +21,27 @@ export function NoteSelector(props: { value: string; onSelect: (value: string | 
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<Button
-					variant="outline"
-					role="combobox"
+					variant='outline'
+					role='combobox'
 					aria-expanded={open}
-					className="justify-between w-full"
+					className='justify-between w-full'
 				>
 					{NOTES_AND_FREQUENCIES.get(props.value)
 						? props.value
 						: props.value === 'null'
 							? 'Rest'
 							: 'Select note...'}
-					<Icons.ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+					<Icons.ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent className="p-0">
+			<PopoverContent className='p-0'>
 				<Command>
-					<CommandInput placeholder="Search note..." />
+					<CommandInput placeholder='Search note...' />
 					<CommandList>
 						<CommandEmpty>No framework found.</CommandEmpty>
 						<CommandGroup>
 							<CommandItem
-								value="Rest"
+								value='Rest'
 								onSelect={() => {
 									props.onSelect(null);
 									setOpen(false);

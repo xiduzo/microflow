@@ -22,7 +22,7 @@ export function NodeEditor(props: Props) {
 	return (
 		<Popover>
 			<PopoverTrigger>{props.children}</PopoverTrigger>
-			<PopoverContent className="space-y-2">
+			<PopoverContent className='space-y-2'>
 				<NoteSelector
 					value={String(note)}
 					onSelect={value => {
@@ -52,7 +52,7 @@ export function NodeEditor(props: Props) {
 				</Select>
 				<Button
 					variant={props.action.variant}
-					className="w-full"
+					className='w-full'
 					onClick={() => props.action.onClick(internalNode)}
 				>
 					{props.action.label}

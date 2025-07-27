@@ -15,8 +15,8 @@ export function useSignalNodesAndEdges() {
 
 			if (result.data.value instanceof Error) {
 				toast.error(result.data.value.message, {
-					important: true,
 					description: `Error in node ${result.data.nodeId} with handle ${result.data.action}`,
+					duration: Infinity,
 				});
 				return;
 			}
@@ -26,7 +26,7 @@ export function useSignalNodesAndEdges() {
 			getEdges()
 				.filter(
 					({ source, sourceHandle }) =>
-						source === result.data.nodeId && sourceHandle === result.data.action,
+						source === result.data.nodeId && sourceHandle === result.data.action
 				)
 				.map(edge => {
 					const timeout = timeouts.current.get(edge.id);
@@ -38,7 +38,7 @@ export function useSignalNodesAndEdges() {
 						edge.id,
 						setTimeout(() => {
 							updateEdge(edge.id, { animated: false });
-						}, 150),
+						}, 150)
 					);
 				});
 		});

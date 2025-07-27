@@ -37,10 +37,10 @@ export function SongEditor(props: Props) {
 				<DialogHeader>
 					<DialogTitle>Edit song</DialogTitle>
 				</DialogHeader>
-				<section className="flex flex-col space-y-4">
+				<section className='flex flex-col space-y-4'>
 					<MusicSheet song={editedSong.map(song => song.note)} />
 					<DragAndDropProvider swap={swapNotes}>
-						<section className="grid gap-2 grid-cols-4">
+						<section className='grid gap-2 grid-cols-4'>
 							{editedSong?.map(({ note, id }, index) => (
 								<NodeEditor
 									key={id}
@@ -66,7 +66,7 @@ export function SongEditor(props: Props) {
 								>
 									<DndBadge id={id}>
 										<span>{note[0] ?? 'Rest'}</span>
-										<span className="text-muted-foreground">
+										<span className='text-muted-foreground'>
 											{noteDurationToVisualDuation(note[1])}
 										</span>
 									</DndBadge>
@@ -84,8 +84,8 @@ export function SongEditor(props: Props) {
 								}}
 							>
 								<Badge
-									variant="outline"
-									className="text-muted-foreground hover:text-foreground border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full"
+									variant='outline'
+									className='text-muted-foreground hover:text-foreground border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full'
 								>
 									Add note
 								</Badge>
@@ -94,7 +94,7 @@ export function SongEditor(props: Props) {
 					</DragAndDropProvider>
 					<DialogFooter>
 						<Button
-							variant="destructive"
+							variant='destructive'
 							onClick={() => {
 								setEditedSong([]);
 							}}

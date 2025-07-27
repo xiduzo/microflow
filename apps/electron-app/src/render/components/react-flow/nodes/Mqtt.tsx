@@ -25,10 +25,10 @@ export function Mqtt(props: Props) {
 			<Value />
 			<Settings />
 			{props.data.direction === 'publish' && (
-				<Handle type="target" position={Position.Left} id="publish" />
+				<Handle type='target' position={Position.Left} id='publish' />
 			)}
 			{props.data.direction === 'subscribe' && (
-				<Handle type="source" position={Position.Right} id="subscribe" />
+				<Handle type='source' position={Position.Right} id='subscribe' />
 			)}
 		</NodeContainer>
 	);
@@ -54,7 +54,10 @@ function Subscriber() {
 				if (!isNaN(parsed)) value = parsed;
 			}
 
-			window.electron.ipcRenderer.send('ipc-external-value', { nodeId: id, value });
+			window.electron.ipcRenderer.send('ipc-external-value', {
+				nodeId: id,
+				value,
+			});
 		});
 
 		return () => {

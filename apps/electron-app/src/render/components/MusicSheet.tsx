@@ -16,7 +16,7 @@ export function MusicSheet(props: Props) {
 		});
 	}, [props.song]);
 
-	return <div className="w-full" ref={ref} />;
+	return <div className='w-full' ref={ref} />;
 }
 
 function convertToABC(notes: Note[]) {

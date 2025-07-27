@@ -13,9 +13,9 @@ export function Switch(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="open" title="active" offset={-1} />
-			<Handle type="source" position={Position.Right} id="change" />
-			<Handle type="source" position={Position.Right} id="close" title="inactive" offset={1} />
+			<Handle type='source' position={Position.Right} id='open' title='active' offset={-1} />
+			<Handle type='source' position={Position.Right} id='change' />
+			<Handle type='source' position={Position.Right} id='close' title='inactive' offset={1} />
 		</NodeContainer>
 	);
 }
@@ -23,7 +23,7 @@ export function Switch(props: Props) {
 function Value() {
 	const value = useNodeValue<SwitchValueType>(false);
 
-	return <UiSwitch checked={value} className="scale-150" />;
+	return <UiSwitch checked={value} className='scale-150' />;
 }
 
 function Settings() {
@@ -40,7 +40,7 @@ function Settings() {
 				],
 			},
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

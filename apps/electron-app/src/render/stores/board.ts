@@ -28,13 +28,13 @@ export const usePins = (shouldHaveMode?: MODES[], shouldNotHaveMode?: MODES[]) =
 			if (!state.upload.pins) return [];
 			if (!shouldHaveMode?.length) return state.upload.pins;
 			const pins = state.upload.pins.filter(pin =>
-				shouldHaveMode.every(mode => pin.supportedModes.includes(mode)),
+				shouldHaveMode.every(mode => pin.supportedModes.includes(mode))
 			);
 
 			if (!shouldNotHaveMode?.length) return pins;
 
 			return pins.filter(pin => !shouldNotHaveMode.some(mode => pin.supportedModes.includes(mode)));
-		}),
+		})
 	);
 
 export const useUploadResult = () =>

@@ -15,12 +15,16 @@ export function useUpdateNode<T extends Record<string, unknown>>(nodeId: string)
 
 			console.log('<updateNode>', node, data);
 			onNodesChange([
-				{ id: nodeId, type: 'replace', item: { ...node!, data: { ...node!.data, ...data } } },
+				{
+					id: nodeId,
+					type: 'replace',
+					item: { ...node!, data: { ...node!.data, ...data } },
+				},
 			]);
 
 			updateNodeInternals(nodeId);
 		},
-		[uploadCode, getNode, nodeId, onNodesChange, updateNodeInternals],
+		[uploadCode, getNode, nodeId, onNodesChange, updateNodeInternals]
 	);
 
 	return updateNode;

@@ -38,7 +38,7 @@ export function IpcDeepLinkListener() {
 						console.debug('no know deeplink action for', result.data.type);
 						break;
 				}
-			},
+			}
 		);
 	}, []);
 

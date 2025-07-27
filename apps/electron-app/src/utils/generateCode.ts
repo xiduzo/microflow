@@ -81,7 +81,7 @@ if (!port) {
 				...acc,
 				[String(action.sourceHandle)]: [...(acc[String(action.sourceHandle)] || []), action],
 			}),
-			{} as Record<string, Edge[]>,
+			{} as Record<string, Edge[]>
 		);
 
 		// React to actions
@@ -94,20 +94,20 @@ if (!port) {
 
 				if (['gate', 'calculate'].includes(targetNode.type!.toLowerCase())) {
 					innerCode += wrapInTryCatch(
-						`${targetNode.type}_${targetNode.id}.check(${getAllEdgesValues(targetNode.id, edges, nodes)});`,
+						`${targetNode.type}_${targetNode.id}.check(${getAllEdgesValues(targetNode.id, edges, nodes)});`
 					);
 					return;
 				}
 
 				if (['llm'].includes(targetNode.type!.toLowerCase()) && edge.targetHandle !== 'invoke') {
 					innerCode += wrapInTryCatch(
-						`${targetNode.type}_${targetNode.id}.setVariable("${edge.targetHandle}", value);`,
+						`${targetNode.type}_${targetNode.id}.setVariable("${edge.targetHandle}", value);`
 					);
 					return;
 				}
 
 				innerCode += wrapInTryCatch(
-					`${targetNode.type}_${targetNode.id}.${edge.targetHandle}(value);`,
+					`${targetNode.type}_${targetNode.id}.${edge.targetHandle}(value);`
 				);
 				innerCode += addEnter();
 			});

@@ -11,8 +11,8 @@ export function Trigger(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="signal" />
-			<Handle type="source" position={Position.Right} id="bang" />
+			<Handle type='target' position={Position.Left} id='signal' />
+			<Handle type='source' position={Position.Right} id='bang' />
 		</NodeContainer>
 	);
 }
@@ -52,7 +52,7 @@ function Settings() {
 			{
 				relative: { value: data.relative!, label: 'percentage' },
 			},
-			{ collapsed: true },
+			{ collapsed: true }
 		),
 	});
 

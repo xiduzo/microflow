@@ -16,9 +16,9 @@ function Value() {
 
 	console.log({ value });
 	return (
-		<div className="group flex flex-row items-end justify-center">
-			<Icon icon="MousePointer2" fill="#ffcc00" stroke="#ffcc00" size={32}></Icon>
-			<section className="text-xs translate-y-4 block px-1.5 py-0.5 rounded-md bg-[#ffcc00] group-hover:block">
+		<div className='group flex flex-row items-end justify-center'>
+			<Icon icon='MousePointer2' fill='#ffcc00' stroke='#ffcc00' size={32}></Icon>
+			<section className='text-xs translate-y-4 block px-1.5 py-0.5 rounded-md bg-[#ffcc00] group-hover:block'>
 				{value.user.name}
 			</section>
 		</div>
@@ -45,4 +45,4 @@ User.defaultProps = {
 	} satisfies Props['data'],
 };
 
-export type UserProps = Props
+export type UserProps = Props;

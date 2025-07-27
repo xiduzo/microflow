@@ -17,19 +17,19 @@ export function Led(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="on" offset={-1.5} />
-			<Handle type="target" position={Position.Left} id="toggle" offset={-0.5} />
+			<Handle type='target' position={Position.Left} id='on' offset={-1.5} />
+			<Handle type='target' position={Position.Left} id='toggle' offset={-0.5} />
 			<Handle
-				type="target"
+				type='target'
 				position={Position.Left}
-				id="brightness"
+				id='brightness'
 				title={props.data.subType === 'vibration' ? 'intensity' : 'brightness'}
 				offset={0.5}
 				hint={`${isPmwPin ? '0-255' : 'requires a ~ pin'}`}
 				isConnectable={!!isPmwPin}
 			/>
-			<Handle type="target" position={Position.Left} id="off" offset={1.5} />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='target' position={Position.Left} id='off' offset={1.5} />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -47,10 +47,10 @@ function Value() {
 }
 
 function LedValue(props: { value: number }) {
-	if (!props.value) return <Icons.LightbulbOff className="text-muted-foreground" size={48} />;
+	if (!props.value) return <Icons.LightbulbOff className='text-muted-foreground' size={48} />;
 	return (
 		<Icons.Lightbulb
-			className="text-yellow-500"
+			className='text-yellow-500'
 			size={48}
 			style={{
 				opacity: props.value !== 1 ? props.value / 255 + 0.1 : 1, // Rhough dimmable LED
@@ -60,17 +60,17 @@ function LedValue(props: { value: number }) {
 }
 
 function VibrationValue(props: { value: number }) {
-	if (!props.value) return <Icons.VibrateOff className="text-muted-foreground" size={48} />;
+	if (!props.value) return <Icons.VibrateOff className='text-muted-foreground' size={48} />;
 	return (
-		<section className="relative">
+		<section className='relative'>
 			<Icons.Vibrate
-				className="text-orange-500 animate-wiggle"
+				className='text-orange-500 animate-wiggle'
 				size={48}
 				style={{
 					animationDuration: `${250 + (250 - (props.value > 1 ? props.value / 255 : 1) * 250)}ms`,
 				}}
 			/>
-			<div className="animate-ping w-8 h-8 bg-orange-500 rounded-full absolute left-[9px] right-0 bottom-0 top-2 -z-10"></div>
+			<div className='animate-ping w-8 h-8 bg-orange-500 rounded-full absolute left-[9px] right-0 bottom-0 top-2 -z-10'></div>
 		</section>
 	);
 }
@@ -83,7 +83,7 @@ function Settings() {
 		{
 			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

@@ -79,16 +79,16 @@ export function MqttSettingsForm(props: Props) {
 		>
 			<SheetContent>
 				<SheetHeader>
-					<SheetTitle className="flex gap-2 items-center">
+					<SheetTitle className='flex gap-2 items-center'>
 						<Icons.Globe size={16} />
 						Broker settings
 					</SheetTitle>
 					<SheetDescription>
 						When using Figma nodes, make sure to configure the same MQTT broker in the{' '}
 						<a
-							className="underline"
-							href="https://www.figma.com/community/plugin/1373258770799080545/figma-hardware-bridge"
-							target="_blank"
+							className='underline'
+							href='https://www.figma.com/community/plugin/1373258770799080545/figma-hardware-bridge'
+							target='_blank'
 						>
 							Figma plugin
 						</a>
@@ -96,19 +96,19 @@ export function MqttSettingsForm(props: Props) {
 					</SheetDescription>
 				</SheetHeader>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit)} className="my-4 space-y-4">
+					<form onSubmit={form.handleSubmit(onSubmit)} className='my-4 space-y-4'>
 						<FormField
 							control={form.control}
-							name="uniqueId"
+							name='uniqueId'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Identifier</FormLabel>
-									<section className="flex items-center space-x-2">
+									<section className='flex items-center space-x-2'>
 										<FormControl>
-											<Input placeholder="Your unique identifier" {...field} />
+											<Input placeholder='Your unique identifier' {...field} />
 										</FormControl>
-										<Button variant="ghost" type="button" onClick={setRandomUniqueName}>
-											<Icons.Dices className="w-4 h-4" />
+										<Button variant='ghost' type='button' onClick={setRandomUniqueName}>
+											<Icons.Dices className='w-4 h-4' />
 										</Button>
 									</section>
 									<FormMessage />
@@ -117,12 +117,12 @@ export function MqttSettingsForm(props: Props) {
 						/>
 						<FormField
 							control={form.control}
-							name="host"
+							name='host'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Host</FormLabel>
 									<FormControl>
-										<Input placeholder="test.mosquitto.org" {...field} />
+										<Input placeholder='test.mosquitto.org' {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -130,12 +130,12 @@ export function MqttSettingsForm(props: Props) {
 						/>
 						<FormField
 							control={form.control}
-							name="port"
+							name='port'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Port</FormLabel>
 									<FormControl>
-										<Input placeholder="8081" type="number" {...field} />
+										<Input placeholder='8081' type='number' {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -143,12 +143,12 @@ export function MqttSettingsForm(props: Props) {
 						/>
 						<FormField
 							control={form.control}
-							name="username"
+							name='username'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Username</FormLabel>
 									<FormControl>
-										<Input placeholder="xiduzo" {...field} />
+										<Input placeholder='xiduzo' {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -156,12 +156,12 @@ export function MqttSettingsForm(props: Props) {
 						/>
 						<FormField
 							control={form.control}
-							name="password"
+							name='password'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Password</FormLabel>
 									<FormControl>
-										<Input placeholder="************" type="password" {...field} />
+										<Input placeholder='************' type='password' {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -169,10 +169,10 @@ export function MqttSettingsForm(props: Props) {
 						/>
 						<FormField
 							control={form.control}
-							name="protocol"
+							name='protocol'
 							render={({ field }) => (
-								<FormItem className="flex justify-between items-center space-y-0">
-									<FormLabel className="grow">Encrypted (wss)</FormLabel>
+								<FormItem className='flex justify-between items-center space-y-0'>
+									<FormLabel className='grow'>Encrypted (wss)</FormLabel>
 									<FormControl>
 										<Switch
 											{...field}
@@ -188,9 +188,9 @@ export function MqttSettingsForm(props: Props) {
 						/>
 						<SheetFooter>
 							<SheetClose asChild>
-								<Button variant="secondary">Cancel</Button>
+								<Button variant='secondary'>Cancel</Button>
 							</SheetClose>
-							<Button type="submit">Save changes</Button>
+							<Button type='submit'>Save changes</Button>
 						</SheetFooter>
 					</form>
 				</Form>

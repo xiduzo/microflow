@@ -13,9 +13,9 @@ export function Relay(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="open" offset={-1} />
-			<Handle type="target" position={Position.Left} id="close" />
-			<Handle type="target" position={Position.Left} id="toggle" offset={1} />
+			<Handle type='target' position={Position.Left} id='open' offset={-1} />
+			<Handle type='target' position={Position.Left} id='close' />
+			<Handle type='target' position={Position.Left} id='toggle' offset={1} />
 		</NodeContainer>
 	);
 }
@@ -23,8 +23,8 @@ export function Relay(props: Props) {
 function Value() {
 	const value = useNodeValue<RelayValueType>(false);
 
-	if (!value) return <Icons.ZapOff className="text-muted-foreground" size={48} />;
-	return <Icons.Zap className="text-yellow-400" size={48} />;
+	if (!value) return <Icons.ZapOff className='text-muted-foreground' size={48} />;
+	return <Icons.Zap className='text-yellow-400' size={48} />;
 }
 
 function Settings() {
@@ -41,7 +41,7 @@ function Settings() {
 				],
 			},
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

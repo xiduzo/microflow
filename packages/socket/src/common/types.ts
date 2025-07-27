@@ -6,8 +6,19 @@ export type ServerIdentifyMessage = { type: 'identify'; data: { user: Connection
 export type ClientMouseMessage = { type: 'mouse'; data: { x: number; y: number } };
 export type ServerMouseMessage = { type: 'mouse'; data: { x: number; y: number; user: Connection } };
 
+// Node operation messages
+export type ClientNodeAddMessage = { type: 'node-add'; data: { node: unknown } };
+export type ClientNodeRemoveMessage = { type: 'node-remove'; data: { nodeId: string } };
+export type ClientNodePositionMessage = { type: 'node-position'; data: { nodeId: string; position: { x: number; y: number } } };
+export type ClientNodeDataMessage = { type: 'node-data'; data: { nodeId: string; data: unknown } };
+
+export type ServerNodeAddMessage = { type: 'node-add'; data: { node: unknown } };
+export type ServerNodeRemoveMessage = { type: 'node-remove'; data: { nodeId: string  } };
+export type ServerNodePositionMessage = { type: 'node-position'; data: { nodeId: string; position: { x: number; y: number } } };
+export type ServerNodeDataMessage = { type: 'node-data'; data: { nodeId: string; data: unknown } };
+
 export type ServerConnectedMessage = { type: 'connected', data: { user: Connection; connections: Connection[] } };
 export type ServerDisconnectedMessage = { type: 'disconnected', data: { user: Connection; connections: Connection[] } };
 
-export type ClientMessage = ClientIdentifyMessage | ClientMouseMessage;
-export type ServerMessage = ServerIdentifyMessage | ServerMouseMessage | ServerConnectedMessage | ServerDisconnectedMessage;
+export type ClientMessage = ClientIdentifyMessage | ClientMouseMessage | ClientNodeAddMessage | ClientNodeRemoveMessage | ClientNodePositionMessage | ClientNodeDataMessage;
+export type ServerMessage = ServerIdentifyMessage | ServerMouseMessage | ServerNodeAddMessage | ServerNodeRemoveMessage | ServerNodePositionMessage | ServerNodeDataMessage | ServerConnectedMessage | ServerDisconnectedMessage;

@@ -10,7 +10,7 @@ export function Constant(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="output" />
+			<Handle type='source' position={Position.Right} id='output' />
 		</NodeContainer>
 	);
 }
@@ -18,7 +18,7 @@ export function Constant(props: Props) {
 function Value() {
 	const data = useNodeData<ConstantData>();
 
-	return <section className="text-4xl tabular-nums">{numberFormat.format(data.value)}</section>;
+	return <section className='text-4xl tabular-nums'>{numberFormat.format(data.value)}</section>;
 }
 
 function Settings() {

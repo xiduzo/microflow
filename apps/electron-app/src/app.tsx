@@ -23,11 +23,11 @@ export function App() {
 	});
 
 	return (
-		<section className="h-screen w-screen">
+		<section className='h-screen w-screen'>
 			<DarkMode />
-			<Toaster position="top-left" className="z-20" duration={5000} />
+			<Toaster position='top-left' className='z-20' duration={5000} />
 			<CelebrationProvider>
-				<MqttProvider appName="app" config={mqttConfig}>
+				<MqttProvider appName='app' config={mqttConfig}>
 					<FigmaProvider>
 						<ReactFlowProvider>
 							<IpcDeepLinkListener />
@@ -47,7 +47,7 @@ const root = createRoot(document.body.querySelector('main')!);
 root.render(
 	<StrictMode>
 		<App />
-	</StrictMode>,
+	</StrictMode>
 );
 
 function BoardHooks() {

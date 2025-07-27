@@ -57,10 +57,12 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 		setLocalItem('edges', JSON.stringify(INTRODUCTION_EDGES));
 	}
 
-	const localNodes = getLocalItem<Node[]>('nodes', []).filter(node => node.data.group !== 'internal').map(node => ({
-		...node,
-		selected: false,
-	}));
+	const localNodes = getLocalItem<Node[]>('nodes', [])
+		.filter(node => node.data.group !== 'internal')
+		.map(node => ({
+			...node,
+			selected: false,
+		}));
 
 	const localEdges = getLocalItem<Edge[]>('edges', []).map(edge => ({
 		...edge,
@@ -92,7 +94,7 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 			});
 
 			const hasChangesWhichNeedSaving = changes.some(
-				change => change.type === 'add' || change.type === 'remove',
+				change => change.type === 'add' || change.type === 'remove'
 			);
 			if (!hasChangesWhichNeedSaving) return;
 			updateHistory(get);
@@ -158,7 +160,7 @@ export function useReactFlowCanvas() {
 			onNodesChange: state.onNodesChange,
 			onEdgesChange: state.onEdgesChange,
 			onConnect: state.onConnect,
-		})),
+		}))
 	);
 }
 
@@ -167,7 +169,7 @@ export function useNodeAndEdgeCount() {
 		useShallow(state => ({
 			nodesCount: state.nodes.length,
 			edgesCount: state.edges.length,
-		})),
+		}))
 	);
 }
 
@@ -191,12 +193,20 @@ export function useSelectAll() {
 	return useReactFlowStore(
 		useShallow(state => () => {
 			state.onNodesChange(
-				state.nodes.map(node => ({ type: 'select', selected: true, id: node.id })),
+				state.nodes.map(node => ({
+					type: 'select',
+					selected: true,
+					id: node.id,
+				}))
 			);
 			state.onEdgesChange(
-				state.edges.map(edge => ({ type: 'select', selected: true, id: edge.id })),
+				state.edges.map(edge => ({
+					type: 'select',
+					selected: true,
+					id: edge.id,
+				}))
 			);
-		}),
+		})
 	);
 }
 
@@ -204,12 +214,20 @@ export function useDeselectAll() {
 	return useReactFlowStore(
 		useShallow(state => () => {
 			state.onNodesChange(
-				state.nodes.map(node => ({ type: 'select', selected: false, id: node.id })),
+				state.nodes.map(node => ({
+					type: 'select',
+					selected: false,
+					id: node.id,
+				}))
 			);
 			state.onEdgesChange(
-				state.edges.map(edge => ({ type: 'select', selected: false, id: edge.id })),
+				state.edges.map(edge => ({
+					type: 'select',
+					selected: false,
+					id: edge.id,
+				}))
 			);
-		}),
+		})
 	);
 }
 

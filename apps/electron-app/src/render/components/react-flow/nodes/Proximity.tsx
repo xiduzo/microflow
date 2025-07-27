@@ -12,7 +12,7 @@ export function Proximity(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -32,7 +32,10 @@ function Settings() {
 			value: data.pin,
 			options: pins.reduce(reducePinsToOptions, {}),
 		},
-		controller: { value: data.controller, options: ['GP2Y0A21YK', 'GP2Y0A710K0F'] }, // MB1000, MB1003, MB1020
+		controller: {
+			value: data.controller,
+			options: ['GP2Y0A21YK', 'GP2Y0A710K0F'],
+		}, // MB1000, MB1003, MB1020
 		freq: { value: data.freq!, min: 10, label: 'frequency (ms)' },
 	});
 

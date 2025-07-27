@@ -21,7 +21,7 @@ export function useSaveFlow() {
 
 			toast.success('Flow saved');
 		},
-		[setLocalNodes, getNodes, setLocalEdges, getEdges],
+		[setLocalNodes, getNodes, setLocalEdges, getEdges]
 	);
 
 	useEffect(() => {
@@ -35,7 +35,10 @@ export function useSaveFlow() {
 	}, [autoSave, saveNodesAndEdges]);
 
 	useEffect(() => {
-		window.electron.ipcRenderer.send('ipc-menu', { action: 'auto-save', args: autoSave });
+		window.electron.ipcRenderer.send('ipc-menu', {
+			action: 'auto-save',
+			args: autoSave,
+		});
 	}, [autoSave]);
 
 	return { autoSave, setAutoSave, saveNodesAndEdges };

@@ -65,7 +65,7 @@ export function AdvancedSettingsForm(props: Props) {
 		>
 			<SheetContent>
 				<SheetHeader>
-					<SheetTitle className="flex gap-2 items-center">
+					<SheetTitle className='flex gap-2 items-center'>
 						<Icons.Microchip size={16} />
 						Microcontroller settings
 					</SheetTitle>
@@ -74,23 +74,23 @@ export function AdvancedSettingsForm(props: Props) {
 					</SheetDescription>
 				</SheetHeader>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit, console.log)} className="my-4 space-y-4">
+					<form onSubmit={form.handleSubmit(onSubmit, console.log)} className='my-4 space-y-4'>
 						<FormField
 							control={form.control}
-							name="ip"
+							name='ip'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>IP-address</FormLabel>
 									<FormControl>
-										<Input placeholder="192.168.2.26" {...field} />
+										<Input placeholder='192.168.2.26' {...field} />
 									</FormControl>
 									<FormMessage />
 									<FormDescription>
 										The IP-address your of your microcontroller running{' '}
 										<a
-											className="underline"
-											href="https://github.com/firmata/arduino/tree/main/examples/StandardFirmataWiFi"
-											target="_blank"
+											className='underline'
+											href='https://github.com/firmata/arduino/tree/main/examples/StandardFirmataWiFi'
+											target='_blank'
 										>
 											StandardFirmataWifi
 										</a>
@@ -101,9 +101,9 @@ export function AdvancedSettingsForm(props: Props) {
 						/>
 						<SheetFooter>
 							<SheetClose asChild>
-								<Button variant="secondary">Cancel</Button>
+								<Button variant='secondary'>Cancel</Button>
 							</SheetClose>
-							<Button type="submit">Save changes</Button>
+							<Button type='submit'>Save changes</Button>
 						</SheetFooter>
 					</form>
 				</Form>
