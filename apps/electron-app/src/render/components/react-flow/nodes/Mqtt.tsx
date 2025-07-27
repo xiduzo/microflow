@@ -15,6 +15,7 @@ import {
 import { useNodeValue } from '../../../stores/node-data';
 import { useAppStore } from '../../../stores/app';
 import { button } from 'leva';
+import { IconWithValue } from '../IconWithValue';
 
 export function Mqtt(props: Props) {
 	const { status } = useMqtt();
@@ -81,8 +82,12 @@ function Value() {
 		publish(data.topic, JSON.stringify(value));
 	}, [value, data.topic, data.direction, publish]);
 
-	if (data.direction === 'publish') return <Icons.RadioTower size={48} />;
-	return <Icons.Antenna size={48} />;
+	return (
+		<IconWithValue
+			icon={data.direction === 'publish' ? 'RadioTower' : 'Antenna'}
+			value={data.topic ?? ''}
+		/>
+	);
 }
 
 function Settings() {

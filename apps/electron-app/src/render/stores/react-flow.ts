@@ -86,12 +86,10 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 		edges: initialEdges,
 		history: new LinkedList({ nodes: initialNodes, edges: initialEdges }),
 		onNodesChange: changes => {
+			// IDEA selected all connected edges when selecting a node
 			const nodes = get().nodes;
-			set({
-				nodes: applyNodeChanges(changes, nodes),
-			});
+			set({ nodes: applyNodeChanges(changes, nodes) });
 
-			// IDEA maybe select and unselect all edges connected to the node when selecting a node?
 			const hasChangesWhichNeedSaving = changes.some(change => change.type !== 'select');
 			if (!hasChangesWhichNeedSaving) return;
 

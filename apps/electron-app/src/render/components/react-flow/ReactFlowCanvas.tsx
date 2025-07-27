@@ -1,4 +1,13 @@
-import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
+import {
+	Background,
+	Controls,
+	Edge,
+	Node,
+	MiniMap,
+	Panel,
+	ReactFlow,
+	useReactFlow,
+} from '@xyflow/react';
 import { NODE_TYPES } from '../../../common/nodes';
 import { useReactFlowCanvas } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
@@ -13,6 +22,7 @@ export function ReactFlowCanvas() {
 	const { send } = useSocketSender();
 	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
+	const debounceMouseMouse = useRef<NodeJS.Timeout | null>(null);
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -31,14 +41,31 @@ export function ReactFlowCanvas() {
 
 	const handlePaneMouseMove = useCallback(
 		(event: React.MouseEvent<Element, MouseEvent>) => {
-			const flowPos = screenToFlowPosition({
-				x: event.clientX,
-				y: event.clientY,
-			});
+			if (debounceMouseMouse.current) clearTimeout(debounceMouseMouse.current);
 
-			send({ type: 'mouse', data: flowPos });
+			debounceMouseMouse.current = setTimeout(() => {
+				const flowPos = screenToFlowPosition({
+					x: event.clientX,
+					y: event.clientY,
+				});
+
+				send({ type: 'mouse', data: flowPos });
+			}, 16);
 		},
 		[screenToFlowPosition, send]
+	);
+
+	const handleDelete = useCallback(
+		({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) => {
+			console.log(nodes, edges);
+			nodes.forEach(node => {
+				send({ type: 'node-remove', data: { nodeId: node.id } });
+			});
+			edges.forEach(edge => {
+				send({ type: 'edge-remove', data: { edgeId: edge.id } });
+			});
+		},
+		[send]
 	);
 
 	useEffect(() => {
@@ -48,12 +75,57 @@ export function ReactFlowCanvas() {
 	return (
 		<ReactFlow
 			{...store}
-			onDelete={({ nodes, edges }) => {
-				console.log(nodes, edges);
-			}}
 			onConnect={connection => {
-				console.log(connection);
+				send({ type: 'edge-add', data: { edge: connection } });
 				store.onConnect(connection);
+			}}
+			onNodesChange={changes => {
+				changes.forEach(change => {
+					console.log(change);
+					switch (change.type) {
+						case 'add':
+							send({ type: 'node-add', data: { node: change.item } });
+							break;
+						case 'remove':
+							send({ type: 'node-remove', data: { nodeId: change.id } });
+							break;
+						case 'position':
+							send({
+								type: 'node-position',
+								data: { nodeId: change.id, position: change.position! },
+							});
+							break;
+						case 'replace':
+						case 'select':
+						case 'dimensions':
+							console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
+							break;
+						default:
+							console.warn('[REACT-FLOW] <unknown node change>', change);
+							break;
+					}
+				});
+				store.onNodesChange(changes);
+			}}
+			onEdgesChange={changes => {
+				changes.forEach(change => {
+					console.log(change);
+					switch (change.type) {
+						case 'add':
+							send({ type: 'edge-add', data: { edge: change.item } });
+							break;
+						case 'remove':
+							send({ type: 'edge-remove', data: { edgeId: change.id } });
+							break;
+						case 'replace':
+						case 'select':
+							console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
+							break;
+						default:
+							console.warn('[REACT-FLOW] <unknown edge change>', change);
+					}
+				});
+				store.onEdgesChange(changes);
 			}}
 			onPaneMouseMove={handlePaneMouseMove}
 			edgeTypes={EDGE_TYPES}

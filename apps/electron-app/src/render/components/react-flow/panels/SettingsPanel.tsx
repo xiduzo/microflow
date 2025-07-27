@@ -6,7 +6,7 @@ export function SettingsPanel() {
 	});
 
 	return (
-		<section id='settings-panels' className='flex flex-col space-y-2' ref={animationRef}>
+		<section id='settings-panels' className='flex flex-col space-y-2 pt-12' ref={animationRef}>
 			{/* Filled component by settings */}
 		</section>
 	);

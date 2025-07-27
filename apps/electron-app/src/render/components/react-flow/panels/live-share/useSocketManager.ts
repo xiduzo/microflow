@@ -1,14 +1,7 @@
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSocketListener, useSocketSender, useSocketStore } from '../../../../stores/socket';
 import { useReactFlowCanvas } from '../../../../stores/react-flow';
 import { User, UserProps } from '../../nodes/User';
-import {
-	ServerConnectedMessage,
-	ServerDisconnectedMessage,
-	ServerIdentifyMessage,
-	ServerMessage,
-	ServerMouseMessage,
-} from '@microflow/socket/client';
 import { useAppStore } from '../../../../stores/app';
 
 export function useSocketManager() {
@@ -21,11 +14,11 @@ export function useSocketManager() {
 		addConnection,
 		removeConnection,
 	} = useSocketStore();
-	const { onNodesChange } = useReactFlowCanvas();
+	const { onNodesChange, onEdgesChange } = useReactFlowCanvas();
 	const { send } = useSocketSender();
 	const { user } = useAppStore();
 
-	const handleConnection = useCallback((event: ServerConnectedMessage) => {
+	useSocketListener('connected', event => {
 		addConnection(event.data.user);
 		onNodesChange([
 			{
@@ -34,17 +27,12 @@ export function useSocketManager() {
 					...User.defaultProps,
 					position: { x: 0, y: 0 },
 					id: event.data.user.id,
-					data: {
-						...User.defaultProps.data,
-						user: event.data.user,
-					} satisfies UserProps['data'],
 				},
 			},
 		]);
-	}, []);
-	useSocketListener('connected', handleConnection);
+	});
 
-	const handleDisconnection = useCallback((event: ServerDisconnectedMessage) => {
+	useSocketListener('disconnected', event => {
 		removeConnection(event.data.user);
 		onNodesChange([
 			{
@@ -52,10 +40,9 @@ export function useSocketManager() {
 				id: event.data.user.id,
 			},
 		]);
-	}, []);
-	useSocketListener('disconnected', handleDisconnection);
+	});
 
-	const handleIdentify = useCallback((event: ServerIdentifyMessage) => {
+	useSocketListener('identify', event => {
 		onNodesChange([
 			{
 				type: 'replace',
@@ -71,10 +58,9 @@ export function useSocketManager() {
 				},
 			},
 		]);
-	}, []);
-	useSocketListener('identify', handleIdentify);
+	});
 
-	const handleMouse = useCallback((event: ServerMouseMessage) => {
+	useSocketListener('mouse', event => {
 		onNodesChange([
 			{
 				id: event.data.user.id,
@@ -82,8 +68,25 @@ export function useSocketManager() {
 				position: event.data,
 			},
 		]);
-	}, []);
-	useSocketListener('mouse', handleMouse);
+	});
+
+	useSocketListener('node-remove', event => {
+		onNodesChange([
+			{
+				type: 'remove',
+				id: event.data.nodeId,
+			},
+		]);
+	});
+
+	useSocketListener('edge-remove', event => {
+		onEdgesChange([
+			{
+				type: 'remove',
+				id: event.data.edgeId,
+			},
+		]);
+	});
 
 	useEffect(() => {
 		if (status.type !== 'shared' && status.type !== 'joined') return;

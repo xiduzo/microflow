@@ -11,7 +11,7 @@ import {
 import { useMemo, useState } from 'react';
 import { useSocketStore } from '../../../../stores/socket';
 import { useShareIpcListener } from './useShareIpcListener';
-import { useSocketManager } from './useSockerManager';
+import { useSocketManager } from './useSocketManager';
 import { JoinSessionDialog } from './JoinSessionDialog';
 
 export function SharePanel() {
