@@ -18,6 +18,14 @@ import { getLocalItem, setLocalItem } from '../../common/local-storage';
 
 const HISTORY_DEBOUNCE_TIME_IN_MS = 100;
 
+function getInternalNodes(nodes: Node<Record<string, unknown>>[]) {
+	return nodes.filter(node => node.data.group === 'internal');
+}
+
+function filterOutInternalNodes(nodes: Node<Record<string, unknown>>[]) {
+	return nodes.filter(node => node.data.group !== 'internal');
+}
+
 export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
 	edges: Edge[];
@@ -40,7 +48,7 @@ function updateHistory(get: () => ReactFlowState<{}>) {
 	historyUpdateDebounce = setTimeout(() => {
 		const { nodes, edges, history } = get();
 		history.append({
-			nodes: JSON.parse(JSON.stringify(nodes)), // remove references
+			nodes: JSON.parse(JSON.stringify(filterOutInternalNodes(nodes))), // remove references
 			edges: JSON.parse(JSON.stringify(edges)), // remove references
 		});
 
@@ -78,14 +86,24 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 		edges: initialEdges,
 		history: new LinkedList({ nodes: initialNodes, edges: initialEdges }),
 		onNodesChange: changes => {
+			const nodes = get().nodes;
 			set({
-				nodes: applyNodeChanges(changes, get().nodes),
+				nodes: applyNodeChanges(changes, nodes),
 			});
 
-			// IDEA maybe select and unselect all edges connected to the node?
+			// IDEA maybe select and unselect all edges connected to the node when selecting a node?
 			const hasChangesWhichNeedSaving = changes.some(change => change.type !== 'select');
-
 			if (!hasChangesWhichNeedSaving) return;
+
+			// Filter out changes from internal nodes
+			const changesWhichApplyToInternalNodes = changes.filter(
+				change =>
+					change.type === 'position' &&
+					(nodes.find(node => node.id === change.id)?.data as { group: string })?.group ===
+						'internal'
+			);
+			if (changesWhichApplyToInternalNodes.length) return;
+
 			updateHistory(get);
 		},
 		onEdgesChange: changes => {
@@ -139,7 +157,10 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 			const state = history.backward();
 			if (!state) return;
 
-			set({ ...state });
+			const nodes = get().nodes;
+			const internalNodes = getInternalNodes(nodes);
+
+			set({ ...state, nodes: [...state.nodes, ...internalNodes] });
 		},
 		redo: () => {
 			const history = get().history;
@@ -147,7 +168,10 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 			const state = history.forward();
 			if (!state) return;
 
-			set({ ...state });
+			const nodes = get().nodes;
+			const internalNodes = getInternalNodes(nodes);
+
+			set({ ...state, nodes: [...state.nodes, ...internalNodes] });
 		},
 	};
 });
@@ -237,4 +261,13 @@ export function useSelectNodes() {
 
 export function useSelectedEdges() {
 	return useReactFlowStore(useShallow(state => () => state.edges.filter(edge => edge.selected)));
+}
+
+export function useNonInternalNodes() {
+	return useReactFlowStore(
+		useShallow(
+			state => () =>
+				state.nodes.filter(node => (node.data as { group: string }).group !== 'internal')
+		)
+	);
 }

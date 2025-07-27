@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useSocketListener, useSocketStore } from '../../../../stores/socket';
+import { useSocketListener, useSocketSender, useSocketStore } from '../../../../stores/socket';
 import { useReactFlowCanvas } from '../../../../stores/react-flow';
 import { User, UserProps } from '../../nodes/User';
 import {
@@ -9,12 +9,21 @@ import {
 	ServerMessage,
 	ServerMouseMessage,
 } from '@microflow/socket/client';
-import { useReactFlow } from '@xyflow/react';
+import { useAppStore } from '../../../../stores/app';
 
 export function useSocketManager() {
-	const { status, connections, createSocket, closeSocket, addConnection, removeConnection } =
-		useSocketStore();
+	const {
+		socket,
+		status,
+		connections,
+		createSocket,
+		closeSocket,
+		addConnection,
+		removeConnection,
+	} = useSocketStore();
 	const { onNodesChange } = useReactFlowCanvas();
+	const { send } = useSocketSender();
+	const { user } = useAppStore();
 
 	const handleConnection = useCallback((event: ServerConnectedMessage) => {
 		addConnection(event.data.user);
@@ -66,7 +75,6 @@ export function useSocketManager() {
 	useSocketListener('identify', handleIdentify);
 
 	const handleMouse = useCallback((event: ServerMouseMessage) => {
-		console.log('mouse', event.data);
 		onNodesChange([
 			{
 				id: event.data.user.id,
@@ -97,4 +105,15 @@ export function useSocketManager() {
 			}))
 		);
 	}, [status.type, connections, onNodesChange]);
+
+	useEffect(() => {
+		if (!user) return;
+		if (status.type !== 'joined' && status.type !== 'shared') return;
+		if (!socket?.connected) return;
+
+		send({
+			type: 'identify',
+			data: user,
+		});
+	}, [status.type, send, user, socket?.connected]);
 }

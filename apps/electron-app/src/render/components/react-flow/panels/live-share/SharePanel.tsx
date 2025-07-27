@@ -1,51 +1,23 @@
 import {
 	Button,
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 	Icon,
 	IconName,
-	Input,
 	toast,
-	useForm,
-	zodResolver,
-	Zod,
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
 } from '@microflow/ui';
 import { useMemo, useState } from 'react';
 import { useSocketStore } from '../../../../stores/socket';
-import { useShareListener } from './useShareListener';
+import { useShareIpcListener } from './useShareIpcListener';
 import { useSocketManager } from './useSockerManager';
-
-const schema = Zod.object({
-	code: Zod.string().min(1, 'Tunnel code is required'),
-});
-
-type Schema = Zod.infer<typeof schema>;
+import { JoinSessionDialog } from './JoinSessionDialog';
 
 export function SharePanel() {
 	const { status } = useSocketStore();
-	const [joining, setJoining] = useState(false);
-	const form = useForm({
-		resolver: zodResolver(schema),
-		defaultValues: {
-			code: '',
-		},
-	});
-	useShareListener();
+	const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+	useShareIpcListener();
 	useSocketManager();
 
 	function hostAction() {
@@ -54,15 +26,12 @@ export function SharePanel() {
 		toast.info(`${type}ing collaboration session`);
 	}
 
-	function clientAction(data?: Schema) {
+	function clientAction() {
 		const type = status.type === 'disconnected' ? 'join' : 'leave';
 		window.electron.ipcRenderer.send('ipc-live-share', {
 			type,
-			code: data?.code,
 		});
 		toast.info(`${type}ing live share...`);
-		form.reset();
-		setJoining(false);
 	}
 
 	const [title, icon] = useMemo((): [string, IconName] => {
@@ -103,7 +72,7 @@ export function SharePanel() {
 								<Icon icon='Router' />
 								Start a collaboration session
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => setJoining(true)}>
+							<DropdownMenuItem onClick={() => setJoinDialogOpen(true)}>
 								<Icon icon='RadioReceiver' />
 								Join a collaboration session
 							</DropdownMenuItem>
@@ -111,7 +80,7 @@ export function SharePanel() {
 					)}
 					{status.type === 'joined' && (
 						<>
-							<DropdownMenuItem onClick={() => clientAction()}>
+							<DropdownMenuItem onClick={clientAction}>
 								<Icon icon='RadioReceiver' />
 								Leave the collaboration session
 							</DropdownMenuItem>
@@ -119,45 +88,7 @@ export function SharePanel() {
 					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<Dialog open={joining} onOpenChange={setJoining}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Join a collaboration session</DialogTitle>
-						<DialogDescription>
-							Enter the session code to join a collaboration session.
-						</DialogDescription>
-					</DialogHeader>
-					<Form {...form}>
-						<form onSubmit={form.handleSubmit(clientAction)}>
-							<fieldset className='mb-6'>
-								<FormField
-									control={form.control}
-									name='code'
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Session code</FormLabel>
-											<FormControl>
-												<Input placeholder='Enter session code or URL' {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							</fieldset>
-							<DialogFooter>
-								<DialogClose asChild>
-									<Button type='button' variant='secondary'>
-										Cancel
-									</Button>
-								</DialogClose>
-								<Button type='submit' disabled={status.type === 'initializing'}>
-									Join session
-								</Button>
-							</DialogFooter>
-						</form>
-					</Form>
-				</DialogContent>
-			</Dialog>
+			<JoinSessionDialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen} />
 		</>
 	);
 }

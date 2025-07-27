@@ -1,6 +1,6 @@
-const { app } = require('electron');
-const { updateElectronApp } = require('update-electron-app');
-const path = require('node:path');
+import { app } from 'electron';
+import { updateElectronApp } from 'update-electron-app';
+import path from 'node:path';
 import logger from 'electron-log/node';
 import { BrowserWindow } from 'electron';
 

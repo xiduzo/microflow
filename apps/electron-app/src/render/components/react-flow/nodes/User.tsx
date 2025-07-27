@@ -12,14 +12,13 @@ export function User(props: Props) {
 }
 
 function Value() {
-	const value = useNodeData<UserData>();
+	const { user } = useNodeData<UserData>();
 
-	console.log({ value });
 	return (
 		<div className='group flex flex-row items-end justify-center'>
 			<Icon icon='MousePointer2' fill='#ffcc00' stroke='#ffcc00' size={32}></Icon>
 			<section className='text-xs translate-y-4 block px-1.5 py-0.5 rounded-md bg-[#ffcc00] group-hover:block'>
-				{value.user.name}
+				{user.name}
 			</section>
 		</div>
 	);

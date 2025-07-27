@@ -18,9 +18,14 @@ import { getRandomUniqueUserName } from './common/unique';
 export function App() {
 	const { user } = useAppStore();
 
-	const [mqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
+	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
 		uniqueId: user?.name ?? getRandomUniqueUserName(),
 	});
+
+	useEffect(() => {
+		if (!user?.name) return;
+		setMqttConfig({ ...mqttConfig, uniqueId: user.name });
+	}, [user, setMqttConfig]);
 
 	return (
 		<section className='h-screen w-screen'>

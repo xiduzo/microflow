@@ -7,15 +7,12 @@ import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
 import { SharePanel } from './panels/live-share/SharePanel';
 import { useSocketSender } from '../../stores/socket';
-
-const MOUSE_DEBOUNCE_DURATION = 10; // ~30fps
+import { UserPanel } from './panels/UserPanel';
 
 export function ReactFlowCanvas() {
 	const { send } = useSocketSender();
 	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
-
-	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -34,17 +31,12 @@ export function ReactFlowCanvas() {
 
 	const handlePaneMouseMove = useCallback(
 		(event: React.MouseEvent<Element, MouseEvent>) => {
-			if (debounceRef.current) clearTimeout(debounceRef.current);
-
 			const flowPos = screenToFlowPosition({
 				x: event.clientX,
 				y: event.clientY,
 			});
 
-			debounceRef.current = setTimeout(() => {
-				console.debug('sending mouse message', flowPos);
-				send({ type: 'mouse', data: flowPos });
-			}, MOUSE_DEBOUNCE_DURATION);
+			send({ type: 'mouse', data: flowPos });
 		},
 		[screenToFlowPosition, send]
 	);
@@ -56,6 +48,13 @@ export function ReactFlowCanvas() {
 	return (
 		<ReactFlow
 			{...store}
+			onDelete={({ nodes, edges }) => {
+				console.log(nodes, edges);
+			}}
+			onConnect={connection => {
+				console.log(connection);
+				store.onConnect(connection);
+			}}
 			onPaneMouseMove={handlePaneMouseMove}
 			edgeTypes={EDGE_TYPES}
 			nodeTypes={NODE_TYPES}
@@ -65,7 +64,11 @@ export function ReactFlowCanvas() {
 			selectNodesOnDrag={false}
 		>
 			<Controls />
-			<MiniMap nodeBorderRadius={12} pannable />
+			<MiniMap
+				nodeBorderRadius={12}
+				pannable
+				nodeClassName={node => `react-flow__minimap-node__${node.type ?? ''}`}
+			/>
 			<Background gap={140} />
 
 			<Panel position='top-center'>
@@ -90,6 +93,9 @@ export function ReactFlowCanvas() {
 			</Panel>
 			<Panel position='top-left'>
 				<SharePanel />
+			</Panel>
+			<Panel position='top-right'>
+				<UserPanel />
 			</Panel>
 		</ReactFlow>
 	);

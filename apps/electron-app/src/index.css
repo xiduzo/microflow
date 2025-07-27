@@ -21,6 +21,10 @@ body {
 	@apply fill-blue-500;
 }
 
+.react-flow__minimap .react-flow__minimap-node.react-flow__minimap-node__User {
+	@apply hidden;
+}
+
 .react-flow__node.dragging {
 	z-index: 999998 !important;
 }

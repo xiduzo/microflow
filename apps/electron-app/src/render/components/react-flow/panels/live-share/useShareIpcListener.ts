@@ -5,7 +5,7 @@ import { toBase64 } from '@microflow/utils/base64';
 import { useCopyToClipboard } from 'usehooks-ts';
 import { getRandomMessage } from '../../../../../common/messages';
 
-export function useShareListener() {
+export function useShareIpcListener() {
 	const { setStatus } = useSocketStore();
 	const [, copy] = useCopyToClipboard();
 

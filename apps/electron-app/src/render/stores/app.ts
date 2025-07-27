@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getLocalItem, setLocalItem } from '../../common/local-storage';
+import { getRandomUniqueUserName } from '../../common/unique';
 
 export type User = {
 	name: string;
@@ -13,7 +14,13 @@ type AppState = {
 };
 
 export const useAppStore = create<AppState>(set => {
-	const user = getLocalItem<User | null>('user', null);
+	let user = getLocalItem<User | null>('user', null);
+	if (!user) {
+		user = {
+			name: getRandomUniqueUserName(),
+		};
+		setLocalItem('user', user);
+	}
 	return {
 		settingsOpen: undefined,
 		setSettingsOpen: (settingsOpen: string | undefined) => set({ settingsOpen }),

@@ -5,6 +5,7 @@ import { FlowFile } from '../../common/types';
 import { useSaveFlow } from '../hooks/useSaveFlow';
 import {
 	useDeselectAll,
+	useNonInternalNodes,
 	useReactFlowStore,
 	useSelectAll,
 	useSelectedEdges,
@@ -15,6 +16,17 @@ import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
 import { useAppStore } from '../stores/app';
 import { useNewNodeStore } from '../stores/new-node';
 import { useShallow } from 'zustand/shallow';
+
+function canTriggerAction() {
+	const selectedElement = window.document.activeElement as HTMLElement;
+
+	if (selectedElement === window.document.body) return true;
+	if (selectedElement.classList.contains('react-flow__node')) return true;
+	if (selectedElement.classList.contains('react-flow__edge')) return true;
+	if (selectedElement.classList.contains('react-flow__nodesselection-rect')) return true;
+
+	return false;
+}
 
 export function IpcMenuListeners() {
 	const { getNodes, getEdges, fitView } = useReactFlow();
@@ -30,17 +42,7 @@ export function IpcMenuListeners() {
 	const deselectAll = useDeselectAll();
 	const selectedNodes = useSelectNodes();
 	const selectedEdges = useSelectedEdges();
-
-	function canTriggerAction() {
-		const selectedElement = window.document.activeElement as HTMLElement;
-
-		if (selectedElement === window.document.body) return true;
-		if (selectedElement.classList.contains('react-flow__node')) return true;
-		if (selectedElement.classList.contains('react-flow__edge')) return true;
-		if (selectedElement.classList.contains('react-flow__nodesselection-rect')) return true;
-
-		return false;
-	}
+	const nonInternalNodes = useNonInternalNodes();
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<{ button: string; args: any }>('ipc-menu', result => {
@@ -82,7 +84,12 @@ export function IpcMenuListeners() {
 					fitView({
 						duration: 400,
 						padding: 0.15,
-						nodes: selectedNodes().length > 0 ? selectedNodes() : undefined,
+						nodes:
+							selectedNodes().length > 0
+								? selectedNodes()
+								: nonInternalNodes().length > 0
+									? nonInternalNodes()
+									: undefined,
 					});
 					break;
 				case 'undo':
@@ -95,6 +102,7 @@ export function IpcMenuListeners() {
 					break;
 				case 'select-all':
 					if (!canTriggerAction()) break;
+					window.getSelection()?.removeAllRanges();
 					selectAll();
 					break;
 				case 'deselect-all':

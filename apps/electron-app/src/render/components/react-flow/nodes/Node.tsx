@@ -1,5 +1,4 @@
 import {
-	cn,
 	cva,
 	Icons,
 	Tooltip,
@@ -159,20 +158,18 @@ export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: st
 	return (
 		<NodeContainerContext.Provider value={props}>
 			<article
-				className={cn(
-					node({
-						className: props.className,
-						deletable: props.deletable,
-						draggable: props.draggable,
-						dragging: props.dragging,
-						selectable: props.selectable,
-						selected: props.selected,
-						hasError: !!props.error,
-					})
-				)}
+				className={node({
+					className: props.className,
+					deletable: props.deletable,
+					draggable: props.draggable,
+					dragging: props.dragging,
+					selectable: props.selectable,
+					selected: props.selected,
+					hasError: !!props.error,
+				})}
 			>
 				<NodeHeader error={props.error} />
-				<main className='flex grow justify-center items-center fark:bg-muted/40 bg-muted-foreground/5 px-12'>
+				<main className='flex grow justify-center items-center dark:bg-muted/40 bg-muted-foreground/5 px-12'>
 					{props.children}
 				</main>
 				<NodeFooter />
