@@ -7,7 +7,7 @@ import {
 	Socket,
 	SocketOptions,
 } from '@microflow/socket/client';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/shallow';
 import { fromBase64, isBase64 } from '@microflow/utils/base64';
@@ -93,10 +93,14 @@ export function useSocketListener<
 	Type extends ReceiveType['type'] = ReceiveType['type'],
 >(type: Type, callback: (message: ExtractServerMessage<Type>) => void) {
 	const { socket } = useSocketStore(useShallow(state => ({ socket: state.socket })));
+	const callbackRef = useRef(callback);
+
+	// Update the ref when callback changes
+	callbackRef.current = callback;
 
 	useEffect(() => {
 		console.debug('[SOCKET] <on>', type);
-		socket?.on(type as string, message => {
+		const handler = (message: any) => {
 			console.debug('[SOCKET] <message>', type, message);
 			let parsedMessage = message;
 			if (typeof message === 'string') {
@@ -107,14 +111,16 @@ export function useSocketListener<
 					console.debug('[SOCKET] <parse error>', message, error);
 				}
 			}
-			callback(parsedMessage);
-		});
+			callbackRef.current(parsedMessage);
+		};
+
+		socket?.on(type as string, handler);
 
 		return () => {
 			console.debug('[SOCKET] <off>', type);
-			socket?.off(type as string, callback);
+			socket?.off(type as string, handler);
 		};
-	}, [socket, type, callback]);
+	}, [socket, type]);
 }
 
 export function useSocketSender<SendType = ClientMessage>() {
