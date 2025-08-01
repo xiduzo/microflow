@@ -50,7 +50,7 @@ export function ReactFlowCanvas() {
 					y: event.clientY,
 				});
 
-				send({ type: 'cursor', data: { change: { type: 'position', position } } });
+				// send({ type: 'cursor', data: { change: { type: 'position', position } } });
 			}, 16);
 		},
 		[screenToFlowPosition, send]
@@ -77,7 +77,6 @@ export function ReactFlowCanvas() {
 			}}
 			onNodesChange={changes => {
 				changes.forEach(change => {
-					console.log(change);
 					switch (change.type) {
 						case 'add':
 							send({ type: 'node-add', data: { change } });
@@ -102,10 +101,8 @@ export function ReactFlowCanvas() {
 			}}
 			onEdgesChange={changes => {
 				changes.forEach(change => {
-					console.log(change);
 					switch (change.type) {
 						case 'add':
-							console.log(change);
 							send({ type: 'edge-add', data: { change } });
 							break;
 						case 'remove':

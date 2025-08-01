@@ -1,6 +1,15 @@
 import {
 	Edge,
+	EdgeAddChange,
+	EdgeChange,
+	EdgeRemoveChange,
 	Node,
+	NodeAddChange,
+	NodeChange,
+	NodePositionChange,
+	NodeRemoveChange,
+	NodeReplaceChange,
+	NodeSelectionChange,
 	OnConnect,
 	OnEdgesChange,
 	OnNodesChange,
@@ -9,22 +18,25 @@ import {
 	applyNodeChanges,
 } from '@xyflow/react';
 
-import { LinkedList } from '../../common/LinkedList';
+import { HistoryList } from '../../common/LinkedList';
 import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
 import { useShallow } from 'zustand/shallow';
 // TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
 import { createWithEqualityFn as create } from 'zustand/traditional';
 import { getLocalItem, setLocalItem } from '../../common/local-storage';
 
-const HISTORY_DEBOUNCE_TIME_IN_MS = 100;
+type HistoryNodeChange = {
+	type: 'node';
+	backward: NodeChange;
+	forward: NodeChange;
+};
+type HistoryEdgeChange = {
+	type: 'edge';
+	backward: EdgeChange;
+	forward: EdgeChange;
+};
 
-function getInternalNodes(nodes: Node<Record<string, unknown>>[]) {
-	return nodes.filter(node => node.data.group === 'internal');
-}
-
-function filterOutInternalNodes(nodes: Node<Record<string, unknown>>[]) {
-	return nodes.filter(node => node.data.group !== 'internal');
-}
+type HistoryChange = HistoryNodeChange | HistoryEdgeChange;
 
 export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
@@ -36,25 +48,10 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	setEdges: (edges: Edge[]) => void;
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
 	deleteSelectedNodesAndEdges: () => void;
-	history: LinkedList<{ nodes: Node[]; edges: Edge[] }>;
+	history: HistoryList<Array<HistoryChange>>;
 	undo: () => void;
 	redo: () => void;
 };
-
-let historyUpdateDebounce: NodeJS.Timeout | undefined;
-
-function updateHistory(get: () => ReactFlowState<{}>) {
-	historyUpdateDebounce && clearTimeout(historyUpdateDebounce);
-	historyUpdateDebounce = setTimeout(() => {
-		const { nodes, edges, history } = get();
-		history.append({
-			nodes: JSON.parse(JSON.stringify(filterOutInternalNodes(nodes))), // remove references
-			edges: JSON.parse(JSON.stringify(edges)), // remove references
-		});
-
-		console.debug(`[HISTORY]`, history);
-	}, HISTORY_DEBOUNCE_TIME_IN_MS);
-}
 
 export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
@@ -81,45 +78,146 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES;
 	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES;
 
+	function getNodeId(change: NodeChange): string {
+		if ('id' in change) return change.id;
+		if ('data' in change) {
+			if (typeof change.data === 'object' && change.data !== null && 'id' in change.data) {
+				return String(change.data.id);
+			}
+		}
+		return crypto.randomUUID();
+	}
+
 	return {
 		nodes: initialNodes,
 		edges: initialEdges,
-		history: new LinkedList({ nodes: initialNodes, edges: initialEdges }),
+		history: new HistoryList(),
 		onNodesChange: changes => {
 			// IDEA selected all connected edges when selecting a node
 			const nodes = get().nodes;
-			set({ nodes: applyNodeChanges(changes, nodes) });
 
-			const hasChangesWhichNeedSaving = changes.some(change => change.type !== 'select');
-			if (!hasChangesWhichNeedSaving) return;
+			changes.forEach(change => {
+				console.log(change);
+			});
 
-			// Filter out changes from internal nodes
-			const changesWhichApplyToInternalNodes = changes.filter(
-				change =>
-					change.type === 'position' &&
-					(nodes.find(node => node.id === change.id)?.data as { group: string })?.group ===
-						'internal'
+			const changesWithNodeIds = changes.map(change => ({ ...change, id: getNodeId(change) }));
+
+			const newNodes = applyNodeChanges(changesWithNodeIds, nodes);
+
+			set({ nodes: newNodes });
+
+			get().history.push(
+				// TODO: move this to a separate function
+				changesWithNodeIds
+					.filter(change => {
+						if (change.type !== 'position') return true;
+
+						const node = newNodes.concat(nodes).find(node => node.id === change.id);
+						if (!node) return false;
+
+						return 'group' in node.data ? node.data.group !== 'internal' : true;
+					})
+					.map(change => {
+						const previousNode = nodes.find(node => node.id === change.id);
+						const newNode = newNodes.find(node => node.id === change.id);
+
+						switch (change.type) {
+							case 'add':
+								if (!newNode) return null;
+								return {
+									type: 'node',
+									backward: { type: 'remove', id: newNode.id } satisfies NodeRemoveChange,
+									forward: change,
+								} satisfies HistoryChange;
+							case 'remove':
+								if (!previousNode) return null;
+								return {
+									type: 'node',
+									backward: {
+										type: 'add',
+										item: previousNode,
+									} satisfies NodeAddChange,
+									forward: change,
+								} satisfies HistoryChange;
+							case 'replace':
+								if (!previousNode) return null;
+								return {
+									type: 'node',
+									backward: {
+										type: 'replace',
+										id: previousNode.id,
+										item: previousNode,
+									} satisfies NodeReplaceChange,
+									forward: change,
+								} satisfies HistoryChange;
+							case 'position':
+								if (!previousNode) return null;
+								return {
+									type: 'node',
+									backward: {
+										type: 'position',
+										id: previousNode.id,
+										position: previousNode.position,
+									} satisfies NodePositionChange,
+									forward: change,
+								} satisfies HistoryChange;
+							case 'select':
+								if (!previousNode) return null;
+								return {
+									type: 'node',
+									backward: {
+										type: 'select',
+										id: previousNode.id,
+										selected: !change.selected,
+									} satisfies NodeSelectionChange,
+									forward: change,
+								} satisfies HistoryChange;
+							case 'dimensions': // We dont allow users to change the dimensions of a node
+							default:
+								return null;
+						}
+					})
+					.filter(change => !!change)
 			);
-			if (changesWhichApplyToInternalNodes.length) return;
-
-			updateHistory(get);
 		},
 		onEdgesChange: changes => {
-			set({
-				edges: applyEdgeChanges(changes, get().edges),
-			});
+			const edges = get().edges;
+			const changesWithIds = changes.map(change => ({
+				...change,
+				id: 'id' in change ? change.id : crypto.randomUUID(),
+			}));
 
-			const hasChangesWhichNeedSaving = changes.some(
-				change => change.type === 'add' || change.type === 'remove'
+			const newEdges = applyEdgeChanges(changesWithIds, edges);
+			set({ edges: newEdges });
+
+			get().history.push(
+				changesWithIds.map(change => ({
+					type: 'edge',
+					backward: change,
+					forward: change,
+				}))
 			);
-			if (!hasChangesWhichNeedSaving) return;
-			updateHistory(get);
 		},
 		onConnect: connection => {
-			set({
-				edges: addEdge(connection, get().edges),
-			});
-			updateHistory(get);
+			const edges = get().edges;
+			const connectionWithId: Edge = { ...connection, id: crypto.randomUUID() };
+
+			const newEdges = addEdge(connectionWithId, edges);
+			set({ edges: newEdges });
+
+			get().history.push([
+				{
+					type: 'edge',
+					forward: {
+						type: 'add',
+						item: connectionWithId,
+					} satisfies EdgeAddChange,
+					backward: {
+						type: 'remove',
+						id: connectionWithId.id,
+					} satisfies EdgeRemoveChange,
+				},
+			]);
 		},
 		setNodes: nodes => {
 			set({ nodes });
@@ -151,25 +249,43 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 		},
 		undo: () => {
 			const history = get().history;
+			history.flush();
+			history.back();
 
-			const state = history.backward();
-			if (!state) return;
+			const changes = history.getCurrent();
+			console.log(changes, 'undo');
+			if (!changes?.length) return;
 
-			const nodes = get().nodes;
-			const internalNodes = getInternalNodes(nodes);
-
-			set({ ...state, nodes: [...state.nodes, ...internalNodes] });
+			set({
+				nodes: applyNodeChanges(
+					changes.filter(change => change.type === 'node').map(change => change.backward),
+					get().nodes
+				),
+				edges: applyEdgeChanges(
+					changes.filter(change => change.type === 'edge').map(change => change.backward),
+					get().edges
+				),
+			});
 		},
 		redo: () => {
+			console.log('redo');
 			const history = get().history;
+			history.flush();
+			history.forward();
 
-			const state = history.forward();
-			if (!state) return;
+			const changes = history.getCurrent();
+			if (!changes?.length) return;
 
-			const nodes = get().nodes;
-			const internalNodes = getInternalNodes(nodes);
-
-			set({ ...state, nodes: [...state.nodes, ...internalNodes] });
+			set({
+				nodes: applyNodeChanges(
+					changes.filter(change => change.type === 'node').map(change => change.forward),
+					get().nodes
+				),
+				edges: applyEdgeChanges(
+					changes.filter(change => change.type === 'edge').map(change => change.forward),
+					get().edges
+				),
+			});
 		},
 	};
 });

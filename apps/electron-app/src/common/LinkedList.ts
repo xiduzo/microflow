@@ -1,48 +1,87 @@
-class Link<T> {
+class HistoryNode<T> {
 	value: T;
-	next: Link<T> | null = null;
-	prev: Link<T> | null = null;
+	next: HistoryNode<T> | null = null;
+	prev: HistoryNode<T> | null = null;
 
 	constructor(value: T) {
 		this.value = value;
 	}
 }
 
-export class LinkedList<T> {
-	private head: Link<T> | null = null;
-	private tail: Link<T> | null = null;
+export class HistoryList<T extends Array<unknown>> {
+	private current: HistoryNode<T> | null = null;
+	private pendingChanges: T[] = [];
+	private debounceTimeout: NodeJS.Timeout | null = null;
 
-	constructor(readonly init: T) {
-		this.append(init);
+	constructor(private readonly debounceDelay = 100) {}
+
+	push(value: T): void {
+		this.clearDebounceTimeout();
+
+		console.log(value, 'push');
+		this.pendingChanges.push(value);
+
+		this.debounceTimeout = setTimeout(() => {
+			this.flushPendingChanges();
+		}, this.debounceDelay);
 	}
 
-	append(value: T): LinkedList<T> {
-		const newNode = new Link(value);
-		if (!this.head) {
-			this.head = newNode;
-			this.tail = newNode;
-		} else if (this.tail) {
-			this.tail.next = newNode;
-			newNode.prev = this.tail;
-			this.tail = newNode;
-		}
+	/**
+	 * Force flush pending changes immediately
+	 */
+	flush(): void {
+		this.clearDebounceTimeout();
+		this.flushPendingChanges();
+	}
 
-		return this;
+	back(): T | null {
+		if (this.current?.prev) {
+			this.current = this.current.prev;
+			return this.current.value;
+		}
+		return null;
 	}
 
 	forward(): T | null {
-		if (!this.tail?.next) return null;
-
-		this.tail = this.tail.next;
-
-		return this.tail.value;
+		if (this.current?.next) {
+			this.current = this.current.next;
+			return this.current.value;
+		}
+		return null;
 	}
 
-	backward(): T | null {
-		if (!this.tail?.prev) return null;
+	getCurrent(): T | null {
+		return this.current ? this.current.value : null;
+	}
 
-		this.tail = this.tail.prev;
+	private clearDebounceTimeout(): void {
+		if (this.debounceTimeout) {
+			clearTimeout(this.debounceTimeout);
+			this.debounceTimeout = null;
+		}
+	}
 
-		return this.tail.value;
+	private flushPendingChanges(): void {
+		if (this.pendingChanges.length === 0) return;
+
+		const flattenedChanges = this.pendingChanges.flat() as T;
+
+		this.pushToHistory(flattenedChanges);
+
+		this.pendingChanges = [];
+		this.debounceTimeout = null;
+	}
+
+	private pushToHistory(value: T): void {
+		const newNode = new HistoryNode(value);
+
+		if (this.current) {
+			this.current.next = null; // Clear the next pointer of the current node
+
+			newNode.prev = this.current; // Set the previous pointer of the new node to the current node
+			this.current.next = newNode; // Set the next pointer of the current node to the new node
+		}
+
+		this.current = newNode;
 	}
 }
