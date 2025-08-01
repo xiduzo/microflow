@@ -8,7 +8,14 @@ import {
 } from '@microflow/ui';
 import { LevaPanel, useControls, useCreateStore } from 'leva';
 import { Node, useUpdateNodeInternals } from '@xyflow/react';
-import { createContext, PropsWithChildren, useCallback, useContext, useEffect } from 'react';
+import {
+	createContext,
+	PropsWithChildren,
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useUpdateNode } from '../../../hooks/useUpdateNode';
 import { useDeleteEdges } from '../../../stores/react-flow';
@@ -76,6 +83,7 @@ export const useNodeControls = <
 	const store = useCreateStore();
 	const { selected, id, data } = useNode();
 	const updateNode = useUpdateNode(id);
+	const isFirstRender = useRef(true);
 
 	const [controlsData, set] = useControls(
 		() => ({ label: data.label, ...controls }),
@@ -106,14 +114,15 @@ export const useNodeControls = <
 	);
 
 	useEffect(() => {
-		console.debug('<controlsData>', controlsData);
-		updateNode(controlsData as Record<string, unknown>);
-	}, [controlsData, updateNode]);
+		if (isFirstRender.current) {
+			isFirstRender.current = false;
+			return;
+		}
 
-	useEffect(() => {
-		// TODO use for code upload
+		// TODO code upload
 		console.debug('<debouncedControlData>', debouncedControlData);
-	}, [debouncedControlData]);
+		updateNode(debouncedControlData as Record<string, unknown>);
+	}, [debouncedControlData, updateNode]);
 
 	return { render, set, setNodeData };
 };

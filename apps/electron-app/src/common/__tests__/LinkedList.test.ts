@@ -53,56 +53,50 @@ describe(HistoryList.name, () => {
 
 	describe(HistoryList.prototype.back.name, () => {
 		it('should go back to the previous state', async () => {
-			historyList.push([1, 2, 3]);
+			historyList.push([1, 2, 3]); // 1
 			historyList.flush();
-			historyList.push([4, 5, 6]);
+			historyList.push([4, 5, 6]); // 2
 			historyList.flush();
-			historyList.push([7, 8, 9]);
+			historyList.push([7, 8, 9]); // 3
 			historyList.flush();
-			historyList.back();
-			expect(historyList.getCurrent()).toEqual([4, 5, 6]);
+
+			const result = historyList.back(); // 2
+
+			expect(result).toEqual([4, 5, 6]);
 		});
 
-		it('should stick with the first state when going back too many times', () => {
-			historyList.push([1, 2, 3]);
+		it('can not go back before the first state', async () => {
+			historyList.push([1, 2, 3]); // 1
 			historyList.flush();
-			historyList.push([4, 5, 6]);
-			historyList.flush();
-			historyList.back();
-			historyList.back();
-			historyList.back();
-			expect(historyList.getCurrent()).toEqual([1, 2, 3]);
+
+			const result = historyList.back(); // 0
+
+			expect(result).toBeNull();
 		});
 	});
 
 	describe(HistoryList.prototype.forward.name, () => {
 		it('should go forward to the next state', async () => {
-			historyList.push([1, 2, 3]);
+			historyList.push([1, 2, 3]); // 1
 			historyList.flush();
-			historyList.push([4, 5, 6]);
+			historyList.push([4, 5, 6]); // 2
 			historyList.flush();
-			historyList.push([7, 8, 9]);
+			historyList.push([7, 8, 9]); // 3
 			historyList.flush();
-			historyList.back();
-			historyList.back();
-			historyList.forward();
-			expect(historyList.getCurrent()).toEqual([4, 5, 6]);
+
+			historyList.back(); // 2
+			historyList.back(); // 1
+
+			const result = historyList.forward(); // 2
+			expect(result).toEqual([4, 5, 6]);
 		});
 
-		it('should stick with the last state when going forward too many times', () => {
-			historyList.push([1, 2, 3]);
+		it('can not go forward after the last state', async () => {
+			historyList.push([1, 2, 3]); // 1
 			historyList.flush();
-			historyList.push([4, 5, 6]);
-			historyList.flush();
-			historyList.push([7, 8, 9]);
-			historyList.flush();
-			historyList.back();
-			historyList.back();
-			historyList.forward();
-			historyList.forward();
-			historyList.forward();
-			historyList.forward();
-			expect(historyList.getCurrent()).toEqual([7, 8, 9]);
+
+			const result = historyList.forward(); // 2
+			expect(result).toBeNull();
 		});
 	});
 });

@@ -1,11 +1,8 @@
 class HistoryNode<T> {
-	value: T;
 	next: HistoryNode<T> | null = null;
 	prev: HistoryNode<T> | null = null;
 
-	constructor(value: T) {
-		this.value = value;
-	}
+	constructor(public readonly value: T) {}
 }
 
 export class HistoryList<T extends Array<unknown>> {
@@ -18,7 +15,10 @@ export class HistoryList<T extends Array<unknown>> {
 	push(value: T): void {
 		this.clearDebounceTimeout();
 
-		console.log(value, 'push');
+		if (!value.length) return;
+
+		console.log('push', value);
+
 		this.pendingChanges.push(value);
 
 		this.debounceTimeout = setTimeout(() => {
@@ -31,6 +31,7 @@ export class HistoryList<T extends Array<unknown>> {
 	 */
 	flush(): void {
 		this.clearDebounceTimeout();
+		console.log('flush', this.pendingChanges);
 		this.flushPendingChanges();
 	}
 
@@ -62,7 +63,7 @@ export class HistoryList<T extends Array<unknown>> {
 	}
 
 	private flushPendingChanges(): void {
-		if (this.pendingChanges.length === 0) return;
+		if (!this.pendingChanges.length) return;
 
 		const flattenedChanges = this.pendingChanges.flat() as T;
 

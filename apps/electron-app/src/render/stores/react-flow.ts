@@ -27,12 +27,12 @@ import { getLocalItem, setLocalItem } from '../../common/local-storage';
 
 type HistoryNodeChange = {
 	type: 'node';
-	backward: NodeChange;
+	back: NodeChange;
 	forward: NodeChange;
 };
 type HistoryEdgeChange = {
 	type: 'edge';
-	backward: EdgeChange;
+	back: EdgeChange;
 	forward: EdgeChange;
 };
 
@@ -126,14 +126,14 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 								if (!newNode) return null;
 								return {
 									type: 'node',
-									backward: { type: 'remove', id: newNode.id } satisfies NodeRemoveChange,
+									back: { type: 'remove', id: newNode.id } satisfies NodeRemoveChange,
 									forward: change,
 								} satisfies HistoryChange;
 							case 'remove':
 								if (!previousNode) return null;
 								return {
 									type: 'node',
-									backward: {
+									back: {
 										type: 'add',
 										item: previousNode,
 									} satisfies NodeAddChange,
@@ -143,7 +143,7 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 								if (!previousNode) return null;
 								return {
 									type: 'node',
-									backward: {
+									back: {
 										type: 'replace',
 										id: previousNode.id,
 										item: previousNode,
@@ -154,7 +154,7 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 								if (!previousNode) return null;
 								return {
 									type: 'node',
-									backward: {
+									back: {
 										type: 'position',
 										id: previousNode.id,
 										position: previousNode.position,
@@ -165,7 +165,7 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 								if (!previousNode) return null;
 								return {
 									type: 'node',
-									backward: {
+									back: {
 										type: 'select',
 										id: previousNode.id,
 										selected: !change.selected,
@@ -193,7 +193,7 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 			get().history.push(
 				changesWithIds.map(change => ({
 					type: 'edge',
-					backward: change,
+					back: change,
 					forward: change,
 				}))
 			);
@@ -212,7 +212,7 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 						type: 'add',
 						item: connectionWithId,
 					} satisfies EdgeAddChange,
-					backward: {
+					back: {
 						type: 'remove',
 						id: connectionWithId.id,
 					} satisfies EdgeRemoveChange,
@@ -250,42 +250,43 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 		undo: () => {
 			const history = get().history;
 			history.flush();
-			history.back();
+			const back = history.getCurrent();
 
-			const changes = history.getCurrent();
-			console.log(changes, 'undo');
-			if (!changes?.length) return;
+			if (!back?.length) return;
 
 			set({
 				nodes: applyNodeChanges(
-					changes.filter(change => change.type === 'node').map(change => change.backward),
+					back.filter(change => change.type === 'node').map(change => change.back),
 					get().nodes
 				),
 				edges: applyEdgeChanges(
-					changes.filter(change => change.type === 'edge').map(change => change.backward),
+					back.filter(change => change.type === 'edge').map(change => change.back),
 					get().edges
 				),
 			});
+
+			history.back();
 		},
 		redo: () => {
-			console.log('redo');
 			const history = get().history;
 			history.flush();
-			history.forward();
+			const forward = history.getCurrent();
 
-			const changes = history.getCurrent();
-			if (!changes?.length) return;
+			console.log(forward, 'redo');
+
+			if (!forward?.length) return;
 
 			set({
 				nodes: applyNodeChanges(
-					changes.filter(change => change.type === 'node').map(change => change.forward),
+					forward.filter(change => change.type === 'node').map(change => change.forward),
 					get().nodes
 				),
 				edges: applyEdgeChanges(
-					changes.filter(change => change.type === 'edge').map(change => change.forward),
+					forward.filter(change => change.type === 'edge').map(change => change.forward),
 					get().edges
 				),
 			});
+			history.forward();
 		},
 	};
 });
