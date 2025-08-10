@@ -106,17 +106,19 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 
 			set({ nodes: newNodes });
 
+			const changesToPutInHistory = changesWithNodeIds.filter(change => {
+				if (change.type !== 'position') return true;
+
+				const node = newNodes.concat(nodes).find(node => node.id === change.id);
+				if (!node) return false;
+
+				return 'group' in node.data ? node.data.group !== 'internal' : true;
+			});
+
+			if (!changesToPutInHistory.length) return;
+
 			get().history.push(
-				// TODO: move this to a separate function
-				changesWithNodeIds
-					.filter(change => {
-						if (change.type !== 'position') return true;
-
-						const node = newNodes.concat(nodes).find(node => node.id === change.id);
-						if (!node) return false;
-
-						return 'group' in node.data ? node.data.group !== 'internal' : true;
-					})
+				changesToPutInHistory
 					.map(change => {
 						const previousNode = nodes.find(node => node.id === change.id);
 						const newNode = newNodes.find(node => node.id === change.id);
@@ -190,8 +192,19 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 			const newEdges = applyEdgeChanges(changesWithIds, edges);
 			set({ edges: newEdges });
 
+			const changesWithoutAnimated = changesWithIds.filter(change => {
+				switch (change.type) {
+					case 'replace':
+						return false;
+					default:
+						return true;
+				}
+			});
+
+			if (!changesWithoutAnimated.length) return;
+
 			get().history.push(
-				changesWithIds.map(change => ({
+				changesWithoutAnimated.map(change => ({
 					type: 'edge',
 					back: change,
 					forward: change,

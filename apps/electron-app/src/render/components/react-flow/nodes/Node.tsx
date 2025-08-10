@@ -7,7 +7,7 @@ import {
 	TooltipTrigger,
 } from '@microflow/ui';
 import { LevaPanel, useControls, useCreateStore } from 'leva';
-import { Node, useUpdateNodeInternals } from '@xyflow/react';
+import { Node, useReactFlow, useUpdateNodeInternals } from '@xyflow/react';
 import {
 	createContext,
 	PropsWithChildren,
@@ -17,10 +17,10 @@ import {
 	useRef,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useUpdateNode } from '../../../hooks/useUpdateNode';
-import { useDeleteEdges } from '../../../stores/react-flow';
+import { useDeleteEdges, useNodesChange } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
 import { useDebounceValue } from 'usehooks-ts';
+import { useCodeUploader } from '../../../hooks/useCodeUploader';
 
 function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
@@ -45,9 +45,9 @@ function NodeHeader(props: { error?: string }) {
 function NodeFooter() {
 	const data = useNodeData();
 
-	const hasData = 'pin' in data || 'pins' in data;
+	const hasPins = 'pin' in data || 'pins' in data;
 
-	if (!hasData) return null;
+	if (!hasPins) return null;
 
 	return (
 		<footer className='text-muted-foreground border-t-2 p-1 px-2 flex items-center gap-2'>
@@ -82,24 +82,46 @@ export const useNodeControls = <
 ) => {
 	const store = useCreateStore();
 	const { selected, id, data } = useNode();
-	const updateNode = useUpdateNode(id);
 	const isFirstRender = useRef(true);
+	const { getNode } = useReactFlow();
+	const onNodesChange = useNodesChange();
+	const updateNodeInternals = useUpdateNodeInternals();
+	const uploadCode = useCodeUploader();
 
 	const [controlsData, set] = useControls(
 		() => ({ label: data.label, ...controls }),
 		{ store },
 		dependencies
 	);
+	const lastControlData = useRef(controlsData);
 
 	const [debouncedControlData] = useDebounceValue(controlsData, 500);
 	const [selectedDebounce] = useDebounceValue(selected, 30);
 
-	const render = useCallback(() => {
-		return createPortal(
-			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selectedDebounce} />,
-			document.getElementById('settings-panels')!
-		);
-	}, [store, selectedDebounce]);
+	const updateNodeData = useCallback(
+		(data: Record<string, unknown>) => {
+			console.debug('[useNodeControls] <updateNodeData>', data);
+			const node = getNode(id);
+			if (!node) return;
+
+			onNodesChange([
+				{
+					id: node.id,
+					type: 'replace',
+					item: {
+						...node,
+						data: { ...node.data, ...(data as Record<string, unknown>) },
+					},
+				},
+			]);
+
+			updateNodeInternals(node.id);
+			console.debug('[useNodeControls] <uploadCode>', data);
+
+			uploadCode();
+		},
+		[id, getNode, onNodesChange, updateNodeInternals, uploadCode]
+	);
 
 	/**
 	 * Sometimes it is impossible to set the node data using the controls,
@@ -108,21 +130,61 @@ export const useNodeControls = <
 	 */
 	const setNodeData = useCallback(
 		<T extends Record<string, unknown>>(node: Partial<Data>) => {
-			updateNode(node as T);
+			updateNodeData(node as T);
 		},
-		[updateNode]
+		[updateNodeData]
 	);
+
+	const render = useCallback(() => {
+		return createPortal(
+			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selectedDebounce} />,
+			document.getElementById('settings-panels')!
+		);
+	}, [store, selectedDebounce]);
 
 	useEffect(() => {
 		if (isFirstRender.current) {
 			isFirstRender.current = false;
+			lastControlData.current = controlsData;
 			return;
 		}
 
-		// TODO code upload
-		console.debug('<debouncedControlData>', debouncedControlData);
-		updateNode(debouncedControlData as Record<string, unknown>);
-	}, [debouncedControlData, updateNode]);
+		if (JSON.stringify(lastControlData.current) === JSON.stringify(controlsData)) return;
+
+		lastControlData.current = controlsData;
+		updateNodeData(debouncedControlData as Record<string, unknown>);
+	}, [debouncedControlData, updateNodeData]);
+
+	/**
+	 * Sync the data back to the controls when history is reverted
+	 */
+	useEffect(() => {
+		if (isFirstRender.current) return;
+
+		// Only compare keys which are in the controls data
+		const keys = Object.keys(lastControlData.current as Record<string, unknown>);
+		const dataKeys = Object.keys(data);
+
+		// Check if any value has changed
+		const hasChanged = keys.some(
+			key =>
+				dataKeys.includes(key) &&
+				lastControlData.current[key as keyof typeof lastControlData.current] !==
+					data[key as keyof typeof data]
+		);
+		if (!hasChanged) return;
+
+		if (JSON.stringify(lastControlData.current) === JSON.stringify(data)) return;
+
+		// Only get the keys which are in the controls data
+		const newData = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+		// Prevent other effects from running
+		lastControlData.current = newData as typeof lastControlData.current;
+		set(newData as Parameters<typeof set>[0]);
+		console.debug('[useNodeControls] <useEffect>', lastControlData.current, { data, newData });
+
+		uploadCode();
+	}, [data, set, uploadCode]);
 
 	return { render, set, setNodeData };
 };
