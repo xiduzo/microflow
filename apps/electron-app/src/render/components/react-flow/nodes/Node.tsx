@@ -99,7 +99,7 @@ export const useNodeControls = <
 	const [selectedDebounce] = useDebounceValue(selected, 30);
 
 	const updateNodeData = useCallback(
-		(data: Record<string, unknown>) => {
+		async (data: Record<string, unknown>) => {
 			console.debug('[useNodeControls] <updateNodeData>', data);
 			const node = getNode(id);
 			if (!node) return;
@@ -116,8 +116,8 @@ export const useNodeControls = <
 			]);
 
 			updateNodeInternals(node.id);
-			console.debug('[useNodeControls] <uploadCode>', data);
-
+			await new Promise(resolve => setTimeout(resolve, 500)); // Give react-flow time to apply the changes
+			console.debug('[UPLOAD] <updateNodeData> - node data updated');
 			uploadCode();
 		},
 		[id, getNode, onNodesChange, updateNodeInternals, uploadCode]
@@ -136,11 +136,13 @@ export const useNodeControls = <
 	);
 
 	const render = useCallback(() => {
+		if (!selectedDebounce) return null;
+
 		return createPortal(
-			<LevaPanel store={store} hideCopyButton fill titleBar={false} hidden={!selectedDebounce} />,
+			<LevaPanel store={store} hideCopyButton fill titleBar={false} />,
 			document.getElementById('settings-panels')!
 		);
-	}, [store, selectedDebounce]);
+	}, [selectedDebounce, store]);
 
 	useEffect(() => {
 		if (isFirstRender.current) {
@@ -181,8 +183,7 @@ export const useNodeControls = <
 		// Prevent other effects from running
 		lastControlData.current = newData as typeof lastControlData.current;
 		set(newData as Parameters<typeof set>[0]);
-		console.debug('[useNodeControls] <useEffect>', lastControlData.current, { data, newData });
-
+		console.debug('[UPLOAD] <useEffect>', lastControlData.current, { data, newData });
 		uploadCode();
 	}, [data, set, uploadCode]);
 

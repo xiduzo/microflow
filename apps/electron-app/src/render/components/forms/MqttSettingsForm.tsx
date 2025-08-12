@@ -29,9 +29,6 @@ const schema = Zod.object({
 	port: Zod.number({ coerce: true }).optional(),
 	username: Zod.string().optional(),
 	password: Zod.string().optional(),
-	uniqueId: Zod.string()
-		.min(5, 'Requires minimum of 5 characters')
-		.regex(/^[a-zA-Z_]+$/, { message: 'Only letters and underscores allowed' }),
 	protocol: Zod.enum(['ws', 'wss']).default('wss'),
 });
 
@@ -40,7 +37,6 @@ type Schema = Zod.infer<typeof schema>;
 export function MqttSettingsForm(props: Props) {
 	const { user } = useAppStore();
 	const [mqttConfig, setMqttConfig] = useLocalStorage<Schema | undefined>('mqtt-config', {
-		uniqueId: user?.name ?? '',
 		host: 'test.mosquitto.org',
 		port: 8081,
 		protocol: 'wss',
@@ -52,11 +48,6 @@ export function MqttSettingsForm(props: Props) {
 	});
 
 	const { setSettingsOpen } = useAppStore();
-
-	function setRandomUniqueName() {
-		form.clearErrors('uniqueId');
-		form.setValue('uniqueId', getRandomUniqueUserName());
-	}
 
 	function onSubmit(data: Schema) {
 		setMqttConfig(data);
@@ -97,24 +88,6 @@ export function MqttSettingsForm(props: Props) {
 				</SheetHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className='my-4 space-y-4'>
-						<FormField
-							control={form.control}
-							name='uniqueId'
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Identifier</FormLabel>
-									<section className='flex items-center space-x-2'>
-										<FormControl>
-											<Input placeholder='Your unique identifier' {...field} />
-										</FormControl>
-										<Button variant='ghost' type='button' onClick={setRandomUniqueName}>
-											<Icons.Dices className='w-4 h-4' />
-										</Button>
-									</section>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
 						<FormField
 							control={form.control}
 							name='host'
@@ -190,7 +163,9 @@ export function MqttSettingsForm(props: Props) {
 							<SheetClose asChild>
 								<Button variant='secondary'>Cancel</Button>
 							</SheetClose>
-							<Button type='submit'>Save changes</Button>
+							<Button type='submit' disabled={!form.formState.isDirty || !form.formState.isValid}>
+								Save changes
+							</Button>
 						</SheetFooter>
 					</form>
 				</Form>

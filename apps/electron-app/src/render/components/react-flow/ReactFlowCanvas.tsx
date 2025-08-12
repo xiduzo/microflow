@@ -90,7 +90,7 @@ export function ReactFlowCanvas() {
 						case 'replace':
 						case 'select':
 						case 'dimensions':
-							console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
+							// console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
 							break;
 						default:
 							console.warn('[REACT-FLOW] <unknown node change>', change);
@@ -110,7 +110,7 @@ export function ReactFlowCanvas() {
 							break;
 						case 'replace':
 						case 'select':
-							console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
+							// console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
 							break;
 						default:
 							console.warn('[REACT-FLOW] <unknown edge change>', change);

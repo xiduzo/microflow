@@ -58,8 +58,8 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 
 	if (!hasSeenIntroduction) {
 		setLocalItem('has-seen-introduction', true);
-		setLocalItem('nodes', JSON.stringify(INTRODUCTION_NODES));
-		setLocalItem('edges', JSON.stringify(INTRODUCTION_EDGES));
+		setLocalItem('nodes', INTRODUCTION_NODES);
+		setLocalItem('edges', INTRODUCTION_EDGES);
 	}
 
 	const localNodes = getLocalItem<Node[]>('nodes', [])
@@ -95,10 +95,6 @@ export const useReactFlowStore = create<ReactFlowState>((set, get) => {
 		onNodesChange: changes => {
 			// IDEA selected all connected edges when selecting a node
 			const nodes = get().nodes;
-
-			changes.forEach(change => {
-				console.log(change);
-			});
 
 			const changesWithNodeIds = changes.map(change => ({ ...change, id: getNodeId(change) }));
 

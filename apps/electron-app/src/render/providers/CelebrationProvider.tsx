@@ -29,11 +29,15 @@ export function CelebrationProvider(props: PropsWithChildren) {
 		container.current = loadedContainer;
 	}
 
-	const celebrate = useCallback((message?: string) => {
+	const celebrate = useCallback(async (message?: string) => {
 		if (!container.current) return;
 
-		container.current.refresh();
-		container.current.play();
+		try {
+			await container.current.refresh();
+			container.current.play();
+		} catch (error) {
+			console.error('❌ Error playing particles:', error);
+		}
 
 		if (!message) return;
 
@@ -46,16 +50,20 @@ export function CelebrationProvider(props: PropsWithChildren) {
 	useEffect(() => {
 		initParticlesEngine(async engine => {
 			await loadFull(engine);
-		}).then(() => {
-			setInit(true);
-		});
+		})
+			.then(() => {
+				setInit(true);
+			})
+			.catch(error => {
+				console.error('❌ Failed to initialize particles engine:', error);
+			});
 	}, []);
 
 	return (
 		<CelebrationContext.Provider value={{ celebrate }}>
 			{init && (
 				<Particles
-					className='z-10 pointer-events-none'
+					className='z-50 pointer-events-none fixed inset-0'
 					id='tsparticles'
 					particlesLoaded={particlesLoaded}
 					options={PARTICLE_OPTIONS}
@@ -79,7 +87,7 @@ const PARTICLE_OPTIONS: ISourceOptions = {
 		},
 		position: {
 			x: 50,
-			y: 100,
+			y: 95,
 		},
 		rate: {
 			quantity: 12,

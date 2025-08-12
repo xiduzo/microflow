@@ -1,11 +1,10 @@
-import { useEffect } from 'react';
-import { useLocalStorage } from 'usehooks-ts';
+import { useEffect, useRef } from 'react';
+import { useBoolean, useLocalStorage } from 'usehooks-ts';
 import { BoardCheckResult } from '../../common/types';
 import { useCelebration } from '../providers/CelebrationProvider';
 import { useBoardCheckResult, useBoardStore } from '../stores/board';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
 import { toast } from '@microflow/ui';
-import { useCodeUploader } from './useCodeUploader';
 
 export function useCelebrateFirstUpload() {
 	const [isFirstUpload, setIsFirstUpload] = useLocalStorage('isFirstUpload', true);
@@ -24,19 +23,23 @@ export function useCelebrateFirstUpload() {
 
 export function useCheckBoard() {
 	const { setBoardResult, setUploadResult } = useBoardStore();
+	const firstRender = useRef(false);
+	const lastIp = useRef<string | undefined>(undefined);
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', {
 		ip: undefined,
 	});
-	const uploadCode = useCodeUploader();
 
 	useEffect(() => {
-		console.debug(`>>> [CHECK] <ipc-check-board>`, { ip });
+		if (firstRender.current && lastIp.current === ip) return;
+		firstRender.current = true;
+		lastIp.current = ip;
+		console.debug(`[CHECK] >>>> <ipc-check-board>`, { ip });
 		window.electron.ipcRenderer.send('ipc-check-board', { ip });
-	}, []);
+	}, [ip]);
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<BoardCheckResult>('ipc-check-board', result => {
-			console.debug(`[CHECK] <ipc-check-board>`, result);
+			console.debug(`[CHECK] <<<< <ipc-check-board>`, result);
 
 			setUploadResult({ type: 'info' }); // When we received a check result, we can close the upload result
 
@@ -53,15 +56,15 @@ export function useCheckBoard() {
 					toast.info(result.data.message);
 					break;
 				case 'close':
-					console.debug(`[CHECK] >>>`, { ip });
+					console.debug(`[CHECK] >>>>`, { ip });
 					window.electron.ipcRenderer.send('ipc-check-board', { ip });
 					break;
 				case 'info':
 					if (result.data.port) break;
-					console.debug(`[CHECK] >>>`, { ip });
+					console.debug(`[CHECK] >>>>`, { ip });
 					window.electron.ipcRenderer.send('ipc-check-board', { ip });
 					break;
 			}
 		});
-	}, [ip, setUploadResult, uploadCode]);
+	}, [ip, setUploadResult]);
 }
