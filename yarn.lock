@@ -13615,6 +13615,7 @@ __metadata:
     unique-names-generator: 4.7.1
     update-electron-app: 3.1.1
     usehooks-ts: 3.1.1
+    zundo: ^2.3.0
     zustand: 5.0.3
   languageName: unknown
   linkType: soft
@@ -19019,6 +19020,18 @@ __metadata:
   version: 3.25.67
   resolution: "zod@npm:3.25.67"
   checksum: 56ab904d33b1cd00041ce64ae05b0628fcbfeb7e707fa31cd498a97b540135e4dfe685200c9c62aea307695ee132870b4bc34f035228ea728aa75cc96a4954cb
+  languageName: node
+  linkType: hard
+
+"zundo@npm:^2.3.0":
+  version: 2.3.0
+  resolution: "zundo@npm:2.3.0"
+  peerDependencies:
+    zustand: ^4.3.0 || ^5.0.0
+  peerDependenciesMeta:
+    zustand:
+      optional: false
+  checksum: ff82a8a81816ae8593896e833cf07c97364bfe942d28cd208add59d02a9859dbf8776000783f8bacc9517d109f7cbf2a00021d9a610354f393e98b1422ccc2d9
   languageName: node
   linkType: hard
 

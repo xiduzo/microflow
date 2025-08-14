@@ -16,7 +16,7 @@ function createSocketServer(tunnel?: string) {
 			cors: {
 				origin: tunnel ? [`http://localhost:${PORT}`, tunnel] : [`http://localhost:${PORT}`],
 				methods: ['GET', 'POST'],
-			}
+			},
 		});
 
 		io.on('connection', socket => handleSocket(socket, io, connectedClients));
@@ -67,7 +67,7 @@ async function createTunnel() {
 		cloudflared.on('error', error => {
 			log.warn('[SOCKET] Cloudflared not available, server running locally only', error);
 			log.info(
-				'[SOCKET]To enable cloudflared, ensure the binary is installed: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/',
+				'[SOCKET]To enable cloudflared, ensure the binary is installed: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/'
 			);
 			stopSocketTunnel();
 		});
@@ -75,9 +75,7 @@ async function createTunnel() {
 }
 
 async function initSocketTunnel() {
-
-	const tunnel = undefined
-	// const tunnel = await createTunnel();
+	const tunnel = await createTunnel();
 	socketServer = await createSocketServer(tunnel);
 
 	return tunnel;

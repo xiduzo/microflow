@@ -85,6 +85,7 @@
 		"unique-names-generator": "4.7.1",
 		"update-electron-app": "3.1.1",
 		"usehooks-ts": "3.1.1",
+		"zundo": "2.3.0",
 		"zustand": "5.0.3"
 	}
 }

@@ -30,7 +30,8 @@ function canTriggerAction() {
 
 export function IpcMenuListeners() {
 	const { getNodes, getEdges, fitView } = useReactFlow();
-	const { setEdges, setNodes, undo, redo, onNodesChange, onEdgesChange } = useReactFlowStore();
+	const { setEdges, setNodes, onNodesChange, onEdgesChange } = useReactFlowStore();
+	const { undo, redo } = useReactFlowStore.temporal.getState();
 
 	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
 	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);

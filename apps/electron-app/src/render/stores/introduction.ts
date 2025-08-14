@@ -7,7 +7,7 @@ export const INTRODUCTION_NODES = [
 			tags: ['information'],
 			label: 'Click me!',
 			note: 'Welcome to microflow studio!',
-			extraInfo: 'Oh hi there explorer, hope you found what you were looking for.',
+			extraInfo: 'Oh hi there explorer, connect your microcontroller to get started.',
 		},
 		id: '3ee5ir',
 		type: 'Note',

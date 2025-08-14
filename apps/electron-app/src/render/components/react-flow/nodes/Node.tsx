@@ -190,6 +190,9 @@ export const useNodeControls = <
 	return { render, set, setNodeData };
 };
 
+/**
+ * Forces to delete rendered handles, and connected edges, from an node
+ */
 export function useDeleteHandles() {
 	const id = useNodeId();
 	const deleteEdes = useDeleteEdges();
