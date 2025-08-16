@@ -12,7 +12,6 @@ export function ReactFlowCanvas() {
 	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
 	const debounceCursorPostion = useRef<NodeJS.Timeout | undefined>(undefined);
-	const minimapKey = useRef(0);
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -49,11 +48,6 @@ export function ReactFlowCanvas() {
 		fitView({ duration: 0, padding: 0.15, maxZoom: 1 });
 	}, [fitView]);
 
-	// Force minimap re-render when nodes or edges change
-	useEffect(() => {
-		minimapKey.current += 1;
-	}, [store.nodes, store.edges]);
-
 	return (
 		<ReactFlow
 			{...store}
@@ -67,7 +61,6 @@ export function ReactFlowCanvas() {
 		>
 			<Controls />
 			<MiniMap
-				key={`minimap-${minimapKey.current}`}
 				nodeBorderRadius={12}
 				pannable
 				nodeClassName={node => `react-flow__minimap-node__${node.type ?? ''}`}

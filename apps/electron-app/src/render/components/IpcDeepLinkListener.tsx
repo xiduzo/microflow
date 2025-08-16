@@ -1,13 +1,11 @@
 import { toast } from '@microflow/ui';
 import { useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { useSocketStore } from '../stores/socket';
-import { useReactFlowStore } from '../stores/react-flow';
+import { useCollaborationActions } from '../stores/react-flow';
 
 export function IpcDeepLinkListener() {
-	const { setStatus } = useSocketStore();
 	const { getNodes } = useReactFlow();
-	const { setNodes, setEdges } = useReactFlowStore();
+	const { connect } = useCollaborationActions();
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<{ type: string } & Record<string, unknown>>(
@@ -22,14 +20,8 @@ export function IpcDeepLinkListener() {
 						toast.success('Microflow studio successfully linked!');
 						break;
 					case 'share':
-						// Clear local nodes and edges when joining via deep link
 						console.debug('[DEEP-LINK] Joining session via deep link - clearing local content');
-						setNodes([]);
-						setEdges([]);
-						setStatus({
-							type: 'joined',
-							tunnelUrl: String(result.data.tunnelUrl),
-						});
+						connect(String(result.data.tunnelUrl), { isJoining: true });
 						break;
 					case 'figma':
 						const nodes = getNodes();

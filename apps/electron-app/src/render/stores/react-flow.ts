@@ -57,78 +57,30 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 	if (!hasSeenIntroduction) {
 		setLocalItem('has-seen-introduction', true);
-		setLocalItem('nodes', INTRODUCTION_NODES);
-		setLocalItem('edges', INTRODUCTION_EDGES);
 	}
 
-	const localNodes = getLocalItem<Node[]>('nodes', [])
-		.filter(node => node.data.group !== 'internal')
-		.map(node => ({
-			...node,
-			selected: false,
-		}));
+	const initialNodes = hasSeenIntroduction ? [] : INTRODUCTION_NODES;
+	const initialEdges = hasSeenIntroduction ? [] : INTRODUCTION_EDGES;
 
-	const localEdges = getLocalItem<Edge[]>('edges', []).map(edge => ({
-		...edge,
-		animated: false,
-		selected: false,
-	}));
-
-	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES;
-	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES;
+	let provider: WebrtcProvider | null = null;
+	let isUpdatingFromYjs = false;
 
 	const ydoc = new Y.Doc();
 	const yNodes = ydoc.getArray<Node>('nodes');
 	const yEdges = ydoc.getArray<Edge>('edges');
 
-	const savedState = getLocalItem<string>('yjs-state', '');
-	if (savedState) {
-		try {
-			const uint8Array = new Uint8Array(JSON.parse(savedState));
-			Y.applyUpdate(ydoc, uint8Array);
-		} catch (error) {
-			console.warn('[COLLABORATION] Failed to load saved state:', error);
-			// Initialize with default data if loading fails
-			ydoc.transact(() => {
-				yNodes.push(initialNodes);
-				yEdges.push(initialEdges);
-			});
-		}
-	} else {
-		// Initialize Yjs with initial data
-		ydoc.transact(() => {
-			yNodes.push(initialNodes);
-			yEdges.push(initialEdges);
-		});
-	}
-
 	const localOrigin = { clientId: ydoc.clientID };
+	console.log('[COLLABORATION] Local origin', localOrigin);
 
-	const undoManager = new UndoManager([yNodes, yEdges], {
-		trackedOrigins: new Set([localOrigin]),
-	});
-
-	undoManager.on('stack-item-added', event => {
-		console.debug('[COLLABORATION] Undo stack item added', event);
-	});
-
-	undoManager.on('stack-item-popped', event => {
-		console.debug('[COLLABORATION] Undo stack item popped', event);
-		// Force a re-render of the minimap by triggering an update
-		setTimeout(() => {
-			const nodes = yNodes.toArray();
-			const edges = yEdges.toArray();
-			console.debug('[COLLABORATION] After undo/redo', {
-				nodesCount: nodes.length,
-				edgesCount: edges.length,
-				nodeIds: nodes.map(n => n.id),
-			});
-			set({ nodes, edges });
-		}, 0);
-	});
-
-	let provider: WebrtcProvider | null = null;
-	let isUpdatingFromYjs = false;
+	const saveYjsState = () => {
+		try {
+			const state = Y.encodeStateAsUpdate(ydoc);
+			const stateString = JSON.stringify(Array.from(state));
+			setLocalItem('yjs-state', stateString);
+		} catch (error) {
+			console.warn('[COLLABORATION] Failed to save state:', error);
+		}
+	};
 
 	const updateYjsFromLocal = (nodes: Node[], edges: Edge[]) => {
 		if (!localOrigin || isUpdatingFromYjs) return;
@@ -143,50 +95,110 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			);
 		}
 
+		// Remove selection state before syncing to Yjs (selection is local-only)
+		const nodesWithoutSelection = nodes.map(node => {
+			const { selected, ...nodeWithoutSelection } = node as any;
+			return nodeWithoutSelection;
+		});
+
+		const edgesWithoutSelection = edges.map(edge => {
+			const { selected, ...edgeWithoutSelection } = edge as any;
+			return edgeWithoutSelection;
+		});
+
 		ydoc.transact(() => {
 			yNodes.delete(0, yNodes.length);
-			yNodes.push(nodes);
+			yNodes.push(nodesWithoutSelection);
 		}, localOrigin);
 
 		ydoc.transact(() => {
 			yEdges.delete(0, yEdges.length);
-			yEdges.push(edges);
+			yEdges.push(edgesWithoutSelection);
 		}, localOrigin);
 	};
 
 	const updateLocalFromYjs = () => {
 		isUpdatingFromYjs = true;
-		const nodes = yNodes.toArray();
-		const edges = yEdges.toArray();
+		const nodes = yNodes.toArray() ?? [];
+		const edges = yEdges.toArray() ?? [];
 
-		console.debug('[COLLABORATION] Updating local state from Yjs', {
+		console.debug('[COLLABORATION] <<<< <updateLocalFromYjs>', {
 			nodesCount: nodes.length,
 			edgesCount: edges.length,
-			nodeIds: nodes.map(n => n.id),
+			nodeIds: Array.isArray(nodes) ? nodes.map(n => n.id) : [],
 		});
 
-		set({ nodes, edges });
+		// Preserve local selection state when syncing from Yjs
+		const currentState = get();
+		const currentNodes = currentState?.nodes ?? [];
+		const currentEdges = currentState?.edges ?? [];
+
+		// Merge selection state from current nodes to new nodes
+		const nodesWithSelection = Array.isArray(nodes)
+			? nodes.map(node => {
+					const currentNode = currentNodes.find(n => n.id === node.id);
+					return {
+						...node,
+						selected: currentNode?.selected ?? false,
+					};
+				})
+			: [];
+
+		// Merge selection state from current edges to new edges
+		const edgesWithSelection = Array.isArray(edges)
+			? edges.map(edge => {
+					const currentEdge = currentEdges.find(e => e.id === edge.id);
+					return {
+						...edge,
+						selected: currentEdge?.selected ?? false,
+					};
+				})
+			: [];
+
+		set({ nodes: nodesWithSelection, edges: edgesWithSelection });
 		isUpdatingFromYjs = false;
+		saveYjsState();
 	};
 
 	ydoc.on('update', updateLocalFromYjs);
 
-	const saveYjsState = () => {
-		try {
-			const state = Y.encodeStateAsUpdate(ydoc);
-			const stateString = JSON.stringify(Array.from(state));
-			setLocalItem('yjs-state', stateString);
-		} catch (error) {
-			console.warn('[COLLABORATION] Failed to save state:', error);
-		}
-	};
+	const savedState = getLocalItem<string>('yjs-state', '');
 
-	ydoc.on('update', saveYjsState);
+	if (savedState) {
+		try {
+			const uint8Array = new Uint8Array(JSON.parse(savedState));
+			Y.applyUpdate(ydoc, uint8Array);
+		} catch (error) {
+			console.warn('[COLLABORATION] Failed to load saved state:', error);
+			// Initialize with default data if loading fails
+			ydoc.transact(() => {
+				yNodes.push(initialNodes);
+				yEdges.push(initialEdges);
+			});
+		}
+	} else {
+		ydoc.transact(() => {
+			yNodes.push(initialNodes);
+			yEdges.push(initialEdges);
+		});
+	}
+
+	const undoManager = new UndoManager([yNodes, yEdges], {
+		trackedOrigins: new Set([localOrigin]),
+	});
+
+	undoManager.on('stack-item-added', event => {
+		console.debug('[COLLABORATION] <stack-item-added>', event);
+	});
+
+	undoManager.on('stack-item-popped', event => {
+		console.debug('[COLLABORATION] <stack-item-popped>', event);
+	});
+
+	window.addEventListener('beforeunload', saveYjsState);
 
 	// This should be only enable when the auto save is enabled
 	const saveInterval = setInterval(saveYjsState, 30000);
-
-	window.addEventListener('beforeunload', saveYjsState);
 
 	updateLocalFromYjs();
 
@@ -199,13 +211,45 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		onNodesChange: changes => {
 			const newNodes = applyNodeChanges(changes, get().nodes);
 
-			updateYjsFromLocal(newNodes, get().edges);
+			// Check if this is a selection change (only affects selected property)
+			const isSelectionChange = changes.every(
+				change =>
+					change.type === 'select' ||
+					(change.type === 'replace' &&
+						change.item &&
+						Object.keys(change.item).length === 1 &&
+						'selected' in change.item)
+			);
+
+			if (isSelectionChange) {
+				// Selection changes are local-only, don't sync to Yjs
+				set({ nodes: newNodes });
+			} else {
+				// Non-selection changes should be synced
+				updateYjsFromLocal(newNodes, get().edges);
+			}
 		},
 
 		onEdgesChange: changes => {
 			const newEdges = applyEdgeChanges(changes, get().edges);
 
-			updateYjsFromLocal(get().nodes, newEdges);
+			// Check if this is a selection change (only affects selected property)
+			const isSelectionChange = changes.every(
+				change =>
+					change.type === 'select' ||
+					(change.type === 'replace' &&
+						change.item &&
+						Object.keys(change.item).length === 1 &&
+						'selected' in change.item)
+			);
+
+			if (isSelectionChange) {
+				// Selection changes are local-only, don't sync to Yjs
+				set({ edges: newEdges });
+			} else {
+				// Non-selection changes should be synced
+				updateYjsFromLocal(get().nodes, newEdges);
+			}
 		},
 
 		onConnect: connection => {
@@ -258,16 +302,13 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 					peerOpts: {},
 				});
 
-				// If joining a session (not hosting), clear local content
 				if (options.isJoining) {
 					console.debug('[COLLABORATION] Joining session - clearing local content');
-					// Clear local nodes and edges from Yjs document
 					ydoc.transact(() => {
 						yNodes.delete(0, yNodes.length);
 						yEdges.delete(0, yEdges.length);
 					}, localOrigin);
 
-					// Clear local state immediately
 					set({ nodes: [], edges: [] });
 				}
 

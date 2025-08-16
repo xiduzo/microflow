@@ -40,26 +40,13 @@ export function createMenu(mainWindow: BrowserWindow, createWindow: () => Promis
 				},
 				{ type: 'separator' },
 				{
-					label: 'Save flow',
-					accelerator: isMac ? 'Cmd+S' : 'Ctrl+S',
-					click: () => sendMessage(mainWindow, 'save-flow'),
-				},
-				{
-					id: 'autosave',
-					label: 'Auto save',
-					type: 'checkbox',
-					checked: true,
-					click: ({ checked }) => sendMessage(mainWindow, 'toggle-autosave', checked),
-				},
-				{ type: 'separator' },
-				{
 					label: 'New flow',
 					accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
 					click: () => sendMessage(mainWindow, 'new-flow'),
 				},
 				{
-					label: 'Export flow',
-					accelerator: isMac ? 'Cmd+E' : 'Ctrl+E',
+					label: 'Save flow',
+					accelerator: isMac ? 'Cmd+S' : 'Ctrl+S',
 					click: () => sendMessage(mainWindow, 'export-flow'),
 				},
 				{

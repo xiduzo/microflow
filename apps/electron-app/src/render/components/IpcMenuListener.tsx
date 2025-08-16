@@ -1,8 +1,6 @@
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
 import { useEffect, useState } from 'react';
-import { useLocalStorage } from 'usehooks-ts';
 import { FlowFile } from '../../common/types';
-import { useSaveFlow } from '../hooks/useSaveFlow';
 import {
 	useCollaborationActions,
 	useDeselectAll,
@@ -34,9 +32,6 @@ export function IpcMenuListeners() {
 	const { setEdges, setNodes, onNodesChange, onEdgesChange } = useReactFlowStore();
 	const { undo, redo } = useCollaborationActions();
 
-	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
-	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);
-	const [, setLocalEdges] = useLocalStorage<Edge[]>('edges', []);
 	const setOpen = useNewNodeStore(useShallow(state => state.setOpen));
 	const { settingsOpen, setSettingsOpen } = useAppStore();
 	const [copiedNodes, setCopiedNodes] = useState<Node[]>([]);
@@ -51,20 +46,12 @@ export function IpcMenuListeners() {
 			if (!result.success) return;
 
 			switch (result.data.button) {
-				case 'save-flow':
-					saveNodesAndEdges();
-					break;
 				case 'new-flow':
-					setLocalEdges([]);
-					setLocalNodes([]);
 					setNodes([]);
 					setEdges([]);
 					break;
 				case 'add-node':
 					setOpen(true);
-					break;
-				case 'toggle-autosave':
-					setAutoSave(Boolean(result.data.args));
 					break;
 				case 'mqtt-settings':
 				case 'board-settings':
@@ -163,7 +150,6 @@ export function IpcMenuListeners() {
 			}
 		});
 	}, [
-		saveNodesAndEdges,
 		setSettingsOpen,
 		setOpen,
 		undo,
