@@ -63,7 +63,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	const initialEdges = hasSeenIntroduction ? [] : INTRODUCTION_EDGES;
 
 	let provider: WebrtcProvider | null = null;
-	let isUpdatingFromYjs = false;
 
 	const ydoc = new Y.Doc();
 	const yNodes = ydoc.getArray<Node>('nodes');
@@ -82,8 +81,13 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		}
 	};
 
-	const updateYjsFromLocal = (nodes: Node[], edges: Edge[]) => {
-		if (!localOrigin || isUpdatingFromYjs) return;
+	/**
+	 * Syncs local React state changes to Yjs document for collaboration
+	 * Called when user makes changes to nodes/edges (move, add, delete, etc.)
+	 * Excludes selection state as that's local-only
+	 */
+	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
+		if (!localOrigin) return;
 
 		// Check for duplicate node IDs
 		const nodeIds = nodes.map(n => n.id);
@@ -95,37 +99,29 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			);
 		}
 
-		// Remove selection state before syncing to Yjs (selection is local-only)
-		const nodesWithoutSelection = nodes.map(node => {
-			const { selected, ...nodeWithoutSelection } = node as any;
-			return nodeWithoutSelection;
-		});
-
-		const edgesWithoutSelection = edges.map(edge => {
-			const { selected, ...edgeWithoutSelection } = edge as any;
-			return edgeWithoutSelection;
-		});
-
 		ydoc.transact(() => {
 			yNodes.delete(0, yNodes.length);
-			yNodes.push(nodesWithoutSelection);
+			yNodes.push(nodes);
 		}, localOrigin);
 
 		ydoc.transact(() => {
 			yEdges.delete(0, yEdges.length);
-			yEdges.push(edgesWithoutSelection);
+			yEdges.push(edges);
 		}, localOrigin);
 	};
 
-	const updateLocalFromYjs = () => {
-		isUpdatingFromYjs = true;
-		const nodes = yNodes.toArray() ?? [];
-		const edges = yEdges.toArray() ?? [];
+	/**
+	 * Syncs Yjs document changes to local React state
+	 * Called when Yjs document is updated (from collaboration or undo/redo)
+	 * Preserves local selection state while updating content
+	 */
+	const syncYjsChangesToLocal = () => {
+		const nodes = yNodes.toArray();
+		const edges = yEdges.toArray();
 
-		console.debug('[COLLABORATION] <<<< <updateLocalFromYjs>', {
+		console.debug('[COLLABORATION] <<<< <syncYjsChangesToLocal>', {
 			nodesCount: nodes.length,
 			edgesCount: edges.length,
-			nodeIds: Array.isArray(nodes) ? nodes.map(n => n.id) : [],
 		});
 
 		// Preserve local selection state when syncing from Yjs
@@ -134,33 +130,32 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		const currentEdges = currentState?.edges ?? [];
 
 		// Merge selection state from current nodes to new nodes
-		const nodesWithSelection = Array.isArray(nodes)
-			? nodes.map(node => {
-					const currentNode = currentNodes.find(n => n.id === node.id);
-					return {
-						...node,
-						selected: currentNode?.selected ?? false,
-					};
-				})
-			: [];
+		const nodesWithSelection = nodes.map(node => {
+			const currentNode = currentNodes.find(n => n.id === node.id);
+			return {
+				...node,
+				selected: currentNode?.selected ?? false,
+			};
+		});
 
 		// Merge selection state from current edges to new edges
-		const edgesWithSelection = Array.isArray(edges)
-			? edges.map(edge => {
-					const currentEdge = currentEdges.find(e => e.id === edge.id);
-					return {
-						...edge,
-						selected: currentEdge?.selected ?? false,
-					};
-				})
-			: [];
+		const edgesWithSelection = edges.map(edge => {
+			const currentEdge = currentEdges.find(e => e.id === edge.id);
+			return {
+				...edge,
+				selected: currentEdge?.selected ?? false,
+			};
+		});
 
-		set({ nodes: nodesWithSelection, edges: edgesWithSelection });
-		isUpdatingFromYjs = false;
-		saveYjsState();
+		// Defer the state update to ensure React has time to render components first
+		// This is especially important in React Strict Mode where components render twice
+		queueMicrotask(() => {
+			set({ nodes: nodesWithSelection, edges: edgesWithSelection });
+		});
 	};
 
-	ydoc.on('update', updateLocalFromYjs);
+	ydoc.on('update', syncYjsChangesToLocal);
+	ydoc.on('update', saveYjsState);
 
 	const savedState = getLocalItem<string>('yjs-state', '');
 
@@ -200,8 +195,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	// This should be only enable when the auto save is enabled
 	const saveInterval = setInterval(saveYjsState, 30000);
 
-	updateLocalFromYjs();
-
 	return {
 		nodes: initialNodes,
 		edges: initialEdges,
@@ -211,59 +204,40 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		onNodesChange: changes => {
 			const newNodes = applyNodeChanges(changes, get().nodes);
 
-			// Check if this is a selection change (only affects selected property)
-			const isSelectionChange = changes.every(
-				change =>
-					change.type === 'select' ||
-					(change.type === 'replace' &&
-						change.item &&
-						Object.keys(change.item).length === 1 &&
-						'selected' in change.item)
-			);
+			const isSelectionChange = changes.every(change => change.type === 'select');
 
 			if (isSelectionChange) {
-				// Selection changes are local-only, don't sync to Yjs
-				set({ nodes: newNodes });
-			} else {
-				// Non-selection changes should be synced
-				updateYjsFromLocal(newNodes, get().edges);
+				set({ nodes: newNodes }); // Selection changes are local-only, don't sync to Yjs
+				return;
 			}
+
+			syncLocalChangesToYjs(newNodes, get().edges);
 		},
 
 		onEdgesChange: changes => {
 			const newEdges = applyEdgeChanges(changes, get().edges);
 
-			// Check if this is a selection change (only affects selected property)
-			const isSelectionChange = changes.every(
-				change =>
-					change.type === 'select' ||
-					(change.type === 'replace' &&
-						change.item &&
-						Object.keys(change.item).length === 1 &&
-						'selected' in change.item)
-			);
+			const isSelectionChange = changes.every(change => change.type === 'select');
 
 			if (isSelectionChange) {
-				// Selection changes are local-only, don't sync to Yjs
-				set({ edges: newEdges });
-			} else {
-				// Non-selection changes should be synced
-				updateYjsFromLocal(get().nodes, newEdges);
+				set({ edges: newEdges }); // Selection changes are local-only, don't sync to Yjs
+				return;
 			}
+			syncLocalChangesToYjs(get().nodes, newEdges);
 		},
 
 		onConnect: connection => {
 			const newEdges = addEdge({ ...connection, id: crypto.randomUUID() }, get().edges);
 
-			updateYjsFromLocal(get().nodes, newEdges);
+			syncLocalChangesToYjs(get().nodes, newEdges);
 		},
 
 		setNodes: nodes => {
-			updateYjsFromLocal(nodes, get().edges);
+			syncLocalChangesToYjs(nodes, get().edges);
 		},
 
 		setEdges: edges => {
-			updateYjsFromLocal(get().nodes, edges);
+			syncLocalChangesToYjs(get().nodes, edges);
 		},
 
 		deleteEdges: (nodeId, handles = []) => {
@@ -281,8 +255,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 				return false;
 			});
 
-			// Update Yjs - this will trigger updateLocalFromYjs which updates the state
-			updateYjsFromLocal(get().nodes, edges);
+			syncLocalChangesToYjs(get().nodes, edges);
 		},
 
 		connect: (roomName: string, options: ConnectOptions = {}) => {
@@ -309,7 +282,10 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 						yEdges.delete(0, yEdges.length);
 					}, localOrigin);
 
-					set({ nodes: [], edges: [] });
+					// Defer the state update to avoid race conditions with syncYjsChangesToLocal
+					queueMicrotask(() => {
+						set({ nodes: [], edges: [] });
+					});
 				}
 
 				provider.on('status', ({ connected }) => {
