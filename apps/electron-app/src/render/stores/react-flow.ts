@@ -108,6 +108,8 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			yEdges.delete(0, yEdges.length);
 			yEdges.push(edges);
 		}, localOrigin);
+
+		set({ nodes, edges });
 	};
 
 	/**
@@ -115,35 +117,36 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 * Called when Yjs document is updated (from collaboration or undo/redo)
 	 * Preserves local selection state while updating content
 	 */
-	const syncYjsChangesToLocal = () => {
+	const syncYjsChangesToLocal = (
+		update: Uint8Array,
+		origin: any,
+		doc: Y.Doc,
+		transaction: Y.Transaction
+	) => {
+		// Ignore updates that originate from this local client to prevent feedback loops
+		if (origin === localOrigin) {
+			console.debug('[COLLABORATION] Ignoring local origin update');
+			return;
+		}
+
+		const currentState = get();
+
+		Y.applyUpdate(ydoc, update);
+
 		const nodes = yNodes.toArray();
 		const edges = yEdges.toArray();
 
-		console.debug('[COLLABORATION] <<<< <syncYjsChangesToLocal>', {
-			nodesCount: nodes.length,
-			edgesCount: edges.length,
-		});
-
-		// Preserve local selection state when syncing from Yjs
-		const currentState = get();
-		const currentNodes = currentState?.nodes ?? [];
-		const currentEdges = currentState?.edges ?? [];
-
-		// Merge selection state from current nodes to new nodes
 		const nodesWithSelection = nodes.map(node => {
-			const currentNode = currentNodes.find(n => n.id === node.id);
 			return {
 				...node,
-				selected: currentNode?.selected ?? false,
+				selected: currentState?.nodes?.find(({ id }) => id === node.id)?.selected ?? false,
 			};
 		});
 
-		// Merge selection state from current edges to new edges
 		const edgesWithSelection = edges.map(edge => {
-			const currentEdge = currentEdges.find(e => e.id === edge.id);
 			return {
 				...edge,
-				selected: currentEdge?.selected ?? false,
+				selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
 			};
 		});
 
@@ -180,14 +183,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 	const undoManager = new UndoManager([yNodes, yEdges], {
 		trackedOrigins: new Set([localOrigin]),
-	});
-
-	undoManager.on('stack-item-added', event => {
-		console.debug('[COLLABORATION] <stack-item-added>', event);
-	});
-
-	undoManager.on('stack-item-popped', event => {
-		console.debug('[COLLABORATION] <stack-item-popped>', event);
 	});
 
 	window.addEventListener('beforeunload', saveYjsState);
