@@ -27,6 +27,18 @@ export type CollaborationStatus =
 	| { type: 'connected'; roomName: string; peers: number }
 	| { type: 'error'; message: string };
 
+export type ConnectOptions = {
+	/** Whether this is a join operation (clears local content) or host operation (preserves local content) */
+	isJoining?: boolean;
+	/** Future extensibility: custom room settings */
+	roomSettings?: {
+		/** Maximum number of peers allowed in the room */
+		maxPeers?: number;
+		/** Room password for private sessions */
+		password?: string;
+	};
+};
+
 export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
 	edges: Edge[];
@@ -40,7 +52,7 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	// Collaboration
 	collaborationStatus: CollaborationStatus;
 	peers: number;
-	connect: (roomName: string) => void;
+	connect: (roomName: string, options?: ConnectOptions) => void;
 	disconnect: () => void;
 	undo: () => void;
 	redo: () => void;
@@ -73,12 +85,10 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES;
 	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES;
 
-	// Always use Yjs as the single source of truth
 	const ydoc = new Y.Doc();
 	const yNodes = ydoc.getArray<Node>('nodes');
 	const yEdges = ydoc.getArray<Edge>('edges');
 
-	// Load saved state from localStorage if available
 	const savedState = getLocalItem<string>('yjs-state', '');
 	if (savedState) {
 		try {
@@ -100,29 +110,46 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		});
 	}
 
-	// Unique origin object for this client
 	const localOrigin = { clientId: ydoc.clientID };
 
-	// Undo manager for local changes only
 	const undoManager = new UndoManager([yNodes, yEdges], {
 		trackedOrigins: new Set([localOrigin]),
 	});
 
-	// Set up undo/redo event listeners
 	undoManager.on('stack-item-added', event => {
 		console.debug('[COLLABORATION] Undo stack item added', event);
 	});
 
 	undoManager.on('stack-item-popped', event => {
 		console.debug('[COLLABORATION] Undo stack item popped', event);
+		// Force a re-render of the minimap by triggering an update
+		setTimeout(() => {
+			const nodes = yNodes.toArray();
+			const edges = yEdges.toArray();
+			console.debug('[COLLABORATION] After undo/redo', {
+				nodesCount: nodes.length,
+				edgesCount: edges.length,
+				nodeIds: nodes.map(n => n.id),
+			});
+			set({ nodes, edges });
+		}, 0);
 	});
 
-	// Collaboration state
 	let provider: WebrtcProvider | null = null;
 	let isUpdatingFromYjs = false;
 
 	const updateYjsFromLocal = (nodes: Node[], edges: Edge[]) => {
 		if (!localOrigin || isUpdatingFromYjs) return;
+
+		// Check for duplicate node IDs
+		const nodeIds = nodes.map(n => n.id);
+		const uniqueNodeIds = new Set(nodeIds);
+		if (nodeIds.length !== uniqueNodeIds.size) {
+			console.warn(
+				'[COLLABORATION] Duplicate node IDs detected:',
+				nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index)
+			);
+		}
 
 		ydoc.transact(() => {
 			yNodes.delete(0, yNodes.length);
@@ -140,14 +167,18 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		const nodes = yNodes.toArray();
 		const edges = yEdges.toArray();
 
+		console.debug('[COLLABORATION] Updating local state from Yjs', {
+			nodesCount: nodes.length,
+			edgesCount: edges.length,
+			nodeIds: nodes.map(n => n.id),
+		});
+
 		set({ nodes, edges });
 		isUpdatingFromYjs = false;
 	};
 
-	// Listen for Yjs updates (both local and remote)
 	ydoc.on('update', updateLocalFromYjs);
 
-	// Save Yjs state to localStorage periodically and on updates
 	const saveYjsState = () => {
 		try {
 			const state = Y.encodeStateAsUpdate(ydoc);
@@ -158,16 +189,13 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		}
 	};
 
-	// Save state on every update
 	ydoc.on('update', saveYjsState);
 
-	// Save state periodically (every 30 seconds)
+	// This should be only enable when the auto save is enabled
 	const saveInterval = setInterval(saveYjsState, 30000);
 
-	// Save state when the app is about to close
 	window.addEventListener('beforeunload', saveYjsState);
 
-	// Initial sync
 	updateLocalFromYjs();
 
 	return {
@@ -221,8 +249,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			updateYjsFromLocal(get().nodes, edges);
 		},
 
-		// Collaboration methods
-		connect: (roomName: string) => {
+		connect: (roomName: string, options: ConnectOptions = {}) => {
 			const { disconnect } = get();
 			disconnect();
 
@@ -231,14 +258,26 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			try {
 				provider = new WebrtcProvider(roomName, ydoc, {
 					signaling: ['wss://signaling.yjs.dev'],
-					password: undefined,
+					password: options.roomSettings?.password,
 					awareness: new awarenessProtocol.Awareness(ydoc),
-					maxConns: 20,
+					maxConns: options.roomSettings?.maxPeers ?? 20,
 					filterBcConns: false,
 					peerOpts: {},
 				});
 
-				// Set up provider event listeners
+				// If joining a session (not hosting), clear local content
+				if (options.isJoining) {
+					console.debug('[COLLABORATION] Joining session - clearing local content');
+					// Clear local nodes and edges from Yjs document
+					ydoc.transact(() => {
+						yNodes.delete(0, yNodes.length);
+						yEdges.delete(0, yEdges.length);
+					}, localOrigin);
+
+					// Clear local state immediately
+					set({ nodes: [], edges: [] });
+				}
+
 				provider.on('status', ({ connected }) => {
 					console.debug('[COLLABORATION] Provider status:', { connected });
 					if (connected) {
@@ -268,6 +307,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 				provider.on('peers', peers => {
 					console.debug('[COLLABORATION] Peers updated:', peers.webrtcPeers);
+					console.log('[COLLABORATION]', { peers });
 					set({ peers: peers.webrtcPeers.length });
 				});
 			} catch (error) {

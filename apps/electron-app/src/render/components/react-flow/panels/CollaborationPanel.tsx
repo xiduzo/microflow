@@ -17,12 +17,14 @@ import {
 import { UndoRedoControls } from './UndoRedoControls';
 import { JoinCollaborationDialog } from './JoinCollaborationDialog';
 import { Users } from 'lucide-react';
+import { useCopyToClipboard } from 'usehooks-ts';
 
 export function CollaborationPanel() {
 	const status = useCollaborationStatus();
 	const { connect, disconnect } = useCollaborationActions();
 	const { peers } = useCollaborationState();
 	const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+	const [, copyToClipboard] = useCopyToClipboard();
 
 	function hostAction() {
 		const roomName = `microflow-${Math.random().toString(36).substring(2, 8)}`;
@@ -30,6 +32,7 @@ export function CollaborationPanel() {
 		toast.success('Started collaboration session', {
 			description: `Room: ${roomName}`,
 		});
+		copyToClipboard(roomName);
 	}
 
 	function clientAction() {

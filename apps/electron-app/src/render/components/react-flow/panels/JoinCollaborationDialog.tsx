@@ -42,7 +42,7 @@ export function JoinCollaborationDialog(props: Props) {
 	});
 
 	function onSubmit(data: Schema) {
-		connect(data.roomName);
+		connect(data.roomName, { isJoining: true }); // Pass options to indicate this is a join operation
 		toast.success('Joining collaboration session...');
 		form.reset();
 		props.onOpenChange(false);

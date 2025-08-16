@@ -4,6 +4,8 @@ import { IpcResponse } from '../common/types';
 
 const isMac = process.platform === 'darwin';
 
+const isDevelopment = !app.isPackaged;
+
 const appMenu: (MenuItemConstructorOptions | MenuItem)[] = isMac
 	? [
 			{
@@ -25,7 +27,7 @@ const appMenu: (MenuItemConstructorOptions | MenuItem)[] = isMac
 	: [];
 
 type MenuResponse = IpcResponse<{ button: string; args?: any }>;
-export function createMenu(mainWindow: BrowserWindow) {
+export function createMenu(mainWindow: BrowserWindow, createWindow: () => Promise<void>) {
 	const menuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
 		...appMenu,
 		{
@@ -163,6 +165,23 @@ export function createMenu(mainWindow: BrowserWindow) {
 				},
 			],
 		},
+		// Development-only menu
+		...(isDevelopment
+			? [
+					{
+						label: 'Development',
+						submenu: [
+							{
+								label: 'New Window',
+								accelerator: isMac ? 'Cmd+Shift+N' : 'Ctrl+Shift+N',
+								click: () => {
+									createWindow();
+								},
+							},
+						],
+					},
+				]
+			: []),
 		{ role: 'viewMenu' },
 		{ role: 'windowMenu' },
 		{

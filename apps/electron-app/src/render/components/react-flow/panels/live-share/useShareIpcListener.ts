@@ -4,10 +4,12 @@ import { useEffect } from 'react';
 import { toBase64 } from '@microflow/utils/base64';
 import { useCopyToClipboard } from 'usehooks-ts';
 import { getRandomMessage } from '../../../../../common/messages';
+import { useReactFlowCanvas } from '../../../../stores/react-flow';
 
 export function useShareIpcListener() {
 	const { setStatus } = useSocketStore();
 	const [, copy] = useCopyToClipboard();
+	const { setNodes, setEdges } = useReactFlowCanvas();
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<SocketStatus>('ipc-live-share', async result => {
@@ -56,6 +58,10 @@ export function useShareIpcListener() {
 
 					break;
 				case 'joined':
+					// Clear local nodes and edges when joining a session
+					console.debug('[LIVE-SHARE] Joining session - clearing local content');
+					setNodes([]);
+					setEdges([]);
 					toast.success('Joined collaboration session');
 					break;
 				case 'disconnected':
