@@ -1,26 +1,14 @@
-import {
-	Background,
-	Controls,
-	Edge,
-	Node,
-	MiniMap,
-	Panel,
-	ReactFlow,
-	useReactFlow,
-	EdgeAddChange,
-} from '@xyflow/react';
+import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
 import { NODE_TYPES } from '../../../common/nodes';
 import { useReactFlowCanvas } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
 import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
-import { SharePanel } from './panels/live-share/SharePanel';
-import { useSocketSender } from '../../stores/socket';
+import { CollaborationPanel } from './panels/CollaborationPanel';
 import { UserPanel } from './panels/UserPanel';
 
 export function ReactFlowCanvas() {
-	const { send } = useSocketSender();
 	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
 	const debounceCursorPostion = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -50,10 +38,10 @@ export function ReactFlowCanvas() {
 					y: event.clientY,
 				});
 
-				// send({ type: 'cursor', data: { change: { type: 'position', position } } });
+				// Cursor position tracking removed for Yjs collaboration
 			}, 16);
 		},
-		[screenToFlowPosition, send]
+		[screenToFlowPosition]
 	);
 
 	useEffect(() => {
@@ -63,61 +51,6 @@ export function ReactFlowCanvas() {
 	return (
 		<ReactFlow
 			{...store}
-			onConnect={connection => {
-				send({
-					type: 'edge-add',
-					data: {
-						change: {
-							type: 'add',
-							item: { ...connection, id: crypto.randomUUID() },
-						} satisfies EdgeAddChange,
-					},
-				});
-				store.onConnect(connection);
-			}}
-			onNodesChange={changes => {
-				changes.forEach(change => {
-					switch (change.type) {
-						case 'add':
-							send({ type: 'node-add', data: { change } });
-							break;
-						case 'remove':
-							send({ type: 'node-remove', data: { change } });
-							break;
-						case 'position':
-							send({ type: 'node-position', data: { change } });
-							break;
-						case 'replace':
-						case 'select':
-						case 'dimensions':
-							// console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
-							break;
-						default:
-							console.warn('[REACT-FLOW] <unknown node change>', change);
-							break;
-					}
-				});
-				store.onNodesChange(changes);
-			}}
-			onEdgesChange={changes => {
-				changes.forEach(change => {
-					switch (change.type) {
-						case 'add':
-							send({ type: 'edge-add', data: { change } });
-							break;
-						case 'remove':
-							send({ type: 'edge-remove', data: { change } });
-							break;
-						case 'replace':
-						case 'select':
-							// console.debug(`[REACT-FLOW] <${change.type}> not sending change over socket`, change);
-							break;
-						default:
-							console.warn('[REACT-FLOW] <unknown edge change>', change);
-					}
-				});
-				store.onEdgesChange(changes);
-			}}
 			onPaneMouseMove={handlePaneMouseMove}
 			edgeTypes={EDGE_TYPES}
 			nodeTypes={NODE_TYPES}
@@ -155,7 +88,7 @@ export function ReactFlowCanvas() {
 				<SettingsPanel />
 			</Panel>
 			<Panel position='top-left'>
-				<SharePanel />
+				<CollaborationPanel />
 			</Panel>
 			<Panel position='top-right'>
 				<UserPanel />

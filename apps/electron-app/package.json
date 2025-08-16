@@ -85,6 +85,9 @@
 		"unique-names-generator": "4.7.1",
 		"update-electron-app": "3.1.1",
 		"usehooks-ts": "3.1.1",
+		"y-protocols": "^1.0.6",
+		"y-webrtc": "^10.2.5",
+		"yjs": "^13.6.8",
 		"zundo": "2.3.0",
 		"zustand": "5.0.3"
 	}

@@ -4,6 +4,7 @@ import { useLocalStorage } from 'usehooks-ts';
 import { FlowFile } from '../../common/types';
 import { useSaveFlow } from '../hooks/useSaveFlow';
 import {
+	useCollaborationActions,
 	useDeselectAll,
 	useNonInternalNodes,
 	useReactFlowStore,
@@ -31,7 +32,7 @@ function canTriggerAction() {
 export function IpcMenuListeners() {
 	const { getNodes, getEdges, fitView } = useReactFlow();
 	const { setEdges, setNodes, onNodesChange, onEdgesChange } = useReactFlowStore();
-	const { undo, redo } = useReactFlowStore.temporal.getState();
+	const { undo, redo } = useCollaborationActions();
 
 	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
 	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);

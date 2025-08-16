@@ -1,0 +1,101 @@
+import {
+	Button,
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+	Icon,
+	IconName,
+	toast,
+} from '@microflow/ui';
+import { useMemo, useState } from 'react';
+import {
+	useCollaborationStatus,
+	useCollaborationActions,
+	useCollaborationState,
+} from '../../../stores/react-flow';
+import { UndoRedoControls } from './UndoRedoControls';
+import { JoinCollaborationDialog } from './JoinCollaborationDialog';
+import { Users } from 'lucide-react';
+
+export function CollaborationPanel() {
+	const status = useCollaborationStatus();
+	const { connect, disconnect } = useCollaborationActions();
+	const { peers } = useCollaborationState();
+	const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+
+	function hostAction() {
+		const roomName = `microflow-${Math.random().toString(36).substring(2, 8)}`;
+		connect(roomName);
+		toast.success('Started collaboration session', {
+			description: `Room: ${roomName}`,
+		});
+	}
+
+	function clientAction() {
+		if (status.type === 'connected') {
+			disconnect();
+			toast.info('Left collaboration session');
+		} else {
+			setJoinDialogOpen(true);
+		}
+	}
+
+	const [title, icon] = useMemo((): [string, IconName] => {
+		switch (status.type) {
+			case 'connected':
+				return [`${peers} peers`, 'Users'];
+			case 'connecting':
+				return ['Connecting...', 'RectangleEllipsis'];
+			case 'error':
+				return ['Error', 'AlertTriangle'];
+			case 'disconnected':
+			default:
+				return ['Collaborate', 'Users'];
+		}
+	}, [status.type, peers]);
+
+	return (
+		<>
+			<div className='flex items-center gap-2'>
+				<UndoRedoControls />
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button variant='outline' size='sm' className='gap-2'>
+							<Icon icon={icon} className='h-4 w-4' />
+							{title}
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align='end'>
+						{status.type === 'disconnected' && (
+							<>
+								<DropdownMenuItem onClick={hostAction}>
+									<Icon icon='Radio' className='h-4 w-4 mr-2' />
+									Start session
+								</DropdownMenuItem>
+								<DropdownMenuItem onClick={() => setJoinDialogOpen(true)}>
+									<Icon icon='RadioReceiver' className='h-4 w-4 mr-2' />
+									Join session
+								</DropdownMenuItem>
+							</>
+						)}
+						{status.type === 'connected' && (
+							<>
+								<DropdownMenuItem onClick={clientAction}>
+									<Icon icon='RadioReceiver' className='h-4 w-4 mr-2' />
+									Leave session
+								</DropdownMenuItem>
+								<DropdownMenuItem disabled>
+									<Users className='h-4 w-4 mr-2' />
+									{peers} peer{peers !== 1 ? 's' : ''} connected
+								</DropdownMenuItem>
+							</>
+						)}
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+
+			<JoinCollaborationDialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen} />
+		</>
+	);
+}
