@@ -10,7 +10,7 @@ import {
 	useReactFlowStore,
 	useSelectAll,
 	useSelectedEdges,
-	useSelectNodes,
+	useSelectedNodes,
 } from '../stores/react-flow';
 import { MqttSettingsForm } from './forms/MqttSettingsForm';
 import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
@@ -42,7 +42,7 @@ export function IpcMenuListeners() {
 	const [copiedNodes, setCopiedNodes] = useState<Node[]>([]);
 	const selectAll = useSelectAll();
 	const deselectAll = useDeselectAll();
-	const selectedNodes = useSelectNodes();
+	const selectedNodes = useSelectedNodes();
 	const selectedEdges = useSelectedEdges();
 	const nonInternalNodes = useNonInternalNodes();
 

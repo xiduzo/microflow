@@ -9,20 +9,15 @@ import {
 	toast,
 } from '@microflow/ui';
 import { useMemo, useState } from 'react';
-import {
-	useCollaborationStatus,
-	useCollaborationActions,
-	useCollaborationState,
-} from '../../../stores/react-flow';
+import { useCollaborationActions, useCollaborationState } from '../../../stores/react-flow';
 import { UndoRedoControls } from './UndoRedoControls';
 import { JoinCollaborationDialog } from './JoinCollaborationDialog';
 import { Users } from 'lucide-react';
 import { useCopyToClipboard } from 'usehooks-ts';
 
 export function CollaborationPanel() {
-	const status = useCollaborationStatus();
 	const { connect, disconnect } = useCollaborationActions();
-	const { peers } = useCollaborationState();
+	const { status, peers } = useCollaborationState();
 	const [joinDialogOpen, setJoinDialogOpen] = useState(false);
 	const [, copyToClipboard] = useCopyToClipboard();
 

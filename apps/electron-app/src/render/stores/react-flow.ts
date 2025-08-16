@@ -17,7 +17,7 @@ import { useShallow } from 'zustand/shallow';
 import { createWithEqualityFn as create } from 'zustand/traditional';
 import { getLocalItem, setLocalItem } from '../../common/local-storage';
 import * as Y from 'yjs';
-import { WebrtcProvider } from 'y-webrtc';
+import { ProviderOptions, WebrtcProvider } from 'y-webrtc';
 import { UndoManager } from 'yjs';
 import * as awarenessProtocol from 'y-protocols/awareness';
 
@@ -27,16 +27,8 @@ export type CollaborationStatus =
 	| { type: 'connected'; roomName: string; peers: number }
 	| { type: 'error'; message: string };
 
-export type ConnectOptions = {
-	/** Whether this is a join operation (clears local content) or host operation (preserves local content) */
+export type ConnectOptions = ProviderOptions & {
 	isJoining?: boolean;
-	/** Future extensibility: custom room settings */
-	roomSettings?: {
-		/** Maximum number of peers allowed in the room */
-		maxPeers?: number;
-		/** Room password for private sessions */
-		password?: string;
-	};
 };
 
 export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
@@ -258,9 +250,10 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			try {
 				provider = new WebrtcProvider(roomName, ydoc, {
 					signaling: ['wss://signaling.yjs.dev'],
-					password: options.roomSettings?.password,
+					password: undefined,
+					maxConns: 20,
+					...options,
 					awareness: new awarenessProtocol.Awareness(ydoc),
-					maxConns: options.roomSettings?.maxPeers ?? 20,
 					filterBcConns: false,
 					peerOpts: {},
 				});
@@ -280,34 +273,33 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 				provider.on('status', ({ connected }) => {
 					console.debug('[COLLABORATION] Provider status:', { connected });
-					if (connected) {
-						set({
-							collaborationStatus: {
-								type: 'connected',
-								roomName,
-								peers: provider?.awareness.getStates().size ?? 0,
-							},
-						});
-					}
+					if (!connected) return;
+					set({
+						collaborationStatus: {
+							type: 'connected',
+							roomName,
+							peers: provider?.awareness.getStates().size ?? 0,
+						},
+					});
 				});
 
 				provider.on('synced', ({ synced }) => {
 					console.debug('[COLLABORATION] Sync status:', synced);
-					if (synced && provider) {
-						set({
-							collaborationStatus: {
-								type: 'connected',
-								roomName,
-								peers: provider.awareness.getStates().size,
-							},
+					if (!synced) return;
+					if (!provider) return;
+					set({
+						collaborationStatus: {
+							type: 'connected',
+							roomName,
 							peers: provider.awareness.getStates().size,
-						});
-					}
+						},
+						peers: provider.awareness.getStates().size,
+					});
 				});
 
 				provider.on('peers', peers => {
 					console.debug('[COLLABORATION] Peers updated:', peers.webrtcPeers);
-					console.log('[COLLABORATION]', { peers });
+					console.debug('[COLLABORATION]', { peers });
 					set({ peers: peers.webrtcPeers.length });
 				});
 			} catch (error) {
@@ -426,7 +418,7 @@ export function useDeselectAll() {
 	);
 }
 
-export function useSelectNodes() {
+export function useSelectedNodes() {
 	return useReactFlowStore(useShallow(state => () => state.nodes.filter(node => node.selected)));
 }
 
