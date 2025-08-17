@@ -16,10 +16,10 @@ import { useShallow } from 'zustand/shallow';
 // TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
 import { createWithEqualityFn as create } from 'zustand/traditional';
 import { getLocalItem, setLocalItem } from '../../common/local-storage';
-import * as Y from 'yjs';
+import * as YJS from 'yjs';
 import { ProviderOptions, WebrtcProvider } from 'y-webrtc';
 import { UndoManager } from 'yjs';
-import * as awarenessProtocol from 'y-protocols/awareness';
+import { Awareness } from 'y-protocols/awareness';
 
 export type CollaborationStatus =
 	| { type: 'disconnected' }
@@ -55,7 +55,7 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	let provider: WebrtcProvider | null = null;
 
-	const ydoc = new Y.Doc();
+	const ydoc = new YJS.Doc();
 	const yNodes = ydoc.getArray<Node>('nodes');
 	const yEdges = ydoc.getArray<Edge>('edges');
 
@@ -67,9 +67,8 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	});
 
 	const saveYjsState = () => {
-		console.debug('[COLLABORATION] <saveYjsState>');
 		try {
-			const state = Y.encodeStateAsUpdate(ydoc);
+			const state = YJS.encodeStateAsUpdate(ydoc);
 			const stateString = JSON.stringify(Array.from(state));
 			setLocalItem('yjs-state', stateString);
 		} catch (error) {
@@ -154,15 +153,15 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	const syncYjsChangesToLocal = (
 		update: Uint8Array,
 		_origin: any,
-		_doc: Y.Doc,
-		transaction: Y.Transaction
+		_doc: YJS.Doc,
+		transaction: YJS.Transaction
 	) => {
 		// Ignore updates that originate from this local client to prevent feedback loops
 		if (origin === transaction.origin) return;
 
 		const currentState = get();
 
-		Y.applyUpdate(ydoc, update);
+		YJS.applyUpdate(ydoc, update);
 
 		const nodes = yNodes.toArray();
 		const edges = yEdges.toArray();
@@ -177,7 +176,10 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
 		}));
 
-		set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
+		// Wait for the next microtask to ensure the state is updated, and react has renderd the ReactFlowCanvas
+		queueMicrotask(() => {
+			set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
+		});
 	};
 
 	ydoc.on('update', syncYjsChangesToLocal);
@@ -195,7 +197,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 		const uint8Array = new Uint8Array(JSON.parse(savedState));
 		console.debug('[COLLABORATION] <load-saved-state>', { uint8Array });
-		Y.applyUpdate(ydoc, uint8Array);
+		YJS.applyUpdate(ydoc, uint8Array);
 	} catch (error) {
 		console.warn('[COLLABORATION] Failed to load saved state:', error);
 		// Initialize with default data if loading fails
@@ -270,9 +272,20 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			syncLocalChangesToYjs(get().nodes, edges);
 		},
 
-		connect: (roomName: string, options: ConnectOptions = {}) => {
+		connect: (
+			roomName: string,
+			options: Omit<ConnectOptions, 'awareness' | 'filterBcConns' | 'peerOpts'> = {}
+		) => {
 			const { disconnect } = get();
 			disconnect();
+
+			if (options.isJoining) {
+				set({ nodes: [], edges: [] });
+				ydoc.transact(() => {
+					yNodes.delete(0, yNodes.length);
+					yEdges.delete(0, yEdges.length);
+				}, localOrigin);
+			}
 
 			set({ collaborationStatus: { type: 'connecting' } });
 
@@ -282,15 +295,10 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 					password: undefined,
 					maxConns: 20,
 					...options,
-					awareness: new awarenessProtocol.Awareness(ydoc),
+					awareness: new Awareness(ydoc),
 					filterBcConns: false,
 					peerOpts: {},
 				});
-
-				if (options.isJoining) {
-					console.debug('[COLLABORATION] Joining session - clearing local content');
-					set({ nodes: [], edges: [] });
-				}
 
 				provider.on('status', ({ connected }) => {
 					console.debug('[COLLABORATION] Provider status:', { connected });
@@ -304,24 +312,14 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 					});
 				});
 
-				provider.on('synced', ({ synced }) => {
-					console.debug('[COLLABORATION] Sync status:', synced);
-					if (!synced) return;
-					if (!provider) return;
-					set({
-						collaborationStatus: {
-							type: 'connected',
-							roomName,
-							peers: provider.awareness.getStates().size,
-						},
-						peers: provider.awareness.getStates().size,
-					});
-				});
-
 				provider.on('peers', peers => {
-					console.debug('[COLLABORATION] Peers updated:', peers.webrtcPeers);
 					console.debug('[COLLABORATION]', { peers });
-					set({ peers: peers.webrtcPeers.length });
+					set({ peers: get().peers + peers.added.length - peers.removed.length });
+
+					if (!peers.added.length) return;
+
+					// TODO: find out why new peers in the network are not getting synced up
+					syncLocalChangesToYjs(get().nodes, get().edges);
 				});
 			} catch (error) {
 				console.error('[COLLABORATION] Failed to connect:', error);

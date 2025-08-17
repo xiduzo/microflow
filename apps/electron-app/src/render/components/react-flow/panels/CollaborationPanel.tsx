@@ -22,7 +22,8 @@ export function CollaborationPanel() {
 	const [, copyToClipboard] = useCopyToClipboard();
 
 	function hostAction() {
-		const roomName = `microflow-${Math.random().toString(36).substring(2, 8)}`;
+		// const roomName = `microflow-${Math.random().toString(36).substring(2, 8)}`;
+		const roomName = `microflow`;
 		connect(roomName);
 		toast.success('Started collaboration session', {
 			description: `Room: ${roomName}`,
