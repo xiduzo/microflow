@@ -45,7 +45,7 @@ export function NewNodeCommandDialog() {
 		return function () {
 			const item: Node = {
 				data: node.data,
-				id: Math.random().toString(36).substring(2, 8),
+				id: crypto.randomUUID(),
 				type,
 				position,
 			};

@@ -53,6 +53,7 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 };
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
+	localStorage.clear();
 	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
 
 	if (!hasSeenIntroduction) {
@@ -70,6 +71,10 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 	const localOrigin = { clientId: ydoc.clientID };
 	console.log('[COLLABORATION] Local origin', localOrigin);
+
+	const undoManager = new UndoManager([yNodes, yEdges], {
+		trackedOrigins: new Set([localOrigin]),
+	});
 
 	const saveYjsState = () => {
 		try {
@@ -99,14 +104,63 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			);
 		}
 
+		// Get current Yjs state
+		const currentYNodes = yNodes.toArray();
+		const currentYEdges = yEdges.toArray();
+		console.debug('[COLLABORATION] <syncLocalChangesToYjs>', {
+			nodes,
+			edges,
+			currentYNodes,
+			currentYEdges,
+		});
+
 		ydoc.transact(() => {
-			yNodes.delete(0, yNodes.length);
-			yNodes.push(nodes);
+			const newNodeIds = new Set(nodes.map(n => n.id));
+
+			// Remove nodes that no longer exist
+			currentYNodes.forEach((node, index) => {
+				if (!newNodeIds.has(node.id)) {
+					yNodes.delete(index, 1);
+				}
+			});
+
+			// Add new nodes and update existing ones
+			nodes.forEach(node => {
+				const existingIndex = currentYNodes.findIndex(n => n.id === node.id);
+				if (existingIndex === -1) {
+					// New node
+					yNodes.push([node]);
+				} else {
+					// Update existing node
+					yNodes.delete(existingIndex, 1);
+					yNodes.insert(existingIndex, [node]);
+				}
+			});
 		}, localOrigin);
 
 		ydoc.transact(() => {
-			yEdges.delete(0, yEdges.length);
-			yEdges.push(edges);
+			const newEdgeIds = new Set(edges.map(e => e.id));
+
+			// Remove edges that no longer exist
+			currentYEdges.forEach((edge, index) => {
+				if (!newEdgeIds.has(edge.id)) {
+					yEdges.delete(index, 1);
+				}
+			});
+
+			// Add new edges and update existing ones
+			edges.forEach(edge => {
+				const existingIndex = currentYEdges.findIndex(e => e.id === edge.id);
+				if (existingIndex === -1) {
+					// New edge
+					console.debug('[COLLABORATION] <syncLocalChangesToYjs> New edge:', edge);
+					yEdges.push([edge]);
+				} else {
+					// Update existing edge
+					yEdges.delete(existingIndex, 1);
+					yEdges.insert(existingIndex, [edge]);
+				}
+			});
 		}, localOrigin);
 
 		set({ nodes, edges });
@@ -150,11 +204,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			};
 		});
 
-		// Defer the state update to ensure React has time to render components first
-		// This is especially important in React Strict Mode where components render twice
-		queueMicrotask(() => {
-			set({ nodes: nodesWithSelection, edges: edgesWithSelection });
-		});
+		set({ nodes: nodesWithSelection, edges: edgesWithSelection });
 	};
 
 	ydoc.on('update', syncYjsChangesToLocal);
@@ -162,7 +212,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 	const savedState = getLocalItem<string>('yjs-state', '');
 
-	if (savedState) {
+	if (hasSeenIntroduction) {
 		try {
 			const uint8Array = new Uint8Array(JSON.parse(savedState));
 			Y.applyUpdate(ydoc, uint8Array);
@@ -175,19 +225,18 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			});
 		}
 	} else {
+		console.debug('[COLLABORATION] <load-saved-state>', {
+			initialNodes,
+			initialEdges,
+		});
 		ydoc.transact(() => {
 			yNodes.push(initialNodes);
 			yEdges.push(initialEdges);
 		});
 	}
 
-	const undoManager = new UndoManager([yNodes, yEdges], {
-		trackedOrigins: new Set([localOrigin]),
-	});
-
 	window.addEventListener('beforeunload', saveYjsState);
 
-	// This should be only enable when the auto save is enabled
 	const saveInterval = setInterval(saveYjsState, 30000);
 
 	return {
@@ -277,10 +326,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 						yEdges.delete(0, yEdges.length);
 					}, localOrigin);
 
-					// Defer the state update to avoid race conditions with syncYjsChangesToLocal
-					queueMicrotask(() => {
-						set({ nodes: [], edges: [] });
-					});
+					set({ nodes: [], edges: [] });
 				}
 
 				provider.on('status', ({ connected }) => {
