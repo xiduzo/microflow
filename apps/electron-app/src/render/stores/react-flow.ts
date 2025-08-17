@@ -53,16 +53,6 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 };
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
-	localStorage.clear();
-	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
-
-	if (!hasSeenIntroduction) {
-		setLocalItem('has-seen-introduction', true);
-	}
-
-	const initialNodes = hasSeenIntroduction ? [] : INTRODUCTION_NODES;
-	const initialEdges = hasSeenIntroduction ? [] : INTRODUCTION_EDGES;
-
 	let provider: WebrtcProvider | null = null;
 
 	const ydoc = new Y.Doc();
@@ -77,6 +67,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	});
 
 	const saveYjsState = () => {
+		console.debug('[COLLABORATION] <saveYjsState>');
 		try {
 			const state = Y.encodeStateAsUpdate(ydoc);
 			const stateString = JSON.stringify(Array.from(state));
@@ -92,8 +83,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 * Excludes selection state as that's local-only
 	 */
 	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
-		if (!localOrigin) return;
-
 		// Check for duplicate node IDs
 		const nodeIds = nodes.map(n => n.id);
 		const uniqueNodeIds = new Set(nodeIds);
@@ -107,12 +96,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		// Get current Yjs state
 		const currentYNodes = yNodes.toArray();
 		const currentYEdges = yEdges.toArray();
-		console.debug('[COLLABORATION] <syncLocalChangesToYjs>', {
-			nodes,
-			edges,
-			currentYNodes,
-			currentYEdges,
-		});
 
 		ydoc.transact(() => {
 			const newNodeIds = new Set(nodes.map(n => n.id));
@@ -128,10 +111,9 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			nodes.forEach(node => {
 				const existingIndex = currentYNodes.findIndex(n => n.id === node.id);
 				if (existingIndex === -1) {
-					// New node
-					yNodes.push([node]);
+					yNodes.push([node]); // New node
 				} else {
-					// Update existing node
+					// Upsert existing node
 					yNodes.delete(existingIndex, 1);
 					yNodes.insert(existingIndex, [node]);
 				}
@@ -152,11 +134,9 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			edges.forEach(edge => {
 				const existingIndex = currentYEdges.findIndex(e => e.id === edge.id);
 				if (existingIndex === -1) {
-					// New edge
-					console.debug('[COLLABORATION] <syncLocalChangesToYjs> New edge:', edge);
-					yEdges.push([edge]);
+					yEdges.push([edge]); // New edge
 				} else {
-					// Update existing edge
+					// Upsert existing edge
 					yEdges.delete(existingIndex, 1);
 					yEdges.insert(existingIndex, [edge]);
 				}
@@ -173,15 +153,12 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 */
 	const syncYjsChangesToLocal = (
 		update: Uint8Array,
-		origin: any,
-		doc: Y.Doc,
+		_origin: any,
+		_doc: Y.Doc,
 		transaction: Y.Transaction
 	) => {
 		// Ignore updates that originate from this local client to prevent feedback loops
-		if (origin === localOrigin) {
-			console.debug('[COLLABORATION] Ignoring local origin update');
-			return;
-		}
+		if (origin === transaction.origin) return;
 
 		const currentState = get();
 
@@ -190,45 +167,38 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		const nodes = yNodes.toArray();
 		const edges = yEdges.toArray();
 
-		const nodesWithSelection = nodes.map(node => {
-			return {
-				...node,
-				selected: currentState?.nodes?.find(({ id }) => id === node.id)?.selected ?? false,
-			};
-		});
+		const nodesWithLocalSelection = nodes.map(node => ({
+			...node,
+			selected: currentState?.nodes?.find(({ id }) => id === node.id)?.selected ?? false,
+		}));
 
-		const edgesWithSelection = edges.map(edge => {
-			return {
-				...edge,
-				selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
-			};
-		});
+		const edgesWithLocalSelection = edges.map(edge => ({
+			...edge,
+			selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
+		}));
 
-		set({ nodes: nodesWithSelection, edges: edgesWithSelection });
+		set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
 	};
 
 	ydoc.on('update', syncYjsChangesToLocal);
 	ydoc.on('update', saveYjsState);
 
-	const savedState = getLocalItem<string>('yjs-state', '');
+	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
+	if (!hasSeenIntroduction) setLocalItem('has-seen-introduction', true);
 
-	if (hasSeenIntroduction) {
-		try {
-			const uint8Array = new Uint8Array(JSON.parse(savedState));
-			Y.applyUpdate(ydoc, uint8Array);
-		} catch (error) {
-			console.warn('[COLLABORATION] Failed to load saved state:', error);
-			// Initialize with default data if loading fails
-			ydoc.transact(() => {
-				yNodes.push(initialNodes);
-				yEdges.push(initialEdges);
-			});
-		}
-	} else {
-		console.debug('[COLLABORATION] <load-saved-state>', {
-			initialNodes,
-			initialEdges,
-		});
+	const initialNodes = hasSeenIntroduction ? [] : INTRODUCTION_NODES;
+	const initialEdges = hasSeenIntroduction ? [] : INTRODUCTION_EDGES;
+
+	try {
+		if (!hasSeenIntroduction) throw Error('Has not seen introduction');
+		const savedState = getLocalItem<string>('yjs-state', '');
+
+		const uint8Array = new Uint8Array(JSON.parse(savedState));
+		console.debug('[COLLABORATION] <load-saved-state>', { uint8Array });
+		Y.applyUpdate(ydoc, uint8Array);
+	} catch (error) {
+		console.warn('[COLLABORATION] Failed to load saved state:', error);
+		// Initialize with default data if loading fails
 		ydoc.transact(() => {
 			yNodes.push(initialNodes);
 			yEdges.push(initialEdges);
@@ -236,8 +206,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	}
 
 	window.addEventListener('beforeunload', saveYjsState);
-
-	const saveInterval = setInterval(saveYjsState, 30000);
 
 	return {
 		nodes: initialNodes,
@@ -321,11 +289,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 				if (options.isJoining) {
 					console.debug('[COLLABORATION] Joining session - clearing local content');
-					ydoc.transact(() => {
-						yNodes.delete(0, yNodes.length);
-						yEdges.delete(0, yEdges.length);
-					}, localOrigin);
-
 					set({ nodes: [], edges: [] });
 				}
 
