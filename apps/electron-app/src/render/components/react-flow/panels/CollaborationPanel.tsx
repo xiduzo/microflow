@@ -9,7 +9,7 @@ import {
 	toast,
 } from '@microflow/ui';
 import { useMemo, useState } from 'react';
-import { useCollaborationActions, useCollaborationState } from '../../../stores/react-flow';
+import { useCollaborationActions, useCollaborationState } from '../../../stores/yjs';
 import { UndoRedoControls } from './UndoRedoControls';
 import { JoinCollaborationDialog } from './JoinCollaborationDialog';
 import { Users } from 'lucide-react';

@@ -2,7 +2,6 @@ import { useReactFlow, type Edge, type Node } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { FlowFile } from '../../common/types';
 import {
-	useCollaborationActions,
 	useDeselectAll,
 	useNonInternalNodes,
 	useReactFlowStore,
@@ -10,6 +9,7 @@ import {
 	useSelectedEdges,
 	useSelectedNodes,
 } from '../stores/react-flow';
+import { useCollaborationActions } from '../stores/yjs';
 import { MqttSettingsForm } from './forms/MqttSettingsForm';
 import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
 import { useAppStore } from '../stores/app';
@@ -120,7 +120,7 @@ export function IpcMenuListeners() {
 							type: 'add',
 							item: {
 								...node,
-								id: Math.random().toString(36).substring(2, 8),
+								id: crypto.randomUUID(), // Use proper UUID instead of short random string
 								position: {
 									// IDEA center of mouse on canvas
 									x: node.position.x + 20,

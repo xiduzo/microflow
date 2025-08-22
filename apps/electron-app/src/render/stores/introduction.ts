@@ -8,7 +8,7 @@ const InformationNode: Node = {
 		note: 'Welcome to microflow studio!',
 		extraInfo: 'Oh hi there explorer, connect your microcontroller to get started.',
 	},
-	id: crypto.randomUUID(),
+	id: 'introduction-info-node',
 	type: 'Note',
 	position: { x: 400, y: 221 },
 	measured: { width: 256, height: 176 },
@@ -21,7 +21,7 @@ const IntervalNode: Node = {
 		label: 'Interval',
 		interval: 1000,
 	},
-	id: crypto.randomUUID(),
+	id: 'introduction-interval-node',
 	type: 'Interval',
 	position: { x: 86, y: 252 },
 	measured: { width: 208, height: 176 },
@@ -34,7 +34,7 @@ const LedNode: Node = {
 		label: 'LED',
 		pin: 13,
 	},
-	id: crypto.randomUUID(),
+	id: 'introduction-led-node',
 	type: 'Led',
 	position: { x: 425, y: 504 },
 	measured: { width: 208, height: 176 },
@@ -47,7 +47,7 @@ const IntervalToLedEdge: Edge = {
 	sourceHandle: 'change',
 	target: LedNode.id,
 	targetHandle: 'toggle',
-	id: crypto.randomUUID(),
+	id: 'introduction-interval-led-edge',
 };
 
 export const INTRODUCTION_EDGES = [IntervalToLedEdge] satisfies Edge[];

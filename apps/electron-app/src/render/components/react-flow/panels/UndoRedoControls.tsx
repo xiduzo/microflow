@@ -1,6 +1,6 @@
 import { Button } from '@microflow/ui';
 import { Undo, Redo } from 'lucide-react';
-import { useCollaborationActions } from '../../../stores/react-flow';
+import { useCollaborationActions } from '../../../stores/yjs';
 
 export function UndoRedoControls() {
 	const { undo, redo, canUndo, canRedo } = useCollaborationActions();

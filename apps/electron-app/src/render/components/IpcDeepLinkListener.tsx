@@ -1,7 +1,7 @@
 import { toast } from '@microflow/ui';
 import { useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { useCollaborationActions } from '../stores/react-flow';
+import { useCollaborationActions } from '../stores/yjs';
 
 export function IpcDeepLinkListener() {
 	const { getNodes } = useReactFlow();

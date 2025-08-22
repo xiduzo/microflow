@@ -19,7 +19,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Zod from 'zod';
-import { useCollaborationActions } from '../../../stores/react-flow';
+import { useCollaborationActions } from '../../../stores/yjs';
 
 const schema = Zod.object({
 	roomName: Zod.string().min(1, 'Room name is required'),

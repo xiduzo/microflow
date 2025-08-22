@@ -11,25 +11,10 @@ import {
 	applyNodeChanges,
 } from '@xyflow/react';
 
-import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
 import { useShallow } from 'zustand/shallow';
 // TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
 import { createWithEqualityFn as create } from 'zustand/traditional';
-import { getLocalItem, setLocalItem } from '../../common/local-storage';
-import * as YJS from 'yjs';
-import { ProviderOptions, WebrtcProvider } from 'y-webrtc';
-import { UndoManager } from 'yjs';
-import { Awareness } from 'y-protocols/awareness';
-
-export type CollaborationStatus =
-	| { type: 'disconnected' }
-	| { type: 'connecting' }
-	| { type: 'connected'; roomName: string; peers: number }
-	| { type: 'error'; message: string };
-
-export type ConnectOptions = ProviderOptions & {
-	isJoining?: boolean;
-};
+import { useYjsStore } from './yjs';
 
 export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
@@ -40,133 +25,29 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	setNodes: (nodes: Node<NodeData>[]) => void;
 	setEdges: (edges: Edge[]) => void;
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
-
-	// Collaboration
-	collaborationStatus: CollaborationStatus;
-	peers: number;
-	connect: (roomName: string, options?: ConnectOptions) => void;
-	disconnect: () => void;
-	undo: () => void;
-	redo: () => void;
-	canUndo: () => boolean;
-	canRedo: () => boolean;
 };
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
-	let provider: WebrtcProvider | null = null;
+	// Get YJS store for collaboration
+	const yjsStore = useYjsStore.getState();
 
-	const ydoc = new YJS.Doc();
-	const yNodes = ydoc.getArray<Node>('nodes');
-	const yEdges = ydoc.getArray<Edge>('edges');
-
-	const localOrigin = { clientId: ydoc.clientID };
-	console.log('[COLLABORATION] Local origin', localOrigin);
-
-	const undoManager = new UndoManager([yNodes, yEdges], {
-		trackedOrigins: new Set([localOrigin]),
-	});
-
-	const saveYjsState = () => {
-		try {
-			const state = YJS.encodeStateAsUpdate(ydoc);
-			const stateString = JSON.stringify(Array.from(state));
-			setLocalItem('yjs-state', stateString);
-		} catch (error) {
-			console.warn('[COLLABORATION] Failed to save state:', error);
-		}
-	};
-
-	/**
-	 * Syncs local React state changes to Yjs document for collaboration
-	 * Called when user makes changes to nodes/edges (move, add, delete, etc.)
-	 * Excludes selection state as that's local-only
-	 */
-	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
-		// Check for duplicate node IDs
-		const nodeIds = nodes.map(n => n.id);
-		const uniqueNodeIds = new Set(nodeIds);
-		if (nodeIds.length !== uniqueNodeIds.size) {
-			console.warn(
-				'[COLLABORATION] Duplicate node IDs detected:',
-				nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index)
-			);
-		}
-
-		// Get current Yjs state
-		const currentYNodes = yNodes.toArray();
-		const currentYEdges = yEdges.toArray();
-
-		ydoc.transact(() => {
-			const newNodeIds = new Set(nodes.map(n => n.id));
-
-			// Remove nodes that no longer exist
-			currentYNodes.forEach((node, index) => {
-				if (!newNodeIds.has(node.id)) {
-					yNodes.delete(index, 1);
-				}
-			});
-
-			// Add new nodes and update existing ones
-			nodes.forEach(node => {
-				const existingIndex = currentYNodes.findIndex(n => n.id === node.id);
-				if (existingIndex === -1) {
-					yNodes.push([node]); // New node
-				} else {
-					// Upsert existing node
-					yNodes.delete(existingIndex, 1);
-					yNodes.insert(existingIndex, [node]);
-				}
-			});
-		}, localOrigin);
-
-		ydoc.transact(() => {
-			const newEdgeIds = new Set(edges.map(e => e.id));
-
-			// Remove edges that no longer exist
-			currentYEdges.forEach((edge, index) => {
-				if (!newEdgeIds.has(edge.id)) {
-					yEdges.delete(index, 1);
-				}
-			});
-
-			// Add new edges and update existing ones
-			edges.forEach(edge => {
-				const existingIndex = currentYEdges.findIndex(e => e.id === edge.id);
-				if (existingIndex === -1) {
-					yEdges.push([edge]); // New edge
-				} else {
-					// Upsert existing edge
-					yEdges.delete(existingIndex, 1);
-					yEdges.insert(existingIndex, [edge]);
-				}
-			});
-		}, localOrigin);
-
-		set({ nodes, edges });
-	};
-
-	/**
-	 * Syncs Yjs document changes to local React state
-	 * Called when Yjs document is updated (from collaboration or undo/redo)
-	 * Preserves local selection state while updating content
-	 */
-	const syncYjsChangesToLocal = (
-		update: Uint8Array,
-		_origin: any,
-		_doc: YJS.Doc,
-		transaction: YJS.Transaction
-	) => {
-		// Ignore updates that originate from this local client to prevent feedback loops
-		if (origin === transaction.origin) return;
-
+	// Set up YJS update listener to sync changes back to React Flow
+	yjsStore.onYjsUpdate((nodes, edges) => {
 		const currentState = get();
 
-		YJS.applyUpdate(ydoc, update);
+		// Deduplicate nodes by ID to prevent React key conflicts
+		const nodeMap = new Map();
+		nodes.forEach(node => {
+			if (!nodeMap.has(node.id)) {
+				nodeMap.set(node.id, node);
+			} else {
+				console.warn('[REACT-FLOW] Duplicate node ID in YJS update:', node.id);
+			}
+		});
+		const deduplicatedNodes = Array.from(nodeMap.values());
 
-		const nodes = yNodes.toArray();
-		const edges = yEdges.toArray();
-
-		const nodesWithLocalSelection = nodes.map(node => ({
+		// Preserve local selection state
+		const nodesWithLocalSelection = deduplicatedNodes.map(node => ({
 			...node,
 			selected: currentState?.nodes?.find(({ id }) => id === node.id)?.selected ?? false,
 		}));
@@ -176,44 +57,51 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
 		}));
 
-		// Wait for the next microtask to ensure the state is updated, and react has renderd the ReactFlowCanvas
-		queueMicrotask(() => {
-			set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
+		console.debug('[REACT-FLOW] YJS update received:', {
+			originalNodes: nodes.length,
+			deduplicatedNodes: nodesWithLocalSelection.length,
+			edges: edgesWithLocalSelection.length,
 		});
+
+		set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
+	});
+
+	// Load initial state from YJS
+	const { nodes: yjsNodes, edges: yjsEdges } = yjsStore.syncFromYjs();
+
+	// Deduplicate nodes by ID to prevent React key conflicts
+	const nodeMap = new Map();
+	yjsNodes.forEach(node => {
+		if (!nodeMap.has(node.id)) {
+			nodeMap.set(node.id, node);
+		} else {
+			console.warn('[REACT-FLOW] Duplicate node ID found during initialization:', node.id);
+		}
+	});
+
+	const finalNodes = Array.from(nodeMap.values());
+	const finalEdges = yjsEdges.length > 0 ? yjsEdges : [];
+
+	console.log('[REACT-FLOW] Initialized with:', {
+		nodes: finalNodes.length,
+		edges: finalEdges.length,
+		nodeIds: finalNodes.map(n => n.id),
+	});
+
+	/**
+	 * Syncs local React state changes to Yjs document for collaboration
+	 * Called when user makes changes to nodes/edges (move, add, delete, etc.)
+	 * Excludes selection state as that's local-only
+	 */
+	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
+		yjsStore.syncNodesToYjs(nodes);
+		yjsStore.syncEdgesToYjs(edges);
+		set({ nodes, edges });
 	};
 
-	ydoc.on('update', syncYjsChangesToLocal);
-	ydoc.on('update', saveYjsState);
-
-	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
-	if (!hasSeenIntroduction) setLocalItem('has-seen-introduction', true);
-
-	const initialNodes = hasSeenIntroduction ? [] : INTRODUCTION_NODES;
-	const initialEdges = hasSeenIntroduction ? [] : INTRODUCTION_EDGES;
-
-	try {
-		if (!hasSeenIntroduction) throw Error('Has not seen introduction');
-		const savedState = getLocalItem<string>('yjs-state', '');
-
-		const uint8Array = new Uint8Array(JSON.parse(savedState));
-		console.debug('[COLLABORATION] <load-saved-state>', { uint8Array });
-		YJS.applyUpdate(ydoc, uint8Array);
-	} catch (error) {
-		console.warn('[COLLABORATION] Failed to load saved state:', error);
-		// Initialize with default data if loading fails
-		ydoc.transact(() => {
-			yNodes.push(initialNodes);
-			yEdges.push(initialEdges);
-		});
-	}
-
-	window.addEventListener('beforeunload', saveYjsState);
-
 	return {
-		nodes: initialNodes,
-		edges: initialEdges,
-		collaborationStatus: { type: 'disconnected' },
-		peers: 0,
+		nodes: finalNodes,
+		edges: finalEdges,
 
 		onNodesChange: changes => {
 			const newNodes = applyNodeChanges(changes, get().nodes);
@@ -270,94 +158,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			});
 
 			syncLocalChangesToYjs(get().nodes, edges);
-		},
-
-		connect: (
-			roomName: string,
-			options: Omit<ConnectOptions, 'awareness' | 'filterBcConns' | 'peerOpts'> = {}
-		) => {
-			const { disconnect } = get();
-			disconnect();
-
-			if (options.isJoining) {
-				set({ nodes: [], edges: [] });
-				ydoc.transact(() => {
-					yNodes.delete(0, yNodes.length);
-					yEdges.delete(0, yEdges.length);
-				}, localOrigin);
-			}
-
-			set({ collaborationStatus: { type: 'connecting' } });
-
-			try {
-				provider = new WebrtcProvider(roomName, ydoc, {
-					signaling: ['wss://signaling.yjs.dev'],
-					password: undefined,
-					maxConns: 20,
-					...options,
-					awareness: new Awareness(ydoc),
-					filterBcConns: false,
-					peerOpts: {},
-				});
-
-				provider.on('status', ({ connected }) => {
-					console.debug('[COLLABORATION] Provider status:', { connected });
-					if (!connected) return;
-					set({
-						collaborationStatus: {
-							type: 'connected',
-							roomName,
-							peers: provider?.awareness.getStates().size ?? 0,
-						},
-					});
-				});
-
-				provider.on('peers', peers => {
-					console.debug('[COLLABORATION]', { peers });
-					set({ peers: get().peers + peers.added.length - peers.removed.length });
-
-					if (!peers.added.length) return;
-
-					// TODO: find out why new peers in the network are not getting synced up
-					syncLocalChangesToYjs(get().nodes, get().edges);
-				});
-			} catch (error) {
-				console.error('[COLLABORATION] Failed to connect:', error);
-				set({
-					collaborationStatus: {
-						type: 'error',
-						message: error instanceof Error ? error.message : 'Failed to connect',
-					},
-				});
-			}
-		},
-
-		disconnect: () => {
-			provider?.destroy();
-			provider = null;
-
-			set({
-				collaborationStatus: { type: 'disconnected' },
-				peers: 0,
-			});
-		},
-
-		undo: () => {
-			if (!undoManager?.canUndo()) return;
-			undoManager.undo();
-		},
-
-		redo: () => {
-			if (!undoManager?.canRedo()) return;
-			undoManager.redo();
-		},
-
-		canUndo: () => {
-			return undoManager?.canUndo() ?? false;
-		},
-
-		canRedo: () => {
-			return undoManager?.canRedo() ?? false;
 		},
 	};
 });
@@ -451,32 +251,5 @@ export function useNonInternalNodes() {
 			state => () =>
 				state.nodes.filter(node => (node.data as { group: string }).group !== 'internal')
 		)
-	);
-}
-
-// Collaboration hooks
-export function useCollaborationStatus() {
-	return useReactFlowStore(useShallow(state => state.collaborationStatus));
-}
-
-export function useCollaborationActions() {
-	return useReactFlowStore(
-		useShallow(state => ({
-			connect: state.connect,
-			disconnect: state.disconnect,
-			undo: state.undo,
-			redo: state.redo,
-			canUndo: state.canUndo,
-			canRedo: state.canRedo,
-		}))
-	);
-}
-
-export function useCollaborationState() {
-	return useReactFlowStore(
-		useShallow(state => ({
-			status: state.collaborationStatus,
-			peers: state.peers,
-		}))
 	);
 }
