@@ -8,7 +8,7 @@ import { IpcMenuListeners } from './render/components/IpcMenuListener';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
 import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
 import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard';
-import { CelebrationProvider } from './render/providers/CelebrationProvider';
+import { CelebrationParticles } from './render/components/CelebrationParticles';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
 import { StrictMode, useEffect } from 'react';
@@ -31,19 +31,18 @@ export function App() {
 		<section className='h-screen w-screen'>
 			<DarkMode />
 			<Toaster position='top-left' className='z-20' duration={5000} />
-			<CelebrationProvider>
-				<MqttProvider appName='app' config={mqttConfig}>
-					<FigmaProvider>
-						<ReactFlowProvider>
-							<IpcDeepLinkListener />
-							<NewNodeCommandDialog />
-							<ReactFlowCanvas />
-							<IpcMenuListeners />
-							<BoardHooks />
-						</ReactFlowProvider>
-					</FigmaProvider>
-				</MqttProvider>
-			</CelebrationProvider>
+			<CelebrationParticles />
+			<MqttProvider appName='app' config={mqttConfig}>
+				<FigmaProvider>
+					<ReactFlowProvider>
+						<IpcDeepLinkListener />
+						<NewNodeCommandDialog />
+						<ReactFlowCanvas />
+						<IpcMenuListeners />
+						<BoardHooks />
+					</ReactFlowProvider>
+				</FigmaProvider>
+			</MqttProvider>
 		</section>
 	);
 }

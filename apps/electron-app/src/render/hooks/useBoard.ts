@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useBoolean, useLocalStorage } from 'usehooks-ts';
 import { BoardCheckResult } from '../../common/types';
-import { useCelebration } from '../providers/CelebrationProvider';
+import { useCelebration } from '../stores/celebration';
 import { useBoardCheckResult, useBoardStore } from '../stores/board';
 import { AdvancedConfig } from '../components/forms/AdvancedSettingsForm';
 import { toast } from '@microflow/ui';
