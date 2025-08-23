@@ -14,6 +14,7 @@ import { UndoRedoControls } from './UndoRedoControls';
 import { JoinCollaborationDialog } from './JoinCollaborationDialog';
 import { Users } from 'lucide-react';
 import { useCopyToClipboard } from 'usehooks-ts';
+import { generateOTP, formatOTP } from '../../../../common/otp';
 
 export function CollaborationPanel() {
 	const { connect, disconnect } = useCollaborationActions();
@@ -22,13 +23,12 @@ export function CollaborationPanel() {
 	const [, copyToClipboard] = useCopyToClipboard();
 
 	function hostAction() {
-		// const roomName = `microflow-${Math.random().toString(36).substring(2, 8)}`;
-		const roomName = `microflow`;
-		connect(roomName);
+		const otpCode = generateOTP();
+		connect(otpCode);
 		toast.success('Started collaboration session', {
-			description: `Room: ${roomName}`,
+			description: `Session code: ${formatOTP(otpCode)}`,
 		});
-		copyToClipboard(roomName);
+		copyToClipboard(otpCode);
 	}
 
 	function clientAction() {
@@ -43,7 +43,8 @@ export function CollaborationPanel() {
 	const [title, icon] = useMemo((): [string, IconName] => {
 		switch (status.type) {
 			case 'connected':
-				return [`${peers} peers`, 'Users'];
+				const otpCode = status.roomName.replace('microflow-', '');
+				return [`${formatOTP(otpCode)} • ${peers} peers`, 'Users'];
 			case 'connecting':
 				return ['Connecting...', 'RectangleEllipsis'];
 			case 'error':
@@ -87,6 +88,16 @@ export function CollaborationPanel() {
 								<DropdownMenuItem disabled>
 									<Users className='h-4 w-4 mr-2' />
 									{peers} peer{peers !== 1 ? 's' : ''} connected
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={() => {
+										const otpCode = status.roomName.replace('microflow-', '');
+										copyToClipboard(otpCode);
+										toast.success('Session code copied to clipboard');
+									}}
+								>
+									<Icon icon='ClipboardCopy' className='h-4 w-4 mr-2' />
+									Copy session code
 								</DropdownMenuItem>
 							</>
 						)}

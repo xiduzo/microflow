@@ -13,16 +13,23 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-	Input,
+	InputOTP,
+	InputOTPGroup,
+	InputOTPSlot,
 	toast,
+	InputOTPSeparator,
 } from '@microflow/ui';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Zod from 'zod';
 import { useCollaborationActions } from '../../../stores/yjs';
+import { isValidOTP } from '../../../../common/otp';
 
 const schema = Zod.object({
-	roomName: Zod.string().min(1, 'Room name is required'),
+	otpCode: Zod.string()
+		.min(6, 'OTP code must be 6 digits')
+		.max(6, 'OTP code must be 6 digits')
+		.refine(isValidOTP, 'Please enter a valid 6-digit code'),
 });
 
 type Schema = Zod.infer<typeof schema>;
@@ -37,13 +44,13 @@ export function JoinCollaborationDialog(props: Props) {
 	const form = useForm({
 		resolver: zodResolver(schema),
 		defaultValues: {
-			roomName: '',
+			otpCode: '',
 		},
 	});
 
 	function onSubmit(data: Schema) {
-		connect(data.roomName, { isJoining: true }); // Pass options to indicate this is a join operation
-		toast.success('Joining collaboration session...');
+		connect(data.otpCode, { isJoining: true }); // Pass options to indicate this is a join operation
+		toast.info('Joining collaboration session...');
 		form.reset();
 		props.onOpenChange(false);
 	}
@@ -54,7 +61,7 @@ export function JoinCollaborationDialog(props: Props) {
 				<DialogHeader>
 					<DialogTitle>Join a collaboration session</DialogTitle>
 					<DialogDescription>
-						Enter the room name to join a collaboration session.
+						Enter the 6-digit code provided by the session host to join.
 					</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
@@ -62,12 +69,24 @@ export function JoinCollaborationDialog(props: Props) {
 						<fieldset className='mb-6'>
 							<FormField
 								control={form.control}
-								name='roomName'
+								name='otpCode'
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>Room name</FormLabel>
+										<FormLabel>Session Code</FormLabel>
 										<FormControl>
-											<Input placeholder='Enter room name' {...field} />
+											<InputOTP maxLength={6} value={field.value} onChange={field.onChange}>
+												<InputOTPGroup>
+													<InputOTPSlot index={0} />
+													<InputOTPSlot index={1} />
+													<InputOTPSlot index={2} />
+												</InputOTPGroup>
+												<InputOTPSeparator />
+												<InputOTPGroup>
+													<InputOTPSlot index={3} />
+													<InputOTPSlot index={4} />
+													<InputOTPSlot index={5} />
+												</InputOTPGroup>
+											</InputOTP>
 										</FormControl>
 										<FormMessage />
 									</FormItem>

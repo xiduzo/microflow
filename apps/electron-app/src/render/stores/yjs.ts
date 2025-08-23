@@ -276,6 +276,11 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			const { disconnect } = get();
 			disconnect();
 
+			// Ensure room name has the microflow prefix for consistency
+			const normalizedRoomName = roomName.startsWith('microflow-')
+				? roomName
+				: `microflow-${roomName}`;
+
 			if (options.isJoining) {
 				ydoc.transact(() => {
 					yNodes.delete(0, yNodes.length);
@@ -286,7 +291,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			set({ collaborationStatus: { type: 'connecting' } });
 
 			try {
-				provider = new WebrtcProvider(roomName, ydoc, {
+				provider = new WebrtcProvider(normalizedRoomName, ydoc, {
 					signaling: ['wss://signaling.yjs.dev'],
 					password: undefined,
 					maxConns: 20,
@@ -302,7 +307,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 					set({
 						collaborationStatus: {
 							type: 'connected',
-							roomName,
+							roomName: normalizedRoomName,
 							peers: provider?.awareness.getStates().size ?? 0,
 						},
 					});
