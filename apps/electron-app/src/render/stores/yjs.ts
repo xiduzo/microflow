@@ -6,6 +6,7 @@ import { createWithEqualityFn as create } from 'zustand/traditional';
 import { useShallow } from 'zustand/shallow';
 import { getLocalItem, setLocalItem } from '../../common/local-storage';
 import { Node, Edge } from '@xyflow/react';
+import { useAppStore, User } from './app';
 
 export type CollaborationStatus =
 	| { type: 'disconnected' }
@@ -15,6 +16,11 @@ export type CollaborationStatus =
 
 export type ConnectOptions = ProviderOptions & {
 	isJoining?: boolean;
+};
+
+export type PeerCursor = User & {
+	position: { x: number; y: number };
+	clientId: number;
 };
 
 export type YjsState = {
@@ -43,6 +49,11 @@ export type YjsState = {
 	syncEdgesToYjs: (edges: Edge[]) => void;
 	syncFromYjs: () => { nodes: Node[]; edges: Edge[] };
 
+	// Cursor Tracking
+	updateLocalCursor: (position: { x: number; y: number }) => void;
+	updateLocalUserData: (user: User | null) => void;
+	onPeerCursorsUpdate: (callback: (cursors: PeerCursor[]) => void) => void;
+
 	// Persistence
 	saveState: () => void;
 	loadState: () => void;
@@ -55,6 +66,8 @@ export type YjsState = {
 export const useYjsStore = create<YjsState>()((set, get) => {
 	let provider: WebrtcProvider | null = null;
 	let updateCallback: ((nodes: Node[], edges: Edge[]) => void) | null = null;
+	let peerCursorsCallback: ((cursors: PeerCursor[]) => void) | null = null;
+	let awareness: Awareness | null = null;
 
 	const ydoc = new YJS.Doc();
 	const yNodes = ydoc.getArray<Node>('nodes');
@@ -66,6 +79,61 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 	const undoManager = new UndoManager([yNodes, yEdges], {
 		trackedOrigins: new Set([localOrigin]),
 	});
+
+	const updateLocalCursor = (position: { x: number; y: number }) => {
+		if (!awareness) return;
+
+		const currentState = awareness.getLocalState();
+		console.log('[COLLABORATION] <update-local-cursor>', { position });
+		awareness.setLocalState({
+			...currentState,
+			user: {
+				...currentState?.user,
+				position,
+			},
+		});
+	};
+
+	const updatePeerCursors = () => {
+		if (!awareness) return;
+
+		const states = awareness.getStates();
+
+		const cursors = Array.from(states.entries()).reduce((acc, [clientId, state]) => {
+			console.log(
+				'[COLLABORATION] <update-peer-cursors>',
+				{ clientId, state },
+				Number(clientId) === ydoc.clientID
+			);
+			if (Number(clientId) === ydoc.clientID) return acc;
+			const { user } = state;
+			if (!user) return acc;
+			return [...acc, user];
+		}, [] as PeerCursor[]);
+
+		console.log('[COLLABORATION] <update-peer-cursors>', {
+			states,
+			ydocClientId: ydoc.clientID,
+			cursors,
+		});
+
+		// Notify listeners about cursor updates
+		peerCursorsCallback?.(cursors);
+	};
+
+	const updateLocalUserData = (user: User | null) => {
+		if (!awareness) return;
+
+		const currentState = awareness.getLocalState();
+		awareness.setLocalState({
+			...currentState,
+			user: {
+				name: user?.name ?? 'Anonymous',
+				position: currentState?.user?.position ?? { x: 0, y: 0 },
+				clientId: ydoc.clientID,
+			},
+		});
+	};
 
 	const saveState = () => {
 		try {
@@ -253,6 +321,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		yEdges,
 		collaborationStatus: { type: 'disconnected' },
 		peers: 0,
+		peerCursors: [],
 		undoManager,
 
 		connect: (
@@ -297,7 +366,13 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 				provider.on('peers', peers => {
 					console.debug('[COLLABORATION]', { peers });
 					set({ peers: get().peers + peers.added.length - peers.removed.length });
+					updatePeerCursors();
 				});
+
+				awareness = provider.awareness;
+				awareness.on('update', updatePeerCursors);
+				updatePeerCursors(); // Initial update
+				updateLocalUserData(useAppStore.getState().user); // Set initial local user data
 			} catch (error) {
 				console.error('[COLLABORATION] Failed to connect:', error);
 				set({
@@ -312,6 +387,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		disconnect: () => {
 			provider?.destroy();
 			provider = null;
+			awareness = null;
 
 			set({
 				collaborationStatus: { type: 'disconnected' },
@@ -344,6 +420,11 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		loadState,
 		onYjsUpdate,
 		removeUpdateListener,
+		updateLocalCursor,
+		updateLocalUserData,
+		onPeerCursorsUpdate: (callback: (cursors: PeerCursor[]) => void) => {
+			peerCursorsCallback = callback;
+		},
 	};
 });
 
@@ -370,6 +451,22 @@ export function useCollaborationState() {
 		useShallow(state => ({
 			status: state.collaborationStatus,
 			peers: state.peers,
+		}))
+	);
+}
+
+export function useCursorTracking() {
+	return useYjsStore(
+		useShallow(state => ({
+			updateLocalCursor: state.updateLocalCursor,
+		}))
+	);
+}
+
+export function useUpdateLocalUser() {
+	return useYjsStore(
+		useShallow(state => ({
+			updateLocalUserData: state.updateLocalUserData,
 		}))
 	);
 }

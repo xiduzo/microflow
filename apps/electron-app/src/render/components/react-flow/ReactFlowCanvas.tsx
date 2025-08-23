@@ -7,11 +7,14 @@ import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
 import { CollaborationPanel } from './panels/CollaborationPanel';
 import { UserPanel } from './panels/UserPanel';
+import { useCursorTracking } from '../../stores/yjs';
+import { UserCursorSync } from './UserCursorSync';
 
 export function ReactFlowCanvas() {
 	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
 	const debounceCursorPostion = useRef<NodeJS.Timeout | undefined>(undefined);
+	const { updateLocalCursor } = useCursorTracking();
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
@@ -38,10 +41,11 @@ export function ReactFlowCanvas() {
 					y: event.clientY,
 				});
 
-				// Cursor position tracking removed for Yjs collaboration
+				// Update local cursor position for peer collaboration
+				updateLocalCursor(position);
 			}, 16);
 		},
-		[screenToFlowPosition]
+		[screenToFlowPosition, updateLocalCursor]
 	);
 
 	useEffect(() => {
@@ -59,6 +63,7 @@ export function ReactFlowCanvas() {
 			maxZoom={2}
 			selectNodesOnDrag={false}
 		>
+			<UserCursorSync />
 			<Controls />
 			<MiniMap
 				nodeBorderRadius={12}
