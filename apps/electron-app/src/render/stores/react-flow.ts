@@ -34,26 +34,12 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	// Get YJS store for collaboration
 	const yjsStore = useYjsStore.getState();
 
-	// Peer cursors are now handled separately as overlay components
-	// No longer managing them as React Flow nodes
-
 	// Set up YJS update listener to sync changes back to React Flow
 	yjsStore.onYjsUpdate((nodes, edges) => {
 		const currentState = get();
 
-		// Deduplicate nodes by ID to prevent React key conflicts
-		const nodeMap = new Map();
-		nodes.forEach(node => {
-			if (!nodeMap.has(node.id)) {
-				nodeMap.set(node.id, node);
-			} else {
-				console.warn('[REACT-FLOW] Duplicate node ID in YJS update:', node.id);
-			}
-		});
-		const deduplicatedNodes = Array.from(nodeMap.values());
-
 		// Preserve local selection state
-		const nodesWithLocalSelection = deduplicatedNodes.map(node => ({
+		const nodesWithLocalSelection = nodes.map(node => ({
 			...node,
 			selected: currentState?.nodes?.find(({ id }) => id === node.id)?.selected ?? false,
 		}));
@@ -64,9 +50,8 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		}));
 
 		console.debug('[REACT-FLOW] YJS update received:', {
-			originalNodes: nodes.length,
-			deduplicatedNodes: nodesWithLocalSelection.length,
-			edges: edgesWithLocalSelection.length,
+			nodes: nodes.length,
+			edges: edges.length,
 		});
 
 		set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });

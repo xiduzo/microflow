@@ -162,50 +162,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 	const syncNodesToYjs = (nodes: Node[]) => {
 		if (!nodes.length) return;
 
-		// Check for duplicate node IDs in the incoming nodes
-		const nodeIds = nodes.map(n => n.id);
-		const uniqueNodeIds = new Set(nodeIds);
-		if (nodeIds.length !== uniqueNodeIds.size) {
-			const duplicates = nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index);
-			console.warn('[COLLABORATION] Duplicate node IDs detected in incoming nodes:', duplicates);
-
-			// Remove duplicates from the incoming nodes array
-			const seen = new Set();
-			const deduplicatedNodes = nodes.filter(node => {
-				if (seen.has(node.id)) {
-					return false;
-				}
-				seen.add(node.id);
-				return true;
-			});
-
-			console.log('[COLLABORATION] Deduplicated nodes:', {
-				original: nodes.length,
-				deduplicated: deduplicatedNodes.length,
-				removed: nodes.length - deduplicatedNodes.length,
-			});
-
-			nodes = deduplicatedNodes;
-		}
-
 		ydoc.transact(() => {
-			// Get current Yjs state
-			const currentYNodes = yNodes.toArray();
-			const newNodeIds = new Set(nodes.map(n => n.id));
-
-			// Find indices to remove (in reverse order to avoid index shifting)
-			const indicesToRemove: number[] = [];
-			currentYNodes.forEach((node, index) => {
-				if (!newNodeIds.has(node.id)) {
-					indicesToRemove.push(index);
-				}
-			});
-
-			// Remove nodes in reverse order to maintain correct indices
-			indicesToRemove.reverse().forEach(index => {
-				yNodes.delete(index, 1);
-			});
-
 			// Add new nodes and update existing ones
 			nodes.forEach(node => {
 				const existingIndex = yNodes.toArray().findIndex(n => n.id === node.id);
@@ -226,23 +183,6 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		if (!edges.length) return;
 
 		ydoc.transact(() => {
-			// Get current Yjs state
-			const currentYEdges = yEdges.toArray();
-			const newEdgeIds = new Set(edges.map(e => e.id));
-
-			// Find indices to remove (in reverse order to avoid index shifting)
-			const indicesToRemove: number[] = [];
-			currentYEdges.forEach((edge, index) => {
-				if (!newEdgeIds.has(edge.id)) {
-					indicesToRemove.push(index);
-				}
-			});
-
-			// Remove edges in reverse order to maintain correct indices
-			indicesToRemove.reverse().forEach(index => {
-				yEdges.delete(index, 1);
-			});
-
 			// Add new edges and update existing ones
 			edges.forEach(edge => {
 				const existingIndex = yEdges.toArray().findIndex(e => e.id === edge.id);
