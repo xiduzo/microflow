@@ -49,11 +49,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
 		}));
 
-		console.debug('[REACT-FLOW] YJS update received:', {
-			nodes: nodes.length,
-			edges: edges.length,
-		});
-
 		set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
 	});
 
@@ -81,12 +76,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	const finalNodes = Array.from(nodeMap.values());
 	const finalEdges = Array.from(edgeMap.values());
 
-	console.debug('[REACT-FLOW] Initialized with:', {
-		nodes: finalNodes.length,
-		edges: finalEdges.length,
-		nodeIds: finalNodes.map(n => n.id),
-	});
-
 	/**
 	 * Syncs local React state changes to Yjs document for collaboration
 	 * Called when user makes changes to nodes/edges (move, add, delete, etc.)
@@ -97,9 +86,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		// Set state with all nodes
 		set({ nodes, edges });
 
-		if (syncToYjsDebounceTimeout) {
-			clearTimeout(syncToYjsDebounceTimeout);
-		}
+		clearTimeout(syncToYjsDebounceTimeout ?? undefined);
 
 		// Set new timeout to debounce the sync operation
 		syncToYjsDebounceTimeout = setTimeout(() => {

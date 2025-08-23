@@ -32,40 +32,30 @@ export function UserCursorOverlay() {
 	useEffect(() => {
 		// Set up peer cursor update listener
 		yjsStore.onPeerCursorsUpdate(cursors => {
-			console.debug(
-				'[COLLABORATION] <user-cursor-overlay> Received cursor update:',
-				cursors.length,
-				'cursors'
-			);
 			setPeerCursors(cursors);
 		});
 
 		// Get local client ID
 		const ydoc = yjsStore.ydoc;
 		setLocalClientId(ydoc.clientID);
-		console.debug('[COLLABORATION] <user-cursor-overlay> Local client ID:', ydoc.clientID);
-
-		return () => {
-			// Cleanup if needed
-		};
 	}, [yjsStore]);
 
 	// Reset cursors when connection status changes
 	useEffect(() => {
-		console.debug(
-			'[COLLABORATION] <user-cursor-overlay> Connection status changed:',
-			collaborationStatus.type
-		);
-		if (collaborationStatus.type === 'disconnected') {
-			setPeerCursors([]);
-		} else if (collaborationStatus.type === 'connected') {
-			// Refresh cursor tracking when reconnecting
-			setTimeout(() => {
-				console.debug(
-					'[COLLABORATION] <user-cursor-overlay> Refreshing cursor tracking after reconnection'
-				);
-				yjsStore.refreshCursorTracking();
-			}, 200);
+		switch (collaborationStatus.type) {
+			case 'disconnected':
+				setPeerCursors([]);
+				break;
+			case 'connected':
+				setTimeout(() => {
+					// Refresh cursor tracking when reconnecting
+					yjsStore.refreshCursorTracking();
+				}, 200);
+				break;
+			case 'connecting':
+			case 'error':
+			default:
+				break;
 		}
 	}, [collaborationStatus.type, yjsStore]);
 
@@ -96,7 +86,6 @@ export function UserCursorOverlay() {
 						style={{
 							left: screenPosition.x,
 							top: screenPosition.y,
-							// transform: 'translate(-50%, -50%)',
 						}}
 					>
 						<div className='flex items-center justify-center'>

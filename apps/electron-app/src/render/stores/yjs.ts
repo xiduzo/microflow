@@ -75,7 +75,6 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 	const yEdges = ydoc.getArray<Edge>('edges');
 
 	const localOrigin = { clientId: ydoc.clientID };
-	console.debug('[COLLABORATION] Local origin', localOrigin);
 
 	const undoManager = new UndoManager([yNodes, yEdges], {
 		trackedOrigins: new Set([localOrigin]),
@@ -83,12 +82,10 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 
 	const updateLocalCursor = (position: { x: number; y: number }) => {
 		if (!awareness) {
-			console.debug('[COLLABORATION] <update-local-cursor> No awareness available');
 			return;
 		}
 
 		const currentState = awareness.getLocalState();
-		console.debug('[COLLABORATION] <update-local-cursor>', { position, hasAwareness: !!awareness });
 		awareness.setLocalState({
 			...currentState,
 			user: {
@@ -104,22 +101,11 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		const states = awareness.getStates();
 
 		const cursors = Array.from(states.entries()).reduce((acc, [clientId, state]) => {
-			console.debug(
-				'[COLLABORATION] <update-peer-cursors>',
-				{ clientId, state },
-				Number(clientId) === ydoc.clientID
-			);
 			if (Number(clientId) === ydoc.clientID) return acc;
 			const { user } = state;
 			if (!user) return acc;
 			return [...acc, user];
 		}, [] as PeerCursor[]);
-
-		console.debug('[COLLABORATION] <update-peer-cursors>', {
-			states,
-			ydocClientId: ydoc.clientID,
-			cursors,
-		});
 
 		// Notify listeners about cursor updates
 		peerCursorsCallback?.(cursors);
@@ -156,7 +142,6 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			if (!savedState) return;
 
 			const uint8Array = new Uint8Array(JSON.parse(savedState));
-			console.debug('[COLLABORATION] <load-saved-state>', { uint8Array });
 			YJS.applyUpdate(ydoc, uint8Array);
 		} catch (error) {
 			console.warn('[COLLABORATION] Failed to load saved state:', error);
@@ -164,38 +149,54 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 	};
 
 	const syncNodesToYjs = (nodes: Node[]) => {
-		if (!nodes.length) return;
-
 		ydoc.transact(() => {
+			const existingNodes = yNodes.toArray();
+			// Remove nodes that are not in the new nodes array
+			// Use filter to get nodes to remove, then delete them in reverse order
+			existingNodes
+				.map((node, index) => ({ node, index }))
+				.filter(({ node }) => !nodes.some(n => n.id === node.id))
+				.reverse() // Reverse to delete from end first
+				.filter(({ index }) => yNodes.delete(index, 1));
+
 			// Add new nodes and update existing ones
 			nodes.forEach(node => {
-				const existingIndex = yNodes.toArray().findIndex(n => n.id === node.id);
-				if (existingIndex === -1) {
-					yNodes.push([node]); // New node
-					console.debug('[COLLABORATION] Added new node:', node.id);
-				} else {
-					// Update existing node
-					yNodes.delete(existingIndex, 1);
-					yNodes.insert(existingIndex, [node]);
-					console.debug('[COLLABORATION] Updated existing node:', node.id);
+				const existingIndex = existingNodes.findIndex(n => n.id === node.id);
+				switch (existingIndex) {
+					case -1: // New node
+						yNodes.push([node]);
+						break;
+					default: // Update existing node
+						yNodes.delete(existingIndex, 1);
+						yNodes.insert(existingIndex, [node]);
+						break;
 				}
 			});
 		}, localOrigin);
 	};
 
 	const syncEdgesToYjs = (edges: Edge[]) => {
-		if (!edges.length) return;
-
 		ydoc.transact(() => {
+			const existingEdges = yEdges.toArray();
+			// Remove edges that are not in the new edges array
+			// Use filter to get edges to remove, then delete them in reverse order
+			existingEdges
+				.map((edge, index) => ({ edge, index }))
+				.filter(({ edge }) => !edges.some(e => e.id === edge.id))
+				.reverse() // Reverse to delete from end first
+				.forEach(({ index }) => yEdges.delete(index, 1));
+
 			// Add new edges and update existing ones
 			edges.forEach(edge => {
-				const existingIndex = yEdges.toArray().findIndex(e => e.id === edge.id);
-				if (existingIndex === -1) {
-					yEdges.push([edge]); // New edge
-				} else {
-					// Update existing edge
-					yEdges.delete(existingIndex, 1);
-					yEdges.insert(existingIndex, [edge]);
+				const existingIndex = existingEdges.findIndex(e => e.id === edge.id);
+				switch (existingIndex) {
+					case -1: // New edge
+						yEdges.push([edge]);
+						break;
+					default: // Update existing edge
+						yEdges.delete(existingIndex, 1);
+						yEdges.insert(existingIndex, [edge]);
+						break;
 				}
 			});
 		}, localOrigin);
@@ -302,7 +303,6 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 				});
 
 				provider.on('status', ({ connected }) => {
-					console.debug('[COLLABORATION] Provider status:', { connected });
 					if (!connected) return;
 					set({
 						collaborationStatus: {
@@ -385,7 +385,6 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			peerCursorsCallback = callback;
 		},
 		refreshCursorTracking: () => {
-			console.debug('[COLLABORATION] <refresh-cursor-tracking> Refreshing cursor tracking');
 			updatePeerCursors();
 			updateLocalUserData(useAppStore.getState().user);
 		},
