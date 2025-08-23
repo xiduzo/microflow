@@ -27,6 +27,9 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
 };
 
+// Debounce timeout ref for syncing changes to YJS
+let syncToYjsDebounceTimeout: NodeJS.Timeout | null = null;
+
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	// Get YJS store for collaboration
 	const yjsStore = useYjsStore.getState();
@@ -78,9 +81,17 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 			console.warn('[REACT-FLOW] Duplicate node ID found during initialization:', node.id);
 		}
 	});
+	const edgeMap = new Map();
+	yjsEdges.forEach(edge => {
+		if (!edgeMap.has(edge.id)) {
+			edgeMap.set(edge.id, edge);
+		} else {
+			console.warn('[REACT-FLOW] Duplicate edge ID found during initialization:', edge.id);
+		}
+	});
 
 	const finalNodes = Array.from(nodeMap.values());
-	const finalEdges = yjsEdges.length > 0 ? yjsEdges : [];
+	const finalEdges = Array.from(edgeMap.values());
 
 	console.log('[REACT-FLOW] Initialized with:', {
 		nodes: finalNodes.length,
@@ -92,11 +103,20 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 * Syncs local React state changes to Yjs document for collaboration
 	 * Called when user makes changes to nodes/edges (move, add, delete, etc.)
 	 * Excludes selection state as that's local-only
+	 * Debounced to prevent excessive YJS updates during rapid changes
 	 */
 	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
-		yjsStore.syncNodesToYjs(nodes);
-		yjsStore.syncEdgesToYjs(edges);
 		set({ nodes, edges });
+		if (syncToYjsDebounceTimeout) {
+			clearTimeout(syncToYjsDebounceTimeout);
+		}
+
+		// Set new timeout to debounce the sync operation
+		syncToYjsDebounceTimeout = setTimeout(() => {
+			yjsStore.syncNodesToYjs(nodes);
+			yjsStore.syncEdgesToYjs(edges);
+			syncToYjsDebounceTimeout = null;
+		}, 300); // 300ms debounce delay
 	};
 
 	return {
