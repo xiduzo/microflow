@@ -53,6 +53,7 @@ export type YjsState = {
 	updateLocalCursor: (position: { x: number; y: number }) => void;
 	updateLocalUserData: (user: User | null) => void;
 	onPeerCursorsUpdate: (callback: (cursors: PeerCursor[]) => void) => void;
+	refreshCursorTracking: () => void;
 
 	// Persistence
 	saveState: () => void;
@@ -74,17 +75,20 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 	const yEdges = ydoc.getArray<Edge>('edges');
 
 	const localOrigin = { clientId: ydoc.clientID };
-	console.log('[COLLABORATION] Local origin', localOrigin);
+	console.debug('[COLLABORATION] Local origin', localOrigin);
 
 	const undoManager = new UndoManager([yNodes, yEdges], {
 		trackedOrigins: new Set([localOrigin]),
 	});
 
 	const updateLocalCursor = (position: { x: number; y: number }) => {
-		if (!awareness) return;
+		if (!awareness) {
+			console.debug('[COLLABORATION] <update-local-cursor> No awareness available');
+			return;
+		}
 
 		const currentState = awareness.getLocalState();
-		console.log('[COLLABORATION] <update-local-cursor>', { position });
+		console.debug('[COLLABORATION] <update-local-cursor>', { position, hasAwareness: !!awareness });
 		awareness.setLocalState({
 			...currentState,
 			user: {
@@ -100,7 +104,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		const states = awareness.getStates();
 
 		const cursors = Array.from(states.entries()).reduce((acc, [clientId, state]) => {
-			console.log(
+			console.debug(
 				'[COLLABORATION] <update-peer-cursors>',
 				{ clientId, state },
 				Number(clientId) === ydoc.clientID
@@ -111,7 +115,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			return [...acc, user];
 		}, [] as PeerCursor[]);
 
-		console.log('[COLLABORATION] <update-peer-cursors>', {
+		console.debug('[COLLABORATION] <update-peer-cursors>', {
 			states,
 			ydocClientId: ydoc.clientID,
 			cursors,
@@ -302,6 +306,12 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 							peers: provider?.awareness.getStates().size ?? 0,
 						},
 					});
+
+					// Ensure cursor tracking is properly initialized after connection
+					setTimeout(() => {
+						updatePeerCursors();
+						updateLocalUserData(useAppStore.getState().user);
+					}, 100);
 				});
 
 				provider.on('peers', peers => {
@@ -326,6 +336,9 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		},
 
 		disconnect: () => {
+			// Clean up awareness event listeners before destroying provider
+			awareness?.off('update', updatePeerCursors);
+
 			provider?.destroy();
 			provider = null;
 			awareness = null;
@@ -365,6 +378,11 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		updateLocalUserData,
 		onPeerCursorsUpdate: (callback: (cursors: PeerCursor[]) => void) => {
 			peerCursorsCallback = callback;
+		},
+		refreshCursorTracking: () => {
+			console.debug('[COLLABORATION] <refresh-cursor-tracking> Refreshing cursor tracking');
+			updatePeerCursors();
+			updateLocalUserData(useAppStore.getState().user);
 		},
 	};
 });

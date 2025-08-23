@@ -81,7 +81,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	const finalNodes = Array.from(nodeMap.values());
 	const finalEdges = Array.from(edgeMap.values());
 
-	console.log('[REACT-FLOW] Initialized with:', {
+	console.debug('[REACT-FLOW] Initialized with:', {
 		nodes: finalNodes.length,
 		edges: finalEdges.length,
 		nodeIds: finalNodes.map(n => n.id),

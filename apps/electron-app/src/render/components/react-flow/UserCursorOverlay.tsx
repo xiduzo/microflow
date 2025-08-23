@@ -1,7 +1,7 @@
 import { useReactFlow } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 import { Icon } from '@microflow/ui';
-import { PeerCursor, useYjsStore } from '../../stores/yjs';
+import { PeerCursor, useYjsStore, useCollaborationStatus } from '../../stores/yjs';
 
 const hexToRgb = (hex: string) => {
 	const r = parseInt(hex.slice(1, 3), 16);
@@ -20,41 +20,67 @@ const calculateContrastColor = (color: string) => {
 	return luminance > 0.5 ? '#000000' : '#ffffff';
 };
 
+const WINDOWS_OFFSET = 50;
+
 export function UserCursorOverlay() {
-	const { getViewport, flowToScreenPosition } = useReactFlow();
+	const { flowToScreenPosition } = useReactFlow();
 	const [peerCursors, setPeerCursors] = useState<PeerCursor[]>([]);
 	const [localClientId, setLocalClientId] = useState<number | null>(null);
 	const yjsStore = useYjsStore();
+	const collaborationStatus = useCollaborationStatus();
 
 	useEffect(() => {
 		// Set up peer cursor update listener
 		yjsStore.onPeerCursorsUpdate(cursors => {
+			console.debug(
+				'[COLLABORATION] <user-cursor-overlay> Received cursor update:',
+				cursors.length,
+				'cursors'
+			);
 			setPeerCursors(cursors);
 		});
 
 		// Get local client ID
 		const ydoc = yjsStore.ydoc;
 		setLocalClientId(ydoc.clientID);
+		console.debug('[COLLABORATION] <user-cursor-overlay> Local client ID:', ydoc.clientID);
 
 		return () => {
 			// Cleanup if needed
 		};
 	}, [yjsStore]);
 
+	// Reset cursors when connection status changes
+	useEffect(() => {
+		console.debug(
+			'[COLLABORATION] <user-cursor-overlay> Connection status changed:',
+			collaborationStatus.type
+		);
+		if (collaborationStatus.type === 'disconnected') {
+			setPeerCursors([]);
+		} else if (collaborationStatus.type === 'connected') {
+			// Refresh cursor tracking when reconnecting
+			setTimeout(() => {
+				console.debug(
+					'[COLLABORATION] <user-cursor-overlay> Refreshing cursor tracking after reconnection'
+				);
+				yjsStore.refreshCursorTracking();
+			}, 200);
+		}
+	}, [collaborationStatus.type, yjsStore]);
+
 	// Filter out local cursor and cursors outside viewport
 	const visibleCursors = peerCursors.filter(cursor => {
 		if (cursor.clientId === localClientId) return false; // Don't show local cursor
 
-		const viewport = getViewport();
 		const cursorScreenPos = flowToScreenPosition(cursor.position);
 
 		// Check if cursor is within viewport bounds (with some padding)
-		const padding = 50;
 		return (
-			cursorScreenPos.x >= -padding &&
-			cursorScreenPos.x <= window.innerWidth + padding &&
-			cursorScreenPos.y >= -padding &&
-			cursorScreenPos.y <= window.innerHeight + padding
+			cursorScreenPos.x >= -WINDOWS_OFFSET &&
+			cursorScreenPos.x <= window.innerWidth + WINDOWS_OFFSET &&
+			cursorScreenPos.y >= -WINDOWS_OFFSET &&
+			cursorScreenPos.y <= window.innerHeight + WINDOWS_OFFSET
 		);
 	});
 
@@ -66,11 +92,11 @@ export function UserCursorOverlay() {
 				return (
 					<div
 						key={cursor.clientId}
-						className='absolute transition-all duration-100 ease-out mt-4 ml-2'
+						className='absolute transition-all duration-100 ease-out'
 						style={{
 							left: screenPosition.x,
 							top: screenPosition.y,
-							transform: 'translate(-50%, -50%)',
+							// transform: 'translate(-50%, -50%)',
 						}}
 					>
 						<div className='flex items-center justify-center'>

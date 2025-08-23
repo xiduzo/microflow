@@ -21,7 +21,6 @@ export const useCelebrationStore = create<CelebrationState>((set, get) => ({
 	setInit: (init: boolean) => set({ init }),
 	celebrate: async (message?: string) => {
 		const { container } = get();
-		console.log('celebrate', message, container);
 
 		if (!container) return;
 

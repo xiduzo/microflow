@@ -67,11 +67,7 @@ export function ReactFlowCanvas() {
 			<UserCursorSync />
 			<UserCursorOverlay />
 			<Controls />
-			<MiniMap
-				nodeBorderRadius={12}
-				pannable
-				nodeClassName={node => `react-flow__minimap-node__${node.type ?? ''}`}
-			/>
+			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={140} />
 
 			<Panel position='top-center'>
