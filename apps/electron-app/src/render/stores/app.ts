@@ -15,21 +15,19 @@ type AppState = {
 };
 
 export const useAppStore = create<AppState>(set => {
-	let user = getLocalItem<User | null>('user', null);
-	if (!user) {
-		user = {
-			name: getRandomUniqueUserName(),
-			color: '#ffcc00', // Default yellow color
-		};
-		setLocalItem('user', user);
+	let localUser = getLocalItem<User | null>('user', null);
+	if (!localUser) {
+		localUser = { name: getRandomUniqueUserName(), color: '#ffcc00' };
+		setLocalItem('user', localUser);
 	}
 	return {
 		settingsOpen: undefined,
 		setSettingsOpen: (settingsOpen: string | undefined) => set({ settingsOpen }),
-		user: user,
+		user: localUser,
 		setUser: user => {
-			setLocalItem('user', user);
 			set({ user });
+			console.log('[AppStore] setUser', user);
+			setLocalItem('user', user);
 		},
 	};
 });

@@ -1,10 +1,5 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
-import {
-	FigmaVariable,
-	useFigma,
-	useFigmaVariable,
-	useMqtt,
-} from '@microflow/mqtt-provider/client';
+import { FigmaVariable, useFigmaVariable, useMqttStore } from '@microflow/mqtt-provider/client';
 import {
 	Icons,
 	Switch,
@@ -22,11 +17,11 @@ import { RgbaColorPicker } from 'react-colorful';
 import { useDebounceValue } from 'usehooks-ts';
 
 export function Figma(props: Props) {
-	const { connectedClients } = useMqtt();
+	const { connectedClients } = useMqttStore();
+	const pluginConnected =
+		connectedClients.find(({ appName }) => appName === 'plugin')?.status === 'connected';
 
 	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
-
-	const isDisconnected = [undefined, 'disconnected'].includes(connectedClients.get('plugin'));
 
 	useEffect(() => {
 		// TODO this sometimes interferes with the publish
@@ -41,7 +36,10 @@ export function Figma(props: Props) {
 	}, [value, props.id]);
 
 	return (
-		<NodeContainer {...props} error={isDisconnected ? 'Figma plugin is not connected' : undefined}>
+		<NodeContainer
+			{...props}
+			error={!pluginConnected ? 'Figma plugin is not connected' : undefined}
+		>
 			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
 			<Settings />
 			<FigmaHandles variable={variable} id={props.id} />
@@ -96,7 +94,8 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 
 function Settings() {
 	const data = useNodeData<FigmaData>();
-	const { variableTypes } = useFigma();
+	const { variables } = useFigmaVariable();
+	console.log('[Figma] variables', variables);
 	const deleteHandles = useDeleteHandles();
 
 	const { render } = useNodeControls(
@@ -104,7 +103,7 @@ function Settings() {
 			variableId: {
 				label: 'variable',
 				value: data.variableId!,
-				options: Object.values(variableTypes).reduce(
+				options: Object.values(variables).reduce(
 					(curr, variable) => {
 						curr[variable.name] = variable.id;
 						return curr;
@@ -112,7 +111,7 @@ function Settings() {
 					{} as Record<string, string>
 				),
 				onChange: event => {
-					const selectedVariableType = Array.from(Object.values(variableTypes)).find(
+					const selectedVariableType = Array.from(Object.values(variables)).find(
 						({ id }) => id === event
 					)?.resolvedType;
 
@@ -152,7 +151,7 @@ function Settings() {
 				label: 'debounce (ms)',
 			},
 		},
-		[variableTypes]
+		[variables]
 	);
 
 	return <>{render()}</>;
@@ -167,7 +166,7 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 	const value = useNodeValue<FigmaValueType>(data.initialValue!);
 
 	const lastPublishedValue = useRef<string>();
-	const { publish, appName, uniqueId } = useMqtt();
+	const { publish, appName, uniqueId } = useMqttStore();
 	const [debouncedValue] = useDebounceValue(value, data.debounceTime ?? 100);
 
 	const topic = useMemo(

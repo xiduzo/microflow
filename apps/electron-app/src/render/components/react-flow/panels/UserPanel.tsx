@@ -21,23 +21,26 @@ import { Zod } from '@microflow/ui';
 import { getRandomUniqueUserName } from '../../../../common/unique';
 
 const schema = Zod.object({
-	uniqueId: Zod.string()
+	name: Zod.string()
 		.min(3, 'Requires minimum of 3 characters')
 		.regex(/^[a-zA-Z0-9_]+$/, {
 			message: 'Only letters, numbers and underscores allowed (no spaces)',
 		}),
-	color: Zod.string().default('#ffcc00'),
+	color: Zod.string()
+		.min(1, 'Color is required')
+		.min(7, 'Color must be 7 characters')
+		.max(7, 'Color must be 7 characters'),
 });
 
-type Schema = Zod.infer<typeof schema>;
+type UserForm = Zod.infer<typeof schema>;
 
 export function UserPanel() {
 	const { user, setUser } = useAppStore();
 
-	const form = useForm<Schema>({
+	const form = useForm({
 		resolver: zodResolver(schema),
 		defaultValues: {
-			uniqueId: user?.name ?? '',
+			name: user?.name ?? '',
 			color: user?.color ?? '#ffcc00',
 		},
 		mode: 'onChange',
@@ -45,12 +48,12 @@ export function UserPanel() {
 
 	function setRandomUniqueName() {
 		const newName = getRandomUniqueUserName();
-		form.clearErrors('uniqueId');
-		form.setValue('uniqueId', newName);
+		form.clearErrors('name');
+		form.setValue('name', newName);
 	}
 
-	const submit = (data: Schema) => {
-		setUser({ name: data.uniqueId, color: data.color });
+	const submit = (data: UserForm) => {
+		setUser(data);
 	};
 
 	return (
@@ -58,7 +61,9 @@ export function UserPanel() {
 			onOpenChange={isOpen => {
 				if (isOpen) return;
 				if (!form.formState.isValid) return form.reset();
-				submit(form.getValues());
+				if (!form.formState.isDirty) return;
+				const values = form.getValues();
+				submit(values);
 			}}
 		>
 			<PopoverTrigger asChild>
@@ -77,7 +82,7 @@ export function UserPanel() {
 					<form className='mt-4 space-y-2' onSubmit={form.handleSubmit(submit)}>
 						<FormField
 							control={form.control}
-							name='uniqueId'
+							name='name'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Your identifier</FormLabel>
@@ -99,7 +104,11 @@ export function UserPanel() {
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Your cursor color</FormLabel>
-									<HexColorPicker className='w-full' color={field.value} {...field} />
+									<HexColorPicker
+										className='w-full'
+										color={field.value}
+										onChange={color => field.onChange(color)}
+									/>
 								</FormItem>
 							)}
 						/>

@@ -1,8 +1,8 @@
-import { FigmaProvider, MqttConfig, MqttProvider } from '@microflow/mqtt-provider/client';
+import { FigmaVariable, useFigmaStore, useMqttStore } from '@microflow/mqtt-provider/client';
 import { Toaster } from '@microflow/ui';
 import { ReactFlowProvider } from '@xyflow/react';
 import { createRoot } from 'react-dom/client';
-import { useDarkMode, useLocalStorage } from 'usehooks-ts';
+import { useDarkMode } from 'usehooks-ts';
 import { IpcDeepLinkListener } from './render/components/IpcDeepLinkListener';
 import { IpcMenuListeners } from './render/components/IpcMenuListener';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
@@ -11,38 +11,24 @@ import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard'
 import { CelebrationParticles } from './render/components/CelebrationParticles';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
-import { StrictMode, useEffect } from 'react';
+import { StrictMode, useEffect, useMemo } from 'react';
 import { useAppStore } from './render/stores/app';
-import { getRandomUniqueUserName } from './common/unique';
 
 export function App() {
-	const { user } = useAppStore();
-
-	const [mqttConfig, setMqttConfig] = useLocalStorage<MqttConfig>('mqtt-config', {
-		uniqueId: user?.name ?? getRandomUniqueUserName(),
-	});
-
-	useEffect(() => {
-		if (!user?.name) return;
-		setMqttConfig({ ...mqttConfig, uniqueId: user.name });
-	}, [user, setMqttConfig]);
-
 	return (
 		<section className='h-screen w-screen'>
 			<DarkMode />
+			<MQTT />
+			<Figma />
 			<Toaster position='top-left' className='z-20' duration={5000} />
 			<CelebrationParticles />
-			<MqttProvider appName='app' config={mqttConfig}>
-				<FigmaProvider>
-					<ReactFlowProvider>
-						<IpcDeepLinkListener />
-						<NewNodeCommandDialog />
-						<ReactFlowCanvas />
-						<IpcMenuListeners />
-						<BoardHooks />
-					</ReactFlowProvider>
-				</FigmaProvider>
-			</MqttProvider>
+			<ReactFlowProvider>
+				<IpcDeepLinkListener />
+				<NewNodeCommandDialog />
+				<ReactFlowCanvas />
+				<IpcMenuListeners />
+				<BoardHooks />
+			</ReactFlowProvider>
 		</section>
 	);
 }
@@ -60,6 +46,57 @@ function BoardHooks() {
 	useCheckBoard();
 	useAutoUploadCode();
 	useUploadResultListener();
+
+	return null;
+}
+
+function MQTT() {
+	const { connect } = useMqttStore();
+	const { user } = useAppStore();
+
+	useEffect(() => {
+		if (!user?.name) return;
+		return connect({ uniqueId: user.name }, 'app');
+	}, [connect, user?.name]);
+
+	return null;
+}
+
+function Figma() {
+	const { publish, subscribe, status, uniqueId, appName, connectedClients } = useMqttStore();
+	const { updateVariableTypes, updateVariableValue } = useFigmaStore();
+
+	const pluginConnected = useMemo(
+		() => connectedClients.find(({ appName }) => appName === 'plugin')?.status === 'connected',
+		[connectedClients]
+	);
+
+	useEffect(() => {
+		return subscribe(`microflow/v1/${uniqueId}/plugin/variables`, (topic, message) => {
+			console.log('[Figma] variables', topic, message.toString());
+			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
+		});
+	}, [subscribe, uniqueId, updateVariableTypes]);
+
+	useEffect(() => {
+		return subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, (topic, message) => {
+			console.log('[Figma] variable', topic, message.toString());
+			updateVariableValue(topic.split('/')[4], JSON.parse(message.toString()));
+		});
+	}, [subscribe, uniqueId, updateVariableValue]);
+
+	useEffect(() => {
+		return subscribe(`microflow/v1/${uniqueId}/${appName}/variables/response`, (topic, message) => {
+			console.log('[Figma] variables/response', topic, message.toString());
+			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
+		});
+	}, [subscribe, uniqueId, appName, updateVariableTypes]);
+
+	useEffect(() => {
+		if (status !== 'connected' || !pluginConnected) return;
+		if (!pluginConnected) return;
+		publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
+	}, [status, publish, pluginConnected, uniqueId, appName]);
 
 	return null;
 }
