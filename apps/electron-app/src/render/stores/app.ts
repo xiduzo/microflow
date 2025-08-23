@@ -4,6 +4,7 @@ import { getRandomUniqueUserName } from '../../common/unique';
 
 export type User = {
 	name: string;
+	color: string;
 };
 
 type AppState = {
@@ -18,6 +19,7 @@ export const useAppStore = create<AppState>(set => {
 	if (!user) {
 		user = {
 			name: getRandomUniqueUserName(),
+			color: '#ffcc00', // Default yellow color
 		};
 		setLocalItem('user', user);
 	}

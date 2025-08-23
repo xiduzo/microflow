@@ -9,6 +9,7 @@ import { CollaborationPanel } from './panels/CollaborationPanel';
 import { UserPanel } from './panels/UserPanel';
 import { useCursorTracking } from '../../stores/yjs';
 import { UserCursorSync } from './UserCursorSync';
+import { UserCursorOverlay } from './UserCursorOverlay';
 
 export function ReactFlowCanvas() {
 	const store = useReactFlowCanvas();
@@ -64,6 +65,7 @@ export function ReactFlowCanvas() {
 			selectNodesOnDrag={false}
 		>
 			<UserCursorSync />
+			<UserCursorOverlay />
 			<Controls />
 			<MiniMap
 				nodeBorderRadius={12}

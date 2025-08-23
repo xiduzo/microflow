@@ -129,6 +129,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			...currentState,
 			user: {
 				name: user?.name ?? 'Anonymous',
+				color: user?.color ?? '#ffcc00',
 				position: currentState?.user?.position ?? { x: 0, y: 0 },
 				clientId: ydoc.clientID,
 			},

@@ -15,10 +15,10 @@ import {
 	useForm,
 	zodResolver,
 } from '@microflow/ui';
+import { HexColorPicker } from 'react-colorful';
 import { useAppStore } from '../../../stores/app';
 import { Zod } from '@microflow/ui';
 import { getRandomUniqueUserName } from '../../../../common/unique';
-import { useEffect } from 'react';
 
 const schema = Zod.object({
 	uniqueId: Zod.string()
@@ -26,6 +26,7 @@ const schema = Zod.object({
 		.regex(/^[a-zA-Z0-9_]+$/, {
 			message: 'Only letters, numbers and underscores allowed (no spaces)',
 		}),
+	color: Zod.string().default('#ffcc00'),
 });
 
 type Schema = Zod.infer<typeof schema>;
@@ -37,27 +38,29 @@ export function UserPanel() {
 		resolver: zodResolver(schema),
 		defaultValues: {
 			uniqueId: user?.name ?? '',
+			color: user?.color ?? '#ffcc00',
 		},
 		mode: 'onChange',
 	});
-
-	const userName = form.watch('uniqueId');
 
 	function setRandomUniqueName() {
 		const newName = getRandomUniqueUserName();
 		form.clearErrors('uniqueId');
 		form.setValue('uniqueId', newName);
-		setUser({ name: newName });
 	}
 
-	useEffect(() => {
-		if (userName && userName !== user?.name) {
-			setUser({ name: userName });
-		}
-	}, [userName, setUser, user?.name]);
+	const submit = (data: Schema) => {
+		setUser({ name: data.uniqueId, color: data.color });
+	};
 
 	return (
-		<Popover>
+		<Popover
+			onOpenChange={isOpen => {
+				if (isOpen) return;
+				if (!form.formState.isValid) return form.reset();
+				submit(form.getValues());
+			}}
+		>
 			<PopoverTrigger asChild>
 				<Button size='icon' variant='ghost'>
 					<Icon icon='User' />
@@ -71,12 +74,7 @@ export function UserPanel() {
 					</p>
 				</section>
 				<Form {...form}>
-					<form
-						className='mt-4'
-						onSubmit={form.handleSubmit(data => {
-							setUser({ name: data.uniqueId });
-						})}
-					>
+					<form className='mt-4 space-y-2' onSubmit={form.handleSubmit(submit)}>
 						<FormField
 							control={form.control}
 							name='uniqueId'
@@ -92,6 +90,16 @@ export function UserPanel() {
 										</Button>
 									</section>
 									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name='color'
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Your cursor color</FormLabel>
+									<HexColorPicker className='w-full' color={field.value} {...field} />
 								</FormItem>
 							)}
 						/>

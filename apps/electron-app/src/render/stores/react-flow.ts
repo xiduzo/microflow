@@ -14,8 +14,7 @@ import {
 import { useShallow } from 'zustand/shallow';
 // TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
 import { createWithEqualityFn as create } from 'zustand/traditional';
-import { PeerCursor, useYjsStore } from './yjs';
-import { User, UserProps } from '../components/react-flow/nodes/User';
+import { useYjsStore } from './yjs';
 
 export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
@@ -35,51 +34,16 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	// Get YJS store for collaboration
 	const yjsStore = useYjsStore.getState();
 
-	const mapPeerCursorsToNodes = (cursors: PeerCursor[]): UserProps[] => {
-		return cursors.map(cursor => ({
-			...User.defaultProps,
-			id: `cursor-${cursor.clientId}`,
-			position: cursor.position,
-			data: {
-				...User.defaultProps.data,
-				user: cursor,
-				description: `Peer cursor ${cursor.name}`,
-			},
-		}));
-	};
-
-	// Function to update nodes with current cursor state
-	const updateNodesWithCursors = (cursors: PeerCursor[]) => {
-		const currentState = get();
-		const cursorNodes = mapPeerCursorsToNodes(cursors);
-
-		// Filter out existing cursor nodes and add new ones
-		const nonCursorNodes = currentState.nodes.filter(node => !node.id.startsWith('cursor-'));
-		const allNodes = [...nonCursorNodes, ...cursorNodes];
-
-		console.log('[REACT-FLOW] Updating nodes with cursors:', {
-			allNodes: allNodes.length,
-			cursors: cursors.length,
-			cursorNodes: cursorNodes.length,
-			nonCursorNodes: nonCursorNodes.length,
-		});
-
-		set({ nodes: allNodes });
-	};
-
-	// Set up peer cursor update listener
-	yjsStore.onPeerCursorsUpdate(updateNodesWithCursors);
+	// Peer cursors are now handled separately as overlay components
+	// No longer managing them as React Flow nodes
 
 	// Set up YJS update listener to sync changes back to React Flow
 	yjsStore.onYjsUpdate((nodes, edges) => {
 		const currentState = get();
 
-		// Filter out cursor nodes from YJS updates
-		const nonCursorNodes = nodes.filter(node => !node.id.startsWith('cursor-'));
-
 		// Deduplicate nodes by ID to prevent React key conflicts
 		const nodeMap = new Map();
-		nonCursorNodes.forEach(node => {
+		nodes.forEach(node => {
 			if (!nodeMap.has(node.id)) {
 				nodeMap.set(node.id, node);
 			} else {
@@ -101,7 +65,6 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 
 		console.debug('[REACT-FLOW] YJS update received:', {
 			originalNodes: nodes.length,
-			filteredNodes: nonCursorNodes.length,
 			deduplicatedNodes: nodesWithLocalSelection.length,
 			edges: edgesWithLocalSelection.length,
 		});
@@ -146,16 +109,16 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 * Debounced to prevent excessive YJS updates during rapid changes
 	 */
 	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
+		// Set state with all nodes
 		set({ nodes, edges });
+
 		if (syncToYjsDebounceTimeout) {
 			clearTimeout(syncToYjsDebounceTimeout);
 		}
 
 		// Set new timeout to debounce the sync operation
 		syncToYjsDebounceTimeout = setTimeout(() => {
-			// Filter out cursor nodes (nodes with IDs starting with 'cursor-') from sync
-			const nonCursorNodes = nodes.filter(node => !node.id.startsWith('cursor-'));
-			yjsStore.syncNodesToYjs(nonCursorNodes);
+			yjsStore.syncNodesToYjs(nodes);
 			yjsStore.syncEdgesToYjs(edges);
 			syncToYjsDebounceTimeout = null;
 		}, 300); // 300ms debounce delay
