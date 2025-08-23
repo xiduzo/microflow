@@ -1,7 +1,10 @@
-import { useNodeValue } from '../../../stores/node-data';
 import { BaseNode, BlankNodeContainer, useNodeData } from './Node';
 import { Icon } from '@microflow/ui';
-import { Connection } from '@microflow/socket/client';
+
+type User = {
+	id: string;
+	name: string;
+};
 
 export function User(props: Props) {
 	return (
@@ -25,7 +28,7 @@ function Value() {
 }
 
 type UserData = {
-	user: Connection;
+	user: User;
 };
 type Props = BaseNode<UserData>;
 User.defaultProps = {

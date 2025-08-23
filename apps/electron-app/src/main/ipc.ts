@@ -22,7 +22,6 @@ import {
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
 import { format } from 'prettier';
-import { initSocketTunnel, stopSocketTunnel } from '@microflow/socket/server';
 import { getRandomMessage } from '../common/messages';
 
 // ipcMain.on("shell:open", () => {
@@ -51,128 +50,6 @@ ipcMain.on('ipc-menu', async (_event, data: { action: string; args: any }) => {
 			break;
 	}
 });
-
-async function startLiveShare(event: IpcMainEvent) {
-	const timer = new Timer();
-
-	try {
-		log.debug('[SHARE] <init>', timer.duration);
-		await stopSocketTunnel();
-		log.debug('[SHARE] starting tunnel', timer.duration);
-		const tunnelUrl = await initSocketTunnel();
-
-		event.reply('ipc-live-share', {
-			success: true,
-			data: {
-				type: 'initializing',
-				message: getRandomMessage('wait'),
-			},
-		});
-
-		await new Promise(resolve => setTimeout(resolve, 4000)); // arbitrary delay to ensure the tunnel is ready
-
-		event.reply('ipc-live-share', {
-			success: true,
-			data: {
-				type: 'initializing',
-				message: getRandomMessage('wait'),
-			},
-		});
-
-		await new Promise(resolve => setTimeout(resolve, 4000)); // arbitrary delay to ensure the tunnel is ready
-
-		log.debug(`[SHARE] <started> '${tunnelUrl}'`, timer.duration);
-		return event.reply('ipc-live-share', {
-			success: true,
-			data: {
-				type: 'shared',
-				tunnelUrl: tunnelUrl,
-			},
-		});
-	} catch (error) {
-		log.error(`[SHARE] <error> ${error?.toString()}`, timer.duration);
-		return event.reply('ipc-live-share', {
-			success: false,
-			data: {
-				type: 'error',
-				message: error instanceof Error ? error.message : 'Failed to start socket server',
-			},
-		});
-	}
-}
-
-async function stopLiveShare(event: IpcMainEvent) {
-	const timer = new Timer();
-
-	try {
-		log.debug('[SHARE] <stop>', timer.duration);
-		await stopSocketTunnel();
-		return event.reply('ipc-live-share', {
-			success: true,
-			data: {
-				type: 'disconnected',
-				message: 'Your collaboration session has stopped',
-			},
-		});
-	} catch (error) {
-		log.debug(`[SHARE] <error> failed to stop ${error?.toString()}`, timer.duration);
-		return event.reply('ipc-live-share', {
-			success: false,
-			data: {
-				type: 'error',
-				message: error instanceof Error ? error.message : 'Failed to stop socket server',
-			},
-		});
-	}
-}
-
-ipcMain.on(
-	'ipc-live-share',
-	async (event, data: { type: 'start' | 'stop' | 'join' | 'leave'; code?: string }) => {
-		event.reply('ipc-live-share', {
-			success: true,
-			data: {
-				type: 'initializing',
-			},
-		});
-
-		switch (data.type) {
-			case 'start':
-				log.debug('[SHARE] <start> requested to start live share');
-				return startLiveShare(event);
-			case 'stop':
-				log.debug('[SHARE] <stop> requested to stop live share');
-				return stopLiveShare(event);
-			case 'join':
-				log.debug('[SHARE] <join> requested to join live share');
-				return event.reply('ipc-live-share', {
-					success: true,
-					data: {
-						type: 'joined',
-						tunnelUrl: data.code,
-					},
-				});
-			case 'leave':
-				log.debug('[SHARE] <leave> requested to leave live share');
-				return event.reply('ipc-live-share', {
-					success: true,
-					data: {
-						type: 'disconnected',
-						message: 'You have left the collaboration session',
-					},
-				});
-			default:
-				log.warn('[SHARE] <unknown> requested with unknown type', data.type);
-				return event.reply('ipc-live-share', {
-					success: false,
-					data: {
-						type: 'error',
-						message: 'Unknown action type for live share',
-					},
-				});
-		}
-	}
-);
 
 ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) => {
 	const timer = new Timer();
@@ -538,6 +415,5 @@ cleanupProcesses().catch(log.debug);
 
 app.on('before-quit', async event => {
 	log.debug(`[PROCESS] <before-quit> about to leave app`, event);
-	await stopSocketTunnel();
 	void cleanupProcesses();
 });

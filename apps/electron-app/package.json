@@ -64,7 +64,6 @@
 		"@microflow/components": "workspaces:*",
 		"@microflow/flasher": "workspaces:*",
 		"@microflow/mqtt-provider": "workspaces:*",
-		"@microflow/socket": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",
 		"@tsparticles/engine": "3.8.1",
