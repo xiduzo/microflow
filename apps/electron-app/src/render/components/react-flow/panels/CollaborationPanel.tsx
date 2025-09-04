@@ -1,4 +1,5 @@
 import {
+	Badge,
 	Button,
 	DropdownMenu,
 	DropdownMenuContent,
@@ -61,7 +62,10 @@ export function CollaborationPanel() {
 				<UndoRedoControls />
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<Button variant='outline' size='sm' className='gap-2'>
+						<Button variant='outline' size='sm' className='gap-2 relative'>
+							<Badge className='absolute right-0 top-0 translate-x-7 -translate-y-2 pointer-events-none'>
+								Beta
+							</Badge>
 							<Icon icon={icon} className='h-4 w-4' />
 							{title}
 						</Button>
@@ -86,7 +90,7 @@ export function CollaborationPanel() {
 									Leave session
 								</DropdownMenuItem>
 								<DropdownMenuItem disabled>
-									<Users className='h-4 w-4 mr-2' />
+									<Icon icon='Users' className='h-4 w-4 mr-2' />
 									{peers} peer{peers !== 1 ? 's' : ''} connected
 								</DropdownMenuItem>
 								<DropdownMenuItem
