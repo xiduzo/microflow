@@ -63,9 +63,6 @@ jobs:
       - name: Enable corepack
         run: corepack enable
 
-      - name: Install Yarn plugins
-        run: yarn plugin import @yarnpkg/plugin-workspace-tools
-
       - name: Install dependencies
         run: yarn install
 

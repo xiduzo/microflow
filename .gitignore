@@ -45,7 +45,6 @@ typings/
 
 # Optional npm cache directory
 .npm
-.yarn
 
 # Optional eslint cache
 .eslintcache
@@ -95,8 +94,8 @@ out/
 
 # Yarn Berry (v2+)
 # https://yarnpkg.com/getting-started/qa#which-files-should-be-gitignored
+.pnp.*
 .yarn/*
-!.yarn/cache
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
