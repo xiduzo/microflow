@@ -85,7 +85,7 @@ export const useMqttStore = create<MqttStore>((set, get) => {
 
 		for (const [topic, { callback, options }] of Array.from(subscriptions)) {
 			try {
-				await subscribe(topic, callback, options);
+				subscribe(topic, callback, options);
 			} catch (e) {
 				console.error(e);
 			}
@@ -99,13 +99,15 @@ export const useMqttStore = create<MqttStore>((set, get) => {
 		});
 	};
 
+	const escapeRegExp = (str: string) => {
+		return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	};
+
 	const handleMessage = (topic: string, payload: Buffer, packet: any) => {
 		console.debug('[MQTT] <message>', topic, payload);
 
 		Array.from(subscriptions.keys()).forEach(subscription => {
-			const regexp = new RegExp(
-				subscription.replace(/\//g, '\\/').replace(/\+/g, '\\S+').replace(/#/, '\\S+')
-			);
+			const regexp = escapeRegExp(subscription).replace(/\\\+/g, '\\S+').replace(/\\#/, '\\S+');
 			if (!topic.match(regexp)) return;
 
 			try {

@@ -2306,7 +2306,7 @@ __metadata:
     lucide-react: ^0.541.0
     next-themes: ^0.4.6
     react: 18.3.1
-    react-day-picker: latest
+    react-day-picker: 9.9.0
     react-dom: 18.3.1
     react-hook-form: ^7.62.0
     react-resizable-panels: ^3.0.5
@@ -15307,7 +15307,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-day-picker@npm:latest":
+"react-day-picker@npm:9.9.0":
   version: 9.9.0
   resolution: "react-day-picker@npm:9.9.0"
   dependencies:
