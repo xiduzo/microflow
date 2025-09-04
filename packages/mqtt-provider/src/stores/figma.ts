@@ -22,6 +22,7 @@ export const useFigmaStore = create<FigmaStore>((set, get) => {
 		const variableValues = get().variableValues;
 
 		const current = JSON.stringify(variableValues[variableId]);
+		console.log({ current, value });
 		if (JSON.stringify(value) === current) return;
 
 		set({

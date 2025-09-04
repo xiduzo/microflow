@@ -3,7 +3,7 @@ import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { type GateData, type GateValueType } from '@microflow/components';
 import { useNodeValue } from '../../../stores/node-data';
-import { uuid } from '../../../../common/uuid';
+import { uid } from '../../../../common/uuid';
 
 export function Gate(props: Props) {
 	function getOffset(index: number) {
@@ -18,7 +18,7 @@ export function Gate(props: Props) {
 			{Array.from({ length: props.data.gate === 'not' ? 1 : 2 }).map((_item, index) => {
 				return (
 					<Handle
-						key={uuid()}
+						key={uid()}
 						type='target'
 						title={`Check ${index + 1}`}
 						position={Position.Left}

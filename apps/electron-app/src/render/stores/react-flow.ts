@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/shallow';
 // TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
 import { createWithEqualityFn as create } from 'zustand/traditional';
 import { useYjsStore } from './yjs';
+import { uid } from '../../common/uuid';
 
 export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
@@ -126,7 +127,7 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		},
 
 		onConnect: connection => {
-			const newEdges = addEdge({ ...connection, id: crypto.randomUUID() }, get().edges);
+			const newEdges = addEdge({ ...connection, id: uid() }, get().edges);
 
 			syncLocalChangesToYjs(get().nodes, newEdges);
 		},

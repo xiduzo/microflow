@@ -15,6 +15,7 @@ import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
 import { useAppStore } from '../stores/app';
 import { useNewNodeStore } from '../stores/new-node';
 import { useShallow } from 'zustand/shallow';
+import { uid } from '../../common/uuid';
 
 function canTriggerAction() {
 	const selectedElement = window.document.activeElement as HTMLElement;
@@ -120,7 +121,7 @@ export function IpcMenuListeners() {
 							type: 'add',
 							item: {
 								...node,
-								id: crypto.randomUUID(), // Use proper UUID instead of short random string
+								id: uid(),
 								position: {
 									// IDEA center of mouse on canvas
 									x: node.position.x + 20,

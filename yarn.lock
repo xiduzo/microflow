@@ -13367,7 +13367,7 @@ __metadata:
     typescript: 5.8.3
     unique-names-generator: 4.7.1
     update-electron-app: 3.1.1
-    usehooks-ts: 3.1.1
+    usehooks-ts: ^3.1.1
     y-protocols: ^1.0.6
     y-webrtc: ^10.2.5
     yjs: ^13.6.8
@@ -18037,7 +18037,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"usehooks-ts@npm:3.1.1":
+"usehooks-ts@npm:^3.1.1":
   version: 3.1.1
   resolution: "usehooks-ts@npm:3.1.1"
   dependencies:

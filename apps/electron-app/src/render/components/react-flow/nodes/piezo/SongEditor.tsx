@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { useState } from 'react';
-import { uuid } from '../../../../../common/uuid';
+import { uid } from '../../../../../common/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { MusicSheet } from '../../../MusicSheet';
 import { DEFAULT_NOTE, DEFAULT_NOTE_DURATION } from './constants';
@@ -18,7 +18,7 @@ import { noteDurationToVisualDuation } from './helpers';
 import { NodeEditor } from './NoteEditor';
 
 export function SongEditor(props: Props) {
-	const [editedSong, setEditedSong] = useState(props.song.map(note => ({ note, id: uuid() })));
+	const [editedSong, setEditedSong] = useState(props.song.map(note => ({ note, id: uid() })));
 
 	function swapNotes(id: string, hoveredId: string) {
 		setEditedSong(prev => {
@@ -78,7 +78,7 @@ export function SongEditor(props: Props) {
 									label: 'Add note',
 									onClick: note => {
 										setEditedSong(prev => {
-											return [...prev, { note, id: uuid() }];
+											return [...prev, { note, id: uid() }];
 										});
 									},
 								}}

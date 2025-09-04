@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useBoolean, useLocalStorage } from 'usehooks-ts';
+import { useLocalStorage } from 'usehooks-ts';
 import { BoardCheckResult } from '../../common/types';
 import { useCelebration } from '../stores/celebration';
 import { useBoardCheckResult, useBoardStore } from '../stores/board';
@@ -8,7 +8,7 @@ import { toast } from '@microflow/ui';
 
 export function useCelebrateFirstUpload() {
 	const [isFirstUpload, setIsFirstUpload] = useLocalStorage('isFirstUpload', true);
-	const { celebrate } = useCelebration();
+	const celebrate = useCelebration();
 
 	const boardCheckResult = useBoardCheckResult();
 

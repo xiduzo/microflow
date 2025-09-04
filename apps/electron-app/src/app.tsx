@@ -80,8 +80,8 @@ function Figma() {
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, (topic, message) => {
-			console.log('[Figma] variable', topic, message.toString());
-			updateVariableValue(topic.split('/')[4], JSON.parse(message.toString()));
+			console.log('[Figma] variable', topic, message.toString(), topic.split('/')[5]);
+			updateVariableValue(topic.split('/')[5], JSON.parse(message.toString()));
 		});
 	}, [subscribe, uniqueId, updateVariableValue]);
 

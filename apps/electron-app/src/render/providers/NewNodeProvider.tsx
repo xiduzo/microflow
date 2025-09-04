@@ -19,6 +19,7 @@ import { useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
 import { useWindowSize } from 'usehooks-ts';
 import { BaseNode } from '../components/react-flow/nodes/Node';
+import { uid } from '../../common/uuid';
 
 const NODE_SIZE = {
 	width: 208,
@@ -45,7 +46,7 @@ export function NewNodeCommandDialog() {
 		return function () {
 			const item: Node = {
 				data: node.data,
-				id: crypto.randomUUID(),
+				id: uid(),
 				type,
 				position,
 			};

@@ -5,3 +5,14 @@ export function uuid() {
 		return v.toString(16);
 	});
 }
+
+/**
+ * Generates a unique identifier string only using the characters a-z of 12 long.
+ */
+export function uid(length = 12) {
+	const CHARACTERS = 'abcdefghijklmnopqrstuvwxyz';
+
+	return Array.from({ length }, () =>
+		CHARACTERS.charAt(Math.floor(Math.random() * CHARACTERS.length))
+	).join('');
+}

@@ -95,7 +95,6 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 function Settings() {
 	const data = useNodeData<FigmaData>();
 	const { variables } = useFigmaVariable();
-	console.log('[Figma] variables', variables);
 	const deleteHandles = useDeleteHandles();
 
 	const { render } = useNodeControls(
@@ -103,6 +102,7 @@ function Settings() {
 			variableId: {
 				label: 'variable',
 				value: data.variableId!,
+				transient: false,
 				options: Object.values(variables).reduce(
 					(curr, variable) => {
 						curr[variable.name] = variable.id;
