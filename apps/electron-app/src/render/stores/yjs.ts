@@ -153,11 +153,12 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			const existingNodes = yNodes.toArray();
 			// Remove nodes that are not in the new nodes array
 			// Use filter to get nodes to remove, then delete them in reverse order
-			existingNodes
+			const indicesToDelete = existingNodes
 				.map((node, index) => ({ node, index }))
 				.filter(({ node }) => !nodes.some(n => n.id === node.id))
-				.reverse() // Reverse to delete from end first
-				.filter(({ index }) => yNodes.delete(index, 1));
+				.map(({ index }) => index)
+				.reverse(); // Reverse to delete from end first
+			indicesToDelete.forEach(index => yNodes.delete(index, 1));
 
 			// Add new nodes and update existing ones
 			nodes.forEach(node => {
