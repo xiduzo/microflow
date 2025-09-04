@@ -122,3 +122,6 @@ dist-ssr
 .env
 *.p8
 *.provisionprofile
+
+# AI
+.kiro/spec
