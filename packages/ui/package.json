@@ -4,7 +4,7 @@
 	"type": "module",
 	"dependencies": {
 		"@formkit/auto-animate": "0.8.2",
-		"@hookform/resolvers": "^5.2.1",
+		"@hookform/resolvers": "^5.2.2",
 		"@radix-ui/react-accordion": "^1.2.12",
 		"@radix-ui/react-alert-dialog": "^1.1.15",
 		"@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -37,18 +37,19 @@
 		"date-fns": "^4.1.0",
 		"embla-carousel-react": "^8.6.0",
 		"input-otp": "^1.4.2",
-		"lucide-react": "^0.541.0",
+		"lucide-react": "^0.548.0",
+		"motion": "^12.23.24",
 		"next-themes": "^0.4.6",
 		"react": "18.3.1",
-		"react-day-picker": "9.9.0",
-		"react-hook-form": "^7.62.0",
-		"react-resizable-panels": "^3.0.5",
+		"react-day-picker": "latest",
+		"react-hook-form": "^7.65.0",
+		"react-resizable-panels": "^3.0.6",
 		"recharts": "2.15.4",
 		"sonner": "^2.0.7",
 		"tailwind-merge": "3.0.2",
 		"tailwindcss-animate": "1.0.7",
 		"vaul": "^1.1.2",
-		"zod": "^4.1.0"
+		"zod": "^4.1.12"
 	},
 	"devDependencies": {
 		"@types/johnny-five": "2.1.11",

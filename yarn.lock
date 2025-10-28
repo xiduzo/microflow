@@ -1441,14 +1441,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hookform/resolvers@npm:^5.2.1":
-  version: 5.2.1
-  resolution: "@hookform/resolvers@npm:5.2.1"
+"@hookform/resolvers@npm:^5.2.2":
+  version: 5.2.2
+  resolution: "@hookform/resolvers@npm:5.2.2"
   dependencies:
     "@standard-schema/utils": ^0.3.0
   peerDependencies:
     react-hook-form: ^7.55.0
-  checksum: 7c1626ddd1833796ee4f8407125547bc83f7972a91a2564eee5f8056b0fd9d56f6ac7093041d5f2b5734016b9df9e5ca8fa0184fe7755f39db29a74abfacb58c
+  checksum: 131b1c4c763949164825634058fbe126041f1375622fddcb4f833af57e89665a2672474c778e604583d7447cff8252ab7df460240269e91eb5683646a3c9bebb
   languageName: node
   linkType: hard
 
@@ -2268,7 +2268,7 @@ __metadata:
   resolution: "@microflow/ui@workspace:packages/ui"
   dependencies:
     "@formkit/auto-animate": 0.8.2
-    "@hookform/resolvers": ^5.2.1
+    "@hookform/resolvers": ^5.2.2
     "@radix-ui/react-accordion": ^1.2.12
     "@radix-ui/react-alert-dialog": ^1.1.15
     "@radix-ui/react-aspect-ratio": ^1.1.7
@@ -2303,20 +2303,21 @@ __metadata:
     date-fns: ^4.1.0
     embla-carousel-react: ^8.6.0
     input-otp: ^1.4.2
-    lucide-react: ^0.541.0
+    lucide-react: ^0.548.0
+    motion: ^12.23.24
     next-themes: ^0.4.6
     react: 18.3.1
-    react-day-picker: 9.9.0
+    react-day-picker: latest
     react-dom: 18.3.1
-    react-hook-form: ^7.62.0
-    react-resizable-panels: ^3.0.5
+    react-hook-form: ^7.65.0
+    react-resizable-panels: ^3.0.6
     recharts: 2.15.4
     sonner: ^2.0.7
     tailwind-merge: 3.0.2
     tailwindcss: 3.4.17
     tailwindcss-animate: 1.0.7
     vaul: ^1.1.2
-    zod: ^4.1.0
+    zod: ^4.1.12
   languageName: unknown
   linkType: soft
 
@@ -10359,6 +10360,28 @@ __metadata:
   languageName: node
   linkType: hard
 
+"framer-motion@npm:^12.23.24":
+  version: 12.23.24
+  resolution: "framer-motion@npm:12.23.24"
+  dependencies:
+    motion-dom: ^12.23.23
+    motion-utils: ^12.23.6
+    tslib: ^2.4.0
+  peerDependencies:
+    "@emotion/is-prop-valid": "*"
+    react: ^18.0.0 || ^19.0.0
+    react-dom: ^18.0.0 || ^19.0.0
+  peerDependenciesMeta:
+    "@emotion/is-prop-valid":
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 8f1496ef846e3519c0f8aeaa2994ea5cb12264548e3e97aa33b7de95a4a2227e3e8d79fab17f36f722eafcbbe7cf1e020edd9d3288eda95b4c8d1b05126a8da3
+  languageName: node
+  linkType: hard
+
 "fresh@npm:0.5.2":
   version: 0.5.2
   resolution: "fresh@npm:0.5.2"
@@ -13046,12 +13069,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lucide-react@npm:^0.541.0":
-  version: 0.541.0
-  resolution: "lucide-react@npm:0.541.0"
+"lucide-react@npm:^0.548.0":
+  version: 0.548.0
+  resolution: "lucide-react@npm:0.548.0"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 17c5ceae4a9a500dad2ba9e03efc71dff6c74ca638aa40a3cf0e3ec3aaef54df44aedcda978e6797372ac3f8dc1256343bca694eb453a685e60fa9159069b391
+  checksum: fc13fd26d0074bbe79ad660a9a5ed16008d7ed824e8cc6a7bc8dc7b6c107be0c276a3358431c75b6015256ec84099b794b97d9f87cfb5cd6f04a364d4d1fd62c
   languageName: node
   linkType: hard
 
@@ -13640,6 +13663,43 @@ __metadata:
     pkg-types: ^1.3.0
     ufo: ^1.5.4
   checksum: a290da940d208f9d77ceed7ed1db3397e37ff083d28bf75e3c92097a8e58967a2b2e2bea33fdcdc63005e2987854cd081dd0621461d89eee4b61c977b5fa020c
+  languageName: node
+  linkType: hard
+
+"motion-dom@npm:^12.23.23":
+  version: 12.23.23
+  resolution: "motion-dom@npm:12.23.23"
+  dependencies:
+    motion-utils: ^12.23.6
+  checksum: c065c85eae9424c3e44a76da975784b17e2eb0554dc155452dc6622b62df5b7fffa8a963f4a049a4095f209a68016d3f24b011a3d51417bb23db14398fe208eb
+  languageName: node
+  linkType: hard
+
+"motion-utils@npm:^12.23.6":
+  version: 12.23.6
+  resolution: "motion-utils@npm:12.23.6"
+  checksum: e7c0b1d7a893c5979eab529f2bd269031f71f8d23cbf8be2ec8785558544ee45b9ba7b23390f9a46f2f0a493903b6adc0666229de3b05e977a0bfc3c5fb13d8b
+  languageName: node
+  linkType: hard
+
+"motion@npm:^12.23.24":
+  version: 12.23.24
+  resolution: "motion@npm:12.23.24"
+  dependencies:
+    framer-motion: ^12.23.24
+    tslib: ^2.4.0
+  peerDependencies:
+    "@emotion/is-prop-valid": "*"
+    react: ^18.0.0 || ^19.0.0
+    react-dom: ^18.0.0 || ^19.0.0
+  peerDependenciesMeta:
+    "@emotion/is-prop-valid":
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 4e7046f312b85adf96f64f91d67f6f6880bab2ff6e9cdd62cd3e888da8c2f52e14202eb4c095e246cf760a2080fef449115174f8f4f24b1618520501b53b8485
   languageName: node
   linkType: hard
 
@@ -15307,16 +15367,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-day-picker@npm:9.9.0":
-  version: 9.9.0
-  resolution: "react-day-picker@npm:9.9.0"
+"react-day-picker@npm:latest":
+  version: 9.11.1
+  resolution: "react-day-picker@npm:9.11.1"
   dependencies:
     "@date-fns/tz": ^1.4.1
     date-fns: ^4.1.0
     date-fns-jalali: ^4.1.0-0
   peerDependencies:
     react: ">=16.8.0"
-  checksum: dbfc77ea011e6865b820d742e519872aa2061b60697ce24296d799e9d857959bec2058a0d6d278dda8b199f8352ad73099854e14c9900854e31e0fa61590c8f6
+  checksum: 26c97c5232422c1198f016e7d55e5d85c08de4b985f45b358691770ed90cd2925c76b52f3574c720d2b5d14aeb9ef2e791bc565a7345b09e33f69ff7c5c72342
   languageName: node
   linkType: hard
 
@@ -15369,12 +15429,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-hook-form@npm:^7.62.0":
-  version: 7.62.0
-  resolution: "react-hook-form@npm:7.62.0"
+"react-hook-form@npm:^7.65.0":
+  version: 7.65.0
+  resolution: "react-hook-form@npm:7.65.0"
   peerDependencies:
     react: ^16.8.0 || ^17 || ^18 || ^19
-  checksum: 76f0574d0df632c22b37c2666e8aef8b4378dfa0bcc5ae5b20c410d3103abd17e0bcf6256f8a6d9d18cbd687f96edf3fce35bf41d06872ffb412c91664361b1a
+  checksum: ad7b6c6919e0f987587a94fe9bed0bd7d4c6817d7f9c4651f8d9d747261ad99b20d85f2ff2f329b86aadecc1ab48d4b0ef2eb13123e1a5d48022dbca259c4aef
   languageName: node
   linkType: hard
 
@@ -15434,13 +15494,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-resizable-panels@npm:^3.0.5":
-  version: 3.0.5
-  resolution: "react-resizable-panels@npm:3.0.5"
+"react-resizable-panels@npm:^3.0.6":
+  version: 3.0.6
+  resolution: "react-resizable-panels@npm:3.0.6"
   peerDependencies:
     react: ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
     react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-  checksum: f35cd02058f6ace0814f7dde266077058e36155d6bfde3fedf022ef2f7329b8cf09a491ce425cab6c69a5d99d031e6045de6f606d103492c8c823ef7717b68fa
+  checksum: e53342ea73f6076a40df0550614294ed35ad4184f451d337e02932529935afccf4a348a1a91f01c80522d2dee3e5f2bbfb2117eba052be97df863119e6537229
   languageName: node
   linkType: hard
 
@@ -18769,10 +18829,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^4.1.0":
-  version: 4.1.0
-  resolution: "zod@npm:4.1.0"
-  checksum: 1c02a84af2cca202c82cd0b1d02117f30161c4f19acd2db17c415d543d3fb517e58f6c659a600881b68b77c574794774fc9f432541152fb2e2558a9a421ce843
+"zod@npm:^4.1.12":
+  version: 4.1.12
+  resolution: "zod@npm:4.1.12"
+  checksum: 91174acc7d2ca5572ad522643474ddd60640cf6877b5d76e5d583eb25e3c4072c6f5eb92ab94f231ec5ce61c6acdfc3e0166de45fb1005b1ea54986b026b765f
   languageName: node
   linkType: hard
 

@@ -1,5 +1,13 @@
 import {
+	Button,
+	Card,
+	CardAction,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
 	cva,
+	Icon,
 	Icons,
 	Tooltip,
 	TooltipContent,
@@ -26,31 +34,30 @@ function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
 
 	return (
-		<header className='p-2 border-b-2 gap-4 flex items-center transition-all'>
-			<h1 className='text-xs flex-grow font-bold'>{data.label}</h1>
-			<TooltipProvider>
-				{props.error && (
-					<Tooltip delayDuration={0}>
-						<TooltipTrigger asChild className='cursor-help'>
-							<Icons.OctagonAlert size={16} />
-						</TooltipTrigger>
-						<TooltipContent className='text-red-500'>{props.error}</TooltipContent>
-					</Tooltip>
-				)}
-			</TooltipProvider>
-		</header>
+		<CardHeader>
+			<CardTitle>{data.label}</CardTitle>
+			<NodeDescription />
+			{props.error && (
+				<CardAction>
+					<TooltipProvider>
+						<Tooltip delayDuration={0}>
+							<TooltipTrigger className='cursor-help'>
+								<Icon icon='OctagonAlert' className='text-red-500' />
+							</TooltipTrigger>
+							<TooltipContent className='text-red-500'>{props.error}</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				</CardAction>
+			)}
+		</CardHeader>
 	);
 }
 
-function NodeFooter() {
+function NodeDescription() {
 	const data = useNodeData();
 
-	const hasPins = 'pin' in data || 'pins' in data;
-
-	if (!hasPins) return null;
-
 	return (
-		<footer className='text-muted-foreground border-t-2 p-1 px-2 flex items-center gap-2'>
+		<CardDescription className='flex gap-3'>
 			{'pin' in data && (
 				<div className='flex items-center mr-1'>
 					<Icons.Cable size={12} className='mr-0.5 stroke-1' />
@@ -66,7 +73,7 @@ function NodeFooter() {
 						</span>
 					</div>
 				))}
-		</footer>
+		</CardDescription>
 	);
 }
 
@@ -232,23 +239,19 @@ export const useNodeData = <T extends Record<string, any>>() => {
 export function NodeContainer(props: PropsWithChildren & BaseNode & { error?: string }) {
 	return (
 		<NodeContainerContext.Provider value={props}>
-			<article
+			<Card
 				className={node({
 					className: props.className,
-					deletable: props.deletable,
 					draggable: props.draggable,
-					dragging: props.dragging,
-					selectable: props.selectable,
 					selected: props.selected,
 					hasError: !!props.error,
 				})}
 			>
 				<NodeHeader error={props.error} />
-				<main className='flex grow justify-center items-center dark:bg-muted/40 bg-muted-foreground/5 px-12'>
+				<CardContent className='min-h-32 flex justify-center items-center'>
 					{props.children}
-				</main>
-				<NodeFooter />
-			</article>
+				</CardContent>
+			</Card>
 		</NodeContainerContext.Provider>
 	);
 }
@@ -260,46 +263,18 @@ export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
 }
 
 const node = cva(
-	'round border-2 rounded-sm backdrop-blur-sm min-w-52 min-h-44 flex flex-col transition-all',
+	'border-none backdrop-blur-sm min-w-80 transition-all duration-300 bg-muted-foreground/10',
 	{
 		variants: {
-			selectable: { true: '', false: '' },
-			selected: { true: 'border-blue-600', false: '' },
 			draggable: { true: 'active:cursor-grabbing', false: '' },
-			dragging: { true: '', false: '' },
-			deletable: { true: '', false: '' },
-			hasError: { true: '', false: '' },
+			hasError: { true: 'bg-red-500/10', false: '' },
+			selected: { true: 'bg-blue-600/10', false: '' },
 		},
 		defaultVariants: {
-			selectable: false,
 			selected: false,
 			draggable: false,
-			dragging: false,
-			deletable: false,
 			hasError: false,
 		},
-		compoundVariants: [
-			{
-				selected: false,
-				hasError: false,
-				className: 'dark:border-muted border-muted-foreground/20',
-			},
-			{
-				selected: true,
-				hasError: false,
-				className: 'border-blue-600',
-			},
-			{
-				selected: false,
-				hasError: true,
-				className: 'border-red-600',
-			},
-			{
-				selected: true,
-				hasError: true,
-				className: 'border-blue-600',
-			},
-		],
 	}
 );
 

@@ -1,8 +1,6 @@
 import {
 	Edge,
-	EdgeChange,
 	Node,
-	NodeChange,
 	OnConnect,
 	OnEdgesChange,
 	OnNodesChange,
@@ -84,15 +82,19 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 * Debounced to prevent excessive YJS updates during rapid changes
 	 */
 	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
+		const finalEdges = edges.map(edge => ({
+			...edge,
+			type: 'animated',
+		}));
 		// Set state with all nodes
-		set({ nodes, edges });
+		set({ nodes, edges: finalEdges });
 
 		clearTimeout(syncToYjsDebounceTimeout ?? undefined);
 
 		// Set new timeout to debounce the sync operation
 		syncToYjsDebounceTimeout = setTimeout(() => {
 			yjsStore.syncNodesToYjs(nodes);
-			yjsStore.syncEdgesToYjs(edges);
+			yjsStore.syncEdgesToYjs(finalEdges);
 			syncToYjsDebounceTimeout = null;
 		}, 300); // 300ms debounce delay
 	};

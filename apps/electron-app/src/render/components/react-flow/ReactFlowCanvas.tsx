@@ -1,4 +1,4 @@
-import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
+import { Background, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
 import { NODE_TYPES } from '../../../common/nodes';
 import { useReactFlowCanvas } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
@@ -6,10 +6,10 @@ import { SettingsPanel } from './panels/SettingsPanel';
 import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
 import { CollaborationPanel } from './panels/CollaborationPanel';
-import { UserPanel } from './panels/UserPanel';
 import { useCursorTracking } from '../../stores/yjs';
 import { UserCursorSync } from './UserCursorSync';
 import { UserCursorOverlay } from './UserCursorOverlay';
+import { DockPanel } from './panels/DockPanel';
 
 export function ReactFlowCanvas() {
 	const store = useReactFlowCanvas();
@@ -61,12 +61,11 @@ export function ReactFlowCanvas() {
 			nodeTypes={NODE_TYPES}
 			colorMode={'system'}
 			minZoom={0.1}
-			maxZoom={2}
+			maxZoom={20}
 			selectNodesOnDrag={false}
 		>
 			<UserCursorSync />
 			<UserCursorOverlay />
-			<Controls />
 			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={140} />
 
@@ -76,8 +75,10 @@ export function ReactFlowCanvas() {
 
 			<Panel
 				position='bottom-center'
-				className='dark:bg-neutral-950/5 bg-neutral-500/5 backdrop-blur-sm rounded-md'
+				className='flex flex-col items-center justify-center gap-4'
+				// className='dark:bg-neutral-950/5 bg-neutral-500/5 backdrop-blur-sm rounded-md'
 			>
+				<DockPanel />
 				<a
 					href='https://www.sanderboer.nl'
 					target='_blank'
@@ -92,9 +93,6 @@ export function ReactFlowCanvas() {
 			</Panel>
 			<Panel position='top-left'>
 				<CollaborationPanel />
-			</Panel>
-			<Panel position='top-right'>
-				<UserPanel />
 			</Panel>
 		</ReactFlow>
 	);

@@ -11,7 +11,11 @@ import {
 } from '@xyflow/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const HANDLE_SPACING = 20;
+const HANDLE_SIZE = 14;
+const HANDLE_TRANSLATE_OFFSET = HANDLE_SIZE * 0.9;
+
+const HANDLE_SPACING_OFFSET = 12;
+const HANDLE_SPACING = HANDLE_SIZE * 1.5;
 
 export function Handle(props: Props) {
 	const edges = useEdges();
@@ -40,13 +44,13 @@ export function Handle(props: Props) {
 	const translate = useMemo(() => {
 		switch (props.position) {
 			case Position.Top:
-				return '0 4px';
+				return `0 ${HANDLE_TRANSLATE_OFFSET}px`;
 			case Position.Bottom:
-				return '0 4px';
+				return `0 -${HANDLE_TRANSLATE_OFFSET}px`;
 			case Position.Left:
-				return '-4px';
+				return `${HANDLE_TRANSLATE_OFFSET}px`;
 			case Position.Right:
-				return '4px';
+				return `-${HANDLE_TRANSLATE_OFFSET}px`;
 		}
 	}, [props.position]);
 
@@ -113,20 +117,14 @@ export function Handle(props: Props) {
 							isHandleSelectedViaEdge: isHandleSelectedViaEdge,
 						})}
 						style={{
-							width: [Position.Top, Position.Bottom].includes(props.position) ? 16 : 4,
-							height: [Position.Left, Position.Right].includes(props.position) ? 16 : 4,
+							width: HANDLE_SIZE,
+							height: HANDLE_SIZE,
 							marginLeft: [Position.Top, Position.Bottom].includes(props.position)
-								? HANDLE_SPACING * (props.offset ?? 0)
+								? HANDLE_SPACING * 2 * (props.offset ?? 0)
 								: 0,
 							marginTop: [Position.Left, Position.Right].includes(props.position)
-								? HANDLE_SPACING * (props.offset ?? 0)
+								? HANDLE_SPACING * (props.offset ?? 0) + HANDLE_SPACING_OFFSET
 								: 0,
-							borderRadius: `
-               					    ${[Position.Left, Position.Top].includes(props.position) ? '3px' : 0}
-              						${[Position.Top, Position.Right].includes(props.position) ? '3px' : 0}
-              						${[Position.Right, Position.Bottom].includes(props.position) ? '3px' : 0}
-              						${[Position.Bottom, Position.Left].includes(props.position) ? '3px' : 0}
-                                `,
 							translate,
 							...props.style,
 						}}
@@ -170,13 +168,13 @@ const handle = cva('text-xs flex z-50 shadow-none', {
 	},
 });
 
-const handleText = cva('pointer-events-none mb-[1px] transition-all', {
+const handleText = cva('pointer-events-none mb-0.5 transition-all', {
 	variants: {
 		position: {
-			left: 'translate-x-2.5',
-			right: '-translate-x-2.5',
-			top: 'translate-y-4',
-			bottom: '-translate-y-4',
+			left: 'translate-x-5',
+			right: '-translate-x-5',
+			top: 'translate-y-5',
+			bottom: '-translate-y-5',
 		},
 		showHandle: {
 			true: 'opacity-100',

@@ -15,7 +15,7 @@ body {
 }
 
 .react-flow__minimap .react-flow__minimap-node {
-	@apply dark:fill-neutral-400 fill-neutral-700 transition-colors;
+	@apply fill-muted-foreground transition-colors;
 }
 .react-flow__minimap .react-flow__minimap-node.selected {
 	@apply fill-blue-500;
@@ -31,7 +31,7 @@ body {
 
 /* Edges */
 .react-flow__edges .react-flow__edge-path {
-	@apply stroke-[4] dark:stroke-neutral-600 stroke-neutral-400 transition-colors;
+	@apply stroke-[7] bg-muted-foreground transition-colors;
 }
 
 .react-flow__edges .react-flow__edge.selected .react-flow__edge-path,
@@ -40,11 +40,12 @@ body {
 }
 
 .react-flow__edges .react-flow__edge.animated .react-flow__edge-path {
-	@apply stroke-yellow-500;
+	/* @apply stroke-yellow-500; */
+	stroke-dasharray: 10, 0;
 }
 
 .react-flow__connection .react-flow__connection-path {
-	@apply stroke-[4] dark:stroke-neutral-400 stroke-neutral-500;
+	@apply stroke-[7] stroke-muted-foreground;
 	stroke-dasharray: 8, 8;
 	transition: stroke 0.15s;
 }
@@ -59,7 +60,7 @@ body {
 
 /* Handles */
 .react-flow .react-flow__handle {
-	@apply bg-muted-foreground text-neutral-500 rounded-md transition-all duration-150 border-none;
+	@apply bg-muted-foreground/50 text-muted-foreground transition-all duration-150 border-none;
 }
 
 .react-flow .react-flow__handle.selected-via-edge {
@@ -72,7 +73,7 @@ body {
 .react-flow:has(.react-flow__handle.connectingfrom.target) .react-flow__handle.connectable.source:not(:has(~ .react-flow__handle.connectingfrom)),
 /* source --> target */
 .react-flow:has(.react-flow__handle.connectingfrom.source) .react-flow__handle.connectable.target:not(:has(~ .react-flow__handle.connectingfrom)) {
-	@apply dark:bg-neutral-400 dark:text-neutral-500 text-neutral-400 bg-neutral-500;
+	@apply bg-muted-foreground text-foreground;
 }
 
 /* show handle text when connecting from on allowed handles */

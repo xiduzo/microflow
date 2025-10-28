@@ -11,9 +11,7 @@ import {
 } from '@microflow/ui';
 import { useMemo, useState } from 'react';
 import { useCollaborationActions, useCollaborationState } from '../../../stores/yjs';
-import { UndoRedoControls } from './UndoRedoControls';
 import { JoinCollaborationDialog } from './JoinCollaborationDialog';
-import { Users } from 'lucide-react';
 import { useCopyToClipboard } from 'usehooks-ts';
 import { generateOTP, formatOTP } from '../../../../common/otp';
 
@@ -59,7 +57,6 @@ export function CollaborationPanel() {
 	return (
 		<>
 			<div className='flex items-center gap-2'>
-				<UndoRedoControls />
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button variant='outline' size='sm' className='gap-2 relative'>
