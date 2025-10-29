@@ -53,6 +53,11 @@ export const electronHandler = {
 			ipcRenderer.once(channel, (_event, args) => callback(args));
 		},
 	},
+	os: {
+		isMac: process.platform === 'darwin',
+		isWindows: process.platform === 'win32',
+		isLinux: process.platform === 'linux',
+	},
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

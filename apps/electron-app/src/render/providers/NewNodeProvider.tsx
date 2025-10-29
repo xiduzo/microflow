@@ -92,6 +92,34 @@ export function NewNodeCommandDialog() {
 				setOpen(state);
 				if (!state) setFilter('');
 			}}
+			filter={(value, search, keywords) => {
+				const [label, description] = value.split('|');
+
+				// If no search term, return 0 (not relevant)
+				if (!search || search.trim() === '') {
+					return 0;
+				}
+
+				const searchLower = search.toLowerCase().trim();
+
+				// Priority 1: Label match (highest priority)
+				if (label.toLowerCase().includes(searchLower)) {
+					return 1;
+				}
+
+				// Priority 2: Description match
+				if (description && description.toLowerCase().includes(searchLower)) {
+					return 0.8;
+				}
+
+				// Priority 3: Keywords match
+				if (keywords && keywords.some(keyword => keyword.toLowerCase().includes(searchLower))) {
+					return 0.6;
+				}
+
+				// No match found
+				return 0;
+			}}
 		>
 			<DialogHeader className='hidden'>
 				<DialogTitle>Add new node</DialogTitle>
@@ -104,7 +132,12 @@ export function NewNodeCommandDialog() {
 					<section key={group}>
 						<CommandGroup heading={group}>
 							{nodes.map(({ node, type }) => (
-								<CommandItem key={node.data.label} onSelect={selectNode(node, type)}>
+								<CommandItem
+									value={`${node.data.label}|${node.data.description}`}
+									keywords={node.data.tags}
+									key={node.data.label}
+									onSelect={selectNode(node, type)}
+								>
 									<div className='flex flex-col'>
 										<span>{node.data.label}</span>
 										<span className='text-muted-foreground'>{node.data.description ?? ''}</span>

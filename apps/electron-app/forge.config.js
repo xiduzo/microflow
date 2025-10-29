@@ -1,4 +1,5 @@
 const { bundle } = require('./bundler');
+const { rebuild } = require('@electron/rebuild');
 require('dotenv').config();
 const fs = require('fs/promises');
 const path = require('path');
@@ -40,15 +41,28 @@ module.exports = {
 		],
 	},
 	hooks: {
-		packageAfterCopy: async (_forgeConfig, buildPath, _electronVersion, _platform, _arch) => {
+		packageAfterCopy: async (_forgeConfig, buildPath, electronVersion, _platform, arch) => {
 			// https://gist.github.com/robin-hartmann/ad6ffc19091c9e661542fbf178647047
 			// this is a workaround until we find a proper solution
 			// for running electron-forge in a mono repository
 			await bundle(__dirname, buildPath);
+
+			// Explicitly rebuild native modules for the packaged app
+			await rebuild({
+				buildPath,
+				electronVersion,
+				arch,
+				projectRoot: __dirname,
+				force: true,
+				onlyModules: ['@serialport/bindings-cpp'],
+				disablePreGypCopy: true,
+			});
 		},
 	},
 	rebuildConfig: {
 		disablePreGypCopy: true,
+		force: true,
+		onlyModules: ['@serialport/bindings-cpp'],
 	},
 	makers: [
 		{

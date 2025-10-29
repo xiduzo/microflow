@@ -37,6 +37,7 @@
 		"@electron-forge/plugin-vite": "7.8.1",
 		"@electron-forge/publisher-github": "7.8.1",
 		"@electron-forge/shared-types": "7.8.1",
+		"@electron/rebuild": "3.6.0",
 		"@manypkg/find-root": "2.2.3",
 		"@npmcli/arborist": "9.0.1",
 		"@rollup/plugin-alias": "5.1.1",

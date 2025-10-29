@@ -3,6 +3,11 @@ import {
 	Button,
 	Dock,
 	DockIcon,
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuShortcut,
+	DropdownMenuTrigger,
 	Form,
 	FormControl,
 	FormField,
@@ -12,10 +17,22 @@ import {
 	Icon,
 	Icons,
 	Input,
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemTitle,
+	Kbd,
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 	Separator,
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
@@ -24,105 +41,82 @@ import {
 	Zod,
 	zodResolver,
 } from '@microflow/ui';
-import { useCollaborationActions } from '../../../stores/yjs';
+import { useCollaborationActions, useCollaborationState } from '../../../stores/yjs';
 import { useReactFlow } from '@xyflow/react';
 import { HexColorPicker } from 'react-colorful';
 import { getRandomUniqueUserName } from '../../../../common/unique';
 import { useAppStore } from '../../../stores/app';
+import { KbdAccelerator } from '../../KeyboardShortcut';
+import { useShallow } from 'zustand/shallow';
+import { useNewNodeStore } from '../../../stores/new-node';
+import { useState } from 'react';
 
 export function DockPanel() {
-	return (
-		<TooltipProvider>
-			<Dock direction='middle'>
-				<AccountControls />
-				<DockIcon className='relative'>
-					<Button variant='ghost' size='icon'>
-						<Icon icon='Share2' className='h-4 w-4' />
-					</Button>
-				</DockIcon>
-				<DockIcon className='relative'>
-					<Button variant='ghost' size='icon'>
-						<Icon icon='Microchip' className='h-4 w-4' />
-					</Button>
-				</DockIcon>
-				<Separator orientation='vertical' className='h-full' />
-				<UndoRedoControls />
-				<DockIcon>
-					<Button variant='ghost' size='icon'>
-						<Icon icon='PackagePlus' className='h-4 w-4' />
-					</Button>
-				</DockIcon>
-				<Separator orientation='vertical' className='h-full' />
-				<ZoomControls />
-			</Dock>
-		</TooltipProvider>
-	);
-}
-
-function UndoRedoControls() {
 	const { undo, redo, canUndo, canRedo } = useCollaborationActions();
-
-	return (
-		<>
-			<Tooltip>
-				<TooltipTrigger>
-					<DockIcon>
-						<Button variant='ghost' size='icon' disabled={!canUndo()} onClick={undo}>
-							<Icon icon='Undo' className='h-4 w-4' />
-						</Button>
-					</DockIcon>
-				</TooltipTrigger>
-				<TooltipContent>Undo</TooltipContent>
-			</Tooltip>
-			<Tooltip>
-				<TooltipTrigger>
-					<DockIcon>
-						<Button variant='ghost' size='icon' disabled={!canRedo()} onClick={redo}>
-							<Icon icon='Redo' className='h-4 w-4' />
-						</Button>
-					</DockIcon>
-				</TooltipTrigger>
-				<TooltipContent>Redo</TooltipContent>
-			</Tooltip>
-		</>
-	);
-}
-
-function ZoomControls() {
 	const { zoomIn, zoomOut, fitView } = useReactFlow();
+	const setOpen = useNewNodeStore(useShallow(state => state.setOpen));
+
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [collaborateOpen, setCollaborateOpen] = useState(false);
+
 	return (
-		<>
-			<Tooltip>
-				<TooltipTrigger>
-					<DockIcon>
-						<Button variant='ghost' size='icon' onClick={() => zoomIn({ duration: 150 })}>
-							<Icon icon='ZoomIn' className='h-4 w-4' />
+		<Dock>
+			<DockIcon>
+				<Settings />
+			</DockIcon>
+			<DockIcon>
+				<DropdownMenu onOpenChange={setCollaborateOpen}>
+					<DropdownMenuTrigger>
+						<Button variant={collaborateOpen ? 'default' : 'ghost'} size='icon'>
+							<Icon icon='Share2' />
 						</Button>
-					</DockIcon>
-				</TooltipTrigger>
-				<TooltipContent>Zoom in</TooltipContent>
-			</Tooltip>
-			<Tooltip>
-				<TooltipTrigger>
-					<DockIcon>
-						<Button variant='ghost' size='icon' onClick={() => zoomOut({ duration: 150 })}>
-							<Icon icon='ZoomOut' className='h-4 w-4' />
-						</Button>
-					</DockIcon>
-				</TooltipTrigger>
-				<TooltipContent>Zoom out</TooltipContent>
-			</Tooltip>
-			<Tooltip>
-				<TooltipTrigger>
-					<DockIcon>
-						<Button variant='ghost' size='icon' onClick={() => fitView({ duration: 300 })}>
-							<Icon icon='Fullscreen' className='h-4 w-4' />
-						</Button>
-					</DockIcon>
-				</TooltipTrigger>
-				<TooltipContent>Fit view</TooltipContent>
-			</Tooltip>
-		</>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent>
+						<DropdownMenuItem>
+							<Icon icon='Microchip' />
+							Microcontroller settings
+						</DropdownMenuItem>
+						<DropdownMenuItem>
+							<Icon icon='AArrowDown' />
+							MQTT settings
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</DockIcon>
+			<Separator orientation='vertical' className='h-full' />
+			<DockIcon>
+				<Button variant='ghost' size='icon' disabled={!canUndo()} onClick={undo}>
+					<Icon icon='Undo' />
+				</Button>
+			</DockIcon>
+			<DockIcon>
+				<Button variant='ghost' size='icon' disabled={!canRedo()} onClick={redo}>
+					<Icon icon='Redo' />
+				</Button>
+			</DockIcon>
+			<Separator orientation='vertical' className='h-full' />
+			<DockIcon>
+				<Button variant='ghost' size='icon' onClick={() => setOpen(true)}>
+					<Icon icon='Plus' />
+				</Button>
+			</DockIcon>
+			<Separator orientation='vertical' className='h-full' />
+			<DockIcon>
+				<Button variant='ghost' size='icon' onClick={() => zoomIn({ duration: 150 })}>
+					<Icon icon='ZoomIn' />
+				</Button>
+			</DockIcon>
+			<DockIcon>
+				<Button variant='ghost' size='icon' onClick={() => zoomOut({ duration: 150 })}>
+					<Icon icon='ZoomOut' />
+				</Button>
+			</DockIcon>
+			<DockIcon>
+				<Button variant='ghost' size='icon' onClick={() => fitView({ duration: 300 })}>
+					<Icon icon='Fullscreen' />
+				</Button>
+			</DockIcon>
+		</Dock>
 	);
 }
 
@@ -176,7 +170,7 @@ function AccountControls() {
 					<Tooltip>
 						<TooltipTrigger>
 							<Button variant='ghost' size='icon'>
-								<Icon icon='UserIcon' className='h-4 w-4' />
+								<Icon icon='UserIcon' />
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent>User settings</TooltipContent>
@@ -186,7 +180,7 @@ function AccountControls() {
 					<section className='flex flex-col space-y-2'>
 						<h1 className='leading-none font-medium'>Identifier</h1>
 						<p className='text-xs text-muted-foreground'>
-							This identifier will be used to identify you in the live share and MQTT sessions.
+							This identifier will be used to identify you in shared sessions.
 						</p>
 					</section>
 					<Form {...form}>
@@ -228,5 +222,116 @@ function AccountControls() {
 				</PopoverContent>
 			</Popover>
 		</DockIcon>
+	);
+}
+
+function Settings() {
+	const [settingsOpen, setSettingsOpen] = useState(false);
+
+	return (
+		<DropdownMenu onOpenChange={setSettingsOpen}>
+			<DropdownMenuTrigger>
+				<Button variant={settingsOpen ? 'default' : 'ghost'} size='icon'>
+					<Icon icon='Settings' />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent>
+				<DropdownMenuItem>
+					<Icon icon='Microchip' />
+					Microcontroller settings
+				</DropdownMenuItem>
+				<DropdownMenuItem>
+					<Icon icon='AArrowDown' />
+					MQTT settings
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+function CollaborateControls() {
+	const { status, peers } = useCollaborationState();
+
+	return (
+		<DockIcon>
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<Tooltip>
+						<TooltipTrigger>
+							<Button variant='ghost' size='icon'>
+								<Icon icon='Share2' />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Collaborate</TooltipContent>
+					</Tooltip>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent>
+					{status.type === 'disconnected' && (
+						<>
+							<DropdownMenuItem>
+								<Icon icon='Radio' />
+								Start session
+							</DropdownMenuItem>
+							<DropdownMenuItem>
+								<Icon icon='RadioReceiver' />
+								Join session
+							</DropdownMenuItem>
+						</>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</DockIcon>
+	);
+}
+
+function NodeControls() {
+	return (
+		<>
+			<Tooltip>
+				<TooltipTrigger>
+					<DockIcon>
+						<Button variant='ghost' size='icon'>
+							<Icon icon='Microchip' />
+						</Button>
+					</DockIcon>
+				</TooltipTrigger>
+				<TooltipContent className='flex items-center gap-2'>
+					Add a harware node
+					<Kbd>
+						<KbdAccelerator />K
+					</Kbd>
+				</TooltipContent>
+			</Tooltip>
+			<Tooltip>
+				<TooltipTrigger>
+					<DockIcon>
+						<Button variant='ghost' size='icon'>
+							<Icon icon='Route' />
+						</Button>
+					</DockIcon>
+				</TooltipTrigger>
+				<TooltipContent className='flex items-center gap-2'>
+					Add a flow node
+					<Kbd>
+						<KbdAccelerator />K
+					</Kbd>
+				</TooltipContent>
+			</Tooltip>
+			<Tooltip>
+				<TooltipTrigger>
+					<DockIcon>
+						<Button variant='ghost' size='icon'>
+							<Icon icon='ExternalLink' />
+						</Button>
+					</DockIcon>
+				</TooltipTrigger>
+				<TooltipContent className='flex items-center gap-2'>
+					Add an external node
+					<Kbd>
+						<KbdAccelerator />K
+					</Kbd>
+				</TooltipContent>
+			</Tooltip>
+		</>
 	);
 }

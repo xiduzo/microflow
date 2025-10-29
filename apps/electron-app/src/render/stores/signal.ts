@@ -7,7 +7,7 @@ export type Signal = {
 	startTime: number;
 };
 
-export const SIGNAL_DURATION = 200;
+export const SIGNAL_DURATION = 150;
 export type SignalState = {
 	signals: Map<string, Signal[]>;
 	addSignal: (edgeId: string) => void;
@@ -34,7 +34,6 @@ export const useSignalStore = create<SignalState>((set, get) => ({
 			return { signals: newSignals };
 		});
 
-		// Auto-cleanup after 500ms + buffer
 		setTimeout(() => {
 			get().removeSignal(edgeId, signal.id);
 		}, SIGNAL_DURATION + 10);

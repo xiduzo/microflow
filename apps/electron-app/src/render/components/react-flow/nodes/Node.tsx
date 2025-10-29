@@ -57,18 +57,18 @@ function NodeDescription() {
 	const data = useNodeData();
 
 	return (
-		<CardDescription className='flex gap-3'>
+		<CardDescription className='flex gap-4'>
 			{'pin' in data && (
-				<div className='flex items-center mr-1'>
-					<Icons.Cable size={12} className='mr-0.5 stroke-1' />
-					<span className='text-xs font-extralight'>{String(data.pin)}</span>
+				<div className='flex items-center gap-1'>
+					<Icons.Cable size={12} />
+					<span className='font-extralight'>{String(data.pin)}</span>
 				</div>
 			)}
 			{'pins' in data &&
 				Object.entries(data.pins).map(([key, value]) => (
-					<div key={key} className='flex items-center mr-1'>
-						<Icons.Cable size={12} className='mr-0.5 stroke-1' />
-						<span className='text-xs font-extralight'>
+					<div key={key} className='flex items-center gap-1'>
+						<Icons.Cable size={12} />
+						<span className='font-extralight'>
 							{key}: {String(value)}
 						</span>
 					</div>
@@ -267,8 +267,8 @@ const node = cva(
 	{
 		variants: {
 			draggable: { true: 'active:cursor-grabbing', false: '' },
-			hasError: { true: 'bg-red-500/10', false: '' },
-			selected: { true: 'bg-blue-600/10', false: '' },
+			hasError: { true: 'bg-red-500/20', false: '' },
+			selected: { true: 'bg-blue-500/20', false: '' },
 		},
 		defaultVariants: {
 			selected: false,

@@ -61,7 +61,7 @@ export function ReactFlowCanvas() {
 			nodeTypes={NODE_TYPES}
 			colorMode={'system'}
 			minZoom={0.1}
-			maxZoom={20}
+			maxZoom={2}
 			selectNodesOnDrag={false}
 		>
 			<UserCursorSync />
@@ -73,11 +73,7 @@ export function ReactFlowCanvas() {
 				<SerialConnectionStatusPanel />
 			</Panel>
 
-			<Panel
-				position='bottom-center'
-				className='flex flex-col items-center justify-center gap-4'
-				// className='dark:bg-neutral-950/5 bg-neutral-500/5 backdrop-blur-sm rounded-md'
-			>
+			<Panel position='bottom-center' className='flex flex-col items-center justify-center gap-6'>
 				<DockPanel />
 				<a
 					href='https://www.sanderboer.nl'
