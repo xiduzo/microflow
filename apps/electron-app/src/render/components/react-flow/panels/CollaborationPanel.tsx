@@ -20,115 +20,23 @@ import { generateOTP, formatOTP } from '../../../../common/otp';
 import { useAppStore } from '../../../stores/app';
 
 export function CollaborationPanel() {
-	const { status, peers } = useCollaborationState();
-	const { user } = useAppStore();
+	const { status } = useCollaborationState();
+	const [, copyToClipboard] = useCopyToClipboard();
 
-	// if (status.type === 'disconnected') return null;
+	async function copySessionCode() {
+		if (status.type !== 'connected') return;
+		await copyToClipboard(status.roomName.replace('microflow-', ''));
+		toast.success('Session code copied to clipboard', {
+			description: formatOTP(status.roomName.replace('microflow-', '')),
+		});
+	}
+
+	if (status.type !== 'connected') return null;
 
 	return (
-		<div className='*:data-[slot=avatar]:ring-background flex -space-x-2 *:data-[slot=avatar]:ring-2 *:data-[slot=avatar]:grayscale'>
-			{Array.from({ length: peers }).map((_, index) => (
-				<Avatar key={index}>
-					<AvatarImage />
-					<AvatarFallback>{index + 1}</AvatarFallback>
-				</Avatar>
-			))}
-		</div>
+		<Badge onClick={copySessionCode} className='cursor-copy'>
+			<Icon icon='Share2' className='mr-2' />
+			{formatOTP(status.roomName.replace('microflow-', ''))}
+		</Badge>
 	);
 }
-
-// export function CollaborationPanel() {
-// 	const { connect, disconnect } = useCollaborationActions();
-// 	const { status, peers } = useCollaborationState();
-// 	const [joinDialogOpen, setJoinDialogOpen] = useState(false);
-// 	const [, copyToClipboard] = useCopyToClipboard();
-
-// 	function hostAction() {
-// 		const otpCode = generateOTP();
-// 		connect(otpCode);
-// 		toast.success('Started collaboration session', {
-// 			description: `Session code: ${formatOTP(otpCode)}`,
-// 		});
-// 		copyToClipboard(otpCode);
-// 	}
-
-// 	function clientAction() {
-// 		if (status.type === 'connected') {
-// 			disconnect();
-// 			toast.info('Left collaboration session');
-// 		} else {
-// 			setJoinDialogOpen(true);
-// 		}
-// 	}
-
-// 	const [title, icon] = useMemo((): [string, IconName] => {
-// 		switch (status.type) {
-// 			case 'connected':
-// 				const otpCode = status.roomName.replace('microflow-', '');
-// 				return [`${formatOTP(otpCode)} • ${peers} peers`, 'Users'];
-// 			case 'connecting':
-// 				return ['Connecting...', 'RectangleEllipsis'];
-// 			case 'error':
-// 				return ['Error', 'AlertTriangle'];
-// 			case 'disconnected':
-// 			default:
-// 				return ['Collaborate', 'Users'];
-// 		}
-// 	}, [status.type, peers]);
-
-// 	return (
-// 		<>
-// 			<div className='flex items-center gap-2'>
-// 				<DropdownMenu>
-// 					<DropdownMenuTrigger asChild>
-// 						<Button variant='outline' size='sm' className='gap-2 relative'>
-// 							<Badge className='absolute right-0 top-0 translate-x-7 -translate-y-2 pointer-events-none'>
-// 								Beta
-// 							</Badge>
-// 							<Icon icon={icon} className='h-4 w-4' />
-// 							{title}
-// 						</Button>
-// 					</DropdownMenuTrigger>
-// 					<DropdownMenuContent align='end'>
-// 						{status.type === 'disconnected' && (
-// 							<>
-// 								<DropdownMenuItem onClick={hostAction}>
-// 									<Icon icon='Radio' className='h-4 w-4 mr-2' />
-// 									Start session
-// 								</DropdownMenuItem>
-// 								<DropdownMenuItem onClick={() => setJoinDialogOpen(true)}>
-// 									<Icon icon='RadioReceiver' className='h-4 w-4 mr-2' />
-// 									Join session
-// 								</DropdownMenuItem>
-// 							</>
-// 						)}
-// 						{status.type === 'connected' && (
-// 							<>
-// 								<DropdownMenuItem onClick={clientAction}>
-// 									<Icon icon='RadioReceiver' className='h-4 w-4 mr-2' />
-// 									Leave session
-// 								</DropdownMenuItem>
-// 								<DropdownMenuItem disabled>
-// 									<Icon icon='Users' className='h-4 w-4 mr-2' />
-// 									{peers} peer{peers !== 1 ? 's' : ''} connected
-// 								</DropdownMenuItem>
-// 								<DropdownMenuItem
-// 									onClick={() => {
-// 										const otpCode = status.roomName.replace('microflow-', '');
-// 										copyToClipboard(otpCode);
-// 										toast.success('Session code copied to clipboard');
-// 									}}
-// 								>
-// 									<Icon icon='ClipboardCopy' className='h-4 w-4 mr-2' />
-// 									Copy session code
-// 								</DropdownMenuItem>
-// 							</>
-// 						)}
-// 					</DropdownMenuContent>
-// 				</DropdownMenu>
-// 			</div>
-
-// 			<JoinCollaborationDialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen} />
-// 		</>
-// 	);
-// }
