@@ -122,6 +122,7 @@ dist-ssr
 .env
 *.p8
 *.provisionprofile
+**/.macos_codesign/
 
 # AI
 .kiro/spec

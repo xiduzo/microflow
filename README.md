@@ -27,7 +27,6 @@ This project is a mono-repo that contains the Microflow studio and the Microflow
 
 It uses [Yarn workspaces](https://classic.yarnpkg.com/en/docs/workspaces/) to manage dependencies.
 
-
 ## Microflow studio
 
 1. run `yarn install`
@@ -47,4 +46,13 @@ All other boards will get flashed with version `2.4.X` from [avr-girl-arduino](h
 2. run `yarn dev:plugin`
 
 # Development and contributing
+
 See the [wiki](https://github.com/xiduzo/microflow/wiki) to get started contributing to `microflow`
+
+# Building the app for MacOS
+
+In order to build the application for MacOS you will need to follow the [code signing](https://www.electronforge.io/guides/code-signing/code-signing-macos) steps.
+
+## Certificates
+
+Run the `./apps/electron-app/generate-mac-os-certificates.sh` to have guided steps to set the correct configuration.

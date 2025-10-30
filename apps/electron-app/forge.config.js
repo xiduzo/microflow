@@ -2,20 +2,22 @@ const { bundle } = require('./bundler');
 require('dotenv').config();
 const fs = require('fs/promises');
 
+/**
+ * Microflow studio.app: code has no resources but signature indicates they must be present
+ *
+ * > This error message also occurs when your certificate is expired. It took me a minute to realize why my build machine was broken without any code change.
+ * via https://github.com/electron/forge/issues/3131#issuecomment-2343863375
+ */
+
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
-		appBundleId: 'nl.sanderboer.microflow-studio',
 		osxSign: {
 			strictVerify: false,
 			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
-			hardenedRuntime: true,
-			entitlements: 'entitlements.plist',
-			entitlementsInherit: 'entitlements.plist',
-			gatekeeperAssess: false,
 			ignore: filePath => {
 				// https://github.com/nodejs/node-gyp/issues/2713
 				if (filePath.includes('build/node_gyp_bins')) {
