@@ -11,33 +11,36 @@ const fs = require('fs/promises');
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
+	// forge.config.js (replace the packagerConfig block)
 	packagerConfig: {
 		name: 'Microflow studio',
-		executableName: 'Microflow studio',
+		executableName: 'Microflow-studio', // avoid spaces in actual executable
 		icon: 'assets/icon',
+		// Exclude unwanted folders at packaging time (before signing)
+		ignore: filePath => {
+			// Skip any node_gyp bins or similar artifacts
+			if (filePath.includes('build/node_gyp_bins')) {
+				return true;
+			}
+			return false;
+		},
 		osxSign: {
 			strictVerify: false,
-			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
-			ignore: filePath => {
-				// https://github.com/nodejs/node-gyp/issues/2713
-				if (filePath.includes('build/node_gyp_bins')) {
-					console.log('>>> ignore signing', filePath);
-					fs.rm(filePath, { recursive: true })
-						.then(() => {
-							console.log('>> removed folder', filePath);
-						})
-						.catch(console.error);
-					return true;
-				}
-				return false;
-			},
+			identity: process.env.APPLE_IDENTITY,
+			entitlements: 'entitlements.plist',
+			// prevent pre-embed step from running when no profile is present
+			'pre-embed-provisioning-profile': false,
+			// optional but good practice if you have one
+			// 'provisioning-profile': 'microflow.provisionprofile',
 		},
 		osxNotarize: {
 			appleId: process.env.APPLE_ID,
 			appleIdPassword: process.env.APPLE_PASSWORD,
 			teamId: process.env.APPLE_TEAM_ID,
 		},
-		prune: false, // Requires for monorepo
+		// optional; recommended for macOS apps
+		appBundleId: 'nl.sanderboer.microflow-studio',
+		prune: false,
 		protocols: [
 			{
 				name: 'microflow-studio',
