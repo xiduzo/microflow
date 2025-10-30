@@ -8,9 +8,14 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
+		appBundleId: 'nl.sanderboer.microflow-studio',
 		osxSign: {
 			strictVerify: false,
 			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
+			hardenedRuntime: true,
+			entitlements: 'entitlements.plist',
+			entitlementsInherit: 'entitlements.plist',
+			gatekeeperAssess: false,
 			ignore: filePath => {
 				// https://github.com/nodejs/node-gyp/issues/2713
 				if (filePath.includes('build/node_gyp_bins')) {
