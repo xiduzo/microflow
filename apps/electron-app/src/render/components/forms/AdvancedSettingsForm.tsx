@@ -19,6 +19,14 @@ import {
 	SheetFooter,
 	FormDescription,
 	Icons,
+	Alert,
+	AlertTitle,
+	AlertDescription,
+	Icon,
+	TooltipProvider,
+	TooltipTrigger,
+	TooltipContent,
+	Tooltip,
 } from '@microflow/ui';
 import { useLocalStorage } from 'usehooks-ts';
 import { useAppStore } from '../../stores/app';
@@ -55,6 +63,10 @@ export function AdvancedSettingsForm(props: Props) {
 		props.onClose?.();
 	}
 
+	function openUrl(url: string) {
+		window.open(url, '_blank');
+	}
+
 	return (
 		<Sheet
 			open={props.open}
@@ -80,22 +92,24 @@ export function AdvancedSettingsForm(props: Props) {
 							name='ip'
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>IP-address</FormLabel>
+									<FormLabel className='flex items-center gap-2 justify-between'>
+										IP-address
+										<TooltipProvider>
+											<Tooltip>
+												<TooltipTrigger className='cursor-help'>
+													<Icon icon='CircleQuestionMark' />
+												</TooltipTrigger>
+												<TooltipContent>
+													The IP-address of your microcontroller running StandardFirmataWifi.
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									</FormLabel>
 									<FormControl>
 										<Input placeholder='192.168.2.26' {...field} />
 									</FormControl>
 									<FormMessage />
-									<FormDescription>
-										The IP-address your of your microcontroller running{' '}
-										<a
-											className='underline'
-											href='https://github.com/firmata/arduino/tree/main/examples/StandardFirmataWiFi'
-											target='_blank'
-										>
-											StandardFirmataWifi
-										</a>
-										. Leave blank if you want to connect via USB.
-									</FormDescription>
+									<FormDescription>Leave blank if you want to connect via USB.</FormDescription>
 								</FormItem>
 							)}
 						/>
@@ -107,6 +121,20 @@ export function AdvancedSettingsForm(props: Props) {
 						</SheetFooter>
 					</form>
 				</Form>
+
+				<Alert
+					className='cursor-pointer hover:bg-muted-foreground/5 transition-all'
+					onClick={() =>
+						openUrl('https://github.com/firmata/arduino/tree/main/examples/StandardFirmataWiFi')
+					}
+				>
+					<Icon icon='ExternalLink' />
+					<AlertTitle>StandardFirmataWifi</AlertTitle>
+					<AlertDescription className='text-muted-foreground'>
+						When connecting over WiFi, you will need to flash and configure this library on your
+						microcontroller.
+					</AlertDescription>
+				</Alert>
 			</SheetContent>
 		</Sheet>
 	);

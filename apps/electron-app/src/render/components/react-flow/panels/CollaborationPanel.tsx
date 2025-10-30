@@ -1,42 +1,27 @@
-import {
-	Avatar,
-	AvatarFallback,
-	AvatarImage,
-	Badge,
-	Button,
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-	Icon,
-	IconName,
-	toast,
-} from '@microflow/ui';
-import { useMemo, useState } from 'react';
-import { useCollaborationActions, useCollaborationState } from '../../../stores/yjs';
-import { JoinCollaborationDialog } from './JoinCollaborationDialog';
-import { useCopyToClipboard } from 'usehooks-ts';
-import { generateOTP, formatOTP } from '../../../../common/otp';
-import { useAppStore } from '../../../stores/app';
+import { Badge, cn, Icon, toast } from '@microflow/ui';
+import { useCollaborationState } from '../../../stores/yjs';
+import { formatOTP } from '../../../../common/otp';
+import { useCopyCollaborationCode } from '../../../hooks/useCopyCollaborationCode';
 
 export function CollaborationPanel() {
 	const { status } = useCollaborationState();
-	const [, copyToClipboard] = useCopyToClipboard();
+	const { copySessionCode } = useCopyCollaborationCode();
 
-	async function copySessionCode() {
-		if (status.type !== 'connected') return;
-		await copyToClipboard(status.roomName.replace('microflow-', ''));
-		toast.success('Session code copied to clipboard', {
-			description: formatOTP(status.roomName.replace('microflow-', '')),
-		});
-	}
-
-	if (status.type !== 'connected') return null;
+	if (status.type === 'disconnected') return null;
 
 	return (
-		<Badge onClick={copySessionCode} className='cursor-copy'>
-			<Icon icon='Share2' className='mr-2' />
-			{formatOTP(status.roomName.replace('microflow-', ''))}
+		<Badge
+			onClick={copySessionCode}
+			className={cn('', {
+				'cursor-copy': status.type === 'connected',
+				'animate-pulse': status.type === 'connecting',
+			})}
+		>
+			<Icon
+				icon={status.type === 'connected' && status.host ? 'RadioTower' : 'RadioReceiver'}
+				className='mr-2'
+			/>
+			{status.type === 'connected' && formatOTP(status.roomName.replace('microflow-', ''))}
 		</Badge>
 	);
 }

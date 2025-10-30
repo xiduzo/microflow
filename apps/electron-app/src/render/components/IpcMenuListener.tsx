@@ -164,8 +164,5 @@ export function IpcMenuListeners() {
 		copiedNodes,
 	]);
 
-	if (settingsOpen === 'mqtt-settings') return <MqttSettingsForm open />;
-	if (settingsOpen === 'board-settings') return <AdvancedSettingsForm open />;
-
 	return null;
 }

@@ -11,7 +11,7 @@ import { useAppStore, User } from './app';
 export type CollaborationStatus =
 	| { type: 'disconnected' }
 	| { type: 'connecting' }
-	| { type: 'connected'; roomName: string; peers: number }
+	| { type: 'connected'; roomName: string; peers: number; host: boolean }
 	| { type: 'error'; message: string };
 
 export type ConnectOptions = ProviderOptions & {
@@ -309,6 +309,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 						collaborationStatus: {
 							type: 'connected',
 							roomName: normalizedRoomName,
+							host: !options.isJoining,
 							peers: provider?.awareness.getStates().size ?? 0,
 						},
 					});

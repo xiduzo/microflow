@@ -1,12 +1,10 @@
 import {
 	Button,
-	cn,
 	Dock,
 	DockIcon,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuShortcut,
 	DropdownMenuTrigger,
 	Icon,
 	Separator,
@@ -14,16 +12,14 @@ import {
 } from '@microflow/ui';
 import { useCollaborationActions, useCollaborationState } from '../../../stores/yjs';
 import { useReactFlow } from '@xyflow/react';
-import { HexColorPicker } from 'react-colorful';
-import { getRandomUniqueUserName } from '../../../../common/unique';
 import { useAppStore } from '../../../stores/app';
-import { KbdAccelerator } from '../../KeyboardShortcut';
 import { useShallow } from 'zustand/shallow';
 import { useNewNodeStore } from '../../../stores/new-node';
 import { useState } from 'react';
 import { JoinCollaborationDialog } from './JoinCollaborationDialog';
 import { useCopyToClipboard } from 'usehooks-ts';
 import { formatOTP, generateOTP } from '../../../../common/otp';
+import { useCopyCollaborationCode } from '../../../hooks/useCopyCollaborationCode';
 
 export function DockPanel() {
 	const { undo, redo, canUndo, canRedo } = useCollaborationActions();
@@ -77,23 +73,28 @@ export function DockPanel() {
 }
 
 function Settings() {
-	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [dropDownOpen, setDropDownOpen] = useState(false);
+	const { setSettingsOpen } = useAppStore();
 
 	return (
-		<DropdownMenu onOpenChange={setSettingsOpen}>
+		<DropdownMenu onOpenChange={setDropDownOpen}>
 			<DropdownMenuTrigger asChild>
-				<Button variant={settingsOpen ? 'default' : 'ghost'} size='icon'>
+				<Button variant={dropDownOpen ? 'default' : 'ghost'} size='icon'>
 					<Icon icon='Settings' />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent>
-				<DropdownMenuItem>
+				<DropdownMenuItem onClick={() => setSettingsOpen('board-settings')}>
 					<Icon icon='Microchip' />
 					Microcontroller settings
 				</DropdownMenuItem>
-				<DropdownMenuItem>
+				<DropdownMenuItem onClick={() => setSettingsOpen('mqtt-settings')}>
 					<Icon icon='RadioTower' />
 					MQTT settings
+				</DropdownMenuItem>
+				<DropdownMenuItem onClick={() => setSettingsOpen('user-settings')}>
+					<Icon icon='User' />
+					User settings
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -105,32 +106,27 @@ function Collaboration() {
 
 	const [joinDialogOpen, setJoinDialogOpen] = useState(false);
 	const { status } = useCollaborationState();
-	const [collaborateOpen, setCollaborateOpen] = useState(false);
-	const [, copyToClipboard] = useCopyToClipboard();
+	const [dropDownOpen, setDropDownOpen] = useState(false);
+	const { copySessionCode } = useCopyCollaborationCode();
 
 	function hostAction() {
 		const otpCode = generateOTP();
 		connect(otpCode);
 		toast.success('Started collaboration session', {
 			description: `Session code: ${formatOTP(otpCode)}`,
-		});
-		copyToClipboard(otpCode);
-	}
-
-	async function copySessionCode() {
-		if (status.type !== 'connected') return;
-		await copyToClipboard(status.roomName.replace('microflow-', ''));
-		toast.success('Session code copied to clipboard', {
-			description: formatOTP(status.roomName.replace('microflow-', '')),
+			action: {
+				label: 'Copy code',
+				onClick: copySessionCode,
+			},
 		});
 	}
 
 	return (
 		<>
 			<JoinCollaborationDialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen} />
-			<DropdownMenu onOpenChange={setCollaborateOpen}>
+			<DropdownMenu onOpenChange={setDropDownOpen}>
 				<DropdownMenuTrigger asChild>
-					<Button variant={collaborateOpen ? 'default' : 'ghost'} size='icon'>
+					<Button variant={dropDownOpen ? 'default' : 'ghost'} size='icon'>
 						<Icon icon='Share2' />
 					</Button>
 				</DropdownMenuTrigger>
@@ -138,7 +134,7 @@ function Collaboration() {
 					{status.type !== 'connected' && (
 						<>
 							<DropdownMenuItem onClick={hostAction}>
-								<Icon icon='Share2' />
+								<Icon icon='RadioTower' />
 								Start collaboration session
 							</DropdownMenuItem>
 							<DropdownMenuItem onClick={() => setJoinDialogOpen(true)}>
@@ -150,15 +146,12 @@ function Collaboration() {
 					{status.type === 'connected' && (
 						<>
 							<DropdownMenuItem onClick={disconnect}>
-								<Icon icon='RadioTower' />
+								<Icon icon='Unplug' />
 								Leave collaboration session
 							</DropdownMenuItem>
 							<DropdownMenuItem onClick={copySessionCode}>
-								<Icon icon='Copy' />
+								<Icon icon='Binary' />
 								Copy session code
-								<DropdownMenuShortcut>
-									{formatOTP(status.roomName.replace('microflow-', ''))}
-								</DropdownMenuShortcut>
 							</DropdownMenuItem>
 						</>
 					)}

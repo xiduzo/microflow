@@ -22,11 +22,10 @@ import {
 } from '@microflow/ui';
 import { useLocalStorage } from 'usehooks-ts';
 import { useAppStore } from '../../stores/app';
-import { getRandomUniqueUserName } from '../../../common/unique';
 
 const schema = Zod.object({
 	host: Zod.string().optional(),
-	port: Zod.number({ coerce: true }).optional(),
+	port: Zod.number().optional(),
 	username: Zod.string().optional(),
 	password: Zod.string().optional(),
 	protocol: Zod.enum(['ws', 'wss']).default('wss'),
@@ -42,7 +41,7 @@ export function MqttSettingsForm(props: Props) {
 		protocol: 'wss',
 	});
 
-	const form = useForm<Schema>({
+	const form = useForm({
 		resolver: zodResolver(schema),
 		defaultValues: mqttConfig,
 	});

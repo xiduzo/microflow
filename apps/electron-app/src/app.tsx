@@ -13,6 +13,9 @@ import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
 import { StrictMode, useEffect, useMemo } from 'react';
 import { useAppStore } from './render/stores/app';
+import { MqttSettingsForm } from './render/components/forms/MqttSettingsForm';
+import { AdvancedSettingsForm } from './render/components/forms/AdvancedSettingsForm';
+import { UserSettingsForm } from './render/components/forms/UserSettingsForm';
 
 export function App() {
 	return (
@@ -20,6 +23,7 @@ export function App() {
 			<DarkMode />
 			<MQTT />
 			<Figma />
+			<Settings />
 			<Toaster position='top-left' className='z-20' duration={5000} />
 			<CelebrationParticles />
 			<ReactFlowProvider>
@@ -112,4 +116,16 @@ function DarkMode() {
 	}, [isDarkMode]);
 
 	return null;
+}
+
+function Settings() {
+	const { settingsOpen } = useAppStore();
+
+	return (
+		<>
+			<MqttSettingsForm open={settingsOpen === 'mqtt-settings'} />
+			<AdvancedSettingsForm open={settingsOpen === 'board-settings'} />
+			<UserSettingsForm open={settingsOpen === 'user-settings'} />
+		</>
+	);
 }

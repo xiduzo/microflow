@@ -23,7 +23,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Zod from 'zod';
 import { useCollaborationActions } from '../../../stores/yjs';
-import { isValidOTP } from '../../../../common/otp';
+import { formatOTP, isValidOTP } from '../../../../common/otp';
+import { useCopyToClipboard } from 'usehooks-ts';
+import { useCopyCollaborationCode } from '../../../hooks/useCopyCollaborationCode';
 
 const schema = Zod.object({
 	otpCode: Zod.string()
@@ -41,6 +43,8 @@ type Props = {
 
 export function JoinCollaborationDialog(props: Props) {
 	const { connect } = useCollaborationActions();
+	const { copySessionCode } = useCopyCollaborationCode();
+
 	const form = useForm({
 		resolver: zodResolver(schema),
 		defaultValues: {
@@ -48,9 +52,15 @@ export function JoinCollaborationDialog(props: Props) {
 		},
 	});
 
-	function onSubmit(data: Schema) {
+	async function onSubmit(data: Schema) {
 		connect(data.otpCode, { isJoining: true }); // Pass options to indicate this is a join operation
-		toast.info('Joining collaboration session...');
+		toast.info('Joined collaboration session', {
+			description: formatOTP(data.otpCode),
+			action: {
+				label: 'Copy code',
+				onClick: copySessionCode,
+			},
+		});
 		form.reset();
 		props.onOpenChange(false);
 	}
