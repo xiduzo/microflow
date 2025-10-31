@@ -11,7 +11,7 @@ export function Monitor(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="debug" />
+			<Handle type='target' position={Position.Left} id='debug' />
 		</NodeContainer>
 	);
 }
@@ -24,10 +24,13 @@ function Value() {
 
 	useControls(
 		{
-			' ': monitor(ref, { graph: data.type === 'graph', interval: 1000 / data.fps }),
+			' ': monitor(ref, {
+				graph: data.type === 'graph',
+				interval: 1000 / data.fps,
+			}),
 		},
 		{ store },
-		[data.type, data.fps],
+		[data.type, data.fps]
 	);
 	useEffect(() => {
 		ref.current = value;
@@ -35,7 +38,7 @@ function Value() {
 
 	if (data.type === 'raw')
 		return (
-			<div className="text-xs text-gray-500 text-start grow p-4">
+			<div className='text-xs text-gray-500 text-start grow p-4'>
 				{typeof value === 'string' ? value : <pre>{JSON.stringify(value, null, 2)}</pre>}
 			</div>
 		);

@@ -4,7 +4,7 @@ import { AArrowDown } from 'lucide-react';
 export function Icon(props: Props) {
 	const Component = Icons[props.icon] as typeof AArrowDown;
 
-	return <Component {...props} />;
+	return <Component size={14} {...props} />;
 }
 
 export type IconName = keyof typeof Icons;

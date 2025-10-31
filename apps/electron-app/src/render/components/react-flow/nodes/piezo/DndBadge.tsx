@@ -18,8 +18,8 @@ export function DndBadge(props: PropsWithChildren & { id: string }) {
 				setDragging('');
 				setHover('');
 			}}
-			className="flex justify-between hover:cursor-grab"
-			variant="secondary"
+			className='flex justify-between hover:cursor-grab'
+			variant='secondary'
 		>
 			{props.children}
 		</Badge>

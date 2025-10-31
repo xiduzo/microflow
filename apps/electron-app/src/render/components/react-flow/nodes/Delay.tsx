@@ -9,8 +9,8 @@ export function Delay(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="signal" />
-			<Handle type="source" position={Position.Right} id="bang" />
+			<Handle type='target' position={Position.Left} id='signal' />
+			<Handle type='source' position={Position.Right} id='bang' />
 		</NodeContainer>
 	);
 }
@@ -18,7 +18,7 @@ export function Delay(props: Props) {
 function Value() {
 	const data = useNodeData<DelayData>();
 
-	return <IconWithValue icon="Snail" value={data.delay / 1000} suffix="s" />;
+	return <IconWithValue icon='Snail' value={data.delay / 1000} suffix='s' />;
 }
 
 function Settings() {

@@ -27,7 +27,7 @@ export class Trigger extends BaseComponent<TriggerValueType> {
 		const currentTime = performance.now();
 
 		this.history = this.history.filter(
-			({ timestamp }) => currentTime - timestamp <= (this.data.within ?? 250), // TODO: this can be removed when the within property is required
+			({ timestamp }) => currentTime - timestamp <= this.data.within,
 		);
 
 		this.history.push({ value: valueAsNumber, timestamp: currentTime });

@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from '@microflow/ui';
 import { useState } from 'react';
-import { uuid } from '../../../../../utils/uuid';
+import { uid } from '../../../../../common/uuid';
 import { DragAndDropProvider } from '../../../../providers/DragAndDropProvider';
 import { MusicSheet } from '../../../MusicSheet';
 import { DEFAULT_NOTE, DEFAULT_NOTE_DURATION } from './constants';
@@ -18,7 +18,7 @@ import { noteDurationToVisualDuation } from './helpers';
 import { NodeEditor } from './NoteEditor';
 
 export function SongEditor(props: Props) {
-	const [editedSong, setEditedSong] = useState(props.song.map(note => ({ note, id: uuid() })));
+	const [editedSong, setEditedSong] = useState(props.song.map(note => ({ note, id: uid() })));
 
 	function swapNotes(id: string, hoveredId: string) {
 		setEditedSong(prev => {
@@ -37,10 +37,10 @@ export function SongEditor(props: Props) {
 				<DialogHeader>
 					<DialogTitle>Edit song</DialogTitle>
 				</DialogHeader>
-				<section className="flex flex-col space-y-4">
+				<section className='flex flex-col space-y-4'>
 					<MusicSheet song={editedSong.map(song => song.note)} />
 					<DragAndDropProvider swap={swapNotes}>
-						<section className="grid gap-2 grid-cols-4">
+						<section className='grid gap-2 grid-cols-4'>
 							{editedSong?.map(({ note, id }, index) => (
 								<NodeEditor
 									key={id}
@@ -66,7 +66,7 @@ export function SongEditor(props: Props) {
 								>
 									<DndBadge id={id}>
 										<span>{note[0] ?? 'Rest'}</span>
-										<span className="text-muted-foreground">
+										<span className='text-muted-foreground'>
 											{noteDurationToVisualDuation(note[1])}
 										</span>
 									</DndBadge>
@@ -78,14 +78,14 @@ export function SongEditor(props: Props) {
 									label: 'Add note',
 									onClick: note => {
 										setEditedSong(prev => {
-											return [...prev, { note, id: uuid() }];
+											return [...prev, { note, id: uid() }];
 										});
 									},
 								}}
 							>
 								<Badge
-									variant="outline"
-									className="text-muted-foreground hover:text-foreground border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full"
+									variant='outline'
+									className='text-muted-foreground hover:text-foreground border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full'
 								>
 									Add note
 								</Badge>
@@ -94,7 +94,7 @@ export function SongEditor(props: Props) {
 					</DragAndDropProvider>
 					<DialogFooter>
 						<Button
-							variant="destructive"
+							variant='destructive'
 							onClick={() => {
 								setEditedSong([]);
 							}}

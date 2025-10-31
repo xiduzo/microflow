@@ -11,10 +11,10 @@ export function Oscillator(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="start" offset={-1} />
-			<Handle type="target" position={Position.Left} id="reset" />
-			<Handle type="target" position={Position.Left} id="stop" offset={1} />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='target' position={Position.Left} id='start' offset={-1} />
+			<Handle type='target' position={Position.Left} id='reset' />
+			<Handle type='target' position={Position.Left} id='stop' offset={1} />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -39,7 +39,7 @@ function Value() {
 		}
 	}, [data.waveform]);
 
-	return <IconWithValue icon={icon} value={data.period / 1000} suffix="s" />;
+	return <IconWithValue icon={icon} value={data.period / 1000} suffix='s' />;
 }
 
 function Settings() {

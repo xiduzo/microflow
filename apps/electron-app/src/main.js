@@ -1,6 +1,6 @@
-const { app } = require('electron');
-const { updateElectronApp } = require('update-electron-app');
-const path = require('node:path');
+import { app } from 'electron';
+import { updateElectronApp } from 'update-electron-app';
+import path from 'node:path';
 import logger from 'electron-log/node';
 import { BrowserWindow } from 'electron';
 
@@ -12,9 +12,17 @@ import { handleDeepLink } from './main/deepLink';
 updateElectronApp({ logger: logger });
 
 /**
+ * @type {BrowserWindow[]}
+ */
+let windows = [];
+
+/**
  * @type {BrowserWindow | null}
  */
 let mainWindow;
+
+// Check if we're in development mode
+const isDevelopment = !!app.isPackaged;
 
 if (process.defaultApp) {
 	if (process.argv.length >= 2) {
@@ -27,23 +35,28 @@ if (process.defaultApp) {
 }
 
 if (!handleSquirrelEvent()) {
-	if (!app.requestSingleInstanceLock()) {
+	// Only enforce single instance in production
+	if (!isDevelopment && !app.requestSingleInstanceLock()) {
 		app.quit();
 	} else {
-		app.on('second-instance', (_event, commandLine, _workingDirectory) => {
-			// Someone tried to run a second instance, we should focus our window.
-			if (mainWindow) {
-				if (mainWindow.isMinimized()) mainWindow.restore();
-				mainWindow.focus();
-			}
+		// In development, allow multiple instances but still handle second instance
+		if (!isDevelopment) {
+			app.on('second-instance', (_event, commandLine, _workingDirectory) => {
+				// Someone tried to run a second instance, we should focus our window.
+				if (mainWindow) {
+					if (mainWindow.isMinimized()) mainWindow.restore();
+					mainWindow.focus();
+				}
 
-			recreateWindowWhenNeeded().then(() => {
-				handleDeepLink(mainWindow, commandLine.pop().slice(0, -1) ?? '');
+				recreateWindowWhenNeeded().then(() => {
+					handleDeepLink(mainWindow, commandLine.pop().slice(0, -1) ?? '');
+				});
 			});
-		});
+		}
 
-		app.whenReady().then(() => {
-			void createWindow();
+		app.whenReady().then(async () => {
+			const window = await createWindow();
+			createMenu(window, createWindow);
 		});
 
 		// MacOS
@@ -62,7 +75,7 @@ if (!handleSquirrelEvent()) {
 }
 
 async function recreateWindowWhenNeeded() {
-	if (BrowserWindow.getAllWindows().length === 0) {
+	if (windows.length === 0) {
 		await createWindow();
 		await new Promise(resolve => setTimeout(resolve, 1000));
 	}
@@ -70,8 +83,8 @@ async function recreateWindowWhenNeeded() {
 	return Promise.resolve();
 }
 
-async function createWindow() {
-	mainWindow = new BrowserWindow({
+export async function createWindow() {
+	const window = new BrowserWindow({
 		width: 1024,
 		minWidth: 1024,
 		height: 768,
@@ -79,25 +92,44 @@ async function createWindow() {
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
+			nodeIntegration: false,
 			backgroundThrottling: false,
 		},
+		// Add a title to distinguish windows in development
+		title: isDevelopment
+			? `Microflow Studio (Dev) - Window ${windows.length + 1}`
+			: 'Microflow Studio',
 	});
 
-	createMenu(mainWindow);
+	// Track the window
+	windows.push(window);
 
-	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-		await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-		mainWindow.webContents.openDevTools();
-		return;
+	// Set as main window if it's the first one
+	if (!mainWindow) {
+		mainWindow = window;
 	}
 
-	await mainWindow.loadFile(
-		path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-	);
+	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+		await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+		window.webContents.openDevTools();
+	} else {
+		await window.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+	}
 
-	mainWindow.on('closed', () => {
-		mainWindow = null;
+	window.on('closed', () => {
+		// Remove from windows array
+		const index = windows.indexOf(window);
+		if (index > -1) {
+			windows.splice(index, 1);
+		}
+
+		// Update main window if this was the main window
+		if (window === mainWindow) {
+			mainWindow = windows.length > 0 ? windows[0] : null;
+		}
 	});
+
+	return window;
 }
 
 app.on('window-all-closed', () => {

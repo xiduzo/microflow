@@ -1,17 +1,22 @@
 {
 	"$schema": "https://ui.shadcn.com/schema.json",
 	"style": "default",
+	"rsc": true,
+	"tsx": true,
 	"tailwind": {
-		"config": "tailwind.config.ts",
+		"config": "tailwind.config.js",
 		"css": "globals.css",
 		"baseColor": "neutral",
 		"cssVariables": true,
 		"prefix": ""
 	},
-	"rsc": true,
-	"tsx": true,
+	"iconLibrary": "lucide",
 	"aliases": {
+		"components": "@ui/components",
 		"utils": "@ui/lib/utils",
-		"components": "@ui/components"
+		"hooks": "@ui/hooks"
+	},
+	"registries": {
+		"@magicui": "https://magicui.design/r/{name}.json"
 	}
 }

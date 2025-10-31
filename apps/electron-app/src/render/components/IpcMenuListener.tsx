@@ -1,66 +1,58 @@
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
 import { useEffect, useState } from 'react';
-import { useLocalStorage } from 'usehooks-ts';
 import { FlowFile } from '../../common/types';
-import { useSaveFlow } from '../hooks/useSaveFlow';
 import {
 	useDeselectAll,
+	useNonInternalNodes,
 	useReactFlowStore,
 	useSelectAll,
 	useSelectedEdges,
-	useSelectNodes,
+	useSelectedNodes,
 } from '../stores/react-flow';
+import { useCollaborationActions } from '../stores/yjs';
 import { MqttSettingsForm } from './forms/MqttSettingsForm';
 import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
 import { useAppStore } from '../stores/app';
 import { useNewNodeStore } from '../stores/new-node';
 import { useShallow } from 'zustand/shallow';
+import { uid } from '../../common/uuid';
+
+function canTriggerAction() {
+	const selectedElement = window.document.activeElement as HTMLElement;
+
+	if (selectedElement === window.document.body) return true;
+	if (selectedElement.classList.contains('react-flow__node')) return true;
+	if (selectedElement.classList.contains('react-flow__edge')) return true;
+	if (selectedElement.classList.contains('react-flow__nodesselection-rect')) return true;
+
+	return false;
+}
 
 export function IpcMenuListeners() {
 	const { getNodes, getEdges, fitView } = useReactFlow();
-	const { setEdges, setNodes, undo, redo, onNodesChange, onEdgesChange } = useReactFlowStore();
+	const { setEdges, setNodes, onNodesChange, onEdgesChange } = useReactFlowStore();
+	const { undo, redo } = useCollaborationActions();
 
-	const { saveNodesAndEdges, setAutoSave } = useSaveFlow();
-	const [, setLocalNodes] = useLocalStorage<Node[]>('nodes', []);
-	const [, setLocalEdges] = useLocalStorage<Edge[]>('edges', []);
 	const setOpen = useNewNodeStore(useShallow(state => state.setOpen));
 	const { settingsOpen, setSettingsOpen } = useAppStore();
 	const [copiedNodes, setCopiedNodes] = useState<Node[]>([]);
 	const selectAll = useSelectAll();
 	const deselectAll = useDeselectAll();
-	const selectedNodes = useSelectNodes();
+	const selectedNodes = useSelectedNodes();
 	const selectedEdges = useSelectedEdges();
-
-	function canTriggerAction() {
-		const selectedElement = window.document.activeElement as HTMLElement;
-
-		if (selectedElement === window.document.body) return true;
-		if (selectedElement.classList.contains('react-flow__node')) return true;
-		if (selectedElement.classList.contains('react-flow__edge')) return true;
-		if (selectedElement.classList.contains('react-flow__nodesselection-rect')) return true;
-
-		return false;
-	}
+	const nonInternalNodes = useNonInternalNodes();
 
 	useEffect(() => {
 		return window.electron.ipcRenderer.on<{ button: string; args: any }>('ipc-menu', result => {
 			if (!result.success) return;
 
 			switch (result.data.button) {
-				case 'save-flow':
-					saveNodesAndEdges();
-					break;
 				case 'new-flow':
-					setLocalEdges([]);
-					setLocalNodes([]);
 					setNodes([]);
 					setEdges([]);
 					break;
 				case 'add-node':
 					setOpen(true);
-					break;
-				case 'toggle-autosave':
-					setAutoSave(Boolean(result.data.args));
 					break;
 				case 'mqtt-settings':
 				case 'board-settings':
@@ -73,7 +65,7 @@ export function IpcMenuListeners() {
 					});
 					break;
 				case 'import-flow':
-					// TODO: data validation
+					// IDEA data validation
 					const { nodes, edges } = result.data.args as FlowFile;
 					setNodes(nodes);
 					setEdges(edges);
@@ -82,7 +74,12 @@ export function IpcMenuListeners() {
 					fitView({
 						duration: 400,
 						padding: 0.15,
-						nodes: selectedNodes().length > 0 ? selectedNodes() : undefined,
+						nodes:
+							selectedNodes().length > 0
+								? selectedNodes()
+								: nonInternalNodes().length > 0
+									? nonInternalNodes()
+									: undefined,
 					});
 					break;
 				case 'undo':
@@ -95,6 +92,7 @@ export function IpcMenuListeners() {
 					break;
 				case 'select-all':
 					if (!canTriggerAction()) break;
+					window.getSelection()?.removeAllRanges();
 					selectAll();
 					break;
 				case 'deselect-all':
@@ -112,7 +110,7 @@ export function IpcMenuListeners() {
 						selectedNodes().map(node => ({
 							type: 'remove',
 							id: node.id,
-						})),
+						}))
 					);
 					break;
 				case 'paste':
@@ -123,14 +121,14 @@ export function IpcMenuListeners() {
 							type: 'add',
 							item: {
 								...node,
-								id: Math.random().toString(36).substring(2, 8),
+								id: uid(),
 								position: {
-									// TODO center of mouse on canvas
+									// IDEA center of mouse on canvas
 									x: node.position.x + 20,
 									y: node.position.y + 20,
 								},
 							},
-						})),
+						}))
 					);
 					break;
 				case 'delete':
@@ -139,13 +137,13 @@ export function IpcMenuListeners() {
 						selectedNodes().map(node => ({
 							type: 'remove',
 							id: node.id,
-						})),
+						}))
 					);
 					onEdgesChange(
 						selectedEdges().map(edge => ({
 							type: 'remove',
 							id: edge.id,
-						})),
+						}))
 					);
 					break;
 				default:
@@ -153,7 +151,6 @@ export function IpcMenuListeners() {
 			}
 		});
 	}, [
-		saveNodesAndEdges,
 		setSettingsOpen,
 		setOpen,
 		undo,
@@ -166,9 +163,6 @@ export function IpcMenuListeners() {
 		onEdgesChange,
 		copiedNodes,
 	]);
-
-	if (settingsOpen === 'mqtt-settings') return <MqttSettingsForm open />;
-	if (settingsOpen === 'board-settings') return <AdvancedSettingsForm open />;
 
 	return null;
 }

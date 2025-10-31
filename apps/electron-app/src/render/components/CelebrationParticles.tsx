@@ -1,70 +1,29 @@
-import { toast } from '@microflow/ui';
-import { Container, type ISourceOptions } from '@tsparticles/engine';
-import Particles, { initParticlesEngine } from '@tsparticles/react';
-import {
-	createContext,
-	PropsWithChildren,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from 'react';
-import { loadFull } from 'tsparticles';
+import { Container, ISourceOptions } from '@tsparticles/engine';
+import Particles from '@tsparticles/react';
+import { useParticles } from '../stores/celebration';
+import { useCallback, memo } from 'react';
 
-const CelebrationContext = createContext({
-	celebrate: (message?: string) => {},
-});
+export const CelebrationParticles = memo(function CelebrationParticles() {
+	const { init, setContainer } = useParticles();
 
-export function useCelebration() {
-	return useContext(CelebrationContext);
-}
+	const particlesLoaded = useCallback(
+		async (loadedContainer: Container | undefined) => {
+			setContainer(loadedContainer);
+		},
+		[setContainer]
+	);
 
-export function CelebrationProvider(props: PropsWithChildren) {
-	const [init, setInit] = useState(false);
-
-	const container = useRef<Container | undefined>(undefined);
-
-	async function particlesLoaded(loadedContainer: Container | undefined) {
-		container.current = loadedContainer;
-	}
-
-	const celebrate = useCallback((message?: string) => {
-		if (!container.current) return;
-
-		container.current.refresh();
-		container.current.play();
-
-		if (!message) return;
-
-		toast.success(message, {
-			icon: '🚀',
-			duration: 10000,
-		});
-	}, []);
-
-	useEffect(() => {
-		initParticlesEngine(async engine => {
-			await loadFull(engine);
-		}).then(() => {
-			setInit(true);
-		});
-	}, []);
+	if (!init) return null;
 
 	return (
-		<CelebrationContext.Provider value={{ celebrate }}>
-			{init && (
-				<Particles
-					className="z-10 pointer-events-none"
-					id="tsparticles"
-					particlesLoaded={particlesLoaded}
-					options={PARTICLE_OPTIONS}
-				/>
-			)}
-			{props.children}
-		</CelebrationContext.Provider>
+		<Particles
+			className='z-50 pointer-events-none fixed inset-0'
+			id='tsparticles'
+			particlesLoaded={particlesLoaded}
+			options={PARTICLE_OPTIONS}
+		/>
 	);
-}
+});
 
 const PARTICLE_OPTIONS: ISourceOptions = {
 	autoPlay: false,
@@ -79,7 +38,7 @@ const PARTICLE_OPTIONS: ISourceOptions = {
 		},
 		position: {
 			x: 50,
-			y: 100,
+			y: 95,
 		},
 		rate: {
 			quantity: 12,

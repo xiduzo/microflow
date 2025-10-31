@@ -75,6 +75,16 @@ jobs:
           # Required for `distutils` module
           python-version: '3.10'
 
+      - name: Install provisioning profile
+        if: runner.os == 'macOS'
+        env:
+          MACOS_PROVISIONING_PROFILE: ${{ secrets.MACOS_PROVISIONING_PROFILE }}
+        run: |
+          # Decode and install provisioning profile
+          PROFILE_PATH=apps/electron-app/microflow.provisionprofile
+          echo -n "$MACOS_PROVISIONING_PROFILE" | base64 --decode > $PROFILE_PATH
+          echo "Provisioning profile installed at $PROFILE_PATH"
+
       # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
       - name: Make application
         run: yarn make

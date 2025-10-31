@@ -19,6 +19,7 @@ import { useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
 import { useWindowSize } from 'usehooks-ts';
 import { BaseNode } from '../components/react-flow/nodes/Node';
+import { uid } from '../../common/uuid';
 
 const NODE_SIZE = {
 	width: 208,
@@ -45,7 +46,7 @@ export function NewNodeCommandDialog() {
 		return function () {
 			const item: Node = {
 				data: node.data,
-				id: Math.random().toString(36).substring(2, 8),
+				id: uid(),
 				type,
 				position,
 			};
@@ -66,7 +67,7 @@ export function NewNodeCommandDialog() {
 				group.push({ node, type });
 				groups.set(node.data.group, group);
 				return groups;
-			}, new Map<string, { node: BaseNode; type: string }[]>()),
+			}, new Map<string, { node: BaseNode; type: string }[]>())
 		);
 	}, []);
 
@@ -91,25 +92,58 @@ export function NewNodeCommandDialog() {
 				setOpen(state);
 				if (!state) setFilter('');
 			}}
+			filter={(value, search, keywords) => {
+				const [label, description] = value.split('|');
+
+				// If no search term, return 0 (not relevant)
+				if (!search || search.trim() === '') {
+					return 0;
+				}
+
+				const searchLower = search.toLowerCase().trim();
+
+				// Priority 1: Label match (highest priority)
+				if (label.toLowerCase().includes(searchLower)) {
+					return 1;
+				}
+
+				// Priority 2: Description match
+				if (description && description.toLowerCase().includes(searchLower)) {
+					return 0.8;
+				}
+
+				// Priority 3: Keywords match
+				if (keywords && keywords.some(keyword => keyword.toLowerCase().includes(searchLower))) {
+					return 0.6;
+				}
+
+				// No match found
+				return 0;
+			}}
 		>
-			<DialogHeader className="hidden">
+			<DialogHeader className='hidden'>
 				<DialogTitle>Add new node</DialogTitle>
 				<DialogDescription>Magnetic sensor...</DialogDescription>
 			</DialogHeader>
 			<CommandInput placeholder={searchTerm} onValueChange={setFilter} />
-			<CommandList className="mb-2">
+			<CommandList className='mb-2'>
 				<CommandEmpty>No nodes found...</CommandEmpty>
 				{groups.map(([group, nodes], index) => (
 					<section key={group}>
 						<CommandGroup heading={group}>
 							{nodes.map(({ node, type }) => (
-								<CommandItem key={node.data.label} onSelect={selectNode(node, type)}>
-									<div className="flex flex-col">
+								<CommandItem
+									value={`${node.data.label}|${node.data.description}`}
+									keywords={node.data.tags}
+									key={node.data.label}
+									onSelect={selectNode(node, type)}
+								>
+									<div className='flex flex-col'>
 										<span>{node.data.label}</span>
-										<span className="text-muted-foreground">{node.data.description ?? ''}</span>
+										<span className='text-muted-foreground'>{node.data.description ?? ''}</span>
 									</div>
-									<CommandShortcut className="divide-x-2 divide-muted-foreground">
-										<div className="text-muted-foreground ml-2 font-extralight text-xs">
+									<CommandShortcut className='divide-x-2 divide-muted-foreground'>
+										<div className='text-muted-foreground ml-2 font-extralight text-xs'>
 											{node.data.tags.sort((a, b) => a.localeCompare(b)).join(', ')}
 										</div>
 									</CommandShortcut>
@@ -120,34 +154,34 @@ export function NewNodeCommandDialog() {
 					</section>
 				))}
 			</CommandList>
-			<footer className="p-2 border-t flex gap-4 justify-between items-center">
+			<footer className='p-2 border-t flex gap-4 justify-between items-center'>
 				<a
-					href="https://microflow.vercel.app/docs/microflow-studio/nodes"
-					target="_blank"
-					className="text-xs text-muted-foreground hover:underline"
+					href='https://microflow.vercel.app/docs/microflow-studio/nodes'
+					target='_blank'
+					className='text-xs text-muted-foreground hover:underline'
 				>
 					Open the documentation
 				</a>
-				<section className="flex items-center gap-3">
-					<section className="flex items-center gap-2">
-						<span className="text-xs text-muted-foreground">Close</span>
-						<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">Esc</CommandShortcut>
+				<section className='flex items-center gap-3'>
+					<section className='flex items-center gap-2'>
+						<span className='text-xs text-muted-foreground'>Close</span>
+						<CommandShortcut className='bg-muted-foreground/10 p-1 rounded-md'>Esc</CommandShortcut>
 					</section>
-					<section className="flex items-center gap-2">
-						<span className="text-xs text-muted-foreground">Navigate</span>
-						<div className="flex items-center gap-1">
-							<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
-								<Icons.ChevronUp size={12} className="" />
+					<section className='flex items-center gap-2'>
+						<span className='text-xs text-muted-foreground'>Navigate</span>
+						<div className='flex items-center gap-1'>
+							<CommandShortcut className='bg-muted-foreground/10 p-1 rounded-md'>
+								<Icons.ChevronUp size={12} className='' />
 							</CommandShortcut>
-							<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
-								<Icons.ChevronDown size={12} className="" />
+							<CommandShortcut className='bg-muted-foreground/10 p-1 rounded-md'>
+								<Icons.ChevronDown size={12} className='' />
 							</CommandShortcut>
 						</div>
 					</section>
-					<section className="flex items-center gap-2">
-						<span className="text-xs text-muted-foreground">Select</span>
-						<CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
-							<Icons.CornerDownLeft size={12} className="" />
+					<section className='flex items-center gap-2'>
+						<span className='text-xs text-muted-foreground'>Select</span>
+						<CommandShortcut className='bg-muted-foreground/10 p-1 rounded-md'>
+							<Icons.CornerDownLeft size={12} className='' />
 						</CommandShortcut>
 					</section>
 				</section>

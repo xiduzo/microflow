@@ -19,8 +19,8 @@ export function Llm(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="invoke" />
-			<Handle type="source" position={Position.Right} id="output" />
+			<Handle type='target' position={Position.Left} id='invoke' />
+			<Handle type='source' position={Position.Right} id='output' />
 			<DynamicHandles />
 		</NodeContainer>
 	);
@@ -37,7 +37,7 @@ function DynamicHandles() {
 	const handles = useMemo(() => {
 		const matches = data.prompt?.match(/{{(.*?)}}/g) ?? [];
 		return Array.from(
-			new Set(matches.map(match => match.replace('{{', '').replace('}}', ''))),
+			new Set(matches.map(match => match.replace('{{', '').replace('}}', '')))
 		).filter(Boolean);
 	}, [data.prompt]);
 
@@ -53,7 +53,7 @@ function DynamicHandles() {
 			{handles.slice(0, 7).map((handle, index) => (
 				<Handle
 					key={handle}
-					type="target"
+					type='target'
 					position={Position.Bottom}
 					id={handle}
 					offset={index * 1 - 3}
@@ -89,22 +89,31 @@ function Settings() {
 			advanced: folder(
 				{
 					baseUrl: { value: data.baseUrl!, label: 'Base URL' },
-					frequencyPenalty: { value: data.frequencyPenalty!, label: 'Frequency Penalty' },
+					frequencyPenalty: {
+						value: data.frequencyPenalty!,
+						label: 'Frequency Penalty',
+					},
 					temperature: { value: data.temperature!, label: 'Temperature' },
 					topK: { value: data.topK!, label: 'Top K' },
 					topP: { value: data.topP!, label: 'Top P' },
 					mirostat: { value: data.mirostat!, label: 'Mirostat' },
 					mirostatTau: { value: data.mirostatTau!, label: 'Mirostat Tau' },
 					mirostatEta: { value: data.mirostatEta!, label: 'Mirostat Eta' },
-					repeatPenalty: { value: data.repeatPenalty!, label: 'Repeat Penalty' },
+					repeatPenalty: {
+						value: data.repeatPenalty!,
+						label: 'Repeat Penalty',
+					},
 					typicalP: { value: data.typicalP!, label: 'Typical P' },
-					presencePenalty: { value: data.presencePenalty!, label: 'Presence Penalty' },
+					presencePenalty: {
+						value: data.presencePenalty!,
+						label: 'Presence Penalty',
+					},
 					repeatLastN: { value: data.repeatLastN!, label: 'Repeat Last N' },
 				},
-				{ collapsed: true },
+				{ collapsed: true }
 			),
 		},
-		[models],
+		[models]
 	);
 
 	useEffect(() => {

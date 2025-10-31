@@ -9,15 +9,13 @@ import {
 	applyNodeChanges,
 } from '@xyflow/react';
 
-import { LinkedList } from '../../common/LinkedList';
-import { INTRODUCTION_EDGES, INTRODUCTION_NODES } from './introduction';
 import { useShallow } from 'zustand/shallow';
 // TODO: the new `create` function from `zustand` is re-rendering too much causing an react error -- https://zustand.docs.pmnd.rs/migrations/migrating-to-v5
 import { createWithEqualityFn as create } from 'zustand/traditional';
+import { useYjsStore } from './yjs';
+import { uid } from '../../common/uuid';
 
-const HISTORY_DEBOUNCE_TIME_IN_MS = 100;
-
-export type AppState<NodeData extends Record<string, unknown> = {}> = {
+export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	nodes: Node<NodeData>[];
 	edges: Edge[];
 	onNodesChange: OnNodesChange<Node<NodeData>>;
@@ -26,92 +24,124 @@ export type AppState<NodeData extends Record<string, unknown> = {}> = {
 	setNodes: (nodes: Node<NodeData>[]) => void;
 	setEdges: (edges: Edge[]) => void;
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
-	deleteSelectedNodesAndEdges: () => void;
-	history: LinkedList<{ nodes: Node[]; edges: Edge[] }>;
-	undo: () => void;
-	redo: () => void;
 };
 
-function getLocalItem<T>(item: string, fallback: T) {
-	return JSON.parse(localStorage.getItem(item) ?? JSON.stringify(fallback)) as T;
-}
+// Debounce timeout ref for syncing changes to YJS
+let syncToYjsDebounceTimeout: NodeJS.Timeout | null = null;
 
-let historyUpdateDebounce: NodeJS.Timeout | undefined;
+export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
+	// Get YJS store for collaboration
+	const yjsStore = useYjsStore.getState();
 
-function updateHistory(get: () => AppState<{}>) {
-	historyUpdateDebounce && clearTimeout(historyUpdateDebounce);
-	historyUpdateDebounce = setTimeout(() => {
-		const { nodes, edges, history } = get();
-		history.append({
-			nodes: JSON.parse(JSON.stringify(nodes)), // remove references
-			edges: JSON.parse(JSON.stringify(edges)), // remove references
-		});
+	// Set up YJS update listener to sync changes back to React Flow
+	yjsStore.onYjsUpdate((nodes, edges) => {
+		const currentState = get();
 
-		console.debug(`[HISTORY]`, history);
-	}, HISTORY_DEBOUNCE_TIME_IN_MS);
-}
+		// Preserve local selection state
+		const nodesWithLocalSelection = nodes.map(node => ({
+			...node,
+			selected: currentState?.nodes?.find(({ id }) => id === node.id)?.selected ?? false,
+		}));
 
-export const useReactFlowStore = create<AppState>((set, get) => {
-	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
+		const edgesWithLocalSelection = edges.map(edge => ({
+			...edge,
+			selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
+		}));
 
-	if (!hasSeenIntroduction) {
-		localStorage.setItem('has-seen-introduction', 'true');
-		localStorage.setItem('nodes', JSON.stringify(INTRODUCTION_NODES));
-		localStorage.setItem('edges', JSON.stringify(INTRODUCTION_EDGES));
-	}
+		set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
+	});
 
-	const localNodes = getLocalItem<Node[]>('nodes', []).map(node => ({
-		...node,
-		selected: false,
-		data: { ...node.data, settingsOpen: false },
-	}));
+	// Load initial state from YJS
+	const { nodes: yjsNodes, edges: yjsEdges } = yjsStore.syncFromYjs();
 
-	const localEdges = getLocalItem<Edge[]>('edges', []).map(edge => ({
-		...edge,
-		animated: false,
-		selected: false,
-	}));
+	// Deduplicate nodes by ID to prevent React key conflicts
+	const nodeMap = new Map();
+	yjsNodes.forEach(node => {
+		if (!nodeMap.has(node.id)) {
+			nodeMap.set(node.id, node);
+		} else {
+			console.warn('[REACT-FLOW] Duplicate node ID found during initialization:', node.id);
+		}
+	});
+	const edgeMap = new Map();
+	yjsEdges.forEach(edge => {
+		if (!edgeMap.has(edge.id)) {
+			edgeMap.set(edge.id, edge);
+		} else {
+			console.warn('[REACT-FLOW] Duplicate edge ID found during initialization:', edge.id);
+		}
+	});
 
-	const initialNodes = hasSeenIntroduction ? localNodes : INTRODUCTION_NODES;
-	const initialEdges = hasSeenIntroduction ? localEdges : INTRODUCTION_EDGES;
+	const finalNodes = Array.from(nodeMap.values());
+	const finalEdges = Array.from(edgeMap.values());
+
+	/**
+	 * Syncs local React state changes to Yjs document for collaboration
+	 * Called when user makes changes to nodes/edges (move, add, delete, etc.)
+	 * Excludes selection state as that's local-only
+	 * Debounced to prevent excessive YJS updates during rapid changes
+	 */
+	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
+		const finalEdges = edges.map(edge => ({
+			...edge,
+			type: 'animated',
+		}));
+		// Set state with all nodes
+		set({ nodes, edges: finalEdges });
+
+		clearTimeout(syncToYjsDebounceTimeout ?? undefined);
+
+		// Set new timeout to debounce the sync operation
+		syncToYjsDebounceTimeout = setTimeout(() => {
+			yjsStore.syncNodesToYjs(nodes);
+			yjsStore.syncEdgesToYjs(finalEdges);
+			syncToYjsDebounceTimeout = null;
+		}, 300); // 300ms debounce delay
+	};
 
 	return {
-		nodes: initialNodes,
-		edges: initialEdges,
-		history: new LinkedList({ nodes: initialNodes, edges: initialEdges }),
+		nodes: finalNodes,
+		edges: finalEdges,
+
 		onNodesChange: changes => {
-			set({
-				nodes: applyNodeChanges(changes, get().nodes),
-			});
+			const newNodes = applyNodeChanges(changes, get().nodes);
 
-			const hasChangesWhichNeedSaving = changes.some(change => change.type !== 'select');
+			const isSelectionChange = changes.every(change => change.type === 'select');
 
-			if (!hasChangesWhichNeedSaving) return;
-			updateHistory(get);
+			if (isSelectionChange) {
+				set({ nodes: newNodes }); // Selection changes are local-only, don't sync to Yjs
+				return;
+			}
+
+			syncLocalChangesToYjs(newNodes, get().edges);
 		},
+
 		onEdgesChange: changes => {
-			set({
-				edges: applyEdgeChanges(changes, get().edges),
-			});
+			const newEdges = applyEdgeChanges(changes, get().edges);
 
-			const hasChangesWhichNeedSaving = changes.some(
-				change => change.type === 'add' || change.type === 'remove',
-			);
-			if (!hasChangesWhichNeedSaving) return;
-			updateHistory(get);
+			const isSelectionChange = changes.every(change => change.type === 'select');
+
+			if (isSelectionChange) {
+				set({ edges: newEdges }); // Selection changes are local-only, don't sync to Yjs
+				return;
+			}
+			syncLocalChangesToYjs(get().nodes, newEdges);
 		},
+
 		onConnect: connection => {
-			set({
-				edges: addEdge(connection, get().edges),
-			});
-			updateHistory(get);
+			const newEdges = addEdge({ ...connection, id: uid() }, get().edges);
+
+			syncLocalChangesToYjs(get().nodes, newEdges);
 		},
+
 		setNodes: nodes => {
-			set({ nodes });
+			syncLocalChangesToYjs(nodes, get().edges);
 		},
+
 		setEdges: edges => {
-			set({ edges });
+			syncLocalChangesToYjs(get().nodes, edges);
 		},
+
 		deleteEdges: (nodeId, handles = []) => {
 			if (!handles.length) return;
 
@@ -127,38 +157,29 @@ export const useReactFlowStore = create<AppState>((set, get) => {
 				return false;
 			});
 
-			set({ edges });
-		},
-		deleteSelectedNodesAndEdges: () => {
-			const nodes = get().nodes.filter(node => !node.selected);
-			const edges = get().edges.filter(edge => !edge.selected);
-			set({ nodes, edges });
-		},
-		undo: () => {
-			const history = get().history;
-
-			const state = history.backward();
-			if (!state) return;
-
-			set({ ...state });
-		},
-		redo: () => {
-			const history = get().history;
-
-			const state = history.forward();
-			if (!state) return;
-
-			set({ ...state });
+			syncLocalChangesToYjs(get().nodes, edges);
 		},
 	};
 });
+
+export function useReactFlowCanvas() {
+	return useReactFlowStore(
+		useShallow(state => ({
+			nodes: state.nodes,
+			edges: state.edges,
+			onNodesChange: state.onNodesChange,
+			onEdgesChange: state.onEdgesChange,
+			onConnect: state.onConnect,
+		}))
+	);
+}
 
 export function useNodeAndEdgeCount() {
 	return useReactFlowStore(
 		useShallow(state => ({
 			nodesCount: state.nodes.length,
 			edgesCount: state.edges.length,
-		})),
+		}))
 	);
 }
 
@@ -174,20 +195,24 @@ export function useEdges() {
 	return useReactFlowStore(useShallow(state => state.edges));
 }
 
-export function useDeleteSelectedNodesAndEdges() {
-	return useReactFlowStore(useShallow(state => state.deleteSelectedNodesAndEdges));
-}
-
 export function useSelectAll() {
 	return useReactFlowStore(
 		useShallow(state => () => {
 			state.onNodesChange(
-				state.nodes.map(node => ({ type: 'select', selected: true, id: node.id })),
+				state.nodes.map(node => ({
+					type: 'select',
+					selected: true,
+					id: node.id,
+				}))
 			);
 			state.onEdgesChange(
-				state.edges.map(edge => ({ type: 'select', selected: true, id: edge.id })),
+				state.edges.map(edge => ({
+					type: 'select',
+					selected: true,
+					id: edge.id,
+				}))
 			);
-		}),
+		})
 	);
 }
 
@@ -195,19 +220,36 @@ export function useDeselectAll() {
 	return useReactFlowStore(
 		useShallow(state => () => {
 			state.onNodesChange(
-				state.nodes.map(node => ({ type: 'select', selected: false, id: node.id })),
+				state.nodes.map(node => ({
+					type: 'select',
+					selected: false,
+					id: node.id,
+				}))
 			);
 			state.onEdgesChange(
-				state.edges.map(edge => ({ type: 'select', selected: false, id: edge.id })),
+				state.edges.map(edge => ({
+					type: 'select',
+					selected: false,
+					id: edge.id,
+				}))
 			);
-		}),
+		})
 	);
 }
 
-export function useSelectNodes() {
+export function useSelectedNodes() {
 	return useReactFlowStore(useShallow(state => () => state.nodes.filter(node => node.selected)));
 }
 
 export function useSelectedEdges() {
 	return useReactFlowStore(useShallow(state => () => state.edges.filter(edge => edge.selected)));
+}
+
+export function useNonInternalNodes() {
+	return useReactFlowStore(
+		useShallow(
+			state => () =>
+				state.nodes.filter(node => (node.data as { group: string }).group !== 'internal')
+		)
+	);
 }

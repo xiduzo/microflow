@@ -13,9 +13,9 @@ function Value() {
 	const data = useNodeData<NoteData>();
 
 	return (
-		<section className="text-wrap w-64 text-center flex flex-col p-2 gap-1">
+		<section className='text-wrap w-64 text-center flex flex-col p-2 gap-1'>
 			<span>{data.note ?? ''}</span>
-			<span className="text-xs text-muted-foreground">{data.extraInfo ?? ''}</span>
+			<span className='text-xs text-muted-foreground'>{data.extraInfo ?? ''}</span>
 		</section>
 	);
 }

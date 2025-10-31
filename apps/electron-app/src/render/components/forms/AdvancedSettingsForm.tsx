@@ -19,6 +19,14 @@ import {
 	SheetFooter,
 	FormDescription,
 	Icons,
+	Alert,
+	AlertTitle,
+	AlertDescription,
+	Icon,
+	TooltipProvider,
+	TooltipTrigger,
+	TooltipContent,
+	Tooltip,
 } from '@microflow/ui';
 import { useLocalStorage } from 'usehooks-ts';
 import { useAppStore } from '../../stores/app';
@@ -55,6 +63,10 @@ export function AdvancedSettingsForm(props: Props) {
 		props.onClose?.();
 	}
 
+	function openUrl(url: string) {
+		window.open(url, '_blank');
+	}
+
 	return (
 		<Sheet
 			open={props.open}
@@ -65,7 +77,7 @@ export function AdvancedSettingsForm(props: Props) {
 		>
 			<SheetContent>
 				<SheetHeader>
-					<SheetTitle className="flex gap-2 items-center">
+					<SheetTitle className='flex gap-2 items-center'>
 						<Icons.Microchip size={16} />
 						Microcontroller settings
 					</SheetTitle>
@@ -74,39 +86,55 @@ export function AdvancedSettingsForm(props: Props) {
 					</SheetDescription>
 				</SheetHeader>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit, console.log)} className="my-4 space-y-4">
+					<form onSubmit={form.handleSubmit(onSubmit, console.log)} className='my-4 space-y-4'>
 						<FormField
 							control={form.control}
-							name="ip"
+							name='ip'
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>IP-address</FormLabel>
+									<FormLabel className='flex items-center gap-2 justify-between'>
+										IP-address
+										<TooltipProvider>
+											<Tooltip>
+												<TooltipTrigger className='cursor-help'>
+													<Icon icon='CircleQuestionMark' />
+												</TooltipTrigger>
+												<TooltipContent>
+													The IP-address of your microcontroller running StandardFirmataWifi.
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									</FormLabel>
 									<FormControl>
-										<Input placeholder="192.168.2.26" {...field} />
+										<Input placeholder='192.168.2.26' {...field} />
 									</FormControl>
 									<FormMessage />
-									<FormDescription>
-										The IP-address your of your microcontroller running{' '}
-										<a
-											className="underline"
-											href="https://github.com/firmata/arduino/tree/main/examples/StandardFirmataWiFi"
-											target="_blank"
-										>
-											StandardFirmataWifi
-										</a>
-										. Leave blank if you want to connect via USB.
-									</FormDescription>
+									<FormDescription>Leave blank if you want to connect via USB.</FormDescription>
 								</FormItem>
 							)}
 						/>
 						<SheetFooter>
 							<SheetClose asChild>
-								<Button variant="secondary">Cancel</Button>
+								<Button variant='secondary'>Cancel</Button>
 							</SheetClose>
-							<Button type="submit">Save changes</Button>
+							<Button type='submit'>Save changes</Button>
 						</SheetFooter>
 					</form>
 				</Form>
+
+				<Alert
+					className='cursor-pointer hover:bg-muted-foreground/5 transition-all'
+					onClick={() =>
+						openUrl('https://github.com/firmata/arduino/tree/main/examples/StandardFirmataWiFi')
+					}
+				>
+					<Icon icon='ExternalLink' />
+					<AlertTitle>StandardFirmataWifi</AlertTitle>
+					<AlertDescription className='text-muted-foreground'>
+						When connecting over WiFi, you will need to flash and configure this library on your
+						microcontroller.
+					</AlertDescription>
+				</Alert>
 			</SheetContent>
 		</Sheet>
 	);

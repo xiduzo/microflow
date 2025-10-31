@@ -6,16 +6,16 @@ import { useNodeValue } from '../../../stores/node-data';
 import { Switch as UiSwitch } from '@microflow/ui';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 
 export function Switch(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="open" title="active" offset={-1} />
-			<Handle type="source" position={Position.Right} id="change" />
-			<Handle type="source" position={Position.Right} id="close" title="inactive" offset={1} />
+			<Handle type='source' position={Position.Right} id='open' title='active' offset={-1} />
+			<Handle type='source' position={Position.Right} id='change' />
+			<Handle type='source' position={Position.Right} id='close' title='inactive' offset={1} />
 		</NodeContainer>
 	);
 }
@@ -23,7 +23,7 @@ export function Switch(props: Props) {
 function Value() {
 	const value = useNodeValue<SwitchValueType>(false);
 
-	return <UiSwitch checked={value} className="scale-150" />;
+	return <UiSwitch checked={value} className='scale-150' />;
 }
 
 function Settings() {
@@ -40,7 +40,7 @@ function Settings() {
 				],
 			},
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

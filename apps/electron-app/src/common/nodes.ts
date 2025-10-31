@@ -32,7 +32,6 @@ import { Relay } from '../render/components/react-flow/nodes/Relay';
 import { Switch } from '../render/components/react-flow/nodes/Switch';
 import { Proximity } from '../render/components/react-flow/nodes/Proximity';
 import { Llm } from '../render/components/react-flow/nodes/Llm';
-import { User } from '../render/components/react-flow/nodes/User';
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Sensor: Sensor,
@@ -67,7 +66,6 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Smooth: Smooth,
 	Switch: Switch,
 	Tilt: Tilt,
-	User: User,
 	Trigger: Trigger,
 	Vibration: Vibration,
 } as const;

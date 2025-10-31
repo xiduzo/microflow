@@ -23,7 +23,7 @@ export function DownloadApp() {
 	const [os, setOs] = useState<OperationSystem>();
 
 	function downloadApp() {
-		const version = '0.7.9';
+		const version = '0.8.0';
 		const baseUrl = `https://github.com/xiduzo/microflow/releases/download/v${version}`;
 
 		switch (os) {
@@ -46,10 +46,10 @@ export function DownloadApp() {
 	}
 
 	return (
-		<section className="max-w-lg m-auto mt-6 flex flex-col items-center gap-y-8">
+		<section className='max-w-lg m-auto mt-6 flex flex-col items-center gap-y-8'>
 			<Select onValueChange={value => setOs(value as OperationSystem)}>
 				<SelectTrigger>
-					<SelectValue placeholder="select your operating system" />
+					<SelectValue placeholder='select your operating system' />
 				</SelectTrigger>
 				<SelectContent>
 					{operationSystems.map(system => (

@@ -1,13 +1,12 @@
-import { DeepLinker } from '@/components/DeepLinker';
+import { FigmaDeepLink } from '@/components/FigmaDeepLink';
 import { Header } from '@/components/Header';
 
 export default function Set() {
-	console.log('set');
 	return (
 		<>
 			<Header></Header>
 			<main className="p-2 w-screen h-screen flex items-center justify-center flex-col">
-				<DeepLinker />
+				<FigmaDeepLink />
 				<div>This page should close automatically.</div>
 				<div>If not, you should open your Figma prototype from the browser.</div>
 				<a

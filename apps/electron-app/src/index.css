@@ -15,24 +15,23 @@ body {
 }
 
 .react-flow__minimap .react-flow__minimap-node {
-	@apply dark:fill-neutral-400 fill-neutral-700 transition-colors;
+	@apply fill-muted-foreground transition-colors;
 }
 .react-flow__minimap .react-flow__minimap-node.selected {
 	@apply fill-blue-500;
+}
+
+.react-flow__minimap .react-flow__minimap-node.react-flow__minimap-node__User {
+	@apply hidden;
 }
 
 .react-flow__node.dragging {
 	z-index: 999998 !important;
 }
 
-.react-flow__node.react-flow__node-User {
-	pointer-events: none !important;
-	z-index: 999999 !important;
-}
-
 /* Edges */
 .react-flow__edges .react-flow__edge-path {
-	@apply stroke-[4] dark:stroke-neutral-600 stroke-neutral-400 transition-colors;
+	@apply stroke-[7] bg-muted-foreground transition-colors;
 }
 
 .react-flow__edges .react-flow__edge.selected .react-flow__edge-path,
@@ -41,11 +40,12 @@ body {
 }
 
 .react-flow__edges .react-flow__edge.animated .react-flow__edge-path {
-	@apply stroke-yellow-500;
+	/* @apply stroke-yellow-500; */
+	stroke-dasharray: 10, 0;
 }
 
 .react-flow__connection .react-flow__connection-path {
-	@apply stroke-[4] dark:stroke-neutral-400 stroke-neutral-500;
+	@apply stroke-[7] stroke-muted-foreground;
 	stroke-dasharray: 8, 8;
 	transition: stroke 0.15s;
 }
@@ -60,7 +60,11 @@ body {
 
 /* Handles */
 .react-flow .react-flow__handle {
-	@apply bg-muted-foreground text-neutral-500 rounded-md transition-all duration-150 border-none;
+	@apply bg-muted-foreground/50 text-muted-foreground transition-all duration-150 border-none;
+}
+
+.react-flow .react-flow__handle.selected-via-edge {
+	@apply bg-blue-500 text-blue-500 font-bold;
 }
 
 /* possible allowed connections */
@@ -69,7 +73,7 @@ body {
 .react-flow:has(.react-flow__handle.connectingfrom.target) .react-flow__handle.connectable.source:not(:has(~ .react-flow__handle.connectingfrom)),
 /* source --> target */
 .react-flow:has(.react-flow__handle.connectingfrom.source) .react-flow__handle.connectable.target:not(:has(~ .react-flow__handle.connectingfrom)) {
-	@apply dark:bg-neutral-400 dark:text-neutral-500 text-neutral-400 bg-neutral-500;
+	@apply bg-muted-foreground text-foreground;
 }
 
 /* show handle text when connecting from on allowed handles */
@@ -118,7 +122,7 @@ body {
 	.react-flow__handle.connectable.connectingfrom,
 .react-flow:has(.react-flow__handle.connectingto.valid)
 	.react-flow__handle.valid:not(:has(~ .react-flow__handle.connectable.connectingfrom)) {
-	@apply bg-green-500 dark:bg-green-500 text-green-500 dark:text-green-500 cursor-crosshair;
+	@apply bg-green-500 dark:bg-green-500 text-green-500 font-bold dark:text-green-500 cursor-crosshair;
 }
 
 /* invalid connection */
@@ -131,22 +135,26 @@ body {
 * react-colorful style overwrites
 */
 .react-colorful {
+	@apply !w-full min-w-52;
+}
+
+.react-flow .react-colorful {
 	@apply p-4;
 }
 
-.react-colorful__hue {
+.react-flow .react-colorful__hue {
 	@apply hidden;
 }
 
-.react-colorful .react-colorful__alpha {
+.react-flow .react-colorful .react-colorful__alpha {
 	@apply mt-4 rounded-md h-5;
 }
 
-.react-colorful .react-colorful__saturation {
+.react-flow .react-colorful .react-colorful__saturation {
 	@apply border-b-0 rounded-md;
 }
 
-.react-colorful .react-colorful__pointer {
+.react-flow .react-colorful .react-colorful__pointer {
 	@apply w-5 h-5 transition-all;
 }
 

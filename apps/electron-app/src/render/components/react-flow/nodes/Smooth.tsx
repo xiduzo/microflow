@@ -9,8 +9,8 @@ export function Smooth(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="signal" />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='target' position={Position.Left} id='signal' />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -30,7 +30,10 @@ function Settings() {
 	const data = useNodeData<SmoothData>();
 
 	const { render } = useNodeControls({
-		type: { value: data.type, options: { smooth: 'smooth', movingAverage: 'moving average' } },
+		type: {
+			value: data.type,
+			options: { smooth: 'smooth', movingAverage: 'moving average' },
+		},
 		windowSize: {
 			value: (data as MovingAverage).windowSize ?? 25,
 			min: 1,

@@ -6,7 +6,7 @@ import { BaseNode, NodeContainer, useNodeControls, useNodeData } from '../Node';
 import { MatrixDisplay } from './MatrixDisplay';
 import { useNodeValue } from '../../../../stores/node-data';
 import { MODES } from '../../../../../common/types';
-import { reducePinsToOptions } from '../../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../../common/pin';
 import {
 	DEFAULT_MATRIX_SHAPE,
 	DEFAULT_MATRIX_START_SHAPE,
@@ -35,9 +35,9 @@ export function Matrix(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="show" hint="shows shape #" offset={-0.5} />
-			<Handle type="target" position={Position.Left} id="hide" offset={0.5} />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='target' position={Position.Left} id='show' hint='shows shape #' offset={-0.5} />
+			<Handle type='target' position={Position.Left} id='hide' offset={0.5} />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -60,7 +60,7 @@ function Value() {
 	const value = useNodeValue<MatrixValueType>(DEFAULT_MATRIX_START_SHAPE);
 
 	return (
-		<section className="flex items-center justify-center m-4">
+		<section className='flex items-center justify-center m-4'>
 			<MatrixDisplay dimensions={getShape(data.dims, data.devices)} shape={value} />
 		</section>
 	);
@@ -74,7 +74,11 @@ function Settings() {
 	const pins = usePins([MODES.INPUT], [MODES.ANALOG]);
 	const { render, setNodeData } = useNodeControls(
 		{
-			dims: { value: data.dims, label: 'dimensions', options: ['8x8', '16x8', '8x16'] },
+			dims: {
+				value: data.dims,
+				label: 'dimensions',
+				options: ['8x8', '16x8', '8x16'],
+			},
 			devices: { value: data.devices, min: 1, max: 8, step: 1 },
 			pins: folder({
 				data: {
@@ -97,7 +101,7 @@ function Settings() {
 			}),
 			'edit shapes': button(() => setEditorOpened(true)),
 		},
-		[pins],
+		[pins]
 	);
 
 	function updateShapes(newShapes: MatrixShape[]) {
@@ -118,21 +122,21 @@ function Settings() {
 			{render()}
 			{editorOpened && (
 				<Dialog defaultOpen onOpenChange={setEditorOpened}>
-					<DialogContent className="max-w-screen-md">
+					<DialogContent className='max-w-screen-md'>
 						<DialogHeader>
 							<DialogTitle>Shapes</DialogTitle>
 							<DialogDescription>
 								When showing a shape the input handle will round to the closest shape number
 							</DialogDescription>
 						</DialogHeader>
-						<section className="flex items-center justify-center">
-							<Carousel className="w-full max-w-xl">
+						<section className='flex items-center justify-center'>
+							<Carousel className='w-full max-w-xl'>
 								<CarouselContent>
 									{shapes.map((shape, index) => {
 										return (
 											<CarouselItem
 												key={index}
-												className="flex flex-col items-center gap-3 cursor-grab active:cursor-grabbing"
+												className='flex flex-col items-center gap-3 cursor-grab active:cursor-grabbing'
 											>
 												<MatrixEditor
 													dimensions={data.dimensions}
@@ -148,19 +152,19 @@ function Settings() {
 													}}
 													shape={shape}
 												>
-													<section className="flex-col flex items-center justify-center">
-														<section className="max-w-xl overflow-x-scroll pb-8">
+													<section className='flex-col flex items-center justify-center'>
+														<section className='max-w-xl overflow-x-scroll pb-8'>
 															<MatrixDisplay
 																dimensions={data.dimensions}
 																shape={shape}
-																className="hover:cursor-zoom-in"
+																className='hover:cursor-zoom-in'
 															/>
 														</section>
 													</section>
 												</MatrixEditor>
-												<section className="text-muted-foreground flex gap-20 items-center">
+												<section className='text-muted-foreground flex gap-20 items-center'>
 													<Button
-														variant="outline"
+														variant='outline'
 														disabled={index === 0 || index - 1 < 0}
 														onClick={() => swapShapes(index - 1, index)}
 													>
@@ -170,7 +174,7 @@ function Settings() {
 														Shape #{index + 1} of {shapes.length}
 													</div>
 													<Button
-														variant="outline"
+														variant='outline'
 														disabled={index === shapes.length - 1 || index + 1 >= shapes.length}
 														onClick={() => swapShapes(index, index + 1)}
 													>
@@ -192,7 +196,7 @@ function Settings() {
 							dimensions={data.dimensions}
 							shape={[]}
 						>
-							<Button variant="outline">Add new shape</Button>
+							<Button variant='outline'>Add new shape</Button>
 						</MatrixEditor>
 					</DialogContent>
 				</Dialog>

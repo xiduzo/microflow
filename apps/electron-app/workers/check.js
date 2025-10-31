@@ -8,7 +8,7 @@ if (!port) {
 			type: 'info',
 			message:
 				'No port provided, johnny five usualy can handle this. This might cause unforseen behavior.',
-		}),
+		})
 	);
 }
 
@@ -18,7 +18,7 @@ function stdout(data) {
 
 try {
 	const ipRegex = new RegExp(
-		/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/,
+		/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/
 	);
 	let connection;
 
@@ -30,7 +30,7 @@ try {
 				type: 'close',
 				message: `Connection not reachable on ${port}`,
 				class: TcpSerial.name,
-			}),
+			})
 		);
 	}
 

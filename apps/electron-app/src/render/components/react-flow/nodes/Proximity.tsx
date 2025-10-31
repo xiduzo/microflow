@@ -5,14 +5,14 @@ import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 
 export function Proximity(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -32,7 +32,10 @@ function Settings() {
 			value: data.pin,
 			options: pins.reduce(reducePinsToOptions, {}),
 		},
-		controller: { value: data.controller, options: ['GP2Y0A21YK', 'GP2Y0A710K0F'] }, // MB1000, MB1003, MB1020
+		controller: {
+			value: data.controller,
+			options: ['GP2Y0A21YK', 'GP2Y0A710K0F'],
+		}, // MB1000, MB1003, MB1020
 		freq: { value: data.freq!, min: 10, label: 'frequency (ms)' },
 	});
 

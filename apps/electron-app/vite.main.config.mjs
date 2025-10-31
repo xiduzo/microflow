@@ -1,7 +1,8 @@
 import copy from 'rollup-plugin-copy';
 import { defineConfig } from 'vite';
 
-const dest = '.vite/build';
+const root = '.vite';
+const build = `${root}/build`;
 
 // https://vitejs.dev/config
 export default defineConfig({
@@ -13,8 +14,9 @@ export default defineConfig({
 	plugins: [
 		copy({
 			targets: [
-				{ src: 'workers', dest },
-				{ src: 'hex', dest },
+				{ src: 'workers', dest: build },
+				{ src: 'hex', dest: build },
+				{ src: '../../node_modules/cloudflared/bin', dest: root },
 			],
 			// hook: 'buildEnd',
 		}),

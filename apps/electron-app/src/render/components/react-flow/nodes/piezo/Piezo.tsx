@@ -7,7 +7,7 @@ import { DEFAULT_NOTE, DEFAULT_SONG, NOTES_AND_FREQUENCIES } from './constants';
 import { useNodeValue } from '../../../../stores/node-data';
 import { useState } from 'react';
 import { MODES } from '../../../../../common/types';
-import { reducePinsToOptions } from '../../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../../common/pin';
 import { SongEditor } from './SongEditor';
 import { usePins } from '../../../../stores/board';
 import { button, folder } from 'leva';
@@ -18,12 +18,12 @@ export function Piezo(props: Props) {
 			<Value />
 			<Settings />
 			{props.data.type === 'buzz' && (
-				<Handle type="target" position={Position.Left} id="buzz" offset={-0.5} />
+				<Handle type='target' position={Position.Left} id='buzz' offset={-0.5} />
 			)}
 			{props.data.type === 'song' && (
-				<Handle type="target" position={Position.Left} id="play" offset={-0.5} />
+				<Handle type='target' position={Position.Left} id='play' offset={-0.5} />
 			)}
-			<Handle type="target" position={Position.Left} id="stop" offset={0.5} />
+			<Handle type='target' position={Position.Left} id='stop' offset={0.5} />
 		</NodeContainer>
 	);
 }
@@ -33,12 +33,12 @@ function Value() {
 	const value = useNodeValue<PiezoValueType>(false);
 
 	if (!value) {
-		if (data.type === 'song') return <Icons.Disc className="text-muted-foreground" size={48} />;
-		return <Icons.Bell className="text-muted-foreground" size={48} />;
+		if (data.type === 'song') return <Icons.Disc className='text-muted-foreground' size={48} />;
+		return <Icons.Bell className='text-muted-foreground' size={48} />;
 	}
 
-	if (data.type === 'song') return <Icons.Disc3 className="animate-spin" size={48} />;
-	return <Icons.BellRing className="animate-wiggle" size={48} />;
+	if (data.type === 'song') return <Icons.Disc3 className='animate-spin' size={48} />;
+	return <Icons.BellRing className='animate-wiggle' size={48} />;
 }
 
 function Settings() {
@@ -80,7 +80,7 @@ function Settings() {
 				},
 				{
 					render: get => get('type') === 'buzz',
-				},
+				}
 			),
 			song: folder(
 				{
@@ -88,10 +88,10 @@ function Settings() {
 				},
 				{
 					render: get => get('type') === 'song',
-				},
+				}
 			),
 		},
-		[pins],
+		[pins]
 	);
 
 	return (

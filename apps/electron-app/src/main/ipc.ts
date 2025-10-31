@@ -6,7 +6,7 @@ import {
 	type PortInfo,
 } from '@microflow/flasher';
 import type { Edge, Node } from '@xyflow/react';
-import { ipcMain, IpcMainEvent, Menu } from 'electron';
+import { app, ipcMain, IpcMainEvent, Menu } from 'electron';
 import { fork, ChildProcess } from 'child_process';
 
 import log from 'electron-log/node';
@@ -22,13 +22,13 @@ import {
 import { exportFlow } from './file';
 import { generateCode } from '../utils/generateCode';
 import { format } from 'prettier';
+import { getRandomMessage } from '../common/messages';
 
 // ipcMain.on("shell:open", () => {
 //   const pageDirectory = __dirname.replace('app.asar', 'app.asar.unpacked')
 //   const pagePath = path.join('file://', pageDirectory, 'index.html')
 //   shell.openExternal(pagePath)
 // })
-//
 
 const processes = new Map<number, ChildProcess>();
 
@@ -92,9 +92,7 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 					success: true,
 					data: {
 						type: 'connect',
-						message:
-							(error as any).message ??
-							feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+						message: (error as any).message ?? getRandomMessage('wait'),
 					},
 				} satisfies IpcResponse<BoardCheckResult>);
 			} finally {
@@ -107,13 +105,13 @@ ipcMain.on('ipc-check-board', async (event, data: { ip: string | undefined }) =>
 });
 
 const ipRegex = new RegExp(
-	/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/,
+	/^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$/
 );
 
 async function checkBoardOnPort(
 	port: Pick<PortInfo, 'path'>,
 	board: BoardName,
-	event: Electron.IpcMainEvent,
+	event: Electron.IpcMainEvent
 ) {
 	await cleanupProcesses();
 
@@ -160,7 +158,7 @@ async function checkBoardOnPort(
 									success: true,
 									data: {
 										type: 'connect',
-										message: feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)],
+										message: getRandomMessage('wait'),
 									},
 								} satisfies IpcResponse<BoardCheckResult>);
 							}, 7500);
@@ -218,46 +216,12 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 				{
 					flashError,
 				},
-				flashTimer.duration,
+				flashTimer.duration
 			);
-			const randomMessage = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
-			reject(new Error(randomMessage));
+			reject(new Error(getRandomMessage('wait')));
 		}
 	});
 }
-
-const feedbackMessages = [
-	'Hang tight, almost there!',
-	'Just a moment, working on it!',
-	'Getting things sorted!',
-	'Hold on, making progress!',
-	'Almost there, just a little longer!',
-	'Stay tight, fixing it up!',
-	'One moment, on it!',
-	"Don't worry, nearly done!",
-	'Please wait, resolving the issue!',
-	'Sit tight, handling it!',
-	'Almost there!',
-	'Hold tight, getting things back on track!',
-	'Just a bit longer, working through it!',
-	'Nearly finished!',
-	'Hang in there, sorting it out!',
-	'On it, just a few more moments!',
-	'Stay tuned, fixing things up!',
-	'Almost done!',
-	'Nearly there!',
-	'Please hold on, resolving the issue!',
-	'Just a little bit longer!',
-	'Getting close!',
-	'Hold tight, nearly there!',
-	'Just a moment more,working on it!',
-	'Almost through!',
-	'On the case, just a bit longer!',
-	'Please hold on, fixing things up!',
-	'Just a moment, getting things back on track!',
-	'Stay tuned, handling it!',
-	'Just a bit longer, resolving the issue!',
-];
 
 ipcMain.on('ipc-upload-code', async (event, data: UploadRequest) => {
 	const timer = new Timer();
@@ -336,7 +300,7 @@ let latestUploadProcessId: number | undefined;
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
 	log.debug(`[EXTERNAL] setting value`, data);
 	const process = Array.from(processes).find(
-		([_pid, process]) => process.pid === latestUploadProcessId,
+		([_pid, process]) => process.pid === latestUploadProcessId
 	);
 	if (!process) {
 		log.debug('[EXTERNAL] Tried to set external value while no upload process is running');
@@ -356,7 +320,7 @@ async function sniffPorts(
 	options: {
 		connectedPort?: Pick<PortInfo, 'path'>;
 		portsConnected?: PortInfo[];
-	} = {},
+	} = {}
 ) {
 	portSniffer && clearTimeout(portSniffer);
 
@@ -405,7 +369,7 @@ async function getKnownBoardsWithPorts() {
 
 				return acc;
 			},
-			[] as [BoardName, PortInfo[]][],
+			[] as [BoardName, PortInfo[]][]
 		);
 
 		log.debug(`Found ${boardsWithPorts.length} known boards with ports:`);
@@ -436,11 +400,6 @@ async function cleanupProcesses() {
 	await new Promise(resolve => setTimeout(resolve, 1000));
 }
 
-process.on('exit', async code => {
-	log.debug(`[PROCESS] about to leave app`, code);
-	void cleanupProcesses();
-});
-
 class Timer {
 	private start: number;
 	constructor(private readonly name?: string) {
@@ -453,3 +412,8 @@ class Timer {
 }
 
 cleanupProcesses().catch(log.debug);
+
+app.on('before-quit', async event => {
+	log.debug(`[PROCESS] <before-quit> about to leave app`, event);
+	void cleanupProcesses();
+});

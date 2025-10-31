@@ -14,8 +14,8 @@ export function RangeMap(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="from" />
-			<Handle type="source" position={Position.Right} id="to" />
+			<Handle type='target' position={Position.Left} id='from' />
+			<Handle type='source' position={Position.Right} id='to' />
 		</NodeContainer>
 	);
 }
@@ -25,23 +25,23 @@ function Value() {
 	const data = useNodeData<RangeMapData>();
 
 	return (
-		<section className="flex grow items-center flex-col space-y-2 text-2xl">
-			<div className="grow w-full grid grid-cols-12">
-				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+		<section className='flex grow items-center flex-col space-y-2 text-2xl'>
+			<div className='grow w-full grid grid-cols-12'>
+				<span className='text-xs text-muted-foreground col-span-3 flex items-center justify-center'>
 					{data.from.min}
 				</span>
-				<span className="col-span-6 text-center">{numberFormat.format(from)}</span>
-				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+				<span className='col-span-6 text-center'>{numberFormat.format(from)}</span>
+				<span className='text-xs text-muted-foreground col-span-3 flex items-center justify-center'>
 					{data.from.max}
 				</span>
 			</div>
-			<Icons.Activity className="rotate-90 text-muted-foreground" size={16} />
-			<div className="grid w-full grid-cols-12">
-				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+			<Icons.Activity className='rotate-90 text-muted-foreground' size={16} />
+			<div className='grid w-full grid-cols-12'>
+				<span className='text-xs text-muted-foreground col-span-3 flex items-center justify-center'>
 					{data.to.min}
 				</span>
-				<span className="col-span-6 text-center">{numberFormat.format(to)}</span>
-				<span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
+				<span className='col-span-6 text-center'>{numberFormat.format(to)}</span>
+				<span className='text-xs text-muted-foreground col-span-3 flex items-center justify-center'>
 					{data.to.max}
 				</span>
 			</div>

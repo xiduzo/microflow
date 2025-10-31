@@ -10,8 +10,8 @@ export function Calculate(props: Props) {
 			<Value />
 			<Settings />
 
-			<Handle type="target" position={Position.Left} id="input" />
-			<Handle type="source" position={Position.Right} id="change" title="result" />
+			<Handle type='target' position={Position.Left} id='input' />
+			<Handle type='source' position={Position.Right} id='change' title='result' />
 		</NodeContainer>
 	);
 }
@@ -21,27 +21,27 @@ function Value() {
 
 	switch (data.function) {
 		case 'add':
-			return <Icons.Plus size={48} className="text-muted-foreground" />;
+			return <Icons.Plus size={48} className='text-muted-foreground' />;
 		case 'subtract':
-			return <Icons.Minus size={48} className="text-muted-foreground" />;
+			return <Icons.Minus size={48} className='text-muted-foreground' />;
 		case 'multiply':
-			return <Icons.X size={48} className="text-muted-foreground" />;
+			return <Icons.X size={48} className='text-muted-foreground' />;
 		case 'divide':
-			return <Icons.Divide size={48} className="text-muted-foreground" />;
+			return <Icons.Divide size={48} className='text-muted-foreground' />;
 		case 'modulo':
-			return <Icons.Percent size={48} className="text-muted-foreground" />;
+			return <Icons.Percent size={48} className='text-muted-foreground' />;
 		case 'max':
-			return <Icons.ArrowUpToLine size={48} className="text-muted-foreground" />;
+			return <Icons.ArrowUpToLine size={48} className='text-muted-foreground' />;
 		case 'min':
-			return <Icons.ArrowDownToLine size={48} className="text-muted-foreground" />;
+			return <Icons.ArrowDownToLine size={48} className='text-muted-foreground' />;
 		case 'ceil':
-			return <Icons.ChevronUp size={48} className="text-muted-foreground" />;
+			return <Icons.ChevronUp size={48} className='text-muted-foreground' />;
 		case 'floor':
-			return <Icons.ChevronDown size={48} className="text-muted-foreground" />;
+			return <Icons.ChevronDown size={48} className='text-muted-foreground' />;
 		case 'round':
-			return <Icons.ChevronsUpDown size={48} className="text-muted-foreground" />;
+			return <Icons.ChevronsUpDown size={48} className='text-muted-foreground' />;
 		default:
-			return <Icons.CircleHelp size={48} className="text-muted-foreground" />;
+			return <Icons.CircleHelp size={48} className='text-muted-foreground' />;
 	}
 }
 

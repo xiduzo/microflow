@@ -4,7 +4,7 @@ import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 import { useNodeValue } from '../../../stores/node-data';
 import { RgbaColorPicker } from 'react-colorful';
 
@@ -13,11 +13,11 @@ export function Rgb(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="red" hint="0-255" offset={-1.5} />
-			<Handle type="target" position={Position.Left} id="green" hint="0-255" offset={-0.5} />
-			<Handle type="target" position={Position.Left} id="blue" hint="0-255" offset={0.5} />
-			<Handle type="target" position={Position.Left} id="alpha" hint="0-100" offset={1.5} />
-			<Handle type="source" position={Position.Right} id="change" />
+			<Handle type='target' position={Position.Left} id='red' hint='0-255' offset={-1.5} />
+			<Handle type='target' position={Position.Left} id='green' hint='0-255' offset={-0.5} />
+			<Handle type='target' position={Position.Left} id='blue' hint='0-255' offset={0.5} />
+			<Handle type='target' position={Position.Left} id='alpha' hint='0-100' offset={1.5} />
+			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
 }
@@ -32,9 +32,18 @@ function Settings() {
 	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
 	const data = useNodeData<RgbData>();
 	const { render } = useNodeControls({
-		red: { value: data.pins.red, options: pins.reduce(reducePinsToOptions, {}) },
-		green: { value: data.pins.green, options: pins.reduce(reducePinsToOptions, {}) },
-		blue: { value: data.pins.blue, options: pins.reduce(reducePinsToOptions, {}) },
+		red: {
+			value: data.pins.red,
+			options: pins.reduce(reducePinsToOptions, {}),
+		},
+		green: {
+			value: data.pins.green,
+			options: pins.reduce(reducePinsToOptions, {}),
+		},
+		blue: {
+			value: data.pins.blue,
+			options: pins.reduce(reducePinsToOptions, {}),
+		},
 		isAnode: { value: data.isAnode, label: 'anode' },
 	});
 

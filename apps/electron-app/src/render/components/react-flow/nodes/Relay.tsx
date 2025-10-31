@@ -6,16 +6,16 @@ import { useNodeValue } from '../../../stores/node-data';
 import { Icons } from '@microflow/ui';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
-import { reducePinsToOptions } from '../../../../utils/pin';
+import { reducePinsToOptions } from '../../../../common/pin';
 
 export function Relay(props: Props) {
 	return (
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="open" offset={-1} />
-			<Handle type="target" position={Position.Left} id="close" />
-			<Handle type="target" position={Position.Left} id="toggle" offset={1} />
+			<Handle type='target' position={Position.Left} id='open' offset={-1} />
+			<Handle type='target' position={Position.Left} id='close' />
+			<Handle type='target' position={Position.Left} id='toggle' offset={1} />
 		</NodeContainer>
 	);
 }
@@ -23,8 +23,8 @@ export function Relay(props: Props) {
 function Value() {
 	const value = useNodeValue<RelayValueType>(false);
 
-	if (!value) return <Icons.ZapOff className="text-muted-foreground" size={48} />;
-	return <Icons.Zap className="text-yellow-400" size={48} />;
+	if (!value) return <Icons.ZapOff className='text-muted-foreground' size={48} />;
+	return <Icons.Zap className='text-yellow-400' size={48} />;
 }
 
 function Settings() {
@@ -41,7 +41,7 @@ function Settings() {
 				],
 			},
 		},
-		[pins],
+		[pins]
 	);
 
 	return <>{render()}</>;

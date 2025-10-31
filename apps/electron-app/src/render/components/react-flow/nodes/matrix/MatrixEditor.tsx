@@ -15,7 +15,7 @@ function newMatrix(options: { dimensions: [number, number]; shape?: string[]; fi
 	const [rows, columns] = options.dimensions;
 
 	const matrix = Array.from({ length: rows }, () =>
-		new Array(columns).fill(options.fill ?? '0').join(''),
+		new Array(columns).fill(options.fill ?? '0').join('')
 	);
 
 	options.shape?.forEach((row, rowIndex) => {
@@ -34,17 +34,17 @@ export function MatrixEditor(props: Props) {
 		newMatrix({
 			dimensions: props.dimensions,
 			shape: props.shape,
-		}),
+		})
 	);
 
 	return (
 		<Dialog>
 			<DialogTrigger asChild>{props.children}</DialogTrigger>
-			<DialogContent className="max-w-screen-md">
+			<DialogContent className='max-w-screen-md'>
 				<DialogHeader>
 					<DialogTitle>{!!props.onDelete ? 'Edit' : 'Add new'} shape</DialogTitle>
 				</DialogHeader>
-				<div className="p-4 overflow-x-scroll flex items-center justify-center">
+				<div className='p-4 overflow-x-scroll flex items-center justify-center'>
 					<MatrixDisplay
 						dimensions={props.dimensions}
 						shape={matrix}
@@ -61,40 +61,40 @@ export function MatrixEditor(props: Props) {
 						}}
 					/>
 				</div>
-				<section className="flex space-x-2">
+				<section className='flex space-x-2'>
 					<Button
-						className="grow"
-						variant="outline"
+						className='grow'
+						variant='outline'
 						onClick={() => {
 							setMatrix(
 								newMatrix({
 									dimensions: props.dimensions,
 									fill: '1',
-								}),
+								})
 							);
 						}}
 					>
 						Fill all
 					</Button>
 					<Button
-						variant="outline"
-						className="grow"
+						variant='outline'
+						className='grow'
 						onClick={() => {
 							setMatrix(
 								newMatrix({
 									dimensions: props.dimensions,
 									fill: '0',
-								}),
+								})
 							);
 						}}
 					>
 						Clear all
 					</Button>
 				</section>
-				<DialogFooter className="gap-2 sm:gap-0">
+				<DialogFooter className='gap-2 sm:gap-0'>
 					{props.onDelete && (
 						<DialogClose asChild>
-							<Button onClick={props.onDelete} variant="destructive">
+							<Button onClick={props.onDelete} variant='destructive'>
 								Delete shape
 							</Button>
 						</DialogClose>

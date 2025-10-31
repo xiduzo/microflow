@@ -1,6 +1,4 @@
 import type { MqttData, MqttValueType } from '@microflow/components';
-import { useMqtt } from '@microflow/mqtt-provider/client';
-import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from '../Handle';
@@ -15,9 +13,11 @@ import {
 import { useNodeValue } from '../../../stores/node-data';
 import { useAppStore } from '../../../stores/app';
 import { button } from 'leva';
+import { IconWithValue } from '../IconWithValue';
+import { useMqttStore } from '@microflow/mqtt-provider/client';
 
 export function Mqtt(props: Props) {
-	const { status } = useMqtt();
+	const { status } = useMqttStore();
 
 	return (
 		<NodeContainer {...props} error={status !== 'connected' ? 'MQTT not connected' : undefined}>
@@ -25,10 +25,10 @@ export function Mqtt(props: Props) {
 			<Value />
 			<Settings />
 			{props.data.direction === 'publish' && (
-				<Handle type="target" position={Position.Left} id="publish" />
+				<Handle type='target' position={Position.Left} id='publish' />
 			)}
 			{props.data.direction === 'subscribe' && (
-				<Handle type="source" position={Position.Right} id="subscribe" />
+				<Handle type='source' position={Position.Right} id='subscribe' />
 			)}
 		</NodeContainer>
 	);
@@ -37,13 +37,13 @@ export function Mqtt(props: Props) {
 function Subscriber() {
 	const id = useNodeId();
 	const data = useNodeData<MqttData>();
-	const { subscribe } = useMqtt();
+	const { subscribe } = useMqttStore();
 
 	useEffect(() => {
 		if (data.direction !== 'subscribe') return;
 		if (!data.topic?.length) return;
 
-		const unsubFromTopic = subscribe(data.topic, (_topic, message) => {
+		return subscribe(data.topic, (_topic, message) => {
 			let value: unknown;
 			try {
 				value = JSON.parse(message.toString());
@@ -54,19 +54,18 @@ function Subscriber() {
 				if (!isNaN(parsed)) value = parsed;
 			}
 
-			window.electron.ipcRenderer.send('ipc-external-value', { nodeId: id, value });
+			window.electron.ipcRenderer.send('ipc-external-value', {
+				nodeId: id,
+				value,
+			});
 		});
-
-		return () => {
-			unsubFromTopic?.then(unsub => unsub?.());
-		};
 	}, [id, data.topic, data.direction, subscribe]);
 
 	return null;
 }
 
 function Value() {
-	const { publish } = useMqtt();
+	const { publish } = useMqttStore();
 
 	const data = useNodeData<MqttData>();
 	const value = useNodeValue<MqttValueType>('');
@@ -78,8 +77,12 @@ function Value() {
 		publish(data.topic, JSON.stringify(value));
 	}, [value, data.topic, data.direction, publish]);
 
-	if (data.direction === 'publish') return <Icons.RadioTower size={48} />;
-	return <Icons.Antenna size={48} />;
+	return (
+		<IconWithValue
+			icon={data.direction === 'publish' ? 'RadioTower' : 'Antenna'}
+			value={data.topic ?? ''}
+		/>
+	);
 }
 
 function Settings() {

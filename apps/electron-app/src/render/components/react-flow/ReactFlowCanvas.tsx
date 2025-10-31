@@ -1,32 +1,28 @@
-import { Background, Controls, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
-import { useShallow } from 'zustand/shallow';
+import { Background, MiniMap, Panel, ReactFlow, useReactFlow } from '@xyflow/react';
 import { NODE_TYPES } from '../../../common/nodes';
-import { AppState, useReactFlowStore } from '../../stores/react-flow';
+import { useReactFlowCanvas } from '../../stores/react-flow';
 import { SerialConnectionStatusPanel } from './panels/SerialConnectionStatusPanel';
 import { SettingsPanel } from './panels/SettingsPanel';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { EDGE_TYPES } from '../../../common/edges';
-
-const selector = (state: AppState) => ({
-	nodes: state.nodes,
-	edges: state.edges,
-	onNodesChange: state.onNodesChange,
-	onEdgesChange: state.onEdgesChange,
-	onConnect: state.onConnect,
-});
+import { CollaborationPanel } from './panels/CollaborationPanel';
+import { useCursorTracking } from '../../stores/yjs';
+import { UserCursorSync } from './UserCursorSync';
+import { UserCursorOverlay } from './UserCursorOverlay';
+import { DockPanel } from './panels/DockPanel';
 
 export function ReactFlowCanvas() {
-	const store = useReactFlowStore(useShallow(selector));
+	const store = useReactFlowCanvas();
 	const { fitView, screenToFlowPosition } = useReactFlow();
+	const debounceCursorPostion = useRef<NodeJS.Timeout | undefined>(undefined);
+	const { updateLocalCursor } = useCursorTracking();
 
 	useEffect(() => {
 		const originalConsoleError = console.error;
 
-		console.error = (...args: any[]) => {
+		console.error = (...args: unknown[]) => {
 			// We are abusing the `defaultProps` to set the default values of the nodes
-			if (typeof args[0] === 'string' && /defaultProps/.test(args[0])) {
-				return;
-			}
+			if (typeof args[0] === 'string' && /defaultProps/.test(args[0])) return;
 
 			originalConsoleError(...args);
 		};
@@ -36,6 +32,23 @@ export function ReactFlowCanvas() {
 		};
 	}, []);
 
+	const handlePaneMouseMove = useCallback(
+		(event: React.MouseEvent<Element, MouseEvent>) => {
+			clearTimeout(debounceCursorPostion.current);
+
+			debounceCursorPostion.current = setTimeout(() => {
+				const position = screenToFlowPosition({
+					x: event.clientX,
+					y: event.clientY,
+				});
+
+				// Update local cursor position for peer collaboration
+				updateLocalCursor(position);
+			}, 16);
+		},
+		[screenToFlowPosition, updateLocalCursor]
+	);
+
 	useEffect(() => {
 		fitView({ duration: 0, padding: 0.15, maxZoom: 1 });
 	}, [fitView]);
@@ -43,13 +56,7 @@ export function ReactFlowCanvas() {
 	return (
 		<ReactFlow
 			{...store}
-			onPaneMouseMove={event => {
-				const flowPos = screenToFlowPosition({
-					x: event.clientX,
-					y: event.clientY,
-				});
-				// console.log(flowPos);
-			}}
+			onPaneMouseMove={handlePaneMouseMove}
 			edgeTypes={EDGE_TYPES}
 			nodeTypes={NODE_TYPES}
 			colorMode={'system'}
@@ -57,29 +64,35 @@ export function ReactFlowCanvas() {
 			maxZoom={2}
 			selectNodesOnDrag={false}
 		>
-			<Controls />
+			<UserCursorSync />
+			<UserCursorOverlay />
 			<MiniMap nodeBorderRadius={12} pannable />
 			<Background gap={140} />
 
-			<Panel position="top-center">
+			<Panel position='top-left'>
+				<CollaborationPanel />
+			</Panel>
+
+			<Panel position='top-center'>
 				<SerialConnectionStatusPanel />
 			</Panel>
 
-			<Panel
-				position="bottom-center"
-				className="dark:bg-neutral-950/5 bg-neutral-500/5 backdrop-blur-sm rounded-md"
-			>
+			<Panel position='bottom-center' className='flex flex-col items-center justify-center gap-6'>
+				<DockPanel />
 				<a
-					href="https://www.sanderboer.nl"
-					target="_blank"
-					className="text-center text-muted-foreground transition-all hover:opacity-100 hover:underline text-xs select-none px-2"
+					href='https://www.sanderboer.nl'
+					target='_blank'
+					className='text-center text-muted-foreground transition-all hover:opacity-100 hover:underline text-xs select-none px-2'
 				>
 					Made with ♥ by Xiduzo
 				</a>
 			</Panel>
 
-			<Panel position="top-right">
+			<Panel position='top-right'>
 				<SettingsPanel />
+			</Panel>
+			<Panel position='top-left'>
+				<CollaborationPanel />
 			</Panel>
 		</ReactFlow>
 	);

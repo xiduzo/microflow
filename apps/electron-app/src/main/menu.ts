@@ -4,6 +4,8 @@ import { IpcResponse } from '../common/types';
 
 const isMac = process.platform === 'darwin';
 
+const isDevelopment = !app.isPackaged;
+
 const appMenu: (MenuItemConstructorOptions | MenuItem)[] = isMac
 	? [
 			{
@@ -25,7 +27,7 @@ const appMenu: (MenuItemConstructorOptions | MenuItem)[] = isMac
 	: [];
 
 type MenuResponse = IpcResponse<{ button: string; args?: any }>;
-export function createMenu(mainWindow: BrowserWindow) {
+export function createMenu(mainWindow: BrowserWindow, createWindow: () => Promise<void>) {
 	const menuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
 		...appMenu,
 		{
@@ -38,26 +40,13 @@ export function createMenu(mainWindow: BrowserWindow) {
 				},
 				{ type: 'separator' },
 				{
-					label: 'Save flow',
-					accelerator: isMac ? 'Cmd+S' : 'Ctrl+S',
-					click: () => sendMessage(mainWindow, 'save-flow'),
-				},
-				{
-					id: 'autosave',
-					label: 'Auto save',
-					type: 'checkbox',
-					checked: true,
-					click: ({ checked }) => sendMessage(mainWindow, 'toggle-autosave', checked),
-				},
-				{ type: 'separator' },
-				{
 					label: 'New flow',
 					accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
 					click: () => sendMessage(mainWindow, 'new-flow'),
 				},
 				{
-					label: 'Export flow',
-					accelerator: isMac ? 'Cmd+E' : 'Ctrl+E',
+					label: 'Save flow',
+					accelerator: isMac ? 'Cmd+S' : 'Ctrl+S',
 					click: () => sendMessage(mainWindow, 'export-flow'),
 				},
 				{
@@ -163,6 +152,23 @@ export function createMenu(mainWindow: BrowserWindow) {
 				},
 			],
 		},
+		// Development-only menu
+		...(isDevelopment
+			? [
+					{
+						label: 'Development',
+						submenu: [
+							{
+								label: 'New Window',
+								accelerator: isMac ? 'Cmd+Shift+N' : 'Ctrl+Shift+N',
+								click: () => {
+									createWindow();
+								},
+							},
+						],
+					},
+				]
+			: []),
 		{ role: 'viewMenu' },
 		{ role: 'windowMenu' },
 		{
