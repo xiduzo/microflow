@@ -84,18 +84,6 @@ jobs:
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
 
-      - name: Debug app bundle (macOS only)
-        if: runner.os == 'macOS'
-        run: |
-          APP_PATH=$(find out -name "*.app" -type d | head -1)
-          if [ -n "$APP_PATH" ]; then
-            echo "Found app: $APP_PATH"
-            ls -la "$APP_PATH/Contents/" || echo "No Contents"
-            ls -la "$APP_PATH/Contents/MacOS/" || echo "No MacOS"
-          else
-            echo "No app bundle found"
-          fi
-
       - name: Clean up keychain and provisioning profile
         if: runner.os == 'macOS'
         run: |

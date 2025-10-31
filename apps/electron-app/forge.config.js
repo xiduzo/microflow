@@ -4,8 +4,6 @@ require('dotenv').config();
 
 const isCI = !!process.env.GITHUB_ACTIONS;
 
-console.log({ isCI }, process.env.GITHUB_ACTIONS);
-
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
@@ -25,15 +23,7 @@ module.exports = {
 		osxSign: isCI
 			? {
 					identity: process.env.APPLE_IDENTITY,
-					hardenedRuntime: true,
-					preEmbedProvisioningProfile: false,
 					strictVerify: false,
-					strict: false,
-					entitlements: path.join(__dirname, 'entitlements.plist'),
-					entitlementsInherit: path.join(__dirname, 'entitlements.plist'),
-					preAutoEntitlements: false,
-					gatekeeperAssess: false,
-					type: 'distribution',
 				}
 			: undefined,
 		osxNotarize: isCI
@@ -44,7 +34,6 @@ module.exports = {
 				}
 			: undefined,
 	},
-
 	hooks: {
 		packageAfterCopy: async (_forgeConfig, buildPath) => {
 			await bundle(__dirname, buildPath);
