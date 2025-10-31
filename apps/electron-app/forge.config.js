@@ -1,12 +1,7 @@
 const { bundle } = require('./bundler');
 require('dotenv').config();
 
-/**
- * Microflow studio.app: code has no resources but signature indicates they must be present
- *
- * > This error message also occurs when your certificate is expired. It took me a minute to realize why my build machine was broken without any code change.
- * via https://github.com/electron/forge/issues/3131#issuecomment-2343863375
- */
+const isCI = !!process.env.GITHUB_ACTIONS;
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
@@ -14,73 +9,76 @@ module.exports = {
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
-		osxSign: {
-			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
-		},
-		osxNotarize: {
-			appleId: process.env.APPLE_ID,
-			appleIdPassword: process.env.APPLE_PASSWORD,
-			teamId: process.env.APPLE_TEAM_ID,
-		},
-		prune: false, // Requires for monorepo
+		prune: false, // required for monorepo
+
 		protocols: [
 			{
 				name: 'microflow-studio',
 				schemes: ['microflow-studio'],
 			},
 		],
+
+		osxSign: {
+			identity: process.env.APPLE_IDENTITY,
+			hardenedRuntime: true,
+			entitlements: 'entitlements.plist',
+			'entitlements-inherit': 'entitlements.plist',
+			'signature-flags': 'library',
+			'gatekeeper-assess': false,
+			strict: false, // <-- Key fix for "no resources" error
+		},
+
+		// Only notarize in CI to speed up local dev
+		osxNotarize: isCI
+			? {
+					appleId: process.env.APPLE_ID,
+					appleIdPassword: process.env.APPLE_PASSWORD,
+					teamId: process.env.APPLE_TEAM_ID,
+				}
+			: undefined,
 	},
+
 	hooks: {
-		packageAfterCopy: async (_forgeConfig, buildPath, _electronVersion, _platform, _arch) => {
-			// https://gist.github.com/robin-hartmann/ad6ffc19091c9e661542fbf178647047
-			// this is a workaround until we find a proper solution
-			// for running electron-forge in a mono repository
+		packageAfterCopy: async (_forgeConfig, buildPath) => {
 			await bundle(__dirname, buildPath);
 		},
 	},
+
 	rebuildConfig: {
 		disablePreGypCopy: true,
 	},
+
 	makers: [
+		{ name: '@electron-forge/maker-squirrel' }, // Windows
 		{
-			name: '@electron-forge/maker-squirrel', // Windows
-			config: {},
+			name: '@electron-forge/maker-dmg',
+			config: { format: 'ULFO' },
 		},
+		{ name: '@electron-forge/maker-zip', platforms: ['darwin'] },
 		{
-			name: '@electron-forge/maker-dmg', // MacOS
-			config: {
-				format: 'ULFO',
-			},
-		},
-		{
-			name: '@electron-forge/maker-zip',
-			platforms: ['darwin'],
-		},
-		{
-			name: '@electron-forge/maker-deb', // Debian, Ubuntu, etc.
+			name: '@electron-forge/maker-deb',
 			config: {
 				bin: 'Microflow studio',
 				mimeType: ['x-scheme-handler/mfs', 'x-scheme-handler/microflow-studio'],
 			},
 		},
 		{
-			name: '@electron-forge/maker-rpm', // Fedora, Red Hat, etc.
+			name: '@electron-forge/maker-rpm',
 			config: {
 				bin: 'Microflow studio',
 				mimeType: ['x-scheme-handler/mfs', 'x-scheme-handler/microflow-studio'],
 			},
 		},
 	],
+
 	buildIdentifier: 'microflow-studio',
+
 	plugins: [
 		{
 			name: '@electron-forge/plugin-vite',
 			config: {
-				// `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
-				// If you are familiar with Vite configuration, it will look really familiar.
 				build: [
 					{
-						// `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
 						entry: 'src/main.js',
 						config: 'vite.main.config.mjs',
 					},
@@ -98,6 +96,7 @@ module.exports = {
 			},
 		},
 	],
+
 	publishers: [
 		{
 			name: '@electron-forge/publisher-github',
