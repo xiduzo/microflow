@@ -27,7 +27,12 @@ module.exports = {
 					hardenedRuntime: true,
 					preEmbedProvisioningProfile: false,
 					strictVerify: false,
-					strict: false, // <-- Key fix for "no resources" error
+					strict: false,
+					entitlements: 'entitlements.plist',
+					entitlementsInherit: 'entitlements.plist',
+					preAutoEntitlements: false,
+					gatekeeperAssess: false,
+					type: 'distribution', // or 'development' if needed
 				}
 			: undefined,
 
