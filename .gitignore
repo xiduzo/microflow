@@ -121,6 +121,7 @@ dist-ssr
 # Secrets
 .env
 *.p8
+*.p12
 *.provisionprofile
 **/.macos_codesign/
 
