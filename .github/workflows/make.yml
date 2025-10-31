@@ -77,7 +77,13 @@ jobs:
 
       # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
       - name: Make application
-        run: yarn make
+        run: |
+          # Debug: Check app bundle structure before signing
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            echo "Checking app bundle structure..."
+            find . -name "*.app" -type d | head -1 | xargs -I {} sh -c 'echo "App bundle: {}"; ls -la "{}/Contents/" 2>/dev/null || echo "No Contents found"; ls -la "{}/Contents/MacOS/" 2>/dev/null || echo "No MacOS found"'
+          fi
+          yarn make
         env:
           APPLE_IDENTITY: ${{ vars.APPLE_IDENTITY }}
           APPLE_ID: ${{ vars.APPLE_ID }}

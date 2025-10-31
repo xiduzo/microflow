@@ -8,10 +8,11 @@ console.log({ isCI }, process.env.GITHUB_ACTIONS);
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
-		name: 'Electron',
+		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
 		prune: false, // required for monorepo
+		appBundleId: 'nl.sanderboer.microflow-studio', // or your actual bundle ID
 
 		protocols: [
 			{
