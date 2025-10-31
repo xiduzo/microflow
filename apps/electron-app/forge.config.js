@@ -8,7 +8,7 @@ console.log({ isCI }, process.env.GITHUB_ACTIONS);
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
-		name: 'Microflow studio',
+		name: 'Electron',
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
 		prune: false, // required for monorepo
