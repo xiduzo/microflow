@@ -27,17 +27,19 @@ module.exports = {
 				schemes: ['microflow-studio'],
 			},
 		],
-
-		osxSign: {
-			identity: process.env.APPLE_IDENTITY,
-			strictVerify: false,
-			provisioningProfile: path.join(__dirname, 'microflow.provisionprofile'),
-		},
-		osxNotarize: {
-			appleId: process.env.APPLE_ID,
-			appleIdPassword: process.env.APPLE_PASSWORD,
-			teamId: process.env.APPLE_TEAM_ID,
-		},
+		osxSign: isCI
+			? {
+					identity: process.env.APPLE_IDENTITY,
+				}
+			: undefined,
+		osxNotarize: isCI
+			? {
+					tool: 'notarytool',
+					appleId: process.env.APPLE_ID,
+					appleIdPassword: process.env.APPLE_PASSWORD,
+					teamId: process.env.APPLE_TEAM_ID,
+				}
+			: undefined,
 	},
 	hooks: {
 		packageAfterCopy: async (_forgeConfig, buildPath) => {
@@ -61,6 +63,10 @@ module.exports = {
 			config: {
 				bin: 'Microflow studio',
 				mimeType: ['x-scheme-handler/mfs', 'x-scheme-handler/microflow-studio'],
+				options: {
+					maintainer: 'Sander Boer <mail@sanderboer.nl>',
+					homepage: 'https://sanderboer.nl',
+				},
 			},
 		},
 		{
