@@ -3,6 +3,8 @@ require('dotenv').config();
 
 const isCI = !!process.env.GITHUB_ACTIONS;
 
+console.log({ isCI }, process.env.GITHUB_ACTIONS);
+
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
@@ -18,15 +20,15 @@ module.exports = {
 			},
 		],
 
-		osxSign: {
-			identity: process.env.APPLE_IDENTITY,
-			hardenedRuntime: true,
-			entitlements: 'entitlements.plist',
-			'entitlements-inherit': 'entitlements.plist',
-			'signature-flags': 'library',
-			'gatekeeper-assess': false,
-			strict: false, // <-- Key fix for "no resources" error
-		},
+		osxSign: isCI
+			? {
+					identity: process.env.APPLE_IDENTITY,
+					hardenedRuntime: true,
+					preEmbedProvisioningProfile: false,
+					strictVerify: false,
+					strict: false, // <-- Key fix for "no resources" error
+				}
+			: undefined,
 
 		// Only notarize in CI to speed up local dev
 		osxNotarize: isCI

@@ -122,6 +122,7 @@ dist-ssr
 .env
 *.p8
 *.p12
+*.certSigningRequest
 *.provisionprofile
 **/.macos_codesign/
 
