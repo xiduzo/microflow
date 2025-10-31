@@ -1,18 +1,26 @@
 const { bundle } = require('./bundler');
 const path = require('path');
 require('dotenv').config();
+const packageJson = require('./package.json');
 
 const isCI = !!process.env.GITHUB_ACTIONS;
+
+const packageVersion = packageJson.version;
+// Extract major.minor version without patch
+const shortVersion = packageVersion.replace(/\.\d+$/, '');
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
+		appCategoryType: 'public.app-category.developer-tools',
+		appBundleId: 'nl.sanderboer.microflow-studio',
+		appCopyright: `Copyright © ${new Date().getFullYear()} Xiduzo`,
+		appVersion: `${packageVersion}`,
+		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID}`,
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
-		icon: 'assets/icon',
+		icon: path.resolve(__dirname, 'assets', 'icon'),
 		prune: false, // required for monorepo
-		appBundleId: 'nl.sanderboer.microflow-studio', // or your actual bundle ID
-
 		protocols: [
 			{
 				name: 'microflow-studio',
