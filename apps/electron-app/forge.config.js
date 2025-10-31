@@ -1,6 +1,5 @@
 const { bundle } = require('./bundler');
 require('dotenv').config();
-const fs = require('fs/promises');
 
 /**
  * Microflow studio.app: code has no resources but signature indicates they must be present
@@ -16,21 +15,21 @@ module.exports = {
 		executableName: 'Microflow studio',
 		icon: 'assets/icon',
 		osxSign: {
-			strictVerify: false,
+			// strictVerify: false,
 			identity: process.env.APPLE_IDENTITY, // https://github.com/electron/forge/issues/3131#issuecomment-2237818679
-			ignore: filePath => {
-				// https://github.com/nodejs/node-gyp/issues/2713
-				if (filePath.includes('build/node_gyp_bins')) {
-					console.log('>>> ignore signing', filePath);
-					fs.rm(filePath, { recursive: true })
-						.then(() => {
-							console.log('>> removed folder', filePath);
-						})
-						.catch(console.error);
-					return true;
-				}
-				return false;
-			},
+			// ignore: filePath => {
+			// 	// https://github.com/nodejs/node-gyp/issues/2713
+			// 	if (filePath.includes('build/node_gyp_bins')) {
+			// 		console.log('>>> ignore signing', filePath);
+			// 		fs.rm(filePath, { recursive: true })
+			// 			.then(() => {
+			// 				console.log('>> removed folder', filePath);
+			// 			})
+			// 			.catch(console.error);
+			// 		return true;
+			// 	}
+			// 	return false;
+			// },
 		},
 		osxNotarize: {
 			appleId: process.env.APPLE_ID,
