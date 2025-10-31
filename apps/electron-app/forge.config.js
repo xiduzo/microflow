@@ -27,19 +27,21 @@ module.exports = {
 				schemes: ['microflow-studio'],
 			},
 		],
-		osxSign: isCI
-			? {
-					identity: process.env.APPLE_IDENTITY,
-				}
-			: undefined,
-		osxNotarize: isCI
-			? {
-					tool: 'notarytool',
-					appleId: process.env.APPLE_ID,
-					appleIdPassword: process.env.APPLE_PASSWORD,
-					teamId: process.env.APPLE_TEAM_ID,
-				}
-			: undefined,
+		osxSign:
+			isCI || true
+				? {
+						identity: process.env.APPLE_IDENTITY,
+					}
+				: undefined,
+		osxNotarize:
+			isCI || true
+				? {
+						tool: 'notarytool',
+						appleId: process.env.APPLE_ID,
+						appleIdPassword: process.env.APPLE_PASSWORD,
+						teamId: process.env.APPLE_TEAM_ID,
+					}
+				: undefined,
 	},
 	hooks: {
 		packageAfterCopy: async (_forgeConfig, buildPath) => {

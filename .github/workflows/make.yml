@@ -86,6 +86,10 @@ jobs:
           echo "Provisioning profile installed at $PROFILE_PATH"
 
       # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
+      - name: Package application
+        run: yarn package
+
+      # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
       - name: Make application
         run: yarn make
         env:
