@@ -1,4 +1,5 @@
 const { bundle } = require('./bundler');
+const path = require('path');
 require('dotenv').config();
 
 const isCI = !!process.env.GITHUB_ACTIONS;
@@ -28,15 +29,13 @@ module.exports = {
 					preEmbedProvisioningProfile: false,
 					strictVerify: false,
 					strict: false,
-					entitlements: 'entitlements.plist',
-					entitlementsInherit: 'entitlements.plist',
+					entitlements: path.join(__dirname, 'entitlements.plist'),
+					entitlementsInherit: path.join(__dirname, 'entitlements.plist'),
 					preAutoEntitlements: false,
 					gatekeeperAssess: false,
-					type: 'distribution', // or 'development' if needed
+					type: 'distribution',
 				}
 			: undefined,
-
-		// Only notarize in CI to speed up local dev
 		osxNotarize: isCI
 			? {
 					appleId: process.env.APPLE_ID,
