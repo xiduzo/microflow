@@ -7,7 +7,7 @@ const isCI = !!process.env.GITHUB_ACTIONS;
 
 const packageVersion = packageJson.version;
 // Extract major.minor version without patch
-const shortVersion = packageVersion.replace(/\.\d+$/, '');
+const shortVersion = packageVersion.split('.').slice(0, 2).join('.');
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
