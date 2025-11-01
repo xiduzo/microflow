@@ -16,7 +16,7 @@ module.exports = {
 		appBundleId: 'nl.sanderboer.microflow-studio',
 		appCopyright: `Copyright © ${new Date().getFullYear()} Xiduzo`,
 		appVersion: `${packageVersion}`,
-		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID}`,
+		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID || '0'}`,
 		name: 'Microflow studio',
 		executableName: 'Microflow studio',
 		icon: path.resolve(__dirname, 'assets', 'icon'),
