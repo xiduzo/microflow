@@ -9,7 +9,9 @@
 		"dev": "concurrently --names \"APP,COMPONENTS\" --prefix-colors \"blue,green\" \"yarn workspace microflow-studio start\" \"yarn workspace @microflow/components dev\"",
 		"dev:plugin": "yarn workspace microflow-hardware-bridge dev",
 		"build": "yarn workspaces foreach -p run build",
-		"make": "DEBUG=electron-osx yarn workspace microflow-studio make",
+		"make": "yarn workspace microflow-studio make",
+		"make:intel": "yarn workspace microflow-studio make:intel",
+		"package": "yarn workspace microflow-studio package",
 		"publish": "yarn workspace microflow-studio publish",
 		"publish:intel": "yarn workspace microflow-studio publish:intel",
 		"postinstall": "patch-package"

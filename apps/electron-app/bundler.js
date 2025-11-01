@@ -76,7 +76,7 @@ const bundle = async (source, destination) => {
 			continue;
 		}
 
-		console.log(dep.name, `${dep.location} --> ${dest}`);
+		// console.log(dep.name, `${dep.location} --> ${dest}`);
 
 		await fs.cp(dep.realpath, dest, {
 			recursive: true,

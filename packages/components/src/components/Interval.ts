@@ -1,3 +1,4 @@
+import { MIN_INTERVAL_IN_MS } from '../constants/Interval';
 import { BaseComponent, BaseComponentData } from './BaseComponent';
 
 export type IntervalData = {
@@ -7,7 +8,6 @@ export type IntervalData = {
 export type IntervalValueType = number;
 
 export class Interval extends BaseComponent<IntervalValueType> {
-	private readonly minIntervalInMs = 500;
 	private interval: NodeJS.Timeout | null = null;
 
 	constructor(private readonly data: BaseComponentData & IntervalData) {
@@ -16,21 +16,8 @@ export class Interval extends BaseComponent<IntervalValueType> {
 		this.start();
 	}
 
-	private getIntervalTime(interval: number) {
-		const parsed = parseInt(String(interval));
-		const isNumber = !isNaN(parsed);
-
-		if (!isNumber) {
-			return this.minIntervalInMs;
-		}
-
-		return Math.max(this.minIntervalInMs, parsed);
-	}
-
 	start() {
-		if (this.interval) {
-			clearInterval(this.interval);
-		}
+		this.stop();
 
 		this.value = Math.round(performance.now());
 
@@ -40,8 +27,15 @@ export class Interval extends BaseComponent<IntervalValueType> {
 	}
 
 	stop() {
-		if (this.interval) {
-			clearInterval(this.interval);
-		}
+		if (this.interval) clearInterval(this.interval);
+	}
+
+	private getIntervalTime(interval: number) {
+		const parsed = parseInt(String(interval));
+		const isNumber = !isNaN(parsed);
+
+		if (!isNumber) return MIN_INTERVAL_IN_MS;
+
+		return Math.max(MIN_INTERVAL_IN_MS, parsed);
 	}
 }

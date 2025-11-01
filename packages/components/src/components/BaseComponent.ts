@@ -15,6 +15,7 @@ export class BaseComponent<T> {
 		this._value = initialValue;
 		this._id = data.id;
 
+		// Make sure we post the message when the value changes even though no one is listening to the event
 		this.eventEmitter.on('change', this.postMessage.bind(this, 'change'));
 	}
 
@@ -41,6 +42,7 @@ export class BaseComponent<T> {
 	on(action: string, callback: (...args: any[]) => void) {
 		this.eventEmitter.on(action, args => {
 			callback(args);
+			if (action === 'change') return; // We already post the message when the value changes
 			this.postMessage(action);
 		});
 	}
