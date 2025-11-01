@@ -1,26 +1,16 @@
 import { BaseEdge, getSimpleBezierPath, type EdgeProps, Position } from '@xyflow/react';
 import { SIGNAL_DURATION, useEdgeSignals } from '../../stores/signal';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 // Helper function to calculate position along a Bezier curve at a given progress (0-1)
 function getPointOnBezierCurve(
+	path: string,
 	sourceX: number,
 	sourceY: number,
 	targetX: number,
 	targetY: number,
-	sourcePosition: Position,
-	targetPosition: Position,
 	progress: number
 ): { x: number; y: number } {
-	const [path] = getSimpleBezierPath({
-		sourceX,
-		sourceY,
-		targetX,
-		targetY,
-		sourcePosition,
-		targetPosition,
-	});
-
 	// Parse the SVG path to extract control points
 	// Format: M x,y C cx1,cy1 cx2,cy2 x,y
 	const pathMatch = path.match(
@@ -79,6 +69,10 @@ export function AnimatedSVGEdge({
 		targetPosition,
 	});
 
+	const positions = useMemo(() => {
+		return { sourceX, sourceY, targetX, targetY };
+	}, [edgePath, sourceX, sourceY, targetX, targetY]);
+
 	const signals = useEdgeSignals(id);
 	const [signalPositions, setSignalPositions] = useState<Map<string, { x: number; y: number }>>(
 		new Map()
@@ -95,12 +89,11 @@ export function AnimatedSVGEdge({
 
 				// Calculate position along the Bezier curve path
 				const position = getPointOnBezierCurve(
-					sourceX,
-					sourceY,
-					targetX,
-					targetY,
-					sourcePosition,
-					targetPosition,
+					edgePath,
+					positions.sourceX,
+					positions.sourceY,
+					positions.targetX,
+					positions.targetY,
 					progress
 				);
 
@@ -111,7 +104,7 @@ export function AnimatedSVGEdge({
 		}, 16); // ~60fps
 
 		return () => clearInterval(interval);
-	}, [signals, sourceX, sourceY, targetX, targetY]);
+	}, [signals, edgePath, positions]);
 
 	return (
 		<>

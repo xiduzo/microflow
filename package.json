@@ -10,6 +10,7 @@
 		"dev:plugin": "yarn workspace microflow-hardware-bridge dev",
 		"build": "yarn workspaces foreach -p run build",
 		"make": "yarn workspace microflow-studio make",
+		"make:intel": "yarn workspace microflow-studio make:intel",
 		"package": "yarn workspace microflow-studio package",
 		"publish": "yarn workspace microflow-studio publish",
 		"publish:intel": "yarn workspace microflow-studio publish:intel",

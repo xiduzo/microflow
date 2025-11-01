@@ -1,8 +1,9 @@
-import type { IntervalData, IntervalValueType } from '@microflow/components';
+import { type IntervalData, type IntervalValueType } from '@microflow/components';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
+import { MIN_INTERVAL_IN_MS } from '@microflow/components/contants';
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -33,7 +34,7 @@ function Value() {
 function Settings() {
 	const data = useNodeData<IntervalData>();
 	const { render } = useNodeControls({
-		interval: { value: data.interval, min: 100, step: 100 },
+		interval: { value: data.interval, min: MIN_INTERVAL_IN_MS, step: 100 },
 	});
 
 	return <>{render()}</>;
