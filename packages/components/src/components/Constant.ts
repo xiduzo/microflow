@@ -6,7 +6,7 @@ export type ConstantData = {
 	value: number;
 };
 
-export class Constant extends BaseComponent<ConstantValueType> {
+export class Constant extends BaseComponent<ConstantValueType, ConstantData> {
 	constructor(data: BaseComponentData & ConstantData) {
 		super(data, data.value);
 	}

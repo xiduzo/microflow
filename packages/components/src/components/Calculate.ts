@@ -7,8 +7,8 @@ export type CalculateData = {
 	function: 'add' | 'subtract' | 'multiply' | 'divide' | 'modulo' | keyof typeof Math;
 };
 
-export class Calculate extends BaseComponent<CalculateValueType> {
-	constructor(private readonly data: BaseComponentData & CalculateData) {
+export class Calculate extends BaseComponent<CalculateValueType, CalculateData> {
+	constructor(data: BaseComponentData & CalculateData) {
 		super(data, 0);
 	}
 

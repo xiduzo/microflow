@@ -10,10 +10,10 @@ export type FigmaData = {
 };
 export type FigmaValueType = string | number | boolean | RGBA;
 
-export class Figma extends BaseComponent<FigmaValueType> {
+export class Figma extends BaseComponent<FigmaValueType, FigmaData> {
 	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 1 };
 
-	constructor(private readonly data: BaseComponentData & FigmaData) {
+	constructor(data: BaseComponentData & FigmaData) {
 		super(data, data.initialValue ?? '');
 	}
 

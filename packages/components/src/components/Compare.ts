@@ -37,8 +37,8 @@ export type CompareData = BooleanData | TextData | NumberData | SingleNumberData
 
 export type CompateValueType = boolean;
 
-export class Compare extends BaseComponent<CompateValueType> {
-	constructor(private readonly data: BaseComponentData & CompareData) {
+export class Compare extends BaseComponent<CompateValueType, CompareData> {
+	constructor(data: BaseComponentData & CompareData) {
 		super(data, false);
 	}
 

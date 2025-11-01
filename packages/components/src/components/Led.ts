@@ -4,7 +4,7 @@ import { BaseComponent, BaseComponentData } from './BaseComponent';
 export type LedData = Omit<LedOption, 'board'>;
 export type LedValueType = number;
 
-export class Led extends BaseComponent<LedValueType> {
+export class Led extends BaseComponent<LedValueType, LedData> {
 	private readonly component: JohnnyFive.Led;
 
 	constructor(data: BaseComponentData & LedData) {

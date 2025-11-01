@@ -3,15 +3,20 @@ import { postMessageToElectronMain } from '../utils/postMessageToElectronMain';
 
 export type BaseComponentData = {
 	id: string;
+	type: string;
 };
-
-export class BaseComponent<T> {
+export class BaseComponent<T, D> {
 	private _value: T;
 	private readonly _id: string;
 
 	protected readonly eventEmitter = new EventEmitter();
 
-	constructor(data: BaseComponentData, initialValue: T) {
+	private readonly handlers = new Map<string, Set<(...args: any[]) => void>>();
+
+	constructor(
+		public data: BaseComponentData & D,
+		initialValue: T
+	) {
 		this._value = initialValue;
 		this._id = data.id;
 
@@ -32,19 +37,36 @@ export class BaseComponent<T> {
 		}
 	}
 
-	/**
-	 * Listen to an event
-	 *
-	 * @param action - The event to listen to
-	 * @param callback - The callback to run when the event is triggered
-	 *
-	 */
 	on(action: string, callback: (...args: any[]) => void) {
-		this.eventEmitter.on(action, args => {
-			callback(args);
+		if (!this.handlers.has(action)) {
+			this.handlers.set(action, new Set());
+		}
+
+		const handlerWrapper = (...args: any[]) => {
+			callback(...args);
 			if (action === 'change') return; // We already post the message when the value changes
 			this.postMessage(action);
-		});
+		};
+
+		this.handlers.get(action)!.add(handlerWrapper);
+		this.eventEmitter.on(action, handlerWrapper);
+
+		// Return unsubscribe function (nice ergonomic API)
+		return () => this.off(action, handlerWrapper);
+	}
+
+	off(action: string, callback: (...args: any[]) => void) {
+		const handlerSet = this.handlers.get(action);
+		if (!handlerSet) return;
+
+		if (handlerSet.has(callback)) {
+			handlerSet.delete(callback);
+			this.eventEmitter.off(action, callback);
+		}
+
+		if (handlerSet.size === 0) {
+			this.handlers.delete(action);
+		}
 	}
 
 	private postMessage(action: string) {

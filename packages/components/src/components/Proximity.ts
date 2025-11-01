@@ -4,7 +4,7 @@ import { BaseComponent, BaseComponentData } from './BaseComponent';
 export type ProximityData = Omit<ProximityOption, 'board'>;
 export type ProximityValueType = number;
 
-export class Proximity extends BaseComponent<ProximityValueType> {
+export class Proximity extends BaseComponent<ProximityValueType, ProximityData> {
 	private readonly component: JohnnyFive.Proximity;
 
 	constructor(data: BaseComponentData & ProximityData) {

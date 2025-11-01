@@ -7,8 +7,8 @@ export type RangeMapData = {
 };
 export type RangeMapValueType = [number, number];
 
-export class RangeMap extends BaseComponent<RangeMapValueType> {
-	constructor(private readonly data: BaseComponentData & RangeMapData) {
+export class RangeMap extends BaseComponent<RangeMapValueType, RangeMapData> {
+	constructor(data: BaseComponentData & RangeMapData) {
 		super(data, [0, 0]);
 	}
 

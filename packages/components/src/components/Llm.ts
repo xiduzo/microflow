@@ -11,12 +11,12 @@ export type LlmData = {
 
 export type LlmValueType = boolean;
 
-export class Llm extends BaseComponent<LlmValueType> {
+export class Llm extends BaseComponent<LlmValueType, LlmData> {
 	private readonly model: BaseChatModel;
 	private promptVariables = new Map<string, string>();
 	private abortController = new AbortController();
 
-	constructor(private readonly data: BaseComponentData & LlmData) {
+	constructor(data: BaseComponentData & LlmData) {
 		super(data, false);
 
 		this.model = new ChatOllama(data);

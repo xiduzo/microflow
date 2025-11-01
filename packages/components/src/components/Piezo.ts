@@ -10,11 +10,11 @@ export type SongData = { type: 'song' } & PiezoTune & {
 export type PiezoData = PiezoOption & (BuzzData | SongData);
 export type PiezoValueType = boolean;
 
-export class Piezo extends BaseComponent<PiezoValueType> {
+export class Piezo extends BaseComponent<PiezoValueType, PiezoData> {
 	private readonly component: JohnnyFive.Piezo;
 	private timeout: NodeJS.Timeout | undefined;
 
-	constructor(private readonly data: BaseComponentData & PiezoData) {
+	constructor(data: BaseComponentData & PiezoData) {
 		super(data, false);
 		this.component = new JohnnyFive.Piezo(data);
 	}
@@ -57,7 +57,7 @@ export class Piezo extends BaseComponent<PiezoValueType> {
 			},
 			() => {
 				this.value = false;
-			},
+			}
 		);
 
 		return this;

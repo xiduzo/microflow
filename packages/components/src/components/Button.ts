@@ -4,7 +4,7 @@ import { BaseComponent, BaseComponentData } from './BaseComponent';
 export type ButtonData = Omit<ButtonOption, 'board'>;
 export type ButtonValueType = boolean | number;
 
-export class Button extends BaseComponent<ButtonValueType> {
+export class Button extends BaseComponent<ButtonValueType, ButtonData> {
 	private readonly component: JohnnyFive.Button;
 
 	constructor(data: BaseComponentData & ButtonData) {

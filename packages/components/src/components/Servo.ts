@@ -6,7 +6,7 @@ export type ServoData = Omit<ServoGeneralOption, 'board' | 'range'> & {
 };
 export type ServoValueType = number;
 
-export class Servo extends BaseComponent<ServoValueType> {
+export class Servo extends BaseComponent<ServoValueType, ServoData> {
 	private readonly component: JohnnyFive.Servo;
 
 	constructor(data: BaseComponentData & ServoData) {

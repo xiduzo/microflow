@@ -13,10 +13,10 @@ export type MatrixData = Omit<
 };
 export type MatrixValueType = MatrixShape;
 
-export class Matrix extends BaseComponent<MatrixValueType> {
+export class Matrix extends BaseComponent<MatrixValueType, MatrixData> {
 	private readonly component: JohnnyFive.Led.Matrix;
 
-	constructor(private readonly data: BaseComponentData & MatrixData) {
+	constructor(data: BaseComponentData & MatrixData) {
 		super(data, DEFAULT_MATRIX_START_SHAPE);
 
 		this.component = new JohnnyFive.Led.Matrix(data);

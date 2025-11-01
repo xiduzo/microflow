@@ -20,7 +20,7 @@ export type OscillatorData = {
 };
 export type OscillatorValueType = number;
 
-export class Oscillator extends BaseComponent<OscillatorValueType> {
+export class Oscillator extends BaseComponent<OscillatorValueType, OscillatorData> {
 	// auto-calculated values when "period" is reset
 	private freq1 = 0;
 	private freq2 = 0;
@@ -34,7 +34,7 @@ export class Oscillator extends BaseComponent<OscillatorValueType> {
 	private refreshRate = 1_000 / this.FRAMES_PER_SECOND;
 	private timeout: NodeJS.Timeout | null = null;
 
-	constructor(private readonly data: BaseComponentData & OscillatorData) {
+	constructor(data: BaseComponentData & OscillatorData) {
 		super(data, 0);
 
 		this.freq1 = 1 / this.data.period;

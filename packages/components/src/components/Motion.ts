@@ -8,7 +8,7 @@ export type MotionData = Omit<MotionOption, 'board'> & {
 export type MotionValueType = boolean;
 export type { Controller } from '../constants/Motion';
 
-export class Motion extends BaseComponent<MotionValueType> {
+export class Motion extends BaseComponent<MotionValueType, MotionData> {
 	private readonly component: JohnnyFive.Motion;
 
 	constructor(data: BaseComponentData & MotionData) {

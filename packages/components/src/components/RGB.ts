@@ -6,7 +6,7 @@ export type RgbData = Omit<ConstructorParameters<typeof JohnnyFive.Led.RGB>[0], 
 
 export type RgbValueType = RGBA;
 
-export class Rgb extends BaseComponent<RgbValueType> {
+export class Rgb extends BaseComponent<RgbValueType, RgbData> {
 	private readonly component: JohnnyFive.Led.RGB;
 	private updateQueue: Promise<void> = Promise.resolve();
 
@@ -47,7 +47,7 @@ export class Rgb extends BaseComponent<RgbValueType> {
 				new Promise<void>(resolve => {
 					updateFn();
 					resolve();
-				}),
+				})
 		);
 	}
 

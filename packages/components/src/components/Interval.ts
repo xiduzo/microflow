@@ -7,10 +7,10 @@ export type IntervalData = {
 };
 export type IntervalValueType = number;
 
-export class Interval extends BaseComponent<IntervalValueType> {
+export class Interval extends BaseComponent<IntervalValueType, IntervalData> {
 	private interval: NodeJS.Timeout | null = null;
 
-	constructor(private readonly data: BaseComponentData & IntervalData) {
+	constructor(data: BaseComponentData & IntervalData) {
 		super(data, 0);
 
 		this.start();

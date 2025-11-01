@@ -9,8 +9,8 @@ export type GateData = {
 	gate: GateType;
 };
 
-export class Gate extends BaseComponent<GateValueType> {
-	constructor(private readonly data: BaseComponentData & GateData) {
+export class Gate extends BaseComponent<GateValueType, GateData> {
+	constructor(data: BaseComponentData & GateData) {
 		super(data, false);
 	}
 

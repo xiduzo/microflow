@@ -5,7 +5,7 @@ import JohnnyFive, { RelayOption } from 'johnny-five';
 export type RelayValueType = boolean;
 export type RelayData = Omit<RelayOption, 'board'>;
 
-export class Relay extends BaseComponent<RelayValueType> {
+export class Relay extends BaseComponent<RelayValueType, RelayData> {
 	private readonly component: JohnnyFive.Relay;
 
 	constructor(data: BaseComponentData & RelayData) {

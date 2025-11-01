@@ -7,7 +7,7 @@ export type MonitorData = {
 	fps: number;
 };
 
-export class Monitor extends BaseComponent<DebugValueType> {
+export class Monitor extends BaseComponent<DebugValueType, MonitorData> {
 	constructor(data: BaseComponentData & MonitorData) {
 		super(data, 0);
 	}

@@ -4,7 +4,7 @@ import { BaseComponent, BaseComponentData } from './BaseComponent';
 export type SensorData = Omit<SensorOption, 'board'>;
 export type SensorValueType = number;
 
-export class Sensor extends BaseComponent<SensorValueType> {
+export class Sensor extends BaseComponent<SensorValueType, SensorData> {
 	private readonly component: JohnnyFive.Sensor;
 
 	constructor(data: BaseComponentData & SensorData) {
