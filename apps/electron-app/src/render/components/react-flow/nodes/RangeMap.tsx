@@ -1,4 +1,4 @@
-import type { RangeMapData, RangeMapValueType } from '@microflow/components';
+import type { RangeMapData, RangeMapValueType } from '@microflow/hardware';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';

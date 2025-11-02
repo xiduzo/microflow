@@ -63,8 +63,8 @@
 	},
 	"dependencies": {
 		"@leva-ui/plugin-plot": "^0.10.0",
-		"@microflow/components": "workspaces:*",
 		"@microflow/flasher": "workspaces:*",
+		"@microflow/hardware": "workspaces:*",
 		"@microflow/mqtt-provider": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",

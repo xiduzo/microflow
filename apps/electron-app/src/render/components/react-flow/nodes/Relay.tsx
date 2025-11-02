@@ -1,4 +1,4 @@
-import { RelayData, RelayValueType } from '@microflow/components';
+import { RelayData, RelayValueType } from '@microflow/hardware';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';

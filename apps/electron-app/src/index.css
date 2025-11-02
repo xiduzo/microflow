@@ -168,3 +168,15 @@ body {
 .react-flow__node main > [class^='leva'] > div {
 	@apply h-full flex items-center justify-center;
 }
+
+.react-flow__node [class^='leva-c-'] {
+	@apply !bg-transparent;
+}
+
+.react-flow__node div:has(> canvas[class^='leva-c-']) {
+	@apply !flex;
+}
+
+.react-flow__node canvas[class^='leva-c-'] {
+	@apply grow;
+}

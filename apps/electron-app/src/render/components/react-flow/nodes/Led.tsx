@@ -1,4 +1,4 @@
-import type { LedData, LedValueType } from '@microflow/components';
+import type { LedData, LedValueType } from '@microflow/hardware';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
@@ -17,7 +17,7 @@ export function Led(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type='target' position={Position.Left} id='on' offset={-1.5} />
+			<Handle type='target' position={Position.Left} id='turnOn' offset={-1.5} />
 			<Handle type='target' position={Position.Left} id='toggle' offset={-0.5} />
 			<Handle
 				type='target'
@@ -28,7 +28,7 @@ export function Led(props: Props) {
 				hint={`${isPmwPin ? '0-255' : 'requires a ~ pin'}`}
 				isConnectable={!!isPmwPin}
 			/>
-			<Handle type='target' position={Position.Left} id='off' offset={1.5} />
+			<Handle type='target' position={Position.Left} id='turnOff' offset={1.5} />
 			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);

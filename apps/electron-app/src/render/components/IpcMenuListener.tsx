@@ -1,6 +1,6 @@
 import { useReactFlow, type Edge, type Node } from '@xyflow/react';
 import { useEffect, useState } from 'react';
-import { FlowFile } from '../../common/types';
+import { FlowState } from '../../common/types';
 import {
 	useDeselectAll,
 	useNonInternalNodes,
@@ -66,7 +66,7 @@ export function IpcMenuListeners() {
 					break;
 				case 'import-flow':
 					// IDEA data validation
-					const { nodes, edges } = result.data.args as FlowFile;
+					const { nodes, edges } = result.data.args as FlowState;
 					setNodes(nodes);
 					setEdges(edges);
 					break;

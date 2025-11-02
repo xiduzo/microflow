@@ -2342,19 +2342,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@microflow/components@workspace:packages/components, @microflow/components@workspaces:*":
-  version: 0.0.0-use.local
-  resolution: "@microflow/components@workspace:packages/components"
-  dependencies:
-    "@langchain/core": ^0.3.42
-    "@langchain/ollama": ^0.2.0
-    "@types/johnny-five": 2.1.10
-    johnny-five: "https://github.com/xiduzo/johnny-five.git"
-    langchain: ^0.3.19
-    typescript: 5.8.3
-  languageName: unknown
-  linkType: soft
-
 "@microflow/flasher@workspace:packages/flasher, @microflow/flasher@workspaces:*":
   version: 0.0.0-use.local
   resolution: "@microflow/flasher@workspace:packages/flasher"
@@ -2364,6 +2351,19 @@ __metadata:
     serialport: 12.0.0
     stk500: 2.0.3
     stk500-v2: 1.0.4
+    typescript: 5.8.3
+  languageName: unknown
+  linkType: soft
+
+"@microflow/hardware@workspace:packages/hardware, @microflow/hardware@workspaces:*":
+  version: 0.0.0-use.local
+  resolution: "@microflow/hardware@workspace:packages/hardware"
+  dependencies:
+    "@langchain/core": ^0.3.42
+    "@langchain/ollama": ^0.2.0
+    "@types/johnny-five": 2.1.10
+    johnny-five: "https://github.com/xiduzo/johnny-five.git"
+    langchain: ^0.3.19
     typescript: 5.8.3
   languageName: unknown
   linkType: soft
@@ -13520,8 +13520,8 @@ __metadata:
     "@electron/rebuild": 4.0.1
     "@leva-ui/plugin-plot": ^0.10.0
     "@manypkg/find-root": 2.2.3
-    "@microflow/components": "workspaces:*"
     "@microflow/flasher": "workspaces:*"
+    "@microflow/hardware": "workspaces:*"
     "@microflow/mqtt-provider": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"

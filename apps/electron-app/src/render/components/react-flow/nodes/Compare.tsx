@@ -1,9 +1,9 @@
-import type { CompareData, CompateValueType } from '@microflow/components';
+import type { CompareData, CompateValueType } from '@microflow/hardware';
 import {
 	COMPARE_SUB_VALIDATORS,
 	COMPARE_VALIDATORS,
 	CompareSubValidator,
-} from '@microflow/components/contants';
+} from '@microflow/hardware/contants';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Handle } from '../Handle';

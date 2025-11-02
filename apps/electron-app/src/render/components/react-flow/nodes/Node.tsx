@@ -28,7 +28,7 @@ import { createPortal } from 'react-dom';
 import { useDeleteEdges, useNodesChange } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
 import { useDebounceValue } from 'usehooks-ts';
-import { useCodeUploader } from '../../../hooks/useCodeUploader';
+import { useFlowSync } from '../../../hooks/useFlowSync';
 
 function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
@@ -93,7 +93,7 @@ export const useNodeControls = <
 	const { getNode } = useReactFlow();
 	const onNodesChange = useNodesChange();
 	const updateNodeInternals = useUpdateNodeInternals();
-	const uploadCode = useCodeUploader();
+	const { flowChanged } = useFlowSync();
 
 	const [controlsData, set] = useControls(
 		() => ({ label: data.label, ...controls }),
@@ -125,9 +125,9 @@ export const useNodeControls = <
 			updateNodeInternals(node.id);
 			await new Promise(resolve => setTimeout(resolve, 500)); // Give react-flow time to apply the changes
 			console.debug('[UPLOAD] <updateNodeData> - node data updated');
-			uploadCode();
+			flowChanged();
 		},
-		[id, getNode, onNodesChange, updateNodeInternals, uploadCode]
+		[id, getNode, onNodesChange, updateNodeInternals, flowChanged]
 	);
 
 	/**
@@ -191,8 +191,8 @@ export const useNodeControls = <
 		lastControlData.current = newData as typeof lastControlData.current;
 		set(newData as Parameters<typeof set>[0]);
 		console.debug('[UPLOAD] <useEffect>', lastControlData.current, { data, newData });
-		uploadCode();
-	}, [data, set, uploadCode]);
+		flowChanged();
+	}, [data, set, flowChanged]);
 
 	return { render, set, setNodeData };
 };

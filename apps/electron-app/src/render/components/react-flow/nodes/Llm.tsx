@@ -10,7 +10,7 @@ import {
 } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LlmData, LlmValueType } from '@microflow/components';
+import { LlmData, LlmValueType } from '@microflow/hardware';
 import { IconWithValue } from '../IconWithValue';
 import { folder } from 'leva';
 

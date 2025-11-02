@@ -1,4 +1,4 @@
-import { type Note } from '@microflow/components';
+import { type Note } from '@microflow/hardware';
 import { renderAbc } from 'abcjs';
 import { useEffect, useRef } from 'react';
 

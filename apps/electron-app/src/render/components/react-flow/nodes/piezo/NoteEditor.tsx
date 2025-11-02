@@ -1,4 +1,4 @@
-import { Note } from '@microflow/components';
+import { Note } from '@microflow/hardware';
 import {
 	Button,
 	ButtonProps,

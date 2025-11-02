@@ -1,4 +1,4 @@
-import { DelayData } from '@microflow/components';
+import { DelayData } from '@microflow/hardware';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';

@@ -21,7 +21,7 @@ const router = createMemoryRouter([
 export function App() {
 	const [brokerSettings, setBrokerSettings] = useLocalStorage<{ uniqueId: string } | null>(
 		LOCAL_STORAGE_KEYS.MQTT_CONNECTION,
-		{ initialValue: null },
+		{ initialValue: null }
 	);
 
 	// Due the the async nature of Figma's local-storage,
@@ -36,7 +36,7 @@ export function App() {
 			setBrokerSettings({
 				uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
 			});
-		},
+		}
 	);
 
 	if (brokerSettings === null) return null;
@@ -44,7 +44,7 @@ export function App() {
 	return (
 		<>
 			<DarkMode />
-			<MqttProvider appName="plugin" config={brokerSettings}>
+			<MqttProvider appName='plugin' config={brokerSettings}>
 				<MqttVariableMessenger />
 				<RouterProvider router={router} />
 			</MqttProvider>

@@ -3,15 +3,14 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import { IpcResponse } from './common/types';
 
-type Channels =
-	| 'ipc-check-board'
-	| 'ipc-upload-code'
+export type Channels =
 	| 'ipc-microcontroller'
 	| 'ipc-external-value'
 	| 'ipc-menu'
 	| 'ipc-deep-link'
 	| 'ipc-export-flow'
-	| 'ipc-live-share';
+	| 'ipc-flow'
+	| 'ipc-board';
 
 type IpcCallback<Data> = (response: IpcResponse<Data>) => void;
 type Listener = (event: IpcRendererEvent, response: IpcResponse<any>) => void;

@@ -52,38 +52,23 @@ export type Pin = {
 	pin: number;
 };
 
-export type BoardCheckResult = {
+export type Board = {
 	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error' | 'connect';
 	message?: string;
 	port?: string;
-};
-
-export type BoardFlashResult = {
-	type: 'done' | 'error' | 'flashing';
-	message?: string;
-};
-
-export type UploadRequest = {
-	port: string;
-	nodes: Pick<Node, 'data' | 'id' | 'type'>[];
-	edges: Omit<Edge, 'id'>[];
-};
-
-export type UploadResponse = {
-	type: 'info' | 'ready' | 'fail' | 'warn' | 'exit' | 'close' | 'error';
-	message?: string;
 	pins?: Pin[];
 };
 
+export type FlowState = {
+	nodes: Node[];
+	edges: Edge[];
+};
+
 export type UploadedCodeMessage = {
+	type: 'message';
 	nodeId: string;
 	action: string;
 	value?: unknown;
-};
-
-export type FlowFile = {
-	nodes: Node[];
-	edges: Edge[];
 };
 
 export type IpcResponse<T> = { success: true; data: T } | { success: false; error: string };

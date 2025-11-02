@@ -1,5 +1,5 @@
-const MicroflowComponents = require('@microflow/components');
-const { Board, TcpSerial, BaseComponent } = require('@microflow/components');
+const MicroflowComponents = require('@microflow/hardware');
+const { Board, TcpSerial } = require('@microflow/hardware');
 const { Edge, Node } = require('@xyflow/react');
 
 const port = process?.argv?.at(-1);
@@ -19,25 +19,25 @@ function stdout(data) {
 }
 
 /**
+ * @typedef {InstanceType<typeof MicroflowComponents[keyof typeof MicroflowComponents]>} ComponentInstance
+ */
+/**
  * Map of component instances by node ID.
- * @type {Map<string, BaseComponent>}
+ * @type {Map<string, ComponentInstance>}
  */
-const nodes = new Map();
+const components = new Map();
 
 /**
- * @typedef {string} EdgeConnection
- * @description A connection identifier in the format `${string}_${string}_${string}`,
- * where each segment is a string joined by underscores. This represents the connection
- * between a source node's action/output and its handlers.
- * @pattern /^.+_.+_.+$/
- * @example "interval_node123_on"
- */
-
-/**
- * Map of event unsubscribers by edge connection identifier.
- * @type {Map<EdgeConnection, Function>}
+ * Map of event unsubscribers by edge ID.
+ * @type {Map<string, Function>}
  */
 const unsubscribers = new Map();
+
+/**
+ * Board instance
+ * @type {Board | null}
+ */
+let boardInstance = null;
 
 try {
 	const ipRegex = new RegExp(
@@ -57,7 +57,7 @@ try {
 		);
 	}
 
-	const board = new Board({
+	boardInstance = new Board({
 		repl: false,
 		debug: true,
 		port: connection || port,
@@ -67,21 +67,21 @@ try {
 	// any hardware initialization that must take place before the program can operate.
 	// This process is asynchronous, and completion is signified to the program via a "ready" event
 	// For on-board execution, ready should emit after connect.
-	board.on('ready', () => stdout({ type: 'ready' }));
+	boardInstance.on('ready', () => stdout({ type: 'ready', pins: getPins(boardInstance) }));
 	// When board is found but no Firmata is flashed
-	board.on('error', error => stdout({ type: 'error', message: error.message }));
+	boardInstance.on('error', error => stdout({ type: 'error', message: error.message }));
 	// This event is emitted synchronously on SIGINT.
 	// Use this handler to do any necessary cleanup before your program is "disconnected" from the board.
-	board.on('exit', () => stdout({ type: 'exit' }));
+	boardInstance.on('exit', () => stdout({ type: 'exit' }));
 	// This event is emmited when the device does not respond.
 	// Can be used to detect if board gets disconnected.
-	board.on('close', () => stdout({ type: 'close' }));
+	boardInstance.on('close', () => stdout({ type: 'close' }));
 	// This event will emit once the program has "connected" to the board.
 	// This may be immediate, or after some amount of time, but is always asynchronous.
 	// For on-board execution, connect should emit as soon as possible, but asynchronously.
-	board.on('connect', () => stdout({ type: 'connect' }));
+	boardInstance.on('connect', () => stdout({ type: 'connect' }));
 	// This event will emit for any logging message: info, warn or fail.
-	board.on('message', stdout);
+	boardInstance.on('message', stdout);
 } catch (error) {
 	stdout({ type: 'error', message: 'catching error', ...error });
 }
@@ -105,78 +105,44 @@ try {
  */
 
 process.on('message', (/** @type {WorkerMessage} */ message) => {
-	console.log('message', message);
+	// console.log('message', JSON.stringify(message, null, 2));
 	switch (message.type) {
 		case 'setExternal':
-			const node = nodes.get(message.nodeId);
+			const node = components.get(message.nodeId);
 			node?.setExternal?.(message.value);
 			break;
 		case 'flow':
-			// Step 1; remove handlers for edges that are no longer connected
-			const newEdgesIds = message.edges.map(({ id }) => id);
-			Array.from(unsubscribers.keys())
-				.filter(edgeId => !newEdgesIds.includes(edgeId))
-				.forEach(edgeId => {
-					const unsubscribe = unsubscribers.get(edgeId);
-					unsubscribe?.();
-					unsubscribers.delete(edgeId);
-				});
+			// TODO: this can be optimized to only handle changes
 
-			// Step 2; remove nodes that no longer exist
-			const currentNodesIds = Array.from(nodes.keys());
-			const newNodesIds = message.nodes.map(({ id }) => id);
-			currentNodesIds.filter(nodeId => !newNodesIds.includes(nodeId)).forEach(nodes.delete);
+			boardInstance.io.removeAllListeners();
+			boardInstance.register = []; // Remove references to old components
 
-			// Step 3; set the data of the current nodes
-			currentNodesIds.forEach(nodeId => {
-				const currentNode = nodes.get(nodeId);
-				if (!currentNode) return;
-				const newNode = message.nodes.find(({ id }) => id === nodeId);
-				if (!newNode) return;
-				currentNode.data = newNode.data;
+			// Step 1; remove compoments
+			Array.from(components.entries()).forEach(([nodeId, nodeInstance]) => {
+				nodeInstance.destroy();
+				components.delete(nodeId);
 			});
 
-			// Step 3; add new nodes
-			message.nodes
-				.filter(({ id }) => !currentNodesIds.includes(id))
-				.forEach(node => {
-					const nodeInstance = new MicroflowComponents[node.type](node.data);
-					nodes.set(node.id, nodeInstance);
+			// Step 2; add new components
+			message.nodes.forEach(node => {
+				const type = node.data.baseType ?? node.type;
+				const nodeInstance = new MicroflowComponents[type]({
+					...node.data,
+					_componentType: type,
+					id: node.id,
 				});
+				components.set(node.id, nodeInstance);
+			});
 
-			// Step 4; add new handlers for edges that are now connected
-			newEdgesIds.forEach(edgeId => {
-				const edge = message.edges.find(({ id }) => id === edgeId);
-				if (!edge) return;
-				const sourceNode = nodes.get(edge.source);
+			// Step 3; add handlers
+			message.edges.forEach(edge => {
+				const sourceNode = components.get(edge.source);
 				if (!sourceNode) return;
-				const targetNode = nodes.get(edge.target);
+				const targetNode = components.get(edge.target);
 				if (!targetNode) return;
-				const unsubscribe = sourceNode.on(edge.sourceHandle, value => {
-					try {
-						const targetType = targetNode.data.type;
-						switch (targetType) {
-							case 'gate':
-							case 'calculate':
-								targetNode.check(value);
-								break;
-							case 'llm':
-								if (edge.targetHandle === 'invoke') {
-									targetNode.invoke();
-									break;
-								}
-								targetNode.setVariable(edge.targetHandle, value);
-								break;
-							default:
-								targetNode[edge.targetHandle](value);
-								break;
-						}
-					} catch (error) {
-						console.error(error);
-					}
-				});
-
-				unsubscribers.set(edgeId, unsubscribe);
+				const eventHandler = handler(sourceNode, targetNode, edge, message.edges);
+				sourceNode.on(edge.sourceHandle, eventHandler);
+				// unsubscribers.set(edge.id, () => sourceNode.off(edge.sourceHandle, eventHandler));
 			});
 			break;
 		default:
@@ -188,3 +154,48 @@ process.on('message', (/** @type {WorkerMessage} */ message) => {
 			break;
 	}
 });
+
+function getPins(board) {
+	return Object.entries(board.pins).reduce((acc, [key, value]) => {
+		acc.push({ pin: Number(key), ...value });
+		return acc;
+	}, []);
+}
+
+/**
+ *
+ * @param {ComponentInstance} sourceNode
+ * @param {ComponentInstance} targetNode
+ * @param {Edge} edge
+ * @param {Edge[]} edges
+ * @returns {Function}
+ */
+const handler = (sourceNode, targetNode, edge, edges) => value => {
+	try {
+		const targetType = targetNode.data._componentType.toLowerCase();
+		switch (targetType) {
+			case 'gate':
+			case 'calculate':
+				targetNode.check(
+					edges
+						.filter(({ target }) => target === targetNode.id)
+						.map(({ source }) => components.get(source)?.value ?? false)
+				);
+				break;
+			case 'llm':
+				if (edge.targetHandle === 'invoke') {
+					targetNode.invoke();
+					break;
+				}
+				targetNode.setVariable(edge.targetHandle, value);
+				break;
+			default:
+				targetNode[edge.targetHandle](value);
+				break;
+		}
+		if (edge.sourceHandle === 'change') return;
+		sourceNode.postMessage(edge.sourceHandle);
+	} catch (error) {
+		console.error(error);
+	}
+};

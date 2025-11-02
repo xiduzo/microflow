@@ -1,5 +1,5 @@
 import { Badge, cva, Icons } from '@microflow/ui';
-import { useBoardCheckResult, useUploadResult } from '../../../stores/board';
+import { useBoard } from '../../../stores/board';
 import { useLocalStorage } from 'usehooks-ts';
 import { AdvancedConfig } from '../../forms/AdvancedSettingsForm';
 
@@ -7,41 +7,32 @@ export function SerialConnectionStatusPanel() {
 	const [{ ip }] = useLocalStorage<AdvancedConfig>('advanced-config', {
 		ip: undefined,
 	});
-	const boardCheckResult = useBoardCheckResult();
-	const uploadResult = useUploadResult();
 
-	if (uploadResult === 'error') {
+	const newBoard = useBoard();
+
+	if (newBoard.type === 'error' || newBoard.type === 'warn') {
 		return (
 			<Badge className={badge({ variant: 'destructive' })}>
-				Upload failed for unknown reasons
-				<Icons.X className='ml-2 h-3 w-3' />
+				{newBoard.message ?? 'Try to reconnect your microcontroller'}
+				<Icons.X size={12} />
 			</Badge>
 		);
 	}
 
-	if (boardCheckResult === 'ready') {
-		if (uploadResult === 'info') {
-			return (
-				<Badge className={badge({ variant: 'warning' })}>
-					Uploading your flow
-					<Icons.FileUp className='ml-2 h-3 w-3 animate-pulse' />
-				</Badge>
-			);
-		}
-
+	if (newBoard.type === 'ready' || newBoard.type === 'info') {
 		return (
 			<Badge className={badge({ variant: 'success' })}>
-				Microcontroller in sync with flow
-				<Icons.FolderSync className='ml-2 h-3 w-3' />
+				Microcontroller connected
+				{/* <Icons.FolderSync size={12} /> */}
 			</Badge>
 		);
 	}
 
-	if (boardCheckResult === 'info' || boardCheckResult === 'connect') {
+	if (newBoard.type === 'connect') {
 		return (
 			<Badge className={badge({ variant: 'info' })}>
 				Connecting to your microcontroller
-				<Icons.LoaderCircle className='ml-2 h-3 w-3 animate-spin' />
+				<Icons.LoaderCircle size={12} className='animate-spin' />
 			</Badge>
 		);
 	}
@@ -49,12 +40,12 @@ export function SerialConnectionStatusPanel() {
 	return (
 		<Badge className={badge({ variant: 'plain' })}>
 			Connect your microcontroller {ip ? `on ${ip}` : 'via USB'}
-			{ip ? <Icons.Wifi className='ml-2 h-3 w-3' /> : <Icons.Usb className='ml-2 h-3 w-3' />}
+			{ip ? <Icons.Wifi size={12} /> : <Icons.Usb size={12} />}
 		</Badge>
 	);
 }
 
-const badge = cva('pointer-events-none select-none transition-colors', {
+const badge = cva('pointer-events-none select-none transition-colors flex items-center gap-2', {
 	variants: {
 		variant: {
 			success: 'bg-green-400 text-green-900',

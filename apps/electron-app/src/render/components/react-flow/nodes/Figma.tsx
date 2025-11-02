@@ -1,4 +1,4 @@
-import type { FigmaData, FigmaValueType, RGBA } from '@microflow/components';
+import type { FigmaData, FigmaValueType, RGBA } from '@microflow/hardware';
 import { FigmaVariable, useFigmaVariable, useMqttStore } from '@microflow/mqtt-provider/client';
 import {
 	Icons,

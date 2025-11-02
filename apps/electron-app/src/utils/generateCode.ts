@@ -134,7 +134,7 @@ function addEnter() {
 }
 
 function addImports() {
-	return `const MicroflowComponents = require("@microflow/components");`;
+	return `const MicroflowComponents = require("@microflow/hardware");`;
 }
 
 function addBoard() {

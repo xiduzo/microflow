@@ -1,9 +1,9 @@
-import { type IntervalData, type IntervalValueType } from '@microflow/components';
+import { type IntervalData, type IntervalValueType } from '@microflow/hardware';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { MIN_INTERVAL_IN_MS } from '@microflow/components/contants';
+import { MIN_INTERVAL_IN_MS } from '@microflow/hardware/contants';
 
 const numberFormat = new Intl.NumberFormat();
 

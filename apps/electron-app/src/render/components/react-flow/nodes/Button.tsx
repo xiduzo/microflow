@@ -1,4 +1,4 @@
-import type { ButtonData, ButtonValueType } from '@microflow/components';
+import type { ButtonData, ButtonValueType } from '@microflow/hardware';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';

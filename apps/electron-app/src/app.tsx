@@ -7,10 +7,9 @@ import { IpcDeepLinkListener } from './render/components/IpcDeepLinkListener';
 import { IpcMenuListeners } from './render/components/IpcMenuListener';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
 import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
-import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard';
+import { useCelebrateFirstUpload, useFlowSync } from './render/hooks/useFlowSync';
 import { CelebrationParticles } from './render/components/CelebrationParticles';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
-import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
 import { StrictMode, useEffect, useMemo } from 'react';
 import { useAppStore } from './render/stores/app';
 import { MqttSettingsForm } from './render/components/forms/MqttSettingsForm';
@@ -47,9 +46,7 @@ root.render(
 function BoardHooks() {
 	useSignalNodesAndEdges();
 	useCelebrateFirstUpload();
-	useCheckBoard();
-	useAutoUploadCode();
-	useUploadResultListener();
+	useFlowSync();
 
 	return null;
 }

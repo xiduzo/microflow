@@ -1,4 +1,4 @@
-import { RgbData, RgbValueType } from '@microflow/components';
+import { RgbData, RgbValueType } from '@microflow/hardware';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';

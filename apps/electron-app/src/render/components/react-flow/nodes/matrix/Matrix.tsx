@@ -1,4 +1,4 @@
-import { type MatrixData, type MatrixValueType } from '@microflow/components';
+import { type MatrixData, type MatrixValueType } from '@microflow/hardware';
 import { Position } from '@xyflow/react';
 import { useState } from 'react';
 import { Handle } from '../../Handle';
@@ -11,7 +11,7 @@ import {
 	DEFAULT_MATRIX_SHAPE,
 	DEFAULT_MATRIX_START_SHAPE,
 	MatrixShape,
-} from '@microflow/components/contants';
+} from '@microflow/hardware/contants';
 import {
 	Button,
 	Carousel,

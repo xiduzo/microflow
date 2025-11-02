@@ -1,4 +1,4 @@
-import type { MqttData, MqttValueType } from '@microflow/components';
+import type { MqttData, MqttValueType } from '@microflow/hardware';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from '../Handle';

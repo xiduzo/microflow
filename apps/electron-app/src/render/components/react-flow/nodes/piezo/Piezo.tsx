@@ -1,4 +1,4 @@
-import type { BuzzData, PiezoData, PiezoValueType, SongData } from '@microflow/components';
+import type { BuzzData, PiezoData, PiezoValueType, SongData } from '@microflow/hardware';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../../Handle';

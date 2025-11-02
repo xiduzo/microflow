@@ -1,4 +1,4 @@
-import type { TriggerData, TriggerValueType } from '@microflow/components';
+import type { TriggerData, TriggerValueType } from '@microflow/hardware';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
