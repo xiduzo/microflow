@@ -1,4 +1,4 @@
-import type { ServoData, ServoValueType } from '@microflow/components';
+import type { ServoData, ServoValueType } from '@microflow/hardware';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';

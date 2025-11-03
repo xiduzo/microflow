@@ -1,4 +1,4 @@
-import type { OscillatorData } from '@microflow/components';
+import type { OscillatorData } from '@microflow/hardware';
 import { Position } from '@xyflow/react';
 import { useMemo } from 'react';
 import { Handle } from '../Handle';

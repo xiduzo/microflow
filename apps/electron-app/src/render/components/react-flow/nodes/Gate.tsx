@@ -1,7 +1,7 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
-import { type GateData, type GateValueType } from '@microflow/components';
+import { type GateData, type GateValueType } from '@microflow/hardware';
 import { useNodeValue } from '../../../stores/node-data';
 import { uid } from '../../../../common/uuid';
 
@@ -14,19 +14,7 @@ export function Gate(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			{/* TODO all use 1 input */}
-			{Array.from({ length: props.data.gate === 'not' ? 1 : 2 }).map((_item, index) => {
-				return (
-					<Handle
-						key={uid()}
-						type='target'
-						title={`Check ${index + 1}`}
-						position={Position.Left}
-						id={String(index)}
-						offset={getOffset(index)}
-					/>
-				);
-			})}
+			<Handle type='target' position={Position.Left} id={'check'} />
 			<Handle type='source' position={Position.Right} id='true' offset={-1} />
 			<Handle type='source' position={Position.Right} id='false' />
 			<Handle type='source' position={Position.Right} id='change' offset={1} />

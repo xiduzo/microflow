@@ -35,7 +35,7 @@ constructor(private readonly data: BaseComponentData & MyNodeData) {
 
 ## Step 2: expose your new type in the components packages
 
-- Include your newly created component in the `index.ts` file in `packages/components`. This will make your new components available in the `@microflow/components` package, so that they can be used later in the electron app.
+- Include your newly created component in the `index.ts` file in `packages/components`. This will make your new components available in the `@microflow/hardware` package, so that they can be used later in the electron app.
 
 ## Step 3: create a react wrapper in the electron app
 
@@ -48,8 +48,8 @@ export function MyNode(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type="target" position={Position.Left} id="input" />
-			<Handle type="source" position={Position.Right} id="output" />
+			<Handle type='target' position={Position.Left} id='input' />
+			<Handle type='source' position={Position.Right} id='output' />
 		</NodeContainer>
 	);
 }
@@ -72,10 +72,10 @@ function Value() {
 
 ```tsx
 function Settings() {
-    const data = useNodeData<MyNodeData>();
+	const data = useNodeData<MyNodeData>();
 	const { render } = useNodeControls<MyNodeData>({
-    	emotion: { value: data.emotion, label: 'validate', options: ['happy', 'sad'] },
-        joy: { value: data.joy, min: 1, max: 100, step: 0.5 },
+		emotion: { value: data.emotion, label: 'validate', options: ['happy', 'sad'] },
+		joy: { value: data.joy, min: 1, max: 100, step: 0.5 },
 	});
 
 	return <>{render()}</>;
@@ -87,13 +87,13 @@ function Settings() {
 ```ts
 type Props = BaseNode<MyNodeData>;
 MyNode.defaultProps = {
-    data: {
-        group: 'flow',
-        tags: ['information'],
-        label: 'MyNode',
-        emotion: 'happy',
-        joy: 95,
-    } satisfies Props['data'],
+	data: {
+		group: 'flow',
+		tags: ['information'],
+		label: 'MyNode',
+		emotion: 'happy',
+		joy: 95,
+	} satisfies Props['data'],
 };
 ```
 
@@ -103,8 +103,8 @@ MyNode.defaultProps = {
 import { MyNode } from '../render/components/react-flow/nodes/MyNode';
 
 export const NODE_TYPES = {
-  //...
-  MyNode: MyNode,
-  //...
+	//...
+	MyNode: MyNode,
+	//...
 };
 ```

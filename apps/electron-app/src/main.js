@@ -2,24 +2,14 @@ import { app } from 'electron';
 import { updateElectronApp } from 'update-electron-app';
 import path from 'node:path';
 import logger from 'electron-log/node';
-import { BrowserWindow } from 'electron';
 
 import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
 import './main/ipc';
 import { createMenu } from './main/menu';
 import { handleDeepLink } from './main/deepLink';
+import { mainWindow, createWindow, recreateWindowWhenNeeded } from './main/window';
 
 updateElectronApp({ logger: logger });
-
-/**
- * @type {BrowserWindow[]}
- */
-let windows = [];
-
-/**
- * @type {BrowserWindow | null}
- */
-let mainWindow;
 
 // Check if we're in development mode
 const isDevelopment = !!app.isPackaged;
@@ -42,15 +32,7 @@ if (!handleSquirrelEvent()) {
 		// In development, allow multiple instances but still handle second instance
 		if (!isDevelopment) {
 			app.on('second-instance', (_event, commandLine, _workingDirectory) => {
-				// Someone tried to run a second instance, we should focus our window.
-				if (mainWindow) {
-					if (mainWindow.isMinimized()) mainWindow.restore();
-					mainWindow.focus();
-				}
-
-				recreateWindowWhenNeeded().then(() => {
-					handleDeepLink(mainWindow, commandLine.pop().slice(0, -1) ?? '');
-				});
+				handleSecondInstance(commandLine);
 			});
 		}
 
@@ -72,64 +54,6 @@ if (!handleSquirrelEvent()) {
 			recreateWindowWhenNeeded();
 		});
 	}
-}
-
-async function recreateWindowWhenNeeded() {
-	if (windows.length === 0) {
-		await createWindow();
-		await new Promise(resolve => setTimeout(resolve, 1000));
-	}
-
-	return Promise.resolve();
-}
-
-export async function createWindow() {
-	const window = new BrowserWindow({
-		width: 1024,
-		minWidth: 1024,
-		height: 768,
-		minHeight: 768,
-		webPreferences: {
-			preload: path.join(__dirname, 'preload.js'),
-			contextIsolation: true,
-			nodeIntegration: false,
-			backgroundThrottling: false,
-		},
-		// Add a title to distinguish windows in development
-		title: isDevelopment
-			? `Microflow Studio (Dev) - Window ${windows.length + 1}`
-			: 'Microflow Studio',
-	});
-
-	// Track the window
-	windows.push(window);
-
-	// Set as main window if it's the first one
-	if (!mainWindow) {
-		mainWindow = window;
-	}
-
-	if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-		await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-		window.webContents.openDevTools();
-	} else {
-		await window.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
-	}
-
-	window.on('closed', () => {
-		// Remove from windows array
-		const index = windows.indexOf(window);
-		if (index > -1) {
-			windows.splice(index, 1);
-		}
-
-		// Update main window if this was the main window
-		if (window === mainWindow) {
-			mainWindow = windows.length > 0 ? windows[0] : null;
-		}
-	});
-
-	return window;
 }
 
 app.on('window-all-closed', () => {

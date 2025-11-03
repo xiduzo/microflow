@@ -1,4 +1,4 @@
-import { TcpSerial } from '@microflow/components';
+import { TcpSerial } from '@microflow/hardware';
 import { getConnectedPorts } from '@microflow/flasher';
 import * as JohnnyFive from 'johnny-five';
 

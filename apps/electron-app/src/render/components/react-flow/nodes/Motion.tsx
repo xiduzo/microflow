@@ -1,5 +1,5 @@
-import type { MotionData, MotionValueType } from '@microflow/components';
-import { MOTION_CONTROLLERS } from '@microflow/components/contants';
+import type { MotionData, MotionValueType } from '@microflow/hardware';
+import { MOTION_CONTROLLERS } from '@microflow/hardware/contants';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';

@@ -7,10 +7,9 @@ import { IpcDeepLinkListener } from './render/components/IpcDeepLinkListener';
 import { IpcMenuListeners } from './render/components/IpcMenuListener';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
 import { useSignalNodesAndEdges } from './render/hooks/useSignalNodesAndEdges';
-import { useCelebrateFirstUpload, useCheckBoard } from './render/hooks/useBoard';
+import { useCelebrateFirstUpload, useFlowSync } from './render/hooks/useFlowSync';
 import { CelebrationParticles } from './render/components/CelebrationParticles';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
-import { useAutoUploadCode, useUploadResultListener } from './render/hooks/useCodeUploader';
 import { StrictMode, useEffect, useMemo } from 'react';
 import { useAppStore } from './render/stores/app';
 import { MqttSettingsForm } from './render/components/forms/MqttSettingsForm';
@@ -47,9 +46,7 @@ root.render(
 function BoardHooks() {
 	useSignalNodesAndEdges();
 	useCelebrateFirstUpload();
-	useCheckBoard();
-	useAutoUploadCode();
-	useUploadResultListener();
+	useFlowSync();
 
 	return null;
 }
@@ -77,21 +74,21 @@ function Figma() {
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variables`, (topic, message) => {
-			console.log('[Figma] variables', topic, message.toString());
+			console.log('[Figma] <<<< variables', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
 		});
 	}, [subscribe, uniqueId, updateVariableTypes]);
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, (topic, message) => {
-			console.log('[Figma] variable', topic, message.toString(), topic.split('/')[5]);
+			console.log('[Figma] <<<< variable', topic, message.toString(), topic.split('/')[5]);
 			updateVariableValue(topic.split('/')[5], JSON.parse(message.toString()));
 		});
 	}, [subscribe, uniqueId, updateVariableValue]);
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/${appName}/variables/response`, (topic, message) => {
-			console.log('[Figma] variables/response', topic, message.toString());
+			console.log('[Figma] <<<< variables/response', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
 		});
 	}, [subscribe, uniqueId, appName, updateVariableTypes]);

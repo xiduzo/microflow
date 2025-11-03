@@ -1,4 +1,4 @@
-import type { MovingAverage, SmoothAverage, SmoothData } from '@microflow/components';
+import type { MovingAverage, SmoothAverage, SmoothData } from '@microflow/hardware';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';

@@ -1,4 +1,4 @@
-import { ProximityData, ProximityValueType } from '@microflow/components';
+import { ProximityData, ProximityValueType } from '@microflow/hardware';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';

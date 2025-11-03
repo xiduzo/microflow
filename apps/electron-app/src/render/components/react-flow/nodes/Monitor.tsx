@@ -1,7 +1,7 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
-import type { DebugValueType, MonitorData } from '@microflow/components';
+import type { DebugValueType, MonitorData } from '@microflow/hardware';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef } from 'react';
 import { LevaPanel, monitor, useControls, useCreateStore } from 'leva';

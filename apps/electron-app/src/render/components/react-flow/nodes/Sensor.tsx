@@ -1,4 +1,4 @@
-import type { SensorData, SensorValueType } from '@microflow/components';
+import type { SensorData, SensorValueType } from '@microflow/hardware';
 import { cva, Icons, Progress, Switch, VariantProps } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';

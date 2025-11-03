@@ -28,7 +28,9 @@ import { createPortal } from 'react-dom';
 import { useDeleteEdges, useNodesChange } from '../../../stores/react-flow';
 import { NodeType } from '../../../../common/nodes';
 import { useDebounceValue } from 'usehooks-ts';
-import { useCodeUploader } from '../../../hooks/useCodeUploader';
+import { useFlowSync } from '../../../hooks/useFlowSync';
+import { usePins } from '../../../stores/board';
+import { pinDisplayValue } from '../../../../common/pin';
 
 function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
@@ -55,13 +57,14 @@ function NodeHeader(props: { error?: string }) {
 
 function NodeDescription() {
 	const data = useNodeData();
+	const pins = usePins();
 
 	return (
 		<CardDescription className='flex gap-4'>
 			{'pin' in data && (
 				<div className='flex items-center gap-1'>
 					<Icons.Cable size={12} />
-					<span className='font-extralight'>{String(data.pin)}</span>
+					<span className='font-extralight'>{pinDisplayValue(data.pin, pins)}</span>
 				</div>
 			)}
 			{'pins' in data &&
@@ -93,7 +96,7 @@ export const useNodeControls = <
 	const { getNode } = useReactFlow();
 	const onNodesChange = useNodesChange();
 	const updateNodeInternals = useUpdateNodeInternals();
-	const uploadCode = useCodeUploader();
+	const { flowChanged } = useFlowSync();
 
 	const [controlsData, set] = useControls(
 		() => ({ label: data.label, ...controls }),
@@ -124,10 +127,9 @@ export const useNodeControls = <
 
 			updateNodeInternals(node.id);
 			await new Promise(resolve => setTimeout(resolve, 500)); // Give react-flow time to apply the changes
-			console.debug('[UPLOAD] <updateNodeData> - node data updated');
-			uploadCode();
+			flowChanged();
 		},
-		[id, getNode, onNodesChange, updateNodeInternals, uploadCode]
+		[id, getNode, onNodesChange, updateNodeInternals, flowChanged]
 	);
 
 	/**
@@ -190,9 +192,9 @@ export const useNodeControls = <
 		// Prevent other effects from running
 		lastControlData.current = newData as typeof lastControlData.current;
 		set(newData as Parameters<typeof set>[0]);
-		console.debug('[UPLOAD] <useEffect>', lastControlData.current, { data, newData });
-		uploadCode();
-	}, [data, set, uploadCode]);
+		console.debug('[useNodeControls] <useEffect>', lastControlData.current, { data, newData });
+		flowChanged();
+	}, [data, set, flowChanged]);
 
 	return { render, set, setNodeData };
 };

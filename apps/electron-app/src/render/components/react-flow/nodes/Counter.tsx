@@ -1,4 +1,4 @@
-import type { CounterData, CounterValueType } from '@microflow/components';
+import type { CounterData, CounterValueType } from '@microflow/hardware';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls } from './Node';

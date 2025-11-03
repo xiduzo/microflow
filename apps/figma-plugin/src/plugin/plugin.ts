@@ -55,7 +55,7 @@ figma.ui.onmessage = <T>(message: Message<T>) => {
 			break;
 		}
 		default: {
-			console.info('Unknown message type', { message });
+			console.warn('Unknown message type', { message });
 		}
 	}
 };
