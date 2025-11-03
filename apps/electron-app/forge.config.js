@@ -1,6 +1,7 @@
 const { bundle } = require('./bundler');
 const path = require('path');
 require('dotenv').config();
+const fs = require('fs/promises');
 const packageJson = require('./package.json');
 
 const isCI = !!process.env.GITHUB_ACTIONS;
@@ -17,7 +18,7 @@ module.exports = {
 		appCopyright: `Copyright © ${new Date().getFullYear()} Xiduzo`,
 		appVersion: `${packageVersion}`,
 		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID || '0'}`,
-		name: 'Microflow studio',
+		// name: 'microflow-studio', // Should not have spaces or special characters (else MacOS can not build because of folder name)
 		executableName: 'Microflow studio',
 		icon: path.resolve(__dirname, 'assets', 'icon'),
 		prune: false, // required for monorepo
@@ -44,9 +45,7 @@ module.exports = {
 				: undefined,
 	},
 	hooks: {
-		packageAfterCopy: async (_forgeConfig, buildPath) => {
-			await bundle(__dirname, buildPath);
-		},
+		packageAfterCopy: (_forgeConfig, buildPath) => bundle(__dirname, buildPath),
 	},
 
 	rebuildConfig: {
