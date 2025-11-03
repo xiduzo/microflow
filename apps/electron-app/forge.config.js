@@ -10,7 +10,7 @@ const packageVersion = packageJson.version;
 // Extract major.minor version without patch
 const shortVersion = packageVersion.split('.').slice(0, 2).join('.');
 
-const executableName = 'Microflow-studio';
+const executableName = 'microflow-studio';
 
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
@@ -20,7 +20,7 @@ module.exports = {
 		appCopyright: `Copyright © ${new Date().getFullYear()} Xiduzo`,
 		appVersion: `${packageVersion}`,
 		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID || '0'}`,
-		// name: 'microflow-studio', // Should not have spaces or special characters (else MacOS can not build because of folder name)
+		name: executableName, // Should not have spaces or special characters (else MacOS can not build because of folder name)
 		executableName, // Should not have spaces or special characters (else MacOS can not build because of folder name)
 		icon: path.resolve(__dirname, 'assets', 'icon'),
 		prune: false, // required for monorepo
