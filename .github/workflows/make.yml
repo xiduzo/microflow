@@ -56,17 +56,15 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'
-      - name: Install Python setup tools (MacOS)
-        if: runner.os == 'macOS'
-        run: |
-          pip install setuptools
+
+      - name: Remove out directory
+        run: rm -rf ./apps/electron-app/out
 
       # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
       - name: Make application
         run: yarn make
         env:
-          APPLE_IDENTITY: ${{ vars.APPLE_IDENTITY }}
-          APPLE_ID: ${{ vars.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_ID: ${{secrets.APPLE_ID}}
+          APPLE_ID_PASSWORD: ${{secrets.APPLE_ID_PASSWORD}}
+          APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
