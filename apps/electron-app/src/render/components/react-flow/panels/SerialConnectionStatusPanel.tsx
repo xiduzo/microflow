@@ -19,7 +19,7 @@ export function SerialConnectionStatusPanel() {
 		);
 	}
 
-	if (newBoard.type === 'ready' || newBoard.type === 'info') {
+	if (newBoard.type === 'ready') {
 		return (
 			<Badge className={badge({ variant: 'success' })}>
 				Microcontroller connected
@@ -28,7 +28,7 @@ export function SerialConnectionStatusPanel() {
 		);
 	}
 
-	if (newBoard.type === 'connect') {
+	if (newBoard.type === 'connect' || newBoard.type === 'info') {
 		return (
 			<Badge className={badge({ variant: 'info' })}>
 				Connecting to your microcontroller

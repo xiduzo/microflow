@@ -5,7 +5,7 @@ const { Edge, Node } = require('@xyflow/react');
 const port = process?.argv?.at(-1);
 
 if (!port) {
-	console.info(
+	console.warn(
 		JSON.stringify({
 			type: 'info',
 			message:

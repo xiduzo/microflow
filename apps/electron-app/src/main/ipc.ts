@@ -222,7 +222,6 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 						reject(new Error(data.message ?? 'Unknown error'));
 						break;
 					case 'ready':
-						console.log(data);
 						log.debug(`[RUNNER] [${runnerProcess?.pid}] <ready>`, timer.duration);
 						sendMessageToRenderer<Board>('ipc-board', {
 							success: true,

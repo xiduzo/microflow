@@ -13,7 +13,6 @@ export class Button extends BaseComponent<ButtonValueType, ButtonData, JohnnyFiv
 	}
 
 	private createComponent(data: BaseComponentData & ButtonData) {
-		console.log(this.component);
 		this.component = new JohnnyFive.Button(data);
 		this.component.on('up', () => {
 			this.value = false;

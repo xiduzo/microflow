@@ -74,21 +74,21 @@ function Figma() {
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variables`, (topic, message) => {
-			console.log('[Figma] variables', topic, message.toString());
+			console.log('[Figma] <<<< variables', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
 		});
 	}, [subscribe, uniqueId, updateVariableTypes]);
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, (topic, message) => {
-			console.log('[Figma] variable', topic, message.toString(), topic.split('/')[5]);
+			console.log('[Figma] <<<< variable', topic, message.toString(), topic.split('/')[5]);
 			updateVariableValue(topic.split('/')[5], JSON.parse(message.toString()));
 		});
 	}, [subscribe, uniqueId, updateVariableValue]);
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/${appName}/variables/response`, (topic, message) => {
-			console.log('[Figma] variables/response', topic, message.toString());
+			console.log('[Figma] <<<< variables/response', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
 		});
 	}, [subscribe, uniqueId, appName, updateVariableTypes]);

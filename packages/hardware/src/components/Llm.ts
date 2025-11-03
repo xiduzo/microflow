@@ -2,6 +2,7 @@ import { BaseComponent, BaseComponentData } from './BaseComponent';
 import { ChatOllama, ChatOllamaInput } from '@langchain/ollama';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import logger from 'electron-log/node';
 
 export type LlmData = {
 	provider: 'ollama';
@@ -51,7 +52,7 @@ export class Llm extends BaseComponent<LlmValueType, LlmData> {
 			this.emit('output', result.content);
 			this.value = false;
 		} catch (e) {
-			console.log(e);
+			logger.warn(e);
 			this.value = false;
 		}
 	}

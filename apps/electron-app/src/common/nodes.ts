@@ -32,6 +32,14 @@ import { Relay } from '../render/components/react-flow/nodes/Relay';
 import { Switch } from '../render/components/react-flow/nodes/Switch';
 import { Proximity } from '../render/components/react-flow/nodes/Proximity';
 import { Llm } from '../render/components/react-flow/nodes/Llm';
+import { Node } from '@xyflow/react';
+
+export function isNodeTypeACodeType(node?: Node) {
+	if (!node?.type) return false;
+	const { group } = node.data;
+	if (group === 'internal') return false;
+	return !['note'].includes(node.type.toLowerCase());
+}
 
 export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Sensor: Sensor,

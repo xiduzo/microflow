@@ -26,7 +26,6 @@ export const useAppStore = create<AppState>(set => {
 		user: localUser,
 		setUser: user => {
 			set({ user });
-			console.log('[AppStore] setUser', user);
 			setLocalItem('user', user);
 		},
 	};

@@ -9,8 +9,8 @@ import { useReactFlow } from '@xyflow/react';
 import { useNodeAndEdgeCount } from '../stores/react-flow';
 import { useShallow } from 'zustand/shallow';
 import { useNewNodeStore } from '../stores/new-node';
-import { isNodeTypeACodeType } from '../../utils/generateCode';
 import { useClearNodeData } from '../stores/node-data';
+import { isNodeTypeACodeType } from '../../common/nodes';
 
 export function useCelebrateFirstUpload() {
 	const [isFirstUpload, setIsFirstUpload] = useLocalStorage('isFirstUpload', true);
@@ -51,7 +51,7 @@ export function useFlowSync() {
 		lastEdgesCount.current = edges.length;
 		lastNodesCount.current = nodes.length;
 
-		const nodesToSend = nodes.filter(node => isNodeTypeACodeType(node));
+		const nodesToSend = nodes.filter(isNodeTypeACodeType);
 
 		const nodeData = nodesToSend.map(node => {
 			const { group, tags, label, settingsOpen, subType, ...data } = node.data;
