@@ -30,7 +30,7 @@ module.exports = {
 		osxSign:
 			isCI || true
 				? {
-						identity: process.env.APPLE_IDENTITY,
+						// identity: process.env.APPLE_IDENTITY,
 					}
 				: undefined,
 		osxNotarize:
