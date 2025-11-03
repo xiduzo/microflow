@@ -20,8 +20,8 @@ module.exports = {
 		appCopyright: `Copyright © ${new Date().getFullYear()} Xiduzo`,
 		appVersion: `${packageVersion}`,
 		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID || '0'}`,
-		name: executableName, // Should not have spaces or special characters (else MacOS can not build because of folder name)
-		executableName, // Should not have spaces or special characters (else MacOS can not build because of folder name)
+		name: 'Microflow studio',
+		executableName: 'Microflow studio',
 		icon: path.resolve(__dirname, 'assets', 'icon'),
 		prune: false, // required for monorepo
 		protocols: [
@@ -59,13 +59,17 @@ module.exports = {
 		{ name: '@electron-forge/maker-squirrel' }, // Windows
 		{
 			name: '@electron-forge/maker-dmg',
-			config: { format: 'ULFO' },
+			config: {
+				format: 'ULFO',
+				name: 'microflow-studio',
+				executableName: 'microflow-studio',
+			},
 		},
 		{ name: '@electron-forge/maker-zip', platforms: ['darwin'] },
 		{
 			name: '@electron-forge/maker-deb',
 			config: {
-				bin: executableName,
+				bin: 'Microflow studio',
 				mimeType: ['x-scheme-handler/mfs', 'x-scheme-handler/microflow-studio'],
 				options: {
 					maintainer: 'Sander Boer <mail@sanderboer.nl>',
@@ -76,7 +80,7 @@ module.exports = {
 		{
 			name: '@electron-forge/maker-rpm',
 			config: {
-				bin: executableName,
+				bin: 'Microflow studio',
 				mimeType: ['x-scheme-handler/mfs', 'x-scheme-handler/microflow-studio'],
 			},
 		},
