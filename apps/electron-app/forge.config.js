@@ -10,6 +10,8 @@ const packageVersion = packageJson.version;
 // Extract major.minor version without patch
 const shortVersion = packageVersion.split('.').slice(0, 2).join('.');
 
+const executableName = 'Microflow-studio';
+
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
@@ -19,7 +21,7 @@ module.exports = {
 		appVersion: `${packageVersion}`,
 		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID || '0'}`,
 		// name: 'microflow-studio', // Should not have spaces or special characters (else MacOS can not build because of folder name)
-		// executableName: 'Microflow-studio', // Should not have spaces or special characters (else MacOS can not build because of folder name)
+		executableName, // Should not have spaces or special characters (else MacOS can not build because of folder name)
 		icon: path.resolve(__dirname, 'assets', 'icon'),
 		prune: false, // required for monorepo
 		protocols: [
@@ -63,7 +65,7 @@ module.exports = {
 		{
 			name: '@electron-forge/maker-deb',
 			config: {
-				bin: 'Microflow studio',
+				bin: executableName,
 				mimeType: ['x-scheme-handler/mfs', 'x-scheme-handler/microflow-studio'],
 				options: {
 					maintainer: 'Sander Boer <mail@sanderboer.nl>',
@@ -74,14 +76,12 @@ module.exports = {
 		{
 			name: '@electron-forge/maker-rpm',
 			config: {
-				bin: 'Microflow studio',
+				bin: executableName,
 				mimeType: ['x-scheme-handler/mfs', 'x-scheme-handler/microflow-studio'],
 			},
 		},
 	],
-
 	buildIdentifier: 'microflow-studio',
-
 	plugins: [
 		{
 			name: '@electron-forge/plugin-vite',
