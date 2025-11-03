@@ -57,9 +57,6 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Remove out directory
-        run: rm -rf ./apps/electron-app/out
-
       # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
       - name: Make application
         run: yarn make
