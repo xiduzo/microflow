@@ -19,7 +19,7 @@ module.exports = {
 		appVersion: `${packageVersion}`,
 		buildVersion: `${shortVersion}.${process.env.GITHUB_RUN_ID || '0'}`,
 		// name: 'microflow-studio', // Should not have spaces or special characters (else MacOS can not build because of folder name)
-		executableName: 'Microflow studio',
+		// executableName: 'Microflow-studio', // Should not have spaces or special characters (else MacOS can not build because of folder name)
 		icon: path.resolve(__dirname, 'assets', 'icon'),
 		prune: false, // required for monorepo
 		protocols: [
