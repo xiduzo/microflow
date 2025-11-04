@@ -54,6 +54,14 @@ const collectProdDeps = node =>
 		.map(depEdge => resolveLink(depEdge.to))
 		.flatMap(depNode => [depNode, ...collectProdDeps(depNode)]);
 
+/** @type {(current: number, total: number, width?: number) => string} */
+const createProgressBar = (current, total, width = 20) => {
+	const percentage = total > 0 ? current / total : 0;
+	const filled = Math.round(width * percentage);
+	const empty = width - filled;
+	return `[${'x'.repeat(filled)}${'-'.repeat(empty)}] ${current}/${total}`;
+};
+
 /** @type {(source: string, destination: string) => Promise<void>} */
 const bundle = async (source, destination) => {
 	const root = await findRoot(source);
@@ -66,6 +74,9 @@ const bundle = async (source, destination) => {
 
 	const prodDeps = collectProdDeps(sourceNode);
 
+	let index = 0;
+
+	console.log(`Copying ${prodDeps.length} dependencies to ${destination}`);
 	for (const dep of prodDeps) {
 		const dest = dep.location.startsWith('packages')
 			? path.join(destination, 'node_modules', '@microflow', dep.name)
@@ -88,6 +99,10 @@ const bundle = async (source, destination) => {
 			},
 		});
 
+		index++;
+		// Update progress bar on the same line
+		process.stdout.write(`\r${createProgressBar(index, prodDeps.length)}\x1b[K`);
+
 		// if (dest.includes('@serialport/bindings-cpp')) {
 		// 	// Check if folder exists
 		// 	const folder = path.join(dest, 'build', 'node_gyp_bins');
@@ -95,6 +110,9 @@ const bundle = async (source, destination) => {
 		// 	console.log('!!!! patching serialport', dest, exists);
 		// }
 	}
+
+	// Add newline at the end when complete
+	console.log('');
 };
 
 module.exports = { bundle };

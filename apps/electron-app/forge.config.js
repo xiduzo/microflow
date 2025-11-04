@@ -10,8 +10,6 @@ const packageVersion = packageJson.version;
 // Extract major.minor version without patch
 const shortVersion = packageVersion.split('.').slice(0, 2).join('.');
 
-const executableName = 'microflow-studio';
-
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
 	packagerConfig: {
@@ -33,7 +31,7 @@ module.exports = {
 		osxSign:
 			isCI || true
 				? {
-						// identity: process.env.APPLE_IDENTITY,
+						identity: process.env.APPLE_DEVELOPER_ID_APPLICATION,
 					}
 				: undefined,
 		osxNotarize:
@@ -85,7 +83,7 @@ module.exports = {
 			},
 		},
 	],
-	buildIdentifier: 'microflow-studio',
+	// buildIdentifier: 'microflow-studio',
 	plugins: [
 		{
 			name: '@electron-forge/plugin-vite',
