@@ -101,7 +101,9 @@ const bundle = async (source, destination) => {
 
 		index++;
 		// Update progress bar on the same line
-		process.stdout.write(`\r${createProgressBar(index, prodDeps.length)}\x1b[K`);
+		if (index % 100 === 0) {
+			process.stdout.write(`\r${createProgressBar(index, prodDeps.length)}\x1b[K`);
+		}
 
 		// if (dest.includes('@serialport/bindings-cpp')) {
 		// 	// Check if folder exists
