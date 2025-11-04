@@ -64,4 +64,5 @@ jobs:
           APPLE_ID: ${{secrets.APPLE_ID}}
           APPLE_ID_PASSWORD: ${{secrets.APPLE_ID_PASSWORD}}
           APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
+          APPLE_DEVELOPER_ID_APPLICATION: ${{secrets.APPLE_DEVELOPER_ID_APPLICATION}}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
