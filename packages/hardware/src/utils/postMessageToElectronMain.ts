@@ -1,7 +1,13 @@
 import log from 'electron-log/node';
 
-type Message<T> = {
-	nodeId: string;
+export type Message<T> = {
+	/** The id of the source component */
+	source: string;
+	/**
+	 * The id of the target component
+	 * */
+	target: string;
+	/** The action to perform */
 	action: string | symbol;
 	value: T;
 	error?: string;

@@ -16,24 +16,23 @@ export function useSignalNodesAndEdges() {
 
 			if (result.data.value instanceof Error) {
 				toast.error(result.data.value.message, {
-					description: `Error in node ${result.data.nodeId} with handle ${result.data.action}`,
+					description: `Error in node ${result.data.source} with handle ${result.data.action.toString()}`,
 					duration: Infinity,
 				});
 				return;
 			}
 
-			update(result.data.nodeId, result.data.value);
+			update(result.data.source, result.data.value);
 
-			// Find edges connected to the source node and handle
-			const connectedEdges = getEdges().filter(
-				({ source, sourceHandle }) =>
-					source === result.data.nodeId && sourceHandle === result.data.action
-			);
+			if (!result.data.target) return;
 
-			// Add signals to each connected edge
-			connectedEdges.forEach(edge => {
-				addSignal(edge.id);
+			const connectedEdges = getEdges().filter(({ source, target, sourceHandle }) => {
+				const isSource = source === result.data.source && sourceHandle === result.data.action;
+				const isTarget = target === result.data.target;
+				return isSource && isTarget;
 			});
+
+			connectedEdges.forEach(edge => addSignal(edge.id));
 		});
 	}, [getEdges, update, addSignal]);
 

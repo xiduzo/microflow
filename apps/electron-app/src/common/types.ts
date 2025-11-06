@@ -1,3 +1,4 @@
+import { type Message } from '@microflow/hardware/src/utils/postMessageToElectronMain';
 import type { Edge, Node } from '@xyflow/react';
 
 // https://github.com/firmata/protocol/blob/master/protocol.md#supported-modes
@@ -64,11 +65,6 @@ export type FlowState = {
 	edges: Edge[];
 };
 
-export type UploadedCodeMessage = {
-	type: 'message';
-	nodeId: string;
-	action: string;
-	value?: unknown;
-};
+export type UploadedCodeMessage<T = unknown> = Message<T> & { type: 'message' };
 
 export type IpcResponse<T> = { success: true; data: T } | { success: false; error: string };

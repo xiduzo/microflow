@@ -26,7 +26,8 @@ export class Gate extends BaseComponent<GateValueType, GateData> {
 		const amountOfTrue = inputs.filter(Boolean).length;
 		switch (this.data.gate) {
 			case 'not':
-				return !amountOfTrue;
+				if (amountOfTrue === inputs.length) return false;
+				return true;
 			case 'and':
 				return amountOfTrue === inputs.length;
 			case 'nand':

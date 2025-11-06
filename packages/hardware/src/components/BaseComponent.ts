@@ -39,7 +39,7 @@ export class BaseComponent<
 		this.id = data.id;
 
 		// Make sure we post the message when the value changes even though no one is listening to the event
-		super.on('change', () => this.postMessage('change'));
+		super.on('change', () => this.postMessage('change', this.id));
 	}
 
 	set data(data: BaseComponentData & Data) {
@@ -76,10 +76,11 @@ export class BaseComponent<
 		this.emit('change', value);
 	}
 
-	postMessage(action: string | symbol) {
+	postMessage(action: string | symbol, target: string) {
 		postMessageToElectronMain({
 			action,
-			nodeId: this.id,
+			source: this.id,
+			target,
 			value: this.value,
 		});
 	}
