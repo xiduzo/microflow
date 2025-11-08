@@ -7,7 +7,7 @@ import { useShallow } from 'zustand/shallow';
 import { getLocalItem, setLocalItem } from '../../common/local-storage';
 import { Node, Edge } from '@xyflow/react';
 import { useAppStore, User } from './app';
-import logger from 'electron-log/node';
+import logger from 'electron-log/renderer';
 
 export type CollaborationStatus =
 	| { type: 'disconnected' }
@@ -149,56 +149,71 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		}
 	};
 
+	/**
+	 * Efficiently syncs nodes to YJS by comparing and updating only what changed
+	 */
 	const syncNodesToYjs = (nodes: Node[]) => {
 		ydoc.transact(() => {
 			const existingNodes = yNodes.toArray();
-			// Remove nodes that are not in the new nodes array
-			// Use filter to get nodes to remove, then delete them in reverse order
-			const indicesToDelete = existingNodes
-				.map((node, index) => ({ node, index }))
-				.filter(({ node }) => !nodes.some(n => n.id === node.id))
-				.map(({ index }) => index)
-				.reverse(); // Reverse to delete from end first
-			indicesToDelete.forEach(index => yNodes.delete(index, 1));
+			const newMap = new Map(nodes.map(n => [n.id, n]));
 
-			// Add new nodes and update existing ones
+			// Delete nodes that no longer exist (in reverse order to maintain indices)
+			for (let i = existingNodes.length - 1; i >= 0; i--) {
+				const node = existingNodes[i];
+				if (!newMap.has(node.id)) {
+					yNodes.delete(i, 1);
+				}
+			}
+
+			// Update or insert nodes
+			const currentNodes = yNodes.toArray();
 			nodes.forEach(node => {
-				const existingIndex = existingNodes.findIndex(n => n.id === node.id);
-				switch (existingIndex) {
-					case -1: // New node
-						yNodes.push([node]);
-						break;
-					default: // Update existing node
+				const existingIndex = currentNodes.findIndex(n => n.id === node.id);
+				if (existingIndex === -1) {
+					// New node - add at the end
+					yNodes.push([node]);
+				} else {
+					// Update existing node - replace if different
+					const existing = currentNodes[existingIndex];
+					if (JSON.stringify(existing) !== JSON.stringify(node)) {
 						yNodes.delete(existingIndex, 1);
 						yNodes.insert(existingIndex, [node]);
-						break;
+					}
 				}
 			});
 		}, localOrigin);
 	};
 
+	/**
+	 * Efficiently syncs edges to YJS by comparing and updating only what changed
+	 */
 	const syncEdgesToYjs = (edges: Edge[]) => {
 		ydoc.transact(() => {
 			const existingEdges = yEdges.toArray();
-			// Remove edges that are not in the new edges array
-			// Use filter to get edges to remove, then delete them in reverse order
-			existingEdges
-				.map((edge, index) => ({ edge, index }))
-				.filter(({ edge }) => !edges.some(e => e.id === edge.id))
-				.reverse() // Reverse to delete from end first
-				.forEach(({ index }) => yEdges.delete(index, 1));
+			const newMap = new Map(edges.map(e => [e.id, e]));
 
-			// Add new edges and update existing ones
+			// Delete edges that no longer exist (in reverse order to maintain indices)
+			for (let i = existingEdges.length - 1; i >= 0; i--) {
+				const edge = existingEdges[i];
+				if (!newMap.has(edge.id)) {
+					yEdges.delete(i, 1);
+				}
+			}
+
+			// Update or insert edges
+			const currentEdges = yEdges.toArray();
 			edges.forEach(edge => {
-				const existingIndex = existingEdges.findIndex(e => e.id === edge.id);
-				switch (existingIndex) {
-					case -1: // New edge
-						yEdges.push([edge]);
-						break;
-					default: // Update existing edge
+				const existingIndex = currentEdges.findIndex(e => e.id === edge.id);
+				if (existingIndex === -1) {
+					// New edge - add at the end
+					yEdges.push([edge]);
+				} else {
+					// Update existing edge - replace if different
+					const existing = currentEdges[existingIndex];
+					if (JSON.stringify(existing) !== JSON.stringify(edge)) {
 						yEdges.delete(existingIndex, 1);
 						yEdges.insert(existingIndex, [edge]);
-						break;
+					}
 				}
 			});
 		}, localOrigin);
@@ -218,25 +233,23 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 		updateCallback = null;
 	};
 
-	// Handle YJS updates
-	const handleYjsUpdate = (
-		update: Uint8Array,
-		_origin: any,
-		_doc: YJS.Doc,
-		transaction: YJS.Transaction
-	) => {
-		// Ignore updates that originate from this local client to prevent feedback loops
-		if (localOrigin === transaction.origin) return;
+	// Listen for updates from remote peers or undo/redo operations
+	// Use afterTransaction to access the transaction object
+	ydoc.on('afterTransaction', (transaction: YJS.Transaction) => {
+		// Only handle transactions that modified nodes or edges
+		if (transaction.changedParentTypes.has(yNodes) || transaction.changedParentTypes.has(yEdges)) {
+			// Ignore local transactions to prevent feedback loops
+			if (transaction.origin === localOrigin) return;
 
-		YJS.applyUpdate(ydoc, update);
-
-		if (updateCallback) {
-			const { nodes, edges } = syncFromYjs();
-			updateCallback(nodes, edges);
+			// Notify listeners of the update
+			if (updateCallback) {
+				const { nodes, edges } = syncFromYjs();
+				updateCallback(nodes, edges);
+			}
 		}
-	};
+	});
 
-	ydoc.on('update', handleYjsUpdate);
+	// Save state on any update
 	ydoc.on('update', saveState);
 
 	// Load initial state
