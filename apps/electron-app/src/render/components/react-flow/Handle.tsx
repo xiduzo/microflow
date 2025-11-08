@@ -25,7 +25,7 @@ export function Handle(props: Props) {
 
 	const nodeId = useNodeId();
 	const selectedEdges = useMemo(() => {
-		return edges.filter(edge => edge.selected);
+		return edges.filter(({ selected }) => selected);
 	}, [edges]);
 	const isHandleSelectedViaEdge = useMemo(() => {
 		return !!selectedEdges.find(
@@ -59,34 +59,19 @@ export function Handle(props: Props) {
 			const zoom = getZoom();
 			if (zoom < 0.75) {
 				setShowHandle(false);
-				return; // Ignore if zoomed out too much
+				return;
 			}
 
-			const threshhold = zoom * 200;
 			if (!ref.current) return;
 
-			const mouseX = event.clientX;
-			const mouseY = event.clientY;
-
 			const boundingBox = ref.current.getBoundingClientRect();
-
-			// Calculate the distance to each edge of the bounding box
-			const distanceToLeft = mouseX < boundingBox.left ? boundingBox.left - mouseX : 0;
-			const distanceToRight = mouseX > boundingBox.right ? mouseX - boundingBox.right : 0;
-			const distanceToTop = mouseY < boundingBox.top ? boundingBox.top - mouseY : 0;
-			const distanceToBottom = mouseY > boundingBox.bottom ? mouseY - boundingBox.bottom : 0;
-
-			// Calculate the shortest distance to the bounding box
-			const horizontalDistance = Math.max(distanceToLeft, distanceToRight);
-			const verticalDistance = Math.max(distanceToTop, distanceToBottom);
-			const distance = Math.sqrt(horizontalDistance ** 2 + verticalDistance ** 2);
-
-			if (distance > threshhold) {
-				setShowHandle(false);
-				return; // Ignore if mouse is too far away
-			}
-
-			setShowHandle(true);
+			const { clientX, clientY } = event;
+			const { left, top, right, bottom } = boundingBox;
+			const closestX = Math.max(left, Math.min(clientX, right));
+			const closestY = Math.max(top, Math.min(clientY, bottom));
+			const distance = Math.sqrt((clientX - closestX) ** 2 + (clientY - closestY) ** 2);
+			const threshold = zoom * 200;
+			setShowHandle(distance <= threshold);
 		}
 
 		window.addEventListener('mousemove', handleMouseClose);

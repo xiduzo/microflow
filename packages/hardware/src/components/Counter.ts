@@ -1,10 +1,10 @@
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 import { transformValueToNumber } from '../utils/transformUnknownValues';
 
 export type CounterData = {};
 export type CounterValueType = number;
 
-export class Counter extends BaseComponent<CounterValueType, CounterData> {
+export class Counter extends Code<CounterValueType, CounterData> {
 	constructor(data: BaseComponentData & CounterData) {
 		super(data, 0);
 	}

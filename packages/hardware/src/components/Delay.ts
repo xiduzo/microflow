@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 
 export type DelayValueType = number;
 
@@ -7,7 +7,7 @@ export type DelayData = {
 	forgetPrevious: boolean;
 };
 
-export class Delay extends BaseComponent<DelayValueType, DelayData> {
+export class Delay extends Code<DelayValueType, DelayData> {
 	private lastTimeout: NodeJS.Timeout | null = null;
 
 	constructor(data: BaseComponentData & DelayData) {

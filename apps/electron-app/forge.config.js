@@ -1,6 +1,7 @@
 const { bundle } = require('./bundler');
 const path = require('path');
 require('dotenv').config();
+const fs = require('fs/promises');
 const packageJson = require('./package.json');
 
 const isCI = !!process.env.GITHUB_ACTIONS;
@@ -30,7 +31,7 @@ module.exports = {
 		osxSign:
 			isCI || true
 				? {
-						identity: process.env.APPLE_IDENTITY,
+						identity: process.env.APPLE_DEVELOPER_ID_APPLICATION,
 					}
 				: undefined,
 		osxNotarize:
@@ -38,26 +39,29 @@ module.exports = {
 				? {
 						tool: 'notarytool',
 						appleId: process.env.APPLE_ID,
-						appleIdPassword: process.env.APPLE_PASSWORD,
+						appleIdPassword: process.env.APPLE_ID_PASSWORD,
 						teamId: process.env.APPLE_TEAM_ID,
 					}
 				: undefined,
 	},
 	hooks: {
-		packageAfterCopy: async (_forgeConfig, buildPath) => {
-			await bundle(__dirname, buildPath);
-		},
+		packageAfterCopy: (_forgeConfig, buildPath) => bundle(__dirname, buildPath),
 	},
 
 	rebuildConfig: {
 		disablePreGypCopy: true,
 	},
 
+	// https://www.electronforge.io/config/makers
 	makers: [
 		{ name: '@electron-forge/maker-squirrel' }, // Windows
 		{
 			name: '@electron-forge/maker-dmg',
-			config: { format: 'ULFO' },
+			config: {
+				format: 'ULFO',
+				name: 'microflow-studio',
+				executableName: 'microflow-studio',
+			},
 		},
 		{ name: '@electron-forge/maker-zip', platforms: ['darwin'] },
 		{
@@ -79,9 +83,7 @@ module.exports = {
 			},
 		},
 	],
-
-	buildIdentifier: 'microflow-studio',
-
+	// buildIdentifier: 'microflow-studio',
 	plugins: [
 		{
 			name: '@electron-forge/plugin-vite',

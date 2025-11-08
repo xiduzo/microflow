@@ -21,32 +21,12 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
-      - name: Install the Apple certificate
+      - name: Import Code-Signing Certificates (MacOS)
         if: runner.os == 'macOS'
-        env:
-          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          # create variables
-          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-
-          # import certificate
-          echo -n "$MACOS_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
-
-          # create temporary keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          # import certificate to keychain
-          security import $CERTIFICATE_PATH -P "$MACOS_CERTIFICATE_PWD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-      - name: Run security find-identity -v
-        if: runner.os == 'macOS'
-        run: security find-identity -v
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.CERTIFICATE_OSX_P12 }}
+          p12-password: ${{ secrets.CERTIFICATE_OSX_P12_PASSWORD }}
 
       - uses: actions/checkout@v4
 
@@ -69,32 +49,20 @@ jobs:
       - name: Build packages
         run: yarn build
 
-      - uses: actions/setup-python@v5
-        with:
-          # https://stackoverflow.com/a/78870850/4655177
-          # Required for `distutils` module
-          python-version: '3.10'
-
-      - name: Install provisioning profile
+      # https://stackoverflow.com/a/78870850/4655177
+      - name: Install Python setup tools (MacOS)
         if: runner.os == 'macOS'
-        env:
-          MACOS_PROVISIONING_PROFILE: ${{ secrets.MACOS_PROVISIONING_PROFILE }}
-        run: |
-          # Decode and install provisioning profile
-          PROFILE_PATH=apps/electron-app/microflow.provisionprofile
-          echo -n "$MACOS_PROVISIONING_PROFILE" | base64 --decode > $PROFILE_PATH
-          echo "Provisioning profile installed at $PROFILE_PATH"
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
 
       # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
       - name: Make application
         run: yarn make
         env:
-          APPLE_IDENTITY: ${{ vars.APPLE_IDENTITY }}
-          APPLE_ID: ${{ vars.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-
-      - name: Clean up keychain and provisioning profile
-        if: runner.os == 'macOS'
-        run: |
-          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+          APPLE_ID: ${{secrets.APPLE_ID}}
+          APPLE_ID_PASSWORD: ${{secrets.APPLE_ID_PASSWORD}}
+          APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
+          APPLE_DEVELOPER_ID_APPLICATION: ${{secrets.APPLE_DEVELOPER_ID_APPLICATION}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

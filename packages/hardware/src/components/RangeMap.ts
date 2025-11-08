@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 
 export type Range = { min: number; max: number };
 export type RangeMapData = {
@@ -7,7 +7,7 @@ export type RangeMapData = {
 };
 export type RangeMapValueType = [number, number];
 
-export class RangeMap extends BaseComponent<RangeMapValueType, RangeMapData> {
+export class RangeMap extends Code<RangeMapValueType, RangeMapData> {
 	constructor(data: BaseComponentData & RangeMapData) {
 		super(data, [0, 0]);
 	}

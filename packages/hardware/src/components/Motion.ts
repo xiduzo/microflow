@@ -1,6 +1,6 @@
 import JohnnyFive, { MotionOption } from 'johnny-five';
 import { Controller } from '../constants/Motion';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Hardware, BaseComponentData } from './BaseComponent';
 
 export type MotionData = Omit<MotionOption, 'board'> & {
 	controller: Controller;
@@ -8,15 +8,12 @@ export type MotionData = Omit<MotionOption, 'board'> & {
 export type MotionValueType = boolean;
 export type { Controller } from '../constants/Motion';
 
-export class Motion extends BaseComponent<MotionValueType, MotionData, JohnnyFive.Motion> {
+export class Motion extends Hardware<MotionValueType, MotionData, JohnnyFive.Motion> {
 	constructor(data: BaseComponentData & MotionData) {
 		super(data, false);
-
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & MotionData));
 	}
 
-	private createComponent(data: BaseComponentData & MotionData) {
+	protected createComponent(data: BaseComponentData & MotionData) {
 		this.component = new JohnnyFive.Motion(data);
 
 		this.component.on('motionstart', () => {
@@ -36,5 +33,6 @@ export class Motion extends BaseComponent<MotionValueType, MotionData, JohnnyFiv
 			if (!isCalibrated) return;
 			this.value = detectedMotion;
 		});
+		return this.component;
 	}
 }

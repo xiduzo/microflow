@@ -1,5 +1,5 @@
 import { transformValueToNumber } from '../utils/transformUnknownValues';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 
 export type SmoothAverage = {
 	type: 'smooth';
@@ -15,7 +15,7 @@ export type SmoothData = SmoothAverage | MovingAverage;
 
 export type SmoothValueType = number;
 
-export class Smooth extends BaseComponent<SmoothValueType, SmoothData> {
+export class Smooth extends Code<SmoothValueType, SmoothData> {
 	private history: number[] = [];
 
 	constructor(data: BaseComponentData & SmoothData) {

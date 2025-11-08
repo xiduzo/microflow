@@ -1,5 +1,5 @@
 import { transformValueToBoolean } from '../utils/transformUnknownValues';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { BaseComponentData, Code } from './BaseComponent';
 import { COMPARE_SUB_VALIDATORS } from '../constants/Compare';
 
 type BooleanData = {
@@ -37,7 +37,7 @@ export type CompareData = BooleanData | TextData | NumberData | SingleNumberData
 
 export type CompateValueType = boolean;
 
-export class Compare extends BaseComponent<CompateValueType, CompareData> {
+export class Compare extends Code<CompateValueType, CompareData> {
 	constructor(data: BaseComponentData & CompareData) {
 		super(data, false);
 	}

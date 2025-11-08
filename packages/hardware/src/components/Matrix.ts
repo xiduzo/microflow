@@ -1,5 +1,5 @@
 import JohnnyFive from 'johnny-five';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { BaseComponentData, Hardware } from './BaseComponent';
 import { DEFAULT_MATRIX_START_SHAPE, type MatrixShape } from '../constants/Matrix';
 import { transformValueToNumber } from '../utils/transformUnknownValues';
 
@@ -13,7 +13,7 @@ export type MatrixData = Omit<
 };
 export type MatrixValueType = MatrixShape;
 
-export class Matrix extends BaseComponent<MatrixValueType, MatrixData, JohnnyFive.Led.Matrix> {
+export class Matrix extends Hardware<MatrixValueType, MatrixData, JohnnyFive.Led.Matrix> {
 	constructor(data: BaseComponentData & MatrixData) {
 		super(data, DEFAULT_MATRIX_START_SHAPE);
 
@@ -65,10 +65,11 @@ export class Matrix extends BaseComponent<MatrixValueType, MatrixData, JohnnyFiv
 		return Number(this.data.dims.split('x').map(Number)[1]);
 	}
 
-	private createComponent(data: BaseComponentData & MatrixData) {
+	protected createComponent(data: BaseComponentData & MatrixData) {
 		this.component = new JohnnyFive.Led.Matrix(data);
 
 		this.component.brightness(100);
 		this.component.off();
+		return this.component;
 	}
 }

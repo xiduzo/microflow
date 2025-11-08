@@ -18,7 +18,13 @@ export function Delay(props: Props) {
 function Value() {
 	const data = useNodeData<DelayData>();
 
-	return <IconWithValue icon='Snail' value={data.delay / 1000} suffix='s' />;
+	return (
+		<IconWithValue
+			icon='Snail'
+			value={`${data.forgetPrevious ? 'debounced ' : ''}${data.delay / 1000}`}
+			suffix='s'
+		/>
+	);
 }
 
 function Settings() {

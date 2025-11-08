@@ -1,18 +1,15 @@
 import JohnnyFive, { ButtonOption } from 'johnny-five';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { BaseComponentData, Hardware } from './BaseComponent';
 
 export type ButtonData = Omit<ButtonOption, 'board'>;
 export type ButtonValueType = boolean | number;
 
-export class Button extends BaseComponent<ButtonValueType, ButtonData, JohnnyFive.Button> {
+export class Button extends Hardware<ButtonValueType, ButtonData, JohnnyFive.Button> {
 	constructor(data: BaseComponentData & ButtonData) {
 		super(data, false);
-
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & ButtonData));
 	}
 
-	private createComponent(data: BaseComponentData & ButtonData) {
+	protected createComponent(data: BaseComponentData & ButtonData) {
 		this.component = new JohnnyFive.Button(data);
 		this.component.on('up', () => {
 			this.value = false;
@@ -25,5 +22,6 @@ export class Button extends BaseComponent<ButtonValueType, ButtonData, JohnnyFiv
 		this.component.on('hold', () => {
 			this.emit('hold', this.value);
 		});
+		return this.component;
 	}
 }

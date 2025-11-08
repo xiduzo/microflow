@@ -38,8 +38,14 @@ function Value() {
 
 	if (data.type === 'raw')
 		return (
-			<div className='text-xs text-gray-500 text-start grow p-4'>
-				{typeof value === 'string' ? value : <pre>{JSON.stringify(value, null, 2)}</pre>}
+			<div className='text-xs text-gray-500 text-start grow p-4 max-w-md'>
+				{typeof value === 'string' ? (
+					value.startsWith('{') ? (
+						<pre>{JSON.stringify(JSON.parse(value), null, 2)}</pre>
+					) : (
+						<div className='whitespace-pre-line'>{value}</div>
+					)
+				) : null}
 			</div>
 		);
 	return <LevaPanel store={store} fill={true} flat titleBar={false} />;

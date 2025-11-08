@@ -1,18 +1,15 @@
 import JohnnyFive, { SwitchOption } from 'johnny-five';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Hardware, BaseComponentData } from './BaseComponent';
 
 export type SwitchValueType = boolean;
 export type SwitchData = Omit<SwitchOption, 'board'>;
 
-export class Switch extends BaseComponent<SwitchValueType, SwitchData, JohnnyFive.Switch> {
+export class Switch extends Hardware<SwitchValueType, SwitchData, JohnnyFive.Switch> {
 	constructor(data: BaseComponentData & SwitchData) {
 		super(data, false);
-
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & SwitchData));
 	}
 
-	private createComponent(data: BaseComponentData & SwitchData) {
+	protected createComponent(data: BaseComponentData & SwitchData) {
 		this.component = new JohnnyFive.Switch(data);
 		this.component.on('open', () => {
 			this.value = true;
@@ -23,6 +20,7 @@ export class Switch extends BaseComponent<SwitchValueType, SwitchData, JohnnyFiv
 			this.value = false;
 			this.emit('close', this.value);
 		});
+		return this.component;
 	}
 }
 

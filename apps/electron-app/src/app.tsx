@@ -15,6 +15,7 @@ import { useAppStore } from './render/stores/app';
 import { MqttSettingsForm } from './render/components/forms/MqttSettingsForm';
 import { AdvancedSettingsForm } from './render/components/forms/AdvancedSettingsForm';
 import { UserSettingsForm } from './render/components/forms/UserSettingsForm';
+import logger from 'electron-log/renderer';
 
 export function App() {
 	return (
@@ -74,21 +75,21 @@ function Figma() {
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variables`, (topic, message) => {
-			console.log('[Figma] <<<< variables', topic, message.toString());
+			logger.log('[Figma] <<<< variables', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
 		});
 	}, [subscribe, uniqueId, updateVariableTypes]);
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, (topic, message) => {
-			console.log('[Figma] <<<< variable', topic, message.toString(), topic.split('/')[5]);
+			logger.log('[Figma] <<<< variable', topic, message.toString(), topic.split('/')[5]);
 			updateVariableValue(topic.split('/')[5], JSON.parse(message.toString()));
 		});
 	}, [subscribe, uniqueId, updateVariableValue]);
 
 	useEffect(() => {
 		return subscribe(`microflow/v1/${uniqueId}/${appName}/variables/response`, (topic, message) => {
-			console.log('[Figma] <<<< variables/response', topic, message.toString());
+			logger.log('[Figma] <<<< variables/response', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
 		});
 	}, [subscribe, uniqueId, appName, updateVariableTypes]);

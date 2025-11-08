@@ -1,5 +1,5 @@
 import { MIN_INTERVAL_IN_MS } from '../constants/Interval';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 
 export type IntervalData = {
 	interval: number;
@@ -7,13 +7,13 @@ export type IntervalData = {
 };
 export type IntervalValueType = number;
 
-export class Interval extends BaseComponent<IntervalValueType, IntervalData> {
+export class Interval extends Code<IntervalValueType, IntervalData> {
 	private timeout: NodeJS.Timeout | null = null;
 
 	constructor(data: BaseComponentData & IntervalData) {
 		super(data, 0);
 
-		this.start();
+		if (data.autoStart) this.start();
 	}
 
 	start() {

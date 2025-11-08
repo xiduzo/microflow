@@ -1,10 +1,8 @@
-import log from 'electron-log/node';
-
-type Message<T> = {
-	nodeId: string;
-	action: string | symbol;
+export type Message<T> = {
+	source: string;
+	sourceHandle: string;
+	edgeId?: string;
 	value: T;
-	error?: string;
 };
 
 // Poor mans electron parent port

@@ -2,6 +2,7 @@ import { toast } from '@microflow/ui';
 import { useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useCollaborationActions } from '../stores/yjs';
+import logger from 'electron-log/node';
 
 export function IpcDeepLinkListener() {
 	const { getNodes } = useReactFlow();
@@ -13,14 +14,14 @@ export function IpcDeepLinkListener() {
 			result => {
 				if (!result.success) return;
 
-				console.debug('[IpcDeepLinkListener] <ipc-deep-link>', result);
+				logger.debug('[DEEP-LINK] <ipc-deep-link>', result);
 
 				switch (result.data.type) {
 					case 'web':
 						toast.success('Microflow studio successfully linked!');
 						break;
 					case 'share':
-						console.debug('[DEEP-LINK] Joining session via deep link - clearing local content');
+						logger.debug('[DEEP-LINK] Joining session via deep link - clearing local content');
 						connect(String(result.data.tunnelUrl), { isJoining: true });
 						break;
 					case 'figma':
@@ -33,7 +34,7 @@ export function IpcDeepLinkListener() {
 						});
 						break;
 					default:
-						console.debug('no know deeplink action for', result.data.type);
+						logger.debug('[DEEP-LINK] no know deeplink action for', result.data.type);
 						break;
 				}
 			}

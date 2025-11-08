@@ -1,15 +1,12 @@
 import JohnnyFive, { LedOption } from 'johnny-five';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Hardware, BaseComponentData } from './BaseComponent';
 
 export type LedData = Omit<LedOption, 'board'>;
 export type LedValueType = number;
 
-export class Led extends BaseComponent<LedValueType, LedData, JohnnyFive.Led> {
+export class Led extends Hardware<LedValueType, LedData, JohnnyFive.Led> {
 	constructor(data: BaseComponentData & LedData) {
 		super(data, 0);
-
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & LedData));
 	}
 
 	turnOn() {
@@ -32,7 +29,8 @@ export class Led extends BaseComponent<LedValueType, LedData, JohnnyFive.Led> {
 		this.value = value;
 	}
 
-	private createComponent(data: BaseComponentData & LedData) {
+	protected createComponent(data: BaseComponentData & LedData): JohnnyFive.Led {
 		this.component = new JohnnyFive.Led(data);
+		return this.component;
 	}
 }

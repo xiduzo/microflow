@@ -1,16 +1,13 @@
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Hardware, BaseComponentData } from './BaseComponent';
 
 import JohnnyFive, { RelayOption } from 'johnny-five';
 
 export type RelayValueType = boolean;
 export type RelayData = Omit<RelayOption, 'board'>;
 
-export class Relay extends BaseComponent<RelayValueType, RelayData, JohnnyFive.Relay> {
+export class Relay extends Hardware<RelayValueType, RelayData, JohnnyFive.Relay> {
 	constructor(data: BaseComponentData & RelayData) {
 		super(data, false);
-
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & RelayData));
 	}
 
 	open() {
@@ -28,7 +25,8 @@ export class Relay extends BaseComponent<RelayValueType, RelayData, JohnnyFive.R
 		this.value = !this.value;
 	}
 
-	private createComponent(data: BaseComponentData & RelayData) {
+	protected createComponent(data: BaseComponentData & RelayData) {
 		this.component = new JohnnyFive.Relay(data);
+		return this.component;
 	}
 }

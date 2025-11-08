@@ -1,5 +1,5 @@
 import { transformValueToNumber } from '../utils/transformUnknownValues';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { BaseComponentData, Code } from './BaseComponent';
 
 export type CalculateValueType = number;
 
@@ -7,7 +7,7 @@ export type CalculateData = {
 	function: 'add' | 'subtract' | 'multiply' | 'divide' | 'modulo' | keyof typeof Math;
 };
 
-export class Calculate extends BaseComponent<CalculateValueType, CalculateData> {
+export class Calculate extends Code<CalculateValueType, CalculateData> {
 	constructor(data: BaseComponentData & CalculateData) {
 		super(data, 0);
 	}

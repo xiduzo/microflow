@@ -1,17 +1,14 @@
 import JohnnyFive, { ServoGeneralOption } from 'johnny-five';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Hardware, BaseComponentData } from './BaseComponent';
 
 export type ServoData = Omit<ServoGeneralOption, 'board' | 'range'> & {
 	range: { min: number; max: number };
 };
 export type ServoValueType = number;
 
-export class Servo extends BaseComponent<ServoValueType, ServoData, JohnnyFive.Servo> {
+export class Servo extends Hardware<ServoValueType, ServoData, JohnnyFive.Servo> {
 	constructor(data: BaseComponentData & ServoData) {
 		super(data, 0);
-
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & ServoData));
 	}
 
 	min() {
@@ -52,10 +49,11 @@ export class Servo extends BaseComponent<ServoValueType, ServoData, JohnnyFive.S
 		this.value = this.component?.value ?? 0;
 	}
 
-	private createComponent(data: BaseComponentData & ServoData) {
+	protected createComponent(data: BaseComponentData & ServoData) {
 		this.component = new JohnnyFive.Servo({
 			...data,
 			range: [data.range.min, data.range.max],
 		});
+		return this.component;
 	}
 }

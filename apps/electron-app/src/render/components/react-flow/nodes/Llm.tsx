@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LlmData, LlmValueType } from '@microflow/hardware';
 import { IconWithValue } from '../IconWithValue';
 import { folder } from 'leva';
+import { toast } from '@ui/index';
 
 export function Llm(props: Props) {
 	return (
@@ -43,7 +44,7 @@ function DynamicHandles() {
 
 	useEffect(() => {
 		const difference = handles.filter(handle => !previousHandles.current.includes(handle));
-		deleteHandles(difference);
+		if (previousHandles.current.length) deleteHandles(difference);
 		previousHandles.current = handles;
 		update(id);
 	}, [handles, id, update, deleteHandles]);
@@ -82,8 +83,8 @@ function Settings() {
 
 	const { render } = useNodeControls(
 		{
-			provider: { value: data.provider, options: ['ollama'], disabled: true },
-			models: { value: data.model, options: models },
+			provider: { value: data.provider, options: ['ollama'] },
+			model: { value: data.model, options: [...models] },
 			system: { value: data.system, rows: 5 },
 			prompt: { value: data.prompt, rows: 5 },
 			advanced: folder(
@@ -120,14 +121,23 @@ function Settings() {
 		async function getModels() {
 			switch (data.provider) {
 				case 'ollama':
-					const ollamaModelsResponse = await fetch(`${data.baseUrl}/api/tags`);
-					const ollamaModels = await ollamaModelsResponse.json();
-					setModels(ollamaModels.models.map((model: { model: string }) => model.model));
+					try {
+						const ollamaModelsResponse = await fetch(`${data.baseUrl}/api/tags`);
+						const ollamaModels = await ollamaModelsResponse.json();
+						setModels(ollamaModels.models.map((model: { model: string }) => model.model));
+					} catch (error) {
+						toast.warning('Ollama', {
+							description:
+								'Failed to get models, make sure the base URL is correct and the server is running',
+						});
+					}
 					break;
 				default:
 					return setModels([]);
 			}
 		}
+
+		if (!data.provider) return;
 
 		getModels();
 	}, [data.provider, data.baseUrl]);
