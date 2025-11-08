@@ -2,7 +2,7 @@ import { toast } from '@microflow/ui';
 import { useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useCollaborationActions } from '../stores/yjs';
-import logger from 'electron-log/node';
+import logger from 'electron-log/renderer';
 
 export function IpcDeepLinkListener() {
 	const { getNodes } = useReactFlow();

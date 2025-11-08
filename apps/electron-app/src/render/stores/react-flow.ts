@@ -26,54 +26,63 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
 };
 
-// Debounce timeout ref for syncing changes to YJS
-let syncToYjsDebounceTimeout: NodeJS.Timeout | null = null;
-
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	// Get YJS store for collaboration
 	const yjsStore = useYjsStore.getState();
 
+	// Debounce timeout for syncing changes to YJS (stored in closure)
+	let syncToYjsDebounceTimeout: NodeJS.Timeout | null = null;
+
+	/**
+	 * Preserves local selection state when syncing from YJS
+	 * Selection is local-only and shouldn't be overwritten by remote updates
+	 */
+	const preserveSelection = (nodes: Node[], edges: Edge[]) => {
+		const currentState = get();
+		const selectionMap = {
+			nodes: new Map(currentState.nodes.map(n => [n.id, n.selected])),
+			edges: new Map(currentState.edges.map(e => [e.id, e.selected])),
+		};
+
+		return {
+			nodes: nodes.map(node => ({
+				...node,
+				selected: selectionMap.nodes.get(node.id) ?? false,
+			})),
+			edges: edges.map(edge => ({
+				...edge,
+				selected: selectionMap.edges.get(edge.id) ?? false,
+			})),
+		};
+	};
+
 	// Set up YJS update listener to sync changes back to React Flow
 	yjsStore.onYjsUpdate((nodes, edges) => {
-		const currentState = get();
-
-		// Preserve local selection state
-		const nodesWithLocalSelection = nodes.map(node => ({
-			...node,
-			selected: currentState?.nodes?.find(({ id }) => id === node.id)?.selected ?? false,
-		}));
-
-		const edgesWithLocalSelection = edges.map(edge => ({
-			...edge,
-			selected: currentState?.edges?.find(({ id }) => id === edge.id)?.selected ?? false,
-		}));
-
-		set({ nodes: nodesWithLocalSelection, edges: edgesWithLocalSelection });
+		const { nodes: nodesWithSelection, edges: edgesWithSelection } = preserveSelection(
+			nodes,
+			edges
+		);
+		set({ nodes: nodesWithSelection, edges: edgesWithSelection });
 	});
 
 	// Load initial state from YJS
 	const { nodes: yjsNodes, edges: yjsEdges } = yjsStore.syncFromYjs();
 
-	// Deduplicate nodes by ID to prevent React key conflicts
-	const nodeMap = new Map();
-	yjsNodes.forEach(node => {
-		if (!nodeMap.has(node.id)) {
-			nodeMap.set(node.id, node);
-		} else {
-			console.warn('[REACT-FLOW] Duplicate node ID found during initialization:', node.id);
-		}
-	});
-	const edgeMap = new Map();
-	yjsEdges.forEach(edge => {
-		if (!edgeMap.has(edge.id)) {
-			edgeMap.set(edge.id, edge);
-		} else {
-			console.warn('[REACT-FLOW] Duplicate edge ID found during initialization:', edge.id);
-		}
-	});
+	// Deduplicate nodes/edges by ID to prevent React key conflicts
+	const deduplicate = <T extends { id: string }>(items: T[]): T[] => {
+		const map = new Map<string, T>();
+		items.forEach(item => {
+			if (map.has(item.id)) {
+				console.warn(`[REACT-FLOW] Duplicate ${item.constructor.name} ID found:`, item.id);
+			} else {
+				map.set(item.id, item);
+			}
+		});
+		return Array.from(map.values());
+	};
 
-	const finalNodes = Array.from(nodeMap.values());
-	const finalEdges = Array.from(edgeMap.values());
+	const finalNodes = deduplicate(yjsNodes);
+	const finalEdges = deduplicate(yjsEdges);
 
 	/**
 	 * Syncs local React state changes to Yjs document for collaboration
@@ -82,21 +91,22 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 * Debounced to prevent excessive YJS updates during rapid changes
 	 */
 	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
-		const finalEdges = edges.map(edge => ({
+		// Ensure edges have animated type
+		const animatedEdges = edges.map(edge => ({
 			...edge,
-			type: 'animated',
+			type: edge.type || 'animated',
 		}));
-		// Set state with all nodes
-		set({ nodes, edges: finalEdges });
 
+		// Update local state immediately for responsive UI
+		set({ nodes, edges: animatedEdges });
+
+		// Debounce YJS sync to batch rapid changes
 		clearTimeout(syncToYjsDebounceTimeout ?? undefined);
-
-		// Set new timeout to debounce the sync operation
 		syncToYjsDebounceTimeout = setTimeout(() => {
 			yjsStore.syncNodesToYjs(nodes);
-			yjsStore.syncEdgesToYjs(finalEdges);
+			yjsStore.syncEdgesToYjs(animatedEdges);
 			syncToYjsDebounceTimeout = null;
-		}, 300); // 300ms debounce delay
+		}, 300);
 	};
 
 	return {

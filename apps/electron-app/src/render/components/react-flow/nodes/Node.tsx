@@ -30,7 +30,7 @@ import { useDebounceValue } from 'usehooks-ts';
 import { useFlowSync } from '../../../hooks/useFlowSync';
 import { usePins } from '../../../stores/board';
 import { pinDisplayValue } from '../../../../common/pin';
-import logger from 'electron-log/node';
+import logger from 'electron-log/renderer';
 
 function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
