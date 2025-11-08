@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 /**
  * Function generator is a very versatile way of doing things in mcus
  * it can be used to control timing as well as values. For example a
@@ -20,7 +20,7 @@ export type OscillatorData = {
 };
 export type OscillatorValueType = number;
 
-export class Oscillator extends BaseComponent<OscillatorValueType, OscillatorData> {
+export class Oscillator extends Code<OscillatorValueType, OscillatorData> {
 	// auto-calculated values when "period" is reset
 	private freq1 = 0;
 	private freq2 = 0;

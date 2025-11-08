@@ -46,6 +46,7 @@ Interval.defaultProps = {
 		group: 'flow',
 		tags: ['event'],
 		label: 'Interval',
+		autoStart: true,
 		interval: 500,
 		description: 'Emit a signal at a regular interval',
 	} satisfies Props['data'],

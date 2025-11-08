@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 import { RGBA } from '../types';
 import { transformValueToNumber, transformValueToBoolean } from '../utils/transformUnknownValues';
 
@@ -10,7 +10,7 @@ export type FigmaData = {
 };
 export type FigmaValueType = string | number | boolean | RGBA;
 
-export class Figma extends BaseComponent<FigmaValueType, FigmaData> {
+export class Figma extends Code<FigmaValueType, FigmaData> {
 	private readonly defaultRGBA = { r: 0, g: 0, b: 0, a: 1 };
 
 	constructor(data: BaseComponentData & FigmaData) {

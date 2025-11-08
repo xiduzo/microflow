@@ -1,5 +1,4 @@
 import {
-	Button,
 	Card,
 	CardAction,
 	CardContent,
@@ -31,6 +30,7 @@ import { useDebounceValue } from 'usehooks-ts';
 import { useFlowSync } from '../../../hooks/useFlowSync';
 import { usePins } from '../../../stores/board';
 import { pinDisplayValue } from '../../../../common/pin';
+import logger from 'electron-log/node';
 
 function NodeHeader(props: { error?: string }) {
 	const data = useNodeData();
@@ -110,7 +110,7 @@ export const useNodeControls = <
 
 	const updateNodeData = useCallback(
 		async (data: Record<string, unknown>) => {
-			console.debug('[useNodeControls] <updateNodeData>', data);
+			logger.debug('[NODE-CONTROLS] <updateNodeData>', data);
 			const node = getNode(id);
 			if (!node) return;
 
@@ -192,7 +192,7 @@ export const useNodeControls = <
 		// Prevent other effects from running
 		lastControlData.current = newData as typeof lastControlData.current;
 		set(newData as Parameters<typeof set>[0]);
-		console.debug('[useNodeControls] <useEffect>', lastControlData.current, { data, newData });
+		logger.debug('[NODE-CONTROLS] <useEffect>', lastControlData.current, { data, newData });
 		flowChanged();
 	}, [data, set, flowChanged]);
 

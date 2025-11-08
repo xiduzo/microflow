@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/shallow';
 import { getLocalItem, setLocalItem } from '../../common/local-storage';
 import { Node, Edge } from '@xyflow/react';
 import { useAppStore, User } from './app';
+import logger from 'electron-log/node';
 
 export type CollaborationStatus =
 	| { type: 'disconnected' }
@@ -132,7 +133,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			const stateString = JSON.stringify(Array.from(state));
 			setLocalItem('yjs-state', stateString);
 		} catch (error) {
-			console.warn('[COLLABORATION] Failed to save state:', error);
+			logger.warn('[COLLABORATION] Failed to save state:', error);
 		}
 	};
 
@@ -144,7 +145,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 			const uint8Array = new Uint8Array(JSON.parse(savedState));
 			YJS.applyUpdate(ydoc, uint8Array);
 		} catch (error) {
-			console.warn('[COLLABORATION] Failed to load saved state:', error);
+			logger.warn('[COLLABORATION] Failed to load saved state:', error);
 		}
 	};
 
@@ -322,7 +323,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 				});
 
 				provider.on('peers', peers => {
-					console.debug('[COLLABORATION]', { peers });
+					logger.debug('[COLLABORATION]', { peers });
 					set({ peers: get().peers + peers.added.length - peers.removed.length });
 					updatePeerCursors();
 				});
@@ -332,7 +333,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 				updatePeerCursors(); // Initial update
 				updateLocalUserData(useAppStore.getState().user); // Set initial local user data
 			} catch (error) {
-				console.error('[COLLABORATION] Failed to connect:', error);
+				logger.error('[COLLABORATION] Failed to connect:', error);
 				set({
 					collaborationStatus: {
 						type: 'error',

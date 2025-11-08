@@ -1,16 +1,8 @@
-import log from 'electron-log/node';
-
 export type Message<T> = {
-	/** The id of the source component */
 	source: string;
-	/**
-	 * The id of the target component
-	 * */
-	target: string;
-	/** The action to perform */
-	action: string | symbol;
+	sourceHandle: string;
+	edgeId?: string;
 	value: T;
-	error?: string;
 };
 
 // Poor mans electron parent port

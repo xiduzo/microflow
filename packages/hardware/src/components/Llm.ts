@@ -1,4 +1,4 @@
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 import { ChatOllama, ChatOllamaInput } from '@langchain/ollama';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
@@ -12,22 +12,23 @@ export type LlmData = {
 
 export type LlmValueType = boolean;
 
-export class Llm extends BaseComponent<LlmValueType, LlmData> {
+export class Llm extends Code<LlmValueType, LlmData> {
 	private readonly model: BaseChatModel;
-	private promptVariables = new Map<string, string>();
 	private abortController = new AbortController();
 
 	constructor(data: BaseComponentData & LlmData) {
 		super(data, false);
 
-		this.model = new ChatOllama(data);
+		switch (data.provider) {
+			case 'ollama':
+				this.model = new ChatOllama(data);
+				break;
+			default:
+				throw new Error(`Unsupported provider: ${data.provider}`);
+		}
 	}
 
-	setVariable(key: string, value: unknown) {
-		this.promptVariables.set(key, String(value));
-	}
-
-	async invoke() {
+	async invoke(values: Record<string, unknown>) {
 		this.abortController.abort('Next invocation');
 		this.abortController = new AbortController();
 		if (!this.model) return;
@@ -39,9 +40,9 @@ export class Llm extends BaseComponent<LlmValueType, LlmData> {
 		}
 
 		let prompt = this.data.prompt;
-		this.promptVariables.forEach((value, key) => {
-			prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), value);
-		});
+		for (const [key, value] of Object.entries(values)) {
+			prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+		}
 
 		messages.push(new HumanMessage(prompt));
 

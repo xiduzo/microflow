@@ -1,5 +1,5 @@
 import JohnnyFive, { PiezoOption, PiezoTune } from 'johnny-five';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Hardware, BaseComponentData } from './BaseComponent';
 
 export type BuzzData = { type: 'buzz'; duration: number; frequency: number };
 export type Note = [string | null, number];
@@ -10,13 +10,11 @@ export type SongData = { type: 'song' } & PiezoTune & {
 export type PiezoData = PiezoOption & (BuzzData | SongData);
 export type PiezoValueType = boolean;
 
-export class Piezo extends BaseComponent<PiezoValueType, PiezoData, JohnnyFive.Piezo> {
+export class Piezo extends Hardware<PiezoValueType, PiezoData, JohnnyFive.Piezo> {
 	private timeout: NodeJS.Timeout | undefined;
 
 	constructor(data: BaseComponentData & PiezoData) {
 		super(data, false);
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & PiezoData));
 	}
 
 	buzz() {
@@ -63,7 +61,8 @@ export class Piezo extends BaseComponent<PiezoValueType, PiezoData, JohnnyFive.P
 		return this;
 	}
 
-	private createComponent(data: BaseComponentData & PiezoData) {
+	protected createComponent(data: BaseComponentData & PiezoData) {
 		this.component = new JohnnyFive.Piezo(data);
+		return this.component;
 	}
 }

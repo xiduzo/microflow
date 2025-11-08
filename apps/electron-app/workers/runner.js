@@ -105,7 +105,7 @@ try {
  */
 
 process.on('message', (/** @type {WorkerMessage} */ message) => {
-	// console.log('message', JSON.stringify(message, null, 2));
+	console.log('[RUNNER] message', JSON.stringify(message, null, 2));
 	switch (message.type) {
 		case 'setExternal':
 			const node = components.get(message.nodeId);
@@ -176,26 +176,43 @@ const handler = (sourceNode, targetNode, edge, edges) => value => {
 		switch (targetType) {
 			case 'gate':
 			case 'calculate':
-				targetNode.check(
-					edges
-						.filter(({ target }) => target === targetNode.id)
-						.map(({ source }) => components.get(source)?.value ?? false)
-				);
+				targetNode.check(getInputValues(targetNode, edges));
 				break;
 			case 'llm':
-				if (edge.targetHandle === 'invoke') {
-					targetNode.invoke();
-					break;
-				}
-				targetNode.setVariable(edge.targetHandle, value);
+				if (edge.targetHandle !== 'invoke') break;
+				targetNode.invoke(getInputValueAsKeyValuePairs(targetNode, edges));
 				break;
 			default:
 				targetNode[edge.targetHandle](value);
 				break;
 		}
-		if (edge.sourceHandle === 'change') return;
-		sourceNode.postMessage(edge.sourceHandle);
+		sourceNode.postMessage(edge.sourceHandle, edge.id);
 	} catch (error) {
 		console.error(error);
 	}
 };
+
+/**
+ *
+ * @param {ComponentInstance} targetNode
+ * @param {Edge[]} edges
+ * @returns {unknown[]}
+ */
+function getInputValues(targetNode, edges) {
+	return edges
+		.filter(({ target }) => target === targetNode.id)
+		.map(({ source }) => components.get(source)?.value);
+}
+
+function getInputValueAsKeyValuePairs(targetNode, edges) {
+	return edges
+		.filter(({ target }) => target === targetNode.id)
+		.reduce((acc, { targetHandle, source }) => {
+			if (acc[targetHandle]) {
+				acc[targetHandle] = [acc[targetHandle], components.get(source)?.value].join(', ');
+			} else {
+				acc[targetHandle] = components.get(source)?.value;
+			}
+			return acc;
+		}, {});
+}

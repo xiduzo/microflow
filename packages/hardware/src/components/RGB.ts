@@ -1,19 +1,16 @@
 import JohnnyFive from 'johnny-five';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Hardware, BaseComponentData } from './BaseComponent';
 import { RGBA } from '../types';
 
 export type RgbData = Omit<ConstructorParameters<typeof JohnnyFive.Led.RGB>[0], 'board'>;
 
 export type RgbValueType = RGBA;
 
-export class Rgb extends BaseComponent<RgbValueType, RgbData, JohnnyFive.Led.RGB> {
+export class Rgb extends Hardware<RgbValueType, RgbData, JohnnyFive.Led.RGB> {
 	private updateQueue: Promise<void> = Promise.resolve();
 
 	constructor(data: BaseComponentData & RgbData) {
 		super(data, { r: 0, g: 0, b: 0, a: 1 });
-
-		this.createComponent(data);
-		this.on('new-data', data => this.createComponent(data as BaseComponentData & RgbData));
 	}
 
 	red(value: number) {
@@ -63,7 +60,8 @@ export class Rgb extends BaseComponent<RgbValueType, RgbData, JohnnyFive.Led.RGB
 		return `#${redHex}${greenHex}${blueHex}`;
 	}
 
-	private createComponent(data: BaseComponentData & RgbData) {
+	protected createComponent(data: BaseComponentData & RgbData) {
 		this.component = new JohnnyFive.Led.RGB(data);
+		return this.component;
 	}
 }

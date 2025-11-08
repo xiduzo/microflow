@@ -7,28 +7,9 @@ export type BaseComponentData = {
 	type: string;
 };
 
-type JohnnyFiveComponent =
-	| JohnnyFive.Button
-	| JohnnyFive.Led
-	| JohnnyFive.Led.Matrix
-	| JohnnyFive.Led.RGB
-	| JohnnyFive.Motion
-	| JohnnyFive.Piezo
-	| JohnnyFive.Proximity
-	| JohnnyFive.Relay
-	| JohnnyFive.Sensor
-	| JohnnyFive.Servo
-	| JohnnyFive.Switch;
-
-export class BaseComponent<
-	Value,
-	Data,
-	Component extends JohnnyFiveComponent | null = null,
-> extends EventEmitter {
+class _BASE<Value, Data> extends EventEmitter {
 	private _value: Value;
 	private _data: BaseComponentData & Data;
-
-	protected component?: Component;
 
 	public readonly id: string;
 
@@ -39,7 +20,7 @@ export class BaseComponent<
 		this.id = data.id;
 
 		// Make sure we post the message when the value changes even though no one is listening to the event
-		super.on('change', () => this.postMessage('change', this.id));
+		super.on('change', () => this.postMessage('change'));
 	}
 
 	set data(data: BaseComponentData & Data) {
@@ -76,21 +57,58 @@ export class BaseComponent<
 		this.emit('change', value);
 	}
 
-	postMessage(action: string | symbol, target: string) {
+	postMessage(action: string | symbol, edgeId?: string) {
 		postMessageToElectronMain({
-			action,
 			source: this.id,
-			target,
+			sourceHandle: action.toString(),
 			value: this.value,
+			edgeId,
 		});
 	}
 
 	destroy() {
+		super.removeAllListeners();
+	}
+}
+
+export class Code<Value, Data> extends _BASE<Value, Data> {
+	constructor(data: BaseComponentData & Data, initialValue: Value) {
+		super(data, initialValue);
+	}
+}
+
+type JohnnyFiveComponent =
+	| JohnnyFive.Button
+	| JohnnyFive.Led
+	| JohnnyFive.Led.Matrix
+	| JohnnyFive.Led.RGB
+	| JohnnyFive.Motion
+	| JohnnyFive.Piezo
+	| JohnnyFive.Proximity
+	| JohnnyFive.Relay
+	| JohnnyFive.Sensor
+	| JohnnyFive.Servo
+	| JohnnyFive.Switch;
+
+export abstract class Hardware<Value, Data, Component extends JohnnyFiveComponent> extends _BASE<
+	Value,
+	Data
+> {
+	protected component: Component;
+
+	constructor(data: BaseComponentData & Data, initialValue: Value) {
+		super(data, initialValue);
+		this.component = this.createComponent(data);
+		this.on('new-data', data => this.createComponent(data));
+	}
+
+	protected abstract createComponent(data: BaseComponentData & Data): Component;
+
+	destroy() {
+		super.destroy();
 		if (this.component instanceof EventEmitter) {
 			this.component.removeAllListeners(); // Remove all Firmata listeners
 		}
-
-		super.removeAllListeners();
 	}
 }
 

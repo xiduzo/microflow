@@ -1,5 +1,5 @@
 import { transformValueToNumber } from '../utils/transformUnknownValues';
-import { BaseComponent, BaseComponentData } from './BaseComponent';
+import { Code, BaseComponentData } from './BaseComponent';
 
 export type TriggerData = {
 	relative?: boolean;
@@ -15,7 +15,7 @@ type ValueWithTimestamp = {
 	timestamp: number;
 };
 
-export class Trigger extends BaseComponent<TriggerValueType, TriggerData> {
+export class Trigger extends Code<TriggerValueType, TriggerData> {
 	private history: ValueWithTimestamp[] = [];
 
 	constructor(data: BaseComponentData & TriggerData) {

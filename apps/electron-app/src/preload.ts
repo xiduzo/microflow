@@ -2,6 +2,9 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import { IpcResponse } from './common/types';
+// import logger from 'electron-log/node';
+
+const logger = console;
 
 export type Channels =
 	| 'ipc-microcontroller'
@@ -19,7 +22,7 @@ const listeners = new Map<string, Listener>();
 export const electronHandler = {
 	ipcRenderer: {
 		send<Data>(channel: Channels, data?: Data) {
-			console.debug('[IPC] <send>', channel, data);
+			logger.debug('[IPC] <send>', channel, data);
 			console.time(`send ${channel}`);
 			ipcRenderer.send(channel, data);
 			console.timeEnd(`send ${channel}`);
