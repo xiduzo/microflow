@@ -255,7 +255,7 @@ Figma.defaultProps = {
 		initialValue: '',
 		debounceTime: 100,
 		description:
-			'Connect your flow to Figma design files and control design variables from your microcontroller',
+			'Connect your flow to Figma design files to control colors, numbers, and text from your device',
 	} satisfies Props['data'],
 };
 

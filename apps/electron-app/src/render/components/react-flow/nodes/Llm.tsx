@@ -168,6 +168,6 @@ Llm.defaultProps = {
 		typicalP: 0.9,
 		presencePenalty: 0.5,
 		repeatLastN: 64,
-		description: 'Use artificial intelligence to generate text responses based on your prompts',
+		description: 'Use AI to generate text responses based on what you ask it',
 	} satisfies Props['data'],
 };

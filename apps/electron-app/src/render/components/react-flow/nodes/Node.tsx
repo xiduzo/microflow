@@ -6,7 +6,6 @@ import {
 	CardHeader,
 	CardTitle,
 	cva,
-	Icon,
 	IconName,
 	Icons,
 	Tooltip,
@@ -45,7 +44,7 @@ function NodeHeader(props: { error?: string }) {
 					<TooltipProvider>
 						<Tooltip delayDuration={0}>
 							<TooltipTrigger className='cursor-help'>
-								<Icon icon='OctagonAlert' className='text-red-500' />
+								<Icons.OctagonAlert className='text-red-500' />
 							</TooltipTrigger>
 							<TooltipContent className='text-red-500'>{props.error}</TooltipContent>
 						</Tooltip>

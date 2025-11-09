@@ -136,7 +136,7 @@ Sensor.defaultProps = {
 		threshold: 1,
 		freq: 25,
 		description:
-			'Measure continuous values from analog sensors like temperature, pressure, or light intensity',
+			'Measure values that change smoothly, like temperature, pressure, or how bright something is',
 	} satisfies Props['data'],
 };
 
@@ -149,7 +149,7 @@ DigitalSensor.defaultProps = {
 		type: 'digital',
 		icon: 'PowerIcon',
 		baseType: 'Sensor',
-		description: 'Detect on/off states from digital sensors like switches or presence detectors',
+		description: 'Detect when something is on or off, like a switch or motion detector',
 	} satisfies Props['data'],
 };
 
@@ -216,6 +216,6 @@ HallEffect.defaultProps = {
 		baseType: 'Sensor',
 		icon: 'MagnetIcon',
 		description:
-			'Detect the presence and strength of magnetic fields from magnets or magnetic objects',
+			'Detect when a magnet or magnetic object is nearby and how strong it is',
 	} satisfies Props['data'],
 };

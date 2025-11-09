@@ -1,7 +1,6 @@
 import {
 	Sheet,
 	SheetContent,
-	SheetDescription,
 	SheetHeader,
 	SheetTitle,
 	useForm,
@@ -16,7 +15,6 @@ import {
 	FormMessage,
 	Input,
 	Icons,
-	Icon,
 	SheetFooter,
 	SheetClose,
 } from '@microflow/ui';
@@ -76,7 +74,7 @@ export function UserSettingsForm(props: Props) {
 			<SheetContent>
 				<SheetHeader>
 					<SheetTitle className='flex gap-2 items-center'>
-						<Icon icon='User' />
+						<Icons.User />
 						User settings
 					</SheetTitle>
 				</SheetHeader>

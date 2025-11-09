@@ -116,6 +116,6 @@ Mqtt.defaultProps = {
 		icon: 'RadioTowerIcon',
 		topic: '',
 		description:
-			'Send or receive messages over the internet to connect with other devices and services',
+			'Send or receive messages over the internet to connect with other devices, apps, or online services',
 	} satisfies Props['data'],
 };

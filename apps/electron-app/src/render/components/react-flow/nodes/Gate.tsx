@@ -51,7 +51,7 @@ Gate.defaultProps = {
 		icon: 'CircuitBoardIcon',
 		gate: 'and',
 		description:
-			'Combine multiple signals using logic rules like AND, OR, or XOR to make decisions',
+			'Combine multiple signals together using simple rules to make decisions',
 	} satisfies Props['data'],
 };
 
