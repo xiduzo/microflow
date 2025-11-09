@@ -56,12 +56,14 @@ Rgb.defaultProps = {
 		group: 'hardware',
 		tags: ['output', 'analog'],
 		label: 'RGB',
+		icon: 'PaletteIcon',
 		pins: {
 			red: 9,
 			green: 10,
 			blue: 11,
 		},
 		isAnode: false,
-		description: 'Control an RGB LED',
+		description:
+			'Control a colored light that can display any color by mixing red, green, and blue',
 	} satisfies Props['data'],
 };

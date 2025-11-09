@@ -132,9 +132,11 @@ Sensor.defaultProps = {
 		tags: ['input', 'analog'],
 		pin: 'A0',
 		label: 'Analog Sensor',
+		icon: 'GaugeIcon',
 		threshold: 1,
 		freq: 25,
-		description: 'Read analog sensor values',
+		description:
+			'Measure values that change smoothly, like temperature, pressure, or how bright something is',
 	} satisfies Props['data'],
 };
 
@@ -145,8 +147,9 @@ DigitalSensor.defaultProps = {
 		label: 'Digital Sensor',
 		tags: ['input', 'digital'],
 		type: 'digital',
+		icon: 'PowerIcon',
 		baseType: 'Sensor',
-		description: 'Read digital sensor values',
+		description: 'Detect when something is on or off, like a switch or motion detector',
 	} satisfies Props['data'],
 };
 
@@ -155,10 +158,12 @@ Tilt.defaultProps = {
 	data: {
 		...Sensor.defaultProps.data,
 		label: 'Tilt',
+		tags: ['input', 'analog', 'digital'],
 		subType: 'tilt',
+		icon: 'MoveUpIcon',
 		baseType: 'Sensor',
 		threshold: 10,
-		description: 'Detect if something is up or down',
+		description: 'Detect when an object is tilted or rotated from its normal position',
 	} satisfies Props['data'],
 };
 
@@ -167,9 +172,11 @@ Ldr.defaultProps = {
 	data: {
 		...Sensor.defaultProps.data,
 		label: 'Light Dependent Resistor (LDR)',
+		tags: ['input', 'analog'],
 		subType: 'ldr',
+		icon: 'SunIcon',
 		baseType: 'Sensor',
-		description: 'Measure the luminosity of a place',
+		description: 'Measure how bright or dark the surrounding environment is',
 	} satisfies Props['data'],
 };
 
@@ -178,9 +185,11 @@ Potentiometer.defaultProps = {
 	data: {
 		...Sensor.defaultProps.data,
 		label: 'Potentiometer',
+		tags: ['input', 'analog'],
 		subType: 'potentiometer',
 		baseType: 'Sensor',
-		description: 'A rotary or linear controller',
+		icon: 'CircleArrowOutUpLeftIcon',
+		description: 'Read values from a knob or slider that you can turn or move to control something',
 	} satisfies Props['data'],
 };
 
@@ -189,9 +198,11 @@ Force.defaultProps = {
 	data: {
 		...Sensor.defaultProps.data,
 		label: 'Force',
+		tags: ['input', 'analog'],
 		subType: 'force',
 		baseType: 'Sensor',
-		description: 'Detect force applied to a surface',
+		icon: 'BicepsFlexedIcon',
+		description: 'Measure how much pressure or force is being applied to a surface',
 	} satisfies Props['data'],
 };
 
@@ -200,8 +211,10 @@ HallEffect.defaultProps = {
 	data: {
 		...Sensor.defaultProps.data,
 		label: 'Hall Effect',
+		tags: ['input', 'analog'],
 		subType: 'hall-effect',
 		baseType: 'Sensor',
-		description: 'Detect magnetic fields',
+		icon: 'MagnetIcon',
+		description: 'Detect when a magnet or magnetic object is nearby and how strong it is',
 	} satisfies Props['data'],
 };

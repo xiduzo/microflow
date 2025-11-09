@@ -68,14 +68,15 @@ type Props = BaseNode<OscillatorData>;
 Oscillator.defaultProps = {
 	data: {
 		group: 'flow',
-		tags: ['input', 'generator'],
+		tags: ['generator', 'event'],
 		label: 'Oscillator',
+		icon: 'AudioWaveformIcon',
 		waveform: 'sinus',
 		period: 1000,
 		amplitude: 1,
 		phase: 0,
 		shift: 0,
 		autoStart: true,
-		description: 'Generate a periodic signal with various waveforms',
+		description: 'Create repeating patterns of numbers that go up and down, like waves',
 	} satisfies Props['data'],
 };

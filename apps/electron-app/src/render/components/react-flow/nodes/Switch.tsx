@@ -3,7 +3,7 @@ import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
 import { useNodeValue } from '../../../stores/node-data';
-import { Switch as UiSwitch } from '@microflow/ui';
+import { Icons, Switch as UiSwitch } from '@microflow/ui';
 import { usePins } from '../../../stores/board';
 import { MODES } from '../../../../common/types';
 import { reducePinsToOptions } from '../../../../common/pin';
@@ -23,7 +23,8 @@ export function Switch(props: Props) {
 function Value() {
 	const value = useNodeValue<SwitchValueType>(false);
 
-	return <UiSwitch checked={value} className='scale-150' />;
+	if (!value) return <Icons.ToggleLeftIcon size={48} className='text-muted-foreground' />;
+	return <Icons.ToggleRightIcon size={48} className='text-green-500' />;
 }
 
 function Settings() {
@@ -51,9 +52,10 @@ Switch.defaultProps = {
 	data: {
 		pin: 2,
 		group: 'hardware',
+		icon: 'ToggleLeftIcon',
 		label: 'Switch',
 		tags: ['input', 'digital'],
 		type: 'NC',
-		description: 'Control a switch to toggle between on and off states',
+		description: 'Detect when a physical switch is turned on or off',
 	} satisfies Props['data'],
 };

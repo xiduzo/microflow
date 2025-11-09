@@ -59,7 +59,8 @@ Smooth.defaultProps = {
 		tags: ['transformation'],
 		label: 'Smooth',
 		type: 'smooth',
+		icon: 'EraserIcon',
 		attenuation: 0.995,
-		description: 'Smooth incoming signals to reduce noise',
+		description: 'Make jumpy or noisy sensor readings smoother and more stable',
 	} satisfies Props['data'],
 };

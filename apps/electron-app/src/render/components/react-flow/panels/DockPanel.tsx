@@ -7,6 +7,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 	Icon,
+	Icons,
 	Separator,
 	toast,
 } from '@microflow/ui';
@@ -38,34 +39,34 @@ export function DockPanel() {
 			<Separator orientation='vertical' className='h-full' />
 			<DockIcon>
 				<Button variant='ghost' size='icon' disabled={!canUndo()} onClick={undo}>
-					<Icon icon='Undo' />
+					<Icons.Undo />
 				</Button>
 			</DockIcon>
 			<DockIcon>
 				<Button variant='ghost' size='icon' disabled={!canRedo()} onClick={redo}>
-					<Icon icon='Redo' />
+					<Icons.Redo />
 				</Button>
 			</DockIcon>
 			<Separator orientation='vertical' className='h-full' />
 			<DockIcon>
 				<Button variant='ghost' size='icon' onClick={() => setOpen(true)}>
-					<Icon icon='Plus' />
+					<Icons.Plus />
 				</Button>
 			</DockIcon>
 			<Separator orientation='vertical' className='h-full' />
 			<DockIcon>
 				<Button variant='ghost' size='icon' onClick={() => zoomIn({ duration: 150 })}>
-					<Icon icon='ZoomIn' />
+					<Icons.ZoomIn />
 				</Button>
 			</DockIcon>
 			<DockIcon>
 				<Button variant='ghost' size='icon' onClick={() => zoomOut({ duration: 150 })}>
-					<Icon icon='ZoomOut' />
+					<Icons.ZoomOut />
 				</Button>
 			</DockIcon>
 			<DockIcon>
 				<Button variant='ghost' size='icon' onClick={() => fitView({ duration: 300 })}>
-					<Icon icon='Fullscreen' />
+					<Icons.Fullscreen />
 				</Button>
 			</DockIcon>
 		</Dock>
@@ -80,20 +81,20 @@ function Settings() {
 		<DropdownMenu onOpenChange={setDropDownOpen}>
 			<DropdownMenuTrigger asChild>
 				<Button variant={dropDownOpen ? 'default' : 'ghost'} size='icon'>
-					<Icon icon='Settings' />
+					<Icons.Settings />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent>
 				<DropdownMenuItem onClick={() => setSettingsOpen('board-settings')}>
-					<Icon icon='Microchip' />
+					<Icons.Microchip />
 					Microcontroller settings
 				</DropdownMenuItem>
 				<DropdownMenuItem onClick={() => setSettingsOpen('mqtt-settings')}>
-					<Icon icon='RadioTower' />
+					<Icons.RadioTower />
 					MQTT settings
 				</DropdownMenuItem>
 				<DropdownMenuItem onClick={() => setSettingsOpen('user-settings')}>
-					<Icon icon='User' />
+					<Icons.User />
 					User settings
 				</DropdownMenuItem>
 			</DropdownMenuContent>
@@ -127,18 +128,18 @@ function Collaboration() {
 			<DropdownMenu onOpenChange={setDropDownOpen}>
 				<DropdownMenuTrigger asChild>
 					<Button variant={dropDownOpen ? 'default' : 'ghost'} size='icon'>
-						<Icon icon='Share2' />
+						<Icons.Share2 />
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent>
 					{status.type !== 'connected' && (
 						<>
 							<DropdownMenuItem onClick={hostAction}>
-								<Icon icon='RadioTower' />
+								<Icons.RadioTower />
 								Start collaboration session
 							</DropdownMenuItem>
 							<DropdownMenuItem onClick={() => setJoinDialogOpen(true)}>
-								<Icon icon='RadioReceiver' />
+								<Icons.RadioReceiver />
 								Join collaboration session
 							</DropdownMenuItem>
 						</>
@@ -146,11 +147,11 @@ function Collaboration() {
 					{status.type === 'connected' && (
 						<>
 							<DropdownMenuItem onClick={disconnect}>
-								<Icon icon='Unplug' />
+								<Icons.Unplug />
 								Leave collaboration session
 							</DropdownMenuItem>
 							<DropdownMenuItem onClick={copySessionCode}>
-								<Icon icon='Binary' />
+								<Icons.Binary />
 								Copy session code
 							</DropdownMenuItem>
 						</>

@@ -113,7 +113,9 @@ Mqtt.defaultProps = {
 		tags: ['input', 'output'],
 		label: 'MQTT',
 		direction: 'publish',
+		icon: 'RadioTowerIcon',
 		topic: '',
-		description: 'Publish or subscribe to MQTT topics',
+		description:
+			'Send or receive messages over the internet to connect with other devices, apps, or online services',
 	} satisfies Props['data'],
 };

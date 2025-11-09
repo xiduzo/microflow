@@ -123,9 +123,10 @@ Piezo.defaultProps = {
 		tags: ['output', 'analog', 'digital'],
 		label: 'Piezo',
 		duration: 500,
+		icon: 'BellIcon',
 		frequency: DEFAULT_FREQUENCY!,
 		pin: 11,
 		type: 'buzz',
-		description: 'Play a tone or song',
+		description: 'Make sounds, play tones, or create melodies using a buzzer or speaker',
 	} satisfies Props['data'],
 };

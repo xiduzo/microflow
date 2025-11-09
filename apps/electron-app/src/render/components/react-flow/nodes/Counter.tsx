@@ -36,8 +36,9 @@ type Props = BaseNode<CounterData>;
 Counter.defaultProps = {
 	data: {
 		group: 'flow',
-		tags: ['event', 'information'],
+		tags: ['control', 'information'],
 		label: 'Counter',
-		description: 'Track and manipulate a numerical value',
+		icon: 'Tally5Icon',
+		description: 'Keep track of a number that can be increased, decreased, set, or reset',
 	} satisfies Props['data'],
 };

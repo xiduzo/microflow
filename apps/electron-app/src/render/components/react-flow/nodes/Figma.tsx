@@ -247,13 +247,15 @@ type Props = BaseNode<FigmaData>;
 Figma.defaultProps = {
 	data: {
 		group: 'external',
-		tags: ['input', 'output'],
+		tags: ['output', 'input'],
 		label: 'Figma',
 		variableId: '',
+		icon: 'FigmaIcon',
 		resolvedType: 'STRING',
 		initialValue: '',
 		debounceTime: 100,
-		description: 'Connect and manipulate Figma variables',
+		description:
+			'Connect your flow to Figma design files to control colors, numbers, and text from your device',
 	} satisfies Props['data'],
 };
 

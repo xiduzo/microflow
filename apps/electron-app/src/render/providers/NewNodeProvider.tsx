@@ -1,4 +1,8 @@
 import {
+	Avatar,
+	AvatarFallback,
+	Badge,
+	Button,
 	CommandDialog,
 	CommandEmpty,
 	CommandGroup,
@@ -10,10 +14,17 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+	Icon,
 	Icons,
 } from '@microflow/ui';
 import { Node, useReactFlow } from '@xyflow/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { NODE_TYPES } from '../../common/nodes';
 import { useNodesChange } from '../stores/react-flow';
 import { useNewNodeStore } from '../stores/new-node';
@@ -34,6 +45,7 @@ export function NewNodeCommandDialog() {
 	const changeNodes = useNodesChange();
 	const windowSize = useWindowSize();
 	const [filter, setFilter] = useState('');
+	const commandListRef = useRef<HTMLDivElement>(null);
 
 	const position = useMemo(() => {
 		return flowToScreenPosition({
@@ -63,9 +75,10 @@ export function NewNodeCommandDialog() {
 					'defaultProps' in Component ? (Component.defaultProps as any) : { data: {} };
 
 				if (node.data.group === 'internal') return groups; // Skip internal nodes
-				const group = groups.get(node.data.group) ?? [];
+				const firstTag = node.data.tags.at(0) || 'information'; // Use first tag for grouping
+				const group = groups.get(firstTag) ?? [];
 				group.push({ node, type });
-				groups.set(node.data.group, group);
+				groups.set(firstTag, group);
 				return groups;
 			}, new Map<string, { node: BaseNode; type: string }[]>())
 		);
@@ -85,6 +98,13 @@ export function NewNodeCommandDialog() {
 		return terms[Math.floor(Math.random() * terms.length)];
 	}, [filter]);
 
+	useEffect(() => {
+		commandListRef.current?.scrollTo({
+			top: 0,
+			behavior: 'smooth',
+		});
+	}, [filter]);
+
 	return (
 		<CommandDialog
 			open={open}
@@ -93,7 +113,7 @@ export function NewNodeCommandDialog() {
 				if (!state) setFilter('');
 			}}
 			filter={(value, search, keywords) => {
-				const [label, description] = value.split('|');
+				const [label, description, firstTag] = value.split('|');
 
 				// If no search term, return 0 (not relevant)
 				if (!search || search.trim() === '') return 0;
@@ -103,11 +123,14 @@ export function NewNodeCommandDialog() {
 				// Priority 1: Label match (highest priority)
 				if (label.toLowerCase().includes(searchLower)) return 1;
 
-				// Priority 2: Description match
+				// Priority 2: First tag match
+				if (firstTag && firstTag.toLowerCase().includes(searchLower)) return 0.9;
+
+				// Priority 3: Description match
 				if (description.toLowerCase().includes(searchLower)) return 0.8;
 
-				// Priority 3: Keywords match
-				if (keywords && keywords.some(keyword => keyword.toLowerCase().includes(searchLower))) {
+				// Priority 4: Keywords match
+				if (keywords?.some(keyword => keyword.toLowerCase().includes(searchLower))) {
 					return 0.6;
 				}
 
@@ -120,29 +143,66 @@ export function NewNodeCommandDialog() {
 				<DialogDescription>Magnetic sensor...</DialogDescription>
 			</DialogHeader>
 			<CommandInput placeholder={searchTerm} onValueChange={setFilter} />
-			<CommandList className='mb-2'>
-				<CommandEmpty>No nodes found...</CommandEmpty>
+			<CommandList ref={commandListRef} className='mb-2'>
+				<CommandEmpty>
+					<Empty>
+						<EmptyHeader>
+							<EmptyMedia variant='icon'>
+								<Icons.Search size={24} />
+							</EmptyMedia>
+							<EmptyTitle>Nothing found</EmptyTitle>
+							<EmptyDescription>
+								Try searching for a different node type or visit the documentation.
+							</EmptyDescription>
+						</EmptyHeader>
+						<EmptyContent>
+							<a href='https://microflow.vercel.app/docs/microflow-studio/nodes' target='_blank'>
+								<Button variant='link'>
+									<Icons.Book size={24} />
+									Visit the documentation
+								</Button>
+							</a>
+						</EmptyContent>
+					</Empty>
+				</CommandEmpty>
 				{groups.map(([group, nodes], index) => (
 					<section key={group}>
 						<CommandGroup heading={group}>
-							{nodes.map(({ node, type }) => (
-								<CommandItem
-									value={`${node.data.label}|${node.data.description}`}
-									keywords={node.data.tags}
-									key={node.data.label}
-									onSelect={selectNode(node, type)}
-								>
-									<div className='flex flex-col'>
-										<span>{node.data.label}</span>
-										<span className='text-muted-foreground'>{node.data.description ?? ''}</span>
-									</div>
-									<CommandShortcut className='divide-x-2 divide-muted-foreground'>
-										<div className='text-muted-foreground ml-2 font-extralight text-xs'>
-											{node.data.tags.sort((a, b) => a.localeCompare(b)).join(', ')}
+							{nodes.map(({ node, type }) => {
+								return (
+									<CommandItem
+										value={`${node.data.label}|${node.data.description}`}
+										keywords={node.data.tags}
+										key={node.data.label}
+										onSelect={selectNode(node, type)}
+										className='data-[selected=true]:bg-muted-foreground/10 gap-3 items-start group'
+									>
+										<Avatar className='rounded-xl'>
+											<AvatarFallback className='rounded-xl'>
+												<Icon
+													icon={node.data.icon}
+													className='group-data-[selected=true]:scale-110 transition-all duration-100'
+													size={16}
+												/>
+											</AvatarFallback>
+										</Avatar>
+										<div className='flex flex-col grow gap-3'>
+											<div className='flex flex-col gap-1'>
+												<div className='font-bold'>{node.data.label}</div>
+												<span className='text-muted-foreground'>{node.data.description ?? ''}</span>
+											</div>
+											<section className='flex items-center gap-2'>
+												{node.data.tags.map(tag => (
+													<Badge variant='outline' key={tag}>
+														{tag}
+													</Badge>
+												))}
+											</section>
 										</div>
-									</CommandShortcut>
-								</CommandItem>
-							))}
+										<CommandShortcut>{node.data.group}</CommandShortcut>
+									</CommandItem>
+								);
+							})}
 						</CommandGroup>
 						{index !== groups.length - 1 && <CommandSeparator />}
 					</section>
@@ -152,9 +212,10 @@ export function NewNodeCommandDialog() {
 				<a
 					href='https://microflow.vercel.app/docs/microflow-studio/nodes'
 					target='_blank'
-					className='text-xs text-muted-foreground hover:underline'
+					className='text-xs flex gap-2 items-center text-muted-foreground hover:underline'
 				>
-					Open the documentation
+					<Icons.Book size={12} />
+					Documentation
 				</a>
 				<section className='flex items-center gap-3'>
 					<section className='flex items-center gap-2'>

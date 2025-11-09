@@ -97,7 +97,7 @@ export function AdvancedSettingsForm(props: Props) {
 										<TooltipProvider>
 											<Tooltip>
 												<TooltipTrigger className='cursor-help'>
-													<Icon icon='CircleQuestionMark' />
+													<Icons.CircleQuestionMark />
 												</TooltipTrigger>
 												<TooltipContent>
 													The IP-address of your microcontroller running StandardFirmataWifi.
@@ -128,7 +128,7 @@ export function AdvancedSettingsForm(props: Props) {
 						openUrl('https://github.com/firmata/arduino/tree/main/examples/StandardFirmataWiFi')
 					}
 				>
-					<Icon icon='ExternalLink' />
+					<Icons.ExternalLink />
 					<AlertTitle>StandardFirmataWifi</AlertTitle>
 					<AlertDescription className='text-muted-foreground'>
 						When connecting over WiFi, you will need to flash and configure this library on your

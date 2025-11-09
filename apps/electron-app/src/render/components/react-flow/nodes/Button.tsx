@@ -86,7 +86,8 @@ Button.defaultProps = {
 		isPullup: false,
 		invert: false,
 		pin: 6,
+		icon: 'PointerIcon',
 		label: 'Button',
-		description: 'Simple user input control',
+		description: 'Detect when a physical button is pressed or released',
 	} satisfies Props['data'],
 };

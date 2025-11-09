@@ -105,8 +105,9 @@ Servo.defaultProps = {
 		tags: ['output', 'analog'],
 		pin: 3,
 		label: 'Servo',
+		icon: 'RotateCwIcon',
 		type: 'standard',
 		range: { min: 0, max: 180 },
-		description: 'A motor for precise movements or rotation',
+		description: 'Control a motor that can move to specific positions or rotate continuously',
 	} satisfies Props['data'],
 };

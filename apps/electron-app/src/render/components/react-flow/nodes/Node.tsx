@@ -6,7 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 	cva,
-	Icon,
+	IconName,
 	Icons,
 	Tooltip,
 	TooltipContent,
@@ -44,7 +44,7 @@ function NodeHeader(props: { error?: string }) {
 					<TooltipProvider>
 						<Tooltip delayDuration={0}>
 							<TooltipTrigger className='cursor-help'>
-								<Icon icon='OctagonAlert' className='text-red-500' />
+								<Icons.OctagonAlert className='text-red-500' />
 							</TooltipTrigger>
 							<TooltipContent className='text-red-500'>{props.error}</TooltipContent>
 						</Tooltip>
@@ -284,7 +284,7 @@ const node = cva(
  * Internal nodes should only be used by Microflow and not exposed to the end-user
  */
 type NodeGroup = 'flow' | 'hardware' | 'external' | 'internal';
-export type NodeTags =
+export type NodeTag =
 	| 'digital'
 	| 'analog'
 	| 'input'
@@ -298,7 +298,8 @@ export type NodeTags =
 export type BaseNode<Data extends Record<string, any> = {}> = Node<
 	Data & {
 		group: NodeGroup;
-		tags: NodeTags[];
+		tags: NodeTag[];
+		icon: IconName;
 		subType?: string;
 		baseType?: NodeType;
 		label: string;
