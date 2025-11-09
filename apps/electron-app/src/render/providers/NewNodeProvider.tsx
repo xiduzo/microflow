@@ -175,7 +175,7 @@ export function NewNodeCommandDialog() {
 										keywords={node.data.tags}
 										key={node.data.label}
 										onSelect={selectNode(node, type)}
-										className='data-[selected=true]:bg-muted-foreground/10 gap-3 group'
+										className='data-[selected=true]:bg-muted-foreground/10 gap-3 items-start group'
 									>
 										<Avatar className='rounded-xl'>
 											<AvatarFallback className='rounded-xl'>
@@ -186,22 +186,20 @@ export function NewNodeCommandDialog() {
 												/>
 											</AvatarFallback>
 										</Avatar>
-										<div className='flex flex-col grow gap-1'>
-											<div className='flex items-center gap-4'>
+										<div className='flex flex-col grow gap-3'>
+											<div className='flex flex-col gap-1'>
 												<div className='font-bold'>{node.data.label}</div>
-												<section className='flex items-center gap-2'>
-													{node.data.tags.map(tag => (
-														<Badge variant='secondary' key={tag}>
-															{tag}
-														</Badge>
-													))}
-												</section>
+												<span className='text-muted-foreground'>{node.data.description ?? ''}</span>
 											</div>
-											<span className='text-muted-foreground'>{node.data.description ?? ''}</span>
+											<section className='flex items-center gap-2'>
+												{node.data.tags.map(tag => (
+													<Badge variant='outline' key={tag}>
+														{tag}
+													</Badge>
+												))}
+											</section>
 										</div>
-										<CommandShortcut className='divide-x-2 divide-muted-foreground'>
-											{node.data.group}
-										</CommandShortcut>
+										<CommandShortcut>{node.data.group}</CommandShortcut>
 									</CommandItem>
 								);
 							})}

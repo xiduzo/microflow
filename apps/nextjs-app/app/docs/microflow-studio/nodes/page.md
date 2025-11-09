@@ -12,9 +12,13 @@ For example, you can create a flow that reads data from a sensor, processes the 
 
 {% quick-links %}
 
-{% quick-link title="Hardware nodes" href="/docs/microflow-studio/nodes/hardware" description="Connect various hardware components." /%}
-{% quick-link title="Flow nodes" href="/docs/microflow-studio/nodes/hardware" description="Control the data in your flow." /%}
-{% quick-link title="External nodes" href="/docs/microflow-studio/nodes/hardware" description="Interact with 3rd party services." /%}
+{% quick-link title="Input nodes" href="/docs/microflow-studio/nodes/input" description="Read data from sensors, buttons, and external services." /%}
+{% quick-link title="Output nodes" href="/docs/microflow-studio/nodes/output" description="Control hardware components and send data to external services." /%}
+{% quick-link title="Event nodes" href="/docs/microflow-studio/nodes/event" description="Generate or respond to events in your flow." /%}
+{% quick-link title="Generator nodes" href="/docs/microflow-studio/nodes/generator" description="Produce values and signals for your flow." /%}
+{% quick-link title="Transformation nodes" href="/docs/microflow-studio/nodes/transformation" description="Modify and process data in your flow." /%}
+{% quick-link title="Control nodes" href="/docs/microflow-studio/nodes/control" description="Manage data flow and make decisions." /%}
+{% quick-link title="Information nodes" href="/docs/microflow-studio/nodes/information" description="Document, monitor, and visualize your flow." /%}
 
 
 {% /quick-links %}

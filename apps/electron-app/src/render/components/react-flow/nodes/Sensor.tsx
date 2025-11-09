@@ -215,7 +215,6 @@ HallEffect.defaultProps = {
 		subType: 'hall-effect',
 		baseType: 'Sensor',
 		icon: 'MagnetIcon',
-		description:
-			'Detect when a magnet or magnetic object is nearby and how strong it is',
+		description: 'Detect when a magnet or magnetic object is nearby and how strong it is',
 	} satisfies Props['data'],
 };
