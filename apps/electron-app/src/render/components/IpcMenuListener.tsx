@@ -10,8 +10,6 @@ import {
 	useSelectedNodes,
 } from '../stores/react-flow';
 import { useCollaborationActions } from '../stores/yjs';
-import { MqttSettingsForm } from './forms/MqttSettingsForm';
-import { AdvancedSettingsForm } from './forms/AdvancedSettingsForm';
 import { useAppStore } from '../stores/app';
 import { useNewNodeStore } from '../stores/new-node';
 import { useShallow } from 'zustand/shallow';

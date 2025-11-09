@@ -41,7 +41,9 @@ export function handleSecondInstance(commandLine: string[]) {
 	}
 
 	recreateWindowWhenNeeded().then(() => {
-		handleDeepLink(mainWindow!, commandLine.pop()?.slice(0, -1) ?? '');
+		const deepLink = commandLine.find(arg => arg.startsWith('microflow-studio://'));
+		if (!deepLink) return;
+		handleDeepLink(mainWindow!, deepLink);
 	});
 }
 
