@@ -96,21 +96,15 @@ export function NewNodeCommandDialog() {
 				const [label, description] = value.split('|');
 
 				// If no search term, return 0 (not relevant)
-				if (!search || search.trim() === '') {
-					return 0;
-				}
+				if (!search || search.trim() === '') return 0;
 
 				const searchLower = search.toLowerCase().trim();
 
 				// Priority 1: Label match (highest priority)
-				if (label.toLowerCase().includes(searchLower)) {
-					return 1;
-				}
+				if (label.toLowerCase().includes(searchLower)) return 1;
 
 				// Priority 2: Description match
-				if (description && description.toLowerCase().includes(searchLower)) {
-					return 0.8;
-				}
+				if (description.toLowerCase().includes(searchLower)) return 0.8;
 
 				// Priority 3: Keywords match
 				if (keywords && keywords.some(keyword => keyword.toLowerCase().includes(searchLower))) {

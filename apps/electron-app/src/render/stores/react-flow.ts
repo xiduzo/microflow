@@ -26,12 +26,14 @@ export type ReactFlowState<NodeData extends Record<string, unknown> = {}> = {
 	deleteEdges: (nodeId: string, handles?: string[]) => void;
 };
 
+const SYNC_TO_YJS_DEBOUNCE_TIMEOUT = 250;
+
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	// Get YJS store for collaboration
 	const yjsStore = useYjsStore.getState();
 
 	// Debounce timeout for syncing changes to YJS (stored in closure)
-	let syncToYjsDebounceTimeout: NodeJS.Timeout | null = null;
+	let syncToYjsDebounceTimeout: NodeJS.Timeout | undefined;
 
 	/**
 	 * Preserves local selection state when syncing from YJS
@@ -91,22 +93,15 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 	 * Debounced to prevent excessive YJS updates during rapid changes
 	 */
 	const syncLocalChangesToYjs = (nodes: Node[], edges: Edge[]) => {
-		// Ensure edges have animated type
-		const animatedEdges = edges.map(edge => ({
-			...edge,
-			type: edge.type || 'animated',
-		}));
-
 		// Update local state immediately for responsive UI
-		set({ nodes, edges: animatedEdges });
+		set({ nodes, edges });
 
 		// Debounce YJS sync to batch rapid changes
-		clearTimeout(syncToYjsDebounceTimeout ?? undefined);
+		clearTimeout(syncToYjsDebounceTimeout);
 		syncToYjsDebounceTimeout = setTimeout(() => {
 			yjsStore.syncNodesToYjs(nodes);
-			yjsStore.syncEdgesToYjs(animatedEdges);
-			syncToYjsDebounceTimeout = null;
-		}, 300);
+			yjsStore.syncEdgesToYjs(edges);
+		}, SYNC_TO_YJS_DEBOUNCE_TIMEOUT);
 	};
 
 	return {
@@ -116,30 +111,17 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => {
 		onNodesChange: changes => {
 			const newNodes = applyNodeChanges(changes, get().nodes);
 
-			const isSelectionChange = changes.every(change => change.type === 'select');
-
-			if (isSelectionChange) {
-				set({ nodes: newNodes }); // Selection changes are local-only, don't sync to Yjs
-				return;
-			}
-
 			syncLocalChangesToYjs(newNodes, get().edges);
 		},
 
 		onEdgesChange: changes => {
 			const newEdges = applyEdgeChanges(changes, get().edges);
 
-			const isSelectionChange = changes.every(change => change.type === 'select');
-
-			if (isSelectionChange) {
-				set({ edges: newEdges }); // Selection changes are local-only, don't sync to Yjs
-				return;
-			}
 			syncLocalChangesToYjs(get().nodes, newEdges);
 		},
 
 		onConnect: connection => {
-			const newEdges = addEdge({ ...connection, id: uid() }, get().edges);
+			const newEdges = addEdge({ ...connection, id: uid(), type: 'animated' }, get().edges);
 
 			syncLocalChangesToYjs(get().nodes, newEdges);
 		},
@@ -248,18 +230,31 @@ export function useDeselectAll() {
 }
 
 export function useSelectedNodes() {
-	return useReactFlowStore(useShallow(state => () => state.nodes.filter(node => node.selected)));
+	return useReactFlowStore(
+		useShallow(
+			({ nodes }) =>
+				() =>
+					nodes.filter(({ selected }) => selected)
+		)
+	);
 }
 
 export function useSelectedEdges() {
-	return useReactFlowStore(useShallow(state => () => state.edges.filter(edge => edge.selected)));
+	return useReactFlowStore(
+		useShallow(
+			({ edges }) =>
+				() =>
+					edges.filter(({ selected }) => selected)
+		)
+	);
 }
 
 export function useNonInternalNodes() {
 	return useReactFlowStore(
 		useShallow(
-			state => () =>
-				state.nodes.filter(node => (node.data as { group: string }).group !== 'internal')
+			({ nodes }) =>
+				() =>
+					nodes.filter(({ data }) => 'group' in data && data.group !== 'internal')
 		)
 	);
 }

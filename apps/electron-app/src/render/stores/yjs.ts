@@ -8,6 +8,7 @@ import { getLocalItem, setLocalItem } from '../../common/local-storage';
 import { Node, Edge } from '@xyflow/react';
 import { useAppStore, User } from './app';
 import logger from 'electron-log/renderer';
+import { INTRODUCTION_NODES, INTRODUCTION_EDGES } from './introduction';
 
 export type CollaborationStatus =
 	| { type: 'disconnected' }
@@ -235,7 +236,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 
 	// Listen for updates from remote peers or undo/redo operations
 	// Use afterTransaction to access the transaction object
-	ydoc.on('afterTransaction', (transaction: YJS.Transaction) => {
+	ydoc.on('afterTransaction', transaction => {
 		// Only handle transactions that modified nodes or edges
 		if (transaction.changedParentTypes.has(yNodes) || transaction.changedParentTypes.has(yEdges)) {
 			// Ignore local transactions to prevent feedback loops
@@ -257,20 +258,14 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 
 	// Initialize with introduction data if no saved state and hasn't seen introduction
 	const hasSeenIntroduction = getLocalItem('has-seen-introduction', false);
-	if (!hasSeenIntroduction && yNodes.length === 0) {
+	console.log('hasSeenIntroduction', hasSeenIntroduction);
+	if (!hasSeenIntroduction) {
 		// Import introduction data dynamically to avoid circular dependencies
-		import('./introduction').then(({ INTRODUCTION_NODES, INTRODUCTION_EDGES }) => {
-			// Check if introduction nodes already exist to prevent duplicates
-			const existingNodeIds = yNodes.toArray().map(n => n.id);
-			const newNodes = INTRODUCTION_NODES.filter(node => !existingNodeIds.includes(node.id));
-
-			if (newNodes.length > 0) {
-				ydoc.transact(() => {
-					yNodes.push(newNodes);
-					yEdges.push(INTRODUCTION_EDGES);
-				}, localOrigin);
-			}
-		});
+		ydoc.transact(() => {
+			yNodes.push(INTRODUCTION_NODES);
+			yEdges.push(INTRODUCTION_EDGES);
+		}, localOrigin);
+		setLocalItem('has-seen-introduction', true);
 	}
 
 	// Save state before unload
