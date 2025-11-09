@@ -15,9 +15,9 @@ Microflow studio should automatically detect your microcontroller when connected
 1. Waiting for a microcontroller to be connected to your computer
 2. Detecting the type of microcontroller.
 {% callout type="note" title="Be patient" %}
-To be able to communicate with your microcontroller we will automatically install the [StandardFirmata](https://github.com/firmata/arduino) sketch on your microcontroller in this step.
+To be able to communicate with your microcontroller, Microflow will automatically install special software (called StandardFirmata) on your microcontroller in this step. This software allows your computer to talk to the microcontroller.
 
-This will only happen the first time you connect your microcontroller, and will take some time.
+This will only happen the first time you connect your microcontroller, and will take some time (usually 30-60 seconds). Please don't disconnect your microcontroller during this process.
 {% /callout %}
 3. Uploading your flow.
 4. Running your flow.
@@ -46,16 +46,16 @@ You should see the `Upload failed for unknown reasons` status.
 In order to validate if the problem is with your microcontroller or with Microflow studio, you can try the following:
 
 #### 1. Check your microcontroller
-Validate if you can upload a sketch to your microcontroller using the Arduino IDE.
+First, let's make sure your microcontroller is working properly by testing it with the Arduino IDE (a free program for working with Arduino boards).
 
-1. Install [the latests Arduino IDE](https://www.arduino.cc/en/software)
-2. Open the Arduino IDE and connect your microcontroller
-3. Go to `Tools > Port` and select the port where your microcontroller is connected
-4. Go to `Tools > Board` and select the board you are using
-5. Go to `File > Examples > Firmata > StandardFirmata`
-6. `Upload` the sketch to your microcontroller
+1. Install [the latest Arduino IDE](https://www.arduino.cc/en/software) (it's free)
+2. Open the Arduino IDE and connect your microcontroller to your computer
+3. Go to `Tools > Port` and select the port where your microcontroller is connected (you should see it listed)
+4. Go to `Tools > Board` and select the board you are using (like "Arduino Uno")
+5. Go to `File > Examples > Firmata > StandardFirmata` (this opens a ready-made program)
+6. Click the `Upload` button (arrow icon) to send the program to your microcontroller
 
-If you can successfully upload the sketch to your microcontroller, then the problem is with Microflow studio (ooops).
+If you can successfully upload the program to your microcontroller, then your hardware is working fine and the problem might be with Microflow studio. If you can't upload, there might be an issue with your microcontroller or its connection.
 
 #### 2. Install the correct drivers
 

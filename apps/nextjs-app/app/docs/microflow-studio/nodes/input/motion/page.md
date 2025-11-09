@@ -7,22 +7,30 @@ title: Motion
 {% tag title="Digital" /%}
 {% /tags %}
 
-A motion node allows to detect motion in the environment. On the hardware component you can usually adjust the sensitivity of the sensor.
+A Motion node detects when something moves in its field of view. It's commonly used for security systems, automatic lights, or any project that needs to know when someone or something is nearby.
+
+**How it works:** The sensor detects infrared radiation (heat) from moving objects. On the physical sensor component, you can usually adjust how sensitive it is and how long it stays active after detecting motion.
 
 {% iframe src="https://www.tinkercad.com/embed/79HFtaYr4U0" /%}
 
 ## Hardware configuration
 On the breakout board, you can control the _sensitivity and delay time_ of the sensor as well as the _mode of operation_.
 
-### Sensitivity and delay time time
-But turning the knobs on the breakout board, you can adjust the sensitivity and delay time of the sensor. Turning the knobs clock-wise will increase the sensitivity and delay time respectively.
+### Sensitivity and delay time
+
+On the physical sensor board, there are usually two small knobs you can adjust with a screwdriver:
+
+- **Sensitivity knob:** Controls how easily the sensor detects motion. Turn clockwise to make it more sensitive (detects smaller movements or from farther away). Turn counter-clockwise to make it less sensitive.
+- **Delay time knob:** Controls how long the sensor stays "active" after detecting motion. Turn clockwise for a longer delay (sensor stays on longer), turn counter-clockwise for a shorter delay.
 
 ![Sensitivity and delay time](/images/motion-knobs.svg)
 
 ### Mode of operation
 The sensor can be set to two modes of operation: **Single trigger mode** (`L`) and **Repeat trigger mode** (`H` or `B`).
 
-**Single trigger mode** activates output once upon detecting motion and ignores further motion until the delay time has elapsed while **Repeat trigger mode** activates output upon detecting motion and keeps it active as long as motion continues, resetting the delay timer with each new motion detection.
+**Single trigger mode:** Detects motion once, activates, then ignores all motion until the delay time is over. Even if you keep moving, it won't detect again until the timer runs out.
+
+**Repeat trigger mode:** Stays active as long as there's motion. Every time it detects new motion, it resets the timer. Only turns off after motion has completely stopped for the full delay period.
 
 ![Operation mode](/images/motion-mode.svg)
 

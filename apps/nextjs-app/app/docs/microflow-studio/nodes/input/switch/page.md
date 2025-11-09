@@ -7,9 +7,12 @@ title: Switch
 {% tag title="Digital" /%}
 {% /tags %}
 
-Similar to a [`Button`](/docs/microflow-studio/nodes/input/button), a switch is a simple input device that can be either open or closed.
+A switch is similar to a [`Button`](/docs/microflow-studio/nodes/input/button), but with an important difference: a switch stays in its position until you change it, while a button only works while you're pressing it.
 
-In comparison, a switch will hold its state until it is changed, while a button will only be active while it is being pressed.
+**Button:** Press and hold = on, release = off (like a doorbell)
+**Switch:** Flip it on = stays on, flip it off = stays off (like a light switch on your wall)
+
+Switches are useful when you want something to stay on or off until you manually change it, rather than requiring constant pressure like a button.
 
 {% iframe src="https://www.tinkercad.com/embed/dxxCQPOmd5e" /%}
 
@@ -21,13 +24,18 @@ Switches come in many shapes and sizes. Below are a few examples and how to wire
 The wiring examples are for illustrative purposes, it might not work with your particular switch.
 {% /callout %}
 
-**Is my button active table**
-| Switch Type | Switch State | Input Pin State |
-|-------------|--------------|-----------------|
-| Normally Open (NO) | On | HIGH (1) |
-| Normally Open (NO) | Off | LOW (0) |
-| Normally Closed (NC) | On | LOW (0) |
-| Normally Closed (NC) | Off | HIGH (1) |
+**Understanding switch states:**
+
+Different switches work in different ways. Here's how to understand what your microcontroller sees:
+
+| Switch Type | Switch Position | What the Microcontroller Reads |
+|-------------|-----------------|-------------------------------|
+| Normally Open (NO) | On (pressed/flipped) | HIGH (1) - meaning "active" |
+| Normally Open (NO) | Off (not pressed) | LOW (0) - meaning "inactive" |
+| Normally Closed (NC) | On (pressed/flipped) | LOW (0) - meaning "inactive" (opposite!) |
+| Normally Closed (NC) | Off (not pressed) | HIGH (1) - meaning "active" (opposite!) |
+
+**What does this mean?** Normally Closed switches work backwards - when they're "on" they send LOW, and when they're "off" they send HIGH. This is just how that type of switch is wired internally.
 
 ### 2 pin on-off switch
 

@@ -6,8 +6,10 @@ title: Compare
 {% tag title="Control" /%}
 {% /tags %}
 
-A `comparison` statement is a fundamental control structure in programming that allows you to make decisions based on certain conditions.
+The Compare node lets you check if something meets certain conditions and make decisions based on that check.
 
-The `Compare` node validates the input [edge](/docs/microflow-studio/edges) to either be _truthy_ or _falsy_.
+For example, you can check if a sensor reading is greater than 100, equal to 50, or less than 10. Based on whether the condition is true or false, the node sends a signal down different paths in your flow.
 
-When you would not like to match exact values, you can use the [`Trigger`](/docs/microflow-studio/nodes/event/trigger) node.
+**Simple example:** If a temperature sensor reads above 80 degrees, turn on a fan. Otherwise, keep the fan off.
+
+When you want to detect changes or patterns (like "when the value increases by 10") rather than checking exact values, you can use the [`Trigger`](/docs/microflow-studio/nodes/event/trigger) node instead.
