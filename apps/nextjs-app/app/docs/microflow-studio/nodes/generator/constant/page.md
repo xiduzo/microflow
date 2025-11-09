@@ -6,6 +6,11 @@ title: Constant
 {% tag title="Generator" /%}
 {% /tags %}
 
-A constant value which can be used as input for other nodes. This node is useful when you want to use a fixed value in your microflow.
+A Constant node provides a fixed number that never changes. Think of it as a number you set once and it stays the same.
 
-This could be useful in combination with the [`Calculate`](/docs/microflow-studio/nodes/transformation/calculate) node to perform mathematical operations on the constant value.
+**Examples:**
+- Set a constant value of 100 to use as a threshold for comparisons
+- Use a constant value of 5 to multiply sensor readings by
+- Provide a fixed brightness level (like 128) for an LED
+
+This is useful when you need a specific number in your flow that doesn't come from a sensor or change over time. You can combine it with the [`Calculate`](/docs/microflow-studio/nodes/transformation/calculate) node to do math - for example, multiply a sensor reading by your constant value.

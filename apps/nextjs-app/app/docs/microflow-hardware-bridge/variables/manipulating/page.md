@@ -2,19 +2,26 @@
 title: Manipulating
 ---
 
-There are 3 ways to interact with variables:
+There are 3 ways to work with variables and send data between your hardware and Figma:
 
-## {% icon name="RadioTower" /%} Publishing updates
+## {% icon name="RadioTower" /%} Publishing updates (Hardware → Figma)
 
-Publishing to a variable can be done from any client (like [Microflow studio](/docs/microflow-studio)) and will directly update the variable and in any place it is used in Figma.
+You can send updates to Figma variables from your hardware projects using [Microflow Studio](/docs/microflow-studio). When you publish an update, it will immediately change the variable value everywhere it's used in Figma.
 
-This will update both your designs **and** any active prototypes using the variable.
+**What gets updated:**
+- The variable value in Figma's variable panel
+- All designs using that variable
+- Any active prototypes that are using the variable
 
-### Publishing topic
+**Example:** If you have a light sensor reading a value, you can send that value to a Figma variable, and it will update in real-time in your Figma designs.
 
-The topic you will be publishing to is always unique to your broker settings and Figma variable.
+### Understanding MQTT topics
 
-For the example topic `microflow/v1/xiduzo/YOUR_APP_NAME/variable/VariableID:1:25/set`, the topic levels are as follows:
+MQTT uses "topics" (like addresses or channels) to route messages. Each variable has a unique topic based on your settings and the variable's ID.
+
+**Example topic:** `microflow/v1/xiduzo/YOUR_APP_NAME/variable/VariableID:1:25/set`
+
+Here's what each part means:
 
 | Topic level       | Description                                                                                 |
 | ----------------- | ------------------------------------------------------------------------------------------- |
@@ -25,9 +32,11 @@ For the example topic `microflow/v1/xiduzo/YOUR_APP_NAME/variable/VariableID:1:2
 | `VariableID:1:25` | The ID of the variable in Figma, in this case `1:25`                                        |
 | `set`             | The action to perform, in this case `set`                                                   |
 
-## {% icon name="Antenna" /%} Subscribing to updates
+## {% icon name="Antenna" /%} Subscribing to updates (Figma → Hardware)
 
-When variables are updated via the Figma variable panel, Microflow hardware bridge will be able to pick up the changes and send them to any client listening to the MQTT topic.
+When you change a variable value in Figma's variable panel, the Microflow Hardware Bridge automatically sends that change to any hardware projects that are "listening" (subscribed) to that variable's MQTT topic.
+
+**Example:** If you change a color variable in Figma, your hardware (like an RGB LED) can receive that color change and update in real-time.
 
 ### Subscribing topic
 
@@ -46,28 +55,33 @@ An example topic could be: `microflow/v1/xiduzo/plugin/variable/VariableID:1:25`
 ## {% icon name="Link" /%} Updating variables from within a prototype
 
 {% callout type="warning" title="help us help you" %}
-We also think the following interaction is cumbersome and should be part of Figma's default functionality.
+We think this process is more complicated than it should be and should be built into Figma by default.
 
-If you would like to make the process simpler, by directly receiving the updates from changes in the prototype, please upvote or comment on [this Figma forum post](https://forum.figma.com/ask-the-community-7/communicating-between-prototype-and-figma-plugin-13868)
+If you'd like to help make this simpler, please upvote or comment on [this Figma forum post](https://forum.figma.com/ask-the-community-7/communicating-between-prototype-and-figma-plugin-13868) to show Figma that this feature is needed.
 {% /callout %}
 
-Listening to updates from within a prototype is a bit cumbersome because Figma does not allow plugins to access the values of variables from within prototypes.
+Updating variables from a running Figma prototype (like when someone clicks a button in your prototype) is a bit complicated because Figma doesn't allow plugins to directly read variable values from prototypes.
 
-To get around this limitation, and avoid needing elevated permissions like [figproxy](https://edges.ideo.com/posts/figproxy), we're utulizing a small web app that opens [Microflow Studio](/docs/microflow-studio) and updates the variable value.
+**How we solve it:** We use a workaround that opens a small webpage, which then opens Microflow Studio on your computer to update the variable. It's a few extra steps, but it works!
 
-In order to use this feature, you'll need to:
+**Requirements to use this feature:**
+- Microflow Studio must be installed on your computer and running
+- The Microflow Hardware Bridge plugin must be installed in Figma and running
+- Your prototype should be running (preferably in a web browser)
 
-- have Microflow Studio installed on your computer and running.
-- have the Microflow Hardware Bridge plugin installed in Figma and running.
-- have a prototype running, preferably from the browser.
+### How to set it up
 
-### What value to send?
+To update a variable from your prototype, you need to add an interaction that opens a special link:
 
-In order to update a variable from within a prototype, you will need to add an interaction to the frame and add the `open link` action.
+1. In your Figma prototype, add an interaction to a frame (like "on click")
+2. Set the action to "Open link"
+3. Paste a special link that looks like this: `https://microflow.vercel.app/set/VariableID:1:25/YOUR_VALUE`
+
+**Understanding the link:**
+- `VariableID:1:25` is the ID of the variable you want to update (you can find this in Figma)
+- `YOUR_VALUE` is the new value you want to set
 
 ![Open link](/images/open-link.png)
-
-An example of an link to paste is `https://microflow.vercel.app/set/VariableID:1:25/YOUR_VALUE`, where `VariableID:1:25` would be the variable to update and `YOUR_VALUE` would be the value you want it to be set to.
 
 #### YOUR_VALUE
 
@@ -80,12 +94,14 @@ Different variable types required different values, see the overview below for e
 | Boolean       | **true** or **false**          |
 | Color         | ⚠ not implemented yet         |
 
-### How it works
+### How it works (step by step)
 
-1. We create a new window that opens up our website.
-2. This webpage then automatically opens the Microflow Studio app on your computer (if installed).
-3. Once Microflow Studio is running, we close the webpage.
-4. Microflow Studio will now request the Microflow Hardware Bridge plugin to update the variable value.
+1. Someone interacts with your prototype (like clicking a button)
+2. The prototype opens a webpage in a new window
+3. The webpage automatically opens Microflow Studio on your computer (if it's installed)
+4. The webpage closes itself
+5. Microflow Studio sends a message to the Figma plugin to update the variable
+6. The variable updates in Figma, and your hardware receives the update
 
 ```mermaid
 sequenceDiagram
