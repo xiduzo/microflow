@@ -44,10 +44,11 @@ type Props = BaseNode<IntervalData>;
 Interval.defaultProps = {
 	data: {
 		group: 'flow',
-		tags: ['event'],
+		tags: ['event', 'generator'],
 		label: 'Interval',
+		icon: 'TimerIcon',
 		autoStart: true,
 		interval: 500,
-		description: 'Emit a signal at a regular interval',
+		description: 'Automatically send a signal at regular time intervals, like a timer',
 	} satisfies Props['data'],
 };

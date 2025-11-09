@@ -40,8 +40,9 @@ Note.defaultProps = {
 		group: 'flow',
 		tags: ['information'],
 		label: 'Note',
+		icon: 'NotebookIcon',
 		note: 'New note',
 		extraInfo: '',
-		description: 'Leave a note for yourself or others',
+		description: 'Add text notes to your flow to document what different parts do',
 	} satisfies Props['data'],
 };

@@ -66,7 +66,9 @@ RangeMap.defaultProps = {
 		tags: ['transformation'],
 		from: { min: 0, max: 1023 },
 		to: { min: 0, max: 1023 },
+		icon: 'SeparatorVerticalIcon',
 		label: 'Map',
-		description: 'Transform a signal from one range to another',
+		description:
+			'Convert a number from one range to another, like turning a sensor reading into a brightness value',
 	} satisfies Props['data'],
 };

@@ -1,5 +1,5 @@
 import type { LedData, LedValueType } from '@microflow/hardware';
-import { Icons } from '@microflow/ui';
+import { Icon, Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
@@ -47,16 +47,8 @@ function Value() {
 }
 
 function LedValue(props: { value: number }) {
-	if (!props.value) return <Icons.LightbulbOff className='text-muted-foreground' size={48} />;
-	return (
-		<Icons.Lightbulb
-			className='text-yellow-500'
-			size={48}
-			style={{
-				opacity: props.value !== 1 ? props.value / 255 + 0.1 : 1, // Rhough dimmable LED
-			}}
-		/>
-	);
+	if (!props.value) return <Icons.LightbulbOff size={48} className='text-muted-foreground' />;
+	return <Icons.Lightbulb size={48} className='text-yellow-500' />;
 }
 
 function VibrationValue(props: { value: number }) {
@@ -95,8 +87,9 @@ Led.defaultProps = {
 		group: 'hardware',
 		tags: ['output', 'analog', 'digital'],
 		label: 'LED',
+		icon: 'LightbulbIcon',
 		pin: 13,
-		description: 'Control a LED',
+		description: 'Turn a light on or off, or control its brightness',
 	} satisfies Props['data'],
 };
 
@@ -105,8 +98,10 @@ Vibration.defaultProps = {
 	data: {
 		...Led.defaultProps.data,
 		label: 'Vibration',
+		tags: ['output', 'analog', 'digital'],
 		subType: 'vibration',
+		icon: 'VibrateIcon',
 		baseType: 'Led',
-		description: 'Control a vibration motor',
+		description: 'Make a device vibrate with different intensities',
 	} satisfies Props['data'],
 };

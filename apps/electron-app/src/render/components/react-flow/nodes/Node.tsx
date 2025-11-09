@@ -7,6 +7,7 @@ import {
 	CardTitle,
 	cva,
 	Icon,
+	IconName,
 	Icons,
 	Tooltip,
 	TooltipContent,
@@ -284,7 +285,7 @@ const node = cva(
  * Internal nodes should only be used by Microflow and not exposed to the end-user
  */
 type NodeGroup = 'flow' | 'hardware' | 'external' | 'internal';
-export type NodeTags =
+export type NodeTag =
 	| 'digital'
 	| 'analog'
 	| 'input'
@@ -298,7 +299,8 @@ export type NodeTags =
 export type BaseNode<Data extends Record<string, any> = {}> = Node<
 	Data & {
 		group: NodeGroup;
-		tags: NodeTags[];
+		tags: NodeTag[];
+		icon: IconName;
 		subType?: string;
 		baseType?: NodeType;
 		label: string;

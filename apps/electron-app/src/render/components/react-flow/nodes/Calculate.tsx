@@ -73,8 +73,10 @@ Calculate.defaultProps = {
 	data: {
 		function: 'add',
 		group: 'flow',
-		tags: ['transformation', 'control'],
+		icon: 'CalculatorIcon',
+		tags: ['transformation'],
 		label: 'Calculate',
-		description: 'Performs math operations on signals',
+		description:
+			'Perform math operations like adding, subtracting, multiplying, or dividing numbers',
 	} satisfies Props['data'],
 };

@@ -63,8 +63,9 @@ Motion.defaultProps = {
 		group: 'hardware',
 		tags: ['input', 'digital'],
 		pin: '8',
+		icon: 'EyeIcon',
 		label: 'Motion',
 		controller: 'HCSR501',
-		description: 'Detect and respond to (the absense of) motion',
+		description: 'Detect when something moves nearby, like a person walking past',
 	} satisfies Props['data'],
 };

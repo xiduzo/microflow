@@ -53,8 +53,10 @@ Relay.defaultProps = {
 		group: 'hardware',
 		label: 'Relay',
 		pin: 10,
+		icon: 'ZapIcon',
 		tags: ['output', 'analog', 'digital'],
 		type: 'NO',
-		description: 'Switch on or off high-power devices',
+		description:
+			'Safely turn on or off devices that need more power, like lights, motors, or appliances',
 	} satisfies Props['data'],
 };

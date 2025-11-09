@@ -51,9 +51,10 @@ Switch.defaultProps = {
 	data: {
 		pin: 2,
 		group: 'hardware',
+		icon: 'ToggleLeftIcon',
 		label: 'Switch',
 		tags: ['input', 'digital'],
 		type: 'NC',
-		description: 'Control a switch to toggle between on and off states',
+		description: 'Detect when a physical switch is turned on or off',
 	} satisfies Props['data'],
 };

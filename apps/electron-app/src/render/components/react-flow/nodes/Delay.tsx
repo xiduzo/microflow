@@ -41,10 +41,11 @@ type Props = BaseNode<DelayData>;
 Delay.defaultProps = {
 	data: {
 		group: 'flow',
-		tags: ['event', 'control'],
+		tags: ['control', 'event'],
 		label: 'Delay',
+		icon: 'SnailIcon',
 		delay: 1000,
 		forgetPrevious: false,
-		description: 'Introduce a delay before passing on the signal',
+		description: 'Wait for a specified amount of time before sending a signal forward',
 	} satisfies Props['data'],
 };

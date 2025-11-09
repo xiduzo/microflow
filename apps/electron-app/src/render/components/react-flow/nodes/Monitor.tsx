@@ -71,10 +71,11 @@ type Props = BaseNode<MonitorData>;
 Monitor.defaultProps = {
 	data: {
 		group: 'flow',
-		tags: ['output', 'information'],
+		tags: ['information', 'output'],
 		label: 'Monitor',
+		icon: 'MonitorIcon',
 		type: 'graph',
 		fps: 60,
-		description: 'Debug and visualize signals',
+		description: 'Watch and visualize the values flowing through your circuit in real-time',
 	} satisfies Props['data'],
 };

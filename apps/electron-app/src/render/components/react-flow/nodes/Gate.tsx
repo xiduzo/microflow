@@ -46,10 +46,12 @@ type Props = BaseNode<GateData>;
 Gate.defaultProps = {
 	data: {
 		group: 'flow',
-		tags: ['control', 'transformation'],
+		tags: ['control'],
 		label: 'Gate',
+		icon: 'CircuitBoardIcon',
 		gate: 'and',
-		description: 'Validate signals using logic gates',
+		description:
+			'Combine multiple signals using logic rules like AND, OR, or XOR to make decisions',
 	} satisfies Props['data'],
 };
 

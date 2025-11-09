@@ -149,8 +149,9 @@ type Props = BaseNode<LlmData>;
 Llm.defaultProps = {
 	data: {
 		group: 'external',
-		tags: ['output'],
+		tags: ['output', 'transformation'],
 		label: 'LLM',
+		icon: 'BotMessageSquareIcon',
 		provider: 'ollama',
 		model: '',
 		prompt: '',
@@ -167,6 +168,6 @@ Llm.defaultProps = {
 		typicalP: 0.9,
 		presencePenalty: 0.5,
 		repeatLastN: 64,
-		description: 'Interact with a Large Language Model (LLM)',
+		description: 'Use artificial intelligence to generate text responses based on your prompts',
 	} satisfies Props['data'],
 };

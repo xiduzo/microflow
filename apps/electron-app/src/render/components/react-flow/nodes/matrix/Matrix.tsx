@@ -139,7 +139,7 @@ function Settings() {
 												className='flex flex-col items-center gap-3 cursor-grab active:cursor-grabbing'
 											>
 												<MatrixEditor
-													dimensions={data.dimensions}
+													dimensions={data.dims}
 													onSave={newShape => {
 														const nextShapes = [...shapes];
 														nextShapes[index] = newShape;
@@ -155,7 +155,7 @@ function Settings() {
 													<section className='flex-col flex items-center justify-center'>
 														<section className='max-w-xl overflow-x-scroll pb-8'>
 															<MatrixDisplay
-																dimensions={data.dimensions}
+																dimensions={data.dims}
 																shape={shape}
 																className='hover:cursor-zoom-in'
 															/>
@@ -193,7 +193,7 @@ function Settings() {
 						<MatrixEditor
 							key={shapes.length}
 							onSave={newShape => updateShapes([...shapes, newShape])}
-							dimensions={data.dimensions}
+							dimensions={data.dims}
 							shape={[]}
 						>
 							<Button variant='outline'>Add new shape</Button>
@@ -209,8 +209,9 @@ type Props = BaseNode<MatrixData>;
 Matrix.defaultProps = {
 	data: {
 		group: 'hardware',
-		tags: ['output', 'analog'],
+		tags: ['output', 'analog', 'digital'],
 		label: 'LED Matrix',
+		icon: 'GridIcon',
 		pins: {
 			data: 2,
 			clock: 3,
@@ -220,6 +221,6 @@ Matrix.defaultProps = {
 		dims: '8x8', // [rows, columns]
 		shapes: [DEFAULT_MATRIX_SHAPE],
 		devices: 1,
-		description: 'Control a LED matrix display to show various shapes',
+		description: 'Display patterns, shapes, or images on a grid of LED lights',
 	} satisfies Props['data'],
 };
