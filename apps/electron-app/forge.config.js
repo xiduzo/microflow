@@ -40,7 +40,12 @@ module.exports = {
 		},
 	},
 	hooks: {
-		packageAfterCopy: (_forgeConfig, buildPath) => bundle(__dirname, buildPath),
+		packageAfterCopy: async (_forgeConfig, buildPath) => {
+			await bundle(__dirname, buildPath);
+			console.log('bundled');
+			await new Promise(resolve => setTimeout(resolve, 5000));
+			console.log('done');
+		},
 	},
 
 	rebuildConfig: {
