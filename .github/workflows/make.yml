@@ -51,11 +51,24 @@ jobs:
 
       # https://stackoverflow.com/a/78870850/4655177
       - name: Install Python setup tools (MacOS)
-        if: runner.os == 'macOS'
+        if: ${{ startsWith(matrix.os.name, 'macos') }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
+
+      # https://stackoverflow.com/a/78870850/4655177
+      - name: Install Python setup tools (MacOS)
+        if: ${{ startsWith(matrix.os.name, 'macos') }}
+        run: |
+          # Check that keychain setup and certificate import worked
+          if security find-identity -v -p codesigning
+          then
+            echo "✅ Codesigning is set up correctly"
+          else
+            echo "⛔️ Codesigning is set up incorrectly"
+            exit 1
+          fi
 
       # https://localazy.com/blog/how-to-automatically-sign-macos-apps-using-github-actions
       - name: Make application

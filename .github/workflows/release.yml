@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Import Code-Signing Certificates (MacOS)
-        if: runner.os == 'macOS'
+        if: ${{ startsWith(matrix.os.name, 'macos') }}
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.CERTIFICATE_OSX_P12 }}
@@ -45,7 +45,7 @@ jobs:
 
       # https://stackoverflow.com/a/78870850/4655177
       - name: Install Python setup tools (MacOS)
-        if: runner.os == 'macOS'
+        if: ${{ startsWith(matrix.os.name, 'macos') }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -61,7 +61,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish application
-        if: runner.os == 'macOS'
+        if: ${{ startsWith(matrix.os.name, 'macos') }}
         run: yarn publish:intel
         env:
           APPLE_ID: ${{secrets.APPLE_ID}}
