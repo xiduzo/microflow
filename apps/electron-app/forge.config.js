@@ -30,6 +30,7 @@ module.exports = {
 		osxSign: {
 			identity: process.env.APPLE_DEVELOPER_ID_APPLICATION,
 			preEmbedProvisioningProfile: false,
+			// provisioningProfile: 'microflow-studio.provisionprofile',
 		},
 		osxNotarize: {
 			tool: 'notarytool',
