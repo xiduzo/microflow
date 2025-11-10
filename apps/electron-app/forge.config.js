@@ -54,8 +54,6 @@ module.exports = {
 			name: '@electron-forge/maker-dmg',
 			config: {
 				format: 'ULFO',
-				name: 'microflow-studio',
-				executableName: 'microflow-studio',
 			},
 		},
 		{ name: '@electron-forge/maker-zip', platforms: ['darwin'] },
