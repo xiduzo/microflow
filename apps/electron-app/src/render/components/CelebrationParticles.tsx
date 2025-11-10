@@ -38,7 +38,7 @@ const PARTICLE_OPTIONS: ISourceOptions = {
 		},
 		position: {
 			x: 50,
-			y: 95,
+			y: 100,
 		},
 		rate: {
 			quantity: 12,

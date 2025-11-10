@@ -1,54 +1,83 @@
 import { Edge, Node } from '@xyflow/react';
 
-const InformationNode: Node = {
-	data: {
-		group: 'flow',
-		tags: ['information'],
-		label: 'Click me!',
-		note: 'Welcome to microflow studio!',
-		extraInfo: 'Oh hi there explorer, connect your microcontroller to get started.',
+export const INTRODUCTION_NODES = [
+	{
+		data: {
+			group: 'flow',
+			tags: ['event', 'generator'],
+			label: 'Interval',
+			icon: 'TimerIcon',
+			autoStart: true,
+			interval: 1000,
+			description: 'Automatically send a signal at regular time intervals, like a timer',
+		},
+		id: 'plqmjyhgmeus',
+		type: 'Interval',
+		position: {
+			x: 1554.5641873312247,
+			y: 312.4588182914703,
+		},
+		measured: {
+			width: 320,
+			height: 224,
+		},
+		selected: false,
+		dragging: false,
 	},
-	id: 'introduction_info_node',
-	type: 'Note',
-	position: { x: 400, y: 221 },
-	measured: { width: 256, height: 176 },
-};
-
-const IntervalNode: Node = {
-	data: {
-		group: 'flow',
-		tags: ['event'],
-		label: 'Interval',
-		interval: 1000,
+	{
+		data: {
+			group: 'flow',
+			tags: ['information'],
+			label: 'Click me!',
+			icon: 'NotebookIcon',
+			note: 'Welcome to microflow studio 👋',
+			extraInfo: 'Oh hi there explorer, connect your microcontroller to get started.',
+			description: 'Add text notes to your flow to document what different parts do',
+		},
+		id: 'wqbrcpaydjxd',
+		type: 'Note',
+		position: {
+			x: 1931.382651113286,
+			y: 283.4243059473913,
+		},
+		measured: {
+			width: 320,
+			height: 224,
+		},
+		selected: false,
+		dragging: false,
 	},
-	id: 'introduction_interval_node',
-	type: 'Interval',
-	position: { x: 86, y: 252 },
-	measured: { width: 208, height: 176 },
-};
-
-const LedNode: Node = {
-	data: {
-		group: 'hardware',
-		tags: ['output', 'analog', 'digital'],
-		label: 'LED',
-		pin: 13,
+	{
+		data: {
+			group: 'hardware',
+			tags: ['output', 'analog', 'digital'],
+			label: 'LED',
+			icon: 'LightbulbIcon',
+			pin: 13,
+			description: 'Turn a light on or off, or control its brightness',
+		},
+		id: 'uyvsdiyfuoiv',
+		type: 'Led',
+		position: {
+			x: 1934.9452913398104,
+			y: 537.8864281667335,
+		},
+		measured: {
+			width: 320,
+			height: 244,
+		},
+		selected: false,
+		dragging: false,
 	},
-	id: 'introduction_led_node',
-	type: 'Led',
-	position: { x: 425, y: 504 },
-	measured: { width: 208, height: 176 },
-};
+] satisfies Node[];
 
-export const INTRODUCTION_NODES = [InformationNode, IntervalNode, LedNode] satisfies Node[];
-
-const IntervalToLedEdge: Edge = {
-	source: IntervalNode.id,
-	sourceHandle: 'change',
-	target: LedNode.id,
-	targetHandle: 'toggle',
-	id: 'introduction_interval_led_edge',
-	type: 'animated',
-};
-
-export const INTRODUCTION_EDGES = [IntervalToLedEdge] satisfies Edge[];
+export const INTRODUCTION_EDGES = [
+	{
+		source: 'plqmjyhgmeus',
+		sourceHandle: 'change',
+		target: 'uyvsdiyfuoiv',
+		targetHandle: 'toggle',
+		id: 'sfgswxqpqsyt',
+		type: 'animated',
+	},
+] satisfies Edge[];

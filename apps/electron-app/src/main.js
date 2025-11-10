@@ -7,7 +7,12 @@ import handleSquirrelEvent from '@microflow/utils/handleSquirrelEvent';
 import './main/ipc';
 import { createMenu } from './main/menu';
 import { handleDeepLink } from './main/deepLink';
-import { mainWindow, createWindow, recreateWindowWhenNeeded } from './main/window';
+import {
+	mainWindow,
+	createWindow,
+	recreateWindowWhenNeeded,
+	handleSecondInstance,
+} from './main/window';
 
 updateElectronApp({ logger: logger });
 

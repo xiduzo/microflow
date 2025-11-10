@@ -22,6 +22,18 @@ jobs:
           p12-file-base64: ${{ secrets.CERTIFICATE_OSX_P12 }}
           p12-password: ${{ secrets.CERTIFICATE_OSX_P12_PASSWORD }}
 
+      - name: Verify codesigning (MacOS)
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: |
+          # Check that keychain setup and certificate import worked
+          if security find-identity -v -p codesigning
+          then
+            echo "✅ Codesigning is set up correctly"
+          else
+            echo "⛔️ Codesigning is set up incorrectly"
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Cache node modules
