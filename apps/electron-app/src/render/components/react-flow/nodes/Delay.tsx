@@ -30,8 +30,16 @@ function Value() {
 function Settings() {
 	const data = useNodeData<DelayData>();
 	const { render } = useNodeControls({
-		delay: { min: 100, step: 100, value: data.delay },
-		forgetPrevious: { value: data.forgetPrevious, label: 'debounce' },
+		delay: {
+			min: 100,
+			step: 100,
+			value: data.delay,
+			label: 'delay (ms)',
+		},
+		forgetPrevious: {
+			value: data.forgetPrevious,
+			label: 'debounce',
+		},
 	});
 
 	return <>{render()}</>;

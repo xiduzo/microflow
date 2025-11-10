@@ -8,7 +8,7 @@ export function MusicSheet(props: Props) {
 	useEffect(() => {
 		if (!ref.current) return;
 
-		const abcString = convertToABC(props.song);
+		const abcString = convertToABC(props.song, props.title);
 
 		renderAbc(ref.current, abcString, {
 			responsive: 'resize',
@@ -19,7 +19,7 @@ export function MusicSheet(props: Props) {
 	return <div className='w-full' ref={ref} />;
 }
 
-function convertToABC(notes: Note[]) {
+function convertToABC(notes: Note[], title: string) {
 	let abcString = '';
 	const beatsPerBar = 4;
 	const barsPerLine = 4;
@@ -90,7 +90,7 @@ function convertToABC(notes: Note[]) {
 
 	return `
 X:1
-T: Piezo song
+T: ${title ?? 'Piezo song'}
 C: Microflow studio
 M: ${beatsPerBar}/4
 L: 1/8
@@ -122,4 +122,5 @@ function getNodeDuration(duration: number) {
 
 type Props = {
 	song: Note[];
+	title: string;
 };

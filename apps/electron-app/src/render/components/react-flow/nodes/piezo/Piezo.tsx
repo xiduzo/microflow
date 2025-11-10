@@ -100,6 +100,7 @@ function Settings() {
 			{editorOpened && (
 				<SongEditor
 					song={(data as SongData).song ?? DEFAULT_SONG}
+					title={data.label}
 					onClose={() => {
 						setEditorOpened(false);
 					}}

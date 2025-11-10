@@ -36,18 +36,22 @@ function Value() {
 		ref.current = value;
 	}, [value]);
 
-	if (data.type === 'raw')
+	if (data.type === 'raw') {
+		if (typeof value === 'string' && value.startsWith('{')) {
+			return (
+				<section className='text-xs text-muted-foreground text-start grow p-4 max-w-md'>
+					<pre>{JSON.stringify(JSON.parse(value), null, 2)}</pre>
+				</section>
+			);
+		}
+
 		return (
-			<div className='text-xs text-gray-500 text-start grow p-4 max-w-md'>
-				{typeof value === 'string' ? (
-					value.startsWith('{') ? (
-						<pre>{JSON.stringify(JSON.parse(value), null, 2)}</pre>
-					) : (
-						<div className='whitespace-pre-line'>{value}</div>
-					)
-				) : null}
-			</div>
+			<section className='text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16'>
+				{String(value)}
+			</section>
 		);
+	}
+
 	return <LevaPanel store={store} fill={true} flat titleBar={false} />;
 }
 

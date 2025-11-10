@@ -22,6 +22,7 @@
 		"make:debug": "DEBUG=electron-osx-sign electron-forge make",
 		"publish": "electron-forge publish",
 		"publish:intel": "electron-forge publish --arch x64",
+		"publish:arm64": "electron-forge publish --arch arm64",
 		"lint": "echo \"No linting configured\"",
 		"test:boards": "npx tsx ./test-board.ts",
 		"test": "npx jest"
@@ -74,7 +75,7 @@
 		"abcjs": "6.4.4",
 		"electron-log": "5.3.3",
 		"firmata": "https://github.com/xiduzo/firmata.js.git",
-		"leva": "^0.10.0",
+		"leva": "^0.10.1",
 		"mqtt": "5.10.4",
 		"prettier": "3.5.3",
 		"react": "18.3.1",
