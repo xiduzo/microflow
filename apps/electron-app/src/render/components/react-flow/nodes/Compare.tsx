@@ -5,7 +5,7 @@ import {
 	CompareSubValidator,
 } from '@microflow/hardware/contants';
 import { Position } from '@xyflow/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
@@ -68,6 +68,7 @@ function Settings() {
 		[]
 	);
 	const data = useNodeData<CompareData>();
+	const prevValidatorRef = useRef(data.validator);
 
 	const { render, set } = useNodeControls(
 		{
@@ -110,16 +111,22 @@ function Settings() {
 
 	useEffect(() => {
 		const options = [...COMPARE_SUB_VALIDATORS[data.validator]];
-		const subValidator = options.includes(data.subValidator as never)
-			? data.subValidator
-			: options.at(0);
-
 		setSubValidatorOptions(options);
+	}, [data.validator]); // eslint-disable-line react-hooks/exhaustive-deps
 
-		if (data.subValidator === subValidator) return;
+	useEffect(() => {
+		const options = [...COMPARE_SUB_VALIDATORS[data.validator]];
+		const isValidSubValidator = options.includes(data.subValidator);
 
-		set({ subValidator });
-	}, [data.validator, data.subValidator, set]);
+		if (prevValidatorRef.current !== data.validator && !isValidSubValidator) {
+			const defaultSubValidator = options.at(0);
+			if (defaultSubValidator) {
+				set({ subValidator: defaultSubValidator });
+			}
+		}
+
+		prevValidatorRef.current = data.validator;
+	}, [data.validator]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return <>{render()}</>;
 }

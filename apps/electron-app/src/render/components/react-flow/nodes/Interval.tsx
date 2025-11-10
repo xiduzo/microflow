@@ -34,7 +34,7 @@ function Value() {
 function Settings() {
 	const data = useNodeData<IntervalData>();
 	const { render } = useNodeControls({
-		interval: { value: data.interval, min: MIN_INTERVAL_IN_MS, step: 100 },
+		interval: { value: data.interval, min: MIN_INTERVAL_IN_MS, step: 100, label: 'interval (ms)' },
 	});
 
 	return <>{render()}</>;

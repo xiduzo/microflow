@@ -38,7 +38,7 @@ export function SongEditor(props: Props) {
 					<DialogTitle>Edit song</DialogTitle>
 				</DialogHeader>
 				<section className='flex flex-col space-y-4'>
-					<MusicSheet song={editedSong.map(song => song.note)} />
+					<MusicSheet song={editedSong.map(song => song.note)} title={props.title} />
 					<DragAndDropProvider swap={swapNotes}>
 						<section className='grid gap-2 grid-cols-4'>
 							{editedSong?.map(({ note, id }, index) => (
@@ -121,6 +121,7 @@ export function SongEditor(props: Props) {
 
 type Props = {
 	song: [string | null, number][];
+	title: string;
 	onSave: (data: { song: [string | null, number][] }) => void;
 	onClose: () => void;
 };

@@ -74,13 +74,23 @@ const bundle = async (source, destination) => {
 
 	const prodDeps = collectProdDeps(sourceNode);
 
+	// For macOS app bundles, dependencies should be in Contents/Resources
+	// Check if Contents/Resources exists (macOS app bundle structure)
+	const contentsResourcesPath = path.join(destination, 'Contents', 'Resources');
+	const isAppBundle = await fs
+		.access(contentsResourcesPath)
+		.then(() => true)
+		.catch(() => false);
+
+	const resourcesPath = isAppBundle ? contentsResourcesPath : destination;
+
 	let index = 0;
 
-	console.log(`Copying ${prodDeps.length} dependencies to ${destination}`);
+	console.log(`Copying ${prodDeps.length} dependencies to ${resourcesPath}`);
 	for (const dep of prodDeps) {
 		const dest = dep.location.startsWith('packages')
-			? path.join(destination, 'node_modules', '@microflow', dep.name)
-			: path.join(destination, 'node_modules', dep.name);
+			? path.join(resourcesPath, 'node_modules', '@microflow', dep.name)
+			: path.join(resourcesPath, 'node_modules', dep.name);
 
 		if (dep.name.startsWith('@types')) {
 			// console.debug(`IGNORE ${dep.name}`);
@@ -100,8 +110,8 @@ const bundle = async (source, destination) => {
 		});
 
 		index++;
-		// Update progress bar on the same line
-		if (index % 100 === 0) {
+		if (index % 10 === 0) {
+			// Update progress bar on the same line
 			process.stdout.write(`\r${createProgressBar(index, prodDeps.length)}\x1b[K`);
 		}
 
@@ -113,6 +123,7 @@ const bundle = async (source, destination) => {
 		// }
 	}
 
+	process.stdout.write(`\r${createProgressBar(index, prodDeps.length)}\x1b[K`);
 	// Add newline at the end when complete
 	console.log('');
 };

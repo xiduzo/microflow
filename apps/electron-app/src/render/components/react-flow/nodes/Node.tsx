@@ -124,7 +124,6 @@ export const useNodeControls = <
 					},
 				},
 			]);
-
 			updateNodeInternals(node.id);
 			await new Promise(resolve => setTimeout(resolve, 500)); // Give react-flow time to apply the changes
 			flowChanged();

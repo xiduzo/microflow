@@ -4,8 +4,6 @@ require('dotenv').config();
 const fs = require('fs/promises');
 const packageJson = require('./package.json');
 
-const isCI = !!process.env.GITHUB_ACTIONS;
-
 const packageVersion = packageJson.version;
 // Extract major.minor version without patch
 const shortVersion = packageVersion.split('.').slice(0, 2).join('.');
@@ -22,27 +20,24 @@ module.exports = {
 		executableName: 'Microflow studio',
 		icon: path.resolve(__dirname, 'assets', 'icon'),
 		prune: false, // required for monorepo
+		// asar: true,
 		protocols: [
 			{
 				name: 'microflow-studio',
 				schemes: ['microflow-studio'],
 			},
 		],
-		osxSign:
-			isCI || true
-				? {
-						identity: process.env.APPLE_DEVELOPER_ID_APPLICATION,
-					}
-				: undefined,
-		osxNotarize:
-			isCI || true
-				? {
-						tool: 'notarytool',
-						appleId: process.env.APPLE_ID,
-						appleIdPassword: process.env.APPLE_ID_PASSWORD,
-						teamId: process.env.APPLE_TEAM_ID,
-					}
-				: undefined,
+		osxSign: {
+			identity: process.env.APPLE_DEVELOPER_ID_APPLICATION,
+			preEmbedProvisioningProfile: false,
+			// provisioningProfile: 'microflow-studio.provisionprofile',
+		},
+		osxNotarize: {
+			tool: 'notarytool',
+			appleId: process.env.APPLE_ID,
+			appleIdPassword: process.env.APPLE_ID_PASSWORD,
+			teamId: process.env.APPLE_TEAM_ID,
+		},
 	},
 	hooks: {
 		packageAfterCopy: (_forgeConfig, buildPath) => bundle(__dirname, buildPath),
@@ -59,8 +54,6 @@ module.exports = {
 			name: '@electron-forge/maker-dmg',
 			config: {
 				format: 'ULFO',
-				name: 'microflow-studio',
-				executableName: 'microflow-studio',
 			},
 		},
 		{ name: '@electron-forge/maker-zip', platforms: ['darwin'] },
@@ -107,7 +100,6 @@ module.exports = {
 			},
 		},
 	],
-
 	publishers: [
 		{
 			name: '@electron-forge/publisher-github',

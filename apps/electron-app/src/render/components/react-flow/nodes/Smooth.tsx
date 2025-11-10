@@ -32,7 +32,7 @@ function Settings() {
 	const { render } = useNodeControls({
 		type: {
 			value: data.type,
-			options: { smooth: 'smooth', movingAverage: 'moving average' },
+			options: { smooth: 'smooth', 'moving average': 'movingAverage' },
 		},
 		windowSize: {
 			value: (data as MovingAverage).windowSize ?? 25,
@@ -45,7 +45,7 @@ function Settings() {
 			min: 0.0,
 			max: 1.0,
 			step: 0.001,
-			render: get => get('type') === 'movingAverage',
+			render: get => get('type') === 'smooth',
 		},
 	});
 
