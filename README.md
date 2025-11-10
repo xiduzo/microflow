@@ -55,4 +55,4 @@ In order to build the application for MacOS you will need to follow the [code si
 
 ## Certificates
 
-Run the `./apps/electron-app/generate-mac-os-certificates.sh` to have guided steps to set the correct configuration.
+For this we use the [import-codesign-certs](https://github.com/Apple-Actions/import-codesign-certs) action

@@ -29,6 +29,7 @@ module.exports = {
 		],
 		osxSign: {
 			identity: process.env.APPLE_DEVELOPER_ID_APPLICATION,
+			preEmbedProvisioningProfile: false,
 		},
 		osxNotarize: {
 			tool: 'notarytool',
