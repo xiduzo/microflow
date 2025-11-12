@@ -113,7 +113,6 @@ function Settings() {
 					}}
 					onSave={data => {
 						data.song = data.song;
-						console.log('data', data);
 						setNodeData(data);
 						setEditorOpened(false);
 					}}
