@@ -52,8 +52,8 @@ function Value() {
 function Settings() {
 	const data = useNodeData<RangeMapData>();
 	const { render } = useNodeControls({
-		from: { value: data.from, min: 0, max: 1023, step: 1 },
-		to: { value: data.to, min: 0, max: 1023, step: 1 },
+		from: { value: data.from, step: 1, joystick: false },
+		to: { value: data.to, step: 1, joystick: false },
 	});
 
 	return <>{render()}</>;
