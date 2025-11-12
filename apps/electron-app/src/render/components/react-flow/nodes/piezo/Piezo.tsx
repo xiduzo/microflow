@@ -54,7 +54,15 @@ function Settings() {
 				options: ['buzz', 'song'],
 				value: data.type,
 				transient: false,
-				onChange: event => deleteHandles(event === 'song' ? ['buzz'] : ['play']),
+				onChange: event => {
+					deleteHandles(event === 'song' ? ['buzz'] : ['play']);
+					setNodeData({
+						...data,
+						type: event,
+						tempo: event === 'song' ? 120 : undefined,
+						duration: event === 'buzz' ? 500 : undefined,
+					});
+				},
 			},
 			buzz: folder(
 				{
@@ -62,20 +70,13 @@ function Settings() {
 						min: 100,
 						max: 2500,
 						step: 100,
-						value: (data as BuzzData).duration!,
+						value: (data as BuzzData).duration ?? 500,
 						render: get => get('type') === 'buzz',
 					},
 					frequency: {
 						options: Object.fromEntries(NOTES_AND_FREQUENCIES.entries()),
 						value: (data as BuzzData).frequency!,
 						render: get => get('type') === 'buzz',
-					},
-					tempo: {
-						min: 40,
-						max: 240,
-						step: 10,
-						value: (data as SongData).tempo!,
-						render: get => get('type') === 'song',
 					},
 				},
 				{
@@ -84,6 +85,12 @@ function Settings() {
 			),
 			song: folder(
 				{
+					tempo: {
+						min: 40,
+						max: 240,
+						step: 10,
+						value: (data as SongData).tempo ?? 120,
+					},
 					'edit song': button(e => setEditorOpened(true)),
 				},
 				{
@@ -106,6 +113,7 @@ function Settings() {
 					}}
 					onSave={data => {
 						data.song = data.song;
+						console.log('data', data);
 						setNodeData(data);
 						setEditorOpened(false);
 					}}
