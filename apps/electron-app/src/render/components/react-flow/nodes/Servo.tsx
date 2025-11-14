@@ -43,8 +43,8 @@ function Value() {
 
 	if (data.type === 'continuous') {
 		if (!value) return <Icons.Circle className='text-muted-foreground' size={48} />;
-		if (value > 0) return <Icons.RotateCw className='animate-spin' size={48} />;
-		return <Icons.RotateCcw className='animate-spin direction-reverse' size={48} />;
+		if (value > 0) return <Icons.RotateCcw className='animate-spin direction-reverse' size={48} />;
+		return <Icons.RotateCw className='animate-spin' size={48} />;
 	}
 
 	return (
@@ -90,6 +90,7 @@ function Settings() {
 				min: 0,
 				max: 180,
 				render: get => get('type') === 'standard',
+				joystick: false,
 			},
 		},
 		[pins]
