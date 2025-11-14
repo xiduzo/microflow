@@ -20,7 +20,7 @@ export function Mqtt(props: Props) {
 	const { status } = useMqttStore();
 
 	return (
-		<NodeContainer {...props} error={status !== 'connected' ? 'MQTT not connected' : undefined}>
+		<NodeContainer {...props} error={status !== 'connected' ? status : undefined}>
 			<Subscriber />
 			<Value />
 			<Settings />

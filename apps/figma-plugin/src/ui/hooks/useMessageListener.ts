@@ -6,7 +6,7 @@ import { sendMessageToFigma } from '../utils/sendMessageToFigma';
 export function useMessageListener<T>(
 	type: MESSAGE_TYPE,
 	callback: (payload: T | undefined) => void | Promise<void>,
-	options?: { intervalInMs?: number; shouldSendInitialMessage?: boolean },
+	options?: { intervalInMs?: number; shouldSendInitialMessage?: boolean }
 ) {
 	const sendMessage = useCallback(
 		(payload: T) => {
@@ -15,7 +15,7 @@ export function useMessageListener<T>(
 				payload: payload as any,
 			});
 		},
-		[type],
+		[type]
 	);
 
 	useInterval(() => {

@@ -12,11 +12,6 @@ export enum MESSAGE_TYPE {
 	OPEN_LINK = 'OPEN_LINK',
 }
 
-export enum LOCAL_STORAGE_KEYS {
-	MQTT_CONNECTION = 'MQTT_CONNECTION',
-	DARK_MODE = 'DARK_MODE',
-}
-
 type SetUiOptionsMessage = {
 	type: MESSAGE_TYPE.SET_UI_OPTIONS;
 	payload: Partial<ShowUIOptions>;
@@ -31,25 +26,25 @@ export function SetUiOptions(payload: { width?: number; height?: number }): SetU
 type GetSetLocalStateValueMessage<T> = {
 	type: MESSAGE_TYPE.SET_LOCAL_STATE_VALUE | MESSAGE_TYPE.GET_LOCAL_STATE_VALUE;
 	payload: {
-		key: LOCAL_STORAGE_KEYS;
+		key: string;
 		value?: T;
 	};
 };
 
 function GetSetLocalStateValue<T>(
 	type: MESSAGE_TYPE.SET_LOCAL_STATE_VALUE | MESSAGE_TYPE.GET_LOCAL_STATE_VALUE,
-	key: LOCAL_STORAGE_KEYS,
-	value?: T,
+	key: string,
+	value?: T
 ): GetSetLocalStateValueMessage<T> {
 	return {
 		type,
 		payload: { key, value },
 	};
 }
-export function SetLocalStateValue<T>(key: LOCAL_STORAGE_KEYS, value: T) {
+export function SetLocalStateValue<T>(key: string, value: T) {
 	return GetSetLocalStateValue(MESSAGE_TYPE.SET_LOCAL_STATE_VALUE, key, value);
 }
-export function GetLocalStateValue<T>(key: LOCAL_STORAGE_KEYS, value: T) {
+export function GetLocalStateValue<T>(key: string, value?: T) {
 	return GetSetLocalStateValue(MESSAGE_TYPE.GET_LOCAL_STATE_VALUE, key, value);
 }
 
@@ -62,7 +57,7 @@ export function GetLocalVariables(
 	payload?: PickedVariable[] | undefined,
 	type:
 		| MESSAGE_TYPE.GET_LOCAL_VARIABLES
-		| MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES = MESSAGE_TYPE.GET_LOCAL_VARIABLES,
+		| MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES = MESSAGE_TYPE.GET_LOCAL_VARIABLES
 ): GetLocalVariablesMessage {
 	return {
 		type,
@@ -79,7 +74,7 @@ type SetLocalVariableMessage<T> = {
 };
 export function SetLocalValiable<T extends VariableValue>(
 	id: string,
-	value: T,
+	value: T
 ): SetLocalVariableMessage<T> {
 	return {
 		type: MESSAGE_TYPE.SET_LOCAL_VARIABLE,

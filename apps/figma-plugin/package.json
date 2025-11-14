@@ -25,7 +25,8 @@
 		"react-dom": "18.3.1",
 		"react-router-dom": "6.26.2",
 		"unique-names-generator": "4.7.1",
-		"usehooks-ts": "3.1.0"
+		"usehooks-ts": "3.1.0",
+		"zustand": "^5.0.8"
 	},
 	"devDependencies": {
 		"@figma/plugin-typings": "1.106.0",

@@ -1,4 +1,3 @@
-import { MqttConfig } from '@microflow/mqtt-provider/client';
 import {
 	Button,
 	Form,
@@ -21,10 +20,11 @@ import { PageContent, PageHeader } from '../../components/Page';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useSetWindowSize } from '../../hooks/useSetWindowSize';
 import { sendMessageToFigma } from '../../utils/sendMessageToFigma';
+import { useAppStore } from '../../stores/app';
 
 const schema = Zod.object({
 	host: Zod.string().optional(),
-	port: Zod.number({ coerce: true }).optional(),
+	port: Zod.number().optional(),
 	username: Zod.string().optional(),
 	password: Zod.string().optional(),
 	uniqueId: Zod.string()
@@ -41,15 +41,13 @@ const defaultValues: Schema = {
 };
 
 export function Mqtt() {
-	const [brokerSettings, setBrokerSettings] = useLocalStorage<MqttConfig>(
-		LOCAL_STORAGE_KEYS.MQTT_CONNECTION,
-	);
+	const { mqttConfig, setMqttConfig } = useAppStore();
 
 	const form = useForm<Schema>({
 		resolver: zodResolver(schema),
 		defaultValues: {
 			...defaultValues,
-			...(brokerSettings as Schema),
+			...(mqttConfig as Schema),
 		},
 	});
 
@@ -59,7 +57,7 @@ export function Mqtt() {
 	});
 
 	function onSubmit(data: Schema) {
-		setBrokerSettings(data);
+		setMqttConfig(data);
 		sendMessageToFigma(ShowToast('Broker settings saved!'));
 	}
 
@@ -69,37 +67,37 @@ export function Mqtt() {
 	}
 
 	useEffect(() => {
-		if (!brokerSettings) return;
+		if (!mqttConfig) return;
 		form.reset({
 			...defaultValues,
-			...(brokerSettings as Schema),
+			...(mqttConfig as Schema),
 		});
-	}, [brokerSettings, form.reset]);
+	}, [mqttConfig, form.reset]);
 
 	return (
 		<>
-			<PageHeader title="MQTT settings" />
+			<PageHeader title='MQTT settings' />
 			<PageContent>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit)} className="my-4 space-y-4">
+					<form onSubmit={form.handleSubmit(onSubmit)} className='my-4 space-y-4'>
 						<FormField
 							control={form.control}
-							name="uniqueId"
+							name='uniqueId'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Identifier</FormLabel>
-									<section className="flex items-center space-x-2">
+									<section className='flex items-center space-x-2'>
 										<FormControl>
-											<Input placeholder="Your unique identifier" {...field} />
+											<Input placeholder='Your unique identifier' {...field} />
 										</FormControl>
-										<Button variant="ghost" type="button" onClick={setRandomUniqueName}>
-											<Icons.Dices className="w-4 h-4" />
+										<Button variant='ghost' type='button' onClick={setRandomUniqueName}>
+											<Icons.Dices className='w-4 h-4' />
 										</Button>
 									</section>
 									<FormDescription>
 										This identifier allows you to send and receive variable values between this
 										plugin and other MQTT clients, like{' '}
-										<a className="underline" href="https://microflow.vercel.app/" target="_blank">
+										<a className='underline' href='https://microflow.vercel.app/' target='_blank'>
 											Microflow studio
 										</a>
 										.
@@ -110,12 +108,12 @@ export function Mqtt() {
 						/>
 						<FormField
 							control={form.control}
-							name="host"
+							name='host'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Host</FormLabel>
 									<FormControl>
-										<Input placeholder="test.mosquitto.org" {...field} />
+										<Input placeholder='test.mosquitto.org' {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -123,12 +121,20 @@ export function Mqtt() {
 						/>
 						<FormField
 							control={form.control}
-							name="port"
+							name='port'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Port</FormLabel>
 									<FormControl>
-										<Input placeholder="8081" type="number" {...field} />
+										<Input
+											placeholder='8081'
+											type='number'
+											{...field}
+											onChange={e => {
+												const value = e.target.value;
+												field.onChange(value === '' ? undefined : Number(value));
+											}}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -136,12 +142,12 @@ export function Mqtt() {
 						/>
 						<FormField
 							control={form.control}
-							name="username"
+							name='username'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Username</FormLabel>
 									<FormControl>
-										<Input placeholder="xiduzo" {...field} />
+										<Input placeholder='xiduzo' {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -149,22 +155,22 @@ export function Mqtt() {
 						/>
 						<FormField
 							control={form.control}
-							name="password"
+							name='password'
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>Password</FormLabel>
 									<FormControl>
-										<Input placeholder="************" type="password" {...field} />
+										<Input placeholder='************' type='password' {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
-						<Button type="submit" className="w-full">
+						<Button type='submit' className='w-full'>
 							Save MQTT settings
 						</Button>
-						<div className="text-blue-500 text-sm">
-							<Icons.Info className="w-3.5 h-3.5 pb-0.5 inline-block mr-1" />
+						<div className='text-blue-500 text-sm'>
+							<Icons.Info className='w-3.5 h-3.5 pb-0.5 inline-block mr-1' />
 							This plugin will force a connection over <code>wss://</code>, make sure your settings
 							will connect to an encrypted websocket.
 						</div>

@@ -415,7 +415,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.18.6, @babel/runtime@npm:^7.23.8, @babel/runtime@npm:^7.24.5, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.8.7":
+"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.18.6, @babel/runtime@npm:^7.23.8, @babel/runtime@npm:^7.24.5, @babel/runtime@npm:^7.28.4, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.8.7":
   version: 7.28.4
   resolution: "@babel/runtime@npm:7.28.4"
   checksum: 934b0a0460f7d06637d93fcd1a44ac49adc33518d17253b5a0b55ff4cb90a45d8fe78bf034b448911dbec7aff2a90b918697559f78d21c99ff8dbadae9565b55
@@ -2343,9 +2343,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@microflow/mqtt-provider@workspace:packages/mqtt-provider"
   dependencies:
-    mqtt: 5.10.4
+    mqtt: 5.14.1
     react: 18.3.1
-    zustand: ^5.0.8
+    zustand: 5.0.8
   languageName: unknown
   linkType: soft
 
@@ -5946,7 +5946,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/readable-stream@npm:^4.0.0, @types/readable-stream@npm:^4.0.18, @types/readable-stream@npm:^4.0.5":
+"@types/readable-stream@npm:^4.0.0, @types/readable-stream@npm:^4.0.18, @types/readable-stream@npm:^4.0.21, @types/readable-stream@npm:^4.0.5":
   version: 4.0.22
   resolution: "@types/readable-stream@npm:4.0.22"
   dependencies:
@@ -6001,7 +6001,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/ws@npm:^8.5.14, @types/ws@npm:^8.5.9":
+"@types/ws@npm:^8.18.1, @types/ws@npm:^8.5.14, @types/ws@npm:^8.5.9":
   version: 8.18.1
   resolution: "@types/ws@npm:8.18.1"
   dependencies:
@@ -7355,6 +7355,18 @@ __metadata:
   dependencies:
     fill-range: ^7.1.1
   checksum: b95aa0b3bd909f6cd1720ffcf031aeaf46154dd88b4da01f9a1d3f7ea866a79eba76a6d01cbc3c422b2ee5cdc39a4f02491058d5df0d7bf6e6a162a832df1f69
+  languageName: node
+  linkType: hard
+
+"broker-factory@npm:^3.1.10":
+  version: 3.1.10
+  resolution: "broker-factory@npm:3.1.10"
+  dependencies:
+    "@babel/runtime": ^7.28.4
+    fast-unique-numbers: ^9.0.24
+    tslib: ^2.8.1
+    worker-factory: ^7.0.46
+  checksum: 42847b9693183aa760dedcca661266f10b809aef1d3695b4b6cef5a77568ace9886711dde2e5ed27928c0460c6fbbd6e67f073db375736ffe3951ae341b569c2
   languageName: node
   linkType: hard
 
@@ -10006,6 +10018,16 @@ __metadata:
     "@babel/runtime": ^7.23.8
     tslib: ^2.6.2
   checksum: c3edaac89a967a04e1ef97e0d1f121743ab265156a2b1dd5147d47ca9f7b10fcd2b890b574d1689bf2747c823c85dd7b73ea0e3febceac61fde96813096bbd31
+  languageName: node
+  linkType: hard
+
+"fast-unique-numbers@npm:^9.0.24":
+  version: 9.0.24
+  resolution: "fast-unique-numbers@npm:9.0.24"
+  dependencies:
+    "@babel/runtime": ^7.28.4
+    tslib: ^2.8.1
+  checksum: 0f5718ed8e4d60371e45ddb8746065d9c5beea2211a104bdee818f99f4f0e0881df790113d995f950c101be63d40c7632f7e789e4cf646a3b7c31401bbfce848
   languageName: node
   linkType: hard
 
@@ -13262,6 +13284,7 @@ __metadata:
     vite: 5.4.8
     vite-plugin-generate-file: 0.2.0
     vite-plugin-singlefile: 2.0.2
+    zustand: ^5.0.8
   languageName: unknown
   linkType: soft
 
@@ -13619,7 +13642,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mqtt-packet@npm:^9.0.0, mqtt-packet@npm:^9.0.1":
+"mqtt-packet@npm:^9.0.0, mqtt-packet@npm:^9.0.1, mqtt-packet@npm:^9.0.2":
   version: 9.0.2
   resolution: "mqtt-packet@npm:9.0.2"
   dependencies:
@@ -13683,6 +13706,34 @@ __metadata:
     mqtt_pub: build/bin/pub.js
     mqtt_sub: build/bin/sub.js
   checksum: 9566f4256b58e680655e7f416de84810155189d1c8715b249f82bef6c0003d4655401ae425fb72a048959f66da0b9b99d352dbf89ded3e2fb4962128c5b8138b
+  languageName: node
+  linkType: hard
+
+"mqtt@npm:5.14.1":
+  version: 5.14.1
+  resolution: "mqtt@npm:5.14.1"
+  dependencies:
+    "@types/readable-stream": ^4.0.21
+    "@types/ws": ^8.18.1
+    commist: ^3.2.0
+    concat-stream: ^2.0.0
+    debug: ^4.4.1
+    help-me: ^5.0.0
+    lru-cache: ^10.4.3
+    minimist: ^1.2.8
+    mqtt-packet: ^9.0.2
+    number-allocator: ^1.0.14
+    readable-stream: ^4.7.0
+    rfdc: ^1.4.1
+    socks: ^2.8.6
+    split2: ^4.2.0
+    worker-timers: ^8.0.23
+    ws: ^8.18.3
+  bin:
+    mqtt: build/bin/mqtt.js
+    mqtt_pub: build/bin/pub.js
+    mqtt_sub: build/bin/sub.js
+  checksum: eff624863f4950b63465f5612038cec539e75ca3952267ba8c44c52fd6234df266460c91f2dee6741919fb9b8be58d20db2cf0d2e27c90591257a552303d1174
   languageName: node
   linkType: hard
 
@@ -16623,7 +16674,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socks@npm:^2.6.2, socks@npm:^2.8.3":
+"socks@npm:^2.6.2, socks@npm:^2.8.3, socks@npm:^2.8.6":
   version: 2.8.7
   resolution: "socks@npm:2.8.7"
   dependencies:
@@ -17505,7 +17556,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:^2.0.0, tslib@npm:^2.0.3, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.6.2":
+"tslib@npm:^2.0.0, tslib@npm:^2.0.3, tslib@npm:^2.1.0, tslib@npm:^2.4.0, tslib@npm:^2.6.2, tslib@npm:^2.8.1":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: e4aba30e632b8c8902b47587fd13345e2827fa639e7c3121074d5ee0880723282411a8838f830b55100cbe4517672f84a2472667d355b81e8af165a55dc6203a
@@ -18437,6 +18488,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"worker-factory@npm:^7.0.46":
+  version: 7.0.46
+  resolution: "worker-factory@npm:7.0.46"
+  dependencies:
+    "@babel/runtime": ^7.28.4
+    fast-unique-numbers: ^9.0.24
+    tslib: ^2.8.1
+  checksum: d7dd2ef073a798a212ade4b5988b997548408fd68a2f4f5d264eefd8bea67e80b9a392ae6d6f156e31968b815608b48d59481b575a1a6fba46ad4216448bc973
+  languageName: node
+  linkType: hard
+
 "worker-timers-broker@npm:^6.1.8":
   version: 6.1.8
   resolution: "worker-timers-broker@npm:6.1.8"
@@ -18446,6 +18508,19 @@ __metadata:
     tslib: ^2.6.2
     worker-timers-worker: ^7.0.71
   checksum: a2a1ebe7a17e6dca4e0431ca511d110a55b3d4e8dba5635ba03f84b27464b7e995f90a9bc2ca94eca7332abdd4fe9c37ea14f4d105d5c30097aeadcec4140f68
+  languageName: node
+  linkType: hard
+
+"worker-timers-broker@npm:^8.0.11":
+  version: 8.0.11
+  resolution: "worker-timers-broker@npm:8.0.11"
+  dependencies:
+    "@babel/runtime": ^7.28.4
+    broker-factory: ^3.1.10
+    fast-unique-numbers: ^9.0.24
+    tslib: ^2.8.1
+    worker-timers-worker: ^9.0.11
+  checksum: fbf63a46f8bcb1edf9a3bf2a9981961bf3a8622dee206f6cea81adf557a1ab1b4809bc7c80d54f5e4eee6de0b2b862ff6acdf419aeed016b1b37bbcb8a855c13
   languageName: node
   linkType: hard
 
@@ -18459,6 +18534,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"worker-timers-worker@npm:^9.0.11":
+  version: 9.0.11
+  resolution: "worker-timers-worker@npm:9.0.11"
+  dependencies:
+    "@babel/runtime": ^7.28.4
+    tslib: ^2.8.1
+    worker-factory: ^7.0.46
+  checksum: e49b9f3ee023cb83e1ae05862154bdab8a56809b4a43a67840467df26f1dbaf943a0589c3680f528bb211b0dfdece938ae1a4c8d7880346efc19a9b2b8c91637
+  languageName: node
+  linkType: hard
+
 "worker-timers@npm:^7.1.4, worker-timers@npm:^7.1.8":
   version: 7.1.8
   resolution: "worker-timers@npm:7.1.8"
@@ -18468,6 +18554,18 @@ __metadata:
     worker-timers-broker: ^6.1.8
     worker-timers-worker: ^7.0.71
   checksum: 7c79bbb06bb89c8291a10cbb260ae16a6bddb56ac580012ea9dfbed0bfa7f338da9e10b2414206b38b4a686007b64853040264f2baf6a7b0b37ced5ae43a181e
+  languageName: node
+  linkType: hard
+
+"worker-timers@npm:^8.0.23":
+  version: 8.0.25
+  resolution: "worker-timers@npm:8.0.25"
+  dependencies:
+    "@babel/runtime": ^7.28.4
+    tslib: ^2.8.1
+    worker-timers-broker: ^8.0.11
+    worker-timers-worker: ^9.0.11
+  checksum: 82d7aa953b2e9797cb385b3536d69b8d3d2bf76b2d4afb204ece6e6205376659fd9a0e3e41c0c08b7ce8edbd177207530b3a1117d076e337c0cc4388460c6514
   languageName: node
   linkType: hard
 
@@ -18531,7 +18629,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.14.2, ws@npm:^8.17.1, ws@npm:^8.18.0":
+"ws@npm:^8.14.2, ws@npm:^8.17.1, ws@npm:^8.18.0, ws@npm:^8.18.3":
   version: 8.18.3
   resolution: "ws@npm:8.18.3"
   peerDependencies:

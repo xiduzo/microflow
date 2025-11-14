@@ -1,5 +1,10 @@
 import type { FigmaData, FigmaValueType, RGBA } from '@microflow/hardware';
-import { FigmaVariable, useFigmaVariable, useMqttStore } from '@microflow/mqtt-provider/client';
+import {
+	FigmaVariable,
+	useFigmaVariable,
+	useFigmaVariables,
+	useMqttStore,
+} from '@microflow/mqtt-provider/client';
 import {
 	Icons,
 	Switch,
@@ -12,54 +17,88 @@ import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from './Node';
-import { useNodeValue } from '../../../stores/node-data';
 import { RgbaColorPicker } from 'react-colorful';
-import { useDebounceValue } from 'usehooks-ts';
+import { useNodeValue } from '../../../stores/node-data';
 
 export function Figma(props: Props) {
 	const { connectedClients } = useMqttStore();
 	const pluginConnected =
 		connectedClients.find(({ appName }) => appName === 'plugin')?.status === 'connected';
 
-	const { variables, variable, value } = useFigmaVariable(props.data?.variableId);
-
-	useEffect(() => {
-		// TODO this sometimes interferes with the publish
-		// when the next value is already being send to the plugin
-		// and the plugin has not processed the previous value yet
-		if (value === undefined || value === null) return;
-
-		window.electron.ipcRenderer.send('ipc-external-value', {
-			nodeId: props.id,
-			value,
-		});
-	}, [value, props.id]);
+	useValueSync({ variableId: props.data?.variableId, nodeId: props.id });
 
 	return (
 		<NodeContainer
 			{...props}
 			error={!pluginConnected ? 'Figma plugin is not connected' : undefined}
 		>
-			<Value variable={variable} hasVariables={!!Array.from(Object.values(variables)).length} />
+			<Value />
 			<Settings />
-			<FigmaHandles variable={variable} id={props.id} />
+			<FigmaHandles variableId={props.data?.variableId} id={props.id} />
 		</NodeContainer>
 	);
 }
 
-function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
+function useValueSync(props: { variableId?: string; nodeId: string }) {
+	const { value: figmaValue } = useFigmaVariable(props.variableId);
+	const nodeValue = useNodeValue(props.nodeId);
+	const { publish, appName, uniqueId } = useMqttStore();
+
+	const lastNodeValue = useRef(nodeValue);
+	const lastFigmaValue = useRef(figmaValue);
+
+	console.log(figmaValue, nodeValue);
+	// Option 1; the flow updates the node value
+	useEffect(() => {
+		const stringifiedValue = JSON.stringify(figmaValue);
+		console.log({
+			stringifiedValue,
+			lastFigmaValue: lastFigmaValue.current,
+		});
+		if (stringifiedValue === lastFigmaValue.current) return;
+
+		lastFigmaValue.current = stringifiedValue;
+
+		// Set the node value
+		window.electron.ipcRenderer.send('ipc-external-value', {
+			nodeId: props.nodeId,
+			value: stringifiedValue,
+		});
+	}, [figmaValue, props.nodeId]);
+
+	// Option 2; the plugin updates the node value
+	useEffect(() => {
+		const stringifiedValue = JSON.stringify(nodeValue);
+		console.log({
+			stringifiedValue,
+			lastNodeValue: lastNodeValue.current,
+		});
+		if (stringifiedValue === lastNodeValue.current) return;
+
+		lastNodeValue.current = stringifiedValue;
+
+		// Set the figma value
+		publish(
+			`microflow/v1/${uniqueId}/${appName}/variable/${props.variableId}/set`,
+			stringifiedValue
+		);
+	}, [nodeValue, props.variableId, uniqueId, appName, publish]);
+}
+
+function FigmaHandles(props: { variableId?: string; id: string }) {
 	const updateNodeInternals = useUpdateNodeInternals();
+	const { variable } = useFigmaVariable(props.variableId);
 
 	useEffect(() => {
-		if (!props.variable?.resolvedType) return;
+		if (!variable?.resolvedType) return;
 		// We need to update the internals when we have the resolvedType
 		// So that we do not get the xyflow error: `Couldn't create edge for target handle id...`
 		updateNodeInternals(props.id);
-	}, [props.id, props.variable?.resolvedType, updateNodeInternals]);
+	}, [props.id, variable?.resolvedType, updateNodeInternals]);
 
 	return (
 		<>
-			{props.variable?.resolvedType === 'BOOLEAN' && (
+			{variable?.resolvedType === 'BOOLEAN' && (
 				<>
 					<Handle type='target' position={Position.Left} id='true' offset={-1} />
 					<Handle type='target' position={Position.Left} id='toggle' />
@@ -68,7 +107,7 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 					<Handle type='source' position={Position.Right} id='false' offset={1} />
 				</>
 			)}
-			{props.variable?.resolvedType === 'COLOR' && (
+			{variable?.resolvedType === 'COLOR' && (
 				<>
 					<Handle type='target' position={Position.Left} id='red' hint='0-255' offset={-1.5} />
 					<Handle type='target' position={Position.Left} id='green' hint='0-255' offset={-0.5} />
@@ -76,7 +115,7 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 					<Handle type='target' position={Position.Left} id='opacity' hint='0-100' offset={1.5} />
 				</>
 			)}
-			{props.variable?.resolvedType === 'FLOAT' && (
+			{variable?.resolvedType === 'FLOAT' && (
 				<>
 					<Handle type='target' position={Position.Left} id='increment' offset={-1.5} />
 					<Handle type='target' position={Position.Left} id='set' offset={-0.5} />
@@ -84,7 +123,7 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 					<Handle type='target' position={Position.Left} id='reset' offset={1.5} />
 				</>
 			)}
-			{props.variable?.resolvedType === 'STRING' && (
+			{variable?.resolvedType === 'STRING' && (
 				<Handle type='target' position={Position.Left} id='set' />
 			)}
 			<Handle type='source' position={Position.Right} id='change' />
@@ -94,7 +133,7 @@ function FigmaHandles(props: { variable?: FigmaVariable; id: string }) {
 
 function Settings() {
 	const data = useNodeData<FigmaData>();
-	const { variables } = useFigmaVariable();
+	const variables = useFigmaVariables();
 	const deleteHandles = useDeleteHandles();
 
 	const { render } = useNodeControls(
@@ -161,46 +200,29 @@ const numberFormat = new Intl.NumberFormat('en-US', {
 	maximumFractionDigits: 2,
 });
 
-function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
+function Value() {
 	const data = useNodeData<FigmaData>();
 	const value = useNodeValue<FigmaValueType>(data.initialValue!);
+	const { variable } = useFigmaVariable(data.variableId);
+	const variables = useFigmaVariables();
 
-	const lastPublishedValue = useRef<string>();
-	const { publish, appName, uniqueId } = useMqttStore();
-	const [debouncedValue] = useDebounceValue(value, data.debounceTime ?? 100);
+	if (!Object.values(variables).length)
+		return <Icons.CloudOff className='text-muted-foreground' size={48} />;
+	if (!variable) return <Icons.Variable className='text-muted-foreground' size={48} />;
 
-	const topic = useMemo(
-		() => `microflow/v1/${uniqueId}/${appName}/variable/${props.variable?.id}/set`,
-		[uniqueId, appName, props.variable]
-	);
-
-	useEffect(() => {
-		if (debouncedValue === undefined) return;
-
-		const valueToPublish = JSON.stringify(debouncedValue);
-
-		if (lastPublishedValue.current === valueToPublish) return;
-		lastPublishedValue.current = valueToPublish;
-
-		publish(topic, valueToPublish);
-	}, [debouncedValue, topic]);
-
-	if (!props.hasVariables) return <Icons.CloudOff className='text-muted-foreground' size={48} />;
-	if (!props.variable) return <Icons.Variable className='text-muted-foreground' size={48} />;
-
-	switch (props.variable.resolvedType) {
+	switch (variable.resolvedType) {
 		case 'BOOLEAN':
 			return (
 				<section className='flex flex-col items-center gap-2'>
 					<Switch className='scale-150 border' checked={Boolean(value)} />
-					<span className='text-muted-foreground text-xs'>{props.variable?.name}</span>
+					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
 				</section>
 			);
 		case 'FLOAT':
 			return (
 				<section className='flex flex-col items-center gap-1'>
 					<span className='text-4xl tabular-nums'>{numberFormat.format(Number(value))}</span>
-					<span className='text-muted-foreground text-xs'>{props.variable?.name}</span>
+					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
 				</section>
 			);
 		case 'STRING':
@@ -216,7 +238,7 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 							<TooltipContent className='max-w-64'>{String(value)}</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
-					<span className='text-muted-foreground text-xs'>{props.variable?.name}</span>
+					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
 				</section>
 			);
 		case 'COLOR':
@@ -230,14 +252,14 @@ function Value(props: { variable?: FigmaVariable; hasVariables: boolean }) {
 							a: (value as RGBA).a,
 						}}
 					/>
-					<span className='text-muted-foreground text-xs'>{props.variable?.name}</span>
+					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
 				</section>
 			);
 		default:
 			return (
 				<section className='flex flex-col items-center gap-1'>
 					<div>Unknown type</div>
-					<span className='text-muted-foreground text-xs'>{props.variable?.name}</span>
+					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
 				</section>
 			);
 	}

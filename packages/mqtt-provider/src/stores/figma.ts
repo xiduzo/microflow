@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/shallow';
 import { useMemo } from 'react';
 
 export type FigmaVariable = {
@@ -22,8 +23,8 @@ export const useFigmaStore = create<FigmaStore>((set, get) => {
 		const variableValues = get().variableValues;
 
 		const current = JSON.stringify(variableValues[variableId]);
-		console.log({ current, value });
 		if (JSON.stringify(value) === current) return;
+		console.log(JSON.stringify(value), current);
 
 		set({
 			variableValues: {
@@ -68,6 +69,7 @@ export const useFigmaVariable = (variableId?: string) => {
 	return {
 		variable,
 		value,
-		variables: variableTypes,
 	};
 };
+
+export const useFigmaVariables = () => useFigmaStore(useShallow(state => state.variableTypes));
