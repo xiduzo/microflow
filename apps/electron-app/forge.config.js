@@ -54,6 +54,21 @@ module.exports = {
 			name: '@electron-forge/maker-dmg',
 			config: {
 				format: 'ULFO',
+				background: path.resolve(__dirname, 'assets', 'dmg-background.png'),
+				contents: options => [
+					{
+						x: 145,
+						y: 325,
+						type: 'file',
+						path: options.appPath,
+					},
+					{
+						x: 485,
+						y: 185,
+						type: 'link',
+						path: '/Applications',
+					},
+				],
 			},
 		},
 		{ name: '@electron-forge/maker-zip', platforms: ['darwin'] },
