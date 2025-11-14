@@ -1,8 +1,13 @@
-import { FigmaVariable, useFigmaStore, useMqttStore } from '@microflow/mqtt-provider/client';
+import {
+	FigmaVariable,
+	MqttConfig,
+	useFigmaStore,
+	useMqttStore,
+} from '@microflow/mqtt-provider/client';
 import { Toaster } from '@microflow/ui';
 import { ReactFlowProvider } from '@xyflow/react';
 import { createRoot } from 'react-dom/client';
-import { useDarkMode } from 'usehooks-ts';
+import { useDarkMode, useLocalStorage } from 'usehooks-ts';
 import { IpcDeepLinkListener } from './render/components/IpcDeepLinkListener';
 import { IpcMenuListeners } from './render/components/IpcMenuListener';
 import { ReactFlowCanvas } from './render/components/react-flow/ReactFlowCanvas';
@@ -22,7 +27,7 @@ export function App() {
 		<section className='h-screen w-screen'>
 			<DarkMode />
 			<MQTT />
-			<Figma />
+			<FigmaSync />
 			<Settings />
 			<Toaster position='top-left' className='z-20' duration={5000} />
 			<CelebrationParticles />
@@ -54,17 +59,20 @@ function BoardHooks() {
 
 function MQTT() {
 	const { connect } = useMqttStore();
-	const { user } = useAppStore();
+	const { user, mqttConfig } = useAppStore();
+	const uniqueId = useMemo(() => user?.name, [user?.name]);
 
 	useEffect(() => {
-		if (!user?.name) return;
-		return connect({ uniqueId: user.name }, 'app');
-	}, [connect, user?.name]);
+		if (!uniqueId) return;
+		if (!mqttConfig) return;
+
+		connect({ ...mqttConfig, uniqueId }, 'app');
+	}, [connect, mqttConfig, uniqueId]);
 
 	return null;
 }
 
-function Figma() {
+function FigmaSync() {
 	const { publish, subscribe, status, uniqueId, appName, connectedClients } = useMqttStore();
 	const { updateVariableTypes, updateVariableValue } = useFigmaStore();
 
@@ -74,6 +82,7 @@ function Figma() {
 	);
 
 	useEffect(() => {
+		if (!uniqueId) return;
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variables`, (topic, message) => {
 			logger.log('[Figma] <<<< variables', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
@@ -81,6 +90,7 @@ function Figma() {
 	}, [subscribe, uniqueId, updateVariableTypes]);
 
 	useEffect(() => {
+		if (!uniqueId) return;
 		return subscribe(`microflow/v1/${uniqueId}/plugin/variable/+`, (topic, message) => {
 			logger.log('[Figma] <<<< variable', topic, message.toString(), topic.split('/')[5]);
 			updateVariableValue(topic.split('/')[5], JSON.parse(message.toString()));
@@ -88,6 +98,7 @@ function Figma() {
 	}, [subscribe, uniqueId, updateVariableValue]);
 
 	useEffect(() => {
+		if (!uniqueId) return;
 		return subscribe(`microflow/v1/${uniqueId}/${appName}/variables/response`, (topic, message) => {
 			logger.log('[Figma] <<<< variables/response', topic, message.toString());
 			updateVariableTypes(JSON.parse(message.toString()) as Record<string, FigmaVariable>);
@@ -95,8 +106,9 @@ function Figma() {
 	}, [subscribe, uniqueId, appName, updateVariableTypes]);
 
 	useEffect(() => {
-		if (status !== 'connected' || !pluginConnected) return;
+		if (status !== 'connected') return;
 		if (!pluginConnected) return;
+		if (!uniqueId) return;
 		publish(`microflow/v1/${uniqueId}/${appName}/variables/request`, '');
 	}, [status, publish, pluginConnected, uniqueId, appName]);
 

@@ -1,16 +1,15 @@
-import { MqttProvider } from '@microflow/mqtt-provider/client';
+import { useMqttStore } from '@microflow/mqtt-provider/client';
 import '@microflow/ui/globals.css';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator';
-import { LOCAL_STORAGE_KEYS, MESSAGE_TYPE } from '../common/types/Message';
 import { MqttVariableMessenger } from './components/MqttVariableMessenger';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import './index.css';
 import { Home } from './pages/home';
 import { Mqtt } from './pages/mqtt';
 import { Variables } from './pages/variables';
-import { useMessageListener } from './hooks/useMessageListener';
 import { useEffect } from 'react';
+import { APP_STATE_LOCAL_STORAGE_KEY, AppState, useAppStore } from './stores/app';
+import { useMessageListener } from './hooks/useMessageListener';
+import { MESSAGE_TYPE } from '../common/types/Message';
 
 const router = createMemoryRouter([
 	{ path: '/', Component: Home },
@@ -19,50 +18,55 @@ const router = createMemoryRouter([
 ]);
 
 export function App() {
-	const [brokerSettings, setBrokerSettings] = useLocalStorage<{ uniqueId: string } | null>(
-		LOCAL_STORAGE_KEYS.MQTT_CONNECTION,
-		{ initialValue: null }
-	);
-
-	// Due the the async nature of Figma's local-storage,
-	// we initially set the value to `null` and listen to the response.
-	// If the response is still null we can set a default value.
-	useMessageListener<{ key: LOCAL_STORAGE_KEYS; value?: any }>(
-		MESSAGE_TYPE.GET_LOCAL_STATE_VALUE,
-		payload => {
-			if (payload?.key !== LOCAL_STORAGE_KEYS.MQTT_CONNECTION) return;
-			if (payload?.value !== null) return;
-
-			setBrokerSettings({
-				uniqueId: uniqueNamesGenerator({ dictionaries: [adjectives, animals] }),
-			});
-		}
-	);
-
-	if (brokerSettings === null) return null;
-
 	return (
 		<>
+			<InitApp />
 			<DarkMode />
-			<MqttProvider appName='plugin' config={brokerSettings}>
-				<MqttVariableMessenger />
-				<RouterProvider router={router} />
-			</MqttProvider>
+			<MQTT />
+			<MqttVariableMessenger />
+			<RouterProvider router={router} />
 		</>
 	);
 }
 
+function MQTT() {
+	const { connect } = useMqttStore();
+	const { mqttConfig } = useAppStore();
+
+	useEffect(() => {
+		if (!mqttConfig) return;
+
+		connect(mqttConfig, 'plugin');
+	}, [connect, mqttConfig]);
+
+	return null;
+}
+
+function InitApp() {
+	const { setAppState } = useAppStore();
+	useMessageListener<{ key: string; value?: string }>(
+		MESSAGE_TYPE.GET_LOCAL_STATE_VALUE,
+		payload => {
+			if (payload?.key !== APP_STATE_LOCAL_STORAGE_KEY) return;
+			if (!payload.value) return;
+			const parsed = JSON.parse(payload.value) as Record<string, unknown>;
+			if ('state' in parsed) {
+				setAppState(parsed.state as Partial<AppState>);
+			}
+		}
+	);
+	return null;
+}
+
 function DarkMode() {
-	const [, setIsDarkMode] = useLocalStorage<boolean>(LOCAL_STORAGE_KEYS.DARK_MODE, {
-		initialValue: false,
-	});
+	const { setDarkMode } = useAppStore();
 
 	useEffect(() => {
 		const likesDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
 		toggleDarkMode(likesDarkMode.matches);
 
 		function toggleDarkMode(darkMode: boolean) {
-			setIsDarkMode(darkMode);
+			setDarkMode(darkMode);
 
 			if (darkMode) {
 				window.document.body.classList.add('dark');
@@ -80,7 +84,7 @@ function DarkMode() {
 		return () => {
 			likesDarkMode.removeEventListener('change', handleEvent);
 		};
-	}, []);
+	}, [setDarkMode]);
 
 	return null;
 }

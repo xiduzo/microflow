@@ -25,7 +25,7 @@ export async function createVariable(name: string, resolvedType: VariableResolve
 }
 
 export async function getLocalVariables(
-	type: MESSAGE_TYPE.GET_LOCAL_VARIABLES | MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES,
+	type: MESSAGE_TYPE.GET_LOCAL_VARIABLES | MESSAGE_TYPE.MQTT_GET_LOCAL_VARIABLES
 ) {
 	const collection = await getCollection();
 
@@ -132,7 +132,7 @@ function unknownToRgbaOrNull(value: unknown) {
 
 export function mapValueToFigmaValue(
 	type: VariableResolvedDataType,
-	value: unknown,
+	value: unknown
 ): VariableValue | null {
 	try {
 		switch (type) {

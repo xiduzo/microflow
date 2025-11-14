@@ -1,5 +1,8 @@
 import {
 	Button,
+	Field,
+	FieldDescription,
+	FieldLabel,
 	Form,
 	FormControl,
 	FormField,
@@ -20,8 +23,8 @@ import {
 	Zod,
 	zodResolver,
 } from '@microflow/ui';
-import { useLocalStorage } from 'usehooks-ts';
 import { useAppStore } from '../../stores/app';
+import { MqttConfig } from '@microflow/mqtt-provider/client';
 
 const schema = Zod.object({
 	host: Zod.string().optional(),
@@ -34,16 +37,17 @@ const schema = Zod.object({
 type Schema = Zod.infer<typeof schema>;
 
 export function MqttSettingsForm(props: Props) {
-	const { user } = useAppStore();
-	const [mqttConfig, setMqttConfig] = useLocalStorage<Schema | undefined>('mqtt-config', {
-		host: 'test.mosquitto.org',
-		port: 8081,
-		protocol: 'wss',
-	});
+	const { user, mqttConfig, setMqttConfig } = useAppStore();
 
 	const form = useForm({
 		resolver: zodResolver(schema),
-		defaultValues: mqttConfig,
+		defaultValues: {
+			host: mqttConfig?.host,
+			port: mqttConfig?.port,
+			username: mqttConfig?.username,
+			password: mqttConfig?.password as string,
+			protocol: (mqttConfig as MqttConfig & { protocol: 'ws' | 'wss' })?.protocol as 'ws' | 'wss',
+		},
 	});
 
 	const { setSettingsOpen } = useAppStore();
@@ -87,6 +91,22 @@ export function MqttSettingsForm(props: Props) {
 				</SheetHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className='my-4 space-y-4'>
+						<Field>
+							<FieldLabel htmlFor='checkout-7j9-card-name-43j'>Identifier</FieldLabel>
+							<Input id='checkout-7j9-card-name-43j' value={user?.name} disabled />
+							<FieldDescription>
+								This is configured in your{' '}
+								<span
+									className='underline cursor-pointer'
+									onClick={event => {
+										event.preventDefault();
+										setSettingsOpen('user-settings');
+									}}
+								>
+									user settings
+								</span>
+							</FieldDescription>
+						</Field>
 						<FormField
 							control={form.control}
 							name='host'
@@ -107,7 +127,15 @@ export function MqttSettingsForm(props: Props) {
 								<FormItem>
 									<FormLabel>Port</FormLabel>
 									<FormControl>
-										<Input placeholder='8081' type='number' {...field} />
+										<Input
+											placeholder='8081'
+											type='number'
+											{...field}
+											onChange={e => {
+												const value = e.target.value;
+												field.onChange(value === '' ? undefined : Number(value));
+											}}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -162,9 +190,7 @@ export function MqttSettingsForm(props: Props) {
 							<SheetClose asChild>
 								<Button variant='secondary'>Cancel</Button>
 							</SheetClose>
-							<Button type='submit' disabled={!form.formState.isDirty || !form.formState.isValid}>
-								Save changes
-							</Button>
+							<Button type='submit'>Save changes</Button>
 						</SheetFooter>
 					</form>
 				</Form>

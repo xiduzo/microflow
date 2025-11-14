@@ -1,4 +1,4 @@
-import { useMqtt } from '@microflow/mqtt-provider/client';
+import { useMqttStore } from '@microflow/mqtt-provider/client';
 import { useEffect, useRef } from 'react';
 import { MESSAGE_TYPE, SetLocalValiable } from '../../common/types/Message';
 import { useMessageListener } from '../hooks/useMessageListener';
@@ -7,7 +7,7 @@ import { sendMessageToFigma } from '../utils/sendMessageToFigma';
 type KnownVariable = Pick<Variable, 'name' | 'resolvedType' | 'id'>;
 
 export function MqttVariableMessenger() {
-	const { status, publish, subscribe, uniqueId } = useMqtt();
+	const { status, publish, subscribe, uniqueId } = useMqttStore();
 	const publishedVariableValues = useRef<Map<string, any | undefined>>(new Map());
 	const knownVariables = useRef<Record<string, KnownVariable>>({}); // <id, name>
 
@@ -22,7 +22,7 @@ export function MqttVariableMessenger() {
 					};
 					return acc;
 				},
-				{} as Record<string, KnownVariable>,
+				{} as Record<string, KnownVariable>
 			) ?? {};
 
 		const newVariablesAsJson = JSON.stringify(newVariables);
@@ -42,7 +42,7 @@ export function MqttVariableMessenger() {
 
 			await publish(
 				`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`,
-				JSON.stringify(value),
+				JSON.stringify(value)
 			);
 			publishedVariableValues.current.set(variable.id, valueAsJson);
 		});
@@ -55,12 +55,12 @@ export function MqttVariableMessenger() {
 			const app = topic.split('/')[3];
 			publish(
 				`microflow/v1/${uniqueId}/${app}/variables/response`,
-				JSON.stringify(knownVariables.current),
+				JSON.stringify(knownVariables.current)
 			);
 			publishedVariableValues.current.forEach((value, id) => {
 				publish(`microflow/v1/${uniqueId}/${app}/variable/${id}`, value);
 			});
-		}).catch(console.error);
+		});
 
 		const set = subscribe(`microflow/v1/${uniqueId}/+/variable/+/set`, async (topic, message) => {
 			const [, , , app, , variableId] = topic.split('/');
@@ -77,11 +77,11 @@ export function MqttVariableMessenger() {
 			// Make sure we don't send the same value back to the app
 			publishedVariableValues.current.set(variableId, JSON.stringify(value));
 			sendMessageToFigma(SetLocalValiable(variableId, value as VariableValue));
-		}).catch(console.error);
+		});
 
 		return () => {
-			req.then(unsub => unsub?.()).catch(console.error);
-			set.then(unsub => unsub?.()).catch(console.error);
+			req();
+			set();
 		};
 	}, [status, subscribe, publish, uniqueId]);
 
