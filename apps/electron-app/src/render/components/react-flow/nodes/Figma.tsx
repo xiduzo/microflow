@@ -3,8 +3,8 @@ import {
 	FigmaVariable,
 	useFigmaVariable,
 	useFigmaVariables,
-	useMqttStore,
-} from '@microflow/mqtt-provider/client';
+} from '@microflow/mqtt-provider/src/stores/figma';
+import { useMqttStore } from '@microflow/mqtt-provider/src/stores/mqtt';
 import {
 	Icons,
 	Switch,
@@ -25,39 +25,35 @@ export function Figma(props: Props) {
 	const pluginConnected =
 		connectedClients.find(({ appName }) => appName === 'plugin')?.status === 'connected';
 
-	useValueSync({ variableId: props.data?.variableId, nodeId: props.id });
-
 	return (
 		<NodeContainer
 			{...props}
 			error={!pluginConnected ? 'Figma plugin is not connected' : undefined}
 		>
 			<Value />
+			<ValueSync variableId={props.data?.variableId} nodeId={props.id} />
 			<Settings />
 			<FigmaHandles variableId={props.data?.variableId} id={props.id} />
 		</NodeContainer>
 	);
 }
 
-function useValueSync(props: { variableId?: string; nodeId: string }) {
+function ValueSync(props: { variableId?: string; nodeId: string }) {
 	const { value: figmaValue } = useFigmaVariable(props.variableId);
-	const nodeValue = useNodeValue(props.nodeId);
+	const nodeValue = useNodeValue<FigmaValueType>(false);
+
 	const { publish, appName, uniqueId } = useMqttStore();
 
-	const lastNodeValue = useRef(nodeValue);
-	const lastFigmaValue = useRef(figmaValue);
+	const lastKnownValue = useRef<string | undefined>(undefined);
 
-	console.log(figmaValue, nodeValue);
 	// Option 1; the flow updates the node value
 	useEffect(() => {
+		if (figmaValue === undefined) return;
 		const stringifiedValue = JSON.stringify(figmaValue);
-		console.log({
-			stringifiedValue,
-			lastFigmaValue: lastFigmaValue.current,
-		});
-		if (stringifiedValue === lastFigmaValue.current) return;
 
-		lastFigmaValue.current = stringifiedValue;
+		if (stringifiedValue === lastKnownValue.current) return;
+
+		lastKnownValue.current = stringifiedValue;
 
 		// Set the node value
 		window.electron.ipcRenderer.send('ipc-external-value', {
@@ -69,13 +65,12 @@ function useValueSync(props: { variableId?: string; nodeId: string }) {
 	// Option 2; the plugin updates the node value
 	useEffect(() => {
 		const stringifiedValue = JSON.stringify(nodeValue);
-		console.log({
-			stringifiedValue,
-			lastNodeValue: lastNodeValue.current,
-		});
-		if (stringifiedValue === lastNodeValue.current) return;
 
-		lastNodeValue.current = stringifiedValue;
+		if (stringifiedValue === lastKnownValue.current) return;
+
+		lastKnownValue.current = stringifiedValue;
+
+		if (!props.variableId) return;
 
 		// Set the figma value
 		publish(
@@ -83,6 +78,8 @@ function useValueSync(props: { variableId?: string; nodeId: string }) {
 			stringifiedValue
 		);
 	}, [nodeValue, props.variableId, uniqueId, appName, publish]);
+
+	return null;
 }
 
 function FigmaHandles(props: { variableId?: string; id: string }) {
@@ -136,7 +133,7 @@ function Settings() {
 	const variables = useFigmaVariables();
 	const deleteHandles = useDeleteHandles();
 
-	const { render } = useNodeControls(
+	const { render, set } = useNodeControls(
 		{
 			variableId: {
 				label: 'variable',
@@ -179,8 +176,16 @@ function Settings() {
 							deleteHandles(allHandles.filter(handle => !['set'].includes(handle)));
 							break;
 					}
+
+					set({ resolvedType: selectedVariableType });
 					// IDEA set initial value?
 				},
+			},
+			resolvedType: {
+				value: data.resolvedType!,
+				label: 'type',
+				options: ['BOOLEAN', 'COLOR', 'FLOAT', 'STRING'],
+				render: () => false,
 			},
 			debounceTime: {
 				value: data.debounceTime!,
