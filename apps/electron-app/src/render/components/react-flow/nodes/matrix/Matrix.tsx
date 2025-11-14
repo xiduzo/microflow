@@ -85,6 +85,12 @@ function Settings() {
 					value: data.pins.data,
 					options: pins.reduce(reducePinsToOptions, {}),
 					label: 'data (DIN)',
+					onChange: value => {
+						setNodeData({
+							...data,
+							pins: { ...data.pins, data: value },
+						});
+					},
 				},
 				clock: {
 					value: data.pins.clock,
@@ -92,11 +98,23 @@ function Settings() {
 						.filter(pin => pin.supportedModes.includes(MODES.PWM))
 						.reduce(reducePinsToOptions, {}),
 					label: 'clock (CLK)',
+					onChange: value => {
+						setNodeData({
+							...data,
+							pins: { ...data.pins, clock: value },
+						});
+					},
 				},
 				cs: {
 					value: data.pins.cs,
 					options: pins.reduce(reducePinsToOptions, {}),
 					label: 'chip select (CS)',
+					onChange: value => {
+						setNodeData({
+							...data,
+							pins: { ...data.pins, cs: value },
+						});
+					},
 				},
 			}),
 			'edit shapes': button(() => setEditorOpened(true)),
@@ -139,7 +157,7 @@ function Settings() {
 												className='flex flex-col items-center gap-3 cursor-grab active:cursor-grabbing'
 											>
 												<MatrixEditor
-													dimensions={data.dims}
+													dimensions={getShape(data.dims, data.devices)}
 													onSave={newShape => {
 														const nextShapes = [...shapes];
 														nextShapes[index] = newShape;
@@ -155,7 +173,7 @@ function Settings() {
 													<section className='flex-col flex items-center justify-center'>
 														<section className='max-w-xl overflow-x-scroll pb-8'>
 															<MatrixDisplay
-																dimensions={data.dims}
+																dimensions={getShape(data.dims, data.devices)}
 																shape={shape}
 																className='hover:cursor-zoom-in'
 															/>
@@ -193,7 +211,7 @@ function Settings() {
 						<MatrixEditor
 							key={shapes.length}
 							onSave={newShape => updateShapes([...shapes, newShape])}
-							dimensions={data.dims}
+							dimensions={getShape(data.dims, data.devices)}
 							shape={[]}
 						>
 							<Button variant='outline'>Add new shape</Button>
