@@ -64,10 +64,7 @@ export function PrimaryFeatures() {
 					{features.map(feature => (
 						<TabsContent key={feature.title} value={feature.title}>
 							<p className='mt-6 max-w-2xl m-auto text-center'>{feature.description}</p>
-							<div
-								aria-hidden='true'
-								className='w-2xl m-auto mt-8 overflow-hidden rounded-xl bg-slate-50 shadow-xl shadow-blue-900/20'
-							>
+							<div aria-hidden='true' className='w-2xl m-auto mt-8 overflow-hidden'>
 								<Image
 									className='w-full'
 									src={feature.image}
