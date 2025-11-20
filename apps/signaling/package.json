@@ -1,6 +1,7 @@
 {
 	"name": "microflow-signaling",
 	"version": "1.0.0",
+	"type": "module",
 	"description": "WebRTC connector for Yjs",
 	"main": "dist/index.js",
 	"scripts": {
