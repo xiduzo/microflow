@@ -1,7 +1,5 @@
 [phases.setup]
 nixPkgs = ["nodejs_20"]
-
-[phases.setup]
 cmds = ["corepack enable", "corepack prepare yarn@3.8.7 --activate", "yarn plugin import workspace-tools"]
 
 [phases.install]
