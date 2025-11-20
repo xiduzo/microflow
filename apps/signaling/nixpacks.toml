@@ -7,17 +7,13 @@ cmds = [
 ]
 
 [phases.install]
-cmds = [
-  "cd ../.. && yarn install --immutable --immutable-cache"
-]
+cmds = ["yarn workspaces focus microflow-signaling"]
 
 [phases.build]
-cmds = [
-  "cd apps/signaling && yarn build"
-]
+cmds = ["yarn workspace microflow-signaling build"]
 
 [start]
-cmd = "node apps/signaling/dist/index.js"
+cmd = "node dist/index.js"
 
 [variables]
 PORT = "4444"
