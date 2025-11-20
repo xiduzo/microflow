@@ -1,0 +1,14 @@
+node_modules
+dist
+*.log
+.DS_Store
+.git
+.gitignore
+README.md
+.vscode
+.idea
+*.md
+test
+*.test.ts
+*.test.js
+
