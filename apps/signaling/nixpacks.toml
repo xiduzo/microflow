@@ -1,8 +1,11 @@
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
+[phases.setup]
+cmds = ["corepack enable", "corepack prepare yarn@3.8.7 --activate", "yarn plugin import workspace-tools"]
+
 [phases.install]
-cmds = ["corepack enable", "corepack prepare yarn@3.8.7 --activate", "yarn plugin import workspace-tools", "yarn install", "yarn workspaces focus microflow-signaling --production"]
+cmds = ["yarn install --immutable"]
 
 [phases.build]
 cmds = ["yarn workspace microflow-signaling build"]
@@ -12,5 +15,4 @@ cmd = "node dist/index.js"
 
 [variables]
 PORT = "4444"
-NODE_PATH = "../../node_modules"
 
