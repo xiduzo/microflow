@@ -13,7 +13,7 @@ cmds = ["yarn workspaces focus microflow-signaling"]
 cmds = ["yarn workspace microflow-signaling build"]
 
 [start]
-cmd = "node dist/index.js"
+cmd = "yarn workspace microflow-signaling start"
 
 [variables]
 PORT = "4444"
