@@ -25,7 +25,11 @@ export function Rgb(props: Props) {
 function Value() {
 	const value = useNodeValue<RgbValueType>({ r: 0, g: 0, b: 0, a: 1 });
 
-	return <RgbaColorPicker color={value} />;
+	return (
+		<section className='px-10'>
+			<RgbaColorPicker color={value} />
+		</section>
+	);
 }
 
 function Settings() {
@@ -33,18 +37,18 @@ function Settings() {
 	const data = useNodeData<RgbData>();
 	const { render } = useNodeControls({
 		red: {
-			value: data.pins.red,
+			value: Array.isArray(data.pins) ? data.pins[0] : data.pins.red,
 			options: pins.reduce(reducePinsToOptions, {}),
 		},
 		green: {
-			value: data.pins.green,
+			value: Array.isArray(data.pins) ? data.pins[1] : data.pins.green,
 			options: pins.reduce(reducePinsToOptions, {}),
 		},
 		blue: {
-			value: data.pins.blue,
+			value: Array.isArray(data.pins) ? data.pins[2] : data.pins.blue,
 			options: pins.reduce(reducePinsToOptions, {}),
 		},
-		isAnode: { value: data.isAnode, label: 'anode' },
+		isAnode: { value: Boolean(data.isAnode), label: 'anode' },
 	});
 
 	return <>{render()}</>;

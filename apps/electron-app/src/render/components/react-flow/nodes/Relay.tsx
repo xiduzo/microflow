@@ -14,8 +14,8 @@ export function Relay(props: Props) {
 			<Value />
 			<Settings />
 			<Handle type='target' position={Position.Left} id='open' offset={-1} />
-			<Handle type='target' position={Position.Left} id='close' />
-			<Handle type='target' position={Position.Left} id='toggle' offset={1} />
+			<Handle type='target' position={Position.Left} id='toggle' />
+			<Handle type='target' position={Position.Left} id='close' offset={1} />
 		</NodeContainer>
 	);
 }
@@ -35,10 +35,10 @@ function Settings() {
 			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
 			type: {
 				value: data.type,
-				options: [
-					{ value: 'NO', text: 'Normally open (NO)' },
-					{ value: 'NC', text: 'Normally closed (NC)' },
-				],
+				options: {
+					'Normally open (NO)': 'NO',
+					'Normally closed (NC)': 'NC',
+				},
 			},
 		},
 		[pins]
