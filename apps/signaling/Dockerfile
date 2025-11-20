@@ -1,23 +1,35 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Enable corepack for Yarn
+RUN corepack enable
+
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
-COPY tsconfig.json ./
+# Copy workspace root files (needed for Yarn workspaces)
+COPY ../../package.json ./package.json
+COPY ../../yarn.lock ./yarn.lock
+COPY ../../.yarnrc.yml ./.yarnrc.yml
+
+# Copy app package files
+COPY package.json ./apps/signaling/package.json
+COPY tsconfig.json ./apps/signaling/tsconfig.json
 
 # Install dependencies
-RUN npm ci
+WORKDIR /app/apps/signaling
+RUN yarn install --frozen-lockfile
 
 # Copy source files
 COPY index.ts ./
 
 # Build TypeScript
-RUN npm run build
+RUN yarn build
 
 # Production stage
 FROM node:20-alpine
+
+# Enable corepack for Yarn
+RUN corepack enable
 
 WORKDIR /app
 
@@ -25,12 +37,18 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files
-COPY package.json ./
+# Copy workspace root files (needed for Yarn workspaces)
+COPY ../../package.json ./package.json
+COPY ../../yarn.lock ./yarn.lock
+COPY ../../.yarnrc.yml ./.yarnrc.yml
+
+# Copy app package files
+COPY package.json ./apps/signaling/package.json
 
 # Install production dependencies only
-RUN npm ci --only=production && \
-    npm cache clean --force
+WORKDIR /app/apps/signaling
+RUN yarn install --frozen-lockfile --production && \
+    yarn cache clean
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
