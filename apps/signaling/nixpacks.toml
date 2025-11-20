@@ -3,7 +3,7 @@ nixPkgs = ["nodejs_20"]
 cmds = ["corepack enable", "corepack prepare yarn@3.8.7 --activate", "yarn plugin import workspace-tools"]
 
 [phases.install]
-cmds = ["yarn install --immutable"]
+cmds = ["yarn install"]
 
 [phases.build]
 cmds = ["yarn workspace microflow-signaling build"]
