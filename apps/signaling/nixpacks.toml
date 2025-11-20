@@ -7,15 +7,18 @@ cmds = [
 ]
 
 [phases.install]
-cmds = ["yarn install"]
+cmds = [
+  "cd ../.. && yarn install --immutable --immutable-cache"
+]
 
 [phases.build]
-cmds = ["yarn build"]
+cmds = [
+  "cd apps/signaling && yarn build"
+]
 
 [start]
 cmd = "node apps/signaling/dist/index.js"
 
 [variables]
 PORT = "4444"
-NIXPACKS_TURBO_APP_NAME = "microflow-signaling"
 
