@@ -1,6 +1,4 @@
-#!/usr/bin/env node
-
-import { WebSocketServer, WebSocket, CONNECTING, OPEN } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 import * as map from 'lib0/map';
 
@@ -18,7 +16,7 @@ const topics = new Map<string, Set<WebSocket>>();
 const PING_TIMEOUT = 30_000;
 
 const send = (websocket: WebSocket, message: Record<string, unknown>) => {
-	if (websocket.readyState !== CONNECTING && websocket.readyState !== OPEN) {
+	if (websocket.readyState !== WebSocket.CONNECTING && websocket.readyState !== WebSocket.OPEN) {
 		websocket.close();
 		return;
 	}
