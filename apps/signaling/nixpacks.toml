@@ -8,21 +8,6 @@ cmds = ["yarn workspaces focus microflow-signaling"]
 [phases.build]
 cmds = ["yarn workspace microflow-signaling build"]
 
-# Debug phase to see file contents before start
-[phases.debug]
-cmds = [
-  "echo '=== Current working directory ==='",
-  "pwd",
-  "echo '=== Directory contents ==='",
-  "ls -la",
-  "echo '=== dist directory contents ==='",
-  "ls -la dist/ || echo 'dist directory does not exist'",
-  "echo '=== Checking for index.js ==='",
-  "test -f dist/index.js && echo 'dist/index.js exists' || echo 'dist/index.js does NOT exist'",
-  "echo '=== File tree (first 3 levels) ==='",
-  "find . -maxdepth 3 -type f | head -20 || true"
-]
-
 [start]
 cmd = "node dist/index.js"
 
