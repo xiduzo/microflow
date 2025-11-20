@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["corepack enable", "yarn workspaces focus microflow-signaling"]
+cmds = ["corepack enable", "corepack prepare yarn@3.8.7 --activate", "yarn workspaces focus microflow-signaling"]
 
 [phases.build]
 cmds = ["yarn workspace microflow-signaling build"]
