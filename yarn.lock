@@ -13576,6 +13576,7 @@ __metadata:
     "@types/ws": 8.5.10
     lib0: 0.2.88
     tsx: 4.7.0
+    typescript: 5.8.3
     ws: 8.16.0
   languageName: unknown
   linkType: soft
