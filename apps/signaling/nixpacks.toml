@@ -8,7 +8,7 @@ cmds = ["corepack enable", "corepack prepare yarn@3.8.7 --activate", "yarn plugi
 cmds = ["yarn workspace microflow-signaling build"]
 
 [start]
-cmd = "node apps/signaling/dist/index.js"
+cmd = "node dist/index.js"
 
 [variables]
 PORT = "4444"
