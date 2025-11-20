@@ -24,7 +24,7 @@ cmds = [
 ]
 
 [start]
-cmds = ["node dist/index.js"]
+cmd = "node dist/index.js"
 
 [variables]
 PORT = "4444"
