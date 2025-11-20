@@ -303,7 +303,10 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 
 			try {
 				provider = new WebrtcProvider(normalizedRoomName, ydoc, {
-					signaling: ['wss://signaling.yjs.dev'],
+					signaling: [
+						'ws://localhost:4444',
+						// 'wss://signaling.yjs.dev',
+					],
 					password: undefined,
 					maxConns: 20,
 					...options,
