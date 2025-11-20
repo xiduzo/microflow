@@ -1,0 +1,23 @@
+[phases.setup]
+nixPkgs = ["nodejs"]
+cmds = [
+    "corepack enable",
+    "corepack prepare yarn@3.8.7 --activate",
+    "yarn plugin import workspace-tools"
+]
+
+[phases.install]
+cmds = [
+  "cd ../.. && yarn install --immutable --immutable-cache"
+]
+
+[phases.build]
+cmds = [
+  "cd apps/signaling && yarn build"
+]
+
+[start]
+cmd = "node apps/signaling/dist/index.js"
+
+[variables]
+PORT = "4444"
