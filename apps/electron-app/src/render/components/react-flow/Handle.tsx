@@ -1,4 +1,4 @@
-import { cva, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@microflow/ui';
+import { cva, Tooltip, TooltipContent, TooltipTrigger } from '@microflow/ui';
 import {
 	HandleProps,
 	Position,
@@ -82,52 +82,50 @@ export function Handle(props: Props) {
 	}, [props.id, getZoom]);
 
 	return (
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<XyFlowHandle
-						{...props}
-						ref={ref}
-						isConnectable={isConnectable}
-						isValidConnection={edge => {
-							if (props.isValidConnection) props.isValidConnection(edges, edge);
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<XyFlowHandle
+					{...props}
+					ref={ref}
+					isConnectable={isConnectable}
+					isValidConnection={edge => {
+						if (props.isValidConnection) props.isValidConnection(edges, edge);
 
-							// Can not connect to self
-							if (edge.source === edge.target) return false;
-							return true;
-						}}
-						className={handle({
+						// Can not connect to self
+						if (edge.source === edge.target) return false;
+						return true;
+					}}
+					className={handle({
+						position: props.position,
+						className: props.className,
+						isHandleSelectedViaEdge: isHandleSelectedViaEdge,
+					})}
+					style={{
+						width: HANDLE_SIZE,
+						height: HANDLE_SIZE,
+						marginLeft: [Position.Top, Position.Bottom].includes(props.position)
+							? HANDLE_SPACING * 2 * (props.offset ?? 0)
+							: 0,
+						marginTop: [Position.Left, Position.Right].includes(props.position)
+							? HANDLE_SPACING * (props.offset ?? 0) + HANDLE_SPACING_OFFSET
+							: 0,
+						translate,
+						...props.style,
+					}}
+				>
+					<span
+						className={handleText({
 							position: props.position,
-							className: props.className,
+							showHandle: showHandle || isHandleSelectedViaEdge,
 							isHandleSelectedViaEdge: isHandleSelectedViaEdge,
 						})}
-						style={{
-							width: HANDLE_SIZE,
-							height: HANDLE_SIZE,
-							marginLeft: [Position.Top, Position.Bottom].includes(props.position)
-								? HANDLE_SPACING * 2 * (props.offset ?? 0)
-								: 0,
-							marginTop: [Position.Left, Position.Right].includes(props.position)
-								? HANDLE_SPACING * (props.offset ?? 0) + HANDLE_SPACING_OFFSET
-								: 0,
-							translate,
-							...props.style,
-						}}
 					>
-						<span
-							className={handleText({
-								position: props.position,
-								showHandle: showHandle || isHandleSelectedViaEdge,
-								isHandleSelectedViaEdge: isHandleSelectedViaEdge,
-							})}
-						>
-							{String(props.title ?? props.id).toLowerCase()}
-						</span>
-					</XyFlowHandle>
-				</TooltipTrigger>
-				{props.hint && <TooltipContent side={props.position}>{props.hint}</TooltipContent>}
-			</Tooltip>
-		</TooltipProvider>
+						{String(props.title ?? props.id).toLowerCase()}
+					</span>
+				</XyFlowHandle>
+			</TooltipTrigger>
+			{props.hint && <TooltipContent side={props.position}>{props.hint}</TooltipContent>}
+		</Tooltip>
 	);
 }
 

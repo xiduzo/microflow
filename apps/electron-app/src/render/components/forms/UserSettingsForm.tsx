@@ -1,8 +1,4 @@
 import {
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
 	useForm,
 	zodResolver,
 	Zod,
@@ -15,8 +11,7 @@ import {
 	FormMessage,
 	Input,
 	Icons,
-	SheetFooter,
-	SheetClose,
+	toast,
 } from '@microflow/ui';
 import { useAppStore } from '../../stores/app';
 import { getRandomUniqueUserName } from '../../../common/unique';
@@ -36,98 +31,78 @@ const schema = Zod.object({
 
 type Schema = Zod.infer<typeof schema>;
 
-export function UserSettingsForm(props: Props) {
-	const { user, setUser, setSettingsOpen } = useAppStore();
+export function UserSettingsForm() {
+	const { user, setUser } = useAppStore();
 
 	const form = useForm({
 		resolver: zodResolver(schema),
+		mode: 'onChange',
+		reValidateMode: 'onChange',
 		defaultValues: {
 			name: user?.name ?? '',
 			color: user?.color ?? '#ffcc00',
 		},
-		mode: 'onChange',
 	});
-
-	function setRandomUniqueName() {
-		const newName = getRandomUniqueUserName();
-		form.clearErrors('name');
-		form.setValue('name', newName);
-	}
 
 	const submit = (data: Schema) => {
 		setUser(data);
-		closeForm();
+		form.reset(data);
+		toast.success('User settings saved', {
+			description: 'Your user settings have been updated successfully.',
+		});
 	};
 
-	function closeForm() {
-		setSettingsOpen(undefined);
-		props.onClose?.();
-	}
-
 	return (
-		<Sheet
-			open={props.open}
-			onOpenChange={opened => {
-				closeForm();
-			}}
-		>
-			<SheetContent>
-				<SheetHeader>
-					<SheetTitle className='flex gap-2 items-center'>
-						<Icons.User />
-						User settings
-					</SheetTitle>
-				</SheetHeader>
-				<Form {...form}>
-					<form className='mt-4 space-y-2' onSubmit={form.handleSubmit(submit)}>
-						<FormField
-							control={form.control}
-							name='name'
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Your identifier</FormLabel>
-									<section className='flex items-center space-x-2'>
-										<FormControl>
-											<Input placeholder='Your unique identifier' {...field} />
-										</FormControl>
-										<Button variant='ghost' type='button' onClick={setRandomUniqueName}>
-											<Icons.Dices className='w-4 h-4' />
-										</Button>
-									</section>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name='color'
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Your cursor color</FormLabel>
-									<HexColorPicker
-										className='w-full'
-										color={field.value}
-										onChange={color => field.onChange(color)}
-									/>
-								</FormItem>
-							)}
-						/>
-						<SheetFooter>
-							<SheetClose asChild>
-								<Button variant='secondary'>Cancel</Button>
-							</SheetClose>
-							<Button type='submit' disabled={!form.formState.isDirty || !form.formState.isValid}>
-								Save changes
-							</Button>
-						</SheetFooter>
-					</form>
-				</Form>
-			</SheetContent>
-		</Sheet>
+		<Form {...form}>
+			<form className='space-y-4' onSubmit={form.handleSubmit(submit)}>
+				<FormField
+					control={form.control}
+					name='name'
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Your identifier</FormLabel>
+							<section className='flex items-center space-x-2'>
+								<FormControl>
+									<Input placeholder='Your unique identifier' {...field} />
+								</FormControl>
+								<Button
+									variant='ghost'
+									type='button'
+									onClick={() => {
+										form.setValue('name', getRandomUniqueUserName(), {
+											shouldDirty: true,
+											shouldValidate: true,
+											shouldTouch: true,
+										});
+									}}
+								>
+									<Icons.Dices className='w-4 h-4' />
+								</Button>
+							</section>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+				<FormField
+					control={form.control}
+					name='color'
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Your cursor color</FormLabel>
+							<HexColorPicker
+								className='w-full'
+								color={field.value}
+								onChange={color => field.onChange(color)}
+							/>
+						</FormItem>
+					)}
+				/>
+				<div className='flex justify-end gap-2 pt-2'>
+					<Button type='submit' disabled={!form.formState.isDirty || !form.formState.isValid}>
+						Save changes
+					</Button>
+				</div>
+			</form>
+		</Form>
 	);
 }
-
-type Props = {
-	open: boolean;
-	onClose?: () => void;
-};

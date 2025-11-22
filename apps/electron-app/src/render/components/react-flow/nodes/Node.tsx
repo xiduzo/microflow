@@ -10,7 +10,6 @@ import {
 	Icons,
 	Tooltip,
 	TooltipContent,
-	TooltipProvider,
 	TooltipTrigger,
 } from '@microflow/ui';
 import { LevaPanel, useControls, useCreateStore } from 'leva';
@@ -41,14 +40,12 @@ function NodeHeader(props: { error?: string }) {
 			<NodeDescription />
 			{props.error && (
 				<CardAction>
-					<TooltipProvider>
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger className='cursor-help'>
-								<Icons.OctagonAlert className='text-red-500' />
-							</TooltipTrigger>
-							<TooltipContent className='text-red-500'>{props.error}</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+					<Tooltip delayDuration={0}>
+						<TooltipTrigger className='cursor-help'>
+							<Icons.OctagonAlert className='text-red-500' />
+						</TooltipTrigger>
+						<TooltipContent className='text-red-500'>{props.error}</TooltipContent>
+					</Tooltip>
 				</CardAction>
 			)}
 		</CardHeader>

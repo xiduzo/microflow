@@ -4,7 +4,7 @@ import {
 	useFigmaStore,
 	useMqttStore,
 } from '@microflow/mqtt-provider/client';
-import { Toaster } from '@microflow/ui';
+import { Toaster, TooltipProvider } from '@microflow/ui';
 import { ReactFlowProvider } from '@xyflow/react';
 import { createRoot } from 'react-dom/client';
 import { useDarkMode, useLocalStorage } from 'usehooks-ts';
@@ -17,28 +17,28 @@ import { CelebrationParticles } from './render/components/CelebrationParticles';
 import { NewNodeCommandDialog } from './render/providers/NewNodeProvider';
 import { StrictMode, useEffect, useMemo } from 'react';
 import { useAppStore } from './render/stores/app';
-import { MqttSettingsForm } from './render/components/forms/MqttSettingsForm';
-import { AdvancedSettingsForm } from './render/components/forms/AdvancedSettingsForm';
-import { UserSettingsForm } from './render/components/forms/UserSettingsForm';
+import { Settings } from './render/components/Settings';
 import logger from 'electron-log/renderer';
 
 export function App() {
 	return (
-		<section className='h-screen w-screen'>
-			<DarkMode />
-			<MQTT />
-			<FigmaSync />
-			<Settings />
-			<Toaster position='top-left' className='z-20' duration={5000} />
-			<CelebrationParticles />
-			<ReactFlowProvider>
-				<IpcDeepLinkListener />
-				<NewNodeCommandDialog />
-				<ReactFlowCanvas />
-				<IpcMenuListeners />
-				<BoardHooks />
-			</ReactFlowProvider>
-		</section>
+		<TooltipProvider>
+			<section className='h-screen w-screen'>
+				<DarkMode />
+				<MQTT />
+				<FigmaSync />
+				<Settings />
+				<Toaster position='top-left' className='z-20' duration={5000} />
+				<CelebrationParticles />
+				<ReactFlowProvider>
+					<IpcDeepLinkListener />
+					<NewNodeCommandDialog />
+					<ReactFlowCanvas />
+					<IpcMenuListeners />
+					<BoardHooks />
+				</ReactFlowProvider>
+			</section>
+		</TooltipProvider>
 	);
 }
 
@@ -126,16 +126,4 @@ function DarkMode() {
 	}, [isDarkMode]);
 
 	return null;
-}
-
-function Settings() {
-	const { settingsOpen } = useAppStore();
-
-	return (
-		<>
-			<MqttSettingsForm open={settingsOpen === 'mqtt-settings'} />
-			<AdvancedSettingsForm open={settingsOpen === 'board-settings'} />
-			<UserSettingsForm open={settingsOpen === 'user-settings'} />
-		</>
-	);
 }

@@ -34,7 +34,7 @@ export function createMenu(mainWindow: BrowserWindow, createWindow: () => Promis
 			label: 'Flow',
 			submenu: [
 				{
-					label: 'Insert node',
+					label: 'Add node',
 					accelerator: isMac ? 'Cmd+K' : 'Ctrl+K',
 					click: () => sendMessage(mainWindow, 'add-node'),
 				},
@@ -143,12 +143,16 @@ export function createMenu(mainWindow: BrowserWindow, createWindow: () => Promis
 			label: 'Settings',
 			submenu: [
 				{
-					label: 'Microcontroller settings',
-					click: () => sendMessage(mainWindow, 'board-settings'),
+					label: 'User settings',
+					click: () => sendMessage(mainWindow, 'user-settings'),
 				},
 				{
 					label: 'MQTT settings',
 					click: () => sendMessage(mainWindow, 'mqtt-settings'),
+				},
+				{
+					label: 'Microcontroller settings',
+					click: () => sendMessage(mainWindow, 'board-settings'),
 				},
 			],
 		},
