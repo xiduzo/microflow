@@ -11,6 +11,7 @@ board.on('ready', () => {
 	const strip = new pixel.Strip({
 		data: 12, // LED data pin
 		length: 24, // number of LEDs
+		// @ts-ignore board errpr
 		board: board,
 		controller: 'FIRMATA', // Use Firmata-controlled Arduino
 		skip_firmware_check: true,
