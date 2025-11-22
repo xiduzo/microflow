@@ -303,11 +303,7 @@ export const useYjsStore = create<YjsState>()((set, get) => {
 
 			try {
 				provider = new WebrtcProvider(normalizedRoomName, ydoc, {
-					signaling: [
-						'wss://microflow-signaling.xiduzo.com',
-						// 'ws://localhost:4444',
-						// 'wss://signaling.yjs.dev',
-					],
+					signaling: ['wss://microflow-signaling.xiduzo.com'],
 					password: undefined,
 					maxConns: 20,
 					...options,

@@ -5,14 +5,7 @@ import {
 	useFigmaVariables,
 } from '@microflow/mqtt-provider/src/stores/figma';
 import { useMqttStore } from '@microflow/mqtt-provider/src/stores/mqtt';
-import {
-	Icons,
-	Switch,
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@microflow/ui';
+import { Icons, Switch, Tooltip, TooltipContent, TooltipTrigger } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Handle } from '../Handle';
@@ -233,16 +226,14 @@ function Value() {
 		case 'STRING':
 			return (
 				<section className='flex flex-col items-center gap-1'>
-					<TooltipProvider>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<div className='-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto'>
-									{String(value)}
-								</div>
-							</TooltipTrigger>
-							<TooltipContent className='max-w-64'>{String(value)}</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<div className='-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto'>
+								{String(value)}
+							</div>
+						</TooltipTrigger>
+						<TooltipContent className='max-w-64'>{String(value)}</TooltipContent>
+					</Tooltip>
 					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
 				</section>
 			);
