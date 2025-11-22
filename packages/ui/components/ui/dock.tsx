@@ -15,6 +15,7 @@ export interface DockProps extends VariantProps<typeof dockVariants> {
 	iconDistance?: number;
 	direction?: 'top' | 'middle' | 'bottom';
 	children: React.ReactNode;
+	tabIndex?: number;
 }
 
 const DEFAULT_SIZE = 40;
@@ -36,6 +37,7 @@ const Dock = React.forwardRef<HTMLDivElement, DockProps>(
 			disableMagnification = DEFAULT_DISABLEMAGNIFICATION,
 			iconDistance = DEFAULT_DISTANCE,
 			direction = 'middle',
+			tabIndex,
 			...props
 		},
 		ref
