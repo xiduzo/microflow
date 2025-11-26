@@ -21,7 +21,7 @@ import { useAppStore } from '../../stores/app';
 import { MqttConfig } from '@microflow/mqtt-provider/client';
 
 const schema = Zod.object({
-	host: Zod.url().or(Zod.ipv4()),
+	host: Zod.string().or(Zod.ipv4()),
 	port: Zod.number().min(0),
 	username: Zod.string().optional(),
 	password: Zod.string().optional(),

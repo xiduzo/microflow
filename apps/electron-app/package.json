@@ -65,8 +65,8 @@
 	"dependencies": {
 		"@leva-ui/plugin-plot": "^0.10.0",
 		"@microflow/flasher": "workspaces:*",
-		"@microflow/hardware": "workspaces:*",
 		"@microflow/mqtt-provider": "workspaces:*",
+		"@microflow/runtime": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",
 		"@tsparticles/engine": "3.8.1",

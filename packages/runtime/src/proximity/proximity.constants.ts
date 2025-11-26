@@ -1,0 +1,2 @@
+// to validate: MB1000, MB1003, MB1020
+export const PROXIMITY_CONTROLLERS = ['GP2Y0A21YK', 'GP2Y0A710K0F'] as const;

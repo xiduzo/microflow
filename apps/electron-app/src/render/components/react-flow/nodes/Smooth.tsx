@@ -1,4 +1,10 @@
-import type { MovingAverage, SmoothAverage, SmoothData } from '@microflow/hardware';
+import {
+	type Data,
+	MovingAverage,
+	SmoothAverage,
+	type Value,
+	dataSchema,
+} from '@microflow/runtime/src/smooth/smooth.types';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
@@ -16,7 +22,7 @@ export function Smooth(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<SmoothData>();
+	const data = useNodeData<Data>();
 
 	return (
 		<IconWithValue
@@ -27,7 +33,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<SmoothData>();
+	const data = useNodeData<Data>();
 
 	const { render } = useNodeControls({
 		type: {
@@ -52,15 +58,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<SmoothData>;
+type Props = BaseNode<Data>;
 Smooth.defaultProps = {
 	data: {
+		...dataSchema.parse({ type: 'smooth' }),
 		group: 'flow',
 		tags: ['transformation'],
 		label: 'Smooth',
-		type: 'smooth',
 		icon: 'EraserIcon',
-		attenuation: 0.995,
 		description: 'Make jumpy or noisy sensor readings smoother and more stable',
 	} satisfies Props['data'],
 };

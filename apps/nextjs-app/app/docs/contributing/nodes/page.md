@@ -35,7 +35,7 @@ constructor(private readonly data: BaseComponentData & MyNodeData) {
 
 ## Step 2: expose your new type in the components packages
 
-- Include your newly created component in the `index.ts` file in `packages/components`. This will make your new components available in the `@microflow/hardware` package, so that they can be used later in the electron app.
+- Include your newly created component in the `index.ts` file in `packages/components`. This will make your new components available in the `@microflow/runtime` package, so that they can be used later in the electron app.
 
 ## Step 3: create a react wrapper in the electron app
 

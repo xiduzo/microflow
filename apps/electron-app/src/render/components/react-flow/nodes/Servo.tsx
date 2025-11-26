@@ -1,4 +1,4 @@
-import type { ServoData, ServoValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/servo/servo.types';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
@@ -38,8 +38,8 @@ export function Servo(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<ServoData>();
-	const value = useNodeValue<ServoValueType>(data.range.min);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(data.range.min);
 
 	if (data.type === 'continuous') {
 		if (!value) return <Icons.Circle className='text-muted-foreground' size={48} />;
@@ -70,7 +70,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<ServoData>();
+	const data = useNodeData<Data>();
 	const deleteHandles = useDeleteHandles();
 	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
 
@@ -99,16 +99,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<ServoData>;
+type Props = BaseNode<Data>;
 Servo.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['output', 'analog'],
-		pin: 3,
 		label: 'Servo',
 		icon: 'RotateCwIcon',
-		type: 'standard',
-		range: { min: 0, max: 180 },
 		description: 'Control a motor that can move to specific positions or rotate continuously',
 	} satisfies Props['data'],
 };

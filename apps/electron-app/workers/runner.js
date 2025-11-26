@@ -1,5 +1,5 @@
-const MicroflowComponents = require('@microflow/hardware');
-const { Board, TcpSerial } = require('@microflow/hardware');
+const MicroflowComponents = require('@microflow/runtime');
+const { Board, TcpSerial } = require('@microflow/runtime');
 const { Edge, Node } = require('@xyflow/react');
 
 const port = process?.argv?.at(-1);
@@ -125,10 +125,9 @@ process.on('message', (/** @type {WorkerMessage} */ message) => {
 
 			// Step 2; add new components
 			message.nodes.forEach(node => {
-				const type = node.data.baseType ?? node.type;
-				const nodeInstance = new MicroflowComponents[type]({
+				const instance = node.data.instance;
+				const nodeInstance = new MicroflowComponents[instance]({
 					...node.data,
-					_componentType: type,
 					id: node.id,
 				});
 				components.set(node.id, nodeInstance);
@@ -172,7 +171,7 @@ function getPins(board) {
  */
 const handler = (sourceNode, targetNode, edge, edges) => value => {
 	try {
-		const targetType = targetNode.data._componentType.toLowerCase();
+		const targetType = targetNode.data.instance.toLowerCase();
 		switch (targetType) {
 			case 'gate':
 			case 'calculate':

@@ -1,4 +1,4 @@
-import { ConstantData } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/constant/constant.types';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
@@ -6,6 +6,8 @@ import { Position } from '@xyflow/react';
 const numberFormat = new Intl.NumberFormat();
 
 export function Constant(props: Props) {
+	console.log(dataSchema.parse({}));
+
 	return (
 		<NodeContainer {...props}>
 			<Value />
@@ -16,13 +18,13 @@ export function Constant(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<ConstantData>();
+	const data = useNodeData<Data>();
 
 	return <section className='text-4xl tabular-nums'>{numberFormat.format(data.value)}</section>;
 }
 
 function Settings() {
-	const data = useNodeData<ConstantData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		value: { value: data.value, step: 1 },
 	});
@@ -30,10 +32,10 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<ConstantData>;
+type Props = BaseNode<Data>;
 Constant.defaultProps = {
 	data: {
-		value: 4,
+		...dataSchema.parse({ value: 1337 }),
 		group: 'flow',
 		tags: ['generator'],
 		label: 'Constant',

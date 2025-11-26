@@ -2487,9 +2487,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@microflow/hardware@workspace:packages/hardware, @microflow/hardware@workspaces:*":
+"@microflow/mqtt-provider@workspace:packages/mqtt-provider, @microflow/mqtt-provider@workspaces:*":
   version: 0.0.0-use.local
-  resolution: "@microflow/hardware@workspace:packages/hardware"
+  resolution: "@microflow/mqtt-provider@workspace:packages/mqtt-provider"
+  dependencies:
+    mqtt: 5.14.1
+    react: 18.3.1
+    zustand: 5.0.8
+  languageName: unknown
+  linkType: soft
+
+"@microflow/runtime@workspace:packages/runtime, @microflow/runtime@workspaces:*":
+  version: 0.0.0-use.local
+  resolution: "@microflow/runtime@workspace:packages/runtime"
   dependencies:
     "@langchain/core": ^0.3.42
     "@langchain/ollama": ^0.2.0
@@ -2499,16 +2509,7 @@ __metadata:
     langchain: ^0.3.19
     node-pixel: ^0.11.0
     typescript: 5.8.3
-  languageName: unknown
-  linkType: soft
-
-"@microflow/mqtt-provider@workspace:packages/mqtt-provider, @microflow/mqtt-provider@workspaces:*":
-  version: 0.0.0-use.local
-  resolution: "@microflow/mqtt-provider@workspace:packages/mqtt-provider"
-  dependencies:
-    mqtt: 5.14.1
-    react: 18.3.1
-    zustand: 5.0.8
+    zod: ^4.1.13
   languageName: unknown
   linkType: soft
 
@@ -13599,8 +13600,8 @@ __metadata:
     "@leva-ui/plugin-plot": ^0.10.0
     "@manypkg/find-root": 3.1.0
     "@microflow/flasher": "workspaces:*"
-    "@microflow/hardware": "workspaces:*"
     "@microflow/mqtt-provider": "workspaces:*"
+    "@microflow/runtime": "workspaces:*"
     "@microflow/ui": "workspaces:*"
     "@microflow/utils": "workspaces:*"
     "@npmcli/arborist": 9.0.1
@@ -19176,6 +19177,13 @@ __metadata:
   version: 4.1.12
   resolution: "zod@npm:4.1.12"
   checksum: 91174acc7d2ca5572ad522643474ddd60640cf6877b5d76e5d583eb25e3c4072c6f5eb92ab94f231ec5ce61c6acdfc3e0166de45fb1005b1ea54986b026b765f
+  languageName: node
+  linkType: hard
+
+"zod@npm:^4.1.13":
+  version: 4.1.13
+  resolution: "zod@npm:4.1.13"
+  checksum: e5459280d46567df0adc188b0c687d425e616a206d4a73ee3bacf62d246f5546e24ef45790c7c4762d3ce7659c5e41052a29445d32d0d272410be9fe23162d03
   languageName: node
   linkType: hard
 

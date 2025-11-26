@@ -1,5 +1,5 @@
-import type { LedData, LedValueType } from '@microflow/hardware';
-import { Icon, Icons } from '@microflow/ui';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/led/led.types';
+import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
 import { Handle } from '../Handle';
@@ -35,8 +35,8 @@ export function Led(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData();
-	const value = useNodeValue<LedValueType>(0);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(0);
 
 	switch (data.subType) {
 		case 'vibration':
@@ -68,7 +68,7 @@ function VibrationValue(props: { value: number }) {
 }
 
 function Settings() {
-	const data = useNodeData<LedData>();
+	const data = useNodeData<Data>();
 	const pins = usePins([MODES.INPUT]);
 
 	const { render } = useNodeControls(
@@ -81,14 +81,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<LedData>;
+type Props = BaseNode<Data>;
 Led.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['output', 'analog', 'digital'],
 		label: 'LED',
 		icon: 'LightbulbIcon',
-		pin: 13,
 		description: 'Turn a light on or off, or control its brightness',
 	} satisfies Props['data'],
 };
@@ -101,7 +101,6 @@ Vibration.defaultProps = {
 		tags: ['output', 'analog', 'digital'],
 		subType: 'vibration',
 		icon: 'VibrateIcon',
-		baseType: 'Led',
 		description: 'Make a device vibrate with different intensities',
 	} satisfies Props['data'],
 };

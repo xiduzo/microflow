@@ -1,4 +1,8 @@
-import type { OscillatorData } from '@microflow/hardware';
+import {
+	type Data,
+	type Value,
+	dataSchema,
+} from '@microflow/runtime/src/oscillator/oscillator.types';
 import { Position } from '@xyflow/react';
 import { useMemo } from 'react';
 import { Handle } from '../Handle';
@@ -20,7 +24,7 @@ export function Oscillator(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<OscillatorData>();
+	const data = useNodeData<Data>();
 
 	const icon = useMemo((): IconName => {
 		switch (data.waveform) {
@@ -43,7 +47,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<OscillatorData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		waveform: {
 			value: data.waveform,
@@ -64,19 +68,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<OscillatorData>;
+type Props = BaseNode<Data>;
 Oscillator.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['generator', 'event'],
 		label: 'Oscillator',
 		icon: 'AudioWaveformIcon',
-		waveform: 'sinus',
-		period: 1000,
-		amplitude: 1,
-		phase: 0,
-		shift: 0,
-		autoStart: true,
 		description: 'Create repeating patterns of numbers that go up and down, like waves',
 	} satisfies Props['data'],
 };

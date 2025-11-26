@@ -1,4 +1,4 @@
-import type { SensorData, SensorValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/sensor/sensor.types';
 import { cva, Icons, Progress, Switch, VariantProps } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
@@ -20,8 +20,8 @@ export function Sensor(props: Props) {
 }
 
 function Value() {
-	const value = useNodeValue<SensorValueType>(0);
-	const data = useNodeData<SensorData>();
+	const value = useNodeValue<Value>(0);
+	const data = useNodeData<Data>();
 
 	const progress = Math.round((value / 1023) * 100);
 
@@ -104,7 +104,7 @@ const hallEffect = cva('transition-all', {
 });
 
 function Settings() {
-	const data = useNodeData<SensorData & { subType?: string }>();
+	const data = useNodeData<Data & { subType?: string }>();
 	const pins = usePins([MODES.INPUT, MODES.ANALOG]);
 	const { render } = useNodeControls(
 		{
@@ -125,16 +125,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<SensorData>;
+type Props = BaseNode<Data>;
 Sensor.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['input', 'analog'],
-		pin: 'A0',
 		label: 'Analog Sensor',
 		icon: 'GaugeIcon',
-		threshold: 1,
-		freq: 25,
 		description:
 			'Measure values that change smoothly, like temperature, pressure, or how bright something is',
 	} satisfies Props['data'],
@@ -148,7 +146,6 @@ DigitalSensor.defaultProps = {
 		tags: ['input', 'digital'],
 		type: 'digital',
 		icon: 'PowerIcon',
-		baseType: 'Sensor',
 		description: 'Detect when something is on or off, like a switch or motion detector',
 	} satisfies Props['data'],
 };
@@ -161,7 +158,6 @@ Tilt.defaultProps = {
 		tags: ['input', 'analog', 'digital'],
 		subType: 'tilt',
 		icon: 'MoveUpIcon',
-		baseType: 'Sensor',
 		threshold: 10,
 		description: 'Detect when an object is tilted or rotated from its normal position',
 	} satisfies Props['data'],
@@ -175,7 +171,6 @@ Ldr.defaultProps = {
 		tags: ['input', 'analog'],
 		subType: 'ldr',
 		icon: 'SunIcon',
-		baseType: 'Sensor',
 		description: 'Measure how bright or dark the surrounding environment is',
 	} satisfies Props['data'],
 };
@@ -187,7 +182,6 @@ Potentiometer.defaultProps = {
 		label: 'Potentiometer',
 		tags: ['input', 'analog'],
 		subType: 'potentiometer',
-		baseType: 'Sensor',
 		icon: 'CircleArrowOutUpLeftIcon',
 		description: 'Read values from a knob or slider that you can turn or move to control something',
 	} satisfies Props['data'],
@@ -200,7 +194,6 @@ Force.defaultProps = {
 		label: 'Force',
 		tags: ['input', 'analog'],
 		subType: 'force',
-		baseType: 'Sensor',
 		icon: 'BicepsFlexedIcon',
 		description: 'Measure how much pressure or force is being applied to a surface',
 	} satisfies Props['data'],
@@ -213,7 +206,6 @@ HallEffect.defaultProps = {
 		label: 'Hall Effect',
 		tags: ['input', 'analog'],
 		subType: 'hall-effect',
-		baseType: 'Sensor',
 		icon: 'MagnetIcon',
 		description: 'Detect when a magnet or magnetic object is nearby and how strong it is',
 	} satisfies Props['data'],

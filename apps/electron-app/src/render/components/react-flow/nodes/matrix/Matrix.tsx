@@ -1,4 +1,4 @@
-import { type MatrixData, type MatrixValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/matrix/matrix.types';
 import { Position } from '@xyflow/react';
 import { useState } from 'react';
 import { Handle } from '../../Handle';
@@ -11,7 +11,7 @@ import {
 	DEFAULT_MATRIX_SHAPE,
 	DEFAULT_MATRIX_START_SHAPE,
 	MatrixShape,
-} from '@microflow/hardware/contants';
+} from '@microflow/runtime/src/matrix/matrix.constants';
 import {
 	Button,
 	Carousel,
@@ -56,8 +56,8 @@ function getShape(dimensions: string, devices: number): [number, number] {
 }
 
 function Value() {
-	const data = useNodeData<MatrixData>();
-	const value = useNodeValue<MatrixValueType>(DEFAULT_MATRIX_START_SHAPE);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(DEFAULT_MATRIX_START_SHAPE);
 
 	return (
 		<section className='flex items-center justify-center m-4'>
@@ -67,7 +67,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<MatrixData>();
+	const data = useNodeData<Data>();
 	const [editorOpened, setEditorOpened] = useState(false);
 	const [shapes, setShapes] = useState(data.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]);
 
@@ -223,22 +223,14 @@ function Settings() {
 	);
 }
 
-type Props = BaseNode<MatrixData>;
+type Props = BaseNode<Data>;
 Matrix.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['output', 'analog', 'digital'],
 		label: 'LED Matrix',
 		icon: 'GridIcon',
-		pins: {
-			data: 2,
-			clock: 3,
-			cs: 4,
-		},
-		controller: undefined as unknown as string,
-		dims: '8x8', // [rows, columns]
-		shapes: [DEFAULT_MATRIX_SHAPE],
-		devices: 1,
 		description: 'Display patterns, shapes, or images on a grid of LED lights',
 	} satisfies Props['data'],
 };

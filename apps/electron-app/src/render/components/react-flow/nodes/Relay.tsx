@@ -1,4 +1,4 @@
-import { RelayData, RelayValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/relay/relay.types';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
@@ -21,7 +21,7 @@ export function Relay(props: Props) {
 }
 
 function Value() {
-	const value = useNodeValue<RelayValueType>(false);
+	const value = useNodeValue<Value>(false);
 
 	if (!value) return <Icons.ZapOff className='text-muted-foreground' size={48} />;
 	return <Icons.Zap className='text-yellow-400' size={48} />;
@@ -29,7 +29,7 @@ function Value() {
 
 function Settings() {
 	const pins = usePins([MODES.OUTPUT]);
-	const data = useNodeData<RelayData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls(
 		{
 			pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
@@ -47,15 +47,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<RelayData>;
+type Props = BaseNode<Data>;
 Relay.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		label: 'Relay',
-		pin: 10,
 		icon: 'ZapIcon',
 		tags: ['output', 'analog', 'digital'],
-		type: 'NO',
 		description:
 			'Safely turn on or off devices that need more power, like lights, motors, or appliances',
 	} satisfies Props['data'],

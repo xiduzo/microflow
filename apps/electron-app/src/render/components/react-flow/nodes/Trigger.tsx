@@ -1,4 +1,4 @@
-import type { TriggerData, TriggerValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/trigger/trigger.types';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
@@ -19,8 +19,8 @@ export function Trigger(props: Props) {
 
 const formatter = new Intl.NumberFormat('en-US');
 function Value() {
-	const data = useNodeData<TriggerData>();
-	const value = useNodeValue<TriggerValueType>(false);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(false);
 
 	return (
 		<IconWithValue
@@ -37,7 +37,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<TriggerData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		behaviour: {
 			value: data.behaviour,
@@ -59,17 +59,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<TriggerData>;
+type Props = BaseNode<Data>;
 Trigger.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['event', 'control'],
 		label: 'Trigger',
 		icon: 'TrendingUpIcon',
-		relative: false,
-		behaviour: 'decreasing',
-		threshold: 5,
-		within: 250,
 		description:
 			'Send a signal when a value changes by a certain amount, like detecting a sudden change',
 	} satisfies Props['data'],

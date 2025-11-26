@@ -1,9 +1,8 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
-import { type GateData, type GateValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/gate/gate.types';
 import { useNodeValue } from '../../../stores/node-data';
-import { uid } from '../../../../common/uuid';
 
 export function Gate(props: Props) {
 	return (
@@ -19,8 +18,8 @@ export function Gate(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<GateData>();
-	const value = useNodeValue<GateValueType>(false);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(false);
 
 	return (
 		<section className='flex flex-col text-center items-center text-muted-foreground'>
@@ -31,7 +30,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<GateData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		gate: {
 			value: data.gate,
@@ -42,21 +41,20 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<GateData>;
+type Props = BaseNode<Data>;
 Gate.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['control'],
 		label: 'Gate',
 		icon: 'CircuitBoardIcon',
-		gate: 'and',
-		description:
-			'Combine multiple signals together using simple rules to make decisions',
+		description: 'Combine multiple signals together using simple rules to make decisions',
 	} satisfies Props['data'],
 };
 
 const DEFAULT_ICON_SIZE = 60;
-function GateIcon(props: { gate: GateData['gate']; size?: number; className?: string }) {
+function GateIcon(props: { gate: Data['gate']; size?: number; className?: string }) {
 	switch (props.gate) {
 		case 'and':
 			return (
