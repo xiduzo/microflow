@@ -7,7 +7,7 @@ export type Value = z.infer<typeof valueSchema>;
 
 export const dataSchema = baseDataSchema.extend({
 	instance: z.literal('Interval').default('Interval'),
-	interval: z.number().min(MIN_INTERVAL_IN_MS).default(500),
+	interval: z.number().min(MIN_INTERVAL_IN_MS).default(1000),
 	autoStart: z.boolean().default(true),
 });
 

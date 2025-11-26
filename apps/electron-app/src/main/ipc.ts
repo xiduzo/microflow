@@ -246,7 +246,7 @@ async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promi
 	// await cleanupProcesses();
 	await killRunnerProcess();
 
-	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
+	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.ino.hex');
 
 	// Check if file exists
 	if (!existsSync(firmataPath)) {

@@ -15,8 +15,7 @@ export default defineConfig({
 		copy({
 			targets: [
 				{ src: 'workers', dest: build },
-				{ src: 'hex', dest: build },
-				{ src: '../../node_modules/cloudflared/bin', dest: root },
+				{ src: '../../packages/flasher/hex', dest: build },
 			],
 			// hook: 'buildEnd',
 		}),
