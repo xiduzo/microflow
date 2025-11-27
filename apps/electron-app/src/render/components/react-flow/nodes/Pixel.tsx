@@ -17,7 +17,16 @@ export function Pixel(props: Props) {
 		<NodeContainer {...props}>
 			<Value />
 			<Settings />
-			<Handle type='target' position={Position.Left} id='color' hint='array of hex colors' />
+			<Handle type='target' position={Position.Left} id='forward' offset={-1.5} />
+			<Handle
+				type='target'
+				position={Position.Left}
+				id='color'
+				hint='array of hex colors'
+				offset={-0.5}
+			/>
+			<Handle type='target' position={Position.Left} id='backward' offset={0.5} />
+			<Handle type='target' position={Position.Left} id='turnOff' offset={1.5} />
 			<Handle type='source' position={Position.Right} id='change' />
 		</NodeContainer>
 	);
@@ -111,7 +120,7 @@ function Value() {
 			<div
 				className='grid gap-0.5'
 				style={{
-					gridTemplateColumns: `repeat(${totalCols}, 1rem)`,
+					gridTemplateColumns: `repeat(${totalCols - 1}, 1rem)`,
 					width: 'fit-content',
 					margin: '0 auto',
 				}}

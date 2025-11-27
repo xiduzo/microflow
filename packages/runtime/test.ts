@@ -17,53 +17,31 @@ function getBoard() {
 }
 
 board.on('ready', () => {
-	console.log('board ready', board);
-	// Test WS2812b using Firmata
+	console.log('[BOARD] <ready>');
+	makeStrip();
+});
+
+function makeStrip() {
 	const strip = new Pixel({
-		...dataSchema.parse({ data: 11, length: 24 }),
+		...dataSchema.parse({ data: 12, length: 12 }),
 		board,
 	});
 
 	strip.on('ready', function () {
-		console.log('Strip ready!');
+		console.log('[STRIP] <ready>');
 
-		strip.color(['#ff0000', '#00ff00', '#0000ff']);
+		strip.color(['#4f39f6', '#e60076', '#f54a00']);
 		setInterval(() => {
 			strip.forward();
 			// const randomHex = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
 			// strip.color(randomHex);
 		}, 1000);
-	});
-});
 
-// "node": {
-// [APP]     "data": {
-// [APP]       "instance": "Pixel",
-// [APP]       "data": 11,
-// [APP]       "length": 78,
-// [APP]       "controller": "FIRMATA",
-// [APP]       "skip_firmware_check": true,
-// [APP]       "gamma": 2.8,
-// [APP]       "color_order": "BRG",
-// [APP]       "group": "hardware",
-// [APP]       "tags": [
-// [APP]         "output",
-// [APP]         "analog"
-// [APP]       ],
-// [APP]       "label": "Pixel",
-// [APP]       "icon": "ZapIcon",
-// [APP]       "description": "Control a strip of addressable RGB LEDs (WS2812, NeoPixel, etc.)"
-// [APP]     },
-// [APP]     "id": "dyapwbxeqoqu",
-// [APP]     "type": "Pixel",
-// [APP]     "position": {
-// [APP]       "x": 478.7824610575624,
-// [APP]       "y": -298.32578777932804
-// [APP]     },
-// [APP]     "measured": {
-// [APP]       "width": 320,
-// [APP]       "height": 424
-// [APP]     },
-// [APP]     "selected": false,
-// [APP]     "dragging": false
-// [APP]   }
+		setTimeout(() => {
+			strip.destroy();
+			setTimeout(() => {
+				makeStrip();
+			}, 1000);
+		}, 10000);
+	});
+}

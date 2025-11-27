@@ -105,7 +105,6 @@ try {
  */
 
 process.on('message', (/** @type {WorkerMessage} */ message) => {
-	console.log('[RUNNER] message', JSON.stringify(message, null, 2));
 	switch (message.type) {
 		case 'setExternal':
 			const node = components.get(message.nodeId);
@@ -127,13 +126,11 @@ process.on('message', (/** @type {WorkerMessage} */ message) => {
 			message.nodes.forEach(node => {
 				try {
 					const instance = node.data.instance;
-					const nodeInstance = new MicroflowComponents[instance](
-						{
-							...node.data,
-							id: node.id,
-						},
-						boardInstance
-					);
+					const nodeInstance = new MicroflowComponents[instance]({
+						...node.data,
+						id: node.id,
+						board: boardInstance,
+					});
 					components.set(node.id, nodeInstance);
 				} catch (error) {
 					stdout({

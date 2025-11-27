@@ -1,26 +1,49 @@
 import { Hardware } from '../base';
+import { RGBA } from '../base.types';
 import type { Data, Value } from './pixel.types';
 import { dataSchema } from './pixel.types';
 import pixel from 'node-pixel';
 
 export class Pixel extends Hardware<Value, Data, pixel.Strip> {
-	private isReady = false;
 	constructor(data: Data) {
 		super(dataSchema.parse(data), Array(data.length).fill('#000000'));
 	}
 
-	color(color: Value | Value[number]) {
-		if (!this.isReady) return;
-		if (!Array.isArray(color)) return this.colorStrip(color);
+	turnOff() {
+		this.flush(Array(this.data.length).fill('#000000'));
+	}
+
+	color(color: Value | Value[number] | RGBA) {
+		if (!Array.isArray(color)) {
+			if (typeof color === 'object') color = `rgb(${color.r}, ${color.g}, ${color.b})`;
+			return this.colorStrip(color);
+		}
 		return this.colorPixels(color);
 	}
 
 	forward(amount: number = 1) {
+		const newValue = this.value.map((_color, index) => {
+			const newIndex = index + amount;
+			return this.value[newIndex % this.data.length];
+		});
 		this.component?.shift(amount, pixel.FORWARD, true);
+		this.flush(newValue);
 	}
 
 	backward(amount: number = 1) {
+		const newValue = this.value.map((_color, index) => {
+			const newIndex = index - amount;
+			return this.value[newIndex % this.data.length];
+		});
 		this.component?.shift(amount, pixel.BACKWARD, true);
+		this.flush(newValue);
+	}
+
+	private rgbaToHex(color: RGBA) {
+		const redHex = color.r.toString(16).padStart(2, '0');
+		const greenHex = color.g.toString(16).padStart(2, '0');
+		const blueHex = color.b.toString(16).padStart(2, '0');
+		return `#${redHex}${greenHex}${blueHex}`;
 	}
 
 	private colorStrip(color: Value[number]) {
@@ -54,7 +77,7 @@ export class Pixel extends Hardware<Value, Data, pixel.Strip> {
 			board: this.data.board as any,
 		});
 		this.component.on('ready', () => {
-			this.isReady = true;
+			this.turnOff();
 			this.emit('ready');
 		});
 		return this.component;

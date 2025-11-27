@@ -13,27 +13,32 @@ export class Rgb extends Hardware<Value, Data, JohnnyFive.Led.RGB> {
 
 	red(value: number) {
 		this.enqueueUpdate(() => {
-			this.setColor({ ...this.value, r: Math.min(value, 255) });
+			this.setColor({ ...this.value, r: this.capValue(value) });
 		});
 	}
 
 	green(value: number) {
 		this.enqueueUpdate(() => {
-			this.setColor({ ...this.value, g: Math.min(value, 255) });
+			this.setColor({ ...this.value, g: this.capValue(value) });
 		});
 	}
 
 	blue(value: number) {
 		this.enqueueUpdate(() => {
-			this.setColor({ ...this.value, b: Math.min(value, 255) });
+			this.setColor({ ...this.value, b: this.capValue(value) });
 		});
 	}
 
 	alpha(value: number) {
 		this.enqueueUpdate(() => {
+			value = this.capValue(value, 100) / 100;
 			this.component?.intensity(value);
-			this.setColor({ ...this.value, a: Math.min(value / 100, 1) });
+			this.setColor({ ...this.value, a: value });
 		});
+	}
+
+	private capValue(value: number, max: number = 255) {
+		return Math.min(Math.max(value, 0), max);
 	}
 
 	private enqueueUpdate(updateFn: () => void) {

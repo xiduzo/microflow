@@ -47,11 +47,11 @@ let connectedPort: PortInfo | undefined;
 ipcMain.on('ipc-flow', async (event, data: { ip?: string; nodes: Node[]; edges: Edge[] }) => {
 	const timer = new Timer();
 
-	log.debug('[FLOW] requested to send flow', data, timer.duration);
+	log.debug('[FLOW] <request>', timer.duration);
 
 	await ensureRunnerProcess(data.nodes, data.edges, data.ip);
 
-	log.debug('[FLOW] sending flow to runner', runnerProcess?.pid, timer.duration);
+	log.debug('[FLOW] <send>', runnerProcess?.pid, timer.duration);
 	runnerProcess?.send({ type: 'flow', nodes: data.nodes, edges: data.edges });
 });
 
@@ -87,7 +87,7 @@ async function startRunnerProcess(ip?: string) {
 
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
-			log.debug(`[CHECK] checking board ${board} on path ${port.path}`, timer.duration);
+			log.debug('[CHECK] <start>', board, port.path, timer.duration);
 
 			try {
 				sendMessageToRenderer<Board>('ipc-board', {
@@ -101,7 +101,7 @@ async function startRunnerProcess(ip?: string) {
 				break checkBoard;
 			} catch (error) {
 				await killRunnerProcess();
-				log.warn('[CHECK]', board, port, error);
+				log.warn('[CHECK] <error>', board, port.path, error);
 				sendMessageToRenderer<Board>('ipc-board', {
 					success: true,
 					data: { type: 'info', message: (error as any).message ?? getRandomMessage('wait') },
@@ -158,18 +158,18 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 	const filePath = join(__dirname, 'workers', 'runner.js');
 
 	return new Promise<void>((resolve, reject) => {
-		log.debug(`[RUNNER] creating runner from ${filePath}`, timer.duration);
+		log.debug('[RUNNER] <create>', filePath, timer.duration);
 		runnerProcess = fork(filePath, [port.path], {
 			// serviceName: 'Microflow studio - microcontroller validator',
 			stdio: 'pipe',
 		});
 
 		runnerProcess.on('spawn', () => {
-			log.debug(`[RUNNER] [${runnerProcess?.pid}] <spawn>`, timer.duration);
+			log.debug('[RUNNER] <spawn>', runnerProcess?.pid, timer.duration);
 		});
 
 		runnerProcess.stderr?.on('data', async data => {
-			log.debug(`[RUNNER] [${runnerProcess?.pid}] <stderr> ${data.toString()}`, timer.duration);
+			log.debug('[RUNNER] <stderr>', runnerProcess?.pid, timer.duration, data.toString());
 			sendMessageToRenderer<Board>('ipc-board', {
 				success: false,
 				error: data.toString(),
@@ -177,11 +177,11 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 		});
 
 		runnerProcess.stdout?.on('data', async data => {
-			log.debug(`[RUNNER] [${runnerProcess?.pid}] <stdout> ${data.toString()}`, timer.duration);
+			log.debug('[RUNNER] <stdout>', runnerProcess?.pid, timer.duration, data.toString());
 		});
 
 		async function handleMessage(data: Board | UploadedCodeMessage) {
-			log.debug(`[RUNNER] [${runnerProcess?.pid}] <message> ${data.type}`, timer.duration);
+			// log.debug('[RUNNER] <message>', runnerProcess?.pid, data.type, timer.duration);
 			try {
 				switch (data.type) {
 					case 'message':
@@ -191,10 +191,7 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 						});
 						break;
 					case 'error':
-						log.error(
-							`[RUNNER] [${runnerProcess?.pid}] <error> ${JSON.stringify(data, null, 2)}`,
-							timer.duration
-						);
+						log.warn(`[RUNNER] <${data.type}>`, runnerProcess?.pid, data.message, timer.duration);
 						let notificationTimeout: NodeJS.Timeout | null = null;
 						try {
 							if (ipRegex.test(port.path)) {
@@ -224,10 +221,11 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 					case 'close':
 					case 'exit':
 					case 'fail':
+						log.warn(`[RUNNER] <${data.type}>`, runnerProcess?.pid, data.message, timer.duration);
 						reject(new Error(data.message ?? 'Unknown error'));
 						break;
 					case 'ready':
-						log.debug(`[RUNNER] [${runnerProcess?.pid}] <ready>`, timer.duration);
+						log.debug(`[RUNNER] <${data.type}>`, runnerProcess?.pid, timer.duration);
 						sendMessageToRenderer<Board>('ipc-board', {
 							success: true,
 							data: { type: 'ready', port: port.path, pins: data.pins },
@@ -247,40 +245,31 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
 	const flashTimer = new Timer();
 
-	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
-	// await cleanupProcesses();
-	await killRunnerProcess();
-
 	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.ino.hex');
 
 	// Check if file exists
 	if (!existsSync(firmataPath)) {
-		log.error(`[FLASH] Firmata file not found at ${firmataPath}`);
+		log.error('[FLASH] <error>', 'Firmata file not found', firmataPath);
 		throw new Error(`[FLASH] Firmata file not found at ${firmataPath}`);
 	}
 
+	await killRunnerProcess();
+	log.debug('[FLASH] <start>', firmataPath, board, port.path, flashTimer.duration);
 	return new Promise(async (resolve, reject) => {
 		try {
-			log.debug(`[FLASH] Flashing firmata from ${firmataPath}`, flashTimer.duration);
+			log.debug(`[FLASH] <start>`, flashTimer.duration);
 			await new Flasher(board, port.path).flash(firmataPath);
-			log.debug(`[FLASH] Flashing done`, flashTimer.duration);
+			log.debug('[FLASH] <done>', flashTimer.duration);
 			resolve();
 		} catch (flashError) {
-			log.error(
-				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-				{
-					flashError,
-				},
-				flashTimer.duration
-			);
+			log.error('[FLASH] <error>', flashError, flashTimer.duration);
 			reject(new Error(getRandomMessage('wait')));
 		}
 	});
 }
 
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
-	log.debug(`[EXTERNAL] setting value`, data);
-
+	log.debug('[EXTERNAL] <send>', data);
 	runnerProcess?.send({ type: 'setExternal', nodeId: data.nodeId, value: data.value });
 });
 
@@ -291,7 +280,7 @@ async function sniffPorts(portsConnected: PortInfo[] = []) {
 
 	// Check if the connected port is disconnected
 	if (connectedPort && !ports.find(({ path }) => path === connectedPort?.path)) {
-		log.debug(`[PORTS] <disconnected> ${connectedPort?.path}`);
+		log.debug('[PORTS] <disconnected>', connectedPort?.path);
 		sendMessageToRenderer<Board>('ipc-board', {
 			success: true,
 			data: { type: 'close', message: `${connectedPort?.path} is no longer connected` },
@@ -301,7 +290,7 @@ async function sniffPorts(portsConnected: PortInfo[] = []) {
 
 	// Check if a new port is connected
 	if (ports.length > portsConnected.length) {
-		log.debug(`[PORTS] <new> ${ports.length}`);
+		log.debug('[PORTS] <new>', ports.length);
 		sendMessageToRenderer<Board>('ipc-board', {
 			success: true,
 			data: { type: 'connect', message: 'New port connected' },
@@ -334,33 +323,30 @@ async function getKnownBoardsWithPorts() {
 			[] as [BoardName, PortInfo[]][]
 		);
 
-		log.debug(`Found ${boardsWithPorts.length} known boards with ports:`);
+		log.debug('[PORTS] <boards>', boardsWithPorts.length);
 		boardsWithPorts.forEach(([board, devices]) => {
-			log.debug(`  - ${board} on ${devices.map(device => device.path).join(', ')}`);
+			log.debug('[PORTS] <board>', board, devices.map(device => device.path).join(', '));
 		});
 
 		return boardsWithPorts;
 	} catch (error) {
-		log.warn('Could not get known boards with ports', { error });
+		log.warn('[PORTS] <error>', error);
 		return [];
 	}
 }
 
 class Timer {
-	private start: number;
-	constructor(private readonly name?: string) {
-		this.start = Date.now();
-	}
+	constructor(private readonly startTime = performance.now()) {}
 
 	get duration() {
-		return `(${this.name ? this.name + ' took ' : ''}${Date.now() - this.start}ms)`;
+		return performance.now() - this.startTime + 'ms';
 	}
 }
 
 killRunnerProcess().catch(log.debug);
 
 app.on('before-quit', async event => {
-	log.debug(`[PROCESS] <before-quit> about to leave app`, event);
+	log.debug('[PROCESS] <before-quit>', event);
 	void killRunnerProcess();
 });
 

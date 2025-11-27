@@ -15,6 +15,12 @@ export function Monitor(props: Props) {
 		</NodeContainer>
 	);
 }
+
+const numberFormat = new Intl.NumberFormat('en-US', {
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 4,
+});
+
 function Value() {
 	const data = useNodeData<Data>();
 	const store = useCreateStore();
@@ -45,14 +51,37 @@ function Value() {
 			);
 		}
 
-		return (
-			<section className='text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16'>
-				{String(value)}
-			</section>
-		);
+		if (typeof value === 'number') {
+			return <NumberValue value={value} />;
+		}
+
+		return <StringValue value={value} />;
 	}
 
-	return <LevaPanel store={store} fill={true} flat titleBar={false} />;
+	return (
+		<>
+			<LevaPanel store={store} fill={true} flat titleBar={false} />
+			<section className='absolute left-1/2 -translate-x-1/2 top-16'>
+				{typeof value === 'number' ? <NumberValue value={value} /> : <StringValue value={value} />}
+			</section>
+		</>
+	);
+}
+
+function NumberValue(props: { value: Value }) {
+	return (
+		<section className='text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16'>
+			{numberFormat.format(Number(props.value))}
+		</section>
+	);
+}
+
+function StringValue(props: { value: Value }) {
+	return (
+		<section className='text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16'>
+			{String(props.value)}
+		</section>
+	);
 }
 
 function Settings() {

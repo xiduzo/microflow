@@ -113,6 +113,13 @@ export abstract class Hardware<
 		if (this.component instanceof EventEmitter) {
 			this.component.removeAllListeners(); // Remove all Firmata listeners
 		}
+		if (this.component instanceof pixel.Strip) {
+			console.log('DESTROYING PIXEL STRIP', this.component);
+			this.component.off();
+			this.component = null as any;
+			// @ts-expect-error - We want to delete the component
+			delete this.component;
+		}
 	}
 }
 
