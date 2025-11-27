@@ -181,7 +181,7 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 		});
 
 		async function handleMessage(data: Board | UploadedCodeMessage) {
-			// log.debug(`[RUNNER] [${runnerProcess?.pid}] <message> ${data.type}`, timer.duration);
+			log.debug(`[RUNNER] [${runnerProcess?.pid}] <message> ${data.type}`, timer.duration);
 			try {
 				switch (data.type) {
 					case 'message':
@@ -191,6 +191,10 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 						});
 						break;
 					case 'error':
+						log.error(
+							`[RUNNER] [${runnerProcess?.pid}] <error> ${JSON.stringify(data, null, 2)}`,
+							timer.duration
+						);
 						let notificationTimeout: NodeJS.Timeout | null = null;
 						try {
 							if (ipRegex.test(port.path)) {
@@ -212,8 +216,9 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 							await flashBoard(board, port);
 							return checkBoardOnPort(port, board);
 						} catch (error) {
-							if (notificationTimeout) clearTimeout(notificationTimeout);
 							reject(error);
+						} finally {
+							if (notificationTimeout) clearTimeout(notificationTimeout);
 						}
 						break;
 					case 'close':

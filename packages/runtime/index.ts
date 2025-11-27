@@ -16,6 +16,7 @@ export * from './src/motion/motion';
 export * from './src/mqtt/mqtt';
 export * from './src/oscillator/oscillator';
 export * from './src/piezo/piezo';
+export * from './src/pixel/pixel';
 export * from './src/proximity/proximity';
 export * from './src/rgb/rgb';
 export * from './src/rangemap/rangemap';

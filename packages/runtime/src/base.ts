@@ -1,6 +1,7 @@
 import EventEmitter from 'events';
 import JohnnyFive from 'johnny-five';
 import { type BaseData, messageSchema } from './base.types';
+import pixel from 'node-pixel';
 
 class _BASE<Value, Data extends BaseData> extends EventEmitter {
 	private _value: Value;
@@ -89,7 +90,8 @@ type JohnnyFiveComponent =
 	| JohnnyFive.Relay
 	| JohnnyFive.Sensor
 	| JohnnyFive.Servo
-	| JohnnyFive.Switch;
+	| JohnnyFive.Switch
+	| pixel.Strip;
 
 export abstract class Hardware<
 	Value,

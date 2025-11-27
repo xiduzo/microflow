@@ -125,12 +125,24 @@ process.on('message', (/** @type {WorkerMessage} */ message) => {
 
 			// Step 2; add new components
 			message.nodes.forEach(node => {
-				const instance = node.data.instance;
-				const nodeInstance = new MicroflowComponents[instance]({
-					...node.data,
-					id: node.id,
-				});
-				components.set(node.id, nodeInstance);
+				try {
+					const instance = node.data.instance;
+					const nodeInstance = new MicroflowComponents[instance](
+						{
+							...node.data,
+							id: node.id,
+						},
+						boardInstance
+					);
+					components.set(node.id, nodeInstance);
+				} catch (error) {
+					stdout({
+						type: 'error',
+						message: `Error creating component ${node.data.instance}`,
+						...error,
+						node: node,
+					});
+				}
 			});
 
 			// Step 3; add handlers
