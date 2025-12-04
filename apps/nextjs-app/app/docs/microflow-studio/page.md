@@ -14,11 +14,14 @@ Microflow studio should automatically detect your microcontroller when connected
 
 1. Waiting for a microcontroller to be connected to your computer
 2. Detecting the type of microcontroller.
-   {% callout type="note" title="Be patient" %}
-   To be able to communicate with your microcontroller, Microflow will automatically install special software (called StandardFirmata) on your microcontroller in this step. This software allows your computer to talk to the microcontroller.
+3. Uploading your flow.
+4. Running your flow.
+
+{% callout type="note" title="Be patient" %}
+To be able to communicate with your microcontroller, Microflow will automatically install special software (called StandardFirmata) on your microcontroller in this step. This software allows your computer to talk to the microcontroller.
 
 This will only happen the first time you connect your microcontroller, and will take some time (usually 30-60 seconds). Please don't disconnect your microcontroller during this process.
-{% /callout %} 3. Uploading your flow. 4. Running your flow.
+{% /callout %}
 
 If your microcontroller does not reach step 4 automatically, your microcontroller might either not be [supported](#supported-microcontroller-boards) or having [issues connecting](#not-connecting).
 
