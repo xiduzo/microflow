@@ -61,9 +61,7 @@ export type Section = H2Node['attributes'] & {
 	children: Array<Subsection>;
 };
 
-export function collectSections(nodes: Array<Node>, slugify = slugifyWithCounter()) {
-	let sections: Array<Section> = [];
-
+export function collectSections(nodes: Array<Node>, slugify = slugifyWithCounter(), sections: Array<Section> = []) {
 	for (let node of nodes) {
 		if (isH2Node(node) || isH3Node(node)) {
 			let title = getNodeText(node);
@@ -84,7 +82,7 @@ export function collectSections(nodes: Array<Node>, slugify = slugifyWithCounter
 			}
 		}
 
-		sections.push(...collectSections(node.children ?? [], slugify));
+		collectSections(node.children ?? [], slugify, sections);
 	}
 
 	return sections;
