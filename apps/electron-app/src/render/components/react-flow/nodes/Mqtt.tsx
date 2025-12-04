@@ -1,4 +1,4 @@
-import type { MqttData, MqttValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/mqtt/mqtt.types';
 import { Position } from '@xyflow/react';
 import { useEffect } from 'react';
 import { Handle } from '../Handle';
@@ -36,7 +36,7 @@ export function Mqtt(props: Props) {
 
 function Subscriber() {
 	const id = useNodeId();
-	const data = useNodeData<MqttData>();
+	const data = useNodeData<Data>();
 	const { subscribe } = useMqttStore();
 
 	useEffect(() => {
@@ -67,8 +67,8 @@ function Subscriber() {
 function Value() {
 	const { publish } = useMqttStore();
 
-	const data = useNodeData<MqttData>();
-	const value = useNodeValue<MqttValueType>('');
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>('');
 
 	useEffect(() => {
 		if (data.direction !== 'publish') return;
@@ -89,7 +89,7 @@ function Settings() {
 	const { setSettingsOpen } = useAppStore();
 	const deleteHandles = useDeleteHandles();
 
-	const data = useNodeData<MqttData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		direction: {
 			value: data.direction,
@@ -106,15 +106,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<MqttData>;
+type Props = BaseNode<Data>;
 Mqtt.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'external',
 		tags: ['input', 'output'],
 		label: 'MQTT',
-		direction: 'publish',
 		icon: 'RadioTowerIcon',
-		topic: '',
 		description:
 			'Send or receive messages over the internet to connect with other devices, apps, or online services',
 	} satisfies Props['data'],

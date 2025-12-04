@@ -6,7 +6,7 @@
 		"type": "git",
 		"url": "https://github.com/xiduzo/microflow"
 	},
-	"version": "0.8.5",
+	"version": "0.9.0",
 	"description": "An application which allows you to create flow-based logic for microcontrollers",
 	"author": {
 		"name": "Sander Boer",
@@ -65,8 +65,8 @@
 	"dependencies": {
 		"@leva-ui/plugin-plot": "^0.10.0",
 		"@microflow/flasher": "workspaces:*",
-		"@microflow/hardware": "workspaces:*",
 		"@microflow/mqtt-provider": "workspaces:*",
+		"@microflow/runtime": "workspaces:*",
 		"@microflow/ui": "workspaces:*",
 		"@microflow/utils": "workspaces:*",
 		"@tsparticles/engine": "3.8.1",

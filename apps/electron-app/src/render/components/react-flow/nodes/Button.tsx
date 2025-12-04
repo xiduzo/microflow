@@ -1,4 +1,4 @@
-import type { ButtonData, ButtonValueType } from '@microflow/hardware';
+import { dataSchema, type Data, type Value } from '@microflow/runtime/src/button/button.types';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
@@ -23,7 +23,7 @@ export function Button(props: Props) {
 }
 
 function Value() {
-	const value = useNodeValue<ButtonValueType>(false);
+	const value = useNodeValue<Value>(false);
 
 	if (!value) return <Icons.PointerOff className='text-muted-foreground' size={48} />;
 	return <Icons.Pointer className='text-green-500' size={48} />;
@@ -34,7 +34,7 @@ const PULL_UP = 1;
 const PULL_DOWN = 2;
 
 function Settings() {
-	const data = useNodeData<ButtonData>();
+	const data = useNodeData<Data>();
 
 	const requiresPullup = data.isPullup || data.isPulldown;
 	const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
@@ -76,16 +76,12 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<ButtonData>;
+type Props = BaseNode<Data>;
 Button.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['input', 'digital'],
-		holdtime: 500,
-		isPulldown: false,
-		isPullup: false,
-		invert: false,
-		pin: 6,
 		icon: 'PointerIcon',
 		label: 'Button',
 		description: 'Detect when a physical button is pressed or released',

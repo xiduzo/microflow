@@ -10,7 +10,7 @@ import {
 } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LlmData, LlmValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/llm/llm.types';
 import { IconWithValue } from '../IconWithValue';
 import { folder } from 'leva';
 import { toast } from '@ui/index';
@@ -28,7 +28,7 @@ export function Llm(props: Props) {
 }
 
 function DynamicHandles() {
-	const data = useNodeData<LlmData>();
+	const data = useNodeData<Data>();
 	const id = useNodeId();
 	const previousHandles = useRef<string[]>([]);
 	const deleteHandles = useDeleteHandles();
@@ -65,8 +65,8 @@ function DynamicHandles() {
 }
 
 function Value() {
-	const data = useNodeData<LlmData>();
-	const value = useNodeValue<LlmValueType>(false);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(false);
 
 	return (
 		<IconWithValue
@@ -79,7 +79,7 @@ function Value() {
 
 function Settings() {
 	const [models, setModels] = useState<string[]>([]);
-	const data = useNodeData<LlmData>();
+	const data = useNodeData<Data>();
 
 	const { render } = useNodeControls(
 		{
@@ -145,29 +145,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<LlmData>;
+type Props = BaseNode<Data>;
 Llm.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'external',
 		tags: ['output', 'transformation'],
 		label: 'LLM',
 		icon: 'BotMessageSquareIcon',
-		provider: 'ollama',
-		model: '',
-		prompt: '',
-		system: '',
-		baseUrl: 'http://localhost:11434',
-		frequencyPenalty: 0.5,
-		temperature: 1.0,
-		topK: 50,
-		topP: 0.9,
-		mirostat: 0,
-		mirostatTau: 5,
-		mirostatEta: 0.1,
-		repeatPenalty: 1.1,
-		typicalP: 0.9,
-		presencePenalty: 0.5,
-		repeatLastN: 64,
 		description: 'Use AI to generate text responses based on what you ask it',
 	} satisfies Props['data'],
 };

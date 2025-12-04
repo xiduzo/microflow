@@ -1,9 +1,16 @@
-import type { CompareData, CompateValueType } from '@microflow/hardware';
+import {
+	type Data,
+	RangeNumberData,
+	SingleNumberData,
+	TextData,
+	type Value,
+	dataSchema,
+} from '@microflow/runtime/src/compare/compare.types';
 import {
 	COMPARE_SUB_VALIDATORS,
-	COMPARE_VALIDATORS,
 	CompareSubValidator,
-} from '@microflow/hardware/contants';
+	CompareValidator,
+} from '@microflow/runtime/src/compare/compare.constants';
 import { Position } from '@xyflow/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Handle } from '../Handle';
@@ -27,28 +34,21 @@ export function Compare(props: Props) {
 const formatter = new Intl.NumberFormat('en-US');
 
 function Value() {
-	const value = useNodeValue<CompateValueType>(false);
-	const data = useNodeData<CompareData>();
+	const value = useNodeValue<Value>(false);
+	const data = useNodeData<Data>();
 
 	const textValue = useMemo(() => {
 		switch (data.validator) {
 			case 'boolean':
 				return 'boolean';
 			case 'number':
-				switch (data.subValidator) {
-					case 'even':
-					case 'odd':
-						return `is ${data.subValidator}`;
-					case 'equal to':
-					case 'less than':
-					case 'greater than':
-						return `is ${data.subValidator} ${formatter.format(data.numberCompare)}`;
-					case 'between':
-					case 'outside':
-						return `is ${data.subValidator} ${formatter.format(data.rangeCompare?.min)} and ${formatter.format(data.rangeCompare?.max)}`;
-				}
+				return `is ${data.subValidator} ${formatter.format(data.number)}`;
+			case 'oddEven':
+				return `is ${data.subValidator}`;
+			case 'range':
+				return `is ${data.subValidator} ${formatter.format(data.range.min)} and ${formatter.format(data.range.max)}`;
 			case 'text':
-				return `is ${data.subValidator} "${data.textCompare}"`;
+				return `is ${data.subValidator} "${data.text}"`;
 			default:
 				return '';
 		}
@@ -64,82 +64,69 @@ function Value() {
 }
 
 function Settings() {
-	const [subValidatorOptions, setSubValidatorOptions] = useState<readonly CompareSubValidator[]>(
-		[]
-	);
-	const data = useNodeData<CompareData>();
-	const prevValidatorRef = useRef(data.validator);
+	const data = useNodeData<Data>();
 
-	const { render, set } = useNodeControls(
+	const { render, setNodeData } = useNodeControls(
 		{
 			validator: {
 				value: data.validator,
-				options: [...COMPARE_VALIDATORS],
+				options: {
+					boolean: 'boolean',
+					number: 'number',
+					parity: 'oddEven',
+					range: 'range',
+					text: 'text',
+				},
 				label: 'validate that a',
+				onChange: (event: CompareValidator) => {
+					setNodeData({
+						...data,
+						validator: event,
+						subValidator: COMPARE_SUB_VALIDATORS[event].at(0),
+					});
+				},
 			},
 			subValidator: {
 				label: 'is',
 				value: data.subValidator,
-				options: subValidatorOptions,
+				options: COMPARE_SUB_VALIDATORS[data.validator],
 				render: get => get('validator') !== 'boolean',
 			},
-			rangeCompare: {
-				value: (data as { rangeCompare: { min: number; max: number } }).rangeCompare ?? {
+			range: {
+				value: (data as RangeNumberData).range ?? {
 					min: 100,
 					max: 500,
 				},
 				label: '',
 				joystick: false,
-				render: get => ['between', 'outside'].includes(get('subValidator')),
+				render: get => get('validator') === 'range',
 			},
-			numberCompare: {
-				value: (data as { numberCompare: number }).numberCompare ?? 0,
+			number: {
+				value: (data as SingleNumberData).number ?? 0,
 				label: '',
 				step: 1,
-				render: get =>
-					get('validator') === 'number' &&
-					!['between', 'outside', 'even', 'odd'].includes(get('subValidator')),
+				render: get => get('validator') === 'number',
 			},
-			textCompare: {
-				value: (data as { textCompare: string }).textCompare ?? '',
+			text: {
+				value: (data as TextData).text ?? '',
 				label: '',
 				render: get => get('validator') === 'text',
 			},
 		},
-		[subValidatorOptions]
+		[data.validator]
 	);
-
-	useEffect(() => {
-		const options = [...COMPARE_SUB_VALIDATORS[data.validator]];
-		setSubValidatorOptions(options);
-	}, [data.validator]); // eslint-disable-line react-hooks/exhaustive-deps
-
-	useEffect(() => {
-		const options = [...COMPARE_SUB_VALIDATORS[data.validator]];
-		const isValidSubValidator = options.includes(data.subValidator);
-
-		if (prevValidatorRef.current !== data.validator && !isValidSubValidator) {
-			const defaultSubValidator = options.at(0);
-			if (defaultSubValidator) {
-				set({ subValidator: defaultSubValidator });
-			}
-		}
-
-		prevValidatorRef.current = data.validator;
-	}, [data.validator]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<CompareData>;
+type Props = BaseNode<Data>;
 Compare.defaultProps = {
 	data: {
+		...dataSchema.parse({ validator: 'boolean' }),
 		group: 'flow',
 		tags: ['control'],
 		label: 'Compare',
 		icon: 'ShieldCheckIcon',
-		validator: 'boolean',
-		subValidator: 'true',
 		description:
 			'Check if a value meets certain conditions and send different signals based on the result',
 	} satisfies Props['data'],

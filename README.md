@@ -1,58 +1,73 @@
 # Microflow
 
-A set of tools to make it easier to start prototyping for interactivity.
+**Create interactive prototypes that connect your designs to real hardware.**
 
-Microflow consists of 2 applications so far:
+Microflow helps designers and creators build interactive prototypes by connecting digital designs (like those in Figma) to physical microcontrollers (like Arduino boards). No coding required—just drag, drop, and connect.
 
-1. Microflow studio
-2. Microflow hardware bridge (Figma plugin)
+## What is Microflow?
 
-[See the documentation](https://microflow.vercel.app/docs)
+Microflow is a visual tool that lets you create interactive experiences without writing code. Think of it like connecting building blocks: you drag components onto a canvas, connect them together, and your prototype comes to life.
 
-## Microflow studio
+### Who is it for?
 
-A desktop application that allows you to create interactive prototypes using a visual, flow-based, interface.
+- **Designers** who want to test interactions with real hardware
+- **Prototypers** building interactive installations
+- **Creators** exploring the intersection of digital and physical design
+- **Anyone** who wants to make their designs interactive without learning to code
 
-Download the latest release from the [releases page](https://github.com/xiduzo/microflow/releases) and get started.
+## What's included?
 
-## Microflow hardware bridge
+Microflow consists of two main tools that work together:
 
-Bridge the gap between your microcontrollers and design tools.
+### 1. Microflow Studio
 
-Microflow hardware bridge is a [Figma plugin](https://www.figma.com/community/plugin/1373258770799080545) that allows you to connect your Figma designs to the Microflow studio application or any other application that supports MQTT.
+A desktop application where you create your interactive prototypes using a visual, flow-based interface. Simply drag and drop components, connect them together, and see your prototype come to life.
 
-# Running the project locally
+**Get started:** Download the latest version from the [releases page](https://github.com/xiduzo/microflow/releases)
 
-This project is a mono-repo that contains the Microflow studio and the Microflow hardware bridge.
+### 2. Microflow Hardware Bridge (Figma Plugin)
 
-It uses [Yarn workspaces](https://classic.yarnpkg.com/en/docs/workspaces/) to manage dependencies.
+A Figma plugin that connects your Figma designs to Microflow Studio. This lets you control your physical hardware directly from your Figma prototypes.
 
-## Microflow studio
+**Get started:** Install the [Figma plugin](https://www.figma.com/community/plugin/1373258770799080545) from the Figma Community
 
-1. run `yarn install`
-2. run `yarn dev`
+## Getting Started
 
-### Firmata versions
+1. **Download Microflow Studio** from the [releases page](https://github.com/xiduzo/microflow/releases)
+2. **Install the Figma plugin** from the [Figma Community](https://www.figma.com/community/plugin/1373258770799080545)
+3. **Connect your microcontroller** (like an Arduino) to your computer
+4. **Start creating!** Check out the [documentation](https://microflow.vercel.app/docs) for tutorials and guides
 
-Microflow studio will flash firmata to your microcontroller automatically.
+## Learn More
 
-For the [supported boards](https://microflow.vercel.app/docs/microflow-studio#supported-microcontroller-boards) it will flash version `2.5.X` to be compatible with touchdesigner.
+For detailed guides, tutorials, and examples, visit the [full documentation](https://microflow.vercel.app/docs).
 
-All other boards will get flashed with version `2.4.X` from [avr-girl-arduino](https://github.com/noopkat/avrgirl-arduino/tree/master/junk/hex).
+---
 
-## Microflow hardware bridge
+## For Developers
 
-1. run `yarn install`
-2. run `yarn dev:plugin`
+_The sections below are for developers who want to contribute to or modify Microflow._
 
-# Development and contributing
+### Running the project locally
 
-See the [wiki](https://github.com/xiduzo/microflow/wiki) to get started contributing to `microflow`
+This project uses a monorepo structure (all code in one repository) and [Yarn workspaces](https://classic.yarnpkg.com/en/docs/workspaces/) to manage dependencies.
 
-# Building the app for MacOS
+#### Microflow Studio
 
-In order to build the application for MacOS you will need to follow the [code signing](https://www.electronforge.io/guides/code-signing/code-signing-macos) steps.
+1. Run `yarn install` to install all dependencies
+2. Run `yarn dev` to start the development server
 
-## Certificates
+**Note about Firmata:** Microflow Studio automatically installs Firmata (communication software) on your microcontroller when you connect it. For [supported boards](https://microflow.vercel.app/docs/microflow-studio#supported-microcontroller-boards), it uses version 2.5.X for TouchDesigner compatibility. All other boards use version 2.4.X.
 
-For this we use the [import-codesign-certs](https://github.com/Apple-Actions/import-codesign-certs) action
+#### Microflow Hardware Bridge (Figma Plugin)
+
+1. Run `yarn install` to install all dependencies
+2. Run `yarn dev:plugin` to start the development server
+
+### Contributing
+
+Want to help improve Microflow? Check out the [wiki](https://github.com/xiduzo/microflow/wiki) to get started contributing.
+
+### Building for macOS
+
+To build the application for macOS, you'll need to follow the [code signing](https://www.electronforge.io/guides/code-signing/code-signing-macos) steps. We use the [import-codesign-certs](https://github.com/Apple-Actions/import-codesign-certs) action for certificate management.

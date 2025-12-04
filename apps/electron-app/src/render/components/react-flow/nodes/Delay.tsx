@@ -1,4 +1,4 @@
-import { DelayData } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/delay/delay.types';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
@@ -16,7 +16,7 @@ export function Delay(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<DelayData>();
+	const data = useNodeData<Data>();
 
 	return (
 		<IconWithValue
@@ -28,7 +28,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<DelayData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		delay: {
 			min: 100,
@@ -45,15 +45,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<DelayData>;
+type Props = BaseNode<Data>;
 Delay.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['control', 'event'],
 		label: 'Delay',
 		icon: 'SnailIcon',
-		delay: 1000,
-		forgetPrevious: false,
 		description: 'Wait for a specified amount of time before sending a signal forward',
 	} satisfies Props['data'],
 };

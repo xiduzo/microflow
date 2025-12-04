@@ -1,4 +1,4 @@
-import { RgbData, RgbValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/rgb/rgb.types';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { Handle } from '../Handle';
 import { Position } from '@xyflow/react';
@@ -23,7 +23,7 @@ export function Rgb(props: Props) {
 }
 
 function Value() {
-	const value = useNodeValue<RgbValueType>({ r: 0, g: 0, b: 0, a: 1 });
+	const value = useNodeValue<Value>({ r: 0, g: 0, b: 0, a: 1 });
 
 	return (
 		<section className='px-10'>
@@ -34,7 +34,7 @@ function Value() {
 
 function Settings() {
 	const pins = usePins([MODES.OUTPUT, MODES.PWM]);
-	const data = useNodeData<RgbData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		red: {
 			value: Array.isArray(data.pins) ? data.pins[0] : data.pins.red,
@@ -54,19 +54,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<RgbData>;
+type Props = BaseNode<Data>;
 Rgb.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['output', 'analog'],
 		label: 'RGB',
 		icon: 'PaletteIcon',
-		pins: {
-			red: 9,
-			green: 10,
-			blue: 11,
-		},
-		isAnode: false,
 		description:
 			'Control a colored light that can display any color by mixing red, green, and blue',
 	} satisfies Props['data'],

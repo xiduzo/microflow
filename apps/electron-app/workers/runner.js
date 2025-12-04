@@ -1,5 +1,5 @@
-const MicroflowComponents = require('@microflow/hardware');
-const { Board, TcpSerial } = require('@microflow/hardware');
+const MicroflowComponents = require('@microflow/runtime');
+const { Board, TcpSerial } = require('@microflow/runtime');
 const { Edge, Node } = require('@xyflow/react');
 
 const port = process?.argv?.at(-1);
@@ -105,7 +105,6 @@ try {
  */
 
 process.on('message', (/** @type {WorkerMessage} */ message) => {
-	console.log('[RUNNER] message', JSON.stringify(message, null, 2));
 	switch (message.type) {
 		case 'setExternal':
 			const node = components.get(message.nodeId);
@@ -125,13 +124,22 @@ process.on('message', (/** @type {WorkerMessage} */ message) => {
 
 			// Step 2; add new components
 			message.nodes.forEach(node => {
-				const type = node.data.baseType ?? node.type;
-				const nodeInstance = new MicroflowComponents[type]({
-					...node.data,
-					_componentType: type,
-					id: node.id,
-				});
-				components.set(node.id, nodeInstance);
+				try {
+					const instance = node.data.instance;
+					const nodeInstance = new MicroflowComponents[instance]({
+						...node.data,
+						id: node.id,
+						board: boardInstance,
+					});
+					components.set(node.id, nodeInstance);
+				} catch (error) {
+					stdout({
+						type: 'error',
+						message: `Error creating component ${node.data.instance}`,
+						...error,
+						node: node,
+					});
+				}
 			});
 
 			// Step 3; add handlers
@@ -172,7 +180,7 @@ function getPins(board) {
  */
 const handler = (sourceNode, targetNode, edge, edges) => value => {
 	try {
-		const targetType = targetNode.data._componentType.toLowerCase();
+		const targetType = targetNode.data.instance.toLowerCase();
 		switch (targetType) {
 			case 'gate':
 			case 'calculate':

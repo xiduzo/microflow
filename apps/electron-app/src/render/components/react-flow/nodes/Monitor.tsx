@@ -1,7 +1,7 @@
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
-import type { DebugValueType, MonitorData } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/monitor/monitor.types';
 import { useNodeValue } from '../../../stores/node-data';
 import { useEffect, useRef } from 'react';
 import { LevaPanel, monitor, useControls, useCreateStore } from 'leva';
@@ -15,10 +15,16 @@ export function Monitor(props: Props) {
 		</NodeContainer>
 	);
 }
+
+const numberFormat = new Intl.NumberFormat('en-US', {
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 4,
+});
+
 function Value() {
-	const data = useNodeData<MonitorData>();
+	const data = useNodeData<Data>();
 	const store = useCreateStore();
-	const value = useNodeValue<DebugValueType>(data.type === 'graph' ? 0 : '');
+	const value = useNodeValue<Value>(data.type === 'graph' ? 0 : '');
 
 	const ref = useRef(value);
 
@@ -45,18 +51,41 @@ function Value() {
 			);
 		}
 
-		return (
-			<section className='text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16'>
-				{String(value)}
-			</section>
-		);
+		if (typeof value === 'number') {
+			return <NumberValue value={value} />;
+		}
+
+		return <StringValue value={value} />;
 	}
 
-	return <LevaPanel store={store} fill={true} flat titleBar={false} />;
+	return (
+		<>
+			<LevaPanel store={store} fill={true} flat titleBar={false} />
+			<section className='absolute left-1/2 -translate-x-1/2 top-16'>
+				{typeof value === 'number' ? <NumberValue value={value} /> : <StringValue value={value} />}
+			</section>
+		</>
+	);
+}
+
+function NumberValue(props: { value: Value }) {
+	return (
+		<section className='text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16'>
+			{numberFormat.format(Number(props.value))}
+		</section>
+	);
+}
+
+function StringValue(props: { value: Value }) {
+	return (
+		<section className='text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16'>
+			{String(props.value)}
+		</section>
+	);
 }
 
 function Settings() {
-	const data = useNodeData<MonitorData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		type: { value: data.type, options: ['graph', 'raw'] },
 		fps: {
@@ -71,15 +100,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<MonitorData>;
+type Props = BaseNode<Data>;
 Monitor.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['information', 'output'],
 		label: 'Monitor',
 		icon: 'MonitorIcon',
-		type: 'graph',
-		fps: 60,
 		description: 'Watch and visualize the values flowing through your circuit in real-time',
 	} satisfies Props['data'],
 };

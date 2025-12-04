@@ -1,4 +1,4 @@
-import type { RangeMapData, RangeMapValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/rangemap/rangemap.types';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
@@ -21,8 +21,8 @@ export function RangeMap(props: Props) {
 }
 
 function Value() {
-	const [from, to] = useNodeValue<RangeMapValueType>([0, 0]);
-	const data = useNodeData<RangeMapData>();
+	const [from, to] = useNodeValue<Value>([0, 0]);
+	const data = useNodeData<Data>();
 
 	return (
 		<section className='flex grow items-center flex-col space-y-2 text-2xl'>
@@ -50,7 +50,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<RangeMapData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		from: { value: data.from, step: 1, joystick: false },
 		to: { value: data.to, step: 1, joystick: false },
@@ -59,13 +59,12 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<RangeMapData>;
+type Props = BaseNode<Data>;
 RangeMap.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['transformation'],
-		from: { min: 0, max: 1023 },
-		to: { min: 0, max: 1023 },
 		icon: 'SeparatorVerticalIcon',
 		label: 'Map',
 		description:

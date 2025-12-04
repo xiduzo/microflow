@@ -21,10 +21,6 @@ body {
 	@apply fill-blue-500;
 }
 
-.react-flow__minimap .react-flow__minimap-node.react-flow__minimap-node__User {
-	@apply hidden;
-}
-
 .react-flow__node.dragging {
 	z-index: 999998 !important;
 }
@@ -39,9 +35,20 @@ body {
 	@apply stroke-blue-500;
 }
 
-.react-flow__edges .react-flow__edge.animated .react-flow__edge-path {
-	/* @apply stroke-yellow-500; */
-	stroke-dasharray: 10, 0;
+.react-flow__edges .react-flow__edge .react-flow__edge-path.animated {
+	@apply stroke-yellow-500;
+	stroke-dasharray: 8, 32;
+	stroke-dashoffset: 0;
+	animation: dash-animation 1s linear infinite;
+}
+
+@keyframes dash-animation {
+	0% {
+		stroke-dashoffset: 100%;
+	}
+	100% {
+		stroke-dashoffset: 0%;
+	}
 }
 
 .react-flow__connection .react-flow__connection-path {

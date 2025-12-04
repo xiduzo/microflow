@@ -1,9 +1,9 @@
-import { type IntervalData, type IntervalValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/interval/interval.types';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls, useNodeData } from './Node';
 import { useNodeValue } from '../../../stores/node-data';
-import { MIN_INTERVAL_IN_MS } from '@microflow/hardware/contants';
+import { MIN_INTERVAL_IN_MS } from '@microflow/runtime/src/interval/interval.constants';
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -20,8 +20,8 @@ export function Interval(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<IntervalData>();
-	const value = useNodeValue<IntervalValueType>(0);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(0);
 
 	return (
 		<section className='flex flex-col text-center gap-1 items-center text-muted-foreground'>
@@ -32,7 +32,7 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<IntervalData>();
+	const data = useNodeData<Data>();
 	const { render } = useNodeControls({
 		interval: { value: data.interval, min: MIN_INTERVAL_IN_MS, step: 100, label: 'interval (ms)' },
 	});
@@ -40,15 +40,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<IntervalData>;
+type Props = BaseNode<Data>;
 Interval.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['event', 'generator'],
 		label: 'Interval',
 		icon: 'TimerIcon',
-		autoStart: true,
-		interval: 500,
 		description: 'Automatically send a signal at regular time intervals, like a timer',
 	} satisfies Props['data'],
 };

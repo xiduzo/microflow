@@ -40,7 +40,7 @@
 ## Shared Packages
 
 - **@microflow/ui**: Radix UI + shadcn/ui component library
-- **@microflow/hardware**: Hardware abstraction layer with Johnny-Five
+- **@microflow/runtime**: Runtime abstraction layer with Johnny-Five
 - **@microflow/flasher**: Firmware flashing utilities (AVR, STK500)
 - **@microflow/mqtt-provider**: MQTT communication layer
 - **@microflow/socket**: WebSocket communication
@@ -48,7 +48,7 @@
 
 ## Key Dependencies
 
-- **Hardware**: johnny-five, chip.avr.avr109, stk500, intel-hex
+- **Runtime**: johnny-five, chip.avr.avr109, stk500, intel-hex
 - **AI/ML**: LangChain + Ollama integration
 - **UI Components**: Radix UI primitives, Recharts, Leva controls
 - **Development**: Concurrently for parallel processes

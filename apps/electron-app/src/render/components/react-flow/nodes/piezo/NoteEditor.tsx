@@ -1,4 +1,4 @@
-import { Note } from '@microflow/hardware';
+import { type Note } from '@microflow/runtime/src/piezo/piezo.types';
 import {
 	Button,
 	ButtonProps,

@@ -6,7 +6,6 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-	Icon,
 	Icons,
 	Kbd,
 	KbdGroup,
@@ -33,15 +32,15 @@ export function DockPanel() {
 	const setOpen = useNewNodeStore(useShallow(state => state.setOpen));
 
 	return (
-		<Dock>
-			<DockIcon>
+		<Dock tabIndex={0}>
+			<DockIcon className='hover:bg-transparent'>
 				<Settings />
 			</DockIcon>
-			<DockIcon>
+			<DockIcon className='hover:bg-transparent'>
 				<Collaboration />
 			</DockIcon>
 			<Separator orientation='vertical' className='h-full' />
-			<DockIcon>
+			<DockIcon className='hover:bg-transparent'>
 				<Tooltip delayDuration={1000}>
 					<TooltipTrigger asChild>
 						<Button variant='ghost' size='icon' disabled={!canUndo()} onClick={undo}>
@@ -57,7 +56,7 @@ export function DockPanel() {
 					</TooltipContent>
 				</Tooltip>
 			</DockIcon>
-			<DockIcon>
+			<DockIcon className='hover:bg-transparent'>
 				<Tooltip delayDuration={1000}>
 					<TooltipTrigger asChild>
 						<Button variant='ghost' size='icon' disabled={!canRedo()} onClick={redo}>
@@ -92,7 +91,7 @@ export function DockPanel() {
 				</Tooltip>
 			</DockIcon>
 			<Separator orientation='vertical' className='h-full' />
-			<DockIcon>
+			<DockIcon className='hover:bg-transparent'>
 				<Tooltip delayDuration={1000}>
 					<TooltipTrigger asChild>
 						<Button variant='ghost' size='icon' onClick={() => zoomIn({ duration: 150 })}>
@@ -108,7 +107,7 @@ export function DockPanel() {
 					</TooltipContent>
 				</Tooltip>
 			</DockIcon>
-			<DockIcon>
+			<DockIcon className='hover:bg-transparent'>
 				<Tooltip delayDuration={1000}>
 					<TooltipTrigger asChild>
 						<Button variant='ghost' size='icon' onClick={() => zoomOut({ duration: 150 })}>
@@ -124,7 +123,7 @@ export function DockPanel() {
 					</TooltipContent>
 				</Tooltip>
 			</DockIcon>
-			<DockIcon>
+			<DockIcon className='hover:bg-transparent'>
 				<Tooltip delayDuration={1000}>
 					<TooltipTrigger asChild>
 						<Button variant='ghost' size='icon' onClick={() => fitView({ duration: 300 })}>

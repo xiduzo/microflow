@@ -1,4 +1,4 @@
-import { type Note } from '@microflow/hardware';
+import { type Note } from '@microflow/runtime/src/piezo/piezo.types';
 import { renderAbc } from 'abcjs';
 import { useEffect, useRef } from 'react';
 

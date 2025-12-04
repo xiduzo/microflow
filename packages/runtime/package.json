@@ -1,0 +1,23 @@
+{
+	"name": "@microflow/runtime",
+	"version": "1.0.0",
+	"main": "./dist/index.js",
+	"scripts": {
+		"dev": "tsc -w",
+		"build": "tsc",
+		"test": "npx tsx ./test.ts"
+	},
+	"devDependencies": {
+		"@types/johnny-five": "2.1.10",
+		"@types/node-pixel": "^0.11.2",
+		"typescript": "5.8.3"
+	},
+	"dependencies": {
+		"@langchain/core": "^0.3.42",
+		"@langchain/ollama": "^0.2.0",
+		"johnny-five": "https://github.com/xiduzo/johnny-five.git",
+		"langchain": "^0.3.19",
+		"node-pixel": "^0.11.0",
+		"zod": "^4.1.13"
+	}
+}

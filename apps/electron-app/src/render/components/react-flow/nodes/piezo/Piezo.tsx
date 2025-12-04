@@ -1,4 +1,10 @@
-import type { BuzzData, PiezoData, PiezoValueType, SongData } from '@microflow/hardware';
+import {
+	type BuzzData,
+	type Data,
+	type SongData,
+	type Value,
+	dataSchema,
+} from '@microflow/runtime/src/piezo/piezo.types';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { Handle } from '../../Handle';
@@ -29,8 +35,8 @@ export function Piezo(props: Props) {
 }
 
 function Value() {
-	const data = useNodeData<PiezoData>();
-	const value = useNodeValue<PiezoValueType>(false);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(false);
 
 	if (!value) {
 		if (data.type === 'song') return <Icons.Disc className='text-muted-foreground' size={48} />;
@@ -42,12 +48,12 @@ function Value() {
 }
 
 function Settings() {
-	const data = useNodeData<PiezoData>();
+	const data = useNodeData<Data>();
 	const pins = usePins([MODES.INPUT, MODES.PWM]);
 	const [editorOpened, setEditorOpened] = useState(false);
 	const deleteHandles = useDeleteHandles();
 
-	const { render, setNodeData } = useNodeControls<PiezoData>(
+	const { render, setNodeData } = useNodeControls<Data>(
 		{
 			pin: { options: pins.reduce(reducePinsToOptions, {}), value: data.pin },
 			type: {
@@ -70,12 +76,12 @@ function Settings() {
 						min: 100,
 						max: 2500,
 						step: 100,
-						value: (data as BuzzData).duration ?? 500,
+						value: (data as BuzzData).duration,
 						render: get => get('type') === 'buzz',
 					},
 					frequency: {
 						options: Object.fromEntries(NOTES_AND_FREQUENCIES.entries()),
-						value: (data as BuzzData).frequency!,
+						value: data.frequency!,
 						render: get => get('type') === 'buzz',
 					},
 				},
@@ -124,17 +130,14 @@ function Settings() {
 
 export const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
 
-type Props = BaseNode<PiezoData>;
+type Props = BaseNode<Data>;
 Piezo.defaultProps = {
 	data: {
+		...dataSchema.parse({ type: 'buzz' }),
 		group: 'hardware',
 		tags: ['output', 'analog', 'digital'],
 		label: 'Piezo',
-		duration: 500,
 		icon: 'BellIcon',
-		frequency: DEFAULT_FREQUENCY!,
-		pin: 11,
-		type: 'buzz',
 		description: 'Make sounds, play tones, or create melodies using a buzzer or speaker',
 	} satisfies Props['data'],
 };

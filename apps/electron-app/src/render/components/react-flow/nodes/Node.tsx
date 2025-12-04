@@ -297,7 +297,6 @@ export type BaseNode<Data extends Record<string, any> = {}> = Node<
 		tags: NodeTag[];
 		icon: IconName;
 		subType?: string;
-		baseType?: NodeType;
 		label: string;
 		description: string;
 	}

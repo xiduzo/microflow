@@ -1,17 +1,14 @@
-import type { FigmaData, FigmaValueType, RGBA } from '@microflow/hardware';
-import {
-	FigmaVariable,
-	useFigmaVariable,
-	useFigmaVariables,
-} from '@microflow/mqtt-provider/src/stores/figma';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/figma/figma.types';
+import { useFigmaVariable, useFigmaVariables } from '@microflow/mqtt-provider/src/stores/figma';
 import { useMqttStore } from '@microflow/mqtt-provider/src/stores/mqtt';
 import { Icons, Switch, Tooltip, TooltipContent, TooltipTrigger } from '@microflow/ui';
 import { Position, useUpdateNodeInternals } from '@xyflow/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from './Node';
 import { RgbaColorPicker } from 'react-colorful';
 import { useNodeValue } from '../../../stores/node-data';
+import { type RGBA } from '@microflow/runtime/src/types';
 
 export function Figma(props: Props) {
 	const { connectedClients } = useMqttStore();
@@ -33,7 +30,7 @@ export function Figma(props: Props) {
 
 function ValueSync(props: { variableId?: string; nodeId: string }) {
 	const { value: figmaValue } = useFigmaVariable(props.variableId);
-	const nodeValue = useNodeValue<FigmaValueType>(false);
+	const nodeValue = useNodeValue<Value>(false);
 
 	const { publish, appName, uniqueId } = useMqttStore();
 
@@ -122,7 +119,7 @@ function FigmaHandles(props: { variableId?: string; id: string }) {
 }
 
 function Settings() {
-	const data = useNodeData<FigmaData>();
+	const data = useNodeData<Data>();
 	const variables = useFigmaVariables();
 	const deleteHandles = useDeleteHandles();
 
@@ -199,8 +196,8 @@ const numberFormat = new Intl.NumberFormat('en-US', {
 });
 
 function Value() {
-	const data = useNodeData<FigmaData>();
-	const value = useNodeValue<FigmaValueType>(data.initialValue!);
+	const data = useNodeData<Data>();
+	const value = useNodeValue<Value>(data.initialValue!);
 	const { variable } = useFigmaVariable(data.variableId);
 	const variables = useFigmaVariables();
 
@@ -261,25 +258,15 @@ function Value() {
 	}
 }
 
-type Props = BaseNode<FigmaData>;
+type Props = BaseNode<Data>;
 Figma.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'external',
 		tags: ['output', 'input'],
 		label: 'Figma',
-		variableId: '',
 		icon: 'FigmaIcon',
-		resolvedType: 'STRING',
-		initialValue: '',
-		debounceTime: 100,
 		description:
 			'Connect your flow to Figma design files to control colors, numbers, and text from your device',
 	} satisfies Props['data'],
-};
-
-const DEFAULT_FIGMA_VALUE_PER_TYPE: Record<FigmaVariable['resolvedType'], FigmaValueType> = {
-	BOOLEAN: false,
-	FLOAT: 0,
-	STRING: '-',
-	COLOR: { r: 0, g: 0, b: 0, a: 1 },
 };

@@ -1,5 +1,5 @@
-import type { MotionData, MotionValueType } from '@microflow/hardware';
-import { MOTION_CONTROLLERS } from '@microflow/hardware/contants';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/motion/motion.types';
+import { MOTION_CONTROLLERS } from '@microflow/runtime/src/motion/motion.constants';
 import { Icons } from '@microflow/ui';
 import { Position } from '@xyflow/react';
 import { MODES } from '../../../../common/types';
@@ -34,14 +34,14 @@ export function Motion(props: Props) {
 }
 
 function Value() {
-	const value = useNodeValue<MotionValueType>(false);
+	const value = useNodeValue<Value>(false);
 
 	if (!value) return <Icons.EyeClosed className='text-muted-foreground' size={48} />;
 	return <Icons.Eye className='text-green-500' size={48} />;
 }
 
 function Settings() {
-	const data = useNodeData<MotionData>();
+	const data = useNodeData<Data>();
 	const pins = usePins(
 		data.controller === 'HCSR501' ? [MODES.INPUT] : [MODES.INPUT, MODES.ANALOG],
 		data.controller === 'HCSR501' ? [MODES.I2C, MODES.ANALOG] : [MODES.I2C]
@@ -57,15 +57,14 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<MotionData>;
+type Props = BaseNode<Data>;
 Motion.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['input', 'digital'],
-		pin: '8',
 		icon: 'EyeIcon',
 		label: 'Motion',
-		controller: 'HCSR501',
 		description: 'Detect when something moves nearby, like a person walking past',
 	} satisfies Props['data'],
 };

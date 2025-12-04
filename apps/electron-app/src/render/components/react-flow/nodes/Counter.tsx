@@ -1,4 +1,4 @@
-import type { CounterData, CounterValueType } from '@microflow/hardware';
+import { type Data, type Value, dataSchema } from '@microflow/runtime/src/counter/counter.types';
 import { Position } from '@xyflow/react';
 import { Handle } from '../Handle';
 import { BaseNode, NodeContainer, useNodeControls } from './Node';
@@ -21,7 +21,7 @@ export function Counter(props: Props) {
 }
 
 function Value() {
-	const value = useNodeValue<CounterValueType>(0);
+	const value = useNodeValue<Value>(0);
 
 	return <section className='text-4xl tabular-nums'>{numberFormat.format(value)}</section>;
 }
@@ -32,9 +32,10 @@ function Settings() {
 	return <>{render()}</>;
 }
 
-type Props = BaseNode<CounterData>;
+type Props = BaseNode<Data>;
 Counter.defaultProps = {
 	data: {
+		...dataSchema.parse({}),
 		group: 'flow',
 		tags: ['control', 'information'],
 		label: 'Counter',

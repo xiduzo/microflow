@@ -6,7 +6,7 @@ import {
 	type PortInfo,
 } from '@microflow/flasher';
 import type { Edge, Node } from '@xyflow/react';
-import { app, ipcMain, Menu } from 'electron';
+import { app, ipcMain, Menu, session } from 'electron';
 import { fork, ChildProcess } from 'child_process';
 import { mainWindowReady, sendMessageToRenderer } from './window';
 
@@ -47,11 +47,11 @@ let connectedPort: PortInfo | undefined;
 ipcMain.on('ipc-flow', async (event, data: { ip?: string; nodes: Node[]; edges: Edge[] }) => {
 	const timer = new Timer();
 
-	log.debug('[FLOW] requested to send flow', data, timer.duration);
+	log.debug('[FLOW] <request>', timer.duration);
 
 	await ensureRunnerProcess(data.nodes, data.edges, data.ip);
 
-	log.debug('[FLOW] sending flow to runner', runnerProcess?.pid, timer.duration);
+	log.debug('[FLOW] <send>', runnerProcess?.pid, timer.duration);
 	runnerProcess?.send({ type: 'flow', nodes: data.nodes, edges: data.edges });
 });
 
@@ -87,7 +87,7 @@ async function startRunnerProcess(ip?: string) {
 
 	checkBoard: for (const [board, ports] of boardsAndPorts) {
 		for (const port of ports) {
-			log.debug(`[CHECK] checking board ${board} on path ${port.path}`, timer.duration);
+			log.debug('[CHECK] <start>', board, port.path, timer.duration);
 
 			try {
 				sendMessageToRenderer<Board>('ipc-board', {
@@ -101,7 +101,7 @@ async function startRunnerProcess(ip?: string) {
 				break checkBoard;
 			} catch (error) {
 				await killRunnerProcess();
-				log.warn('[CHECK]', board, port, error);
+				log.warn('[CHECK] <error>', board, port.path, error);
 				sendMessageToRenderer<Board>('ipc-board', {
 					success: true,
 					data: { type: 'info', message: (error as any).message ?? getRandomMessage('wait') },
@@ -158,18 +158,18 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 	const filePath = join(__dirname, 'workers', 'runner.js');
 
 	return new Promise<void>((resolve, reject) => {
-		log.debug(`[RUNNER] creating runner from ${filePath}`, timer.duration);
+		log.debug('[RUNNER] <create>', filePath, timer.duration);
 		runnerProcess = fork(filePath, [port.path], {
 			// serviceName: 'Microflow studio - microcontroller validator',
 			stdio: 'pipe',
 		});
 
 		runnerProcess.on('spawn', () => {
-			log.debug(`[RUNNER] [${runnerProcess?.pid}] <spawn>`, timer.duration);
+			log.debug('[RUNNER] <spawn>', runnerProcess?.pid, timer.duration);
 		});
 
 		runnerProcess.stderr?.on('data', async data => {
-			log.debug(`[RUNNER] [${runnerProcess?.pid}] <stderr> ${data.toString()}`, timer.duration);
+			log.debug('[RUNNER] <stderr>', runnerProcess?.pid, timer.duration, data.toString());
 			sendMessageToRenderer<Board>('ipc-board', {
 				success: false,
 				error: data.toString(),
@@ -177,11 +177,11 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 		});
 
 		runnerProcess.stdout?.on('data', async data => {
-			log.debug(`[RUNNER] [${runnerProcess?.pid}] <stdout> ${data.toString()}`, timer.duration);
+			log.debug('[RUNNER] <stdout>', runnerProcess?.pid, timer.duration, data.toString());
 		});
 
 		async function handleMessage(data: Board | UploadedCodeMessage) {
-			// log.debug(`[RUNNER] [${runnerProcess?.pid}] <message> ${data.type}`, timer.duration);
+			// log.debug('[RUNNER] <message>', runnerProcess?.pid, data.type, timer.duration);
 			try {
 				switch (data.type) {
 					case 'message':
@@ -191,6 +191,7 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 						});
 						break;
 					case 'error':
+						log.warn(`[RUNNER] <${data.type}>`, runnerProcess?.pid, data.message, timer.duration);
 						let notificationTimeout: NodeJS.Timeout | null = null;
 						try {
 							if (ipRegex.test(port.path)) {
@@ -212,17 +213,19 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 							await flashBoard(board, port);
 							return checkBoardOnPort(port, board);
 						} catch (error) {
-							if (notificationTimeout) clearTimeout(notificationTimeout);
 							reject(error);
+						} finally {
+							if (notificationTimeout) clearTimeout(notificationTimeout);
 						}
 						break;
 					case 'close':
 					case 'exit':
 					case 'fail':
+						log.warn(`[RUNNER] <${data.type}>`, runnerProcess?.pid, data.message, timer.duration);
 						reject(new Error(data.message ?? 'Unknown error'));
 						break;
 					case 'ready':
-						log.debug(`[RUNNER] [${runnerProcess?.pid}] <ready>`, timer.duration);
+						log.debug(`[RUNNER] <${data.type}>`, runnerProcess?.pid, timer.duration);
 						sendMessageToRenderer<Board>('ipc-board', {
 							success: true,
 							data: { type: 'ready', port: port.path, pins: data.pins },
@@ -242,70 +245,305 @@ async function checkBoardOnPort(port: Pick<PortInfo, 'path'>, board: BoardName) 
 async function flashBoard(board: BoardName, port: Pick<PortInfo, 'path'>): Promise<void> {
 	const flashTimer = new Timer();
 
-	log.debug(`[FLASH] flashing firmata to ${board} on ${port.path}`, flashTimer.duration);
-	// await cleanupProcesses();
-	await killRunnerProcess();
-
-	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.cpp.hex');
+	const firmataPath = resolve(__dirname, 'hex', board, 'StandardFirmata.ino.hex');
 
 	// Check if file exists
 	if (!existsSync(firmataPath)) {
-		log.error(`[FLASH] Firmata file not found at ${firmataPath}`);
+		log.error('[FLASH] <error>', 'Firmata file not found', firmataPath);
 		throw new Error(`[FLASH] Firmata file not found at ${firmataPath}`);
 	}
 
+	await killRunnerProcess();
+	log.debug('[FLASH] <start>', firmataPath, board, port.path, flashTimer.duration);
 	return new Promise(async (resolve, reject) => {
 		try {
-			log.debug(`[FLASH] Flashing firmata from ${firmataPath}`, flashTimer.duration);
+			log.debug(`[FLASH] <start>`, flashTimer.duration);
 			await new Flasher(board, port.path).flash(firmataPath);
-			log.debug(`[FLASH] Flashing done`, flashTimer.duration);
+			log.debug('[FLASH] <done>', flashTimer.duration);
 			resolve();
 		} catch (flashError) {
-			log.error(
-				`[FLASH] Unable to flash ${board} on ${port.path} using ${firmataPath}`,
-				{
-					flashError,
-				},
-				flashTimer.duration
-			);
+			log.error('[FLASH] <error>', flashError, flashTimer.duration);
 			reject(new Error(getRandomMessage('wait')));
 		}
 	});
 }
 
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
-	log.debug(`[EXTERNAL] setting value`, data);
-
+	log.debug('[EXTERNAL] <send>', data);
 	runnerProcess?.send({ type: 'setExternal', nodeId: data.nodeId, value: data.value });
 });
 
-const PORT_SNIFFER_TIMEOUT_IN_MS = 250;
+/**
+ * Converts a USB device product ID (number) to a lowercase hex string for matching
+ */
+function productIdToHex(productId: number): string {
+	return productId.toString(16).padStart(4, '0').toLowerCase();
+}
 
-async function sniffPorts(portsConnected: PortInfo[] = []) {
+/**
+ * Checks if a USB device matches any known board by product ID
+ */
+function isKnownBoard(productId: number): boolean {
+	const productIdHex = productIdToHex(productId);
+	return BOARDS.some(board => board.productIds.includes(productIdHex as never));
+}
+
+/**
+ * Checks if the currently connected port still exists
+ */
+async function checkConnectedPort() {
+	if (!connectedPort) return;
+
 	const ports = await getConnectedPorts();
+	const portStillExists = ports.find(({ path }) => path === connectedPort?.path);
 
-	// Check if the connected port is disconnected
-	if (connectedPort && !ports.find(({ path }) => path === connectedPort?.path)) {
-		log.debug(`[PORTS] <disconnected> ${connectedPort?.path}`);
+	if (!portStillExists) {
+		log.debug('[PORTS] <disconnected>', connectedPort?.path);
 		sendMessageToRenderer<Board>('ipc-board', {
 			success: true,
 			data: { type: 'close', message: `${connectedPort?.path} is no longer connected` },
 		});
 		await killRunnerProcess();
 	}
+}
 
-	// Check if a new port is connected
-	if (ports.length > portsConnected.length) {
-		log.debug(`[PORTS] <new> ${ports.length}`);
-		sendMessageToRenderer<Board>('ipc-board', {
-			success: true,
-			data: { type: 'connect', message: 'New port connected' },
+/**
+ * Sets up device event listeners using Electron's native session API
+ * Uses serial port events for Arduino devices (which appear as serial ports)
+ */
+function setupUSBDeviceListeners() {
+	const defaultSession = session.defaultSession;
+
+	// Set up device permission handler to automatically grant permissions
+	defaultSession.setDevicePermissionHandler(details => {
+		log.debug('[DEVICE] <permission-request>', {
+			deviceType: details.deviceType,
+			origin: details.origin,
+			device: details.device,
 		});
-	}
 
-	setTimeout(() => {
-		sniffPorts(ports);
-	}, PORT_SNIFFER_TIMEOUT_IN_MS);
+		// Auto-grant permissions for serial ports (Arduino devices)
+		if (details.deviceType === 'serial') {
+			return true;
+		}
+
+		// Auto-grant permissions for USB devices if they match known boards
+		if (details.deviceType === 'usb' && details.device) {
+			const productId = (details.device as any).productId;
+			if (productId && isKnownBoard(productId)) {
+				return true;
+			}
+		}
+
+		return false;
+	});
+
+	// Handle select-serial-port event - this enables serial port monitoring
+	defaultSession.on('select-serial-port', (event, portList, webContents, callback) => {
+		log.debug('[SERIAL] <select-port>', {
+			portCount: portList.length,
+			ports: portList.map(p => ({
+				portId: p.portId,
+				portName: p.portName,
+				displayName: p.displayName,
+			})),
+		});
+
+		// Cancel the selection - we handle port selection ourselves
+		// Note: serial-port-added/removed events only fire when handling this event
+		event.preventDefault();
+		// Pass empty string to cancel the selection
+		callback('');
+	});
+
+	// Handle serial port added (Arduino devices appear as serial ports)
+	defaultSession.on('serial-port-added', async (_event, port) => {
+		log.debug('[SERIAL] <port-added>', {
+			portId: port.portId,
+			portName: port.portName,
+			displayName: port.displayName,
+			vendorId: port.vendorId,
+			productId: port.productId,
+		});
+
+		// Check if this is a known board
+		// port.productId is a number (USB product ID)
+		const productId = typeof port.productId === 'number' ? port.productId : undefined;
+		if (productId !== undefined && isKnownBoard(productId)) {
+			log.debug('[SERIAL] <known-board-added>', productIdToHex(productId), port.portName);
+
+			// Wait a bit for the port to be fully available
+			setTimeout(async () => {
+				const ports = await getConnectedPorts();
+				const matchingPort = ports.find(p => {
+					// Try to match by port name/path or product ID
+					if (p.path === port.portName) return true;
+					const portProductId = p.productId || p.pnpId;
+					if (portProductId && productId !== undefined) {
+						return productIdToHex(productId) === portProductId.toLowerCase();
+					}
+					return false;
+				});
+
+				if (matchingPort) {
+					log.debug('[PORTS] <new>', matchingPort.path);
+					sendMessageToRenderer<Board>('ipc-board', {
+						success: true,
+						data: { type: 'connect', message: 'New port connected' },
+					});
+				}
+			}, 500);
+		}
+	});
+
+	// Handle serial port removed
+	defaultSession.on('serial-port-removed', async (_event, port) => {
+		log.debug('[SERIAL] <port-removed>', {
+			portId: port.portId,
+			portName: port.portName,
+			displayName: port.displayName,
+		});
+
+		// Check if this was the connected port
+		if (
+			connectedPort &&
+			(connectedPort.path === port.portName || connectedPort.path === port.displayName)
+		) {
+			log.debug('[PORTS] <disconnected>', connectedPort.path);
+			sendMessageToRenderer<Board>('ipc-board', {
+				success: true,
+				data: { type: 'close', message: `${connectedPort.path} is no longer connected` },
+			});
+			await killRunnerProcess();
+		}
+	});
+
+	// Handle serial port revoked
+	defaultSession.on('serial-port-revoked', async (_event, details) => {
+		log.debug('[SERIAL] <port-revoked>', details);
+
+		// When a port is revoked, check if our connected port is still accessible
+		if (connectedPort) {
+			const ports = await getConnectedPorts();
+			const portStillExists = ports.find(({ path }) => path === connectedPort?.path);
+
+			if (!portStillExists) {
+				log.debug('[SERIAL] <port-revoked>', connectedPort.path);
+				sendMessageToRenderer<Board>('ipc-board', {
+					success: true,
+					data: { type: 'close', message: `${connectedPort.path} access was revoked` },
+				});
+				await killRunnerProcess();
+			}
+		}
+	});
+
+	// Also listen to USB device events as a fallback (though they may not fire for serial devices)
+	defaultSession.on('usb-device-added', async (_event, device) => {
+		log.debug('[USB] <device-added>', {
+			vendorId: device.vendorId,
+			productId: device.productId,
+			serialNumber: device.serialNumber,
+		});
+
+		// Check if this is a known board
+		if (isKnownBoard(device.productId)) {
+			log.debug('[USB] <known-board-added>', productIdToHex(device.productId));
+
+			// Wait a bit for the serial port to be created
+			setTimeout(async () => {
+				const ports = await getConnectedPorts();
+				const newPorts = ports.filter(port => {
+					const portProductId = port.productId || port.pnpId;
+					if (!portProductId) return false;
+					return productIdToHex(device.productId) === portProductId.toLowerCase();
+				});
+
+				if (newPorts.length > 0) {
+					log.debug('[PORTS] <new>', newPorts.map(p => p.path).join(', '));
+					sendMessageToRenderer<Board>('ipc-board', {
+						success: true,
+						data: { type: 'connect', message: 'New port connected' },
+					});
+				}
+			}, 500);
+		}
+	});
+
+	defaultSession.on('usb-device-removed', async (_event, device) => {
+		log.debug('[USB] <device-removed>', {
+			vendorId: device.vendorId,
+			productId: device.productId,
+			serialNumber: device.serialNumber,
+		});
+
+		// Check if this is a known board
+		if (isKnownBoard(device.productId)) {
+			log.debug('[USB] <known-board-removed>', productIdToHex(device.productId));
+
+			// Check if this was the connected port
+			if (connectedPort) {
+				const ports = await getConnectedPorts();
+				const portStillExists = ports.find(({ path }) => path === connectedPort?.path);
+
+				if (!portStillExists) {
+					log.debug('[PORTS] <disconnected>', connectedPort?.path);
+					sendMessageToRenderer<Board>('ipc-board', {
+						success: true,
+						data: { type: 'close', message: `${connectedPort?.path} is no longer connected` },
+					});
+					await killRunnerProcess();
+				}
+			}
+		}
+	});
+
+	log.debug('[DEVICE] <listeners-setup>', 'Device event listeners initialized (serial + USB)');
+
+	// Fallback: Lightweight polling since Electron events may not fire automatically
+	// These events are tied to Web Serial/USB API usage from renderer
+	// We'll poll less frequently as a fallback
+	startPortPolling();
+}
+
+const PORT_POLL_INTERVAL_MS = 1000; // Poll every second as fallback
+let portPollingInterval: NodeJS.Timeout | null = null;
+let lastKnownPorts: PortInfo[] = [];
+
+async function startPortPolling() {
+	// Initial port list
+	lastKnownPorts = await getConnectedPorts();
+
+	portPollingInterval = setInterval(async () => {
+		const currentPorts = await getConnectedPorts();
+
+		// Check for disconnected port
+		if (connectedPort && !currentPorts.find(p => p.path === connectedPort?.path)) {
+			log.debug('[POLL] <disconnected>', connectedPort.path);
+			sendMessageToRenderer<Board>('ipc-board', {
+				success: true,
+				data: { type: 'close', message: `${connectedPort.path} is no longer connected` },
+			});
+			await killRunnerProcess();
+		}
+
+		// Check for new ports
+		if (currentPorts.length > lastKnownPorts.length) {
+			const newPorts = currentPorts.filter(p => !lastKnownPorts.find(lp => lp.path === p.path));
+
+			if (newPorts.length > 0) {
+				log.debug('[POLL] <new-ports>', newPorts.map(p => p.path).join(', '));
+				sendMessageToRenderer<Board>('ipc-board', {
+					success: true,
+					data: { type: 'connect', message: 'New port connected' },
+				});
+			}
+		}
+
+		lastKnownPorts = currentPorts;
+	}, PORT_POLL_INTERVAL_MS);
+
+	log.debug('[POLL] <started>', `Polling every ${PORT_POLL_INTERVAL_MS}ms as fallback`);
 }
 
 async function getKnownBoardsWithPorts() {
@@ -329,38 +567,40 @@ async function getKnownBoardsWithPorts() {
 			[] as [BoardName, PortInfo[]][]
 		);
 
-		log.debug(`Found ${boardsWithPorts.length} known boards with ports:`);
+		log.debug('[PORTS] <boards>', boardsWithPorts.length);
 		boardsWithPorts.forEach(([board, devices]) => {
-			log.debug(`  - ${board} on ${devices.map(device => device.path).join(', ')}`);
+			log.debug('[PORTS] <board>', board, devices.map(device => device.path).join(', '));
 		});
 
 		return boardsWithPorts;
 	} catch (error) {
-		log.warn('Could not get known boards with ports', { error });
+		log.warn('[PORTS] <error>', error);
 		return [];
 	}
 }
 
 class Timer {
-	private start: number;
-	constructor(private readonly name?: string) {
-		this.start = Date.now();
-	}
+	constructor(private readonly startTime = performance.now()) {}
 
 	get duration() {
-		return `(${this.name ? this.name + ' took ' : ''}${Date.now() - this.start}ms)`;
+		return performance.now() - this.startTime + 'ms';
 	}
 }
 
 killRunnerProcess().catch(log.debug);
 
 app.on('before-quit', async event => {
-	log.debug(`[PROCESS] <before-quit> about to leave app`, event);
+	log.debug('[PROCESS] <before-quit>', event);
 	void killRunnerProcess();
 });
 
 function waitForMainWindow() {
-	if (mainWindowReady) return sniffPorts();
+	if (mainWindowReady) {
+		setupUSBDeviceListeners();
+		// Initial check for connected port
+		checkConnectedPort();
+		return;
+	}
 
 	setTimeout(waitForMainWindow, 50);
 }
