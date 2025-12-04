@@ -69,7 +69,7 @@ export class Pixel extends Hardware<Value, Data, pixel.Strip> {
 			...data,
 			strips: [
 				{
-					pin: data.data,
+					pin: data.pin,
 					length: data.length,
 				},
 			],

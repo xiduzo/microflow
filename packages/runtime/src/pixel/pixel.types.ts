@@ -12,7 +12,7 @@ export type Value = z.infer<typeof valueSchema>;
 
 export const dataSchema = baseDataSchema.extend({
 	instance: z.literal('Pixel').default('Pixel'),
-	data: z.number().default(11).describe('The data pin of the pixel strip'),
+	pin: z.number().default(11).describe('The data pin of the pixel strip'),
 	length: z.number().min(1).max(144).default(32).describe('The number of pixels in the strip'),
 	controller: z
 		.enum(['FIRMATA'])

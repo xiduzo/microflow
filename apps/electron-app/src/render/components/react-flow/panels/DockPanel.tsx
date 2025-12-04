@@ -6,7 +6,6 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-	Icon,
 	Icons,
 	Kbd,
 	KbdGroup,

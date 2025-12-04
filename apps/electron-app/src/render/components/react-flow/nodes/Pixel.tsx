@@ -168,8 +168,8 @@ function Settings() {
 	const pins = usePins([MODES.OUTPUT], [MODES.ANALOG]);
 
 	const { render } = useNodeControls({
-		data: {
-			value: data.data,
+		pin: {
+			value: data.pin,
 			options: pins.reduce(reducePinsToOptions, {}),
 			label: 'pin',
 		},
@@ -207,8 +207,8 @@ Pixel.defaultProps = {
 		...dataSchema.parse({}),
 		group: 'hardware',
 		tags: ['output', 'analog'],
-		label: 'Pixel',
-		icon: 'ZapIcon',
+		label: 'LED Strip',
+		icon: 'RainbowIcon',
 		description: 'Control a strip of addressable RGB LEDs (WS2812, NeoPixel, etc.)',
 	} satisfies Props['data'],
 };

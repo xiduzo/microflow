@@ -1,63 +1,14 @@
-import { BaseEdge, getSimpleBezierPath, type EdgeProps, Position } from '@xyflow/react';
+import { BaseEdge, getSimpleBezierPath, type EdgeProps } from '@xyflow/react';
 import { Signal, SIGNAL_DURATION, useEdgeSignals } from '../../stores/signal';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { cn } from '@microflow/ui';
 
-// Rate threshold: if more than this many signals per second, use lightweight mode
-const SIGNAL_RATE_THRESHOLD = 10; // signals per second
-const RATE_WINDOW_MS = 500; // time window to measure signal rate
-
-// Helper function to calculate position along a Bezier curve at a given progress (0-1)
-function getPointOnBezierCurve(
-	path: string,
-	sourceX: number,
-	sourceY: number,
-	targetX: number,
-	targetY: number,
-	progress: number
-): { x: number; y: number } {
-	// Parse the SVG path to extract control points
-	// Format: M x,y C cx1,cy1 cx2,cy2 x,y
-	const pathMatch = path.match(
-		/M\s*([\d.-]+),([\d.-]+)\s*C\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)/
-	);
-
-	if (!pathMatch) {
-		// Fallback to linear interpolation
-		return {
-			x: sourceX + (targetX - sourceX) * progress,
-			y: sourceY + (targetY - sourceY) * progress,
-		};
-	}
-
-	const [, startX, startY, cp1X, cp1Y, cp2X, cp2Y, endX, endY] = pathMatch.map(Number);
-
-	// Calculate position along cubic Bezier curve using the formula:
-	// B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
-	const t = progress;
-	const oneMinusT = 1 - t;
-	const oneMinusTSquared = oneMinusT * oneMinusT;
-	const oneMinusTCubed = oneMinusTSquared * oneMinusT;
-	const tSquared = t * t;
-	const tCubed = tSquared * t;
-
-	const x =
-		oneMinusTCubed * startX +
-		3 * oneMinusTSquared * t * cp1X +
-		3 * oneMinusT * tSquared * cp2X +
-		tCubed * endX;
-
-	const y =
-		oneMinusTCubed * startY +
-		3 * oneMinusTSquared * t * cp1Y +
-		3 * oneMinusT * tSquared * cp2Y +
-		tCubed * endY;
-
-	return { x, y };
-}
+const SIGNAL_RATE_THRESHOLD = 10;
+const RATE_WINDOW_MS = 500;
 
 export function AnimatedSVGEdge({ id, sourceX, sourceY, targetX, targetY }: EdgeProps) {
 	const signals = useEdgeSignals(id);
-	const signalTimestampsRef = useRef<number[]>([]);
+	const signalTimestampsRef = useRef<Set<number>>(new Set());
 	const [useLightweightMode, setUseLightweightMode] = useState(false);
 
 	const [edgePath] = useMemo(() => {
@@ -69,33 +20,24 @@ export function AnimatedSVGEdge({ id, sourceX, sourceY, targetX, targetY }: Edge
 		});
 	}, [sourceX, sourceY, targetX, targetY]);
 
-	// Track signal addition rate to detect continuous spamming
-	// Since signals clean up after themselves (150ms duration), we track the rate
-	// of signal additions over a time window to detect high-frequency activity
 	useEffect(() => {
 		const now = Date.now();
+		const cutoffTime = now - RATE_WINDOW_MS;
 
-		// Record timestamps of active signals (they represent recent additions)
-		// Use a Set to efficiently track unique timestamps
-		const activeSignalTimestamps = new Set(signals.map(s => s.startTime));
-
-		// Add new signal timestamps to our tracking array
-		activeSignalTimestamps.forEach(timestamp => {
-			if (!signalTimestampsRef.current.includes(timestamp)) {
-				signalTimestampsRef.current.push(timestamp);
-			}
+		signals.forEach(signal => {
+			signalTimestampsRef.current.add(signal.startTime);
 		});
 
-		// Clean up old timestamps outside the measurement window
-		const cutoffTime = now - RATE_WINDOW_MS;
-		signalTimestampsRef.current = signalTimestampsRef.current.filter(ts => ts >= cutoffTime);
+		const validTimestamps = new Set<number>();
+		signalTimestampsRef.current.forEach(timestamp => {
+			if (timestamp < cutoffTime) return;
+			validTimestamps.add(timestamp);
+		});
+		signalTimestampsRef.current = validTimestamps;
 
-		// Calculate signal rate (signals per second)
-		// If we see many unique signal start times within the window, we're in high-traffic mode
-		const signalsInWindow = signalTimestampsRef.current.length;
-		const rate = (signalsInWindow / RATE_WINDOW_MS) * 1000; // signals per second
+		const signalsInWindow = signalTimestampsRef.current.size;
+		const rate = (signalsInWindow / RATE_WINDOW_MS) * 1000;
 
-		// Switch to lightweight mode if rate exceeds threshold
 		setUseLightweightMode(rate >= SIGNAL_RATE_THRESHOLD);
 	}, [signals]);
 
@@ -129,16 +71,35 @@ function EdgeWithSignals({
 	signals: Signal[];
 	edgePath: string;
 }) {
-	const positions = useMemo(() => {
-		return { sourceX, sourceY, targetX, targetY };
+	// Parse the path once and cache the control points
+	const bezierPoints = useMemo(() => {
+		return parseBezierPath(edgePath, sourceX, sourceY, targetX, targetY);
 	}, [edgePath, sourceX, sourceY, targetX, targetY]);
 
 	const [signalPositions, setSignalPositions] = useState<Map<string, { x: number; y: number }>>(
 		new Map()
 	);
+	const isMountedRef = useRef(true);
+
+	// Clean up signalPositions when signals are removed
+	useEffect(() => {
+		const signalIds = new Set(signals.map(s => s.id));
+		setSignalPositions(prev => {
+			const filtered = new Map<string, { x: number; y: number }>();
+			prev.forEach((position, signalId) => {
+				if (signalIds.has(signalId)) {
+					filtered.set(signalId, position);
+				}
+			});
+			return filtered;
+		});
+	}, [signals]);
 
 	useEffect(() => {
+		isMountedRef.current = true;
 		const interval = setInterval(() => {
+			if (!isMountedRef.current) return;
+
 			const now = Date.now();
 			const newPositions = new Map<string, { x: number; y: number }>();
 
@@ -147,23 +108,22 @@ function EdgeWithSignals({
 				const progress = Math.max(0, Math.min(1, elapsed / SIGNAL_DURATION));
 
 				// Calculate position along the Bezier curve path
-				const position = getPointOnBezierCurve(
-					edgePath,
-					positions.sourceX,
-					positions.sourceY,
-					positions.targetX,
-					positions.targetY,
-					progress
-				);
+				const position = getPointOnBezierCurve(bezierPoints, progress);
 
 				newPositions.set(signal.id, position);
 			});
 
-			setSignalPositions(newPositions);
+			// Only update if component is still mounted
+			if (isMountedRef.current) {
+				setSignalPositions(newPositions);
+			}
 		}, 16); // ~60fps
 
-		return () => clearInterval(interval);
-	}, [signals, edgePath, positions]);
+		return () => {
+			isMountedRef.current = false;
+			clearInterval(interval);
+		};
+	}, [signals, bezierPoints]);
 
 	return (
 		<>
@@ -187,8 +147,106 @@ function AnimatedEdge({
 	hasSignals: boolean;
 }) {
 	return (
-		<g data-animated-edge={hasSignals ? 'true' : undefined}>
-			<BaseEdge id={id} path={edgePath} />
-		</g>
+		<BaseEdge
+			id={id}
+			path={edgePath}
+			className={cn({
+				animated: hasSignals,
+			})}
+		/>
 	);
+}
+
+type BezierPoints = {
+	startX: number;
+	startY: number;
+	cp1X: number;
+	cp1Y: number;
+	cp2X: number;
+	cp2Y: number;
+	endX: number;
+	endY: number;
+	isLinear: boolean;
+};
+
+/**
+ * Parse SVG path string once and extract control points.
+ * This is called only when the path changes, not on every animation frame.
+ */
+function parseBezierPath(
+	path: string,
+	sourceX: number,
+	sourceY: number,
+	targetX: number,
+	targetY: number
+): BezierPoints {
+	// Parse the SVG path to extract control points
+	// Format: M x,y C cx1,cy1 cx2,cy2 x,y
+	const pathMatch = path.match(
+		/M\s*([\d.-]+),([\d.-]+)\s*C\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)/
+	);
+
+	if (!pathMatch) {
+		// Fallback to linear interpolation - return a flag to indicate this
+		return {
+			startX: sourceX,
+			startY: sourceY,
+			cp1X: sourceX,
+			cp1Y: sourceY,
+			cp2X: targetX,
+			cp2Y: targetY,
+			endX: targetX,
+			endY: targetY,
+			isLinear: true,
+		};
+	}
+
+	const [, startX, startY, cp1X, cp1Y, cp2X, cp2Y, endX, endY] = pathMatch.map(Number);
+
+	return {
+		startX,
+		startY,
+		cp1X,
+		cp1Y,
+		cp2X,
+		cp2Y,
+		endX,
+		endY,
+		isLinear: false,
+	};
+}
+
+/**
+ * Calculate position along cubic Bezier curve using the formula:
+ * B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
+ */
+function getPointOnBezierCurve(points: BezierPoints, progress: number): { x: number; y: number } {
+	if (points.isLinear) {
+		// Fast path for linear interpolation
+		return {
+			x: points.startX + (points.endX - points.startX) * progress,
+			y: points.startY + (points.endY - points.startY) * progress,
+		};
+	}
+
+	const t = progress;
+	const oneMinusT = 1 - t;
+	const oneMinusTSquared = oneMinusT * oneMinusT;
+	const oneMinusTCubed = oneMinusTSquared * oneMinusT;
+	const tSquared = t * t;
+	const tCubed = tSquared * t;
+
+	const x =
+		oneMinusTCubed * points.startX +
+		3 * oneMinusTSquared * t * points.cp1X +
+		3 * oneMinusT * tSquared * points.cp2X +
+		tCubed * points.endX;
+
+	const y =
+		oneMinusTCubed * points.startY +
+		3 * oneMinusTSquared * t * points.cp1Y +
+		3 * oneMinusT * tSquared * points.cp2Y +
+		tCubed * points.endY;
+
+	return { x, y };
 }

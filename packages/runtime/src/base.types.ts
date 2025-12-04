@@ -1,10 +1,9 @@
-import { Board } from 'johnny-five';
 import { z } from 'zod';
 
 export const baseDataSchema = z.looseObject({
 	id: z.string().optional(),
 	instance: z.string().optional(),
-	board: z.instanceof(Board).optional(),
+	board: z.any().optional(), // Should be instance of `Board` from `johnny-five`
 });
 
 export type BaseData = z.infer<typeof baseDataSchema>;

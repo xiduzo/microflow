@@ -130,8 +130,8 @@ const DockIcon = ({
 			ref={ref}
 			style={{ width: scaleSize, height: scaleSize, padding }}
 			className={cn(
-				'flex aspect-square cursor-pointer items-center justify-center rounded-full hover:bg-muted-foreground',
-				disableMagnification && 'hover:bg-muted-foreground transition-colors',
+				'flex aspect-square cursor-pointer items-center justify-center rounded-full', // hover:bg-muted-foreground
+				disableMagnification && 'transition-colors', // hover:bg-muted-foreground
 				className
 			)}
 			{...props}

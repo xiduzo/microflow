@@ -23,7 +23,7 @@ board.on('ready', () => {
 
 function makeStrip() {
 	const strip = new Pixel({
-		...dataSchema.parse({ data: 12, length: 12 }),
+		...dataSchema.parse({ pin: 11, length: 12 }),
 		board,
 	});
 
