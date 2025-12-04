@@ -14,13 +14,11 @@ Microflow studio should automatically detect your microcontroller when connected
 
 1. Waiting for a microcontroller to be connected to your computer
 2. Detecting the type of microcontroller.
-{% callout type="note" title="Be patient" %}
-To be able to communicate with your microcontroller, Microflow will automatically install special software (called StandardFirmata) on your microcontroller in this step. This software allows your computer to talk to the microcontroller.
+   {% callout type="note" title="Be patient" %}
+   To be able to communicate with your microcontroller, Microflow will automatically install special software (called StandardFirmata) on your microcontroller in this step. This software allows your computer to talk to the microcontroller.
 
 This will only happen the first time you connect your microcontroller, and will take some time (usually 30-60 seconds). Please don't disconnect your microcontroller during this process.
-{% /callout %}
-3. Uploading your flow.
-4. Running your flow.
+{% /callout %} 3. Uploading your flow. 4. Running your flow.
 
 If your microcontroller does not reach step 4 automatically, your microcontroller might either not be [supported](#supported-microcontroller-boards) or having [issues connecting](#not-connecting).
 
@@ -37,6 +35,11 @@ As of right now Microflow studio support the following boards officially:
 
 [Other boards](https://johnny-five.io/platform-support/) might connected but can give unexpected results.
 
+Known issues here are:
+
+- Running an older version of Firmata
+- Not having LED strip capabilities
+
 ### Not connecting?
 
 Oops, something might be going on with your microcontroller.
@@ -46,6 +49,7 @@ You should see the `Upload failed for unknown reasons` status.
 In order to validate if the problem is with your microcontroller or with Microflow studio, you can try the following:
 
 #### 1. Check your microcontroller
+
 First, let's make sure your microcontroller is working properly by testing it with the Arduino IDE (a free program for working with Arduino boards).
 
 1. Install [the latest Arduino IDE](https://www.arduino.cc/en/software) (it's free)
@@ -69,8 +73,8 @@ If non of the sollutions above work, you can help us by sharing your log file wi
 
 The log file should be located at:
 
-| OS      | Log file path |
-|---------|---------------|
-| Linux   | ~/.config/microflow-studio/logs/main.log |
-| macOS   | ~/Library/Logs/microflow-studio/main.log |
+| OS      | Log file path                                               |
+| ------- | ----------------------------------------------------------- |
+| Linux   | ~/.config/microflow-studio/logs/main.log                    |
+| macOS   | ~/Library/Logs/microflow-studio/main.log                    |
 | Windows | %USERPROFILE%\AppData\Roaming\microflow-sudio\logs\main.log |
