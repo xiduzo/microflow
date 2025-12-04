@@ -6,7 +6,7 @@ import {
 	type PortInfo,
 } from '@microflow/flasher';
 import type { Edge, Node } from '@xyflow/react';
-import { app, ipcMain, Menu } from 'electron';
+import { app, ipcMain, Menu, session } from 'electron';
 import { fork, ChildProcess } from 'child_process';
 import { mainWindowReady, sendMessageToRenderer } from './window';
 
@@ -273,13 +273,31 @@ ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown
 	runnerProcess?.send({ type: 'setExternal', nodeId: data.nodeId, value: data.value });
 });
 
-const PORT_SNIFFER_TIMEOUT_IN_MS = 250;
+/**
+ * Converts a USB device product ID (number) to a lowercase hex string for matching
+ */
+function productIdToHex(productId: number): string {
+	return productId.toString(16).padStart(4, '0').toLowerCase();
+}
 
-async function sniffPorts(portsConnected: PortInfo[] = []) {
+/**
+ * Checks if a USB device matches any known board by product ID
+ */
+function isKnownBoard(productId: number): boolean {
+	const productIdHex = productIdToHex(productId);
+	return BOARDS.some(board => board.productIds.includes(productIdHex as never));
+}
+
+/**
+ * Checks if the currently connected port still exists
+ */
+async function checkConnectedPort() {
+	if (!connectedPort) return;
+
 	const ports = await getConnectedPorts();
+	const portStillExists = ports.find(({ path }) => path === connectedPort?.path);
 
-	// Check if the connected port is disconnected
-	if (connectedPort && !ports.find(({ path }) => path === connectedPort?.path)) {
+	if (!portStillExists) {
 		log.debug('[PORTS] <disconnected>', connectedPort?.path);
 		sendMessageToRenderer<Board>('ipc-board', {
 			success: true,
@@ -287,19 +305,245 @@ async function sniffPorts(portsConnected: PortInfo[] = []) {
 		});
 		await killRunnerProcess();
 	}
+}
 
-	// Check if a new port is connected
-	if (ports.length > portsConnected.length) {
-		log.debug('[PORTS] <new>', ports.length);
-		sendMessageToRenderer<Board>('ipc-board', {
-			success: true,
-			data: { type: 'connect', message: 'New port connected' },
+/**
+ * Sets up device event listeners using Electron's native session API
+ * Uses serial port events for Arduino devices (which appear as serial ports)
+ */
+function setupUSBDeviceListeners() {
+	const defaultSession = session.defaultSession;
+
+	// Set up device permission handler to automatically grant permissions
+	defaultSession.setDevicePermissionHandler(details => {
+		log.debug('[DEVICE] <permission-request>', {
+			deviceType: details.deviceType,
+			origin: details.origin,
+			device: details.device,
 		});
-	}
 
-	setTimeout(() => {
-		sniffPorts(ports);
-	}, PORT_SNIFFER_TIMEOUT_IN_MS);
+		// Auto-grant permissions for serial ports (Arduino devices)
+		if (details.deviceType === 'serial') {
+			return true;
+		}
+
+		// Auto-grant permissions for USB devices if they match known boards
+		if (details.deviceType === 'usb' && details.device) {
+			const productId = (details.device as any).productId;
+			if (productId && isKnownBoard(productId)) {
+				return true;
+			}
+		}
+
+		return false;
+	});
+
+	// Handle select-serial-port event - this enables serial port monitoring
+	defaultSession.on('select-serial-port', (event, portList, webContents, callback) => {
+		log.debug('[SERIAL] <select-port>', {
+			portCount: portList.length,
+			ports: portList.map(p => ({
+				portId: p.portId,
+				portName: p.portName,
+				displayName: p.displayName,
+			})),
+		});
+
+		// Cancel the selection - we handle port selection ourselves
+		// Note: serial-port-added/removed events only fire when handling this event
+		event.preventDefault();
+		// Pass empty string to cancel the selection
+		callback('');
+	});
+
+	// Handle serial port added (Arduino devices appear as serial ports)
+	defaultSession.on('serial-port-added', async (_event, port) => {
+		log.debug('[SERIAL] <port-added>', {
+			portId: port.portId,
+			portName: port.portName,
+			displayName: port.displayName,
+			vendorId: port.vendorId,
+			productId: port.productId,
+		});
+
+		// Check if this is a known board
+		// port.productId is a number (USB product ID)
+		const productId = typeof port.productId === 'number' ? port.productId : undefined;
+		if (productId !== undefined && isKnownBoard(productId)) {
+			log.debug('[SERIAL] <known-board-added>', productIdToHex(productId), port.portName);
+
+			// Wait a bit for the port to be fully available
+			setTimeout(async () => {
+				const ports = await getConnectedPorts();
+				const matchingPort = ports.find(p => {
+					// Try to match by port name/path or product ID
+					if (p.path === port.portName) return true;
+					const portProductId = p.productId || p.pnpId;
+					if (portProductId && productId !== undefined) {
+						return productIdToHex(productId) === portProductId.toLowerCase();
+					}
+					return false;
+				});
+
+				if (matchingPort) {
+					log.debug('[PORTS] <new>', matchingPort.path);
+					sendMessageToRenderer<Board>('ipc-board', {
+						success: true,
+						data: { type: 'connect', message: 'New port connected' },
+					});
+				}
+			}, 500);
+		}
+	});
+
+	// Handle serial port removed
+	defaultSession.on('serial-port-removed', async (_event, port) => {
+		log.debug('[SERIAL] <port-removed>', {
+			portId: port.portId,
+			portName: port.portName,
+			displayName: port.displayName,
+		});
+
+		// Check if this was the connected port
+		if (
+			connectedPort &&
+			(connectedPort.path === port.portName || connectedPort.path === port.displayName)
+		) {
+			log.debug('[PORTS] <disconnected>', connectedPort.path);
+			sendMessageToRenderer<Board>('ipc-board', {
+				success: true,
+				data: { type: 'close', message: `${connectedPort.path} is no longer connected` },
+			});
+			await killRunnerProcess();
+		}
+	});
+
+	// Handle serial port revoked
+	defaultSession.on('serial-port-revoked', async (_event, details) => {
+		log.debug('[SERIAL] <port-revoked>', details);
+
+		// When a port is revoked, check if our connected port is still accessible
+		if (connectedPort) {
+			const ports = await getConnectedPorts();
+			const portStillExists = ports.find(({ path }) => path === connectedPort?.path);
+
+			if (!portStillExists) {
+				log.debug('[SERIAL] <port-revoked>', connectedPort.path);
+				sendMessageToRenderer<Board>('ipc-board', {
+					success: true,
+					data: { type: 'close', message: `${connectedPort.path} access was revoked` },
+				});
+				await killRunnerProcess();
+			}
+		}
+	});
+
+	// Also listen to USB device events as a fallback (though they may not fire for serial devices)
+	defaultSession.on('usb-device-added', async (_event, device) => {
+		log.debug('[USB] <device-added>', {
+			vendorId: device.vendorId,
+			productId: device.productId,
+			serialNumber: device.serialNumber,
+		});
+
+		// Check if this is a known board
+		if (isKnownBoard(device.productId)) {
+			log.debug('[USB] <known-board-added>', productIdToHex(device.productId));
+
+			// Wait a bit for the serial port to be created
+			setTimeout(async () => {
+				const ports = await getConnectedPorts();
+				const newPorts = ports.filter(port => {
+					const portProductId = port.productId || port.pnpId;
+					if (!portProductId) return false;
+					return productIdToHex(device.productId) === portProductId.toLowerCase();
+				});
+
+				if (newPorts.length > 0) {
+					log.debug('[PORTS] <new>', newPorts.map(p => p.path).join(', '));
+					sendMessageToRenderer<Board>('ipc-board', {
+						success: true,
+						data: { type: 'connect', message: 'New port connected' },
+					});
+				}
+			}, 500);
+		}
+	});
+
+	defaultSession.on('usb-device-removed', async (_event, device) => {
+		log.debug('[USB] <device-removed>', {
+			vendorId: device.vendorId,
+			productId: device.productId,
+			serialNumber: device.serialNumber,
+		});
+
+		// Check if this is a known board
+		if (isKnownBoard(device.productId)) {
+			log.debug('[USB] <known-board-removed>', productIdToHex(device.productId));
+
+			// Check if this was the connected port
+			if (connectedPort) {
+				const ports = await getConnectedPorts();
+				const portStillExists = ports.find(({ path }) => path === connectedPort?.path);
+
+				if (!portStillExists) {
+					log.debug('[PORTS] <disconnected>', connectedPort?.path);
+					sendMessageToRenderer<Board>('ipc-board', {
+						success: true,
+						data: { type: 'close', message: `${connectedPort?.path} is no longer connected` },
+					});
+					await killRunnerProcess();
+				}
+			}
+		}
+	});
+
+	log.debug('[DEVICE] <listeners-setup>', 'Device event listeners initialized (serial + USB)');
+
+	// Fallback: Lightweight polling since Electron events may not fire automatically
+	// These events are tied to Web Serial/USB API usage from renderer
+	// We'll poll less frequently as a fallback
+	startPortPolling();
+}
+
+const PORT_POLL_INTERVAL_MS = 1000; // Poll every second as fallback
+let portPollingInterval: NodeJS.Timeout | null = null;
+let lastKnownPorts: PortInfo[] = [];
+
+async function startPortPolling() {
+	// Initial port list
+	lastKnownPorts = await getConnectedPorts();
+
+	portPollingInterval = setInterval(async () => {
+		const currentPorts = await getConnectedPorts();
+
+		// Check for disconnected port
+		if (connectedPort && !currentPorts.find(p => p.path === connectedPort?.path)) {
+			log.debug('[POLL] <disconnected>', connectedPort.path);
+			sendMessageToRenderer<Board>('ipc-board', {
+				success: true,
+				data: { type: 'close', message: `${connectedPort.path} is no longer connected` },
+			});
+			await killRunnerProcess();
+		}
+
+		// Check for new ports
+		if (currentPorts.length > lastKnownPorts.length) {
+			const newPorts = currentPorts.filter(p => !lastKnownPorts.find(lp => lp.path === p.path));
+
+			if (newPorts.length > 0) {
+				log.debug('[POLL] <new-ports>', newPorts.map(p => p.path).join(', '));
+				sendMessageToRenderer<Board>('ipc-board', {
+					success: true,
+					data: { type: 'connect', message: 'New port connected' },
+				});
+			}
+		}
+
+		lastKnownPorts = currentPorts;
+	}, PORT_POLL_INTERVAL_MS);
+
+	log.debug('[POLL] <started>', `Polling every ${PORT_POLL_INTERVAL_MS}ms as fallback`);
 }
 
 async function getKnownBoardsWithPorts() {
@@ -351,7 +595,12 @@ app.on('before-quit', async event => {
 });
 
 function waitForMainWindow() {
-	if (mainWindowReady) return sniffPorts();
+	if (mainWindowReady) {
+		setupUSBDeviceListeners();
+		// Initial check for connected port
+		checkConnectedPort();
+		return;
+	}
 
 	setTimeout(waitForMainWindow, 50);
 }
