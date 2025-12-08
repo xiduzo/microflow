@@ -25,22 +25,4 @@ export default defineConfig({
 		'process.browser': 'true',
 		global: 'globalThis',
 	},
-	optimizeDeps: {
-		// Exclude workspace packages and Node.js-only packages from optimization
-		exclude: [
-			'johnny-five',
-			'node-pixel',
-			'@microflow/flasher',
-			'@microflow/runtime',
-			'@microflow/ui',
-			'@microflow/utils',
-			'@microflow/mqtt-provider',
-		],
-	},
-	server: {
-		watch: {
-			// Watch package source directories for changes
-			ignored: ['**/node_modules/**', '**/.git/**'],
-		},
-	},
 });

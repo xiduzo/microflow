@@ -3,19 +3,33 @@ import { RGBA } from '../base.types';
 import type { Data, Value } from './pixel.types';
 import { dataSchema } from './pixel.types';
 import pixel from 'node-pixel';
+import { transformValueToNumber } from '../_utils/transformUnknownValues';
+import { DEFAULT_OFF_PIXEL_COLOR } from './pixel.constants';
 
 export class Pixel extends Hardware<Value, Data, pixel.Strip> {
 	private lastFlushTime: number = 0;
-	private pendingColor: Value | null = null;
 	private flushTimeout: NodeJS.Timeout | null = null;
-	private readonly FLUSH_INTERVAL_MS = 125;
+	private readonly FLUSH_INTERVAL_MS = 50;
 
 	constructor(data: Data) {
-		super(dataSchema.parse(data), Array(data.length).fill('#000000'));
+		super(dataSchema.parse(data), Array(data.length).fill(DEFAULT_OFF_PIXEL_COLOR));
 	}
 
 	turnOff() {
-		this.flush(Array(this.data.length).fill('#000000'));
+		this.flush(Array(this.data.length).fill(DEFAULT_OFF_PIXEL_COLOR));
+	}
+
+	show(index: unknown) {
+		// Find the preset at the rounded index
+		const preset = this.data.presets.at(Math.round(transformValueToNumber(index) - 1));
+
+		if (!preset) return;
+
+		const paddedPreset = Array(this.data.length)
+			.fill(DEFAULT_OFF_PIXEL_COLOR)
+			.map((_, i) => preset[i] || DEFAULT_OFF_PIXEL_COLOR);
+
+		this.colorPixels(paddedPreset);
 	}
 
 	color(color: Value | Value[number] | RGBA) {
@@ -26,29 +40,27 @@ export class Pixel extends Hardware<Value, Data, pixel.Strip> {
 		return this.colorPixels(color);
 	}
 
-	forward(amount: number = 1) {
+	move(amount: number = 1) {
+		if (amount > 0) this.forward(amount);
+		else this.backward(-amount);
+	}
+
+	private forward(amount: number = 1) {
 		const newValue = this.value.map((_color, index) => {
-			const newIndex = index + amount;
-			return this.value[newIndex % this.data.length];
+			const newIndex = (index - amount + this.data.length) % this.data.length;
+			return this.value[newIndex];
 		});
 		this.component?.shift(amount, pixel.FORWARD, true);
 		this.flush(newValue);
 	}
 
-	backward(amount: number = 1) {
+	private backward(amount: number = 1) {
 		const newValue = this.value.map((_color, index) => {
-			const newIndex = index - amount;
-			return this.value[newIndex % this.data.length];
+			const newIndex = (index + amount) % this.data.length;
+			return this.value[newIndex];
 		});
 		this.component?.shift(amount, pixel.BACKWARD, true);
 		this.flush(newValue);
-	}
-
-	private rgbaToHex(color: RGBA) {
-		const redHex = color.r.toString(16).padStart(2, '0');
-		const greenHex = color.g.toString(16).padStart(2, '0');
-		const blueHex = color.b.toString(16).padStart(2, '0');
-		return `#${redHex}${greenHex}${blueHex}`;
 	}
 
 	private colorStrip(color: Value[number]) {
@@ -56,44 +68,35 @@ export class Pixel extends Hardware<Value, Data, pixel.Strip> {
 		this.flush(this.value.map(() => color));
 	}
 
-	private colorPixels(color: Value) {
-		color.forEach((color, index) => {
+	private colorPixels(colors: Value) {
+		colors.forEach((color, index) => {
 			this.component?.pixel(index).color(color);
 		});
-		this.flush(color);
+		this.flush(colors);
 	}
 
 	private flush(color: Value) {
-		this.pendingColor = color;
-
 		const now = Date.now();
 		const timeSinceLastFlush = now - this.lastFlushTime;
 
-		if (timeSinceLastFlush >= this.FLUSH_INTERVAL_MS) {
-			this._doFlush();
-			return;
-		}
-
 		if (this.flushTimeout) clearTimeout(this.flushTimeout);
-		const remainingTime = this.FLUSH_INTERVAL_MS - timeSinceLastFlush;
-		this.flushTimeout = setTimeout(() => {
-			this._doFlush();
-		}, remainingTime);
-	}
-
-	private _doFlush() {
-		if (this.pendingColor === null || !this.component) return;
-
-		this.value = this.pendingColor;
-		this.component.show();
-		this.lastFlushTime = Date.now();
-		this.pendingColor = null;
-		this.flushTimeout = null;
+		this.flushTimeout = setTimeout(
+			() => {
+				if (!this.component) {
+					console.warn('[PIXEL] <not_ready> flushing too early');
+					return;
+				}
+				this.lastFlushTime = Date.now();
+				this.value = color;
+				this.component?.show();
+				this.flushTimeout = null;
+			},
+			Math.max(5, this.FLUSH_INTERVAL_MS - timeSinceLastFlush)
+		);
 	}
 
 	createComponent(data: Data): pixel.Strip {
-		this.component?.shift;
-		this.component = new pixel.Strip({
+		const component = new pixel.Strip({
 			...data,
 			strips: [
 				{
@@ -104,10 +107,11 @@ export class Pixel extends Hardware<Value, Data, pixel.Strip> {
 			color_order: data.color_order as any,
 			board: this.data.board as any,
 		});
-		this.component.on('ready', () => {
+		component.on('ready', () => {
+			this.component = component;
 			this.turnOff();
 			this.emit('ready');
 		});
-		return this.component;
+		return component;
 	}
 }
