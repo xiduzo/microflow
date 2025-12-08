@@ -5,6 +5,11 @@ import { dataSchema } from './pixel.types';
 import pixel from 'node-pixel';
 
 export class Pixel extends Hardware<Value, Data, pixel.Strip> {
+	private lastFlushTime: number = 0;
+	private pendingColor: Value | null = null;
+	private flushTimeout: NodeJS.Timeout | null = null;
+	private readonly FLUSH_INTERVAL_MS = 125;
+
 	constructor(data: Data) {
 		super(dataSchema.parse(data), Array(data.length).fill('#000000'));
 	}
@@ -59,8 +64,31 @@ export class Pixel extends Hardware<Value, Data, pixel.Strip> {
 	}
 
 	private flush(color: Value) {
-		this.value = color;
-		this.component?.show();
+		this.pendingColor = color;
+
+		const now = Date.now();
+		const timeSinceLastFlush = now - this.lastFlushTime;
+
+		if (timeSinceLastFlush >= this.FLUSH_INTERVAL_MS) {
+			this._doFlush();
+			return;
+		}
+
+		if (this.flushTimeout) clearTimeout(this.flushTimeout);
+		const remainingTime = this.FLUSH_INTERVAL_MS - timeSinceLastFlush;
+		this.flushTimeout = setTimeout(() => {
+			this._doFlush();
+		}, remainingTime);
+	}
+
+	private _doFlush() {
+		if (this.pendingColor === null || !this.component) return;
+
+		this.value = this.pendingColor;
+		this.component.show();
+		this.lastFlushTime = Date.now();
+		this.pendingColor = null;
+		this.flushTimeout = null;
 	}
 
 	createComponent(data: Data): pixel.Strip {
