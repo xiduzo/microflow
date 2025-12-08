@@ -25,7 +25,4 @@ export default defineConfig({
 		'process.browser': 'true',
 		global: 'globalThis',
 	},
-	optimizeDeps: {
-		exclude: ['johnny-five', 'node-pixel'],
-	},
 });

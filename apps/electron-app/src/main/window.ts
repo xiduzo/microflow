@@ -50,7 +50,7 @@ export function handleSecondInstance(commandLine: string[]) {
 export async function recreateWindowWhenNeeded() {
 	if (windows.length === 0) {
 		await createWindow();
-		await new Promise(resolve => setTimeout(resolve, 1000));
+		await new Promise(resolve => setTimeout(resolve, 500));
 	}
 
 	return Promise.resolve();
@@ -59,12 +59,14 @@ export async function recreateWindowWhenNeeded() {
 // Check if we're in development mode
 const isDevelopment = !!app.isPackaged;
 
+const [mainWindowWidth, mainWindowHeight] = [1024, 768];
+
 export async function createWindow() {
 	const window = new BrowserWindow({
-		width: 1024,
-		minWidth: 1024,
-		height: 768,
-		minHeight: 768,
+		width: mainWindowWidth,
+		minWidth: mainWindowWidth,
+		height: mainWindowHeight,
+		minHeight: mainWindowHeight,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,

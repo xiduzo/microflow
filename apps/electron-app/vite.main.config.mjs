@@ -1,8 +1,10 @@
 import copy from 'rollup-plugin-copy';
 import { defineConfig } from 'vite';
+import path from 'path';
 
 const root = '.vite';
 const build = `${root}/build`;
+const projectRootDir = path.resolve(__dirname);
 
 // https://vitejs.dev/config
 export default defineConfig({

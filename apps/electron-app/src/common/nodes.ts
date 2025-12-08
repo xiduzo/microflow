@@ -10,7 +10,7 @@ import { Motion } from '../render/components/react-flow/nodes/Motion';
 import { Mqtt } from '../render/components/react-flow/nodes/Mqtt';
 import { Note } from '../render/components/react-flow/nodes/Note';
 import { Oscillator } from '../render/components/react-flow/nodes/Oscillator';
-import { Pixel } from '../render/components/react-flow/nodes/Pixel';
+import { Pixel } from '../render/components/react-flow/nodes/pixel/Pixel';
 import { Piezo } from '../render/components/react-flow/nodes/piezo/Piezo';
 import { RangeMap } from '../render/components/react-flow/nodes/RangeMap';
 import { Rgb } from '../render/components/react-flow/nodes/RGB';

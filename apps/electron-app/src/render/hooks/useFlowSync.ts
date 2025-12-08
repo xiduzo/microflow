@@ -93,7 +93,8 @@ export function useFlowSync() {
 			console.debug(`[FLOW] <<<< <ipc-board>`, result);
 
 			if (!result.success) {
-				setBoard({ type: 'error', message: result.error });
+				toast.error(result.error);
+				setBoard({ type: 'error', message: 'Something went wrong' });
 				return;
 			}
 

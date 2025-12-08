@@ -32,7 +32,7 @@ function makeStrip() {
 
 		strip.color(['#4f39f6', '#e60076', '#f54a00']);
 		setInterval(() => {
-			strip.forward();
+			strip.move(1);
 			// const randomHex = `#${Math.floor(Math.random() * 16777215).toString(16)}`;
 			// strip.color(randomHex);
 		}, 1000);

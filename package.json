@@ -6,7 +6,7 @@
 	],
 	"scripts": {
 		"start": "yarn dev",
-		"dev": "concurrently --names \"APP,COMPONENTS\" --prefix-colors \"blue,green\" \"yarn workspace microflow-studio start\" \"yarn workspace @microflow/runtime dev\"",
+		"dev": "concurrently --names \"APP,RUNTIME,FLASHER\" --prefix-colors \"blue,green,yellow\" \"yarn workspace microflow-studio start\" \"yarn workspace @microflow/runtime dev\" \"yarn workspace @microflow/flasher dev\"",
 		"dev:plugin": "yarn workspace microflow-hardware-bridge dev",
 		"build": "yarn workspaces foreach -p run build",
 		"make": "yarn workspace microflow-studio make",
