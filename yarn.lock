@@ -11246,6 +11246,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"hotkeys-js@npm:^4.0.0-beta.7":
+  version: 4.0.0-beta.7
+  resolution: "hotkeys-js@npm:4.0.0-beta.7"
+  checksum: 4d39ed4f1ff99bb1275b1fe4a057d53c581fe273f01d48630f348f39de9fffd42c1d41001ac8b80c5bcf5c502c84191fe1ac50fe078d876992711d9dd5aaed12
+  languageName: node
+  linkType: hard
+
 "html-escaper@npm:^2.0.0":
   version: 2.0.2
   resolution: "html-escaper@npm:2.0.2"
@@ -13622,6 +13629,7 @@ __metadata:
     electron-log: 5.3.3
     eslint-plugin-react-hooks: 5.2.0
     firmata: "https://github.com/xiduzo/firmata.js.git"
+    hotkeys-js: ^4.0.0-beta.7
     jest: ^30.0.5
     leva: 0.10.1
     mqtt: 5.10.4
