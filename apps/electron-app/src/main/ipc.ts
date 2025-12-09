@@ -46,7 +46,7 @@ ipcMain.on('ipc-flow', async (event, data: { ip?: string; nodes: Node[]; edges: 
 });
 
 ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown }) => {
-	log.debug('[EXTERNAL] <send>', data);
+	log.debug('[EXTERNAL] <ipc> send to runner', data);
 	const runnerProcess = getRunnerProcess();
 	runnerProcess?.send({ type: 'setExternal', nodeId: data.nodeId, value: data.value });
 });

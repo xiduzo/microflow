@@ -33,6 +33,7 @@ import { Relay } from '../render/components/react-flow/nodes/Relay';
 import { Switch } from '../render/components/react-flow/nodes/Switch';
 import { Proximity } from '../render/components/react-flow/nodes/Proximity';
 import { Llm } from '../render/components/react-flow/nodes/Llm';
+import { Hotkey } from '../render/components/react-flow/nodes/Hotkey';
 import { Node } from '@xyflow/react';
 
 export function isNodeTypeACodeType(node?: Node) {
@@ -78,6 +79,7 @@ export const NODE_TYPES: Record<string, (props: any) => JSX.Element> = {
 	Tilt: Tilt,
 	Trigger: Trigger,
 	Vibration: Vibration,
+	Hotkey: Hotkey,
 } as const;
 
 export type NodeType = keyof typeof NODE_TYPES;

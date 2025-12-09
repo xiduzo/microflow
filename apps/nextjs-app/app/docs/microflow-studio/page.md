@@ -55,12 +55,15 @@ In order to validate if the problem is with your microcontroller or with Microfl
 
 First, let's make sure your microcontroller is working properly by testing it with the Arduino IDE (a free program for working with Arduino boards).
 
-1. Install [the latest Arduino IDE](https://www.arduino.cc/en/software) (it's free)
-2. Open the Arduino IDE and connect your microcontroller to your computer
-3. Go to `Tools > Port` and select the port where your microcontroller is connected (you should see it listed)
-4. Go to `Tools > Board` and select the board you are using (like "Arduino Uno")
-5. Go to `File > Examples > Firmata > StandardFirmata` (this opens a ready-made program)
-6. Click the `Upload` button (arrow icon) to send the program to your microcontroller
+1. Close Microflow
+2. Download [the `StandardFirmata` for Microflow](https://github.com/xiduzo/microflow/tree/7eed72541c6d6b455cf8c84a71b737400a6d7e68/packages/flasher/StandardFirmata)
+3. Install [the latest Arduino IDE](https://www.arduino.cc/en/software)
+4. Open the Arduino IDE and connect your microcontroller to your computer
+5. Go to `Tools > Port` and select the port where your microcontroller is connected (you should see it listed)
+6. Go to `Tools > Board` and select the board you are using (like "Arduino Uno")
+7. Opens the downloaded `StandardFirmata`.
+8. Click the `Upload` button (arrow icon) to send the program to your microcontroller.
+9. Re-open Microflow, your microcontroller should now connect.
 
 If you can successfully upload the program to your microcontroller, then your hardware is working fine and the problem might be with Microflow studio. If you can't upload, there might be an issue with your microcontroller or its connection.
 

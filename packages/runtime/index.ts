@@ -26,4 +26,5 @@ export * from './src/servo/servo';
 export * from './src/smooth/smooth';
 export * from './src/switch/switch';
 export * from './src/trigger/trigger';
+export * from './src/hotkey/hotkey';
 export { Board } from 'johnny-five';

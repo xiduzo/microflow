@@ -76,6 +76,7 @@
 		"abcjs": "6.4.4",
 		"electron-log": "5.3.3",
 		"firmata": "https://github.com/xiduzo/firmata.js.git",
+		"hotkeys-js": "^4.0.0-beta.7",
 		"leva": "0.10.1",
 		"mqtt": "5.10.4",
 		"prettier": "3.5.3",
