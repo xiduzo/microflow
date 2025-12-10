@@ -27,4 +27,5 @@ export * from './src/smooth/smooth';
 export * from './src/switch/switch';
 export * from './src/trigger/trigger';
 export * from './src/hotkey/hotkey';
+export * from './src/audioplayer/audioplayer';
 export { Board } from 'johnny-five';
