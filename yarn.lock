@@ -2505,9 +2505,11 @@ __metadata:
     "@langchain/ollama": ^0.2.0
     "@types/johnny-five": 2.1.10
     "@types/node-pixel": ^0.11.2
+    "@types/play-sound": ^1.1.2
     johnny-five: "https://github.com/xiduzo/johnny-five.git"
     langchain: ^0.3.19
     node-pixel: ^0.11.0
+    play-sound: ^1.1.6
     typescript: 5.8.3
     zod: ^4.1.13
   languageName: unknown
@@ -6062,6 +6064,15 @@ __metadata:
     "@types/npmlog": "*"
     "@types/ssri": "*"
   checksum: 6c652ad055180dd1ea6d8f446ef2a7568c07a9e645b421443403ccd5c7c5a2c7062e9cc9fa498b7f649ccf13ac35cf8b5c8dade0bdfde3a6ee0b0487d0562328
+  languageName: node
+  linkType: hard
+
+"@types/play-sound@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "@types/play-sound@npm:1.1.2"
+  dependencies:
+    "@types/node": "*"
+  checksum: 0e0c532f196b947876685b0b992d29e58efcb41173d9aac1d833d96f7172a9649ec67c5ccee4d31285362bc0cb10edd0891993bafce84ec85a5ead8ef1a97282
   languageName: node
   linkType: hard
 
@@ -10407,6 +10418,15 @@ __metadata:
   dependencies:
     to-regex-range: ^5.0.1
   checksum: b4abfbca3839a3d55e4ae5ec62e131e2e356bf4859ce8480c64c4876100f4df292a63e5bb1618e1d7460282ca2b305653064f01654474aa35c68000980f17798
+  languageName: node
+  linkType: hard
+
+"find-exec@npm:1.0.3":
+  version: 1.0.3
+  resolution: "find-exec@npm:1.0.3"
+  dependencies:
+    shell-quote: ^1.8.1
+  checksum: 6be934f01a8f0728e6d29de4eb74470c8577f9d31c3d4bda752a3f0fb13ddfab7ba82d0e6d814b7792bf5fc2b5faf05fd5079e5ae5643aa75876e3fd22e03815
   languageName: node
   linkType: hard
 
@@ -15262,6 +15282,15 @@ __metadata:
     exsolve: ^1.0.7
     pathe: ^2.0.3
   checksum: 33c30b442662a0f2b62fd16f39ae2beeb4cdf3511699e574765b7451e179937847de6e696bbab50bfbd41d2c2e4a99b61ebc7078abf91ea8573a7f16cc11d26a
+  languageName: node
+  linkType: hard
+
+"play-sound@npm:^1.1.6":
+  version: 1.1.6
+  resolution: "play-sound@npm:1.1.6"
+  dependencies:
+    find-exec: 1.0.3
+  checksum: 3a974a9a48e3639f54ba15acf29b8935537532a3e219444a97ce8cab49de0064d5735f9ca64e6a83ef4ca7cbecbd0a0b83db7c6c0495e047e332fed81316dc89
   languageName: node
   linkType: hard
 

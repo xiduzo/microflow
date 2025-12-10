@@ -48,3 +48,31 @@ export async function importFlow(): Promise<FlowState | null> {
 		});
 	});
 }
+
+export async function selectAudioFiles(): Promise<string[]> {
+	const result = await dialog.showOpenDialog({
+		title: 'Select Audio Files',
+		filters: [
+			{ name: 'Audio files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+		properties: ['openFile', 'multiSelections'],
+	});
+
+	if (result.canceled || !result.filePaths) {
+		return [];
+	}
+
+	return result.filePaths;
+}
+
+export async function readAudioFile(filePath: string): Promise<Buffer> {
+	return new Promise<Buffer>((resolve, reject) => {
+		fs.readFile(filePath, (err, data) => {
+			if (err) {
+				return reject(err);
+			}
+			resolve(data);
+		});
+	});
+}
