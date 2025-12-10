@@ -32,7 +32,7 @@ function Value() {
 			icon={isPlaying ? 'Volume2' : 'VolumeOff'}
 			value={data.audioFiles.length}
 			suffix=' files'
-			iconClassName={isPlaying ? 'animate-pulse text-green-500' : 'text-muted-foreground'}
+			iconClassName={isPlaying ? 'text-green-500' : 'text-muted-foreground'}
 		/>
 	);
 }

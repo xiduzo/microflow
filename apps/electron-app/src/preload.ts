@@ -13,7 +13,9 @@ export type Channels =
 	| 'ipc-deep-link'
 	| 'ipc-export-flow'
 	| 'ipc-flow'
-	| 'ipc-board';
+	| 'ipc-board'
+	| 'ipc-select-audio-files'
+	| 'ipc-read-audio-file';
 
 type IpcCallback<Data> = (response: IpcResponse<Data>) => void;
 type Listener = (event: IpcRendererEvent, response: IpcResponse<any>) => void;
@@ -53,6 +55,10 @@ export const electronHandler = {
 		once<Data>(channel: Channels, callback: (response: IpcResponse<Data>) => void) {
 			console.debug('[IPC] <once>', channel);
 			ipcRenderer.once(channel, (_event, args) => callback(args));
+		},
+		invoke<Data>(channel: Channels, data?: Data): Promise<any> {
+			logger.debug('[IPC] <invoke>', channel, data);
+			return ipcRenderer.invoke(channel, data);
 		},
 	},
 	os: {

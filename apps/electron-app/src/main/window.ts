@@ -50,7 +50,7 @@ export function handleSecondInstance(commandLine: string[]) {
 export async function recreateWindowWhenNeeded() {
 	if (windows.length === 0) {
 		await createWindow();
-		await new Promise(resolve => setTimeout(resolve, 500));
+		await new Promise(resolve => setTimeout(resolve, 250));
 	}
 
 	return Promise.resolve();

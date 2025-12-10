@@ -3,7 +3,7 @@ import { app, ipcMain, Menu } from 'electron';
 import { mainWindowReady } from './window';
 
 import log from 'electron-log/node';
-import { exportFlow } from './file';
+import { exportFlow, selectAudioFiles, readAudioFile } from './file';
 import { ensureRunnerProcess, getRunnerProcess, killRunnerProcess } from './board-connection';
 import { checkConnectedPort, setupUSBDeviceListeners, stopPortPolling } from './port-manager';
 import { Timer } from './utils';
@@ -49,6 +49,16 @@ ipcMain.on('ipc-external-value', (_event, data: { nodeId: string; value: unknown
 	log.debug('[EXTERNAL] <ipc> send to runner', data);
 	const runnerProcess = getRunnerProcess();
 	runnerProcess?.send({ type: 'setExternal', nodeId: data.nodeId, value: data.value });
+});
+
+ipcMain.handle('ipc-select-audio-files', async () => {
+	return await selectAudioFiles();
+});
+
+ipcMain.handle('ipc-read-audio-file', async (_event, filePath: string) => {
+	const buffer = await readAudioFile(filePath);
+	// Convert buffer to base64 for transmission
+	return buffer.toString('base64');
 });
 
 killRunnerProcess().catch(log.debug);

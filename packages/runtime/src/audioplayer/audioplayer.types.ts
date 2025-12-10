@@ -6,7 +6,7 @@ export type Value = z.infer<typeof valueSchema>;
 
 export const dataSchema = baseDataSchema.extend({
 	instance: z.literal('AudioPlayer').default('AudioPlayer'),
-	audioFiles: z.array(z.string()).default([]), // Array of data URLs
+	audioFiles: z.array(z.string()).default([]).describe('Array of file paths'),
 	loop: z.boolean().default(false),
 	volume: z.number().min(0).max(1).default(1),
 });

@@ -2505,6 +2505,7 @@ __metadata:
     "@langchain/ollama": ^0.2.0
     "@types/johnny-five": 2.1.10
     "@types/node-pixel": ^0.11.2
+    "@types/play-sound": ^1.1.2
     johnny-five: "https://github.com/xiduzo/johnny-five.git"
     langchain: ^0.3.19
     node-pixel: ^0.11.0
@@ -6063,6 +6064,15 @@ __metadata:
     "@types/npmlog": "*"
     "@types/ssri": "*"
   checksum: 6c652ad055180dd1ea6d8f446ef2a7568c07a9e645b421443403ccd5c7c5a2c7062e9cc9fa498b7f649ccf13ac35cf8b5c8dade0bdfde3a6ee0b0487d0562328
+  languageName: node
+  linkType: hard
+
+"@types/play-sound@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "@types/play-sound@npm:1.1.2"
+  dependencies:
+    "@types/node": "*"
+  checksum: 0e0c532f196b947876685b0b992d29e58efcb41173d9aac1d833d96f7172a9649ec67c5ccee4d31285362bc0cb10edd0891993bafce84ec85a5ead8ef1a97282
   languageName: node
   linkType: hard
 

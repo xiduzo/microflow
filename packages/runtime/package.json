@@ -10,6 +10,7 @@
 	"devDependencies": {
 		"@types/johnny-five": "2.1.10",
 		"@types/node-pixel": "^0.11.2",
+		"@types/play-sound": "^1.1.2",
 		"typescript": "5.8.3"
 	},
 	"dependencies": {

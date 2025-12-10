@@ -1,5 +1,4 @@
 import {
-	Badge,
 	Button,
 	Dialog,
 	DialogClose,
@@ -8,7 +7,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Empty,
-	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
@@ -23,69 +21,56 @@ import { Icons } from '@microflow/ui';
 
 export function AudioFileEditor(props: Props) {
 	const [editedFiles, setEditedFiles] = useState<string[]>(props.audioFiles);
-	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [playingIndex, setPlayingIndex] = useState<number | null>(null);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
-	const blobUrlRef = useRef<string | null>(null);
 
-	const handleAddFiles = () => {
-		fileInputRef.current?.click();
-	};
-
-	const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
-
-		const fileArray = Array.from(files);
-		const dataUrls: string[] = [];
-		let loadedCount = 0;
-
-		fileArray.forEach(file => {
-			const reader = new FileReader();
-			reader.onload = e => {
-				if (e.target?.result) {
-					dataUrls.push(e.target.result as string);
-					loadedCount++;
-					// Update edited files when all files are loaded
-					if (loadedCount === fileArray.length) {
-						setEditedFiles(prev => [...prev, ...dataUrls]);
-					}
-				}
-			};
-			reader.readAsDataURL(file);
-		});
-
-		// Reset input so the same file can be selected again
-		if (fileInputRef.current) {
-			fileInputRef.current.value = '';
-		}
-	};
-
-	const getFileName = (dataUrl: string, index: number) => {
-		const fileName = `Audio file ${index + 1}`;
+	const handleAddFiles = async () => {
 		try {
-			const matches = dataUrl.match(/^data:audio\/([^;]+);base64,(.+)$/);
-			if (matches) {
-				const mimeType = matches[1].toUpperCase();
-				return { fileName, mimeType };
+			const filePaths = await window.electron.ipcRenderer.invoke('ipc-select-audio-files');
+			if (filePaths && filePaths.length > 0) {
+				setEditedFiles(prev => [...prev, ...filePaths]);
 			}
-			return { fileName, mimeType: 'unknown' };
-		} catch {
-			return { fileName, mimeType: 'unknown' };
+		} catch (error) {
+			console.error('Error selecting audio files:', error);
 		}
 	};
 
-	const handlePlayPause = (index: number, dataUrl: string) => {
+	const getFileName = (filePath: string, index: number) => {
+		try {
+			// Extract file name from path
+			const pathParts = filePath.split(/[/\\]/);
+			const fileNameWithExt = pathParts[pathParts.length - 1] || `Audio file ${index + 1}`;
+
+			// Extract extension to determine mime type
+			const extension = fileNameWithExt.split('.').pop()?.toLowerCase() || '';
+			const mimeTypeMap: Record<string, string> = {
+				mp3: 'MP3',
+				wav: 'WAV',
+				ogg: 'OGG',
+				m4a: 'M4A',
+				aac: 'AAC',
+				flac: 'FLAC',
+			};
+			const mimeType = mimeTypeMap[extension] || extension.toUpperCase() || 'UNKNOWN';
+
+			// Remove extension from fileName
+			const fileName =
+				extension && fileNameWithExt.endsWith(`.${extension}`)
+					? fileNameWithExt.slice(0, -(extension.length + 1))
+					: fileNameWithExt;
+
+			return { fileName, mimeType };
+		} catch {
+			return { fileName: `Audio file ${index + 1}`, mimeType: 'UNKNOWN' };
+		}
+	};
+
+	const handlePlayPause = async (index: number, filePath: string) => {
 		// If clicking the same audio that's playing, pause it
 		if (playingIndex === index && audioRef.current) {
 			audioRef.current.pause();
 			setPlayingIndex(null);
 			audioRef.current = null;
-			// Clean up blob URL
-			if (blobUrlRef.current) {
-				URL.revokeObjectURL(blobUrlRef.current);
-				blobUrlRef.current = null;
-			}
 			return;
 		}
 
@@ -95,22 +80,43 @@ export function AudioFileEditor(props: Props) {
 			audioRef.current = null;
 		}
 
-		// Clean up previous blob URL
-		if (blobUrlRef.current) {
-			URL.revokeObjectURL(blobUrlRef.current);
-			blobUrlRef.current = null;
-		}
+		let blobUrl: string | null = null;
 
-		// Try to play the audio - use data URL directly (most reliable)
-		const playAudio = (url: string, mimeType: string, isBlob: boolean = false) => {
-			const cleanup = () => {
-				setPlayingIndex(null);
-				audioRef.current = null;
-				if (isBlob && blobUrlRef.current) {
-					URL.revokeObjectURL(blobUrlRef.current);
-					blobUrlRef.current = null;
-				}
+		const cleanup = () => {
+			if (blobUrl) {
+				URL.revokeObjectURL(blobUrl);
+				blobUrl = null;
+			}
+			setPlayingIndex(null);
+			audioRef.current = null;
+		};
+
+		try {
+			// Read file via IPC and create blob URL
+			const base64Data = await window.electron.ipcRenderer.invoke('ipc-read-audio-file', filePath);
+
+			// Convert base64 to binary
+			const binaryString = atob(base64Data);
+			const bytes = new Uint8Array(binaryString.length);
+			for (let i = 0; i < binaryString.length; i++) {
+				bytes[i] = binaryString.charCodeAt(i);
+			}
+
+			// Determine MIME type from file extension
+			const extension = filePath.split('.').pop()?.toLowerCase() || '';
+			const mimeTypeMap: Record<string, string> = {
+				mp3: 'audio/mpeg',
+				wav: 'audio/wav',
+				ogg: 'audio/ogg',
+				m4a: 'audio/mp4',
+				aac: 'audio/aac',
+				flac: 'audio/flac',
 			};
+			const mimeType = mimeTypeMap[extension] || 'audio/mpeg';
+
+			// Create blob and blob URL
+			const blob = new Blob([bytes], { type: mimeType });
+			blobUrl = URL.createObjectURL(blob);
 
 			const audio = new Audio();
 			audioRef.current = audio;
@@ -123,11 +129,10 @@ export function AudioFileEditor(props: Props) {
 
 			audio.onerror = e => {
 				const error = audio.error;
-				console.error('Error playing audio:', {
+				console.warn('Error playing audio:', {
 					error: error?.code,
 					message: error?.message,
-					mimeType,
-					urlType: isBlob ? 'blob' : 'data',
+					filePath,
 					readyState: audio.readyState,
 				});
 				cleanup();
@@ -143,62 +148,27 @@ export function AudioFileEditor(props: Props) {
 				}
 				// Audio is ready to play
 				audio.play().catch(error => {
-					console.error('Error calling play():', error);
+					console.warn('Error calling play():', error);
 					cleanup();
 				});
 			};
 
 			// Set the source and let it load
-			audio.src = url;
+			audio.src = blobUrl;
 			audio.load();
 
 			// Fallback: if canplay doesn't fire, try playing after a short delay
 			timeout = setTimeout(() => {
 				if (audio.readyState >= 2 && audio.paused) {
 					audio.play().catch(error => {
-						console.error('Error playing audio (timeout fallback):', error);
+						console.warn('Error playing audio (timeout fallback):', { error });
 						cleanup();
 					});
 				}
 			}, 500);
-		};
-
-		// Electron blocks data URLs in media elements for security
-		// We need to convert to blob URL instead
-		try {
-			// Parse the data URL
-			const dataUrlMatch = dataUrl.match(/^data:([^;]+)(;base64)?,(.+)$/);
-			if (!dataUrlMatch) {
-				console.error('Invalid data URL format');
-				return;
-			}
-
-			const mimeType = dataUrlMatch[1];
-			const isBase64 = dataUrlMatch[2] === ';base64';
-			const data = dataUrlMatch[3];
-
-			if (!isBase64) {
-				console.error('Data URL is not base64 encoded');
-				return;
-			}
-
-			// Convert base64 to binary
-			const binaryString = atob(data);
-			const arrayBuffer = new ArrayBuffer(binaryString.length);
-			const bytes = new Uint8Array(arrayBuffer);
-			for (let i = 0; i < binaryString.length; i++) {
-				bytes[i] = binaryString.charCodeAt(i);
-			}
-
-			// Create blob and blob URL
-			const blob = new Blob([bytes], { type: mimeType });
-			const blobUrl = URL.createObjectURL(blob);
-			blobUrlRef.current = blobUrl;
-
-			// Play using blob URL (required for Electron)
-			playAudio(blobUrl, mimeType, true);
 		} catch (error) {
-			console.error('Error converting data URL to blob:', error);
+			console.warn('Error reading audio file:', error);
+			cleanup();
 		}
 	};
 
@@ -207,11 +177,11 @@ export function AudioFileEditor(props: Props) {
 		return () => {
 			if (audioRef.current) {
 				audioRef.current.pause();
+				// Revoke any blob URLs
+				if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
+					URL.revokeObjectURL(audioRef.current.src);
+				}
 				audioRef.current = null;
-			}
-			if (blobUrlRef.current) {
-				URL.revokeObjectURL(blobUrlRef.current);
-				blobUrlRef.current = null;
 			}
 		};
 	}, []);
@@ -224,11 +194,11 @@ export function AudioFileEditor(props: Props) {
 					// Stop any playing audio when closing
 					if (audioRef.current) {
 						audioRef.current.pause();
+						// Revoke any blob URLs
+						if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
+							URL.revokeObjectURL(audioRef.current.src);
+						}
 						audioRef.current = null;
-					}
-					if (blobUrlRef.current) {
-						URL.revokeObjectURL(blobUrlRef.current);
-						blobUrlRef.current = null;
 					}
 					setPlayingIndex(null);
 					props.onClose();
@@ -240,27 +210,18 @@ export function AudioFileEditor(props: Props) {
 					<DialogTitle>Manage Audio Files</DialogTitle>
 				</DialogHeader>
 				<section className='flex flex-col space-y-4'>
-					<input
-						ref={fileInputRef}
-						type='file'
-						accept='audio/*'
-						multiple
-						style={{ display: 'none' }}
-						onChange={handleFileSelect}
-					/>
-
 					<div className='space-y-2 max-h-96 overflow-y-auto'>
-						{editedFiles.map((dataUrl, index) => (
+						{editedFiles.map((filePath, index) => (
 							<Item variant='outline' key={index}>
 								<ItemContent>
-									<ItemTitle>{getFileName(dataUrl, index).fileName}</ItemTitle>
-									<ItemDescription>{getFileName(dataUrl, index).mimeType}</ItemDescription>
+									<ItemTitle>{getFileName(filePath, index).fileName}</ItemTitle>
+									<ItemDescription>{getFileName(filePath, index).mimeType}</ItemDescription>
 								</ItemContent>
 								<ItemActions>
 									<Button
 										variant='outline'
 										size='sm'
-										onClick={() => handlePlayPause(index, dataUrl)}
+										onClick={() => handlePlayPause(index, filePath)}
 									>
 										{playingIndex === index ? <Icons.Pause size={16} /> : <Icons.Play size={16} />}
 									</Button>
