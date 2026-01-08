@@ -1,0 +1,26 @@
+{
+  "name": "@microflow-t-stack/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@microflow-t-stack/db": "workspace:*",
+    "@microflow-t-stack/env": "workspace:*",
+    "@polar-sh/better-auth": "catalog:",
+    "@polar-sh/sdk": "^0.34.16",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@microflow-t-stack/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@microflow-t-stack/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@microflow-t-stack/auth": "workspace:*",
+    "@microflow-t-stack/db": "workspace:*",
+    "@microflow-t-stack/env": "workspace:*",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "@types/pg": "catalog:",
+    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@microflow-t-stack/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

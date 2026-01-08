@@ -1,0 +1,3 @@
+{
+  "extends": "@microflow-t-stack/config/tsconfig.base.json"
+}

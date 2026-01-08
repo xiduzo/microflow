@@ -1,0 +1,30 @@
+{
+  "name": "server",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc -b",
+    "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run dist/index.js"
+  },
+  "dependencies": {
+    "@hono/trpc-server": "^0.4.0",
+    "@microflow-t-stack/api": "workspace:*",
+    "@microflow-t-stack/auth": "workspace:*",
+    "@microflow-t-stack/db": "workspace:*",
+    "@microflow-t-stack/env": "workspace:*",
+    "@trpc/server": "catalog:",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "hono": "^4.8.2",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@microflow-t-stack/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "tsdown": "^0.16.5",
+    "typescript": "catalog:"
+  }
+}
