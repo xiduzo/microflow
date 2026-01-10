@@ -1,0 +1,24 @@
+{
+  "name": "@microflow/mqtt",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "build": "echo 'build'"
+  },
+  "dependencies": {
+    "mqtt": "^5.14.1",
+    "zod": "catalog:",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@microflow/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

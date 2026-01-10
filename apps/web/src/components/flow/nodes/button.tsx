@@ -1,4 +1,3 @@
-import { Position } from "@xyflow/react";
 import { MODES, usePins } from "@/stores/board";
 import { folder } from "leva";
 import {

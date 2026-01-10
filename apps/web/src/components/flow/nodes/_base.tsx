@@ -1,5 +1,10 @@
 import { LevaPanel, useControls, useCreateStore } from "leva";
-import { type Node, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
+import {
+  type Node,
+  type NodeProps,
+  useReactFlow,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
 import {
   createContext,
   type PropsWithChildren,
@@ -28,6 +33,7 @@ import { useEdgesChange, useNodesChange } from "@/stores/react-flow";
 import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
 import { useDebouncer } from "@tanstack/react-pacer";
+import type { Nullable } from "@tanstack/react-form";
 
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
@@ -253,7 +259,8 @@ export const useNodeData = <T extends Record<string, any>>() => {
 };
 
 export function NodeContainer(
-  props: PropsWithChildren & BaseNode & { error?: string }
+  props: PropsWithChildren &
+    BaseNode & { error?: string } & { className?: string }
 ) {
   return (
     <NodeContainerContext.Provider value={props}>
@@ -313,13 +320,15 @@ export type NodeTag =
   | "control"
   | "information";
 
-export type BaseNode<Data extends Record<string, any> = {}> = Node<
-  Data & {
-    group: NodeGroup;
-    tags: NodeTag[];
-    icon: LucideIcon;
-    subType?: string;
-    label: string;
-    description: string;
-  }
+export type BaseNode<Data extends Record<string, unknown> = {}> = NodeProps<
+  Node<
+    Data & {
+      group: NodeGroup;
+      tags: NodeTag[];
+      icon: LucideIcon;
+      subType?: string;
+      label: string;
+      description: string;
+    }
+  >
 >;
