@@ -1,5 +1,5 @@
 {
-  "name": "@microflow-t-stack/env",
+  "name": "@microflow/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@microflow-t-stack/config": "workspace:*",
+    "@microflow/config": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }

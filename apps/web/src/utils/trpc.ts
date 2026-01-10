@@ -1,6 +1,6 @@
-import type { AppRouter } from "@microflow-t-stack/api/routers/index";
+import type { AppRouter } from "@microflow/api/routers/index";
 
-import { env } from "@microflow-t-stack/env/web";
+import { env } from "@microflow/env/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";

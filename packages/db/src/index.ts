@@ -1,4 +1,4 @@
-import { env } from "@microflow-t-stack/env/server";
+import { env } from "@microflow/env/server";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import * as schema from "./schema";

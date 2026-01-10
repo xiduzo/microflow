@@ -16,14 +16,16 @@
   "dependencies": {
     "@base-ui/react": "^1.0.0",
     "@hookform/resolvers": "^5.1.1",
-    "@microflow-t-stack/api": "workspace:*",
-    "@microflow-t-stack/auth": "workspace:*",
-    "@microflow-t-stack/env": "workspace:*",
+    "@microflow/api": "workspace:*",
+    "@microflow/auth": "workspace:*",
+    "@microflow/env": "workspace:*",
     "@polar-sh/better-auth": "catalog:",
     "@tailwindcss/vite": "^4.0.15",
     "@tanstack/react-form": "^1.12.3",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-router": "^1.141.1",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-os": "^2.3.2",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "^11.7.2",
@@ -42,7 +44,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@microflow-t-stack/config": "workspace:*",
+    "@microflow/config": "workspace:*",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.141.1",
     "@tanstack/router-plugin": "^1.141.1",

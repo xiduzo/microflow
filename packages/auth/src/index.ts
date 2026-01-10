@@ -1,6 +1,6 @@
-import { db } from "@microflow-t-stack/db";
-import * as schema from "@microflow-t-stack/db/schema/auth";
-import { env } from "@microflow-t-stack/env/server";
+import { db } from "@microflow/db";
+import * as schema from "@microflow/db/schema/auth";
+import { env } from "@microflow/env/server";
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";

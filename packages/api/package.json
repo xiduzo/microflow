@@ -1,5 +1,5 @@
 {
-  "name": "@microflow-t-stack/api",
+  "name": "@microflow/api",
   "type": "module",
   "exports": {
     ".": {
@@ -11,9 +11,9 @@
   },
   "scripts": {},
   "dependencies": {
-    "@microflow-t-stack/auth": "workspace:*",
-    "@microflow-t-stack/db": "workspace:*",
-    "@microflow-t-stack/env": "workspace:*",
+    "@microflow/auth": "workspace:*",
+    "@microflow/db": "workspace:*",
+    "@microflow/env": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "@types/pg": "catalog:",
@@ -22,7 +22,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@microflow-t-stack/config": "workspace:*",
+    "@microflow/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

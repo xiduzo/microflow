@@ -1,6 +1,6 @@
 import type { Context as HonoContext } from "hono";
 
-import { auth } from "@microflow-t-stack/auth";
+import { auth } from "@microflow/auth";
 
 export type CreateContextOptions = {
   context: HonoContext;

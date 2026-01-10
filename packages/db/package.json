@@ -1,5 +1,5 @@
 {
-  "name": "@microflow-t-stack/db",
+  "name": "@microflow/db",
   "type": "module",
   "exports": {
     ".": {
@@ -20,14 +20,14 @@
     "db:down": "docker compose down"
   },
   "dependencies": {
-    "@microflow-t-stack/env": "workspace:*",
+    "@microflow/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
     "pg": "^8.16.3",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@microflow-t-stack/config": "workspace:*",
+    "@microflow/config": "workspace:*",
     "@types/pg": "catalog:",
     "drizzle-kit": "^0.31.8",
     "typescript": "catalog:"

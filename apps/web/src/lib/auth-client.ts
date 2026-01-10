@@ -1,4 +1,4 @@
-import { env } from "@microflow-t-stack/env/web";
+import { env } from "@microflow/env/web";
 import { polarClient } from "@polar-sh/better-auth";
 import { createAuthClient } from "better-auth/react";
 

@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "@hono/trpc-server": "^0.4.0",
-    "@microflow-t-stack/api": "workspace:*",
-    "@microflow-t-stack/auth": "workspace:*",
-    "@microflow-t-stack/db": "workspace:*",
-    "@microflow-t-stack/env": "workspace:*",
+    "@microflow/api": "workspace:*",
+    "@microflow/auth": "workspace:*",
+    "@microflow/db": "workspace:*",
+    "@microflow/env": "workspace:*",
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
@@ -22,7 +22,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@microflow-t-stack/config": "workspace:*",
+    "@microflow/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.16.5",
     "typescript": "catalog:"
