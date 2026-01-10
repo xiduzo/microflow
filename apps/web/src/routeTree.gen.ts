@@ -13,6 +13,7 @@ import { Route as TodosRouteImport } from './routes/todos'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HardwareRouteImport } from './routes/hardware'
+import { Route as FlowRouteImport } from './routes/flow'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -36,6 +37,11 @@ const HardwareRoute = HardwareRouteImport.update({
   path: '/hardware',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FlowRoute = FlowRouteImport.update({
+  id: '/flow',
+  path: '/flow',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -50,6 +56,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/flow': typeof FlowRoute
   '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/flow': typeof FlowRoute
   '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/flow': typeof FlowRoute
   '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -74,13 +83,28 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/hardware' | '/login' | '/success' | '/todos'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/flow'
+    | '/hardware'
+    | '/login'
+    | '/success'
+    | '/todos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/hardware' | '/login' | '/success' | '/todos'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/flow'
+    | '/hardware'
+    | '/login'
+    | '/success'
+    | '/todos'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/flow'
     | '/hardware'
     | '/login'
     | '/success'
@@ -90,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  FlowRoute: typeof FlowRoute
   HardwareRoute: typeof HardwareRoute
   LoginRoute: typeof LoginRoute
   SuccessRoute: typeof SuccessRoute
@@ -126,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HardwareRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/flow': {
+      id: '/flow'
+      path: '/flow'
+      fullPath: '/flow'
+      preLoaderRoute: typeof FlowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -146,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  FlowRoute: FlowRoute,
   HardwareRoute: HardwareRoute,
   LoginRoute: LoginRoute,
   SuccessRoute: SuccessRoute,

@@ -126,3 +126,53 @@
     @apply font-sans;
   }
 }
+
+/*
+ * React Flow style customizations
+ */
+.react-flow__panel.react-flow__minimap {
+  @apply dark:bg-neutral-950 bg-neutral-300;
+}
+
+.react-flow__minimap .react-flow__minimap-node {
+  @apply fill-muted-foreground transition-colors;
+}
+
+.react-flow__minimap .react-flow__minimap-node.selected {
+  @apply fill-blue-500;
+}
+
+.react-flow__node.dragging {
+  z-index: 999998 !important;
+}
+
+.react-flow__edges .react-flow__edge-path {
+  @apply stroke-[3] transition-colors;
+}
+
+.react-flow__edges .react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edges .react-flow__edge.selectable:focus .react-flow__edge-path {
+  @apply stroke-blue-500;
+}
+
+.react-flow__connection .react-flow__connection-path {
+  @apply stroke-[3] stroke-muted-foreground;
+  stroke-dasharray: 8, 8;
+  transition: stroke 0.15s;
+}
+
+.react-flow__connection.valid .react-flow__connection-path {
+  @apply stroke-green-500;
+}
+
+.react-flow__connection.invalid .react-flow__connection-path {
+  @apply stroke-red-500;
+}
+
+.react-flow .react-flow__handle {
+  @apply bg-muted-foreground/50 transition-all duration-150 border-none;
+}
+
+.react-flow .react-flow__handle:hover {
+  @apply bg-muted-foreground;
+}
