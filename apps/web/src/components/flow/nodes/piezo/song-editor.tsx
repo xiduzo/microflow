@@ -1,0 +1,135 @@
+import { DndBadge } from "./dnd-badge";
+import { noteDurationToVisualDuation } from "./helpers";
+import { NodeEditor } from "./note-editor";
+import {
+  DEFAULT_NOTE,
+  DEFAULT_NOTE_DURATION,
+} from "@microflow/runtime/piezo/piezo.constants";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { DragAndDropProvider } from "@/providers/drag-and-drop";
+import { uid } from "@/lib/uid";
+import { MusicSheet } from "./music-sheet";
+
+export function SongEditor(props: Props) {
+  const [editedSong, setEditedSong] = useState(
+    props.song.map((note) => ({ note, id: uid() }))
+  );
+
+  function swapNotes(id: string, hoveredId: string) {
+    setEditedSong((prev) => {
+      const leftIndex = prev.findIndex((item) => item.id === id);
+      const rightIndex = prev.findIndex((item) => item.id === hoveredId);
+      const newSong = [...prev];
+      newSong[leftIndex] = prev[rightIndex];
+      newSong[rightIndex] = prev[leftIndex];
+      return newSong;
+    });
+  }
+
+  return (
+    <Dialog defaultOpen onOpenChange={props.onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit song</DialogTitle>
+        </DialogHeader>
+        <section className="flex flex-col space-y-4">
+          <MusicSheet
+            song={editedSong.map((song) => song.note)}
+            title={props.title}
+          />
+          <DragAndDropProvider swap={swapNotes}>
+            <section className="grid gap-2 grid-cols-4">
+              {editedSong?.map(({ note, id }, index) => (
+                <NodeEditor
+                  key={id}
+                  note={note}
+                  onSelect={(value) => {
+                    setEditedSong((prev) => {
+                      const newSong = [...prev];
+                      newSong[index] = { ...newSong[index], note: value };
+                      return newSong;
+                    });
+                  }}
+                  action={{
+                    label: "Delete note",
+                    variant: "destructive",
+                    onClick: () => {
+                      setEditedSong((prev) => {
+                        const newSong = [...prev];
+                        newSong.splice(index, 1);
+                        return newSong;
+                      });
+                    },
+                  }}
+                >
+                  <DndBadge id={id}>
+                    <span>{note[0] ?? "Rest"}</span>
+                    <span className="text-muted-foreground">
+                      {noteDurationToVisualDuation(note[1])}
+                    </span>
+                  </DndBadge>
+                </NodeEditor>
+              ))}
+              <NodeEditor
+                note={[DEFAULT_NOTE, DEFAULT_NOTE_DURATION]}
+                action={{
+                  label: "Add note",
+                  onClick: (note) => {
+                    setEditedSong((prev) => {
+                      return [...prev, { note, id: uid() }];
+                    });
+                  },
+                }}
+              >
+                <Badge
+                  variant="outline"
+                  className="text-muted-foreground hover:text-foreground border-dashed hover:cursor-pointer hover:border-solid justify-center w-full h-full"
+                >
+                  Add note
+                </Badge>
+              </NodeEditor>
+            </section>
+          </DragAndDropProvider>
+          <DialogFooter>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setEditedSong([]);
+              }}
+            >
+              Clear song
+            </Button>
+            <DialogClose>
+              <Button
+                onClick={() => {
+                  props.onSave({
+                    song: editedSong.map(({ note }) => note),
+                  });
+                }}
+              >
+                Save song
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </section>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type Props = {
+  song: [string | null, number][];
+  title: string;
+  onSave: (data: { song: [string | null, number][] }) => void;
+  onClose: () => void;
+};

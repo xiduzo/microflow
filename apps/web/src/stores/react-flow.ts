@@ -5,11 +5,7 @@ import type {
   OnEdgesChange,
   OnNodesChange,
 } from "@xyflow/react";
-import {
-  addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
-} from "@xyflow/react";
+import { addEdge, applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import { useShallow } from "zustand/shallow";
 import { create } from "zustand";
 
@@ -42,9 +38,7 @@ const initialNodes: Node[] = [
   },
 ];
 
-const initialEdges: Edge[] = [
-  { id: "e1-2", source: "1", target: "2" },
-];
+const initialEdges: Edge[] = [{ id: "e1-2", source: "1", target: "2" }];
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => ({
   nodes: initialNodes,
@@ -81,4 +75,12 @@ export function useReactFlowCanvas() {
       onConnect: state.onConnect,
     }))
   );
+}
+
+export function useNodesChange() {
+  return useReactFlowStore(useShallow((state) => state.onNodesChange));
+}
+
+export function useEdgesChange() {
+  return useReactFlowStore(useShallow((state) => state.onEdgesChange));
 }
