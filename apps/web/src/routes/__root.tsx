@@ -11,11 +11,12 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { trpc } from "@/utils/trpc";
 
 import Header from "@/components/header";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 import "../index.css";
 import { HotkeysProvider } from "react-hotkeys-hook";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -49,12 +50,15 @@ function RootComponent() {
       <HeadContent />
       <ThemeProvider
         attribute="class"
-        defaultTheme="dark"
-        storageKey="vite-ui-theme"
+        defaultTheme="system"
+        enableSystem
+        storageKey="microflow-ui-theme"
       >
         <main className="w-screen h-screen">
           <HotkeysProvider initiallyActiveScopes={["flow"]}>
-            <Outlet />
+            <TooltipProvider>
+              <Outlet />
+            </TooltipProvider>
           </HotkeysProvider>
         </main>
         <Toaster richColors />

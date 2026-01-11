@@ -55,18 +55,6 @@ export function NewNodeDialog() {
   const commandListRef = useRef<HTMLDivElement>(null);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
 
-  useHotkeys(
-    ["ctrl+k", "meta+k"],
-    () => {
-      console.log("ctrl+k or cmd+k");
-      setOpen(true);
-      setFilter("");
-    },
-    {
-      scopes: ["flow"],
-    }
-  );
-
   useEffect(() => {
     function updateSize() {
       setWindowSize({ width: window.innerWidth, height: window.innerHeight });
@@ -142,6 +130,7 @@ export function NewNodeDialog() {
 
   return (
     <CommandDialog
+      className="min-w-7/12 "
       open={open}
       onOpenChange={(state) => {
         setOpen(state);
@@ -183,8 +172,8 @@ export function NewNodeDialog() {
         <DialogDescription>Magnetic sensor...</DialogDescription>
       </DialogHeader>
       <CommandInput placeholder={searchTerm} onValueChange={setFilter} />
-      <CommandList ref={commandListRef} className="mb-2">
-        <CommandEmpty>
+      <CommandList ref={commandListRef} className="mb-2 min-h-[400px]">
+        <CommandEmpty className="flex items-center justify-center h-[400px]">
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">

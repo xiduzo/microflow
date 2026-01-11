@@ -5,6 +5,7 @@ import {
   Panel,
   ReactFlow,
   useReactFlow,
+  type ColorMode,
 } from "@xyflow/react";
 import { useReactFlowCanvas } from "@/stores/react-flow";
 
@@ -12,49 +13,25 @@ import "@xyflow/react/dist/style.css";
 import { NODE_TYPES } from "./nodes/_TYPES";
 import { NewNodeDialog } from "./dialogs/new-node-dialog";
 import { SettingsPanel } from "./panels/settings-panel";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { EDGE_TYPES } from "./edges/edges.constants";
+import { DockPanel } from "./panels/dock-panel";
+import { useTheme } from "@/providers/theme-provider";
+import { HotkeySheet } from "./sheets/hotkey-sheet";
 
 export function ReactFlowCanvas() {
   const { fitView } = useReactFlow();
+  const { theme } = useTheme();
 
   const store = useReactFlowCanvas();
 
-  const zoomToFit = useCallback(() => {
-    fitView({ duration: 250, padding: 0.15, maxZoom: 1 });
+  useEffect(() => {
+    fitView();
   }, [fitView]);
 
-  useEffect(zoomToFit, [zoomToFit]);
-
   useHotkeys(
-    ["ctrl+z", "meta+z"],
-    () => {
-      console.log("undo");
-    },
-    {
-      enabled: true,
-      enableOnFormTags: false,
-      preventDefault: true,
-      scopes: ["flow"],
-    }
-  );
-
-  useHotkeys(
-    ["ctrl+shift+z", "meta+shift+z"],
-    () => {
-      console.log("redo");
-    },
-    {
-      enabled: true,
-      enableOnFormTags: false,
-      preventDefault: true,
-      scopes: ["flow"],
-    }
-  );
-
-  useHotkeys(
-    ["ctrl+a", "meta+a"],
+    "meta+a",
     () => {
       console.log("select all");
     },
@@ -67,7 +44,7 @@ export function ReactFlowCanvas() {
   );
 
   useHotkeys(
-    ["ctrl+c", "meta+c"],
+    "meta+c",
     () => {
       console.log("copy");
     },
@@ -80,7 +57,7 @@ export function ReactFlowCanvas() {
   );
 
   useHotkeys(
-    ["ctrl+v", "meta+v"],
+    "meta+v",
     () => {
       console.log("paste");
     },
@@ -92,30 +69,28 @@ export function ReactFlowCanvas() {
     }
   );
 
-  useHotkeys(["ctrl+o", "meta+o"], zoomToFit, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-  });
-
   return (
     <ReactFlow
       {...store}
-      colorMode="system"
+      colorMode={(theme as ColorMode) ?? "system"}
       minZoom={0.1}
       maxZoom={2}
       nodeTypes={NODE_TYPES}
       edgeTypes={EDGE_TYPES}
       fitView
-      fitViewOptions={{ padding: 0.2 }}
+      selectNodesOnDrag={false}
+      fitViewOptions={{ padding: 0.15 }}
     >
       <MiniMap nodeBorderRadius={6} pannable zoomable />
       <Background gap={140} />
       <Controls />
       <NewNodeDialog />
+      <HotkeySheet />
       <Panel position="top-right">
         <SettingsPanel />
+      </Panel>
+      <Panel position="bottom-center">
+        <DockPanel />
       </Panel>
     </ReactFlow>
   );

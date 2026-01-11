@@ -318,3 +318,9 @@
 .react-flow__node canvas[class^="leva-c-"] {
   @apply grow;
 }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
