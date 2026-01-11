@@ -169,21 +169,24 @@ const handle = cva("text-xs flex z-50 shadow-none", {
   },
 });
 
-const handleText = cva("pointer-events-none mb-0.5 transition-all", {
-  variants: {
-    position: {
-      left: "translate-x-5",
-      right: "-translate-x-5",
-      top: "translate-y-5",
-      bottom: "-translate-y-5",
+const handleText = cva(
+  "pointer-events-none mb-0.5 transition-all whitespace-nowrap",
+  {
+    variants: {
+      position: {
+        left: "translate-x-5",
+        right: "-translate-x-5",
+        top: "translate-y-5",
+        bottom: "-translate-y-5",
+      },
+      showHandle: {
+        true: "opacity-100",
+        false: "opacity-0",
+      },
+      isHandleSelectedViaEdge: {
+        true: "selected-via-edge",
+        false: "",
+      },
     },
-    showHandle: {
-      true: "opacity-100",
-      false: "opacity-0",
-    },
-    isHandleSelectedViaEdge: {
-      true: "selected-via-edge",
-      false: "",
-    },
-  },
-});
+  }
+);

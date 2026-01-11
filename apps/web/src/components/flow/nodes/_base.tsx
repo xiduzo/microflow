@@ -33,7 +33,6 @@ import { useEdgesChange, useNodesChange } from "@/stores/react-flow";
 import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
 import { useDebouncer } from "@tanstack/react-pacer";
-import type { Nullable } from "@tanstack/react-form";
 
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
@@ -156,11 +155,12 @@ export const useNodeControls = <
   );
 
   const render = useCallback(() => {
+    if (!selected) return null;
     return createPortal(
       <LevaPanel store={store} hideCopyButton fill titleBar={false} />,
       document.getElementById("settings-panels")!
     );
-  }, [store]);
+  }, [store, selected]);
 
   // useEffect(() => {
   //   if (isFirstRender.current) {
@@ -290,7 +290,7 @@ export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
 }
 
 const node = cva(
-  "border-none backdrop-blur-sm min-w-80 transition-all duration-300 bg-muted-foreground/10",
+  "border-none backdrop-blur-sm min-w-80 transition-all duration-300 bg-muted-foreground/10 rounded-md",
   {
     variants: {
       draggable: { true: "active:cursor-grabbing", false: "" },

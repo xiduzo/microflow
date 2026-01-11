@@ -1,5 +1,5 @@
-import { AnimatedSVGEdge } from "./edge";
+import { AnimatedEdge } from "./animated-edge";
 
 export const EDGE_TYPES = {
-	animated: AnimatedSVGEdge,
+  animated: AnimatedEdge,
 } as const;

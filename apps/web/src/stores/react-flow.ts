@@ -53,7 +53,12 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => ({
   },
 
   onConnect: (connection) => {
-    set({ edges: addEdge({ ...connection, id: uid() }, get().edges) });
+    set({
+      edges: addEdge(
+        { ...connection, id: uid(), type: "animated" },
+        get().edges
+      ),
+    });
   },
 
   setNodes: (nodes) => {

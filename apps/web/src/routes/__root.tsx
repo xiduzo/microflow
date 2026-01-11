@@ -1,7 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRouteWithContext,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { trpc } from "@/utils/trpc";
@@ -11,6 +15,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 import "../index.css";
+import { HotkeysProvider } from "react-hotkeys-hook";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -48,7 +53,9 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <main className="w-screen h-screen">
-        <Outlet />
+          <HotkeysProvider initiallyActiveScopes={["flow"]}>
+            <Outlet />
+          </HotkeysProvider>
         </main>
         <Toaster richColors />
       </ThemeProvider>
