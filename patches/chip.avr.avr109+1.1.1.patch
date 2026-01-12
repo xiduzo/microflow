@@ -1,0 +1,13 @@
+diff --git a/node_modules/chip.avr.avr109/chip.avr.avr109.js b/node_modules/chip.avr.avr109/chip.avr.avr109.js
+index bfe99e8..5e98db2 100644
+--- a/node_modules/chip.avr.avr109/chip.avr.avr109.js
++++ b/node_modules/chip.avr.avr109/chip.avr.avr109.js
+@@ -55,7 +55,7 @@ out.Flasher.prototype = {
+       var cmd = that.cmds.shift();
+
+       if (cmd) {
+-        running = true;
++        that.running = true;
+         that.options.debug && process.stdout.write('Send: ' + cmd.value);
+         var response = new Buffer(0);
+         var onData = function(d) {
