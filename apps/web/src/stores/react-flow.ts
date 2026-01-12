@@ -10,6 +10,7 @@ import type {
 import { addEdge, applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import { useShallow } from "zustand/shallow";
 import { create } from "zustand";
+import { toast } from "sonner";
 
 export type ReactFlowState = {
   nodes: Node[];
@@ -84,27 +85,28 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => ({
   },
   copy: () => {
     set({ copiedNodes: get().nodes.filter((node) => node.selected) });
+    toast.success(`Copied ${get().copiedNodes.length} nodes`);
   },
   paste: (cursorCanvasPosition: XYPosition) => {
     const copiedNodes = get().copiedNodes;
     if (copiedNodes.length === 0) return;
 
     // Calculate the center (centroid) of all copied nodes, accounting for their dimensions
-    const nodeCenters = copiedNodes.map((node) => {
-      const width = node.width ?? node.measured?.width ?? 0;
-      const height = node.height ?? node.measured?.height ?? 0;
-      return {
-        centerX: node.position.x + width / 2,
-        centerY: node.position.y + height / 2,
-      };
-    });
+    const nodeCount = copiedNodes.length;
+    const { sumX, sumY } = copiedNodes.reduce(
+      (acc, node) => {
+        const width = node.width ?? node.measured?.width ?? 0;
+        const height = node.height ?? node.measured?.height ?? 0;
+        return {
+          sumX: acc.sumX + node.position.x + width / 2,
+          sumY: acc.sumY + node.position.y + height / 2,
+        };
+      },
+      { sumX: 0, sumY: 0 }
+    );
 
-    const centerX =
-      nodeCenters.reduce((sum, center) => sum + center.centerX, 0) /
-      nodeCenters.length;
-    const centerY =
-      nodeCenters.reduce((sum, center) => sum + center.centerY, 0) /
-      nodeCenters.length;
+    const centerX = sumX / nodeCount;
+    const centerY = sumY / nodeCount;
 
     // Calculate the offset from the center to the cursor position
     const offsetX = cursorCanvasPosition.x - centerX;

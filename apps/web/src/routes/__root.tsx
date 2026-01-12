@@ -61,7 +61,7 @@ function RootComponent() {
             </TooltipProvider>
           </HotkeysProvider>
         </main>
-        <Toaster richColors />
+        <Toaster richColors position="top-left" />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />

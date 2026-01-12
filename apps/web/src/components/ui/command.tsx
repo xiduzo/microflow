@@ -20,7 +20,7 @@ function Command({
     <CommandPrimitive
       data-slot="command"
       className={cn(
-        "bg-popover text-popover-foreground rounded-none flex size-full flex-col overflow-hidden",
+        "bg-popover text-popover-foreground rounded-md flex size-full flex-col overflow-hidden",
         className
       )}
       {...props}
@@ -51,7 +51,7 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className={cn("rounded-none overflow-hidden p-0", className)}
+        className={cn("rounded-md overflow-hidden p-0", className)}
         showCloseButton={showCloseButton}
       >
         <Command filter={filter}>{children}</Command>

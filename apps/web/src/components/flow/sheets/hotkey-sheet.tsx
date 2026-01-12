@@ -236,7 +236,8 @@ export function HotkeySheet() {
             <section>
               <Item>
                 <ItemContent>
-                  <ItemTitle>Copy node</ItemTitle>
+                  <ItemTitle>Copy node(s)</ItemTitle>
+                  <ItemDescription>Copies all selected nodes</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⌘" : "ctrl"}</Kbd>
@@ -245,7 +246,7 @@ export function HotkeySheet() {
               </Item>
               <Item>
                 <ItemContent>
-                  <ItemTitle>Paste node</ItemTitle>
+                  <ItemTitle>Paste node(s)</ItemTitle>
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⌘" : "ctrl"}</Kbd>
