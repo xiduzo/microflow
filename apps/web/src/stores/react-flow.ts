@@ -31,21 +31,81 @@ const uid = () => Math.random().toString(36).substring(2, 9);
 
 // Initial nodes for demo
 const initialNodes: Node[] = [
-  {
-    id: "1",
-    type: "default",
-    position: { x: 100, y: 100 },
-    data: { label: "Input Node" },
-  },
-  {
-    id: "2",
-    type: "default",
-    position: { x: 400, y: 100 },
-    data: { label: "Output Node" },
-  },
+    {
+        "data": {
+            "instance": "Button",
+            "pin": 6,
+            "isPullup": false,
+            "isPulldown": false,
+            "holdtime": 500,
+            "invert": false,
+            "group": "hardware",
+            "tags": [
+                "input",
+                "digital"
+            ],
+            "icon": {},
+            "label": "Button",
+            "description": "Detect when a physical button is pressed or released"
+        },
+        "id": "2ct8ux4s1d6",
+        "type": "Button",
+        "position": {
+            "x": 583.4133530864196,
+            "y": 1146.6887061728396
+        },
+        "measured": {
+            "width": 320,
+            "height": 220
+        },
+        "selected": false
+    },
+    {
+        "data": {
+            "instance": "Led",
+            "pin": 13,
+            "group": "hardware",
+            "tags": [
+                "output",
+                "analog",
+                "digital"
+            ],
+            "label": "LED",
+            "icon": {},
+            "description": "Turn a light on or off, or control its brightness"
+        },
+        "id": "t4kj4nmdg4",
+        "type": "Led",
+        "position": {
+            "x": 1072.119750433015,
+            "y": 1184.3851130515895
+        },
+        "measured": {
+            "width": 320,
+            "height": 220
+        },
+        "selected": false
+    }
 ];
 
-const initialEdges: Edge[] = [{ id: "e1-2", source: "1", target: "2" }];
+const initialEdges: Edge[] = [
+    {
+        "source": "2ct8ux4s1d6",
+        "sourceHandle": "active",
+        "target": "t4kj4nmdg4",
+        "targetHandle": "turnOn",
+        "id": "qrcri1z",
+        "type": "animated"
+    },
+    {
+        "source": "2ct8ux4s1d6",
+        "sourceHandle": "inactive",
+        "target": "t4kj4nmdg4",
+        "targetHandle": "turnOff",
+        "id": "ml5fevk",
+        "type": "animated"
+    }
+];
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => ({
   nodes: initialNodes,

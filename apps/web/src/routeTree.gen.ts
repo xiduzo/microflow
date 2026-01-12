@@ -13,8 +13,8 @@ import { Route as TodosRouteImport } from './routes/todos'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HardwareRouteImport } from './routes/hardware'
-import { Route as FlowRouteImport } from './routes/flow'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CircuitRouteImport } from './routes/circuit'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TodosRoute = TodosRouteImport.update({
@@ -37,14 +37,14 @@ const HardwareRoute = HardwareRouteImport.update({
   path: '/hardware',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FlowRoute = FlowRouteImport.update({
-  id: '/flow',
-  path: '/flow',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CircuitRoute = CircuitRouteImport.update({
+  id: '/circuit',
+  path: '/circuit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -55,8 +55,8 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/circuit': typeof CircuitRoute
   '/dashboard': typeof DashboardRoute
-  '/flow': typeof FlowRoute
   '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -64,8 +64,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/circuit': typeof CircuitRoute
   '/dashboard': typeof DashboardRoute
-  '/flow': typeof FlowRoute
   '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -74,8 +74,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/circuit': typeof CircuitRoute
   '/dashboard': typeof DashboardRoute
-  '/flow': typeof FlowRoute
   '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -85,8 +85,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/circuit'
     | '/dashboard'
-    | '/flow'
     | '/hardware'
     | '/login'
     | '/success'
@@ -94,8 +94,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/circuit'
     | '/dashboard'
-    | '/flow'
     | '/hardware'
     | '/login'
     | '/success'
@@ -103,8 +103,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/circuit'
     | '/dashboard'
-    | '/flow'
     | '/hardware'
     | '/login'
     | '/success'
@@ -113,8 +113,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CircuitRoute: typeof CircuitRoute
   DashboardRoute: typeof DashboardRoute
-  FlowRoute: typeof FlowRoute
   HardwareRoute: typeof HardwareRoute
   LoginRoute: typeof LoginRoute
   SuccessRoute: typeof SuccessRoute
@@ -151,18 +151,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HardwareRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/flow': {
-      id: '/flow'
-      path: '/flow'
-      fullPath: '/flow'
-      preLoaderRoute: typeof FlowRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/circuit': {
+      id: '/circuit'
+      path: '/circuit'
+      fullPath: '/circuit'
+      preLoaderRoute: typeof CircuitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -177,8 +177,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CircuitRoute: CircuitRoute,
   DashboardRoute: DashboardRoute,
-  FlowRoute: FlowRoute,
   HardwareRoute: HardwareRoute,
   LoginRoute: LoginRoute,
   SuccessRoute: SuccessRoute,
