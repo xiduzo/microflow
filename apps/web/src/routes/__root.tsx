@@ -10,13 +10,20 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { trpc } from "@/utils/trpc";
 
-import Header from "@/components/header";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 import "../index.css";
 import { HotkeysProvider } from "react-hotkeys-hook";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
+import { UserIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -54,16 +61,25 @@ function RootComponent() {
         enableSystem
         storageKey="microflow-ui-theme"
       >
-        <main className="w-screen h-screen">
-          <HotkeysProvider initiallyActiveScopes={["flow"]}>
-            <TooltipProvider>
-              <Outlet />
-            </TooltipProvider>
-          </HotkeysProvider>
-        </main>
-        <Toaster richColors position="top-left" />
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <HotkeysProvider initiallyActiveScopes={["flow"]}>
+              <header className="backdrop-blur-sm bg-muted-foreground/2 m-4 rounded-xl p-2 px-4 flex justify-between items-center absolute top-0 left-0 right-0 z-50">
+                <SidebarTrigger className="-ml-1" />
+                <Button variant="ghost" size="icon">
+                  <UserIcon />
+                </Button>
+              </header>
+              <TooltipProvider>
+                <Outlet />
+              </TooltipProvider>
+            </HotkeysProvider>
+          </SidebarInset>
+        </SidebarProvider>
+        <Toaster richColors position="top-right" />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+      <TanStackRouterDevtools position="bottom-right" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </>
   );

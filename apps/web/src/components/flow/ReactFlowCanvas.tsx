@@ -45,6 +45,7 @@ export function ReactFlowCanvas() {
       fitView
       selectNodesOnDrag={false}
       fitViewOptions={{ padding: 0.15 }}
+      className="rounded-3xl relative"
     >
       <MiniMap nodeBorderRadius={6} pannable zoomable />
       <Background gap={140} />
