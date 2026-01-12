@@ -12,13 +12,13 @@ export const Route = createFileRoute("/")({
 function HomeComponent() {
   const healthCheck = useQuery(trpc.healthCheck.queryOptions());
 
-  console.log(healthCheck)
+  console.log(healthCheck);
 
   return (
-    <div className="h-full w-full bg-red-500">
-          <ReactFlowProvider>
-            <ReactFlowCanvas />
-          </ReactFlowProvider>
-        </div>
+    <div className="h-full w-full">
+      <ReactFlowProvider>
+        <ReactFlowCanvas />
+      </ReactFlowProvider>
+    </div>
   );
 }

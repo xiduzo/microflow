@@ -17,7 +17,7 @@ import { useNewNodeStore } from "@/stores/new-node";
 import { useIsMac } from "@/hooks/is-mac";
 
 export function DockPanel() {
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, zoomTo } = useReactFlow();
   const { setOpen } = useNewNodeStore();
   const isMac = useIsMac();
 
@@ -32,7 +32,11 @@ export function DockPanel() {
   };
 
   const handleZoomToFit = () => {
-    fitView({ duration: 250, padding: 0.15 });
+    fitView({ duration: 250, padding: 0.25 });
+  };
+
+  const handleZoomTo100 = () => {
+    zoomTo(1);
   };
 
   const handleUndo = () => {
@@ -65,12 +69,20 @@ export function DockPanel() {
     description: "Zoom out",
   });
 
-  useHotkeys(isMac ? "meta+0" : "ctrl+0", handleZoomToFit, {
+  useHotkeys("shit+1", handleZoomToFit, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
     scopes: ["flow"],
     description: "Zoom to fit",
+  });
+
+  useHotkeys(isMac ? "meta+0" : "ctrl+0", handleZoomTo100, {
+    enabled: true,
+    enableOnFormTags: false,
+    preventDefault: true,
+    scopes: ["flow"],
+    description: "Zoom to 100%",
   });
 
   useHotkeys(isMac ? "meta+z" : "ctrl+z", handleUndo, {
