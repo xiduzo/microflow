@@ -31,80 +31,73 @@ const uid = () => Math.random().toString(36).substring(2, 9);
 
 // Initial nodes for demo
 const initialNodes: Node[] = [
-    {
-        "data": {
-            "instance": "Button",
-            "pin": 6,
-            "isPullup": false,
-            "isPulldown": false,
-            "holdtime": 500,
-            "invert": false,
-            "group": "hardware",
-            "tags": [
-                "input",
-                "digital"
-            ],
-            "icon": {},
-            "label": "Button",
-            "description": "Detect when a physical button is pressed or released"
-        },
-        "id": "2ct8ux4s1d6",
-        "type": "Button",
-        "position": {
-            "x": 583.4133530864196,
-            "y": 1146.6887061728396
-        },
-        "measured": {
-            "width": 320,
-            "height": 220
-        },
-        "selected": false
+  {
+    data: {
+      instance: "Button",
+      pin: 6,
+      isPullup: false,
+      isPulldown: false,
+      holdtime: 500,
+      invert: false,
+      group: "hardware",
+      tags: ["input", "digital"],
+      icon: {},
+      label: "Button",
+      description: "Detect when a physical button is pressed or released",
     },
-    {
-        "data": {
-            "instance": "Led",
-            "pin": 13,
-            "group": "hardware",
-            "tags": [
-                "output",
-                "analog",
-                "digital"
-            ],
-            "label": "LED",
-            "icon": {},
-            "description": "Turn a light on or off, or control its brightness"
-        },
-        "id": "t4kj4nmdg4",
-        "type": "Led",
-        "position": {
-            "x": 1072.119750433015,
-            "y": 1184.3851130515895
-        },
-        "measured": {
-            "width": 320,
-            "height": 220
-        },
-        "selected": false
-    }
+    id: "2ct8ux4s1d6",
+    type: "Button",
+    position: {
+      x: 583.4133530864196,
+      y: 1146.6887061728396,
+    },
+    measured: {
+      width: 320,
+      height: 220,
+    },
+    selected: false,
+  },
+  {
+    data: {
+      instance: "Led",
+      pin: 13,
+      group: "hardware",
+      tags: ["output", "analog", "digital"],
+      label: "LED",
+      icon: {},
+      description: "Turn a light on or off, or control its brightness",
+    },
+    id: "t4kj4nmdg4",
+    type: "Led",
+    position: {
+      x: 1072.119750433015,
+      y: 1184.3851130515895,
+    },
+    measured: {
+      width: 320,
+      height: 220,
+    },
+    selected: false,
+  },
 ];
 
 const initialEdges: Edge[] = [
-    {
-        "source": "2ct8ux4s1d6",
-        "sourceHandle": "active",
-        "target": "t4kj4nmdg4",
-        "targetHandle": "turnOn",
-        "id": "qrcri1z",
-        "type": "animated"
-    },
-    {
-        "source": "2ct8ux4s1d6",
-        "sourceHandle": "inactive",
-        "target": "t4kj4nmdg4",
-        "targetHandle": "turnOff",
-        "id": "ml5fevk",
-        "type": "animated"
-    }
+  {
+    source: "2ct8ux4s1d6",
+    sourceHandle: "active",
+    target: "t4kj4nmdg4",
+    targetHandle: "turnOn",
+    id: "qrcri1z",
+    type: "animated",
+  },
+  {
+    source: "2ct8ux4s1d6",
+    sourceHandle: "inactive",
+    target: "t4kj4nmdg4",
+    targetHandle: "turnOff",
+    id: "ml5fevk",
+    type: "animated",
+  },
 ];
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => ({
@@ -144,7 +137,9 @@ export const useReactFlowStore = create<ReactFlowState>()((set, get) => ({
     });
   },
   copy: () => {
-    set({ copiedNodes: get().nodes.filter((node) => node.selected) });
+    const selectedNodes = get().nodes.filter((node) => node.selected);
+    if (!selectedNodes.length) return;
+    set({ copiedNodes: selectedNodes });
     toast.success(`Copied ${get().copiedNodes.length} nodes`);
   },
   paste: (cursorCanvasPosition: XYPosition) => {

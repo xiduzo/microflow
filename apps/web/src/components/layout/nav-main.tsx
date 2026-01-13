@@ -66,7 +66,7 @@ export function NavMain(props: Props) {
                     defaultOpen={shouldBeOpen}
                     className="group/collapsible"
                   >
-                    <SidebarMenuItem>
+                    <SidebarMenuItem title={route.title}>
                       <CollapsibleTrigger className="w-full">
                         <SidebarMenuButton
                           tooltip={route.title}
@@ -80,18 +80,9 @@ export function NavMain(props: Props) {
                       <CollapsibleContent>
                         <SidebarMenuSub>
                           {route.items?.map((subItem) => {
-                            const subItemIsActive = isActive(subItem);
-                            const isInternal = "url" in subItem;
-                            if (!isInternal) return null;
                             return (
                               <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton
-                                  className="w-full"
-                                  isActive={subItemIsActive}
-                                  onClick={() => navigate({ to: subItem.url })}
-                                >
-                                  <span>{subItem.title}</span>
-                                </SidebarMenuSubButton>
+                                <LinkOrAction item={subItem} />
                               </SidebarMenuSubItem>
                             );
                           })}
@@ -101,22 +92,9 @@ export function NavMain(props: Props) {
                   </Collapsible>
                 );
               }
-
-              const isInternal = "url" in route;
-              if (!isInternal) return null;
-
               return (
                 <SidebarMenuItem key={route.title}>
-                  <SidebarMenuButton
-                    tooltip={route.title}
-                    isActive={itemIsActive}
-                    onClick={() => {
-                      navigate({ to: route.url });
-                    }}
-                  >
-                    {route.icon && <route.icon />}
-                    <span>{route.title}</span>
-                  </SidebarMenuButton>
+                  <LinkOrAction item={route} />
                 </SidebarMenuItem>
               );
             })}
@@ -124,6 +102,22 @@ export function NavMain(props: Props) {
         </SidebarGroup>
       ))}
     </>
+  );
+}
+
+function LinkOrAction({ item }: { item: Item }) {
+  const navigate = useNavigate();
+
+  return (
+    <SidebarMenuButton
+      tooltip={item.title}
+      onClick={() => {
+        "url" in item ? navigate({ to: item.url }) : item.onClick();
+      }}
+    >
+      {item.icon && <item.icon />}
+      <span>{item.title}</span>
+    </SidebarMenuButton>
   );
 }
 
@@ -142,7 +136,7 @@ type ActionItem = BaseItem & {
 
 type Item = LinkItem | ActionItem;
 
-type Route = LinkItem & {
+type Route = Item & {
   isActive?: boolean;
   items?: Item[];
 };

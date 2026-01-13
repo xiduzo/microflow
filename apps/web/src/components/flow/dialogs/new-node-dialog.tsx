@@ -130,7 +130,7 @@ export function NewNodeDialog() {
 
   return (
     <CommandDialog
-      className="min-w-7/12 "
+      className="min-w-10/12 md:min-w-8/12 lg:min-w-6/12 xl:min-w-4/12"
       open={open}
       onOpenChange={(state) => {
         setOpen(state);
@@ -172,7 +172,7 @@ export function NewNodeDialog() {
         <DialogDescription>Magnetic sensor...</DialogDescription>
       </DialogHeader>
       <CommandInput placeholder={searchTerm} onValueChange={setFilter} />
-      <CommandList ref={commandListRef} className="mb-2 min-h-[400px]">
+      <CommandList ref={commandListRef} className="mb-2 min-h-[400px">
         <CommandEmpty className="flex items-center justify-center h-[400px]">
           <Empty>
             <EmptyHeader>

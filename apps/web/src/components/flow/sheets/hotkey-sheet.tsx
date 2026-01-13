@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import {
   Item,
   ItemActions,
@@ -18,8 +17,9 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMac } from "@/hooks/is-mac";
-import { useEffect, useState } from "react";
-import { useHotkeys, useRecordHotkeys } from "react-hotkeys-hook";
+import { MousePointerClickIcon, MoveIcon, SplineIcon } from "lucide-react";
+import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 
 export function HotkeySheet() {
   const isMac = useIsMac();
@@ -39,7 +39,7 @@ export function HotkeySheet() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent side="bottom">
         <SheetHeader>
-          <SheetTitle>Hotkeys</SheetTitle>
+          <SheetTitle>Help</SheetTitle>
           <SheetDescription className="flex gap-1">
             Toggle this sheet by pressing{" "}
             <div className="flex items-center gap-0.5">
@@ -68,8 +68,12 @@ export function HotkeySheet() {
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Kbd>click</Kbd>
-                  <Kbd>drag</Kbd>
+                  <Kbd>
+                    <MousePointerClickIcon />
+                  </Kbd>
+                  <Kbd>
+                    <MoveIcon />
+                  </Kbd>
                 </ItemActions>
               </Item>
             </section>
@@ -94,12 +98,21 @@ export function HotkeySheet() {
                 <ItemContent>
                   <ItemTitle>Connect nodes</ItemTitle>
                   <ItemDescription>
-                    Connecting nodes in your flow
+                    Create a flow by clicking on a{" "}
+                    <span className="italic">handle</span> and drag to another
+                    one
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Kbd>click</Kbd>
-                  <Kbd>drag</Kbd>
+                  <Kbd>
+                    <MousePointerClickIcon />
+                  </Kbd>
+                  <Kbd>
+                    <MoveIcon />
+                  </Kbd>
+                  <Kbd>
+                    <SplineIcon />
+                  </Kbd>
                 </ItemActions>
               </Item>
             </section>
@@ -168,7 +181,9 @@ export function HotkeySheet() {
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                  <Kbd>click</Kbd>
+                  <Kbd>
+                    <MousePointerClickIcon />
+                  </Kbd>
                 </ItemActions>
               </Item>
               <Item>
@@ -176,7 +191,17 @@ export function HotkeySheet() {
                   <ItemTitle>Select edge</ItemTitle>
                 </ItemContent>
                 <ItemActions>
-                  <Kbd>click</Kbd>
+                  <Kbd>
+                    <MousePointerClickIcon />
+                  </Kbd>
+                </ItemActions>
+              </Item>
+              <Item>
+                <ItemContent>
+                  <ItemTitle>Delete selected nodes and edges</ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  <Kbd>{isMac ? "⌫" : "backspace"}</Kbd>
                 </ItemActions>
               </Item>
             </section>
@@ -191,7 +216,9 @@ export function HotkeySheet() {
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⌘" : "shift"}</Kbd>
-                  <Kbd>click</Kbd>
+                  <Kbd>
+                    <MousePointerClickIcon />
+                  </Kbd>
                 </ItemActions>
               </Item>
               <Item>
@@ -203,8 +230,12 @@ export function HotkeySheet() {
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⇧" : "shift"}</Kbd>
-                  <Kbd>click</Kbd>
-                  <Kbd>drag</Kbd>
+                  <Kbd>
+                    <MousePointerClickIcon />
+                  </Kbd>
+                  <Kbd>
+                    <MoveIcon />
+                  </Kbd>
                 </ItemActions>
               </Item>
               <Item>

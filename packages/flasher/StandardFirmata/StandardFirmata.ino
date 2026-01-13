@@ -23,6 +23,14 @@
   Last updated August 17th, 2017
 */
 
+/*
+  Tuesday, January 13th, 2026
+
+  The StandardFirmata has been enhanced to support the ws2812 library in order to support https://github.com/ajfisher/node-pixel
+
+  - xoxo, xiduzo
+*/
+
 #include <Servo.h>
 #include <Wire.h>
 #include <Firmata.h>

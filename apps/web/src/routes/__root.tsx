@@ -24,6 +24,7 @@ import {
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -65,12 +66,15 @@ function RootComponent() {
           <AppSidebar />
           <SidebarInset>
             <HotkeysProvider initiallyActiveScopes={["flow"]}>
-              <header className="backdrop-blur-sm bg-muted-foreground/2 m-4 rounded-xl p-2 px-4 flex justify-between items-center absolute top-0 left-0 right-0 z-50">
+              {/* <header className="backdrop-blur-sm bg-muted-foreground/2 m-4 rounded-xl p-2 px-4 flex justify-between items-center absolute top-0 left-0 right-0 z-50">
                 <SidebarTrigger className="-ml-1" />
-                <Button variant="ghost" size="icon">
-                  <UserIcon />
-                </Button>
-              </header>
+                <Tabs defaultValue="flow">
+                  <TabsList>
+                    <TabsTrigger value="flow">Flow</TabsTrigger>
+                    <TabsTrigger value="circuit">Circuit</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </header> */}
               <TooltipProvider>
                 <Outlet />
               </TooltipProvider>

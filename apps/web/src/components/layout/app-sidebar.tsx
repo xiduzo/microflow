@@ -1,5 +1,10 @@
 import * as React from "react";
-import { HardDriveDownloadIcon, HardDriveUploadIcon } from "lucide-react";
+import {
+  HardDriveDownloadIcon,
+  HardDriveUploadIcon,
+  HomeIcon,
+  Share2Icon,
+} from "lucide-react";
 
 import { NavMain } from "@/components/layout/nav-main";
 import { NavSecondary } from "@/components/layout/nav-secondary";
@@ -9,12 +14,13 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarRail,
 } from "@/components/ui/sidebar";
 import { FlowSwitcher } from "./flow-switcher";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader>
         <FlowSwitcher
           activeFlowId="1"
@@ -32,17 +38,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain
           groups={[
             {
+              title: "General",
+              routes: [
+                {
+                  title: "Dashboard",
+                  url: "/",
+                  icon: HomeIcon,
+                },
+              ],
+            },
+            {
               title: "Flow",
               routes: [
                 {
                   title: "Export flow",
-                  url: "/export",
-                  icon: HardDriveDownloadIcon,
+                  icon: HardDriveUploadIcon,
+                  onClick: () => {
+                    console.log("export flow");
+                  },
                 },
                 {
                   title: "Import flow",
                   url: "/import",
-                  icon: HardDriveUploadIcon,
+                  icon: HardDriveDownloadIcon,
+                  onClick: () => {
+                    console.log("import flow");
+                  },
+                },
+                {
+                  title: "Share flow",
+                  url: "/share",
+                  icon: Share2Icon,
                 },
               ],
             },
@@ -53,6 +79,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
