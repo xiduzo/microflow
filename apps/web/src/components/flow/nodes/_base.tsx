@@ -33,6 +33,7 @@ import { useEdgesChange, useNodesChange } from "@/stores/react-flow";
 import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
 import { useDebouncer } from "@tanstack/react-pacer";
+import { invokeCommand } from "@/utils/ipc";
 
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
@@ -98,7 +99,7 @@ export const useNodeControls = <
   const { getNode } = useReactFlow();
   const onNodesChange = useNodesChange();
   const updateNodeInternals = useUpdateNodeInternals();
-  //   const { flowChanged } = useFlowSync();
+  const { getNodes, getEdges } = useReactFlow();
 
   const [controlsData, set] = useControls(
     () => ({ label: data.label, ...controls }),
@@ -107,17 +108,33 @@ export const useNodeControls = <
   );
   const lastControlData = useRef(controlsData);
 
-  const debouncedControlData = useDebouncer(
-    () => {
-      console.log("update data");
+  const flowChanged = useDebouncer(
+    async () => {
+      console.log("[NODE-CONTROLS] <flowChanged>", getNodes(), getEdges());
+      const response = await invokeCommand({
+        type: "flow_update",
+        flow: {
+          nodes: getNodes(),
+          edges: getEdges(),
+        },
+      });
+
+      if (!response.success) {
+        console.error(
+          "[NODE-CONTROLS] <flowChanged> failed to update the flow",
+          response.error
+        );
+        return;
+      }
     },
     {
       wait: 500,
     }
   );
 
-  //   const [debouncedControlData] = useDebounceValue(controlsData, 500);
-  //   const [selectedDebounce] = useDebounceValue(selected, 30);
+  useEffect(() => {
+    flowChanged.maybeExecute();
+  }, [controlsData, flowChanged.maybeExecute]);
 
   const updateNodeData = useCallback(
     async (data: Record<string, unknown>) => {
@@ -137,9 +154,9 @@ export const useNodeControls = <
       ]);
       updateNodeInternals(node.id);
       await new Promise((resolve) => setTimeout(resolve, 500)); // Give react-flow time to apply the changes
-      //   flowChanged();
+      flowChanged.maybeExecute();
     },
-    [id, getNode, onNodesChange, updateNodeInternals]
+    [id, getNode, onNodesChange, updateNodeInternals, flowChanged.maybeExecute]
   );
 
   /**
@@ -161,22 +178,6 @@ export const useNodeControls = <
       document.getElementById("settings-panels")!
     );
   }, [store, selected]);
-
-  // useEffect(() => {
-  //   if (isFirstRender.current) {
-  //     isFirstRender.current = false;
-  //     lastControlData.current = controlsData;
-  //     return;
-  //   }
-
-  //   if (
-  //     JSON.stringify(lastControlData.current) === JSON.stringify(controlsData)
-  //   )
-  //     return;
-
-  //   lastControlData.current = controlsData;
-  //   updateNodeData(debouncedControlData as Record<string, unknown>);
-  // }, [debouncedControlData, updateNodeData]);
 
   /**
    * Sync the data back to the controls when history is reverted

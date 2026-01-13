@@ -1,6 +1,7 @@
 import { create } from "zustand";
-// import { Board, MODES } from '../../common/types';
 import { useShallow } from "zustand/shallow";
+import { useMemo } from "react";
+import { useListen } from "@/utils/ipc";
 
 type BoardState = {
   board: Board;
@@ -9,39 +10,60 @@ type BoardState = {
 
 export const useBoardStore = create<BoardState>((set, get) => {
   return {
-    board: { type: "close" },
+    board: { state: "disconnected", pins: [] },
     setBoard: (board: Board) => {
       set({ board: board });
     },
   };
 });
 
+export function useBoardEvents() {
+  const setBoard = useBoardStore((state) => state.setBoard);
+
+  useListen({
+    type: "board-state",
+    handler: ({ payload }) => {
+      console.log(payload)
+      setBoard(payload);
+    },
+  });
+}
+
 export const usePins = (
   shouldHaveMode?: MODES[],
   shouldNotHaveMode?: MODES[]
-) =>
-  useBoardStore(
-    useShallow((state: BoardState) => {
-      if (!state.board.pins) return [];
-      if (!shouldHaveMode?.length) return state.board.pins;
-      const pins = state.board.pins.filter((pin) =>
-        shouldHaveMode.every((mode) => pin.supportedModes.includes(mode))
-      );
-
-      if (!shouldNotHaveMode?.length) return pins;
-
-      return pins.filter(
-        (pin) =>
-          !shouldNotHaveMode.some((mode) => pin.supportedModes.includes(mode))
-      );
-    })
+) => {
+  const boardPins = useBoardStore(
+    useShallow((state) =>
+      state.board.state === "connected" ? state.board.pins : []
+    )
   );
 
-export const useBoardPort = () =>
-  useBoardStore(useShallow(({ board }) => board.port));
+  const filteredPins = useMemo(() => {
+    if (!shouldHaveMode?.length) return boardPins;
+    const pins = boardPins.filter((pin) =>
+      shouldHaveMode.every((mode) => pin.supportedModes.includes(mode))
+    );
 
-export const useBoardCheckResult = () =>
-  useBoardStore(useShallow(({ board }) => board.type));
+    if (!shouldNotHaveMode?.length) return pins;
+    return pins.filter(
+      (pin) =>
+        !shouldNotHaveMode.some((mode) => pin.supportedModes.includes(mode))
+    );
+  }, [boardPins, shouldHaveMode, shouldNotHaveMode]);
+
+  return filteredPins;
+};
+
+export const useBoardPort = () =>
+  useBoardStore(
+    useShallow(({ board }) =>
+      board.state === "connected" ? board.port : undefined
+    )
+  );
+
+export const useBoardState = () =>
+  useBoardStore(useShallow(({ board }) => board.state));
 
 export const useBoard = () => useBoardStore(useShallow(({ board }) => board));
 
@@ -95,26 +117,33 @@ export type Pin = {
   pin: number;
 };
 
-export type Board = {
-  type:
-    | "info"
-    | "ready"
-    | "fail"
-    | "warn"
-    | "exit"
-    | "close"
-    | "error"
-    | "connect";
-  message?: string;
-  port?: string;
-  pins?: Pin[];
+type BoardReady = {
+  state: "connected";
+  port: string;
+  firmwareName: string;
+  firmwareVersion: string;
+  pins: Array<{
+    pin: number;
+    supportedModes: MODES[];
+    analogChannel: number;
+  }>;
 };
 
-// export type FlowState = {
-// 	nodes: Node[];
-// 	edges: Edge[];
-// };
+type BoardError = {
+  state: "error";
+  error?: string;
+};
 
-// export type UploadedCodeMessage = Message;
+type BoardDisconnected = {
+  state: "disconnected";
+};
 
-// export type IpcResponse<T> = { success: true; data: T } | { success: false; error: string };
+type BoardConnecting = {
+  state: "connecting";
+};
+
+export type Board =
+  | BoardReady
+  | BoardError
+  | BoardDisconnected
+  | BoardConnecting;

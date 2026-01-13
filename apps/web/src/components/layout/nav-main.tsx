@@ -23,7 +23,6 @@ export function NavMain(props: Props) {
 
   console.log(session, isPending);
 
-  const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
 

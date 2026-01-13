@@ -1,5 +1,6 @@
 mod hardware;
 mod serial_port_manager;
+mod flow;
 
 use hardware::SidecarManager;
 use serial_port_manager::SerialPortManager;
@@ -43,6 +44,7 @@ pub fn run() {
       hardware::hardware_disconnect,
       hardware::hardware_get_status,
       serial_port_manager::get_available_serial_ports,
+      flow::flow_update,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

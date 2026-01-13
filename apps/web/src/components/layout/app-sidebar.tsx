@@ -17,6 +17,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { FlowSwitcher } from "./flow-switcher";
+import { NavMicrocontroller } from "./nav-microcontroller";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -35,6 +36,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarHeader>
       <SidebarContent>
+        <NavMicrocontroller />
         <NavMain
           groups={[
             {

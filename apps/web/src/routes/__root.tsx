@@ -25,6 +25,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useBoardEvents } from "@/stores/board";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -56,6 +57,7 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
+      <Board />
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
@@ -87,4 +89,9 @@ function RootComponent() {
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </>
   );
+}
+
+function Board() {
+  useBoardEvents();
+  return null;
 }
