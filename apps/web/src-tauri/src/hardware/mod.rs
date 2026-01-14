@@ -53,7 +53,7 @@ pub struct HardwareService {
 }
 
 impl HardwareService {
-    const POLL_INTERVAL_MS: u64 = 1000;
+    const POLL_INTERVAL_MS: u64 = 250;
 
     pub fn new() -> Self {
         Self {

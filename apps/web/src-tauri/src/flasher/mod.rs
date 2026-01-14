@@ -35,7 +35,7 @@ pub use error::FlashError;
 pub use firmware::Firmware;
 pub use types::{BoardType, FlashResult};
 
-use protocols::{Avr109Flasher, Protocol, Stk500v1Flasher};
+use protocols::{Avr109Flasher, Protocol, Stk500v1Flasher, Stk500v2Flasher};
 
 /// Main flasher interface - orchestrates the flashing process
 pub struct Flasher;
@@ -65,12 +65,13 @@ impl Flasher {
                 let mut flasher = Stk500v1Flasher::new(port_name, config)?;
                 flasher.flash(&hex_data)?;
             }
+            Protocol::Stk500v2 => {
+                let mut flasher = Stk500v2Flasher::new(port_name, config)?;
+                flasher.flash(&hex_data)?;
+            }
             Protocol::Avr109 => {
                 let mut flasher = Avr109Flasher::new(port_name, config);
                 flasher.flash(&hex_data)?;
-            }
-            Protocol::Stk500v2 => {
-                return Err(FlashError::UnsupportedProtocol("STK500v2".to_string()));
             }
         }
 

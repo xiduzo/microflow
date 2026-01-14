@@ -1,4 +1,13 @@
-import { MicrochipIcon } from "lucide-react";
+import {
+  FlashlightIcon,
+  Loader2Icon,
+  LoaderPinwheelIcon,
+  MicrochipIcon,
+  OctagonAlertIcon,
+  OctagonXIcon,
+  UsbIcon,
+  type LucideIcon,
+} from "lucide-react";
 import {
   SidebarGroup,
   SidebarMenu,
@@ -6,44 +15,46 @@ import {
   SidebarMenuItem,
 } from "../ui/sidebar";
 import { isDesktop } from "@/utils/platform";
-import { cva, type VariantProps } from "class-variance-authority";
-import { useBoardState } from "@/stores/board";
+import { cva } from "class-variance-authority";
+import { useBoardPort, useBoardState } from "@/stores/board";
 import { useMemo } from "react";
 
 export function NavMicrocontroller() {
   if (!isDesktop()) return null;
 
   const boardState = useBoardState();
+  const port = useBoardPort();
 
-  const micorControllerMessage = useMemo(() => {
+  const { message, Icon } = useMemo((): {
+    message: string;
+    Icon: LucideIcon;
+  } => {
     switch (boardState) {
       case "connected":
-        return "Connect to microcontroller";
+        return { message: port ?? "Connected", Icon: MicrochipIcon };
       case "connecting":
-        return "Connecting...";
+        return { message: "Connecting", Icon: LoaderPinwheelIcon };
       case "flashing":
-        return "Flashing firmware...";
+        return { message: "Flashing firmware", Icon: FlashlightIcon };
       case "disconnected":
-        return "No microcontroller connected";
+        return { message: "No microcontroller connected", Icon: UsbIcon };
       case "error":
-        return "Error";
+        return { message: "Error", Icon: OctagonAlertIcon };
       default:
-        return "Unknown state";
+        return { message: "Unknown state", Icon: OctagonXIcon };
     }
-  }, [boardState]);
+  }, [boardState, port]);
 
   return (
     <SidebarGroup>
       <SidebarMenu>
-        <SidebarMenuItem title={micorControllerMessage}>
+        <SidebarMenuItem title={message}>
           <SidebarMenuButton
             disabled
             className={buttonVariants({ state: boardState })}
           >
-            <MicrochipIcon className={iconVariants({ state: boardState })} />
-            <span className={messageVariants({ state: boardState })}>
-              {micorControllerMessage}
-            </span>
+            <Icon />
+            <span>{message}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -51,41 +62,17 @@ export function NavMicrocontroller() {
   );
 }
 
-const iconVariants = cva("stroke-3", {
-  variants: {
-    state: {
-      connected: "stroke-green-200",
-      connecting: "stroke-blue-200 animate-pulse",
-      flashing: "stroke-yellow-200 animate-pulse",
-      disconnected: "stroke-muted-foreground/90",
-      error: "stroke-red-200",
-    },
-  },
-  defaultVariants: {
-    state: "disconnected",
-  },
-});
-
-const messageVariants = cva("ellipsis", {
-  variants: {
-    state: {
-      connected: "text-green-200",
-      connecting: "text-blue-200 animate-pulse",
-      flashing: "text-yellow-200 animate-pulse",
-      disconnected: "text-muted-foreground/90",
-      error: "text-red-200",
-    },
-  },
-});
-
 const buttonVariants = cva("", {
   variants: {
     state: {
-      connected: "bg-green-900",
-      connecting: "bg-blue-900 animate-pulse",
-      flashing: "bg-yellow-900 animate-pulse",
-      disconnected: "bg-muted-foreground/10",
-      error: "bg-red-900",
+      connected: "bg-green-900 stroke-green-200 text-green-200",
+      connecting:
+        "bg-blue-900 animate-pulse text-blue-200 stroke-blue-200 [&_svg]:animate-spin",
+      flashing:
+        "bg-yellow-900 animate-pulse text-yellow-200 stroke-yellow-200 [&_svg]:animate-pulse",
+      disconnected:
+        "bg-muted-foreground/10 text-muted-foreground/90 stroke-muted-foreground/90",
+      error: "bg-red-900 text-red-200 stroke-red-200",
     },
   },
 });
