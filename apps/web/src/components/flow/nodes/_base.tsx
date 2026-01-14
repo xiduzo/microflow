@@ -34,6 +34,7 @@ import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { invokeCommand } from "@/utils/ipc";
+import { isDesktop } from "@/utils/platform";
 
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
@@ -110,22 +111,23 @@ export const useNodeControls = <
 
   const flowChanged = useDebouncer(
     async () => {
-      console.log("[NODE-CONTROLS] <flowChanged>", getNodes(), getEdges());
-      const response = await invokeCommand({
-        type: "flow_update",
-        flow: {
-          nodes: getNodes(),
-          edges: getEdges(),
-        },
-      });
+      if(!isDesktop) return
+      // console.log("[NODE-CONTROLS] <flowChanged>", getNodes(), getEdges());
+      // const response = await invokeCommand({
+      //   type: "flow_update",
+      //   flow: {
+      //     nodes: getNodes(),
+      //     edges: getEdges(),
+      //   },
+      // });
 
-      if (!response.success) {
-        console.error(
-          "[NODE-CONTROLS] <flowChanged> failed to update the flow",
-          response.error
-        );
-        return;
-      }
+      // if (!response.success) {
+      //   console.error(
+      //     "[NODE-CONTROLS] <flowChanged> failed to update the flow",
+      //     response.error
+      //   );
+      //   return;
+      // }
     },
     {
       wait: 500,

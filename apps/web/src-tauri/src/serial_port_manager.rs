@@ -44,6 +44,11 @@ mod types {
         },
         #[serde(rename = "connecting")]
         Connecting {},
+        #[serde(rename = "flashing")]
+        Flashing {
+            port: String,
+            board: String,
+        },
         #[serde(rename = "disconnected")]
         Disconnected {},
         #[serde(rename = "error")]
@@ -60,11 +65,22 @@ mod types {
         pub port_type: String,
         pub description: Option<String>,
         pub has_firmata: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub vid: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub pid: Option<u16>,
     }
 
     impl SerialPortInfo {
         pub fn is_usb(&self) -> bool {
             self.port_type == "USB"
+        }
+
+        pub fn usb_ids(&self) -> Option<(u16, u16)> {
+            match (self.vid, self.pid) {
+                (Some(vid), Some(pid)) => Some((vid, pid)),
+                _ => None,
+            }
         }
     }
 
@@ -130,8 +146,8 @@ mod port_utils {
         should_skip
     }
 
-    /// Convert serialport type to our string representation
-    fn port_type_to_string(port_type: &SerialPortType) -> (String, Option<String>) {
+    /// Convert serialport type to our representation, extracting VID/PID
+    fn port_type_to_info(port_type: &SerialPortType) -> (String, Option<String>, Option<u16>, Option<u16>) {
         match port_type {
             SerialPortType::UsbPort(info) => {
                 let mut desc = format!("USB Device (VID: {:04X}, PID: {:04X})", info.vid, info.pid);
@@ -141,11 +157,11 @@ mod port_utils {
                 if let Some(product) = &info.product {
                     desc.push_str(&format!(", Product: {}", product));
                 }
-                ("USB".to_string(), Some(desc))
+                ("USB".to_string(), Some(desc), Some(info.vid), Some(info.pid))
             }
-            SerialPortType::PciPort => ("PCI".to_string(), Some("PCI Serial Port".to_string())),
-            SerialPortType::BluetoothPort => ("Bluetooth".to_string(), Some("Bluetooth Serial Port".to_string())),
-            SerialPortType::Unknown => ("Unknown".to_string(), None),
+            SerialPortType::PciPort => ("PCI".to_string(), Some("PCI Serial Port".to_string()), None, None),
+            SerialPortType::BluetoothPort => ("Bluetooth".to_string(), Some("Bluetooth Serial Port".to_string()), None, None),
+            SerialPortType::Unknown => ("Unknown".to_string(), None, None, None),
         }
     }
 
@@ -166,12 +182,14 @@ mod port_utils {
         let mut port_map: HashMap<String, SerialPortInfo> = HashMap::new();
 
         for port in ports {
-            let (port_type, description) = port_type_to_string(&port.port_type);
+            let (port_type, description, vid, pid) = port_type_to_info(&port.port_type);
             let port_info = SerialPortInfo {
                 port_name: port.port_name.clone(),
                 port_type,
                 description,
                 has_firmata: None,
+                vid,
+                pid,
             };
 
             let device_id = get_canonical_device_id(&port.port_name);
@@ -203,17 +221,14 @@ mod firmata_detector {
     use std::io::{Read, Write};
     use std::time::Duration;
 
-    /// Baud rates to try when detecting Firmata (in order of preference)
-    const BAUD_RATES: &[u32] = &[57600, 115200, 9600];
-    
-    /// Timeout for serial port operations
-    const PORT_TIMEOUT_MS: u64 = 1500;
+    /// Timeout for serial port read operations
+    const PORT_TIMEOUT_MS: u64 = 100;
     
     /// Max iterations for reading firmware response
-    const FIRMWARE_READ_ITERATIONS: usize = 10;
+    const FIRMWARE_READ_ITERATIONS: usize = 5;
     
     /// Max iterations for reading capabilities/analog mapping
-    const CAPABILITY_READ_ITERATIONS: usize = 20;
+    const CAPABILITY_READ_ITERATIONS: usize = 10;
 
     /// Wrapper around Box<dyn SerialPort> to satisfy Board's Sized requirement
     struct SerialPortWrapper {
@@ -257,114 +272,122 @@ mod firmata_detector {
         pins: Vec<PinInfo>,
     }
 
-    /// Open a serial port with the given baud rate
-    fn open_port(port_name: &str, baud_rate: u32) -> Option<Box<dyn serialport::SerialPort>> {
-        serialport::new(port_name, baud_rate)
-            .timeout(Duration::from_millis(PORT_TIMEOUT_MS))
+    // Firmata protocol constants
+    const REPORT_VERSION: u8 = 0xF9;
+    const START_SYSEX: u8 = 0xF0;
+    const END_SYSEX: u8 = 0xF7;
+    const REPORT_FIRMWARE: u8 = 0x79;
+
+    /// Quick probe to check if Firmata is running (without using firmata-rs)
+    /// This avoids the blocking issue with Board::new()
+    fn quick_firmata_probe(port_name: &str, baud_rate: u32) -> bool {
+        use std::io::{Read, Write};
+        
+        log::info!("Quick Firmata probe on {} at {} baud", port_name, baud_rate);
+        
+        let mut port = match serialport::new(port_name, baud_rate)
+            .timeout(Duration::from_millis(1000))
             .open()
-            .map_err(|e| {
-                log::debug!("Failed to open port {} at {} baud: {}", port_name, baud_rate, e);
-                e
-            })
-            .ok()
-    }
+        {
+            Ok(p) => p,
+            Err(e) => {
+                log::info!("Failed to open port: {}", e);
+                return false;
+            }
+        };
 
-    /// Query and read firmware information from the board
-    fn query_firmware(board: &mut Board<SerialPortWrapper>, port_name: &str, baud_rate: u32) -> bool {
-        if let Err(e) = board.query_firmware() {
-            log::debug!("Failed to query firmware on {} at {} baud: {}", port_name, baud_rate, e);
-            return false;
-        }
+        // Reset the board by toggling DTR and RTS - needed for Firmata to start responding
+        // CH340 chips sometimes need both signals and longer delays
+        let _ = port.write_data_terminal_ready(false);
+        let _ = port.write_request_to_send(false);
+        std::thread::sleep(Duration::from_millis(250));
+        let _ = port.write_data_terminal_ready(true);
+        let _ = port.write_request_to_send(true);
+        
+        // Wait for Firmata to initialize after reset - CH340 needs longer
+        std::thread::sleep(Duration::from_millis(1500));
 
-        for _ in 0..FIRMWARE_READ_ITERATIONS {
-            match board.read_and_decode() {
-                Ok(_) if !board.firmware_name.is_empty() => return true,
-                Err(_) => break,
-                _ => continue,
+        // Clear any pending data (bootloader messages, etc.)
+        let _ = port.clear(serialport::ClearBuffer::All);
+        std::thread::sleep(Duration::from_millis(100));
+
+        // Try multiple times - CH340 can be slow
+        for attempt in 0..3 {
+            if attempt > 0 {
+                std::thread::sleep(Duration::from_millis(200));
+                let _ = port.clear(serialport::ClearBuffer::Input);
+            }
+
+            // Send REPORT_VERSION first (simpler, more reliable)
+            if port.write_all(&[REPORT_VERSION]).is_err() {
+                continue;
+            }
+            let _ = port.flush();
+
+            // Also send firmware query: START_SYSEX, REPORT_FIRMWARE, END_SYSEX
+            let query = [START_SYSEX, REPORT_FIRMWARE, END_SYSEX];
+            if port.write_all(&query).is_err() {
+                continue;
+            }
+            let _ = port.flush();
+
+            // Wait for response
+            std::thread::sleep(Duration::from_millis(300));
+
+            // Try to read response
+            let mut buf = [0u8; 128];
+            match port.read(&mut buf) {
+                Ok(n) if n > 0 => {
+                    log::info!("Attempt {}: Got {} bytes: {:02X?}", attempt + 1, n, &buf[..n.min(20)]);
+                    
+                    // Check for Firmata markers
+                    for i in 0..n {
+                        // REPORT_VERSION response is: 0xF9 major minor
+                        if buf[i] == REPORT_VERSION && i + 2 < n {
+                            log::info!("Firmata version response detected: {}.{}", buf[i+1], buf[i+2]);
+                            return true;
+                        }
+                        // SYSEX firmware response starts with 0xF0 0x79
+                        if buf[i] == START_SYSEX && i + 1 < n && buf[i+1] == REPORT_FIRMWARE {
+                            log::info!("Firmata firmware sysex detected");
+                            return true;
+                        }
+                    }
+                    log::info!("Got response but no Firmata markers");
+                }
+                Ok(_) => {
+                    log::info!("Attempt {}: No data", attempt + 1);
+                }
+                Err(e) => {
+                    log::info!("Attempt {}: Read error: {}", attempt + 1, e);
+                }
             }
         }
-
-        log::debug!("No firmware response from {} at {} baud", port_name, baud_rate);
+        
         false
     }
 
-    /// Query capabilities and analog mapping from the board
-    fn query_capabilities(board: &mut Board<SerialPortWrapper>) {
-        if let Err(e) = board.query_capabilities() {
-            log::warn!("Failed to query capabilities: {}", e);
-        }
-
-        if let Err(e) = board.query_analog_mapping() {
-            log::warn!("Failed to query analog mapping: {}", e);
-        }
-
-        // Read responses
-        for _ in 0..CAPABILITY_READ_ITERATIONS {
-            if board.read_and_decode().is_err() {
-                break;
-            }
-        }
-    }
-
-    /// Convert firmata-rs pins to our PinInfo structs
-    fn extract_pins(board: &mut Board<SerialPortWrapper>) -> Vec<PinInfo> {
-        board.pins()
-            .iter()
-            .enumerate()
-            .map(|(index, pin)| PinInfo {
-                pin: index,
-                supported_modes: pin.modes.iter().map(|m| m.mode).collect(),
-                analog_channel: if pin.analog { index as i32 } else { -1 },
-            })
-            .collect()
-    }
-
-    /// Test Firmata at a specific baud rate
-    fn test_at_baud_rate(port_name: &str, baud_rate: u32) -> Option<FirmataInfo> {
-        log::debug!("Testing Firmata on {} at {} baud", port_name, baud_rate);
-
-        let port = open_port(port_name, baud_rate)?;
-        let wrapper = SerialPortWrapper::new(port);
-
-        let mut board = Board::new(Box::new(wrapper))
-            .map_err(|e| {
-                log::debug!("Failed to create Board for {} at {} baud: {}", port_name, baud_rate, e);
-                e
-            })
-            .ok()?;
-
-        if !query_firmware(&mut board, port_name, baud_rate) {
-            return None;
-        }
-
-        log::info!(
-            "✓ Firmata detected on port: {} at {} baud (firmware: {} v{})",
-            port_name, baud_rate, board.firmware_name, board.firmware_version
-        );
-
-        query_capabilities(&mut board);
-        let pins = extract_pins(&mut board);
-        
-        log::info!("Found {} pins on {}", pins.len(), port_name);
-
-        Some(FirmataInfo {
-            firmware_name: board.firmware_name.clone(),
-            firmware_version: board.firmware_version.clone(),
-            pins,
-        })
-    }
-
-    /// Test if a serial port has Firmata running.
-    /// Returns Some(BoardStateEvent::Connected) if Firmata is detected, None otherwise.
+    /// Full Firmata detection with capability query
     pub fn detect(port_name: &str) -> Option<BoardStateEvent> {
         if port_utils::should_skip_firmata_test(port_name) {
             return None;
         }
 
-        log::debug!("Testing Firmata on port: {}", port_name);
+        log::info!("Starting Firmata detection on port: {}", port_name);
 
-        for &baud_rate in BAUD_RATES {
-            if let Some(info) = test_at_baud_rate(port_name, baud_rate) {
+        // First, do a quick probe to check if Firmata is running (non-blocking)
+        let mut firmata_baud = None;
+        for &baud_rate in &[57600u32, 115200] {
+            if quick_firmata_probe(port_name, baud_rate) {
+                firmata_baud = Some(baud_rate);
+                break;
+            }
+        }
+
+        // If quick probe found Firmata, do full detection with firmata-rs
+        if let Some(baud_rate) = firmata_baud {
+            log::info!("Quick probe detected Firmata at {} baud, doing full detection", baud_rate);
+            if let Some(info) = try_detect_at_baud(port_name, baud_rate) {
                 return Some(BoardStateEvent::Connected {
                     port: port_name.to_string(),
                     firmware_name: info.firmware_name,
@@ -374,8 +397,97 @@ mod firmata_detector {
             }
         }
 
-        log::debug!("Firmata not detected on port: {}", port_name);
+        log::info!("Firmata not detected on port: {}", port_name);
         None
+    }
+
+    fn try_detect_at_baud(port_name: &str, baud_rate: u32) -> Option<FirmataInfo> {
+        log::info!("Testing Firmata on {} at {} baud", port_name, baud_rate);
+
+        let port = match serialport::new(port_name, baud_rate)
+            .timeout(Duration::from_millis(PORT_TIMEOUT_MS))
+            .open()
+        {
+            Ok(p) => p,
+            Err(e) => {
+                log::info!("Failed to open port {}: {}", port_name, e);
+                return None;
+            }
+        };
+        log::info!("Port opened successfully");
+
+        let wrapper = SerialPortWrapper::new(port);
+        
+        log::info!("Creating Firmata board instance...");
+        let mut board = match Board::new(Box::new(wrapper)) {
+            Ok(b) => b,
+            Err(e) => {
+                log::info!("Failed to create board: {:?}", e);
+                return None;
+            }
+        };
+        log::info!("Board instance created");
+
+        // Query firmware
+        if let Err(e) = board.query_firmware() {
+            log::info!("Failed to query firmware: {:?}", e);
+            return None;
+        }
+        log::info!("Firmware query sent");
+
+        // Read firmware response
+        for i in 0..FIRMWARE_READ_ITERATIONS {
+            log::info!("Reading firmware response, attempt {}", i + 1);
+            match board.read_and_decode() {
+                Ok(_) if !board.firmware_name.is_empty() => {
+                    log::info!("Got firmware name: {}", board.firmware_name);
+                    break;
+                }
+                Err(e) => {
+                    log::info!("Read error: {:?}", e);
+                    return None;
+                }
+                _ => continue,
+            }
+        }
+
+        if board.firmware_name.is_empty() {
+            log::info!("No firmware name received");
+            return None;
+        }
+
+        log::info!(
+            "✓ Firmata detected: {} v{} on {} at {} baud",
+            board.firmware_name, board.firmware_version, port_name, baud_rate
+        );
+
+        // Query capabilities
+        let _ = board.query_capabilities();
+        let _ = board.query_analog_mapping();
+
+        for _ in 0..CAPABILITY_READ_ITERATIONS {
+            if board.read_and_decode().is_err() {
+                break;
+            }
+        }
+
+        let pins = board.pins()
+            .iter()
+            .enumerate()
+            .map(|(index, pin)| PinInfo {
+                pin: index,
+                supported_modes: pin.modes.iter().map(|m| m.mode).collect(),
+                analog_channel: if pin.analog { index as i32 } else { -1 },
+            })
+            .collect();
+
+        log::info!("Found {} pins on {}", board.pins().len(), port_name);
+
+        Some(FirmataInfo {
+            firmware_name: board.firmware_name.clone(),
+            firmware_version: board.firmware_version.clone(),
+            pins,
+        })
     }
 }
 
@@ -414,6 +526,14 @@ mod event_emitter {
     /// Emit connecting state
     pub fn emit_connecting(app_handle: &tauri::AppHandle) {
         emit_board_state(app_handle, BoardStateEvent::Connecting {});
+    }
+
+    /// Emit flashing state
+    pub fn emit_flashing(app_handle: &tauri::AppHandle, port: &str, board: &str) {
+        emit_board_state(app_handle, BoardStateEvent::Flashing {
+            port: port.to_string(),
+            board: board.to_string(),
+        });
     }
 
     /// Emit disconnected state
@@ -622,14 +742,10 @@ impl MonitorLoop {
     fn handle_new_port(&mut self, mut port: SerialPortInfo) {
         let device_id = port_utils::get_canonical_device_id(&port.port_name);
         
-        // Test Firmata only on USB ports (Arduinos are USB devices)
         let board_info = if port.is_usb() {
-            log::info!("Testing Firmata on USB port: {}", port.port_name);
-            event_emitter::emit_connecting(&self.app_handle);
-            firmata_detector::detect(&port.port_name)
+            self.handle_usb_port(&port)
         } else {
-            log::debug!("Skipping Firmata test for non-USB port: {} (type: {})", 
-                port.port_name, port.port_type);
+            log::debug!("Skipping non-USB port: {} (type: {})", port.port_name, port.port_type);
             None
         };
         
@@ -645,6 +761,79 @@ impl MonitorLoop {
         
         // Emit board state
         self.emit_board_state_for_port(&port, board_info);
+    }
+
+    /// Handle a USB port - detect board type and flash if needed
+    fn handle_usb_port(&self, port: &SerialPortInfo) -> Option<BoardStateEvent> {
+        use crate::flasher::BoardConfig;
+
+        // First, check if this is a known Arduino by USB IDs
+        let board_type = port.usb_ids()
+            .and_then(|(vid, pid)| BoardConfig::detect_from_usb(vid, pid));
+
+        if let Some(bt) = board_type {
+            log::info!("Detected {:?} board on {} by USB IDs", bt, port.port_name);
+            
+            // First, try to detect if Firmata is already running
+            event_emitter::emit_connecting(&self.app_handle);
+            if let Some(board_state) = firmata_detector::detect(&port.port_name) {
+                log::info!("Firmata already running on {:?} board", bt);
+                return Some(board_state);
+            }
+            
+            // No Firmata detected - flash StandardFirmata
+            log::info!("No Firmata detected on {:?} board, will flash", bt);
+            return self.try_auto_flash(&port.port_name, port.vid.unwrap(), port.pid.unwrap());
+        }
+
+        // Unknown USB device - try Firmata detection only
+        log::info!("Testing Firmata on unknown USB port: {}", port.port_name);
+        event_emitter::emit_connecting(&self.app_handle);
+        firmata_detector::detect(&port.port_name)
+    }
+
+    /// Try to auto-flash StandardFirmata to a board
+    fn try_auto_flash(&self, port_name: &str, vid: u16, pid: u16) -> Option<BoardStateEvent> {
+        use crate::flasher::{BoardConfig, Flasher};
+
+        // Get board type from USB IDs
+        let board_type = BoardConfig::detect_from_usb(vid, pid)?;
+
+        log::info!(
+            "Auto-flashing StandardFirmata to {:?} on {} (VID:{:04x} PID:{:04x})",
+            board_type, port_name, vid, pid
+        );
+
+        // Emit flashing state to frontend
+        event_emitter::emit_flashing(&self.app_handle, port_name, board_type.as_str());
+
+        // Small delay to ensure port is ready
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        // Flash StandardFirmata
+        match Flasher::flash_standard_firmata(port_name, board_type) {
+            Ok(result) => {
+                log::info!("Auto-flash successful: {}", result.message);
+                
+                // Wait for the board to reset after flashing
+                std::thread::sleep(std::time::Duration::from_millis(2500));
+                
+                // Now detect Firmata
+                log::info!("Detecting Firmata after flash on {}", port_name);
+                event_emitter::emit_connecting(&self.app_handle);
+                firmata_detector::detect(port_name)
+            }
+            Err(e) => {
+                log::error!("Auto-flash failed on {}: {}", port_name, e);
+                event_emitter::emit_board_state(
+                    &self.app_handle,
+                    BoardStateEvent::Error {
+                        error: Some(format!("Flash failed: {}", e)),
+                    },
+                );
+                None
+            }
+        }
     }
 
     /// Handle a disconnected port
