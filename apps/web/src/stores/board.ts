@@ -142,8 +142,15 @@ type BoardConnecting = {
   state: "connecting";
 };
 
+type BoardFlashing = {
+  state: "flashing";
+  port: string;
+  board: string;
+};
+
 export type Board =
   | BoardReady
   | BoardError
   | BoardDisconnected
-  | BoardConnecting;
+  | BoardConnecting
+  | BoardFlashing;

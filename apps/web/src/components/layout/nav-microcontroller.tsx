@@ -21,8 +21,12 @@ export function NavMicrocontroller() {
         return "Connect to microcontroller";
       case "connecting":
         return "Connecting...";
+      case "flashing":
+        return "Flashing firmware...";
       case "disconnected":
         return "No microcontroller connected";
+      case "error":
+        return "Error";
       default:
         return "Unknown state";
     }
@@ -52,6 +56,7 @@ const iconVariants = cva("stroke-3", {
     state: {
       connected: "stroke-green-200",
       connecting: "stroke-blue-200 animate-pulse",
+      flashing: "stroke-yellow-200 animate-pulse",
       disconnected: "stroke-muted-foreground/90",
       error: "stroke-red-200",
     },
@@ -66,6 +71,7 @@ const messageVariants = cva("ellipsis", {
     state: {
       connected: "text-green-200",
       connecting: "text-blue-200 animate-pulse",
+      flashing: "text-yellow-200 animate-pulse",
       disconnected: "text-muted-foreground/90",
       error: "text-red-200",
     },
@@ -77,6 +83,7 @@ const buttonVariants = cva("", {
     state: {
       connected: "bg-green-900",
       connecting: "bg-blue-900 animate-pulse",
+      flashing: "bg-yellow-900 animate-pulse",
       disconnected: "bg-muted-foreground/10",
       error: "bg-red-900",
     },
