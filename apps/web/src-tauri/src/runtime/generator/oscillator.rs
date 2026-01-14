@@ -57,34 +57,38 @@ pub struct Oscillator {
     base: ComponentBase,
     config: OscillatorConfig,
     running: Arc<AtomicBool>,
-    task_handle: Option<tokio::task::JoinHandle<()>>,
+    started: bool,
 }
 
 impl Oscillator {
     pub fn new(id: String, config: OscillatorConfig) -> Self {
-        let auto_start = config.auto_start;
-        let mut osc = Self {
+        Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             running: Arc::new(AtomicBool::new(false)),
-            task_handle: None,
-        };
-        if auto_start {
-            osc.start();
+            started: false,
         }
-        osc
     }
 
     pub fn start(&mut self) {
+        if self.base.event_sender.is_none() {
+            log::warn!("Oscillator {} cannot start: no event sender", self.base.id);
+            return;
+        }
+        
         self.stop();
         self.running.store(true, Ordering::SeqCst);
+        self.started = true;
 
         let config = self.config.clone();
         let sender = self.base.event_sender.clone();
         let source = self.base.id.clone();
         let running = self.running.clone();
 
-        let handle = tokio::spawn(async move {
+        log::info!("Oscillator {} starting", source);
+
+        std::thread::spawn(move || {
+            log::info!("Oscillator {} thread started", source);
             let start = std::time::Instant::now();
             let refresh_rate = 1000 / 60; // 60 FPS
 
@@ -93,26 +97,25 @@ impl Oscillator {
                 let value = calculate_waveform(&config, elapsed);
 
                 if let Some(tx) = &sender {
-                    let _ = tx.send(ComponentEvent {
+                    if tx.send(ComponentEvent {
                         source: source.clone(),
                         source_handle: "change".to_string(),
                         value: ComponentValue::Number(value),
                         edge_id: None,
-                    });
+                    }).is_err() {
+                        break;
+                    }
                 }
 
-                tokio::time::sleep(Duration::from_millis(refresh_rate)).await;
+                std::thread::sleep(Duration::from_millis(refresh_rate));
             }
+            log::info!("Oscillator {} thread stopped", source);
         });
-
-        self.task_handle = Some(handle);
     }
 
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
-        if let Some(handle) = self.task_handle.take() {
-            handle.abort();
-        }
+        self.started = false;
     }
 
     pub fn reset(&mut self) {
@@ -200,6 +203,17 @@ impl Component for Oscillator {
     }
 
     fn destroy(&mut self) { self.stop(); }
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
+    
+    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { 
+        self.base.event_sender.clone() 
+    }
+    
+    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { 
+        self.base.event_sender = Some(sender);
+        // Auto-start after sender is set
+        if self.config.auto_start && !self.started {
+            log::info!("Oscillator {} auto-starting after sender set", self.base.id);
+            self.start();
+        }
+    }
 }

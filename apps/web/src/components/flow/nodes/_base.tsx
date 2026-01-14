@@ -29,12 +29,13 @@ import {
 } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
 import { OctagonAlertIcon, CableIcon, type LucideIcon } from "lucide-react";
-import { useEdgesChange, useNodesChange } from "@/stores/react-flow";
+import {
+  useEdgesChange,
+  useNodesChange,
+  useUpdateFlow,
+} from "@/stores/react-flow";
 import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
-import { useDebouncer } from "@tanstack/react-pacer";
-import { invokeCommand } from "@/utils/ipc";
-import { isDesktop } from "@/utils/platform";
 
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
@@ -100,7 +101,7 @@ export const useNodeControls = <
   const { getNode } = useReactFlow();
   const onNodesChange = useNodesChange();
   const updateNodeInternals = useUpdateNodeInternals();
-  const { getNodes, getEdges } = useReactFlow();
+  const updateFlow = useUpdateFlow();
 
   const [controlsData, set] = useControls(
     () => ({ label: data.label, ...controls }),
@@ -109,34 +110,9 @@ export const useNodeControls = <
   );
   const lastControlData = useRef(controlsData);
 
-  const flowChanged = useDebouncer(
-    async () => {
-      if(!isDesktop) return
-      console.log("[NODE-CONTROLS] <flowChanged>", getNodes(), getEdges());
-      const response = await invokeCommand({
-        type: "flow_update",
-        flow: {
-          nodes: getNodes(),
-          edges: getEdges(),
-        },
-      });
-
-      if (!response.success) {
-        console.error(
-          "[NODE-CONTROLS] <flowChanged> failed to update the flow",
-          response.error
-        );
-        return;
-      }
-    },
-    {
-      wait: 500,
-    }
-  );
-
   useEffect(() => {
-    flowChanged.maybeExecute();
-  }, [controlsData, flowChanged.maybeExecute]);
+    updateFlow();
+  }, [controlsData, updateFlow]);
 
   const updateNodeData = useCallback(
     async (data: Record<string, unknown>) => {
@@ -156,9 +132,9 @@ export const useNodeControls = <
       ]);
       updateNodeInternals(node.id);
       await new Promise((resolve) => setTimeout(resolve, 500)); // Give react-flow time to apply the changes
-      flowChanged.maybeExecute();
+      updateFlow();
     },
-    [id, getNode, onNodesChange, updateNodeInternals, flowChanged.maybeExecute]
+    [id, getNode, onNodesChange, updateNodeInternals, updateFlow]
   );
 
   /**

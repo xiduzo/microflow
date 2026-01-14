@@ -1,6 +1,5 @@
 import {
-  FlashlightIcon,
-  Loader2Icon,
+  FileCodeIcon,
   LoaderPinwheelIcon,
   MicrochipIcon,
   OctagonAlertIcon,
@@ -35,7 +34,7 @@ export function NavMicrocontroller() {
       case "connecting":
         return { message: "Connecting", Icon: LoaderPinwheelIcon };
       case "flashing":
-        return { message: "Flashing firmware", Icon: FlashlightIcon };
+        return { message: "Flashing firmware", Icon: FileCodeIcon };
       case "disconnected":
         return { message: "No microcontroller connected", Icon: UsbIcon };
       case "error":

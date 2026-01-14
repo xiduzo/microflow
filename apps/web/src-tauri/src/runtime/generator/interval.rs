@@ -32,59 +32,74 @@ pub struct Interval {
     base: ComponentBase,
     config: IntervalConfig,
     running: Arc<AtomicBool>,
-    task_handle: Option<tokio::task::JoinHandle<()>>,
+    started: bool,
 }
 
 impl Interval {
     pub fn new(id: String, config: IntervalConfig) -> Self {
-        let auto_start = config.auto_start;
-        let mut interval = Self {
+        Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             running: Arc::new(AtomicBool::new(false)),
-            task_handle: None,
-        };
-        if auto_start {
-            interval.start();
+            started: false,
         }
-        interval
     }
 
     pub fn start(&mut self) {
+        if self.base.event_sender.is_none() {
+            log::warn!("Interval {} cannot start: no event sender", self.base.id);
+            return;
+        }
+        
         self.stop();
         self.running.store(true, Ordering::SeqCst);
+        self.started = true;
 
         let interval_ms = self.config.interval.max(MIN_INTERVAL_MS);
         let sender = self.base.event_sender.clone();
         let source = self.base.id.clone();
         let running = self.running.clone();
 
-        let handle = tokio::spawn(async move {
+        log::info!("Interval {} starting with {}ms interval", source, interval_ms);
+
+        std::thread::spawn(move || {
+            log::info!("Interval {} thread started", source);
             let start = std::time::Instant::now();
+            let mut tick_count = 0u64;
+            
             while running.load(Ordering::SeqCst) {
-                tokio::time::sleep(Duration::from_millis(interval_ms)).await;
+                std::thread::sleep(Duration::from_millis(interval_ms));
                 if !running.load(Ordering::SeqCst) { break; }
 
+                tick_count += 1;
                 let elapsed = start.elapsed().as_millis() as f64;
+                
                 if let Some(tx) = &sender {
-                    let _ = tx.send(ComponentEvent {
+                    match tx.send(ComponentEvent {
                         source: source.clone(),
                         source_handle: "change".to_string(),
                         value: ComponentValue::Number(elapsed),
                         edge_id: None,
-                    });
+                    }) {
+                        Ok(_) => {
+                            if tick_count <= 3 || tick_count % 10 == 0 {
+                                log::info!("Interval {} tick #{}: elapsed {}ms", source, tick_count, elapsed);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Interval {} send failed: {}", source, e);
+                            break;
+                        }
+                    }
                 }
             }
+            log::info!("Interval {} thread stopped after {} ticks", source, tick_count);
         });
-
-        self.task_handle = Some(handle);
     }
 
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
-        if let Some(handle) = self.task_handle.take() {
-            handle.abort();
-        }
+        self.started = false;
     }
 }
 
@@ -105,6 +120,17 @@ impl Component for Interval {
     }
 
     fn destroy(&mut self) { self.stop(); }
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
+    
+    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { 
+        self.base.event_sender.clone() 
+    }
+    
+    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { 
+        self.base.event_sender = Some(sender);
+        // Auto-start after sender is set
+        if self.config.auto_start && !self.started {
+            log::info!("Interval {} auto-starting after sender set", self.base.id);
+            self.start();
+        }
+    }
 }

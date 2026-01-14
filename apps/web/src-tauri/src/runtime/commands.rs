@@ -13,12 +13,26 @@ pub async fn flow_update(
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "Flow update: {} nodes, {} edges",
+        "=== FLOW UPDATE COMMAND === {} nodes, {} edges",
         flow.nodes.len(),
         flow.edges.len()
     );
 
-    let mut runtime = state.flow_runtime.lock().unwrap();
+    // Check if board is connected
+    let board_connected = *state.board_connected.read().unwrap();
+    
+    if !board_connected {
+        // Store as pending flow - will be applied when board connects
+        log::info!("Board not connected, storing flow as pending");
+        *state.pending_flow.write().unwrap() = Some(flow);
+        return Ok(());
+    }
+
+    // Board is connected, apply flow immediately
+    log::info!("Applying flow update to runtime");
+    let mut runtime = state.flow_runtime.lock()
+        .map_err(|e| format!("Lock error: {:?}", e))?;
+    
     runtime.update_flow(flow)
 }
 

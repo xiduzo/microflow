@@ -30,6 +30,7 @@ impl FlowExecutor {
     }
 
     /// Remove a component
+    #[allow(dead_code)]
     pub fn remove_component(&mut self, id: &str) -> Option<Box<dyn Component>> {
         if let Some(mut component) = self.components.remove(id) {
             component.destroy();
@@ -93,23 +94,36 @@ impl FlowExecutor {
     pub fn process_event(&mut self, event: ComponentEvent) {
         let key = (event.source.clone(), event.source_handle.clone());
 
+        log::info!("Processing event: {} ({}) -> looking for edges", event.source, event.source_handle);
+
         // Find all targets for this event
         let targets = match self.edge_map.get(&key) {
-            Some(t) => t.clone(),
-            None => return,
+            Some(t) => {
+                log::info!("Found {} target(s) for {} ({})", t.len(), event.source, event.source_handle);
+                t.clone()
+            }
+            None => {
+                log::info!("No edges found for {} ({})", event.source, event.source_handle);
+                return;
+            }
         };
 
         // Route to each target
         for (target_id, target_handle, _edge_id) in targets {
+            log::info!("Routing to {}.{} with value {:?}", target_id, target_handle, event.value);
             if let Some(target) = self.components.get_mut(&target_id) {
-                if let Err(e) = target.call_method(&target_handle, event.value.clone()) {
-                    log::warn!("Failed to call {}.{}: {}", target_id, target_handle, e);
+                match target.call_method(&target_handle, event.value.clone()) {
+                    Ok(_) => log::info!("✓ Successfully called {}.{}", target_id, target_handle),
+                    Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target_id, target_handle, e),
                 }
+            } else {
+                log::warn!("Target component {} not found!", target_id);
             }
         }
     }
 
     /// Get a component by ID
+    #[allow(dead_code)]
     pub fn get_component(&self, id: &str) -> Option<&dyn Component> {
         self.components.get(id).map(|c| c.as_ref())
     }
@@ -152,11 +166,13 @@ impl FlowExecutor {
     }
 
     /// Get the value of a component
+    #[allow(dead_code)]
     pub fn get_value(&self, id: &str) -> Option<ComponentValue> {
         self.components.get(id).map(|c| c.value())
     }
 
     /// Get values of all components connected to a target
+    #[allow(dead_code)]
     pub fn get_input_values(&self, target_id: &str) -> Vec<ComponentValue> {
         self.edges
             .iter()

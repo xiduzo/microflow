@@ -11,6 +11,7 @@ pub struct BoardConfig {
     pub baud_rate: u32,
     pub signature: Vec<u8>,
     pub page_size: usize,
+    #[allow(dead_code)]
     pub timeout: u32,
     pub protocol: Protocol,
 }

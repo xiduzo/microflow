@@ -59,11 +59,13 @@ impl ComponentRegistry {
     }
 
     /// Check if a component type exists
+    #[allow(dead_code)]
     pub fn exists(&self, instance: &str) -> bool {
         self.entries.contains_key(instance)
     }
 
     /// Get list of all registered component types
+    #[allow(dead_code)]
     pub fn component_types(&self) -> Vec<&'static str> {
         self.entries.keys().copied().collect()
     }

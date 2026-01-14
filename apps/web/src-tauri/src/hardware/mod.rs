@@ -28,7 +28,6 @@ mod firmata;
 mod port_monitor;
 mod types;
 
-pub use board::BoardManager;
 pub use events::EventEmitter;
 pub use port_monitor::{PortMonitor, SerialPortInfo};
 pub use types::BoardState;
@@ -206,6 +205,14 @@ impl HardwareMonitorLoop {
     fn handle_port_connected(&mut self, mut port: SerialPortInfo) {
         let device_id = PortMonitor::canonical_id(&port.port_name);
 
+        // Skip system ports entirely (Bluetooth, debug consoles, etc.)
+        if PortMonitor::should_skip_firmata_test(&port.port_name) {
+            log::debug!("Skipping system port: {}", port.port_name);
+            port.has_firmata = Some(false);
+            self.known_devices.insert(device_id, port);
+            return;
+        }
+
         // Check if this is a known board type before processing
         let is_known_board = port
             .usb_ids()
@@ -234,9 +241,9 @@ impl HardwareMonitorLoop {
         match board_state {
             Some(state) => self.events.board_state(state),
             // Only emit error for known boards that failed - unknown USB devices
-            // without Firmata should just show as disconnected, not error
+            // without Firmata are just ignored (no board_disconnected spam)
             None if is_known_board => self.events.no_firmata_error(&port.port_name),
-            None => self.events.board_disconnected(),
+            None => {} // Don't emit board_disconnected for unknown devices
         }
     }
 

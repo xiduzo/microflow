@@ -44,10 +44,15 @@ pub use executor::FlowExecutor;
 pub use types::FlowUpdate;
 
 // Re-export component types for external use (e.g., tests, plugins)
+#[allow(unused_imports)]
 pub use input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig};
+#[allow(unused_imports)]
 pub use output::{Led, LedConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
+#[allow(unused_imports)]
 pub use control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerConfig};
+#[allow(unused_imports)]
 pub use generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
+#[allow(unused_imports)]
 pub use transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 
 use crate::hardware::board::BoardManager;
@@ -93,7 +98,14 @@ impl FlowRuntime {
 
         // Create components from nodes
         for node in &update.nodes {
+            log::info!("Processing node: id={}, type={:?}, data={:?}", 
+                node.id, 
+                node.data.get("instance"),
+                node.data
+            );
+            
             if let Some(instance) = node.data.get("instance").and_then(|v| v.as_str()) {
+                log::info!("Creating component: {} ({})", node.id, instance);
                 match self.registry.create(
                     &node.id,
                     instance,
@@ -102,23 +114,34 @@ impl FlowRuntime {
                     board_handle.clone(),
                 ) {
                     Ok(component) => {
-                        log::debug!("Created component {} ({})", node.id, instance);
+                        log::info!("✓ Created component {} ({}) - type: {}", node.id, instance, component.component_type());
                         self.executor.add_component(&node.id, component);
                     }
                     Err(e) => {
                         // Log but don't fail - unknown components are skipped
                         if e.starts_with("Unknown component type") {
-                            log::debug!("Skipping {}: {}", node.id, e);
+                            log::warn!("✗ Skipping unknown component {}: {}", node.id, e);
                         } else {
-                            log::warn!("Failed to create component {}: {}", node.id, e);
+                            log::error!("✗ Failed to create component {}: {}", node.id, e);
                         }
                     }
                 }
+            } else {
+                log::warn!("Node {} has no 'instance' field in data", node.id);
             }
         }
 
         // Wire up edges
+        log::info!("Setting up {} edges", update.edges.len());
+        for edge in &update.edges {
+            log::info!("Edge: {} ({}) -> {} ({})", 
+                edge.source, edge.source_handle, 
+                edge.target, edge.target_handle
+            );
+        }
         self.executor.set_edges(update.edges);
+        
+        log::info!("Flow update complete. Active components: {:?}", self.executor.component_ids());
         Ok(())
     }
 

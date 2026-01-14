@@ -86,6 +86,7 @@ pub struct ComponentEvent {
 /// Pin configuration for components
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(dead_code)]
 pub enum PinConfig {
     Single(u8),
     Named(String),
@@ -95,6 +96,7 @@ pub enum PinConfig {
 }
 
 impl PinConfig {
+    #[allow(dead_code)]
     pub fn as_single(&self) -> Option<u8> {
         match self {
             PinConfig::Single(p) => Some(*p),
@@ -119,12 +121,15 @@ impl Default for PinConfig {
 /// 5. `destroy()` - Cleanup when component is removed
 pub trait Component: Send + Sync {
     /// Unique identifier for this component instance
+    #[allow(dead_code)]
     fn id(&self) -> &str;
     
     /// Current value of the component
+    #[allow(dead_code)]
     fn value(&self) -> ComponentValue;
     
     /// Set the component's value directly
+    #[allow(dead_code)]
     fn set_value(&mut self, value: ComponentValue);
     
     /// Type name for logging/debugging (e.g., "Led", "Button")
@@ -141,6 +146,7 @@ pub trait Component: Send + Sync {
     fn destroy(&mut self);
     
     /// Get the event sender for emitting events
+    #[allow(dead_code)]
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>>;
     
     /// Set the event sender for emitting events
