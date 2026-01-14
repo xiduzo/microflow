@@ -112,22 +112,22 @@ export const useNodeControls = <
   const flowChanged = useDebouncer(
     async () => {
       if(!isDesktop) return
-      // console.log("[NODE-CONTROLS] <flowChanged>", getNodes(), getEdges());
-      // const response = await invokeCommand({
-      //   type: "flow_update",
-      //   flow: {
-      //     nodes: getNodes(),
-      //     edges: getEdges(),
-      //   },
-      // });
+      console.log("[NODE-CONTROLS] <flowChanged>", getNodes(), getEdges());
+      const response = await invokeCommand({
+        type: "flow_update",
+        flow: {
+          nodes: getNodes(),
+          edges: getEdges(),
+        },
+      });
 
-      // if (!response.success) {
-      //   console.error(
-      //     "[NODE-CONTROLS] <flowChanged> failed to update the flow",
-      //     response.error
-      //   );
-      //   return;
-      // }
+      if (!response.success) {
+        console.error(
+          "[NODE-CONTROLS] <flowChanged> failed to update the flow",
+          response.error
+        );
+        return;
+      }
     },
     {
       wait: 500,

@@ -25,3 +25,4 @@ tauri = { version = "2.9.5", features = [] }
 tauri-plugin-log = "2"
 firmata-rs = "0.4.3"
 serialport = "4"
+tokio = { version = "1", features = ["sync", "rt", "macros"] }

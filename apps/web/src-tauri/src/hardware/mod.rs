@@ -12,7 +12,7 @@
 //! ├── port_monitor.rs  - Serial port discovery and monitoring
 //! ├── firmata.rs       - Firmata protocol detection
 //! ├── events.rs        - Event emission (single source of truth)
-//! └── sidecar.rs       - Node.js sidecar management (legacy)
+//! └── board.rs         - Board connection management
 //! ```
 //!
 //! # Design Principles
@@ -22,17 +22,15 @@
 //! 3. **Event Centralization**: All Tauri events flow through `events.rs`
 //! 4. **Clean Boundaries**: Flasher module is called, never calls back
 
+pub mod board;
 mod events;
 mod firmata;
 mod port_monitor;
 mod types;
 
-// Public modules (for Tauri commands)
-pub mod sidecar;
-
+pub use board::BoardManager;
 pub use events::EventEmitter;
 pub use port_monitor::{PortMonitor, SerialPortInfo};
-pub use sidecar::SidecarManager;
 pub use types::BoardState;
 
 use crate::flasher::{BoardConfig, Flasher};

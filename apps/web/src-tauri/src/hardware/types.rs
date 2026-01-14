@@ -34,19 +34,3 @@ pub enum BoardState {
         error: Option<String>,
     },
 }
-
-/// Response from hardware operations (sidecar)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HardwareResponse {
-    pub success: bool,
-    pub message: String,
-}
-
-/// Hardware status information (sidecar)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HardwareStatus {
-    pub connected: bool,
-    pub blinking: bool,
-    pub pin: Option<u8>,
-    pub interval: Option<u32>,
-}
