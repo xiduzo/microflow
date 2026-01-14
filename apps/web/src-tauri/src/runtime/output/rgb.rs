@@ -97,6 +97,7 @@ impl Component for Rgb {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Rgb" }
+    fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         board.with_board(|conn| {
@@ -106,15 +107,6 @@ impl Component for Rgb {
         })?;
         self.board = Some(board);
         self.off()
-    }
-
-    fn update_config(&mut self, config: serde_json::Value) -> Result<(), String> {
-        let new: RgbConfig = serde_json::from_value(config).map_err(|e| format!("Invalid config: {}", e))?;
-        if new.pins.red != self.config.pins.red || new.pins.green != self.config.pins.green || new.pins.blue != self.config.pins.blue {
-            return Err("Cannot change pins at runtime".to_string());
-        }
-        self.config = new;
-        Ok(())
     }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {

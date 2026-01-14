@@ -92,19 +92,13 @@ impl Component for Servo {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Servo" }
+    fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         board.with_board(|conn| conn.set_pin_mode(self.config.pin, pin_mode::SERVO))?;
         self.board = Some(board);
         let center = (self.config.range.min + self.config.range.max) / 2;
         self.to(center as f64)
-    }
-
-    fn update_config(&mut self, config: serde_json::Value) -> Result<(), String> {
-        let new: ServoConfig = serde_json::from_value(config).map_err(|e| format!("Invalid config: {}", e))?;
-        if new.pin != self.config.pin { return Err(format!("Cannot change pin from {} to {}", self.config.pin, new.pin)); }
-        self.config = new;
-        Ok(())
     }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {

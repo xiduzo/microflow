@@ -87,6 +87,7 @@ impl Component for Sensor {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Sensor" }
+    fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         let pin = self.config.analog_pin();
@@ -96,13 +97,6 @@ impl Component for Sensor {
         })?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
-        Ok(())
-    }
-
-    fn update_config(&mut self, config: serde_json::Value) -> Result<(), String> {
-        let new: SensorConfig = serde_json::from_value(config).map_err(|e| format!("Invalid config: {}", e))?;
-        if new.pin != self.config.pin { return Err(format!("Cannot change pin from {} to {}", self.config.pin, new.pin)); }
-        self.config = new;
         Ok(())
     }
 

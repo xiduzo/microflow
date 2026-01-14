@@ -87,6 +87,7 @@ impl Component for Led {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Led" }
+    fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         board.with_board(|conn| {
@@ -94,13 +95,6 @@ impl Component for Led {
             conn.digital_write(self.config.pin, false)
         })?;
         self.board = Some(board);
-        Ok(())
-    }
-
-    fn update_config(&mut self, config: serde_json::Value) -> Result<(), String> {
-        let new: LedConfig = serde_json::from_value(config).map_err(|e| format!("Invalid config: {}", e))?;
-        if new.pin != self.config.pin { return Err(format!("Cannot change pin from {} to {}", self.config.pin, new.pin)); }
-        self.config = new;
         Ok(())
     }
 
@@ -114,7 +108,12 @@ impl Component for Led {
         }
     }
 
-    fn destroy(&mut self) { self.stop_blink(); let _ = self.turn_off(); self.board = None; }
+    fn destroy(&mut self) { 
+        self.stop_blink(); 
+        let _ = self.turn_off(); 
+        self.board = None; 
+    }
+    
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
 }

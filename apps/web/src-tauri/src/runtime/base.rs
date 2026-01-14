@@ -110,17 +110,44 @@ impl Default for PinConfig {
 }
 
 /// Trait that all hardware components must implement
+/// 
+/// # Lifecycle
+/// 1. `new()` - Create component with config
+/// 2. `set_event_sender()` - Wire up event channel
+/// 3. `initialize()` - Called when board connects (may be called multiple times)
+/// 4. `call_method()` - Handle incoming events from flow edges
+/// 5. `destroy()` - Cleanup when component is removed
 pub trait Component: Send + Sync {
+    /// Unique identifier for this component instance
     fn id(&self) -> &str;
+    
+    /// Current value of the component
     fn value(&self) -> ComponentValue;
+    
+    /// Set the component's value directly
     fn set_value(&mut self, value: ComponentValue);
+    
+    /// Type name for logging/debugging (e.g., "Led", "Button")
     fn component_type(&self) -> &'static str;
+    
+    /// Initialize hardware resources. Called when board connects.
+    /// May be called multiple times if board reconnects.
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String>;
-    fn update_config(&mut self, config: serde_json::Value) -> Result<(), String>;
+    
+    /// Handle a method call from a flow edge or external command
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String>;
+    
+    /// Cleanup resources when component is removed
     fn destroy(&mut self);
+    
+    /// Get the event sender for emitting events
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>>;
+    
+    /// Set the event sender for emitting events
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>);
+    
+    /// Whether this component requires hardware (board connection)
+    fn requires_hardware(&self) -> bool { false }
 }
 
 /// Handle to the Firmata board for components to use
@@ -204,7 +231,6 @@ pub struct BoardConnection {
     pub board: firmata_rs::Board<SerialPortWrapper>,
     pub port_name: String,
 }
-
 
 impl BoardConnection {
     pub fn set_pin_mode(&mut self, pin: u8, mode: u8) -> Result<(), String> {

@@ -6,29 +6,52 @@
 //!
 //! ```text
 //! runtime/
-//! ├── mod.rs       - Module exports and FlowRuntime
-//! ├── base.rs      - Component trait and board connection
-//! ├── types.rs     - Flow types (Node, Edge, etc.)
-//! ├── executor.rs  - Flow execution logic
-//! ├── commands.rs  - Tauri commands
-//! ├── input/       - Input components (Button, Sensor, Motion, Proximity)
-//! └── output/      - Output components (Led, Rgb, Relay, Piezo, Servo)
+//! ├── mod.rs          - Module exports and FlowRuntime
+//! ├── base.rs         - Component trait and board connection
+//! ├── types.rs        - Flow types (Node, Edge, etc.)
+//! ├── executor.rs     - Flow execution logic
+//! ├── registry.rs     - Component factory registry
+//! ├── commands.rs     - Tauri commands
+//! ├── input/          - Input components (Button, Sensor, Motion, Proximity)
+//! ├── output/         - Output components (Led, Rgb, Relay, Piezo, Servo)
+//! ├── control/        - Control components (Counter, Delay, Trigger)
+//! ├── generator/      - Generator components (Constant, Interval, Oscillator)
+//! └── transformation/ - Transformation components (Calculate, Compare, Gate, RangeMap, Smooth)
 //! ```
+//!
+//! # Component Lifecycle
+//!
+//! 1. Flow update received from frontend
+//! 2. Existing components destroyed via `executor.clear()`
+//! 3. New components created via `ComponentRegistry`
+//! 4. Hardware components initialized if board is connected
+//! 5. Edges wired up for event routing
+//! 6. Events flow through the graph via `process_event()`
 
 pub mod base;
 pub mod commands;
+pub mod control;
 mod executor;
+pub mod generator;
 pub mod input;
 pub mod output;
+mod registry;
+pub mod transformation;
 mod types;
 
 pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
 pub use executor::FlowExecutor;
-pub use input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig};
-pub use output::{Led, LedConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
 pub use types::FlowUpdate;
 
+// Re-export component types for external use (e.g., tests, plugins)
+pub use input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig};
+pub use output::{Led, LedConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
+pub use control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerConfig};
+pub use generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
+pub use transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
+
 use crate::hardware::board::BoardManager;
+use registry::ComponentRegistry;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -36,6 +59,7 @@ use tokio::sync::mpsc;
 pub struct FlowRuntime {
     board_manager: BoardManager,
     executor: FlowExecutor,
+    registry: ComponentRegistry,
     event_tx: mpsc::UnboundedSender<ComponentEvent>,
     event_rx: Option<mpsc::UnboundedReceiver<ComponentEvent>>,
 }
@@ -46,6 +70,7 @@ impl FlowRuntime {
         Self {
             board_manager: BoardManager::new(),
             executor: FlowExecutor::new(),
+            registry: ComponentRegistry::new(),
             event_tx,
             event_rx: Some(event_rx),
         }
@@ -60,96 +85,61 @@ impl FlowRuntime {
     /// Update the flow with new nodes and edges
     pub fn update_flow(&mut self, update: FlowUpdate) -> Result<(), String> {
         log::info!("Updating flow: {} nodes, {} edges", update.nodes.len(), update.edges.len());
+        
+        // Clear existing components
         self.executor.clear();
+        
         let board_handle = self.board_handle();
 
+        // Create components from nodes
         for node in &update.nodes {
             if let Some(instance) = node.data.get("instance").and_then(|v| v.as_str()) {
-                match self.create_component(&node.id, instance, &node.data, board_handle.clone()) {
-                    Ok(()) => log::debug!("Created component {} ({})", node.id, instance),
-                    Err(e) => log::warn!("Failed to create component {}: {}", node.id, e),
+                match self.registry.create(
+                    &node.id,
+                    instance,
+                    &node.data,
+                    self.event_tx.clone(),
+                    board_handle.clone(),
+                ) {
+                    Ok(component) => {
+                        log::debug!("Created component {} ({})", node.id, instance);
+                        self.executor.add_component(&node.id, component);
+                    }
+                    Err(e) => {
+                        // Log but don't fail - unknown components are skipped
+                        if e.starts_with("Unknown component type") {
+                            log::debug!("Skipping {}: {}", node.id, e);
+                        } else {
+                            log::warn!("Failed to create component {}: {}", node.id, e);
+                        }
+                    }
                 }
             }
         }
 
+        // Wire up edges
         self.executor.set_edges(update.edges);
         Ok(())
     }
 
-    fn create_component(&mut self, id: &str, instance: &str, data: &serde_json::Value, board_handle: Arc<BoardHandle>) -> Result<(), String> {
-        match instance {
-            "Led" => {
-                let config: LedConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Led::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Button" => {
-                let config: ButtonConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Button::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Sensor" => {
-                let config: SensorConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Sensor::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Servo" => {
-                let config: ServoConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Servo::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Rgb" => {
-                let config: RgbConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Rgb::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Relay" => {
-                let config: RelayConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Relay::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Piezo" => {
-                let config: PiezoConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Piezo::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Motion" => {
-                let config: MotionConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Motion::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            "Proximity" => {
-                let config: ProximityConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-                let mut component = Proximity::new(id.to_string(), config);
-                component.set_event_sender(self.event_tx.clone());
-                if board_handle.is_connected() { component.initialize(board_handle)?; }
-                self.executor.add_component(id, Box::new(component));
-            }
-            _ => log::debug!("Skipping non-hardware component: {}", instance),
+    /// Initialize all hardware components (call when board connects)
+    pub fn initialize_hardware(&mut self) -> Result<(), String> {
+        let board_handle = self.board_handle();
+        if !board_handle.is_connected() {
+            return Err("Board not connected".to_string());
         }
-        Ok(())
+
+        self.executor.initialize_all(board_handle)
     }
 
-    pub fn process_event(&mut self, event: ComponentEvent) { self.executor.process_event(event); }
+    pub fn process_event(&mut self, event: ComponentEvent) { 
+        self.executor.process_event(event); 
+    }
 
     pub fn poll_inputs(&mut self) -> Result<(), String> {
-        if self.board_manager.is_connected() { self.board_manager.poll()?; }
+        if self.board_manager.is_connected() { 
+            self.board_manager.poll()?; 
+        }
         self.executor.poll_inputs()
     }
 

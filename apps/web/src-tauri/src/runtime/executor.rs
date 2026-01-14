@@ -2,15 +2,16 @@
 //!
 //! Handles the execution of flow graphs by routing events between components.
 
-use super::base::{Component, ComponentEvent, ComponentValue};
+use super::base::{BoardHandle, Component, ComponentEvent, ComponentValue};
 use super::types::FlowEdge;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Executes flow graphs by managing components and routing events
 pub struct FlowExecutor {
     components: HashMap<String, Box<dyn Component>>,
     edges: Vec<FlowEdge>,
-    /// Map from (source_id, source_handle) to list of (target_id, target_handle)
+    /// Map from (source_id, source_handle) to list of (target_id, target_handle, edge_id)
     edge_map: HashMap<(String, String), Vec<(String, String, Option<String>)>>,
 }
 
@@ -69,6 +70,25 @@ impl FlowExecutor {
         }
     }
 
+    /// Initialize all components that require hardware
+    pub fn initialize_all(&mut self, board_handle: Arc<BoardHandle>) -> Result<(), String> {
+        let mut errors = Vec::new();
+
+        for (id, component) in &mut self.components {
+            if component.requires_hardware() {
+                if let Err(e) = component.initialize(board_handle.clone()) {
+                    errors.push(format!("{}: {}", id, e));
+                }
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("Failed to initialize components: {}", errors.join(", ")))
+        }
+    }
+
     /// Process an event from a component and propagate to connected components
     pub fn process_event(&mut self, event: ComponentEvent) {
         let key = (event.source.clone(), event.source_handle.clone());
@@ -82,14 +102,8 @@ impl FlowExecutor {
         // Route to each target
         for (target_id, target_handle, _edge_id) in targets {
             if let Some(target) = self.components.get_mut(&target_id) {
-                // Call the target method with the event value
                 if let Err(e) = target.call_method(&target_handle, event.value.clone()) {
-                    log::warn!(
-                        "Failed to call {}.{}: {}",
-                        target_id,
-                        target_handle,
-                        e
-                    );
+                    log::warn!("Failed to call {}.{}: {}", target_id, target_handle, e);
                 }
             }
         }

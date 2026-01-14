@@ -206,6 +206,12 @@ impl HardwareMonitorLoop {
     fn handle_port_connected(&mut self, mut port: SerialPortInfo) {
         let device_id = PortMonitor::canonical_id(&port.port_name);
 
+        // Check if this is a known board type before processing
+        let is_known_board = port
+            .usb_ids()
+            .and_then(|(vid, pid)| BoardConfig::detect_from_usb(vid, pid))
+            .is_some();
+
         // Only process USB ports for board detection
         let board_state = if port.is_usb() {
             self.process_usb_port(&port)
@@ -227,8 +233,10 @@ impl HardwareMonitorLoop {
 
         match board_state {
             Some(state) => self.events.board_state(state),
-            None if port.is_usb() => self.events.no_firmata_error(&port.port_name),
-            None => {}
+            // Only emit error for known boards that failed - unknown USB devices
+            // without Firmata should just show as disconnected, not error
+            None if is_known_board => self.events.no_firmata_error(&port.port_name),
+            None => self.events.board_disconnected(),
         }
     }
 

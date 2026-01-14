@@ -97,6 +97,7 @@ impl Component for Button {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Button" }
+    fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         let mode = if self.config.is_pullup { pin_mode::PULLUP } else { pin_mode::INPUT };
@@ -106,13 +107,6 @@ impl Component for Button {
         })?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
-        Ok(())
-    }
-
-    fn update_config(&mut self, config: serde_json::Value) -> Result<(), String> {
-        let new: ButtonConfig = serde_json::from_value(config).map_err(|e| format!("Invalid config: {}", e))?;
-        if new.pin != self.config.pin { return Err(format!("Cannot change pin from {} to {}", self.config.pin, new.pin)); }
-        self.config = new;
         Ok(())
     }
 
