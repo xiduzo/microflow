@@ -60,12 +60,13 @@ pub fn run() {
                     )?;
                 }
 
-                // Start hardware monitoring
+                // Start hardware monitoring with shared board handle
                 let app_handle = app.handle().clone();
+                let board_handle = flow_runtime.lock().unwrap().board_handle();
                 hardware_service
                     .lock()
                     .unwrap()
-                    .start_monitoring(app_handle.clone());
+                    .start_monitoring(app_handle.clone(), board_handle);
 
                 // Take the event receiver before spawning threads
                 let event_rx = flow_runtime.lock().unwrap().take_event_receiver();
@@ -103,10 +104,11 @@ pub fn run() {
                         
                         match state_type {
                             Some("connected") => {
-                                log::info!("Board connected with Firmata!");
+                                log::info!("Board connected with Firmata (shared connection)!");
                                 *board_connected_listener.write().unwrap() = true;
-
-                                // Apply pending flow if any
+                                
+                                // Board is already connected via shared BoardHandle
+                                // Just apply pending flow if any
                                 if let Some(flow) = pending_flow_board.write().unwrap().take() {
                                     log::info!("Applying pending flow: {} nodes, {} edges", 
                                         flow.nodes.len(), flow.edges.len());
@@ -120,6 +122,7 @@ pub fn run() {
                             Some("disconnected") => {
                                 log::info!("Board disconnected");
                                 *board_connected_listener.write().unwrap() = false;
+                                // Board handle is already disconnected by hardware monitor
                             }
                             Some(other) => {
                                 log::debug!("Board state: {}", other);

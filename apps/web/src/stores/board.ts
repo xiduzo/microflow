@@ -20,7 +20,7 @@ export const useBoardStore = create<BoardState>((set, get) => {
 export function useBoardEvents() {
   const setBoard = useBoardStore((state) => state.setBoard);
 
-  useListen({
+  useListen<Board>({
     type: "board-state",
     handler: ({ payload }) => {
       console.log(payload)

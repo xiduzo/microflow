@@ -26,6 +26,7 @@ import { UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBoardEvents } from "@/stores/board";
+import { useComponentEvents } from "@/hooks/use-component-events";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -93,5 +94,6 @@ function RootComponent() {
 
 function Board() {
   useBoardEvents();
+  useComponentEvents();
   return null;
 }

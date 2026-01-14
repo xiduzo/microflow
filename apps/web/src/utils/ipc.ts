@@ -46,18 +46,18 @@ export async function invokeCommand<
   }
 }
 
-type BoardStateEvent = {
-  type: "board-state";
-  handler: (event: Event<Board>) => void;
+export type ComponentEventPayload = {
+  source: string;
+  sourceHandle: string;
+  value: boolean | number | string | { r: number; g: number; b: number; a: number } | unknown[];
+  edgeId?: string;
 };
 
-type IpcEvent = BoardStateEvent;
-
-export function useListen(event: IpcEvent) {
+export function useListen<T>(event: { type: string; handler: (event: Event<T>) => void }) {
   useEffect(() => {
     if (!isDesktop()) return;
     const { type, handler } = event;
-    const listener = listen(type, handler);
+    const listener = listen<T>(type, handler);
 
     return () => {
       listener

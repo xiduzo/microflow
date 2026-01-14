@@ -24,10 +24,12 @@ import { Interval } from "./interval";
 import { Led } from "./led";
 import { Llm } from "./llm";
 import type { NodeTypes } from "@xyflow/react";
+import { Compare } from "./compare";
 
 export const NODE_TYPES: NodeTypes = {
   Button: Button,
   Constant: Constant,
+  Compare: Compare,
   Counter: Counter,
   Delay: Delay,
   //   Figma: Figma,

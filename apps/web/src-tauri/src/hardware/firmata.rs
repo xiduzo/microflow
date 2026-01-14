@@ -5,9 +5,10 @@
 
 use super::port_monitor::PortMonitor;
 use super::types::{BoardState, PinInfo};
+use crate::runtime::{BoardConnection, BoardHandle, SerialPortWrapper};
 use firmata_rs::{Board, Firmata};
-use std::fmt::Debug;
 use std::io::{Read, Write};
+use std::sync::Arc;
 use std::time::Duration;
 
 // Firmata protocol constants
@@ -21,8 +22,9 @@ const PORT_TIMEOUT_MS: u64 = 100;
 const FIRMWARE_READ_ITERATIONS: usize = 5;
 const CAPABILITY_READ_ITERATIONS: usize = 10;
 
-/// Detect Firmata on a port and return board state if found
-pub fn detect(port_name: &str) -> Option<BoardState> {
+/// Detect Firmata on a port and connect directly to the provided BoardHandle.
+/// Returns BoardState if successful, and the board connection is stored in the handle.
+pub fn detect_and_connect(port_name: &str, board_handle: &Arc<BoardHandle>) -> Option<BoardState> {
     if PortMonitor::should_skip_firmata_test(port_name) {
         return None;
     }
@@ -37,8 +39,17 @@ pub fn detect(port_name: &str) -> Option<BoardState> {
         baud_rate
     );
 
-    // Full detection with firmata-rs
-    let info = full_detect(port_name, baud_rate)?;
+    // Full detection with firmata-rs - returns the board connection
+    let (info, board) = full_detect_with_board(port_name, baud_rate)?;
+
+    // Create the connection wrapper and store it in the handle
+    let connection = BoardConnection {
+        board,
+        port_name: port_name.to_string(),
+    };
+    board_handle.connect(connection);
+    
+    log::info!("Board connected and stored in BoardHandle");
 
     Some(BoardState::Connected {
         port: port_name.to_string(),
@@ -148,8 +159,8 @@ fn has_firmata_markers(buf: &[u8]) -> bool {
     false
 }
 
-/// Full Firmata detection with capability query
-fn full_detect(port_name: &str, baud_rate: u32) -> Option<FirmataInfo> {
+/// Full Firmata detection with capability query - returns the Board instance
+fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInfo, Board<SerialPortWrapper>)> {
     log::info!("Full Firmata detection on {} at {} baud", port_name, baud_rate);
 
     let port = serialport::new(port_name, baud_rate)
@@ -206,47 +217,11 @@ fn full_detect(port_name: &str, baud_rate: u32) -> Option<FirmataInfo> {
 
     log::info!("Found {} pins", board.pins().len());
 
-    Some(FirmataInfo {
+    let info = FirmataInfo {
         firmware_name: board.firmware_name.clone(),
         firmware_version: board.firmware_version.clone(),
         pins,
-    })
-}
+    };
 
-// ============================================================================
-// SerialPort Wrapper for firmata-rs
-// ============================================================================
-
-struct SerialPortWrapper {
-    port: Box<dyn serialport::SerialPort>,
-}
-
-impl SerialPortWrapper {
-    fn new(port: Box<dyn serialport::SerialPort>) -> Self {
-        Self { port }
-    }
-}
-
-impl Read for SerialPortWrapper {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.port.read(buf)
-    }
-}
-
-impl Write for SerialPortWrapper {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.port.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.port.flush()
-    }
-}
-
-impl Debug for SerialPortWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SerialPortWrapper")
-            .field("port", &self.port.name())
-            .finish()
-    }
+    Some((info, board))
 }

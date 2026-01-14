@@ -110,13 +110,8 @@ export const useNodeControls = <
   );
   const lastControlData = useRef(controlsData);
 
-  useEffect(() => {
-    updateFlow();
-  }, [controlsData, updateFlow]);
-
   const updateNodeData = useCallback(
     async (data: Record<string, unknown>) => {
-      console.log("[NODE-CONTROLS] <updateNodeData>", data);
       const node = getNode(id);
       if (!node) return;
 
@@ -131,11 +126,14 @@ export const useNodeControls = <
         },
       ]);
       updateNodeInternals(node.id);
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Give react-flow time to apply the changes
       updateFlow();
     },
     [id, getNode, onNodesChange, updateNodeInternals, updateFlow]
   );
+
+  useEffect(() => {
+    updateNodeData(controlsData as Data);
+  }, [controlsData]);
 
   /**
    * Sometimes it is impossible to set the node data using the controls,

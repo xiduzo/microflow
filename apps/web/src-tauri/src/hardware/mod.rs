@@ -33,6 +33,7 @@ pub use port_monitor::{PortMonitor, SerialPortInfo};
 pub use types::BoardState;
 
 use crate::flasher::{BoardConfig, Flasher};
+use crate::runtime::BoardHandle;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -60,8 +61,10 @@ impl HardwareService {
         }
     }
 
-    /// Start monitoring for hardware changes
-    pub fn start_monitoring(&mut self, app_handle: tauri::AppHandle) {
+    /// Start monitoring for hardware changes.
+    /// The board_handle is shared with the runtime - when Firmata is detected,
+    /// the connection is stored directly in this handle.
+    pub fn start_monitoring(&mut self, app_handle: tauri::AppHandle, board_handle: Arc<BoardHandle>) {
         if self.monitoring.load(Ordering::Relaxed) {
             log::warn!("Hardware monitoring already running");
             return;
@@ -72,7 +75,7 @@ impl HardwareService {
 
         let monitoring = Arc::clone(&self.monitoring);
         let handle = thread::spawn(move || {
-            HardwareMonitorLoop::new(app_handle, monitoring).run();
+            HardwareMonitorLoop::new(app_handle, monitoring, board_handle).run();
         });
 
         self.monitor_handle = Some(handle);
@@ -120,14 +123,16 @@ impl Drop for HardwareService {
 struct HardwareMonitorLoop {
     events: EventEmitter,
     monitoring: Arc<AtomicBool>,
+    board_handle: Arc<BoardHandle>,
     known_devices: HashMap<String, SerialPortInfo>,
 }
 
 impl HardwareMonitorLoop {
-    fn new(app_handle: tauri::AppHandle, monitoring: Arc<AtomicBool>) -> Self {
+    fn new(app_handle: tauri::AppHandle, monitoring: Arc<AtomicBool>, board_handle: Arc<BoardHandle>) -> Self {
         Self {
             events: EventEmitter::new(app_handle),
             monitoring,
+            board_handle,
             known_devices: HashMap::new(),
         }
     }
@@ -252,6 +257,8 @@ impl HardwareMonitorLoop {
         self.events.port_disconnected(port);
 
         if port.has_firmata == Some(true) {
+            // Disconnect the shared board handle
+            self.board_handle.disconnect();
             self.events.board_disconnected();
         }
     }
@@ -271,7 +278,7 @@ impl HardwareMonitorLoop {
         // Unknown USB device - just try Firmata detection
         log::info!("Unknown USB device on {}, trying Firmata", port.port_name);
         self.events.board_connecting();
-        firmata::detect(&port.port_name)
+        firmata::detect_and_connect(&port.port_name, &self.board_handle)
     }
 
     /// Handle a known Arduino board type
@@ -282,7 +289,7 @@ impl HardwareMonitorLoop {
     ) -> Option<BoardState> {
         // First check if Firmata is already running
         self.events.board_connecting();
-        if let Some(state) = firmata::detect(&port.port_name) {
+        if let Some(state) = firmata::detect_and_connect(&port.port_name, &self.board_handle) {
             log::info!("Firmata already running on {:?}", board_type);
             return Some(state);
         }
@@ -310,9 +317,9 @@ impl HardwareMonitorLoop {
                 // Wait for board reset
                 thread::sleep(Duration::from_millis(2500));
 
-                // Detect Firmata
+                // Detect Firmata and connect
                 self.events.board_connecting();
-                firmata::detect(&port.port_name)
+                firmata::detect_and_connect(&port.port_name, &self.board_handle)
             }
             Err(e) => {
                 log::error!("Flash failed: {}", e);
