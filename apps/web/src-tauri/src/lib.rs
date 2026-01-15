@@ -139,7 +139,8 @@ pub fn run() {
                 let board_connected_poll = Arc::clone(&board_connected_setup);
                 std::thread::spawn(move || {
                     loop {
-                        std::thread::sleep(std::time::Duration::from_millis(50));
+                        // Poll at ~100Hz for responsive input
+                        std::thread::sleep(std::time::Duration::from_millis(10));
                         
                         // Only poll if board is connected
                         if !*board_connected_poll.read().unwrap() {

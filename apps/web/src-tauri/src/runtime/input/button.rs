@@ -1,7 +1,7 @@
 //! Button Component - Input
 
 use crate::runtime::base::{
-    pin_mode, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ButtonConfig {
-    #[serde(default = "default_pin")]
+    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
     pub pin: u8,
     #[serde(default)]
     pub is_pullup: bool,

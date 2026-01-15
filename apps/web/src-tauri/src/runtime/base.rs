@@ -271,18 +271,65 @@ impl BoardConnection {
             .ok_or_else(|| format!("Pin {} not found", pin))
     }
 
+    /// Read analog value from a pin
+    /// `pin` is the digital pin number (e.g., 14 for A0 on Arduino Uno)
+    /// 
+    /// Note: This assumes report_analog has already been enabled for this pin
+    /// and read_and_decode has been called to update pin values.
+    /// For best performance, call read_and_decode() once per poll cycle,
+    /// then read pin values directly.
     pub fn analog_read(&mut self, pin: u8) -> Result<u16, String> {
-        self.board
-            .report_analog(pin as i32, 1)
-            .map_err(|e| format!("Failed to enable analog reporting: {}", e))?;
-        self.board
-            .read_and_decode()
-            .map_err(|e| format!("Failed to read: {}", e))?;
         let pins = self.board.pins();
-        let analog_pin = if pin < 14 { pin + 14 } else { pin };
-        pins.get(analog_pin as usize)
+        
+        pins.get(pin as usize)
             .map(|p| p.value as u16)
             .ok_or_else(|| format!("Analog pin {} not found", pin))
+    }
+    
+    /// Enable analog reporting for a pin
+    /// Call this once during initialization, not on every read
+    pub fn enable_analog_reporting(&mut self, pin: u8) -> Result<(), String> {
+        let pins = self.board.pins();
+        
+        // Verify this pin supports analog
+        let pin_info = pins
+            .get(pin as usize)
+            .ok_or_else(|| format!("Pin {} not found", pin))?;
+        
+        if !pin_info.analog {
+            return Err(format!("Pin {} is not an analog pin", pin));
+        }
+        
+        // Find the analog channel index (0-based) by counting analog pins before this one
+        let analog_channel = pins
+            .iter()
+            .take(pin as usize)
+            .filter(|p| p.analog)
+            .count() as i32;
+        
+        log::info!("Enabling analog reporting: pin={}, analog_channel={}", pin, analog_channel);
+        
+        self.board
+            .report_analog(analog_channel, 1)
+            .map_err(|e| format!("Failed to enable analog reporting: {}", e))
+    }
+    
+    /// Process all pending messages from the board
+    /// Call this once per poll cycle to update all pin values
+    pub fn read_all(&mut self) -> Result<(), String> {
+        // Read and decode all available messages (non-blocking if no data)
+        match self.board.read_and_decode() {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                // Timeout is expected when no data available
+                let err_str = format!("{}", e);
+                if err_str.contains("timed out") || err_str.contains("timeout") {
+                    Ok(())
+                } else {
+                    Err(format!("Read error: {}", e))
+                }
+            }
+        }
     }
 
     pub fn set_reporting(&mut self, pin: u8, enabled: bool) -> Result<(), String> {
@@ -335,4 +382,88 @@ pub mod pin_mode {
     pub const PWM: u8 = 3;
     pub const SERVO: u8 = 4;
     pub const PULLUP: u8 = 11;
+}
+
+/// Serde utilities for component configs
+pub mod serde_utils {
+    use serde::de::{self, Visitor};
+    
+    /// Deserialize a pin value from either a string or number to String
+    /// Handles: "A0", "14", 14, 14.0 -> "A0", "14", "14", "14"
+    pub fn deserialize_string_or_number<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StringOrNumberVisitor;
+        
+        impl<'de> Visitor<'de> for StringOrNumberVisitor {
+            type Value = String;
+            
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string or number")
+            }
+            
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(v.to_string())
+            }
+            
+            fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
+                Ok(v)
+            }
+            
+            fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+                Ok(v.to_string())
+            }
+            
+            fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+                Ok(v.to_string())
+            }
+            
+            fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+                Ok((v as i64).to_string())
+            }
+        }
+        
+        deserializer.deserialize_any(StringOrNumberVisitor)
+    }
+    
+    /// Deserialize a pin value from string or number to u8
+    /// Handles: "14", 14, 14.0 -> 14u8
+    pub fn deserialize_pin_u8<'de, D>(deserializer: D) -> Result<u8, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct PinU8Visitor;
+        
+        impl<'de> Visitor<'de> for PinU8Visitor {
+            type Value = u8;
+            
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string or number representing a pin (0-255)")
+            }
+            
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                v.parse().map_err(|_| de::Error::custom(format!("invalid pin: {}", v)))
+            }
+            
+            fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
+                v.parse().map_err(|_| de::Error::custom(format!("invalid pin: {}", v)))
+            }
+            
+            fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
+                u8::try_from(v).map_err(|_| de::Error::custom(format!("pin out of range: {}", v)))
+            }
+            
+            fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
+                u8::try_from(v).map_err(|_| de::Error::custom(format!("pin out of range: {}", v)))
+            }
+            
+            fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+                let i = v as i64;
+                u8::try_from(i).map_err(|_| de::Error::custom(format!("pin out of range: {}", v)))
+            }
+        }
+        
+        deserializer.deserialize_any(PinU8Visitor)
+    }
 }

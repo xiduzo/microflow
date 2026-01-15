@@ -1,7 +1,7 @@
 //! Relay Component - Output
 
 use crate::runtime::base::{
-    pin_mode, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -14,7 +14,7 @@ impl Default for RelayType { fn default() -> Self { RelayType::NO } }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelayConfig {
-    #[serde(default = "default_pin")]
+    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
     pub pin: u8,
     #[serde(default)]
     pub r#type: RelayType,

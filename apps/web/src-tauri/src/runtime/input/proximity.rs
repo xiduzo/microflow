@@ -1,9 +1,8 @@
 //! Proximity Sensor Component - Input
 
 use crate::runtime::base::{
-    pin_mode, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
-use firmata_rs::Firmata;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -11,7 +10,7 @@ use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProximityConfig {
-    #[serde(default = "default_pin")]
+    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_string_or_number")]
     pub pin: String,
     #[serde(default = "default_controller")]
     pub controller: String,
@@ -28,10 +27,18 @@ impl Default for ProximityConfig {
 }
 
 impl ProximityConfig {
+    /// Get the pin number for analog operations
+    /// Handles both legacy "A0" format and new numeric format
     pub fn analog_pin(&self) -> u8 {
+        // If it starts with 'A' or 'a', strip it and parse (legacy format)
         if self.pin.starts_with('A') || self.pin.starts_with('a') {
+            // Legacy format like "A0" - but this shouldn't happen anymore
+            // since UI now sends actual pin numbers
             self.pin[1..].parse().unwrap_or(0)
-        } else { self.pin.parse().unwrap_or(0) }
+        } else {
+            // New format: actual pin number (e.g., "14" for A0 on Arduino Uno)
+            self.pin.parse().unwrap_or(0)
+        }
     }
 }
 
@@ -98,9 +105,10 @@ impl Component for Proximity {
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         let pin = self.config.analog_pin();
+        log::info!("Proximity initialize: pin={}", pin);
         board.with_board(|conn| {
             conn.set_pin_mode(pin, pin_mode::ANALOG)?;
-            conn.board.report_analog(pin as i32, 1).map_err(|e| format!("Failed to enable analog reporting: {}", e))
+            conn.enable_analog_reporting(pin)
         })?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);

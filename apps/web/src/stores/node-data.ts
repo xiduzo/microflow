@@ -1,6 +1,5 @@
 import { useNodeId } from "@/components/flow/nodes/_base";
 import { create } from "zustand";
-import { useShallow } from "zustand/shallow";
 
 type NodeData<T extends unknown = unknown> = {
   data: Record<string, T>;
@@ -32,11 +31,11 @@ export function useNodeValue<T>(defaultValue: T) {
   // You should never mix react context with a zustand state
   // But ej, there is always an exception to the rule
   const id = useNodeId();
-  return useNodeDataStore(
-    useShallow((state) => (state.data[id] as T) ?? defaultValue)
-  );
+  // Use a direct selector instead of useShallow - useShallow is for object comparison,
+  // but node values are typically primitives (numbers, booleans) that need strict equality
+  return useNodeDataStore((state) => (state.data[id] as T) ?? defaultValue);
 }
 
 export function useClearNodeData() {
-  return useNodeDataStore(useShallow((state) => state.clear));
+  return useNodeDataStore((state) => state.clear);
 }

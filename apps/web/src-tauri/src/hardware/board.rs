@@ -4,7 +4,6 @@
 //! interface for components to interact with the hardware.
 
 use crate::runtime::BoardHandle;
-use firmata_rs::Firmata;
 use std::sync::Arc;
 
 /// Board manager handles the lifecycle of a Firmata connection.
@@ -40,12 +39,10 @@ impl BoardManager {
     }
 
     /// Execute a read cycle to get latest pin states
+    /// Reads all pending messages from the serial buffer
     pub fn poll(&self) -> Result<(), String> {
         self.handle.with_board(|conn| {
-            conn.board
-                .read_and_decode()
-                .map(|_| ())
-                .map_err(|e| format!("Poll error: {}", e))
+            conn.read_all()
         })
     }
 }

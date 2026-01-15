@@ -35,62 +35,37 @@ const uid = () => Math.random().toString(36).substring(2, 9);
 // Initial nodes for demo
 const initialNodes: Node[] = [
   {
-    data: {
-      instance: "Interval",
-      interval: 10000,
-      autoStart: true,
-      group: "flow",
-      tags: ["event", "generator"],
-      label: "Interval",
-      icon: {},
-      description:
-        "Automatically send a signal at regular time intervals, like a timer",
-    },
-    id: "twykd8azrgg",
-    type: "Interval",
-    position: {
-      x: 831.9263980836536,
-      y: 1279.1211811065937,
-    },
-    measured: {
-      width: 320,
-      height: 200,
-    },
-    selected: false,
+  "data": {
+    "instance": "Sensor",
+    "pin": 17,
+    "type": "analog",
+    "freq": 25,
+    "threshold": 1,
+    "group": "hardware",
+    "tags": [
+      "input",
+      "analog"
+    ],
+    "label": "Analog Sensor",
+    "icon": {},
+    "description": "Measure values that change smoothly, like temperature, pressure, or how bright something is"
   },
-  {
-    data: {
-      instance: "Led",
-      pin: 13,
-      group: "hardware",
-      tags: ["output", "analog", "digital"],
-      label: "LED",
-      icon: {},
-      description: "Turn a light on or off, or control its brightness",
-    },
-    id: "rb6aji0oftq",
-    type: "Led",
-    position: {
-      x: 1357.2399553344335,
-      y: 1305.0412579446256,
-    },
-    measured: {
-      width: 320,
-      height: 219,
-    },
-    selected: false,
+  "id": "del9xeakh1f",
+  "type": "Sensor",
+  "position": {
+    "x": 1320.3683783790718,
+    "y": 1477.9477445465948
   },
+  "measured": {
+    "width": 320,
+    "height": 219
+  },
+  "selected": true
+}
 ];
 
 const initialEdges: Edge[] = [
-  {
-    source: "twykd8azrgg",
-    sourceHandle: "change",
-    target: "rb6aji0oftq",
-    targetHandle: "toggle",
-    id: "plft9yy",
-    type: "animated",
-  },
+
 ];
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {

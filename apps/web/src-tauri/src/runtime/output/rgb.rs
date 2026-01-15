@@ -1,7 +1,7 @@
 //! RGB LED Component - Output
 
 use crate::runtime::base::{
-    pin_mode, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -9,11 +9,11 @@ use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RgbPins {
-    #[serde(default = "default_red")]
+    #[serde(default = "default_red", deserialize_with = "serde_utils::deserialize_pin_u8")]
     pub red: u8,
-    #[serde(default = "default_green")]
+    #[serde(default = "default_green", deserialize_with = "serde_utils::deserialize_pin_u8")]
     pub green: u8,
-    #[serde(default = "default_blue")]
+    #[serde(default = "default_blue", deserialize_with = "serde_utils::deserialize_pin_u8")]
     pub blue: u8,
 }
 
