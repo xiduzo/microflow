@@ -62,8 +62,7 @@ impl Piezo {
             board.with_board(|conn| conn.analog_write(self.config.pin, 128))?;
         }
         self.is_playing = true;
-        self.base.value = ComponentValue::Bool(true);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Bool(true));
         Ok(())
     }
 
@@ -73,8 +72,7 @@ impl Piezo {
             board.with_board(|conn| conn.analog_write(self.config.pin, 0))?;
         }
         self.is_playing = false;
-        self.base.value = ComponentValue::Bool(false);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Bool(false));
         Ok(())
     }
 
@@ -82,8 +80,7 @@ impl Piezo {
         self.stop()?;
         if self.config.r#type != PiezoType::Song { return Ok(()); }
         self.is_playing = true;
-        self.base.value = ComponentValue::Bool(true);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Bool(true));
         Ok(())
     }
 }

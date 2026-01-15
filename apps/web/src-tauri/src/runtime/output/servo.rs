@@ -68,8 +68,7 @@ impl Servo {
             board.with_board(|conn| conn.board.analog_write(self.config.pin as i32, clamped as i32).map_err(|e| format!("Failed to write servo: {}", e)))?;
         }
         self.current_position = clamped;
-        self.base.value = ComponentValue::Number(clamped as f64);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Number(clamped as f64));
         Ok(())
     }
 
@@ -79,8 +78,7 @@ impl Servo {
         if let Some(board) = &self.board {
             board.with_board(|conn| conn.board.analog_write(self.config.pin as i32, servo_value as i32).map_err(|e| format!("Failed to write servo: {}", e)))?;
         }
-        self.base.value = ComponentValue::Number(speed);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Number(speed));
         Ok(())
     }
 

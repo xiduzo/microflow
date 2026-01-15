@@ -85,8 +85,7 @@ impl Proximity {
         let cm = self.raw_to_cm(raw);
         if (cm - self.last_cm).abs() > 1.0 {
             self.last_cm = cm;
-            self.base.value = ComponentValue::Number(cm);
-            self.base.emit("change");
+            self.base.set_value(ComponentValue::Number(cm));
         }
     }
 

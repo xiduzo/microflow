@@ -18,10 +18,11 @@ export function useComponentEvents() {
     handler: ({ payload }) => {
       const { source, sourceHandle, value } = payload;
 
-      // console.log("[COMPONENT-EVENT]", { source, sourceHandle, value });
+      if(sourceHandle === "change") updateNodeData(source, value);
+
+      console.log("[COMPONENT-EVENT]", {  source, sourceHandle, value });
 
       // Update the target node's data with the event value
-      updateNodeData(source, value);
 
       // Get current edges from the store
       const edges = useReactFlowStore.getState().edges;

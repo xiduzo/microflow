@@ -70,10 +70,10 @@ impl RangeMap {
         let factor = 10_f64.powi(precision);
         let normalized = (mapped * factor).round() / factor;
 
-        self.base.value = ComponentValue::Array(vec![
+        self.base.set_value(ComponentValue::Array(vec![
             ComponentValue::Number(input_num),
             ComponentValue::Number(normalized),
-        ]);
+        ]));
         self.base.emit_with_value("to", ComponentValue::Number(normalized));
     }
 }

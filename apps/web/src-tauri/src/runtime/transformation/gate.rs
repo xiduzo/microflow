@@ -43,8 +43,10 @@ impl Gate {
     }
 
     pub fn check(&mut self, inputs: Vec<bool>) {
+        log::info!("[Gate {}] check called with {} inputs: {:?}", self.base.id, inputs.len(), inputs);
         let result = self.passes_gate(&inputs);
-        self.base.value = ComponentValue::Bool(result);
+        log::info!("[Gate {}] gate type {:?}, result: {}", self.base.id, self.config.gate, result);
+        self.base.set_value(ComponentValue::Bool(result));
         self.base.emit(if result { "true" } else { "false" });
     }
 
@@ -68,18 +70,34 @@ impl Component for Gate {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Gate" }
+    fn aggregates_inputs(&self) -> bool { true }
 
     fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "check" => {
-                let inputs = match args {
-                    ComponentValue::Array(arr) => arr.iter().filter_map(|v| v.as_bool()).collect(),
-                    ComponentValue::Bool(b) => vec![b],
-                    _ => vec![],
+            "input" | "check" => {
+                log::info!("[Gate {}] call_method '{}' with args: {:?}", self.base.id, method, args);
+                let inputs: Vec<bool> = match args {
+                    ComponentValue::Array(arr) => {
+                        log::info!("[Gate {}] Processing array of {} items", self.base.id, arr.len());
+                        arr.iter().map(|v| {
+                            let truthy = v.is_truthy();
+                            log::info!("[Gate {}] Input {:?} -> truthy: {}", self.base.id, v, truthy);
+                            truthy
+                        }).collect()
+                    },
+                    other => {
+                        let truthy = other.is_truthy();
+                        log::info!("[Gate {}] Single input {:?} -> truthy: {}", self.base.id, other, truthy);
+                        vec![truthy]
+                    },
                 };
-                self.check(inputs);
+                
+                // Only evaluate if we have inputs
+                if !inputs.is_empty() {
+                    self.check(inputs);
+                }
                 Ok(())
             }
             _ => Err(format!("Unknown method: {}", method)),

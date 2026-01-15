@@ -11,6 +11,7 @@ import { MODES, usePins } from "@/stores/board";
 import { reducePinsToOptions } from "@/components/hardware/pin";
 import { dataSchema, type Data, type Value } from "./rgb.schema";
 import { PaletteIcon } from "lucide-react";
+import { folder } from "leva";
 
 export function Rgb(props: Props) {
   return (
@@ -63,21 +64,41 @@ function Value() {
 function Settings() {
   const pins = usePins([MODES.OUTPUT, MODES.PWM]);
   const data = useNodeData<Data>();
-  const { render } = useNodeControls({
-    red: {
-      value: Array.isArray(data.pins) ? data.pins[0] : data.pins.red,
-      options: pins.reduce(reducePinsToOptions, {}),
+  const { render, setNodeData } = useNodeControls(
+    {
+      pins: folder({
+        red: {
+          value: Array.isArray(data.pins) ? data.pins[0] : data.pins.red,
+          options: pins.reduce(reducePinsToOptions, {}),
+          onChange: (value) => {
+            setNodeData({
+              pins: { red: value, green: data.pins.green, blue: data.pins.blue },
+            });
+          },
+        },
+        green: {
+          value: Array.isArray(data.pins) ? data.pins[1] : data.pins.green,
+          options: pins.reduce(reducePinsToOptions, {}),
+          onChange: (value) => {
+            setNodeData({
+              pins: { red: data.pins.red, green: value, blue: data.pins.blue },
+            });
+          },
+        },
+        blue: {
+          value: Array.isArray(data.pins) ? data.pins[2] : data.pins.blue,
+          options: pins.reduce(reducePinsToOptions, {}),
+          onChange: (value) => {
+            setNodeData({
+              pins: { red: data.pins.red, green: data.pins.green, blue: value },
+            });
+          },
+        },
+      }),
+      isAnode: { value: Boolean(data.isAnode), label: "anode" },
     },
-    green: {
-      value: Array.isArray(data.pins) ? data.pins[1] : data.pins.green,
-      options: pins.reduce(reducePinsToOptions, {}),
-    },
-    blue: {
-      value: Array.isArray(data.pins) ? data.pins[2] : data.pins.blue,
-      options: pins.reduce(reducePinsToOptions, {}),
-    },
-    isAnode: { value: Boolean(data.isAnode), label: "anode" },
-  });
+    [pins, data.pins]
+  );
 
   return <>{render()}</>;
 }

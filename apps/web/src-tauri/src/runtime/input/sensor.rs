@@ -78,8 +78,7 @@ impl Sensor {
         let diff = (value as i32 - self.last_value as i32).unsigned_abs() as u16;
         if diff >= self.config.threshold {
             self.last_value = value;
-            self.base.value = ComponentValue::Number(value as f64);
-            self.base.emit("change");
+            self.base.set_value(ComponentValue::Number(value as f64));
         }
     }
 

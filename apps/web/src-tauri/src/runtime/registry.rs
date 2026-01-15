@@ -7,7 +7,7 @@ use super::base::{BoardHandle, Component, ComponentEvent};
 use super::control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerConfig};
 use super::generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
 use super::input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig};
-use super::output::{Led, LedConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
+use super::output::{Led, LedConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
 use super::transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -91,6 +91,12 @@ impl ComponentRegistry {
         self.register_hardware("Piezo", |id, data| {
             let config: PiezoConfig = serde_json::from_value(data.clone()).unwrap_or_default();
             Box::new(Piezo::new(id, config))
+        });
+
+        // Monitor (software only - display component)
+        self.register_software("Monitor", |id, data| {
+            let config: MonitorConfig = serde_json::from_value(data.clone()).unwrap_or_default();
+            Box::new(Monitor::new(id, config))
         });
 
         // Input components (require hardware)

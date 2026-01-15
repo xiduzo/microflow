@@ -44,8 +44,7 @@ impl Relay {
             board.with_board(|conn| conn.digital_write(self.config.pin, signal))?;
         }
         self.is_open = true;
-        self.base.value = ComponentValue::Bool(true);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Bool(true));
         Ok(())
     }
 
@@ -55,8 +54,7 @@ impl Relay {
             board.with_board(|conn| conn.digital_write(self.config.pin, signal))?;
         }
         self.is_open = false;
-        self.base.value = ComponentValue::Bool(false);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Bool(false));
         Ok(())
     }
 

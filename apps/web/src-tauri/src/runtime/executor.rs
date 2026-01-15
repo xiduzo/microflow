@@ -111,8 +111,22 @@ impl FlowExecutor {
         // Route to each target
         for (target_id, target_handle, _edge_id) in targets {
             log::info!("Routing to {}.{} with value {:?}", target_id, target_handle, event.value);
+            
+            // Check if target component aggregates inputs
+            let aggregates = self.components.get(&target_id)
+                .map(|c| c.aggregates_inputs())
+                .unwrap_or(false);
+            
+            let args = if aggregates {
+                let all_inputs = self.collect_input_values(&target_id, &target_handle);
+                log::info!("Collected {} input values for {}.{}: {:?}", all_inputs.len(), target_id, target_handle, all_inputs);
+                ComponentValue::Array(all_inputs)
+            } else {
+                event.value.clone()
+            };
+            
             if let Some(target) = self.components.get_mut(&target_id) {
-                match target.call_method(&target_handle, event.value.clone()) {
+                match target.call_method(&target_handle, args) {
                     Ok(_) => log::info!("✓ Successfully called {}.{}", target_id, target_handle),
                     Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target_id, target_handle, e),
                 }
@@ -120,6 +134,15 @@ impl FlowExecutor {
                 log::warn!("Target component {} not found!", target_id);
             }
         }
+    }
+    
+    /// Collect current values from all components connected to a target's specific handle
+    fn collect_input_values(&self, target_id: &str, target_handle: &str) -> Vec<ComponentValue> {
+        self.edges
+            .iter()
+            .filter(|e| e.target == target_id && e.target_handle == target_handle)
+            .filter_map(|e| self.components.get(&e.source).map(|c| c.value()))
+            .collect()
     }
 
     /// Get a component by ID

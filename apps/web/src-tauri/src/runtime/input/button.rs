@@ -65,7 +65,7 @@ impl Button {
     fn process_state(&mut self, pressed: bool) {
         if pressed != self.is_pressed {
             self.is_pressed = pressed;
-            self.base.value = ComponentValue::Bool(pressed);
+            self.base.set_value(ComponentValue::Bool(pressed));
             if pressed {
                 self.press_start = Some(Instant::now());
                 self.hold_emitted = false;
@@ -75,7 +75,6 @@ impl Button {
                 self.hold_emitted = false;
                 self.base.emit("inactive");
             }
-            self.base.emit("change");
         } else if pressed && !self.hold_emitted {
             if let Some(start) = self.press_start {
                 if start.elapsed() >= Duration::from_millis(self.config.holdtime) {

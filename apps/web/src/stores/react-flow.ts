@@ -35,37 +35,207 @@ const uid = () => Math.random().toString(36).substring(2, 9);
 // Initial nodes for demo
 const initialNodes: Node[] = [
   {
-  "data": {
-    "instance": "Sensor",
-    "pin": 17,
-    "type": "analog",
-    "freq": 25,
-    "threshold": 1,
-    "group": "hardware",
-    "tags": [
-      "input",
-      "analog"
-    ],
-    "label": "Analog Sensor",
-    "icon": {},
-    "description": "Measure values that change smoothly, like temperature, pressure, or how bright something is"
+    data: {
+      instance: "Button",
+      pin: 3,
+      isPullup: false,
+      isPulldown: false,
+      holdtime: 500,
+      invert: false,
+      group: "hardware",
+      tags: ["input", "digital"],
+      icon: {},
+      label: "Button",
+      description: "Detect when a physical button is pressed or released",
+    },
+    id: "j2n0v160b89",
+    type: "Button",
+    position: {
+      x: 1379.7871817978753,
+      y: 1463.2084283072786,
+    },
+    measured: {
+      width: 320,
+      height: 219,
+    },
+    selected: false,
   },
-  "id": "del9xeakh1f",
-  "type": "Sensor",
-  "position": {
-    "x": 1320.3683783790718,
-    "y": 1477.9477445465948
+  {
+    data: {
+      instance: "Sensor",
+      pin: "A0",
+      type: "analog",
+      freq: 25,
+      threshold: 1,
+      group: "hardware",
+      tags: ["input", "analog"],
+      label: "Potentiometer",
+      icon: {},
+      description:
+        "Read values from a knob or slider that you can turn or move to control something",
+      subType: "potentiometer",
+    },
+    id: "azrp0gp0pxr",
+    type: "Potentiometer",
+    position: {
+      x: 1397.5649595756531,
+      y: 1747.6528727517232,
+    },
+    measured: {
+      width: 320,
+      height: 219,
+    },
+    selected: false,
   },
-  "measured": {
-    "width": 320,
-    "height": 219
+  {
+    data: {
+      instance: "Compare",
+      validator: "number",
+      subValidator: "greater than",
+      group: "flow",
+      tags: ["control"],
+      label: "Compare",
+      icon: {},
+      description:
+        "Check if a value meets certain conditions and send different signals based on the result",
+      range: {
+        min: 100,
+        max: 500,
+      },
+      number: 500,
+      text: "",
+    },
+    id: "gjqqsbklke5",
+    type: "Compare",
+    position: {
+      x: 1838.9058695528627,
+      y: 1749.3621725017745,
+    },
+    measured: {
+      width: 320,
+      height: 200,
+    },
+    selected: false,
   },
-  "selected": true
-}
+  {
+    data: {
+      instance: "Compare",
+      validator: "boolean",
+      subValidator: "true",
+      group: "flow",
+      tags: ["control"],
+      label: "Compare",
+      icon: {},
+      description:
+        "Check if a value meets certain conditions and send different signals based on the result",
+      range: {
+        min: 100,
+        max: 500,
+      },
+      number: 0,
+      text: "",
+    },
+    id: "8okga75ybr",
+    type: "Compare",
+    position: {
+      x: 1826.9407713024998,
+      y: 1433.1417187421812,
+    },
+    measured: {
+      width: 320,
+      height: 200,
+    },
+    selected: false,
+  },
+  {
+    data: {
+      instance: "Gate",
+      gate: "and",
+      group: "flow",
+      tags: ["control"],
+      label: "Gate",
+      icon: {},
+      description:
+        "Combine multiple signals together using simple rules to make decisions",
+    },
+    id: "i5kqyws2uvq",
+    type: "Gate",
+    position: {
+      x: 2405.119717988925,
+      y: 1590.0599857288219,
+    },
+    selected: false,
+    measured: {
+      width: 320,
+      height: 200,
+    },
+    dragging: false,
+  },
+  {
+    data: {
+      instance: "Led",
+      pin: 13,
+      group: "hardware",
+      tags: ["output", "analog", "digital"],
+      label: "LED",
+      icon: {},
+      description: "Turn a light on or off, or control its brightness",
+    },
+    id: "hol0j6jfebo",
+    type: "Led",
+    position: {
+      x: 2849.018035647681,
+      y: 1590.6355838306438,
+    },
+    measured: {
+      width: 320,
+      height: 219,
+    },
+    selected: false,
+  },
 ];
 
 const initialEdges: Edge[] = [
-
+  {
+    source: "8okga75ybr",
+    sourceHandle: "change",
+    target: "i5kqyws2uvq",
+    targetHandle: "check",
+    id: "7da0dov",
+    type: "animated",
+  },
+  {
+    source: "gjqqsbklke5",
+    sourceHandle: "change",
+    target: "i5kqyws2uvq",
+    targetHandle: "check",
+    id: "8qfghdk",
+    type: "animated",
+  },
+  {
+    source: "azrp0gp0pxr",
+    sourceHandle: "change",
+    target: "gjqqsbklke5",
+    targetHandle: "check",
+    id: "x67ks1q",
+    type: "animated",
+  },
+  {
+    source: "j2n0v160b89",
+    sourceHandle: "change",
+    target: "8okga75ybr",
+    targetHandle: "check",
+    id: "jgk6tup",
+    type: "animated",
+  },
+  {
+    source: "i5kqyws2uvq",
+    sourceHandle: "change",
+    target: "hol0j6jfebo",
+    targetHandle: "toggle",
+    id: "l0xiful",
+    type: "animated",
+  },
 ];
 
 export const useReactFlowStore = create<ReactFlowState>()((set, get) => {

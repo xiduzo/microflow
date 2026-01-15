@@ -32,9 +32,11 @@ import { Led } from "./led/led";
 import { Llm } from "./llm/llm";
 import type { NodeTypes } from "@xyflow/react";
 import { Compare } from "./compare/compare";
+import { Calculate } from "./calculate/calculate";
 
 export const NODE_TYPES: NodeTypes = {
   Button: Button,
+  Calculate: Calculate,
   Compare: Compare,
   Constant: Constant,
   Counter: Counter,

@@ -78,8 +78,7 @@ impl Rgb {
                 conn.analog_write(self.config.pins.blue, b as u16)
             })?;
         }
-        self.base.value = self.color.clone().into();
-        self.base.emit("change");
+        self.base.set_value(self.color.clone().into());
         Ok(())
     }
 

@@ -87,7 +87,7 @@ impl Trigger {
 
         let was_triggered = self.base.value.as_bool().unwrap_or(false);
         if was_triggered {
-            self.base.value = ComponentValue::Bool(correct_direction);
+            self.base.set_value(ComponentValue::Bool(correct_direction));
             return false;
         }
 
@@ -98,7 +98,7 @@ impl Trigger {
         };
 
         let triggered = correct_direction && reached_threshold;
-        self.base.value = ComponentValue::Bool(triggered);
+        self.base.set_value(ComponentValue::Bool(triggered));
         triggered
     }
 

@@ -25,7 +25,8 @@ export function RangeMap(props: Props) {
 }
 
 function Value() {
-  const [from, to] = useNodeValue<Value>([0, 0]);
+  const rawValue = useNodeValue<Value | number>([0, 0]);
+  const [from, to] = Array.isArray(rawValue) ? rawValue : [rawValue, rawValue];
   const data = useNodeData<Data>();
 
   return (

@@ -50,11 +50,18 @@ impl Delay {
         let sender = self.base.event_sender.clone();
         let source = self.base.id.clone();
 
+        // Store value without emitting change (delay component stores input, emits later)
         self.base.value = value.clone();
 
         let handle = tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
             if let Some(tx) = sender {
+                let _ = tx.send(ComponentEvent {
+                    source: source.clone(),
+                    source_handle: "change".to_string(),
+                    value: value.clone(),
+                    edge_id: None,
+                });
                 let _ = tx.send(ComponentEvent {
                     source,
                     source_handle: "bang".to_string(),

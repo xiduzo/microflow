@@ -42,8 +42,7 @@ impl Led {
             board.with_board(|conn| conn.digital_write(self.config.pin, true))?;
         }
         self.is_on = true;
-        self.base.value = ComponentValue::Number(1.0);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Number(1.0));
         Ok(())
     }
 
@@ -53,8 +52,7 @@ impl Led {
             board.with_board(|conn| conn.digital_write(self.config.pin, false))?;
         }
         self.is_on = false;
-        self.base.value = ComponentValue::Number(0.0);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Number(0.0));
         Ok(())
     }
 
@@ -72,8 +70,7 @@ impl Led {
         }
         self.brightness_value = value;
         self.is_on = value > 0;
-        self.base.value = ComponentValue::Number(value as f64 / 255.0);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Number(value as f64 / 255.0));
         Ok(())
     }
 

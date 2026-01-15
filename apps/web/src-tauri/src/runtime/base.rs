@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 /// Value that a component can hold
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ComponentValue {
     Bool(bool),
@@ -51,12 +51,25 @@ impl From<u8> for ComponentValue {
 }
 
 impl ComponentValue {
+    /// Convert any ComponentValue to a boolean (truthy/falsy check)
+    /// - Bool: direct value
+    /// - Number: true if non-zero
+    /// - String: true if non-empty
+    /// - Rgba: always true (color exists)
+    /// - Array: true if non-empty
     pub fn as_bool(&self) -> Option<bool> {
-        match self {
-            ComponentValue::Bool(v) => Some(*v),
-            ComponentValue::Number(v) => Some(*v != 0.0),
-            _ => None,
-        }
+        Some(match self {
+            ComponentValue::Bool(v) => *v,
+            ComponentValue::Number(v) => *v != 0.0,
+            ComponentValue::String(v) => !v.is_empty(),
+            ComponentValue::Rgba { .. } => true,
+            ComponentValue::Array(v) => !v.is_empty(),
+        })
+    }
+
+    /// Check if the value is truthy (convenience method that never returns None)
+    pub fn is_truthy(&self) -> bool {
+        self.as_bool().unwrap_or(false)
     }
 
     pub fn as_number(&self) -> Option<f64> {
@@ -151,6 +164,10 @@ pub trait Component: Send + Sync {
     
     /// Set the event sender for emitting events
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>);
+    
+    /// Whether this component aggregates multiple inputs on a handle
+    /// When true, the executor will collect all input values and pass as array
+    fn aggregates_inputs(&self) -> bool { false }
     
     /// Whether this component requires hardware (board connection)
     fn requires_hardware(&self) -> bool { false }
@@ -352,17 +369,20 @@ impl ComponentBase {
         Self { id, value: initial_value, event_sender: None }
     }
 
-    pub fn emit(&self, handle: &str) {
-        if let Some(sender) = &self.event_sender {
-            let _ = sender.send(ComponentEvent {
-                source: self.id.clone(),
-                source_handle: handle.to_string(),
-                value: self.value.clone(),
-                edge_id: None,
-            });
+    /// Set the value and automatically emit a "change" event if the value changed
+    pub fn set_value(&mut self, value: ComponentValue) {
+        if self.value != value {
+            self.value = value;
+            self.emit("change");
         }
     }
 
+    /// Emit an event with the current value
+    pub fn emit(&self, handle: &str) {
+        self.emit_with_value(handle, self.value.clone());
+    }
+
+    /// Emit an event with a custom value
     pub fn emit_with_value(&self, handle: &str, value: ComponentValue) {
         if let Some(sender) = &self.event_sender {
             let _ = sender.send(ComponentEvent {

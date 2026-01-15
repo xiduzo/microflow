@@ -69,7 +69,7 @@ impl Compare {
 
     pub fn check(&mut self, input: ComponentValue) {
         let result = self.validate(&input);
-        self.base.value = ComponentValue::Bool(result);
+        self.base.set_value(ComponentValue::Bool(result));
         self.base.emit(if result { "true" } else { "false" });
     }
 

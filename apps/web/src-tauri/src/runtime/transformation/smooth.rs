@@ -60,15 +60,13 @@ impl Smooth {
             SmoothType::MovingAverage => self.moving_average(value_num),
             SmoothType::Smooth => self.smooth(value_num),
         }
-
-        self.base.emit("change");
     }
 
     fn smooth(&mut self, value: f64) {
         let current = self.base.value.as_number().unwrap_or(0.0);
         let attenuation = self.config.attenuation;
         let result = attenuation * value + (1.0 - attenuation) * current;
-        self.base.value = ComponentValue::Number(result);
+        self.base.set_value(ComponentValue::Number(result));
     }
 
     fn moving_average(&mut self, value: f64) {
@@ -80,7 +78,7 @@ impl Smooth {
 
         let sum: f64 = self.history.iter().sum();
         let avg = sum / self.history.len() as f64;
-        self.base.value = ComponentValue::Number(avg);
+        self.base.set_value(ComponentValue::Number(avg));
     }
 }
 

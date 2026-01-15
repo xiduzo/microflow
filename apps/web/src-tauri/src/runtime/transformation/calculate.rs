@@ -64,8 +64,7 @@ impl Calculate {
             CalculateFunction::Round => inputs[0].round(),
         };
 
-        self.base.value = ComponentValue::Number(result);
-        self.base.emit("change");
+        self.base.set_value(ComponentValue::Number(result));
     }
 }
 
@@ -74,12 +73,13 @@ impl Component for Calculate {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Calculate" }
+    fn aggregates_inputs(&self) -> bool { true }
 
     fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "check" => {
+            "input" | "check" => {
                 let inputs = match args {
                     ComponentValue::Array(arr) => arr.iter().filter_map(|v| v.as_number()).collect(),
                     ComponentValue::Number(n) => vec![n],
