@@ -57,7 +57,7 @@ Mqtt.defaultProps = {
     group: "external",
     tags: ["input", "output"],
     label: "MQTT",
-    icon: RadioTowerIcon,
+    icon: "RadioTowerIcon",
     description: "Send and receive messages over the network using MQTT protocol",
   } satisfies Props["data"],
 };

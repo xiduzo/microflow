@@ -67,7 +67,7 @@ Motion.defaultProps = {
     ...dataSchema.parse({}),
     group: "hardware",
     tags: ["input", "digital"],
-    icon: EyeIcon,
+    icon: "EyeIcon",
     label: "Motion",
     description:
       "Detect when something moves nearby, like a person walking past",

@@ -72,7 +72,7 @@ Trigger.defaultProps = {
     group: "flow",
     tags: ["event", "control"],
     label: "Trigger",
-    icon: TrendingUpIcon,
+    icon: "TrendingUpIcon",
     description:
       "Send a signal when a value changes by a certain amount, like detecting a sudden change",
   } satisfies Props["data"],

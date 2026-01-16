@@ -32,13 +32,19 @@ import { OctagonAlertIcon, CableIcon, type LucideIcon } from "lucide-react";
 import { useFlowStore } from "@/stores/flow-store";
 import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
 
+  console.log(data.icon);
+
   return (
     <CardHeader>
-      <CardTitle>{data.label}</CardTitle>
+      <CardTitle className="flex items-center gap-2">
+        <Icon icon={data.icon} />
+        {data.label}
+      </CardTitle>
       <NodeDescription />
       {props.error && (
         <CardAction>
@@ -298,7 +304,7 @@ export type BaseNode<Data extends Record<string, unknown> = {}> = NodeProps<
     Data & {
       group: NodeGroup;
       tags: NodeTag[];
-      icon: LucideIcon;
+      icon: IconName;
       subType?: string;
       label: string;
       description: string;

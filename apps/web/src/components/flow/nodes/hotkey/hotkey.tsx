@@ -219,7 +219,7 @@ Hotkey.defaultProps = {
     group: "flow",
     tags: ["event", "input"],
     label: "Hotkey",
-    icon: KeyboardIcon,
+    icon: "KeyboardIcon",
     description: "Detect when a keyboard shortcut is pressed or released",
   } satisfies Props["data"],
 };

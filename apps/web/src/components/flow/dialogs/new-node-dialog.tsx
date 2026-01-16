@@ -39,6 +39,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Icon } from "@/components/ui/icon";
 
 const NODE_SIZE = {
   width: 208,
@@ -202,7 +203,6 @@ export function NewNodeDialog() {
           <section key={group}>
             <CommandGroup heading={group}>
               {nodes.map(({ node, type }) => {
-                const Icon = node.data.icon;
                 return (
                   <CommandItem
                     value={`${node.data.label}|${node.data.description}`}
@@ -214,8 +214,8 @@ export function NewNodeDialog() {
                     <Avatar className="rounded-xl">
                       <AvatarFallback className="rounded-xl">
                         <Icon
+                          icon={node.data.icon}
                           className="group-data-[selected=true]:scale-110 transition-all duration-100"
-                          size={16}
                         />
                       </AvatarFallback>
                     </Avatar>

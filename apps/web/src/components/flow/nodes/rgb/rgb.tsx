@@ -110,7 +110,7 @@ Rgb.defaultProps = {
     group: "hardware",
     tags: ["output", "analog"],
     label: "RGB",
-    icon: PaletteIcon,
+    icon: "PaletteIcon",
     description:
       "Control a colored light that can display any color by mixing red, green, and blue",
   } satisfies Props["data"],

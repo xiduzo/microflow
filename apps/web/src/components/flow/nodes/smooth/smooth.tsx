@@ -69,7 +69,7 @@ Smooth.defaultProps = {
     group: "flow",
     tags: ["transformation"],
     label: "Smooth",
-    icon: EraserIcon,
+    icon: "EraserIcon",
     description: "Make jumpy or noisy sensor readings smoother and more stable",
   } satisfies Props["data"],
 };

@@ -9,6 +9,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -82,6 +83,9 @@ export function NavMain(props: Props) {
                             return (
                               <SidebarMenuSubItem key={subItem.title}>
                                 <LinkOrAction item={subItem} />
+                                <SidebarMenuBadge className="text-muted-foreground">
+                                  {subItem.badge}
+                                </SidebarMenuBadge>
                               </SidebarMenuSubItem>
                             );
                           })}
@@ -94,6 +98,9 @@ export function NavMain(props: Props) {
               return (
                 <SidebarMenuItem key={route.title}>
                   <LinkOrAction item={route} />
+                  <SidebarMenuBadge className="text-muted-foreground">
+                    {route.badge}
+                  </SidebarMenuBadge>
                 </SidebarMenuItem>
               );
             })}
@@ -123,6 +130,7 @@ function LinkOrAction({ item }: { item: Item }) {
 type BaseItem = {
   title: string;
   icon?: LucideIcon;
+  badge?: string;
 };
 
 type LinkItem = BaseItem & {

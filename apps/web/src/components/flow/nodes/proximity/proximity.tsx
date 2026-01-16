@@ -54,7 +54,7 @@ Proximity.defaultProps = {
     group: "hardware",
     tags: ["input", "analog"],
     label: "Proximity",
-    icon: TargetIcon,
+    icon: "TargetIcon",
     description: "Measure how far away an object is from the sensor",
   } satisfies Props["data"],
 };

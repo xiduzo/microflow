@@ -92,7 +92,7 @@ Button.defaultProps = {
     ...dataSchema.parse({}),
     group: "hardware",
     tags: ["input", "digital"],
-    icon: PointerIcon,
+    icon: "PointerIcon",
     label: "Button",
     description: "Detect when a physical button is pressed or released",
   } satisfies Props["data"],

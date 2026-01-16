@@ -148,7 +148,7 @@ Piezo.defaultProps = {
     group: "hardware",
     tags: ["output", "analog", "digital"],
     label: "Piezo",
-    icon: BellIcon,
+    icon: "BellIcon",
     description:
       "Make sounds, play tones, or create melodies using a buzzer or speaker",
   } satisfies Props["data"],

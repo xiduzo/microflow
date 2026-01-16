@@ -82,7 +82,7 @@ Oscillator.defaultProps = {
     group: "flow",
     tags: ["generator", "event"],
     label: "Oscillator",
-    icon: AudioWaveformIcon,
+    icon: "AudioWaveformIcon",
     description:
       "Create repeating patterns of numbers that go up and down, like waves",
   } satisfies Props["data"],

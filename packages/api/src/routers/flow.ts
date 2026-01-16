@@ -1,10 +1,12 @@
 import { z } from "zod";
-import { eq, or, and } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@microflow/db";
-import { flow, flowCollaborator } from "@microflow/db/schema";
+import { flow, flowCollaborator } from "@microflow/db/schema/flow";
 import { protectedProcedure, router } from "../index";
+// import { decodeYDoc, getFlowData } from "@microflow/collab";
 
-const uid = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+const uid = () =>
+  Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
 export const flowRouter = router({
   /** List all flows the user owns or collaborates on */
@@ -31,9 +33,9 @@ export const flowRouter = router({
           columns: {
             id: true,
             name: true,
-            description: true,
             createdAt: true,
             updatedAt: true,
+            ydoc: true,
           },
         },
       },

@@ -57,7 +57,7 @@ Delay.defaultProps = {
     group: "flow",
     tags: ["control", "event"],
     label: "Delay",
-    icon: SnailIcon,
+    icon: "SnailIcon",
     description:
       "Wait for a specified amount of time before sending a signal forward",
   } satisfies Props["data"],

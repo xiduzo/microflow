@@ -3,9 +3,11 @@ import {
   Bell,
   ChevronsUpDown,
   CreditCard,
+  LogIn,
   LogOut,
   Sparkles,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -24,9 +26,42 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-export function NavUser() {
-  const user = { avatar: "", name: "sander", email: "mail@sander.dev" };
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
+} | null;
+
+type Props = {
+  user: User;
+};
+
+export function NavUser({ user }: Props) {
   const { isMobile } = useSidebar();
+
+  if (!user) {
+    return (
+      <SidebarMenu className="w-full">
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            size="lg"
+            render={(props) => <Link to="/login" {...props} />}
+          >
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              <LogIn className="size-4" />
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">Sign in</span>
+              <span className="truncate text-xs text-muted-foreground">
+                Access your account
+              </span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
 
   return (
     <SidebarMenu className="w-full">
@@ -39,8 +74,10 @@ export function NavUser() {
               render={(props) => <div {...props} />}
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-full">CN</AvatarFallback>
+                <AvatarImage src={user.image ?? ""} alt={user.name} />
+                <AvatarFallback className="rounded-full">
+                  {user.name?.slice(0, 2).toUpperCase() ?? "U"}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -59,8 +96,10 @@ export function NavUser() {
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className="rounded-full">CN</AvatarFallback>
+                    <AvatarImage src={user.image ?? ""} alt={user.name} />
+                    <AvatarFallback className="rounded-full">
+                      {user.name?.slice(0, 2).toUpperCase() ?? "U"}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{user.name}</span>

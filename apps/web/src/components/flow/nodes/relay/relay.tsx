@@ -56,7 +56,7 @@ Relay.defaultProps = {
     ...dataSchema.parse({}),
     group: "hardware",
     label: "Relay",
-    icon: ZapIcon,
+    icon: "ZapIcon",
     tags: ["output", "analog", "digital"],
     description:
       "Safely turn on or off devices that need more power, like lights, motors, or appliances",

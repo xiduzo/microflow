@@ -48,7 +48,7 @@ Note.defaultProps = {
     group: "flow",
     tags: ["information"],
     label: "Note",
-    icon: NotebookIcon,
+    icon: "NotebookIcon",
     note: "New note",
     extraInfo: "",
     description:

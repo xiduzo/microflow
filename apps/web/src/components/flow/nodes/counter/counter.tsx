@@ -43,7 +43,7 @@ Counter.defaultProps = {
     group: "flow",
     tags: ["control", "information"],
     label: "Counter",
-    icon: Tally5Icon,
+    icon: "Tally5Icon",
     description:
       "Keep track of a number that can be increased, decreased, set, or reset",
   } satisfies Props["data"],

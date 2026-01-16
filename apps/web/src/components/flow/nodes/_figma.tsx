@@ -265,7 +265,7 @@ Figma.defaultProps = {
 		group: 'external',
 		tags: ['output', 'input'],
 		label: 'Figma',
-		icon: 'FigmaIcon',
+		icon: 'Figma',
 		description:
 			'Connect your flow to Figma design files to control colors, numbers, and text from your device',
 	} satisfies Props['data'],

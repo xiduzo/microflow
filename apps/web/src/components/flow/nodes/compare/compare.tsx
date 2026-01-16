@@ -132,7 +132,7 @@ Compare.defaultProps = {
     group: "flow",
     tags: ["control"],
     label: "Compare",
-    icon: ShieldCheckIcon,
+    icon: "ShieldCheckIcon",
     description:
       "Check if a value meets certain conditions and send different signals based on the result",
   } satisfies Props["data"],

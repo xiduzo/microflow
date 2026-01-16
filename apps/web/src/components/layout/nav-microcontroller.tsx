@@ -1,4 +1,5 @@
 import {
+  ExternalLinkIcon,
   FileCodeIcon,
   LoaderPinwheelIcon,
   MicrochipIcon,
@@ -19,7 +20,7 @@ import { useBoardPort, useBoardState } from "@/stores/board";
 import { useMemo } from "react";
 
 export function NavMicrocontroller() {
-  if (!isDesktop()) return null;
+  if (!isDesktop()) return null
 
   const boardState = useBoardState();
   const port = useBoardPort();

@@ -68,7 +68,7 @@ Switch.defaultProps = {
   data: {
     ...dataSchema.parse({ type: "NC" }),
     group: "hardware",
-    icon: ToggleLeftIcon,
+    icon: "ToggleLeftIcon",
     label: "Switch",
     tags: ["input", "digital"],
     description: "Detect when a physical switch is turned on or off",

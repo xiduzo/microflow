@@ -152,7 +152,7 @@ Sensor.defaultProps = {
     group: "hardware",
     tags: ["input", "analog"],
     label: "Analog Sensor",
-    icon: GaugeIcon,
+    icon: "GaugeIcon",
     description:
       "Measure values that change smoothly, like temperature, pressure, or how bright something is",
   } satisfies Props["data"],
@@ -165,7 +165,7 @@ DigitalSensor.defaultProps = {
     label: "Digital Sensor",
     tags: ["input", "digital"],
     type: "digital",
-    icon: PowerIcon,
+    icon: "PowerIcon",
     description:
       "Detect when something is on or off, like a switch or motion detector",
   } satisfies Props["data"],
@@ -178,7 +178,7 @@ Tilt.defaultProps = {
     label: "Tilt",
     tags: ["input", "analog", "digital"],
     subType: "tilt",
-    icon: MoveUpIcon,
+    icon: "MoveUpIcon",
     threshold: 10,
     description:
       "Detect when an object is tilted or rotated from its normal position",
@@ -192,7 +192,7 @@ Ldr.defaultProps = {
     label: "Light Dependent Resistor (LDR)",
     tags: ["input", "analog"],
     subType: "ldr",
-    icon: SunIcon,
+    icon: "SunIcon",
     description: "Measure how bright or dark the surrounding environment is",
   } satisfies Props["data"],
 };
@@ -204,7 +204,7 @@ Potentiometer.defaultProps = {
     label: "Potentiometer",
     tags: ["input", "analog"],
     subType: "potentiometer",
-    icon: CircleArrowOutUpLeftIcon,
+    icon: "CircleArrowOutUpLeftIcon",
     description:
       "Read values from a knob or slider that you can turn or move to control something",
   } satisfies Props["data"],
@@ -217,7 +217,7 @@ Force.defaultProps = {
     label: "Force",
     tags: ["input", "analog"],
     subType: "force",
-    icon: BicepsFlexedIcon,
+    icon: "BicepsFlexedIcon",
     description:
       "Measure how much pressure or force is being applied to a surface",
   } satisfies Props["data"],
@@ -230,7 +230,7 @@ HallEffect.defaultProps = {
     label: "Hall Effect",
     tags: ["input", "analog"],
     subType: "hall-effect",
-    icon: MagnetIcon,
+    icon: "MagnetIcon",
     description:
       "Detect when a magnet or magnetic object is nearby and how strong it is",
   } satisfies Props["data"],

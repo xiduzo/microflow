@@ -74,7 +74,7 @@ RangeMap.defaultProps = {
     ...dataSchema.parse({}),
     group: "flow",
     tags: ["transformation"],
-    icon: SeparatorVerticalIcon,
+    icon: "SeparatorVerticalIcon",
     label: "Map",
     description:
       "Convert a number from one range to another, like turning a sensor reading into a brightness value",

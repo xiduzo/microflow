@@ -1,5 +1,5 @@
-import * as React from "react";
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { ChevronsUpDown, LogIn, Plus } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import {
   DropdownMenu,
@@ -18,9 +18,16 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+export const LOCAL_FLOW: Flow = {
+  id: "local",
+  name: "Local Flow",
+  description: "Stored on this device",
+};
+
 export function FlowSwitcher(props: Props) {
   const { isMobile } = useSidebar();
-  //   const [activeTeam, setActiveTeam] = React.useState(teams[0]);
+  const isSignedIn = !!props.user;
+
   const activeFlow = props.flows.find(({ id }) => id === props.activeFlowId);
 
   if (!activeFlow) return null;
@@ -52,9 +59,9 @@ export function FlowSwitcher(props: Props) {
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{activeFlow.name}</span>
-              {activeFlow.sharedBy && (
+              {activeFlow.description && (
                 <span className="truncate text-xs text-muted-foreground">
-                  Shared by {activeFlow.sharedBy}
+                  {activeFlow.description}
                 </span>
               )}
             </div>
@@ -73,7 +80,6 @@ export function FlowSwitcher(props: Props) {
               {props.flows.map((flow, index) => (
                 <DropdownMenuItem
                   key={flow.name}
-                  // onClick={() => setActiveTeam(team)}
                   className="gap-2 p-2"
                 >
                   <div
@@ -90,12 +96,23 @@ export function FlowSwitcher(props: Props) {
               ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">Add flow</div>
-            </DropdownMenuItem>
+            {isSignedIn ? (
+              <DropdownMenuItem className="gap-2 p-2">
+                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                  <Plus className="size-4" />
+                </div>
+                <div className="text-muted-foreground font-medium">Add flow</div>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem className="gap-2 p-2" render={<Link to="/login" />}>
+                <div className="flex size-6 items-center justify-center rounded-md bg-sidebar-secondary">
+                  <LogIn className="size-3" />
+                </div>
+                <div className="text-muted-foreground font-medium">
+                  Sign in to add more flows
+                </div>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
@@ -107,10 +124,18 @@ type Flow = {
   id: string;
   name: string;
   color?: string;
-  sharedBy?: string;
+  description?: string;
 };
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  image?: string | null;
+} | null;
 
 type Props = {
   flows: Flow[];
   activeFlowId?: string;
+  user: User;
 };

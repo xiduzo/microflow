@@ -4,7 +4,7 @@ import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import { db } from "@microflow/db";
-import { flow } from "@microflow/db/schema";
+import { flow } from "@microflow/db/schema/flow";
 import { eq } from "drizzle-orm";
 import { createEmptyFlowDoc, encodeYDoc, decodeYDoc } from "./utils";
 
@@ -83,7 +83,11 @@ export class YjsServer {
   /**
    * Handle incoming message from a connection
    */
-  handleMessage(flowId: string, connection: Connection, data: Uint8Array): void {
+  handleMessage(
+    flowId: string,
+    connection: Connection,
+    data: Uint8Array
+  ): void {
     const room = this.rooms.get(flowId);
     if (!room) return;
 
@@ -192,20 +196,31 @@ export class YjsServer {
     const awareness = new awarenessProtocol.Awareness(doc);
 
     // Broadcast awareness changes
-    awareness.on("update", ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }) => {
-      const changedClients = added.concat(updated, removed);
-      const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
-      encoding.writeVarUint8Array(
-        encoder,
-        awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients)
-      );
-      const message = encoding.toUint8Array(encoder);
+    awareness.on(
+      "update",
+      ({
+        added,
+        updated,
+        removed,
+      }: {
+        added: number[];
+        updated: number[];
+        removed: number[];
+      }) => {
+        const changedClients = added.concat(updated, removed);
+        const encoder = encoding.createEncoder();
+        encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+        encoding.writeVarUint8Array(
+          encoder,
+          awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients)
+        );
+        const message = encoding.toUint8Array(encoder);
 
-      for (const [conn] of room!.connections) {
-        conn.send(message);
+        for (const [conn] of room!.connections) {
+          conn.send(message);
+        }
       }
-    });
+    );
 
     room = {
       doc,

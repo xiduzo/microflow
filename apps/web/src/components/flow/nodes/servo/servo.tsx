@@ -130,7 +130,7 @@ Servo.defaultProps = {
     group: "hardware",
     tags: ["output", "analog"],
     label: "Servo",
-    icon: RotateCwIcon,
+    icon: "RotateCwIcon",
     description:
       "Control a motor that can move to specific positions or rotate continuously",
   } satisfies Props["data"],

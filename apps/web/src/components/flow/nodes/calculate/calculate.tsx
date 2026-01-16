@@ -95,7 +95,7 @@ Calculate.defaultProps = {
   data: {
     ...dataSchema.parse({}),
     group: "flow",
-    icon: CalculatorIcon,
+    icon: "CalculatorIcon",
     tags: ["transformation"],
     label: "Calculate",
     description:

@@ -7,7 +7,6 @@ import {
   type BaseNode,
 } from "../_base";
 import { dataSchema, type Data, type Value } from "./gate.schema";
-import { CircuitBoardIcon } from "lucide-react";
 
 export function Gate(props: Props) {
   return (
@@ -56,7 +55,7 @@ Gate.defaultProps = {
     group: "flow",
     tags: ["control"],
     label: "Gate",
-    icon: CircuitBoardIcon,
+    icon: "GitPullRequestClosedIcon",
     description:
       "Combine multiple signals together using simple rules to make decisions",
   } satisfies Props["data"],

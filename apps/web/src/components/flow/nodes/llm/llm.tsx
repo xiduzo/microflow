@@ -161,7 +161,7 @@ Llm.defaultProps = {
     group: "external",
     tags: ["output", "transformation"],
     label: "LLM",
-    icon: BotMessageSquareIcon,
+    icon: "BotMessageSquareIcon",
     description: "Use AI to generate text responses based on what you ask it",
   } satisfies Props["data"],
 };

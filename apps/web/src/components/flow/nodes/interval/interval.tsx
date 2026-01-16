@@ -61,7 +61,7 @@ Interval.defaultProps = {
     group: "flow",
     tags: ["event", "generator"],
     label: "Interval",
-    icon: TimerIcon,
+    icon: "TimerIcon",
     description:
       "Automatically send a signal at regular time intervals, like a timer",
   } satisfies Props["data"],

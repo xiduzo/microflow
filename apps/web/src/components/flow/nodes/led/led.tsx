@@ -107,7 +107,7 @@ Led.defaultProps = {
     group: "hardware",
     tags: ["output", "analog", "digital"],
     label: "LED",
-    icon: LightbulbIcon,
+    icon: "LightbulbIcon",
     description: "Turn a light on or off, or control its brightness",
   } satisfies Props["data"],
 };
@@ -119,7 +119,7 @@ Vibration.defaultProps = {
     label: "Vibration",
     tags: ["output", "analog", "digital"],
     subType: "vibration",
-    icon: VibrateIcon,
+    icon: "VibrateIcon",
     description: "Make a device vibrate with different intensities",
   } satisfies Props["data"],
 };

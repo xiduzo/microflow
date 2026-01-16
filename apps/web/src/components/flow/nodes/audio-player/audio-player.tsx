@@ -92,7 +92,7 @@ AudioPlayer.defaultProps = {
     group: "flow",
     tags: ["output", "event"],
     label: "Audio Player",
-    icon: MusicIcon,
+    icon: "MusicIcon",
     description: "Select and play audio files from your device",
   } satisfies Props["data"],
 };

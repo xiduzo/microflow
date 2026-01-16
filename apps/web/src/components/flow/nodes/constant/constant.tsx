@@ -46,7 +46,7 @@ Constant.defaultProps = {
     group: "flow",
     tags: ["generator"],
     label: "Constant",
-    icon: HashIcon,
+    icon: "HashIcon",
     description:
       "Provide a fixed number that stays the same and can be used by other nodes",
   } satisfies Props["data"],

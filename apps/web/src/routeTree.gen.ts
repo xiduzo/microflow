@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FlowRouteImport } from './routes/flow'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CircuitRouteImport } from './routes/circuit'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -31,11 +30,6 @@ const FlowRoute = FlowRouteImport.update({
   path: '/flow',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CircuitRoute = CircuitRouteImport.update({
   id: '/circuit',
   path: '/circuit',
@@ -50,7 +44,6 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/circuit': typeof CircuitRoute
-  '/dashboard': typeof DashboardRoute
   '/flow': typeof FlowRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -58,7 +51,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/circuit': typeof CircuitRoute
-  '/dashboard': typeof DashboardRoute
   '/flow': typeof FlowRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
@@ -67,30 +59,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/circuit': typeof CircuitRoute
-  '/dashboard': typeof DashboardRoute
   '/flow': typeof FlowRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/circuit' | '/dashboard' | '/flow' | '/login' | '/success'
+  fullPaths: '/' | '/circuit' | '/flow' | '/login' | '/success'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/circuit' | '/dashboard' | '/flow' | '/login' | '/success'
-  id:
-    | '__root__'
-    | '/'
-    | '/circuit'
-    | '/dashboard'
-    | '/flow'
-    | '/login'
-    | '/success'
+  to: '/' | '/circuit' | '/flow' | '/login' | '/success'
+  id: '__root__' | '/' | '/circuit' | '/flow' | '/login' | '/success'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CircuitRoute: typeof CircuitRoute
-  DashboardRoute: typeof DashboardRoute
   FlowRoute: typeof FlowRoute
   LoginRoute: typeof LoginRoute
   SuccessRoute: typeof SuccessRoute
@@ -119,13 +102,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FlowRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/circuit': {
       id: '/circuit'
       path: '/circuit'
@@ -146,7 +122,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CircuitRoute: CircuitRoute,
-  DashboardRoute: DashboardRoute,
   FlowRoute: FlowRoute,
   LoginRoute: LoginRoute,
   SuccessRoute: SuccessRoute,

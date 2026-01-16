@@ -116,7 +116,7 @@ Monitor.defaultProps = {
     group: "flow",
     tags: ["information", "output"],
     label: "Monitor",
-    icon: MonitorIcon,
+    icon: "MonitorIcon",
     description:
       "Watch and visualize the values flowing through your circuit in real-time",
   } satisfies Props["data"],

@@ -254,7 +254,7 @@ Matrix.defaultProps = {
     group: "hardware",
     tags: ["output", "analog", "digital"],
     label: "LED Matrix",
-    icon: GridIcon,
+    icon: "GridIcon",
     description: "Display patterns, shapes, or images on a grid of LED lights",
   } satisfies Props["data"],
 };

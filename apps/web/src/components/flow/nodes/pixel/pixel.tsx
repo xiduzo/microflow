@@ -245,7 +245,7 @@ Pixel.defaultProps = {
     group: "hardware",
     tags: ["output", "analog"],
     label: "LED Strip",
-    icon: RainbowIcon,
+    icon: "RainbowIcon",
     description:
       "Control a strip of addressable RGB LEDs (WS2812, NeoPixel, etc.)",
   } satisfies Props["data"],
