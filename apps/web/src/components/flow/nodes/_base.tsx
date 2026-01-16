@@ -29,11 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
 import { OctagonAlertIcon, CableIcon, type LucideIcon } from "lucide-react";
-import {
-  useEdgesChange,
-  useNodesChange,
-  useUpdateFlow,
-} from "@/stores/react-flow";
+import { useFlowStore } from "@/stores/flow-store";
 import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
 
@@ -99,9 +95,9 @@ export const useNodeControls = <
   const { selected, id, data } = useNode();
   const isFirstRender = useRef(true);
   const { getNode } = useReactFlow();
-  const onNodesChange = useNodesChange();
+  const onNodesChange = useFlowStore((state) => state.onNodesChange);
   const updateNodeInternals = useUpdateNodeInternals();
-  const updateFlow = useUpdateFlow();
+  const updateFlow = useFlowStore((state) => state.updateFlow);
 
   const [controlsData, set] = useControls(
     () => ({ label: data.label, ...controls }),
@@ -201,7 +197,7 @@ export const useNodeControls = <
  */
 export function useDeleteHandles() {
   const id = useNodeId();
-  const onEdgesChange = useEdgesChange();
+  const onEdgesChange = useFlowStore((state) => state.onEdgesChange);
 
   const updateNodeInternals = useUpdateNodeInternals();
 

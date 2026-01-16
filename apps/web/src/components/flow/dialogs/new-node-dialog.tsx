@@ -2,7 +2,7 @@ import { type Node, useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { NODE_TYPES } from "../nodes/_TYPES";
-import { useNodesChange } from "@/stores/react-flow";
+import { useFlowStore } from "@/stores/flow-store";
 import { useNewNodeStore } from "@/stores/new-node";
 import type { BaseNode } from "../nodes/_base";
 import { uid } from "@/lib/uid";
@@ -50,7 +50,7 @@ export function NewNodeDialog() {
 
   const { open, setOpen, setNodeToAdd } = useNewNodeStore();
   const { flowToScreenPosition, getZoom } = useReactFlow();
-  const changeNodes = useNodesChange();
+  const addNode = useFlowStore((state) => state.addNode);
   const [filter, setFilter] = useState("");
   const commandListRef = useRef<HTMLDivElement>(null);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
@@ -83,7 +83,7 @@ export function NewNodeDialog() {
         position,
       };
 
-      changeNodes([{ item, type: "add" }]);
+      addNode(item);
       setNodeToAdd(item.id);
       setOpen(false);
     };
@@ -285,14 +285,15 @@ export function NewNodeDialog() {
 function useDraggableNewNode() {
   const { nodeToAdd, setNodeToAdd, setOpen } = useNewNodeStore();
   const { screenToFlowPosition, getZoom } = useReactFlow();
-  const changeNodes = useNodesChange();
+  const removeNode = useFlowStore((state) => state.removeNode);
+  const updateNode = useFlowStore((state) => state.updateNode);
 
   // Handle Escape/Backspace to cancel node placement
   useHotkeys(
     ["escape", "backspace"],
     (event) => {
       if (!nodeToAdd) return;
-      changeNodes([{ id: nodeToAdd, type: "remove" }]);
+      removeNode(nodeToAdd);
       setNodeToAdd(null);
     },
     {
@@ -301,14 +302,14 @@ function useDraggableNewNode() {
       preventDefault: true,
       scopes: ["flow"],
     },
-    [nodeToAdd, changeNodes, setNodeToAdd]
+    [nodeToAdd, removeNode, setNodeToAdd]
   );
 
   useHotkeys(
     "enter",
     () => {
       if (!nodeToAdd) return;
-      changeNodes([{ id: nodeToAdd, type: "select", selected: false }]);
+      updateNode(nodeToAdd, { selected: false });
       setNodeToAdd(null);
     },
     {
@@ -322,9 +323,9 @@ function useDraggableNewNode() {
   const addNode = useCallback(() => {
     if (!nodeToAdd) return;
     console.log("addNode", nodeToAdd);
-    changeNodes([{ id: nodeToAdd, type: "select", selected: false }]);
+    updateNode(nodeToAdd, { selected: false });
     setNodeToAdd(null);
-  }, [nodeToAdd, changeNodes, setNodeToAdd]);
+  }, [nodeToAdd, updateNode, setNodeToAdd]);
 
   // Handle mouse interactions for dragging and placing
   useEffect(() => {
@@ -333,16 +334,12 @@ function useDraggableNewNode() {
     function handleMouseMove(event: MouseEvent) {
       if (!nodeToAdd) return;
       const zoom = getZoom();
-      changeNodes([
-        {
-          id: nodeToAdd,
-          type: "position",
-          position: screenToFlowPosition({
-            x: event.clientX - (NODE_SIZE.width / 2) * zoom,
-            y: event.clientY - (NODE_SIZE.height / 2) * zoom,
-          }),
-        },
-      ]);
+      updateNode(nodeToAdd, {
+        position: screenToFlowPosition({
+          x: event.clientX - (NODE_SIZE.width / 2) * zoom,
+          y: event.clientY - (NODE_SIZE.height / 2) * zoom,
+        }),
+      });
     }
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -357,7 +354,7 @@ function useDraggableNewNode() {
   }, [
     nodeToAdd,
     getZoom,
-    changeNodes,
+    updateNode,
     screenToFlowPosition,
     setNodeToAdd,
     addNode,

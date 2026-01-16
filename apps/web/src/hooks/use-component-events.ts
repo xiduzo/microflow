@@ -1,7 +1,7 @@
 import { useListen, type ComponentEventPayload } from "@/utils/ipc";
 import { useSignalStore } from "@/stores/signal";
 import { useNodeDataStore } from "@/stores/node-data";
-import { useReactFlowStore } from "@/stores/react-flow";
+import { useFlowStore } from "@/stores/flow-store";
 
 /**
  * Hook that listens to component events from the Tauri backend
@@ -25,7 +25,7 @@ export function useComponentEvents() {
       // Update the target node's data with the event value
 
       // Get current edges from the store
-      const edges = useReactFlowStore.getState().edges;
+      const edges = useFlowStore.getState().edges;
 
       // Find all edges that originate from this source node and handle
       const matchingEdges = edges.filter(

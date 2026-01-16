@@ -1,0 +1,25 @@
+{
+  "name": "@microflow/collab",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "dependencies": {
+    "@microflow/db": "workspace:*",
+    "@microflow/env": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "yjs": "^13.6.20",
+    "y-protocols": "^1.0.6",
+    "lib0": "^0.2.99"
+  },
+  "devDependencies": {
+    "@microflow/config": "workspace:*",
+    "@types/ws": "^8.5.13",
+    "typescript": "catalog:"
+  }
+}

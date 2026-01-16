@@ -62,7 +62,10 @@
     "usehooks-ts": "^3.1.1",
     "vaul": "^1.1.2",
     "zod": "catalog:",
-    "zustand": "^5.0.9"
+    "zustand": "^5.0.9",
+    "yjs": "^13.6.20",
+    "y-protocols": "^1.0.6",
+    "lib0": "^0.2.99"
   },
   "devDependencies": {
     "@microflow/config": "workspace:*",
