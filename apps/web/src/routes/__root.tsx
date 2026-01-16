@@ -79,7 +79,9 @@ function RootComponent() {
                 </Tabs>
               </header> */}
               <TooltipProvider>
+                <div className="h-full w-full absolute inset-0">
                 <Outlet />
+                </div>
               </TooltipProvider>
             </HotkeysProvider>
           </SidebarInset>

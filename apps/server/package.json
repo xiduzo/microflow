@@ -13,6 +13,7 @@
     "@hono/trpc-server": "^0.4.0",
     "@microflow/api": "workspace:*",
     "@microflow/auth": "workspace:*",
+    "@microflow/collab": "workspace:*",
     "@microflow/db": "workspace:*",
     "@microflow/env": "workspace:*",
     "@trpc/server": "catalog:",

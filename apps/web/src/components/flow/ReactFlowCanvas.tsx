@@ -8,9 +8,11 @@ import {
   type XYPosition,
 } from "@xyflow/react";
 import {
-  useReactFlowCanvas,
-  useReactFlowStoreHelpers,
-} from "@/stores/react-flow";
+  useFlowCanvas,
+  useFlowHelpers,
+  useFlowHistory,
+  useFlowCollab,
+} from "@/stores/flow-store";
 
 import "@xyflow/react/dist/style.css";
 import { NODE_TYPES } from "./nodes/_TYPES";
@@ -22,42 +24,59 @@ import { EDGE_TYPES } from "./edges/edges.constants";
 import { DockPanel } from "./panels/dock-panel";
 import { useTheme } from "@/providers/theme-provider";
 import { HotkeySheet } from "./sheets/hotkey-sheet";
+import { CollabPresence, CollabCursors } from "./collab-presence";
+import { useCollabCursor } from "@/hooks/use-collab-flow";
 
 export function ReactFlowCanvas() {
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
   useHelperHotkeys();
 
-  const store = useReactFlowCanvas();
+  const store = useFlowCanvas();
+  const { isCollabActive } = useFlowCollab();
+  const { onMouseMove } = useCollabCursor();
 
   useEffect(() => {
     fitView();
   }, [fitView]);
 
   return (
-    <ReactFlow
-      {...store}
-      colorMode={(theme as ColorMode) ?? "system"}
-      minZoom={0.05}
-      maxZoom={3}
-      nodeTypes={NODE_TYPES}
-      edgeTypes={EDGE_TYPES}
-      fitView
-      selectNodesOnDrag={false}
-      fitViewOptions={{ padding: 0.15 }}
-      className="rounded-3xl relative"
+    <div 
+      className="w-full h-full relative"
+      onMouseMove={isCollabActive ? onMouseMove : undefined}
     >
-      <MiniMap nodeBorderRadius={6} pannable zoomable />
-      <Background gap={140} />
-      <NewNodeDialog />
-      <HotkeySheet />
-      <Panel position="top-right">
-        <SettingsPanel />
-      </Panel>
-      <Panel position="bottom-center">
-        <DockPanel />
-      </Panel>
-    </ReactFlow>
+      {isCollabActive && (
+        <>
+          <div className="absolute top-4 left-4 z-10">
+            <CollabPresence />
+          </div>
+          <CollabCursors />
+        </>
+      )}
+      <ReactFlow
+        {...store}
+        colorMode={(theme as ColorMode) ?? "system"}
+        minZoom={0.05}
+        maxZoom={3}
+        nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        fitView
+        selectNodesOnDrag={false}
+        fitViewOptions={{ padding: 0.15 }}
+        className="rounded-3xl relative"
+      >
+        <MiniMap nodeBorderRadius={6} pannable zoomable />
+        <Background gap={140} />
+        <NewNodeDialog />
+        <HotkeySheet />
+        <Panel position="top-right">
+          <SettingsPanel />
+        </Panel>
+        <Panel position="bottom-center">
+          <DockPanel />
+        </Panel>
+      </ReactFlow>
+    </div>
   );
 }
 
@@ -66,8 +85,9 @@ function useHelperHotkeys() {
 
   const { fitView, screenToFlowPosition } = useReactFlow();
 
-  const helpers = useReactFlowStoreHelpers();
-  const { nodes } = useReactFlowCanvas();
+  const helpers = useFlowHelpers();
+  const history = useFlowHistory();
+  const { nodes } = useFlowCanvas();
 
   useHotkeys("meta+c", helpers.copy, {
     enabled: true,
@@ -90,6 +110,20 @@ function useHelperHotkeys() {
   );
 
   useHotkeys("meta+a", helpers.selectAll, {
+    enabled: true,
+    enableOnFormTags: false,
+    preventDefault: true,
+    scopes: ["flow"],
+  });
+
+  useHotkeys("meta+z", history.undo, {
+    enabled: true,
+    enableOnFormTags: false,
+    preventDefault: true,
+    scopes: ["flow"],
+  });
+
+  useHotkeys("meta+shift+z", history.redo, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,

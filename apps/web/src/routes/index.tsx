@@ -15,10 +15,6 @@ function HomeComponent() {
   console.log(healthCheck);
 
   return (
-    <div className="h-full w-full absolute inset-0">
-      <ReactFlowProvider>
-        <ReactFlowCanvas />
-      </ReactFlowProvider>
-    </div>
+   <div>hi there</div>
   );
 }
