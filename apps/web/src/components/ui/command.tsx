@@ -1,19 +1,16 @@
-import * as React from "react"
-import { Command as CommandPrimitive } from "cmdk"
+import * as React from "react";
+import { Command as CommandPrimitive } from "cmdk";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  InputGroup,
-  InputGroupAddon,
-} from "@/components/ui/input-group"
-import { SearchIcon, CheckIcon } from "lucide-react"
+} from "@/components/ui/dialog";
+import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
+import { SearchIcon, CheckIcon } from "lucide-react";
 
 function Command({
   className,
@@ -23,12 +20,12 @@ function Command({
     <CommandPrimitive
       data-slot="command"
       className={cn(
-        "bg-popover text-popover-foreground rounded-none flex size-full flex-col overflow-hidden",
+        "bg-popover text-popover-foreground rounded-md flex size-full flex-col overflow-hidden",
         className
       )}
       {...props}
     />
-  )
+  );
 }
 
 function CommandDialog({
@@ -37,14 +34,16 @@ function CommandDialog({
   children,
   className,
   showCloseButton = false,
+  filter,
   ...props
-}: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
-  title?: string
-  description?: string
-  className?: string
-  showCloseButton?: boolean
-  children: React.ReactNode
-}) {
+}: Omit<React.ComponentProps<typeof Dialog>, "children"> &
+  Pick<React.ComponentProps<typeof Command>, "filter"> & {
+    title?: string;
+    description?: string;
+    className?: string;
+    showCloseButton?: boolean;
+    children: React.ReactNode;
+  }) {
   return (
     <Dialog {...props}>
       <DialogHeader className="sr-only">
@@ -52,13 +51,13 @@ function CommandDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className={cn("rounded-none overflow-hidden p-0", className)}
+        className={cn("rounded-md overflow-hidden p-0", className)}
         showCloseButton={showCloseButton}
       >
-        {children}
+        <Command filter={filter}>{children}</Command>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function CommandInput({
@@ -81,7 +80,7 @@ function CommandInput({
         </InputGroupAddon>
       </InputGroup>
     </div>
-  )
+  );
 }
 
 function CommandList({
@@ -97,7 +96,7 @@ function CommandList({
       )}
       {...props}
     />
-  )
+  );
 }
 
 function CommandEmpty({
@@ -110,7 +109,7 @@ function CommandEmpty({
       className={cn("py-6 text-center text-xs", className)}
       {...props}
     />
-  )
+  );
 }
 
 function CommandGroup({
@@ -120,10 +119,13 @@ function CommandGroup({
   return (
     <CommandPrimitive.Group
       data-slot="command-group"
-      className={cn("text-foreground [&_[cmdk-group-heading]]:text-muted-foreground overflow-hidden [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs", className)}
+      className={cn(
+        "text-foreground [&_[cmdk-group-heading]]:text-muted-foreground overflow-hidden [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs",
+        className
+      )}
       {...props}
     />
-  )
+  );
 }
 
 function CommandSeparator({
@@ -136,7 +138,7 @@ function CommandSeparator({
       className={cn("bg-border -mx-1 h-px", className)}
       {...props}
     />
-  )
+  );
 }
 
 function CommandItem({
@@ -156,7 +158,7 @@ function CommandItem({
       {children}
       <CheckIcon className="ml-auto opacity-0 group-has-[[data-slot=command-shortcut]]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
     </CommandPrimitive.Item>
-  )
+  );
 }
 
 function CommandShortcut({
@@ -166,10 +168,13 @@ function CommandShortcut({
   return (
     <span
       data-slot="command-shortcut"
-      className={cn("text-muted-foreground group-data-selected/command-item:text-foreground ml-auto text-xs tracking-widest", className)}
+      className={cn(
+        "text-muted-foreground group-data-selected/command-item:text-foreground ml-auto text-xs tracking-widest",
+        className
+      )}
       {...props}
     />
-  )
+  );
 }
 
 export {
@@ -182,4 +187,4 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
-}
+};

@@ -12,8 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodosRouteImport } from './routes/todos'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as HardwareRouteImport } from './routes/hardware'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CircuitRouteImport } from './routes/circuit'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TodosRoute = TodosRouteImport.update({
@@ -31,14 +31,14 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HardwareRoute = HardwareRouteImport.update({
-  id: '/hardware',
-  path: '/hardware',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CircuitRoute = CircuitRouteImport.update({
+  id: '/circuit',
+  path: '/circuit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -49,16 +49,16 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/circuit': typeof CircuitRoute
   '/dashboard': typeof DashboardRoute
-  '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
   '/todos': typeof TodosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/circuit': typeof CircuitRoute
   '/dashboard': typeof DashboardRoute
-  '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
   '/todos': typeof TodosRoute
@@ -66,22 +66,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/circuit': typeof CircuitRoute
   '/dashboard': typeof DashboardRoute
-  '/hardware': typeof HardwareRoute
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
   '/todos': typeof TodosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/hardware' | '/login' | '/success' | '/todos'
+  fullPaths: '/' | '/circuit' | '/dashboard' | '/login' | '/success' | '/todos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/hardware' | '/login' | '/success' | '/todos'
+  to: '/' | '/circuit' | '/dashboard' | '/login' | '/success' | '/todos'
   id:
     | '__root__'
     | '/'
+    | '/circuit'
     | '/dashboard'
-    | '/hardware'
     | '/login'
     | '/success'
     | '/todos'
@@ -89,8 +89,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CircuitRoute: typeof CircuitRoute
   DashboardRoute: typeof DashboardRoute
-  HardwareRoute: typeof HardwareRoute
   LoginRoute: typeof LoginRoute
   SuccessRoute: typeof SuccessRoute
   TodosRoute: typeof TodosRoute
@@ -119,18 +119,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/hardware': {
-      id: '/hardware'
-      path: '/hardware'
-      fullPath: '/hardware'
-      preLoaderRoute: typeof HardwareRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/circuit': {
+      id: '/circuit'
+      path: '/circuit'
+      fullPath: '/circuit'
+      preLoaderRoute: typeof CircuitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -145,8 +145,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CircuitRoute: CircuitRoute,
   DashboardRoute: DashboardRoute,
-  HardwareRoute: HardwareRoute,
   LoginRoute: LoginRoute,
   SuccessRoute: SuccessRoute,
   TodosRoute: TodosRoute,

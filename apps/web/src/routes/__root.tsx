@@ -1,16 +1,32 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRouteWithContext,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { trpc } from "@/utils/trpc";
 
-import Header from "@/components/header";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 import "../index.css";
+import { HotkeysProvider } from "react-hotkeys-hook";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
+import { UserIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useBoardEvents } from "@/stores/board";
+import { useComponentEvents } from "@/hooks/use-component-events";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -42,20 +58,42 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
+      <Board />
       <ThemeProvider
         attribute="class"
-        defaultTheme="dark"
-        disableTransitionOnChange
-        storageKey="vite-ui-theme"
+        defaultTheme="system"
+        enableSystem
+        storageKey="microflow-ui-theme"
       >
-        <div className="grid grid-rows-[auto_1fr] h-svh">
-          <Header />
-          <Outlet />
-        </div>
-        <Toaster richColors />
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <HotkeysProvider initiallyActiveScopes={["flow"]}>
+              {/* <header className="backdrop-blur-sm bg-muted-foreground/2 m-4 rounded-xl p-2 px-4 flex justify-between items-center absolute top-0 left-0 right-0 z-50">
+                <SidebarTrigger className="-ml-1" />
+                <Tabs defaultValue="flow">
+                  <TabsList>
+                    <TabsTrigger value="flow">Flow</TabsTrigger>
+                    <TabsTrigger value="circuit">Circuit</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </header> */}
+              <TooltipProvider>
+                <Outlet />
+              </TooltipProvider>
+            </HotkeysProvider>
+          </SidebarInset>
+        </SidebarProvider>
+        <Toaster richColors position="top-right" />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+      <TanStackRouterDevtools position="bottom-right" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </>
   );
+}
+
+function Board() {
+  useBoardEvents();
+  useComponentEvents();
+  return null;
 }

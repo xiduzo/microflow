@@ -1,0 +1,1 @@
+export const PROXIMITY_CONTROLLERS = ['GP2Y0A21YK', 'GP2Y0A710K0F'] as const;
