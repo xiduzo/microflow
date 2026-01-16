@@ -14,6 +14,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as FlowRouteImport } from './routes/flow'
 import { Route as CircuitRouteImport } from './routes/circuit'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FlowLocalRouteImport } from './routes/flow/local'
+import { Route as FlowFlowIdRouteImport } from './routes/flow/$flowId'
 
 const SuccessRoute = SuccessRouteImport.update({
   id: '/success',
@@ -40,41 +42,79 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FlowLocalRoute = FlowLocalRouteImport.update({
+  id: '/local',
+  path: '/local',
+  getParentRoute: () => FlowRoute,
+} as any)
+const FlowFlowIdRoute = FlowFlowIdRouteImport.update({
+  id: '/$flowId',
+  path: '/$flowId',
+  getParentRoute: () => FlowRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/circuit': typeof CircuitRoute
-  '/flow': typeof FlowRoute
+  '/flow': typeof FlowRouteWithChildren
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
+  '/flow/$flowId': typeof FlowFlowIdRoute
+  '/flow/local': typeof FlowLocalRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/circuit': typeof CircuitRoute
-  '/flow': typeof FlowRoute
+  '/flow': typeof FlowRouteWithChildren
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
+  '/flow/$flowId': typeof FlowFlowIdRoute
+  '/flow/local': typeof FlowLocalRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/circuit': typeof CircuitRoute
-  '/flow': typeof FlowRoute
+  '/flow': typeof FlowRouteWithChildren
   '/login': typeof LoginRoute
   '/success': typeof SuccessRoute
+  '/flow/$flowId': typeof FlowFlowIdRoute
+  '/flow/local': typeof FlowLocalRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/circuit' | '/flow' | '/login' | '/success'
+  fullPaths:
+    | '/'
+    | '/circuit'
+    | '/flow'
+    | '/login'
+    | '/success'
+    | '/flow/$flowId'
+    | '/flow/local'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/circuit' | '/flow' | '/login' | '/success'
-  id: '__root__' | '/' | '/circuit' | '/flow' | '/login' | '/success'
+  to:
+    | '/'
+    | '/circuit'
+    | '/flow'
+    | '/login'
+    | '/success'
+    | '/flow/$flowId'
+    | '/flow/local'
+  id:
+    | '__root__'
+    | '/'
+    | '/circuit'
+    | '/flow'
+    | '/login'
+    | '/success'
+    | '/flow/$flowId'
+    | '/flow/local'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CircuitRoute: typeof CircuitRoute
-  FlowRoute: typeof FlowRoute
+  FlowRoute: typeof FlowRouteWithChildren
   LoginRoute: typeof LoginRoute
   SuccessRoute: typeof SuccessRoute
 }
@@ -116,13 +156,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/flow/local': {
+      id: '/flow/local'
+      path: '/local'
+      fullPath: '/flow/local'
+      preLoaderRoute: typeof FlowLocalRouteImport
+      parentRoute: typeof FlowRoute
+    }
+    '/flow/$flowId': {
+      id: '/flow/$flowId'
+      path: '/$flowId'
+      fullPath: '/flow/$flowId'
+      preLoaderRoute: typeof FlowFlowIdRouteImport
+      parentRoute: typeof FlowRoute
+    }
   }
 }
+
+interface FlowRouteChildren {
+  FlowFlowIdRoute: typeof FlowFlowIdRoute
+  FlowLocalRoute: typeof FlowLocalRoute
+}
+
+const FlowRouteChildren: FlowRouteChildren = {
+  FlowFlowIdRoute: FlowFlowIdRoute,
+  FlowLocalRoute: FlowLocalRoute,
+}
+
+const FlowRouteWithChildren = FlowRoute._addFileChildren(FlowRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CircuitRoute: CircuitRoute,
-  FlowRoute: FlowRoute,
+  FlowRoute: FlowRouteWithChildren,
   LoginRoute: LoginRoute,
   SuccessRoute: SuccessRoute,
 }

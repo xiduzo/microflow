@@ -1,12 +1,11 @@
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   CircuitBoardIcon,
-  DotSquareIcon,
   HardDriveDownloadIcon,
   HardDriveUploadIcon,
   HomeIcon,
   Share2Icon,
-  SquareMousePointerIcon,
   WaypointsIcon,
 } from "lucide-react";
 
@@ -20,36 +19,50 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { FlowSwitcher, LOCAL_FLOW } from "./flow-switcher";
+import { FlowSwitcher, LOCAL_FLOW, type Flow } from "./flow-switcher";
 import { NavMicrocontroller } from "./nav-microcontroller";
 import { authClient } from "@/lib/auth-client";
-import { useMemo } from "react";
+import { trpc } from "@/utils/trpc";
+import { useActiveFlowStore } from "@/stores/active-flow-store";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = authClient.useSession();
   const user = session?.user ?? null;
+  const activeFlowId = useActiveFlowStore((s) => s.activeFlowId);
 
-  const flows = useMemo(() => {
-    if (!user) return [LOCAL_FLOW];
+  const { data: cloudFlows } = useQuery({
+    ...trpc.flow.list.queryOptions(),
+    enabled: !!user,
+  });
 
-    return [
-      {
-        id: "1",
-        name: "Flow 1",
-        color: "#ffcc00",
-        description: "by John Doe",
-      },
-    ];
-  }, [user]);
+  const flows = React.useMemo<Flow[]>(() => {
+    const allFlows: Flow[] = [LOCAL_FLOW];
+
+    if (cloudFlows) {
+      const owned = cloudFlows.owned.map((f) => ({
+        id: f.id,
+        name: f.name,
+        description: f.description,
+      }));
+      const collaborated = cloudFlows.collaborated.map((f) => ({
+        id: f.id,
+        name: f.name,
+        description: `${f.role}`,
+      }));
+      allFlows.push(...owned, ...collaborated);
+    }
+
+    return allFlows;
+  }, [cloudFlows]);
+
+  // Determine the flow URL based on active flow
+  const flowUrl =
+    activeFlowId === "local" ? "/flow/local" : `/flow/${activeFlowId}`;
 
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader>
-        <FlowSwitcher
-          activeFlowId={user ? "1" : "local"}
-          flows={flows}
-          user={user}
-        />
+        <FlowSwitcher flows={flows} user={user} />
       </SidebarHeader>
       <SidebarContent>
         <NavMicrocontroller />
@@ -71,39 +84,40 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 {
                   title: "Edit",
                   icon: WaypointsIcon,
-                  url: `/flow`, // TODO: add active flow ID?
+                  url: flowUrl,
                 },
                 {
                   title: "Show circuit",
                   icon: CircuitBoardIcon,
-                  url: `/circuit`, // TODO: add active circuit ID
+                  url: `/circuit`,
                   badge: "beta",
                 },
-              ],
-            },
-            {
-              title: "Actions",
-              routes: [
                 {
-                  title: "Share",
-                  icon: Share2Icon,
-                  onClick: () => {
-                    console.log("share flow");
-                  },
-                },
-                {
-                  title: "Export",
-                  icon: HardDriveUploadIcon,
-                  onClick: () => {
-                    console.log("export flow");
-                  },
-                },
-                {
-                  title: "Import",
-                  icon: HardDriveDownloadIcon,
-                  onClick: () => {
-                    console.log("import flow");
-                  },
+                  title: "Actions",
+                  url: "/actions",
+                  items: [
+                    {
+                      title: "Share",
+                      icon: Share2Icon,
+                      onClick: () => {
+                        console.log("share flow");
+                      },
+                    },
+                    {
+                      title: "Export",
+                      icon: HardDriveUploadIcon,
+                      onClick: () => {
+                        console.log("export flow");
+                      },
+                    },
+                    {
+                      title: "Import",
+                      icon: HardDriveDownloadIcon,
+                      onClick: () => {
+                        console.log("import flow");
+                      },
+                    },
+                  ],
                 },
               ],
             },

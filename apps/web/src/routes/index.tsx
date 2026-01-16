@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PlusIcon, WaypointsIcon, CloudIcon, LogInIcon } from "lucide-react";
+import { WaypointsIcon, CloudIcon, LogInIcon } from "lucide-react";
 
 import { trpc } from "@/utils/trpc";
 import { authClient } from "@/lib/auth-client";
 import { useFlowStore } from "@/stores/flow-store";
 import { FlowCard, FlowCardSkeleton } from "@/components/home/flow-card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Empty,
   EmptyHeader,
@@ -16,6 +15,7 @@ import {
   EmptyDescription,
   EmptyContent,
 } from "@/components/ui/empty";
+import { CreateFlowDialog } from "@/components/flow/create-flow-dialog";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -36,12 +36,7 @@ function HomeComponent() {
               All your flows in one place
             </p>
           </div>
-          {isSignedIn && (
-            <Button render={<Link to="/flow" />}>
-              <PlusIcon className="size-4 mr-2" />
-              New Flow
-            </Button>
-          )}
+          {isSignedIn && <CreateFlowDialog />}
         </header>
 
         {/* Local section - always visible */}
@@ -116,10 +111,7 @@ function CloudFlows() {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button render={<Link to="/flow" />}>
-            <PlusIcon className="size-4 mr-2" />
-            Create Flow
-          </Button>
+          <CreateFlowDialog />
         </EmptyContent>
       </Empty>
     );
@@ -132,12 +124,11 @@ function CloudFlows() {
           key={flow.id}
           id={flow.id}
           name={flow.name}
+          description={"description" in flow ? flow.description : undefined}
           updatedAt={flow.updatedAt}
-          nodes={[]}
-          edges={[]}
-          // nodes={flow.preview.nodes}
-          // edges={flow.preview.edges}
-          // isOwner={flow.isOwner}
+          nodes={flow.nodes}
+          edges={flow.edges}
+          isOwner={!("role" in flow)}
           role={"role" in flow ? flow.role : undefined}
         />
       ))}

@@ -13,17 +13,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
-  SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth-client";
 
 export function NavMain(props: Props) {
-  const { data: session, isPending } = authClient.useSession();
-
-  console.log(session, isPending);
-
   const location = useLocation();
   const currentPath = location.pathname;
 

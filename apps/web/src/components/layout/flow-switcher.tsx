@@ -1,5 +1,10 @@
-import { ChevronsUpDown, LogIn, Plus } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import {
+  ChevronsUpDown,
+  LogIn,
+  Plus,
+  Check,
+} from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
 
 import {
   DropdownMenu,
@@ -17,6 +22,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { CreateFlowDialog } from "@/components/flow/create-flow-dialog";
 
 export const LOCAL_FLOW: Flow = {
   id: "local",
@@ -26,15 +33,22 @@ export const LOCAL_FLOW: Flow = {
 
 export function FlowSwitcher(props: Props) {
   const { isMobile } = useSidebar();
+  const navigate = useNavigate();
   const isSignedIn = !!props.user;
+  const { activeFlowId, setActiveFlowId } = useActiveFlowStore();
 
-  const activeFlow = props.flows.find(({ id }) => id === props.activeFlowId);
+  const activeFlow =
+    props.flows.find(({ id }) => id === activeFlowId) ?? LOCAL_FLOW;
 
-  if (!activeFlow) return null;
-
-  //   if (!activeTeam) {
-  //     return null;
-  //   }
+  const handleFlowSelect = (flow: Flow) => {
+    setActiveFlowId(flow.id);
+    // Navigate to the appropriate route based on flow type
+    if (flow.id === "local") {
+      navigate({ to: "/flow/local" });
+    } else {
+      navigate({ to: "/flow/$flowId", params: { flowId: flow.id } });
+    }
+  };
 
   return (
     <SidebarMenu>
@@ -54,9 +68,7 @@ export function FlowSwitcher(props: Props) {
               style={{
                 backgroundColor: activeFlow.color ?? "var(--sidebar-primary)",
               }}
-            >
-              {/* <activeTeam.logo className="size-4" /> */}
-            </div>
+            />
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{activeFlow.name}</span>
               {activeFlow.description && (
@@ -79,32 +91,48 @@ export function FlowSwitcher(props: Props) {
               </DropdownMenuLabel>
               {props.flows.map((flow, index) => (
                 <DropdownMenuItem
-                  key={flow.name}
+                  key={flow.id}
                   className="gap-2 p-2"
+                  onClick={() => handleFlowSelect(flow)}
                 >
                   <div
-                    className="flex size-6 items-center justify-center rounded-md"
+                    className="flex size-6 items-center justify-center rounded-md text-xs font-medium text-white"
                     style={{
                       backgroundColor: flow.color ?? "var(--sidebar-primary)",
                     }}
-                  >
-                    {/* <team.logo className="size-3.5 shrink-0" /> */}
-                  </div>
-                  {flow.name}
-                  <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                  />
+                  <span className="flex-1 truncate">{flow.name}</span>
+                  {flow.id === activeFlowId && (
+                    <Check className="size-4 text-primary" />
+                  )}
+                  {index < 9 && (
+                    <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                  )}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             {isSignedIn ? (
-              <DropdownMenuItem className="gap-2 p-2">
-                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                  <Plus className="size-4" />
-                </div>
-                <div className="text-muted-foreground font-medium">Add flow</div>
-              </DropdownMenuItem>
+              <CreateFlowDialog
+                trigger={
+                  <DropdownMenuItem
+                    className="gap-2 p-2"
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                      <Plus className="size-4" />
+                    </div>
+                    <div className="text-muted-foreground font-medium">
+                      Add flow
+                    </div>
+                  </DropdownMenuItem>
+                }
+              />
             ) : (
-              <DropdownMenuItem className="gap-2 p-2" render={<Link to="/login" />}>
+              <DropdownMenuItem
+                className="gap-2 p-2"
+                render={<Link to="/login" />}
+              >
                 <div className="flex size-6 items-center justify-center rounded-md bg-sidebar-secondary">
                   <LogIn className="size-3" />
                 </div>
@@ -120,11 +148,11 @@ export function FlowSwitcher(props: Props) {
   );
 }
 
-type Flow = {
+export type Flow = {
   id: string;
   name: string;
   color?: string;
-  description?: string;
+  description?: string | null;
 };
 
 type User = {
@@ -136,6 +164,5 @@ type User = {
 
 type Props = {
   flows: Flow[];
-  activeFlowId?: string;
   user: User;
 };

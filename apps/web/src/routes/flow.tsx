@@ -1,30 +1,15 @@
-import { ReactFlowCanvas } from '@/components/flow/ReactFlowCanvas';
-import { authClient } from '@/lib/auth-client';
-import { createFileRoute } from '@tanstack/react-router'
-import { ReactFlowProvider } from '@xyflow/react';
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/flow')({
-  component: RouteComponent,
-  beforeLoad: async () => {
-    const session = await authClient.getSession();
-    // if (!session.data) {
-    //   redirect({
-    //     to: "/login",
-    //     throw: true,
-    //   });
-    // }
-    const { data: customerState } = await authClient.customer.state();
-    return { session, customerState };
+export const Route = createFileRoute("/flow")({
+  component: FlowLayout,
+  beforeLoad: async ({ location }) => {
+    // If accessing /flow directly, redirect to /flow/local
+    if (location.pathname === "/flow") {
+      throw redirect({ to: "/flow/local" });
+    }
   },
-})
+});
 
-function RouteComponent() {
-      const { session, customerState } = Route.useRouteContext();
-
-      console.log({session, customerState})
-    
-  return (
-        <ReactFlowProvider>
-          <ReactFlowCanvas />
-        </ReactFlowProvider>)
+function FlowLayout() {
+  return <Outlet />;
 }

@@ -140,6 +140,7 @@
       "name": "@microflow/api",
       "dependencies": {
         "@microflow/auth": "workspace:*",
+        "@microflow/collab": "workspace:*",
         "@microflow/db": "workspace:*",
         "@microflow/env": "workspace:*",
         "@trpc/client": "catalog:",

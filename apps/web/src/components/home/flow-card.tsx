@@ -12,11 +12,9 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardAction,
 } from "@/components/ui/card";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { CloudIcon, HardDriveIcon, UsersIcon } from "lucide-react";
 import { NODE_TYPES } from "../flow/nodes/_TYPES";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
@@ -24,6 +22,7 @@ import { Skeleton } from "../ui/skeleton";
 type FlowCardProps = {
   id: string;
   name: string;
+  description?: string | null;
   updatedAt: string;
   nodes: Node[];
   edges: Edge[];
@@ -35,6 +34,7 @@ type FlowCardProps = {
 export function FlowCard({
   id,
   name,
+  description,
   updatedAt,
   nodes,
   edges,
@@ -42,19 +42,19 @@ export function FlowCard({
   isOwner,
   role,
 }: FlowCardProps) {
-  const linkTo = isLocal ? "/flow" : `/flow?id=${id}`;
+  const linkTo = isLocal ? "/flow/local" : `/flow/${id}`;
 
   return (
-    <Link to={linkTo} className="block group">
-      <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0">
-        <CardContent className="p-0">
+    <Link to={linkTo} className="block">
+      <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0 group relative">
+        <CardContent className="px-0 mb-4">
           <div className="aspect-4/3 bg-muted/30 relative overflow-hidden">
             <ReactFlowProvider>
               <FlowThumbnail nodes={nodes} edges={edges} />
             </ReactFlowProvider>
           </div>
         </CardContent>
-        <CardHeader className="pb-2">
+        <CardHeader>
           <CardTitle className="truncate group-hover:text-primary transition-colors">
             {name}
           </CardTitle>
@@ -62,10 +62,12 @@ export function FlowCard({
             Edited {formatDistanceToNow(updatedAt, { addSuffix: true })}
           </CardDescription>
         </CardHeader>
-        <CardFooter className="gap-2">
-          {isLocal && <Badge>Not synced to cloud</Badge>}
-          {!isLocal && isOwner && <Badge>owner</Badge>}
-          {role && <Badge>{role}</Badge>}
+        <CardFooter className="gap-2 justify-between">
+          <div className="flex gap-2">
+            {isLocal && <Badge variant="secondary">Local</Badge>}
+            {!isLocal && isOwner && <Badge>Owner</Badge>}
+            {role && <Badge variant="outline">{role}</Badge>}
+          </div>
         </CardFooter>
       </Card>
     </Link>
@@ -103,11 +105,11 @@ function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
 export function FlowCardSkeleton() {
   return (
     <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0">
-      <CardContent className="p-0">
+      <CardContent className="px-0 mb-2">
         <Skeleton className="aspect-4/3 rounded-none" />
       </CardContent>
-      <CardHeader className="pb-2">
-        <CardTitle className="truncate group-hover:text-primary transition-colors">
+      <CardHeader>
+        <CardTitle>
           <Skeleton className="h-4 w-3/4" />
         </CardTitle>
         <CardDescription>
@@ -115,7 +117,8 @@ export function FlowCardSkeleton() {
         </CardDescription>
       </CardHeader>
       <CardFooter className="gap-2">
-        <Skeleton className="h-4 w-1/4" />
+        <Skeleton className="h-5 w-16" />
+        {Math.random() > 0.7 && <Skeleton className="h-5 w-16" />}
       </CardFooter>
     </Card>
   );

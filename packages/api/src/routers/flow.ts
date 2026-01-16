@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, like, ne } from "drizzle-orm";
 import { db } from "@microflow/db";
 import { flow, flowCollaborator } from "@microflow/db/schema/flow";
+import { user } from "@microflow/db/schema/auth";
 import { protectedProcedure, router } from "../index";
 // import { decodeYDoc, getFlowData } from "@microflow/collab";
 
@@ -13,8 +14,18 @@ export const flowRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
 
+    const { decodeYDoc, getFlowData } = await import("@microflow/collab");
+
+    // Helper to decode ydoc and get nodes/edges
+    const decodeFlowData = (ydoc: Buffer | null) => {
+      if (!ydoc) return { nodes: [], edges: [] };
+      const doc = decodeYDoc(ydoc);
+      const flowData = getFlowData(doc);
+      return { nodes: flowData.nodes, edges: flowData.edges };
+    };
+
     // Get flows where user is owner
-    const ownedFlows = await db.query.flow.findMany({
+    const ownedFlowsRaw = await db.query.flow.findMany({
       where: eq(flow.ownerId, userId),
       columns: {
         id: true,
@@ -22,7 +33,13 @@ export const flowRouter = router({
         description: true,
         createdAt: true,
         updatedAt: true,
+        ydoc: true,
       },
+    });
+
+    const ownedFlows = ownedFlowsRaw.map((f) => {
+      const { ydoc, ...rest } = f;
+      return { ...rest, ...decodeFlowData(ydoc) };
     });
 
     // Get flows where user is collaborator
@@ -41,10 +58,10 @@ export const flowRouter = router({
       },
     });
 
-    const collaboratedFlows = collaborations.map((c) => ({
-      ...c.flow,
-      role: c.role,
-    }));
+    const collaboratedFlows = collaborations.map((c) => {
+      const { ydoc, ...rest } = c.flow;
+      return { ...rest, ...decodeFlowData(ydoc), role: c.role };
+    });
 
     return {
       owned: ownedFlows,
@@ -88,8 +105,21 @@ export const flowRouter = router({
         throw new Error("Access denied");
       }
 
+      // Decode ydoc to get nodes/edges if available
+      let nodes: unknown[] = [];
+      let edges: unknown[] = [];
+      if (flowRecord.ydoc) {
+        const { decodeYDoc, getFlowData } = await import("@microflow/collab");
+        const doc = decodeYDoc(flowRecord.ydoc);
+        const flowData = getFlowData(doc);
+        nodes = flowData.nodes;
+        edges = flowData.edges;
+      }
+
       return {
         ...flowRecord,
+        nodes,
+        edges,
         isOwner,
         role: isOwner
           ? "owner"
@@ -220,5 +250,79 @@ export const flowRouter = router({
         );
 
       return { success: true };
+    }),
+
+  /** Search users by email for adding collaborators */
+  searchUsers: protectedProcedure
+    .input(z.object({ query: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const users = await db.query.user.findMany({
+        where: and(
+          like(user.email, `%${input.query}%`),
+          ne(user.id, ctx.session.user.id)
+        ),
+        columns: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+        limit: 10,
+      });
+      return users;
+    }),
+
+  /** Add a collaborator by email */
+  addCollaboratorByEmail: protectedProcedure
+    .input(
+      z.object({
+        flowId: z.string(),
+        email: z.string().email(),
+        role: z.enum(["viewer", "editor"]).default("viewer"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const flowRecord = await db.query.flow.findFirst({
+        where: eq(flow.id, input.flowId),
+      });
+
+      if (!flowRecord || flowRecord.ownerId !== ctx.session.user.id) {
+        throw new Error("Flow not found or access denied");
+      }
+
+      // Find user by email
+      const targetUser = await db.query.user.findFirst({
+        where: eq(user.email, input.email),
+      });
+
+      if (!targetUser) {
+        throw new Error("User not found");
+      }
+
+      if (targetUser.id === ctx.session.user.id) {
+        throw new Error("Cannot add yourself as a collaborator");
+      }
+
+      // Check if already a collaborator
+      const existing = await db.query.flowCollaborator.findFirst({
+        where: and(
+          eq(flowCollaborator.flowId, input.flowId),
+          eq(flowCollaborator.userId, targetUser.id)
+        ),
+      });
+
+      if (existing) {
+        throw new Error("User is already a collaborator");
+      }
+
+      const id = uid();
+      await db.insert(flowCollaborator).values({
+        id,
+        flowId: input.flowId,
+        userId: targetUser.id,
+        role: input.role,
+      });
+
+      return { success: true, userId: targetUser.id };
     }),
 });

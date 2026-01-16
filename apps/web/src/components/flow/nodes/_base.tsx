@@ -37,8 +37,6 @@ import { Icon, type IconName } from "@/components/ui/icon";
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
 
-  console.log(data.icon);
-
   return (
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
