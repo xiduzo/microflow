@@ -34,6 +34,8 @@ export function ReactFlowCanvas() {
 
   const store = useFlowCanvas();
   const { isCollabActive } = useFlowCollab();
+
+  console.log(isCollabActive);
   const { onMouseMove } = useCollabCursor();
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function ReactFlowCanvas() {
   }, [fitView]);
 
   return (
-    <div 
+    <div
       className="w-full h-full relative"
       onMouseMove={isCollabActive ? onMouseMove : undefined}
     >

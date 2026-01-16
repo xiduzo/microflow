@@ -81,8 +81,6 @@ function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
       edges={edges}
       fitView
       fitViewOptions={{ padding: 0.15, minZoom: 0.05, maxZoom: 1 }}
-      minZoom={0.0001}
-      maxZoom={1}
       nodesDraggable={false}
       nodesConnectable={false}
       nodesFocusable={false}
@@ -93,7 +91,7 @@ function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
       zoomOnPinch={false}
       zoomOnDoubleClick={false}
       preventScrolling={false}
-      proOptions={{ hideAttribution: true }}
+      proOptions={{ hideAttribution: true }} // Sorry - proper attribution is given on the main page
       className="pointer-events-none"
       nodeTypes={NODE_TYPES}
     >

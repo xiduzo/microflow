@@ -50,7 +50,7 @@ export function SignUpForm({
         {
           onSuccess: () => {
             navigate({
-              to: "/dashboard",
+              to: "/",
             });
             toast.success("Sign up successful");
           },

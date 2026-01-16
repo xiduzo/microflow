@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { WSContext } from "hono/ws";
 import { YjsServer } from "./yjs-server";
 
+// Singleton instance shared across all connections
 const yjsServer = new YjsServer();
 
 type WebSocketData = {
@@ -12,6 +13,7 @@ type WebSocketData = {
 
 /**
  * Create Hono WebSocket handlers for Yjs collaboration
+ * Uses a singleton YjsServer to share rooms across connections
  */
 export function createYjsHandler() {
   return {
@@ -24,6 +26,8 @@ export function createYjsHandler() {
         ws.close(1008, "Missing flowId or userId");
         return;
       }
+
+      console.log(`[YJS] Client connected: flowId=${flowId}, userId=${userId}`);
 
       const cleanup = await yjsServer.handleConnection(
         flowId,
@@ -58,7 +62,8 @@ export function createYjsHandler() {
       _event: CloseEvent,
       ws: WSContext<WebSocketData>
     ) => {
-      const { cleanup } = ws.raw as unknown as WebSocketData;
+      const { flowId, userId, cleanup } = ws.raw as unknown as WebSocketData;
+      console.log(`[YJS] Client disconnected: flowId=${flowId}, userId=${userId}`);
       cleanup?.();
     },
 

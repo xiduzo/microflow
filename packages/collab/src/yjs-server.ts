@@ -48,6 +48,7 @@ export class YjsServer {
     const clientId = room.doc.clientID;
 
     room.connections.set(connection, { clientId });
+    console.log(`[YJS-SERVER] Room ${flowId} now has ${room.connections.size} connection(s)`);
 
     // Send initial sync
     const encoder = encoding.createEncoder();
@@ -70,6 +71,7 @@ export class YjsServer {
     // Return cleanup function
     return () => {
       room.connections.delete(connection);
+      console.log(`[YJS-SERVER] Room ${flowId} now has ${room.connections.size} connection(s) after disconnect`);
       awarenessProtocol.removeAwarenessStates(room.awareness, [clientId], null);
 
       // Clean up room if no connections
@@ -115,32 +117,32 @@ export class YjsServer {
       decoder,
       encoder,
       room.doc,
-      null
+      connection // Use connection as origin to track source
     );
 
+    // Send response back to the sender if needed (sync step 2)
     if (encoding.length(encoder) > 1) {
       connection.send(encoding.toUint8Array(encoder));
     }
 
-    // If we received an update, broadcast to other clients and schedule persist
+    // If we received an update, schedule persist (broadcasting is handled by doc observer)
     if (syncMessageType === syncProtocol.messageYjsUpdate) {
-      this.broadcastUpdate(room, connection);
       this.schedulePersist(room);
     }
   }
 
   private handleAwarenessMessage(room: Room, decoder: decoding.Decoder): void {
-    awarenessProtocol.applyAwarenessUpdate(
-      room.awareness,
-      decoding.readVarUint8Array(decoder),
-      null
-    );
+    const update = decoding.readVarUint8Array(decoder);
+    awarenessProtocol.applyAwarenessUpdate(room.awareness, update, null);
+    
+    // Broadcast awareness to all other clients
+    this.broadcastAwareness(room, update);
   }
 
-  private broadcastUpdate(room: Room, excludeConnection?: Connection): void {
+  private broadcastAwareness(room: Room, update: Uint8Array, excludeConnection?: Connection): void {
     const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, MESSAGE_SYNC);
-    syncProtocol.writeSyncStep1(encoder, room.doc);
+    encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+    encoding.writeVarUint8Array(encoder, update);
     const message = encoding.toUint8Array(encoder);
 
     for (const [conn] of room.connections) {
@@ -195,6 +197,28 @@ export class YjsServer {
 
     const awareness = new awarenessProtocol.Awareness(doc);
 
+    room = {
+      doc,
+      awareness,
+      connections: new Map(),
+      persistTimeout: null,
+    };
+
+    // Broadcast doc updates to all clients except the sender
+    doc.on("update", (update: Uint8Array, origin: unknown) => {
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, MESSAGE_SYNC);
+      syncProtocol.writeUpdate(encoder, update);
+      const message = encoding.toUint8Array(encoder);
+
+      for (const [conn] of room!.connections) {
+        // Don't send back to the connection that sent the update
+        if (conn !== origin) {
+          conn.send(message);
+        }
+      }
+    });
+
     // Broadcast awareness changes
     awareness.on(
       "update",
@@ -221,13 +245,6 @@ export class YjsServer {
         }
       }
     );
-
-    room = {
-      doc,
-      awareness,
-      connections: new Map(),
-      persistTimeout: null,
-    };
 
     this.rooms.set(flowId, room);
     return room;

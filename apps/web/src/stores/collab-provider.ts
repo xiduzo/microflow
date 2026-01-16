@@ -43,13 +43,19 @@ let yNodes: Y.Array<Node> | null = null;
 let yEdges: Y.Array<Edge> | null = null;
 let awareness: awarenessProtocol.Awareness | null = null;
 let ws: WebSocket | null = null;
-let isRemoteUpdate = false;
+
+// Track the origin of updates to prevent loops
+const ORIGIN_LOCAL = "local";
+const ORIGIN_REMOTE = "remote";
+let currentOrigin: string | null = null;
 
 export const useCollabProvider = create<CollabProviderState>()((set, get) => {
   // Sync local changes to Yjs
   const syncToYjs = (nodes: Node[], edges: Edge[]) => {
-    if (!ydoc || !yNodes || !yEdges || isRemoteUpdate) return;
+    if (!ydoc || !yNodes || !yEdges) return;
+    if (currentOrigin === ORIGIN_REMOTE) return; // Don't sync back remote changes
 
+    currentOrigin = ORIGIN_LOCAL;
     ydoc.transact(() => {
       // Clear and replace nodes
       yNodes!.delete(0, yNodes!.length);
@@ -58,26 +64,16 @@ export const useCollabProvider = create<CollabProviderState>()((set, get) => {
       // Clear and replace edges
       yEdges!.delete(0, yEdges!.length);
       yEdges!.push(edges);
-    });
+    }, ORIGIN_LOCAL);
+    currentOrigin = null;
   };
 
   const setupYjsObservers = () => {
     if (!yNodes || !yEdges || !awareness) return;
 
-    // When Yjs changes (from remote), update the flow store
-    yNodes.observe(() => {
-      isRemoteUpdate = true;
-      const nodes = yNodes!.toArray();
-      useFlowStore.setState({ nodes });
-      isRemoteUpdate = false;
-    });
-
-    yEdges.observe(() => {
-      isRemoteUpdate = true;
-      const edges = yEdges!.toArray();
-      useFlowStore.setState({ edges });
-      isRemoteUpdate = false;
-    });
+    // Note: We don't need to observe yNodes/yEdges for remote changes
+    // because handleWsMessage already updates the flow store after applying sync messages.
+    // The observers would cause duplicate updates.
 
     awareness.on("change", () => {
       const states = awareness!.getStates();
@@ -94,7 +90,7 @@ export const useCollabProvider = create<CollabProviderState>()((set, get) => {
   // Subscribe to flow store changes and sync to Yjs
   const setupFlowStoreSubscription = () => {
     return useFlowStore.subscribe((state, prevState) => {
-      if (isRemoteUpdate) return;
+      if (currentOrigin === ORIGIN_REMOTE) return;
       if (!get().isConnected) return;
       
       const nodesChanged = state.nodes !== prevState.nodes;
@@ -107,7 +103,7 @@ export const useCollabProvider = create<CollabProviderState>()((set, get) => {
   };
 
   const handleWsMessage = (data: ArrayBuffer) => {
-    if (!ydoc || !awareness) return;
+    if (!ydoc || !awareness || !yNodes || !yEdges) return;
 
     const decoder = decoding.createDecoder(new Uint8Array(data));
     const messageType = decoding.readVarUint(decoder);
@@ -116,7 +112,19 @@ export const useCollabProvider = create<CollabProviderState>()((set, get) => {
       case MESSAGE_SYNC: {
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MESSAGE_SYNC);
-        syncProtocol.readSyncMessage(decoder, encoder, ydoc, null);
+        
+        // Mark as remote origin before applying
+        currentOrigin = ORIGIN_REMOTE;
+        syncProtocol.readSyncMessage(decoder, encoder, ydoc, ORIGIN_REMOTE);
+        
+        // After applying sync, update flow store with current Yjs state
+        const nodes = yNodes.toArray();
+        const edges = yEdges.toArray();
+        useFlowStore.setState({ nodes, edges });
+        
+        currentOrigin = null;
+        
+        // Only send response if needed (for sync step 1 -> step 2)
         if (encoding.length(encoder) > 1 && ws?.readyState === WebSocket.OPEN) {
           ws.send(encoding.toUint8Array(encoder));
         }
@@ -169,11 +177,20 @@ export const useCollabProvider = create<CollabProviderState>()((set, get) => {
         set({ isConnected: true, isConnecting: false });
         useFlowStore.getState().enableCollab(flowId);
 
-        // Send initial sync
+        // Send initial sync request
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MESSAGE_SYNC);
         syncProtocol.writeSyncStep1(encoder, ydoc!);
         ws!.send(encoding.toUint8Array(encoder));
+
+        // Send initial awareness
+        const awarenessEncoder = encoding.createEncoder();
+        encoding.writeVarUint(awarenessEncoder, MESSAGE_AWARENESS);
+        encoding.writeVarUint8Array(
+          awarenessEncoder,
+          awarenessProtocol.encodeAwarenessUpdate(awareness!, [ydoc!.clientID])
+        );
+        ws!.send(encoding.toUint8Array(awarenessEncoder));
       };
 
       ws.onmessage = (event) => {
@@ -189,12 +206,29 @@ export const useCollabProvider = create<CollabProviderState>()((set, get) => {
         set({ error: "WebSocket connection failed", isConnecting: false });
       };
 
-      // Broadcast local changes
-      ydoc.on("update", (update: Uint8Array) => {
+      // Broadcast local Yjs changes only
+      ydoc.on("update", (update: Uint8Array, origin: unknown) => {
+        // Only broadcast local changes, not remote ones
+        if (origin === ORIGIN_REMOTE) return;
+        
         if (ws?.readyState === WebSocket.OPEN) {
           const encoder = encoding.createEncoder();
           encoding.writeVarUint(encoder, MESSAGE_SYNC);
           syncProtocol.writeUpdate(encoder, update);
+          ws.send(encoding.toUint8Array(encoder));
+        }
+      });
+
+      // Broadcast awareness changes
+      awareness.on("update", ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }) => {
+        const changedClients = added.concat(updated, removed);
+        if (ws?.readyState === WebSocket.OPEN && changedClients.length > 0) {
+          const encoder = encoding.createEncoder();
+          encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
+          encoding.writeVarUint8Array(
+            encoder,
+            awarenessProtocol.encodeAwarenessUpdate(awareness!, changedClients)
+          );
           ws.send(encoding.toUint8Array(encoder));
         }
       });
@@ -210,6 +244,7 @@ export const useCollabProvider = create<CollabProviderState>()((set, get) => {
       yNodes = null;
       yEdges = null;
       awareness = null;
+      currentOrigin = null;
       useFlowStore.getState().disableCollab();
       set({
         flowId: null,

@@ -1,10 +1,10 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { WaypointsIcon, CloudIcon, LogInIcon } from "lucide-react";
 
 import { trpc } from "@/utils/trpc";
 import { authClient } from "@/lib/auth-client";
-import { useFlowStore } from "@/stores/flow-store";
 import { FlowCard, FlowCardSkeleton } from "@/components/home/flow-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/empty";
 import { CreateFlowDialog } from "@/components/flow/create-flow-dialog";
 
+const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
+
 export const Route = createFileRoute("/")({
   component: HomeComponent,
 });
@@ -24,7 +26,20 @@ export const Route = createFileRoute("/")({
 function HomeComponent() {
   const { data: session } = authClient.useSession();
   const isSignedIn = !!session?.user;
-  const { nodes: localNodes, edges: localEdges } = useFlowStore();
+  
+  // Read local flow directly from localStorage to avoid showing the last visited flow
+  const localFlowData = useMemo(() => {
+    try {
+      const stored = localStorage.getItem(LOCAL_FLOW_STORAGE_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        return { nodes: data.nodes ?? [], edges: data.edges ?? [] };
+      }
+    } catch (e) {
+      console.error("[HOME] Failed to load local flow:", e);
+    }
+    return { nodes: [], edges: [] };
+  }, []);
 
   return (
     <div className="h-full overflow-auto">
@@ -49,8 +64,8 @@ function HomeComponent() {
               id="local"
               name="Local Flow"
               updatedAt={new Date().toISOString()}
-              nodes={localNodes}
-              edges={localEdges}
+              nodes={localFlowData.nodes}
+              edges={localFlowData.edges}
               isLocal
               isOwner
             />
@@ -100,7 +115,7 @@ function CloudFlows() {
 
   if (!flows || flows.length === 0) {
     return (
-      <Empty className="border rounded-xl py-12">
+      <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <WaypointsIcon className="size-4" />
@@ -149,10 +164,12 @@ function SignInNudge() {
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button render={<Link to="/login" />}>
-          <LogInIcon className="size-4 mr-2" />
-          Sign in
-        </Button>
+        <Link to="/login">
+          <Button>
+            <LogInIcon className="size-4 mr-2" />
+            Sign in
+          </Button>
+        </Link>
       </EmptyContent>
     </Empty>
   );

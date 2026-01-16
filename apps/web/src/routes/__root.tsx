@@ -88,8 +88,8 @@ function RootComponent() {
         </SidebarProvider>
         <Toaster richColors position="top-right" />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-right" />
-      <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
+      {/* <TanStackRouterDevtools position="bottom-right" /> */}
+      {/* <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" /> */}
     </>
   );
 }

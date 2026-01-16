@@ -7,8 +7,10 @@ import {
   LogOut,
   Sparkles,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 
+import { authClient } from "@/lib/auth-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -39,6 +41,7 @@ type Props = {
 
 export function NavUser({ user }: Props) {
   const { isMobile } = useSidebar();
+  const navigate = useNavigate();
 
   if (!user) {
     return (
@@ -131,7 +134,21 @@ export function NavUser({ user }: Props) {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                await authClient.signOut({
+                  fetchOptions: {
+                    onSuccess: () => {
+                      navigate({ to: "/" });
+                      toast.success("Signed out successfully");
+                    },
+                    onError: (error) => {
+                      toast.error(error.error.message || "Failed to sign out");
+                    },
+                  },
+                });
+              }}
+            >
               <LogOut />
               Log out
             </DropdownMenuItem>

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useCollabConnection, useCollabAwareness, type AwarenessUser } from "@/stores/collab-provider";
 
 const COLORS = [
@@ -22,6 +22,12 @@ type UseCollabFlowOptions = {
  */
 export function useCollabFlow({ flowId, userId, userName, wsUrl }: UseCollabFlowOptions) {
   const { connect, disconnect, isConnected, isConnecting, error } = useCollabConnection();
+  
+  // Use refs to avoid reconnecting when functions change
+  const connectRef = useRef(connect);
+  const disconnectRef = useRef(disconnect);
+  connectRef.current = connect;
+  disconnectRef.current = disconnect;
 
   useEffect(() => {
     const user: AwarenessUser = {
@@ -35,12 +41,12 @@ export function useCollabFlow({ flowId, userId, userName, wsUrl }: UseCollabFlow
       ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
       : "ws://localhost:3000";
 
-    connect(flowId, user, wsUrl ?? defaultWsUrl);
+    connectRef.current(flowId, user, wsUrl ?? defaultWsUrl);
 
     return () => {
-      disconnect();
+      disconnectRef.current();
     };
-  }, [flowId, userId, userName, wsUrl, connect, disconnect]);
+  }, [flowId, userId, userName, wsUrl]);
 
   return { isConnected, isConnecting, error };
 }

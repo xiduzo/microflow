@@ -12,7 +12,6 @@ import { ShareFlowDialog } from "@/components/flow/share-flow-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useCollabFlow } from "@/hooks/use-collab-flow";
 import { env } from "@microflow/env/web";
-import type { Node, Edge } from "@xyflow/react";
 
 export const Route = createFileRoute("/flow/$flowId")({
   component: CloudFlowComponent,
@@ -45,7 +44,7 @@ function CloudFlowComponent() {
     return serverUrl.origin;
   }, []);
 
-  // Fetch flow data
+  // Fetch flow metadata (not nodes/edges - those come from Yjs)
   const { data: flow, isLoading, error } = useQuery({
     ...trpc.flow.get.queryOptions({ id: flowId }),
   });
@@ -55,18 +54,14 @@ function CloudFlowComponent() {
     setActiveFlowId(flowId);
   }, [flowId, setActiveFlowId]);
 
-  // Load nodes/edges into the flow store when flow data is fetched
+  // Initialize the flow store for this cloud flow (empty - Yjs will populate it)
   useEffect(() => {
-    if (flow && currentFlowId !== flowId) {
-      loadCloudFlow(
-        flowId, 
-        (flow.nodes ?? []) as Node[], 
-        (flow.edges ?? []) as Edge[]
-      );
+    if (currentFlowId !== flowId) {
+      loadCloudFlow(flowId, [], []);
     }
-  }, [flow, flowId, loadCloudFlow, currentFlowId]);
+  }, [flowId, loadCloudFlow, currentFlowId]);
 
-  // Connect to collaboration WebSocket
+  // Connect to collaboration WebSocket - this will sync nodes/edges from Yjs
   useCollabFlow({
     flowId,
     userId: session.data!.user.id,

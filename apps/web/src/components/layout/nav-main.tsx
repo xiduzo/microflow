@@ -61,7 +61,7 @@ export function NavMain(props: Props) {
                     className="group/collapsible"
                   >
                     <SidebarMenuItem title={route.title}>
-                      <CollapsibleTrigger className="w-full">
+                      <CollapsibleTrigger render={<div />} nativeButton={false} className="w-full">
                         <SidebarMenuButton
                           tooltip={route.title}
                           isActive={itemIsActive}
