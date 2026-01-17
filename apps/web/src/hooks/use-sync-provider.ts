@@ -9,7 +9,7 @@ import type { FlowDocument } from "@microflow/collab";
 export type UseSyncProviderOptions = {
   flowDoc: FlowDocument | null;
   flowId: string | null;
-  user: { id: string; name: string } | null;
+  user: { id: string; name: string; color?: string; icon?: string } | null;
   wsUrl?: string;
   enabled?: boolean;
 };
@@ -120,7 +120,7 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
       providerRef.current = null;
       connectedFlowIdRef.current = null;
     };
-  }, [enabled, flowDoc, flowId, user?.id, user?.name, computedWsUrl]);
+  }, [enabled, flowDoc, flowId, user?.id, user?.name, user?.color, user?.icon, computedWsUrl]);
 
   // Cursor update
   const updateCursor = useCallback(

@@ -12,15 +12,24 @@ const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const MESSAGE_ACK = 2;
 
-const COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#14b8a6",
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
+export const COLLAB_COLORS = [
+  "#b91c1c", // red-700
+  "#c2410c", // orange-700
+  "#b45309", // amber-700
+  "#a16207", // yellow-700
+  "#4d7c0f", // lime-700
+  "#15803d", // green-700
+  "#047857", // emerald-700
+  "#0f766e", // teal-700
+  "#0e7490", // cyan-700
+  "#0369a1", // sky-700
+  "#1d4ed8", // blue-700
+  "#4338ca", // indigo-700
+  "#6d28d9", // violet-700
+  "#7e22ce", // purple-700
+  "#a21caf", // fuchsia-700
+  "#be185d", // pink-700
+  "#be123c", // rose-700
 ];
 
 // ============================================================================
@@ -33,6 +42,7 @@ export type AwarenessUser = {
   id: string;
   name: string;
   color: string;
+  icon: string;
   cursor?: { x: number; y: number };
   selectedNodes?: string[];
 };
@@ -52,6 +62,8 @@ export type SyncProviderOptions = {
   user: {
     id: string;
     name: string;
+    color?: string;
+    icon?: string;
   };
 };
 
@@ -82,7 +94,8 @@ export class SyncProvider {
     this.localUser = {
       id: options.user.id,
       name: options.user.name,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)]!,
+      color: options.user.color ?? COLLAB_COLORS[Math.floor(Math.random() * COLLAB_COLORS.length)]!,
+      icon: options.user.icon ?? "Cat",
     };
 
     this.awareness = new awarenessProtocol.Awareness(this.doc);

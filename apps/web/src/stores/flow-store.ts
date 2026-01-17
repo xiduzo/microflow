@@ -39,7 +39,7 @@ export type FlowState = {
 
   // Actions
   initLocalFlow: () => void;
-  initCloudFlow: (flowId: string, initialData?: Uint8Array) => void;
+  initCloudFlow: (flowId: string, initialData?: Uint8Array, meta?: { name?: string; description?: string }) => void;
 
   // ReactFlow callbacks (these modify the FlowDocument)
   onNodesChange: OnNodesChange;
@@ -158,6 +158,12 @@ export const useFlowStore = create<FlowState>()((set, get) => {
       // Create new FlowDocument
       const flowDoc = FlowDocument.createEmpty();
 
+      // Set metadata for local flow
+      flowDoc.setMeta({
+        name: "Local Flow",
+        description: "Local development flow",
+      });
+
       // Load saved data
       const { nodes, edges } = loadLocalFlowData();
       if (nodes.length > 0 || edges.length > 0) {
@@ -172,13 +178,21 @@ export const useFlowStore = create<FlowState>()((set, get) => {
       console.log("[FLOW-STORE] Initialized local flow");
     },
 
-    initCloudFlow: (flowId, initialData) => {
+    initCloudFlow: (flowId, initialData, meta) => {
       // Cleanup previous
       unsubscribeDoc?.();
       get().flowDoc?.destroy();
 
       // Create FlowDocument from server data or empty
       const flowDoc = initialData ? FlowDocument.decode(initialData) : FlowDocument.createEmpty();
+
+      // Set metadata if provided
+      if (meta) {
+        flowDoc.setMeta({
+          name: meta.name,
+          description: meta.description,
+        });
+      }
 
       flowDoc.clearHistory(); // Don't include initial load in undo history
 

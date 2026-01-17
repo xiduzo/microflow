@@ -12,6 +12,8 @@ export const COLLAB_ICONS = [
   "Cat",
   "Dog",
   "Fish",
+  "Panda",
+  "Shrimp",
   "Rabbit",
   "Rat",
   "Snail",
@@ -22,7 +24,8 @@ export const COLLAB_ICONS = [
 
 export type CollabIcon = (typeof COLLAB_ICONS)[number];
 
-const uid = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+const uid = () =>
+  Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
 export const profileRouter = router({
   /**
@@ -62,7 +65,7 @@ export const profileRouter = router({
     return {
       ...profile,
       settings: {
-        collabColor: settings?.collabColor ?? "#6366f1",
+        collabColor: settings?.collabColor ?? "#4338ca",
         collabIcon: settings?.collabIcon ?? "Cat",
       },
     };
@@ -74,9 +77,12 @@ export const profileRouter = router({
   updateCollab: protectedProcedure
     .input(
       z.object({
-        collabColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+        collabColor: z
+          .string()
+          .regex(/^#[0-9A-Fa-f]{6}$/)
+          .optional(),
         collabIcon: z.enum(COLLAB_ICONS).optional(),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       // Ensure settings exist

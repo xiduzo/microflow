@@ -1,14 +1,10 @@
+import type { AwarenessUser } from "@microflow/collab";
 import { useReactFlow } from "@xyflow/react";
-
-export type CollabUser = {
-  id: string;
-  name: string;
-  color: string;
-  cursor?: { x: number; y: number };
-};
+import { MousePointer2Icon } from "lucide-react";
+import { Icon, type IconName } from "../ui/icon";
 
 type CollabCursorsProps = {
-  users: CollabUser[];
+  users: AwarenessUser[];
 };
 
 /**
@@ -18,47 +14,47 @@ export function CollabCursors({ users }: CollabCursorsProps) {
   const { flowToScreenPosition } = useReactFlow();
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-50" style={{ clipPath: "inset(0)" }}>
+    <div
+      className="absolute inset-0 pointer-events-none z-10"
+      style={{ clipPath: "inset(0)" }}
+    >
       {users.map((user) => {
         if (!user.cursor) return null;
 
         const screenPos = flowToScreenPosition(user.cursor);
 
-        return (
-          <div
-            key={user.id}
-            className="fixed transition-all duration-75"
-            style={{
-              left: screenPos.x,
-              top: screenPos.y,
-              transform: "translate(-2px, -2px)",
-            }}
-          >
-            {/* Cursor SVG */}
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))" }}
-            >
-              <path
-                d="M5.65376 12.4563L5.65376 12.4563L5.65314 12.4525C5.64132 12.3804 5.64132 12.3067 5.65314 12.2346L5.65376 12.2308L5.65376 12.2308L8.73388 3.68299C8.7933 3.51661 8.90321 3.37098 9.04914 3.26584C9.19507 3.1607 9.37014 3.10089 9.55078 3.09424C9.73142 3.08759 9.91028 3.13439 10.0633 3.22851C10.2163 3.32263 10.3363 3.45977 10.4078 3.62148L10.4078 3.62148L10.4115 3.63001L17.4115 19.63L17.4115 19.63L17.4152 19.6388C17.4867 19.8005 17.5063 19.9803 17.4713 20.1535C17.4363 20.3267 17.3484 20.4847 17.2195 20.6063C17.0906 20.7279 16.9271 20.8069 16.7517 20.8322C16.5763 20.8575 16.3976 20.8279 16.2402 20.7476L16.2402 20.7476L16.2315 20.7431L11.2315 18.0931L11.2315 18.0931L11.2228 18.0885C11.0654 18.0082 10.8867 17.9786 10.7113 18.0039C10.5359 18.0292 10.3724 18.1082 10.2435 18.2298L10.2435 18.2298L10.2363 18.2366L6.23633 21.9866L6.23633 21.9866L6.22764 21.9948C6.09873 22.1164 5.93523 22.1954 5.75983 22.2207C5.58443 22.246 5.40573 22.2164 5.24833 22.1361C5.09093 22.0558 4.96213 21.9287 4.87883 21.7717C4.79553 21.6147 4.76163 21.4357 4.78183 21.2588L4.78183 21.2588L4.78313 21.2478L5.65376 12.4563Z"
-                fill={user.color}
-                stroke="white"
-                strokeWidth="1.5"
-              />
-            </svg>
-            {/* User name label */}
-            <div
-              className="absolute left-4 top-4 px-2 py-0.5 rounded text-xs text-white whitespace-nowrap"
-              style={{ backgroundColor: user.color }}
-            >
-              {user.name}
-            </div>
-          </div>
-        );
+        return <Cursor key={user.id} {...user} cursor={screenPos} />;
       })}
     </div>
   );
 }
+
+export function Cursor(props: AwarenessUser) {
+  return (
+    <div
+      className="fixed transition-all duration-[10]"
+      style={{
+        left: props.cursor?.x,
+        top: props.cursor?.y,
+        transform: "translate(-2px, -2px)",
+      }}
+    >
+      <MousePointer2Icon style={{ stroke: props.color, fill: props.color }} />
+      {/* User name label */}
+      <section className="absolute left-4.5 top-4.5 flex items-center gap-2">
+        <div
+          style={{ backgroundColor: props.color }}
+          className="px-2 py-0.5 rounded"
+        >
+          {props.name}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type CursorProps = {
+  color: string;
+  name: string;
+  offset: { x: number; y: number };
+};

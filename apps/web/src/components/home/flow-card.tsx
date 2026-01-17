@@ -1,4 +1,10 @@
-import { ReactFlow, ReactFlowProvider, Background, type Node, type Edge } from "@xyflow/react";
+import {
+  ReactFlow,
+  ReactFlowProvider,
+  Background,
+  type Node,
+  type Edge,
+} from "@xyflow/react";
 import {
   Card,
   CardFooter,
@@ -21,7 +27,6 @@ type FlowCardProps = {
   nodes: Node[];
   edges: Edge[];
   isLocal?: boolean;
-  isOwner?: boolean;
   role?: string;
 };
 
@@ -32,7 +37,6 @@ export function FlowCard({
   nodes,
   edges,
   isLocal,
-  isOwner,
   role,
 }: FlowCardProps) {
   const linkTo = isLocal ? "/flow/local" : `/flow/${id}`;
@@ -58,8 +62,7 @@ export function FlowCard({
         <CardFooter className="gap-2 justify-between">
           <div className="flex gap-2">
             {isLocal && <Badge variant="secondary">Local</Badge>}
-            {!isLocal && isOwner && <Badge>Owner</Badge>}
-            {role && <Badge variant="outline">{role}</Badge>}
+            {role && <Badge variant="secondary">{role}</Badge>}
           </div>
         </CardFooter>
       </Card>

@@ -73,9 +73,15 @@ function RouteComponent() {
 
     if (flow.ydocBase64) {
       const ydocData = Uint8Array.from(atob(flow.ydocBase64), (c) => c.charCodeAt(0));
-      initCloudFlow(flowId, ydocData);
+      initCloudFlow(flowId, ydocData, {
+        name: flow.name,
+        description: flow.description ?? undefined,
+      });
     } else {
-      initCloudFlow(flowId);
+      initCloudFlow(flowId, undefined, {
+        name: flow.name,
+        description: flow.description ?? undefined,
+      });
     }
 
     initializedFlowId.current = flowId;
@@ -88,13 +94,26 @@ function RouteComponent() {
     };
   }, [flowId, flow?.ydocBase64]);
 
+  // Fetch user profile settings
+  const { data: profile } = useQuery({
+    ...trpc.profile.get.queryOptions(),
+    enabled: !!session.data,
+  });
+
   // User info for sync provider - memoized to prevent reconnections
   const user = useMemo(
     () => ({
       id: session.data!.user.id,
       name: session.data!.user.name ?? "Anonymous",
+      color: profile?.settings.collabColor,
+      icon: profile?.settings.collabIcon,
     }),
-    [session.data?.user.id, session.data?.user.name],
+    [
+      session.data?.user.id,
+      session.data?.user.name,
+      profile?.settings.collabColor,
+      profile?.settings.collabIcon,
+    ],
   );
 
   // Connect to sync provider for real-time collaboration

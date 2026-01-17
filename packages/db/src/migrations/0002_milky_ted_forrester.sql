@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ALTER COLUMN "collab_color" SET DEFAULT '#4338ca';

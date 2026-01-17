@@ -67,7 +67,6 @@ function HomeComponent() {
               nodes={localFlowData.nodes}
               edges={localFlowData.edges}
               isLocal
-              isOwner
             />
           </div>
         </section>
@@ -143,8 +142,7 @@ function CloudFlows() {
           updatedAt={flow.updatedAt}
           nodes={flow.nodes}
           edges={flow.edges}
-          isOwner={!("role" in flow)}
-          role={"role" in flow ? flow.role : undefined}
+          role={"role" in flow ? String(flow.role) : "owner"}
         />
       ))}
     </div>

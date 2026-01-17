@@ -1,31 +1,23 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { CollabUser } from "../collab-cursors";
-import { Icon } from "@/components/ui/icon";
+import { Icon, type IconName } from "@/components/ui/icon";
+import type { AwarenessUser } from "@microflow/collab";
 
 export function PressensePanel(props: Props) {
-  console.log(props.users);
   return (
     <div className="flex -space-x-3">
       {props.users.map((user) => (
-        <Avatar
+        <div
           key={user.id}
-          style={{
-            background: user.color,
-          }}
+          className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-background"
+          style={{ backgroundColor: user.color }}
+          title={user.name}
         >
-          <AvatarFallback
-            style={{
-              background: user.color,
-            }}
-          >
-            <Icon icon="Link2OffIcon" size={12} className="invert" />
-          </AvatarFallback>
-        </Avatar>
+          <Icon icon={user.icon as IconName} size={14} className="text-white" />
+        </div>
       ))}
     </div>
   );
 }
 
 type Props = {
-  users: CollabUser[];
+  users: AwarenessUser[];
 };

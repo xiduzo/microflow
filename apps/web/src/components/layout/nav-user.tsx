@@ -6,11 +6,14 @@ import {
   LogIn,
   LogOut,
   Sparkles,
+  User,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/utils/trpc";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -27,6 +30,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 type User = {
   id: string;
@@ -42,6 +46,12 @@ type Props = {
 export function NavUser({ user }: Props) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
+
+  // Fetch user profile settings if signed in
+  const { data: profile } = useQuery({
+    ...trpc.profile.get.queryOptions(),
+    enabled: !!user,
+  });
 
   if (!user) {
     return (
@@ -66,6 +76,9 @@ export function NavUser({ user }: Props) {
     );
   }
 
+  const collabColor = profile?.settings.collabColor ?? "#4338ca";
+  const collabIcon = (profile?.settings.collabIcon ?? "Cat") as IconName;
+
   return (
     <SidebarMenu className="w-full">
       <SidebarMenuItem>
@@ -76,12 +89,12 @@ export function NavUser({ user }: Props) {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               render={(props) => <div {...props} />}
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.image ?? ""} alt={user.name} />
-                <AvatarFallback className="rounded-full">
-                  {user.name?.slice(0, 2).toUpperCase() ?? "U"}
-                </AvatarFallback>
-              </Avatar>
+              <div
+                className="h-8 w-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: collabColor }}
+              >
+                <Icon icon={collabIcon} size={16} className="text-white" />
+              </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="truncate text-xs">{user.email}</span>
@@ -98,12 +111,12 @@ export function NavUser({ user }: Props) {
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user.image ?? ""} alt={user.name} />
-                    <AvatarFallback className="rounded-full">
-                      {user.name?.slice(0, 2).toUpperCase() ?? "U"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div
+                    className="h-8 w-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: collabColor }}
+                  >
+                    <Icon icon={collabIcon} size={16} className="text-white" />
+                  </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{user.name}</span>
                     <span className="truncate text-xs">{user.email}</span>
@@ -120,6 +133,10 @@ export function NavUser({ user }: Props) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => navigate({ to: "/profile" })}>
+                <User />
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuItem>
                 <BadgeCheck />
                 Account

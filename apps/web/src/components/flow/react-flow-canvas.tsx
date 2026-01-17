@@ -8,9 +8,13 @@ import {
   type XYPosition,
   type Connection,
 } from "@xyflow/react";
-import { useFlowDocument, useFlowClipboard, useFlowHistoryActions } from "@/stores/flow-store";
+import {
+  useFlowDocument,
+  useFlowClipboard,
+  useFlowHistoryActions,
+} from "@/stores/flow-store";
 import { useFlowState } from "@/hooks/use-flow-document";
-import type { FlowEdge } from "@microflow/collab";
+import type { AwarenessUser, FlowEdge } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";
 import { NODE_TYPES } from "./nodes/_TYPES";
@@ -29,15 +33,13 @@ const uid = () => Math.random().toString(36).substring(2, 9);
 
 type ReactFlowCanvasProps = {
   updateCursor?: (cursor: { x: number; y: number }) => void;
-  otherUsers?: Array<{
-    id: string;
-    name: string;
-    color: string;
-    cursor?: { x: number; y: number };
-  }>;
+  otherUsers?: AwarenessUser[];
 };
 
-export function ReactFlowCanvas({ updateCursor, otherUsers = [] }: ReactFlowCanvasProps) {
+export function ReactFlowCanvas({
+  updateCursor,
+  otherUsers = [],
+}: ReactFlowCanvasProps) {
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
 
@@ -63,7 +65,7 @@ export function ReactFlowCanvas({ updateCursor, otherUsers = [] }: ReactFlowCanv
 
       flowDoc.addEdge(newEdge);
     },
-    [flowDoc],
+    [flowDoc]
   );
 
   // Setup hotkeys
@@ -74,10 +76,13 @@ export function ReactFlowCanvas({ updateCursor, otherUsers = [] }: ReactFlowCanv
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       if (!updateCursor) return;
-      const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const flowPosition = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
       updateCursor(flowPosition);
     },
-    [updateCursor, screenToFlowPosition],
+    [updateCursor, screenToFlowPosition]
   );
 
   useEffect(() => {
@@ -85,12 +90,13 @@ export function ReactFlowCanvas({ updateCursor, otherUsers = [] }: ReactFlowCanv
   }, [fitView]);
 
   return (
-    <div className="w-full h-full relative overflow-hidden" onMouseMove={handleMouseMove}>
+    <div className="w-full h-full relative overflow-hidden">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onMouseMove={handleMouseMove}
         onConnect={onConnect}
         colorMode={(theme as ColorMode) ?? "system"}
         minZoom={0.05}
@@ -113,21 +119,7 @@ export function ReactFlowCanvas({ updateCursor, otherUsers = [] }: ReactFlowCanv
           <DockPanel />
         </Panel>
         <Panel position="top-left">
-          <PressensePanel
-            users={[
-              ...otherUsers,
-              {
-                color: "#ffcc00",
-                id: "1234",
-                name: "Sander",
-              },
-              {
-                color: "#3113d8ff",
-                id: "123467",
-                name: "Sander",
-              },
-            ]}
-          />
+          <PressensePanel users={otherUsers} />
         </Panel>
       </ReactFlow>
       <CollabCursors users={otherUsers} />
@@ -160,7 +152,7 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
       enableOnFormTags: false,
       preventDefault: true,
       scopes: ["flow"],
-    },
+    }
   );
 
   useHotkeys("meta+a", clipboard.selectAll, {
@@ -199,7 +191,7 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
       enableOnFormTags: false,
       preventDefault: true,
       scopes: ["flow"],
-    },
+    }
   );
 
   useEffect(() => {
