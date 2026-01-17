@@ -16,9 +16,9 @@
     "@microflow/db": "workspace:*",
     "@microflow/env": "workspace:*",
     "drizzle-orm": "catalog:",
-    "yjs": "^13.6.20",
+    "lib0": "^0.2.99",
     "y-protocols": "^1.0.6",
-    "lib0": "^0.2.99"
+    "yjs": "^13.6.20"
   },
   "devDependencies": {
     "@microflow/config": "workspace:*",

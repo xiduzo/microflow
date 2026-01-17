@@ -47,7 +47,11 @@ export function DeleteFlowDialog({ flow, trigger, onSuccess }: Props) {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger
-        render={trigger ?? <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" />}
+        render={
+          trigger ?? (
+            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" />
+          )
+        }
       >
         {!trigger && <Trash2 className="size-4" />}
       </AlertDialogTrigger>

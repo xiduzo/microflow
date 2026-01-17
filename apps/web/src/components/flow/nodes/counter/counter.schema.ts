@@ -1,11 +1,11 @@
-import { z } from 'zod';
-import { baseDataSchema } from '../_base.schema';
+import { z } from "zod";
+import { baseDataSchema } from "../_base.schema";
 
 export const valueSchema = z.number();
 export type Value = z.infer<typeof valueSchema>;
 
 export const dataSchema = baseDataSchema.extend({
-	instance: z.literal('Counter').default('Counter'),
+  instance: z.literal("Counter").default("Counter"),
 });
 
 export type Data = z.infer<typeof dataSchema>;

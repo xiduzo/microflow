@@ -12,15 +12,11 @@ import { Button } from "@/components/ui/button";
 import { MatrixDisplay } from "./matrix-display";
 import { type PropsWithChildren } from "react";
 
-function newMatrix(options: {
-  dimensions: [number, number];
-  shape?: string[];
-  fill?: string;
-}) {
+function newMatrix(options: { dimensions: [number, number]; shape?: string[]; fill?: string }) {
   const [rows, columns] = options.dimensions;
 
   const matrix = Array.from({ length: rows }, () =>
-    new Array(columns).fill(options.fill ?? "0").join("")
+    new Array(columns).fill(options.fill ?? "0").join(""),
   );
 
   options.shape?.forEach((row, rowIndex) => {
@@ -39,7 +35,7 @@ export function MatrixEditor(props: Props) {
     newMatrix({
       dimensions: props.dimensions,
       shape: props.shape,
-    })
+    }),
   );
 
   return (
@@ -47,9 +43,7 @@ export function MatrixEditor(props: Props) {
       <DialogTrigger>{props.children}</DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>
-            {!!props.onDelete ? "Edit" : "Add new"} shape
-          </DialogTitle>
+          <DialogTitle>{!!props.onDelete ? "Edit" : "Add new"} shape</DialogTitle>
         </DialogHeader>
         <div className="p-4 overflow-x-scroll flex items-center justify-center">
           <MatrixDisplay
@@ -77,7 +71,7 @@ export function MatrixEditor(props: Props) {
                 newMatrix({
                   dimensions: props.dimensions,
                   fill: "1",
-                })
+                }),
               );
             }}
           >
@@ -91,7 +85,7 @@ export function MatrixEditor(props: Props) {
                 newMatrix({
                   dimensions: props.dimensions,
                   fill: "0",
-                })
+                }),
               );
             }}
           >

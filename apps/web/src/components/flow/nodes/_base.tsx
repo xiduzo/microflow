@@ -1,10 +1,5 @@
 import { LevaPanel, useControls, useCreateStore } from "leva";
-import {
-  type Node,
-  type NodeProps,
-  useReactFlow,
-  useUpdateNodeInternals,
-} from "@xyflow/react";
+import { type Node, type NodeProps, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
 import {
   createContext,
   type PropsWithChildren,
@@ -22,11 +17,7 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
 import { OctagonAlertIcon, CableIcon, type LucideIcon } from "lucide-react";
 import { useFlowStore } from "@/stores/flow-store";
@@ -50,9 +41,7 @@ function NodeHeader(props: { error?: string }) {
             <TooltipTrigger className="cursor-help">
               <OctagonAlertIcon className="text-red-500" />
             </TooltipTrigger>
-            <TooltipContent className="text-red-500">
-              {props.error}
-            </TooltipContent>
+            <TooltipContent className="text-red-500">{props.error}</TooltipContent>
           </Tooltip>
         </CardAction>
       )}
@@ -90,10 +79,10 @@ export type Controls = Exclude<UseControlParameters[0], string | Function>;
 
 export const useNodeControls = <
   Data extends Record<string, any> = Record<string, any>,
-  S extends Controls = Controls
+  S extends Controls = Controls,
 >(
   controls: S,
-  dependencies: unknown[] = []
+  dependencies: unknown[] = [],
 ) => {
   const store = useCreateStore();
   const { selected, id, data } = useNode();
@@ -105,7 +94,7 @@ export const useNodeControls = <
   const [controlsData, set] = useControls(
     () => ({ label: data.label, ...controls }),
     { store },
-    dependencies
+    dependencies,
   );
   const lastControlData = useRef(controlsData);
 
@@ -127,7 +116,7 @@ export const useNodeControls = <
       updateNodeInternals(node.id);
       // Note: Flow sync is now automatic through FlowDocument observers
     },
-    [id, getNode, onNodesChange, updateNodeInternals]
+    [id, getNode, onNodesChange, updateNodeInternals],
   );
 
   useEffect(() => {
@@ -143,14 +132,14 @@ export const useNodeControls = <
     <T extends Record<string, unknown>>(node: Partial<Data>) => {
       updateNodeData(node as T);
     },
-    [updateNodeData]
+    [updateNodeData],
   );
 
   const render = useCallback(() => {
     if (!selected) return null;
     return createPortal(
       <LevaPanel store={store} hideCopyButton fill titleBar={false} />,
-      document.getElementById("settings-panels")!
+      document.getElementById("settings-panels")!,
     );
   }, [store, selected]);
 
@@ -161,9 +150,7 @@ export const useNodeControls = <
     if (isFirstRender.current) return;
 
     // Only compare keys which are in the controls data
-    const keys = Object.keys(
-      lastControlData.current as Record<string, unknown>
-    );
+    const keys = Object.keys(lastControlData.current as Record<string, unknown>);
     const dataKeys = Object.keys(data);
 
     // Check if any value has changed
@@ -171,17 +158,14 @@ export const useNodeControls = <
       (key) =>
         dataKeys.includes(key) &&
         lastControlData.current[key as keyof typeof lastControlData.current] !==
-          data[key as keyof typeof data]
+          data[key as keyof typeof data],
     );
     if (!hasChanged) return;
 
-    if (JSON.stringify(lastControlData.current) === JSON.stringify(data))
-      return;
+    if (JSON.stringify(lastControlData.current) === JSON.stringify(data)) return;
 
     // Only get the keys which are in the controls data
-    const newData = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key))
-    );
+    const newData = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
     // Prevent other effects from running
     lastControlData.current = newData as typeof lastControlData.current;
     set(newData as Parameters<typeof set>[0]);
@@ -209,7 +193,7 @@ export function useDeleteHandles() {
       onEdgesChange([{ id: id, type: "remove" }]);
       updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
     },
-    [id, updateNodeInternals, onEdgesChange]
+    [id, updateNodeInternals, onEdgesChange],
   );
 
   return deleteHandles;
@@ -217,9 +201,9 @@ export function useDeleteHandles() {
 
 type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
 
-const NodeContainerContext = createContext<
-  ContainerProps<Record<string, unknown>>
->({} as ContainerProps<Record<string, unknown>>);
+const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
+  {} as ContainerProps<Record<string, unknown>>,
+);
 
 const useNode = <T extends Record<string, unknown>>() =>
   useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
@@ -235,8 +219,7 @@ export const useNodeData = <T extends Record<string, any>>() => {
 };
 
 export function NodeContainer(
-  props: PropsWithChildren &
-    BaseNode & { error?: string } & { className?: string }
+  props: PropsWithChildren & BaseNode & { error?: string } & { className?: string },
 ) {
   return (
     <NodeContainerContext.Provider value={props}>
@@ -259,9 +242,7 @@ export function NodeContainer(
 
 export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
   return (
-    <NodeContainerContext.Provider value={props}>
-      {props.children}
-    </NodeContainerContext.Provider>
+    <NodeContainerContext.Provider value={props}>{props.children}</NodeContainerContext.Provider>
   );
 }
 
@@ -278,7 +259,7 @@ const node = cva(
       draggable: false,
       hasError: false,
     },
-  }
+  },
 );
 
 /**

@@ -9,14 +9,7 @@ import { Proximity } from "./proximity/proximity";
 import { Rgb } from "./rgb/rgb";
 import { RangeMap } from "./range-map/range-map";
 import { Relay } from "./relay/relay";
-import {
-  Force,
-  HallEffect,
-  Ldr,
-  Potentiometer,
-  Sensor,
-  Tilt,
-} from "./sensor/sensor";
+import { Force, HallEffect, Ldr, Potentiometer, Sensor, Tilt } from "./sensor/sensor";
 import { Servo } from "./servo/servo";
 import { Smooth } from "./smooth/smooth";
 import { Switch } from "./switch/switch";

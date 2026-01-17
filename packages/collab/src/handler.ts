@@ -46,7 +46,7 @@ export function createYjsHandler() {
             },
             close: () => ws.close(),
           },
-          userId
+          userId,
         );
 
         // Store cleanup function for later
@@ -75,7 +75,7 @@ export function createYjsHandler() {
             },
             close: () => ws.close(),
           },
-          new Uint8Array(data)
+          new Uint8Array(data),
         );
       }
     },

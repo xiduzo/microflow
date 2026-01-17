@@ -1,10 +1,4 @@
-import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  type Node,
-  type Edge,
-} from "@xyflow/react";
+import { ReactFlow, ReactFlowProvider, Background, type Node, type Edge } from "@xyflow/react";
 import {
   Card,
   CardFooter,

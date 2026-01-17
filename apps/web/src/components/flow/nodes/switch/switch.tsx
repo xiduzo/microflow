@@ -1,11 +1,6 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { dataSchema, type Data, type Value } from "./switch.schema";
 import { ToggleLeftIcon, ToggleRightIcon } from "lucide-react";
 import { MODES, usePins } from "@/stores/board";
@@ -16,21 +11,9 @@ export function Switch(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle
-        type="source"
-        position="right"
-        id="open"
-        title="active"
-        offset={-1}
-      />
+      <Handle type="source" position="right" id="open" title="active" offset={-1} />
       <Handle type="source" position="right" id="change" />
-      <Handle
-        type="source"
-        position="right"
-        id="close"
-        title="inactive"
-        offset={1}
-      />
+      <Handle type="source" position="right" id="close" title="inactive" offset={1} />
     </NodeContainer>
   );
 }
@@ -38,8 +21,7 @@ export function Switch(props: Props) {
 function Value() {
   const value = useNodeValue<Value>(false);
 
-  if (!value)
-    return <ToggleLeftIcon size={48} className="text-muted-foreground" />;
+  if (!value) return <ToggleLeftIcon size={48} className="text-muted-foreground" />;
   return <ToggleRightIcon size={48} className="text-green-500" />;
 }
 
@@ -57,7 +39,7 @@ function Settings() {
         },
       },
     },
-    [pins]
+    [pins],
   );
 
   return <>{render()}</>;

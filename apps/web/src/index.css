@@ -256,16 +256,13 @@
 .react-flow:has(.react-flow__handle.connectingto.valid)
   .react-flow__handle.connectable.connectingfrom,
 .react-flow:has(.react-flow__handle.connectingto.valid)
-  .react-flow__handle.valid:not(
-    :has(~ .react-flow__handle.connectable.connectingfrom)
-  ) {
+  .react-flow__handle.valid:not(:has(~ .react-flow__handle.connectable.connectingfrom)) {
   @apply bg-green-500 dark:bg-green-500 text-green-500 font-bold dark:text-green-500 cursor-crosshair;
 }
 
 /* invalid connection */
 .react-flow__handle:not(.connectable),
-.react-flow:has(.react-flow__connection.invalid)
-  .react-flow__handle.connectable.connectingfrom {
+.react-flow:has(.react-flow__connection.invalid) .react-flow__handle.connectable.connectingfrom {
   @apply bg-red-500 dark:bg-red-500 text-red-500 dark:text-red-500;
 }
 

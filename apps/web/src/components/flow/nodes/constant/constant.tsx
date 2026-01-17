@@ -1,11 +1,6 @@
 import { dataSchema, type Data } from "./constant.schema";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { HashIcon } from "lucide-react";
 
 const numberFormat = new Intl.NumberFormat();
@@ -23,11 +18,7 @@ export function Constant(props: Props) {
 function Value() {
   const data = useNodeData<Data>();
 
-  return (
-    <section className="text-4xl tabular-nums">
-      {numberFormat.format(data.value)}
-    </section>
-  );
+  return <section className="text-4xl tabular-nums">{numberFormat.format(data.value)}</section>;
 }
 
 function Settings() {
@@ -47,7 +38,6 @@ Constant.defaultProps = {
     tags: ["generator"],
     label: "Constant",
     icon: "HashIcon",
-    description:
-      "Provide a fixed number that stays the same and can be used by other nodes",
+    description: "Provide a fixed number that stays the same and can be used by other nodes",
   } satisfies Props["data"],
 };

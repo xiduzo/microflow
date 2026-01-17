@@ -48,13 +48,11 @@ function Value() {
   const value = useNodeValue<Value>(false);
 
   if (!value) {
-    if (data.type === "song")
-      return <DiscIcon className="text-muted-foreground" size={48} />;
+    if (data.type === "song") return <DiscIcon className="text-muted-foreground" size={48} />;
     return <BellIcon className="text-muted-foreground" size={48} />;
   }
 
-  if (data.type === "song")
-    return <Disc3Icon className="animate-spin" size={48} />;
+  if (data.type === "song") return <Disc3Icon className="animate-spin" size={48} />;
   return <BellRingIcon className="animate-wiggle" size={48} />;
 }
 
@@ -98,7 +96,7 @@ function Settings() {
         },
         {
           render: (get) => get("type") === "buzz",
-        }
+        },
       ),
       song: folder(
         {
@@ -112,10 +110,10 @@ function Settings() {
         },
         {
           render: (get) => get("type") === "song",
-        }
+        },
       ),
     },
-    [pins]
+    [pins],
   );
 
   return (
@@ -149,7 +147,6 @@ Piezo.defaultProps = {
     tags: ["output", "analog", "digital"],
     label: "Piezo",
     icon: "BellIcon",
-    description:
-      "Make sounds, play tones, or create melodies using a buzzer or speaker",
+    description: "Make sounds, play tones, or create melodies using a buzzer or speaker",
   } satisfies Props["data"],
 };

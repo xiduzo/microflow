@@ -12,6 +12,6 @@ export const useActiveFlowStore = create<ActiveFlowStore>()(
       activeFlowId: "local",
       setActiveFlowId: (id) => set({ activeFlowId: id ?? "local" }),
     }),
-    { name: "microflow-active-flow" }
-  )
+    { name: "microflow-active-flow" },
+  ),
 );

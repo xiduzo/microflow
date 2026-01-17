@@ -39,13 +39,7 @@ export function AnimatedEdge(props: EdgeProps) {
 
   // Switch to lightweight AnimatedEdge when signal rate is high
   if (useLightweightMode) {
-    return (
-      <AnimatedBaseEdge
-        id={id}
-        edgePath={edgePath}
-        hasSignals={signals.length > 0}
-      />
-    );
+    return <AnimatedBaseEdge id={id} edgePath={edgePath} hasSignals={signals.length > 0} />;
   }
 
   return (
@@ -62,13 +56,10 @@ export function AnimatedEdge(props: EdgeProps) {
 }
 
 function EdgeWithSignals(
-  props: Pick<
-    EdgeProps,
-    "id" | "sourceX" | "sourceY" | "targetX" | "targetY"
-  > & {
+  props: Pick<EdgeProps, "id" | "sourceX" | "sourceY" | "targetX" | "targetY"> & {
     signals: Signal[];
     edgePath: string;
-  }
+  },
 ) {
   const { id, sourceX, sourceY, targetX, targetY, signals, edgePath } = props;
   // Parse the path once and cache the control points
@@ -76,9 +67,9 @@ function EdgeWithSignals(
     return parseBezierPath(edgePath, sourceX, sourceY, targetX, targetY);
   }, [edgePath, sourceX, sourceY, targetX, targetY]);
 
-  const [signalPositions, setSignalPositions] = useState<
-    Map<string, { x: number; y: number }>
-  >(new Map());
+  const [signalPositions, setSignalPositions] = useState<Map<string, { x: number; y: number }>>(
+    new Map(),
+  );
   const isMountedRef = useRef(true);
 
   // Clean up signalPositions when signals are removed
@@ -132,15 +123,7 @@ function EdgeWithSignals(
         const position = signalPositions.get(signal.id);
         if (!position) return null;
 
-        return (
-          <circle
-            key={signal.id}
-            r="8"
-            fill="#ffcc00"
-            cx={position.x}
-            cy={position.y}
-          />
-        );
+        return <circle key={signal.id} r="8" fill="#ffcc00" cx={position.x} cy={position.y} />;
       })}
     </>
   );
@@ -154,13 +137,7 @@ function AnimatedBaseEdge({
   edgePath: string;
   hasSignals: boolean;
 }) {
-  return (
-    <BaseEdge
-      id={id}
-      path={edgePath}
-      className={cn({ animated: hasSignals })}
-    />
-  );
+  return <BaseEdge id={id} path={edgePath} className={cn({ animated: hasSignals })} />;
 }
 
 type BezierPoints = {
@@ -184,12 +161,12 @@ function parseBezierPath(
   sourceX: number,
   sourceY: number,
   targetX: number,
-  targetY: number
+  targetY: number,
 ): BezierPoints {
   // Parse the SVG path to extract control points
   // Format: M x,y C cx1,cy1 cx2,cy2 x,y
   const pathMatch = path.match(
-    /M\s*([\d.-]+),([\d.-]+)\s*C\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)/
+    /M\s*([\d.-]+),([\d.-]+)\s*C\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)\s*([\d.-]+),([\d.-]+)/,
   );
 
   if (!pathMatch) {
@@ -207,8 +184,7 @@ function parseBezierPath(
     };
   }
 
-  const [, startX, startY, cp1X, cp1Y, cp2X, cp2Y, endX, endY] =
-    pathMatch.map(Number);
+  const [, startX, startY, cp1X, cp1Y, cp2X, cp2Y, endX, endY] = pathMatch.map(Number);
 
   return {
     startX,
@@ -227,10 +203,7 @@ function parseBezierPath(
  * Calculate position along cubic Bezier curve using the formula:
  * B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
  */
-function getPointOnBezierCurve(
-  points: BezierPoints,
-  progress: number
-): { x: number; y: number } {
+function getPointOnBezierCurve(points: BezierPoints, progress: number): { x: number; y: number } {
   if (points.isLinear) {
     // Fast path for linear interpolation
     return {

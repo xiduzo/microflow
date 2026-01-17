@@ -43,8 +43,7 @@ export function HotkeySheet() {
           <SheetDescription className="flex gap-1">
             Toggle this sheet by pressing{" "}
             <div className="flex items-center gap-0.5">
-              <Kbd>{isMac ? "⌃" : "control"}</Kbd>{" "}
-              <Kbd>{isMac ? "⇧" : "shift"}</Kbd> <Kbd>/</Kbd>
+              <Kbd>{isMac ? "⌃" : "control"}</Kbd> <Kbd>{isMac ? "⇧" : "shift"}</Kbd> <Kbd>/</Kbd>
             </div>
           </SheetDescription>
         </SheetHeader>
@@ -55,10 +54,7 @@ export function HotkeySheet() {
             <TabsTrigger value="selection">Selection</TabsTrigger>
             <TabsTrigger value="edit">Edit</TabsTrigger>
           </TabsList>
-          <TabsContent
-            value="essential"
-            className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48"
-          >
+          <TabsContent value="essential" className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48">
             <section>
               <Item>
                 <ItemContent>
@@ -82,9 +78,7 @@ export function HotkeySheet() {
               <Item>
                 <ItemContent>
                   <ItemTitle>New node</ItemTitle>
-                  <ItemDescription>
-                    Adding new nodes to your flow
-                  </ItemDescription>
+                  <ItemDescription>Adding new nodes to your flow</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⌘" : "ctrl"}</Kbd>
@@ -98,9 +92,8 @@ export function HotkeySheet() {
                 <ItemContent>
                   <ItemTitle>Connect nodes</ItemTitle>
                   <ItemDescription>
-                    Create a flow by clicking on a{" "}
-                    <span className="italic">handle</span> and drag to another
-                    one
+                    Create a flow by clicking on a <span className="italic">handle</span> and drag
+                    to another one
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
@@ -117,10 +110,7 @@ export function HotkeySheet() {
               </Item>
             </section>
           </TabsContent>
-          <TabsContent
-            value="zoom"
-            className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48"
-          >
+          <TabsContent value="zoom" className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48">
             <section>
               <Item>
                 <ItemContent>
@@ -155,9 +145,7 @@ export function HotkeySheet() {
               <Item>
                 <ItemContent>
                   <ItemTitle>Zoom to fit</ItemTitle>
-                  <ItemDescription>
-                    Zoom into the selected nodes and edges
-                  </ItemDescription>
+                  <ItemDescription>Zoom into the selected nodes and edges</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⇧" : "shift"}</Kbd>
@@ -168,17 +156,12 @@ export function HotkeySheet() {
             <Separator className="lg:hidden" />
             <section></section>
           </TabsContent>
-          <TabsContent
-            value="selection"
-            className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48"
-          >
+          <TabsContent value="selection" className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48">
             <section>
               <Item>
                 <ItemContent>
                   <ItemTitle>Select node</ItemTitle>
-                  <ItemDescription>
-                    By selecting a node you can edit its properties
-                  </ItemDescription>
+                  <ItemDescription>By selecting a node you can edit its properties</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Kbd>
@@ -210,9 +193,7 @@ export function HotkeySheet() {
               <Item>
                 <ItemContent>
                   <ItemTitle>Select multiple</ItemTitle>
-                  <ItemDescription>
-                    Select multiple nodes and edges at once
-                  </ItemDescription>
+                  <ItemDescription>Select multiple nodes and edges at once</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⌘" : "shift"}</Kbd>
@@ -224,9 +205,7 @@ export function HotkeySheet() {
               <Item>
                 <ItemContent>
                   <ItemTitle>Select area</ItemTitle>
-                  <ItemDescription>
-                    Selects all nodes and edges within the area
-                  </ItemDescription>
+                  <ItemDescription>Selects all nodes and edges within the area</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Kbd>{isMac ? "⇧" : "shift"}</Kbd>
@@ -260,10 +239,7 @@ export function HotkeySheet() {
               </Item>
             </section>
           </TabsContent>
-          <TabsContent
-            value="edit"
-            className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48"
-          >
+          <TabsContent value="edit" className="grid lg:grid-cols-3 grid-cols-1 gap-4 min-h-48">
             <section>
               <Item>
                 <ItemContent>

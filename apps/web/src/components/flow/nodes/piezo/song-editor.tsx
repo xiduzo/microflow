@@ -1,10 +1,7 @@
 import { DndBadge } from "./dnd-badge";
 import { noteDurationToVisualDuation } from "./helpers";
 import { NodeEditor } from "./note-editor";
-import {
-  DEFAULT_NOTE,
-  DEFAULT_NOTE_DURATION,
-} from "@microflow/runtime/piezo/piezo.constants";
+import { DEFAULT_NOTE, DEFAULT_NOTE_DURATION } from "@microflow/runtime/piezo/piezo.constants";
 import { useState } from "react";
 import {
   Dialog,
@@ -21,9 +18,7 @@ import { uid } from "@/lib/uid";
 import { MusicSheet } from "./music-sheet";
 
 export function SongEditor(props: Props) {
-  const [editedSong, setEditedSong] = useState(
-    props.song.map((note) => ({ note, id: uid() }))
-  );
+  const [editedSong, setEditedSong] = useState(props.song.map((note) => ({ note, id: uid() })));
 
   function swapNotes(id: string, hoveredId: string) {
     setEditedSong((prev) => {
@@ -43,10 +38,7 @@ export function SongEditor(props: Props) {
           <DialogTitle>Edit song</DialogTitle>
         </DialogHeader>
         <section className="flex flex-col space-y-4">
-          <MusicSheet
-            song={editedSong.map((song) => song.note)}
-            title={props.title}
-          />
+          <MusicSheet song={editedSong.map((song) => song.note)} title={props.title} />
           <DragAndDropProvider swap={swapNotes}>
             <section className="grid gap-2 grid-cols-4">
               {editedSong?.map(({ note, id }, index) => (

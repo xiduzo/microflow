@@ -18,9 +18,9 @@ export function useComponentEvents() {
     handler: ({ payload }) => {
       const { source, sourceHandle, value } = payload;
 
-      if(sourceHandle === "change") updateNodeData(source, value);
+      if (sourceHandle === "change") updateNodeData(source, value);
 
-      console.log("[COMPONENT-EVENT]", {  source, sourceHandle, value });
+      console.log("[COMPONENT-EVENT]", { source, sourceHandle, value });
 
       // Update the target node's data with the event value
 
@@ -30,7 +30,7 @@ export function useComponentEvents() {
 
       // Find all edges that originate from this source node and handle
       const matchingEdges = edges.filter(
-        (edge) => edge.source === source && edge.sourceHandle === sourceHandle
+        (edge) => edge.source === source && edge.sourceHandle === sourceHandle,
       );
 
       // Trigger signal animation on each matching edge

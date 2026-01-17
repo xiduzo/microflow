@@ -1,11 +1,6 @@
 import { dataSchema, type Data, type Value } from "./mqtt.schema";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { useNodeValue } from "@/stores/node-data";
 import { RadioIcon, RadioTowerIcon } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
@@ -15,9 +10,7 @@ export function Mqtt(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      {props.data.direction === "publish" && (
-        <Handle type="target" position="left" id="publish" />
-      )}
+      {props.data.direction === "publish" && <Handle type="target" position="left" id="publish" />}
       {props.data.direction === "subscribe" && (
         <Handle type="source" position="right" id="message" />
       )}

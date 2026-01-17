@@ -1,272 +1,274 @@
-import { type Data, type Value, dataSchema } from '@microflow/runtime/src/figma/figma.types';
-import { useFigmaVariable, useFigmaVariables } from '@microflow/mqtt-provider/src/stores/figma';
-import { useMqttStore } from '@microflow/mqtt-provider/src/stores/mqtt';
-import { Icons, Switch, Tooltip, TooltipContent, TooltipTrigger } from '@microflow/ui';
-import { Position, useUpdateNodeInternals } from '@xyflow/react';
-import { useEffect, useRef } from 'react';
-import { Handle } from '../Handle';
-import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from './Node';
-import { RgbaColorPicker } from 'react-colorful';
-import { useNodeValue } from '../../../stores/node-data';
-import { type RGBA } from '@microflow/runtime/src/types';
+import { type Data, type Value, dataSchema } from "@microflow/runtime/src/figma/figma.types";
+import { useFigmaVariable, useFigmaVariables } from "@microflow/mqtt-provider/src/stores/figma";
+import { useMqttStore } from "@microflow/mqtt-provider/src/stores/mqtt";
+import { Icons, Switch, Tooltip, TooltipContent, TooltipTrigger } from "@microflow/ui";
+import { Position, useUpdateNodeInternals } from "@xyflow/react";
+import { useEffect, useRef } from "react";
+import { Handle } from "../Handle";
+import { BaseNode, NodeContainer, useDeleteHandles, useNodeControls, useNodeData } from "./Node";
+import { RgbaColorPicker } from "react-colorful";
+import { useNodeValue } from "../../../stores/node-data";
+import { type RGBA } from "@microflow/runtime/src/types";
 
 export function Figma(props: Props) {
-	const { connectedClients } = useMqttStore();
-	const pluginConnected =
-		connectedClients.find(({ appName }) => appName === 'plugin')?.status === 'connected';
+  const { connectedClients } = useMqttStore();
+  const pluginConnected =
+    connectedClients.find(({ appName }) => appName === "plugin")?.status === "connected";
 
-	return (
-		<NodeContainer
-			{...props}
-			error={!pluginConnected ? 'Figma plugin is not connected' : undefined}
-		>
-			<Value />
-			<ValueSync variableId={props.data?.variableId} nodeId={props.id} />
-			<Settings />
-			<FigmaHandles variableId={props.data?.variableId} id={props.id} />
-		</NodeContainer>
-	);
+  return (
+    <NodeContainer
+      {...props}
+      error={!pluginConnected ? "Figma plugin is not connected" : undefined}
+    >
+      <Value />
+      <ValueSync variableId={props.data?.variableId} nodeId={props.id} />
+      <Settings />
+      <FigmaHandles variableId={props.data?.variableId} id={props.id} />
+    </NodeContainer>
+  );
 }
 
 function ValueSync(props: { variableId?: string; nodeId: string }) {
-	const { value: figmaValue } = useFigmaVariable(props.variableId);
-	const nodeValue = useNodeValue<Value>(false);
+  const { value: figmaValue } = useFigmaVariable(props.variableId);
+  const nodeValue = useNodeValue<Value>(false);
 
-	const { publish, appName, uniqueId } = useMqttStore();
+  const { publish, appName, uniqueId } = useMqttStore();
 
-	const lastKnownValue = useRef<string | undefined>(undefined);
+  const lastKnownValue = useRef<string | undefined>(undefined);
 
-	// Option 1; the flow updates the node value
-	useEffect(() => {
-		if (figmaValue === undefined) return;
-		const stringifiedValue = JSON.stringify(figmaValue);
+  // Option 1; the flow updates the node value
+  useEffect(() => {
+    if (figmaValue === undefined) return;
+    const stringifiedValue = JSON.stringify(figmaValue);
 
-		if (stringifiedValue === lastKnownValue.current) return;
+    if (stringifiedValue === lastKnownValue.current) return;
 
-		lastKnownValue.current = stringifiedValue;
+    lastKnownValue.current = stringifiedValue;
 
-		// Set the node value
-		window.electron.ipcRenderer.send('ipc-external-value', {
-			nodeId: props.nodeId,
-			value: stringifiedValue,
-		});
-	}, [figmaValue, props.nodeId]);
+    // Set the node value
+    window.electron.ipcRenderer.send("ipc-external-value", {
+      nodeId: props.nodeId,
+      value: stringifiedValue,
+    });
+  }, [figmaValue, props.nodeId]);
 
-	// Option 2; the plugin updates the node value
-	useEffect(() => {
-		const stringifiedValue = JSON.stringify(nodeValue);
+  // Option 2; the plugin updates the node value
+  useEffect(() => {
+    const stringifiedValue = JSON.stringify(nodeValue);
 
-		if (stringifiedValue === lastKnownValue.current) return;
+    if (stringifiedValue === lastKnownValue.current) return;
 
-		lastKnownValue.current = stringifiedValue;
+    lastKnownValue.current = stringifiedValue;
 
-		if (!props.variableId) return;
+    if (!props.variableId) return;
 
-		// Set the figma value
-		publish(
-			`microflow/v1/${uniqueId}/${appName}/variable/${props.variableId}/set`,
-			stringifiedValue
-		);
-	}, [nodeValue, props.variableId, uniqueId, appName, publish]);
+    // Set the figma value
+    publish(
+      `microflow/v1/${uniqueId}/${appName}/variable/${props.variableId}/set`,
+      stringifiedValue,
+    );
+  }, [nodeValue, props.variableId, uniqueId, appName, publish]);
 
-	return null;
+  return null;
 }
 
 function FigmaHandles(props: { variableId?: string; id: string }) {
-	const updateNodeInternals = useUpdateNodeInternals();
-	const { variable } = useFigmaVariable(props.variableId);
+  const updateNodeInternals = useUpdateNodeInternals();
+  const { variable } = useFigmaVariable(props.variableId);
 
-	useEffect(() => {
-		if (!variable?.resolvedType) return;
-		// We need to update the internals when we have the resolvedType
-		// So that we do not get the xyflow error: `Couldn't create edge for target handle id...`
-		updateNodeInternals(props.id);
-	}, [props.id, variable?.resolvedType, updateNodeInternals]);
+  useEffect(() => {
+    if (!variable?.resolvedType) return;
+    // We need to update the internals when we have the resolvedType
+    // So that we do not get the xyflow error: `Couldn't create edge for target handle id...`
+    updateNodeInternals(props.id);
+  }, [props.id, variable?.resolvedType, updateNodeInternals]);
 
-	return (
-		<>
-			{variable?.resolvedType === 'BOOLEAN' && (
-				<>
-					<Handle type='target' position={Position.Left} id='true' offset={-1} />
-					<Handle type='target' position={Position.Left} id='toggle' />
-					<Handle type='target' position={Position.Left} id='false' offset={1} />
-					<Handle type='source' position={Position.Right} id='true' offset={-1} />
-					<Handle type='source' position={Position.Right} id='false' offset={1} />
-				</>
-			)}
-			{variable?.resolvedType === 'COLOR' && (
-				<>
-					<Handle type='target' position={Position.Left} id='red' hint='0-255' offset={-1.5} />
-					<Handle type='target' position={Position.Left} id='green' hint='0-255' offset={-0.5} />
-					<Handle type='target' position={Position.Left} id='blue' hint='0-255' offset={0.5} />
-					<Handle type='target' position={Position.Left} id='opacity' hint='0-100' offset={1.5} />
-				</>
-			)}
-			{variable?.resolvedType === 'FLOAT' && (
-				<>
-					<Handle type='target' position={Position.Left} id='increment' offset={-1.5} />
-					<Handle type='target' position={Position.Left} id='set' offset={-0.5} />
-					<Handle type='target' position={Position.Left} id='decrement' offset={0.5} />
-					<Handle type='target' position={Position.Left} id='reset' offset={1.5} />
-				</>
-			)}
-			{variable?.resolvedType === 'STRING' && (
-				<Handle type='target' position={Position.Left} id='set' />
-			)}
-			<Handle type='source' position={Position.Right} id='change' />
-		</>
-	);
+  return (
+    <>
+      {variable?.resolvedType === "BOOLEAN" && (
+        <>
+          <Handle type="target" position={Position.Left} id="true" offset={-1} />
+          <Handle type="target" position={Position.Left} id="toggle" />
+          <Handle type="target" position={Position.Left} id="false" offset={1} />
+          <Handle type="source" position={Position.Right} id="true" offset={-1} />
+          <Handle type="source" position={Position.Right} id="false" offset={1} />
+        </>
+      )}
+      {variable?.resolvedType === "COLOR" && (
+        <>
+          <Handle type="target" position={Position.Left} id="red" hint="0-255" offset={-1.5} />
+          <Handle type="target" position={Position.Left} id="green" hint="0-255" offset={-0.5} />
+          <Handle type="target" position={Position.Left} id="blue" hint="0-255" offset={0.5} />
+          <Handle type="target" position={Position.Left} id="opacity" hint="0-100" offset={1.5} />
+        </>
+      )}
+      {variable?.resolvedType === "FLOAT" && (
+        <>
+          <Handle type="target" position={Position.Left} id="increment" offset={-1.5} />
+          <Handle type="target" position={Position.Left} id="set" offset={-0.5} />
+          <Handle type="target" position={Position.Left} id="decrement" offset={0.5} />
+          <Handle type="target" position={Position.Left} id="reset" offset={1.5} />
+        </>
+      )}
+      {variable?.resolvedType === "STRING" && (
+        <Handle type="target" position={Position.Left} id="set" />
+      )}
+      <Handle type="source" position={Position.Right} id="change" />
+    </>
+  );
 }
 
 function Settings() {
-	const data = useNodeData<Data>();
-	const variables = useFigmaVariables();
-	const deleteHandles = useDeleteHandles();
+  const data = useNodeData<Data>();
+  const variables = useFigmaVariables();
+  const deleteHandles = useDeleteHandles();
 
-	const { render, set } = useNodeControls(
-		{
-			variableId: {
-				label: 'variable',
-				value: data.variableId!,
-				transient: false,
-				options: Object.values(variables).reduce(
-					(curr, variable) => {
-						curr[variable.name] = variable.id;
-						return curr;
-					},
-					{} as Record<string, string>
-				),
-				onChange: event => {
-					const selectedVariableType = Array.from(Object.values(variables)).find(
-						({ id }) => id === event
-					)?.resolvedType;
+  const { render, set } = useNodeControls(
+    {
+      variableId: {
+        label: "variable",
+        value: data.variableId!,
+        transient: false,
+        options: Object.values(variables).reduce(
+          (curr, variable) => {
+            curr[variable.name] = variable.id;
+            return curr;
+          },
+          {} as Record<string, string>,
+        ),
+        onChange: (event) => {
+          const selectedVariableType = Array.from(Object.values(variables)).find(
+            ({ id }) => id === event,
+          )?.resolvedType;
 
-					const booleanHandles = ['true', 'toggle', 'false'] as const;
-					const colorHandles = ['red', 'green', 'blue', 'opacity'] as const;
-					const floatHandles = ['increment', 'set', 'decrement', 'reset'] as const;
-					const allHandles = [...booleanHandles, ...colorHandles, ...floatHandles] as const;
+          const booleanHandles = ["true", "toggle", "false"] as const;
+          const colorHandles = ["red", "green", "blue", "opacity"] as const;
+          const floatHandles = ["increment", "set", "decrement", "reset"] as const;
+          const allHandles = [...booleanHandles, ...colorHandles, ...floatHandles] as const;
 
-					switch (selectedVariableType) {
-						case 'BOOLEAN':
-							deleteHandles(
-								allHandles.filter(handle => !['true', 'toggle', 'false'].includes(handle))
-							);
-							break;
-						case 'COLOR':
-							deleteHandles(
-								allHandles.filter(handle => !['red', 'green', 'blue', 'opacity'].includes(handle))
-							);
-							break;
-						case 'FLOAT':
-							deleteHandles(
-								allHandles.filter(handle => !['increment', 'set', 'decrement'].includes(handle))
-							);
-							break;
-						case 'STRING':
-							deleteHandles(allHandles.filter(handle => !['set'].includes(handle)));
-							break;
-					}
+          switch (selectedVariableType) {
+            case "BOOLEAN":
+              deleteHandles(
+                allHandles.filter((handle) => !["true", "toggle", "false"].includes(handle)),
+              );
+              break;
+            case "COLOR":
+              deleteHandles(
+                allHandles.filter(
+                  (handle) => !["red", "green", "blue", "opacity"].includes(handle),
+                ),
+              );
+              break;
+            case "FLOAT":
+              deleteHandles(
+                allHandles.filter((handle) => !["increment", "set", "decrement"].includes(handle)),
+              );
+              break;
+            case "STRING":
+              deleteHandles(allHandles.filter((handle) => !["set"].includes(handle)));
+              break;
+          }
 
-					set({ resolvedType: selectedVariableType });
-					// IDEA set initial value?
-				},
-			},
-			resolvedType: {
-				value: data.resolvedType!,
-				label: 'type',
-				options: ['BOOLEAN', 'COLOR', 'FLOAT', 'STRING'],
-				render: () => false,
-			},
-			debounceTime: {
-				value: data.debounceTime!,
-				min: 10,
-				max: 500,
-				step: 10,
-				label: 'debounce (ms)',
-			},
-		},
-		[variables]
-	);
+          set({ resolvedType: selectedVariableType });
+          // IDEA set initial value?
+        },
+      },
+      resolvedType: {
+        value: data.resolvedType!,
+        label: "type",
+        options: ["BOOLEAN", "COLOR", "FLOAT", "STRING"],
+        render: () => false,
+      },
+      debounceTime: {
+        value: data.debounceTime!,
+        min: 10,
+        max: 500,
+        step: 10,
+        label: "debounce (ms)",
+      },
+    },
+    [variables],
+  );
 
-	return <>{render()}</>;
+  return <>{render()}</>;
 }
 
-const numberFormat = new Intl.NumberFormat('en-US', {
-	maximumFractionDigits: 2,
+const numberFormat = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
 });
 
 function Value() {
-	const data = useNodeData<Data>();
-	const value = useNodeValue<Value>(data.initialValue!);
-	const { variable } = useFigmaVariable(data.variableId);
-	const variables = useFigmaVariables();
+  const data = useNodeData<Data>();
+  const value = useNodeValue<Value>(data.initialValue!);
+  const { variable } = useFigmaVariable(data.variableId);
+  const variables = useFigmaVariables();
 
-	if (!Object.values(variables).length)
-		return <Icons.CloudOff className='text-muted-foreground' size={48} />;
-	if (!variable) return <Icons.Variable className='text-muted-foreground' size={48} />;
+  if (!Object.values(variables).length)
+    return <Icons.CloudOff className="text-muted-foreground" size={48} />;
+  if (!variable) return <Icons.Variable className="text-muted-foreground" size={48} />;
 
-	switch (variable.resolvedType) {
-		case 'BOOLEAN':
-			return (
-				<section className='flex flex-col items-center gap-2'>
-					<Switch className='scale-150 border' checked={Boolean(value)} />
-					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
-				</section>
-			);
-		case 'FLOAT':
-			return (
-				<section className='flex flex-col items-center gap-1'>
-					<span className='text-4xl tabular-nums'>{numberFormat.format(Number(value))}</span>
-					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
-				</section>
-			);
-		case 'STRING':
-			return (
-				<section className='flex flex-col items-center gap-1'>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<div className='-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto'>
-								{String(value)}
-							</div>
-						</TooltipTrigger>
-						<TooltipContent className='max-w-64'>{String(value)}</TooltipContent>
-					</Tooltip>
-					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
-				</section>
-			);
-		case 'COLOR':
-			return (
-				<section className='flex flex-col items-center gap-1'>
-					<RgbaColorPicker
-						color={{
-							r: Math.round((value as RGBA).r * 255),
-							g: Math.round((value as RGBA).g * 255),
-							b: Math.round((value as RGBA).b * 255),
-							a: (value as RGBA).a,
-						}}
-					/>
-					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
-				</section>
-			);
-		default:
-			return (
-				<section className='flex flex-col items-center gap-1'>
-					<div>Unknown type</div>
-					<span className='text-muted-foreground text-xs'>{variable?.name}</span>
-				</section>
-			);
-	}
+  switch (variable.resolvedType) {
+    case "BOOLEAN":
+      return (
+        <section className="flex flex-col items-center gap-2">
+          <Switch className="scale-150 border" checked={Boolean(value)} />
+          <span className="text-muted-foreground text-xs">{variable?.name}</span>
+        </section>
+      );
+    case "FLOAT":
+      return (
+        <section className="flex flex-col items-center gap-1">
+          <span className="text-4xl tabular-nums">{numberFormat.format(Number(value))}</span>
+          <span className="text-muted-foreground text-xs">{variable?.name}</span>
+        </section>
+      );
+    case "STRING":
+      return (
+        <section className="flex flex-col items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="-mx-8 max-w-48 max-h-32 text-wrap overflow-hidden pointer-events-auto">
+                {String(value)}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64">{String(value)}</TooltipContent>
+          </Tooltip>
+          <span className="text-muted-foreground text-xs">{variable?.name}</span>
+        </section>
+      );
+    case "COLOR":
+      return (
+        <section className="flex flex-col items-center gap-1">
+          <RgbaColorPicker
+            color={{
+              r: Math.round((value as RGBA).r * 255),
+              g: Math.round((value as RGBA).g * 255),
+              b: Math.round((value as RGBA).b * 255),
+              a: (value as RGBA).a,
+            }}
+          />
+          <span className="text-muted-foreground text-xs">{variable?.name}</span>
+        </section>
+      );
+    default:
+      return (
+        <section className="flex flex-col items-center gap-1">
+          <div>Unknown type</div>
+          <span className="text-muted-foreground text-xs">{variable?.name}</span>
+        </section>
+      );
+  }
 }
 
 type Props = BaseNode<Data>;
 Figma.defaultProps = {
-	data: {
-		...dataSchema.parse({}),
-		group: 'external',
-		tags: ['output', 'input'],
-		label: 'Figma',
-		icon: 'Figma',
-		description:
-			'Connect your flow to Figma design files to control colors, numbers, and text from your device',
-	} satisfies Props['data'],
+  data: {
+    ...dataSchema.parse({}),
+    group: "external",
+    tags: ["output", "input"],
+    label: "Figma",
+    icon: "Figma",
+    description:
+      "Connect your flow to Figma design files to control colors, numbers, and text from your device",
+  } satisfies Props["data"],
 };

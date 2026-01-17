@@ -23,32 +23,26 @@ export function useBoardEvents() {
   useListen<Board>({
     type: "board-state",
     handler: ({ payload }) => {
-      console.log(payload)
+      console.log(payload);
       setBoard(payload);
     },
   });
 }
 
-export const usePins = (
-  shouldHaveMode?: MODES[],
-  shouldNotHaveMode?: MODES[]
-) => {
+export const usePins = (shouldHaveMode?: MODES[], shouldNotHaveMode?: MODES[]) => {
   const boardPins = useBoardStore(
-    useShallow((state) =>
-      state.board.state === "connected" ? state.board.pins : []
-    )
+    useShallow((state) => (state.board.state === "connected" ? state.board.pins : [])),
   );
 
   const filteredPins = useMemo(() => {
     if (!shouldHaveMode?.length) return boardPins;
     const pins = boardPins.filter((pin) =>
-      shouldHaveMode.every((mode) => pin.supportedModes.includes(mode))
+      shouldHaveMode.every((mode) => pin.supportedModes.includes(mode)),
     );
 
     if (!shouldNotHaveMode?.length) return pins;
     return pins.filter(
-      (pin) =>
-        !shouldNotHaveMode.some((mode) => pin.supportedModes.includes(mode))
+      (pin) => !shouldNotHaveMode.some((mode) => pin.supportedModes.includes(mode)),
     );
   }, [boardPins, shouldHaveMode, shouldNotHaveMode]);
 
@@ -56,14 +50,9 @@ export const usePins = (
 };
 
 export const useBoardPort = () =>
-  useBoardStore(
-    useShallow(({ board }) =>
-      board.state === "connected" ? board.port : undefined
-    )
-  );
+  useBoardStore(useShallow(({ board }) => (board.state === "connected" ? board.port : undefined)));
 
-export const useBoardState = () =>
-  useBoardStore(useShallow(({ board }) => board.state));
+export const useBoardState = () => useBoardStore(useShallow(({ board }) => board.state));
 
 export const useBoard = () => useBoardStore(useShallow(({ board }) => board));
 
@@ -148,9 +137,4 @@ type BoardFlashing = {
   board: string;
 };
 
-export type Board =
-  | BoardReady
-  | BoardError
-  | BoardDisconnected
-  | BoardConnecting
-  | BoardFlashing;
+export type Board = BoardReady | BoardError | BoardDisconnected | BoardConnecting | BoardFlashing;

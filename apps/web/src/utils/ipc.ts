@@ -31,7 +31,7 @@ type Command = Flow;
 
 export async function invokeCommand<
   TCommand extends Command,
-  TResponse extends Record<string, unknown>
+  TResponse extends Record<string, unknown>,
 >(command: TCommand): Promise<Response<TResponse>> {
   if (!isDesktop()) return { success: false, error: "Not running on desktop" };
 
@@ -60,9 +60,7 @@ export function useListen<T>(event: { type: string; handler: (event: Event<T>) =
     const listener = listen<T>(type, handler);
 
     return () => {
-      listener
-        .then((unlisten) => unlisten())
-        .catch((error) => console.error(error));
+      listener.then((unlisten) => unlisten()).catch((error) => console.error(error));
     };
   }, [event]);
 }

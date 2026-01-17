@@ -2,11 +2,7 @@ import { useMemo } from "react";
 import type { Value } from "@microflow/runtime/pixel/pixel.types";
 import { DEFAULT_OFF_PIXEL_COLOR } from "@microflow/runtime/pixel/pixel.constants";
 import { ChevronRightIcon } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const LEDS_PER_ROW = 8;
 const totalCols = LEDS_PER_ROW + 1; // +1 for the icon column
@@ -104,10 +100,7 @@ export function PixelDisplay({
 
   // Ensure value array matches length
   const paddedValue = useMemo(() => {
-    return Array.from(
-      { length },
-      (_, i) => value[i] || DEFAULT_OFF_PIXEL_COLOR
-    );
+    return Array.from({ length }, (_, i) => value[i] || DEFAULT_OFF_PIXEL_COLOR);
   }, [value, length]);
 
   return (
@@ -151,9 +144,7 @@ export function PixelDisplay({
                 gridRow: item.row + 1,
                 gridColumn: item.col + 1,
               }}
-              onClick={
-                isClickable ? () => onPixelClick?.(item.index) : undefined
-              }
+              onClick={isClickable ? () => onPixelClick?.(item.index) : undefined}
             />
           );
 

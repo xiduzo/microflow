@@ -6,7 +6,7 @@ import { MODES, type Pin } from "@/stores/board";
  */
 function getAnalogChannelBase(pins: Pin[]): number {
   const analogPins = pins.filter(
-    (p) => p.supportedModes.includes(MODES.ANALOG) && p.analogChannel >= 0
+    (p) => p.supportedModes.includes(MODES.ANALOG) && p.analogChannel >= 0,
   );
   if (analogPins.length === 0) return 0;
   return Math.min(...analogPins.map((p) => p.analogChannel));
@@ -29,9 +29,7 @@ function pinValue(pin: Pin, pins: Pin[] = []) {
 }
 
 function pinValueWithPMW(pin: Pin, pins: Pin[] = []) {
-  return `${pinValue(pin, pins)}${
-    pin.supportedModes.includes(MODES.PWM) ? " (~)" : ""
-  }`;
+  return `${pinValue(pin, pins)}${pin.supportedModes.includes(MODES.PWM) ? " (~)" : ""}`;
 }
 
 function ensurePin(pin: Pin | string | number, pins: Pin[] = []) {
@@ -53,7 +51,7 @@ export function reducePinsToOptions(
   prev: Record<string, string | number>,
   next: Pin,
   _index: number,
-  allPins: Pin[]
+  allPins: Pin[],
 ) {
   const key = pinValueWithPMW(next, allPins);
   // Always store the actual pin number as the value
@@ -63,11 +61,7 @@ export function reducePinsToOptions(
 }
 
 export function Pin(props: Props) {
-  return (
-    <span className="font-extralight">
-      {pinDisplayValue(props.pin, props.pins)}
-    </span>
-  );
+  return <span className="font-extralight">{pinDisplayValue(props.pin, props.pins)}</span>;
 }
 
 type Props = {

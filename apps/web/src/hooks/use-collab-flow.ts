@@ -125,7 +125,7 @@ export function useCollabCursor(updateCursor: (cursor: { x: number; y: number })
     (event: React.MouseEvent) => {
       updateCursor({ x: event.clientX, y: event.clientY });
     },
-    [updateCursor]
+    [updateCursor],
   );
 
   return { onMouseMove: handleMouseMove };

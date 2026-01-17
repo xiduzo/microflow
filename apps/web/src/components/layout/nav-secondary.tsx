@@ -1,10 +1,5 @@
 import * as React from "react";
-import {
-  BookIcon,
-  BookMarkedIcon,
-  LifeBuoy,
-  type LucideIcon,
-} from "lucide-react";
+import { BookIcon, BookMarkedIcon, LifeBuoy, type LucideIcon } from "lucide-react";
 
 import {
   SidebarGroup,
@@ -28,9 +23,7 @@ const LINKS: Link[] = [
   },
 ];
 
-export function NavSecondary(
-  props: React.ComponentPropsWithoutRef<typeof SidebarGroup>
-) {
+export function NavSecondary(props: React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>

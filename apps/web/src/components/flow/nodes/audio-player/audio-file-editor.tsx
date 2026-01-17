@@ -10,26 +10,9 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription,
-  ItemActions,
-} from "@/components/ui/item";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyDescription,
-} from "@/components/ui/empty";
-import {
-  Music2Icon,
-  PlayIcon,
-  PauseIcon,
-  Trash2Icon,
-  PlusIcon,
-} from "lucide-react";
+import { Item, ItemContent, ItemTitle, ItemDescription, ItemActions } from "@/components/ui/item";
+import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from "@/components/ui/empty";
+import { Music2Icon, PlayIcon, PauseIcon, Trash2Icon, PlusIcon } from "lucide-react";
 
 export function AudioFileEditor(props: Props) {
   const [editedFiles, setEditedFiles] = useState<string[]>(props.audioFiles);
@@ -52,8 +35,7 @@ export function AudioFileEditor(props: Props) {
     try {
       // Extract file name from path
       const pathParts = filePath.split(/[/\\]/);
-      const fileNameWithExt =
-        pathParts[pathParts.length - 1] || `Audio file ${index + 1}`;
+      const fileNameWithExt = pathParts[pathParts.length - 1] || `Audio file ${index + 1}`;
 
       // Extract extension to determine mime type
       const extension = fileNameWithExt.split(".").pop()?.toLowerCase() || "";
@@ -65,8 +47,7 @@ export function AudioFileEditor(props: Props) {
         aac: "AAC",
         flac: "FLAC",
       };
-      const mimeType =
-        mimeTypeMap[extension] || extension.toUpperCase() || "UNKNOWN";
+      const mimeType = mimeTypeMap[extension] || extension.toUpperCase() || "UNKNOWN";
 
       // Remove extension from fileName
       const fileName =
@@ -214,10 +195,7 @@ export function AudioFileEditor(props: Props) {
           if (audioRef.current) {
             audioRef.current.pause();
             // Revoke any blob URLs
-            if (
-              audioRef.current.src &&
-              audioRef.current.src.startsWith("blob:")
-            ) {
+            if (audioRef.current.src && audioRef.current.src.startsWith("blob:")) {
               URL.revokeObjectURL(audioRef.current.src);
             }
             audioRef.current = null;
@@ -237,9 +215,7 @@ export function AudioFileEditor(props: Props) {
               <Item variant="outline" key={index}>
                 <ItemContent>
                   <ItemTitle>{getFileName(filePath, index).fileName}</ItemTitle>
-                  <ItemDescription>
-                    {getFileName(filePath, index).mimeType}
-                  </ItemDescription>
+                  <ItemDescription>{getFileName(filePath, index).mimeType}</ItemDescription>
                 </ItemContent>
                 <ItemActions>
                   <Button
@@ -247,19 +223,13 @@ export function AudioFileEditor(props: Props) {
                     size="sm"
                     onClick={() => handlePlayPause(index, filePath)}
                   >
-                    {playingIndex === index ? (
-                      <PauseIcon size={16} />
-                    ) : (
-                      <PlayIcon size={16} />
-                    )}
+                    {playingIndex === index ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => {
-                      setEditedFiles((prev) =>
-                        prev.filter((_, i) => i !== index)
-                      );
+                      setEditedFiles((prev) => prev.filter((_, i) => i !== index));
                     }}
                   >
                     <Trash2Icon size={16} />

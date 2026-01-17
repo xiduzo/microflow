@@ -1,10 +1,5 @@
 import { LevaPanel, monitor, useControls, useCreateStore } from "leva";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { Handle } from "../../handle";
 import { dataSchema, type Data, type Value } from "./monitor.schema";
 import { useNodeValue } from "@/stores/node-data";
@@ -41,7 +36,7 @@ function Value() {
       }),
     },
     { store },
-    [data.type, data.fps]
+    [data.type, data.fps],
   );
   useEffect(() => {
     ref.current = value;
@@ -67,11 +62,7 @@ function Value() {
     <>
       <LevaPanel store={store} fill={true} flat titleBar={false} />
       <section className="absolute left-1/2 -translate-x-1/2 top-16">
-        {typeof value === "number" ? (
-          <NumberValue value={value} />
-        ) : (
-          <StringValue value={value} />
-        )}
+        {typeof value === "number" ? <NumberValue value={value} /> : <StringValue value={value} />}
       </section>
     </>
   );
@@ -117,7 +108,6 @@ Monitor.defaultProps = {
     tags: ["information", "output"],
     label: "Monitor",
     icon: "MonitorIcon",
-    description:
-      "Watch and visualize the values flowing through your circuit in real-time",
+    description: "Watch and visualize the values flowing through your circuit in real-time",
   } satisfies Props["data"],
 };

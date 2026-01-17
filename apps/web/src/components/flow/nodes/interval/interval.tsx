@@ -1,11 +1,6 @@
 import { dataSchema, type Data, type Value } from "./interval.schema";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { useNodeValue } from "@/stores/node-data";
 import { MIN_INTERVAL_IN_MS } from "./interval.constants";
 import { TimerIcon } from "lucide-react";
@@ -30,12 +25,8 @@ function Value() {
 
   return (
     <section className="flex flex-col text-center gap-1 items-center text-muted-foreground">
-      <div className="tabular-nums">
-        {numberFormat.format(Math.round(value))}
-      </div>
-      <div className="text-xs tabular-nums">
-        each {numberFormat.format(data.interval / 1000)}s
-      </div>
+      <div className="tabular-nums">{numberFormat.format(Math.round(value))}</div>
+      <div className="text-xs tabular-nums">each {numberFormat.format(data.interval / 1000)}s</div>
     </section>
   );
 }
@@ -62,7 +53,6 @@ Interval.defaultProps = {
     tags: ["event", "generator"],
     label: "Interval",
     icon: "TimerIcon",
-    description:
-      "Automatically send a signal at regular time intervals, like a timer",
+    description: "Automatically send a signal at regular time intervals, like a timer",
   } satisfies Props["data"],
 };

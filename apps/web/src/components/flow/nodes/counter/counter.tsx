@@ -23,11 +23,7 @@ export function Counter(props: Props) {
 function Value() {
   const value = useNodeValue<Value>(0);
 
-  return (
-    <section className="text-4xl tabular-nums">
-      {numberFormat.format(value)}
-    </section>
-  );
+  return <section className="text-4xl tabular-nums">{numberFormat.format(value)}</section>;
 }
 
 function Settings() {
@@ -44,7 +40,6 @@ Counter.defaultProps = {
     tags: ["control", "information"],
     label: "Counter",
     icon: "Tally5Icon",
-    description:
-      "Keep track of a number that can be increased, decreased, set, or reset",
+    description: "Keep track of a number that can be increased, decreased, set, or reset",
   } satisfies Props["data"],
 };

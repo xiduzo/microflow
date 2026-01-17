@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { FlowDocument, type FlowNode, type FlowEdge, type FlowMeta } from "@microflow/collab";
-import { applyNodeChanges, applyEdgeChanges, type NodeChange, type EdgeChange } from "@xyflow/react";
+import {
+  applyNodeChanges,
+  applyEdgeChanges,
+  type NodeChange,
+  type EdgeChange,
+} from "@xyflow/react";
 
 // ============================================================================
 // useFlowState - Main hook for ReactFlow integration
@@ -9,7 +14,7 @@ import { applyNodeChanges, applyEdgeChanges, type NodeChange, type EdgeChange } 
 export function useFlowState(flowDoc: FlowDocument | null) {
   const [nodes, setNodes] = useState<FlowNode[]>([]);
   const [edges, setEdges] = useState<FlowEdge[]>([]);
-  
+
   // Track if we're currently syncing from Yjs to avoid loops
   const isSyncingFromYjs = useRef(false);
   // Track if we need to sync to Yjs
@@ -18,7 +23,7 @@ export function useFlowState(flowDoc: FlowDocument | null) {
   // Sync local state to Yjs (debounced for drag operations)
   const syncToYjs = useCallback(() => {
     if (!flowDoc || !pendingYjsSync.current) return;
-    
+
     const { nodes: newNodes, edges: newEdges } = pendingYjsSync.current;
     pendingYjsSync.current = null;
 
@@ -26,24 +31,26 @@ export function useFlowState(flowDoc: FlowDocument | null) {
       if (newNodes) {
         // Update changed nodes
         const currentNodeIds = new Set(flowDoc.nodes.keys());
-        const newNodeIds = new Set(newNodes.map(n => n.id));
-        
+        const newNodeIds = new Set(newNodes.map((n) => n.id));
+
         // Remove deleted nodes
-        currentNodeIds.forEach(id => {
+        currentNodeIds.forEach((id) => {
           if (!newNodeIds.has(id)) {
             flowDoc.nodes.delete(id);
           }
         });
-        
+
         // Update/add nodes
-        newNodes.forEach(node => {
+        newNodes.forEach((node) => {
           const existing = flowDoc.nodes.get(node.id);
           // Only update if changed (compare position and dimensions)
-          if (!existing || 
-              existing.position.x !== node.position.x || 
-              existing.position.y !== node.position.y ||
-              existing.width !== node.width ||
-              existing.height !== node.height) {
+          if (
+            !existing ||
+            existing.position.x !== node.position.x ||
+            existing.position.y !== node.position.y ||
+            existing.width !== node.width ||
+            existing.height !== node.height
+          ) {
             flowDoc.nodes.set(node.id, {
               ...node,
               selected: undefined, // Don't persist selection
@@ -52,20 +59,20 @@ export function useFlowState(flowDoc: FlowDocument | null) {
           }
         });
       }
-      
+
       if (newEdges) {
         const currentEdgeIds = new Set(flowDoc.edges.keys());
-        const newEdgeIds = new Set(newEdges.map(e => e.id));
-        
+        const newEdgeIds = new Set(newEdges.map((e) => e.id));
+
         // Remove deleted edges
-        currentEdgeIds.forEach(id => {
+        currentEdgeIds.forEach((id) => {
           if (!newEdgeIds.has(id)) {
             flowDoc.edges.delete(id);
           }
         });
-        
+
         // Update/add edges
-        newEdges.forEach(edge => {
+        newEdges.forEach((edge) => {
           if (!flowDoc.edges.has(edge.id)) {
             flowDoc.edges.set(edge.id, {
               ...edge,
@@ -114,46 +121,50 @@ export function useFlowState(flowDoc: FlowDocument | null) {
   }, [flowDoc]);
 
   // Handle ReactFlow node changes
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes(currentNodes => {
-      const newNodes = applyNodeChanges(changes, currentNodes) as FlowNode[];
-      
-      // Check if this is a structural change (not just selection/dragging)
-      const hasStructuralChange = changes.some(c => 
-        c.type === 'add' || 
-        c.type === 'remove' || 
-        (c.type === 'position' && !c.dragging) ||
-        c.type === 'dimensions'
-      );
-      
-      if (hasStructuralChange && flowDoc) {
-        pendingYjsSync.current = { ...pendingYjsSync.current, nodes: newNodes };
-        // Use requestAnimationFrame to batch updates
-        requestAnimationFrame(syncToYjs);
-      }
-      
-      return newNodes;
-    });
-  }, [flowDoc, syncToYjs]);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      setNodes((currentNodes) => {
+        const newNodes = applyNodeChanges(changes, currentNodes) as FlowNode[];
+
+        // Check if this is a structural change (not just selection/dragging)
+        const hasStructuralChange = changes.some(
+          (c) =>
+            c.type === "add" ||
+            c.type === "remove" ||
+            (c.type === "position" && !c.dragging) ||
+            c.type === "dimensions",
+        );
+
+        if (hasStructuralChange && flowDoc) {
+          pendingYjsSync.current = { ...pendingYjsSync.current, nodes: newNodes };
+          // Use requestAnimationFrame to batch updates
+          requestAnimationFrame(syncToYjs);
+        }
+
+        return newNodes;
+      });
+    },
+    [flowDoc, syncToYjs],
+  );
 
   // Handle ReactFlow edge changes
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges(currentEdges => {
-      const newEdges = applyEdgeChanges(changes, currentEdges) as FlowEdge[];
-      
-      const hasStructuralChange = changes.some(c => 
-        c.type === 'add' || 
-        c.type === 'remove'
-      );
-      
-      if (hasStructuralChange && flowDoc) {
-        pendingYjsSync.current = { ...pendingYjsSync.current, edges: newEdges };
-        requestAnimationFrame(syncToYjs);
-      }
-      
-      return newEdges;
-    });
-  }, [flowDoc, syncToYjs]);
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      setEdges((currentEdges) => {
+        const newEdges = applyEdgeChanges(changes, currentEdges) as FlowEdge[];
+
+        const hasStructuralChange = changes.some((c) => c.type === "add" || c.type === "remove");
+
+        if (hasStructuralChange && flowDoc) {
+          pendingYjsSync.current = { ...pendingYjsSync.current, edges: newEdges };
+          requestAnimationFrame(syncToYjs);
+        }
+
+        return newEdges;
+      });
+    },
+    [flowDoc, syncToYjs],
+  );
 
   return {
     nodes,

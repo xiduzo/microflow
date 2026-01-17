@@ -9,11 +9,7 @@ import {
   useNodeId,
 } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
 
 const HANDLE_SIZE = 14;
@@ -37,14 +33,14 @@ export function Handle(props: Props) {
     return !!selectedEdges.find(
       (edge) =>
         (edge.target === nodeId && edge.targetHandle === props.id) ||
-        (edge.source === nodeId && edge.sourceHandle === props.id)
+        (edge.source === nodeId && edge.sourceHandle === props.id),
     );
   }, [selectedEdges, nodeId, props.id]);
 
   const isConnectable = useMemo(() => {
     return typeof props.isConnectable === "boolean"
       ? props.isConnectable
-      : props.isConnectable?.(edges) ?? true;
+      : (props.isConnectable?.(edges) ?? true);
   }, [props.isConnectable, edges]);
 
   const translate = useMemo(() => {
@@ -73,9 +69,7 @@ export function Handle(props: Props) {
       const { left, top, right, bottom } = boundingBox;
       const closestX = Math.max(left, Math.min(clientX, right));
       const closestY = Math.max(top, Math.min(clientY, bottom));
-      const distance = Math.sqrt(
-        (clientX - closestX) ** 2 + (clientY - closestY) ** 2
-      );
+      const distance = Math.sqrt((clientX - closestX) ** 2 + (clientY - closestY) ** 2);
       const threshold = zoom * 200;
       setShowHandle(distance <= threshold);
     }
@@ -131,22 +125,14 @@ export function Handle(props: Props) {
           </span>
         </XyFlowHandle>
       </TooltipTrigger>
-      {props.hint && (
-        <TooltipContent side={position}>{props.hint}</TooltipContent>
-      )}
+      {props.hint && <TooltipContent side={position}>{props.hint}</TooltipContent>}
     </Tooltip>
   );
 }
 
-type PositionType =
-  | `${Position.Left}`
-  | `${Position.Right}`
-  | `${Position.Bottom}`;
+type PositionType = `${Position.Left}` | `${Position.Right}` | `${Position.Bottom}`;
 
-type Props = Omit<
-  HandleProps,
-  "isConnectable" | "isValidConnection" | "position"
-> & {
+type Props = Omit<HandleProps, "isConnectable" | "isValidConnection" | "position"> & {
   offset?: number;
   hint?: string;
   isConnectable?: ((edges: Edge[]) => boolean) | boolean;
@@ -169,24 +155,21 @@ const handle = cva("text-xs flex z-50 shadow-none", {
   },
 });
 
-const handleText = cva(
-  "pointer-events-none mb-0.5 transition-all whitespace-nowrap",
-  {
-    variants: {
-      position: {
-        left: "translate-x-5",
-        right: "-translate-x-5",
-        top: "translate-y-5",
-        bottom: "-translate-y-5",
-      },
-      showHandle: {
-        true: "opacity-100",
-        false: "opacity-0",
-      },
-      isHandleSelectedViaEdge: {
-        true: "selected-via-edge",
-        false: "",
-      },
+const handleText = cva("pointer-events-none mb-0.5 transition-all whitespace-nowrap", {
+  variants: {
+    position: {
+      left: "translate-x-5",
+      right: "-translate-x-5",
+      top: "translate-y-5",
+      bottom: "-translate-y-5",
     },
-  }
-);
+    showHandle: {
+      true: "opacity-100",
+      false: "opacity-0",
+    },
+    isHandleSelectedViaEdge: {
+      true: "selected-via-edge",
+      false: "",
+    },
+  },
+});

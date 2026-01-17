@@ -8,7 +8,7 @@ let cachedIsDesktop: boolean | null = null;
 /**
  * Checks if the application is running in a Tauri desktop environment
  * This function attempts multiple detection methods and caches the result.
- * 
+ *
  * @returns true if running in Tauri desktop, false if running in web browser
  */
 export function isDesktop(): boolean {
@@ -19,7 +19,7 @@ export function isDesktop(): boolean {
 
   try {
     // Check if we're in a browser environment first
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       cachedIsDesktop = false;
       return false;
     }
@@ -46,13 +46,13 @@ export function isDesktop(): boolean {
     }
 
     // Method 4: Check protocol - Tauri uses tauri:// in production builds
-    if (window.location.protocol === 'tauri:') {
+    if (window.location.protocol === "tauri:") {
       cachedIsDesktop = true;
       return true;
     }
 
     // Method 5: Check for __TAURI_INVOKE__ function
-    if (typeof w.__TAURI_INVOKE__ === 'function') {
+    if (typeof w.__TAURI_INVOKE__ === "function") {
       cachedIsDesktop = true;
       return true;
     }
@@ -62,7 +62,7 @@ export function isDesktop(): boolean {
     return false;
   } catch (error) {
     // If any error occurs, assume we're in a web browser
-    console.debug('Platform detection error:', error);
+    console.debug("Platform detection error:", error);
     cachedIsDesktop = false;
     return false;
   }
@@ -75,7 +75,3 @@ export function isDesktop(): boolean {
 export function resetPlatformCache(): void {
   cachedIsDesktop = null;
 }
-
-
-
-

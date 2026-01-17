@@ -131,10 +131,7 @@ type CreateBoardMessage = {
   overTcp?: boolean;
 };
 
-type WorkerMessage =
-  | SetExternalMessage
-  | FlowChangeMessage
-  | CreateBoardMessage;
+type WorkerMessage = SetExternalMessage | FlowChangeMessage | CreateBoardMessage;
 
 const components = new Map<string, Node>();
 
@@ -190,12 +187,7 @@ process.on("message", (message: WorkerMessage) => {
         if (!sourceNode) return;
         const targetNode = components.get(edge.target);
         if (!targetNode) return;
-        const eventHandler = handler(
-          sourceNode,
-          targetNode,
-          edge,
-          message.edges
-        );
+        const eventHandler = handler(sourceNode, targetNode, edge, message.edges);
         sourceNode.on(edge.sourceHandle, eventHandler);
         // unsubscribers.set(edge.id, () => sourceNode.off(edge.sourceHandle, eventHandler));
       });
@@ -210,8 +202,7 @@ process.on("message", (message: WorkerMessage) => {
 });
 
 const handler =
-  (sourceNode: Node, targetNode: Node, edge: Edge, edges: Edge[]) =>
-  (value: unknown) => {
+  (sourceNode: Node, targetNode: Node, edge: Edge, edges: Edge[]) => (value: unknown) => {
     try {
       sourceNode.postMessage(edge.sourceHandle, edge.id);
 
@@ -249,26 +240,27 @@ function getInputValues(targetNode: Node, edges: Edge[]) {
 function getInputValueAsKeyValuePairs(targetNode: Node, edges: Edge[]) {
   return edges
     .filter(({ target }) => target === targetNode.id)
-    .reduce((acc, { targetHandle, source }) => {
-      if (acc[targetHandle]) {
-        acc[targetHandle] = [
-          acc[targetHandle],
-          components.get(source)?.value,
-        ].join(", ");
-      } else {
-        acc[targetHandle] = components.get(source)?.value;
-      }
-      return acc;
-    }, {} as Record<string, unknown>);
+    .reduce(
+      (acc, { targetHandle, source }) => {
+        if (acc[targetHandle]) {
+          acc[targetHandle] = [acc[targetHandle], components.get(source)?.value].join(", ");
+        } else {
+          acc[targetHandle] = components.get(source)?.value;
+        }
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    );
 }
 
 function getPins(board: Board) {
-  return Object.entries(
-    board.pins as Record<string, { mode: number; type: string }>
-  ).reduce((acc, [key, value]) => {
-    acc.push({ pin: Number(key), ...value });
-    return acc;
-  }, [] as { pin: number; mode: number; type: string }[]);
+  return Object.entries(board.pins as Record<string, { mode: number; type: string }>).reduce(
+    (acc, [key, value]) => {
+      acc.push({ pin: Number(key), ...value });
+      return acc;
+    },
+    [] as { pin: number; mode: number; type: string }[],
+  );
 }
 
 function createBoard(port: string, overTcp: boolean) {
@@ -285,13 +277,9 @@ function createBoard(port: string, overTcp: boolean) {
   // any hardware initialization that must take place before the program can operate.
   // This process is asynchronous, and completion is signified to the program via a "ready" event
   // For on-board execution, ready should emit after connect.
-  board.on("ready", () =>
-    process.send?.({ type: "ready", pins: getPins(board) })
-  );
+  board.on("ready", () => process.send?.({ type: "ready", pins: getPins(board) }));
   // When board is found but no Firmata is flashed
-  board.on("error", (error) =>
-    process.send?.({ type: "error", message: error.message })
-  );
+  board.on("error", (error) => process.send?.({ type: "error", message: error.message }));
   // This event is emitted synchronously on SIGINT.
   // Use this handler to do any necessary cleanup before your program is "disconnected" from the board.
   board.on("exit", () => process.send?.({ type: "exit" }));

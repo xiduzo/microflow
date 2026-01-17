@@ -31,25 +31,19 @@ export function parseMqttUrl(input: string): ParsedMqttUrl {
     const validatedInput = mqttUrlSchema.parse(input);
     const match = validatedInput.match(mqttUrlRegex);
     if (!match || !match[2]) {
-      throw new Error(
-        `Invalid MQTT URL format: ${input}. Could not parse host.`
-      );
+      throw new Error(`Invalid MQTT URL format: ${input}. Could not parse host.`);
     }
     const [, protocol, host, port, path] = match;
 
     return {
       protocol: (protocol ?? "wss") as "ws" | "wss",
       host,
-      port: port
-        ? parseInt(String(port), 10)
-        : (protocol ?? "wss") === "wss"
-        ? 8883
-        : 1883,
+      port: port ? parseInt(String(port), 10) : (protocol ?? "wss") === "wss" ? 8883 : 1883,
       path: path ? (path.startsWith("/") ? path : `/${path}`) : "/mqtt",
     };
   } catch (error) {
     throw new Error(
-      `Invalid MQTT URL format: ${input}. Expected format: [<protocol>://]<host>[:<port>][/<path>]`
+      `Invalid MQTT URL format: ${input}. Expected format: [<protocol>://]<host>[:<port>][/<path>]`,
     );
   }
 }

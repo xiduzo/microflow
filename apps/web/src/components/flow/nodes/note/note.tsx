@@ -1,10 +1,5 @@
 import { NotebookIcon } from "lucide-react";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 
 export function Note(props: Props) {
   return (
@@ -21,9 +16,7 @@ function Value() {
   return (
     <section className="text-wrap w-64 text-center flex flex-col p-2 gap-1">
       <span>{data.note ?? ""}</span>
-      <span className="text-xs text-muted-foreground">
-        {data.extraInfo ?? ""}
-      </span>
+      <span className="text-xs text-muted-foreground">{data.extraInfo ?? ""}</span>
     </section>
   );
 }
@@ -51,7 +44,6 @@ Note.defaultProps = {
     icon: "NotebookIcon",
     note: "New note",
     extraInfo: "",
-    description:
-      "Add text notes to your flow to document what different parts do",
+    description: "Add text notes to your flow to document what different parts do",
   } satisfies Props["data"],
 };

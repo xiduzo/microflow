@@ -47,18 +47,13 @@ export function NavUser({ user }: Props) {
     return (
       <SidebarMenu className="w-full">
         <SidebarMenuItem>
-          <SidebarMenuButton
-            size="lg"
-            render={(props) => <Link to="/login" {...props} />}
-          >
+          <SidebarMenuButton size="lg" render={(props) => <Link to="/login" {...props} />}>
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
               <LogIn className="size-4" />
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">Sign in</span>
-              <span className="truncate text-xs text-muted-foreground">
-                Access your account
-              </span>
+              <span className="truncate text-xs text-muted-foreground">Access your account</span>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>

@@ -3,7 +3,14 @@ import { useShallow } from "zustand/shallow";
 import { toast } from "sonner";
 import { Debouncer } from "@tanstack/react-pacer";
 import { FlowDocument, type FlowNode, type FlowEdge } from "@microflow/collab";
-import type { OnNodesChange, OnEdgesChange, OnConnect, XYPosition, NodeChange, EdgeChange } from "@xyflow/react";
+import type {
+  OnNodesChange,
+  OnEdgesChange,
+  OnConnect,
+  XYPosition,
+  NodeChange,
+  EdgeChange,
+} from "@xyflow/react";
 import { isDesktop } from "@/utils/platform";
 import { invokeCommand } from "@/utils/ipc";
 
@@ -22,44 +29,44 @@ export type FlowMode = "local" | "cloud";
 export type FlowState = {
   // The FlowDocument is the single source of truth
   flowDoc: FlowDocument | null;
-  
+
   // Mode and identifiers
   mode: FlowMode;
   flowId: string | null;
-  
+
   // UI state (not persisted in Yjs)
   copiedNodes: FlowNode[];
-  
+
   // Actions
   initLocalFlow: () => void;
   initCloudFlow: (flowId: string, initialData?: Uint8Array) => void;
-  
+
   // ReactFlow callbacks (these modify the FlowDocument)
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  
+
   // Node operations
   addNode: (node: FlowNode) => void;
   removeNode: (nodeId: string) => void;
   updateNode: (nodeId: string, updates: Partial<FlowNode>) => void;
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
-  
+
   // Edge operations
   addEdge: (edge: FlowEdge) => void;
   removeEdge: (edgeId: string) => void;
-  
+
   // Clipboard
   selectAll: () => void;
   copy: () => void;
   paste: (cursorPosition: XYPosition) => void;
-  
+
   // History (delegates to FlowDocument's UndoManager)
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  
+
   // Cleanup
   destroy: () => void;
 };
@@ -121,7 +128,7 @@ export const useFlowStore = create<FlowState>()((set, get) => {
         }
       }
     },
-    { wait: 500 }
+    { wait: 500 },
   );
 
   // Subscribe to FlowDocument changes for syncing
@@ -150,7 +157,7 @@ export const useFlowStore = create<FlowState>()((set, get) => {
 
       // Create new FlowDocument
       const flowDoc = FlowDocument.createEmpty();
-      
+
       // Load saved data
       const { nodes, edges } = loadLocalFlowData();
       if (nodes.length > 0 || edges.length > 0) {
@@ -171,9 +178,7 @@ export const useFlowStore = create<FlowState>()((set, get) => {
       get().flowDoc?.destroy();
 
       // Create FlowDocument from server data or empty
-      const flowDoc = initialData
-        ? FlowDocument.decode(initialData)
-        : FlowDocument.createEmpty();
+      const flowDoc = initialData ? FlowDocument.decode(initialData) : FlowDocument.createEmpty();
 
       flowDoc.clearHistory(); // Don't include initial load in undo history
 
@@ -342,7 +347,7 @@ export const useFlowStore = create<FlowState>()((set, get) => {
           sumX: acc.sumX + node.position.x + (node.width ?? 100) / 2,
           sumY: acc.sumY + node.position.y + (node.height ?? 50) / 2,
         }),
-        { sumX: 0, sumY: 0 }
+        { sumX: 0, sumY: 0 },
       );
 
       const offsetX = cursorPosition.x - sumX / nodeCount;
@@ -412,7 +417,7 @@ export function useFlowMode() {
     useShallow((state) => ({
       mode: state.mode,
       flowId: state.flowId,
-    }))
+    })),
   );
 }
 
@@ -426,7 +431,7 @@ export function useFlowActions() {
       removeNode: state.removeNode,
       updateNode: state.updateNode,
       updateNodeData: state.updateNodeData,
-    }))
+    })),
   );
 }
 
@@ -436,7 +441,7 @@ export function useFlowClipboard() {
       selectAll: state.selectAll,
       copy: state.copy,
       paste: state.paste,
-    }))
+    })),
   );
 }
 
@@ -447,7 +452,7 @@ export function useFlowHistoryActions() {
       redo: state.redo,
       canUndo: state.canUndo,
       canRedo: state.canRedo,
-    }))
+    })),
   );
 }
 
@@ -457,6 +462,6 @@ export function useFlowInit() {
       initLocalFlow: state.initLocalFlow,
       initCloudFlow: state.initCloudFlow,
       destroy: state.destroy,
-    }))
+    })),
   );
 }

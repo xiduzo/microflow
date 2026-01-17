@@ -22,11 +22,7 @@ import {
 } from "@/components/ui/carousel";
 import { MatrixEditor } from "./matrix-editor";
 import { Button } from "@/components/ui/button";
-import {
-  type Data,
-  type Value,
-  dataSchema,
-} from "@microflow/runtime/matrix/matrix.types";
+import { type Data, type Value, dataSchema } from "@microflow/runtime/matrix/matrix.types";
 import { type BaseNode } from "../_base";
 import {
   DEFAULT_MATRIX_START_SHAPE,
@@ -44,13 +40,7 @@ export function Matrix(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="show"
-        hint="shows shape #"
-        offset={-0.5}
-      />
+      <Handle type="target" position={Position.Left} id="show" hint="shows shape #" offset={-0.5} />
       <Handle type="target" position={Position.Left} id="hide" offset={0.5} />
       <Handle type="source" position={Position.Right} id="change" />
     </NodeContainer>
@@ -76,10 +66,7 @@ function Value() {
 
   return (
     <section className="flex items-center justify-center m-4">
-      <MatrixDisplay
-        dimensions={getShape(data.dims, data.devices)}
-        shape={value}
-      />
+      <MatrixDisplay dimensions={getShape(data.dims, data.devices)} shape={value} />
     </section>
   );
 }
@@ -87,9 +74,7 @@ function Value() {
 function Settings() {
   const data = useNodeData<Data>();
   const [editorOpened, setEditorOpened] = useState(false);
-  const [shapes, setShapes] = useState(
-    data.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]
-  );
+  const [shapes, setShapes] = useState(data.shapes ?? data.shapes ?? [DEFAULT_MATRIX_SHAPE]);
 
   const pins = usePins([MODES.INPUT], [MODES.ANALOG]);
   const { render, setNodeData } = useNodeControls(
@@ -139,7 +124,7 @@ function Settings() {
       }),
       "edit shapes": button(() => setEditorOpened(true)),
     },
-    [pins]
+    [pins],
   );
 
   function updateShapes(newShapes: MatrixShape[]) {
@@ -164,8 +149,7 @@ function Settings() {
             <DialogHeader>
               <DialogTitle>Shapes</DialogTitle>
               <DialogDescription>
-                When showing a shape the input handle will round to the closest
-                shape number
+                When showing a shape the input handle will round to the closest shape number
               </DialogDescription>
             </DialogHeader>
             <section className="flex items-center justify-center">
@@ -214,10 +198,7 @@ function Settings() {
                           </div>
                           <Button
                             variant="outline"
-                            disabled={
-                              index === shapes.length - 1 ||
-                              index + 1 >= shapes.length
-                            }
+                            disabled={index === shapes.length - 1 || index + 1 >= shapes.length}
                             onClick={() => swapShapes(index, index + 1)}
                           >
                             Swap

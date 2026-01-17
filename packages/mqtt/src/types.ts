@@ -3,11 +3,7 @@
 export const clients = ["app", "plugin"] as const;
 export type Client = (typeof clients)[number];
 
-export const ConnectionStatuses = [
-  "connected",
-  "disconnected",
-  "connecting",
-] as const;
+export const ConnectionStatuses = ["connected", "disconnected", "connecting"] as const;
 export type ConnectionStatus = (typeof ConnectionStatuses)[number];
 
 export type MqttConfig = {

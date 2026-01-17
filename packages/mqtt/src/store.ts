@@ -17,13 +17,9 @@ export type MqttStore = {
   subscribe: (
     topic: string,
     callback: OnMessageCallback,
-    options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties
+    options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties,
   ) => () => void;
-  publish: (
-    topic: string,
-    payload: string,
-    options?: IClientPublishOptions
-  ) => void;
+  publish: (topic: string, payload: string, options?: IClientPublishOptions) => void;
 };
 
 // Singleton instance of the MQTT client manager
@@ -36,11 +32,9 @@ export const useMqttStore = create<MqttStore>((set, get) => {
   });
 
   // Subscribe to connected clients changes
-  const unsubscribeClients = clientManager.onConnectedClientsChange(
-    (connectedClients) => {
-      set({ connectedClients });
-    }
-  );
+  const unsubscribeClients = clientManager.onConnectedClientsChange((connectedClients) => {
+    set({ connectedClients });
+  });
 
   return {
     // Initial state
@@ -63,16 +57,12 @@ export const useMqttStore = create<MqttStore>((set, get) => {
     subscribe: (
       topic: string,
       callback: OnMessageCallback,
-      options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties
+      options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties,
     ) => {
       return clientManager.subscribe(topic, callback, options);
     },
 
-    publish: (
-      topic: string,
-      payload: string,
-      options?: IClientPublishOptions
-    ) => {
+    publish: (topic: string, payload: string, options?: IClientPublishOptions) => {
       clientManager.publish(topic, payload, options);
     },
   };

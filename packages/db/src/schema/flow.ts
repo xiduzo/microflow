@@ -35,9 +35,7 @@ export const flow = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [
-    index("flow_ownerId_idx").on(table.ownerId),
-  ]
+  (table) => [index("flow_ownerId_idx").on(table.ownerId)],
 );
 
 export const flowCollaborator = pgTable(
@@ -58,7 +56,7 @@ export const flowCollaborator = pgTable(
   (table) => [
     index("flow_collaborator_flowId_idx").on(table.flowId),
     index("flow_collaborator_userId_idx").on(table.userId),
-  ]
+  ],
 );
 
 export const flowRelations = relations(flow, ({ one, many }) => ({

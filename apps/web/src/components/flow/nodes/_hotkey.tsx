@@ -1,18 +1,8 @@
 import { button } from "leva";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  useNodeId,
-  type BaseNode,
-} from "./_base";
+import { NodeContainer, useNodeControls, useNodeData, useNodeId, type BaseNode } from "./_base";
 import { Handle } from "../handle";
 import { useEffect, useState } from "react";
-import {
-  dataSchema,
-  type Data,
-  type Value,
-} from "@microflow/runtime/hotkey/hotkey.types";
+import { dataSchema, type Data, type Value } from "@microflow/runtime/hotkey/hotkey.types";
 import { useNodeValue } from "@/stores/node-data";
 import { IconWithValue } from "../icon-with-value";
 import { KeyboardIcon } from "lucide-react";
@@ -161,9 +151,7 @@ function HotkeyRecorderDialog(props: HotkeyRecorderDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Set hotkey</DialogTitle>
-          <DialogDescription>
-            Press the key you want to create a trigger for
-          </DialogDescription>
+          <DialogDescription>Press the key you want to create a trigger for</DialogDescription>
         </DialogHeader>
         <section className="min-h-24 flex flex-col gap-4 items-center justify-center">
           <KbdGroup className="flex flex-wrap gap-1">

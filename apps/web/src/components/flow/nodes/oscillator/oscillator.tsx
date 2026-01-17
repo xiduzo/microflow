@@ -1,11 +1,6 @@
 import { useMemo } from "react";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import {
   AudioWaveformIcon,
   DicesIcon,
@@ -83,7 +78,6 @@ Oscillator.defaultProps = {
     tags: ["generator", "event"],
     label: "Oscillator",
     icon: "AudioWaveformIcon",
-    description:
-      "Create repeating patterns of numbers that go up and down, like waves",
+    description: "Create repeating patterns of numbers that go up and down, like waves",
   } satisfies Props["data"],
 };

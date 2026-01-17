@@ -387,18 +387,7 @@ const EXAMPLE = [
         direction: "top-to-bottom",
       },
       right_side: {
-        pins: [
-          "VBUS1",
-          "VBUS2",
-          "DP1",
-          "DP2",
-          "DM1",
-          "DM2",
-          "CC1",
-          "CC2",
-          "SBU1",
-          "SBU2",
-        ],
+        pins: ["VBUS1", "VBUS2", "DP1", "DP2", "DM1", "DM2", "CC1", "CC2", "SBU1", "SBU2"],
         direction: "top-to-bottom",
       },
       bottom_side: {

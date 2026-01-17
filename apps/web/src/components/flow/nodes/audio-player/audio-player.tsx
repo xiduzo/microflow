@@ -60,7 +60,7 @@ function Settings() {
         setEditorOpened(true);
       }),
     },
-    []
+    [],
   );
 
   return (

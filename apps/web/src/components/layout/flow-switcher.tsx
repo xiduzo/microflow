@@ -1,9 +1,4 @@
-import {
-  ChevronsUpDown,
-  LogIn,
-  Plus,
-  Check,
-} from "lucide-react";
+import { ChevronsUpDown, LogIn, Plus, Check } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import {
@@ -37,8 +32,7 @@ export function FlowSwitcher(props: Props) {
   const isSignedIn = !!props.user;
   const { activeFlowId, setActiveFlowId } = useActiveFlowStore();
 
-  const activeFlow =
-    props.flows.find(({ id }) => id === activeFlowId) ?? LOCAL_FLOW;
+  const activeFlow = props.flows.find(({ id }) => id === activeFlowId) ?? LOCAL_FLOW;
 
   const handleFlowSelect = (flow: Flow) => {
     setActiveFlowId(flow.id);
@@ -86,9 +80,7 @@ export function FlowSwitcher(props: Props) {
             sideOffset={4}
           >
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
-                Flows
-              </DropdownMenuLabel>
+              <DropdownMenuLabel className="text-muted-foreground text-xs">Flows</DropdownMenuLabel>
               {props.flows.map((flow, index) => (
                 <DropdownMenuItem
                   key={flow.id}
@@ -102,12 +94,8 @@ export function FlowSwitcher(props: Props) {
                     }}
                   />
                   <span className="flex-1 truncate">{flow.name}</span>
-                  {flow.id === activeFlowId && (
-                    <Check className="size-4 text-primary" />
-                  )}
-                  {index < 9 && (
-                    <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
-                  )}
+                  {flow.id === activeFlowId && <Check className="size-4 text-primary" />}
+                  {index < 9 && <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
@@ -115,30 +103,20 @@ export function FlowSwitcher(props: Props) {
             {isSignedIn ? (
               <CreateFlowDialog
                 trigger={
-                  <DropdownMenuItem
-                    className="gap-2 p-2"
-                    onSelect={(e) => e.preventDefault()}
-                  >
+                  <DropdownMenuItem className="gap-2 p-2" onSelect={(e) => e.preventDefault()}>
                     <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                       <Plus className="size-4" />
                     </div>
-                    <div className="text-muted-foreground font-medium">
-                      Add flow
-                    </div>
+                    <div className="text-muted-foreground font-medium">Add flow</div>
                   </DropdownMenuItem>
                 }
               />
             ) : (
-              <DropdownMenuItem
-                className="gap-2 p-2"
-                render={<Link to="/login" />}
-              >
+              <DropdownMenuItem className="gap-2 p-2" render={<Link to="/login" />}>
                 <div className="flex size-6 items-center justify-center rounded-md bg-sidebar-secondary">
                   <LogIn className="size-3" />
                 </div>
-                <div className="text-muted-foreground font-medium">
-                  Sign in to add more flows
-                </div>
+                <div className="text-muted-foreground font-medium">Sign in to add more flows</div>
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

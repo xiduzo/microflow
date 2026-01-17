@@ -1,10 +1,6 @@
 import { ChevronRight, type LucideIcon } from "lucide-react";
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -49,10 +45,8 @@ export function NavMain(props: Props) {
 
               if (hasChildren) {
                 // Check if any sub-item is active
-                const hasActiveChild =
-                  route.items?.some((subItem) => isActive(subItem)) ?? false;
-                const shouldBeOpen =
-                  itemIsActive || hasActiveChild || route.isActive;
+                const hasActiveChild = route.items?.some((subItem) => isActive(subItem)) ?? false;
+                const shouldBeOpen = itemIsActive || hasActiveChild || route.isActive;
 
                 return (
                   <Collapsible
@@ -62,10 +56,7 @@ export function NavMain(props: Props) {
                   >
                     <SidebarMenuItem title={route.title}>
                       <CollapsibleTrigger render={<div />} nativeButton={false} className="w-full">
-                        <SidebarMenuButton
-                          tooltip={route.title}
-                          isActive={itemIsActive}
-                        >
+                        <SidebarMenuButton tooltip={route.title} isActive={itemIsActive}>
                           {route.icon && <route.icon />}
                           <span>{route.title}</span>
                           <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />

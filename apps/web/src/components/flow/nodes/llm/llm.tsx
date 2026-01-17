@@ -39,14 +39,12 @@ function DynamicHandles() {
   const handles = useMemo(() => {
     const matches = data.prompt?.match(/{{(.*?)}}/g) ?? [];
     return Array.from(
-      new Set(matches.map((match) => match.replace("{{", "").replace("}}", "")))
+      new Set(matches.map((match) => match.replace("{{", "").replace("}}", ""))),
     ).filter(Boolean);
   }, [data.prompt]);
 
   useEffect(() => {
-    const difference = handles.filter(
-      (handle) => !previousHandles.current.includes(handle)
-    );
+    const difference = handles.filter((handle) => !previousHandles.current.includes(handle));
     if (previousHandles.current.length) deleteHandles(difference);
     previousHandles.current = handles;
     update(id);
@@ -55,13 +53,7 @@ function DynamicHandles() {
   return (
     <>
       {handles.slice(0, 7).map((handle, index) => (
-        <Handle
-          key={handle}
-          type="target"
-          position="bottom"
-          id={handle}
-          offset={index * 1 - 3}
-        />
+        <Handle key={handle} type="target" position="bottom" id={handle} offset={index * 1 - 3} />
       ))}
     </>
   );
@@ -75,9 +67,7 @@ function Value() {
     <IconWithValue
       icon={value ? BotMessageSquareIcon : BotIcon}
       iconClassName={value ? "animate-pulse" : ""}
-      value={
-        value ? "Thinking..." : !!data.model ? data.model : "No model selected"
-      }
+      value={value ? "Thinking..." : !!data.model ? data.model : "No model selected"}
     />
   );
 }
@@ -116,10 +106,10 @@ function Settings() {
           },
           repeatLastN: { value: data.repeatLastN!, label: "Repeat Last N" },
         },
-        { collapsed: true }
+        { collapsed: true },
       ),
     },
-    [models]
+    [models],
   );
 
   useEffect(() => {
@@ -127,13 +117,9 @@ function Settings() {
       switch (data.provider) {
         case "ollama":
           try {
-            const ollamaModelsResponse = await fetch(
-              `${data.baseUrl}/api/tags`
-            );
+            const ollamaModelsResponse = await fetch(`${data.baseUrl}/api/tags`);
             const ollamaModels = await ollamaModelsResponse.json();
-            setModels(
-              ollamaModels.models.map((model: { model: string }) => model.model)
-            );
+            setModels(ollamaModels.models.map((model: { model: string }) => model.model));
           } catch (error) {
             toast.warning("Ollama", {
               description:

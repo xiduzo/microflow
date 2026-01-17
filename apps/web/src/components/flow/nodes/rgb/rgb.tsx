@@ -1,11 +1,6 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { RgbaColorPicker } from "react-colorful";
 import { MODES, usePins } from "@/stores/board";
 import { reducePinsToOptions } from "@/components/hardware/pin";
@@ -18,34 +13,10 @@ export function Rgb(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle
-        type="target"
-        position="left"
-        id="red"
-        hint="0-255"
-        offset={-1.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="green"
-        hint="0-255"
-        offset={-0.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="blue"
-        hint="0-255"
-        offset={0.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="alpha"
-        hint="0-100"
-        offset={1.5}
-      />
+      <Handle type="target" position="left" id="red" hint="0-255" offset={-1.5} />
+      <Handle type="target" position="left" id="green" hint="0-255" offset={-0.5} />
+      <Handle type="target" position="left" id="blue" hint="0-255" offset={0.5} />
+      <Handle type="target" position="left" id="alpha" hint="0-100" offset={1.5} />
       <Handle type="source" position="right" id="change" />
     </NodeContainer>
   );
@@ -97,7 +68,7 @@ function Settings() {
       }),
       isAnode: { value: Boolean(data.isAnode), label: "anode" },
     },
-    [pins, data.pins]
+    [pins, data.pins],
   );
 
   return <>{render()}</>;

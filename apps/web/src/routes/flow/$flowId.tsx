@@ -36,7 +36,7 @@ function RouteComponent() {
   const { session } = Route.useRouteContext();
   const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
   const flowDoc = useFlowDocument();
-  
+
   // Track initialization state to prevent double-init
   const initializedFlowId = useRef<string | null>(null);
 
@@ -67,21 +67,19 @@ function RouteComponent() {
   // Initialize the flow document with data from server
   useEffect(() => {
     if (!flow) return;
-    
+
     // Prevent re-initialization for the same flow
     if (initializedFlowId.current === flowId) return;
 
     const initCloudFlow = useFlowStore.getState().initCloudFlow;
-    
+
     if (flow.ydocBase64) {
-      const ydocData = Uint8Array.from(atob(flow.ydocBase64), (c) =>
-        c.charCodeAt(0)
-      );
+      const ydocData = Uint8Array.from(atob(flow.ydocBase64), (c) => c.charCodeAt(0));
       initCloudFlow(flowId, ydocData);
     } else {
       initCloudFlow(flowId);
     }
-    
+
     initializedFlowId.current = flowId;
 
     // Cleanup when leaving the route
@@ -98,7 +96,7 @@ function RouteComponent() {
       id: session.data!.user.id,
       name: session.data!.user.name ?? "Anonymous",
     }),
-    [session.data?.user.id, session.data?.user.name]
+    [session.data?.user.id, session.data?.user.name],
   );
 
   // Connect to sync provider for real-time collaboration
@@ -112,7 +110,7 @@ function RouteComponent() {
 
   // Get presence info
   const presence = useCollabPresence(sync);
-  console.log(new Date().toISOString(), presence)
+  console.log(new Date().toISOString(), presence);
 
   if (isLoading) {
     return (
@@ -133,50 +131,7 @@ function RouteComponent() {
 
   return (
     <ReactFlowProvider>
-      <div className="relative h-full">
-        {/* Flow info header */}
-        <div className="absolute top-4 left-4 z-10 bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border flex items-center gap-3">
-          <div>
-            <h2 className="font-medium">{flow?.name}</h2>
-            {flow?.description && (
-              <p className="text-xs text-muted-foreground">
-                {flow.description}
-              </p>
-            )}
-          </div>
-
-          {/* Connection status */}
-          <Badge
-            variant={sync.isSynced ? "default" : "secondary"}
-            className="gap-1"
-          >
-            {sync.isConnected ? (
-              <Wifi className="size-3" />
-            ) : (
-              <WifiOff className="size-3" />
-            )}
-            {sync.state}
-          </Badge>
-
-          {/* User count */}
-          {presence.totalUsers > 1 && (
-            <Badge variant="secondary" className="gap-1">
-              <Users className="size-3" />
-              {presence.totalUsers}
-            </Badge>
-          )}
-
-          {flow?.isOwner && (
-            <ShareFlowDialog flowId={flowId} flowName={flow.name} />
-          )}
-        </div>
-
-        <ReactFlowCanvas
-          isCollab={sync.isConnected}
-          updateCursor={sync.updateCursor}
-          otherUsers={presence.otherUsers}
-        />
-      </div>
+      <ReactFlowCanvas updateCursor={sync.updateCursor} otherUsers={presence.otherUsers} />
     </ReactFlowProvider>
   );
 }

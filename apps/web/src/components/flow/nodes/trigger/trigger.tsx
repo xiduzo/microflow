@@ -1,11 +1,6 @@
 import { folder } from "leva";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { IconWithValue } from "../../icon-with-value";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, type Data, type Value } from "./trigger.schema";
@@ -58,7 +53,7 @@ function Settings() {
       {
         relative: { value: data.relative!, label: "percentage" },
       },
-      { collapsed: true }
+      { collapsed: true },
     ),
   });
 

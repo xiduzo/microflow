@@ -1,11 +1,6 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { dataSchema, type Data, type Value } from "./gate.schema";
 
 export function Gate(props: Props) {
@@ -27,10 +22,7 @@ function Value() {
 
   return (
     <section className="flex flex-col text-center items-center text-muted-foreground">
-      <GateIcon
-        gate={data.gate}
-        className={`${value ? "text-green-500" : "text-red-500"}`}
-      />
+      <GateIcon gate={data.gate} className={`${value ? "text-green-500" : "text-red-500"}`} />
       <div className="text-xs tabular-nums">{data.gate}</div>
     </section>
   );
@@ -56,17 +48,12 @@ Gate.defaultProps = {
     tags: ["control"],
     label: "Gate",
     icon: "GitPullRequestClosedIcon",
-    description:
-      "Combine multiple signals together using simple rules to make decisions",
+    description: "Combine multiple signals together using simple rules to make decisions",
   } satisfies Props["data"],
 };
 
 const DEFAULT_ICON_SIZE = 60;
-function GateIcon(props: {
-  gate: Data["gate"];
-  size?: number;
-  className?: string;
-}) {
+function GateIcon(props: { gate: Data["gate"]; size?: number; className?: string }) {
   switch (props.gate) {
     case "and":
       return (

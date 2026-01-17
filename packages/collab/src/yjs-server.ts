@@ -61,13 +61,13 @@ export class YjsServer {
   async handleConnection(
     flowId: string,
     connection: Connection,
-    userId: string
+    userId: string,
   ): Promise<() => void> {
     const room = await this.getOrCreateRoom(flowId);
 
-    room.connections.set(connection, { 
+    room.connections.set(connection, {
       awarenessClientIds: new Set(),
-      userId 
+      userId,
     });
     console.log(`[YJS] Room ${flowId}: ${room.connections.size} connection(s)`);
 
@@ -80,14 +80,14 @@ export class YjsServer {
     // Return cleanup function
     return () => {
       const connInfo = room.connections.get(connection);
-      
+
       // Remove all awareness states associated with this connection
       if (connInfo && connInfo.awarenessClientIds.size > 0) {
         const clientIds = Array.from(connInfo.awarenessClientIds);
         console.log(`[YJS] Removing awareness for client IDs: ${clientIds.join(", ")}`);
         awarenessProtocol.removeAwarenessStates(room.awareness, clientIds, null);
       }
-      
+
       room.connections.delete(connection);
       console.log(`[YJS] Room ${flowId}: ${room.connections.size} connection(s) after disconnect`);
 
@@ -123,7 +123,7 @@ export class YjsServer {
     flowId: string,
     room: Room,
     connection: Connection,
-    decoder: decoding.Decoder
+    decoder: decoding.Decoder,
   ): void {
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
@@ -132,7 +132,7 @@ export class YjsServer {
       decoder,
       encoder,
       room.doc,
-      connection // Use connection as origin to track sender
+      connection, // Use connection as origin to track sender
     );
 
     // Send response if needed (sync step 2)
@@ -147,21 +147,25 @@ export class YjsServer {
     }
   }
 
-  private handleAwarenessMessage(room: Room, connection: Connection, decoder: decoding.Decoder): void {
+  private handleAwarenessMessage(
+    room: Room,
+    connection: Connection,
+    decoder: decoding.Decoder,
+  ): void {
     const update = decoding.readVarUint8Array(decoder);
-    
+
     // Manually decode the awareness update to extract client IDs
     // Awareness update format: [length, ...clientIDs, ...states]
     const updateDecoder = decoding.createDecoder(update);
     const len = decoding.readVarUint(updateDecoder);
-    
+
     const connInfo = room.connections.get(connection);
     if (connInfo) {
       for (let i = 0; i < len; i++) {
         const clientID = decoding.readVarUint(updateDecoder);
         decoding.readVarUint(updateDecoder); // clock - skip
         const stateJson = decoding.readVarString(updateDecoder);
-        
+
         // Track this client ID for this connection
         if (stateJson.length > 0) {
           // Client has state - track it
@@ -172,7 +176,7 @@ export class YjsServer {
         }
       }
     }
-    
+
     // Apply the update - this triggers the awareness 'update' event which broadcasts to all clients
     awarenessProtocol.applyAwarenessUpdate(room.awareness, update, connection);
   }
@@ -188,10 +192,7 @@ export class YjsServer {
     connection.send(encoding.toUint8Array(encoder));
   }
 
-  private sendAwarenessState(
-    connection: Connection,
-    awareness: awarenessProtocol.Awareness
-  ): void {
+  private sendAwarenessState(connection: Connection, awareness: awarenessProtocol.Awareness): void {
     const states = Array.from(awareness.getStates().keys());
     if (states.length === 0) return;
 
@@ -199,7 +200,7 @@ export class YjsServer {
     encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
     encoding.writeVarUint8Array(
       encoder,
-      awarenessProtocol.encodeAwarenessUpdate(awareness, states)
+      awarenessProtocol.encodeAwarenessUpdate(awareness, states),
     );
     connection.send(encoding.toUint8Array(encoder));
   }
@@ -337,7 +338,10 @@ export class YjsServer {
     // Set up awareness broadcasting
     awareness.on(
       "update",
-      ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
+      (
+        { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
+        origin: unknown,
+      ) => {
         const changedClients = [...added, ...updated, ...removed];
         if (changedClients.length === 0) return;
 
@@ -345,7 +349,7 @@ export class YjsServer {
         encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
         encoding.writeVarUint8Array(
           encoder,
-          awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients)
+          awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients),
         );
         const message = encoding.toUint8Array(encoder);
 
@@ -359,7 +363,7 @@ export class YjsServer {
             }
           }
         }
-      }
+      },
     );
 
     this.rooms.set(flowId, room);

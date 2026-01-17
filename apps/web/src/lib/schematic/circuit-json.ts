@@ -64,19 +64,14 @@ type SchematicElement =
   | SchematicTrace
   | SchematicVoltageProbe;
 
-type CircuitElement =
-  | SchematicElement
-  | SourceComponentBase
-  | SourcePort
-  | SourceNet
-  | SourceTrace;
+type CircuitElement = SchematicElement | SourceComponentBase | SourcePort | SourceNet | SourceTrace;
 
 // Global map to store port positions for trace routing
 const portPositions = new Map<string, PortPosition>();
 
 export function createCircuitJson(nodes: Node[], pins: Pin[]) {
   const json: CircuitElement[] = [];
-  
+
   // Clear port positions from previous runs
   portPositions.clear();
 
@@ -98,7 +93,7 @@ export function createCircuitJson(nodes: Node[], pins: Pin[]) {
     const data = node.data as BaseData;
     const componentX = baseX;
     const componentY = baseY + nodeIndex * spacing;
-    
+
     switch (data.instance?.toLowerCase()) {
       case "button":
         nodeToComponentIndex.set(node.id, componentIndex);
@@ -127,7 +122,7 @@ function createCircuitJsonForButton(
   node: Node,
   componentIndex: number,
   schematicX: number,
-  schematicY: number
+  schematicY: number,
 ): CircuitElement[] {
   const data = node.data as ButtonData;
   const elements: CircuitElement[] = [];
@@ -209,7 +204,7 @@ function createCircuitJsonForButton(
     true_ccw_index: 0,
   };
   elements.push(schematicPort1);
-  
+
   // Store port position for trace routing
   portPositions.set(port1Id, { portId: port1Id, x: port1X, y: port1Y });
 
@@ -228,7 +223,7 @@ function createCircuitJsonForButton(
     true_ccw_index: 1,
   };
   elements.push(schematicPort2);
-  
+
   // Store port position for trace routing
   portPositions.set(port2Id, { portId: port2Id, x: port2X, y: port2Y });
 
@@ -253,7 +248,7 @@ function createCircuitJsonForLed(
   node: Node,
   componentIndex: number,
   schematicX: number,
-  schematicY: number
+  schematicY: number,
 ): CircuitElement[] {
   const elements: CircuitElement[] = [];
 
@@ -334,7 +329,7 @@ function createCircuitJsonForLed(
     display_pin_label: "+",
   };
   elements.push(schematicPort1);
-  
+
   // Store port position for trace routing
   portPositions.set(port1Id, { portId: port1Id, x: port1X, y: port1Y });
 
@@ -353,7 +348,7 @@ function createCircuitJsonForLed(
     display_pin_label: "-",
   };
   elements.push(schematicPort2);
-  
+
   // Store port position for trace routing
   portPositions.set(port2Id, { portId: port2Id, x: port2X, y: port2Y });
 
@@ -433,8 +428,8 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
   // Split pins: lower numbered pins on left, higher on right
   const sortedPins = [...pins].sort((a, b) => a.pin - b.pin);
   const halfCount = Math.ceil(pinCount / 2);
-  const leftPins = sortedPins.slice(0, halfCount).map(p => p.pin);
-  const rightPins = sortedPins.slice(halfCount).map(p => p.pin);
+  const leftPins = sortedPins.slice(0, halfCount).map((p) => p.pin);
+  const rightPins = sortedPins.slice(halfCount).map((p) => p.pin);
 
   const portLabels: Record<string, string> = {};
   pins.forEach((pin) => {
@@ -445,7 +440,7 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
   const boardWidth = 3;
   const boardCenterX = 4;
   const boardCenterY = 4;
-  
+
   const schematicComponent: SchematicComponent = {
     type: "schematic_component",
     schematic_component_id: schematicComponentId,
@@ -475,7 +470,7 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
   // Left side pins
   const leftPinSpacing = boardHeight / (leftPins.length + 1);
   leftPins.forEach((pinNum, idx) => {
-    const pinIndex = pins.findIndex(p => p.pin === pinNum);
+    const pinIndex = pins.findIndex((p) => p.pin === pinNum);
     const portId = `source_port_${pinIndex}`;
     const schematicPortId = `schematic_port_${pinIndex}`;
 
@@ -502,7 +497,7 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
   // Right side pins
   const rightPinSpacing = boardHeight / (rightPins.length + 1);
   rightPins.forEach((pinNum, idx) => {
-    const pinIndex = pins.findIndex(p => p.pin === pinNum);
+    const pinIndex = pins.findIndex((p) => p.pin === pinNum);
     const portId = `source_port_${pinIndex}`;
     const schematicPortId = `schematic_port_${pinIndex}`;
 
@@ -546,7 +541,7 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
 function createCircuitJsonTraces(
   nodes: Node[],
   pins: Pin[],
-  nodeToComponentIndex: Map<string, number>
+  nodeToComponentIndex: Map<string, number>,
 ): CircuitElement[] {
   const elements: CircuitElement[] = [];
   let traceIndex = 0;
@@ -558,11 +553,11 @@ function createCircuitJsonTraces(
   function createSchematicTrace(
     sourceTraceId: string,
     fromPortId: string,
-    toPortId: string
+    toPortId: string,
   ): SchematicTrace | null {
     const fromPos = portPositions.get(fromPortId);
     const toPos = portPositions.get(toPortId);
-    
+
     if (!fromPos || !toPos) {
       console.warn(`Missing port positions for trace: ${fromPortId} -> ${toPortId}`);
       return null;
@@ -571,16 +566,16 @@ function createCircuitJsonTraces(
     const boardCenterX = 4;
     const boardLeftEdge = boardCenterX - 1.5 - 0.4; // 2.1
     const boardRightEdge = boardCenterX + 1.5 + 0.4; // 5.9
-    
+
     const edges: SchematicTrace["edges"] = [];
-    
+
     // Determine if the from port is on the left or right side of the board
     const fromIsOnLeft = fromPos.x < boardCenterX;
-    
+
     if (fromIsOnLeft) {
       // Port is on left side of board - route left, then around
       const routeX = boardLeftEdge - 1; // Route to the left of the board
-      
+
       // Go left from the board port
       edges.push({
         from: { x: fromPos.x, y: fromPos.y },
@@ -646,9 +641,7 @@ function createCircuitJsonTraces(
     if (data.instance?.toLowerCase() === "button") {
       const buttonData = data as ButtonData;
       const pinNumber =
-        typeof buttonData.pin === "number"
-          ? buttonData.pin
-          : parseInt(buttonData.pin);
+        typeof buttonData.pin === "number" ? buttonData.pin : parseInt(buttonData.pin);
 
       // Find the corresponding source port for this pin
       const pinIndex = pins.findIndex((p) => p.pin === pinNumber);
@@ -667,7 +660,7 @@ function createCircuitJsonTraces(
         display_name: `.microcontroller > .pin${pinNumber} to .${node.id} > .pin1`,
       };
       elements.push(trace);
-      
+
       // Create schematic trace with routing
       const schematicTrace = createSchematicTrace(sourceTraceId, boardPortId, componentPortId);
       if (schematicTrace) {
@@ -710,8 +703,7 @@ function createCircuitJsonTraces(
     // Handle LED components
     else if (data.instance?.toLowerCase() === "led") {
       const ledData = data as LedData;
-      const pinNumber =
-        typeof ledData.pin === "number" ? ledData.pin : parseInt(ledData.pin);
+      const pinNumber = typeof ledData.pin === "number" ? ledData.pin : parseInt(ledData.pin);
 
       // Find the corresponding source port for this pin
       const pinIndex = pins.findIndex((p) => p.pin === pinNumber);
@@ -730,7 +722,7 @@ function createCircuitJsonTraces(
         display_name: `.microcontroller > .pin${pinNumber} to .${node.id} > .anode`,
       };
       elements.push(trace);
-      
+
       // Create schematic trace with routing
       const schematicTrace = createSchematicTrace(sourceTraceId, boardPortId, componentPortId);
       if (schematicTrace) {

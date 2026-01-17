@@ -13,8 +13,14 @@ const MESSAGE_AWARENESS = 1;
 const MESSAGE_ACK = 2;
 
 const COLORS = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e",
-  "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899",
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ec4899",
 ];
 
 // ============================================================================
@@ -213,12 +219,7 @@ export class SyncProvider {
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
 
-    const syncMessageType = syncProtocol.readSyncMessage(
-      decoder,
-      encoder,
-      this.doc,
-      "remote"
-    );
+    const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, "remote");
 
     // Send response if needed (sync step 2)
     if (encoding.length(encoder) > 1 && this.ws?.readyState === WebSocket.OPEN) {
@@ -236,7 +237,7 @@ export class SyncProvider {
     awarenessProtocol.applyAwarenessUpdate(
       this.awareness,
       decoding.readVarUint8Array(decoder),
-      "remote"
+      "remote",
     );
   }
 
@@ -291,7 +292,7 @@ export class SyncProvider {
     encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
     encoding.writeVarUint8Array(
       encoder,
-      awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID])
+      awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID]),
     );
     this.ws.send(encoding.toUint8Array(encoder));
   }

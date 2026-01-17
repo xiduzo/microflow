@@ -1,16 +1,6 @@
-import {
-  CircleIcon,
-  RotateCcwIcon,
-  RotateCwIcon,
-  SlashIcon,
-} from "lucide-react";
+import { CircleIcon, RotateCcwIcon, RotateCwIcon, SlashIcon } from "lucide-react";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useDeleteHandles,
-  useNodeControls,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from "../_base";
 import { useNodeData } from "../_base";
 import { useNodeValue } from "@/stores/node-data";
 import { type Data, type Value, dataSchema } from "./servo.schema";
@@ -31,13 +21,7 @@ export function Servo(props: Props) {
       )}
       {props.data.type === "continuous" && (
         <>
-          <Handle
-            type="target"
-            position="left"
-            id="rotate"
-            hint="from -1 to 1"
-            offset={-0.5}
-          />
+          <Handle type="target" position="left" id="rotate" hint="from -1 to 1" offset={-0.5} />
           <Handle type="target" position="left" id="stop" offset={0.5} />
         </>
       )}
@@ -51,12 +35,8 @@ function Value() {
   const value = useNodeValue<Value>(data.range.min);
 
   if (data.type === "continuous") {
-    if (!value)
-      return <CircleIcon className="text-muted-foreground" size={48} />;
-    if (value > 0)
-      return (
-        <RotateCcwIcon className="animate-spin direction-reverse" size={48} />
-      );
+    if (!value) return <CircleIcon className="text-muted-foreground" size={48} />;
+    if (value > 0) return <RotateCcwIcon className="animate-spin direction-reverse" size={48} />;
     return <RotateCwIcon className="animate-spin" size={48} />;
   }
 
@@ -66,24 +46,15 @@ function Value() {
         className="origin-bottom absolute transition-all"
         style={{ rotate: `${data.range.min - 90}deg` }}
       >
-        <SlashIcon
-          className="-rotate-45 dark:text-red-500/20 text-red-500/30"
-          size={48}
-        />
+        <SlashIcon className="-rotate-45 dark:text-red-500/20 text-red-500/30" size={48} />
       </section>
       <section
         className="origin-bottom absolute transition-all"
         style={{ rotate: `${data.range.max - 90}deg` }}
       >
-        <SlashIcon
-          className="-rotate-45 dark:text-green-500/20 text-green-500/30"
-          size={48}
-        />
+        <SlashIcon className="-rotate-45 dark:text-green-500/20 text-green-500/30" size={48} />
       </section>
-      <section
-        className="origin-bottom transition-all"
-        style={{ rotate: `${value - 90}deg` }}
-      >
+      <section className="origin-bottom transition-all" style={{ rotate: `${value - 90}deg` }}>
         <SlashIcon className="-rotate-45 text-muted-foreground" size={48} />
       </section>
       <div className="absolute w-4 h-4 left-4 -bottom-2 rounded-full bg-muted-foreground" />
@@ -104,9 +75,7 @@ function Settings() {
         options: ["standard", "continuous"],
         transient: false,
         onChange: (event) =>
-          deleteHandles(
-            event === "standard" ? ["rotate", "stop"] : ["min", "to", "max"]
-          ),
+          deleteHandles(event === "standard" ? ["rotate", "stop"] : ["min", "to", "max"]),
       },
       range: {
         value: data.range,
@@ -117,7 +86,7 @@ function Settings() {
         joystick: false,
       },
     },
-    [pins]
+    [pins],
   );
 
   return <>{render()}</>;
@@ -131,7 +100,6 @@ Servo.defaultProps = {
     tags: ["output", "analog"],
     label: "Servo",
     icon: "RotateCwIcon",
-    description:
-      "Control a motor that can move to specific positions or rotate continuously",
+    description: "Control a motor that can move to specific positions or rotate continuously",
   } satisfies Props["data"],
 };

@@ -43,9 +43,11 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
   const connectedFlowIdRef = useRef<string | null>(null);
 
   // Compute WebSocket URL
-  const computedWsUrl = wsUrl ?? (typeof window !== "undefined"
-    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
-    : "ws://localhost:3000");
+  const computedWsUrl =
+    wsUrl ??
+    (typeof window !== "undefined"
+      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
+      : "ws://localhost:3000");
 
   // Connect/disconnect effect
   useEffect(() => {
@@ -96,10 +98,13 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
       }
     });
 
-    const unsubAwareness = provider.on("awarenessChange", (awarenessUsers: Map<number, AwarenessUser>) => {
-      const userList = Array.from(awarenessUsers.values());
-      setUsers(userList);
-    });
+    const unsubAwareness = provider.on(
+      "awarenessChange",
+      (awarenessUsers: Map<number, AwarenessUser>) => {
+        const userList = Array.from(awarenessUsers.values());
+        setUsers(userList);
+      },
+    );
 
     const unsubError = provider.on("error", (err: Error) => {
       setError(err);
@@ -118,9 +123,13 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
   }, [enabled, flowDoc, flowId, user?.id, user?.name, computedWsUrl]);
 
   // Cursor update
-  const updateCursor = useCallback((cursor: { x: number; y: number }) => {
-    providerRef.current?.updateCursor(cursor);
-  }, []);
+  const updateCursor = useCallback(
+    (cursor: { x: number; y: number }) => {
+      if (state !== "synced" && state !== "syncing") return;
+      providerRef.current?.updateCursor(cursor);
+    },
+    [state],
+  );
 
   // Selected nodes update
   const updateSelectedNodes = useCallback((nodeIds: string[]) => {
@@ -161,8 +170,8 @@ export function useCollabPresence(syncResult: UseSyncProviderReturn) {
 
   // Memoize to prevent unnecessary re-renders
   const otherUsers = useMemo(
-    () => localUserId ? users.filter((u) => u.id !== localUserId) : [],
-    [users, localUserId]
+    () => (localUserId ? users.filter((u) => u.id !== localUserId) : []),
+    [users, localUserId],
   );
 
   return useMemo(
@@ -171,6 +180,6 @@ export function useCollabPresence(syncResult: UseSyncProviderReturn) {
       localUser,
       totalUsers: users.length,
     }),
-    [otherUsers, localUser, users.length]
+    [otherUsers, localUser, users.length],
   );
 }

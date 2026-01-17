@@ -9,11 +9,7 @@ import {
   type XYPosition,
   type Connection,
 } from "@xyflow/react";
-import {
-  useFlowDocument,
-  useFlowClipboard,
-  useFlowHistoryActions,
-} from "@/stores/flow-store";
+import { useFlowDocument, useFlowClipboard, useFlowHistoryActions } from "@/stores/flow-store";
 import { useFlowState } from "@/hooks/use-flow-document";
 import type { FlowEdge } from "@microflow/collab";
 
@@ -27,12 +23,12 @@ import { EDGE_TYPES } from "./edges/edges.constants";
 import { DockPanel } from "./panels/dock-panel";
 import { useTheme } from "@/providers/theme-provider";
 import { HotkeySheet } from "./sheets/hotkey-sheet";
-import { CollabPresence, CollabCursors } from "./collab-presence";
+import { CollabCursors } from "./collab-cursors";
+import { PressensePanel } from "./panels/pressense-panel";
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
 type ReactFlowCanvasProps = {
-  isCollab?: boolean;
   updateCursor?: (cursor: { x: number; y: number }) => void;
   otherUsers?: Array<{
     id: string;
@@ -42,35 +38,34 @@ type ReactFlowCanvasProps = {
   }>;
 };
 
-export function ReactFlowCanvas({
-  isCollab = false,
-  updateCursor,
-  otherUsers = [],
-}: ReactFlowCanvasProps) {
+export function ReactFlowCanvas({ updateCursor, otherUsers = [] }: ReactFlowCanvasProps) {
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
 
   // Get FlowDocument
   const flowDoc = useFlowDocument();
-  
+
   // Use the integrated flow state hook
   const { nodes, edges, onNodesChange, onEdgesChange } = useFlowState(flowDoc);
 
   // Handle new connections
-  const onConnect = useCallback((connection: Connection) => {
-    if (!flowDoc) return;
-    
-    const newEdge: FlowEdge = {
-      id: uid(),
-      source: connection.source!,
-      sourceHandle: connection.sourceHandle ?? undefined,
-      target: connection.target!,
-      targetHandle: connection.targetHandle ?? undefined,
-      type: "animated",
-    };
-    
-    flowDoc.addEdge(newEdge);
-  }, [flowDoc]);
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!flowDoc) return;
+
+      const newEdge: FlowEdge = {
+        id: uid(),
+        source: connection.source!,
+        sourceHandle: connection.sourceHandle ?? undefined,
+        target: connection.target!,
+        targetHandle: connection.targetHandle ?? undefined,
+        type: "animated",
+      };
+
+      flowDoc.addEdge(newEdge);
+    },
+    [flowDoc],
+  );
 
   // Setup hotkeys
   useHelperHotkeys(nodes);
@@ -79,12 +74,11 @@ export function ReactFlowCanvas({
   const { screenToFlowPosition } = useReactFlow();
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      if (isCollab && updateCursor) {
-        const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-        updateCursor(flowPosition);
-      }
+      if (!updateCursor) return;
+      const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      updateCursor(flowPosition);
     },
-    [isCollab, updateCursor, screenToFlowPosition]
+    [updateCursor, screenToFlowPosition],
   );
 
   useEffect(() => {
@@ -92,15 +86,7 @@ export function ReactFlowCanvas({
   }, [fitView]);
 
   return (
-    <div
-      className="w-full h-full relative overflow-hidden"
-      onMouseMove={handleMouseMove}
-    >
-      {isCollab && (
-        <div className="absolute top-4 left-4 z-10">
-          <CollabPresence users={otherUsers} />
-        </div>
-      )}
+    <div className="w-full h-full relative overflow-hidden" onMouseMove={handleMouseMove}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -128,9 +114,10 @@ export function ReactFlowCanvas({
           <DockPanel />
         </Panel>
         <Panel position="top-left">
-          </Panel>
+          <PressensePanel users={otherUsers} />
+        </Panel>
       </ReactFlow>
-      {isCollab && <CollabCursors users={otherUsers} />}
+      <CollabCursors users={otherUsers} />
     </div>
   );
 }
@@ -160,7 +147,7 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
       enableOnFormTags: false,
       preventDefault: true,
       scopes: ["flow"],
-    }
+    },
   );
 
   useHotkeys("meta+a", clipboard.selectAll, {
@@ -199,7 +186,7 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
       enableOnFormTags: false,
       preventDefault: true,
       scopes: ["flow"],
-    }
+    },
   );
 
   useEffect(() => {

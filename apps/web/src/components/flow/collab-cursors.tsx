@@ -1,47 +1,14 @@
 import { useReactFlow } from "@xyflow/react";
 
-type User = {
+export type CollabUser = {
   id: string;
   name: string;
   color: string;
   cursor?: { x: number; y: number };
 };
 
-type CollabPresenceProps = {
-  users: User[];
-};
-
-/**
- * Shows avatars of users currently viewing/editing the flow
- */
-export function CollabPresence({ users }: CollabPresenceProps) {
-  if (users.length === 0) return null;
-
-  return (
-    <div className="flex items-center gap-1">
-      {users.map((user) => (
-        <div
-          key={user.id}
-          className="relative flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-medium"
-          style={{ backgroundColor: user.color }}
-          title={user.name}
-        >
-          {user.name.charAt(0).toUpperCase()}
-          {/* Online indicator */}
-          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
-        </div>
-      ))}
-      {users.length > 0 && (
-        <span className="text-sm text-muted-foreground ml-2">
-          {users.length} {users.length === 1 ? "person" : "people"} editing
-        </span>
-      )}
-    </div>
-  );
-}
-
 type CollabCursorsProps = {
-  users: User[];
+  users: CollabUser[];
 };
 
 /**
@@ -51,12 +18,12 @@ export function CollabCursors({ users }: CollabCursorsProps) {
   const { flowToScreenPosition } = useReactFlow();
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-50" style={{ clipPath: 'inset(0)' }}>
+    <div className="absolute inset-0 pointer-events-none z-50" style={{ clipPath: "inset(0)" }}>
       {users.map((user) => {
         if (!user.cursor) return null;
-        
+
         const screenPos = flowToScreenPosition(user.cursor);
-        
+
         return (
           <div
             key={user.id}

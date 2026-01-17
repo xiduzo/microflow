@@ -1,12 +1,12 @@
-import { z } from 'zod';
-import { baseDataSchema } from '../_base.schema';
+import { z } from "zod";
+import { baseDataSchema } from "../_base.schema";
 
 export const valueSchema = z.number();
 export type Value = z.infer<typeof valueSchema>;
 
 export const dataSchema = baseDataSchema.extend({
-	instance: z.literal('Led').default('Led'),
-	pin: z.union([z.number(), z.string()]).default(13),
+  instance: z.literal("Led").default("Led"),
+  pin: z.union([z.number(), z.string()]).default(13),
 });
 
 export type Data = z.infer<typeof dataSchema>;

@@ -23,7 +23,7 @@ export function MatrixDisplay(props: Props) {
               editable: !!props.onCellClick,
             })}
           />
-        ))
+        )),
       )}
     </section>
   );
@@ -39,24 +39,21 @@ const matrix = cva("grid gap-0.5", {
   },
 });
 
-const cell = cva(
-  "place-self-center rounded-full ring-0 transition-all h-full w-full",
-  {
-    variants: {
-      editable: {
-        true: "hover:ring-4 cursor-pointer ring-blue-500",
-        false: "",
-      },
-      active: {
-        true: "bg-red-500",
-        false: "bg-muted-foreground/10",
-      },
+const cell = cva("place-self-center rounded-full ring-0 transition-all h-full w-full", {
+  variants: {
+    editable: {
+      true: "hover:ring-4 cursor-pointer ring-blue-500",
+      false: "",
     },
-    defaultVariants: {
-      active: false,
+    active: {
+      true: "bg-red-500",
+      false: "bg-muted-foreground/10",
     },
-  }
-);
+  },
+  defaultVariants: {
+    active: false,
+  },
+});
 
 type Props = Omit<MatrixEditorProps, "onSave"> & {
   onCellClick?: (row: number, column: number) => void;

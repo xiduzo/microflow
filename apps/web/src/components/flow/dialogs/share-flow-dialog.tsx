@@ -88,15 +88,11 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={isValidElement(trigger) ? trigger : defaultTrigger}
-      />
+      <DialogTrigger render={isValidElement(trigger) ? trigger : defaultTrigger} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share "{flowName}"</DialogTitle>
-          <DialogDescription>
-            Invite others to view or edit this flow.
-          </DialogDescription>
+          <DialogDescription>Invite others to view or edit this flow.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -132,7 +128,11 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
                   <SelectItem value="editor">Editor</SelectItem>
                 </SelectContent>
               </Select>
-              <Button type="submit" size="icon" disabled={!email.trim() || addCollaboratorMutation.isPending}>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!email.trim() || addCollaboratorMutation.isPending}
+              >
                 {addCollaboratorMutation.isPending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
@@ -167,7 +167,10 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
 
                 {/* Collaborators */}
                 {flow?.collaborators?.map((collab) => (
-                  <div key={collab.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
+                  <div
+                    key={collab.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
+                  >
                     <Avatar className="size-8">
                       <AvatarImage src={collab.user.image ?? undefined} />
                       <AvatarFallback>{collab.user.name?.charAt(0)}</AvatarFallback>
@@ -181,7 +184,9 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
                         size="icon"
                         variant="ghost"
                         className="size-6"
-                        onClick={() => removeCollaboratorMutation.mutate({ flowId, userId: collab.userId })}
+                        onClick={() =>
+                          removeCollaboratorMutation.mutate({ flowId, userId: collab.userId })
+                        }
                         disabled={removeCollaboratorMutation.isPending}
                       >
                         <X className="size-3" />

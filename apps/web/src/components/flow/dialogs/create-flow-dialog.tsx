@@ -57,9 +57,7 @@ export function CreateFlowDialog({ trigger, onSuccess }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={trigger ?? <Button size="sm" />}
-      >
+      <DialogTrigger render={trigger ?? <Button size="sm" />}>
         {!trigger && (
           <>
             <Plus className="size-4 mr-2" />

@@ -56,8 +56,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [cloudFlows]);
 
   // Determine the flow URL based on active flow
-  const flowUrl =
-    activeFlowId === "local" ? "/flow/local" : `/flow/${activeFlowId}`;
+  const flowUrl = activeFlowId === "local" ? "/flow/local" : `/flow/${activeFlowId}`;
 
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>

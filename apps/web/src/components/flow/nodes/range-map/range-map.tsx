@@ -1,11 +1,6 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { type Data, type Value, dataSchema } from "./range-map.schema";
 import { ActivityIcon, SeparatorVerticalIcon } from "lucide-react";
 
@@ -35,9 +30,7 @@ function Value() {
         <span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
           {data.from.min}
         </span>
-        <span className="col-span-6 text-center">
-          {numberFormat.format(from)}
-        </span>
+        <span className="col-span-6 text-center">{numberFormat.format(from)}</span>
         <span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
           {data.from.max}
         </span>
@@ -47,9 +40,7 @@ function Value() {
         <span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
           {data.to.min}
         </span>
-        <span className="col-span-6 text-center">
-          {numberFormat.format(to)}
-        </span>
+        <span className="col-span-6 text-center">{numberFormat.format(to)}</span>
         <span className="text-xs text-muted-foreground col-span-3 flex items-center justify-center">
           {data.to.max}
         </span>

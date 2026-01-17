@@ -1,10 +1,5 @@
 import { folder } from "leva";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { Handle } from "../../handle";
 import { useNodeValue } from "@/stores/node-data";
 import { type Value, type Data, dataSchema } from "./sensor.schema";
@@ -47,20 +42,12 @@ function Value() {
 
   switch (data.subType) {
     case "ldr":
-      if (progress <= 33)
-        return <SunDimIcon className={`text-yellow-500/30`} size={48} />;
-      if (progress <= 66)
-        return <SunMediumIcon className={`text-yellow-500/60`} size={48} />;
-      if (progress > 66)
-        return <SunIcon className={`text-yellow-500`} size={48} />;
+      if (progress <= 33) return <SunDimIcon className={`text-yellow-500/30`} size={48} />;
+      if (progress <= 66) return <SunMediumIcon className={`text-yellow-500/60`} size={48} />;
+      if (progress > 66) return <SunIcon className={`text-yellow-500`} size={48} />;
       break;
     case "force":
-      return (
-        <BicepsFlexedIcon
-          size={48}
-          style={{ transform: `scale(${1 + progress / 100})` }}
-        />
-      );
+      return <BicepsFlexedIcon size={48} style={{ transform: `scale(${1 + progress / 100})` }} />;
     case "potentiometer":
       return (
         <CircleArrowOutUpLeftIcon
@@ -84,8 +71,7 @@ function Value() {
         <MagnetIcon
           size={48}
           className={hallEffect({
-            polarity: (Math.round(progress / 10) *
-              10) as HallEffectProps["polarity"],
+            polarity: (Math.round(progress / 10) * 10) as HallEffectProps["polarity"],
           })}
           style={{
             transform: `rotate(${progress * (360 / 100 / 2) + 135}deg)`,
@@ -136,10 +122,10 @@ function Settings() {
         },
         {
           collapsed: true,
-        }
+        },
       ),
     },
-    [pins]
+    [pins],
   );
 
   return <>{render()}</>;
@@ -166,8 +152,7 @@ DigitalSensor.defaultProps = {
     tags: ["input", "digital"],
     type: "digital",
     icon: "PowerIcon",
-    description:
-      "Detect when something is on or off, like a switch or motion detector",
+    description: "Detect when something is on or off, like a switch or motion detector",
   } satisfies Props["data"],
 };
 
@@ -180,8 +165,7 @@ Tilt.defaultProps = {
     subType: "tilt",
     icon: "MoveUpIcon",
     threshold: 10,
-    description:
-      "Detect when an object is tilted or rotated from its normal position",
+    description: "Detect when an object is tilted or rotated from its normal position",
   } satisfies Props["data"],
 };
 
@@ -205,8 +189,7 @@ Potentiometer.defaultProps = {
     tags: ["input", "analog"],
     subType: "potentiometer",
     icon: "CircleArrowOutUpLeftIcon",
-    description:
-      "Read values from a knob or slider that you can turn or move to control something",
+    description: "Read values from a knob or slider that you can turn or move to control something",
   } satisfies Props["data"],
 };
 
@@ -218,8 +201,7 @@ Force.defaultProps = {
     tags: ["input", "analog"],
     subType: "force",
     icon: "BicepsFlexedIcon",
-    description:
-      "Measure how much pressure or force is being applied to a surface",
+    description: "Measure how much pressure or force is being applied to a surface",
   } satisfies Props["data"],
 };
 
@@ -231,7 +213,6 @@ HallEffect.defaultProps = {
     tags: ["input", "analog"],
     subType: "hall-effect",
     icon: "MagnetIcon",
-    description:
-      "Detect when a magnet or magnetic object is nearby and how strong it is",
+    description: "Detect when a magnet or magnetic object is nearby and how strong it is",
   } satisfies Props["data"],
 };

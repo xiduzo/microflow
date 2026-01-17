@@ -32,7 +32,7 @@ export class MqttClientManager {
    * Subscribe to connected clients changes
    */
   onConnectedClientsChange(
-    handler: (clients: Array<{ appName: Client; status: ConnectionStatus }>) => void
+    handler: (clients: Array<{ appName: Client; status: ConnectionStatus }>) => void,
   ): () => void {
     this.connectedClientsHandlers.add(handler);
     return () => {
@@ -45,12 +45,10 @@ export class MqttClientManager {
   }
 
   private notifyConnectedClientsChange() {
-    const clients = Array.from(this.connectedClients.entries()).map(
-      ([appName, status]) => ({
-        appName,
-        status,
-      })
-    );
+    const clients = Array.from(this.connectedClients.entries()).map(([appName, status]) => ({
+      appName,
+      status,
+    }));
     this.connectedClientsHandlers.forEach((handler) => handler(clients));
   }
 
@@ -81,12 +79,10 @@ export class MqttClientManager {
    * Get connected clients
    */
   getConnectedClients(): Array<{ appName: Client; status: ConnectionStatus }> {
-    return Array.from(this.connectedClients.entries()).map(
-      ([appName, status]) => ({
-        appName,
-        status,
-      })
-    );
+    return Array.from(this.connectedClients.entries()).map(([appName, status]) => ({
+      appName,
+      status,
+    }));
   }
 
   /**
@@ -116,7 +112,7 @@ export class MqttClientManager {
   subscribe(
     topic: string,
     callback: OnMessageCallback,
-    options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties
+    options?: mqtt.IClientSubscribeOptions | mqtt.IClientSubscribeProperties,
   ): () => void {
     this.subscriptions.set(topic, { callback, options });
 
@@ -134,11 +130,7 @@ export class MqttClientManager {
   /**
    * Publish a message to a topic
    */
-  publish(
-    topic: string,
-    payload: string,
-    options?: IClientPublishOptions
-  ): void {
+  publish(topic: string, payload: string, options?: IClientPublishOptions): void {
     // Only publish if client is connected
     if (!this.client?.connected) {
       console.warn("[MQTT] <publish> Client not connected", topic);
@@ -206,10 +198,7 @@ export class MqttClientManager {
     const from = topic.split("/")[3]?.toString() ?? "[UNKNOWN_CLIENT]";
     if (from === this.appName) return; // No need to get status from self
 
-    this.connectedClients.set(
-      from as Client,
-      payload.toString() as "connected" | "disconnected"
-    );
+    this.connectedClients.set(from as Client, payload.toString() as "connected" | "disconnected");
     this.notifyConnectedClientsChange();
   };
 
@@ -229,9 +218,7 @@ export class MqttClientManager {
 
     // Parse the URL string into connection components
     const { protocol, host, port, path } = parseMqttUrl(configParam.url);
-    const clientId = `microflow_${appName}_${
-      configParam.uniqueId
-    }_${Date.now().toString(36)}`;
+    const clientId = `microflow_${appName}_${configParam.uniqueId}_${Date.now().toString(36)}`;
 
     console.debug("[MQTT] <connect> Parsed URL:", {
       input: configParam.url,
@@ -281,17 +268,15 @@ export class MqttClientManager {
         await this.resubscribe();
         this.subscribe(
           `microflow/v1/${this.config?.uniqueId ?? "[NO_UNIQUE_ID_SET]"}/+/status`,
-          this.handleStatusMessage
+          this.handleStatusMessage,
         );
         this.publish(
-          `microflow/v1/${
-            this.config?.uniqueId ?? "[NO_UNIQUE_ID_SET]"
-          }/${appName}/status`,
+          `microflow/v1/${this.config?.uniqueId ?? "[NO_UNIQUE_ID_SET]"}/${appName}/status`,
           "connected",
           {
             retain: true,
             qos: 2,
-          }
+          },
         );
         this.notifyStatusChange("connected");
       })

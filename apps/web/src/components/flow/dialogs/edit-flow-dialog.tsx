@@ -59,9 +59,7 @@ export function EditFlowDialog({ flow, trigger, onSuccess }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={trigger ?? <Button size="sm" variant="ghost" />}
-      >
+      <DialogTrigger render={trigger ?? <Button size="sm" variant="ghost" />}>
         {!trigger && <Pencil className="size-4" />}
       </DialogTrigger>
       <DialogContent>

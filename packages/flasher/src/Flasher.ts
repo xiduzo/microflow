@@ -26,11 +26,7 @@ export class Flasher {
       console.debug(`Flashing succeeded!`);
     } catch (error) {
       console.debug(error);
-      throw new FlashError(
-        this.board.name,
-        this.connection.serialPort.path,
-        filePath
-      );
+      throw new FlashError(this.board.name, this.connection.serialPort.path, filePath);
     } finally {
       await this.connection.close(); // Always close the port again
     }

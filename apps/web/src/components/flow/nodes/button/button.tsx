@@ -1,11 +1,6 @@
 import { MODES, usePins } from "@/stores/board";
 import { folder } from "leva";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { Handle } from "../../handle";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, type Data, type Value } from "./button.schema";
@@ -28,8 +23,7 @@ export function Button(props: Props) {
 function Value() {
   const value = useNodeValue<Value>(false);
 
-  if (!value)
-    return <PointerOffIcon className="text-muted-foreground" size={48} />;
+  if (!value) return <PointerOffIcon className="text-muted-foreground" size={48} />;
   return <PointerIcon className="text-green-500" size={48} />;
 }
 
@@ -41,9 +35,7 @@ function Settings() {
   const data = useNodeData<Data>();
 
   const requiresPullup = data.isPullup || data.isPulldown;
-  const pins = usePins(
-    requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]
-  );
+  const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
 
   const { render, set } = useNodeControls(
     {
@@ -54,11 +46,7 @@ function Settings() {
       advanced: folder(
         {
           type: {
-            value: data.isPulldown
-              ? PULL_DOWN
-              : data.isPullup
-              ? PULL_UP
-              : DEFAULT,
+            value: data.isPulldown ? PULL_DOWN : data.isPullup ? PULL_UP : DEFAULT,
             options: {
               default: DEFAULT,
               "pull up": PULL_UP,
@@ -77,10 +65,10 @@ function Settings() {
             label: "hold time (ms)",
           },
         },
-        { collapsed: true }
+        { collapsed: true },
       ),
     },
-    [pins]
+    [pins],
   );
 
   return <>{render()}</>;

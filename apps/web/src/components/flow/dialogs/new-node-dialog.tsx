@@ -16,11 +16,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import {
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Empty,
   EmptyContent,
@@ -94,9 +90,7 @@ export function NewNodeDialog() {
     return Array.from(
       Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
         const node: BaseNode =
-          "defaultProps" in Component
-            ? (Component.defaultProps as any)
-            : { data: {} };
+          "defaultProps" in Component ? (Component.defaultProps as any) : { data: {} };
 
         if (node.data.group === "internal") return groups; // Skip internal nodes
         const firstTag = node.data.tags.at(0) || "information"; // Use first tag for grouping
@@ -104,7 +98,7 @@ export function NewNodeDialog() {
         group.push({ node, type });
         groups.set(firstTag, group);
         return groups;
-      }, new Map<string, { node: BaseNode; type: string }[]>())
+      }, new Map<string, { node: BaseNode; type: string }[]>()),
     );
   }, []);
 
@@ -149,18 +143,13 @@ export function NewNodeDialog() {
         if (label.toLowerCase().includes(searchLower)) return 1;
 
         // Priority 2: First tag match
-        if (firstTag && firstTag.toLowerCase().includes(searchLower))
-          return 0.9;
+        if (firstTag && firstTag.toLowerCase().includes(searchLower)) return 0.9;
 
         // Priority 3: Description match
         if (description.toLowerCase().includes(searchLower)) return 0.8;
 
         // Priority 4: Keywords match
-        if (
-          keywords?.some((keyword: string) =>
-            keyword.toLowerCase().includes(searchLower)
-          )
-        ) {
+        if (keywords?.some((keyword: string) => keyword.toLowerCase().includes(searchLower))) {
           return 0.6;
         }
 
@@ -182,15 +171,11 @@ export function NewNodeDialog() {
               </EmptyMedia>
               <EmptyTitle>Nothing found</EmptyTitle>
               <EmptyDescription>
-                Try searching for a different node type or visit the
-                documentation.
+                Try searching for a different node type or visit the documentation.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <a
-                href="https://microflow.vercel.app/docs/microflow-studio/nodes"
-                target="_blank"
-              >
+              <a href="https://microflow.vercel.app/docs/microflow-studio/nodes" target="_blank">
                 <Button variant="link">
                   <BookIcon size={24} />
                   Visit the documentation
@@ -222,9 +207,7 @@ export function NewNodeDialog() {
                     <div className="flex flex-col grow gap-3">
                       <div className="flex flex-col gap-1">
                         <div className="font-bold">{node.data.label}</div>
-                        <span className="text-muted-foreground">
-                          {node.data.description ?? ""}
-                        </span>
+                        <span className="text-muted-foreground">{node.data.description ?? ""}</span>
                       </div>
                       <section className="flex items-center gap-2">
                         {node.data.tags.map((tag) => (
@@ -255,9 +238,7 @@ export function NewNodeDialog() {
         <section className="flex items-center gap-3">
           <section className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Close</span>
-            <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
-              Esc
-            </CommandShortcut>
+            <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">Esc</CommandShortcut>
           </section>
           <section className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Navigate</span>
@@ -302,7 +283,7 @@ function useDraggableNewNode() {
       preventDefault: true,
       scopes: ["flow"],
     },
-    [nodeToAdd, removeNode, setNodeToAdd]
+    [nodeToAdd, removeNode, setNodeToAdd],
   );
 
   useHotkeys(
@@ -317,7 +298,7 @@ function useDraggableNewNode() {
       enableOnFormTags: false,
       preventDefault: false,
       scopes: ["flow"],
-    }
+    },
   );
 
   const addNode = useCallback(() => {
@@ -351,14 +332,7 @@ function useDraggableNewNode() {
       document.removeEventListener("mousedown", addNode);
       document.removeEventListener("click", addNode);
     };
-  }, [
-    nodeToAdd,
-    getZoom,
-    updateNode,
-    screenToFlowPosition,
-    setNodeToAdd,
-    addNode,
-  ]);
+  }, [nodeToAdd, getZoom, updateNode, screenToFlowPosition, setNodeToAdd, addNode]);
 
   return null;
 }

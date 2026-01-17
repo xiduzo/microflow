@@ -8,19 +8,14 @@ import {
   UsbIcon,
   type LucideIcon,
 } from "lucide-react";
-import {
-  SidebarGroup,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "../ui/sidebar";
+import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
 import { isDesktop } from "@/utils/platform";
 import { cva } from "class-variance-authority";
 import { useBoardPort, useBoardState } from "@/stores/board";
 import { useMemo } from "react";
 
 export function NavMicrocontroller() {
-  if (!isDesktop()) return null
+  if (!isDesktop()) return null;
 
   const boardState = useBoardState();
   const port = useBoardPort();
@@ -49,10 +44,7 @@ export function NavMicrocontroller() {
     <SidebarGroup>
       <SidebarMenu>
         <SidebarMenuItem title={message}>
-          <SidebarMenuButton
-            disabled
-            className={buttonVariants({ state: boardState })}
-          >
+          <SidebarMenuButton disabled className={buttonVariants({ state: boardState })}>
             <Icon />
             <span>{message}</span>
           </SidebarMenuButton>
@@ -66,12 +58,10 @@ const buttonVariants = cva("", {
   variants: {
     state: {
       connected: "bg-green-900 stroke-green-200 text-green-200",
-      connecting:
-        "bg-blue-900 animate-pulse text-blue-200 stroke-blue-200 [&_svg]:animate-spin",
+      connecting: "bg-blue-900 animate-pulse text-blue-200 stroke-blue-200 [&_svg]:animate-spin",
       flashing:
         "bg-yellow-900 animate-pulse text-yellow-200 stroke-yellow-200 [&_svg]:animate-pulse",
-      disconnected:
-        "bg-muted-foreground/10 text-muted-foreground/90 stroke-muted-foreground/90",
+      disconnected: "bg-muted-foreground/10 text-muted-foreground/90 stroke-muted-foreground/90",
       error: "bg-red-900 text-red-200 stroke-red-200",
     },
   },

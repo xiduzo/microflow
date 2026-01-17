@@ -1,11 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import {
-  HeadContent,
-  Outlet,
-  createRootRouteWithContext,
-} from "@tanstack/react-router";
+import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { trpc } from "@/utils/trpc";
@@ -16,11 +12,7 @@ import { Toaster } from "@/components/ui/sonner";
 import "../index.css";
 import { HotkeysProvider } from "react-hotkeys-hook";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -80,7 +72,7 @@ function RootComponent() {
               </header> */}
               <TooltipProvider>
                 <div className="h-full w-full absolute inset-0">
-                <Outlet />
+                  <Outlet />
                 </div>
               </TooltipProvider>
             </HotkeysProvider>

@@ -1,10 +1,5 @@
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { useNodeValue } from "@/stores/node-data";
 import {
   type Data,
@@ -17,10 +12,7 @@ import {
 import { useMemo } from "react";
 import { IconWithValue } from "../../icon-with-value";
 import { ShieldCheckIcon, ShieldXIcon } from "lucide-react";
-import {
-  COMPARE_SUB_VALIDATORS,
-  type CompareValidator,
-} from "./compare.constants";
+import { COMPARE_SUB_VALIDATORS, type CompareValidator } from "./compare.constants";
 
 export function Compare(props: Props) {
   return (
@@ -51,7 +43,7 @@ function Value() {
         return `is ${data.subValidator}`;
       case "range":
         return `is ${data.subValidator} ${formatter.format(
-          data.range.min
+          data.range.min,
         )} and ${formatter.format(data.range.max)}`;
       case "text":
         return `is ${data.subValidator} "${data.text}"`;
@@ -119,7 +111,7 @@ function Settings() {
         render: (get) => get("validator") === "text",
       },
     },
-    [data.validator]
+    [data.validator],
   );
 
   return <>{render()}</>;

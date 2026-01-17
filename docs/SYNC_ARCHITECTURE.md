@@ -56,6 +56,7 @@ The fundamental change is that **Yjs is now the single source of truth** for flo
 ### 1. FlowDocument (`packages/collab/src/schema.ts`)
 
 A wrapper around Y.Doc that provides:
+
 - Type-safe operations for nodes and edges
 - Uses Y.Map instead of Y.Array for O(1) updates
 - Built-in UndoManager for undo/redo
@@ -70,6 +71,7 @@ flowDoc.undo(); // Built-in undo
 ### 2. SyncProvider (`packages/collab/src/sync-provider.ts`)
 
 Handles WebSocket synchronization:
+
 - Connects to server via WebSocket
 - Queues updates when offline
 - Automatic reconnection with exponential backoff
@@ -78,6 +80,7 @@ Handles WebSocket synchronization:
 ### 3. YjsServer (`packages/collab/src/yjs-server.ts`)
 
 Server-side room management:
+
 - One room per flowId
 - Broadcasts updates to all connected clients
 - Debounced persistence to database
@@ -167,7 +170,7 @@ function LocalFlowPage() {
 function CollabFlowPage({ flowId, user }) {
   const { initCloudFlow, destroy } = useFlowInit();
   const flowDoc = useFlowDocument();
-  
+
   useEffect(() => {
     initCloudFlow(flowId, initialYdocData);
     return () => destroy();

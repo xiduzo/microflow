@@ -1,11 +1,6 @@
 import { dataSchema, type Data } from "./delay.schema";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { IconWithValue } from "../../icon-with-value";
 import { SnailIcon } from "lucide-react";
 
@@ -58,7 +53,6 @@ Delay.defaultProps = {
     tags: ["control", "event"],
     label: "Delay",
     icon: "SnailIcon",
-    description:
-      "Wait for a specified amount of time before sending a signal forward",
+    description: "Wait for a specified amount of time before sending a signal forward",
   } satisfies Props["data"],
 };

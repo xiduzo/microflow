@@ -8,20 +8,8 @@ import { authClient } from "@/lib/auth-client";
 
 import Loader from "./loader";
 import { Button } from "./ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "./ui/field";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "./ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 
 export function SignUpForm({
@@ -57,7 +45,7 @@ export function SignUpForm({
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
           },
-        }
+        },
       );
     },
     validators: {
@@ -80,15 +68,10 @@ export function SignUpForm({
   }
 
   return (
-    <Card
-      className="flex flex-col gap-6 mx-auto w-full mt-10 max-w-md"
-      {...props}
-    >
+    <Card className="flex flex-col gap-6 mx-auto w-full mt-10 max-w-md" {...props}>
       <CardHeader>
         <CardTitle>Create an account</CardTitle>
-        <CardDescription>
-          Enter your information below to create your account
-        </CardDescription>
+        <CardDescription>Enter your information below to create your account</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -168,9 +151,7 @@ export function SignUpForm({
                       <Lock />
                     </InputGroupAddon>
                   </InputGroup>
-                  <FieldDescription>
-                    Must be at least 8 characters long.
-                  </FieldDescription>
+                  <FieldDescription>Must be at least 8 characters long.</FieldDescription>
                   <FieldError errors={field.state.meta.errors} />
                 </Field>
               )}
@@ -206,12 +187,10 @@ export function SignUpForm({
                       <Lock />
                     </InputGroupAddon>
                   </InputGroup>
-                  <FieldDescription>
-                    Please confirm your password.
-                  </FieldDescription>
+                  <FieldDescription>Please confirm your password.</FieldDescription>
                   <FieldError
                     errors={field.state.meta.errors.map((error) =>
-                      typeof error === "string" ? { message: error } : error
+                      typeof error === "string" ? { message: error } : error,
                     )}
                   />
                 </Field>

@@ -1,11 +1,6 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { dataSchema, type Data, type Value } from "./proximity.schema";
 import { MODES, usePins } from "@/stores/board";
 import { reducePinsToOptions } from "@/components/hardware/pin";

@@ -1,26 +1,26 @@
-import JohnnyFive from 'johnny-five';
-import { Hardware } from '../base';
-import type { Data, Value } from './switch.types';
-import { dataSchema } from './switch.types';
+import JohnnyFive from "johnny-five";
+import { Hardware } from "../base";
+import type { Data, Value } from "./switch.types";
+import { dataSchema } from "./switch.types";
 
 export class Switch extends Hardware<Value, Data, JohnnyFive.Switch> {
-	constructor(data: Data) {
-		super(dataSchema.parse(data), false);
-	}
+  constructor(data: Data) {
+    super(dataSchema.parse(data), false);
+  }
 
-	protected createComponent(data: Data) {
-		this.component = new JohnnyFive.Switch(data);
-		this.component.on('open', () => {
-			this.value = true;
-			this.emit('open', this.value);
-		});
+  protected createComponent(data: Data) {
+    this.component = new JohnnyFive.Switch(data);
+    this.component.on("open", () => {
+      this.value = true;
+      this.emit("open", this.value);
+    });
 
-		this.component.on('close', () => {
-			this.value = false;
-			this.emit('close', this.value);
-		});
-		return this.component;
-	}
+    this.component.on("close", () => {
+      this.value = false;
+      this.emit("close", this.value);
+    });
+    return this.component;
+  }
 }
 
 // IDEA when implementing a 3 pin on-off-on switch switch, check the following code.

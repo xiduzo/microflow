@@ -16,9 +16,7 @@ export class AudioPlayer extends Code<Value, Data> {
   }
 
   play(index?: unknown) {
-    const filePath = this.data.audioFiles.at(
-      Math.round(transformValueToNumber(index) - 1)
-    );
+    const filePath = this.data.audioFiles.at(Math.round(transformValueToNumber(index) - 1));
     if (!filePath) return;
 
     this.playTrack(filePath);
