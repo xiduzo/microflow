@@ -24,8 +24,9 @@ export function useComponentEvents() {
 
       // Update the target node's data with the event value
 
-      // Get current edges from the store
-      const edges = useFlowStore.getState().edges;
+      // Get current edges from the FlowDocument
+      const flowDoc = useFlowStore.getState().flowDoc;
+      const edges = flowDoc?.getEdges() ?? [];
 
       // Find all edges that originate from this source node and handle
       const matchingEdges = edges.filter(

@@ -1,7 +1,7 @@
-import { ReactFlowCanvas } from "@/components/flow/ReactFlowCanvas";
+import { ReactFlowCanvas } from "@/components/flow/react-flow-canvas";
 import { authClient } from "@/lib/auth-client";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
-import { useFlowLoader } from "@/stores/flow-store";
+import { useFlowInit } from "@/stores/flow-store";
 import { createFileRoute } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useEffect } from "react";
@@ -17,13 +17,17 @@ export const Route = createFileRoute("/flow/local")({
 
 function LocalFlowComponent() {
   const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
-  const { loadLocalFlow } = useFlowLoader();
+  const { initLocalFlow, destroy } = useFlowInit();
 
-  // Load local flow data and set active flow ID when visiting this route
+  // Initialize local flow when visiting this route
   useEffect(() => {
     setActiveFlowId("local");
-    loadLocalFlow();
-  }, [setActiveFlowId, loadLocalFlow]);
+    initLocalFlow();
+
+    return () => {
+      destroy();
+    };
+  }, [setActiveFlowId, initLocalFlow, destroy]);
 
   return (
     <ReactFlowProvider>

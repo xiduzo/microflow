@@ -101,7 +101,6 @@ export const useNodeControls = <
   const { getNode } = useReactFlow();
   const onNodesChange = useFlowStore((state) => state.onNodesChange);
   const updateNodeInternals = useUpdateNodeInternals();
-  const updateFlow = useFlowStore((state) => state.updateFlow);
 
   const [controlsData, set] = useControls(
     () => ({ label: data.label, ...controls }),
@@ -126,9 +125,9 @@ export const useNodeControls = <
         },
       ]);
       updateNodeInternals(node.id);
-      updateFlow();
+      // Note: Flow sync is now automatic through FlowDocument observers
     },
-    [id, getNode, onNodesChange, updateNodeInternals, updateFlow]
+    [id, getNode, onNodesChange, updateNodeInternals]
   );
 
   useEffect(() => {

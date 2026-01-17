@@ -1,64 +1,76 @@
-import type {
-  Edge,
-  Node,
-  OnConnect,
-  OnEdgesChange,
-  OnNodesChange,
-  XYPosition,
-} from "@xyflow/react";
-import { addEdge, applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
-import { useShallow } from "zustand/shallow";
 import { create } from "zustand";
+import { useShallow } from "zustand/shallow";
 import { toast } from "sonner";
 import { Debouncer } from "@tanstack/react-pacer";
+import { FlowDocument, type FlowNode, type FlowEdge } from "@microflow/collab";
+import type { OnNodesChange, OnEdgesChange, OnConnect, XYPosition, NodeChange, EdgeChange } from "@xyflow/react";
 import { isDesktop } from "@/utils/platform";
 import { invokeCommand } from "@/utils/ipc";
 
+// ============================================================================
+// Constants
+// ============================================================================
+
 const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
 
-type HistoryEntry = {
-  nodes: Node[];
-  edges: Edge[];
-};
+// ============================================================================
+// Types
+// ============================================================================
+
+export type FlowMode = "local" | "cloud";
 
 export type FlowState = {
-  nodes: Node[];
-  edges: Edge[];
-  copiedNodes: Node[];
-  history: HistoryEntry[];
-  historyIndex: number;
-  maxHistorySize: number;
-  isCollabActive: boolean;
-  collabFlowId: string | null;
-  currentFlowId: string | null;
-
-  updateFlow: () => void;
+  // The FlowDocument is the single source of truth
+  flowDoc: FlowDocument | null;
+  
+  // Mode and identifiers
+  mode: FlowMode;
+  flowId: string | null;
+  
+  // UI state (not persisted in Yjs)
+  copiedNodes: FlowNode[];
+  
+  // Actions
+  initLocalFlow: () => void;
+  initCloudFlow: (flowId: string, initialData?: Uint8Array) => void;
+  
+  // ReactFlow callbacks (these modify the FlowDocument)
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  setNodes: (nodes: Node[]) => void;
-  setEdges: (edges: Edge[]) => void;
-  addNode: (node: Node) => void;
+  
+  // Node operations
+  addNode: (node: FlowNode) => void;
   removeNode: (nodeId: string) => void;
-  updateNode: (nodeId: string, data: Partial<Node>) => void;
+  updateNode: (nodeId: string, updates: Partial<FlowNode>) => void;
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void;
+  
+  // Edge operations
+  addEdge: (edge: FlowEdge) => void;
+  removeEdge: (edgeId: string) => void;
+  
+  // Clipboard
   selectAll: () => void;
   copy: () => void;
-  paste: (cursorCanvasPosition: XYPosition) => void;
+  paste: (cursorPosition: XYPosition) => void;
+  
+  // History (delegates to FlowDocument's UndoManager)
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  pushHistory: () => void;
-  enableCollab: (flowId: string) => void;
-  disableCollab: () => void;
-  loadLocalFlow: () => void;
-  loadCloudFlow: (flowId: string, nodes: Node[], edges: Edge[]) => void;
+  
+  // Cleanup
+  destroy: () => void;
 };
+
+// ============================================================================
+// Helpers
+// ============================================================================
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
-// Helper to load local flow from localStorage
-function getLocalFlowData(): { nodes: Node[]; edges: Edge[] } {
+function loadLocalFlowData(): { nodes: FlowNode[]; edges: FlowEdge[] } {
   try {
     const stored = localStorage.getItem(LOCAL_FLOW_STORAGE_KEY);
     if (stored) {
@@ -71,8 +83,7 @@ function getLocalFlowData(): { nodes: Node[]; edges: Edge[] } {
   return { nodes: [], edges: [] };
 }
 
-// Helper to save local flow to localStorage
-function saveLocalFlowData(nodes: Node[], edges: Edge[]) {
+function saveLocalFlowData(nodes: FlowNode[], edges: FlowEdge[]): void {
   try {
     localStorage.setItem(LOCAL_FLOW_STORAGE_KEY, JSON.stringify({ nodes, edges }));
   } catch (e) {
@@ -80,222 +91,346 @@ function saveLocalFlowData(nodes: Node[], edges: Edge[]) {
   }
 }
 
+// ============================================================================
+// Store
+// ============================================================================
 
-export const useFlowStore = create<FlowState>()(
-  (set, get) => {
-    const _internalUpdateFlow = new Debouncer(
-      async () => {
-        const { nodes, edges, currentFlowId } = get();
-        
-        // Save to localStorage for local flows
-        if (currentFlowId === "local") {
-          saveLocalFlowData(nodes, edges);
-        }
-        
-        if (!isDesktop()) return;
-        console.log("[FLOW-STORE] <flowChanged>", nodes, edges);
+export const useFlowStore = create<FlowState>()((set, get) => {
+  // Debounced sync to desktop app and localStorage
+  const debouncedSync = new Debouncer(
+    async () => {
+      const { flowDoc, mode } = get();
+      if (!flowDoc) return;
+
+      const nodes = flowDoc.getNodes();
+      const edges = flowDoc.getEdges();
+
+      // Save to localStorage for local flows
+      if (mode === "local") {
+        saveLocalFlowData(nodes, edges);
+      }
+
+      // Sync to desktop app if running in Tauri
+      if (isDesktop()) {
         const response = await invokeCommand({
           type: "flow_update",
           flow: { nodes, edges },
         });
         if (!response.success) {
-          console.error("[FLOW-STORE] <flowChanged> failed to update the flow", response.error);
+          console.error("[FLOW-STORE] Desktop sync failed:", response.error);
         }
-      },
-      { wait: 500 }
-    );
+      }
+    },
+    { wait: 500 }
+  );
 
-    if (isDesktop()) {
-      console.log("[FLOW-STORE] Triggering initial flow sync...");
-      setTimeout(() => _internalUpdateFlow.maybeExecute(), 100);
-    }
+  // Subscribe to FlowDocument changes for syncing
+  const setupDocSync = (flowDoc: FlowDocument) => {
+    return flowDoc.onAnyChange(() => {
+      debouncedSync.maybeExecute();
+    });
+  };
 
-    const pushHistory = () => {
-      const { nodes, edges, history, historyIndex, maxHistorySize } = get();
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push({
-        nodes: JSON.parse(JSON.stringify(nodes)),
-        edges: JSON.parse(JSON.stringify(edges)),
-      });
-      if (newHistory.length > maxHistorySize) newHistory.shift();
-      set({ history: newHistory, historyIndex: newHistory.length - 1 });
-    };
+  let unsubscribeDoc: (() => void) | null = null;
 
-    // Load initial local flow data
-    const initialData = getLocalFlowData();
+  return {
+    flowDoc: null,
+    mode: "local",
+    flowId: null,
+    copiedNodes: [],
 
-    return {
-      nodes: initialData.nodes,
-      edges: initialData.edges,
-      copiedNodes: [],
-      history: [{ nodes: [], edges: [] }],
-      historyIndex: 0,
-      maxHistorySize: 50,
-      isCollabActive: false,
-      collabFlowId: null,
-      currentFlowId: "local",
+    // --------------------------------------------------------------------------
+    // Initialization
+    // --------------------------------------------------------------------------
 
-      updateFlow: () => _internalUpdateFlow.maybeExecute(),
+    initLocalFlow: () => {
+      // Cleanup previous
+      unsubscribeDoc?.();
+      get().flowDoc?.destroy();
 
-      onNodesChange: (changes) => {
-        set({ nodes: applyNodeChanges(changes, get().nodes) });
-        const hasStructural = changes.some((c) => c.type === "add" || c.type === "remove");
-        const hasPositionEnd = changes.some((c) => c.type === "position" && c.dragging === false);
-        if (hasStructural || hasPositionEnd) {
-          pushHistory();
-          get().updateFlow();
+      // Create new FlowDocument
+      const flowDoc = FlowDocument.createEmpty();
+      
+      // Load saved data
+      const { nodes, edges } = loadLocalFlowData();
+      if (nodes.length > 0 || edges.length > 0) {
+        flowDoc.setFlowData(nodes, edges);
+        flowDoc.clearHistory(); // Don't include initial load in undo history
+      }
+
+      // Setup sync
+      unsubscribeDoc = setupDocSync(flowDoc);
+
+      set({ flowDoc, mode: "local", flowId: "local" });
+      console.log("[FLOW-STORE] Initialized local flow");
+    },
+
+    initCloudFlow: (flowId, initialData) => {
+      // Cleanup previous
+      unsubscribeDoc?.();
+      get().flowDoc?.destroy();
+
+      // Create FlowDocument from server data or empty
+      const flowDoc = initialData
+        ? FlowDocument.decode(initialData)
+        : FlowDocument.createEmpty();
+
+      flowDoc.clearHistory(); // Don't include initial load in undo history
+
+      // Setup sync (for desktop app)
+      unsubscribeDoc = setupDocSync(flowDoc);
+
+      set({ flowDoc, mode: "cloud", flowId });
+      console.log(`[FLOW-STORE] Initialized cloud flow: ${flowId}`);
+    },
+
+    // --------------------------------------------------------------------------
+    // ReactFlow Callbacks
+    // --------------------------------------------------------------------------
+
+    onNodesChange: (changes: NodeChange[]) => {
+      const { flowDoc } = get();
+      if (!flowDoc) return;
+
+      for (const change of changes) {
+        switch (change.type) {
+          case "position":
+            if (change.position && !change.dragging) {
+              // Only update on drag end to reduce updates
+              flowDoc.updateNodePosition(change.id, change.position);
+            } else if (change.position && change.dragging) {
+              // During drag, update without adding to undo stack
+              flowDoc.doc.transact(() => {
+                const node = flowDoc.nodes.get(change.id);
+                if (node && change.position) {
+                  flowDoc.nodes.set(change.id, { ...node, position: change.position });
+                }
+              }, "drag"); // Use different origin to skip undo tracking
+            }
+            break;
+
+          case "dimensions":
+            if (change.dimensions) {
+              flowDoc.updateNode(change.id, {
+                width: change.dimensions.width,
+                height: change.dimensions.height,
+              });
+            }
+            break;
+
+          case "select":
+            // Selection is UI-only, don't persist
+            break;
+
+          case "remove":
+            flowDoc.removeNode(change.id);
+            break;
+
+          case "add":
+            if (change.item) {
+              flowDoc.addNode(change.item as FlowNode);
+            }
+            break;
         }
-      },
+      }
+    },
 
-      onEdgesChange: (changes) => {
-        set({ edges: applyEdgeChanges(changes, get().edges) });
-        if (changes.some((c) => c.type === "add" || c.type === "remove")) {
-          pushHistory();
-          get().updateFlow();
+    onEdgesChange: (changes: EdgeChange[]) => {
+      const { flowDoc } = get();
+      if (!flowDoc) return;
+
+      for (const change of changes) {
+        switch (change.type) {
+          case "remove":
+            flowDoc.removeEdge(change.id);
+            break;
+
+          case "add":
+            if (change.item) {
+              flowDoc.addEdge(change.item as FlowEdge);
+            }
+            break;
+
+          case "select":
+            // Selection is UI-only
+            break;
         }
-      },
+      }
+    },
 
-      onConnect: (connection) => {
-        set({ edges: addEdge({ ...connection, id: uid(), type: "animated" }, get().edges) });
-        pushHistory();
-        get().updateFlow();
-      },
+    onConnect: (connection) => {
+      const { flowDoc } = get();
+      if (!flowDoc) return;
 
-      setNodes: (nodes) => { set({ nodes }); pushHistory(); get().updateFlow(); },
-      setEdges: (edges) => { set({ edges }); pushHistory(); get().updateFlow(); },
+      const edge: FlowEdge = {
+        id: uid(),
+        source: connection.source!,
+        sourceHandle: connection.sourceHandle ?? undefined,
+        target: connection.target!,
+        targetHandle: connection.targetHandle ?? undefined,
+        type: "animated",
+      };
 
-      addNode: (node) => {
-        set({ nodes: [...get().nodes, node] });
-        pushHistory();
-        get().updateFlow();
-      },
+      flowDoc.addEdge(edge);
+    },
 
-      removeNode: (nodeId) => {
-        set({
-          nodes: get().nodes.filter((n) => n.id !== nodeId),
-          edges: get().edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
-        });
-        pushHistory();
-        get().updateFlow();
-      },
+    // --------------------------------------------------------------------------
+    // Node Operations
+    // --------------------------------------------------------------------------
 
-      updateNode: (nodeId, data) => {
-        set({ nodes: get().nodes.map((n) => (n.id === nodeId ? { ...n, ...data } : n)) });
-      },
+    addNode: (node) => {
+      get().flowDoc?.addNode(node);
+    },
 
-      selectAll: () => {
-        set({
-          nodes: get().nodes.map((node) => ({ ...node, selected: true })),
-          edges: get().edges.map((edge) => ({ ...edge, selected: true })),
-        });
-      },
+    removeNode: (nodeId) => {
+      get().flowDoc?.removeNode(nodeId);
+    },
 
-      copy: () => {
-        const selectedNodes = get().nodes.filter((node) => node.selected);
-        if (!selectedNodes.length) return;
-        set({ copiedNodes: selectedNodes });
-        toast.success(`Copied ${selectedNodes.length} nodes`);
-      },
+    updateNode: (nodeId, updates) => {
+      get().flowDoc?.updateNode(nodeId, updates);
+    },
 
-      paste: (cursorCanvasPosition: XYPosition) => {
-        const copiedNodes = get().copiedNodes;
-        if (copiedNodes.length === 0) return;
-        const nodeCount = copiedNodes.length;
-        const { sumX, sumY } = copiedNodes.reduce(
-          (acc, node) => ({
-            sumX: acc.sumX + node.position.x + (node.width ?? node.measured?.width ?? 0) / 2,
-            sumY: acc.sumY + node.position.y + (node.height ?? node.measured?.height ?? 0) / 2,
-          }),
-          { sumX: 0, sumY: 0 }
-        );
-        const offsetX = cursorCanvasPosition.x - sumX / nodeCount;
-        const offsetY = cursorCanvasPosition.y - sumY / nodeCount;
-        set({
-          nodes: [
-            ...copiedNodes.map((node) => ({
-              ...node,
-              position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
-              selected: false,
-              id: uid(),
-            })),
-            ...get().nodes,
-          ],
-        });
-        pushHistory();
-        get().updateFlow();
-      },
+    updateNodeData: (nodeId, data) => {
+      get().flowDoc?.updateNodeData(nodeId, data);
+    },
 
-      pushHistory,
+    // --------------------------------------------------------------------------
+    // Edge Operations
+    // --------------------------------------------------------------------------
 
-      undo: () => {
-        const { history, historyIndex } = get();
-        if (historyIndex <= 0) return;
-        const newIndex = historyIndex - 1;
-        const entry = history[newIndex];
-        set({
-          nodes: JSON.parse(JSON.stringify(entry.nodes)),
-          edges: JSON.parse(JSON.stringify(entry.edges)),
-          historyIndex: newIndex,
-        });
-        get().updateFlow();
-      },
+    addEdge: (edge) => {
+      get().flowDoc?.addEdge(edge);
+    },
 
-      redo: () => {
-        const { history, historyIndex } = get();
-        if (historyIndex >= history.length - 1) return;
-        const newIndex = historyIndex + 1;
-        const entry = history[newIndex];
-        set({
-          nodes: JSON.parse(JSON.stringify(entry.nodes)),
-          edges: JSON.parse(JSON.stringify(entry.edges)),
-          historyIndex: newIndex,
-        });
-        get().updateFlow();
-      },
+    removeEdge: (edgeId) => {
+      get().flowDoc?.removeEdge(edgeId);
+    },
 
-      canUndo: () => get().historyIndex > 0,
-      canRedo: () => get().historyIndex < get().history.length - 1,
+    // --------------------------------------------------------------------------
+    // Clipboard
+    // --------------------------------------------------------------------------
 
-      enableCollab: (flowId) => set({ isCollabActive: true, collabFlowId: flowId }),
-      disableCollab: () => set({ isCollabActive: false, collabFlowId: null }),
+    selectAll: () => {
+      // Selection is handled by ReactFlow, not persisted
+      // This is a no-op in the store
+    },
 
-      loadLocalFlow: () => {
-        const data = getLocalFlowData();
-        set({ 
-          nodes: data.nodes, 
-          edges: data.edges, 
-          currentFlowId: "local",
-          history: [{ nodes: data.nodes, edges: data.edges }],
-          historyIndex: 0,
-        });
-      },
+    copy: () => {
+      const { flowDoc } = get();
+      if (!flowDoc) return;
 
-      loadCloudFlow: (flowId, nodes, edges) => {
-        set({ 
-          nodes, 
-          edges, 
-          currentFlowId: flowId,
-          history: [{ nodes, edges }],
-          historyIndex: 0,
-        });
-      },
-    };
-  }
-);
+      // Get selected nodes from ReactFlow (passed via UI)
+      // For now, copy all nodes - UI should filter selected
+      const nodes = flowDoc.getNodes().filter((n) => n.selected);
+      if (nodes.length === 0) {
+        toast.info("No nodes selected");
+        return;
+      }
 
-export function useFlowCanvas() {
+      set({ copiedNodes: nodes });
+      toast.success(`Copied ${nodes.length} node(s)`);
+    },
+
+    paste: (cursorPosition) => {
+      const { flowDoc, copiedNodes } = get();
+      if (!flowDoc || copiedNodes.length === 0) return;
+
+      // Calculate offset to center pasted nodes at cursor
+      const nodeCount = copiedNodes.length;
+      const { sumX, sumY } = copiedNodes.reduce(
+        (acc, node) => ({
+          sumX: acc.sumX + node.position.x + (node.width ?? 100) / 2,
+          sumY: acc.sumY + node.position.y + (node.height ?? 50) / 2,
+        }),
+        { sumX: 0, sumY: 0 }
+      );
+
+      const offsetX = cursorPosition.x - sumX / nodeCount;
+      const offsetY = cursorPosition.y - sumY / nodeCount;
+
+      // Add new nodes with offset positions and new IDs
+      flowDoc.doc.transact(() => {
+        for (const node of copiedNodes) {
+          const newNode: FlowNode = {
+            ...node,
+            id: uid(),
+            position: {
+              x: node.position.x + offsetX,
+              y: node.position.y + offsetY,
+            },
+            selected: false,
+          };
+          flowDoc.nodes.set(newNode.id, newNode);
+        }
+      }, "local");
+
+      toast.success(`Pasted ${copiedNodes.length} node(s)`);
+    },
+
+    // --------------------------------------------------------------------------
+    // History
+    // --------------------------------------------------------------------------
+
+    undo: () => {
+      get().flowDoc?.undo();
+    },
+
+    redo: () => {
+      get().flowDoc?.redo();
+    },
+
+    canUndo: () => {
+      return get().flowDoc?.canUndo() ?? false;
+    },
+
+    canRedo: () => {
+      return get().flowDoc?.canRedo() ?? false;
+    },
+
+    // --------------------------------------------------------------------------
+    // Cleanup
+    // --------------------------------------------------------------------------
+
+    destroy: () => {
+      unsubscribeDoc?.();
+      get().flowDoc?.destroy();
+      set({ flowDoc: null, flowId: null, copiedNodes: [] });
+    },
+  };
+});
+
+// ============================================================================
+// Selector Hooks
+// ============================================================================
+
+export function useFlowDocument() {
+  return useFlowStore((state) => state.flowDoc);
+}
+
+export function useFlowMode() {
   return useFlowStore(
     useShallow((state) => ({
-      nodes: state.nodes,
-      edges: state.edges,
-      onNodesChange: state.onNodesChange,
-      onEdgesChange: state.onEdgesChange,
-      onConnect: state.onConnect,
+      mode: state.mode,
+      flowId: state.flowId,
     }))
   );
 }
 
-export function useFlowHelpers() {
+export function useFlowActions() {
+  return useFlowStore(
+    useShallow((state) => ({
+      onNodesChange: state.onNodesChange,
+      onEdgesChange: state.onEdgesChange,
+      onConnect: state.onConnect,
+      addNode: state.addNode,
+      removeNode: state.removeNode,
+      updateNode: state.updateNode,
+      updateNodeData: state.updateNodeData,
+    }))
+  );
+}
+
+export function useFlowClipboard() {
   return useFlowStore(
     useShallow((state) => ({
       selectAll: state.selectAll,
@@ -305,7 +440,7 @@ export function useFlowHelpers() {
   );
 }
 
-export function useFlowHistory() {
+export function useFlowHistoryActions() {
   return useFlowStore(
     useShallow((state) => ({
       undo: state.undo,
@@ -316,27 +451,12 @@ export function useFlowHistory() {
   );
 }
 
-export function useFlowCollab() {
+export function useFlowInit() {
   return useFlowStore(
     useShallow((state) => ({
-      isCollabActive: state.isCollabActive,
-      collabFlowId: state.collabFlowId,
-      enableCollab: state.enableCollab,
-      disableCollab: state.disableCollab,
+      initLocalFlow: state.initLocalFlow,
+      initCloudFlow: state.initCloudFlow,
+      destroy: state.destroy,
     }))
   );
-}
-
-export function useFlowLoader() {
-  return useFlowStore(
-    useShallow((state) => ({
-      loadLocalFlow: state.loadLocalFlow,
-      loadCloudFlow: state.loadCloudFlow,
-      currentFlowId: state.currentFlowId,
-    }))
-  );
-}
-
-export function useUpdateFlow() {
-  return useFlowStore(useShallow((state) => state.updateFlow));
 }

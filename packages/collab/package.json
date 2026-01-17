@@ -5,6 +5,9 @@
     ".": {
       "default": "./src/index.ts"
     },
+    "./server": {
+      "default": "./src/server.ts"
+    },
     "./*": {
       "default": "./src/*.ts"
     }
@@ -20,6 +23,7 @@
   "devDependencies": {
     "@microflow/config": "workspace:*",
     "@types/ws": "^8.5.13",
+    "hono": "^4.8.2",
     "typescript": "catalog:"
   }
 }

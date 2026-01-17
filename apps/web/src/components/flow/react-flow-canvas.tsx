@@ -4,39 +4,88 @@ import {
   Panel,
   ReactFlow,
   useReactFlow,
+  addEdge,
   type ColorMode,
   type XYPosition,
+  type Connection,
 } from "@xyflow/react";
 import {
-  useFlowCanvas,
-  useFlowHelpers,
-  useFlowHistory,
-  useFlowCollab,
+  useFlowDocument,
+  useFlowClipboard,
+  useFlowHistoryActions,
 } from "@/stores/flow-store";
+import { useFlowState } from "@/hooks/use-flow-document";
+import type { FlowEdge } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";
 import { NODE_TYPES } from "./nodes/_TYPES";
 import { NewNodeDialog } from "./dialogs/new-node-dialog";
 import { SettingsPanel } from "./panels/settings-panel";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { EDGE_TYPES } from "./edges/edges.constants";
 import { DockPanel } from "./panels/dock-panel";
 import { useTheme } from "@/providers/theme-provider";
 import { HotkeySheet } from "./sheets/hotkey-sheet";
 import { CollabPresence, CollabCursors } from "./collab-presence";
-import { useCollabCursor } from "@/hooks/use-collab-flow";
 
-export function ReactFlowCanvas() {
+const uid = () => Math.random().toString(36).substring(2, 9);
+
+type ReactFlowCanvasProps = {
+  isCollab?: boolean;
+  updateCursor?: (cursor: { x: number; y: number }) => void;
+  otherUsers?: Array<{
+    id: string;
+    name: string;
+    color: string;
+    cursor?: { x: number; y: number };
+  }>;
+};
+
+export function ReactFlowCanvas({
+  isCollab = false,
+  updateCursor,
+  otherUsers = [],
+}: ReactFlowCanvasProps) {
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
-  useHelperHotkeys();
 
-  const store = useFlowCanvas();
-  const { isCollabActive } = useFlowCollab();
+  // Get FlowDocument
+  const flowDoc = useFlowDocument();
+  
+  // Use the integrated flow state hook
+  const { nodes, edges, onNodesChange, onEdgesChange } = useFlowState(flowDoc);
 
-  console.log(isCollabActive);
-  const { onMouseMove } = useCollabCursor();
+  // Handle new connections
+  const onConnect = useCallback((connection: Connection) => {
+    if (!flowDoc) return;
+    
+    const newEdge: FlowEdge = {
+      id: uid(),
+      source: connection.source!,
+      sourceHandle: connection.sourceHandle ?? undefined,
+      target: connection.target!,
+      targetHandle: connection.targetHandle ?? undefined,
+      type: "animated",
+    };
+    
+    flowDoc.addEdge(newEdge);
+  }, [flowDoc]);
+
+  // Setup hotkeys
+  useHelperHotkeys(nodes);
+
+  // Handle cursor tracking for collab
+  const { screenToFlowPosition } = useReactFlow();
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (isCollab && updateCursor) {
+        const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        updateCursor(flowPosition);
+      }
+    },
+    [isCollab, updateCursor, screenToFlowPosition]
+  );
 
   useEffect(() => {
     fitView();
@@ -44,19 +93,20 @@ export function ReactFlowCanvas() {
 
   return (
     <div
-      className="w-full h-full relative"
-      onMouseMove={isCollabActive ? onMouseMove : undefined}
+      className="w-full h-full relative overflow-hidden"
+      onMouseMove={handleMouseMove}
     >
-      {isCollabActive && (
-        <>
-          <div className="absolute top-4 left-4 z-10">
-            <CollabPresence />
-          </div>
-          <CollabCursors />
-        </>
+      {isCollab && (
+        <div className="absolute top-4 left-4 z-10">
+          <CollabPresence users={otherUsers} />
+        </div>
       )}
       <ReactFlow
-        {...store}
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         colorMode={(theme as ColorMode) ?? "system"}
         minZoom={0.05}
         maxZoom={3}
@@ -77,21 +127,23 @@ export function ReactFlowCanvas() {
         <Panel position="bottom-center">
           <DockPanel />
         </Panel>
+        <Panel position="top-left">
+          </Panel>
       </ReactFlow>
+      {isCollab && <CollabCursors users={otherUsers} />}
     </div>
   );
 }
 
-function useHelperHotkeys() {
+function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
   const cursorPositionRef = useRef<XYPosition>({ x: 0, y: 0 });
 
   const { fitView, screenToFlowPosition } = useReactFlow();
 
-  const helpers = useFlowHelpers();
-  const history = useFlowHistory();
-  const { nodes } = useFlowCanvas();
+  const clipboard = useFlowClipboard();
+  const history = useFlowHistoryActions();
 
-  useHotkeys("meta+c", helpers.copy, {
+  useHotkeys("meta+c", clipboard.copy, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -101,7 +153,7 @@ function useHelperHotkeys() {
   useHotkeys(
     "meta+v",
     () => {
-      helpers.paste(screenToFlowPosition(cursorPositionRef.current));
+      clipboard.paste(screenToFlowPosition(cursorPositionRef.current));
     },
     {
       enabled: true,
@@ -111,7 +163,7 @@ function useHelperHotkeys() {
     }
   );
 
-  useHotkeys("meta+a", helpers.selectAll, {
+  useHotkeys("meta+a", clipboard.selectAll, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,

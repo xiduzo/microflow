@@ -71,6 +71,7 @@
         "@hookform/resolvers": "^5.1.1",
         "@microflow/api": "workspace:*",
         "@microflow/auth": "workspace:*",
+        "@microflow/collab": "workspace:*",
         "@microflow/env": "workspace:*",
         "@microflow/runtime": "workspace:*",
         "@polar-sh/better-auth": "catalog:",
@@ -152,6 +153,7 @@
       },
       "devDependencies": {
         "@microflow/config": "workspace:*",
+        "hono": "^4.8.2",
         "typescript": "catalog:",
       },
     },
@@ -184,6 +186,7 @@
       "devDependencies": {
         "@microflow/config": "workspace:*",
         "@types/ws": "^8.5.13",
+        "hono": "^4.8.2",
         "typescript": "catalog:",
       },
     },

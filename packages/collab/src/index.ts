@@ -1,10 +1,11 @@
-export { YjsServer, type YjsServerOptions } from "./yjs-server";
-export { createYjsHandler } from "./handler";
-export {
-  encodeYDoc,
-  decodeYDoc,
-  createEmptyFlowDoc,
-  getFlowData,
-  setFlowData,
-  type FlowData,
-} from "./utils";
+// Client-side exports (browser-safe)
+export { FlowDocument } from "./schema";
+export type { FlowMeta, FlowNode, FlowEdge, FlowData } from "./schema";
+
+export { SyncProvider } from "./sync-provider";
+export type {
+  SyncState,
+  SyncProviderOptions,
+  SyncProviderEvents,
+  AwarenessUser,
+} from "./sync-provider";

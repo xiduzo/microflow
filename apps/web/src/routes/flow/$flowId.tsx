@@ -1,23 +1,23 @@
-import { ReactFlowCanvas } from "@/components/flow/ReactFlowCanvas";
+import { ReactFlowCanvas } from "@/components/flow/react-flow-canvas";
 import { authClient } from "@/lib/auth-client";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
-import { useFlowLoader } from "@/stores/flow-store";
+import { useFlowStore, useFlowDocument } from "@/stores/flow-store";
+import { useSyncProvider, useCollabPresence } from "@/hooks/use-sync-provider";
 import { trpc } from "@/utils/trpc";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
-import { Loader2, Users } from "lucide-react";
-import { ShareFlowDialog } from "@/components/flow/share-flow-dialog";
+import { useEffect, useMemo, useRef } from "react";
+import { Loader2, Users, Wifi, WifiOff } from "lucide-react";
+import { ShareFlowDialog } from "@/components/flow/dialogs/share-flow-dialog";
 import { Badge } from "@/components/ui/badge";
-import { useCollabFlow } from "@/hooks/use-collab-flow";
 import { env } from "@microflow/env/web";
 
 export const Route = createFileRoute("/flow/$flowId")({
-  component: CloudFlowComponent,
+  component: RouteComponent,
   beforeLoad: async ({ params }) => {
     const session = await authClient.getSession();
-    
+
     // Redirect to login if not authenticated
     if (!session.data) {
       throw redirect({
@@ -25,17 +25,20 @@ export const Route = createFileRoute("/flow/$flowId")({
         search: { redirect: `/flow/${params.flowId}` },
       });
     }
-    
+
     const { data: customerState } = await authClient.customer.state();
     return { session, customerState };
   },
 });
 
-function CloudFlowComponent() {
+function RouteComponent() {
   const { flowId } = Route.useParams();
   const { session } = Route.useRouteContext();
   const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
-  const { loadCloudFlow, currentFlowId } = useFlowLoader();
+  const flowDoc = useFlowDocument();
+  
+  // Track initialization state to prevent double-init
+  const initializedFlowId = useRef<string | null>(null);
 
   // Derive WebSocket URL from server URL
   const wsUrl = useMemo(() => {
@@ -44,30 +47,72 @@ function CloudFlowComponent() {
     return serverUrl.origin;
   }, []);
 
-  // Fetch flow metadata (not nodes/edges - those come from Yjs)
-  const { data: flow, isLoading, error } = useQuery({
+  // Fetch flow metadata
+  const {
+    data: flow,
+    isLoading,
+    error,
+  } = useQuery({
     ...trpc.flow.get.queryOptions({ id: flowId }),
   });
 
   // Set active flow ID when route loads
   useEffect(() => {
     setActiveFlowId(flowId);
+    return () => {
+      setActiveFlowId(null);
+    };
   }, [flowId, setActiveFlowId]);
 
-  // Initialize the flow store for this cloud flow (empty - Yjs will populate it)
+  // Initialize the flow document with data from server
   useEffect(() => {
-    if (currentFlowId !== flowId) {
-      loadCloudFlow(flowId, [], []);
-    }
-  }, [flowId, loadCloudFlow, currentFlowId]);
+    if (!flow) return;
+    
+    // Prevent re-initialization for the same flow
+    if (initializedFlowId.current === flowId) return;
 
-  // Connect to collaboration WebSocket - this will sync nodes/edges from Yjs
-  useCollabFlow({
+    const initCloudFlow = useFlowStore.getState().initCloudFlow;
+    
+    if (flow.ydocBase64) {
+      const ydocData = Uint8Array.from(atob(flow.ydocBase64), (c) =>
+        c.charCodeAt(0)
+      );
+      initCloudFlow(flowId, ydocData);
+    } else {
+      initCloudFlow(flowId);
+    }
+    
+    initializedFlowId.current = flowId;
+
+    // Cleanup when leaving the route
+    return () => {
+      console.log(`[FLOW-ROUTE] Leaving flow ${flowId}, cleaning up...`);
+      initializedFlowId.current = null;
+      useFlowStore.getState().destroy();
+    };
+  }, [flowId, flow?.ydocBase64]);
+
+  // User info for sync provider - memoized to prevent reconnections
+  const user = useMemo(
+    () => ({
+      id: session.data!.user.id,
+      name: session.data!.user.name ?? "Anonymous",
+    }),
+    [session.data?.user.id, session.data?.user.name]
+  );
+
+  // Connect to sync provider for real-time collaboration
+  const sync = useSyncProvider({
+    flowDoc,
     flowId,
-    userId: session.data!.user.id,
-    userName: session.data!.user.name ?? "Anonymous",
+    user,
     wsUrl,
+    enabled: !!flowDoc && !!flow,
   });
+
+  // Get presence info
+  const presence = useCollabPresence(sync);
+  console.log(new Date().toISOString(), presence)
 
   if (isLoading) {
     return (
@@ -94,20 +139,43 @@ function CloudFlowComponent() {
           <div>
             <h2 className="font-medium">{flow?.name}</h2>
             {flow?.description && (
-              <p className="text-xs text-muted-foreground">{flow.description}</p>
+              <p className="text-xs text-muted-foreground">
+                {flow.description}
+              </p>
             )}
           </div>
-          {flow?.collaborators && flow.collaborators.length > 0 && (
+
+          {/* Connection status */}
+          <Badge
+            variant={sync.isSynced ? "default" : "secondary"}
+            className="gap-1"
+          >
+            {sync.isConnected ? (
+              <Wifi className="size-3" />
+            ) : (
+              <WifiOff className="size-3" />
+            )}
+            {sync.state}
+          </Badge>
+
+          {/* User count */}
+          {presence.totalUsers > 1 && (
             <Badge variant="secondary" className="gap-1">
               <Users className="size-3" />
-              {flow.collaborators.length + 1}
+              {presence.totalUsers}
             </Badge>
           )}
+
           {flow?.isOwner && (
             <ShareFlowDialog flowId={flowId} flowName={flow.name} />
           )}
         </div>
-        <ReactFlowCanvas />
+
+        <ReactFlowCanvas
+          isCollab={sync.isConnected}
+          updateCursor={sync.updateCursor}
+          otherUsers={presence.otherUsers}
+        />
       </div>
     </ReactFlowProvider>
   );

@@ -1,16 +1,25 @@
-import { useCollabPresence } from "@/hooks/use-collab-flow";
+import { useReactFlow } from "@xyflow/react";
+
+type User = {
+  id: string;
+  name: string;
+  color: string;
+  cursor?: { x: number; y: number };
+};
+
+type CollabPresenceProps = {
+  users: User[];
+};
 
 /**
  * Shows avatars of users currently viewing/editing the flow
  */
-export function CollabPresence() {
-  const { otherUsers } = useCollabPresence();
-
-  if (otherUsers.length === 0) return null;
+export function CollabPresence({ users }: CollabPresenceProps) {
+  if (users.length === 0) return null;
 
   return (
     <div className="flex items-center gap-1">
-      {otherUsers.map((user) => (
+      {users.map((user) => (
         <div
           key={user.id}
           className="relative flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-medium"
@@ -22,31 +31,39 @@ export function CollabPresence() {
           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
         </div>
       ))}
-      {otherUsers.length > 0 && (
+      {users.length > 0 && (
         <span className="text-sm text-muted-foreground ml-2">
-          {otherUsers.length} {otherUsers.length === 1 ? "person" : "people"} editing
+          {users.length} {users.length === 1 ? "person" : "people"} editing
         </span>
       )}
     </div>
   );
 }
 
+type CollabCursorsProps = {
+  users: User[];
+};
+
 /**
  * Renders cursors of other users on the canvas
  */
-export function CollabCursors() {
-  const { otherUsers } = useCollabPresence();
+export function CollabCursors({ users }: CollabCursorsProps) {
+  const { flowToScreenPosition } = useReactFlow();
 
   return (
-    <>
-      {otherUsers.map((user) =>
-        user.cursor ? (
+    <div className="absolute inset-0 pointer-events-none z-50" style={{ clipPath: 'inset(0)' }}>
+      {users.map((user) => {
+        if (!user.cursor) return null;
+        
+        const screenPos = flowToScreenPosition(user.cursor);
+        
+        return (
           <div
             key={user.id}
-            className="pointer-events-none fixed z-50 transition-all duration-75"
+            className="fixed transition-all duration-75"
             style={{
-              left: user.cursor.x,
-              top: user.cursor.y,
+              left: screenPos.x,
+              top: screenPos.y,
               transform: "translate(-2px, -2px)",
             }}
           >
@@ -73,8 +90,8 @@ export function CollabCursors() {
               {user.name}
             </div>
           </div>
-        ) : null
-      )}
-    </>
+        );
+      })}
+    </div>
   );
 }

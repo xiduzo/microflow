@@ -15,7 +15,7 @@ import {
   EmptyDescription,
   EmptyContent,
 } from "@/components/ui/empty";
-import { CreateFlowDialog } from "@/components/flow/create-flow-dialog";
+import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
 
 const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
 

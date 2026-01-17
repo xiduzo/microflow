@@ -1,5 +1,6 @@
 import { MODES, usePins } from "@/stores/board";
-import { useFlowCanvas } from "@/stores/flow-store";
+import { useFlowDocument } from "@/stores/flow-store";
+import { useFlowNodes, useFlowEdges } from "@/hooks/use-flow-document";
 import { createFileRoute } from "@tanstack/react-router";
 import { SchematicViewer } from "@tscircuit/schematic-viewer";
 import { useMemo } from "react";
@@ -10,7 +11,9 @@ export const Route = createFileRoute("/circuit")({
 });
 
 function RouteComponent() {
-  const { nodes, edges } = useFlowCanvas();
+  const flowDoc = useFlowDocument();
+  const nodes = useFlowNodes(flowDoc);
+  const edges = useFlowEdges(flowDoc);
   const pins = usePins();
 
   const circuitJson = useMemo(() => {

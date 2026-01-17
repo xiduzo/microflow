@@ -23,7 +23,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
-import { CreateFlowDialog } from "@/components/flow/create-flow-dialog";
+import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
 
 export const LOCAL_FLOW: Flow = {
   id: "local",

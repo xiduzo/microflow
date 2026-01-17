@@ -4,25 +4,35 @@ import { db } from "@microflow/db";
 import { flow, flowCollaborator } from "@microflow/db/schema/flow";
 import { user } from "@microflow/db/schema/auth";
 import { protectedProcedure, router } from "../index";
-// import { decodeYDoc, getFlowData } from "@microflow/collab";
+import { FlowDocument } from "@microflow/collab/server";
+
+// ============================================================================
+// Helpers
+// ============================================================================
 
 const uid = () =>
   Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
+function decodeFlowData(ydoc: Buffer | null) {
+  if (!ydoc) return { nodes: [], edges: [] };
+  try {
+    const flowDoc = FlowDocument.decode(new Uint8Array(ydoc));
+    return flowDoc.getFlowData();
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+}
+
+// ============================================================================
+// Router
+// ============================================================================
+
 export const flowRouter = router({
-  /** List all flows the user owns or collaborates on */
+  /**
+   * List all flows the user owns or collaborates on
+   */
   list: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
-
-    const { decodeYDoc, getFlowData } = await import("@microflow/collab");
-
-    // Helper to decode ydoc and get nodes/edges
-    const decodeFlowData = (ydoc: Buffer | null) => {
-      if (!ydoc) return { nodes: [], edges: [] };
-      const doc = decodeYDoc(ydoc);
-      const flowData = getFlowData(doc);
-      return { nodes: flowData.nodes, edges: flowData.edges };
-    };
 
     // Get flows where user is owner
     const ownedFlowsRaw = await db.query.flow.findMany({
@@ -50,6 +60,7 @@ export const flowRouter = router({
           columns: {
             id: true,
             name: true,
+            description: true,
             createdAt: true,
             updatedAt: true,
             ydoc: true,
@@ -69,7 +80,9 @@ export const flowRouter = router({
     };
   }),
 
-  /** Get a single flow by ID */
+  /**
+   * Get a single flow by ID
+   */
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -105,21 +118,25 @@ export const flowRouter = router({
         throw new Error("Access denied");
       }
 
-      // Decode ydoc to get nodes/edges if available
-      let nodes: unknown[] = [];
-      let edges: unknown[] = [];
-      if (flowRecord.ydoc) {
-        const { decodeYDoc, getFlowData } = await import("@microflow/collab");
-        const doc = decodeYDoc(flowRecord.ydoc);
-        const flowData = getFlowData(doc);
-        nodes = flowData.nodes;
-        edges = flowData.edges;
-      }
+      // Decode ydoc to get nodes/edges
+      const { nodes, edges } = decodeFlowData(flowRecord.ydoc);
+
+      // Return ydoc as base64 for client to initialize FlowDocument
+      const ydocBase64 = flowRecord.ydoc
+        ? Buffer.from(flowRecord.ydoc).toString("base64")
+        : null;
 
       return {
-        ...flowRecord,
+        id: flowRecord.id,
+        name: flowRecord.name,
+        description: flowRecord.description,
+        createdAt: flowRecord.createdAt,
+        updatedAt: flowRecord.updatedAt,
+        owner: flowRecord.owner,
+        collaborators: flowRecord.collaborators,
         nodes,
         edges,
+        ydocBase64,
         isOwner,
         role: isOwner
           ? "owner"
@@ -127,7 +144,9 @@ export const flowRouter = router({
       };
     }),
 
-  /** Create a new flow */
+  /**
+   * Create a new flow
+   */
   create: protectedProcedure
     .input(
       z.object({
@@ -138,17 +157,27 @@ export const flowRouter = router({
     .mutation(async ({ ctx, input }) => {
       const id = uid();
 
+      // Create empty FlowDocument and encode it
+      const flowDoc = FlowDocument.createEmpty();
+      flowDoc.setMeta({ name: input.name, description: input.description });
+      const ydocData = flowDoc.encode();
+
       await db.insert(flow).values({
         id,
         name: input.name,
         description: input.description,
         ownerId: ctx.session.user.id,
+        ydoc: Buffer.from(ydocData),
       });
+
+      flowDoc.destroy();
 
       return { id };
     }),
 
-  /** Update flow metadata */
+  /**
+   * Update flow metadata
+   */
   update: protectedProcedure
     .input(
       z.object({
@@ -171,13 +200,16 @@ export const flowRouter = router({
         .set({
           name: input.name,
           description: input.description,
+          updatedAt: new Date(),
         })
         .where(eq(flow.id, input.id));
 
       return { success: true };
     }),
 
-  /** Delete a flow */
+  /**
+   * Delete a flow
+   */
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -194,7 +226,9 @@ export const flowRouter = router({
       return { success: true };
     }),
 
-  /** Add a collaborator to a flow */
+  /**
+   * Add a collaborator to a flow
+   */
   addCollaborator: protectedProcedure
     .input(
       z.object({
@@ -223,7 +257,9 @@ export const flowRouter = router({
       return { success: true };
     }),
 
-  /** Remove a collaborator from a flow */
+  /**
+   * Remove a collaborator from a flow
+   */
   removeCollaborator: protectedProcedure
     .input(
       z.object({
@@ -252,7 +288,9 @@ export const flowRouter = router({
       return { success: true };
     }),
 
-  /** Search users by email for adding collaborators */
+  /**
+   * Search users by email for adding collaborators
+   */
   searchUsers: protectedProcedure
     .input(z.object({ query: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
@@ -272,7 +310,9 @@ export const flowRouter = router({
       return users;
     }),
 
-  /** Add a collaborator by email */
+  /**
+   * Add a collaborator by email
+   */
   addCollaboratorByEmail: protectedProcedure
     .input(
       z.object({

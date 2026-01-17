@@ -1,62 +1,126 @@
-import { useEffect, useCallback, useRef } from "react";
-import { useCollabConnection, useCollabAwareness, type AwarenessUser } from "@/stores/collab-provider";
+import { useEffect, useCallback, useMemo } from "react";
+import { useFlowStore, useFlowDocument } from "@/stores/flow-store";
+import { useSyncProvider, useCollabPresence } from "./use-sync-provider";
+import { useFlowNodes, useFlowEdges, useFlowHistory } from "./use-flow-document";
 
-const COLORS = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e", 
-  "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899",
-];
+// ============================================================================
+// Types
+// ============================================================================
 
-function getRandomColor() {
-  return COLORS[Math.floor(Math.random() * COLORS.length)];
-}
-
-type UseCollabFlowOptions = {
+export type UseCollabFlowOptions = {
   flowId: string;
   userId: string;
   userName: string;
+  initialData?: Uint8Array;
   wsUrl?: string;
 };
 
-/**
- * Hook to connect to a collaborative flow session
- */
-export function useCollabFlow({ flowId, userId, userName, wsUrl }: UseCollabFlowOptions) {
-  const { connect, disconnect, isConnected, isConnecting, error } = useCollabConnection();
-  
-  // Use refs to avoid reconnecting when functions change
-  const connectRef = useRef(connect);
-  const disconnectRef = useRef(disconnect);
-  connectRef.current = connect;
-  disconnectRef.current = disconnect;
+// ============================================================================
+// useCollabFlow - Main hook for collaborative flow editing
+// ============================================================================
 
+export function useCollabFlow(options: UseCollabFlowOptions) {
+  const { flowId, userId, userName, initialData, wsUrl } = options;
+
+  const initCloudFlow = useFlowStore((s) => s.initCloudFlow);
+  const destroy = useFlowStore((s) => s.destroy);
+  const flowDoc = useFlowDocument();
+
+  // Initialize the flow document
   useEffect(() => {
-    const user: AwarenessUser = {
-      id: userId,
-      name: userName,
-      color: getRandomColor(),
-    };
-
-    // Default to current origin with ws/wss protocol
-    const defaultWsUrl = typeof window !== "undefined"
-      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
-      : "ws://localhost:3000";
-
-    connectRef.current(flowId, user, wsUrl ?? defaultWsUrl);
+    initCloudFlow(flowId, initialData);
 
     return () => {
-      disconnectRef.current();
+      destroy();
     };
-  }, [flowId, userId, userName, wsUrl]);
+  }, [flowId, initialData, initCloudFlow, destroy]);
 
-  return { isConnected, isConnecting, error };
+  // User object for sync provider
+  const user = useMemo(() => ({ id: userId, name: userName }), [userId, userName]);
+
+  // Connect to sync provider
+  const sync = useSyncProvider({
+    flowDoc,
+    flowId,
+    user,
+    wsUrl,
+    enabled: !!flowDoc,
+  });
+
+  // Get reactive data from FlowDocument
+  const nodes = useFlowNodes(flowDoc);
+  const edges = useFlowEdges(flowDoc);
+  const history = useFlowHistory(flowDoc);
+
+  // Presence
+  const presence = useCollabPresence(sync);
+
+  return {
+    // Data
+    nodes,
+    edges,
+    flowDoc,
+
+    // Sync state
+    isConnected: sync.isConnected,
+    isSynced: sync.isSynced,
+    syncState: sync.state,
+    syncError: sync.error,
+
+    // Presence
+    users: presence.otherUsers,
+    localUser: presence.localUser,
+    totalUsers: presence.totalUsers,
+
+    // Awareness actions
+    updateCursor: sync.updateCursor,
+    updateSelectedNodes: sync.updateSelectedNodes,
+
+    // History
+    ...history,
+
+    // Connection control
+    reconnect: sync.reconnect,
+    disconnect: sync.disconnect,
+  };
 }
 
-/**
- * Hook to track cursor position and broadcast to other users
- */
-export function useCollabCursor() {
-  const { updateCursor } = useCollabAwareness();
+// ============================================================================
+// useLocalFlow - Hook for local (non-collaborative) flow editing
+// ============================================================================
 
+export function useLocalFlow() {
+  const initLocalFlow = useFlowStore((s) => s.initLocalFlow);
+  const destroy = useFlowStore((s) => s.destroy);
+  const flowDoc = useFlowDocument();
+
+  // Initialize local flow
+  useEffect(() => {
+    initLocalFlow();
+
+    return () => {
+      destroy();
+    };
+  }, [initLocalFlow, destroy]);
+
+  // Get reactive data
+  const nodes = useFlowNodes(flowDoc);
+  const edges = useFlowEdges(flowDoc);
+  const history = useFlowHistory(flowDoc);
+
+  return {
+    nodes,
+    edges,
+    flowDoc,
+    ...history,
+  };
+}
+
+// ============================================================================
+// useCollabCursor - Track and broadcast cursor position
+// ============================================================================
+
+export function useCollabCursor(updateCursor: (cursor: { x: number; y: number }) => void) {
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       updateCursor({ x: event.clientX, y: event.clientY });
@@ -65,18 +129,4 @@ export function useCollabCursor() {
   );
 
   return { onMouseMove: handleMouseMove };
-}
-
-/**
- * Hook to get other users' presence information
- */
-export function useCollabPresence() {
-  const { awareness, localUser } = useCollabAwareness();
-
-  // Filter out local user
-  const otherUsers = Array.from(awareness.values()).filter(
-    (user) => user.id !== localUser?.id
-  );
-
-  return { otherUsers, localUser };
 }
