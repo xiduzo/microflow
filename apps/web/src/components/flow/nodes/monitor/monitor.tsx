@@ -4,7 +4,6 @@ import { Handle } from "../../handle";
 import { dataSchema, type Data, type Value } from "./monitor.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { useEffect, useRef } from "react";
-import { MonitorIcon } from "lucide-react";
 
 export function Monitor(props: Props) {
   return (

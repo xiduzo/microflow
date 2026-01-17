@@ -8,9 +8,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
-import { Loader2, Users, Wifi, WifiOff } from "lucide-react";
-import { ShareFlowDialog } from "@/components/flow/dialogs/share-flow-dialog";
-import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 import { env } from "@microflow/env/web";
 
 export const Route = createFileRoute("/flow/$flowId")({

@@ -33,7 +33,7 @@ import { usePins } from "@/stores/board";
 import { MODES } from "@/stores/board";
 import { reducePinsToOptions } from "@/components/hardware/pin";
 import { useNodeControls } from "../_base";
-import { ArrowLeftRightIcon, ArrowRightLeftIcon, GridIcon } from "lucide-react";
+import { ArrowLeftRightIcon, ArrowRightLeftIcon } from "lucide-react";
 
 export function Matrix(props: Props) {
   return (

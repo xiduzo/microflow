@@ -264,7 +264,7 @@ export function NewNodeDialog() {
 }
 
 function useDraggableNewNode() {
-  const { nodeToAdd, setNodeToAdd, setOpen } = useNewNodeStore();
+  const { nodeToAdd, setNodeToAdd } = useNewNodeStore();
   const { screenToFlowPosition, getZoom } = useReactFlow();
   const removeNode = useFlowStore((state) => state.removeNode);
   const updateNode = useFlowStore((state) => state.updateNode);
@@ -272,7 +272,7 @@ function useDraggableNewNode() {
   // Handle Escape/Backspace to cancel node placement
   useHotkeys(
     ["escape", "backspace"],
-    (event) => {
+    () => {
       if (!nodeToAdd) return;
       removeNode(nodeToAdd);
       setNodeToAdd(null);

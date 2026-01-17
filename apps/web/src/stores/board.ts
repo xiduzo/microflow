@@ -8,7 +8,7 @@ type BoardState = {
   setBoard: (board: Board) => void;
 };
 
-export const useBoardStore = create<BoardState>((set, get) => {
+export const useBoardStore = create<BoardState>((set) => {
   return {
     board: { state: "disconnected", pins: [] },
     setBoard: (board: Board) => {

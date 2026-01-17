@@ -103,7 +103,11 @@ function LinkOrAction({ item }: { item: Item }) {
     <SidebarMenuButton
       tooltip={item.title}
       onClick={() => {
-        "url" in item ? navigate({ to: item.url }) : item.onClick();
+        if ("url" in item) {
+          navigate({ to: item.url });
+        } else {
+          item.onClick();
+        }
       }}
     >
       {item.icon && <item.icon />}

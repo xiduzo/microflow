@@ -1,4 +1,3 @@
-import { NotebookIcon } from "lucide-react";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 
 export function Note(props: Props) {

@@ -28,7 +28,6 @@ type FlowCardProps = {
 export function FlowCard({
   id,
   name,
-  description,
   updatedAt,
   nodes,
   edges,

@@ -47,7 +47,7 @@ function Subscriber() {
       let value: unknown;
       try {
         value = JSON.parse(message.toString());
-      } catch (error) {
+      } catch {
         value = message.toString();
 
         const parsed = parseFloat(value as string);

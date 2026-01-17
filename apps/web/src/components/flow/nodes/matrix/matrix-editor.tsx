@@ -16,7 +16,7 @@ function newMatrix(options: { dimensions: [number, number]; shape?: string[]; fi
   const [rows, columns] = options.dimensions;
 
   const matrix = Array.from({ length: rows }, () =>
-    new Array(columns).fill(options.fill ?? "0").join(""),
+    Array.from({ length: columns }, () => options.fill ?? "0").join(""),
   );
 
   options.shape?.forEach((row, rowIndex) => {
@@ -43,7 +43,7 @@ export function MatrixEditor(props: Props) {
       <DialogTrigger>{props.children}</DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{!!props.onDelete ? "Edit" : "Add new"} shape</DialogTitle>
+          <DialogTitle>{props.onDelete ? "Edit" : "Add new"} shape</DialogTitle>
         </DialogHeader>
         <div className="p-4 overflow-x-scroll flex items-center justify-center">
           <MatrixDisplay

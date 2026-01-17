@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { mqttUrlRegex } from "./constants";
 
 /**
  * Zod schema for validating MQTT URL format

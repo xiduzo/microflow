@@ -1,7 +1,6 @@
 import { dataSchema, type Data } from "./constant.schema";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
-import { HashIcon } from "lucide-react";
 
 const numberFormat = new Intl.NumberFormat();
 

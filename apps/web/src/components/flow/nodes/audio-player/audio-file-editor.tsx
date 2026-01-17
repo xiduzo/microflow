@@ -61,7 +61,7 @@ export function AudioFileEditor(props: Props) {
     }
   };
 
-  const handlePlayPause = async (index: number, filePath: string) => {
+  const handlePlayPause = async (index: number, _filePath: string) => {
     // If clicking the same audio that's playing, pause it
     if (playingIndex === index && audioRef.current) {
       audioRef.current.pause();

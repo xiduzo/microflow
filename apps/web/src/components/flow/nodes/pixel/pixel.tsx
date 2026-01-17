@@ -25,7 +25,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftRightIcon, ArrowRightLeftIcon, RainbowIcon } from "lucide-react";
+import { ArrowLeftRightIcon, ArrowRightLeftIcon } from "lucide-react";
 
 // Create a simple hash for the preset to use as a key
 function presetKey(preset: Value, index: number): string {

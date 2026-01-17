@@ -4,7 +4,6 @@ import {
   Panel,
   ReactFlow,
   useReactFlow,
-  addEdge,
   type ColorMode,
   type XYPosition,
   type Connection,

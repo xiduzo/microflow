@@ -67,7 +67,7 @@ function Value() {
     <IconWithValue
       icon={value ? BotMessageSquareIcon : BotIcon}
       iconClassName={value ? "animate-pulse" : ""}
-      value={value ? "Thinking..." : !!data.model ? data.model : "No model selected"}
+      value={value ? "Thinking..." : data.model ? data.model : "No model selected"}
     />
   );
 }
@@ -120,7 +120,7 @@ function Settings() {
             const ollamaModelsResponse = await fetch(`${data.baseUrl}/api/tags`);
             const ollamaModels = await ollamaModelsResponse.json();
             setModels(ollamaModels.models.map((model: { model: string }) => model.model));
-          } catch (error) {
+          } catch {
             toast.warning("Ollama", {
               description:
                 "Failed to get models, make sure the base URL is correct and the server is running",

@@ -25,14 +25,14 @@ export type MqttStore = {
 // Singleton instance of the MQTT client manager
 const clientManager = new MqttClientManager();
 
-export const useMqttStore = create<MqttStore>((set, get) => {
+export const useMqttStore = create<MqttStore>((set) => {
   // Subscribe to status changes
-  const unsubscribeStatus = clientManager.onStatusChange((status) => {
+  clientManager.onStatusChange((status) => {
     set({ status });
   });
 
   // Subscribe to connected clients changes
-  const unsubscribeClients = clientManager.onConnectedClientsChange((connectedClients) => {
+  clientManager.onConnectedClientsChange((connectedClients) => {
     set({ connectedClients });
   });
 

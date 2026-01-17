@@ -171,7 +171,7 @@ process.on("message", (message: WorkerMessage) => {
             board: board,
           });
           components.set(node.id, nodeInstance);
-        } catch (error) {
+        } catch {
           // stdout({
           //     type: 'error',
           //     message: `Error creating component ${node.data.instance}`,

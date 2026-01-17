@@ -57,7 +57,7 @@ export function PixelEditor(props: Props) {
       <DialogTrigger>{props.children}</DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{!!props.onDelete ? "Edit" : "Add new"} preset</DialogTitle>
+          <DialogTitle>{props.onDelete ? "Edit" : "Add new"} preset</DialogTitle>
         </DialogHeader>
         <div className="p-4 overflow-x-scroll flex flex-col items-center justify-center gap-4">
           <PixelDisplay

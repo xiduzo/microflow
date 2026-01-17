@@ -29,7 +29,7 @@ export class Llm extends Code<Value, Data> {
     this.value = true;
     const messages: (SystemMessage | HumanMessage)[] = [];
 
-    if (!!this.data.system) {
+    if (this.data.system) {
       messages.push(new SystemMessage(this.data.system));
     }
 

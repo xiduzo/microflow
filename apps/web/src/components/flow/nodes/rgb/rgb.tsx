@@ -5,7 +5,6 @@ import { RgbaColorPicker } from "react-colorful";
 import { MODES, usePins } from "@/stores/board";
 import { reducePinsToOptions } from "@/components/hardware/pin";
 import { dataSchema, type Data, type Value } from "./rgb.schema";
-import { PaletteIcon } from "lucide-react";
 import { folder } from "leva";
 
 export function Rgb(props: Props) {

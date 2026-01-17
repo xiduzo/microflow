@@ -41,7 +41,7 @@ export function parseMqttUrl(input: string): ParsedMqttUrl {
       port: port ? parseInt(String(port), 10) : (protocol ?? "wss") === "wss" ? 8883 : 1883,
       path: path ? (path.startsWith("/") ? path : `/${path}`) : "/mqtt",
     };
-  } catch (error) {
+  } catch {
     throw new Error(
       `Invalid MQTT URL format: ${input}. Expected format: [<protocol>://]<host>[:<port>][/<path>]`,
     );

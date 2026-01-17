@@ -1,5 +1,4 @@
 import {
-  ExternalLinkIcon,
   FileCodeIcon,
   LoaderPinwheelIcon,
   MicrochipIcon,

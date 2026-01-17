@@ -12,7 +12,7 @@ import {
 } from "@microflow/runtime/audio-player/audio-player.types";
 import { useState } from "react";
 import { useNodeControls } from "../_base";
-import { MusicIcon, Volume2Icon, VolumeOffIcon } from "lucide-react";
+import { Volume2Icon, VolumeOffIcon } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
 
 export function AudioPlayer(props: Props) {

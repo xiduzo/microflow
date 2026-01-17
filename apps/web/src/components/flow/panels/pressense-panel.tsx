@@ -7,7 +7,12 @@ export function PressensePanel(props: Props) {
       {props.users.map((user) => (
         <Avatar>
           <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
-          <AvatarFallback>LR</AvatarFallback>
+          <AvatarFallback>
+            {user.name
+              .split(" ")
+              .map(([firstLetter]) => firstLetter)
+              .join("")}
+          </AvatarFallback>
         </Avatar>
       ))}
     </div>

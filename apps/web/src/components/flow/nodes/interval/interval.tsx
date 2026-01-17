@@ -3,7 +3,6 @@ import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
 import { useNodeValue } from "@/stores/node-data";
 import { MIN_INTERVAL_IN_MS } from "./interval.constants";
-import { TimerIcon } from "lucide-react";
 
 const numberFormat = new Intl.NumberFormat();
 

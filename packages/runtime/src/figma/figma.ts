@@ -28,7 +28,7 @@ export class Figma extends Code<Value, Data> {
   }
 
   toggle() {
-    this.value = !Boolean(this.value);
+    this.value = !this.value;
   }
 
   set(value: unknown) {

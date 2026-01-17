@@ -1,7 +1,6 @@
 import { dataSchema, type Data, type Value } from "./mqtt.schema";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
-import { useNodeValue } from "@/stores/node-data";
 import { RadioIcon, RadioTowerIcon } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
 
@@ -20,7 +19,6 @@ export function Mqtt(props: Props) {
 
 function Value() {
   const data = useNodeData<Data>();
-  const value = useNodeValue<Value>("");
 
   return (
     <IconWithValue

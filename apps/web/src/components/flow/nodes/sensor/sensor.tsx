@@ -7,10 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import {
   BicepsFlexedIcon,
   CircleArrowOutUpLeftIcon,
-  GaugeIcon,
   MagnetIcon,
   MoveUpIcon,
-  PowerIcon,
   SunDimIcon,
   SunIcon,
   SunMediumIcon,

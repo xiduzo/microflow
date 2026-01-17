@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { test } from "bun:test";
 
 import path from "path";
 import { Flasher } from "./src/Flasher";

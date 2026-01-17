@@ -3,7 +3,6 @@ import { listen, type Event } from "@tauri-apps/api/event";
 import { type Node, type Edge } from "@xyflow/react";
 import { isDesktop } from "./platform";
 import { useEffect } from "react";
-import { type Board } from "@/stores/board";
 
 type ErrorResponse = {
   success: false;

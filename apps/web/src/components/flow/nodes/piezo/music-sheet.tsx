@@ -52,13 +52,13 @@ function convertToABC(notes: Note[], title: string) {
 
         if (octave > 5) {
           const octavesUp = Array.from({ length: octave - 5 })
-            .map((x) => "'")
+            .map(() => "'")
             .join("");
           note = note + octavesUp;
         }
       } else if (octave < 4) {
         const octavesDown = Array.from({ length: 4 - octave })
-          .map((x) => ",")
+          .map(() => ",")
           .join("");
         note = note + octavesDown;
       }

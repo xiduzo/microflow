@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
-import { OctagonAlertIcon, CableIcon, type LucideIcon } from "lucide-react";
+import { OctagonAlertIcon, CableIcon } from "lucide-react";
 import { useFlowStore } from "@/stores/flow-store";
 import { usePins } from "@/stores/board";
 import { Pin } from "@/components/hardware/pin";
@@ -189,7 +189,7 @@ export function useDeleteHandles() {
   const updateNodeInternals = useUpdateNodeInternals();
 
   const deleteHandles = useCallback(
-    (handles: string[]) => {
+    (_handles: string[]) => {
       onEdgesChange([{ id: id, type: "remove" }]);
       updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
     },

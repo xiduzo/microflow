@@ -2,8 +2,8 @@ import { createContext, type PropsWithChildren, useContext, useEffect, useState 
 
 const DragAndDropContext = createContext({
   dragging: "",
-  setDragging: (id: string) => () => {},
-  setHover: (id: string) => () => {},
+  setDragging: (_id: string) => () => {},
+  setHover: (_id: string) => () => {},
 });
 
 type Actions = {

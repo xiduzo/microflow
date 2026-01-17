@@ -4,7 +4,6 @@ import { Handle } from "../../handle";
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,
-  CalculatorIcon,
   ChevronDownIcon,
   ChevronsUpDownIcon,
   ChevronUpIcon,

@@ -142,6 +142,8 @@ export class Oscillator extends Code<Value, Data> {
   }
 
   stop() {
-    this.timeout && clearTimeout(this.timeout);
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+    }
   }
 }

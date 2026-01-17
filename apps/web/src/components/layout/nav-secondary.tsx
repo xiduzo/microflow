@@ -1,5 +1,5 @@
 import * as React from "react";
-import { BookIcon, BookMarkedIcon, LifeBuoy, type LucideIcon } from "lucide-react";
+import { BookMarkedIcon, type LucideIcon } from "lucide-react";
 
 import {
   SidebarGroup,

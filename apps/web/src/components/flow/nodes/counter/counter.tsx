@@ -2,7 +2,6 @@ import { NodeContainer, useNodeControls, type BaseNode } from "../_base";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, type Data, type Value } from "./counter.schema";
 import { Handle } from "../../handle";
-import { Tally5Icon } from "lucide-react";
 
 const numberFormat = new Intl.NumberFormat();
 

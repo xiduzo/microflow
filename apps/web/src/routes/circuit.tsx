@@ -1,4 +1,4 @@
-import { MODES, usePins } from "@/stores/board";
+import { usePins } from "@/stores/board";
 import { useFlowDocument } from "@/stores/flow-store";
 import { useFlowNodes, useFlowEdges } from "@/hooks/use-flow-document";
 import { createFileRoute } from "@tanstack/react-router";
@@ -61,7 +61,7 @@ function RouteComponent() {
   );
 }
 
-const EXAMPLE = [
+const _EXAMPLE = [
   {
     type: "source_port",
     source_port_id: "source_port_0",
@@ -1143,7 +1143,7 @@ const EXAMPLE = [
     type: "pcb_component",
     pcb_component_id: "pcb_component_2",
     center: {
-      x: -5.684341886080802e-14,
+      x: 0,
       y: 0,
     },
     width: 8.499855999999784,
@@ -2417,7 +2417,7 @@ const EXAMPLE = [
     type: "cad_component",
     cad_component_id: "cad_component_2",
     position: {
-      x: -5.684341886080802e-14,
+      x: 0,
       y: 0,
       z: 3.8,
     },

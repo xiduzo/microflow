@@ -106,7 +106,7 @@ function Settings() {
             step: 10,
             value: (data as SongData).tempo ?? 120,
           },
-          "edit song": button((e) => setEditorOpened(true)),
+          "edit song": button(() => setEditorOpened(true)),
         },
         {
           render: (get) => get("type") === "song",
@@ -127,7 +127,6 @@ function Settings() {
             setEditorOpened(false);
           }}
           onSave={(data) => {
-            data.song = data.song;
             setNodeData(data);
             setEditorOpened(false);
           }}

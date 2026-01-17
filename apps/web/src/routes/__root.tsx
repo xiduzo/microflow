@@ -1,8 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { trpc } from "@/utils/trpc";
 
@@ -12,11 +10,8 @@ import { Toaster } from "@/components/ui/sonner";
 import "../index.css";
 import { HotkeysProvider } from "react-hotkeys-hook";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
-import { UserIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBoardEvents } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
 
