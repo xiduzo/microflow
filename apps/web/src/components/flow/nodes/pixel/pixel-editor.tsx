@@ -1,5 +1,5 @@
-import { DEFAULT_OFF_PIXEL_COLOR } from "@microflow/runtime/pixel/pixel.constants";
-import { type Value } from "@microflow/runtime/pixel/pixel.types";
+import { DEFAULT_OFF_PIXEL_COLOR } from "./pixel.constants";
+import { type Value } from "./pixel.schema";
 import { useState, useEffect, type PropsWithChildren } from "react";
 import { PixelDisplay } from "./pixel-display";
 import {
@@ -14,7 +14,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { HexColorPicker } from "react-colorful";
 
-function newPreset(options: { length: number; preset?: Value; fill?: string }): Value {
+function newPreset(options: {
+  length: number;
+  preset?: Value;
+  fill?: string;
+}): Value {
   const preset = Array.from({ length: options.length }, (_, i) => {
     if (options.preset && options.preset[i]) {
       return options.preset[i];
@@ -30,7 +34,7 @@ export function PixelEditor(props: Props) {
     newPreset({
       length: props.length,
       preset: props.preset,
-    }),
+    })
   );
   const [selectedPixel, setSelectedPixel] = useState<number | null>(null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -41,7 +45,7 @@ export function PixelEditor(props: Props) {
       newPreset({
         length: props.length,
         preset: props.preset,
-      }),
+      })
     );
     setSelectedPixel(null); // Reset selection when preset changes
     setColorPickerOpen(false);
@@ -57,7 +61,9 @@ export function PixelEditor(props: Props) {
       <DialogTrigger>{props.children}</DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{props.onDelete ? "Edit" : "Add new"} preset</DialogTitle>
+          <DialogTitle>
+            {props.onDelete ? "Edit" : "Add new"} preset
+          </DialogTitle>
         </DialogHeader>
         <div className="p-4 overflow-x-scroll flex flex-col items-center justify-center gap-4">
           <PixelDisplay
@@ -99,7 +105,9 @@ export function PixelEditor(props: Props) {
               </div>
               <DialogFooter>
                 <DialogClose>
-                  <Button onClick={() => setColorPickerOpen(false)}>Done</Button>
+                  <Button onClick={() => setColorPickerOpen(false)}>
+                    Done
+                  </Button>
                 </DialogClose>
               </DialogFooter>
             </DialogContent>
@@ -114,7 +122,7 @@ export function PixelEditor(props: Props) {
                 newPreset({
                   length: props.length,
                   fill: DEFAULT_OFF_PIXEL_COLOR,
-                }),
+                })
               );
               setSelectedPixel(null);
             }}
@@ -129,7 +137,7 @@ export function PixelEditor(props: Props) {
                 newPreset({
                   length: props.length,
                   fill: DEFAULT_OFF_PIXEL_COLOR,
-                }),
+                })
               );
               setSelectedPixel(null);
             }}

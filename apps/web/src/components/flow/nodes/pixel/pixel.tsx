@@ -1,8 +1,13 @@
 import { Handle } from "../../handle";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import {
+  NodeContainer,
+  useNodeControls,
+  useNodeData,
+  type BaseNode,
+} from "../_base";
 import { useNodeValue } from "@/stores/node-data";
-import { dataSchema, type Data, type Value } from "@microflow/runtime/pixel/pixel.types";
-import { COLORS, DEFAULT_OFF_PIXEL_COLOR } from "@microflow/runtime/pixel/pixel.constants";
+import { dataSchema, type Data, type Value } from "./pixel.schema";
+import { COLORS, DEFAULT_OFF_PIXEL_COLOR } from "./pixel.constants";
 import { PixelDisplay } from "./pixel-display";
 import { useState } from "react";
 import { MODES } from "@/stores/board";
@@ -37,8 +42,20 @@ export function Pixel(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="show" hint="shows preset #" offset={-1.5} />
-      <Handle type="target" position="left" id="color" hint="array of hex colors" offset={-0.5} />
+      <Handle
+        type="target"
+        position="left"
+        id="show"
+        hint="shows preset #"
+        offset={-1.5}
+      />
+      <Handle
+        type="target"
+        position="left"
+        id="color"
+        hint="array of hex colors"
+        offset={-0.5}
+      />
       <Handle
         type="target"
         position="left"
@@ -46,7 +63,13 @@ export function Pixel(props: Props) {
         hint="moves the pixel strip by # pixels"
         offset={0.5}
       />
-      <Handle type="target" position="left" id="turnOff" title="off" offset={1.5} />
+      <Handle
+        type="target"
+        position="left"
+        id="turnOff"
+        title="off"
+        offset={1.5}
+      />
       <Handle type="source" position="right" id="change" />
     </NodeContainer>
   );
@@ -54,7 +77,9 @@ export function Pixel(props: Props) {
 
 function Value() {
   const data = useNodeData<Data>();
-  const value = useNodeValue<Value>(Array(data.length).fill(DEFAULT_OFF_PIXEL_COLOR));
+  const value = useNodeValue<Value>(
+    Array(data.length).fill(DEFAULT_OFF_PIXEL_COLOR)
+  );
 
   return <PixelDisplay value={value} length={data.length} showLabel />;
 }
@@ -93,7 +118,7 @@ function Settings() {
           options: COLORS,
         },
       },
-      { collapsed: true },
+      { collapsed: true }
     ),
   });
 
@@ -119,7 +144,8 @@ function Settings() {
             <DialogHeader>
               <DialogTitle>Presets</DialogTitle>
               <DialogDescription>
-                When showing a preset the input handle will round to the closest preset number
+                When showing a preset the input handle will round to the closest
+                preset number
               </DialogDescription>
             </DialogHeader>
             <section className="flex items-center justify-center">
@@ -148,7 +174,10 @@ function Settings() {
                         >
                           <section className="flex-col flex items-center justify-center">
                             <section className="max-w-xl overflow-x-scroll pb-8">
-                              <PixelDisplay value={preset} length={data.length} />
+                              <PixelDisplay
+                                value={preset}
+                                length={data.length}
+                              />
                             </section>
                           </section>
                         </PixelEditor>
@@ -165,7 +194,10 @@ function Settings() {
                           </div>
                           <Button
                             variant="outline"
-                            disabled={index === presets.length - 1 || index + 1 >= presets.length}
+                            disabled={
+                              index === presets.length - 1 ||
+                              index + 1 >= presets.length
+                            }
                             onClick={() => swapPresets(index, index + 1)}
                           >
                             Swap
@@ -203,6 +235,7 @@ Pixel.defaultProps = {
     tags: ["output", "analog"],
     label: "LED Strip",
     icon: "RainbowIcon",
-    description: "Control a strip of addressable RGB LEDs (WS2812, NeoPixel, etc.)",
+    description:
+      "Control a strip of addressable RGB LEDs (WS2812, NeoPixel, etc.)",
   } satisfies Props["data"],
 };

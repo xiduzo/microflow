@@ -47,14 +47,18 @@ function HomeComponent() {
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Your Flows</h1>
-            <p className="text-muted-foreground text-sm">All your flows in one place</p>
+            <p className="text-muted-foreground text-sm">
+              Manage your local flow and sync to the cloud for collaboration
+            </p>
           </div>
           {isSignedIn && <CreateFlowDialog />}
         </header>
 
         {/* Local section - always visible */}
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Local</h2>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">
+            Local
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <FlowCard
               id="local"
@@ -70,7 +74,9 @@ function HomeComponent() {
 
         {/* Cloud section - always visible, content changes based on auth */}
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Cloud</h2>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">
+            Cloud
+          </h2>
           {isSignedIn ? <CloudFlows /> : <SignInNudge />}
         </section>
       </div>
@@ -115,7 +121,9 @@ function CloudFlows() {
             <WaypointsIcon className="size-4" />
           </EmptyMedia>
           <EmptyTitle>No cloud flows yet</EmptyTitle>
-          <EmptyDescription>Create your first cloud flow to sync across devices</EmptyDescription>
+          <EmptyDescription>
+            Create your first cloud flow to sync across devices
+          </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <CreateFlowDialog />

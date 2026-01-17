@@ -1,6 +1,10 @@
-import { NOTES_AND_FREQUENCIES } from "@microflow/runtime/piezo/piezo.constants";
+import { NOTES_AND_FREQUENCIES } from "./piezo.constants";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Command,
   CommandInput,
@@ -12,7 +16,10 @@ import {
 import { useState } from "react";
 import { ChevronsUpDownIcon } from "lucide-react";
 
-export function NoteSelector(props: { value: string; onSelect: (value: string | null) => void }) {
+export function NoteSelector(props: {
+  value: string;
+  onSelect: (value: string | null) => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -27,8 +34,8 @@ export function NoteSelector(props: { value: string; onSelect: (value: string | 
           {NOTES_AND_FREQUENCIES.get(props.value)
             ? props.value
             : props.value === "null"
-              ? "Rest"
-              : "Select note..."}
+            ? "Rest"
+            : "Select note..."}
           <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

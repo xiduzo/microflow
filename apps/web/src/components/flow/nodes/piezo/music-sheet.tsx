@@ -1,6 +1,6 @@
 import { renderAbc } from "abcjs";
 import { useEffect, useRef } from "react";
-import { type Note } from "@microflow/runtime/piezo/piezo.types";
+import { type Note } from "./piezo.schema";
 
 export function MusicSheet(props: Props) {
   const ref = useRef<HTMLDivElement>(null);

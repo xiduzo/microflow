@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document describes the refactored synchronization architecture between the database, Yjs, and local state.
+This document describes the synchronization architecture between the database, Yjs, and local state in Microflow.
 
 ## Core Principle: Yjs as Single Source of Truth
 
-The fundamental change is that **Yjs is now the single source of truth** for flow data. Everything else derives from it.
+The fundamental design is that **Yjs is the single source of truth** for flow data. Everything else derives from it.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -25,7 +25,7 @@ The fundamental change is that **Yjs is now the single source of truth** for flo
 │  │                    ▼                   ▼                        ││
 │  │  ┌─────────────────────┐  ┌─────────────────────┐              ││
 │  │  │ React Hooks         │  │ Yjs UndoManager     │              ││
-│  │  │ (useSyncExternalStore)│ │ (built-in history)  │              ││
+│  │  │ (useState+useEffect)│  │ (built-in history)  │              ││
 │  │  └─────────────────────┘  └─────────────────────┘              ││
 │  └─────────────────────────────────────────────────────────────────┘│
 │                              │                                       │
@@ -75,7 +75,8 @@ Handles WebSocket synchronization:
 - Connects to server via WebSocket
 - Queues updates when offline
 - Automatic reconnection with exponential backoff
-- Awareness (presence) management
+- Awareness (presence) management for cursors and user info
+- Emits typed events: `stateChange`, `awarenessChange`, `error`, `ack`
 
 ### 3. YjsServer (`packages/collab/src/yjs-server.ts`)
 
@@ -83,29 +84,90 @@ Server-side room management:
 
 - One room per flowId
 - Broadcasts updates to all connected clients
-- Debounced persistence to database
+- Debounced persistence to database (2s default)
 - Sends ACK after successful persistence
+- Cleans up rooms when all clients disconnect
 
-### 4. React Hooks
+### 4. Package Exports
 
-- `useFlowNodes(flowDoc)` - Subscribe to nodes changes
-- `useFlowEdges(flowDoc)` - Subscribe to edges changes
+The `@microflow/collab` package has two entry points:
+
+- `@microflow/collab` - Browser-safe exports (FlowDocument, SyncProvider)
+- `@microflow/collab/server` - Server-only exports (YjsServer, createYjsHandler)
+
+This separation prevents Node.js dependencies (database, dotenv) from being bundled in the browser.
+
+## React Integration
+
+### useFlowState Hook (`apps/web/src/hooks/use-flow-document.ts`)
+
+The main hook for ReactFlow integration that handles bidirectional sync:
+
+```typescript
+const { nodes, edges, onNodesChange, onEdgesChange } = useFlowState(flowDoc);
+```
+
+**How it works:**
+
+1. Maintains local React state for nodes/edges
+2. Uses ReactFlow's `applyNodeChanges`/`applyEdgeChanges` for immediate UI updates
+3. Batches structural changes and syncs to Yjs via `requestAnimationFrame`
+4. Subscribes to Yjs observers for remote updates and undo/redo
+
+This pattern ensures:
+- Smooth dragging (synchronous local state updates)
+- Proper Yjs sync (batched writes on structural changes)
+- Remote collaboration (Yjs observer updates local state)
+
+### useSyncProvider Hook (`apps/web/src/hooks/use-sync-provider.ts`)
+
+Manages WebSocket connection lifecycle:
+
+```typescript
+const sync = useSyncProvider({
+  flowDoc,
+  flowId,
+  user: { id, name },
+  wsUrl: "wss://server.example.com",
+  enabled: true,
+});
+
+// Returns:
+// - state: "disconnected" | "connecting" | "syncing" | "synced"
+// - isConnected, isSynced: boolean helpers
+// - users: AwarenessUser[] (all connected users)
+// - localUser: AwarenessUser
+// - updateCursor, updateSelectedNodes: awareness actions
+// - reconnect, disconnect: manual control
+```
+
+**Cleanup:** The hook automatically destroys the SyncProvider when:
+- Component unmounts
+- Dependencies change (flowDoc, flowId, user)
+- `enabled` becomes false
+
+### Other Hooks
+
+- `useFlowNodes(flowDoc)` - Read-only subscription to nodes
+- `useFlowEdges(flowDoc)` - Read-only subscription to edges
 - `useFlowHistory(flowDoc)` - Undo/redo with UndoManager
-- `useSyncProvider(options)` - Connect to collaboration server
+- `useCollabPresence(sync)` - Filter other users from awareness
 
 ## Data Flow
 
 ### Local Edit → Server → Database
 
-1. User edits node in UI
-2. `onNodesChange` calls `flowDoc.updateNode()`
-3. FlowDocument updates Y.Map (with "local" origin)
-4. Y.Doc emits "update" event
-5. SyncProvider sends update via WebSocket
-6. YjsServer broadcasts to other clients
-7. YjsServer schedules debounced persistence
-8. After 2s, YjsServer persists to database
-9. YjsServer sends ACK to all clients
+1. User drags node in UI
+2. `onNodesChange` called with position change
+3. `applyNodeChanges` updates local React state immediately
+4. On drag end (structural change), sync to Yjs via `requestAnimationFrame`
+5. FlowDocument updates Y.Map (with "local" origin)
+6. Y.Doc emits "update" event
+7. SyncProvider sends update via WebSocket
+8. YjsServer broadcasts to other clients
+9. YjsServer schedules debounced persistence (2s)
+10. YjsServer persists to database
+11. YjsServer sends ACK to all clients
 
 ### Remote Update → Local State
 
@@ -113,35 +175,39 @@ Server-side room management:
 2. YjsServer broadcasts to all clients
 3. SyncProvider receives update
 4. SyncProvider applies to local Y.Doc (with "remote" origin)
-5. React hooks detect change via useSyncExternalStore
-6. UI re-renders
+5. Yjs observer fires
+6. `useFlowState` updates local React state
+7. ReactFlow re-renders
 
-## Key Improvements Over Previous Architecture
+### Route Cleanup
 
-1. **Single Source of Truth**: No more dual state between Zustand and Yjs
-2. **Efficient Updates**: Y.Map instead of delete-and-replace with Y.Array
-3. **Built-in Undo/Redo**: Uses Yjs UndoManager instead of manual history
-4. **No Origin Tracking Bugs**: Clean separation of local vs remote updates
-5. **Offline Support Ready**: SyncProvider queues updates when disconnected
-6. **Acknowledgment Protocol**: Server confirms persistence to clients
+When leaving a collaborative flow route (`/flow/$flowId`):
+
+1. Route component unmounts
+2. `useEffect` cleanup calls `destroy()` on flow store
+3. `useSyncProvider` cleanup calls `provider.destroy()`
+4. SyncProvider closes WebSocket connection
+5. Server removes client from room
+6. If room is empty, server persists and cleans up room
 
 ## File Structure
 
 ```
 packages/collab/src/
 ├── schema.ts          # FlowDocument class
-├── sync-provider.ts   # Client-side sync
-├── yjs-server.ts      # Server-side rooms
+├── sync-provider.ts   # Client-side WebSocket sync
+├── yjs-server.ts      # Server-side room management
 ├── handler.ts         # Hono WebSocket handler
-└── index.ts           # Public exports
+├── index.ts           # Browser-safe exports
+└── server.ts          # Server-only exports
 
 apps/web/src/
 ├── stores/
-│   └── flow-store.ts  # Zustand store (thin wrapper)
+│   └── flow-store.ts  # Zustand store (FlowDocument holder)
 └── hooks/
-    ├── use-flow-document.ts  # React bindings
-    ├── use-sync-provider.ts  # Sync hook
-    └── use-collab-flow.ts    # Combined hook
+    ├── use-flow-document.ts  # useFlowState, useFlowNodes, etc.
+    ├── use-sync-provider.ts  # WebSocket connection hook
+    └── use-collab-flow.ts    # Combined hook (legacy)
 ```
 
 ## Usage Examples
@@ -152,45 +218,72 @@ apps/web/src/
 function LocalFlowPage() {
   const { initLocalFlow, destroy } = useFlowInit();
   const flowDoc = useFlowDocument();
-  const nodes = useFlowNodes(flowDoc);
-  const edges = useFlowEdges(flowDoc);
+  const { nodes, edges, onNodesChange, onEdgesChange } = useFlowState(flowDoc);
 
   useEffect(() => {
     initLocalFlow();
     return () => destroy();
   }, []);
 
-  return <ReactFlow nodes={nodes} edges={edges} />;
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+    />
+  );
 }
 ```
 
 ### Collaborative Flow
 
 ```tsx
-function CollabFlowPage({ flowId, user }) {
+function CollabFlowPage({ flowId, initialYdoc }) {
   const { initCloudFlow, destroy } = useFlowInit();
   const flowDoc = useFlowDocument();
+  const { nodes, edges, onNodesChange, onEdgesChange } = useFlowState(flowDoc);
 
+  // Initialize flow document
   useEffect(() => {
-    initCloudFlow(flowId, initialYdocData);
+    initCloudFlow(flowId, initialYdoc);
     return () => destroy();
   }, [flowId]);
 
+  // Connect to sync server
   const sync = useSyncProvider({
     flowDoc,
     flowId,
-    user,
+    user: { id: userId, name: userName },
     wsUrl: "wss://server.example.com",
+    enabled: !!flowDoc,
   });
 
-  const nodes = useFlowNodes(flowDoc);
-  const edges = useFlowEdges(flowDoc);
+  const presence = useCollabPresence(sync);
 
   return (
     <>
-      <SyncStatus state={sync.state} />
-      <ReactFlow nodes={nodes} edges={edges} />
+      <ConnectionStatus state={sync.state} />
+      <PresenceAvatars users={presence.otherUsers} />
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+      />
+      {sync.isConnected && (
+        <CollabCursors users={presence.otherUsers} />
+      )}
     </>
   );
 }
 ```
+
+## Key Design Decisions
+
+1. **Y.Map over Y.Array**: Enables O(1) node updates instead of delete-and-replace
+2. **Separate local React state**: ReactFlow needs synchronous updates for smooth dragging
+3. **Batched Yjs writes**: Only sync structural changes, not every drag frame
+4. **Browser/Server split**: Prevents bundling Node.js deps in browser
+5. **Automatic cleanup**: Hooks handle connection lifecycle automatically
+6. **Debounced persistence**: Reduces database writes during rapid edits

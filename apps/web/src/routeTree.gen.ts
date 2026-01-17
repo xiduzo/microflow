@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SuccessRouteImport } from './routes/success'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FlowRouteImport } from './routes/flow'
 import { Route as CircuitRouteImport } from './routes/circuit'
@@ -20,6 +21,11 @@ import { Route as FlowFlowIdRouteImport } from './routes/flow/$flowId'
 const SuccessRoute = SuccessRouteImport.update({
   id: '/success',
   path: '/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/circuit': typeof CircuitRoute
   '/flow': typeof FlowRouteWithChildren
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
   '/flow/$flowId': typeof FlowFlowIdRoute
   '/flow/local': typeof FlowLocalRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/circuit': typeof CircuitRoute
   '/flow': typeof FlowRouteWithChildren
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
   '/flow/$flowId': typeof FlowFlowIdRoute
   '/flow/local': typeof FlowLocalRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/circuit': typeof CircuitRoute
   '/flow': typeof FlowRouteWithChildren
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
   '/flow/$flowId': typeof FlowFlowIdRoute
   '/flow/local': typeof FlowLocalRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/circuit'
     | '/flow'
     | '/login'
+    | '/profile'
     | '/success'
     | '/flow/$flowId'
     | '/flow/local'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/circuit'
     | '/flow'
     | '/login'
+    | '/profile'
     | '/success'
     | '/flow/$flowId'
     | '/flow/local'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/circuit'
     | '/flow'
     | '/login'
+    | '/profile'
     | '/success'
     | '/flow/$flowId'
     | '/flow/local'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   CircuitRoute: typeof CircuitRoute
   FlowRoute: typeof FlowRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
   SuccessRoute: typeof SuccessRoute
 }
 
@@ -126,6 +139,13 @@ declare module '@tanstack/react-router' {
       path: '/success'
       fullPath: '/success'
       preLoaderRoute: typeof SuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -190,6 +210,7 @@ const rootRouteChildren: RootRouteChildren = {
   CircuitRoute: CircuitRoute,
   FlowRoute: FlowRouteWithChildren,
   LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
   SuccessRoute: SuccessRoute,
 }
 export const routeTree = rootRouteImport

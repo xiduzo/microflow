@@ -1,5 +1,6 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
 import { flowRouter } from "./flow";
+import { profileRouter } from "./profile";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -12,5 +13,6 @@ export const appRouter = router({
     };
   }),
   flow: flowRouter,
+  profile: profileRouter,
 });
 export type AppRouter = typeof appRouter;

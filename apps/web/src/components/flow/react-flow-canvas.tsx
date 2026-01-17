@@ -113,7 +113,21 @@ export function ReactFlowCanvas({ updateCursor, otherUsers = [] }: ReactFlowCanv
           <DockPanel />
         </Panel>
         <Panel position="top-left">
-          <PressensePanel users={otherUsers} />
+          <PressensePanel
+            users={[
+              ...otherUsers,
+              {
+                color: "#ffcc00",
+                id: "1234",
+                name: "Sander",
+              },
+              {
+                color: "#3113d8ff",
+                id: "123467",
+                name: "Sander",
+              },
+            ]}
+          />
         </Panel>
       </ReactFlow>
       <CollabCursors users={otherUsers} />

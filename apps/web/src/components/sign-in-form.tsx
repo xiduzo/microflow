@@ -8,11 +8,27 @@ import { authClient } from "@/lib/auth-client";
 
 import Loader from "./loader";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "./ui/field";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "./ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 
-export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+export function SignInForm({
+  onSwitchToSignUp,
+}: {
+  onSwitchToSignUp: () => void;
+}) {
   const navigate = useNavigate({
     from: "/",
   });
@@ -39,7 +55,7 @@ export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void 
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
           },
-        },
+        }
       );
     },
     validators: {
@@ -58,7 +74,9 @@ export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void 
     <Card className="flex flex-col gap-6 mx-auto w-full mt-10 max-w-md">
       <CardHeader>
         <CardTitle>Login to your account</CardTitle>
-        <CardDescription>Enter your email below to login to your account</CardDescription>
+        <CardDescription>
+          Enter your email below to login to your account
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form

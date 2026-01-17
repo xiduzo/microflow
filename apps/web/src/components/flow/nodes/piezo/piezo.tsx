@@ -19,13 +19,13 @@ import {
   type SongData,
   type Value,
   dataSchema,
-} from "@microflow/runtime/piezo/piezo.types";
+} from "./piezo.schema";
 import { BellIcon, BellRingIcon, Disc3Icon, DiscIcon } from "lucide-react";
 import {
   DEFAULT_NOTE,
   DEFAULT_SONG,
   NOTES_AND_FREQUENCIES,
-} from "@microflow/runtime/piezo/piezo.constants";
+} from "./piezo.constants";
 
 export function Piezo(props: Props) {
   return (
@@ -48,11 +48,13 @@ function Value() {
   const value = useNodeValue<Value>(false);
 
   if (!value) {
-    if (data.type === "song") return <DiscIcon className="text-muted-foreground" size={48} />;
+    if (data.type === "song")
+      return <DiscIcon className="text-muted-foreground" size={48} />;
     return <BellIcon className="text-muted-foreground" size={48} />;
   }
 
-  if (data.type === "song") return <Disc3Icon className="animate-spin" size={48} />;
+  if (data.type === "song")
+    return <Disc3Icon className="animate-spin" size={48} />;
   return <BellRingIcon className="animate-wiggle" size={48} />;
 }
 
@@ -96,7 +98,7 @@ function Settings() {
         },
         {
           render: (get) => get("type") === "buzz",
-        },
+        }
       ),
       song: folder(
         {
@@ -110,10 +112,10 @@ function Settings() {
         },
         {
           render: (get) => get("type") === "song",
-        },
+        }
       ),
     },
-    [pins],
+    [pins]
   );
 
   return (
@@ -146,6 +148,7 @@ Piezo.defaultProps = {
     tags: ["output", "analog", "digital"],
     label: "Piezo",
     icon: "BellIcon",
-    description: "Make sounds, play tones, or create melodies using a buzzer or speaker",
+    description:
+      "Make sounds, play tones, or create melodies using a buzzer or speaker",
   } satisfies Props["data"],
 };

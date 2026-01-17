@@ -1,4 +1,4 @@
-import { NOTE_DURATION } from "@microflow/runtime/piezo/piezo.constants";
+import { NOTE_DURATION } from "./piezo.constants";
 
 export function noteDurationToVisualDuation(duration: number) {
   switch (duration) {

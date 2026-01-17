@@ -1,10 +1,19 @@
-import { type Note } from "@microflow/runtime/piezo/piezo.types";
+import { type Note } from "./piezo.schema";
 import { useState, type PropsWithChildren } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { NoteSelector } from "./note-selector";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { noteDurationToVisualDuation } from "./helpers";
-import { NOTE_DURATION } from "@microflow/runtime/piezo/piezo.constants";
+import { NOTE_DURATION } from "./piezo.constants";
 import { Button } from "@/components/ui/button";
 
 export function NodeEditor(props: Props) {
@@ -28,7 +37,9 @@ export function NodeEditor(props: Props) {
             props.onSelect?.([note, Number(value)]);
           }}
         >
-          <SelectTrigger>{noteDurationToVisualDuation(Number(duration))}</SelectTrigger>
+          <SelectTrigger>
+            {noteDurationToVisualDuation(Number(duration))}
+          </SelectTrigger>
           <SelectContent>
             {Object.values(NOTE_DURATION)
               .filter((duration) => {
@@ -36,7 +47,10 @@ export function NodeEditor(props: Props) {
                 return duration;
               })
               .map((selectableDuration) => (
-                <SelectItem key={selectableDuration} value={selectableDuration.toString()}>
+                <SelectItem
+                  key={selectableDuration}
+                  value={selectableDuration.toString()}
+                >
                   {noteDurationToVisualDuation(selectableDuration)}
                 </SelectItem>
               ))}
@@ -61,7 +75,14 @@ type Props = PropsWithChildren & {
 };
 
 type Action = {
-  variant?: "link" | "default" | "outline" | "secondary" | "ghost" | "destructive" | null; // TODO: use buttonProps
+  variant?:
+    | "link"
+    | "default"
+    | "outline"
+    | "secondary"
+    | "ghost"
+    | "destructive"
+    | null; // TODO: use buttonProps
   label: string;
   onClick: (note: Note) => void;
 };

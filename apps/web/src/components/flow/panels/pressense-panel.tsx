@@ -1,17 +1,24 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { CollabUser } from "../collab-cursors";
+import { Icon } from "@/components/ui/icon";
 
 export function PressensePanel(props: Props) {
+  console.log(props.users);
   return (
-    <div className="*:data-[slot=avatar]:ring-background flex -space-x-2 *:data-[slot=avatar]:ring-2 *:data-[slot=avatar]:grayscale">
+    <div className="flex -space-x-3">
       {props.users.map((user) => (
-        <Avatar>
-          <AvatarImage src="https://github.com/maxleiter.png" alt="@maxleiter" />
-          <AvatarFallback>
-            {user.name
-              .split(" ")
-              .map(([firstLetter]) => firstLetter)
-              .join("")}
+        <Avatar
+          key={user.id}
+          style={{
+            background: user.color,
+          }}
+        >
+          <AvatarFallback
+            style={{
+              background: user.color,
+            }}
+          >
+            <Icon icon="Link2OffIcon" size={12} className="invert" />
           </AvatarFallback>
         </Avatar>
       ))}
