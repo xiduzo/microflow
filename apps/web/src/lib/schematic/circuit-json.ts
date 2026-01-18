@@ -166,14 +166,14 @@ function createCircuitJsonForComponent(
   } as SourceComponentBase;
   elements.push(sourceComponent);
 
-  // Create source ports (with pin_number for internal label rendering)
+  // Create source ports - use label as name for pin_name display
   for (const port of circuit.ports) {
     const portId = `source_port_${componentIndex}_${port.pinNumber}`;
     const sourcePort: SourcePort = {
       type: "source_port",
       source_port_id: portId,
       source_component_id: sourceComponentId,
-      name: port.name,
+      name: port.label || port.name, // Use label for pin_name display
       pin_number: port.pinNumber,
       port_hints: port.hints,
     };
@@ -228,8 +228,8 @@ function createCircuitJsonForComponent(
       facing_direction: "left",
       distance_from_component_edge: 0.4,
       side_of_component: "left",
-      pin_number: port.pinNumber,
       true_ccw_index: idx,
+      display_pin_label: port.label || port.name,
     };
     elements.push(schematicPort);
   });
@@ -248,8 +248,8 @@ function createCircuitJsonForComponent(
       facing_direction: "right",
       distance_from_component_edge: 0.4,
       side_of_component: "right",
-      pin_number: port.pinNumber,
       true_ccw_index: leftPorts.length + idx,
+      display_pin_label:  port.label || port.name,
     };
     elements.push(schematicPort);
   });
@@ -412,7 +412,6 @@ function createCircuitJsonBoard(pins: Pin[], hardwareNodes: Node[]): CircuitElem
       facing_direction: "left",
       distance_from_component_edge: 0.4,
       side_of_component: "left",
-      pin_number: pin.pin,
       true_ccw_index: idx,
       display_pin_label: label,
     };
@@ -438,7 +437,6 @@ function createCircuitJsonBoard(pins: Pin[], hardwareNodes: Node[]): CircuitElem
       facing_direction: "right",
       distance_from_component_edge: 0.4,
       side_of_component: "right",
-      pin_number: pin.pin,
       true_ccw_index: leftPins.length + idx,
       display_pin_label: label,
     };

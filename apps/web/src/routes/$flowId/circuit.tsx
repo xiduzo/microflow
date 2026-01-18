@@ -12,6 +12,48 @@ import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/states/loading-state";
 import { ErrorState } from "@/components/states/error-state";
 
+/** Schematic color overrides using theme CSS vars inline – respects light/dark. */
+const SCHEMATIC_COLOR_OVERRIDES = {
+  // aux_items: "var(--muted-foreground)",
+  background: "transparent",
+  brightened: "var(--accent)",
+  // bus: "var(--foreground)",s
+  // bus_junction: "var(--foreground)",
+  component_body: "var(--card)",
+  component_outline: "var(--card-foreground)",
+  // cursor: "var(--primary)",
+  // erc_error: "var(--destructive)",
+  // erc_warning: "var(--chart-2)",
+  // fields: "var(--foreground)",
+  // grid: "var(--muted-foreground)",
+  // grid_axes: "var(--muted-foreground)",
+  // hidden: "var(--muted-foreground)",
+  // junction: "var(--foreground)",
+  label_global: "var(--muted-foreground)",
+  label_background: "var(--muted)",
+  // label_hier: "var(--foreground)",
+  // label_local: "var(--card-foreground)",
+  // net_name: "var(--foreground)",
+  // no_connect: "var(--foreground)",
+  // note: "var(--muted-foreground)",
+  // pin: "var(--foreground)",
+  pin_name: "var(--foreground)", // Show pin names (labels like GND, VCC, SIG)
+  pin_number: "var(--card-foreground)", // Pin numbers
+  // reference: "var(--foreground)",
+  // shadow: "var(--border)",
+  // sheet: "var(--background)",
+  // sheet_background: "var(--background)",
+  // sheet_fields: "var(--muted-foreground)",
+  // sheet_filename: "var(--muted-foreground)",
+  // sheet_label: "var(--card-foreground)",
+  // sheet_name: "var(--card-foreground)",
+  // table: "var(--muted-foreground)",
+  // value: "var(--card-foreground)",
+  wire: "var(--foreground)",
+  // wire_crossing: "var(--foreground)",
+  // worksheet: "var(--background)",
+} as const;
+
 export const Route = createFileRoute("/$flowId/circuit")({
   component: RouteComponent,
   beforeLoad: async ({ params }) => {
@@ -118,20 +160,20 @@ function CircuitViewer() {
   const nodes = useFlowNodes(flowDoc);
   const pins = usePins();
 
-  const circuitJson = useMemo(() => {
-    console.log({nodes, pins})
-    return createCircuitJson(nodes, pins);
-  }, [nodes, pins]);
+  const circuitJson = useMemo(
+    () => {
+      return createCircuitJson(nodes, pins)
+    },
+    [nodes, pins]
+  );
 
   return (
     <div className="w-full h-full">
       <SchematicViewer
+        // debugGrid
         circuitJson={circuitJson}
         colorOverrides={{
-          schematic: {
-            // background: "var(--background)",
-            // component_body: "var(--card-foreground)",
-          },
+          schematic: SCHEMATIC_COLOR_OVERRIDES,
         }}
         containerStyle={{
           width: "100%",

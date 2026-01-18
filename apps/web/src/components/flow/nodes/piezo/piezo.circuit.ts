@@ -12,7 +12,7 @@ export const piezoCircuit: CircuitDefinition = {
       pinNumber: 1,
       hints: ["signal", "positive", "pin1", "1"],
       side: "left",
-      label: "SIG (+)",
+      label: "SIG",
     },
     {
       name: "gnd",
