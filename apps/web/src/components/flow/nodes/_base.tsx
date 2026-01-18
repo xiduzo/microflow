@@ -56,7 +56,7 @@ function NodeDescription() {
   return (
     <CardDescription className="flex gap-4">
       {"pin" in data && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" key={`pin-${data.pin}`}>
           <CableIcon size={12} />
           <Pin pin={data.pin} pins={pins} />
         </div>
@@ -137,9 +137,11 @@ export const useNodeControls = <
 
   const render = useCallback(() => {
     if (!selected) return null;
+    const element = document.getElementById("settings-panels")
+    if(!element) return
     return createPortal(
       <LevaPanel store={store} hideCopyButton fill titleBar={false} />,
-      document.getElementById("settings-panels")!,
+      element,
     );
   }, [store, selected]);
 

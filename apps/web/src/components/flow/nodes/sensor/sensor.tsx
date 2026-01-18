@@ -110,9 +110,30 @@ const hallEffect = cva("", {
 function Settings() {
   const data = useNodeData<Data & { subType?: string }>();
   const pins = usePins([MODES.INPUT, MODES.ANALOG]);
-  const { render } = useNodeControls(
+  
+  // Convert string pin values (like "A0") to actual pin numbers for Leva
+  // Leva options store numeric pin values, so we need to match that format
+  let pinValue: number | string = data.pin;
+  if (typeof data.pin === "string" && pins.length > 0) {
+    const match = data.pin.match(/^A(\d+)$/i);
+    if (match) {
+      const analogIndex = parseInt(match[1], 10);
+      const analogPins = pins.filter((p) => p.supportedModes.includes(MODES.ANALOG) && p.analogChannel >= 0);
+      const base = analogPins.length > 0 ? Math.min(...analogPins.map((p) => p.analogChannel)) : 0;
+      const targetChannel = base + analogIndex;
+      const foundPin = pins.find((p) => p.analogChannel === targetChannel);
+      if (foundPin) {
+        pinValue = foundPin.pin;
+      }
+    }
+  }
+  
+  const { render, setNodeData } = useNodeControls(
     {
-      pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+      pin: { 
+        value: pinValue, 
+        options: pins.reduce(reducePinsToOptions, {}),
+      },
       advanced: folder(
         {
           threshold: { min: 0, step: 1, value: data.threshold! },

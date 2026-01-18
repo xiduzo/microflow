@@ -1,241 +1,268 @@
 import type { Pin } from "@/stores/board";
 import type { Node } from "@xyflow/react";
-
-import type { Data as ButtonData } from "@microflow/runtime/button/button.types";
+import type { BaseData } from "@/components/flow/nodes/_base.schema";
+import type { CircuitDefinition } from "@/components/flow/nodes/_circuit.types";
+import { getCircuitDefinition, isHardwareComponent } from "@/components/flow/nodes/_circuit.registry";
+import { formatPinValueWithPwm, getAnalogChannelBase } from "@/utils/pin";
+import {
+  convertSoupToScene,
+  mutateSoupForScene,
+  ascendingCentralLrBug1,
+} from "@tscircuit/schematic-autolayout";
 
 import type {
-  SchematicArc,
-  SchematicBox,
-  SchematicCircle,
   SchematicComponent,
-  SchematicDebugObject,
-  SchematicError,
-  SchematicGroup,
-  SchematicLayoutError,
-  SchematicLine,
-  SchematicManualEditConflictWarning,
-  SchematicNetLabel,
-  SchematicPath,
   SchematicPort,
-  SchematicRect,
-  SchematicSheet,
-  SchematicTable,
-  SchematicTableCell,
   SchematicText,
   SchematicTrace,
-  SchematicVoltageProbe,
+  SchematicNetLabel,
   SourceComponentBase,
-  SourcePort,
   SourceNet,
+  SourcePort,
   SourceTrace,
   SourceSimpleChip,
-  SourceSimplePushButton,
-  SourceSimpleLed,
+  AnyCircuitElement,
 } from "circuit-json";
-import type { BaseData } from "@microflow/runtime/base.types";
-import type { Data as LedData } from "@microflow/runtime/led/led.types";
 
-// Store port positions for trace routing
-interface PortPosition {
-  portId: string;
-  x: number;
-  y: number;
-}
-
-type SchematicElement =
-  | SchematicArc
-  | SchematicBox
-  | SchematicCircle
+type CircuitElement =
+  | SourceComponentBase
+  | SourcePort
+  | SourceNet
+  | SourceTrace
   | SchematicComponent
-  | SchematicDebugObject
-  | SchematicError
-  | SchematicGroup
-  | SchematicLayoutError
-  | SchematicLine
-  | SchematicManualEditConflictWarning
-  | SchematicNetLabel
-  | SchematicPath
   | SchematicPort
-  | SchematicRect
-  | SchematicSheet
-  | SchematicTable
-  | SchematicTableCell
   | SchematicText
   | SchematicTrace
-  | SchematicVoltageProbe;
+  | SchematicNetLabel;
 
-type CircuitElement = SchematicElement | SourceComponentBase | SourcePort | SourceNet | SourceTrace;
+/**
+ * Resolve a pin value (number or "A0" string) to the actual pin number
+ */
+function resolvePinNumber(pinValue: number | string, pins: Pin[]): number {
+  if (typeof pinValue === "number") {
+    return pinValue;
+  }
 
-// Global map to store port positions for trace routing
-const portPositions = new Map<string, PortPosition>();
+  // Handle analog pin strings like "A0", "A1", etc.
+  const match = pinValue.match(/^A(\d+)$/i);
+  if (match) {
+    const analogIndex = parseInt(match[1], 10);
+    const base = getAnalogChannelBase(pins);
+    // Find the pin with analogChannel = base + analogIndex
+    const targetChannel = base + analogIndex;
+    const pin = pins.find((p) => p.analogChannel === targetChannel);
+    if (pin) {
+      return pin.pin;
+    }
+  }
 
-export function createCircuitJson(nodes: Node[], pins: Pin[]) {
-  const json: CircuitElement[] = [];
+  // Try parsing as a number
+  const parsed = parseInt(pinValue, 10);
+  return isNaN(parsed) ? -1 : parsed;
+}
 
-  // Clear port positions from previous runs
-  portPositions.clear();
+/**
+ * Get resolved pins from a circuit definition, handling analog pin names
+ */
+function getResolvedPins(circuit: CircuitDefinition, nodeData: unknown, pins: Pin[]): number[] {
+  const rawPins = circuit.getPins(nodeData);
+  return rawPins.map((p) => resolvePinNumber(p, pins));
+}
+
+/**
+ * Get display name for a component from node data
+ */
+function getComponentDisplayName(node: Node, circuit: CircuitDefinition): string {
+  const data = node.data as BaseData & { label?: string };
+  // Use label from node data if available, otherwise use circuit displayName
+  return data.label || circuit.displayName;
+}
+
+export function createCircuitJson(nodes: Node[], pins: Pin[]): AnyCircuitElement[] {
+  const elements: CircuitElement[] = [];
+
+  // Filter to only hardware nodes and get their pin assignments
+  const hardwareNodes = nodes.filter((node) => {
+    const data = node.data as BaseData;
+    return data.instance && isHardwareComponent(data.instance);
+  });
+
+  // Sort hardware nodes by their primary pin number for better layout
+  const sortedHardwareNodes = [...hardwareNodes].sort((a, b) => {
+    const circuitA = getCircuitDefinition((a.data as BaseData).instance!);
+    const circuitB = getCircuitDefinition((b.data as BaseData).instance!);
+    if (!circuitA || !circuitB) return 0;
+    const pinsA = getResolvedPins(circuitA, a.data, pins);
+    const pinsB = getResolvedPins(circuitB, b.data, pins);
+    return (pinsA[0] || 0) - (pinsB[0] || 0);
+  });
 
   // Create board with pins
-  json.push(...createCircuitJsonBoard(pins));
+  elements.push(...createCircuitJsonBoard(pins, sortedHardwareNodes));
 
   // Create a map of node IDs to component indices
   const nodeToComponentIndex = new Map<string, number>();
-  let componentIndex = 1;
 
-  // Position components relative to the board
-  // Board is at (4, 4), so place components to the right
-  const baseX = 8; // Start components to the right of the board
-  const baseY = 2; // Start near the top
-  const spacing = 4; // Vertical spacing between components
-
-  // Create components for each node and map them
-  nodes.forEach((node, nodeIndex) => {
+  // Create components with initial positions (will be adjusted by autolayout)
+  sortedHardwareNodes.forEach((node, idx) => {
     const data = node.data as BaseData;
-    const componentX = baseX;
-    const componentY = baseY + nodeIndex * spacing;
+    const circuit = getCircuitDefinition(data.instance!);
+    if (!circuit) return;
 
-    switch (data.instance?.toLowerCase()) {
-      case "button":
-        nodeToComponentIndex.set(node.id, componentIndex);
-        json.push(...createCircuitJsonForButton(node, componentIndex, componentX, componentY));
-        componentIndex++;
-        break;
-      case "led":
-        nodeToComponentIndex.set(node.id, componentIndex);
-        json.push(...createCircuitJsonForLed(node, componentIndex, componentX, componentY));
-        componentIndex++;
-        break;
-      // TODO: implement other nodes
-      default:
-        console.warn(`Unsupported component type: ${data.instance}`);
-        break;
-    }
+    const componentIndex = idx + 1;
+    nodeToComponentIndex.set(node.id, componentIndex);
+
+    // Initial position - autolayout will adjust
+    const componentX = 10;
+    const componentY = idx * 3;
+
+    elements.push(...createCircuitJsonForComponent(node, circuit, componentIndex, componentX, componentY));
   });
 
-  // Create traces/connections between pins and components
-  json.push(...createCircuitJsonTraces(nodes, pins, nodeToComponentIndex));
+  // Create source traces (connections between pins and components)
+  const { sourceTraces, traceConnections, netLabelConnections } = createSourceTraces(sortedHardwareNodes, pins, nodeToComponentIndex);
+  elements.push(...sourceTraces);
 
-  return json;
+  // Apply autolayout
+  let layoutedSoup: AnyCircuitElement[];
+  try {
+    const scene = convertSoupToScene(elements as AnyCircuitElement[]);
+    const layoutedScene = ascendingCentralLrBug1(scene);
+    layoutedSoup = mutateSoupForScene(elements as AnyCircuitElement[], layoutedScene);
+  } catch (e) {
+    // If autolayout fails, use original elements
+    console.warn("Autolayout failed, using manual layout:", e);
+    layoutedSoup = elements as AnyCircuitElement[];
+  }
+
+  // Now generate schematic traces using the layouted port positions
+  const schematicTraces = createSchematicTraces(layoutedSoup, traceConnections);
+  layoutedSoup.push(...schematicTraces);
+
+  // Create net labels for VCC/GND connections
+  const netLabels = createNetLabels(layoutedSoup, netLabelConnections);
+  layoutedSoup.push(...netLabels);
+
+  return layoutedSoup;
 }
 
-function createCircuitJsonForButton(
+function createCircuitJsonForComponent(
   node: Node,
+  circuit: CircuitDefinition,
   componentIndex: number,
   schematicX: number,
   schematicY: number,
 ): CircuitElement[] {
-  const data = node.data as ButtonData;
   const elements: CircuitElement[] = [];
-
-  // Create source component for button
   const sourceComponentId = `source_component_${componentIndex}`;
-  const buttonComponent: SourceSimplePushButton = {
+  const displayName = getComponentDisplayName(node, circuit);
+
+  // Create source component
+  const sourceComponent: SourceComponentBase = {
     type: "source_component",
-    ftype: "simple_push_button",
+    ftype: circuit.ftype,
     source_component_id: sourceComponentId,
-    name: node.id || `SW${componentIndex}`,
-  };
-  elements.push(buttonComponent);
+    name: displayName,
+  } as SourceComponentBase;
+  elements.push(sourceComponent);
 
-  // Port 1: connected to microcontroller pin
-  const port1Id = `source_port_${componentIndex}_1`;
-  const port1: SourcePort = {
-    type: "source_port",
-    source_port_id: port1Id,
-    source_component_id: sourceComponentId,
-    name: "pin1",
-    pin_number: 1,
-    port_hints: ["pin1", "1", "common"],
-  };
-  elements.push(port1);
+  // Create source ports (with pin_number for internal label rendering)
+  for (const port of circuit.ports) {
+    const portId = `source_port_${componentIndex}_${port.pinNumber}`;
+    const sourcePort: SourcePort = {
+      type: "source_port",
+      source_port_id: portId,
+      source_component_id: sourceComponentId,
+      name: port.name,
+      pin_number: port.pinNumber,
+      port_hints: port.hints,
+    };
+    elements.push(sourcePort);
+  }
 
-  // Port 2: connected to GND (if pulldown) or VCC (if pullup)
-  const port2Id = `source_port_${componentIndex}_2`;
-  const port2: SourcePort = {
-    type: "source_port",
-    source_port_id: port2Id,
-    source_component_id: sourceComponentId,
-    name: "pin2",
-    pin_number: 2,
-    port_hints: ["pin2", "2", data.isPullup ? "vcc" : "gnd"],
-  };
-  elements.push(port2);
-
-  // Create schematic component for button (as a box with pins, like in the EXAMPLE)
+  // Create schematic component
   const schematicComponentId = `schematic_component_${componentIndex}`;
+  const leftPorts = circuit.ports.filter((p) => p.side === "left");
+  const rightPorts = circuit.ports.filter((p) => p.side === "right");
+  const leftPinNumbers = leftPorts.map((p) => p.pinNumber);
+  const rightPinNumbers = rightPorts.map((p) => p.pinNumber);
+
+  // Map pin numbers to labels for internal display
+  const portLabels: Record<string, string> = {};
+  for (const port of circuit.ports) {
+    portLabels[`${port.pinNumber}`] = port.label || port.name;
+  }
+
   const schematicComponent: SchematicComponent = {
     type: "schematic_component",
     schematic_component_id: schematicComponentId,
     source_component_id: sourceComponentId,
     center: { x: schematicX, y: schematicY },
-    size: { width: 1.5, height: 1.0 },
+    size: circuit.size,
     is_box_with_pins: true,
     port_arrangement: {
-      left_side: {
-        pins: [1],
-        direction: "top-to-bottom",
-      },
-      right_side: {
-        pins: [2],
-        direction: "top-to-bottom",
-      },
+      left_side: { pins: leftPinNumbers, direction: "top-to-bottom" },
+      right_side: { pins: rightPinNumbers, direction: "top-to-bottom" },
     },
     pin_spacing: 0.5,
-    port_labels: {
-      "1": "1",
-      "2": "2",
-    },
+    port_labels: portLabels,
   };
   elements.push(schematicComponent);
 
-  // Create schematic ports (positions relative to component center)
-  const port1X = schematicX - 0.75 - 0.4; // left edge - distance
-  const port1Y = schematicY;
-  const schematicPort1: SchematicPort = {
-    type: "schematic_port",
-    schematic_port_id: `schematic_port_${componentIndex}_1`,
-    schematic_component_id: schematicComponentId,
-    source_port_id: port1Id,
-    center: { x: port1X, y: port1Y },
-    facing_direction: "left",
-    distance_from_component_edge: 0.4,
-    side_of_component: "left",
-    pin_number: 1,
-    true_ccw_index: 0,
-  };
-  elements.push(schematicPort1);
+  // Create schematic ports
+  const halfWidth = circuit.size.width / 2;
+  const leftSpacing = circuit.size.height / (leftPorts.length + 1);
+  const rightSpacing = circuit.size.height / (rightPorts.length + 1);
 
-  // Store port position for trace routing
-  portPositions.set(port1Id, { portId: port1Id, x: port1X, y: port1Y });
+  leftPorts.forEach((port, idx) => {
+    const portId = `source_port_${componentIndex}_${port.pinNumber}`;
+    const portX = schematicX - halfWidth - 0.4;
+    const portY = schematicY - circuit.size.height / 2 + leftSpacing * (idx + 1);
 
-  const port2X = schematicX + 0.75 + 0.4; // right edge + distance
-  const port2Y = schematicY;
-  const schematicPort2: SchematicPort = {
-    type: "schematic_port",
-    schematic_port_id: `schematic_port_${componentIndex}_2`,
-    schematic_component_id: schematicComponentId,
-    source_port_id: port2Id,
-    center: { x: port2X, y: port2Y },
-    facing_direction: "right",
-    distance_from_component_edge: 0.4,
-    side_of_component: "right",
-    pin_number: 2,
-    true_ccw_index: 1,
-  };
-  elements.push(schematicPort2);
+    const schematicPort: SchematicPort = {
+      type: "schematic_port",
+      schematic_port_id: `schematic_port_${componentIndex}_${port.pinNumber}`,
+      schematic_component_id: schematicComponentId,
+      source_port_id: portId,
+      center: { x: portX, y: portY },
+      facing_direction: "left",
+      distance_from_component_edge: 0.4,
+      side_of_component: "left",
+      pin_number: port.pinNumber,
+      true_ccw_index: idx,
+    };
+    elements.push(schematicPort);
+  });
 
-  // Store port position for trace routing
-  portPositions.set(port2Id, { portId: port2Id, x: port2X, y: port2Y });
+  rightPorts.forEach((port, idx) => {
+    const portId = `source_port_${componentIndex}_${port.pinNumber}`;
+    const portX = schematicX + halfWidth + 0.4;
+    const portY = schematicY - circuit.size.height / 2 + rightSpacing * (idx + 1);
 
-  // Create schematic text label (position below component)
+    const schematicPort: SchematicPort = {
+      type: "schematic_port",
+      schematic_port_id: `schematic_port_${componentIndex}_${port.pinNumber}`,
+      schematic_component_id: schematicComponentId,
+      source_port_id: portId,
+      center: { x: portX, y: portY },
+      facing_direction: "right",
+      distance_from_component_edge: 0.4,
+      side_of_component: "right",
+      pin_number: port.pinNumber,
+      true_ccw_index: leftPorts.length + idx,
+    };
+    elements.push(schematicPort);
+  });
+
+  // Create schematic text label with display name
   const schematicText: SchematicText = {
     type: "schematic_text",
     schematic_text_id: `schematic_text_${componentIndex}`,
     schematic_component_id: schematicComponentId,
-    text: node.id || `SW${componentIndex}`,
+    text: displayName,
     anchor: "left",
     rotation: 0,
-    position: { x: schematicX - 0.5, y: schematicY + 0.5 },
+    position: { x: schematicX - 0.5, y: schematicY - circuit.size.height / 2 - 0.3 },
     font_size: 0.25,
     color: "#666",
   };
@@ -244,137 +271,43 @@ function createCircuitJsonForButton(
   return elements;
 }
 
-function createCircuitJsonForLed(
-  node: Node,
-  componentIndex: number,
-  schematicX: number,
-  schematicY: number,
-): CircuitElement[] {
-  const elements: CircuitElement[] = [];
 
-  // Create source component for LED
-  const sourceComponentId = `source_component_${componentIndex}`;
-  const ledComponent: SourceSimpleLed = {
-    type: "source_component",
-    ftype: "simple_led",
-    source_component_id: sourceComponentId,
-    name: node.id || `LED${componentIndex}`,
-  } as SourceSimpleLed;
-  elements.push(ledComponent);
-
-  // Port 1 (anode/positive): connected to microcontroller pin
-  const port1Id = `source_port_${componentIndex}_1`;
-  const port1: SourcePort = {
-    type: "source_port",
-    source_port_id: port1Id,
-    source_component_id: sourceComponentId,
-    name: "anode",
-    pin_number: 1,
-    port_hints: ["anode", "pos", "left", "pin1", "1"],
-  };
-  elements.push(port1);
-
-  // Port 2 (cathode/negative): connected to GND
-  const port2Id = `source_port_${componentIndex}_2`;
-  const port2: SourcePort = {
-    type: "source_port",
-    source_port_id: port2Id,
-    source_component_id: sourceComponentId,
-    name: "cathode",
-    pin_number: 2,
-    port_hints: ["cathode", "neg", "right", "pin2", "2", "gnd"],
-  };
-  elements.push(port2);
-
-  // Create schematic component for LED (as a box with pins since symbol doesn't render)
-  const schematicComponentId = `schematic_component_${componentIndex}`;
-  const schematicComponent: SchematicComponent = {
-    type: "schematic_component",
-    schematic_component_id: schematicComponentId,
-    source_component_id: sourceComponentId,
-    center: { x: schematicX, y: schematicY },
-    size: { width: 1.5, height: 1.0 },
-    is_box_with_pins: true,
-    port_arrangement: {
-      left_side: {
-        pins: [1],
-        direction: "top-to-bottom",
-      },
-      right_side: {
-        pins: [2],
-        direction: "top-to-bottom",
-      },
-    },
-    pin_spacing: 0.5,
-    port_labels: {
-      "1": "+",
-      "2": "-",
-    },
-  };
-  elements.push(schematicComponent);
-
-  // Create schematic ports (positions relative to component center)
-  const port1X = schematicX - 0.75 - 0.4;
-  const port1Y = schematicY;
-  const schematicPort1: SchematicPort = {
-    type: "schematic_port",
-    schematic_port_id: `schematic_port_${componentIndex}_1`,
-    schematic_component_id: schematicComponentId,
-    source_port_id: port1Id,
-    center: { x: port1X, y: port1Y },
-    facing_direction: "left",
-    distance_from_component_edge: 0.4,
-    side_of_component: "left",
-    pin_number: 1,
-    display_pin_label: "+",
-  };
-  elements.push(schematicPort1);
-
-  // Store port position for trace routing
-  portPositions.set(port1Id, { portId: port1Id, x: port1X, y: port1Y });
-
-  const port2X = schematicX + 0.75 + 0.4;
-  const port2Y = schematicY;
-  const schematicPort2: SchematicPort = {
-    type: "schematic_port",
-    schematic_port_id: `schematic_port_${componentIndex}_2`,
-    schematic_component_id: schematicComponentId,
-    source_port_id: port2Id,
-    center: { x: port2X, y: port2Y },
-    facing_direction: "right",
-    distance_from_component_edge: 0.4,
-    side_of_component: "right",
-    pin_number: 2,
-    display_pin_label: "-",
-  };
-  elements.push(schematicPort2);
-
-  // Store port position for trace routing
-  portPositions.set(port2Id, { portId: port2Id, x: port2X, y: port2Y });
-
-  // Create schematic text label (position above component)
-  const schematicText: SchematicText = {
-    type: "schematic_text",
-    schematic_text_id: `schematic_text_${componentIndex}`,
-    schematic_component_id: schematicComponentId,
-    text: node.id || `LED${componentIndex}`,
-    anchor: "left",
-    rotation: 0,
-    position: { x: schematicX - 0.5, y: schematicY - 0.8 },
-    font_size: 0.25,
-    color: "#666",
-  };
-  elements.push(schematicText);
-
-  return elements;
-}
-
-function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
+function createCircuitJsonBoard(pins: Pin[], hardwareNodes: Node[]): CircuitElement[] {
   const elements: CircuitElement[] = [];
 
   if (pins.length === 0) {
     return elements;
   }
+
+  // Categorize pins by whether they connect to input or output components
+  const inputPinNumbers = new Set<number>();
+  const outputPinNumbers = new Set<number>();
+  
+  hardwareNodes.forEach((node) => {
+    const data = node.data as BaseData;
+    const circuit = getCircuitDefinition(data.instance!);
+    if (circuit) {
+      const resolvedPins = getResolvedPins(circuit, node.data, pins);
+      resolvedPins.forEach((pin) => {
+        if (pin >= 0) {
+          if (circuit.direction === "input") {
+            inputPinNumbers.add(pin);
+          } else {
+            outputPinNumbers.add(pin);
+          }
+        }
+      });
+    }
+  });
+
+  // Get the set of all used pins
+  const usedPinNumbers = new Set([...inputPinNumbers, ...outputPinNumbers]);
+
+  // Filter pins to only show used ones
+  const usedPins = pins.filter((p) => usedPinNumbers.has(p.pin));
+
+  // If no pins are used, show a minimal board
+  const displayPins = usedPins.length > 0 ? usedPins : pins.slice(0, 8);
 
   const boardComponentId = "source_component_0";
 
@@ -387,21 +320,28 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
   };
   elements.push(boardComponent);
 
-  // Create source ports for each pin
-  pins.forEach((pin, index) => {
-    const portId = `source_port_${index}`;
+  // Create a map of pin number to formatted label
+  const pinLabelMap = new Map<number, string>();
+  pins.forEach((pin) => {
+    pinLabelMap.set(pin.pin, formatPinValueWithPwm(pin, pins));
+  });
+
+  // Create source ports for each displayed pin
+  displayPins.forEach((pin) => {
+    const portId = `source_port_0_${pin.pin}`;
+    const label = pinLabelMap.get(pin.pin) || `${pin.pin}`;
     const port: SourcePort = {
       type: "source_port",
       source_port_id: portId,
       source_component_id: boardComponentId,
-      name: `pin${pin.pin}`,
+      name: label,
       pin_number: pin.pin,
-      port_hints: [`pin${pin.pin}`, `${pin.pin}`, `D${pin.pin}`],
+      port_hints: [label, `pin${pin.pin}`, `${pin.pin}`],
     };
     elements.push(port);
   });
 
-  // Create common nets (GND, VCC, etc.)
+  // Create common nets (GND, VCC)
   const gndNet: SourceNet = {
     type: "source_net",
     source_net_id: "source_net_gnd",
@@ -420,62 +360,48 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
   };
   elements.push(vccNet);
 
-  // Create schematic component for the board
-  const schematicComponentId = "board_component";
-  const pinCount = pins.length;
-
-  // Distribute pins across left and right sides (like a real DIP chip)
-  // Split pins: lower numbered pins on left, higher on right
-  const sortedPins = [...pins].sort((a, b) => a.pin - b.pin);
-  const halfCount = Math.ceil(pinCount / 2);
-  const leftPins = sortedPins.slice(0, halfCount).map((p) => p.pin);
-  const rightPins = sortedPins.slice(halfCount).map((p) => p.pin);
+  // Split pins into left (inputs) and right (outputs) sides
+  const leftPins = displayPins.filter((p) => inputPinNumbers.has(p.pin)).sort((a, b) => a.pin - b.pin);
+  const rightPins = displayPins.filter((p) => outputPinNumbers.has(p.pin)).sort((a, b) => a.pin - b.pin);
 
   const portLabels: Record<string, string> = {};
-  pins.forEach((pin) => {
-    portLabels[`${pin.pin}`] = `pin${pin.pin}`;
+  displayPins.forEach((pin) => {
+    portLabels[`${pin.pin}`] = pinLabelMap.get(pin.pin) || `${pin.pin}`;
   });
 
-  const boardHeight = Math.max(3, Math.max(leftPins.length, rightPins.length) * 1.0);
-  const boardWidth = 3;
+  const maxPins = Math.max(leftPins.length, rightPins.length, 1);
+  const boardHeight = Math.max(3, maxPins * 1.2);
+  const boardWidth = 2.5;
   const boardCenterX = 4;
   const boardCenterY = 4;
 
+  // Create schematic component for the board
+  const schematicComponentId = "board_component";
   const schematicComponent: SchematicComponent = {
     type: "schematic_component",
     schematic_component_id: schematicComponentId,
     source_component_id: boardComponentId,
     center: { x: boardCenterX, y: boardCenterY },
-    size: {
-      width: boardWidth,
-      height: boardHeight,
-    },
+    size: { width: boardWidth, height: boardHeight },
     is_box_with_pins: true,
     port_arrangement: {
-      left_side: {
-        pins: leftPins,
-        direction: "top-to-bottom",
-      },
-      right_side: {
-        pins: rightPins,
-        direction: "top-to-bottom",
-      },
+      left_side: { pins: leftPins.map((p) => p.pin), direction: "top-to-bottom" },
+      right_side: { pins: rightPins.map((p) => p.pin), direction: "top-to-bottom" },
     },
-    pin_spacing: 0.8,
+    pin_spacing: 1.0,
     port_labels: portLabels,
   };
   elements.push(schematicComponent);
 
-  // Create schematic ports for each pin
-  // Left side pins
-  const leftPinSpacing = boardHeight / (leftPins.length + 1);
-  leftPins.forEach((pinNum, idx) => {
-    const pinIndex = pins.findIndex((p) => p.pin === pinNum);
-    const portId = `source_port_${pinIndex}`;
-    const schematicPortId = `schematic_port_${pinIndex}`;
+  // Create schematic ports for left side (input pins)
+  const leftSpacing = boardHeight / (leftPins.length + 1);
+  leftPins.forEach((pin, idx) => {
+    const portId = `source_port_0_${pin.pin}`;
+    const schematicPortId = `schematic_port_0_${pin.pin}`;
+    const label = pinLabelMap.get(pin.pin) || `${pin.pin}`;
 
     const portX = boardCenterX - boardWidth / 2 - 0.4;
-    const portY = boardCenterY - boardHeight / 2 + leftPinSpacing * (idx + 1);
+    const portY = boardCenterY - boardHeight / 2 + leftSpacing * (idx + 1);
 
     const schematicPort: SchematicPort = {
       type: "schematic_port",
@@ -486,23 +412,22 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
       facing_direction: "left",
       distance_from_component_edge: 0.4,
       side_of_component: "left",
-      pin_number: pinNum,
+      pin_number: pin.pin,
       true_ccw_index: idx,
-      display_pin_label: `pin${pinNum}`,
+      display_pin_label: label,
     };
     elements.push(schematicPort);
-    portPositions.set(portId, { portId, x: portX, y: portY });
   });
 
-  // Right side pins
-  const rightPinSpacing = boardHeight / (rightPins.length + 1);
-  rightPins.forEach((pinNum, idx) => {
-    const pinIndex = pins.findIndex((p) => p.pin === pinNum);
-    const portId = `source_port_${pinIndex}`;
-    const schematicPortId = `schematic_port_${pinIndex}`;
+  // Create schematic ports for right side (output pins)
+  const rightSpacing = boardHeight / (rightPins.length + 1);
+  rightPins.forEach((pin, idx) => {
+    const portId = `source_port_0_${pin.pin}`;
+    const schematicPortId = `schematic_port_0_${pin.pin}`;
+    const label = pinLabelMap.get(pin.pin) || `${pin.pin}`;
 
     const portX = boardCenterX + boardWidth / 2 + 0.4;
-    const portY = boardCenterY - boardHeight / 2 + rightPinSpacing * (idx + 1);
+    const portY = boardCenterY - boardHeight / 2 + rightSpacing * (idx + 1);
 
     const schematicPort: SchematicPort = {
       type: "schematic_port",
@@ -513,12 +438,11 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
       facing_direction: "right",
       distance_from_component_edge: 0.4,
       side_of_component: "right",
-      pin_number: pinNum,
+      pin_number: pin.pin,
       true_ccw_index: leftPins.length + idx,
-      display_pin_label: `pin${pinNum}`,
+      display_pin_label: label,
     };
     elements.push(schematicPort);
-    portPositions.set(portId, { portId, x: portX, y: portY });
   });
 
   // Create schematic text label for the board
@@ -526,11 +450,11 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
     type: "schematic_text",
     schematic_text_id: "schematic_text_board",
     schematic_component_id: schematicComponentId,
-    text: "microcontroller",
-    anchor: "left",
+    text: "MCU",
+    anchor: "center",
     rotation: 0,
-    position: { x: boardCenterX - 1, y: boardCenterY },
-    font_size: 0.25,
+    position: { x: boardCenterX, y: boardCenterY },
+    font_size: 0.3,
     color: "#666",
   };
   elements.push(boardText);
@@ -538,231 +462,202 @@ function createCircuitJsonBoard(pins: Pin[]): CircuitElement[] {
   return elements;
 }
 
-function createCircuitJsonTraces(
+interface TraceConnection {
+  sourceTraceId: string;
+  fromPortId: string;
+  toPortId: string;
+}
+
+interface NetLabelConnection {
+  portId: string;
+  schematicPortId: string;
+  netType: "VCC" | "GND";
+  side: "left" | "right" | "top" | "bottom";
+}
+
+function createSourceTraces(
   nodes: Node[],
   pins: Pin[],
   nodeToComponentIndex: Map<string, number>,
-): CircuitElement[] {
-  const elements: CircuitElement[] = [];
+): { sourceTraces: CircuitElement[]; traceConnections: TraceConnection[]; netLabelConnections: NetLabelConnection[] } {
+  const sourceTraces: CircuitElement[] = [];
+  const traceConnections: TraceConnection[] = [];
+  const netLabelConnections: NetLabelConnection[] = [];
   let traceIndex = 0;
-  const usedNetLabels = new Set<string>();
 
-  // Helper function to create schematic trace edges between two ports
-  // Board is at center (4, 4) with width 3
-  // Left edge at x=2.5, right edge at x=5.5
-  function createSchematicTrace(
-    sourceTraceId: string,
-    fromPortId: string,
-    toPortId: string,
-  ): SchematicTrace | null {
-    const fromPos = portPositions.get(fromPortId);
-    const toPos = portPositions.get(toPortId);
-
-    if (!fromPos || !toPos) {
-      console.warn(`Missing port positions for trace: ${fromPortId} -> ${toPortId}`);
-      return null;
-    }
-
-    const boardCenterX = 4;
-    const boardLeftEdge = boardCenterX - 1.5 - 0.4; // 2.1
-    const boardRightEdge = boardCenterX + 1.5 + 0.4; // 5.9
-
-    const edges: SchematicTrace["edges"] = [];
-
-    // Determine if the from port is on the left or right side of the board
-    const fromIsOnLeft = fromPos.x < boardCenterX;
-
-    if (fromIsOnLeft) {
-      // Port is on left side of board - route left, then around
-      const routeX = boardLeftEdge - 1; // Route to the left of the board
-
-      // Go left from the board port
-      edges.push({
-        from: { x: fromPos.x, y: fromPos.y },
-        to: { x: routeX, y: fromPos.y },
-      });
-      // Go up/down to clear the board
-      const clearY = Math.min(fromPos.y, toPos.y) - 1;
-      edges.push({
-        from: { x: routeX, y: fromPos.y },
-        to: { x: routeX, y: clearY },
-      });
-      // Go right to past the board
-      const rightRouteX = boardRightEdge + 1;
-      edges.push({
-        from: { x: routeX, y: clearY },
-        to: { x: rightRouteX, y: clearY },
-      });
-      // Go down to target Y
-      edges.push({
-        from: { x: rightRouteX, y: clearY },
-        to: { x: rightRouteX, y: toPos.y },
-      });
-      // Go to target
-      edges.push({
-        from: { x: rightRouteX, y: toPos.y },
-        to: { x: toPos.x, y: toPos.y },
-      });
-    } else {
-      // Port is on right side of board - direct route to component
-      const midX = (fromPos.x + toPos.x) / 2;
-      edges.push({
-        from: { x: fromPos.x, y: fromPos.y },
-        to: { x: midX, y: fromPos.y },
-      });
-      edges.push({
-        from: { x: midX, y: fromPos.y },
-        to: { x: midX, y: toPos.y },
-      });
-      edges.push({
-        from: { x: midX, y: toPos.y },
-        to: { x: toPos.x, y: toPos.y },
-      });
-    }
-
-    return {
-      type: "schematic_trace",
-      schematic_trace_id: `schematic_trace_${sourceTraceId}`,
-      source_trace_id: sourceTraceId,
-      edges,
-      junctions: [],
-    };
-  }
-
-  // Create traces for connections between components and pins
   nodes.forEach((node) => {
     const data = node.data as BaseData;
+    const instanceType = data.instance;
 
-    // Get component index from the map
+    if (!instanceType || !isHardwareComponent(instanceType)) {
+      return;
+    }
+
+    const circuit = getCircuitDefinition(instanceType);
+    if (!circuit) return;
+
     const componentIndex = nodeToComponentIndex.get(node.id);
     if (componentIndex === undefined) return;
 
-    // Handle button components
-    if (data.instance?.toLowerCase() === "button") {
-      const buttonData = data as ButtonData;
-      const pinNumber =
-        typeof buttonData.pin === "number" ? buttonData.pin : parseInt(buttonData.pin);
+    // Get resolved pins used by this component
+    const componentPins = getResolvedPins(circuit, node.data, pins);
+    const netConnections = circuit.getNetConnections?.(node.data) || {};
 
-      // Find the corresponding source port for this pin
+    // Create traces from board pins to component signal pins
+    componentPins.forEach((pinNumber, pinIdx) => {
+      if (pinNumber < 0) return; // Skip invalid pins
+      
       const pinIndex = pins.findIndex((p) => p.pin === pinNumber);
       if (pinIndex === -1) return;
 
-      const boardPortId = `source_port_${pinIndex}`;
-      const componentPortId = `source_port_${componentIndex}_1`; // Button pin 1
+      const boardPortId = `source_port_0_${pinNumber}`;
+      // Signal pin is typically pin 1 for single-pin components, or sequential for multi-pin
+      const signalPinNumber = pinIdx + 1;
+      const componentPortId = `source_port_${componentIndex}_${signalPinNumber}`;
       const sourceTraceId = `source_trace_${traceIndex}`;
 
-      // Create source trace from board pin to component
       const trace: SourceTrace = {
         type: "source_trace",
         source_trace_id: sourceTraceId,
         connected_source_port_ids: [boardPortId, componentPortId],
         connected_source_net_ids: [],
-        display_name: `.microcontroller > .pin${pinNumber} to .${node.id} > .pin1`,
+        display_name: `.microcontroller > .pin${pinNumber} to .${node.id} > .pin${signalPinNumber}`,
       };
-      elements.push(trace);
-
-      // Create schematic trace with routing
-      const schematicTrace = createSchematicTrace(sourceTraceId, boardPortId, componentPortId);
-      if (schematicTrace) {
-        elements.push(schematicTrace);
-      }
+      sourceTraces.push(trace);
+      traceConnections.push({ sourceTraceId, fromPortId: boardPortId, toPortId: componentPortId });
       traceIndex++;
+    });
 
-      // Create trace from component pin 2 to GND (if pulldown) or VCC (if pullup)
-      const componentPort2Id = `source_port_${componentIndex}_2`;
-      const netId = buttonData.isPullup ? "source_net_vcc" : "source_net_gnd";
-      const netName = buttonData.isPullup ? "VCC" : "GND";
-      const sourceTrace2Id = `source_trace_${traceIndex}`;
+    // Collect net label connections for VCC/GND (instead of traces)
+    for (const [pinNum, netType] of Object.entries(netConnections)) {
+      if (!netType) continue;
 
-      const trace2: SourceTrace = {
-        type: "source_trace",
-        source_trace_id: sourceTrace2Id,
-        connected_source_port_ids: [componentPort2Id],
-        connected_source_net_ids: [netId],
-        display_name: `.${node.id} > .pin2 to net.${netName}`,
-      };
-      elements.push(trace2);
-      traceIndex++;
+      const port = circuit.ports.find((p) => p.pinNumber === parseInt(pinNum));
+      const side = port?.side || "right";
 
-      // Create net label for GND/VCC if not already created
-      if (!usedNetLabels.has(netId)) {
-        const port2Pos = portPositions.get(componentPort2Id);
-        const netLabel: SchematicNetLabel = {
-          type: "schematic_net_label",
-          schematic_net_label_id: `schematic_net_label_${netId}`,
-          text: netName,
-          source_net_id: netId,
-          anchor_position: { x: port2Pos?.x ?? 0, y: port2Pos?.y ?? 0 },
-          center: { x: (port2Pos?.x ?? 0) + 0.5, y: port2Pos?.y ?? 0 },
-          anchor_side: "left",
-        };
-        elements.push(netLabel);
-        usedNetLabels.add(netId);
-      }
-    }
-    // Handle LED components
-    else if (data.instance?.toLowerCase() === "led") {
-      const ledData = data as LedData;
-      const pinNumber = typeof ledData.pin === "number" ? ledData.pin : parseInt(ledData.pin);
-
-      // Find the corresponding source port for this pin
-      const pinIndex = pins.findIndex((p) => p.pin === pinNumber);
-      if (pinIndex === -1) return;
-
-      const boardPortId = `source_port_${pinIndex}`;
-      const componentPortId = `source_port_${componentIndex}_1`; // LED anode
-      const sourceTraceId = `source_trace_${traceIndex}`;
-
-      // Create source trace from board pin to LED anode
-      const trace: SourceTrace = {
-        type: "source_trace",
-        source_trace_id: sourceTraceId,
-        connected_source_port_ids: [boardPortId, componentPortId],
-        connected_source_net_ids: [],
-        display_name: `.microcontroller > .pin${pinNumber} to .${node.id} > .anode`,
-      };
-      elements.push(trace);
-
-      // Create schematic trace with routing
-      const schematicTrace = createSchematicTrace(sourceTraceId, boardPortId, componentPortId);
-      if (schematicTrace) {
-        elements.push(schematicTrace);
-      }
-      traceIndex++;
-
-      // Create trace from LED cathode to GND
-      const componentPort2Id = `source_port_${componentIndex}_2`;
-      const netId = "source_net_gnd";
-      const netName = "GND";
-      const sourceTrace2Id = `source_trace_${traceIndex}`;
-
-      const trace2: SourceTrace = {
-        type: "source_trace",
-        source_trace_id: sourceTrace2Id,
-        connected_source_port_ids: [componentPort2Id],
-        connected_source_net_ids: [netId],
-        display_name: `.${node.id} > .cathode to net.${netName}`,
-      };
-      elements.push(trace2);
-      traceIndex++;
-
-      // Create net label for GND if not already created
-      if (!usedNetLabels.has(netId)) {
-        const port2Pos = portPositions.get(componentPort2Id);
-        const netLabel: SchematicNetLabel = {
-          type: "schematic_net_label",
-          schematic_net_label_id: `schematic_net_label_${netId}`,
-          text: netName,
-          source_net_id: netId,
-          anchor_position: { x: port2Pos?.x ?? 0, y: port2Pos?.y ?? 0 },
-          center: { x: (port2Pos?.x ?? 0) + 0.5, y: port2Pos?.y ?? 0 },
-          anchor_side: "left",
-        };
-        elements.push(netLabel);
-        usedNetLabels.add(netId);
-      }
+      netLabelConnections.push({
+        portId: `source_port_${componentIndex}_${pinNum}`,
+        schematicPortId: `schematic_port_${componentIndex}_${pinNum}`,
+        netType: netType as "VCC" | "GND",
+        side,
+      });
     }
   });
 
-  return elements;
+  return { sourceTraces, traceConnections, netLabelConnections };
+}
+
+function createSchematicTraces(
+  soup: AnyCircuitElement[],
+  traceConnections: TraceConnection[],
+): SchematicTrace[] {
+  const traces: SchematicTrace[] = [];
+
+  // Build a map of source_port_id to schematic port position
+  const portPositions = new Map<string, { x: number; y: number }>();
+  for (const element of soup) {
+    if (element.type === "schematic_port") {
+      const port = element as SchematicPort;
+      portPositions.set(port.source_port_id, port.center);
+    }
+  }
+
+  // Create schematic traces for each connection
+  for (const conn of traceConnections) {
+    const fromPos = portPositions.get(conn.fromPortId);
+    const toPos = portPositions.get(conn.toPortId);
+
+    if (!fromPos || !toPos) {
+      console.warn(`Missing port positions for trace: ${conn.fromPortId} -> ${conn.toPortId}`);
+      continue;
+    }
+
+    const edges: SchematicTrace["edges"] = [];
+
+    // Route: horizontal from source -> vertical to align -> horizontal to target
+    const midX = (fromPos.x + toPos.x) / 2;
+
+    edges.push({ from: { x: fromPos.x, y: fromPos.y }, to: { x: midX, y: fromPos.y } });
+    if (fromPos.y !== toPos.y) {
+      edges.push({ from: { x: midX, y: fromPos.y }, to: { x: midX, y: toPos.y } });
+    }
+    edges.push({ from: { x: midX, y: toPos.y }, to: { x: toPos.x, y: toPos.y } });
+
+    traces.push({
+      type: "schematic_trace",
+      schematic_trace_id: `schematic_trace_${conn.sourceTraceId}`,
+      source_trace_id: conn.sourceTraceId,
+      edges,
+      junctions: [],
+    });
+  }
+
+  return traces;
+}
+
+function createNetLabels(
+  soup: AnyCircuitElement[],
+  netLabelConnections: NetLabelConnection[],
+): SchematicNetLabel[] {
+  const labels: SchematicNetLabel[] = [];
+
+  // Build a map of schematic_port_id to port position and facing direction
+  const portInfo = new Map<string, { center: { x: number; y: number }; facing: string }>();
+  for (const element of soup) {
+    if (element.type === "schematic_port") {
+      const port = element as SchematicPort;
+      portInfo.set(port.schematic_port_id, {
+        center: port.center,
+        facing: port.facing_direction || "left",
+      });
+    }
+  }
+
+  // Create net labels positioned near each port
+  netLabelConnections.forEach((conn, idx) => {
+    const info = portInfo.get(conn.schematicPortId);
+    if (!info) {
+      console.warn(`Missing port info for net label: ${conn.schematicPortId}`);
+      return;
+    }
+
+    // Position the label slightly offset from the port based on side
+    let offsetX = 0;
+    let offsetY = 0;
+    let anchorSide: "left" | "right" | "top" | "bottom" = "right";
+
+    switch (conn.side) {
+      case "left":
+        offsetX = -0.3;
+        anchorSide = "right";
+        break;
+      case "right":
+        offsetX = 0.3;
+        anchorSide = "left";
+        break;
+      case "top":
+        offsetY = -0.3;
+        anchorSide = "bottom";
+        break;
+      case "bottom":
+        offsetY = 0.3;
+        anchorSide = "top";
+        break;
+    }
+
+    const netLabel: SchematicNetLabel = {
+      type: "schematic_net_label",
+      schematic_net_label_id: `net_label_${idx}`,
+      source_net_id: conn.netType === "VCC" ? "source_net_vcc" : "source_net_gnd",
+      text: conn.netType,
+      center: {
+        x: info.center.x + offsetX,
+        y: info.center.y + offsetY,
+      },
+      anchor_side: anchorSide,
+    };
+    labels.push(netLabel);
+  });
+
+  return labels;
 }
