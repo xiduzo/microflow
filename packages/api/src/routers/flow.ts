@@ -7,10 +7,36 @@ import { protectedProcedure, router } from "../index";
 import { FlowDocument } from "@microflow/collab/server";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+// Tailwind -300 colors for flow color picker
+export const FLOW_COLORS = [
+  "#fca5a5", // red-300
+  "#fdba74", // orange-300
+  "#fcd34d", // amber-300
+  "#fde047", // yellow-300
+  "#bef264", // lime-300
+  "#86efac", // green-300
+  "#6ee7b7", // emerald-300
+  "#5eead4", // teal-300
+  "#67e8f9", // cyan-300
+  "#7dd3fc", // sky-300
+  "#93c5fd", // blue-300
+  "#a5b4fc", // indigo-300
+  "#c4b5fd", // violet-300
+  "#d8b4fe", // purple-300
+  "#f0abfc", // fuchsia-300
+  "#f9a8d4", // pink-300
+  "#fda4af", // rose-300
+] as const;
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
-const uid = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+const uid = () =>
+  Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
 function decodeFlowData(ydoc: Buffer | null) {
   if (!ydoc) return { nodes: [], edges: [] };
@@ -39,7 +65,7 @@ export const flowRouter = router({
       columns: {
         id: true,
         name: true,
-        description: true,
+        color: true,
         createdAt: true,
         updatedAt: true,
         ydoc: true,
@@ -59,7 +85,7 @@ export const flowRouter = router({
           columns: {
             id: true,
             name: true,
-            description: true,
+            color: true,
             createdAt: true,
             updatedAt: true,
             ydoc: true,
@@ -82,58 +108,67 @@ export const flowRouter = router({
   /**
    * Get a single flow by ID
    */
-  get: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
-    const userId = ctx.session.user.id;
+  get: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
 
-    const flowRecord = await db.query.flow.findFirst({
-      where: eq(flow.id, input.id),
-      with: {
-        owner: {
-          columns: { id: true, name: true, image: true },
-        },
-        collaborators: {
-          with: {
-            user: {
-              columns: { id: true, name: true, image: true },
+      const flowRecord = await db.query.flow.findFirst({
+        where: eq(flow.id, input.id),
+        with: {
+          owner: {
+            columns: { id: true, name: true, email: true, image: true },
+          },
+          collaborators: {
+            columns: { role: true },
+            with: {
+              user: {
+                columns: { id: true, name: true, email: true, image: true },
+              },
             },
           },
         },
-      },
-    });
+      });
 
-    if (!flowRecord) {
-      throw new Error("Flow not found");
-    }
+      if (!flowRecord) {
+        throw new Error("Flow not found");
+      }
 
-    // Check access
-    const isOwner = flowRecord.ownerId === userId;
-    const isCollaborator = flowRecord.collaborators.some((c) => c.userId === userId);
+      // Check access
+      const isOwner = flowRecord.ownerId === userId;
+      const isCollaborator = flowRecord.collaborators.some(
+        (c) => c.user.id === userId
+      );
 
-    if (!isOwner && !isCollaborator) {
-      throw new Error("Access denied");
-    }
+      if (!isOwner && !isCollaborator) {
+        throw new Error("Access denied");
+      }
 
-    // Decode ydoc to get nodes/edges
-    const { nodes, edges } = decodeFlowData(flowRecord.ydoc);
+      // Decode ydoc to get nodes/edges
+      const { nodes, edges } = decodeFlowData(flowRecord.ydoc);
 
-    // Return ydoc as base64 for client to initialize FlowDocument
-    const ydocBase64 = flowRecord.ydoc ? Buffer.from(flowRecord.ydoc).toString("base64") : null;
+      // Return ydoc as base64 for client to initialize FlowDocument
+      const ydocBase64 = flowRecord.ydoc
+        ? Buffer.from(flowRecord.ydoc).toString("base64")
+        : null;
 
-    return {
-      id: flowRecord.id,
-      name: flowRecord.name,
-      description: flowRecord.description,
-      createdAt: flowRecord.createdAt,
-      updatedAt: flowRecord.updatedAt,
-      owner: flowRecord.owner,
-      collaborators: flowRecord.collaborators,
-      nodes,
-      edges,
-      ydocBase64,
-      isOwner,
-      role: isOwner ? "owner" : flowRecord.collaborators.find((c) => c.userId === userId)?.role,
-    };
-  }),
+      return {
+        id: flowRecord.id,
+        name: flowRecord.name,
+        color: flowRecord.color,
+        createdAt: flowRecord.createdAt,
+        updatedAt: flowRecord.updatedAt,
+        owner: flowRecord.owner,
+        collaborators: flowRecord.collaborators,
+        nodes,
+        edges,
+        ydocBase64,
+        isOwner,
+        role: isOwner
+          ? "owner"
+          : flowRecord.collaborators.find((c) => c.user.id === userId)?.role,
+      };
+    }),
 
   /**
    * Create a new flow
@@ -142,28 +177,34 @@ export const flowRouter = router({
     .input(
       z.object({
         name: z.string().min(1).max(100),
-        description: z.string().max(500).optional(),
-      }),
+        color: z
+          .string()
+          .regex(/^#[0-9A-Fa-f]{6}$/)
+          .optional(),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const id = uid();
 
       // Create empty FlowDocument and encode it
       const flowDoc = FlowDocument.createEmpty();
-      flowDoc.setMeta({ name: input.name, description: input.description });
+      flowDoc.setMeta({ name: input.name });
       const ydocData = flowDoc.encode();
 
-      await db.insert(flow).values({
+      const [createdFlow] = await db.insert(flow).values({
         id,
         name: input.name,
-        description: input.description,
+        color: input.color,
         ownerId: ctx.session.user.id,
         ydoc: Buffer.from(ydocData),
+      }).returning({
+        id: flow.id,
+        name: flow.name,
       });
 
       flowDoc.destroy();
 
-      return { id };
+      return createdFlow;
     }),
 
   /**
@@ -174,8 +215,11 @@ export const flowRouter = router({
       z.object({
         id: z.string(),
         name: z.string().min(1).max(100).optional(),
-        description: z.string().max(500).optional(),
-      }),
+        color: z
+          .string()
+          .regex(/^#[0-9A-Fa-f]{6}$/)
+          .optional(),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const flowRecord = await db.query.flow.findFirst({
@@ -186,16 +230,17 @@ export const flowRouter = router({
         throw new Error("Flow not found or access denied");
       }
 
-      await db
+      const updatedFlow = await db
         .update(flow)
         .set({
           name: input.name,
-          description: input.description,
+          color: input.color,
           updatedAt: new Date(),
         })
-        .where(eq(flow.id, input.id));
+        .where(eq(flow.id, input.id))
+        .returning();
 
-      return { success: true };
+      return updatedFlow;
     }),
 
   /**
@@ -214,7 +259,7 @@ export const flowRouter = router({
 
       await db.delete(flow).where(eq(flow.id, input.id));
 
-      return { success: true };
+      return flowRecord;
     }),
 
   /**
@@ -226,7 +271,7 @@ export const flowRouter = router({
         flowId: z.string(),
         userId: z.string(),
         role: z.enum(["viewer", "editor"]).default("viewer"),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const flowRecord = await db.query.flow.findFirst({
@@ -256,7 +301,7 @@ export const flowRouter = router({
       z.object({
         flowId: z.string(),
         userId: z.string(),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const flowRecord = await db.query.flow.findFirst({
@@ -270,7 +315,10 @@ export const flowRouter = router({
       await db
         .delete(flowCollaborator)
         .where(
-          and(eq(flowCollaborator.flowId, input.flowId), eq(flowCollaborator.userId, input.userId)),
+          and(
+            eq(flowCollaborator.flowId, input.flowId),
+            eq(flowCollaborator.userId, input.userId)
+          )
         );
 
       return { success: true };
@@ -283,7 +331,10 @@ export const flowRouter = router({
     .input(z.object({ query: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const users = await db.query.user.findMany({
-        where: and(like(user.email, `%${input.query}%`), ne(user.id, ctx.session.user.id)),
+        where: and(
+          like(user.email, `%${input.query}%`),
+          ne(user.id, ctx.session.user.id)
+        ),
         columns: {
           id: true,
           name: true,
@@ -304,7 +355,7 @@ export const flowRouter = router({
         flowId: z.string(),
         email: z.string().email(),
         role: z.enum(["viewer", "editor"]).default("viewer"),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const flowRecord = await db.query.flow.findFirst({
@@ -332,7 +383,7 @@ export const flowRouter = router({
       const existing = await db.query.flowCollaborator.findFirst({
         where: and(
           eq(flowCollaborator.flowId, input.flowId),
-          eq(flowCollaborator.userId, targetUser.id),
+          eq(flowCollaborator.userId, targetUser.id)
         ),
       });
 
@@ -350,4 +401,34 @@ export const flowRouter = router({
 
       return { success: true, userId: targetUser.id };
     }),
+    /**
+     * Update a collaborator's role
+     */
+    updateCollaboratorRole: protectedProcedure
+      .input(z.object({ flowId: z.string(), userId: z.string(), role: z.enum(["viewer", "editor"]).default("viewer") }))
+      .mutation(async ({ ctx, input }) => {
+        const flowRecord = await db.query.flow.findFirst({
+          where: eq(flow.id, input.flowId),
+        });
+
+        if(!flowRecord) {
+          throw new Error("Flow not found");
+        }
+
+        if(flowRecord.ownerId !== ctx.session.user.id) {
+          throw new Error("Access denied");
+        }
+
+        const collaborator = await db.query.flowCollaborator.findFirst({
+          where: and(eq(flowCollaborator.flowId, input.flowId), eq(flowCollaborator.userId, input.userId)),
+        });
+        
+        if(!collaborator) {
+          throw new Error("Collaborator not found");
+        }
+
+        await db.update(flowCollaborator).set({ role: input.role }).where(eq(flowCollaborator.id, collaborator.id));
+
+        return { success: true };
+      }),
 });

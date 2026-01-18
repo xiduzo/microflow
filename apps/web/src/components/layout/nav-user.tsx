@@ -7,6 +7,7 @@ import {
   LogOut,
   Sparkles,
   User,
+  User2Icon,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -61,13 +62,13 @@ export function NavUser({ user }: Props) {
             size="lg"
             render={(props) => <Link to="/login" {...props} />}
           >
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-              <LogIn className="size-4" />
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-yellow-700 text-yellow-100">
+              <User2Icon />
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">Sign in</span>
               <span className="truncate text-xs text-muted-foreground">
-                Access your account
+                Or create a new account
               </span>
             </div>
           </SidebarMenuButton>
@@ -137,18 +138,6 @@ export function NavUser({ user }: Props) {
                 <User />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell />
-                Notifications
-              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -157,7 +146,6 @@ export function NavUser({ user }: Props) {
                   fetchOptions: {
                     onSuccess: () => {
                       navigate({ to: "/" });
-                      toast.success("Signed out successfully");
                     },
                     onError: (error) => {
                       toast.error(error.error.message || "Failed to sign out");

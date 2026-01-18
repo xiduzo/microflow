@@ -6,7 +6,6 @@ import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
-import Loader from "./loader";
 import { Button } from "./ui/button";
 import {
   Card,
@@ -23,6 +22,7 @@ import {
   FieldLabel,
 } from "./ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
+import { LoadingState } from "./states/loading-state";
 
 export function SignInForm({
   onSwitchToSignUp,
@@ -66,9 +66,7 @@ export function SignInForm({
     },
   });
 
-  if (isPending) {
-    return <Loader />;
-  }
+  if (isPending) <LoadingState />;
 
   return (
     <Card className="flex flex-col gap-6 mx-auto w-full mt-10 max-w-md">

@@ -1,21 +1,17 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { WaypointsIcon, CloudIcon, LogInIcon } from "lucide-react";
+import { CloudIcon, LogInIcon, User2Icon } from "lucide-react";
 
 import { trpc } from "@/utils/trpc";
 import { authClient } from "@/lib/auth-client";
 import { FlowCard, FlowCardSkeleton } from "@/components/home/flow-card";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-} from "@/components/ui/empty";
+
 import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
+import { ErrorState } from "@/components/states/error-state";
+import { LoadingStateSkeleton } from "@/components/states/loading-state";
+import { EmptyState } from "@/components/states/empty-state";
 
 const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
 
@@ -86,48 +82,18 @@ function HomeComponent() {
 function CloudFlows() {
   const { data, isLoading, error } = useQuery(trpc.flow.list.queryOptions());
 
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <FlowCardSkeleton key={i} />
-        ))}
-      </div>
-    );
-  }
+  if (isLoading)
+    return <LoadingStateSkeleton skeleton={<FlowCardSkeleton />} />;
 
-  if (error) {
-    return (
-      <Empty className="border rounded-xl py-12">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <WaypointsIcon className="size-4" />
-          </EmptyMedia>
-          <EmptyTitle>Failed to load flows</EmptyTitle>
-          <EmptyDescription>{error.message}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
+  if (error) return <ErrorState title="Failed to load flows" error={error} />;
 
   const flows = [...(data?.owned ?? []), ...(data?.collaborated ?? [])];
 
   if (!flows || flows.length === 0) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <WaypointsIcon className="size-4" />
-          </EmptyMedia>
-          <EmptyTitle>No cloud flows yet</EmptyTitle>
-          <EmptyDescription>
-            Create your first cloud flow to sync across devices
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <CreateFlowDialog />
-        </EmptyContent>
-      </Empty>
+      <EmptyState title="No flows found" icon={CloudIcon}>
+        <CreateFlowDialog />
+      </EmptyState>
     );
   }
 
@@ -151,24 +117,14 @@ function CloudFlows() {
 
 function SignInNudge() {
   return (
-    <Empty className="border border-dashed rounded-xl py-12 bg-muted/10">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <CloudIcon className="size-4" />
-        </EmptyMedia>
-        <EmptyTitle>Sign in for cloud sync</EmptyTitle>
-        <EmptyDescription>
-          Get cloud backup, multiple flows, and real-time collaboration
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Link to="/login">
-          <Button>
-            <LogInIcon className="size-4 mr-2" />
-            Sign in
-          </Button>
-        </Link>
-      </EmptyContent>
-    </Empty>
+    <EmptyState
+      title="Not signed in"
+      description="Sign in to sync your flows across devices and collaborate with others"
+      icon={User2Icon}
+    >
+      <Link to="/login">
+        <Button>Sign in</Button>
+      </Link>
+    </EmptyState>
   );
 }

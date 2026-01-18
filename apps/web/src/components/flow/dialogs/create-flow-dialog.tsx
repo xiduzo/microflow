@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Plus } from "lucide-react";
 
-import { trpc, trpcClient } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
 import {
   Dialog,
@@ -15,48 +15,51 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { FLOW_COLORS } from "@/lib/flow-colors";
+import { useForm } from "@tanstack/react-form";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+import { toast } from "sonner";
 
 type Props = {
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: (flowId: string) => void;
 };
 
 export function CreateFlowDialog({ trigger, onSuccess }: Props) {
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      color: FLOW_COLORS[Math.floor(Math.random() * FLOW_COLORS.length)],
+    },
+    onSubmit: ({ value }) => createMutation.mutate(value),
+  });
+
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
 
-  const createMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string }) =>
-      trpcClient.flow.create.mutate(data),
+  const createMutation = useMutation(trpc.flow.create.mutationOptions({
     onSuccess: (result) => {
+      toast.success("Flow created", {
+        description: `${result.name} has been created`,
+      });
       queryClient.invalidateQueries({ queryKey: trpc.flow.list.queryKey() });
       setActiveFlowId(result.id);
       setOpen(false);
-      setName("");
-      setDescription("");
-      onSuccess?.(result.id);
-      navigate({ to: "/flow/$flowId", params: { flowId: result.id } });
+      form.reset();
+      navigate({ to: "/$flowId/flow", params: { flowId: result.id } });
     },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    createMutation.mutate({
-      name: name.trim(),
-      description: description.trim() || undefined,
-    });
-  };
+  }));
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={open => {
+      setOpen(open);
+      if (open) return
+      form.reset();
+    }}>
       <DialogTrigger render={trigger ?? <Button size="sm" />}>
         {!trigger && (
           <>
@@ -66,43 +69,73 @@ export function CreateFlowDialog({ trigger, onSuccess }: Props) {
         )}
       </DialogTrigger>
       <DialogContent>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          form.handleSubmit();
+        }}>
           <DialogHeader>
             <DialogTitle>Create new flow</DialogTitle>
             <DialogDescription>
-              Create a cloud flow to sync across devices and collaborate with others.
+              Create a flow to sync across devices and collaborate with others.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My awesome flow"
-                autoFocus
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What's this flow about?"
-                rows={3}
-              />
-            </div>
-          </div>
+          <FieldGroup className="gap-3 py-6">
+            <form.Field name="name">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>Purpose of this flow</FieldLabel>
+                  <InputGroup>
+                    <InputGroupInput
+                      id={field.name}
+                      name={field.name}
+                      placeholder="My awesome flow"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      required
+                    />
+                  </InputGroup>
+                  <FieldError errors={field.state.meta.errors} />
+                </Field>
+              )}
+            </form.Field>
+            <form.Field name="color">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>Quick identifier</FieldLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {FLOW_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={cn(
+                          "w-8 h-8 rounded-full transition-all",
+                          field.state.value === color
+                            ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
+                            : "hover:scale-105 hover:ring-1 hover:ring-offset-2 hover:ring-offset-background/5 hover:ring-primary/5"
+                        )}
+                        style={{ backgroundColor: color }}
+                        onClick={() => field.handleChange(color as typeof field.state.value)}
+                      />
+                    ))}
+                  </div>
+                </Field>
+              )}
+            </form.Field>
+          </FieldGroup>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim() || createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
-              Create
-            </Button>
+            <form.Subscribe
+              children={() => (
+                <Button type="submit" disabled={!form.state.isValid || createMutation.isPending}>
+                  {createMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+                  Create
+                </Button>
+              )}
+            />
           </DialogFooter>
         </form>
       </DialogContent>

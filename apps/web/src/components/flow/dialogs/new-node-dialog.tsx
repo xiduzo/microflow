@@ -1,4 +1,4 @@
-import { type Node, useReactFlow } from "@xyflow/react";
+import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { NODE_TYPES } from "../nodes/_TYPES";
@@ -16,15 +16,11 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   SearchIcon,
   BookIcon,
@@ -36,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
+import { EmptyState } from "@/components/states/empty-state";
+import type { FlowNode } from "@microflow/collab";
 
 const NODE_SIZE = {
   width: 208,
@@ -73,7 +71,7 @@ export function NewNodeDialog() {
 
   function selectNode(node: BaseNode, type: string) {
     return function () {
-      const item: Node = {
+      const item: FlowNode = {
         data: node.data,
         id: uid(),
         type,
@@ -90,7 +88,9 @@ export function NewNodeDialog() {
     return Array.from(
       Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
         const node: BaseNode =
-          "defaultProps" in Component ? (Component.defaultProps as any) : { data: {} };
+          "defaultProps" in Component
+            ? (Component.defaultProps as any)
+            : { data: {} };
 
         if (node.data.group === "internal") return groups; // Skip internal nodes
         const firstTag = node.data.tags.at(0) || "information"; // Use first tag for grouping
@@ -98,7 +98,7 @@ export function NewNodeDialog() {
         group.push({ node, type });
         groups.set(firstTag, group);
         return groups;
-      }, new Map<string, { node: BaseNode; type: string }[]>()),
+      }, new Map<string, { node: BaseNode; type: string }[]>())
     );
   }, []);
 
@@ -143,13 +143,18 @@ export function NewNodeDialog() {
         if (label.toLowerCase().includes(searchLower)) return 1;
 
         // Priority 2: First tag match
-        if (firstTag && firstTag.toLowerCase().includes(searchLower)) return 0.9;
+        if (firstTag && firstTag.toLowerCase().includes(searchLower))
+          return 0.9;
 
         // Priority 3: Description match
         if (description.toLowerCase().includes(searchLower)) return 0.8;
 
         // Priority 4: Keywords match
-        if (keywords?.some((keyword: string) => keyword.toLowerCase().includes(searchLower))) {
+        if (
+          keywords?.some((keyword: string) =>
+            keyword.toLowerCase().includes(searchLower)
+          )
+        ) {
           return 0.6;
         }
 
@@ -164,25 +169,18 @@ export function NewNodeDialog() {
       <CommandInput placeholder={searchTerm} onValueChange={setFilter} />
       <CommandList ref={commandListRef} className="mb-2 min-h-[400px">
         <CommandEmpty className="flex items-center justify-center h-[400px]">
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <SearchIcon size={24} />
-              </EmptyMedia>
-              <EmptyTitle>Nothing found</EmptyTitle>
-              <EmptyDescription>
-                Try searching for a different node type or visit the documentation.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <a href="https://microflow.vercel.app/docs/microflow-studio/nodes" target="_blank">
-                <Button variant="link">
-                  <BookIcon size={24} />
-                  Visit the documentation
-                </Button>
-              </a>
-            </EmptyContent>
-          </Empty>
+          <EmptyState
+            title="Nothing found"
+            description="Try searching for a different node type or visit the documentation."
+            icon={SearchIcon}
+          >
+            <a
+              href="https://microflow.vercel.app/docs/microflow-studio/nodes"
+              target="_blank"
+            >
+              <Button variant="link">Visit the documentation</Button>
+            </a>
+          </EmptyState>
         </CommandEmpty>
         {groups.map(([group, nodes], index) => (
           <section key={group}>
@@ -207,7 +205,9 @@ export function NewNodeDialog() {
                     <div className="flex flex-col grow gap-3">
                       <div className="flex flex-col gap-1">
                         <div className="font-bold">{node.data.label}</div>
-                        <span className="text-muted-foreground">{node.data.description ?? ""}</span>
+                        <span className="text-muted-foreground">
+                          {node.data.description ?? ""}
+                        </span>
                       </div>
                       <section className="flex items-center gap-2">
                         {node.data.tags.map((tag) => (
@@ -238,7 +238,9 @@ export function NewNodeDialog() {
         <section className="flex items-center gap-3">
           <section className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Close</span>
-            <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">Esc</CommandShortcut>
+            <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
+              Esc
+            </CommandShortcut>
           </section>
           <section className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Navigate</span>
@@ -283,7 +285,7 @@ function useDraggableNewNode() {
       preventDefault: true,
       scopes: ["flow"],
     },
-    [nodeToAdd, removeNode, setNodeToAdd],
+    [nodeToAdd, removeNode, setNodeToAdd]
   );
 
   useHotkeys(
@@ -298,7 +300,7 @@ function useDraggableNewNode() {
       enableOnFormTags: false,
       preventDefault: false,
       scopes: ["flow"],
-    },
+    }
   );
 
   const addNode = useCallback(() => {
@@ -332,7 +334,14 @@ function useDraggableNewNode() {
       document.removeEventListener("mousedown", addNode);
       document.removeEventListener("click", addNode);
     };
-  }, [nodeToAdd, getZoom, updateNode, screenToFlowPosition, setNodeToAdd, addNode]);
+  }, [
+    nodeToAdd,
+    getZoom,
+    updateNode,
+    screenToFlowPosition,
+    setNodeToAdd,
+    addNode,
+  ]);
 
   return null;
 }

@@ -1,26 +1,37 @@
 import { ReactFlowCanvas } from "@/components/flow/react-flow-canvas";
 import { authClient } from "@/lib/auth-client";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
-import { useFlowStore, useFlowDocument } from "@/stores/flow-store";
+import {
+  useFlowStore,
+  useFlowDocument,
+  useFlowInit,
+} from "@/stores/flow-store";
 import { useSyncProvider, useCollabPresence } from "@/hooks/use-sync-provider";
 import { trpc } from "@/utils/trpc";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
-import { Loader2 } from "lucide-react";
 import { env } from "@microflow/env/web";
+import { ErrorState } from "@/components/states/error-state";
+import { LoadingState } from "@/components/states/loading-state";
 
-export const Route = createFileRoute("/flow/$flowId")({
+export const Route = createFileRoute("/$flowId/flow")({
   component: RouteComponent,
   beforeLoad: async ({ params }) => {
     const session = await authClient.getSession();
 
-    // Redirect to login if not authenticated
+    // For local flow, no auth required
+    if (params.flowId === "local") {
+      const { data: customerState } = await authClient.customer.state();
+      return { session, customerState };
+    }
+
+    // For cloud flows, redirect to login if not authenticated
     if (!session.data) {
       throw redirect({
         to: "/login",
-        search: { redirect: `/flow/${params.flowId}` },
+        search: { redirect: `/${params.flowId}/flow` },
       });
     }
 
@@ -30,6 +41,41 @@ export const Route = createFileRoute("/flow/$flowId")({
 });
 
 function RouteComponent() {
+  const { flowId } = Route.useParams();
+  const { session } = Route.useRouteContext();
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+
+  // Handle local flow
+  if (flowId === "local") {
+    return <LocalFlowComponent />;
+  }
+
+  // Handle cloud flow
+  return <CloudFlowComponent />;
+}
+
+function LocalFlowComponent() {
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+  const { initLocalFlow, destroy } = useFlowInit();
+
+  // Initialize local flow when visiting this route
+  useEffect(() => {
+    setActiveFlowId("local");
+    initLocalFlow();
+
+    return () => {
+      destroy();
+    };
+  }, [setActiveFlowId, initLocalFlow, destroy]);
+
+  return (
+    <ReactFlowProvider>
+      <ReactFlowCanvas />
+    </ReactFlowProvider>
+  );
+}
+
+function CloudFlowComponent() {
   const { flowId } = Route.useParams();
   const { session } = Route.useRouteContext();
   const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
@@ -57,9 +103,7 @@ function RouteComponent() {
   // Set active flow ID when route loads
   useEffect(() => {
     setActiveFlowId(flowId);
-    return () => {
-      setActiveFlowId(null);
-    };
+    // Don't reset on cleanup - preserve active flow when navigating away
   }, [flowId, setActiveFlowId]);
 
   // Initialize the flow document with data from server
@@ -72,15 +116,15 @@ function RouteComponent() {
     const initCloudFlow = useFlowStore.getState().initCloudFlow;
 
     if (flow.ydocBase64) {
-      const ydocData = Uint8Array.from(atob(flow.ydocBase64), (c) => c.charCodeAt(0));
+      const ydocData = Uint8Array.from(atob(flow.ydocBase64), (c) =>
+        c.charCodeAt(0)
+      );
       initCloudFlow(flowId, ydocData, {
         name: flow.name,
-        description: flow.description ?? undefined,
       });
     } else {
       initCloudFlow(flowId, undefined, {
         name: flow.name,
-        description: flow.description ?? undefined,
       });
     }
 
@@ -113,7 +157,7 @@ function RouteComponent() {
       session.data?.user.name,
       profile?.settings.collabColor,
       profile?.settings.collabIcon,
-    ],
+    ]
   );
 
   // Connect to sync provider for real-time collaboration
@@ -127,28 +171,16 @@ function RouteComponent() {
 
   // Get presence info
   const presence = useCollabPresence(sync);
-  console.log(new Date().toISOString(), presence);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="text-destructive">Failed to load flow</p>
-        <p className="text-sm text-muted-foreground">{error.message}</p>
-      </div>
-    );
-  }
+  if (isLoading) return <LoadingState />;
+  if (error) return <ErrorState title="Failed to load flow" error={error} />;
 
   return (
     <ReactFlowProvider>
-      <ReactFlowCanvas updateCursor={sync.updateCursor} otherUsers={presence.otherUsers} />
+      <ReactFlowCanvas
+        updateCursor={sync.updateCursor}
+        otherUsers={presence.otherUsers}
+      />
     </ReactFlowProvider>
   );
 }

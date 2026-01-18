@@ -86,8 +86,8 @@ export function ReactFlowCanvas({
   );
 
   useEffect(() => {
-    fitView();
-  }, [fitView]);
+    fitView({ duration: 250, padding: 0.15 });
+  }, [fitView, flowDoc?.meta.doc?.clientID]);
 
   return (
     <div className="w-full h-full relative overflow-hidden">

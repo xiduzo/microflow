@@ -15,12 +15,10 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
-    "@hookform/resolvers": "^5.1.1",
     "@microflow/api": "workspace:*",
     "@microflow/auth": "workspace:*",
     "@microflow/collab": "workspace:*",
     "@microflow/env": "workspace:*",
-    "@microflow/runtime": "workspace:*",
     "@polar-sh/better-auth": "catalog:",
     "@tailwindcss/vite": "^4.0.15",
     "@tanstack/react-form": "^1.12.3",
@@ -65,7 +63,6 @@
     "vaul": "^1.1.2",
     "y-protocols": "^1.0.6",
     "yjs": "^13.6.20",
-    "zod": "catalog:",
     "zustand": "^5.0.9"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { SyncProvider, type SyncState, type AwarenessUser } from "@microflow/collab";
 import type { FlowDocument } from "@microflow/collab";
+import { useSyncStateStore } from "@/stores/sync-state-store";
 
 // ============================================================================
 // Types
@@ -41,6 +42,8 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
 
   const providerRef = useRef<SyncProvider | null>(null);
   const connectedFlowIdRef = useRef<string | null>(null);
+  
+  const { setFlowState, clearFlowState } = useSyncStateStore();
 
   // Compute WebSocket URL
   const computedWsUrl =
@@ -62,6 +65,11 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
       setState("disconnected");
       setUsers([]);
       setLocalUser(null);
+      
+      // Clear global state
+      if (flowId) {
+        clearFlowState(flowId);
+      }
       return;
     }
 
@@ -71,7 +79,8 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
     }
 
     // Cleanup previous provider if switching flows
-    if (providerRef.current) {
+    if (providerRef.current && connectedFlowIdRef.current) {
+      clearFlowState(connectedFlowIdRef.current);
       providerRef.current.destroy();
       providerRef.current = null;
     }
@@ -117,10 +126,11 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
       unsubAwareness();
       unsubError();
       provider.destroy();
+      clearFlowState(flowId);
       providerRef.current = null;
       connectedFlowIdRef.current = null;
     };
-  }, [enabled, flowDoc, flowId, user?.id, user?.name, user?.color, user?.icon, computedWsUrl]);
+  }, [enabled, flowDoc, flowId, user?.id, user?.name, user?.color, user?.icon, computedWsUrl, clearFlowState]);
 
   // Cursor update
   const updateCursor = useCallback(
@@ -145,6 +155,20 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
   const disconnect = useCallback(() => {
     providerRef.current?.disconnect();
   }, []);
+
+// Sync local state to global store
+  useEffect(() => {
+    if (flowId) {
+      setFlowState(flowId, {
+        state,
+        isConnected: state === "syncing" || state === "synced",
+        isSynced: state === "synced",
+        error,
+        users,
+        localUser,
+      });
+    }
+  }, [flowId, state, error, users, localUser, setFlowState]);
 
   return {
     state,

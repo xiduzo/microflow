@@ -39,7 +39,7 @@ export function FlowCard({
   isLocal,
   role,
 }: FlowCardProps) {
-  const linkTo = isLocal ? "/flow/local" : `/flow/${id}`;
+  const linkTo = `/${id}/flow`;
 
   return (
     <Link to={linkTo} className="block">

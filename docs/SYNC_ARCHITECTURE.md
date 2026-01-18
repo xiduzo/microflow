@@ -146,6 +146,27 @@ const sync = useSyncProvider({
 - Dependencies change (flowDoc, flowId, user)
 - `enabled` becomes false
 
+**Global State:** The hook also publishes sync state to a global Zustand store (`useSyncStateStore`) so that sync status can be accessed from anywhere in the app (e.g., sidebar, status indicators) without prop drilling.
+
+### useSyncStateStore (`apps/web/src/stores/sync-state-store.ts`)
+
+Global store for sync state across all flows:
+
+```typescript
+// Access sync state for a specific flow
+const syncState = useFlowSyncState(flowId);
+
+// Returns:
+// - state: SyncState
+// - isConnected: boolean
+// - isSynced: boolean
+// - error: Error | null
+// - users: AwarenessUser[]
+// - localUser: AwarenessUser | null
+```
+
+This allows components like the sidebar to display real-time sync status without being in the flow route.
+
 ### Other Hooks
 
 - `useFlowNodes(flowDoc)` - Read-only subscription to nodes
@@ -203,7 +224,8 @@ packages/collab/src/
 
 apps/web/src/
 ├── stores/
-│   └── flow-store.ts  # Zustand store (FlowDocument holder)
+│   ├── flow-store.ts       # Zustand store (FlowDocument holder)
+│   └── sync-state-store.ts # Global sync state for all flows
 └── hooks/
     ├── use-flow-document.ts  # useFlowState, useFlowNodes, etc.
     ├── use-sync-provider.ts  # WebSocket connection hook

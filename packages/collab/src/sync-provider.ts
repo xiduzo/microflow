@@ -94,7 +94,9 @@ export class SyncProvider {
     this.localUser = {
       id: options.user.id,
       name: options.user.name,
-      color: options.user.color ?? COLLAB_COLORS[Math.floor(Math.random() * COLLAB_COLORS.length)]!,
+      color:
+        options.user.color ??
+        COLLAB_COLORS[Math.floor(Math.random() * COLLAB_COLORS.length)]!,
       icon: options.user.icon ?? "Cat",
     };
 
@@ -115,7 +117,10 @@ export class SyncProvider {
   // Event Emitter
   // --------------------------------------------------------------------------
 
-  on<K extends keyof SyncProviderEvents>(event: K, callback: SyncProviderEvents[K]): () => void {
+  on<K extends keyof SyncProviderEvents>(
+    event: K,
+    callback: SyncProviderEvents[K]
+  ): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
@@ -123,7 +128,10 @@ export class SyncProvider {
     return () => this.off(event, callback);
   }
 
-  off<K extends keyof SyncProviderEvents>(event: K, callback: SyncProviderEvents[K]): void {
+  off<K extends keyof SyncProviderEvents>(
+    event: K,
+    callback: SyncProviderEvents[K]
+  ): void {
     this.listeners.get(event)?.delete(callback);
   }
 
@@ -232,10 +240,18 @@ export class SyncProvider {
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
 
-    const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, "remote");
+    const syncMessageType = syncProtocol.readSyncMessage(
+      decoder,
+      encoder,
+      this.doc,
+      "remote"
+    );
 
     // Send response if needed (sync step 2)
-    if (encoding.length(encoder) > 1 && this.ws?.readyState === WebSocket.OPEN) {
+    if (
+      encoding.length(encoder) > 1 &&
+      this.ws?.readyState === WebSocket.OPEN
+    ) {
       this.ws.send(encoding.toUint8Array(encoder));
     }
 
@@ -250,7 +266,7 @@ export class SyncProvider {
     awarenessProtocol.applyAwarenessUpdate(
       this.awareness,
       decoding.readVarUint8Array(decoder),
-      "remote",
+      "remote"
     );
   }
 
@@ -305,7 +321,9 @@ export class SyncProvider {
     encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
     encoding.writeVarUint8Array(
       encoder,
-      awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID]),
+      awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
+        this.doc.clientID,
+      ])
     );
     this.ws.send(encoding.toUint8Array(encoder));
   }

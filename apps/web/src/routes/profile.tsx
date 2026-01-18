@@ -5,6 +5,7 @@ import { trpc } from "@/utils/trpc";
 import { authClient } from "@/lib/auth-client";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { COLLAB_COLORS } from "@microflow/collab/sync-provider";
 import { Separator } from "@/components/ui/separator";
+import { PlusIcon } from "lucide-react";
 
 const COLLAB_ICONS: IconName[] = [
   "Bird",
@@ -93,6 +95,11 @@ function ProfilePage() {
           <CardDescription>
             Customize how you appear to others when collaborating on flows
           </CardDescription>
+          <CardAction>
+            <Button variant="outline" size="icon">
+              <PlusIcon />
+            </Button>
+          </CardAction>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
@@ -106,7 +113,7 @@ function ProfilePage() {
                     "w-8 h-8 rounded-full transition-all",
                     profile.settings.collabColor === color
                       ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
-                      : "hover:scale-105"
+                      : "hover:scale-105 hover:ring-1 hover:ring-offset-2 hover:ring-offset-background/5 hover:ring-primary/5"
                   )}
                   style={{ backgroundColor: color }}
                   onClick={() => updateCollab.mutate({ collabColor: color })}

@@ -6,7 +6,6 @@ import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
-import Loader from "./loader";
 import { Button } from "./ui/button";
 import {
   Card,
@@ -23,6 +22,7 @@ import {
   FieldLabel,
 } from "./ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
+import { LoadingState } from "./states/loading-state";
 
 export function SignUpForm({
   onSwitchToSignIn,
@@ -75,9 +75,7 @@ export function SignUpForm({
     },
   });
 
-  if (isPending) {
-    return <Loader />;
-  }
+  if (isPending) <LoadingState />;
 
   return (
     <Card

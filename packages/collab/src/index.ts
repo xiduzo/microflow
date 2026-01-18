@@ -9,3 +9,5 @@ export type {
   SyncProviderEvents,
   AwarenessUser,
 } from "./sync-provider";
+
+export { COLLAB_COLORS } from "./sync-provider";

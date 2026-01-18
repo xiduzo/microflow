@@ -1,6 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRouteWithContext,
+} from "@tanstack/react-router";
 
 import type { trpc } from "@/utils/trpc";
 
@@ -14,6 +18,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { useBoardEvents } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
+import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -75,8 +81,8 @@ function RootComponent() {
         </SidebarProvider>
         <Toaster richColors position="top-right" />
       </ThemeProvider>
-      {/* <TanStackRouterDevtools position="bottom-right" /> */}
-      {/* <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" /> */}
+      <TanStackRouterDevtools position="bottom-right" />
+      <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
     </>
   );
 }

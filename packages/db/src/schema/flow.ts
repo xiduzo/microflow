@@ -1,5 +1,11 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, index, customType } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  timestamp,
+  index,
+  customType,
+} from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
 // Custom bytea type for storing binary data
@@ -23,7 +29,7 @@ export const flow = pgTable(
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
-    description: text("description"),
+    color: text("color").default("#4338ca").notNull(),
     // Yjs document state stored as binary
     ydoc: bytea("ydoc"),
     ownerId: text("owner_id")
@@ -35,7 +41,7 @@ export const flow = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("flow_ownerId_idx").on(table.ownerId)],
+  (table) => [index("flow_ownerId_idx").on(table.ownerId)]
 );
 
 export const flowCollaborator = pgTable(
@@ -56,7 +62,7 @@ export const flowCollaborator = pgTable(
   (table) => [
     index("flow_collaborator_flowId_idx").on(table.flowId),
     index("flow_collaborator_userId_idx").on(table.userId),
-  ],
+  ]
 );
 
 export const flowRelations = relations(flow, ({ one, many }) => ({
@@ -67,13 +73,16 @@ export const flowRelations = relations(flow, ({ one, many }) => ({
   collaborators: many(flowCollaborator),
 }));
 
-export const flowCollaboratorRelations = relations(flowCollaborator, ({ one }) => ({
-  flow: one(flow, {
-    fields: [flowCollaborator.flowId],
-    references: [flow.id],
-  }),
-  user: one(user, {
-    fields: [flowCollaborator.userId],
-    references: [user.id],
-  }),
-}));
+export const flowCollaboratorRelations = relations(
+  flowCollaborator,
+  ({ one }) => ({
+    flow: one(flow, {
+      fields: [flowCollaborator.flowId],
+      references: [flow.id],
+    }),
+    user: one(user, {
+      fields: [flowCollaborator.userId],
+      references: [user.id],
+    }),
+  })
+);
