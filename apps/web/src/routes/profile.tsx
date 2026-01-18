@@ -18,7 +18,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { COLLAB_COLORS } from "@microflow/collab/sync-provider";
 import { Separator } from "@/components/ui/separator";
-import { PlusIcon } from "lucide-react";
+import { ComputerIcon, MoonIcon, PlusIcon, SunIcon } from "lucide-react";
+import { LoadingState } from "@/components/states/loading-state";
+import { ErrorState } from "@/components/states/error-state";
+import { EmptyState } from "@/components/states/empty-state";
+import { useTheme } from "@/providers/theme-provider";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 const COLLAB_ICONS: IconName[] = [
   "Bird",
@@ -48,9 +53,11 @@ export const Route = createFileRoute("/profile")({
 
 function ProfilePage() {
   const queryClient = useQueryClient();
-  const { data: profile, isLoading } = useQuery(
+  const { data: profile, isLoading, error } = useQuery(
     trpc.profile.get.queryOptions()
   );
+  const { theme, setTheme } = useTheme();
+
 
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [hoveredIcon, setHoveredIcon] = useState<IconName | null>(null);
@@ -69,16 +76,9 @@ function ProfilePage() {
     })
   );
 
-  if (isLoading || !profile) {
-    return (
-      <div className="container max-w-2xl mx-auto py-8 px-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-1/3" />
-          <div className="h-64 bg-muted rounded" />
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <LoadingState />;
+  if (error) return <ErrorState title="Failed to load profile" error={error} />;
+  if (!profile) return <EmptyState title="Profile not found" description="Please try again later" />;
 
   return (
     <div className="container max-w-3xl mx-auto py-8 px-4 space-y-6">
@@ -91,15 +91,35 @@ function ProfilePage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Microflow</CardTitle>
+          <CardDescription>
+            General settings for Microflow
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <Label>Theme</Label>
+            <ButtonGroup>
+              <Button variant={theme === "dark" ? "default" : "outline"} size="icon" onClick={() => setTheme("dark")}>
+                <MoonIcon />
+              </Button>
+              <Button variant={theme === "system" ? "default" : "outline"} size="icon" onClick={() => setTheme("system")}>
+                <ComputerIcon />
+              </Button>
+              <Button variant={theme === "light" ? "default" : "outline"} size="icon" onClick={() => setTheme("light")}>
+                <SunIcon />
+              </Button>
+            </ButtonGroup>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Collaboration</CardTitle>
           <CardDescription>
             Customize how you appear to others when collaborating on flows
           </CardDescription>
-          <CardAction>
-            <Button variant="outline" size="icon">
-              <PlusIcon />
-            </Button>
-          </CardAction>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">

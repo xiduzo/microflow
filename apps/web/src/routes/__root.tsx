@@ -62,15 +62,6 @@ function RootComponent() {
           <AppSidebar />
           <SidebarInset>
             <HotkeysProvider initiallyActiveScopes={["flow"]}>
-              {/* <header className="backdrop-blur-sm bg-muted-foreground/2 m-4 rounded-xl p-2 px-4 flex justify-between items-center absolute top-0 left-0 right-0 z-50">
-                <SidebarTrigger className="-ml-1" />
-                <Tabs defaultValue="flow">
-                  <TabsList>
-                    <TabsTrigger value="flow">Flow</TabsTrigger>
-                    <TabsTrigger value="circuit">Circuit</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </header> */}
               <TooltipProvider>
                 <div className="h-full w-full absolute inset-0">
                   <Outlet />

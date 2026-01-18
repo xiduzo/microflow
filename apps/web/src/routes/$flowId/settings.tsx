@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc, trpcClient } from "@/utils/trpc";
+import { queryClient, trpc } from "@/utils/trpc";
 import {
   Card,
   CardContent,
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/field";
 import {
   InputGroup,
-  InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
@@ -35,10 +34,11 @@ import {
   TableBody,
   TableCaption,
 } from "@/components/ui/table";
-import { EyeIcon, PencilIcon, TrashIcon } from "lucide-react";
+import { EllipsisVerticalIcon, EyeIcon, PencilIcon, ShieldUserIcon, TrashIcon } from "lucide-react";
 import { ShareFlowDialog } from "@/components/flow/dialogs/share-flow-dialog";
 import { DeleteFlowDialog } from "@/components/flow/dialogs/delete-flow-dialog";
-import { EmptyState } from "@/components/states/empty-state";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/$flowId/settings")({
   component: RouteComponent,
@@ -89,6 +89,8 @@ type User = {
   id: string;
   name: string;
   email: string;
+  collabColor?: string;
+  collabIcon?: string;
   role?: string;
 };
 
@@ -134,6 +136,7 @@ function FlowCollaboratorsCard(props: {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead></TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
@@ -142,6 +145,11 @@ function FlowCollaboratorsCard(props: {
           </TableHeader>
           <TableBody>
             <TableRow>
+              <TableCell>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: props.owner.collabColor ?? "#4338ca" }}>
+                  <Icon icon={props.owner.collabIcon as IconName} />
+                </div>
+              </TableCell>
               <TableCell>{props.owner.name}</TableCell>
               <TableCell>{props.owner.email}</TableCell>
               <TableCell>owner</TableCell>
@@ -149,16 +157,46 @@ function FlowCollaboratorsCard(props: {
             </TableRow>
             {props.collaborators.map((collaborator) => (
               <TableRow key={collaborator.user.id}>
+                <TableCell>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: collaborator.user.collabColor ?? "#4338ca" }}>
+                    <Icon icon={collaborator.user.collabIcon as IconName} />
+                  </div>
+                </TableCell>
                 <TableCell>{collaborator.user.name}</TableCell>
                 <TableCell>{collaborator.user.email}</TableCell>
                 <TableCell>{collaborator.role}</TableCell>
                 <TableCell className="flex gap-2">
-                  <Button variant="outline" onClick={() => updateCollaboratorRoleMutation.mutate({ flowId: props.flowId, userId: collaborator.user.id, role: collaborator.role === "viewer" ? "editor" : "viewer" })}>
-                    {collaborator.role === "viewer" ? <PencilIcon /> : <EyeIcon />} make {collaborator.role === "viewer" ? "editor" : "viewer"}
-                  </Button>
-                  <Button variant="destructive" onClick={() => removeCollaboratorMutation.mutate({ flowId: props.flowId, userId: collaborator.user.id })}>
-                    <TrashIcon /> remove
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger>
+                      <Button variant="outline">
+                        <EllipsisVerticalIcon />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <ShieldUserIcon />
+                          User role
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          <DropdownMenuRadioGroup
+                            value={collaborator.role}
+                            onValueChange={value => updateCollaboratorRoleMutation.mutate({ flowId: props.flowId, userId: collaborator.user.id, role: value as "viewer" | "editor" })}
+                          >
+                            <DropdownMenuRadioItem value="viewer">
+                              Viewer
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="editor">
+                              Editor
+                            </DropdownMenuRadioItem>
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      <DropdownMenuItem variant="destructive" onClick={() => removeCollaboratorMutation.mutate({ flowId: props.flowId, userId: collaborator.user.id })}>
+                        <TrashIcon /> remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -280,7 +318,7 @@ function DeleteFlowCard(props: { flowId: string; flowName: string }) {
       <CardHeader>
         <CardTitle className="text-destructive">Danger Zone</CardTitle>
         <CardDescription>
-          These actions are irreversible.
+          Deleting this flow will remove it for all collaborators.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex justify-end">

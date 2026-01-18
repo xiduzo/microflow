@@ -35,16 +35,6 @@ type Props = {
 export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
   const [copiedText, copy] = useCopyToClipboard()
 
-  const form = useForm({
-    defaultValues: {
-      email: "",
-      role: "viewer",
-    },
-  });
-
-  const [open, setOpen] = useState(false);
-  const queryClient = useQueryClient();
-
   const addCollaboratorMutation = useMutation(trpc.flow.addCollaboratorByEmail.mutationOptions({
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -57,6 +47,23 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
       toast.error(error.message);
     },
   }));
+
+  const form = useForm({
+    defaultValues: {
+      email: "",
+      role: "viewer",
+    },
+    onSubmit: ({ value }) => {
+      addCollaboratorMutation.mutate({
+        flowId,
+        email: value.email,
+        role: value.role as "viewer" | "editor",
+      });
+    },
+  });
+
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleCopyLink = async () => {
     const url = `${window.location.origin}/${flowId}/flow`;
@@ -103,7 +110,11 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
             </InputGroupAddon>
           </InputGroup>
           {/* Add collaborator form */}
-          <form className="space-y-3">
+          <form className="space-y-3" onSubmit={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
+          }}>
             <FieldGroup className="grid grid-cols-12 gap-2 items-end">
               <form.Field name="email">
                 {(field) => (
@@ -148,13 +159,7 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
                   </Field>
                 )}
               </form.Field>
-              <Button size="icon" disabled={!form.state.isValid || addCollaboratorMutation.isPending} className="col-span-1" onClick={() =>
-                addCollaboratorMutation.mutate({
-                  flowId,
-                  email: form.state.values.email,
-                  role: form.state.values.role as "viewer" | "editor",
-                })
-              }>
+              <Button size="icon" type="submit" disabled={!form.state.isValid || addCollaboratorMutation.isPending} className="col-span-1">
                 {addCollaboratorMutation.isPending ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (

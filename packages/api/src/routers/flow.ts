@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { eq, and, like, ne } from "drizzle-orm";
+import { eq, and, like, ne, inArray } from "drizzle-orm";
 import { db } from "@microflow/db";
 import { flow, flowCollaborator } from "@microflow/db/schema/flow";
 import { user } from "@microflow/db/schema/auth";
+import { userSettings } from "@microflow/db/schema/user-settings";
 import { protectedProcedure, router } from "../index";
 import { FlowDocument } from "@microflow/collab/server";
 
@@ -137,12 +138,38 @@ export const flowRouter = router({
       // Check access
       const isOwner = flowRecord.ownerId === userId;
       const isCollaborator = flowRecord.collaborators.some(
-        (c) => c.user.id === userId
+        ({ user }) => user.id === userId
       );
 
       if (!isOwner && !isCollaborator) {
         throw new Error("Access denied");
       }
+
+      // Fetch collabColor and collabIcon for owner and all collaborators
+      const userIds = [
+        flowRecord.owner.id,
+        ...flowRecord.collaborators.map((c) => c.user.id),
+      ];
+      const settingsRows =
+        userIds.length > 0
+          ? await db.query.userSettings.findMany({
+              where: inArray(userSettings.userId, userIds),
+              columns: { userId: true, collabColor: true, collabIcon: true },
+            })
+          : [];
+      const settingsByUser = new Map(
+        settingsRows.map((s) => [
+          s.userId,
+          {
+            collabColor: s.collabColor,
+            collabIcon: s.collabIcon,
+          },
+        ])
+      );
+      const withCollab = (uid: string) => ({
+        collabColor: settingsByUser.get(uid)?.collabColor ?? "#4338ca",
+        collabIcon: settingsByUser.get(uid)?.collabIcon ?? "Cat",
+      });
 
       // Decode ydoc to get nodes/edges
       const { nodes, edges } = decodeFlowData(flowRecord.ydoc);
@@ -158,8 +185,11 @@ export const flowRouter = router({
         color: flowRecord.color,
         createdAt: flowRecord.createdAt,
         updatedAt: flowRecord.updatedAt,
-        owner: flowRecord.owner,
-        collaborators: flowRecord.collaborators,
+        owner: { ...flowRecord.owner, ...withCollab(flowRecord.owner.id) },
+        collaborators: flowRecord.collaborators.map((c) => ({
+          ...c,
+          user: { ...c.user, ...withCollab(c.user.id) },
+        })),
         nodes,
         edges,
         ydocBase64,
@@ -278,8 +308,12 @@ export const flowRouter = router({
         where: eq(flow.id, input.flowId),
       });
 
-      if (!flowRecord || flowRecord.ownerId !== ctx.session.user.id) {
-        throw new Error("Flow not found or access denied");
+      if(!flowRecord) {
+        throw new Error("Flow not found");
+      }
+
+      if (flowRecord.ownerId !== ctx.session.user.id) {
+        throw new Error("Access denied");
       }
 
       const id = uid();
@@ -308,8 +342,12 @@ export const flowRouter = router({
         where: eq(flow.id, input.flowId),
       });
 
-      if (!flowRecord || flowRecord.ownerId !== ctx.session.user.id) {
-        throw new Error("Flow not found or access denied");
+      if(!flowRecord) {
+        throw new Error("Flow not found");
+      }
+
+      if (flowRecord.ownerId !== ctx.session.user.id) {
+        throw new Error("Access denied");
       }
 
       await db
@@ -319,7 +357,7 @@ export const flowRouter = router({
             eq(flowCollaborator.flowId, input.flowId),
             eq(flowCollaborator.userId, input.userId)
           )
-        );
+        )
 
       return { success: true };
     }),
