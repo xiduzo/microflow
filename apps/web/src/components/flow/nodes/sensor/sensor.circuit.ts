@@ -13,6 +13,7 @@ export const sensorCircuit: CircuitDefinition = {
       hints: ["signal", "out", "analog", "pin1", "1", "sig"],
       side: "right",
       label: "SIG",
+      traceType: "sig",
     },
     {
       name: "vcc",
@@ -20,6 +21,7 @@ export const sensorCircuit: CircuitDefinition = {
       hints: ["vcc", "power", "5v", "pin2", "2"],
       side: "left",
       label: "VCC (+)",
+      traceType: "vcc",
     },
     {
       name: "gnd",
@@ -27,6 +29,7 @@ export const sensorCircuit: CircuitDefinition = {
       hints: ["gnd", "ground", "pin3", "3"],
       side: "left",
       label: "GND (-)",
+      traceType: "gnd",
     },
   ],
   getPins: (data) => {

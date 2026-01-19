@@ -13,6 +13,7 @@ export const matrixCircuit: CircuitDefinition = {
       hints: ["data", "din", "mosi", "pin1", "1"],
       side: "left",
       label: "DIN",
+      traceType: "data",
     },
     {
       name: "clock",
@@ -20,6 +21,7 @@ export const matrixCircuit: CircuitDefinition = {
       hints: ["clock", "clk", "sck", "pin2", "2"],
       side: "left",
       label: "CLK",
+      traceType: "clock",
     },
     {
       name: "cs",
@@ -27,6 +29,7 @@ export const matrixCircuit: CircuitDefinition = {
       hints: ["cs", "load", "ss", "pin3", "3"],
       side: "left",
       label: "CS",
+      traceType: "sig",
     },
     {
       name: "vcc",
@@ -34,6 +37,7 @@ export const matrixCircuit: CircuitDefinition = {
       hints: ["vcc", "power", "5v", "pin4", "4"],
       side: "right",
       label: "VCC (+)",
+      traceType: "vcc",
     },
     {
       name: "gnd",
@@ -41,6 +45,7 @@ export const matrixCircuit: CircuitDefinition = {
       hints: ["gnd", "ground", "pin5", "5"],
       side: "right",
       label: "GND (-)",
+      traceType: "gnd",
     },
   ],
   getPins: (data) => {

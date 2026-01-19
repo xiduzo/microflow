@@ -13,6 +13,7 @@ export const pixelCircuit: CircuitDefinition = {
       hints: ["data", "din", "signal", "pin1", "1"],
       side: "left",
       label: "DIN",
+      traceType: "data",
     },
     {
       name: "vcc",
@@ -20,6 +21,7 @@ export const pixelCircuit: CircuitDefinition = {
       hints: ["vcc", "power", "5v", "pin2", "2"],
       side: "right",
       label: "VCC (+)",
+      traceType: "vcc",
     },
     {
       name: "gnd",
@@ -27,6 +29,7 @@ export const pixelCircuit: CircuitDefinition = {
       hints: ["gnd", "ground", "pin3", "3"],
       side: "right",
       label: "GND (-)",
+      traceType: "gnd",
     },
   ],
   getPins: (data) => {

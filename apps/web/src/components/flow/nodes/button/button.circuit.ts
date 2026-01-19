@@ -13,6 +13,7 @@ export const buttonCircuit: CircuitDefinition = {
       hints: ["pin1", "1", "signal", "dout"],
       side: "right",
       label: "DOUT",
+      traceType: "sig",
     },
     {
       name: "gnd",
@@ -20,6 +21,7 @@ export const buttonCircuit: CircuitDefinition = {
       hints: ["pin2", "2", "gnd", "ground"],
       side: "left",
       label: "GND (-)",
+      traceType: "gnd",
     },
   ],
   getPins: (data) => {

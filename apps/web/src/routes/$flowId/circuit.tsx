@@ -4,8 +4,8 @@ import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { useFlowNodes } from "@/hooks/use-flow-document";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { SchematicViewer } from "@tscircuit/schematic-viewer";
-import { useMemo, useRef, useEffect } from "react";
-import { createCircuitJson } from "@/lib/schematic/circuit-json";
+import { useMemo, useRef, useEffect, useCallback } from "react";
+import { createCircuitJson, type TraceMetadata } from "@/lib/schematic/circuit-json";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
@@ -159,16 +159,76 @@ function CircuitViewer() {
   const flowDoc = useFlowDocument();
   const nodes = useFlowNodes(flowDoc);
   const pins = usePins();
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const circuitJson = useMemo(
-    () => {
-      return createCircuitJson(nodes, pins)
-    },
+  const { elements: circuitJson, traceMetadata } = useMemo(
+    () => createCircuitJson(nodes, pins),
     [nodes, pins]
   );
 
+  // Post-process SVG to add trace type classes for CSS styling
+  const applyTraceClasses = useCallback((metadata: TraceMetadata[]) => {
+    if (!containerRef.current) return;
+    
+    const svg = containerRef.current.querySelector("svg");
+    console.log("scg",{svg})
+    if (!svg) return;
+
+    // Build a map of trace IDs to types
+    const traceTypeMap = new Map<string, string>();
+    for (const trace of metadata) {
+      traceTypeMap.set(trace.schematicTraceId, trace.traceType);
+      // Also map the source_trace_id variant
+      const sourceId = trace.schematicTraceId.replace("schematic_trace_", "");
+      traceTypeMap.set(sourceId, trace.traceType);
+    }
+
+    // Find trace elements by data attributes
+    const traceGroups = svg.querySelectorAll('[data-circuit-json-type="schematic_trace"]');
+    for (const group of traceGroups) {
+      group.classList.add("trace");
+      
+      const traceId = group.getAttribute("data-schematic-trace-id") 
+        || group.getAttribute("data-source-trace-id");
+      
+      const traceType = traceId ? traceTypeMap.get(traceId) : null;
+      group.classList.add(traceType || "sig");
+    }
+  }, []);
+
+  // Apply trace classes after render
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new MutationObserver(() => {
+      applyTraceClasses(traceMetadata);
+    });
+
+    observer.observe(containerRef.current, {
+      childList: true,
+      subtree: true,
+    });
+
+    // Initial application with a small delay to ensure SVG is rendered
+    const timeoutId = setTimeout(() => {
+      applyTraceClasses(traceMetadata);
+    }, 150);
+
+    // Re-apply on window resize (SVG might re-render)
+    const handleResize = () => {
+      setTimeout(() => applyTraceClasses(traceMetadata), 100);
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [traceMetadata, applyTraceClasses]);
+
   return (
-    <div className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full">
       <SchematicViewer
         // debugGrid
         circuitJson={circuitJson}

@@ -8,6 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { isDesktop } from "@/utils/platform";
 
 type Link = {
   title: string;
@@ -33,6 +34,14 @@ const LINKS: Link[] = [
 export function NavSecondary(
   props: React.ComponentPropsWithoutRef<typeof SidebarGroup>
 ) {
+
+  const handleLinkClick = (url: string) => {
+    if(isDesktop()) {
+      return
+    }
+
+    window.open(url, "_blank")
+  }
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
@@ -45,7 +54,7 @@ export function NavSecondary(
               <SidebarMenuButton
                 size="sm"
                 tooltip={item.tooltip ?? item.title}
-                onClick={() => window.open(item.url, "_blank")}
+                onClick={() =>handleLinkClick(item.url)}
               >
                 <item.icon />
                 <span>{item.title}</span>

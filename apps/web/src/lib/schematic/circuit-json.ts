@@ -1,7 +1,7 @@
 import type { Pin } from "@/stores/board";
 import type { Node } from "@xyflow/react";
 import type { BaseData } from "@/components/flow/nodes/_base.schema";
-import type { CircuitDefinition } from "@/components/flow/nodes/_circuit.types";
+import type { CircuitDefinition, TraceType } from "@/components/flow/nodes/_circuit.types";
 import { getCircuitDefinition, isHardwareComponent } from "@/components/flow/nodes/_circuit.registry";
 import { formatPinValueWithPwm, getAnalogChannelBase } from "@/utils/pin";
 import {
@@ -78,7 +78,16 @@ function getComponentDisplayName(node: Node, circuit: CircuitDefinition): string
   return data.label || circuit.displayName;
 }
 
-export function createCircuitJson(nodes: Node[], pins: Pin[]): AnyCircuitElement[] {
+/** Re-export TraceType for consumers */
+export type { TraceType } from "@/components/flow/nodes/_circuit.types";
+
+/** Result from createCircuitJson including trace metadata for post-processing */
+export interface CircuitJsonResult {
+  elements: AnyCircuitElement[];
+  traceMetadata: TraceMetadata[];
+}
+
+export function createCircuitJson(nodes: Node[], pins: Pin[]): CircuitJsonResult {
   const elements: CircuitElement[] = [];
 
   // Filter to only hardware nodes and get their pin assignments
@@ -143,7 +152,13 @@ export function createCircuitJson(nodes: Node[], pins: Pin[]): AnyCircuitElement
   const netLabels = createNetLabels(layoutedSoup, netLabelConnections);
   layoutedSoup.push(...netLabels);
 
-  return layoutedSoup;
+  // Build trace metadata for post-processing
+  const traceMetadata: TraceMetadata[] = traceConnections.map((conn) => ({
+    schematicTraceId: `schematic_trace_${conn.sourceTraceId}`,
+    traceType: conn.traceType,
+  }));
+
+  return { elements: layoutedSoup, traceMetadata };
 }
 
 function createCircuitJsonForComponent(
@@ -464,6 +479,13 @@ interface TraceConnection {
   sourceTraceId: string;
   fromPortId: string;
   toPortId: string;
+  traceType: TraceType;
+}
+
+/** Metadata about traces for post-processing SVG */
+export interface TraceMetadata {
+  schematicTraceId: string;
+  traceType: TraceType;
 }
 
 interface NetLabelConnection {
@@ -514,15 +536,22 @@ function createSourceTraces(
       const componentPortId = `source_port_${componentIndex}_${signalPinNumber}`;
       const sourceTraceId = `source_trace_${traceIndex}`;
 
+      // Get trace type from port definition
+      const port = circuit.ports.find((p) => p.pinNumber === signalPinNumber);
+      if (!port) return;
+      
+      const traceType = port.traceType;
+
       const trace: SourceTrace = {
         type: "source_trace",
         source_trace_id: sourceTraceId,
         connected_source_port_ids: [boardPortId, componentPortId],
         connected_source_net_ids: [],
+        subcircuit_connectivity_map_key: traceType,
         display_name: `.microcontroller > .pin${pinNumber} to .${node.id} > .pin${signalPinNumber}`,
       };
       sourceTraces.push(trace);
-      traceConnections.push({ sourceTraceId, fromPortId: boardPortId, toPortId: componentPortId });
+      traceConnections.push({ sourceTraceId, fromPortId: boardPortId, toPortId: componentPortId, traceType });
       traceIndex++;
     });
 
@@ -583,7 +612,7 @@ function createSchematicTraces(
 
     traces.push({
       type: "schematic_trace",
-      schematic_trace_id: `schematic_trace_${conn.sourceTraceId}`,
+      schematic_trace_id: `schematic_trace_${conn.sourceTraceId}_${conn.traceType}`,
       source_trace_id: conn.sourceTraceId,
       edges,
       junctions: [],

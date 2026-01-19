@@ -13,6 +13,7 @@ export const relayCircuit: CircuitDefinition = {
       hints: ["signal", "in", "control", "pin1", "1"],
       side: "left",
       label: "IN",
+      traceType: "sig",
     },
     {
       name: "vcc",
@@ -20,6 +21,7 @@ export const relayCircuit: CircuitDefinition = {
       hints: ["vcc", "power", "5v", "pin2", "2"],
       side: "left",
       label: "VCC (+)",
+      traceType: "vcc",
     },
     {
       name: "gnd",
@@ -27,6 +29,7 @@ export const relayCircuit: CircuitDefinition = {
       hints: ["gnd", "ground", "pin3", "3"],
       side: "left",
       label: "GND (-)",
+      traceType: "gnd",
     },
     {
       name: "com",
@@ -34,6 +37,7 @@ export const relayCircuit: CircuitDefinition = {
       hints: ["com", "common", "pin4", "4"],
       side: "right",
       label: "COM",
+      traceType: "sig",
     },
     {
       name: "no",
@@ -41,6 +45,7 @@ export const relayCircuit: CircuitDefinition = {
       hints: ["no", "normally-open", "pin5", "5"],
       side: "right",
       label: "NO",
+      traceType: "sig",
     },
     {
       name: "nc",
@@ -48,6 +53,7 @@ export const relayCircuit: CircuitDefinition = {
       hints: ["nc", "normally-closed", "pin6", "6"],
       side: "right",
       label: "NC",
+      traceType: "sig",
     },
   ],
   getPins: (data) => {

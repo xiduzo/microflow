@@ -13,6 +13,7 @@ export const ledCircuit: CircuitDefinition = {
       hints: ["anode", "pos", "left", "pin1", "1", "din"],
       side: "left",
       label: "DIN",
+      traceType: "sig",
     },
     {
       name: "cathode",
@@ -20,6 +21,7 @@ export const ledCircuit: CircuitDefinition = {
       hints: ["cathode", "neg", "right", "pin2", "2", "gnd"],
       side: "right",
       label: "GND (-)",
+      traceType: "gnd",
     },
   ],
   getPins: (data) => {

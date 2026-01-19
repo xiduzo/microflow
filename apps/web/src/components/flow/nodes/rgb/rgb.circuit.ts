@@ -13,6 +13,7 @@ export const rgbCircuit: CircuitDefinition = {
       hints: ["red", "r", "pin1", "1"],
       side: "left",
       label: "R",
+      traceType: "sig",
     },
     {
       name: "green",
@@ -20,6 +21,7 @@ export const rgbCircuit: CircuitDefinition = {
       hints: ["green", "g", "pin2", "2"],
       side: "left",
       label: "G",
+      traceType: "sig",
     },
     {
       name: "blue",
@@ -27,6 +29,7 @@ export const rgbCircuit: CircuitDefinition = {
       hints: ["blue", "b", "pin3", "3"],
       side: "left",
       label: "B",
+      traceType: "sig",
     },
     {
       name: "common",
@@ -34,6 +37,7 @@ export const rgbCircuit: CircuitDefinition = {
       hints: ["common", "cathode", "anode", "pin4", "4"],
       side: "right",
       label: "COM",
+      traceType: "gnd",
     },
   ],
   getPins: (data) => {

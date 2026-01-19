@@ -13,6 +13,7 @@ export const piezoCircuit: CircuitDefinition = {
       hints: ["signal", "positive", "pin1", "1"],
       side: "left",
       label: "SIG",
+      traceType: "sig",
     },
     {
       name: "gnd",
@@ -20,6 +21,7 @@ export const piezoCircuit: CircuitDefinition = {
       hints: ["gnd", "negative", "ground", "pin2", "2"],
       side: "right",
       label: "GND (-)",
+      traceType: "gnd",
     },
   ],
   getPins: (data) => {

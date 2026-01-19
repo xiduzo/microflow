@@ -7,6 +7,9 @@ import type {
   SourceComponentBase,
 } from "circuit-json";
 
+/** Trace type for CSS styling */
+export type TraceType = "sig" | "gnd" | "vcc" | "clock" | "data";
+
 /**
  * Port definition for a circuit component
  */
@@ -16,6 +19,8 @@ export interface CircuitPort {
   hints: string[];
   side: "left" | "right" | "top" | "bottom";
   label?: string;
+  /** Trace type for coloring */
+  traceType: TraceType;
 }
 
 /**
