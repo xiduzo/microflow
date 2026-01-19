@@ -119,9 +119,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply font-sans bg-background text-foreground;
   }
+
   html {
     @apply font-sans;
   }
@@ -145,6 +147,7 @@
 .react-flow__minimap .react-flow__minimap-node {
   @apply fill-muted-foreground transition-colors;
 }
+
 .react-flow__minimap .react-flow__minimap-node.selected {
   @apply fill-blue-500;
 }
@@ -174,6 +177,7 @@
   0% {
     stroke-dashoffset: 100%;
   }
+
   100% {
     stroke-dashoffset: 0%;
   }
@@ -214,18 +218,14 @@
 /* show handle text when connecting from on allowed handles */
 .react-flow__handle.connectingfrom span,
 /* target --> source */
-.react-flow:has(.react-flow__handle.connectingfrom.target)
-	.react-flow__handle.connectable.source:not(:has(~ .react-flow__handle.connectingfrom))
-	span,
+.react-flow:has(.react-flow__handle.connectingfrom.target) .react-flow__handle.connectable.source:not(:has(~ .react-flow__handle.connectingfrom)) span,
 /* source --> target */
-.react-flow:has(.react-flow__handle.connectingfrom.source)
-	.react-flow__handle.connectable.target:not(:has(~ .react-flow__handle.connectingfrom))
-	span {
+.react-flow:has(.react-flow__handle.connectingfrom.source) .react-flow__handle.connectable.target:not(:has(~ .react-flow__handle.connectingfrom)) span {
   opacity: 1 !important;
 }
 
 /* impossible connections */
-.react-flow__handle.connectingfrom ~ .react-flow__handle,
+.react-flow__handle.connectingfrom~.react-flow__handle,
 /* target --> target */
 .react-flow:has(.react-flow__handle.connectingfrom.target) .react-flow__handle.target:not(.react-flow__handle.connectingfrom),
 /* source --> source */
@@ -236,27 +236,19 @@
 }
 
 /* hide handle text when connecting from on impossible connections */
-.react-flow__handle.connectingfrom ~ .react-flow__handle span,
+.react-flow__handle.connectingfrom~.react-flow__handle span,
 /* target --> target */
-.react-flow:has(.react-flow__handle.connectingfrom.target)
-	.react-flow__handle.target:not(.react-flow__handle.connectingfrom)
-	span,
+.react-flow:has(.react-flow__handle.connectingfrom.target) .react-flow__handle.target:not(.react-flow__handle.connectingfrom) span,
 /* source --> source */
-.react-flow:has(.react-flow__handle.connectingfrom.source)
-	.react-flow__handle.source:not(.react-flow__handle.connectingfrom)
-	span,
+.react-flow:has(.react-flow__handle.connectingfrom.source) .react-flow__handle.source:not(.react-flow__handle.connectingfrom) span,
 /* connectingfrom --> sibbling */
-.react-flow:has(.react-flow__handle.connectingfrom)
-	.react-flow__handle:has(~ .react-flow__handle.connectingfrom)
-	span {
+.react-flow:has(.react-flow__handle.connectingfrom) .react-flow__handle:has(~ .react-flow__handle.connectingfrom) span {
   opacity: 0 !important;
 }
 
 /* valid connection */
-.react-flow:has(.react-flow__handle.connectingto.valid)
-  .react-flow__handle.connectable.connectingfrom,
-.react-flow:has(.react-flow__handle.connectingto.valid)
-  .react-flow__handle.valid:not(:has(~ .react-flow__handle.connectable.connectingfrom)) {
+.react-flow:has(.react-flow__handle.connectingto.valid) .react-flow__handle.connectable.connectingfrom,
+.react-flow:has(.react-flow__handle.connectingto.valid) .react-flow__handle.valid:not(:has(~ .react-flow__handle.connectable.connectingfrom)) {
   @apply bg-green-500 dark:bg-green-500 text-green-500 font-bold dark:text-green-500 cursor-crosshair;
 }
 
@@ -296,11 +288,11 @@
 /**
  * node monitor style overwrites
  */
-.react-flow__node main > [class^="leva"] {
+.react-flow__node main>[class^="leva"] {
   @apply h-36;
 }
 
-.react-flow__node main > [class^="leva"] > div {
+.react-flow__node main>[class^="leva"]>div {
   @apply h-full flex items-center justify-center;
 }
 
@@ -320,4 +312,56 @@
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
+}
+
+/**
+  * TS circuit style overrides - trace coloring by type
+  * GND = black, VCC = red, SIG/DIN/DOUT = yellow
+  * Trace IDs are suffixed with type: data-schematic-trace-id="schematic_trace_..._sig"
+  */
+.trace path,
+.trace line,
+.trace polyline {
+  @apply stroke-[1.5];
+}
+
+/* Signal traces (default) - yellow */
+.trace[data-schematic-trace-id$="_sig"] path,
+.trace[data-schematic-trace-id$="_sig"] line,
+.trace[data-schematic-trace-id$="_sig"] polyline {
+  stroke: #eab308 !important; /* yellow-500 */
+}
+
+/* Ground traces - black */
+.trace[data-schematic-trace-id$="_gnd"] path,
+.trace[data-schematic-trace-id$="_gnd"] line,
+.trace[data-schematic-trace-id$="_gnd"] polyline {
+  stroke: #000000 !important;
+}
+
+.dark .trace[data-schematic-trace-id$="_gnd"] path,
+.dark .trace[data-schematic-trace-id$="_gnd"] line,
+.dark .trace[data-schematic-trace-id$="_gnd"] polyline {
+  stroke: #525252 !important; /* neutral-600 for visibility in dark mode */
+}
+
+/* VCC/Power traces - red */
+.trace[data-schematic-trace-id$="_vcc"] path,
+.trace[data-schematic-trace-id$="_vcc"] line,
+.trace[data-schematic-trace-id$="_vcc"] polyline {
+  stroke: #ef4444 !important; /* red-500 */
+}
+
+/* Clock traces - purple */
+.trace[data-schematic-trace-id$="_clock"] path,
+.trace[data-schematic-trace-id$="_clock"] line,
+.trace[data-schematic-trace-id$="_clock"] polyline {
+  stroke: #a855f7 !important; /* purple-500 */
+}
+
+/* Data traces (DIN/DOUT) - yellow (same as signal) */
+.trace[data-schematic-trace-id$="_data"] path,
+.trace[data-schematic-trace-id$="_data"] line,
+.trace[data-schematic-trace-id$="_data"] polyline {
+  stroke: #eab308 !important; /* yellow-500 */
 }

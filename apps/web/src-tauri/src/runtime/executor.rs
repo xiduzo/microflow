@@ -92,6 +92,21 @@ impl FlowExecutor {
 
     /// Process an event from a component and propagate to connected components
     pub fn process_event(&mut self, event: ComponentEvent) {
+        // Handle internal events (prefixed with _) by routing back to source component
+        if event.source_handle.starts_with('_') {
+            log::info!("Processing internal event: {} ({}) -> {:?}", 
+                event.source, event.source_handle, event.value);
+            if let Some(component) = self.components.get_mut(&event.source) {
+                // Strip the leading underscore for the method name
+                let method = &event.source_handle[1..];
+                match component.call_method(method, event.value) {
+                    Ok(_) => log::info!("✓ Internal call {}.{}", event.source, method),
+                    Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, method, e),
+                }
+            }
+            return;
+        }
+        
         let key = (event.source.clone(), event.source_handle.clone());
 
         log::info!("Processing event: {} ({}) -> looking for edges", event.source, event.source_handle);

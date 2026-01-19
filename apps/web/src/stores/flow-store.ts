@@ -250,6 +250,13 @@ export const useFlowStore = create<FlowState>()((set, get) => {
               flowDoc.addNode(change.item as FlowNode);
             }
             break;
+
+          case "replace":
+            if (change.item) {
+              const node = change.item as FlowNode;
+              flowDoc.updateNode(node.id, node);
+            }
+            break;
         }
       }
     },

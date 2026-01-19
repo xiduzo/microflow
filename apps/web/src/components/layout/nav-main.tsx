@@ -10,12 +10,15 @@ import {
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 
 export function NavMain(props: Props) {
   const location = useLocation();
   const currentPath = location.pathname;
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const isActive = (link: Route | Item) => {
     const isInternal = "url" in link;
@@ -44,6 +47,11 @@ export function NavMain(props: Props) {
               const itemIsActive = isActive(route) || route.isActive;
 
               if (hasChildren) {
+                // Hide items with children when sidebar is collapsed
+                if (isCollapsed) {
+                  return null;
+                }
+
                 // Check if any sub-item is active
                 const hasActiveChild = route.items?.some((subItem) => isActive(subItem)) ?? false;
                 const shouldBeOpen = itemIsActive || hasActiveChild || route.isActive;
@@ -67,7 +75,7 @@ export function NavMain(props: Props) {
                           {route.items?.map((subItem) => {
                             return (
                               <SidebarMenuSubItem key={subItem.title}>
-                                <LinkOrAction item={subItem} />
+                                <LinkOrAction item={subItem} isActive={isActive(subItem)} />
                                 <SidebarMenuBadge className="text-muted-foreground">
                                   {subItem.badge}
                                 </SidebarMenuBadge>
@@ -82,7 +90,7 @@ export function NavMain(props: Props) {
               }
               return (
                 <SidebarMenuItem key={route.title}>
-                  <LinkOrAction item={route} />
+                  <LinkOrAction item={route} isActive={itemIsActive} />
                   <SidebarMenuBadge className="text-muted-foreground">
                     {route.badge}
                   </SidebarMenuBadge>
@@ -96,12 +104,13 @@ export function NavMain(props: Props) {
   );
 }
 
-function LinkOrAction({ item }: { item: Item }) {
+function LinkOrAction({ item, isActive }: { item: Item; isActive?: boolean }) {
   const navigate = useNavigate();
 
   return (
     <SidebarMenuButton
       tooltip={item.title}
+      isActive={isActive}
       onClick={() => {
         if ("url" in item) {
           navigate({ to: item.url });

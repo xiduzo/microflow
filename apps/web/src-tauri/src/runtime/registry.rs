@@ -89,7 +89,15 @@ impl ComponentRegistry {
             Box::new(Relay::new(id, config))
         });
         self.register_hardware("Piezo", |id, data| {
-            let config: PiezoConfig = serde_json::from_value(data.clone()).unwrap_or_default();
+            let config: PiezoConfig = match serde_json::from_value(data.clone()) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("Failed to parse PiezoConfig: {}, using defaults", e);
+                    PiezoConfig::default()
+                }
+            };
+            log::info!("Piezo config parsed: type={:?}, song_len={}, tempo={}", 
+                config.r#type, config.song.len(), config.tempo);
             Box::new(Piezo::new(id, config))
         });
 

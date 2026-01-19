@@ -56,7 +56,7 @@ function NodeDescription() {
   return (
     <CardDescription className="flex gap-4">
       {"pin" in data && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" key={`pin-${data.pin}`}>
           <CableIcon size={12} />
           <Pin pin={data.pin} pins={pins} />
         </div>
@@ -137,9 +137,11 @@ export const useNodeControls = <
 
   const render = useCallback(() => {
     if (!selected) return null;
+    const element = document.getElementById("settings-panels")
+    if(!element) return
     return createPortal(
       <LevaPanel store={store} hideCopyButton fill titleBar={false} />,
-      document.getElementById("settings-panels")!,
+      element,
     );
   }, [store, selected]);
 
@@ -180,20 +182,34 @@ export const useNodeControls = <
 };
 
 /**
- * Forces to delete rendered handles, and connected edges, from an node
+ * Forces to delete rendered handles, and connected edges, from a node
  */
 export function useDeleteHandles() {
   const id = useNodeId();
+  const flowDoc = useFlowStore((state) => state.flowDoc);
   const onEdgesChange = useFlowStore((state) => state.onEdgesChange);
-
   const updateNodeInternals = useUpdateNodeInternals();
 
   const deleteHandles = useCallback(
-    (_handles: string[]) => {
-      onEdgesChange([{ id: id, type: "remove" }]);
-      updateNodeInternals(id); // for xyflow to apply the changes of the removed edges
+    (handles: string[]) => {
+      if (!flowDoc) return;
+
+      // Find edges connected to the specified handles on this node
+      const edges = flowDoc.getEdges();
+      const edgesToRemove = edges.filter(
+        (edge) =>
+          (edge.source === id && edge.sourceHandle && handles.includes(edge.sourceHandle)) ||
+          (edge.target === id && edge.targetHandle && handles.includes(edge.targetHandle)),
+      );
+
+      // Remove each edge by its actual edge ID
+      if (edgesToRemove.length > 0) {
+        onEdgesChange(edgesToRemove.map((edge) => ({ id: edge.id, type: "remove" })));
+      }
+
+      updateNodeInternals(id); // for xyflow to apply the changes of the removed handles
     },
-    [id, updateNodeInternals, onEdgesChange],
+    [id, flowDoc, onEdgesChange, updateNodeInternals],
   );
 
   return deleteHandles;
