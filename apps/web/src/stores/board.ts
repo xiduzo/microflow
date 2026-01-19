@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/shallow";
 import { useMemo } from "react";
-import { useListen } from "@/utils/ipc";
+import { useListen } from "@/lib/ipc";
 
 type BoardState = {
   board: Board;

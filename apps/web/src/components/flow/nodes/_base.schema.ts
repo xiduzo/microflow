@@ -3,6 +3,7 @@ import { z } from "zod";
 export const baseDataSchema = z.looseObject({
   id: z.string().optional(),
   instance: z.string().optional(),
+  subType: z.string().optional(),
   board: z.any().optional(),
 });
 

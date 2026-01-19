@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
+import { queryClient, trpc } from "@/lib/trpc";
 import {
   Card,
   CardContent,

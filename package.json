@@ -39,8 +39,10 @@
   },
   "dependencies": {
     "@microflow/env": "workspace:*",
+    "@tscircuit/core": "^0.0.974",
     "dotenv": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zod3": "npm:zod@^3.24.0"
   },
   "devDependencies": {
     "@microflow/config": "workspace:*",

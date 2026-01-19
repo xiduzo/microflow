@@ -11,8 +11,8 @@ import type {
   NodeChange,
   EdgeChange,
 } from "@xyflow/react";
-import { isDesktop } from "@/utils/platform";
-import { invokeCommand } from "@/utils/ipc";
+import { isDesktop } from "@/lib/platform";
+import { invokeCommand } from "@/lib/ipc";
 
 // ============================================================================
 // Constants

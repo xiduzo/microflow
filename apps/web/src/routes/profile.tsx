@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
 import {
   Card,

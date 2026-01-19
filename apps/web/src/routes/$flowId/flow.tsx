@@ -7,7 +7,7 @@ import {
   useFlowInit,
 } from "@/stores/flow-store";
 import { useSyncProvider, useCollabPresence } from "@/hooks/use-sync-provider";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/trpc";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 import { useQuery } from "@tanstack/react-query";

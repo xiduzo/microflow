@@ -30,6 +30,7 @@
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "^11.7.2",
+    "@tscircuit/eval": "^0.0.590",
     "@tscircuit/schematic-autolayout": "^0.0.6",
     "@tscircuit/schematic-viewer": "^2.0.51",
     "@xyflow/react": "^12.10.0",

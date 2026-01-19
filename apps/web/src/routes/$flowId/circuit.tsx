@@ -4,15 +4,17 @@ import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { useFlowNodes } from "@/hooks/use-flow-document";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { SchematicViewer } from "@tscircuit/schematic-viewer";
-import { useMemo, useRef, useEffect, useCallback } from "react";
-import { createCircuitJson, type TraceMetadata } from "@/lib/schematic/circuit-json";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
+import { buildCircuitCode } from "@/lib/schematic/circuit-builder";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/states/loading-state";
 import { ErrorState } from "@/components/states/error-state";
+import { CircuitRunner } from "@tscircuit/eval";
+import type { CircuitJson } from "circuit-json";
 
-/** Schematic color overrides using theme CSS vars inline – respects light/dark. */
+/** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
   // aux_items: "var(--muted-foreground)",
   background: "transparent",
@@ -54,17 +56,16 @@ const SCHEMATIC_COLOR_OVERRIDES = {
   // worksheet: "var(--background)",
 } as const;
 
+
 export const Route = createFileRoute("/$flowId/circuit")({
   component: RouteComponent,
   beforeLoad: async ({ params }) => {
     const session = await authClient.getSession();
 
-    // For local flow, no auth required
     if (params.flowId === "local") {
       return { session };
     }
 
-    // For cloud flows, redirect to login if not authenticated
     if (!session.data) {
       throw redirect({
         to: "/login",
@@ -155,92 +156,125 @@ function CloudCircuitComponent() {
   return <CircuitViewer />;
 }
 
+
 function CircuitViewer() {
   const flowDoc = useFlowDocument();
   const nodes = useFlowNodes(flowDoc);
   const pins = usePins();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [circuitJson, setCircuitJson] = useState<CircuitJson>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isRendering, setIsRendering] = useState(false);
+  const runnerRef = useRef<CircuitRunner | null>(null);
 
-  const { elements: circuitJson, traceMetadata } = useMemo(
-    () => createCircuitJson(nodes, pins),
+  // Build circuit code from nodes
+  const { code, componentCount } = useMemo(
+    () => {
+      const _code = buildCircuitCode(nodes, pins)
+      console.log(nodes, pins, _code)
+      return _code
+    },
     [nodes, pins]
   );
 
-  // Post-process SVG to add trace type classes for CSS styling
-  const applyTraceClasses = useCallback((metadata: TraceMetadata[]) => {
-    if (!containerRef.current) return;
-    
-    const svg = containerRef.current.querySelector("svg");
-    console.log("scg",{svg})
-    if (!svg) return;
+  // Render circuit using CircuitRunner
+  const renderCircuit = useCallback(async (circuitCode: string) => {
+    if (isRendering) return;
 
-    // Build a map of trace IDs to types
-    const traceTypeMap = new Map<string, string>();
-    for (const trace of metadata) {
-      traceTypeMap.set(trace.schematicTraceId, trace.traceType);
-      // Also map the source_trace_id variant
-      const sourceId = trace.schematicTraceId.replace("schematic_trace_", "");
-      traceTypeMap.set(sourceId, trace.traceType);
+    setIsRendering(true);
+    setError(null);
+
+    try {
+      // Create new runner for each render to avoid state issues
+      const runner = new CircuitRunner();
+      runnerRef.current = runner;
+
+      console.log("Executing circuit code:", circuitCode);
+      await runner.execute(circuitCode);
+      await runner.renderUntilSettled();
+
+      const json = await runner.getCircuitJson();
+      console.log("Circuit JSON result:", json);
+
+      // Only update if we got valid results
+      if (json && Array.isArray(json) && json.length > 0) {
+        setCircuitJson(json);
+      } else {
+        console.warn("Empty circuit JSON returned");
+        setError("Circuit rendered but produced no elements");
+      }
+    } catch (e) {
+      console.error("Circuit render error:", e);
+      setError(e instanceof Error ? e.message : "Failed to render circuit");
+    } finally {
+      setIsRendering(false);
     }
+  }, [isRendering]);
 
-    // Find trace elements by data attributes
-    const traceGroups = svg.querySelectorAll('[data-circuit-json-type="schematic_trace"]');
-    for (const group of traceGroups) {
-      group.classList.add("trace");
-      
-      const traceId = group.getAttribute("data-schematic-trace-id") 
-        || group.getAttribute("data-source-trace-id");
-      
-      const traceType = traceId ? traceTypeMap.get(traceId) : null;
-      group.classList.add(traceType || "sig");
-    }
-  }, []);
-
-  // Apply trace classes after render
+  // Re-render when code changes
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (code && componentCount > 0) {
+      // Small delay to avoid rapid re-renders
+      const timeoutId = setTimeout(() => {
+        renderCircuit(code);
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [code, componentCount]);
 
-    const observer = new MutationObserver(() => {
-      applyTraceClasses(traceMetadata);
-    });
+  if (isRendering && circuitJson.length === 0) {
+    return <LoadingState />;
+  }
 
-    observer.observe(containerRef.current, {
-      childList: true,
-      subtree: true,
-    });
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="text-center p-8">
+          <p className="text-destructive mb-2">Circuit render error</p>
+          <p className="text-muted-foreground text-sm">{error}</p>
+          <pre className="mt-4 p-4 bg-muted rounded text-xs text-left overflow-auto max-w-2xl max-h-64">
+            {code}
+          </pre>
+        </div>
+      </div>
+    );
+  }
 
-    // Initial application with a small delay to ensure SVG is rendered
-    const timeoutId = setTimeout(() => {
-      applyTraceClasses(traceMetadata);
-    }, 150);
-
-    // Re-apply on window resize (SVG might re-render)
-    const handleResize = () => {
-      setTimeout(() => applyTraceClasses(traceMetadata), 100);
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      observer.disconnect();
-      clearTimeout(timeoutId);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [traceMetadata, applyTraceClasses]);
+  if (componentCount === 0 || circuitJson.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <p className="text-muted-foreground">
+          {componentCount === 0
+            ? "Add hardware components to your flow to see the circuit schematic"
+            : "Rendering circuit..."}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div ref={containerRef} className="w-full h-full">
-      <SchematicViewer
-        // debugGrid
-        circuitJson={circuitJson}
-        colorOverrides={{
-          schematic: SCHEMATIC_COLOR_OVERRIDES,
-        }}
-        containerStyle={{
-          width: "100%",
-          height: "100%",
-          borderRadius: "2rem",
-        }}
-      />
+    <div className="w-full h-full relative">
+      {isRendering && (
+        <div className="absolute top-4 right-4 z-10">
+          <div className="bg-background/80 backdrop-blur px-3 py-1 rounded text-sm text-muted-foreground">
+            Updating...
+          </div>
+        </div>
+      )}
+      {circuitJson.length > 0 && (
+        <SchematicViewer
+          circuitJson={circuitJson}
+          // debug
+          // debugGrid
+          colorOverrides={{
+            schematic: SCHEMATIC_COLOR_OVERRIDES,
+          }}
+          containerStyle={{
+            width: "100%",
+            height: "100%",
+            borderRadius: "2rem",
+          }}
+        />
+      )}
     </div>
   );
 }

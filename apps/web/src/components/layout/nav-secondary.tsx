@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { isDesktop } from "@/utils/platform";
+import { isDesktop } from "@/lib/platform";
 
 type Link = {
   title: string;
@@ -36,7 +36,7 @@ export function NavSecondary(
 ) {
 
   const handleLinkClick = (url: string) => {
-    if(isDesktop()) {
+    if (isDesktop()) {
       return
     }
 
@@ -54,7 +54,7 @@ export function NavSecondary(
               <SidebarMenuButton
                 size="sm"
                 tooltip={item.tooltip ?? item.title}
-                onClick={() =>handleLinkClick(item.url)}
+                onClick={() => handleLinkClick(item.url)}
               >
                 <item.icon />
                 <span>{item.title}</span>

@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
-import { isDesktop } from "@/utils/platform";
+import { isDesktop } from "@/lib/platform";
 import { cva } from "class-variance-authority";
 import { useBoardPort, useBoardState } from "@/stores/board";
 import { useMemo } from "react";

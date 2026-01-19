@@ -6,7 +6,7 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router";
 
-import type { trpc } from "@/utils/trpc";
+import type { trpc } from "@/lib/trpc";
 
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";

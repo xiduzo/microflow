@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CloudIcon, LogInIcon, User2Icon } from "lucide-react";
 
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
 import { FlowCard, FlowCardSkeleton } from "@/components/home/flow-card";
 import { Button } from "@/components/ui/button";

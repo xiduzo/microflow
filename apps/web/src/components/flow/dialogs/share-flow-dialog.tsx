@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Share2, UserPlus, X, Copy, Check, Search, Mail } from "lucide-react";
 import { toast } from "sonner";
 
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/trpc";
 import {
   Dialog,
   DialogContent,

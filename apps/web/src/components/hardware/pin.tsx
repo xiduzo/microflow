@@ -4,7 +4,7 @@ import {
   findPin,
   isPwmPin,
   reducePinsToOptions,
-} from "@/utils/pin";
+} from "@/lib/pin";
 
 // Re-export utilities for backward compatibility
 export { pinDisplayValue, reducePinsToOptions };

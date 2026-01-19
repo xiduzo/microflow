@@ -1,4 +1,4 @@
-import { useListen, type ComponentEventPayload } from "@/utils/ipc";
+import { useListen, type ComponentEventPayload } from "@/lib/ipc";
 import { useSignalStore } from "@/stores/signal";
 import { useNodeDataStore } from "@/stores/node-data";
 import { useFlowStore } from "@/stores/flow-store";

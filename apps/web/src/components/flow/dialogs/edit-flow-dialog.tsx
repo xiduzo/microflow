@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pencil } from "lucide-react";
 
-import { trpc, trpcClient } from "@/utils/trpc";
+import { trpc, trpcClient } from "@/lib/trpc";
 import {
   Dialog,
   DialogContent,

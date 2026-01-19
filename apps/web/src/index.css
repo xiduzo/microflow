@@ -158,7 +158,7 @@
 
 /* Edges */
 .react-flow__edges .react-flow__edge-path {
-  @apply stroke-[7] bg-muted-foreground transition-colors;
+  @apply stroke-7 bg-muted-foreground transition-colors;
 }
 
 .react-flow__edges .react-flow__edge.selected .react-flow__edge-path,
@@ -184,7 +184,7 @@
 }
 
 .react-flow__connection .react-flow__connection-path {
-  @apply stroke-[7] stroke-muted-foreground;
+  @apply stroke-7 stroke-muted-foreground;
   stroke-dasharray: 8, 8;
   transition: stroke 0.15s;
 }
@@ -319,49 +319,41 @@
   * GND = black, VCC = red, SIG/DIN/DOUT = yellow
   * Trace IDs are suffixed with type: data-schematic-trace-id="schematic_trace_..._sig"
   */
-.trace path,
-.trace line,
-.trace polyline {
-  @apply stroke-[1.5];
-}
-
 /* Signal traces (default) - yellow */
 .trace[data-schematic-trace-id$="_sig"] path,
 .trace[data-schematic-trace-id$="_sig"] line,
 .trace[data-schematic-trace-id$="_sig"] polyline {
-  stroke: #eab308 !important; /* yellow-500 */
+  @apply stroke-yellow-500;
 }
 
 /* Ground traces - black */
 .trace[data-schematic-trace-id$="_gnd"] path,
 .trace[data-schematic-trace-id$="_gnd"] line,
 .trace[data-schematic-trace-id$="_gnd"] polyline {
-  stroke: #000000 !important;
-}
-
-.dark .trace[data-schematic-trace-id$="_gnd"] path,
-.dark .trace[data-schematic-trace-id$="_gnd"] line,
-.dark .trace[data-schematic-trace-id$="_gnd"] polyline {
-  stroke: #525252 !important; /* neutral-600 for visibility in dark mode */
+  @apply stroke-blue-500;
 }
 
 /* VCC/Power traces - red */
 .trace[data-schematic-trace-id$="_vcc"] path,
 .trace[data-schematic-trace-id$="_vcc"] line,
 .trace[data-schematic-trace-id$="_vcc"] polyline {
-  stroke: #ef4444 !important; /* red-500 */
+  @apply stroke-red-500;
 }
 
 /* Clock traces - purple */
 .trace[data-schematic-trace-id$="_clock"] path,
 .trace[data-schematic-trace-id$="_clock"] line,
 .trace[data-schematic-trace-id$="_clock"] polyline {
-  stroke: #a855f7 !important; /* purple-500 */
+  @apply stroke-purple-500;
 }
 
 /* Data traces (DIN/DOUT) - yellow (same as signal) */
 .trace[data-schematic-trace-id$="_data"] path,
 .trace[data-schematic-trace-id$="_data"] line,
 .trace[data-schematic-trace-id$="_data"] polyline {
-  stroke: #eab308 !important; /* yellow-500 */
+  @apply stroke-yellow-500;
+}
+
+g text.pin-number[text-anchor="middle"] {
+  opacity: 0;
 }

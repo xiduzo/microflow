@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Plus } from "lucide-react";
 
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/trpc";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
 import {
   Dialog,

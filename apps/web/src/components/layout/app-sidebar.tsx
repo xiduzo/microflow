@@ -22,7 +22,7 @@ import {
 import { FlowSwitcher, LOCAL_FLOW } from "./flow-switcher";
 import { NavMicrocontroller } from "./nav-microcontroller";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@/lib/trpc";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { useFlowImportExport } from "@/hooks/use-flow-import-export";
 import { useMemo } from "react";
