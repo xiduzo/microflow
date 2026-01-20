@@ -11,8 +11,10 @@ import { trpc } from "@/lib/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/states/loading-state";
 import { ErrorState } from "@/components/states/error-state";
-import { CircuitRunner } from "@tscircuit/eval";
-import type { CircuitJson } from "circuit-json";
+import { createCircuitWebWorker, type CircuitWebWorker } from "@tscircuit/eval";
+import type { AnyCircuitElement, CircuitJson } from "circuit-json";
+import { EmptyState } from "@/components/states/empty-state";
+import { useDebouncer, useRateLimiter } from "@tanstack/react-pacer";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
@@ -161,120 +163,68 @@ function CircuitViewer() {
   const flowDoc = useFlowDocument();
   const nodes = useFlowNodes(flowDoc);
   const pins = usePins();
-  const [circuitJson, setCircuitJson] = useState<CircuitJson>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [isRendering, setIsRendering] = useState(false);
-  const runnerRef = useRef<CircuitRunner | null>(null);
+  const [{ isPending, error, data }, setState] = useState({ isPending: false, error: null as string | null, data: [] as AnyCircuitElement[] });
+  const worker = useRef<CircuitWebWorker | null>(null);
 
-  // Build circuit code from nodes
-  const { code, componentCount } = useMemo(
-    () => {
-      const _code = buildCircuitCode(nodes, pins)
-      console.log(nodes, pins, _code)
-      return _code
-    },
-    [nodes, pins]
-  );
+  const debouncer = useDebouncer(async () => {
+    if (!worker.current) {
+      worker.current = await createCircuitWebWorker({
+        projectConfig: {
+          pcbDisabled: true,
+          partsEngineDisabled: true,
+        }
+      });
+    }
+    const { code } = buildCircuitCode(nodes, pins)
 
-  // Render circuit using CircuitRunner
-  const renderCircuit = useCallback(async (circuitCode: string) => {
-    if (isRendering) return;
+    setState({ isPending: true, error: null, data: [] });
 
-    setIsRendering(true);
-    setError(null);
-
+    // Create new runner for each render to avoid state issues
+    console.log("Executing circuit code:", code);
     try {
-      // Create new runner for each render to avoid state issues
-      const runner = new CircuitRunner();
-      runnerRef.current = runner;
-
-      console.log("Executing circuit code:", circuitCode);
-      await runner.execute(circuitCode);
-      await runner.renderUntilSettled();
-
-      const json = await runner.getCircuitJson();
-      console.log("Circuit JSON result:", json);
-
-      // Only update if we got valid results
-      if (json && Array.isArray(json) && json.length > 0) {
-        setCircuitJson(json);
-      } else {
-        console.warn("Empty circuit JSON returned");
-        setError("Circuit rendered but produced no elements");
-      }
+      await worker.current?.execute(code);
+      await worker.current?.renderUntilSettled();
+      const json = await worker.current?.getCircuitJson();
+      if (!json) return;
+      setState({ isPending: false, error: null, data: json });
     } catch (e) {
       console.error("Circuit render error:", e);
-      setError(e instanceof Error ? e.message : "Failed to render circuit");
-    } finally {
-      setIsRendering(false);
+      setState({ isPending: false, error: e instanceof Error ? e.message : "Failed to render circuit", data: [] });
     }
-  }, [isRendering]);
+  }, { wait: 1000 });
 
-  // Re-render when code changes
+
   useEffect(() => {
-    if (code && componentCount > 0) {
-      // Small delay to avoid rapid re-renders
-      const timeoutId = setTimeout(() => {
-        renderCircuit(code);
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [code, componentCount]);
+    debouncer.maybeExecute();
+  }, [nodes, pins, debouncer.maybeExecute]);
 
-  if (isRendering && circuitJson.length === 0) {
-    return <LoadingState />;
-  }
 
-  if (error) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-center p-8">
-          <p className="text-destructive mb-2">Circuit render error</p>
-          <p className="text-muted-foreground text-sm">{error}</p>
-          <pre className="mt-4 p-4 bg-muted rounded text-xs text-left overflow-auto max-w-2xl max-h-64">
-            {code}
-          </pre>
-        </div>
-      </div>
-    );
-  }
+  if (debouncer.store.state.isPending || isPending) return <LoadingState title="Rendering circuit..." />;
+  if (error) return <ErrorState title="Failed to render circuit" error={error} />;
+  if (data.length === 0) return <EmptyState title="Add hardware components to your flow to see the circuit schematic" />;
 
-  if (componentCount === 0 || circuitJson.length === 0) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <p className="text-muted-foreground">
-          {componentCount === 0
-            ? "Add hardware components to your flow to see the circuit schematic"
-            : "Rendering circuit..."}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full h-full relative">
-      {isRendering && (
+      {isPending && (
         <div className="absolute top-4 right-4 z-10">
           <div className="bg-background/80 backdrop-blur px-3 py-1 rounded text-sm text-muted-foreground">
             Updating...
           </div>
         </div>
       )}
-      {circuitJson.length > 0 && (
-        <SchematicViewer
-          circuitJson={circuitJson}
-          // debug
-          // debugGrid
-          colorOverrides={{
-            schematic: SCHEMATIC_COLOR_OVERRIDES,
-          }}
-          containerStyle={{
-            width: "100%",
-            height: "100%",
-            borderRadius: "2rem",
-          }}
-        />
-      )}
+      <SchematicViewer
+        circuitJson={data}
+        debugGrid
+        colorOverrides={{
+          schematic: SCHEMATIC_COLOR_OVERRIDES,
+        }}
+        containerStyle={{
+          width: "100%",
+          height: "100%",
+          borderRadius: "2rem",
+        }}
+      />
     </div>
   );
 }

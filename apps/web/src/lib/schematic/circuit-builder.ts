@@ -48,73 +48,73 @@ interface TscircuitComponent {
 const componentMap: Record<string, TscircuitComponent> = {
   button: {
     toJsx: (name, _data, schX, schY) =>
-      `<pushbutton name="${name}" footprint="pushbutton" schX={${schX}} schY={${schY}} />`,
+      `<pushbutton name="${name}" footprint="pushbutton" schX={${schX}} schY={${schY}}  />`,
     signalPin: "pin1",
     powerPins: { gnd: "pin2" },
   },
   led: {
     toJsx: (name, _data, schX, schY) =>
-      `<led name="${name}" footprint="0603" color="" schX={${schX}} schY={${schY}} />`,
+      `<led name="${name}" footprint="0603" color="" schX={${schX}} schY={${schY}}  />`,
     signalPin: "anode",
     powerPins: { gnd: "cathode" },
   },
   switch: {
     toJsx: (name, _data, schX, schY) =>
-      `<switch name="${name}" type="spst" schX={${schX}} schY={${schY}}  />`,
+      `<switch name="${name}" type="spst" schX={${schX}} schY={${schY}}   />`,
     signalPin: "pin1",
     powerPins: { gnd: "pin2" },
   },
   relay: {
     toJsx: (name, _data, schX, schY) =>
-      `<switch name="${name}" type="spdt" schX={${schX}} schY={${schY}} isNormallyClosed={${_data.type === "NC"}}  />`,
+      `<switch name="${name}" type="spdt" schX={${schX}} schY={${schY}}  isNormallyClosed={${_data.type === "NC"}}  />`,
     signalPin: "pin1",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   sensor: {
     toJsx: (name, _data, schX, schY) =>
-      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }} />`,
+      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }} />`,
     signalPin: "SIG",
     powerPins: { vcc: "VCC", gnd: "GND" },
   },
   potentiometer: {
     toJsx: (name, _data, schX, schY) =>
-      `<potentiometer name="${name}" footprint="pinrow3" pinVariant="three_pin" maxResistance="50k" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "VCC", pin2: "SIG", pin3: "GND" }} />`,
+      `<potentiometer name="${name}" footprint="pinrow3" pinVariant="three_pin" maxResistance="50k" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "VCC", pin2: "SIG", pin3: "GND" }} />`,
     signalPin: "pin2",
     powerPins: { vcc: "pin1", gnd: "pin3" },
   },
   servo: {
     toJsx: (name, _data, schX, schY) =>
-      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
+      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
     signalPin: "SIG",
     powerPins: { vcc: "VCC", gnd: "GND" },
   },
   rgb: {
     toJsx: (name, _data, schX, schY) =>
-      `<chip name="${name}" footprint="dip4" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "R", pin2: "G", pin3: "B", pin4: "GND" }} />`,
+      `<chip name="${name}" footprint="dip4" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "R", pin2: "G", pin3: "B", pin4: "GND" }} />`,
     signalPin: "R", // Primary signal pin
     powerPins: { gnd: "GND" },
   },
   piezo: {
     toJsx: (name, _data, schX, schY) =>
-      `<chip name="${name}" footprint="0805" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "GND", pin2: "SIG" }} />`,
+      `<chip name="${name}" footprint="0805" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "GND", pin2: "SIG" }} />`,
     signalPin: "SIG",
     powerPins: { gnd: "GND" },
   },
   matrix: {
     toJsx: (name, _data, schX, schY) =>
-      `<chip name="${name}" footprint="soic5" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "DIN", pin2: "CLK", pin3: "CS", pin4: "VCC", pin5: "GND" }} />`,
+      `<chip name="${name}" footprint="soic5" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "DIN", pin2: "CLK", pin3: "CS", pin4: "VCC", pin5: "GND" }} />`,
     signalPin: "DIN",
     powerPins: { vcc: "VCC", gnd: "GND" },
   },
   motion: {
     toJsx: (name, _data, schX, schY) =>
-      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "DOUT" }} />`,
+      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "DOUT" }} />`,
     signalPin: "DOUT",
     powerPins: { vcc: "VCC", gnd: "GND" },
   },
   proximity: {
     toJsx: (name, _data, schX, schY) =>
-      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}} pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }} />`,
+      `<chip name="${name}" footprint="pinrow3" schX={${schX}} schY={${schY}}  pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }} />`,
     signalPin: "SIG",
     powerPins: { vcc: "VCC", gnd: "GND" },
   },
@@ -136,16 +136,6 @@ function sanitizeName(name: string): string {
 function isHardwareComponent(instanceType: string): boolean {
   const hardwareComponents = ["button", "led", "switch", "relay", "sensor", "potentiometer", "servo", "rgb", "piezo", "matrix", "motion", "proximity", "pixel"];
   return hardwareComponents.includes(instanceType.toLowerCase());
-}
-
-function isInputComponent(instanceType: string): boolean {
-  const inputComponents = ["button", "switch", "sensor", "potentiometer", "motion", "proximity"];
-  return inputComponents.includes(instanceType.toLowerCase());
-}
-
-function isOutputComponent(instanceType: string): boolean {
-  const outputComponents = ["led", "servo", "rgb", "piezo", "matrix", "pixel"];
-  return outputComponents.includes(instanceType.toLowerCase());
 }
 
 function getNodePins(node: Node, pins: Pin[]): number[] {
@@ -182,18 +172,10 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
 
   // Sort by pin number for consistent layout
   const sortedNodes = [...hardwareNodes].sort((a, b) => {
-    const pinA = 'pin' in a.data ? a.data.pin : -1;
-    const pinB = 'pin' in b.data ? b.data.pin : -1;
-    return (pinA as number) - (pinB as number);
+    const pinA = 'pin' in a.data ? Number(a.data.pin) : -1;
+    const pinB = 'pin' in b.data ? Number(b.data.pin) : -1;
+    return pinA - pinB;
   })
-
-  // Separate input and output components
-  const inputNodes = hardwareNodes.filter((n) => {
-    return isInputComponent((n.data as BaseData).instance!);
-  });
-  const outputNodes = hardwareNodes.filter((n) => {
-    return isOutputComponent((n.data as BaseData).instance!);
-  });
 
   // Build MCU pin labels from used pins
   const usedPins = new Set<number>();
@@ -223,7 +205,7 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
   // Calculate board size based on component count
   const totalComponents = sortedNodes.length + 1; // +1 for MCU
   const boardWidth = Math.max(30, totalComponents * 15);
-  const boardHeight = Math.max(20, Math.max(inputNodes.length, outputNodes.length) * 8 + 10);
+  const boardHeight = Math.max(20, Math.max(hardwareNodes.length) * 8 + 10);
 
   // Generate component JSX
   const components: string[] = [];
@@ -242,14 +224,13 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
   
   components.push(`    <chip
       name="MCU"
-      footprint="${mcuFootprint}"
       schX={0}
       schY={0}
+      footprint="${mcuFootprint}"
       pinLabels={{ ${mcuPinLabelEntries} }}
     />`);
 
-  // Add input components on the left
-  inputNodes.forEach((node, idx) => {
+  hardwareNodes.forEach((node, index) => {
     const data = node.data as BaseData & { label?: string };
     const instanceType = data.instance?.toLowerCase();
     const subType = data.subType?.toLowerCase();
@@ -257,10 +238,12 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
     const component = componentMap[subType ?? ""] ?? componentMap[instanceType]
     if (!component) return;
 
-    const rawName = data.label ?? `${instanceType.toUpperCase()}${idx + 1}`;
+    const rawName = data.label ?? `${instanceType.toUpperCase()}${index + 1}`;
     const componentName = sanitizeName(rawName);
-    const schX = -6;
-    const schY = (idx - (inputNodes.length - 1) / 2) * 3;
+    const halfLength = Math.floor(hardwareNodes.length / 2);
+    const isOverHalf = index >= halfLength;
+    const schX = isOverHalf ? 6 : -6;
+    const schY = (index - halfLength) * (isOverHalf ? 2 : -2);
 
     components.push(`    ${component.toJsx(componentName, node.data, schX, schY)}`);
 
@@ -269,51 +252,17 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
     nodePins.forEach((p) => {
       const mcuPinIdx = sortedUsedPins.indexOf(p);
       if (mcuPinIdx >= 0) {
-        traces.push(`    <trace from=".${componentName} > .${component.signalPin}" to=".MCU > .pin${mcuPinIdx + 1}" />`);
+        traces.push(`    <trace layer="signal" from=".${componentName} > .${component.signalPin}" to=".MCU > .pin${mcuPinIdx + 1}" />`);
       }
     });
 
     // Add power traces for this component
     if (component.powerPins) {
       if (component.powerPins.vcc) {
-        powerTraces.push(`    <trace from=".${componentName} > .${component.powerPins.vcc}" to="net.VCC" />`);
+        powerTraces.push(`    <trace layer="power" from=".${componentName} > .${component.powerPins.vcc}" to="net.VCC" />`);
       }
       if (component.powerPins.gnd) {
-        powerTraces.push(`    <trace from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`);
-      }
-    }
-  });
-
-  // Add output components on the right
-  outputNodes.forEach((node, idx) => {
-    const data = node.data as BaseData & { label?: string };
-    const instanceType = data.instance!.toLowerCase();
-    const component = componentMap[instanceType];
-    if (!component) return;
-
-    const rawName = data.label ?? `${instanceType.toUpperCase()}${idx + 1}`;
-    const componentName = sanitizeName(rawName);
-    const schX = 6;
-    const schY = (idx - (outputNodes.length - 1) / 2) * 3;
-
-    components.push(`    ${component.toJsx(componentName, node.data, schX, schY)}`);
-
-    // Create trace from MCU to component signal pin
-    const nodePins = getNodePins(node, pins);
-    nodePins.forEach((p) => {
-      const mcuPinIdx = sortedUsedPins.indexOf(p);
-      if (mcuPinIdx >= 0) {
-        traces.push(`    <trace from=".MCU > .pin${mcuPinIdx + 1}" to=".${componentName} > .${component.signalPin}" />`);
-      }
-    });
-
-    // Add power traces for this component
-    if (component.powerPins) {
-      if (component.powerPins.vcc) {
-        powerTraces.push(`    <trace id="${componentName}_vcc" from=".${componentName} > .${component.powerPins.vcc}" to="net.VCC" />`);
-      }
-      if (component.powerPins.gnd) {
-        powerTraces.push(`    <trace layer="ground" id="${componentName}_gnd" from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`);
+        powerTraces.push(`    <trace layer="ground" from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`);
       }
     }
   });

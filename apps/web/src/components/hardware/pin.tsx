@@ -15,7 +15,6 @@ export function isPmwPin(pin: Pin | string | number, pins: Pin[] = []) {
 }
 
 export function Pin(props: Props) {
-  console.log(props)
   return <span className="font-extralight">{pinDisplayValue(props.pin, props.pins)}</span>;
 }
 
