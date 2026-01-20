@@ -254,7 +254,10 @@ export const useFlowStore = create<FlowState>()((set, get) => {
           case "replace":
             if (change.item) {
               const node = change.item as FlowNode;
-              flowDoc.updateNode(node.id, node);
+              // Never persist UI-only fields (selected, dragging). Each Leva
+              // edit sends the full node with selected:true; writing that into
+              // Yjs would leave multiple nodes with selected:true over time.
+              flowDoc.updateNode(node.id, { ...node, selected: undefined, dragging: undefined });
             }
             break;
         }

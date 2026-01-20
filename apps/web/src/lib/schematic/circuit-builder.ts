@@ -1,6 +1,6 @@
 import type { Pin } from "@/stores/board";
 import type { Node } from "@xyflow/react";
-import type { BaseData } from "@/components/flow/nodes/_base.schema";
+import type { BaseData } from "@/components/flow/nodes/_base/_base.schema";
 import { formatPinValueWithPwm, getAnalogChannelBase } from "@/lib/pin";
 
 /**

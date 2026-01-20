@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseDataSchema } from "../_base.schema";
+import { baseDataSchema } from "../_base/_base.schema";
 import { DEFAULT_MATRIX_SHAPE } from "./matrix.constants";
 
 export const valueSchema = z.array(z.string());

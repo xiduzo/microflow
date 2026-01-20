@@ -1,6 +1,6 @@
 import { Handle } from "../../handle";
 import { IconWithValue } from "../../icon-with-value";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { dataSchema, type Data, type MovingAverage, type SmoothAverage } from "./smooth.schema";
 import { EraserIcon, HighlighterIcon } from "lucide-react";
 

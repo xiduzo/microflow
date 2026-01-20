@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { COLORS, DEFAULT_OFF_PIXEL_COLOR } from "./pixel.constants";
-import { baseDataSchema } from "../_base.schema";
+import { baseDataSchema } from "../_base/_base.schema";
 
 const valueSchema = z
   .array(

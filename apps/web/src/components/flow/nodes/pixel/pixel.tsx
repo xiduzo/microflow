@@ -4,7 +4,7 @@ import {
   useNodeControls,
   useNodeData,
   type BaseNode,
-} from "../_base";
+} from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, type Data, type Value } from "./pixel.schema";
 import { COLORS, DEFAULT_OFF_PIXEL_COLOR } from "./pixel.constants";

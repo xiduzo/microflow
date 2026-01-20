@@ -1,4 +1,4 @@
-import { useNodeId } from "@/components/flow/nodes/_base";
+import { useNodeId } from "@/components/flow/nodes/_base/_base";
 import { create } from "zustand";
 
 type NodeData<T extends unknown = unknown> = {

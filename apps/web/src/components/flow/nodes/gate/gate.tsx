@@ -1,6 +1,6 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { dataSchema, type Data, type Value } from "./gate.schema";
 
 export function Gate(props: Props) {

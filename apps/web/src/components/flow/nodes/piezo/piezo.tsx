@@ -6,7 +6,7 @@ import {
   useNodeControls,
   useNodeData,
   type BaseNode,
-} from "../_base";
+} from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { useState } from "react";
 import { MODES } from "@/stores/board";

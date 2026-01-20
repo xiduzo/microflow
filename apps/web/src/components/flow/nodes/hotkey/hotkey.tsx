@@ -1,5 +1,5 @@
 import { button } from "leva";
-import { NodeContainer, useNodeControls, useNodeData, useNodeId, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, useNodeId, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import { useEffect, useState } from "react";
 import { dataSchema, type Data, type Value } from "./hotkey.schema";

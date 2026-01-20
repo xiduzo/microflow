@@ -4,7 +4,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { NODE_TYPES } from "../nodes/_TYPES";
 import { useFlowStore } from "@/stores/flow-store";
 import { useNewNodeStore } from "@/stores/new-node";
-import type { BaseNode } from "../nodes/_base";
+import type { BaseNode } from "../nodes/_base/_base";
 import { uid } from "@/lib/uid";
 import {
   CommandDialog,

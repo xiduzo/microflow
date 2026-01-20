@@ -1,5 +1,5 @@
 import { folder } from "leva";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import { useNodeValue } from "@/stores/node-data";
 import { type Value, type Data, dataSchema } from "./sensor.schema";

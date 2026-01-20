@@ -1,6 +1,6 @@
 import { dataSchema, type Data } from "./delay.schema";
 import { Handle } from "../../handle";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { IconWithValue } from "../../icon-with-value";
 import { SnailIcon } from "lucide-react";
 

@@ -1,7 +1,7 @@
 import { Handle } from "../../handle";
 import { Position } from "@xyflow/react";
-import { NodeContainer, type BaseNode } from "../_base";
-import { useNodeData } from "../_base";
+import { NodeContainer, type BaseNode } from "../_base/_base";
+import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { button } from "leva";
 import { AudioFileEditor } from "./audio-file-editor";
@@ -11,7 +11,7 @@ import {
   dataSchema,
 } from "@microflow/runtime/audio-player/audio-player.types";
 import { useState } from "react";
-import { useNodeControls } from "../_base";
+import { useNodeControls } from "../_base/_base";
 import { Volume2Icon, VolumeOffIcon } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
 

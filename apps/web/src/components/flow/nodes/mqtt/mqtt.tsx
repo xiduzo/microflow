@@ -1,6 +1,6 @@
 import { dataSchema, type Data, type Value } from "./mqtt.schema";
 import { Handle } from "../../handle";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RadioIcon, RadioTowerIcon } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
 

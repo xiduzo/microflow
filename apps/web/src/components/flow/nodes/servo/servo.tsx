@@ -1,7 +1,7 @@
 import { CircleIcon, RotateCcwIcon, RotateCwIcon, SlashIcon } from "lucide-react";
 import { Handle } from "../../handle";
-import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from "../_base";
-import { useNodeData } from "../_base";
+import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from "../_base/_base";
+import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { type Data, type Value, dataSchema } from "./servo.schema";
 import { reducePinsToOptions } from "@/components/hardware/pin";

@@ -1,8 +1,8 @@
-import { NodeContainer } from "../_base";
+import { NodeContainer } from "../_base/_base";
 import { Handle } from "../../handle";
 import { Position } from "@xyflow/react";
 import { button, folder } from "leva";
-import { useNodeData } from "../_base";
+import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { MatrixDisplay } from "./matrix-display";
 import { useState } from "react";
@@ -23,7 +23,7 @@ import {
 import { MatrixEditor } from "./matrix-editor";
 import { Button } from "@/components/ui/button";
 import { type Data, type Value, dataSchema } from "./matrix.schema";
-import { type BaseNode } from "../_base";
+import { type BaseNode } from "../_base/_base";
 import {
   DEFAULT_MATRIX_START_SHAPE,
   type MatrixShape,
@@ -32,7 +32,7 @@ import { DEFAULT_MATRIX_SHAPE } from "./matrix.constants";
 import { usePins } from "@/stores/board";
 import { MODES } from "@/stores/board";
 import { reducePinsToOptions } from "@/components/hardware/pin";
-import { useNodeControls } from "../_base";
+import { useNodeControls } from "../_base/_base";
 import { ArrowLeftRightIcon, ArrowRightLeftIcon } from "lucide-react";
 
 export function Matrix(props: Props) {

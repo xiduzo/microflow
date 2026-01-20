@@ -1,6 +1,6 @@
 import { isPmwPin, reducePinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import { dataSchema, type Data, type Value } from "./led.schema";
 import { useNodeValue } from "@/stores/node-data";

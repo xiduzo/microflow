@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseDataSchema } from "../_base.schema";
+import { baseDataSchema } from "../_base/_base.schema";
 
 export const waveformTypeSchema = z.enum(["sinus", "square", "sawtooth", "triangle", "random"]);
 export type WaveformType = z.infer<typeof waveformTypeSchema>;

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Handle } from "../../handle";
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import {
   AudioWaveformIcon,
   DicesIcon,

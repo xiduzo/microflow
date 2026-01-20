@@ -26,8 +26,22 @@ import { Llm } from "./llm/llm";
 import type { NodeTypes } from "@xyflow/react";
 import { Compare } from "./compare/compare";
 import { Calculate } from "./calculate/calculate";
+import type { ComponentType } from "./_base/_base.types";
 
-export const NODE_TYPES: NodeTypes = {
+// Re-export component types for external use
+export { COMPONENT_TYPES, type ComponentType, isComponentType } from "./_base/_base.types";
+
+// ============================================================================
+// Node Types Registry
+// ============================================================================
+// Maps component type names to their React components.
+// The keys MUST match the COMPONENT_TYPES array in _component-types.ts.
+//
+// TypeScript will error if you add a component here without adding it to
+// COMPONENT_TYPES, or vice versa (via the satisfies check below).
+// ============================================================================
+
+export const NODE_TYPES = {
   Button: Button,
   Calculate: Calculate,
   Compare: Compare,
@@ -58,4 +72,4 @@ export const NODE_TYPES: NodeTypes = {
   Switch: Switch,
   Tilt: Tilt,
   Trigger: Trigger,
-};
+} as const satisfies NodeTypes & Record<ComponentType, unknown>;

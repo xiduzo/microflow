@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseDataSchema } from "../_base.schema";
+import { baseDataSchema } from "../_base/_base.schema";
 import { COMPARE_SUB_VALIDATORS } from "./compare.constants";
 
 export const valueSchema = z.boolean();

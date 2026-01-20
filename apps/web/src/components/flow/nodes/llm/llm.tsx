@@ -7,7 +7,7 @@ import {
   useNodeData,
   useNodeId,
   type BaseNode,
-} from "../_base";
+} from "../_base/_base";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useNodeValue } from "@/stores/node-data";

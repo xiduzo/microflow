@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseDataSchema, rgbaSchema } from "../_base.schema";
+import { baseDataSchema, rgbaSchema } from "../_base/_base.schema";
 
 export const valueSchema = z.union([z.string(), z.number(), z.boolean(), rgbaSchema]);
 export type Value = z.infer<typeof valueSchema>;

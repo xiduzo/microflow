@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseDataSchema } from "../_base.schema";
+import { baseDataSchema } from "../_base/_base.schema";
 import { MIN_INTERVAL_IN_MS } from "./interval.constants";
 
 export const valueSchema = z.number();

@@ -1,5 +1,5 @@
 import { type Data, dataSchema } from "./calculate.schema";
-import { NodeContainer, useNodeData, useNodeControls, type BaseNode } from "../_base";
+import { NodeContainer, useNodeData, useNodeControls, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import {
   ArrowDownToLineIcon,

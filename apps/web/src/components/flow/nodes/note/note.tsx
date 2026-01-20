@@ -1,4 +1,4 @@
-import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 
 export function Note(props: Props) {
   return (
