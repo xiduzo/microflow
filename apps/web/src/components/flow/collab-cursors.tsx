@@ -44,7 +44,7 @@ export function Cursor(props: AwarenessUser) {
       <section className="absolute left-4.5 top-4.5 flex items-center gap-2">
         <div
           style={{ backgroundColor: props.color }}
-          className="px-2 py-0.5 rounded"
+          className="px-2 py-0.5 rounded text-white"
         >
           {props.name}
         </div>

@@ -7,20 +7,29 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 import { polarClient } from "./lib/payments";
 
+const isDev = env.NODE_ENV === "development";
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
 
     schema: schema,
   }),
-  trustedOrigins: [env.CORS_ORIGIN],
+  trustedOrigins: [
+    env.CORS_ORIGIN,
+    // Tauri app origins
+    "tauri://localhost",
+    "https://tauri.localhost",
+    ...(isDev ? ["http://localhost:3001"] : []),
+  ],
   emailAndPassword: {
     enabled: true,
   },
   advanced: {
     defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+      // Use 'lax' in dev for Tauri compatibility, 'none' in production
+      sameSite: isDev ? "lax" : "none",
+      secure: !isDev,
       httpOnly: true,
     },
   },

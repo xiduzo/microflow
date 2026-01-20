@@ -146,7 +146,7 @@ function FlowCollaboratorsCard(props: {
           <TableBody>
             <TableRow>
               <TableCell>
-                <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: props.owner.collabColor ?? "#4338ca" }}>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: props.owner.collabColor ?? "#4338ca" }}>
                   <Icon icon={props.owner.collabIcon as IconName} />
                 </div>
               </TableCell>
@@ -158,7 +158,7 @@ function FlowCollaboratorsCard(props: {
             {props.collaborators.map((collaborator) => (
               <TableRow key={collaborator.user.id}>
                 <TableCell>
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: collaborator.user.collabColor ?? "#4338ca" }}>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: collaborator.user.collabColor ?? "#4338ca" }}>
                     <Icon icon={collaborator.user.collabIcon as IconName} />
                   </div>
                 </TableCell>

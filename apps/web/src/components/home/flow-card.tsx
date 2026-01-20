@@ -26,20 +26,14 @@ type FlowCardProps = {
   updatedAt: string;
   nodes: Node[];
   edges: Edge[];
-  isLocal?: boolean;
-  role?: string;
+  badges?: {
+    label: string;
+    variant: "secondary" | "destructive" | "outline" | "default";
+  }[];
 };
 
-export function FlowCard({
-  id,
-  name,
-  updatedAt,
-  nodes,
-  edges,
-  isLocal,
-  role,
-}: FlowCardProps) {
-  const linkTo = `/${id}/flow`;
+export function FlowCard(props: FlowCardProps) {
+  const linkTo = `/${props.id}/flow`;
 
   return (
     <Link to={linkTo} className="block">
@@ -47,23 +41,25 @@ export function FlowCard({
         <CardContent className="px-0 mb-4">
           <div className="aspect-4/3 bg-muted/30 relative overflow-hidden">
             <ReactFlowProvider>
-              <FlowThumbnail nodes={nodes} edges={edges} />
+              <FlowThumbnail nodes={props.nodes} edges={props.edges} />
             </ReactFlowProvider>
           </div>
         </CardContent>
         <CardHeader>
           <CardTitle className="truncate group-hover:text-primary transition-colors">
-            {name}
+            {props.name}
           </CardTitle>
           <CardDescription>
-            Edited {formatDistanceToNow(updatedAt, { addSuffix: true })}
+            {props.description && <p className="text-xs text-muted-foreground">{props.description}</p>}
+            {!props.description && <p className="text-xs text-muted-foreground">Edited {formatDistanceToNow(props.updatedAt, { addSuffix: true })}</p>}
           </CardDescription>
         </CardHeader>
-        <CardFooter className="gap-2 justify-between">
-          <div className="flex gap-2">
-            {isLocal && <Badge variant="secondary">Local</Badge>}
-            {role && <Badge variant="secondary">{role}</Badge>}
-          </div>
+        <CardFooter className="gap-2 justify-between flex">
+          {props.badges?.map((badge) => (
+            <Badge key={badge.label} variant={badge.variant}>
+              {badge.label}
+            </Badge>
+          ))}
         </CardFooter>
       </Card>
     </Link>

@@ -59,10 +59,10 @@ function HomeComponent() {
             <FlowCard
               id="local"
               name="Local Flow"
+              description="This flow is only available on this device"
               updatedAt={new Date().toISOString()}
               nodes={localFlowData.nodes}
               edges={localFlowData.edges}
-              isLocal
             />
           </div>
         </section>
@@ -104,11 +104,15 @@ function CloudFlows() {
           key={flow.id}
           id={flow.id}
           name={flow.name}
-          description={"description" in flow ? flow.description : undefined}
           updatedAt={flow.updatedAt}
           nodes={flow.nodes}
           edges={flow.edges}
-          role={"role" in flow ? String(flow.role) : "owner"}
+          badges={[
+            {
+              label: "role" in flow ? String(flow.role) : "owner",
+              variant: "secondary",
+            }
+          ]}
         />
       ))}
     </div>

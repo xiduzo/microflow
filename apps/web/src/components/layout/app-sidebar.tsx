@@ -1,10 +1,19 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  BookCheckIcon,
+  BookIcon,
+  BookSearchIcon,
   CircuitBoardIcon,
+  CuboidIcon,
+  GraduationCapIcon,
+  HandshakeIcon,
   HardDriveDownloadIcon,
   HardDriveUploadIcon,
   HomeIcon,
+  LibraryBigIcon,
+  NotebookTabsIcon,
+  RadioTowerIcon,
   SettingsIcon,
   WaypointsIcon,
 } from "lucide-react";
@@ -71,16 +80,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <NavMain
             groups={[
               {
-                title: "General",
-                routes: [
-                  {
-                    title: "Dashboard",
-                    url: "/",
-                    icon: HomeIcon,
-                  },
-                ],
-              },
-              {
                 title: activeFlow.name,
                 routes: [
                   {
@@ -118,6 +117,41 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         onClick: importFlow,
                       },
                     ],
+                  },
+                ],
+              },
+              {
+                title: "General",
+                routes: [
+                  {
+                    title: "My flows",
+                    url: "/",
+                    icon: BookIcon,
+                  },
+                  {
+                    title: "Community",
+                    url: "/community",
+                    icon: BookSearchIcon,
+                  },
+                  {
+                    title: "Templates",
+                    url: "/templates",
+                    icon: LibraryBigIcon,
+                  },
+                  {
+                    title: "Learning",
+                    url: "/learning",
+                    icon: GraduationCapIcon,
+                  },
+                ],
+              },
+              {
+                title: "Configuration",
+                routes: [
+                  {
+                    title: "MQTT",
+                    url: "/configuration/mqtt",
+                    icon: RadioTowerIcon,
                   },
                 ],
               },
