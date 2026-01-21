@@ -35,6 +35,7 @@ import { trpc } from "@/lib/trpc";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { useFlowImportExport } from "@/hooks/use-flow-import-export";
 import { useMemo } from "react";
+import { isDesktop } from "@/lib/platform";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = authClient.useSession();
@@ -145,16 +146,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   },
                 ],
               },
-              {
-                title: "Configuration",
-                routes: [
+              ...(isDesktop()
+                ? [
                   {
-                    title: "MQTT",
-                    url: "/configuration/mqtt",
-                    icon: RadioTowerIcon,
+                    title: "Configuration",
+                    routes: [
+                      {
+                        title: "MQTT",
+                        url: "/configuration/mqtt",
+                        icon: RadioTowerIcon,
+                      },
+                    ],
                   },
-                ],
-              },
+                ]
+                : [])
             ]}
           />
           <NavSecondary className="mt-auto" />

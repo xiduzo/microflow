@@ -13,6 +13,7 @@ import { Route as SuccessRouteImport } from './routes/success'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConfigurationMqttRouteImport } from './routes/configuration/mqtt'
 import { Route as FlowIdSettingsRouteImport } from './routes/$flowId/settings'
 import { Route as FlowIdFlowRouteImport } from './routes/$flowId/flow'
 import { Route as FlowIdCircuitRouteImport } from './routes/$flowId/circuit'
@@ -35,6 +36,11 @@ const LoginRoute = LoginRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigurationMqttRoute = ConfigurationMqttRouteImport.update({
+  id: '/configuration/mqtt',
+  path: '/configuration/mqtt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlowIdSettingsRoute = FlowIdSettingsRouteImport.update({
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/$flowId/circuit': typeof FlowIdCircuitRoute
   '/$flowId/flow': typeof FlowIdFlowRoute
   '/$flowId/settings': typeof FlowIdSettingsRoute
+  '/configuration/mqtt': typeof ConfigurationMqttRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/$flowId/circuit': typeof FlowIdCircuitRoute
   '/$flowId/flow': typeof FlowIdFlowRoute
   '/$flowId/settings': typeof FlowIdSettingsRoute
+  '/configuration/mqtt': typeof ConfigurationMqttRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/$flowId/circuit': typeof FlowIdCircuitRoute
   '/$flowId/flow': typeof FlowIdFlowRoute
   '/$flowId/settings': typeof FlowIdSettingsRoute
+  '/configuration/mqtt': typeof ConfigurationMqttRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/$flowId/circuit'
     | '/$flowId/flow'
     | '/$flowId/settings'
+    | '/configuration/mqtt'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/$flowId/circuit'
     | '/$flowId/flow'
     | '/$flowId/settings'
+    | '/configuration/mqtt'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/$flowId/circuit'
     | '/$flowId/flow'
     | '/$flowId/settings'
+    | '/configuration/mqtt'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   FlowIdCircuitRoute: typeof FlowIdCircuitRoute
   FlowIdFlowRoute: typeof FlowIdFlowRoute
   FlowIdSettingsRoute: typeof FlowIdSettingsRoute
+  ConfigurationMqttRoute: typeof ConfigurationMqttRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -149,6 +162,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuration/mqtt': {
+      id: '/configuration/mqtt'
+      path: '/configuration/mqtt'
+      fullPath: '/configuration/mqtt'
+      preLoaderRoute: typeof ConfigurationMqttRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$flowId/settings': {
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   FlowIdCircuitRoute: FlowIdCircuitRoute,
   FlowIdFlowRoute: FlowIdFlowRoute,
   FlowIdSettingsRoute: FlowIdSettingsRoute,
+  ConfigurationMqttRoute: ConfigurationMqttRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

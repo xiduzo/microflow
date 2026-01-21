@@ -10,11 +10,11 @@
       "dotenv": "^17.2.2",
       "zod": "^4.1.13",
       "typescript": "^5",
-      "@types/bun": "^1.3.4",
+      "@types/bun": "^1.3.6",
       "@trpc/server": "^11.7.2",
-      "better-auth": "^1.4.9",
+      "better-auth": "^1.4.17",
       "@trpc/client": "^11.7.2",
-      "@polar-sh/better-auth": "^1.1.3",
+      "@polar-sh/better-auth": "^1.6.4",
       "drizzle-orm": "^0.45.1",
       "@types/pg": "^8.15.6"
     }
@@ -39,17 +39,15 @@
   },
   "dependencies": {
     "@microflow/env": "workspace:*",
-    "@tscircuit/core": "^0.0.974",
     "dotenv": "catalog:",
-    "zod": "catalog:",
-    "zod3": "npm:zod@^3.24.0"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@microflow/config": "workspace:*",
     "@types/bun": "catalog:",
-    "oxfmt": "^0.19.0",
-    "oxlint": "^1.34.0",
-    "turbo": "^2.6.3",
+    "oxfmt": "^0.26.0",
+    "oxlint": "^1.41.0",
+    "turbo": "^2.7.5",
     "typescript": "catalog:"
   },
   "packageManager": "bun@1.3.5"

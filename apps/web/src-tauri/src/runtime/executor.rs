@@ -218,6 +218,36 @@ impl FlowExecutor {
             .filter_map(|e| self.get_value(&e.source))
             .collect()
     }
+
+    /// Route an MQTT message to the appropriate subscribe component
+    pub fn route_mqtt_message(&mut self, component_id: &str, payload: &[u8]) {
+        if let Some(component) = self.components.get_mut(component_id) {
+            // Convert payload to string and call the component
+            let value = String::from_utf8_lossy(payload).to_string();
+            let component_value = if let Ok(num) = value.parse::<f64>() {
+                ComponentValue::Number(num)
+            } else if value == "true" {
+                ComponentValue::Bool(true)
+            } else if value == "false" {
+                ComponentValue::Bool(false)
+            } else {
+                ComponentValue::String(value)
+            };
+            
+            // Set the value and emit the message event
+            component.set_value(component_value.clone());
+            
+            // Emit event through the component's event sender
+            if let Some(sender) = component.event_sender() {
+                let _ = sender.send(ComponentEvent {
+                    source: component_id.to_string(),
+                    source_handle: "message".to_string(),
+                    value: component_value,
+                    edge_id: None,
+                });
+            }
+        }
+    }
 }
 
 impl Default for FlowExecutor {

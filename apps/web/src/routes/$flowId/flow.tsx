@@ -42,8 +42,6 @@ export const Route = createFileRoute("/$flowId/flow")({
 
 function RouteComponent() {
   const { flowId } = Route.useParams();
-  const { session } = Route.useRouteContext();
-  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
 
   // Handle local flow
   if (flowId === "local") {
@@ -98,6 +96,7 @@ function CloudFlowComponent() {
     error,
   } = useQuery({
     ...trpc.flow.get.queryOptions({ id: flowId }),
+    enabled: flowId !== "local",
   });
 
   // Set active flow ID when route loads

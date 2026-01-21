@@ -25,5 +25,8 @@ tauri = { version = "2.9.5", features = [] }
 tauri-plugin-log = "2"
 firmata-rs = "0.4.3"
 serialport = "4"
-tokio = { version = "1", features = ["sync", "rt", "macros", "time"] }
+tokio = { version = "1", features = ["sync", "rt", "macros", "time", "net"] }
+mqtt-endpoint-tokio = { version = "0.6", default-features = false, features = ["tls", "ws"] }
+uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

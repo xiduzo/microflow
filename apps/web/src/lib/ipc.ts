@@ -26,7 +26,45 @@ type Flow = {
   };
 };
 
-type Command = Flow;
+type MqttConnect = {
+  type: "mqtt_connect";
+  brokerId: string;
+  url: string;
+  username?: string;
+  password?: string;
+};
+
+type MqttDisconnect = {
+  type: "mqtt_disconnect";
+  brokerId: string;
+};
+
+type MqttSubscribe = {
+  type: "mqtt_subscribe";
+  brokerId: string;
+  topic: string;
+};
+
+type MqttUnsubscribe = {
+  type: "mqtt_unsubscribe";
+  brokerId: string;
+  topic: string;
+};
+
+type MqttPublish = {
+  type: "mqtt_publish";
+  brokerId: string;
+  topic: string;
+  payload: string;
+  retain?: boolean;
+};
+
+type MqttStatus = {
+  type: "mqtt_status";
+  brokerId: string;
+};
+
+type Command = Flow | MqttConnect | MqttDisconnect | MqttSubscribe | MqttUnsubscribe | MqttPublish | MqttStatus;
 
 export async function invokeCommand<
   TCommand extends Command,
@@ -44,6 +82,12 @@ export async function invokeCommand<
     return { success: false, error: errorMessage };
   }
 }
+
+export type MqttMessagePayload = {
+  broker_id: string;
+  topic: string;
+  payload: string;
+};
 
 export type ComponentEventPayload = {
   source: string;

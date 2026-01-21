@@ -1,7 +1,7 @@
 import { Matrix } from "./matrix/matrix";
 import { Monitor } from "./monitor/monitor";
 import { Motion } from "./motion/motion";
-// import { Mqtt } from "./mqtt";
+import { Mqtt } from "./mqtt/mqtt";
 import { Oscillator } from "./oscillator/oscillator";
 import { Piezo } from "./piezo/piezo";
 import { Pixel } from "./pixel/pixel";
@@ -58,6 +58,7 @@ export const NODE_TYPES = {
   Matrix: Matrix,
   Monitor: Monitor,
   Motion: Motion,
+  Mqtt: Mqtt,
   Oscillator: Oscillator,
   Piezo: Piezo,
   Pixel: Pixel,

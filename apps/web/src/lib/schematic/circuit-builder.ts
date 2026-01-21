@@ -73,57 +73,57 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   sensor: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }} />`,
-    signalPin: "SIG",
-    powerPins: { vcc: "VCC", gnd: "GND" },
+      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
+    signalPin: "pin1",
+    powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   potentiometer: {
     toJsx: (name, _data) =>
-      `<potentiometer name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinVariant="three_pin" maxResistance="50k" pinLabels={{ pin1: "VCC", pin2: "SIG", pin3: "GND" }} />`,
-    signalPin: "pin2",
-    powerPins: { vcc: "pin1", gnd: "pin3" },
+      `<potentiometer name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinVariant="three_pin" maxResistance="50k" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
+    signalPin: "pin3",
+    powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   servo: {
     toJsx: (name, _data) =>
         `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "SIG",
-    powerPins: { vcc: "VCC", gnd: "GND" },
+    signalPin: "pin3",
+    powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   rgb: {
     toJsx: (name, _data) =>
       `<chip name="${name}" displayName="${_data.label ?? name}" footprint="dip4" pinLabels={{ pin1: "R", pin2: "G", pin3: "B", pin4: "GND" }} />`,
     signalPin: "R", // Primary signal pin
-    powerPins: { gnd: "GND" },
+    powerPins: { gnd: "pin4" },
   },
   piezo: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="0805" pinLabels={{ pin1: "GND", pin2: "SIG" }} />`,
-    signalPin: "SIG",
-    powerPins: { gnd: "GND" },
+      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="0805" pinLabels={{ pin1: "SIG", pin2: "GND" }} />`,
+    signalPin: "pin1",
+    powerPins: { gnd: "pin2" },
   },
   matrix: {
     toJsx: (name, _data) =>
       `<chip name="${name}" displayName="${_data.label ?? name}" footprint="soic5" pinLabels={{ pin1: "DIN", pin2: "CLK", pin3: "CS", pin4: "VCC", pin5: "GND" }} />`,
-    signalPin: "DIN",
-    powerPins: { vcc: "VCC", gnd: "GND" },
+    signalPin: "pin1",
+    powerPins: { vcc: "pin4", gnd: "pin5" },
   },
   motion: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "DOUT" }} />`,
-    signalPin: "DOUT",
-    powerPins: { vcc: "VCC", gnd: "GND" },
+      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "DOUT", pin2: "VCC", pin3: "GND" }} />`,
+    signalPin: "pin1",
+    powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   proximity: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }} />`,
-    signalPin: "SIG",
-    powerPins: { vcc: "VCC", gnd: "GND" },
+      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
+    signalPin: "pin1",
+    powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   pixel: {
     toJsx: (name, _data) =>
       `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "DIN", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "DIN",
-    powerPins: { vcc: "VCC", gnd: "GND" },
+    signalPin: "pin1",
+    powerPins: { vcc: "pin2", gnd: "pin3" },
   },
 };
 
@@ -208,6 +208,7 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
   const components: string[] = [];
   const traces: string[] = [];
   const powerTraces: string[] = [];
+  const groundTraces: string[] = [];
 
   // Add MCU chip in center
   const mcuPinCount = sortedUsedPins.length;
@@ -221,23 +222,10 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
     .map(([key, val]) => `${key}: "${val}"`)
     .join(", ");
   
-  // Build schPortArrangement to display pin labels on schematic
-  // Split pins between left and right sides
-  const pinLabelValues = Object.values(mcuPinLabels);
-  const halfCount = Math.ceil(pinLabelValues.length / 2);
-  const leftPins = pinLabelValues.slice(0, halfCount);
-  const rightPins = pinLabelValues.slice(halfCount);
-  
-  const schPortArrangement = `{
-        leftSide: { direction: "top-to-bottom", pins: [${leftPins.map(p => `"${p}"`).join(", ")}] },
-        rightSide: { direction: "top-to-bottom", pins: [${rightPins.map(p => `"${p}"`).join(", ")}] }
-      }`;
-  
   components.push(`    <chip
       name="MCU"
       footprint="${mcuFootprint}"
       pinLabels={{ ${mcuPinLabelEntries} }}
-      schPortArrangement={${schPortArrangement}}
     />`);
 
   hardwareNodes.forEach((node, index) => {
@@ -269,7 +257,7 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
         powerTraces.push(`    <trace layer="power" from=".${componentName} > .${component.powerPins.vcc}" to="net.VCC" />`);
       }
       if (component.powerPins.gnd) {
-        powerTraces.push(`    <trace layer="ground" from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`);
+        groundTraces.push(`    <trace layer="ground" from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`);
       }
     }
   });
@@ -277,8 +265,15 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
   const code = `circuit.add(
   <board schAutoLayoutEnabled>
 ${components.join("\n")}
+<group name="signal" schTitle="Signal">
 ${traces.join("\n")}
+</group>
+<group name="power" schTitle="Power">
 ${powerTraces.join("\n")}
+</group>
+<group name="ground" schTitle="Ground">
+${groundTraces.join("\n")}
+</group>
   </board>
 )`;
 

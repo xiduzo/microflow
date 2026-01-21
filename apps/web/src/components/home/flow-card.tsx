@@ -13,7 +13,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { NODE_TYPES } from "../flow/nodes/_TYPES";
 import { Badge } from "../ui/badge";
@@ -33,36 +33,34 @@ type FlowCardProps = {
 };
 
 export function FlowCard(props: FlowCardProps) {
-  const linkTo = `/${props.id}/flow`;
+  const navigate = useNavigate();
 
   return (
-    <Link to={linkTo} className="block">
-      <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0 group relative">
-        <CardContent className="px-0 mb-4">
-          <div className="aspect-4/3 bg-muted/30 relative overflow-hidden">
-            <ReactFlowProvider>
-              <FlowThumbnail nodes={props.nodes} edges={props.edges} />
-            </ReactFlowProvider>
-          </div>
-        </CardContent>
-        <CardHeader>
-          <CardTitle className="truncate group-hover:text-primary transition-colors">
-            {props.name}
-          </CardTitle>
-          <CardDescription>
-            {props.description && <p className="text-xs text-muted-foreground">{props.description}</p>}
-            {!props.description && <p className="text-xs text-muted-foreground">Edited {formatDistanceToNow(props.updatedAt, { addSuffix: true })}</p>}
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="gap-2 justify-between flex">
-          {props.badges?.map((badge) => (
-            <Badge key={badge.label} variant={badge.variant}>
-              {badge.label}
-            </Badge>
-          ))}
-        </CardFooter>
-      </Card>
-    </Link>
+    <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0 group relative" onClick={() => navigate({ to: "/$flowId/flow", params: { flowId: props.id } })}>
+      <CardContent className="px-0 mb-4">
+        <div className="aspect-4/3 bg-muted/30 relative overflow-hidden">
+          <ReactFlowProvider>
+            <FlowThumbnail nodes={props.nodes} edges={props.edges} />
+          </ReactFlowProvider>
+        </div>
+      </CardContent>
+      <CardHeader>
+        <CardTitle className="truncate group-hover:text-primary transition-colors">
+          {props.name}
+        </CardTitle>
+        <CardDescription>
+          {props.description && <p className="text-xs text-muted-foreground">{props.description}</p>}
+          {!props.description && <p className="text-xs text-muted-foreground">Edited {formatDistanceToNow(props.updatedAt, { addSuffix: true })}</p>}
+        </CardDescription>
+      </CardHeader>
+      <CardFooter className="gap-2 justify-between flex">
+        {props.badges?.map((badge) => (
+          <Badge key={badge.label} variant={badge.variant}>
+            {badge.label}
+          </Badge>
+        ))}
+      </CardFooter>
+    </Card>
   );
 }
 

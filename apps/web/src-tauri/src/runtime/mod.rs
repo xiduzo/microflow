@@ -32,6 +32,7 @@ pub mod base;
 pub mod commands;
 pub mod control;
 mod executor;
+pub mod external;
 pub mod generator;
 pub mod input;
 pub mod output;
@@ -170,6 +171,24 @@ impl FlowRuntime {
         self.executor.get_component_mut(component_id)
             .ok_or_else(|| format!("Component {} not found", component_id))?
             .call_method(method, value)
+    }
+
+    /// Route an MQTT message to a subscribe component
+    pub fn route_mqtt_message(&mut self, component_id: &str, payload: &[u8]) {
+        self.executor.route_mqtt_message(component_id, payload);
+    }
+
+    /// Get all component IDs of a specific type
+    pub fn get_components_by_type(&self, component_type: &str) -> Vec<String> {
+        self.executor.component_ids()
+            .iter()
+            .filter(|id| {
+                self.executor.get_component(id)
+                    .map(|c| c.component_type() == component_type)
+                    .unwrap_or(false)
+            })
+            .map(|s| s.to_string())
+            .collect()
     }
 }
 

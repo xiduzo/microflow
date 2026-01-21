@@ -37,6 +37,7 @@ export const COMPONENT_TYPES = [
   "Matrix",
   "Monitor",
   "Motion",
+  "Mqtt",
   "Oscillator",
   "Piezo",
   "Pixel",

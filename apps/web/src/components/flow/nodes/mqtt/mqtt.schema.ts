@@ -6,8 +6,11 @@ export type Value = z.infer<typeof valueSchema>;
 
 export const dataSchema = baseDataSchema.extend({
   instance: z.literal("Mqtt").default("Mqtt"),
-  direction: z.enum(["publish", "subscribe"]).default("publish"),
+  direction: z.enum(["publish", "subscribe"]).default("subscribe"),
+  brokerId: z.string().default(""),
   topic: z.string().default(""),
+  qos: z.enum(["0", "1", "2"]).default("1"),
+  retain: z.boolean().default(false),
 });
 
 export type Data = z.infer<typeof dataSchema>;

@@ -4,7 +4,7 @@ import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { useFlowNodes } from "@/hooks/use-flow-document";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { SchematicViewer } from "@tscircuit/schematic-viewer";
-import { useMemo, useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState } from "react";
 import { buildCircuitCode } from "@/lib/schematic/circuit-builder";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
@@ -12,9 +12,9 @@ import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/states/loading-state";
 import { ErrorState } from "@/components/states/error-state";
 import { createCircuitWebWorker, type CircuitWebWorker } from "@tscircuit/eval";
-import type { AnyCircuitElement, CircuitJson } from "circuit-json";
+import type { AnyCircuitElement } from "circuit-json";
 import { EmptyState } from "@/components/states/empty-state";
-import { useDebouncer, useRateLimiter } from "@tanstack/react-pacer";
+import { useDebouncer } from "@tanstack/react-pacer";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
@@ -122,6 +122,7 @@ function CloudCircuitComponent() {
     error,
   } = useQuery({
     ...trpc.flow.get.queryOptions({ id: flowId }),
+    enabled: flowId !== "local",
   });
 
   useEffect(() => {
@@ -186,6 +187,7 @@ function CircuitViewer() {
       await worker.current?.renderUntilSettled();
       const json = await worker.current?.getCircuitJson();
       if (!json) return;
+      console.log({ json });
       setState({ isPending: false, error: null, data: json });
     } catch (e) {
       console.error("Circuit render error:", e);

@@ -5,6 +5,7 @@
 
 use super::base::{BoardHandle, Component, ComponentEvent};
 use super::control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerConfig};
+use super::external::{Mqtt, MqttConfig};
 use super::generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
 use super::input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig};
 use super::output::{Led, LedConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
@@ -173,6 +174,12 @@ impl ComponentRegistry {
         self.register_software("Smooth", |id, data| {
             let config: SmoothConfig = serde_json::from_value(data.clone()).unwrap_or_default();
             Box::new(Smooth::new(id, config))
+        });
+
+        // External components (software only - network/IoT)
+        self.register_software("Mqtt", |id, data| {
+            let config: MqttConfig = serde_json::from_value(data.clone()).unwrap_or_default();
+            Box::new(Mqtt::new(id, config))
         });
     }
 
