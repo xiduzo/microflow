@@ -8,10 +8,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Internal broker entry with config and client
+struct BrokerEntry {
+    config: BrokerConfig,
+    broker: MqttBroker,
+}
+
 /// Manages multiple MQTT broker connections
 #[derive(Clone)]
 pub struct MqttManager {
-    brokers: Arc<RwLock<HashMap<String, Arc<tokio::sync::Mutex<MqttBroker>>>>>,
+    brokers: Arc<RwLock<HashMap<String, Arc<tokio::sync::Mutex<BrokerEntry>>>>>,
 }
 
 impl MqttManager {
@@ -26,9 +32,9 @@ impl MqttManager {
         let mut brokers = self.brokers.write().await;
 
         // Check if already connected
-        if let Some(broker) = brokers.get(&config.id) {
-            let broker_guard = broker.lock().await;
-            let status = broker_guard.status().await;
+        if let Some(entry) = brokers.get(&config.id) {
+            let entry_guard = entry.lock().await;
+            let status = entry_guard.broker.status().await;
             if matches!(status, ConnectionStatus::Connected | ConnectionStatus::Connecting) {
                 log::info!("[MQTT Manager] Broker {} already connected", config.id);
                 return Ok(());
@@ -38,7 +44,12 @@ impl MqttManager {
         // Create new broker connection
         let mut broker = MqttBroker::new(config.clone());
         broker.connect().await?;
-        brokers.insert(config.id, Arc::new(tokio::sync::Mutex::new(broker)));
+        
+        let entry = BrokerEntry {
+            config,
+            broker,
+        };
+        brokers.insert(entry.config.id.clone(), Arc::new(tokio::sync::Mutex::new(entry)));
 
         Ok(())
     }
@@ -47,9 +58,9 @@ impl MqttManager {
     pub async fn disconnect(&self, broker_id: &str) -> Result<(), String> {
         let mut brokers = self.brokers.write().await;
 
-        if let Some(broker) = brokers.remove(broker_id) {
-            let mut broker_guard = broker.lock().await;
-            broker_guard.disconnect().await?;
+        if let Some(entry) = brokers.remove(broker_id) {
+            let mut entry_guard = entry.lock().await;
+            entry_guard.broker.disconnect().await?;
         }
 
         Ok(())
@@ -59,9 +70,9 @@ impl MqttManager {
     pub async fn disconnect_all(&self) -> Result<(), String> {
         let mut brokers = self.brokers.write().await;
 
-        for (_, broker) in brokers.drain() {
-            let mut broker_guard = broker.lock().await;
-            let _ = broker_guard.disconnect().await;
+        for (_, entry) in brokers.drain() {
+            let mut entry_guard = entry.lock().await;
+            let _ = entry_guard.broker.disconnect().await;
         }
 
         Ok(())
@@ -71,12 +82,47 @@ impl MqttManager {
     pub async fn status(&self, broker_id: &str) -> ConnectionStatus {
         let brokers = self.brokers.read().await;
 
-        if let Some(broker) = brokers.get(broker_id) {
-            let broker_guard = broker.lock().await;
-            broker_guard.status().await
+        if let Some(entry) = brokers.get(broker_id) {
+            let entry_guard = entry.lock().await;
+            entry_guard.broker.status().await
         } else {
             ConnectionStatus::Disconnected
         }
+    }
+
+    /// Check if config has changed for a broker
+    pub async fn config_changed(&self, broker_id: &str, new_config: &BrokerConfig) -> bool {
+        let brokers = self.brokers.read().await;
+        
+        if let Some(entry) = brokers.get(broker_id) {
+            let entry_guard = entry.lock().await;
+            let old = &entry_guard.config;
+            old.url != new_config.url 
+                || old.username != new_config.username 
+                || old.password != new_config.password
+        } else {
+            true // No existing config means it's "changed"
+        }
+    }
+
+    /// Get all broker IDs (connected or not)
+    pub async fn all_broker_ids(&self) -> Vec<String> {
+        let brokers = self.brokers.read().await;
+        brokers.keys().cloned().collect()
+    }
+
+    /// Get status of all brokers
+    pub async fn all_statuses(&self) -> Vec<(String, ConnectionStatus)> {
+        let brokers = self.brokers.read().await;
+        let mut statuses = Vec::new();
+
+        for (id, entry) in brokers.iter() {
+            let entry_guard = entry.lock().await;
+            let status = entry_guard.broker.status().await;
+            statuses.push((id.clone(), status));
+        }
+
+        statuses
     }
 
     /// Subscribe to a topic on a broker
@@ -88,24 +134,24 @@ impl MqttManager {
     ) -> Result<(), String> {
         let brokers = self.brokers.read().await;
 
-        let broker = brokers
+        let entry = brokers
             .get(broker_id)
             .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
 
-        let broker_guard = broker.lock().await;
-        broker_guard.subscribe(topic, callback).await
+        let entry_guard = entry.lock().await;
+        entry_guard.broker.subscribe(topic, callback).await
     }
 
     /// Unsubscribe from a topic on a broker
     pub async fn unsubscribe(&self, broker_id: &str, topic: &str) -> Result<(), String> {
         let brokers = self.brokers.read().await;
 
-        let broker = brokers
+        let entry = brokers
             .get(broker_id)
             .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
 
-        let broker_guard = broker.lock().await;
-        broker_guard.unsubscribe(topic).await
+        let entry_guard = entry.lock().await;
+        entry_guard.broker.unsubscribe(topic).await
     }
 
     /// Publish a message to a topic on a broker
@@ -118,12 +164,12 @@ impl MqttManager {
     ) -> Result<(), String> {
         let brokers = self.brokers.read().await;
 
-        let broker = brokers
+        let entry = brokers
             .get(broker_id)
             .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
 
-        let broker_guard = broker.lock().await;
-        broker_guard.publish(topic, payload, retain).await
+        let entry_guard = entry.lock().await;
+        entry_guard.broker.publish(topic, payload, retain).await
     }
 
     /// Check if a broker is connected
@@ -136,9 +182,9 @@ impl MqttManager {
         let brokers = self.brokers.read().await;
         let mut connected = Vec::new();
 
-        for (id, broker) in brokers.iter() {
-            let broker_guard = broker.lock().await;
-            if matches!(broker_guard.status().await, ConnectionStatus::Connected) {
+        for (id, entry) in brokers.iter() {
+            let entry_guard = entry.lock().await;
+            if matches!(entry_guard.broker.status().await, ConnectionStatus::Connected) {
                 connected.push(id.clone());
             }
         }

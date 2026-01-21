@@ -18,6 +18,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { useBoardEvents } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
+import { useMqttSync } from "@/hooks/use-mqtt-sync";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
@@ -81,5 +82,6 @@ function RootComponent() {
 function Board() {
   useBoardEvents();
   useComponentEvents();
+  useMqttSync();
   return null;
 }

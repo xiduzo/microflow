@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
+
 export type MqttBrokerConfig = {
   id: string;
   name: string;
@@ -12,12 +14,16 @@ export type MqttBrokerConfig = {
 
 type MqttBrokerStore = {
   brokers: MqttBrokerConfig[];
+  /** Connection status per broker ID (managed separately from persisted config) */
+  statuses: Record<string, ConnectionStatus>;
   addBroker: (broker: Omit<MqttBrokerConfig, "id">) => string;
   updateBroker: (id: string, broker: Partial<Omit<MqttBrokerConfig, "id">>) => void;
   deleteBroker: (id: string) => void;
   setDefaultBroker: (id: string) => void;
   getDefaultBroker: () => MqttBrokerConfig | undefined;
   getBroker: (id: string) => MqttBrokerConfig | undefined;
+  setStatus: (id: string, status: ConnectionStatus) => void;
+  setStatuses: (statuses: Record<string, ConnectionStatus>) => void;
 };
 
 const uid = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
@@ -26,6 +32,7 @@ export const useMqttBrokerStore = create<MqttBrokerStore>()(
   persist(
     (set, get) => ({
       brokers: [],
+      statuses: {},
 
       addBroker: (broker) => {
         const id = uid();
@@ -54,7 +61,9 @@ export const useMqttBrokerStore = create<MqttBrokerStore>()(
           if (filtered.length > 0 && !filtered.some((b) => b.isDefault)) {
             filtered[0].isDefault = true;
           }
-          return { brokers: filtered };
+          // Also remove status
+          const { [id]: _, ...remainingStatuses } = state.statuses;
+          return { brokers: filtered, statuses: remainingStatuses };
         });
       },
 
@@ -74,9 +83,20 @@ export const useMqttBrokerStore = create<MqttBrokerStore>()(
       getBroker: (id) => {
         return get().brokers.find((b) => b.id === id);
       },
+
+      setStatus: (id, status) => {
+        set((state) => ({
+          statuses: { ...state.statuses, [id]: status },
+        }));
+      },
+
+      setStatuses: (statuses) => {
+        set({ statuses });
+      },
     }),
     {
       name: "microflow-mqtt-brokers",
+      partialize: (state) => ({ brokers: state.brokers }), // Only persist brokers, not statuses
     }
   )
 );

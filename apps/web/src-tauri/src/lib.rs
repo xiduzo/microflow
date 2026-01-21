@@ -267,6 +267,8 @@ pub fn run() {
             mqtt::commands::mqtt_publish,
             mqtt::commands::mqtt_status,
             mqtt::commands::mqtt_connected_brokers,
+            mqtt::commands::mqtt_sync_brokers,
+            mqtt::commands::mqtt_all_statuses,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

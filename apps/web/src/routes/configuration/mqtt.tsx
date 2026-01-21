@@ -6,15 +6,16 @@ import {
   PlusIcon,
   TrashIcon,
   StarIcon,
-  PlayIcon,
   SendIcon,
   CheckCircleIcon,
   XCircleIcon,
   Loader2Icon,
   PencilIcon,
+  CircleIcon,
 } from "lucide-react";
 
-import { useMqttBrokerStore, type MqttBrokerConfig } from "@/stores/mqtt-broker";
+import { useMqttBrokerStore, type MqttBrokerConfig, type ConnectionStatus } from "@/stores/mqtt-broker";
+import { useBrokerStatus } from "@/hooks/use-mqtt-sync";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -74,12 +75,14 @@ function MqttConfigPage() {
             <AddBrokerDialog />
           </EmptyState>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {brokers.map((broker) => (
               <BrokerCard key={broker.id} broker={broker} />
             ))}
           </div>
         )}
+
+        <Separator />
 
         {brokers.length > 0 && <TestClientCard />}
       </div>
@@ -87,9 +90,79 @@ function MqttConfigPage() {
   );
 }
 
+function StatusIndicator({ status }: { status: ConnectionStatus }) {
+  switch (status) {
+    case "connected":
+      return (
+        <CheckCircleIcon className="text-green-500 size-5" />
+      );
+    case "connecting":
+      return (
+        <Loader2Icon className="animate-spin text-blue-500 size-5" />
+      );
+    case "error":
+      return (
+        <XCircleIcon className="text-red-500 size-5" />
+      );
+    default:
+      return (
+        <CircleIcon className="text-gray-500 size-5" />
+      );
+  }
+}
+
 function BrokerCard({ broker }: { broker: MqttBrokerConfig }) {
   const { deleteBroker, setDefaultBroker } = useMqttBrokerStore();
   const [editOpen, setEditOpen] = useState(false);
+  const status = useBrokerStatus(broker.id);
+
+  return (
+    <Item variant="outline">
+      <ItemMedia>
+        <StatusIndicator status={status} />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>{broker.name}</ItemTitle>
+        <ItemDescription>
+          {broker.url}
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        {!broker.isDefault && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDefaultBroker(broker.id)}
+          >
+            <StarIcon />
+          </Button>
+        )}
+        {broker.isDefault && (
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled
+          >
+            <StarIcon className="text-yellow-900 fill-yellow-500" />
+          </Button>
+        )}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogTrigger render={<Button variant="ghost" size="sm"><PencilIcon /></Button>} />
+          <EditBrokerDialogContent broker={broker} onClose={() => setEditOpen(false)} />
+        </Dialog>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            deleteBroker(broker.id);
+            toast.success("Broker deleted");
+          }}
+        >
+          <TrashIcon />
+        </Button>
+      </ItemActions>
+    </Item>
+  )
 
   return (
     <Card>
@@ -98,6 +171,7 @@ function BrokerCard({ broker }: { broker: MqttBrokerConfig }) {
           <div className="flex items-center gap-2">
             <CardTitle>{broker.name}</CardTitle>
             {broker.isDefault && <Badge variant="secondary">Default</Badge>}
+            <StatusIndicator status={status} />
           </div>
           <div className="flex gap-2">
             {!broker.isDefault && (
@@ -370,65 +444,27 @@ function EditBrokerDialogContent({
   );
 }
 
-type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
-
 import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Separator } from "@/components/ui/separator";
 
 function TestClientCard() {
   const brokers = useMqttBrokerStore((s) => s.brokers);
   const [selectedBrokerId, setSelectedBrokerId] = useState<string>(
     brokers.find((b) => b.isDefault)?.id ?? brokers[0]?.id ?? ""
   );
-  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
-  const [error, setError] = useState<string | null>(null);
+  const status = useBrokerStatus(selectedBrokerId);
   const [subscribeTopic, setSubscribeTopic] = useState("test/#");
   const [publishTopic, setPublishTopic] = useState("test/message");
   const [publishPayload, setPublishPayload] = useState("Hello from Microflow!");
   const [messages, setMessages] = useState<Array<{ topic: string; payload: string; timestamp: Date }>>([]);
+  const [subscriptions, setSubscriptions] = useState<Set<string>>(new Set());
 
   const selectedBroker = brokers.find((b) => b.id === selectedBrokerId);
 
-  const handleConnect = async () => {
-    if (!selectedBroker) return;
-    setStatus("connecting");
-    setError(null);
-
-    const result = await invokeCommand({
-      type: "mqtt_connect",
-      brokerId: selectedBroker.id,
-      url: selectedBroker.url,
-      username: selectedBroker.username,
-      password: selectedBroker.password,
-    });
-
-    if (result.success) {
-      setStatus("connected");
-      toast.success("Connected to broker");
-    } else {
-      setStatus("error");
-      setError(result.error);
-      toast.error("Failed to connect");
-    }
-  };
-
-  const handleDisconnect = async () => {
-    const result = await invokeCommand({
-      type: "mqtt_disconnect",
-      brokerId: selectedBrokerId,
-    });
-
-    if (result.success) {
-      setStatus("disconnected");
-      setMessages([]);
-      toast.success("Disconnected");
-    } else {
-      toast.error("Failed to disconnect");
-    }
-  };
-
   const handleSubscribe = async () => {
-    if (status !== "connected") return;
+    if (status !== "connected" || !selectedBroker) return;
 
     const result = await invokeCommand({
       type: "mqtt_subscribe",
@@ -437,9 +473,31 @@ function TestClientCard() {
     });
 
     if (result.success) {
+      setSubscriptions((prev) => new Set([...prev, subscribeTopic]));
       toast.success(`Subscribed to ${subscribeTopic}`);
     } else {
       toast.error("Failed to subscribe");
+    }
+  };
+
+  const handleUnsubscribe = async (topic: string) => {
+    if (status !== "connected") return;
+
+    const result = await invokeCommand({
+      type: "mqtt_unsubscribe",
+      brokerId: selectedBrokerId,
+      topic,
+    });
+
+    if (result.success) {
+      setSubscriptions((prev) => {
+        const next = new Set(prev);
+        next.delete(topic);
+        return next;
+      });
+      toast.success(`Unsubscribed from ${topic}`);
+    } else {
+      toast.error("Failed to unsubscribe");
     }
   };
 
@@ -472,12 +530,20 @@ function TestClientCard() {
     },
   });
 
+  // Clear messages and subscriptions when broker changes
+  const handleBrokerChange = (newBrokerId: string) => {
+    setSelectedBrokerId(newBrokerId);
+    setMessages([]);
+    setSubscriptions(new Set());
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Test Client</CardTitle>
         <CardDescription>
-          Test your broker connection by subscribing and publishing messages
+          Test your broker connection by subscribing and publishing messages.
+          Brokers auto-connect on startup.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -485,8 +551,7 @@ function TestClientCard() {
           <select
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             value={selectedBrokerId}
-            onChange={(e) => setSelectedBrokerId(e.target.value)}
-            disabled={status === "connected"}
+            onChange={(e) => handleBrokerChange(e.target.value)}
           >
             {brokers.map((b) => (
               <option key={b.id} value={b.id}>
@@ -494,40 +559,8 @@ function TestClientCard() {
               </option>
             ))}
           </select>
-          <div className="flex items-center gap-2">
-            {status === "disconnected" && (
-              <Button onClick={handleConnect}>
-                <PlayIcon className="h-4 w-4 mr-2" />
-                Connect
-              </Button>
-            )}
-            {status === "connecting" && (
-              <Button disabled>
-                <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
-                Connecting...
-              </Button>
-            )}
-            {status === "connected" && (
-              <>
-                <Badge variant="default" className="bg-green-500">
-                  <CheckCircleIcon className="h-3 w-3 mr-1" />
-                  Connected
-                </Badge>
-                <Button variant="outline" onClick={handleDisconnect}>
-                  Disconnect
-                </Button>
-              </>
-            )}
-            {status === "error" && (
-              <Badge variant="destructive">
-                <XCircleIcon className="h-3 w-3 mr-1" />
-                Error
-              </Badge>
-            )}
-          </div>
+          <StatusIndicator status={status} />
         </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
 
         {status === "connected" && (
           <Tabs defaultValue="subscribe">
@@ -546,6 +579,22 @@ function TestClientCard() {
                 </InputGroup>
                 <Button onClick={handleSubscribe}>Subscribe</Button>
               </div>
+              {subscriptions.size > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {[...subscriptions].map((topic) => (
+                    <Badge key={topic} variant="secondary" className="gap-1">
+                      {topic}
+                      <button
+                        type="button"
+                        onClick={() => handleUnsubscribe(topic)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <XCircleIcon className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
               <div className="border rounded-md p-4 h-48 overflow-auto bg-muted/50">
                 {messages.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center">
@@ -586,6 +635,16 @@ function TestClientCard() {
               </Button>
             </TabsContent>
           </Tabs>
+        )}
+
+        {status !== "connected" && (
+          <p className="text-sm text-muted-foreground">
+            {status === "connecting"
+              ? "Connecting to broker..."
+              : status === "error"
+                ? "Failed to connect. Check broker configuration."
+                : "Broker will auto-connect when configured."}
+          </p>
         )}
       </CardContent>
     </Card>

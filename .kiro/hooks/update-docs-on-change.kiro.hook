@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Update Docs on Source Change",
+  "description": "Monitors source files (TypeScript, Rust, config files) and prompts the agent to update relevant documentation in README.md or the /docs folder when changes are detected.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A source file was edited. Review the changes and determine if any documentation needs to be updated. If the change affects public APIs, architecture, configuration, or user-facing features, update the relevant documentation in either README.md or the /docs folder (COMPONENT_TYPES.md, PLUGIN_SYSTEM.md, RUNTIME_VALUES.md, SYNC_ARCHITECTURE.md). Only make documentation changes if they are meaningful and necessary."
+  },
+  "workspaceFolderName": "microflow-t-stack",
+  "shortName": "update-docs-on-change"
+}

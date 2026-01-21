@@ -73,7 +73,16 @@ type MqttStatus = {
   brokerId: string;
 };
 
-type Command = Flow | MqttConnect | MqttDisconnect | MqttSubscribe | MqttUnsubscribe | MqttPublish | MqttStatus;
+type MqttSyncBrokers = {
+  type: "mqtt_sync_brokers";
+  brokers: BrokerConfig[];
+};
+
+type MqttAllStatuses = {
+  type: "mqtt_all_statuses";
+};
+
+type Command = Flow | MqttConnect | MqttDisconnect | MqttSubscribe | MqttUnsubscribe | MqttPublish | MqttStatus | MqttSyncBrokers | MqttAllStatuses;
 
 export async function invokeCommand<
   TCommand extends Command,
@@ -96,6 +105,11 @@ export type MqttMessagePayload = {
   broker_id: string;
   topic: string;
   payload: string;
+};
+
+export type BrokerStatusPayload = {
+  id: string;
+  status: "disconnected" | "connecting" | "connected" | "error";
 };
 
 export type ComponentEventPayload = {

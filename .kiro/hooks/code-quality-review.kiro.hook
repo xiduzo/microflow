@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Code Quality Review",
+  "description": "Analyzes modified source code for potential improvements including code smells, design patterns, and best practices. Provides suggestions for readability, maintainability, and performance while preserving functionality.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the edited file for code quality improvements. Look for:\n\n1. **Code Smells**: Long functions, deep nesting, duplicate code, magic numbers/strings\n2. **Design Patterns**: Opportunities to apply or improve patterns (e.g., composition, factory, observer)\n3. **Best Practices**: TypeScript/React/Rust idioms, proper error handling, type safety\n4. **Readability**: Naming conventions, function/variable clarity, comments where needed\n5. **Maintainability**: Single responsibility, proper abstractions, testability\n6. **Performance**: Unnecessary re-renders, inefficient algorithms, memory leaks\n\nProvide specific, actionable suggestions that maintain existing functionality. Prioritize the most impactful improvements and explain the reasoning behind each suggestion."
+  },
+  "workspaceFolderName": "microflow-t-stack",
+  "shortName": "code-quality-review"
+}
