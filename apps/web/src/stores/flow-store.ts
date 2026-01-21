@@ -13,6 +13,7 @@ import type {
 } from "@xyflow/react";
 import { isDesktop } from "@/lib/platform";
 import { invokeCommand } from "@/lib/ipc";
+import { useMqttBrokerStore } from "@/stores/mqtt-broker";
 
 // ============================================================================
 // Constants
@@ -119,9 +120,30 @@ export const useFlowStore = create<FlowState>()((set, get) => {
 
       // Sync to desktop app if running in Tauri
       if (isDesktop()) {
+        // Get broker configs for any MQTT nodes in the flow
+        const mqttBrokerIds = new Set<string>();
+        for (const node of nodes) {
+          if (node.data?.instance === "Mqtt" && node.data?.brokerId) {
+            mqttBrokerIds.add(node.data.brokerId as string);
+          }
+        }
+        
+        // Get full broker configs from the store
+        const allBrokers = useMqttBrokerStore.getState().brokers;
+        const brokers = allBrokers
+          .filter(b => mqttBrokerIds.has(b.id))
+          .map(b => ({
+            id: b.id,
+            name: b.name,
+            url: b.url,
+            username: b.username,
+            password: b.password,
+          }));
+
         const response = await invokeCommand({
           type: "flow_update",
           flow: { nodes, edges },
+          brokers,
         });
         if (!response.success) {
           console.error("[FLOW-STORE] Desktop sync failed:", response.error);

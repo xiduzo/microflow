@@ -52,9 +52,10 @@ function Settings() {
   const brokers = useMqttBrokerStore((s) => s.brokers);
 
   const brokerOptions = useMemo(() => {
-    const options: Record<string, string> = { "": "Select broker..." };
+    const options: Record<string, string> = { "Select broker...": "" };
     for (const broker of brokers) {
-      options[broker.id] = broker.name + (broker.isDefault ? " (default)" : "");
+      const label = broker.name + (broker.isDefault ? " (default)" : "");
+      options[label] = broker.id;
     }
     return options;
   }, [brokers]);

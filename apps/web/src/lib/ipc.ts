@@ -18,12 +18,21 @@ type Response<T extends Record<string, unknown> = Record<string, unknown>> =
   | ErrorResponse
   | OkResponse<T>;
 
+type BrokerConfig = {
+  id: string;
+  name: string;
+  url: string;
+  username?: string;
+  password?: string;
+};
+
 type Flow = {
   type: "flow_update";
   flow: {
     nodes: Node[];
     edges: Edge[];
   };
+  brokers?: BrokerConfig[];
 };
 
 type MqttConnect = {

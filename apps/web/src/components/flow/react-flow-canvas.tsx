@@ -100,7 +100,7 @@ export function ReactFlowCanvas({
         onConnect={onConnect}
         colorMode={(theme as ColorMode) ?? "system"}
         minZoom={0.05}
-        maxZoom={3}
+        maxZoom={1}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         fitView

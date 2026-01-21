@@ -5,8 +5,19 @@
 use super::base::ComponentValue;
 use super::FlowUpdate;
 use crate::AppState;
+use crate::mqtt::broker::BrokerConfig;
 use std::sync::Arc;
 use tauri::Emitter;
+
+/// Broker configuration from frontend
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct FrontendBrokerConfig {
+    pub id: String,
+    pub name: String,
+    pub url: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
 
 /// MQTT node info extracted from flow nodes
 #[derive(Debug, Clone)]
@@ -45,13 +56,35 @@ fn extract_mqtt_nodes(flow: &FlowUpdate) -> Vec<MqttNodeInfo> {
 pub async fn flow_update(
     app: tauri::AppHandle,
     flow: FlowUpdate,
+    brokers: Option<Vec<FrontendBrokerConfig>>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "=== FLOW UPDATE COMMAND === {} nodes, {} edges",
+        "=== FLOW UPDATE COMMAND === {} nodes, {} edges, {} brokers",
         flow.nodes.len(),
-        flow.edges.len()
+        flow.edges.len(),
+        brokers.as_ref().map(|b| b.len()).unwrap_or(0)
     );
+
+    // Auto-connect any brokers that are provided
+    if let Some(broker_configs) = &brokers {
+        for broker in broker_configs {
+            log::info!("[MQTT] Auto-connecting broker: {} ({})", broker.name, broker.id);
+            
+            let config = BrokerConfig {
+                id: broker.id.clone(),
+                url: broker.url.clone(),
+                username: broker.username.clone(),
+                password: broker.password.clone(),
+            };
+            
+            if let Err(e) = state.mqtt_manager.connect(config).await {
+                log::error!("[MQTT] Failed to auto-connect broker {}: {}", broker.name, e);
+            } else {
+                log::info!("[MQTT] Successfully connected to broker: {}", broker.name);
+            }
+        }
+    }
 
     // Extract MQTT nodes before applying flow
     let mqtt_nodes = extract_mqtt_nodes(&flow);
