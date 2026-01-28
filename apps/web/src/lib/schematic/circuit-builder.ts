@@ -14,17 +14,17 @@ function resolvePinNumber(pinValue: number | string, pins: Pin[]): number {
   const match = pinValue.match(/^A(\d+)$/i);
   if (match) {
     const analogIndex = parseInt(match[1], 10);
-    
+
     // If no pins available, use standard Arduino Uno mapping (A0=14, A1=15, etc.)
     if (pins.length === 0) {
       return 14 + analogIndex;
     }
-    
+
     const base = getAnalogChannelBase(pins);
     const targetChannel = base + analogIndex;
     const pin = pins.find((p) => p.analogChannel === targetChannel);
     if (pin) return pin.pin;
-    
+
     // Fallback to standard mapping if pin not found
     return 14 + analogIndex;
   }
@@ -41,7 +41,7 @@ function resolvePinNumber(pinValue: number | string, pins: Pin[]): number {
  * - powerPins: map of power pin names for VCC/GND traces
  */
 interface TscircuitComponent {
-  toJsx(name: string, data: BaseNode<BaseData>['data']): string;
+  toJsx(name: string, data: BaseNode<BaseData>["data"]): string;
   signalPin: string;
   powerPins?: { vcc?: string; gnd?: string };
 }
@@ -61,7 +61,7 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   switch: {
     toJsx: (name, _data) =>
-      `<switch name="${name}" displayName="${_data.label ?? name}" type="spst" />`,
+      `<switch name="${name}" displayName="${_data.label ?? name}" type="spst" isNormallyClosed={${_data.type === "NC"}} />`,
     signalPin: "pin1",
     powerPins: { gnd: "pin2" },
   },
@@ -85,7 +85,7 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   servo: {
     toJsx: (name, _data) =>
-        `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
+      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
     signalPin: "pin3",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
@@ -135,17 +135,33 @@ function sanitizeName(name: string): string {
 }
 
 function isHardwareComponent(instanceType: string): boolean {
-  const hardwareComponents = ["button", "led", "switch", "relay", "sensor", "potentiometer", "servo", "rgb", "piezo", "matrix", "motion", "proximity", "pixel"];
+  const hardwareComponents = [
+    "button",
+    "led",
+    "switch",
+    "relay",
+    "sensor",
+    "potentiometer",
+    "servo",
+    "rgb",
+    "piezo",
+    "matrix",
+    "motion",
+    "proximity",
+    "pixel",
+  ];
   return hardwareComponents.includes(instanceType.toLowerCase());
 }
 
 function getNodePins(node: Node, pins: Pin[]): number[] {
   const data = node.data as BaseData;
-  if('pin' in data) {
+  if ("pin" in data) {
     return [resolvePinNumber(data.pin as string | number, pins)];
   }
-  if('pins' in data) {
-    return Object.values(data.pins as Record<string, number>).map((p) => resolvePinNumber(p, pins));
+  if ("pins" in data) {
+    return Object.values(data.pins as Record<string, number>).map((p) =>
+      resolvePinNumber(p, pins),
+    );
   }
   return [];
 }
@@ -158,8 +174,11 @@ export interface CircuitBuildResult {
 /**
  * Build tscircuit JSX code from flow nodes
  */
-export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult {
-  console.log({ nodes, pins});
+export function buildCircuitCode(
+  nodes: Node[],
+  pins: Pin[],
+): CircuitBuildResult {
+  console.log({ nodes, pins });
   const hardwareNodes = nodes.filter((node) => {
     const data = node.data as BaseData;
     return data.instance && isHardwareComponent(data.instance);
@@ -174,10 +193,10 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
 
   // Sort by pin number for consistent layout
   const sortedNodes = [...hardwareNodes].sort((a, b) => {
-    const pinA = 'pin' in a.data ? Number(a.data.pin) : -1;
-    const pinB = 'pin' in b.data ? Number(b.data.pin) : -1;
+    const pinA = "pin" in a.data ? Number(a.data.pin) : -1;
+    const pinB = "pin" in b.data ? Number(b.data.pin) : -1;
     return pinA - pinB;
-  })
+  });
 
   // Build MCU pin labels from used pins
   const usedPins = new Set<number>();
@@ -214,14 +233,15 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
   const mcuPinCount = sortedUsedPins.length;
   // Use standard SOIC footprints (must be valid: soic4, soic6, soic8, soic10, soic12, soic14, soic16, soic18, soic20)
   const validSoicSizes = [4, 6, 8, 10, 12, 14, 16, 18, 20];
-  const mcuFootprintSize = validSoicSizes.find(size => size >= mcuPinCount) ?? 20;
+  const mcuFootprintSize =
+    validSoicSizes.find((size) => size >= mcuPinCount) ?? 20;
   const mcuFootprint = `soic${mcuFootprintSize}`;
-  
+
   // Build pinLabels as inline object syntax
   const mcuPinLabelEntries = Object.entries(mcuPinLabels)
     .map(([key, val]) => `${key}: "${val}"`)
     .join(", ");
-  
+
   components.push(`    <chip
       name="MCU"
       footprint="${mcuFootprint}"
@@ -229,11 +249,11 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
     />`);
 
   hardwareNodes.forEach((node, index) => {
-    const data = node.data as BaseNode<BaseData>['data'];
+    const data = node.data as BaseNode<BaseData>["data"];
     const instanceType = data.instance?.toLowerCase();
     const subType = data.subType?.toLowerCase();
     if (!instanceType) return;
-    const component = componentMap[subType ?? ""] ?? componentMap[instanceType]
+    const component = componentMap[subType ?? ""] ?? componentMap[instanceType];
     if (!component) return;
 
     const rawName = data.label ?? `${instanceType.toUpperCase()}${index + 1}`;
@@ -247,17 +267,23 @@ export function buildCircuitCode(nodes: Node[], pins: Pin[]): CircuitBuildResult
     nodePins.forEach((p) => {
       const mcuPinIdx = sortedUsedPins.indexOf(p);
       if (mcuPinIdx >= 0) {
-        traces.push(`    <trace layer="signal" from=".${componentName} > .${component.signalPin}" to=".MCU > .pin${mcuPinIdx + 1}" />`);
+        traces.push(
+          `    <trace layer="signal"strokeColor="red" thickness="0.5mm" from=".${componentName} > .${component.signalPin}" to=".MCU > .pin${mcuPinIdx + 1}" />`,
+        );
       }
     });
 
     // Add power traces for this component
     if (component.powerPins) {
       if (component.powerPins.vcc) {
-        powerTraces.push(`    <trace layer="power" from=".${componentName} > .${component.powerPins.vcc}" to="net.VCC" />`);
+        powerTraces.push(
+          `    <trace layer="power" strokeColor="red" thickness="0.5mm" from=".${componentName} > .${component.powerPins.vcc}" to="net.VCC" />`,
+        );
       }
       if (component.powerPins.gnd) {
-        groundTraces.push(`    <trace layer="ground" from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`);
+        groundTraces.push(
+          `    <trace layer="ground"strokeColor="red" thickness="0.5mm" from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`,
+        );
       }
     }
   });

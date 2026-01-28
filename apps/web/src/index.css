@@ -133,6 +133,41 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+
+/*
+ *
+ * circuit json style overwrites
+ *
+*/
+svg g text.pin-number[text-anchor="middle"] {
+  opacity: 0;
+}
+
+/* svg path.net-label {
+  @apply fill-red-500 dark:fill-red-700 stroke-foreground;
+} */
+
+svg g.trace p:last-of-type {
+  @apply hover:fill-green-500
+}
+
+svg g[data-circuit-json-type="schematic_component"] text {
+  @apply fill-foreground;
+}
+
+/* All text labels that containt "VCC" */
+svg text.net-label-text {
+  @apply fill-red-50;
+}
+
+svg g.trace path {
+  @apply stroke-muted-foreground;
+}
+
+svg g.trace-overlays>* {
+  @apply stroke-muted-foreground fill-muted-foreground;
+}
+
 /*
  *
  * React flow style overwrites
@@ -312,48 +347,4 @@
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
-}
-
-/**
-  * TS circuit style overrides - trace coloring by type
-  * GND = black, VCC = red, SIG/DIN/DOUT = yellow
-  * Trace IDs are suffixed with type: data-schematic-trace-id="schematic_trace_..._sig"
-  */
-/* Signal traces (default) - yellow */
-.trace[data-schematic-trace-id$="_sig"] path,
-.trace[data-schematic-trace-id$="_sig"] line,
-.trace[data-schematic-trace-id$="_sig"] polyline {
-  @apply stroke-yellow-500;
-}
-
-/* Ground traces - black */
-.trace[data-schematic-trace-id$="_gnd"] path,
-.trace[data-schematic-trace-id$="_gnd"] line,
-.trace[data-schematic-trace-id$="_gnd"] polyline {
-  @apply stroke-blue-500;
-}
-
-/* VCC/Power traces - red */
-.trace[data-schematic-trace-id$="_vcc"] path,
-.trace[data-schematic-trace-id$="_vcc"] line,
-.trace[data-schematic-trace-id$="_vcc"] polyline {
-  @apply stroke-red-500;
-}
-
-/* Clock traces - purple */
-.trace[data-schematic-trace-id$="_clock"] path,
-.trace[data-schematic-trace-id$="_clock"] line,
-.trace[data-schematic-trace-id$="_clock"] polyline {
-  @apply stroke-purple-500;
-}
-
-/* Data traces (DIN/DOUT) - yellow (same as signal) */
-.trace[data-schematic-trace-id$="_data"] path,
-.trace[data-schematic-trace-id$="_data"] line,
-.trace[data-schematic-trace-id$="_data"] polyline {
-  @apply stroke-yellow-500;
-}
-
-g text.pin-number[text-anchor="middle"] {
-  opacity: 0;
 }

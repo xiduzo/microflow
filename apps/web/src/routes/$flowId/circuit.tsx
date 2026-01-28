@@ -18,10 +18,10 @@ import { useDebouncer } from "@tanstack/react-pacer";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
-  // aux_items: "var(--muted-foreground)",
+  // aux_items: "var(--foreground)",
   background: "transparent",
   brightened: "var(--accent)",
-  // bus: "var(--foreground)",s
+  // bus: "var(--foreground)",
   // bus_junction: "var(--foreground)",
   component_body: "var(--card)",
   component_outline: "var(--card-foreground)",
@@ -36,7 +36,7 @@ const SCHEMATIC_COLOR_OVERRIDES = {
   label_global: "var(--muted-foreground)",
   label_background: "var(--muted)",
   // label_hier: "var(--foreground)",
-  // label_local: "var(--card-foreground)",
+  label_local: "var(--foreground)",
   // net_name: "var(--foreground)",
   // no_connect: "var(--foreground)",
   // note: "var(--muted-foreground)",
@@ -44,16 +44,16 @@ const SCHEMATIC_COLOR_OVERRIDES = {
   pin_name: "var(--foreground)", // Show pin names (labels like GND, VCC, SIG)
   pin_number: "var(--card-foreground)", // Pin numbers
   // reference: "var(--foreground)",
-  // shadow: "var(--border)",
+  // shadow: "var(--foreground)",
   // sheet: "var(--background)",
   // sheet_background: "var(--background)",
-  // sheet_fields: "var(--muted-foreground)",
-  // sheet_filename: "var(--muted-foreground)",
-  // sheet_label: "var(--card-foreground)",
-  // sheet_name: "var(--card-foreground)",
-  // table: "var(--muted-foreground)",
-  // value: "var(--card-foreground)",
-  wire: "var(--foreground)",
+  // sheet_fields: "var(--foreground)",
+  // sheet_filename: "var(--foreground)",
+  // sheet_label: "var(--foreground)",
+  // sheet_name: "var(--foreground)",
+  // table: "var(--foreground)",
+  // value: "var(--foreground)",
+  // wire: "var(--foreground)",
   // wire_crossing: "var(--foreground)",
   // worksheet: "var(--background)",
 } as const;
@@ -217,7 +217,9 @@ function CircuitViewer() {
       )}
       <SchematicViewer
         circuitJson={data}
-        debugGrid
+        editingEnabled={true}
+        // onSchematicComponentClicked={console.log}
+        // debugGrid
         colorOverrides={{
           schematic: SCHEMATIC_COLOR_OVERRIDES,
         }}

@@ -10,7 +10,7 @@
     "start": "bun run dist/index.js"
   },
   "dependencies": {
-    "@hono/trpc-server": "^0.4.0",
+    "@hono/trpc-server": "^0.4.2",
     "@microflow/api": "workspace:*",
     "@microflow/auth": "workspace:*",
     "@microflow/collab": "workspace:*",
@@ -19,13 +19,13 @@
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
-    "hono": "^4.8.2",
+    "hono": "^4.11.7",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@microflow/config": "workspace:*",
     "@types/bun": "catalog:",
-    "tsdown": "^0.16.5",
+    "tsdown": "^0.20.1",
     "typescript": "catalog:"
   }
 }
