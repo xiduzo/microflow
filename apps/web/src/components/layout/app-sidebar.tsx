@@ -63,9 +63,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }, [flows, activeFlowId]);
 
 
-  // Determine the flow URL based on active flow
-  const flowUrl = `/${activeFlow.id}/flow`;
-
   return (
     <>
       <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -86,12 +83,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   {
                     title: "Edit flow",
                     icon: WaypointsIcon,
-                    url: flowUrl,
+                    url: `/flow/${activeFlow.id}/graph`,
                   },
                   {
                     title: "Show circuit",
                     icon: CircuitBoardIcon,
-                    url: `/${activeFlow.id}/circuit`,
+                    url: `/flow/${activeFlow.id}/circuit`,
                     badge: "beta",
                   },
                   ...(activeFlow.id !== "local"
@@ -99,7 +96,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       {
                         title: "Settings",
                         icon: SettingsIcon,
-                        url: `/${activeFlow.id}/settings`,
+                        url: `/flow/${activeFlow.id}/settings`,
                       },
                     ]
                     : []),
