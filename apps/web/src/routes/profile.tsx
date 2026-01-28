@@ -99,14 +99,14 @@ function ProfilePage() {
         <CardContent className="space-y-6">
           <div className="space-y-3">
             <Label>Theme</Label>
-            <ButtonGroup>
-              <Button variant={theme === "dark" ? "default" : "outline"} size="icon" onClick={() => setTheme("dark")}>
+            <ButtonGroup className="w-full">
+              <Button variant={theme === "dark" ? "default" : "outline"} className="grow" size="icon" onClick={() => setTheme("dark")}>
                 <MoonIcon />
               </Button>
-              <Button variant={theme === "system" ? "default" : "outline"} size="icon" onClick={() => setTheme("system")}>
+              <Button variant={theme === "system" ? "default" : "outline"} className="grow" size="icon" onClick={() => setTheme("system")}>
                 <ComputerIcon />
               </Button>
-              <Button variant={theme === "light" ? "default" : "outline"} size="icon" onClick={() => setTheme("light")}>
+              <Button variant={theme === "light" ? "default" : "outline"} className="grow" size="icon" onClick={() => setTheme("light")}>
                 <SunIcon />
               </Button>
             </ButtonGroup>

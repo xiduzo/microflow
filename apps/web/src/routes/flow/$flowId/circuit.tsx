@@ -15,6 +15,8 @@ import { createCircuitWebWorker, type CircuitWebWorker } from "@tscircuit/eval";
 import type { AnyCircuitElement } from "circuit-json";
 import { EmptyState } from "@/components/states/empty-state";
 import { useDebouncer } from "@tanstack/react-pacer";
+import { Loader2Icon } from "lucide-react";
+import { cva } from "class-variance-authority";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
@@ -138,6 +140,7 @@ function CircuitViewer() {
     const nodes = useFlowNodes(flowDoc);
     const pins = usePins();
     const [{ isPending, error, data }, setState] = useState({ isPending: false, error: null as string | null, data: [] as AnyCircuitElement[] });
+    const previousRender = useRef<AnyCircuitElement[]>([]);
     const worker = useRef<CircuitWebWorker | null>(null);
 
     const debouncer = useDebouncer(async () => {
@@ -149,9 +152,13 @@ function CircuitViewer() {
                 }
             });
         }
-        const { code } = buildCircuitCode(nodes, pins)
-
         setState({ isPending: true, error: null, data: [] });
+        const { code, componentCount } = buildCircuitCode(nodes, pins)
+
+        if (!componentCount) {
+            setState({ isPending: false, error: null, data: [] });
+            return
+        }
 
         // Create new runner for each render to avoid state issues
         console.log("Executing circuit code:", code);
@@ -160,7 +167,7 @@ function CircuitViewer() {
             await worker.current?.renderUntilSettled();
             const json = await worker.current?.getCircuitJson();
             if (!json) return;
-            console.log({ json });
+            await new Promise(resolve => setTimeout(resolve, 1000));
             setState({ isPending: false, error: null, data: json });
         } catch (e) {
             console.error("Circuit render error:", e);
@@ -168,30 +175,33 @@ function CircuitViewer() {
         }
     }, { wait: 1000 });
 
-    console.log({ nodes })
-
-
     useEffect(() => {
         debouncer.maybeExecute();
     }, [nodes, pins, debouncer.maybeExecute]);
 
+    useEffect(() => {
+        previousRender.current = data;
+    }, [data])
 
-    if (debouncer.store.state.isPending || isPending) return <LoadingState title="Rendering circuit..." />;
+    const circuitJson = isPending ? previousRender.current : data;
+    const combinedIsPending = isPending || debouncer.store.state.isPending;
+    const showLoading = !previousRender.current.length && combinedIsPending;
+
+    if (showLoading) return <LoadingState title="Rendering circuit..." />;
     if (error) return <ErrorState title="Failed to render circuit" error={error} />;
-    if (data.length === 0) return <EmptyState title="Add hardware components to your flow to see the circuit schematic" />;
+    if (!circuitJson.length) return <EmptyState title="No hardware components" description="Add hardware components to your flow to see the circuit schematic" />;
 
 
     return (
         <div className="w-full h-full relative">
-            {isPending && (
-                <div className="absolute top-4 right-4 z-10">
-                    <div className="bg-background/80 backdrop-blur px-3 py-1 rounded text-sm text-muted-foreground">
-                        Updating...
-                    </div>
+            {combinedIsPending && (
+                <div className={pendingIndicator({ isPending: combinedIsPending })}>
+                    <Loader2Icon className="animate-spin size-3" />
+                    Updating...
                 </div>
             )}
             <SchematicViewer
-                circuitJson={data}
+                circuitJson={circuitJson}
                 editingEnabled={true}
                 // onSchematicComponentClicked={console.log}
                 // debugGrid
@@ -207,3 +217,15 @@ function CircuitViewer() {
         </div>
     );
 }
+
+const pendingIndicator = cva("absolute top-4 left-4 z-10 flex items-center gap-2 text-xs text-muted-foreground transition-all", {
+    variants: {
+        isPending: {
+            true: "opacity-100",
+            false: "opacity-0",
+        },
+    },
+    defaultVariants: {
+        isPending: false,
+    },
+});
