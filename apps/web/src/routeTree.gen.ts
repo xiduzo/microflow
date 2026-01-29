@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
@@ -20,6 +21,11 @@ import { Route as FlowFlowIdSettingsRouteImport } from './routes/flow/$flowId/se
 import { Route as FlowFlowIdGraphRouteImport } from './routes/flow/$flowId/graph'
 import { Route as FlowFlowIdCircuitRouteImport } from './routes/flow/$flowId/circuit'
 
+const TemplatesRoute = TemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SuccessRoute = SuccessRouteImport.update({
   id: '/success',
   path: '/success',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
+  '/templates': typeof TemplatesRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
   '/flow/': typeof FlowIndexRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
+  '/templates': typeof TemplatesRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
   '/flow': typeof FlowIndexRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
+  '/templates': typeof TemplatesRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
   '/flow/': typeof FlowIndexRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/success'
+    | '/templates'
     | '/configuration/mqtt'
     | '/flow/$flowId'
     | '/flow/'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/success'
+    | '/templates'
     | '/configuration/mqtt'
     | '/flow/$flowId'
     | '/flow'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/success'
+    | '/templates'
     | '/configuration/mqtt'
     | '/flow/$flowId'
     | '/flow/'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SuccessRoute: typeof SuccessRoute
+  TemplatesRoute: typeof TemplatesRoute
   ConfigurationMqttRoute: typeof ConfigurationMqttRoute
   FlowFlowIdRoute: typeof FlowFlowIdRouteWithChildren
   FlowIndexRoute: typeof FlowIndexRoute
@@ -159,6 +172,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/templates': {
+      id: '/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof TemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/success': {
       id: '/success'
       path: '/success'
@@ -253,6 +273,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SuccessRoute: SuccessRoute,
+  TemplatesRoute: TemplatesRoute,
   ConfigurationMqttRoute: ConfigurationMqttRoute,
   FlowFlowIdRoute: FlowFlowIdRouteWithChildren,
   FlowIndexRoute: FlowIndexRoute,

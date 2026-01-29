@@ -117,10 +117,10 @@ const componentMap: Record<string, TscircuitComponent> = {
         footprint="pinrow3"
         pinVariant="three_pin"
         maxResistance="50k"
-        pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }}
+        pinLabels={{ pin1: "VCC", pin2: "SIG", pin3: "GND" }}
       />`,
-    signalPins: "pin3",
-    powerPins: { vcc: "pin2", gnd: "pin3" },
+    signalPins: "pin2",
+    powerPins: { vcc: "pin1", gnd: "pin3" },
   },
   servo: {
     toJsx: (name, _data) =>

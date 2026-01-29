@@ -57,22 +57,44 @@ function RouteComponent() {
     return <CloudFlowLayout />;
 }
 
+// No-op sync provider for local flows (no collaboration needed)
+const localFlowSync: UseSyncProviderReturn = {
+    state: "synced",
+    isConnected: false,
+    isSynced: true,
+    error: null,
+    users: [],
+    localUser: null,
+    updateCursor: () => {},
+    updateSelectedNodes: () => {},
+    reconnect: () => {},
+    disconnect: () => {},
+};
+
 function LocalFlowLayout() {
     const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
-    const { initLocalFlow, destroy } = useFlowInit();
+    const { initLocalFlow } = useFlowInit();
+    const flowDoc = useFlowDocument();
 
     // Initialize local flow when visiting this route
     useEffect(() => {
         setActiveFlowId("local");
-        initLocalFlow();
+        
+        // Only initialize if not already initialized
+        if (!flowDoc) {
+            initLocalFlow();
+        }
 
-        return () => {
-            destroy();
-        };
-    }, [setActiveFlowId, initLocalFlow, destroy]);
+        // Don't destroy on unmount - local flow persists across navigation
+        // It will be cleaned up when switching to a cloud flow or explicitly
+    }, [setActiveFlowId, initLocalFlow, flowDoc]);
 
-    // For local flow, no sync provider
-    return <Outlet />;
+    // Provide mock sync context for local flow
+    return (
+        <FlowSyncContext.Provider value={localFlowSync}>
+            <Outlet />
+        </FlowSyncContext.Provider>
+    );
 }
 
 function CloudFlowLayout() {

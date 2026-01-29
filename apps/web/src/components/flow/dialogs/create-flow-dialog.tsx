@@ -50,7 +50,7 @@ export function CreateFlowDialog({ trigger, onSuccess }: Props) {
       setActiveFlowId(result.id);
       setOpen(false);
       form.reset();
-      navigate({ to: "/$flowId/flow", params: { flowId: result.id } });
+      navigate({ to: "/flow/$flowId/graph", params: { flowId: result.id } });
     },
   }));
 

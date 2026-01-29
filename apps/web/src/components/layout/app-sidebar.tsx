@@ -126,21 +126,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     url: "/",
                     icon: BookIcon,
                   },
-                  {
-                    title: "Community",
-                    url: "/community",
-                    icon: BookSearchIcon,
-                  },
+                  // {
+                  //   title: "Community",
+                  //   url: "/community",
+                  //   icon: BookSearchIcon,
+                  // },
                   {
                     title: "Templates",
                     url: "/templates",
                     icon: LibraryBigIcon,
                   },
-                  {
-                    title: "Learning",
-                    url: "/learning",
-                    icon: GraduationCapIcon,
-                  },
+                  // {
+                  //   title: "Learning",
+                  //   url: "/learning",
+                  //   icon: GraduationCapIcon,
+                  // },
                 ],
               },
               ...(isDesktop()

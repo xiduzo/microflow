@@ -1,0 +1,121 @@
+import type { Template } from "../types";
+import { buttonData, gateData, ledData, piezoData, counterData } from "../data-factories";
+
+export const xorGame: Template = {
+  id: "xor-game",
+  name: "XOR Logic Puzzle",
+  description:
+    "A brain teaser! Press exactly ONE button to win. Both or neither = lose. Learn XOR logic!",
+  difficulty: "advanced",
+  categories: ["Games", "Logic", "Education"],
+  nodes: [
+    {
+      id: "button-1",
+      type: "Button",
+      position: { x: 100, y: 150 },
+      data: { ...buttonData(6), label: "Button A" },
+    },
+    {
+      id: "button-2",
+      type: "Button",
+      position: { x: 100, y: 400 },
+      data: { ...buttonData(7), label: "Button B" },
+    },
+    {
+      id: "gate-xor",
+      type: "Gate",
+      position: { x: 500, y: 275 },
+      data: { ...gateData("xor"), label: "Exactly One?" },
+    },
+    {
+      id: "led-win",
+      type: "Led",
+      position: { x: 900, y: 150 },
+      data: { ...ledData(9), label: "WIN!" },
+    },
+    {
+      id: "led-lose",
+      type: "Led",
+      position: { x: 900, y: 300 },
+      data: { ...ledData(10), label: "LOSE" },
+    },
+    {
+      id: "piezo-1",
+      type: "Piezo",
+      position: { x: 900, y: 450 },
+      data: { ...piezoData(8), frequency: 1047, duration: 200 },
+    },
+    {
+      id: "counter-1",
+      type: "Counter",
+      position: { x: 1200, y: 150 },
+      data: { ...counterData(), label: "Wins" },
+    },
+  ],
+  edges: [
+    {
+      id: "e-btn1-gate",
+      source: "button-1",
+      target: "gate-xor",
+      sourceHandle: "active",
+      targetHandle: "check",
+      type: "animated",
+    },
+    {
+      id: "e-btn2-gate",
+      source: "button-2",
+      target: "gate-xor",
+      sourceHandle: "active",
+      targetHandle: "check",
+      type: "animated",
+    },
+    {
+      id: "e-gate-led-win",
+      source: "gate-xor",
+      target: "led-win",
+      sourceHandle: "true",
+      targetHandle: "turnOn",
+      type: "animated",
+    },
+    {
+      id: "e-gate-led-win-off",
+      source: "gate-xor",
+      target: "led-win",
+      sourceHandle: "false",
+      targetHandle: "turnOff",
+      type: "animated",
+    },
+    {
+      id: "e-gate-led-lose",
+      source: "gate-xor",
+      target: "led-lose",
+      sourceHandle: "false",
+      targetHandle: "turnOn",
+      type: "animated",
+    },
+    {
+      id: "e-gate-led-lose-off",
+      source: "gate-xor",
+      target: "led-lose",
+      sourceHandle: "true",
+      targetHandle: "turnOff",
+      type: "animated",
+    },
+    {
+      id: "e-gate-piezo",
+      source: "gate-xor",
+      target: "piezo-1",
+      sourceHandle: "true",
+      targetHandle: "buzz",
+      type: "animated",
+    },
+    {
+      id: "e-gate-counter",
+      source: "gate-xor",
+      target: "counter-1",
+      sourceHandle: "true",
+      targetHandle: "increment",
+      type: "animated",
+    },
+  ],
+};

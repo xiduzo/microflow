@@ -30,6 +30,7 @@ function ToggleGroup({
   VariantProps<typeof toggleVariants> & {
     spacing?: number;
     orientation?: "horizontal" | "vertical";
+    type?: "single" | "multiple";
   }) {
   return (
     <ToggleGroupPrimitive

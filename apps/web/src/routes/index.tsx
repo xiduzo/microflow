@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CloudIcon, LogInIcon, User2Icon } from "lucide-react";
+import { CloudIcon, LayoutTemplateIcon, User2Icon } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
@@ -12,6 +12,7 @@ import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
 import { ErrorState } from "@/components/states/error-state";
 import { LoadingStateSkeleton } from "@/components/states/loading-state";
 import { EmptyState } from "@/components/states/empty-state";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
 
@@ -38,43 +39,30 @@ function HomeComponent() {
   }, []);
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="container max-w-6xl mx-auto py-8 px-4 space-y-8">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Your Flows</h1>
-            <p className="text-muted-foreground text-sm">
-              Manage your local flow and sync to the cloud for collaboration
-            </p>
-          </div>
-          {isSignedIn && <CreateFlowDialog />}
-        </header>
-
-        {/* Local section - always visible */}
+    <div className="h-full overflow-auto gap-8 flex flex-col pb-12">
+      <header className="flex items-center justify-between sticky top-0 z-10 backdrop-blur-sm bg-background/50 p-8 rounded-t-xl">
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">
-            Local
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <FlowCard
-              id="local"
-              name="Local Flow"
-              description="This flow is only available on this device"
-              updatedAt={new Date().toISOString()}
-              nodes={localFlowData.nodes}
-              edges={localFlowData.edges}
-            />
-          </div>
         </section>
-
-        {/* Cloud section - always visible, content changes based on auth */}
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">
-            Cloud
-          </h2>
-          {isSignedIn ? <CloudFlows /> : <SignInNudge />}
+          <CreateFlowDialog />
         </section>
-      </div>
+      </header>
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 px-8">
+        <FlowCard
+          id="local"
+          name="Local Flow"
+          description="This flow is only available on this device"
+          updatedAt={new Date().toISOString()}
+          nodes={localFlowData.nodes}
+          edges={localFlowData.edges}
+          badges={[{
+            label: "LOCAL",
+            variant: "default"
+          }]}
+        />
+        {isSignedIn && <CloudFlows />}
+      </section>
+      {!isSignedIn && <SignInNudge />}
     </div>
   );
 }
@@ -82,23 +70,15 @@ function HomeComponent() {
 function CloudFlows() {
   const { data, isLoading, error } = useQuery(trpc.flow.list.queryOptions());
 
-  if (isLoading)
-    return <LoadingStateSkeleton skeleton={<FlowCardSkeleton />} />;
-
-  if (error) return <ErrorState title="Failed to load flows" error={error} />;
+  if (isLoading) return null
+  if (error) return null
 
   const flows = [...(data?.owned ?? []), ...(data?.collaborated ?? [])];
 
-  if (!flows || flows.length === 0) {
-    return (
-      <EmptyState title="No flows found" icon={CloudIcon}>
-        <CreateFlowDialog />
-      </EmptyState>
-    );
-  }
+  if (flows.length === 0) return null
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <>
       {flows.map((flow) => (
         <FlowCard
           key={flow.id}
@@ -115,7 +95,7 @@ function CloudFlows() {
           ]}
         />
       ))}
-    </div>
+    </>
   );
 }
 
@@ -123,7 +103,7 @@ function SignInNudge() {
   return (
     <EmptyState
       title="Not signed in"
-      description="Sign in to sync your flows across devices and collaborate with others"
+      description="Sign in to create multiple flows and collaborate with others"
       icon={User2Icon}
     >
       <Link to="/login">

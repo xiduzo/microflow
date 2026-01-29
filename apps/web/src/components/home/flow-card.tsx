@@ -30,13 +30,19 @@ type FlowCardProps = {
     label: string;
     variant: "secondary" | "destructive" | "outline" | "default";
   }[];
+  beforeNavigate?: () => Promise<void>
 };
 
 export function FlowCard(props: FlowCardProps) {
   const navigate = useNavigate();
 
+  async function handleClick() {
+    await props.beforeNavigate?.()
+    navigate({ to: "/flow/$flowId/graph", params: { flowId: props.id } })
+  }
+
   return (
-    <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0 group relative" onClick={() => navigate({ to: "/$flowId/flow", params: { flowId: props.id } })}>
+    <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0 group relative hover:cursor-pointer" onClick={handleClick}>
       <CardContent className="px-0 mb-4">
         <div className="aspect-4/3 bg-muted/30 relative overflow-hidden">
           <ReactFlowProvider>
@@ -53,7 +59,7 @@ export function FlowCard(props: FlowCardProps) {
           {!props.description && <p className="text-xs text-muted-foreground">Edited {formatDistanceToNow(props.updatedAt, { addSuffix: true })}</p>}
         </CardDescription>
       </CardHeader>
-      <CardFooter className="gap-2 justify-between flex">
+      <CardFooter className="gap-2 flex flex-wrap">
         {props.badges?.map((badge) => (
           <Badge key={badge.label} variant={badge.variant}>
             {badge.label}
