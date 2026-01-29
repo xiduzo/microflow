@@ -37,92 +37,175 @@ function resolvePinNumber(pinValue: number | string, pins: Pin[]): number {
  * Component mapping from Microflow node types to tscircuit JSX
  * Each component defines:
  * - toJsx: generates the component JSX
- * - signalPin: the pin name to use for signal traces (must match tscircuit's port names)
+ * - signalPins: map from node data pin keys to component pin names (for multi-pin components)
+ *               OR a single string for single-pin components
  * - powerPins: map of power pin names for VCC/GND traces
  */
 interface TscircuitComponent {
   toJsx(name: string, data: BaseNode<BaseData>["data"]): string;
-  signalPin: string;
+  signalPins: string | Record<string, string>;
   powerPins?: { vcc?: string; gnd?: string };
 }
 
 const componentMap: Record<string, TscircuitComponent> = {
   button: {
     toJsx: (name, _data) =>
-      `<pushbutton name="${name}" displayName="${_data.label ?? name}" footprint="pushbutton"  pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }}  />`,
-    signalPin: "pin1",
+      `<pushbutton
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="pushbutton"
+        pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }}
+      />`,
+    signalPins: "pin1",
     powerPins: { gnd: "pin2" },
   },
   led: {
     toJsx: (name, _data) =>
-      `<led name="${name}" displayName="${_data.label ?? name}" footprint="0603" color=""  />`,
-    signalPin: "anode",
+      `<led
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="0603"
+        color=""
+      />`,
+    signalPins: "anode",
     powerPins: { gnd: "cathode" },
   },
   switch: {
     toJsx: (name, _data) =>
-      `<switch name="${name}" displayName="${_data.label ?? name}" type="spst" isNormallyClosed={${_data.type === "NC"}} />`,
-    signalPin: "pin1",
+      `<switch
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        type="spst"
+        isNormallyClosed={${_data.type === "NC"}}
+      />`,
+    signalPins: "pin1",
     powerPins: { gnd: "pin2" },
   },
   relay: {
     toJsx: (name, _data) =>
-      `<switch name="${name}" displayName="${_data.label ?? name}" type="spdt" isNormallyClosed={${_data.type === "NC"}} />`,
-    signalPin: "pin1",
+      `<switch
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        type="spdt"
+        isNormallyClosed={${_data.type === "NC"}}
+      />`,
+    signalPins: "pin1",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   sensor: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "pin1",
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="pinrow3"
+        pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }}
+      />`,
+    signalPins: "pin1",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   potentiometer: {
     toJsx: (name, _data) =>
-      `<potentiometer name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinVariant="three_pin" maxResistance="50k" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "pin3",
+      `<potentiometer
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="pinrow3"
+        pinVariant="three_pin"
+        maxResistance="50k"
+        pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }}
+      />`,
+    signalPins: "pin3",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   servo: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "pin3",
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}" 
+        footprint="pinrow3" 
+        pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} 
+      />`,
+    signalPins: "pin3",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   rgb: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="dip4" pinLabels={{ pin1: "R", pin2: "G", pin3: "B", pin4: "GND" }} />`,
-    signalPin: "R", // Primary signal pin
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="dip4"
+        pinLabels={{ pin1: "SIGred", pin2: "SIGgreen", pin3: "SIGblue", pin4: "GND" }}
+      />`,
+    // Maps node data pin keys (red, green, blue) to component pins
+    signalPins: { red: "pin1", green: "pin2", blue: "pin3" },
     powerPins: { gnd: "pin4" },
   },
   piezo: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="0805" pinLabels={{ pin1: "SIG", pin2: "GND" }} />`,
-    signalPin: "pin1",
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="0805"
+        pinLabels={{ pin1: "SIG", pin2: "GND" }}
+      />`,
+    signalPins: "pin1",
     powerPins: { gnd: "pin2" },
   },
   matrix: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="soic5" pinLabels={{ pin1: "DIN", pin2: "CLK", pin3: "CS", pin4: "VCC", pin5: "GND" }} />`,
-    signalPin: "pin1",
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="soic5"
+        pinLabels={{ pin1: "DIN", pin2: "CLK", pin3: "CS", pin4: "VCC", pin5: "GND" }}
+      />`,
+    // Maps node data pin keys (data, clock, cs) to component pins
+    signalPins: { data: "pin1", clock: "pin2", cs: "pin3" },
     powerPins: { vcc: "pin4", gnd: "pin5" },
   },
   motion: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "DOUT", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "pin1",
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="pinrow3"
+        pinLabels={{ pin1: "DOUT", pin2: "VCC", pin3: "GND" }}
+      />`,
+    signalPins: "pin1",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   proximity: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "pin1",
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="pinrow3"
+        pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }}
+      />`,
+    signalPins: "pin1",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   pixel: {
     toJsx: (name, _data) =>
-      `<chip name="${name}" displayName="${_data.label ?? name}" footprint="pinrow3" pinLabels={{ pin1: "DIN", pin2: "VCC", pin3: "GND" }} />`,
-    signalPin: "pin1",
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="pinrow3"
+        pinLabels={{ pin1: "DIN", pin2: "VCC", pin3: "GND" }}
+      />`,
+    signalPins: "pin1",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
 };
@@ -153,17 +236,33 @@ function isHardwareComponent(instanceType: string): boolean {
   return hardwareComponents.includes(instanceType.toLowerCase());
 }
 
-function getNodePins(node: Node, pins: Pin[]): number[] {
+interface NodePinInfo {
+  key: string;
+  pinNumber: number;
+}
+
+function getNodePinsWithKeys(node: Node, pins: Pin[]): NodePinInfo[] {
   const data = node.data as BaseData;
   if ("pin" in data) {
-    return [resolvePinNumber(data.pin as string | number, pins)];
+    return [
+      {
+        key: "pin",
+        pinNumber: resolvePinNumber(data.pin as string | number, pins),
+      },
+    ];
   }
   if ("pins" in data) {
-    return Object.values(data.pins as Record<string, number>).map((p) =>
-      resolvePinNumber(p, pins),
-    );
+    const pinsData = data.pins as Record<string, number | string>;
+    return Object.entries(pinsData).map(([key, p]) => ({
+      key,
+      pinNumber: resolvePinNumber(p, pins),
+    }));
   }
   return [];
+}
+
+function getNodePins(node: Node, pins: Pin[]): number[] {
+  return getNodePinsWithKeys(node, pins).map((p) => p.pinNumber);
 }
 
 export interface CircuitBuildResult {
@@ -242,7 +341,8 @@ export function buildCircuitCode(
     .map(([key, val]) => `${key}: "${val}"`)
     .join(", ");
 
-  components.push(`    <chip
+  components.push(`
+    <chip
       name="MCU"
       footprint="${mcuFootprint}"
       pinLabels={{ ${mcuPinLabelEntries} }}
@@ -259,16 +359,31 @@ export function buildCircuitCode(
     const rawName = data.label ?? `${instanceType.toUpperCase()}${index + 1}`;
     const componentName = sanitizeName(rawName + "_" + node.id);
 
-    console.log({ componentName, data });
     components.push(`    ${component.toJsx(componentName, data)}`);
 
-    // Create trace from component signal pin to MCU
-    const nodePins = getNodePins(node, pins);
-    nodePins.forEach((p) => {
-      const mcuPinIdx = sortedUsedPins.indexOf(p);
+    // Create trace from component signal pin(s) to MCU
+    const nodePinsWithKeys = getNodePinsWithKeys(node, pins);
+    nodePinsWithKeys.forEach(({ key, pinNumber }) => {
+      const mcuPinIdx = sortedUsedPins.indexOf(pinNumber);
       if (mcuPinIdx >= 0) {
+        // Determine the component pin to use for this trace
+        let componentPin: string;
+        if (typeof component.signalPins === "string") {
+          // Single signal pin component
+          componentPin = component.signalPins;
+        } else {
+          // Multi-signal pin component - look up by key
+          componentPin =
+            component.signalPins[key] ?? Object.values(component.signalPins)[0];
+        }
         traces.push(
-          `    <trace layer="signal"strokeColor="red" thickness="0.5mm" from=".${componentName} > .${component.signalPin}" to=".MCU > .pin${mcuPinIdx + 1}" />`,
+          `<trace
+              layer="signal"
+              strokeColor="red"
+              thickness="0.5mm"
+              from=".${componentName} > .${componentPin}"
+              to=".MCU > .pin${mcuPinIdx + 1}"
+            />`,
         );
       }
     });
@@ -277,12 +392,24 @@ export function buildCircuitCode(
     if (component.powerPins) {
       if (component.powerPins.vcc) {
         powerTraces.push(
-          `    <trace layer="power" strokeColor="red" thickness="0.5mm" from=".${componentName} > .${component.powerPins.vcc}" to="net.VCC" />`,
+          `<trace
+            layer="power"
+            strokeColor="red"
+            thickness="0.5mm"
+            from=".${componentName} > .${component.powerPins.vcc}"
+            to="net.VCC"
+          />`,
         );
       }
       if (component.powerPins.gnd) {
         groundTraces.push(
-          `    <trace layer="ground"strokeColor="red" thickness="0.5mm" from=".${componentName} > .${component.powerPins.gnd}" to="net.GND" />`,
+          `<trace
+            layer="ground"
+            strokeColor="red"
+            thickness="0.5mm"
+            from=".${componentName} > .${component.powerPins.gnd}"
+            to="net.GND"
+          />`,
         );
       }
     }
@@ -290,16 +417,16 @@ export function buildCircuitCode(
 
   const code = `circuit.add(
   <board schAutoLayoutEnabled>
-${components.join("\n")}
-<group name="signal" schTitle="Signal">
-${traces.join("\n")}
-</group>
-<group name="power" schTitle="Power">
-${powerTraces.join("\n")}
-</group>
-<group name="ground" schTitle="Ground">
-${groundTraces.join("\n")}
-</group>
+    ${components.join("\n")}
+    <group name="signal" schTitle="Signal">
+      ${traces.join("\n")}
+    </group>
+    <group name="power" schTitle="Power">
+      ${powerTraces.join("\n")}
+    </group>
+    <group name="ground" schTitle="Ground">
+      ${groundTraces.join("\n")}
+    </group>
   </board>
 )`;
 

@@ -137,15 +137,29 @@
 /*
  *
  * circuit json style overwrites
+ * NOTE: some styles are overwritten in the SchematicViewer component
  *
 */
 svg g text.pin-number[text-anchor="middle"] {
   opacity: 0;
 }
 
-/* svg path.net-label {
-  @apply fill-red-500 dark:fill-red-700 stroke-foreground;
-} */
+svg path.net-label,
+svg text.net-label-text {
+  @apply dark:opacity-15 opacity-20 transition-opacity
+}
+
+/* When hovering over path.net-label, make both path and immediately following text.net-label-text full opacity */
+svg path.net-label:hover,
+svg path.net-label:hover+text.net-label-text {
+  @apply opacity-100
+}
+
+/* When hovering over text.net-label-text, make both text and immediately preceding path.net-label full opacity */
+svg path.net-label:has(+ text.net-label-text:hover),
+svg text.net-label-text:hover {
+  @apply opacity-100
+}
 
 svg g.trace p:last-of-type {
   @apply hover:fill-green-500
@@ -153,11 +167,6 @@ svg g.trace p:last-of-type {
 
 svg g[data-circuit-json-type="schematic_component"] text {
   @apply fill-foreground;
-}
-
-/* All text labels that containt "VCC" */
-svg text.net-label-text {
-  @apply fill-red-50;
 }
 
 svg g.trace path {

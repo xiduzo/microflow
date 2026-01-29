@@ -60,6 +60,7 @@ export function NavUser({ user }: Props) {
         <SidebarMenuItem>
           <SidebarMenuButton
             size="lg"
+            className="w-full"
             render={(props) => <Link to="/login" {...props} />}
           >
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-yellow-700 text-yellow-100">
@@ -84,25 +85,32 @@ export function NavUser({ user }: Props) {
     <SidebarMenu className="w-full">
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger className="w-full">
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-              render={(props) => <div {...props} />}
+          <DropdownMenuTrigger
+            className="w-full"
+            render={
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent w-full data-[state=open]:text-sidebar-accent-foreground"
+              />
+            }
+          >
+            <div
+              className="aspect-square size-8 rounded-lg bg-card-foreground flex items-center justify-center"
+              style={{
+                backgroundColor: collabColor ?? "var(--foreground)",
+              }}
             >
-              <div
-                className="h-8 w-8 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: collabColor }}
-              >
-                <Icon icon={collabIcon} size={16} className="text-white" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
-            </SidebarMenuButton>
+              <Icon icon={collabIcon} size={16} className="text-white" />
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate text-xs text-muted-foreground">
+                {user.email}
+              </span>
+            </div>
+            <ChevronsUpDown className="ml-auto" />
           </DropdownMenuTrigger>
+
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}

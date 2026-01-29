@@ -15,8 +15,10 @@ import { createCircuitWebWorker, type CircuitWebWorker } from "@tscircuit/eval";
 import type { AnyCircuitElement } from "circuit-json";
 import { EmptyState } from "@/components/states/empty-state";
 import { useDebouncer } from "@tanstack/react-pacer";
-import { Loader2Icon } from "lucide-react";
+import { BinaryIcon, CirclePowerIcon, EqualApproximatelyIcon, Loader2Icon, MinusIcon, PlusIcon } from "lucide-react";
 import { cva } from "class-variance-authority";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Card, CardContent } from "@/components/ui/card";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
@@ -149,7 +151,8 @@ function CircuitViewer() {
                 projectConfig: {
                     pcbDisabled: true,
                     partsEngineDisabled: true,
-                }
+                    projectName: "Microflow circuit",
+                },
             });
         }
         setState({ isPending: true, error: null, data: [] });
@@ -187,33 +190,81 @@ function CircuitViewer() {
     const combinedIsPending = isPending || debouncer.store.state.isPending;
     const showLoading = !previousRender.current.length && combinedIsPending;
 
-    if (showLoading) return <LoadingState title="Rendering circuit..." />;
     if (error) return <ErrorState title="Failed to render circuit" error={error} />;
-    if (!circuitJson.length) return <EmptyState title="No hardware components" description="Add hardware components to your flow to see the circuit schematic" />;
-
 
     return (
         <div className="w-full h-full relative">
-            {combinedIsPending && (
-                <div className={pendingIndicator({ isPending: combinedIsPending })}>
-                    <Loader2Icon className="animate-spin size-3" />
-                    Updating...
-                </div>
+            <div className={pendingIndicator({ isPending: combinedIsPending })}>
+                <Loader2Icon className="animate-spin size-3" />
+                Updating...
+            </div>
+            {showLoading && (
+                <LoadingState title="Rendering circuit..." />
             )}
-            <SchematicViewer
-                circuitJson={circuitJson}
-                editingEnabled={true}
-                // onSchematicComponentClicked={console.log}
-                // debugGrid
-                colorOverrides={{
-                    schematic: SCHEMATIC_COLOR_OVERRIDES,
-                }}
-                containerStyle={{
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: "2rem",
-                }}
-            />
+            {circuitJson.length && (
+                <SchematicViewer
+                    circuitJson={circuitJson}
+                    editingEnabled={false}
+                    // onSchematicComponentClicked={console.log}
+                    // debugGrid
+                    colorOverrides={{
+                        schematic: SCHEMATIC_COLOR_OVERRIDES, // NOTE: Some styles are overwritten in index.css
+                    }}
+                    containerStyle={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "2rem",
+                    }}
+                />
+            )}
+            <Card className="absolute bottom-4 left-4 rounded-xl z-10 bg-background/50 backdrop-blur-sm border-none ring-0">
+                <CardContent>
+                    <Item>
+                        <ItemContent>
+                            <ItemTitle className="text-red-500 font-extrabold flex items-center justify-between w-full">
+                                VCC
+                                <PlusIcon size={12} className="text-muted-foreground opacity-50" />
+                            </ItemTitle>
+                            <ItemDescription>
+                                Power supply voltage
+                            </ItemDescription>
+                        </ItemContent>
+                    </Item>
+                    <Item>
+                        <ItemContent>
+                            <ItemTitle className="text-gray-500 font-extrabold flex items-center justify-between w-full">
+                                GND
+                                <MinusIcon size={12} className="text-muted-foreground opacity-50" />
+                            </ItemTitle>
+                            <ItemDescription>
+                                Ground connection
+                            </ItemDescription>
+                        </ItemContent>
+                    </Item>
+                    <Item>
+                        <ItemContent>
+                            <ItemTitle className="text-blue-500 font-extrabold flex items-center justify-between w-full">
+                                DIN / DOUT
+                                <BinaryIcon size={12} className="text-muted-foreground opacity-50" />
+                            </ItemTitle>
+                            <ItemDescription>
+                                Digital input/output
+                            </ItemDescription>
+                        </ItemContent>
+                    </Item>
+                    <Item>
+                        <ItemContent>
+                            <ItemTitle className="text-yellow-500 font-extrabold flex items-center justify-between w-full">
+                                SIG
+                                <EqualApproximatelyIcon size={12} className="text-muted-foreground opacity-50" />
+                            </ItemTitle>
+                            <ItemDescription>
+                                Analog signal
+                            </ItemDescription>
+                        </ItemContent>
+                    </Item>
+                </CardContent>
+            </Card>
         </div>
     );
 }
