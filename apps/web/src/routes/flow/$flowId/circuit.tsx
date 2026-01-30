@@ -18,13 +18,13 @@ import { useDebouncer } from "@tanstack/react-pacer";
 import { BinaryIcon, CirclePowerIcon, EqualApproximatelyIcon, Loader2Icon, MinusIcon, PlusIcon } from "lucide-react";
 import { cva } from "class-variance-authority";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
     // aux_items: "var(--foreground)",
     background: "transparent",
-    brightened: "var(--accent)",
+    // brightened: "var(--accent)",
     // bus: "var(--foreground)",
     // bus_junction: "var(--foreground)",
     component_body: "var(--card)",
@@ -217,7 +217,7 @@ function CircuitViewer() {
                     }}
                 />
             )}
-            <Card className="absolute bottom-4 left-4 rounded-xl z-10 bg-background/50 backdrop-blur-sm border-none ring-0">
+            <Card className="absolute bottom-4 w-3xs left-4 rounded-xl z-10 bg-background/50 backdrop-blur-sm border-none ring-0">
                 <CardContent>
                     <Item>
                         <ItemContent>

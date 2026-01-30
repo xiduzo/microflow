@@ -161,10 +161,6 @@ svg text.net-label-text:hover {
   @apply opacity-100
 }
 
-svg g.trace p:last-of-type {
-  @apply hover:fill-green-500
-}
-
 svg g[data-circuit-json-type="schematic_component"] text {
   @apply fill-foreground;
 }
@@ -173,8 +169,18 @@ svg g.trace path {
   @apply stroke-muted-foreground;
 }
 
-svg g.trace-overlays>* {
-  @apply stroke-muted-foreground fill-muted-foreground;
+svg g.trace-overlays>path {
+  @apply opacity-0
+}
+
+svg g.trace-overlays>path.trace-crossing-outline {
+  @apply stroke-muted-foreground opacity-100;
+  stroke-linecap: round;
+  stroke-width: 2.4;
+}
+
+svg g.trace-overlays>circle.trace-junction {
+  @apply fill-muted-foreground;
 }
 
 /*

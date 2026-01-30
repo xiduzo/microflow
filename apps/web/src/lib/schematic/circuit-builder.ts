@@ -48,6 +48,7 @@ interface TscircuitComponent {
 }
 
 const componentMap: Record<string, TscircuitComponent> = {
+  // TScircuit components
   button: {
     toJsx: (name, _data) =>
       `<pushbutton
@@ -55,7 +56,7 @@ const componentMap: Record<string, TscircuitComponent> = {
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}"
         footprint="pushbutton"
-        pinLabels={{ pin1: "VCC", pin2: "GND", pin3: "SIG" }}
+        pinLabels={{ pin1: "SIG", pin2: "GND" }}
       />`,
     signalPins: "pin1",
     powerPins: { gnd: "pin2" },
@@ -80,6 +81,7 @@ const componentMap: Record<string, TscircuitComponent> = {
         displayName="${_data.label ?? name}"
         type="spst"
         isNormallyClosed={${_data.type === "NC"}}
+        pinLabels={{ pin1: "SIG", pin2: "GND" }}
       />`,
     signalPins: "pin1",
     powerPins: { gnd: "pin2" },
@@ -92,17 +94,6 @@ const componentMap: Record<string, TscircuitComponent> = {
         displayName="${_data.label ?? name}"
         type="spdt"
         isNormallyClosed={${_data.type === "NC"}}
-      />`,
-    signalPins: "pin1",
-    powerPins: { vcc: "pin2", gnd: "pin3" },
-  },
-  sensor: {
-    toJsx: (name, _data) =>
-      `<chip
-        name="${name}"
-        manufacturePartNumber="${_data.label ?? name}"
-        displayName="${_data.label ?? name}"
-        footprint="pinrow3"
         pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }}
       />`,
     signalPins: "pin1",
@@ -122,6 +113,31 @@ const componentMap: Record<string, TscircuitComponent> = {
     signalPins: "pin2",
     powerPins: { vcc: "pin1", gnd: "pin3" },
   },
+  piezo: {
+    toJsx: (name, _data) =>
+      `<resonator
+      name="${name}"
+      manufacturePartNumber="${_data.label ?? name}"
+      displayName="${_data.label ?? name}"
+      loadCapacitance="." // hack to remove it from the schematic
+      frequency="${_data.frequency ?? 16000000}Hz"
+    />`,
+    signalPins: "pin1",
+    powerPins: { gnd: "pin2" },
+  },
+  // Custom components
+  sensor: {
+    toJsx: (name, _data) =>
+      `<chip
+        name="${name}"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="pinrow3"
+        pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }}
+      />`,
+    signalPins: "pin1",
+    powerPins: { vcc: "pin2", gnd: "pin3" },
+  },
   servo: {
     toJsx: (name, _data) =>
       `<chip
@@ -131,7 +147,7 @@ const componentMap: Record<string, TscircuitComponent> = {
         footprint="pinrow3" 
         pinLabels={{ pin1: "SIG", pin2: "VCC", pin3: "GND" }} 
       />`,
-    signalPins: "pin3",
+    signalPins: "pin1",
     powerPins: { vcc: "pin2", gnd: "pin3" },
   },
   rgb: {
@@ -146,18 +162,6 @@ const componentMap: Record<string, TscircuitComponent> = {
     // Maps node data pin keys (red, green, blue) to component pins
     signalPins: { red: "pin1", green: "pin2", blue: "pin3" },
     powerPins: { gnd: "pin4" },
-  },
-  piezo: {
-    toJsx: (name, _data) =>
-      `<chip
-        name="${name}"
-        manufacturePartNumber="${_data.label ?? name}"
-        displayName="${_data.label ?? name}"
-        footprint="0805"
-        pinLabels={{ pin1: "SIG", pin2: "GND" }}
-      />`,
-    signalPins: "pin1",
-    powerPins: { gnd: "pin2" },
   },
   matrix: {
     toJsx: (name, _data) =>
@@ -306,6 +310,8 @@ export function buildCircuitCode(
     });
   });
 
+  console.log({ hardwareNodes });
+
   const mcuPinLabels: Record<string, string> = {};
   const sortedUsedPins = Array.from(usedPins).sort((a, b) => a - b);
   sortedUsedPins.forEach((pinNum, idx) => {
@@ -351,15 +357,16 @@ export function buildCircuitCode(
   hardwareNodes.forEach((node, index) => {
     const data = node.data as BaseNode<BaseData>["data"];
     const instanceType = data.instance?.toLowerCase();
-    const subType = data.subType?.toLowerCase();
     if (!instanceType) return;
+    const subType = data.subType?.toLowerCase();
     const component = componentMap[subType ?? ""] ?? componentMap[instanceType];
     if (!component) return;
 
     const rawName = data.label ?? `${instanceType.toUpperCase()}${index + 1}`;
     const componentName = sanitizeName(rawName + "_" + node.id);
+    console.log({ componentName, data });
 
-    components.push(`    ${component.toJsx(componentName, data)}`);
+    components.push(component.toJsx(componentName, data));
 
     // Create trace from component signal pin(s) to MCU
     const nodePinsWithKeys = getNodePinsWithKeys(node, pins);
@@ -417,18 +424,16 @@ export function buildCircuitCode(
 
   const code = `circuit.add(
   <board schAutoLayoutEnabled>
+  <group name="components">
     ${components.join("\n")}
-    <group name="signal" schTitle="Signal">
+  </group>
       ${traces.join("\n")}
-    </group>
-    <group name="power" schTitle="Power">
       ${powerTraces.join("\n")}
-    </group>
-    <group name="ground" schTitle="Ground">
       ${groundTraces.join("\n")}
-    </group>
   </board>
 )`;
+
+  console.log(code);
 
   return {
     code,

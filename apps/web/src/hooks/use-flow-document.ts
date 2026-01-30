@@ -100,14 +100,45 @@ export function useFlowState(flowDoc: FlowDocument | null) {
     const handleNodesChange = () => {
       if (pendingYjsSync.current) return; // Skip if we have pending local changes
       isSyncingFromYjs.current = true;
-      setNodes(flowDoc.getNodes());
+      
+      // Preserve local-only properties when syncing from Yjs
+      setNodes((currentNodes) => {
+        const yjsNodes = flowDoc.getNodes();
+        const nodeMap = new Map(currentNodes.map(n => [n.id, n]));
+        
+        return yjsNodes.map(yjsNode => {
+          const currentNode = nodeMap.get(yjsNode.id);
+          return {
+            ...yjsNode,
+            // Preserve local-only properties
+            selected: currentNode?.selected,
+            dragging: currentNode?.dragging,
+          };
+        });
+      });
+      
       isSyncingFromYjs.current = false;
     };
 
     const handleEdgesChange = () => {
       if (pendingYjsSync.current) return;
       isSyncingFromYjs.current = true;
-      setEdges(flowDoc.getEdges());
+      
+      // Preserve local-only properties when syncing from Yjs
+      setEdges((currentEdges) => {
+        const yjsEdges = flowDoc.getEdges();
+        const edgeMap = new Map(currentEdges.map(e => [e.id, e]));
+        
+        return yjsEdges.map(yjsEdge => {
+          const currentEdge = edgeMap.get(yjsEdge.id);
+          return {
+            ...yjsEdge,
+            // Preserve local-only properties
+            selected: currentEdge?.selected,
+          };
+        });
+      });
+      
       isSyncingFromYjs.current = false;
     };
 
