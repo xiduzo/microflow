@@ -1,24 +1,14 @@
-import { usePins } from "@/stores/board";
-import { useFlowDocument, useFlowInit, useFlowStore } from "@/stores/flow-store";
-import { useActiveFlowStore } from "@/stores/active-flow-store";
-import { useFlowNodes } from "@/hooks/use-flow-document";
+import { useCircuitStore } from "@/stores/circuit-store";
+import { useShallow } from "zustand/shallow";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { SchematicViewer } from "@tscircuit/schematic-viewer";
-import { useRef, useEffect, useState } from "react";
-import { buildCircuitCode } from "@/lib/schematic/circuit-builder";
 import { authClient } from "@/lib/auth-client";
-import { trpc } from "@/lib/trpc";
-import { useQuery } from "@tanstack/react-query";
 import { LoadingState } from "@/components/states/loading-state";
 import { ErrorState } from "@/components/states/error-state";
-import { createCircuitWebWorker, type CircuitWebWorker } from "@tscircuit/eval";
-import type { AnyCircuitElement } from "circuit-json";
-import { EmptyState } from "@/components/states/empty-state";
-import { useDebouncer } from "@tanstack/react-pacer";
-import { BinaryIcon, CirclePowerIcon, EqualApproximatelyIcon, Loader2Icon, MinusIcon, PlusIcon } from "lucide-react";
+import { BinaryIcon, EqualApproximatelyIcon, Loader2Icon, MinusIcon, PlusIcon } from "lucide-react";
 import { cva } from "class-variance-authority";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
@@ -84,124 +74,24 @@ export const Route = createFileRoute("/flow/$flowId/circuit")({
 });
 
 function RouteComponent() {
-    const { flowId } = Route.useParams();
+    const { data: circuitJson, isPending, error } = useCircuitStore(
+        useShallow((state) => ({ data: state.data, isPending: state.isPending, error: state.error })),
+    );
 
-    if (flowId === "local") {
-        return <LocalCircuitComponent />;
-    }
-
-    return <CloudCircuitComponent />;
-}
-
-function LocalCircuitComponent() {
-    const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
-    const { initLocalFlow, destroy } = useFlowInit();
-    const flowDoc = useFlowDocument();
-
-    useEffect(() => {
-        setActiveFlowId("local");
-        initLocalFlow();
-
-        return () => {
-            destroy();
-        };
-    }, [setActiveFlowId, initLocalFlow, destroy]);
-
-    if (!flowDoc) {
-        return <LoadingState />;
-    }
-
-    return <CircuitViewer />;
-}
-
-function CloudCircuitComponent() {
-    const { flowId } = Route.useParams();
-    const flowDoc = useFlowDocument();
-
-    const {
-        data: flow,
-        isLoading,
-        error,
-    } = useQuery({
-        ...trpc.flow.get.queryOptions({ id: flowId }),
-        enabled: flowId !== "local",
-    });
-
-    console.log({ flow })
-
-    if (isLoading) return <LoadingState />;
-    if (error) return <ErrorState title="Failed to load flow" error={error} />;
-    if (!flowDoc) return <LoadingState />;
-
-    return <CircuitViewer />;
-}
-
-
-function CircuitViewer() {
-    const flowDoc = useFlowDocument();
-    const nodes = useFlowNodes(flowDoc);
-    const pins = usePins();
-    const [{ isPending, error, data }, setState] = useState({ isPending: false, error: null as string | null, data: [] as AnyCircuitElement[] });
-    const previousRender = useRef<AnyCircuitElement[]>([]);
-    const worker = useRef<CircuitWebWorker | null>(null);
-
-    const debouncer = useDebouncer(async () => {
-        if (!worker.current) {
-            worker.current = await createCircuitWebWorker({
-                projectConfig: {
-                    pcbDisabled: true,
-                    partsEngineDisabled: true,
-                    projectName: "Microflow circuit",
-                },
-            });
-        }
-        setState({ isPending: true, error: null, data: [] });
-        const { code, componentCount } = buildCircuitCode(nodes, pins)
-
-        if (!componentCount) {
-            setState({ isPending: false, error: null, data: [] });
-            return
-        }
-
-        // Create new runner for each render to avoid state issues
-        console.log("Executing circuit code:", code);
-        try {
-            await worker.current?.execute(code);
-            await worker.current?.renderUntilSettled();
-            const json = await worker.current?.getCircuitJson();
-            if (!json) return;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setState({ isPending: false, error: null, data: json });
-        } catch (e) {
-            console.error("Circuit render error:", e);
-            setState({ isPending: false, error: e instanceof Error ? e.message : "Failed to render circuit", data: [] });
-        }
-    }, { wait: 1000 });
-
-    useEffect(() => {
-        debouncer.maybeExecute();
-    }, [nodes, pins, debouncer.maybeExecute]);
-
-    useEffect(() => {
-        previousRender.current = data;
-    }, [data])
-
-    const circuitJson = isPending ? previousRender.current : data;
-    const combinedIsPending = isPending || debouncer.store.state.isPending;
-    const showLoading = !previousRender.current.length && combinedIsPending;
+    const showLoading = !circuitJson.length && isPending;
 
     if (error) return <ErrorState title="Failed to render circuit" error={error} />;
 
     return (
         <div className="w-full h-full relative">
-            <div className={pendingIndicator({ isPending: combinedIsPending })}>
+            <div className={pendingIndicator({ isPending })}>
                 <Loader2Icon className="animate-spin size-3" />
                 Updating...
             </div>
             {showLoading && (
                 <LoadingState title="Rendering circuit..." />
             )}
-            {circuitJson.length && (
+            {!!circuitJson.length && (
                 <SchematicViewer
                     circuitJson={circuitJson}
                     editingEnabled={false}

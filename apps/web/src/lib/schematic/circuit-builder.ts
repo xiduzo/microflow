@@ -128,7 +128,7 @@ const componentMap: Record<string, TscircuitComponent> = {
   // Custom components
   sensor: {
     toJsx: (name, _data) =>
-      `<chip
+      `<jumper
         name="${name}"
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}"
@@ -140,7 +140,7 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   servo: {
     toJsx: (name, _data) =>
-      `<chip
+      `<jumper
         name="${name}"
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}" 
@@ -152,11 +152,11 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   rgb: {
     toJsx: (name, _data) =>
-      `<chip
+      `<jumper
         name="${name}"
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}"
-        footprint="dip4"
+        footprint="pinrow4"
         pinLabels={{ pin1: "SIGred", pin2: "SIGgreen", pin3: "SIGblue", pin4: "GND" }}
       />`,
     // Maps node data pin keys (red, green, blue) to component pins
@@ -165,11 +165,11 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   matrix: {
     toJsx: (name, _data) =>
-      `<chip
+      `<jumper
         name="${name}"
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}"
-        footprint="soic5"
+        footprint="pinrow5"
         pinLabels={{ pin1: "DIN", pin2: "CLK", pin3: "CS", pin4: "VCC", pin5: "GND" }}
       />`,
     // Maps node data pin keys (data, clock, cs) to component pins
@@ -178,7 +178,7 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   motion: {
     toJsx: (name, _data) =>
-      `<chip
+      `<jumper
         name="${name}"
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}"
@@ -190,7 +190,7 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   proximity: {
     toJsx: (name, _data) =>
-      `<chip
+      `<jumper
         name="${name}"
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}"
@@ -202,7 +202,7 @@ const componentMap: Record<string, TscircuitComponent> = {
   },
   pixel: {
     toJsx: (name, _data) =>
-      `<chip
+      `<jumper
         name="${name}"
         manufacturePartNumber="${_data.label ?? name}"
         displayName="${_data.label ?? name}"
@@ -424,12 +424,10 @@ export function buildCircuitCode(
 
   const code = `circuit.add(
   <board schAutoLayoutEnabled>
-  <group name="components">
     ${components.join("\n")}
-  </group>
-      ${traces.join("\n")}
-      ${powerTraces.join("\n")}
-      ${groundTraces.join("\n")}
+    ${traces.join("\n")}
+    ${powerTraces.join("\n")}
+    ${groundTraces.join("\n")}
   </board>
 )`;
 

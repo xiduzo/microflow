@@ -5,7 +5,11 @@ import {
     useFlowDocument,
     useFlowInit,
 } from "@/stores/flow-store";
+import { useCircuitStore } from "@/stores/circuit-store";
 import { useSyncProvider, type UseSyncProviderReturn } from "@/hooks/use-sync-provider";
+import { useFlowNodes } from "@/hooks/use-flow-document";
+import { usePins, type Pin } from "@/stores/board";
+import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -13,9 +17,36 @@ import { useEffect, useMemo, useRef, createContext, useContext } from "react";
 import { env } from "@microflow/env/web";
 import { ErrorState } from "@/components/states/error-state";
 import { LoadingState } from "@/components/states/loading-state";
+import type { Node } from "@xyflow/react";
 
 // Context to provide sync provider to child routes
 const FlowSyncContext = createContext<UseSyncProviderReturn | null>(null);
+
+/**
+ * Listens to flow-store (nodes) and board store (pins) and triggers circuit build
+ * in the circuit store. Runs when mounted under /flow/$flowId so the circuit
+ * is built in the background before the user opens the circuit tab.
+ */
+function CircuitBuildListener() {
+    const flowDoc = useFlowDocument();
+    const nodes = useFlowNodes(flowDoc);
+    const pins = usePins();
+    const buildCircuit = useCircuitStore((s) => s.buildCircuit);
+
+    const debouncer = useDebouncer(
+        (nodes: Node[], pins: Pin[]) => {
+            buildCircuit(nodes, pins);
+        },
+        { wait: 1000 },
+    );
+
+    useEffect(() => {
+        if (!flowDoc) return;
+        debouncer.maybeExecute(nodes, pins);
+    }, [flowDoc, nodes, pins, debouncer.maybeExecute]);
+
+    return null;
+}
 
 export function useFlowSync() {
     return useContext(FlowSyncContext);
@@ -65,10 +96,10 @@ const localFlowSync: UseSyncProviderReturn = {
     error: null,
     users: [],
     localUser: null,
-    updateCursor: () => {},
-    updateSelectedNodes: () => {},
-    reconnect: () => {},
-    disconnect: () => {},
+    updateCursor: () => { },
+    updateSelectedNodes: () => { },
+    reconnect: () => { },
+    disconnect: () => { },
 };
 
 function LocalFlowLayout() {
@@ -79,7 +110,7 @@ function LocalFlowLayout() {
     // Initialize local flow when visiting this route
     useEffect(() => {
         setActiveFlowId("local");
-        
+
         // Only initialize if not already initialized
         if (!flowDoc) {
             initLocalFlow();
@@ -92,6 +123,7 @@ function LocalFlowLayout() {
     // Provide mock sync context for local flow
     return (
         <FlowSyncContext.Provider value={localFlowSync}>
+            <CircuitBuildListener />
             <Outlet />
         </FlowSyncContext.Provider>
     );
@@ -158,6 +190,7 @@ function CloudFlowLayout() {
             console.log(`[FLOW-LAYOUT] Leaving flow ${flowId}, cleaning up...`);
             initializedFlowId.current = null;
             useFlowStore.getState().destroy();
+            useCircuitStore.getState().reset();
         };
     }, [flowId, flow?.ydocBase64]);
 
@@ -196,5 +229,10 @@ function CloudFlowLayout() {
     if (error) return <ErrorState title="Failed to load flow" error={error} />;
 
     // Provide sync through React context since TanStack Router context doesn't work well with hooks
-    return <FlowSyncContext.Provider value={sync}><Outlet /></FlowSyncContext.Provider>;
+    return (
+        <FlowSyncContext.Provider value={sync}>
+            <CircuitBuildListener />
+            <Outlet />
+        </FlowSyncContext.Provider>
+    );
 }
