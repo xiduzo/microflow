@@ -45,8 +45,8 @@ type Props = BaseNode<Data>;
 Proximity.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["input", "analog"],
+    group: "sense",
+    tags: ["value", "source"],
     label: "Proximity",
     icon: "TargetIcon",
     description: "Measure how far away an object is from the sensor",

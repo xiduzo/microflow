@@ -80,9 +80,16 @@ impl Component for Motion {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "read" => { let state = self.read_state()?; self.process_state(state); Ok(()) }
+            "pin_change" => {
+                // Handle immediate pin change event from Firmata callback
+                if let Some(detected) = args.as_bool() {
+                    self.process_state(detected);
+                }
+                Ok(())
+            }
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

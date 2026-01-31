@@ -33,8 +33,8 @@ type Props = BaseNode<Data>;
 Constant.defaultProps = {
   data: {
     ...dataSchema.parse({ value: 1337 }),
-    group: "flow",
-    tags: ["generator"],
+    group: "generate",
+    tags: ["value", "source"],
     label: "Constant",
     icon: "HashIcon",
     description: "Provide a fixed number that stays the same and can be used by other nodes",

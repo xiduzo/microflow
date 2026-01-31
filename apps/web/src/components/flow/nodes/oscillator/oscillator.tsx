@@ -74,8 +74,8 @@ type Props = BaseNode<Data>;
 Oscillator.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["generator", "event"],
+    group: "generate",
+    tags: ["value", "source", "time-based"],
     label: "Oscillator",
     icon: "AudioWaveformIcon",
     description: "Create repeating patterns of numbers that go up and down, like waves",

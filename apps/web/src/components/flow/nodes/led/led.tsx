@@ -83,8 +83,8 @@ type Props = BaseNode<Data>;
 Led.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["output", "analog", "digital"],
+    group: "act",
+    tags: ["action"],
     label: "LED",
     icon: "LightbulbIcon",
     description: "Turn a light on or off, or control its brightness",
@@ -96,7 +96,7 @@ Vibration.defaultProps = {
   data: {
     ...Led.defaultProps.data,
     label: "Vibration",
-    tags: ["output", "analog", "digital"],
+    tags: ["action"],
     subType: "vibration",
     icon: "VibrateIcon",
     description: "Make a device vibrate with different intensities",

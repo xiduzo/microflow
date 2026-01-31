@@ -76,6 +76,8 @@ impl Sensor {
 
     fn process_reading(&mut self, value: u16) {
         let diff = (value as i32 - self.last_value as i32).unsigned_abs() as u16;
+        log::debug!("Sensor {} process_reading: value={}, last={}, diff={}, threshold={}", 
+            self.base.id, value, self.last_value, diff, self.config.threshold);
         if diff >= self.config.threshold {
             self.last_value = value;
             self.base.set_value(ComponentValue::Number(value as f64));
@@ -107,9 +109,16 @@ impl Component for Sensor {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "read" => { let v = self.read_value()?; self.process_reading(v); Ok(()) }
+            "pin_change" => {
+                // Handle immediate pin change event from Firmata callback
+                if let Some(value) = args.as_number() {
+                    self.process_reading(value as u16);
+                }
+                Ok(())
+            }
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

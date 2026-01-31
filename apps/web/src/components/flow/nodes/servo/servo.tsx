@@ -96,8 +96,8 @@ type Props = BaseNode<Data>;
 Servo.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["output", "analog"],
+    group: "express",
+    tags: ["action", "value"],
     label: "Servo",
     icon: "RotateCwIcon",
     description: "Control a motor that can move to specific positions or rotate continuously",

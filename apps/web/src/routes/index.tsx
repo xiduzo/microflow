@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/states/error-state";
 import { LoadingStateSkeleton } from "@/components/states/loading-state";
 import { EmptyState } from "@/components/states/empty-state";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { compareDesc } from 'date-fns'
 
 const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
 
@@ -73,7 +74,7 @@ function CloudFlows() {
   if (isLoading) return null
   if (error) return null
 
-  const flows = [...(data?.owned ?? []), ...(data?.collaborated ?? [])];
+  const flows = [...(data?.owned ?? []), ...(data?.collaborated ?? [])].sort((a,b) => compareDesc(a.updatedAt, b.updatedAt));
 
   if (flows.length === 0) return null
 

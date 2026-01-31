@@ -35,8 +35,8 @@ type Props = BaseNode<Data>;
 Counter.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["control", "information"],
+    group: "generate",
+    tags: ["value", "source", "stateful"],
     label: "Counter",
     icon: "Tally5Icon",
     description: "Keep track of a number that can be increased, decreased, set, or reset",

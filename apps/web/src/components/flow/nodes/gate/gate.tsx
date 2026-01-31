@@ -44,8 +44,8 @@ type Props = BaseNode<Data>;
 Gate.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["control"],
+    group: "decide",
+    tags: ["trigger", "logic", "stateful"],
     label: "Gate",
     icon: "GitPullRequestClosedIcon",
     description: "Combine multiple signals together using simple rules to make decisions",

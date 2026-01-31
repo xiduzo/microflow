@@ -64,8 +64,8 @@ type Props = BaseNode<Data>;
 Trigger.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["event", "control"],
+    group: "decide",
+    tags: ["trigger", "logic", "time-based", "stateful"],
     label: "Trigger",
     icon: "TrendingUpIcon",
     description:

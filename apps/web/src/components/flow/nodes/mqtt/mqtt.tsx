@@ -91,8 +91,8 @@ type Props = BaseNode<Data>;
 Mqtt.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "external",
-    tags: ["input", "output"],
+    group: "sense",
+    tags: ["value", "source", "action", "external"],
     label: "MQTT",
     icon: "RadioTowerIcon",
     description: "Send and receive messages over the network using MQTT protocol",

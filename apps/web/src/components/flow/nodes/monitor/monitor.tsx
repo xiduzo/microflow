@@ -96,8 +96,8 @@ type Props = BaseNode<Data>;
 Monitor.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["information", "output"],
+    group: "express",
+    tags: ["action"],
     label: "Monitor",
     icon: "MonitorIcon",
     description: "Watch and visualize the values flowing through your circuit in real-time",

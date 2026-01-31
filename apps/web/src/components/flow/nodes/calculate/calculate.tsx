@@ -88,9 +88,9 @@ type Props = BaseNode<Data>;
 Calculate.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
+    group: "shape",
     icon: "CalculatorIcon",
-    tags: ["transformation"],
+    tags: ["value"],
     label: "Calculate",
     description:
       "Perform math operations like adding, subtracting, multiplying, or dividing numbers",

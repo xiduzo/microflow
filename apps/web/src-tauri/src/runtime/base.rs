@@ -4,6 +4,7 @@
 
 use firmata_rs::Firmata;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -249,13 +250,50 @@ impl Debug for SerialPortWrapper {
     }
 }
 
+/// Pin change event emitted when a pin value changes
+#[derive(Debug, Clone)]
+pub struct PinChangeEvent {
+    pub pin: u8,
+    pub value: u16,
+    pub is_analog: bool,
+}
+
+/// Callback type for pin change events
+pub type PinChangeCallback = Box<dyn Fn(PinChangeEvent) + Send + Sync>;
+
 /// Wrapper around the firmata-rs Board
 pub struct BoardConnection {
     pub board: firmata_rs::Board<SerialPortWrapper>,
     pub port_name: String,
+    /// Track previous pin values for change detection
+    pin_values: HashMap<u8, u16>,
+    /// Callback for pin changes (set by runtime)
+    pin_change_callback: Option<Arc<PinChangeCallback>>,
 }
 
 impl BoardConnection {
+    /// Create a new BoardConnection with change tracking
+    pub fn new(board: firmata_rs::Board<SerialPortWrapper>, port_name: String) -> Self {
+        Self {
+            board,
+            port_name,
+            pin_values: HashMap::new(),
+            pin_change_callback: None,
+        }
+    }
+
+    /// Set the callback for pin change events
+    pub fn set_pin_change_callback(&mut self, callback: Arc<PinChangeCallback>) {
+        self.pin_change_callback = Some(callback);
+        // Clear cached pin values so fresh comparisons happen
+        self.pin_values.clear();
+    }
+
+    /// Clear cached pin values (useful when flow changes)
+    pub fn clear_pin_cache(&mut self) {
+        self.pin_values.clear();
+    }
+
     pub fn set_pin_mode(&mut self, pin: u8, mode: u8) -> Result<(), String> {
         self.board
             .set_pin_mode(pin as i32, mode)
@@ -331,12 +369,16 @@ impl BoardConnection {
             .map_err(|e| format!("Failed to enable analog reporting: {}", e))
     }
     
-    /// Process all pending messages from the board
+    /// Process all pending messages from the board and emit change events
     /// Call this once per poll cycle to update all pin values
     pub fn read_all(&mut self) -> Result<(), String> {
         // Read and decode all available messages (non-blocking if no data)
         match self.board.read_and_decode() {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                // Check for pin value changes and emit events
+                self.detect_and_emit_changes();
+                Ok(())
+            }
             Err(e) => {
                 // Timeout is expected when no data available
                 let err_str = format!("{}", e);
@@ -345,6 +387,51 @@ impl BoardConnection {
                 } else {
                     Err(format!("Read error: {}", e))
                 }
+            }
+        }
+    }
+
+    /// Detect pin value changes and emit events immediately
+    fn detect_and_emit_changes(&mut self) {
+        let pins = self.board.pins();
+        let mut changes = Vec::new();
+
+        for (index, pin) in pins.iter().enumerate() {
+            let pin_num = index as u8;
+            let current_value = pin.value as u16;
+            let is_analog = pin.analog;
+
+            // Check if value changed
+            let last_value = self.pin_values.get(&pin_num).copied();
+            if last_value != Some(current_value) {
+                // For analog pins, apply a small threshold to reduce noise
+                let should_emit = if is_analog {
+                    match last_value {
+                        Some(last) => {
+                            let diff = (current_value as i32 - last as i32).unsigned_abs() as u16;
+                            diff >= 1 // Minimal threshold, components can apply their own
+                        }
+                        None => true,
+                    }
+                } else {
+                    true // Digital pins always emit on change
+                };
+
+                if should_emit {
+                    self.pin_values.insert(pin_num, current_value);
+                    changes.push(PinChangeEvent {
+                        pin: pin_num,
+                        value: current_value,
+                        is_analog,
+                    });
+                }
+            }
+        }
+
+        // Emit all changes via callback
+        if let Some(callback) = &self.pin_change_callback {
+            for change in changes {
+                callback(change);
             }
         }
     }

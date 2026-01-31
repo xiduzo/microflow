@@ -264,8 +264,8 @@ type Props = BaseNode<Data>;
 Figma.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "external",
-    tags: ["output", "input"],
+    group: "express",
+    tags: ["action", "external"],
     label: "Figma",
     icon: "Figma",
     description:

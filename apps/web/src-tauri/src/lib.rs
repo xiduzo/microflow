@@ -202,15 +202,24 @@ pub fn run() {
                                 log::info!("Board connected with Firmata (shared connection)!");
                                 *board_connected_listener.write().unwrap() = true;
                                 
-                                // Board is already connected via shared BoardHandle
-                                // Just apply pending flow if any
+                                // Apply pending flow if any, which will also install the callback
                                 if let Some(flow) = pending_flow_board.write().unwrap().take() {
                                     log::info!("Applying pending flow: {} nodes, {} edges", 
                                         flow.nodes.len(), flow.edges.len());
                                     if let Ok(mut runtime) = flow_runtime_board.lock() {
                                         if let Err(e) = runtime.update_flow(flow) {
                                             log::error!("Failed to apply pending flow: {}", e);
+                                        } else {
+                                            // Install pin change callback after flow update
+                                            let event_tx = runtime.event_sender();
+                                            runtime.install_pin_change_callback(event_tx);
                                         }
+                                    }
+                                } else {
+                                    // No pending flow, but still install callback for existing listeners
+                                    if let Ok(runtime) = flow_runtime_board.lock() {
+                                        let event_tx = runtime.event_sender();
+                                        runtime.install_pin_change_callback(event_tx);
                                     }
                                 }
                             }

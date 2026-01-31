@@ -43,10 +43,7 @@ pub fn detect_and_connect(port_name: &str, board_handle: &Arc<BoardHandle>) -> O
     let (info, board) = full_detect_with_board(port_name, baud_rate)?;
 
     // Create the connection wrapper and store it in the handle
-    let connection = BoardConnection {
-        board,
-        port_name: port_name.to_string(),
-    };
+    let connection = BoardConnection::new(board, port_name.to_string());
     board_handle.connect(connection);
     
     log::info!("Board connected and stored in BoardHandle");

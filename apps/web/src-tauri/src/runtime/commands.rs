@@ -106,6 +106,10 @@ pub async fn flow_update(
         let mut runtime = state.flow_runtime.lock()
             .map_err(|e| format!("Lock error: {:?}", e))?;
         runtime.update_flow(flow)?;
+        
+        // Reinstall pin change callback with updated listeners
+        let event_tx = runtime.event_sender();
+        runtime.install_pin_change_callback(event_tx);
     }
 
     // Set up MQTT subscriptions for subscribe nodes

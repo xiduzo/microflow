@@ -154,8 +154,8 @@ type Props = BaseNode<Data>;
 Sensor.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["input", "analog"],
+    group: "sense",
+    tags: ["value", "source"],
     label: "Analog Sensor",
     icon: "GaugeIcon",
     description:
@@ -168,7 +168,7 @@ DigitalSensor.defaultProps = {
   data: {
     ...Sensor.defaultProps.data,
     label: "Digital Sensor",
-    tags: ["input", "digital"],
+    tags: ["trigger", "source"],
     type: "digital",
     icon: "PowerIcon",
     description: "Detect when something is on or off, like a switch or motion detector",
@@ -180,7 +180,7 @@ Tilt.defaultProps = {
   data: {
     ...Sensor.defaultProps.data,
     label: "Tilt",
-    tags: ["input", "analog", "digital"],
+    tags: ["value", "trigger", "source"],
     subType: "tilt",
     icon: "MoveUpIcon",
     threshold: 10,
@@ -193,7 +193,7 @@ Ldr.defaultProps = {
   data: {
     ...Sensor.defaultProps.data,
     label: "Light Dependent Resistor (LDR)",
-    tags: ["input", "analog"],
+    tags: ["value", "source"],
     subType: "ldr",
     icon: "SunIcon",
     description: "Measure how bright or dark the surrounding environment is",
@@ -205,7 +205,7 @@ Potentiometer.defaultProps = {
   data: {
     ...Sensor.defaultProps.data,
     label: "Potentiometer",
-    tags: ["input", "analog"],
+    tags: ["value", "source"],
     subType: "potentiometer",
     icon: "CircleArrowOutUpLeftIcon",
     description: "Read values from a knob or slider that you can turn or move to control something",
@@ -217,7 +217,7 @@ Force.defaultProps = {
   data: {
     ...Sensor.defaultProps.data,
     label: "Force",
-    tags: ["input", "analog"],
+    tags: ["value", "source"],
     subType: "force",
     icon: "BicepsFlexedIcon",
     description: "Measure how much pressure or force is being applied to a surface",
@@ -229,7 +229,7 @@ HallEffect.defaultProps = {
   data: {
     ...Sensor.defaultProps.data,
     label: "Hall Effect",
-    tags: ["input", "analog"],
+    tags: ["value", "source"],
     subType: "hall-effect",
     icon: "MagnetIcon",
     description: "Detect when a magnet or magnetic object is nearby and how strong it is",

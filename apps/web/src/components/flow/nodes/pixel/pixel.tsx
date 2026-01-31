@@ -231,8 +231,8 @@ type Props = BaseNode<Data>;
 Pixel.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["output", "analog"],
+    group: "express",
+    tags: ["action"],
     label: "LED Strip",
     icon: "RainbowIcon",
     description:

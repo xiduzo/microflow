@@ -78,8 +78,8 @@ type Props = BaseNode<Data>;
 Button.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["input", "digital"],
+    group: "sense",
+    tags: ["trigger", "source"],
     icon: "PointerIcon",
     label: "Button",
     description: "Detect when a physical button is pressed or released",

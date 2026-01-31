@@ -247,8 +247,8 @@ type Props = BaseNode<Data>;
 Matrix.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["output", "analog", "digital"],
+    group: "express",
+    tags: ["action"],
     label: "LED Matrix",
     icon: "GridIcon",
     description: "Display patterns, shapes, or images on a grid of LED lights",

@@ -121,8 +121,8 @@ type Props = BaseNode<Data>;
 Compare.defaultProps = {
   data: {
     ...dataSchema.parse({ validator: "boolean" }),
-    group: "flow",
-    tags: ["control"],
+    group: "decide",
+    tags: ["trigger", "logic"],
     label: "Compare",
     icon: "ShieldCheckIcon",
     description:

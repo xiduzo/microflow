@@ -29,12 +29,16 @@ function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
 
   return (
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
+    <CardHeader className="flex items-center gap-2">
+      <div className={groupIndicator({ group: data.group })}>
         <Icon icon={data.icon} />
-        {data.label}
-      </CardTitle>
-      <NodeDescription />
+      </div>
+      <section>
+        <CardTitle>
+          {data.label}
+        </CardTitle>
+        <NodeDescription />
+      </section>
       {props.error && (
         <CardAction>
           <Tooltip>
@@ -49,19 +53,35 @@ function NodeHeader(props: { error?: string }) {
   );
 }
 
+const groupIndicator = cva("size-9 rounded-sm flex items-center justify-center", {
+  variants: {
+    group: {
+      sense: "text-sky-900 bg-sky-500/30 dark:text-sky-200 dark:bg-sky-600/30",
+      generate: "text-emerald-900 bg-emerald-500/20 dark:text-emerald-200 dark:bg-emerald-400/20",
+      shape: "text-cyan-900 bg-cyan-300/50 dark:text-cyan-200 dark:bg-cyan-400/20",
+      decide: "text-amber-900 bg-amber-500/20 dark:text-amber-200 dark:bg-amber-400/20",
+      express: "text-violet-900 bg-violet-500/20 dark:text-violet-200 dark:bg-violet-400/20",
+      internal: "text-slate-900 bg-slate-500/20 dark:text-slate-200 dark:bg-slate-400/20",
+    },
+  },
+});
+
 function NodeDescription() {
   const data = useNodeData();
   const pins = usePins();
 
+  const hasPin = "pin" in data;
+  const hasPins = "pins" in data;
+
   return (
     <CardDescription className="flex gap-4">
-      {"pin" in data && (
+      {hasPin && (
         <div className="flex items-center gap-1" key={`pin-${data.pin}`}>
           <CableIcon size={12} />
           <Pin pin={data.pin} pins={pins} />
         </div>
       )}
-      {"pins" in data &&
+      {hasPins &&
         Object.entries(data.pins).map(([key, value]) => (
           <div key={key} className="flex items-center gap-1">
             <CableIcon size={12} />
@@ -70,6 +90,12 @@ function NodeDescription() {
             </span>
           </div>
         ))}
+      {!hasPin && !hasPins && (
+        <span className="font-extralight">
+          {/* empty space to align the card description */}
+          &nbsp;
+        </span>
+      )}
     </CardDescription>
   );
 }
@@ -138,7 +164,7 @@ export const useNodeControls = <
   const render = useCallback(() => {
     if (!selected) return null;
     const element = document.getElementById("settings-panels")
-    if(!element) return
+    if (!element) return
     return createPortal(
       <LevaPanel store={store} hideCopyButton fill titleBar={false} />,
       element,
@@ -160,7 +186,7 @@ export const useNodeControls = <
       (key) =>
         dataKeys.includes(key) &&
         lastControlData.current[key as keyof typeof lastControlData.current] !==
-          data[key as keyof typeof data],
+        data[key as keyof typeof data],
     );
     if (!hasChanged) return;
 
@@ -268,7 +294,7 @@ const node = cva(
     variants: {
       draggable: { true: "active:cursor-grabbing", false: "" },
       hasError: { true: "bg-red-500/20", false: "" },
-      selected: { true: "bg-blue-500/20", false: "" },
+      selected: { true: "ring-4 ring-blue-500/80 dark:bg-blue-500/5 bg-blue-500/10", false: "" },
     },
     defaultVariants: {
       selected: false,
@@ -279,19 +305,23 @@ const node = cva(
 );
 
 /**
- * Internal nodes should only be used by Microflow and not exposed to the end-user
+ * Conceptual buckets for how people scan a node list.
+ * Internal nodes are not exposed to the end-user.
  */
-type NodeGroup = "flow" | "hardware" | "external" | "internal";
+type NodeGroup = "sense" | "generate" | "shape" | "decide" | "express" | "internal";
+/**
+ * Eight core tags for tooltips, docs, search, and AI.
+ * Answer: What kind of signal? Does time matter? Does it keep state?
+ */
 export type NodeTag =
-  | "digital"
-  | "analog"
-  | "input"
-  | "output"
-  | "event"
-  | "generator"
-  | "transformation"
-  | "control"
-  | "information";
+  | "value"
+  | "trigger"
+  | "time-based"
+  | "stateful"
+  | "source"
+  | "action"
+  | "logic"
+  | "external";
 
 export type BaseNode<Data extends Record<string, unknown> = {}> = NodeProps<
   Node<

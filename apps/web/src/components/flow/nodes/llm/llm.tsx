@@ -144,8 +144,8 @@ type Props = BaseNode<Data>;
 Llm.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "external",
-    tags: ["output", "transformation"],
+    group: "express",
+    tags: ["action", "external", "stateful"],
     label: "LLM",
     icon: "BotMessageSquareIcon",
     description: "Use AI to generate text responses based on what you ask it",

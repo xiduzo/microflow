@@ -7,6 +7,7 @@ import { useNewNodeStore } from "@/stores/new-node";
 import type { BaseNode } from "../nodes/_base/_base";
 import { uid } from "@/lib/uid";
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -34,11 +35,17 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { EmptyState } from "@/components/states/empty-state";
 import type { FlowNode } from "@microflow/collab";
+import { cva } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Kbd } from "@/components/ui/kbd";
 
 const NODE_SIZE = {
   width: 208,
   height: 176,
 };
+
+const GROUP_ORDER = ["sense", "generate", "shape", "decide", "express"] as const;
 
 export function NewNodeDialog() {
   useDraggableNewNode();
@@ -85,32 +92,35 @@ export function NewNodeDialog() {
   }
 
   const groups = useMemo(() => {
-    return Array.from(
-      Object.entries(NODE_TYPES).reduce((groups, [type, Component]) => {
+    const byGroup = Object.entries(NODE_TYPES).reduce(
+      (acc, [type, Component]) => {
         const node: BaseNode =
           "defaultProps" in Component
             ? (Component.defaultProps as any)
             : { data: {} };
 
-        if (node.data.group === "internal") return groups; // Skip internal nodes
-        const firstTag = node.data.tags.at(0) || "information"; // Use first tag for grouping
-        const group = groups.get(firstTag) ?? [];
-        group.push({ node, type });
-        groups.set(firstTag, group);
-        return groups;
-      }, new Map<string, { node: BaseNode; type: string }[]>())
+        if (node.data.group === "internal") return acc;
+        const group = node.data.group;
+        const list = acc.get(group) ?? [];
+        list.push({ node, type });
+        acc.set(group, list);
+        return acc;
+      },
+      new Map<string, { node: BaseNode; type: string }[]>()
+    );
+    return GROUP_ORDER.map((key) => [key, byGroup.get(key) ?? []] as const).filter(
+      ([, nodes]) => nodes.length > 0
     );
   }, []);
 
   const searchTerm = useMemo(() => {
     const terms = [
-      "Magnetic, Analog, Servo...",
-      "Input, Output, Event...",
-      "Generator, Transformation, Control...",
-      "Figma, Switch, signals...",
-      "Compare, Calculate, MQTT...",
-      "Delay, Gate, LED",
-      "Motion, Vibration, Oscillator",
+      "Sense something...",
+      "Generate, Shape, Decide...",
+      "Button, Motion, Sensor...",
+      "Constant, Oscillator, Interval...",
+      "Compare, Gate, Trigger...",
+      "Led, Monitor, MQTT...",
     ];
 
     return terms[Math.floor(Math.random() * terms.length)];
@@ -132,7 +142,7 @@ export function NewNodeDialog() {
         if (!state) setFilter("");
       }}
       filter={(value: string, search: string, keywords?: string[]) => {
-        const [label, description, firstTag] = value.split("|");
+        const [label, description, groups, tags] = value.split("|");
 
         // If no search term, return 0 (not relevant)
         if (!search || search.trim() === "") return 0;
@@ -142,14 +152,17 @@ export function NewNodeDialog() {
         // Priority 1: Label match (highest priority)
         if (label.toLowerCase().includes(searchLower)) return 1;
 
-        // Priority 2: First tag match
-        if (firstTag && firstTag.toLowerCase().includes(searchLower))
-          return 0.9;
+        // Priority 2: Group match
+        if (groups.toLowerCase().includes(searchLower)) return 0.9;
 
-        // Priority 3: Description match
+        // Priority 3: Tags match
+        const allTags = tags.split(",");
+        if (allTags.some((tag: string) => tag.toLowerCase().includes(searchLower))) return 0.8;
+
+        // Priority 4: Description match
         if (description.toLowerCase().includes(searchLower)) return 0.8;
 
-        // Priority 4: Keywords match
+        // Priority 5: Keywords match
         if (
           keywords?.some((keyword: string) =>
             keyword.toLowerCase().includes(searchLower)
@@ -162,106 +175,86 @@ export function NewNodeDialog() {
         return 0;
       }}
     >
-      <DialogHeader className="hidden">
-        <DialogTitle>Add new node</DialogTitle>
-        <DialogDescription>Magnetic sensor...</DialogDescription>
-      </DialogHeader>
-      <CommandInput placeholder={searchTerm} onValueChange={setFilter} />
-      <CommandList ref={commandListRef} className="mb-2 min-h-[400px">
-        <CommandEmpty className="flex items-center justify-center h-[400px]">
-          <EmptyState
-            title="Nothing found"
-            description="Try searching for a different node type or visit the documentation."
-            icon={SearchIcon}
-          >
-            <a
-              href="https://microflow.vercel.app/docs/microflow-studio/nodes"
-              target="_blank"
+      <Command
+        className="[&_[data-slot=command-input-wrapper]>*]:h-12 **:data-[slot=command-input]:text-base **:data-[slot=command-input]:py-2.5 [&_[data-slot=command-input-wrapper]_svg]:size-5"
+      >
+        <CommandInput placeholder={searchTerm} onValueChange={setFilter} />
+        <CommandList ref={commandListRef} className="mb-2 min-h-[400px]">
+          <CommandEmpty className="flex items-center justify-center h-[400px]">
+            <EmptyState
+              title="Nothing found"
+              description="Try searching for a different node type or visit the documentation."
+              icon={SearchIcon}
             >
-              <Button variant="link">Visit the documentation</Button>
-            </a>
-          </EmptyState>
-        </CommandEmpty>
-        {groups.map(([group, nodes], index) => (
-          <section key={group}>
-            <CommandGroup heading={group}>
-              {nodes.map(({ node, type }) => {
-                return (
-                  <CommandItem
-                    value={`${node.data.label}|${node.data.description}`}
-                    keywords={node.data.tags}
-                    key={node.data.label}
-                    onSelect={selectNode(node, type)}
-                    className="data-[selected=true]:bg-muted-foreground/10 gap-3 items-start group"
-                  >
-                    <Avatar className="rounded-xl">
-                      <AvatarFallback className="rounded-xl">
-                        <Icon
-                          icon={node.data.icon}
-                          className="group-data-[selected=true]:scale-110 transition-all duration-100"
-                        />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col grow gap-3">
-                      <div className="flex flex-col gap-1">
-                        <div className="font-bold">{node.data.label}</div>
-                        <span className="text-muted-foreground">
-                          {node.data.description ?? ""}
-                        </span>
-                      </div>
-                      <section className="flex items-center gap-2">
-                        {node.data.tags.map((tag) => (
-                          <Badge variant="outline" key={tag}>
-                            {tag}
-                          </Badge>
-                        ))}
-                      </section>
-                    </div>
-                    <CommandShortcut>{node.data.group}</CommandShortcut>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-            {index !== groups.length - 1 && <CommandSeparator />}
-          </section>
-        ))}
-      </CommandList>
-      <footer className="p-2 border-t flex gap-4 justify-between items-center">
-        <a
-          href="https://microflow.vercel.app/docs/microflow-studio/nodes"
-          target="_blank"
-          className="text-xs flex gap-2 items-center text-muted-foreground hover:underline"
-        >
-          <BookIcon size={12} />
-          Documentation
-        </a>
-        <section className="flex items-center gap-3">
+              <a
+                href="https://microflow.vercel.app/docs/microflow-studio/nodes"
+                target="_blank"
+              >
+                <Button variant="link">Visit the documentation</Button>
+              </a>
+            </EmptyState>
+          </CommandEmpty>
+          {groups.map(([groupKey, nodes], index) => (
+            <section key={groupKey}>
+              <CommandGroup heading={groupKey.charAt(0).toUpperCase() + groupKey.slice(1)}>
+                {nodes.map(({ node, type }) => {
+                  return (
+                    <CommandItem
+                      value={`${node.data.label}|${node.data.description}|${node.data.group}|${node.data.tags.join(",")}`}
+                      keywords={node.data.tags}
+                      key={node.data.label}
+                      onSelect={selectNode(node, type)}
+                      className="data-[selected=true]:bg-muted-foreground/5 items-start group"
+                    >
+                      <Item className="px-0">
+                        <ItemMedia variant="image">
+                          <Avatar size="lg" className="after:ring-0 after:border-none after:content-['']">
+                            <AvatarFallback className={cn(groupIndicator({ group: node.data.group }))}>
+                              <Icon
+                                icon={node.data.icon}
+                                className="group-data-[selected=true]:scale-110 transition-all duration-100 size-4 stroke-1 group-data-[selected=true]:stroke-2"
+                              />
+                            </AvatarFallback>
+                          </Avatar>
+                        </ItemMedia>
+                        <ItemContent>
+                          <ItemTitle>
+                            {node.data.label}
+                          </ItemTitle>
+                          <ItemDescription>
+                            {node.data.description ?? ""}
+                          </ItemDescription>
+                        </ItemContent>
+                      </Item>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+              {index !== groups.length - 1 && <CommandSeparator />}
+            </section>
+          ))}
+        </CommandList>
+        <footer className="p-2 bg-muted-foreground/5 flex gap-4 justify-between items-center">
           <section className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Close</span>
-            <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
-              Esc
-            </CommandShortcut>
-          </section>
-          <section className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Navigate</span>
             <div className="flex items-center gap-1">
-              <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
+              <Kbd>
                 <ChevronUpIcon size={12} className="" />
-              </CommandShortcut>
-              <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
+              </Kbd>
+              <Kbd>
                 <ChevronDownIcon size={12} className="" />
-              </CommandShortcut>
+              </Kbd>
             </div>
+            <span className="text-xs text-muted-foreground">Navigate</span>
           </section>
           <section className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Select</span>
-            <CommandShortcut className="bg-muted-foreground/10 p-1 rounded-md">
+            <Kbd>
               <CornerDownLeftIcon size={12} className="" />
-            </CommandShortcut>
+            </Kbd>
           </section>
-        </section>
-      </footer>
-    </CommandDialog>
+        </footer>
+      </Command>
+    </CommandDialog >
   );
 }
 
@@ -345,3 +338,16 @@ function useDraggableNewNode() {
 
   return null;
 }
+
+const groupIndicator = cva("rounded-md border-none ring-0", {
+  variants: {
+    group: {
+      sense: "text-sky-900 bg-sky-500/30 dark:text-sky-200 dark:bg-sky-600/30",
+      generate: "text-emerald-900 bg-emerald-500/20 dark:text-emerald-200 dark:bg-emerald-400/20",
+      shape: "text-cyan-900 bg-cyan-300/50 dark:text-cyan-200 dark:bg-cyan-400/20",
+      decide: "text-amber-900 bg-amber-500/20 dark:text-amber-200 dark:bg-amber-400/20",
+      express: "text-violet-900 bg-violet-500/20 dark:text-violet-200 dark:bg-violet-400/20",
+      internal: "text-slate-900 bg-slate-500/20 dark:text-slate-200 dark:bg-slate-400/20",
+    },
+  },
+});

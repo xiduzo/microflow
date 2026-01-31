@@ -89,8 +89,8 @@ type Props = BaseNode<Data>;
 AudioPlayer.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["output", "event"],
+    group: "express",
+    tags: ["action"],
     label: "Audio Player",
     icon: "MusicIcon",
     description: "Select and play audio files from your device",

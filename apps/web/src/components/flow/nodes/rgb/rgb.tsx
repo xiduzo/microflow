@@ -77,8 +77,8 @@ type Props = BaseNode<Data>;
 Rgb.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["output", "analog"],
+    group: "express",
+    tags: ["action"],
     label: "RGB",
     icon: "PaletteIcon",
     description:

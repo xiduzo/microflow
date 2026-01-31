@@ -52,7 +52,7 @@ function Value() {
       return <DiscIcon className="text-muted-foreground" size={48} />;
     return <BellIcon className="text-muted-foreground" size={48} />;
   }
-  
+
   if (data.type === "song")
     return <Disc3Icon className="animate-spin" size={48} />;
   return <BellRingIcon className="animate-wiggle" size={48} />;
@@ -144,8 +144,8 @@ type Props = BaseNode<Data>;
 Piezo.defaultProps = {
   data: {
     ...dataSchema.parse({ type: "buzz" }),
-    group: "hardware",
-    tags: ["output", "analog", "digital"],
+    group: "express",
+    tags: ["action"],
     label: "Piezo",
     icon: "BellIcon",
     description:

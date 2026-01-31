@@ -47,8 +47,8 @@ type Props = BaseNode<Data>;
 Motion.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
-    tags: ["input", "digital"],
+    group: "sense",
+    tags: ["trigger", "source"],
     icon: "EyeIcon",
     label: "Motion",
     description: "Detect when something moves nearby, like a person walking past",

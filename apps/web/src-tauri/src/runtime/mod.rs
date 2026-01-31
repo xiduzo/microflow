@@ -58,8 +58,18 @@ pub use transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gat
 
 use crate::hardware::board::BoardManager;
 use registry::ComponentRegistry;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+/// Pin listener registration for immediate event routing
+#[derive(Clone)]
+pub struct PinListener {
+    pub component_id: String,
+    pub pin: u8,
+    pub is_analog: bool,
+    pub threshold: u16,
+}
 
 /// Flow runtime manages the lifecycle of components and flow execution
 pub struct FlowRuntime {
@@ -68,6 +78,8 @@ pub struct FlowRuntime {
     registry: ComponentRegistry,
     event_tx: mpsc::UnboundedSender<ComponentEvent>,
     event_rx: Option<mpsc::UnboundedReceiver<ComponentEvent>>,
+    /// Map of pin -> listeners for immediate event routing
+    pin_listeners: Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>>,
 }
 
 impl FlowRuntime {
@@ -79,6 +91,7 @@ impl FlowRuntime {
             registry: ComponentRegistry::new(),
             event_tx,
             event_rx: Some(event_rx),
+            pin_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
     }
 
@@ -88,12 +101,74 @@ impl FlowRuntime {
     pub fn take_event_receiver(&mut self) -> Option<mpsc::UnboundedReceiver<ComponentEvent>> { self.event_rx.take() }
     pub fn event_sender(&self) -> mpsc::UnboundedSender<ComponentEvent> { self.event_tx.clone() }
 
+    /// Register a pin listener for immediate event routing
+    pub fn register_pin_listener(&self, listener: PinListener) {
+        let mut listeners = self.pin_listeners.lock().unwrap();
+        listeners.entry(listener.pin).or_default().push(listener);
+    }
+
+    /// Clear all pin listeners
+    pub fn clear_pin_listeners(&self) {
+        let mut listeners = self.pin_listeners.lock().unwrap();
+        listeners.clear();
+    }
+
+    /// Get the pin listeners map for setting up the callback
+    pub fn pin_listeners(&self) -> Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>> {
+        Arc::clone(&self.pin_listeners)
+    }
+
+    /// Install the pin change callback on the board connection
+    /// This should be called after flow updates to ensure the callback uses the latest pin_listeners
+    pub fn install_pin_change_callback(&self, event_tx: mpsc::UnboundedSender<ComponentEvent>) {
+        let pin_listeners = self.pin_listeners();
+        
+        let callback: base::PinChangeCallback = Box::new(move |change: base::PinChangeEvent| {
+            let listeners = pin_listeners.lock().unwrap();
+            if let Some(pin_listeners) = listeners.get(&change.pin) {
+                for listener in pin_listeners {
+                    // Emit internal event to trigger component's read processing
+                    let value = if change.is_analog {
+                        ComponentValue::Number(change.value as f64)
+                    } else {
+                        ComponentValue::Bool(change.value > 0)
+                    };
+                    
+                    log::info!("Pin {} changed to {:?}, notifying component {} (analog={})", 
+                        change.pin, change.value, listener.component_id, change.is_analog);
+                    
+                    let _ = event_tx.send(ComponentEvent {
+                        source: listener.component_id.clone(),
+                        source_handle: "_pin_change".to_string(),
+                        value,
+                        edge_id: None,
+                    });
+                }
+            } else {
+                // Log pins that change but have no listeners (helps debug stale reporting)
+                if change.is_analog {
+                    log::trace!("Pin {} changed but no listener registered", change.pin);
+                }
+            }
+        });
+        
+        // Install the callback on the board connection and clear pin cache
+        let _ = self.board_handle().with_board(|conn| {
+            conn.clear_pin_cache();
+            conn.set_pin_change_callback(Arc::new(callback));
+            Ok(())
+        });
+        
+        log::info!("Pin change callback installed (cache cleared)");
+    }
+
     /// Update the flow with new nodes and edges
     pub fn update_flow(&mut self, update: FlowUpdate) -> Result<(), String> {
         log::info!("Updating flow: {} nodes, {} edges", update.nodes.len(), update.edges.len());
         
-        // Clear existing components
+        // Clear existing components and pin listeners
         self.executor.clear();
+        self.clear_pin_listeners();
         
         let board_handle = self.board_handle();
 
@@ -116,6 +191,10 @@ impl FlowRuntime {
                 ) {
                     Ok(component) => {
                         log::info!("✓ Created component {} ({}) - type: {}", node.id, instance, component.component_type());
+                        
+                        // Register pin listeners for input components
+                        self.register_component_pin_listener(&node.id, instance, &node.data);
+                        
                         self.executor.add_component(&node.id, component);
                     }
                     Err(e) => {
@@ -144,6 +223,51 @@ impl FlowRuntime {
         
         log::info!("Flow update complete. Active components: {:?}", self.executor.component_ids());
         Ok(())
+    }
+
+    /// Register pin listener for an input component based on its type and config
+    fn register_component_pin_listener(&self, component_id: &str, instance: &str, data: &serde_json::Value) {
+        match instance {
+            "Button" | "Motion" => {
+                // Digital input components
+                if let Some(pin) = data.get("pin").and_then(|v| v.as_u64()).map(|v| v as u8) {
+                    log::info!("Registering digital pin listener: component={}, pin={}", component_id, pin);
+                    self.register_pin_listener(PinListener {
+                        component_id: component_id.to_string(),
+                        pin,
+                        is_analog: false,
+                        threshold: 0,
+                    });
+                }
+            }
+            "Sensor" | "Proximity" => {
+                // Analog input components - handle both string and number pin formats
+                let pin: u8 = if let Some(pin_num) = data.get("pin").and_then(|v| v.as_u64()) {
+                    // Numeric format (e.g., 17)
+                    pin_num as u8
+                } else if let Some(pin_str) = data.get("pin").and_then(|v| v.as_str()) {
+                    // String format (e.g., "A0" or "17")
+                    if pin_str.starts_with('A') || pin_str.starts_with('a') {
+                        pin_str[1..].parse().unwrap_or(14)
+                    } else {
+                        pin_str.parse().unwrap_or(14)
+                    }
+                } else {
+                    14 // Default to A0
+                };
+                
+                let threshold = data.get("threshold").and_then(|v| v.as_u64()).unwrap_or(1) as u16;
+                
+                log::info!("Registering analog pin listener: component={}, pin={}, threshold={}", component_id, pin, threshold);
+                self.register_pin_listener(PinListener {
+                    component_id: component_id.to_string(),
+                    pin,
+                    is_analog: true,
+                    threshold,
+                });
+            }
+            _ => {}
+        }
     }
 
     /// Initialize all hardware components (call when board connects)

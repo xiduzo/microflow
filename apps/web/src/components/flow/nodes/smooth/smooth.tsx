@@ -56,8 +56,8 @@ type Props = BaseNode<Data>;
 Smooth.defaultProps = {
   data: {
     ...dataSchema.parse({ type: "smooth" }),
-    group: "flow",
-    tags: ["transformation"],
+    group: "shape",
+    tags: ["value", "stateful"],
     label: "Smooth",
     icon: "EraserIcon",
     description: "Make jumpy or noisy sensor readings smoother and more stable",

@@ -49,10 +49,10 @@ type Props = BaseNode<Data>;
 Switch.defaultProps = {
   data: {
     ...dataSchema.parse({ type: "NC" }),
-    group: "hardware",
+    group: "sense",
     icon: "ToggleLeftIcon",
     label: "Switch",
-    tags: ["input", "digital"],
+    tags: ["trigger", "source"],
     description: "Detect when a physical switch is turned on or off",
   } satisfies Props["data"],
 };

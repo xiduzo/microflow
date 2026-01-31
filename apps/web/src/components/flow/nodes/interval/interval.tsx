@@ -48,8 +48,8 @@ type Props = BaseNode<Data>;
 Interval.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["event", "generator"],
+    group: "generate",
+    tags: ["trigger", "source", "time-based"],
     label: "Interval",
     icon: "TimerIcon",
     description: "Automatically send a signal at regular time intervals, like a timer",

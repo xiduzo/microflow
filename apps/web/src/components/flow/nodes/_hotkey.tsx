@@ -208,8 +208,8 @@ type Props = BaseNode<Data>;
 Hotkey.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["event", "input"],
+    group: "sense",
+    tags: ["trigger", "source"],
     label: "Hotkey",
     icon: "KeyboardIcon",
     description: "Detect when a keyboard shortcut is pressed or released",

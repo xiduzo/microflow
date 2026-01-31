@@ -63,8 +63,8 @@ type Props = BaseNode<Data>;
 RangeMap.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["transformation"],
+    group: "shape",
+    tags: ["value"],
     icon: "SeparatorVerticalIcon",
     label: "Map",
     description:

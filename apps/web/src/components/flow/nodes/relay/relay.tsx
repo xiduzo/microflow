@@ -49,10 +49,10 @@ type Props = BaseNode<Data>;
 Relay.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "hardware",
+    group: "express",
     label: "Relay",
     icon: "ZapIcon",
-    tags: ["output", "analog", "digital"],
+    tags: ["action"],
     description:
       "Safely turn on or off devices that need more power, like lights, motors, or appliances",
   } satisfies Props["data"],

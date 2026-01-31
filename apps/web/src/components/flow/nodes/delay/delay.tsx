@@ -49,8 +49,8 @@ type Props = BaseNode<Data>;
 Delay.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "flow",
-    tags: ["control", "event"],
+    group: "decide",
+    tags: ["trigger", "time-based", "stateful"],
     label: "Delay",
     icon: "SnailIcon",
     description: "Wait for a specified amount of time before sending a signal forward",

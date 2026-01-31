@@ -114,9 +114,16 @@ impl Component for Proximity {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "read" => { let v = self.read_value()?; self.process_reading(v); Ok(()) }
+            "pin_change" => {
+                // Handle immediate pin change event from Firmata callback
+                if let Some(value) = args.as_number() {
+                    self.process_reading(value as u16);
+                }
+                Ok(())
+            }
             _ => Err(format!("Unknown method: {}", method)),
         }
     }
