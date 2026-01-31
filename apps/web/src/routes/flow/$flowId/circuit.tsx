@@ -9,6 +9,7 @@ import { BinaryIcon, EqualApproximatelyIcon, Loader2Icon, MinusIcon, PlusIcon } 
 import { cva } from "class-variance-authority";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/states/empty-state";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {
@@ -90,6 +91,9 @@ function RouteComponent() {
             </div>
             {showLoading && (
                 <LoadingState title="Rendering circuit..." />
+            )}
+            {!circuitJson.length && (
+                <EmptyState description="Your flow is empty or does not contain any components that can be rendered in a circuit." />
             )}
             {!!circuitJson.length && (
                 <SchematicViewer

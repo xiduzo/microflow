@@ -31,11 +31,11 @@ function Value() {
     {
       " ": monitor(ref, {
         graph: data.type === "graph",
-        interval: 1000 / data.fps,
+        interval: 1000 / 60,
       }),
     },
     { store },
-    [data.type, data.fps],
+    [data.type],
   );
   useEffect(() => {
     ref.current = value;
@@ -87,13 +87,6 @@ function Settings() {
   const data = useNodeData<Data>();
   const { render } = useNodeControls({
     type: { value: data.type, options: ["graph", "raw"] },
-    fps: {
-      value: data.fps,
-      min: 1,
-      max: 240,
-      step: 1,
-      label: "frames per second (FPS)",
-    },
   });
 
   return <>{render()}</>;

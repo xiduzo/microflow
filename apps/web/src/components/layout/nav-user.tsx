@@ -3,8 +3,10 @@ import {
   Bell,
   ChevronsUpDown,
   CreditCard,
+  GemIcon,
   LogIn,
   LogOut,
+  PickaxeIcon,
   Sparkles,
   User,
   User2Icon,
@@ -133,13 +135,13 @@ export function NavUser({ user }: Props) {
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
+            {/* <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <Sparkles />
+                <GemIcon />
                 Upgrade to Pro
               </DropdownMenuItem>
-            </DropdownMenuGroup>
+            </DropdownMenuGroup> */}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => navigate({ to: "/profile" })}>
