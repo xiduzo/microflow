@@ -442,6 +442,85 @@ impl BoardConnection {
             .report_digital(port as i32, if enabled { 1 } else { 0 })
             .map_err(|e| format!("Failed to set reporting: {}", e))
     }
+
+    /// Disable analog reporting for a pin
+    /// Call this during component cleanup to stop receiving updates
+    pub fn disable_analog_reporting(&mut self, pin: u8) -> Result<(), String> {
+        let pins = self.board.pins();
+        
+        // Verify this pin exists and is analog
+        let pin_info = pins
+            .get(pin as usize)
+            .ok_or_else(|| format!("Pin {} not found", pin))?;
+        
+        if !pin_info.analog {
+            // Not an analog pin, nothing to disable
+            return Ok(());
+        }
+        
+        // Find the analog channel index (0-based) by counting analog pins before this one
+        let analog_channel = pins
+            .iter()
+            .take(pin as usize)
+            .filter(|p| p.analog)
+            .count() as i32;
+        
+        log::info!("Disabling analog reporting: pin={}, analog_channel={}", pin, analog_channel);
+        
+        // Remove from our cache
+        self.pin_values.remove(&pin);
+        
+        self.board
+            .report_analog(analog_channel, 0)
+            .map_err(|e| format!("Failed to disable analog reporting: {}", e))
+    }
+
+    /// Disable digital reporting for a pin's port
+    /// Note: This disables reporting for the entire port (8 pins)
+    pub fn disable_digital_reporting(&mut self, pin: u8) -> Result<(), String> {
+        let port = pin / 8;
+        
+        log::info!("Disabling digital reporting: pin={}, port={}", pin, port);
+        
+        // Remove from our cache
+        self.pin_values.remove(&pin);
+        
+        self.board
+            .report_digital(port as i32, 0)
+            .map_err(|e| format!("Failed to disable digital reporting: {}", e))
+    }
+
+    /// Disable all reporting and clear state - used during flow updates
+    pub fn reset_all_reporting(&mut self) -> Result<(), String> {
+        log::info!("Resetting all pin reporting");
+        
+        // Clear our pin value cache
+        self.pin_values.clear();
+        
+        // Disable all analog channels (typically 0-5 for Arduino Uno, up to 15 for Mega)
+        for channel in 0..16 {
+            let _ = self.board.report_analog(channel, 0);
+        }
+        
+        // Disable all digital ports (typically 0-2 for Uno, up to 12 for Mega)
+        for port in 0..13 {
+            let _ = self.board.report_digital(port, 0);
+        }
+        
+        // Small delay to let the board process the disable commands
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        
+        // Flush any pending data from the serial buffer
+        // This is done by reading until timeout
+        loop {
+            match self.board.read_and_decode() {
+                Ok(_) => continue, // Keep reading
+                Err(_) => break,   // Timeout or error, buffer is clear
+            }
+        }
+        
+        Ok(())
+    }
 }
 
 /// Base implementation helper for components

@@ -33,7 +33,7 @@ function NodeHeader(props: { error?: string }) {
       <div className={groupIndicator({ group: data.group })}>
         <Icon icon={data.icon} />
       </div>
-      <section>
+      <section className="grow">
         <CardTitle>
           {data.label}
         </CardTitle>
@@ -293,7 +293,7 @@ const node = cva(
   {
     variants: {
       draggable: { true: "active:cursor-grabbing", false: "" },
-      hasError: { true: "bg-red-500/20", false: "" },
+      hasError: { true: "bg-red-500/5 dark:bg-red-500/20 ring-4 ring-red-500/80", false: "" },
       selected: { true: "ring-4 ring-blue-500/80 dark:bg-blue-500/5 bg-blue-500/10", false: "" },
     },
     defaultVariants: {

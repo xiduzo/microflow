@@ -252,6 +252,10 @@ svg g.trace-overlays>circle.trace-junction {
   @apply bg-muted-foreground/50 text-muted-foreground transition-all duration-150 border-none;
 }
 
+.react-flow .react-flow__handle::after {
+  @apply text-red-500;
+}
+
 .react-flow .react-flow__handle.selected-via-edge {
   @apply bg-blue-500 text-blue-500 font-bold;
 }

@@ -97,6 +97,7 @@ export function Handle(props: Props) {
             return true;
           }}
           className={handle({
+            variant: "event",
             position: position,
             className: props.className,
             isHandleSelectedViaEdge: isHandleSelectedViaEdge,
@@ -140,7 +141,7 @@ type Props = Omit<HandleProps, "isConnectable" | "isValidConnection" | "position
   position: PositionType;
 };
 
-const handle = cva("text-xs flex z-50 shadow-none", {
+const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:text-3xl after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {
   variants: {
     position: {
       left: "items-center justify-start",
@@ -148,10 +149,19 @@ const handle = cva("text-xs flex z-50 shadow-none", {
       top: "justify-center",
       bottom: "justify-center",
     },
+    variant: {
+      value: "after:content-['●']",
+      event: "after:content-['◆']",
+      command: "after:content-['▶']",
+      state: "after:content-['■']",
+    },
     isHandleSelectedViaEdge: {
       true: "selected-via-edge",
       false: "",
     },
+  },
+  defaultVariants: {
+    variant: "event",
   },
 });
 

@@ -123,7 +123,16 @@ impl Component for Sensor {
         }
     }
 
-    fn destroy(&mut self) { self.stop_polling(); self.board = None; }
+    fn destroy(&mut self) {
+        self.stop_polling();
+        // Disable analog reporting for this pin before releasing board
+        if let Some(board) = &self.board {
+            let pin = self.config.analog_pin();
+            log::info!("Sensor {} destroy: disabling analog reporting for pin {}", self.base.id, pin);
+            let _ = board.with_board(|conn| conn.disable_analog_reporting(pin));
+        }
+        self.board = None;
+    }
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
 }

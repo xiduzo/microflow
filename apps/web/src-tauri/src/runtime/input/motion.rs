@@ -94,7 +94,15 @@ impl Component for Motion {
         }
     }
 
-    fn destroy(&mut self) { self.stop_polling(); self.board = None; }
+    fn destroy(&mut self) {
+        self.stop_polling();
+        // Disable digital reporting for this pin before releasing board
+        if let Some(board) = &self.board {
+            log::info!("Motion {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
+            let _ = board.with_board(|conn| conn.disable_digital_reporting(self.config.pin));
+        }
+        self.board = None;
+    }
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
 }

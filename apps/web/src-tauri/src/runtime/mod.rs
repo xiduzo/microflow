@@ -170,7 +170,13 @@ impl FlowRuntime {
         self.executor.clear();
         self.clear_pin_listeners();
         
+        // Reset all Firmata reporting to ensure clean state
+        // This is critical for hot-swapping pins - prevents stale data
         let board_handle = self.board_handle();
+        if board_handle.is_connected() {
+            log::info!("Resetting all Firmata reporting for clean flow update");
+            let _ = board_handle.with_board(|conn| conn.reset_all_reporting());
+        }
 
         // Create components from nodes
         for node in &update.nodes {
