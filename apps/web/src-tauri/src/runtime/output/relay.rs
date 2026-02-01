@@ -78,8 +78,8 @@ impl Component for Relay {
 
     fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
         match method {
-            "open" => self.open(),
-            "close" => self.close(),
+            "true" => self.open(),
+            "false" => self.close(),
             "toggle" => self.toggle(),
             _ => Err(format!("Unknown method: {}", method)),
         }

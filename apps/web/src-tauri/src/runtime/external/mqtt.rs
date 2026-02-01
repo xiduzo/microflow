@@ -148,7 +148,7 @@ impl Component for Mqtt {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "publish" | "input" => {
+            "trigger" => {
                 if !self.is_publish() {
                     return Err("This MQTT node is configured for subscribe, not publish".to_string());
                 }

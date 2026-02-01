@@ -76,7 +76,7 @@ impl Component for Gate {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "input" | "check" => {
+            "value" => {
                 log::info!("[Gate {}] call_method '{}' with args: {:?}", self.base.id, method, args);
                 let inputs: Vec<bool> = match args {
                     ComponentValue::Array(arr) => {

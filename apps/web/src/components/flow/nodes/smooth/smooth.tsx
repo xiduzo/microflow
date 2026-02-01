@@ -9,8 +9,8 @@ export function Smooth(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="signal" />
-      <Handle type="source" position="right" id="change" />
+      <Handle type="target" position="left" id="value" handleType="value" />
+      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }

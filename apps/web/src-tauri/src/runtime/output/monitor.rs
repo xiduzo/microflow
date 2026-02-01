@@ -38,7 +38,7 @@ impl Component for Monitor {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "debug" => {
+            "value" => {
                 // Store the incoming value for frontend display
                 self.base.set_value(args);
                 Ok(())

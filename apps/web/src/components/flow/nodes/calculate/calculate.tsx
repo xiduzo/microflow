@@ -22,8 +22,8 @@ export function Calculate(props: Props) {
       <Value />
       <Settings />
 
-      <Handle type="target" position="left" id="input" />
-      <Handle type="source" position="right" id="change" title="result" />
+      <Handle type="target" position="left" id="value" handleType="value" />
+      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }

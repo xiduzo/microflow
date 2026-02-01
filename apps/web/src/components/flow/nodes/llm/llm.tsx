@@ -21,8 +21,8 @@ export function Llm(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="invoke" />
-      <Handle type="source" position="right" id="output" />
+      <Handle type="target" position="left" id="trigger" handleType="command" />
+      <Handle type="source" position="right" id="value" handleType="value" />
       <DynamicHandles />
     </NodeContainer>
   );
@@ -53,7 +53,7 @@ function DynamicHandles() {
   return (
     <>
       {handles.slice(0, 7).map((handle, index) => (
-        <Handle key={handle} type="target" position="bottom" id={handle} offset={index * 1 - 3} />
+        <Handle key={handle} type="target" position="bottom" id={handle} handleType="value" offset={index * 1 - 3} />
       ))}
     </>
   );

@@ -12,11 +12,11 @@ export function Rgb(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="red" hint="0-255" offset={-1.5} />
-      <Handle type="target" position="left" id="green" hint="0-255" offset={-0.5} />
-      <Handle type="target" position="left" id="blue" hint="0-255" offset={0.5} />
-      <Handle type="target" position="left" id="alpha" hint="0-100" offset={1.5} />
-      <Handle type="source" position="right" id="change" />
+      <Handle type="target" position="left" id="red" handleType="value" hint="0-255" offset={-1.5} />
+      <Handle type="target" position="left" id="green" handleType="value" hint="0-255" offset={-0.5} />
+      <Handle type="target" position="left" id="blue" handleType="value" hint="0-255" offset={0.5} />
+      <Handle type="target" position="left" id="alpha" handleType="value" hint="0-100" offset={1.5} />
+      <Handle type="source" position="right" id="event" handleType="event" />
     </NodeContainer>
   );
 }

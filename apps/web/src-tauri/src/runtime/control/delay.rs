@@ -57,14 +57,8 @@ impl Delay {
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
             if let Some(tx) = sender {
                 let _ = tx.send(ComponentEvent {
-                    source: source.clone(),
-                    source_handle: "change".to_string(),
-                    value: value.clone(),
-                    edge_id: None,
-                });
-                let _ = tx.send(ComponentEvent {
                     source,
-                    source_handle: "bang".to_string(),
+                    source_handle: "event".to_string(),
                     value,
                     edge_id: None,
                 });
@@ -85,7 +79,7 @@ impl Component for Delay {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "signal" => { self.signal(args); Ok(()) }
+            "trigger" => { self.signal(args); Ok(()) }
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

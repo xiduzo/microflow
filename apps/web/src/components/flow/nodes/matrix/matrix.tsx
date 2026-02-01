@@ -1,6 +1,5 @@
 import { NodeContainer } from "../_base/_base";
 import { Handle } from "../../handle";
-import { Position } from "@xyflow/react";
 import { button, folder } from "leva";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
@@ -42,13 +41,14 @@ export function Matrix(props: Props) {
       <Settings />
       <Handle
         type="target"
-        position={Position.Left}
-        id="show"
-        hint="shows shape #"
+        position="left"
+        id="value"
+        handleType="value"
+        hint="shape #"
         offset={-0.5}
       />
-      <Handle type="target" position={Position.Left} id="hide" offset={0.5} />
-      <Handle type="source" position={Position.Right} id="change" />
+      <Handle type="target" position="left" id="reset" handleType="command" offset={0.5} />
+      <Handle type="source" position="right" id="event" handleType="event" />
     </NodeContainer>
   );
 }

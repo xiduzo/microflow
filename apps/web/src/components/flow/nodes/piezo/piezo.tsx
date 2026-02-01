@@ -33,12 +33,12 @@ export function Piezo(props: Props) {
       <Value />
       <Settings />
       {props.data.type === "buzz" && (
-        <Handle type="target" position="left" id="buzz" offset={-0.5} />
+        <Handle type="target" position="left" id="trigger" handleType="command" offset={-0.5} />
       )}
       {props.data.type === "song" && (
-        <Handle type="target" position="left" id="play" offset={-0.5} />
+        <Handle type="target" position="left" id="trigger" handleType="command" offset={-0.5} title="play" />
       )}
-      <Handle type="target" position="left" id="stop" offset={0.5} />
+      <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
     </NodeContainer>
   );
 }
@@ -72,7 +72,7 @@ function Settings() {
         value: data.type,
         transient: false,
         onChange: (event) => {
-          deleteHandles(event === "song" ? ["buzz"] : ["play"]);
+          deleteHandles(event === "song" ? ["trigger"] : ["trigger"]);
           setNodeData({
             ...data,
             type: event,

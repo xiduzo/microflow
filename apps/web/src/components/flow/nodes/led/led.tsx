@@ -15,19 +15,20 @@ export function Led(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="turnOn" title="on" offset={-1.5} />
-      <Handle type="target" position="left" id="toggle" offset={-0.5} />
+      <Handle type="target" position="left" id="true" handleType="command" offset={-1.5} />
+      <Handle type="target" position="left" id="toggle" handleType="command" offset={-0.5} />
       <Handle
         type="target"
         position="left"
-        id="brightness"
+        id="value"
+        handleType="value"
         title={props.data.subType === "vibration" ? "intensity" : "brightness"}
         offset={0.5}
         hint={`${isPmw ? "0-255" : "requires a ~ pin"}`}
         isConnectable={!!isPmw}
       />
-      <Handle type="target" position="left" id="turnOff" title="off" offset={1.5} />
-      <Handle type="source" position="right" id="change" />
+      <Handle type="target" position="left" id="false" handleType="command" offset={1.5} />
+      <Handle type="source" position="right" id="event" handleType="event" />
     </NodeContainer>
   );
 }
@@ -83,7 +84,7 @@ type Props = BaseNode<Data>;
 Led.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "act",
+    group: "express",
     tags: ["action"],
     label: "LED",
     icon: "LightbulbIcon",

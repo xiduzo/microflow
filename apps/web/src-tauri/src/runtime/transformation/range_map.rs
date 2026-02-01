@@ -51,7 +51,7 @@ impl RangeMap {
         }
     }
 
-    pub fn from(&mut self, input: ComponentValue) {
+    pub fn map_value(&mut self, input: ComponentValue) {
         let input_num = match input {
             ComponentValue::Bool(b) => if b { 1.0 } else { 0.0 },
             ComponentValue::Number(n) => n,
@@ -88,7 +88,7 @@ impl Component for RangeMap {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "from" => { self.from(args); Ok(()) }
+            "value" => { self.map_value(args); Ok(()) }
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

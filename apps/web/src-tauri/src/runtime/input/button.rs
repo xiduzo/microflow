@@ -69,11 +69,13 @@ impl Button {
             if pressed {
                 self.press_start = Some(Instant::now());
                 self.hold_emitted = false;
-                self.base.emit("active");
+                self.base.emit("event");
+                self.base.emit("true");
             } else {
                 self.press_start = None;
                 self.hold_emitted = false;
-                self.base.emit("inactive");
+                self.base.emit("event");
+                self.base.emit("false");
             }
         } else if pressed && !self.hold_emitted {
             if let Some(start) = self.press_start {

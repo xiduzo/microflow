@@ -12,8 +12,8 @@ export function Trigger(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="signal" />
-      <Handle type="source" position="right" id="bang" />
+      <Handle type="target" position="left" id="value" handleType="value" />
+      <Handle type="source" position="right" id="event" handleType="event" />
     </NodeContainer>
   );
 }

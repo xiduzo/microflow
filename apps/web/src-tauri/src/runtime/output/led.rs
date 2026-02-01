@@ -97,10 +97,10 @@ impl Component for Led {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "turnOn" => self.turn_on(),
-            "turnOff" => self.turn_off(),
+            "true" => self.turn_on(),
+            "false" => self.turn_off(),
             "toggle" => self.toggle(),
-            "brightness" => self.brightness(args.as_u8().unwrap_or(255)),
+            "value" => self.brightness(args.as_u8().unwrap_or(255)),
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

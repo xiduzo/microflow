@@ -10,7 +10,7 @@ export function Monitor(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="debug" />
+      <Handle type="target" position="left" id="value" handleType="value" />
     </NodeContainer>
   );
 }

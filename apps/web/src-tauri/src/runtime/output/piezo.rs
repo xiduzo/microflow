@@ -228,9 +228,14 @@ impl Component for Piezo {
 
     fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
         match method {
-            "buzz" => self.buzz(),
+            "trigger" => {
+                // Trigger plays buzz or song depending on type
+                match self.config.r#type {
+                    PiezoType::Buzz => self.buzz(),
+                    PiezoType::Song => self.play(),
+                }
+            }
             "stop" | "auto_stop" => self.handle_auto_stop(),
-            "play" => self.play(),
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

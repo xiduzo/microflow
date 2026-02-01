@@ -20,9 +20,9 @@ export function Mqtt(props: Props) {
     <NodeContainer {...props} error={error}>
       <Value />
       <Settings />
-      {props.data.direction === "publish" && <Handle type="target" position="left" id="publish" />}
+      {props.data.direction === "publish" && <Handle type="target" position="left" id="trigger" handleType="command" />}
       {props.data.direction === "subscribe" && (
-        <Handle type="source" position="right" id="message" />
+        <Handle type="source" position="right" id="value" handleType="value" />
       )}
     </NodeContainer>
   );

@@ -1,5 +1,4 @@
 import { Handle } from "../../handle";
-import { Position } from "@xyflow/react";
 import { NodeContainer, type BaseNode } from "../_base/_base";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
@@ -20,8 +19,8 @@ export function AudioPlayer(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position={Position.Left} id="play" offset={-0.5} />
-      <Handle type="target" position={Position.Left} id="stop" offset={0.5} />
+      <Handle type="target" position="left" id="trigger" handleType="command" offset={-0.5} />
+      <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
     </NodeContainer>
   );
 }

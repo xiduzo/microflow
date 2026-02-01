@@ -10,11 +10,11 @@ export function Counter(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="increment" offset={-1.5} />
-      <Handle type="target" position="left" id="set" offset={-0.5} />
-      <Handle type="target" position="left" id="decrement" offset={0.5} />
-      <Handle type="target" position="left" id="reset" offset={1.5} />
-      <Handle type="source" position="right" id="change" />
+      <Handle type="target" position="left" id="increment" title="+" handleType="command" offset={-1.5} />
+      <Handle type="target" position="left" id="set" handleType="command" offset={-0.5} />
+      <Handle type="target" position="left" id="decrement" title="-" handleType="command" offset={0.5} />
+      <Handle type="target" position="left" id="reset" handleType="command" offset={1.5} />
+      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }

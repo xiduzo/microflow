@@ -14,18 +14,18 @@ export function Servo(props: Props) {
       <Settings />
       {props.data.type === "standard" && (
         <>
-          <Handle type="target" position="left" id="min" offset={-1} />
-          <Handle type="target" position="left" id="to" />
-          <Handle type="target" position="left" id="max" offset={1} />
+          <Handle type="target" position="left" id="min" handleType="value" offset={-1} />
+          <Handle type="target" position="left" id="value" handleType="value" />
+          <Handle type="target" position="left" id="max" handleType="value" offset={1} />
         </>
       )}
       {props.data.type === "continuous" && (
         <>
-          <Handle type="target" position="left" id="rotate" hint="from -1 to 1" offset={-0.5} />
-          <Handle type="target" position="left" id="stop" offset={0.5} />
+          <Handle type="target" position="left" id="value" handleType="value" hint="from -1 to 1" offset={-0.5} />
+          <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
         </>
       )}
-      <Handle type="source" position="right" id="change" />
+      <Handle type="source" position="right" id="event" handleType="event" />
     </NodeContainer>
   );
 }
@@ -75,7 +75,7 @@ function Settings() {
         options: ["standard", "continuous"],
         transient: false,
         onChange: (event) =>
-          deleteHandles(event === "standard" ? ["rotate", "stop"] : ["min", "to", "max"]),
+          deleteHandles(event === "standard" ? ["value", "stop"] : ["min", "value", "max"]),
       },
       range: {
         value: data.range,

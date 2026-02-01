@@ -92,7 +92,7 @@ impl Component for Smooth {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "signal" => { self.signal(args); Ok(()) }
+            "value" => { self.signal(args); Ok(()) }
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

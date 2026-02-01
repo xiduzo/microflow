@@ -126,7 +126,7 @@ impl Component for Compare {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "check" => { self.check(args); Ok(()) }
+            "value" => { self.check(args); Ok(()) }
             _ => Err(format!("Unknown method: {}", method)),
         }
     }

@@ -12,10 +12,10 @@ export function Button(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="active" offset={-1.5} />
-      <Handle type="source" position="right" id="change" offset={-0.5} />
-      <Handle type="source" position="right" id="inactive" offset={0.5} />
-      <Handle type="source" position="right" id="hold" offset={1.5} />
+      <Handle type="source" position="right" id="event" handleType="event" offset={-1.5} />
+      <Handle type="source" position="right" id="true" handleType="state" offset={-0.5} />
+      <Handle type="source" position="right" id="false" handleType="state" offset={0.5} />
+      <Handle type="source" position="right" id="hold" handleType="event" offset={1.5} hint="long press" />
     </NodeContainer>
   );
 }

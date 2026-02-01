@@ -45,32 +45,35 @@ export function Pixel(props: Props) {
       <Handle
         type="target"
         position="left"
-        id="show"
-        hint="shows preset #"
+        id="value"
+        handleType="value"
+        hint="preset #"
         offset={-1.5}
       />
       <Handle
         type="target"
         position="left"
         id="color"
-        hint="array of hex colors"
+        handleType="value"
+        hint="hex colors"
         offset={-0.5}
       />
       <Handle
         type="target"
         position="left"
-        id="move"
-        hint="moves the pixel strip by # pixels"
+        id="set"
+        handleType="command"
+        hint="shift pixels"
         offset={0.5}
       />
       <Handle
         type="target"
         position="left"
-        id="turnOff"
-        title="off"
+        id="reset"
+        handleType="command"
         offset={1.5}
       />
-      <Handle type="source" position="right" id="change" />
+      <Handle type="source" position="right" id="event" handleType="event" />
     </NodeContainer>
   );
 }

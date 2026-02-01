@@ -97,7 +97,7 @@ export function Handle(props: Props) {
             return true;
           }}
           className={handle({
-            variant: "event",
+            variant: props.handleType,
             position: position,
             className: props.className,
             isHandleSelectedViaEdge: isHandleSelectedViaEdge,
@@ -133,12 +133,15 @@ export function Handle(props: Props) {
 
 type PositionType = `${Position.Left}` | `${Position.Right}` | `${Position.Bottom}`;
 
+type HandleType = "value" | "event" | "command" | "state";
+
 type Props = Omit<HandleProps, "isConnectable" | "isValidConnection" | "position"> & {
   offset?: number;
   hint?: string;
   isConnectable?: ((edges: Edge[]) => boolean) | boolean;
   isValidConnection?: (edges: Edge[], edge: Edge | Connection) => boolean;
   position: PositionType;
+  handleType?: HandleType;
 };
 
 const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:text-3xl after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {
@@ -150,10 +153,10 @@ const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:text-
       bottom: "justify-center",
     },
     variant: {
-      value: "after:content-['●']",
-      event: "after:content-['◆']",
-      command: "after:content-['▶']",
-      state: "after:content-['■']",
+      value: "after:content-['●'] after:-ml-px after:-mt-px",
+      event: "after:content-['◆'] after:-ml-[4px] after:-mt-[3px]",
+      command: "after:content-['▶'] after:scale-60 after:-ml-[2px] after:-mt-px",
+      state: "after:content-['■'] after:-ml-px",
     },
     isHandleSelectedViaEdge: {
       true: "selected-via-edge",

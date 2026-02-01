@@ -11,9 +11,9 @@ export function Relay(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="open" offset={-1} />
-      <Handle type="target" position="left" id="toggle" />
-      <Handle type="target" position="left" id="close" offset={1} />
+      <Handle type="target" position="left" id="true" handleType="command" offset={-1} />
+      <Handle type="target" position="left" id="toggle" handleType="command" />
+      <Handle type="target" position="left" id="false" handleType="command" offset={1} />
     </NodeContainer>
   );
 }

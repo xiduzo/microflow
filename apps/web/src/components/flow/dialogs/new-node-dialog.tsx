@@ -152,24 +152,24 @@ export function NewNodeDialog() {
         // Priority 1: Label match (highest priority)
         if (label.toLowerCase().includes(searchLower)) return 1;
 
-        // Priority 2: Group match
-        if (groups.toLowerCase().includes(searchLower)) return 0.9;
+        // // Priority 2: Group match
+        // if (groups.toLowerCase().includes(searchLower)) return 0.9;
 
-        // Priority 3: Tags match
-        const allTags = tags.split(",");
-        if (allTags.some((tag: string) => tag.toLowerCase().includes(searchLower))) return 0.8;
+        // // Priority 3: Tags match
+        // const allTags = tags.split(",");
+        // if (allTags.some((tag: string) => tag.toLowerCase().includes(searchLower))) return 0.8;
 
         // Priority 4: Description match
         if (description.toLowerCase().includes(searchLower)) return 0.8;
 
-        // Priority 5: Keywords match
-        if (
-          keywords?.some((keyword: string) =>
-            keyword.toLowerCase().includes(searchLower)
-          )
-        ) {
-          return 0.6;
-        }
+        // // Priority 5: Keywords match
+        // if (
+        //   keywords?.some((keyword: string) =>
+        //     keyword.toLowerCase().includes(searchLower)
+        //   )
+        // ) {
+        //   return 0.6;
+        // }
 
         // No match found
         return 0;

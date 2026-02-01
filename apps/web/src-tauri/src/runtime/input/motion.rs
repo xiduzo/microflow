@@ -53,7 +53,8 @@ impl Motion {
         if detected != self.motion_detected {
             self.motion_detected = detected;
             self.base.set_value(ComponentValue::Bool(detected));
-            self.base.emit(if detected { "motionstart" } else { "motionend" });
+            self.base.emit("event");
+            self.base.emit(if detected { "true" } else { "false" });
         }
     }
 

@@ -11,9 +11,9 @@ export function Switch(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="open" title="active" offset={-1} />
-      <Handle type="source" position="right" id="change" />
-      <Handle type="source" position="right" id="close" title="inactive" offset={1} />
+      <Handle type="source" position="right" id="event" handleType="event" offset={-1} />
+      <Handle type="source" position="right" id="true" handleType="state" />
+      <Handle type="source" position="right" id="false" handleType="state" offset={1} />
     </NodeContainer>
   );
 }

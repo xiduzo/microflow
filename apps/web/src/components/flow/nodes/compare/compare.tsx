@@ -19,10 +19,9 @@ export function Compare(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="check" />
-      <Handle type="source" position="right" id="true" offset={-1} />
-      <Handle type="source" position="right" id="change" />
-      <Handle type="source" position="right" id="false" offset={1} />
+      <Handle type="target" position="left" id="value" handleType="value" />
+      <Handle type="source" position="right" id="true" handleType="state" offset={-0.5} />
+      <Handle type="source" position="right" id="false" handleType="state" offset={0.5} />
     </NodeContainer>
   );
 }

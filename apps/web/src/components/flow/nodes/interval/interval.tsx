@@ -11,9 +11,9 @@ export function Interval(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="start" offset={-0.5} />
-      <Handle type="target" position="left" id="stop" offset={0.5} />
-      <Handle type="source" position="right" id="change" />
+      <Handle type="target" position="left" id="start" handleType="command" offset={-0.5} />
+      <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
+      <Handle type="source" position="right" id="event" handleType="event" />
     </NodeContainer>
   );
 }

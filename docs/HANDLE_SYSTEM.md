@@ -62,7 +62,7 @@ Every handle has exactly one type:
 | `true`    | command | Turn on / set true            |
 | `false`   | command | Turn off / set false          |
 | `toggle`  | command | Toggle boolean state          |
-| `+` / `-` | command | Increment / decrement         |
+| `+` / `-` | command | Increment / decrement (display only, use `increment`/`decrement` as IDs) |
 
 **That's it.** No more `invoke`, `play`, `buzz`, `publish`, `signal`, `input`, `check`, `debug`, `turnOn`, `turnOff`, `open`, `close`, `increment`, `decrement`.
 
@@ -171,12 +171,12 @@ Pure data pipes. That's it.
 
 ## 6. Visual system
 
-| Type    | Shape      | Color (suggested) |
-| ------- | ---------- | ----------------- |
-| value   | ● Circle   | Blue              |
-| event   | ◇ Diamond  | Yellow/Orange     |
-| command | ▷ Triangle | Green             |
-| state   | ■ Square   | Purple            |
+| Type    | Shape      |
+| ------- | ---------- |
+| value   | ● Circle   |
+| event   | ◇ Diamond  |
+| command | ▷ Triangle |
+| state   | ■ Square   |
 
 Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squares are conditions."**
 
@@ -272,7 +272,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 
 ### Counter
 
-- **Inputs:** `+` (command), `-` (command), `set` (command), `reset` (command)
+- **Inputs:** `increment` (command, title="+"), `decrement` (command, title="-"), `set` (command), `reset` (command)
 - **Outputs:** `value` (value)
 
 ### Delay
@@ -288,7 +288,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 ### Hotkey
 
 - **Inputs:** —
-- **Outputs:** `event` (event) × 2 (pressed, released — or merge into one?)
+- **Outputs:** `event` (event), `true` (state)
 
 ### Interval
 
@@ -297,7 +297,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 
 ### Led
 
-- **Inputs:** `true` (command), `toggle` (command), `false` (command)
+- **Inputs:** `true` (command), `toggle` (command), `value` (value), `false` (command)
 - **Outputs:** `event` (event)
 
 ### Llm
@@ -307,7 +307,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 
 ### Matrix
 
-- **Inputs:** `value` (value, shape #), `trigger` (command, hide)
+- **Inputs:** `value` (value), `reset` (command)
 - **Outputs:** `event` (event)
 
 ### Monitor
@@ -318,7 +318,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 ### Motion
 
 - **Inputs:** —
-- **Outputs:** `event` (event, start), `event` (event, end), `true`/`false` (state)
+- **Outputs:** `event` (event), `true` (state), `false` (state)
 
 ### Mqtt
 
@@ -327,7 +327,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 
 ### Oscillator
 
-- **Inputs:** `start` (command), `stop` (command), `reset` (command)
+- **Inputs:** `start` (command), `reset` (command), `stop` (command)
 - **Outputs:** `value` (value)
 
 ### Piezo
@@ -337,7 +337,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 
 ### Pixel
 
-- **Inputs:** `value` (value, preset #), `value` (value, color array), `trigger` (command, move), `false` (command, off)
+- **Inputs:** `value` (value), `color` (value), `set` (command), `reset` (command)
 - **Outputs:** `event` (event)
 
 ### Proximity / Sensor / Force / HallEffect / Ldr / Potentiometer / Tilt

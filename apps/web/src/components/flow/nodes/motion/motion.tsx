@@ -12,9 +12,9 @@ export function Motion(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="motionstart" title="Started motion" offset={-1} />
-      <Handle type="source" position="right" id="change" />
-      <Handle type="source" position="right" id="motionend" title="Ended motion" offset={1} />
+      <Handle type="source" position="right" id="event" handleType="event" offset={-1} />
+      <Handle type="source" position="right" id="true" handleType="state" />
+      <Handle type="source" position="right" id="false" handleType="state" offset={1} />
     </NodeContainer>
   );
 }

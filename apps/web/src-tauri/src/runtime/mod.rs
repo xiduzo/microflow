@@ -235,8 +235,16 @@ impl FlowRuntime {
     fn register_component_pin_listener(&self, component_id: &str, instance: &str, data: &serde_json::Value) {
         match instance {
             "Button" | "Motion" => {
-                // Digital input components
-                if let Some(pin) = data.get("pin").and_then(|v| v.as_u64()).map(|v| v as u8) {
+                // Digital input components - handle both string and number pin formats
+                let pin: Option<u8> = if let Some(pin_num) = data.get("pin").and_then(|v| v.as_u64()) {
+                    Some(pin_num as u8)
+                } else if let Some(pin_str) = data.get("pin").and_then(|v| v.as_str()) {
+                    pin_str.parse().ok()
+                } else {
+                    None
+                };
+                
+                if let Some(pin) = pin {
                     log::info!("Registering digital pin listener: component={}, pin={}", component_id, pin);
                     self.register_pin_listener(PinListener {
                         component_id: component_id.to_string(),

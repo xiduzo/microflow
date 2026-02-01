@@ -23,7 +23,7 @@ export function Sensor(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="change" />
+      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }
@@ -110,7 +110,7 @@ const hallEffect = cva("", {
 function Settings() {
   const data = useNodeData<Data & { subType?: string }>();
   const pins = usePins([MODES.INPUT, MODES.ANALOG]);
-  
+
   // Convert string pin values (like "A0") to actual pin numbers for Leva
   // Leva options store numeric pin values, so we need to match that format
   let pinValue: number | string = data.pin;
@@ -127,11 +127,11 @@ function Settings() {
       }
     }
   }
-  
+
   const { render, setNodeData } = useNodeControls(
     {
-      pin: { 
-        value: pinValue, 
+      pin: {
+        value: pinValue,
         options: pins.reduce(reducePinsToOptions, {}),
       },
       advanced: folder(

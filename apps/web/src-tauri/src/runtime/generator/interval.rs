@@ -77,7 +77,7 @@ impl Interval {
                 if let Some(tx) = &sender {
                     match tx.send(ComponentEvent {
                         source: source.clone(),
-                        source_handle: "change".to_string(),
+                        source_handle: "event".to_string(),
                         value: ComponentValue::Number(elapsed),
                         edge_id: None,
                     }) {

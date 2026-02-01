@@ -23,8 +23,8 @@ export function Hotkey(props: Props) {
       <HotkeyHandler />
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="pressed" offset={-0.5} />
-      <Handle type="source" position="right" id="released" offset={0.5} />
+      <Handle type="source" position="right" id="event" handleType="event" offset={-0.5} title="pressed" />
+      <Handle type="source" position="right" id="released" handleType="event" offset={0.5} />
     </NodeContainer>
   );
 }

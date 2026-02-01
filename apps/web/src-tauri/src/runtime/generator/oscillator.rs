@@ -99,7 +99,7 @@ impl Oscillator {
                 if let Some(tx) = &sender {
                     if tx.send(ComponentEvent {
                         source: source.clone(),
-                        source_handle: "change".to_string(),
+                        source_handle: "value".to_string(),
                         value: ComponentValue::Number(value),
                         edge_id: None,
                     }).is_err() {

@@ -79,7 +79,7 @@ impl Component for Calculate {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "input" | "check" => {
+            "value" => {
                 let inputs = match args {
                     ComponentValue::Array(arr) => arr.iter().filter_map(|v| v.as_number()).collect(),
                     ComponentValue::Number(n) => vec![n],
