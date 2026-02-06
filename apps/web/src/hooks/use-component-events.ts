@@ -18,7 +18,8 @@ export function useComponentEvents() {
     handler: ({ payload }) => {
       const { source, sourceHandle, value } = payload;
 
-      if (sourceHandle === "change") updateNodeData(source, value);
+      // Update node data when a "value" event is received
+      if (sourceHandle === "value") updateNodeData(source, value);
 
       console.log("[COMPONENT-EVENT]", { source, sourceHandle, value });
 

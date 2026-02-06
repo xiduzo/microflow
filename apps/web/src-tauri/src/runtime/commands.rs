@@ -110,6 +110,9 @@ pub async fn flow_update(
         // Reinstall pin change callback with updated listeners
         let event_tx = runtime.event_sender();
         runtime.install_pin_change_callback(event_tx);
+        
+        // Restart the reader thread with the new callback
+        runtime.board_handle().start_reader();
     }
 
     // Set up MQTT subscriptions for subscribe nodes

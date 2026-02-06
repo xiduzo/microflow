@@ -177,12 +177,18 @@ pub trait Component: Send + Sync {
 /// Handle to the Firmata board for components to use
 pub struct BoardHandle {
     inner: std::sync::Mutex<Option<BoardConnection>>,
+    /// Flag to stop the reader thread
+    reader_running: std::sync::atomic::AtomicBool,
+    /// Handle to the reader thread
+    reader_handle: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl BoardHandle {
     pub fn new() -> Self {
         Self {
             inner: std::sync::Mutex::new(None),
+            reader_running: std::sync::atomic::AtomicBool::new(false),
+            reader_handle: std::sync::Mutex::new(None),
         }
     }
 
@@ -191,6 +197,8 @@ impl BoardHandle {
     }
 
     pub fn disconnect(&self) {
+        // Stop the reader thread first
+        self.stop_reader();
         *self.inner.lock().unwrap() = None;
     }
 
@@ -205,6 +213,77 @@ impl BoardHandle {
         match self.inner.lock().unwrap().as_mut() {
             Some(conn) => f(conn),
             None => Err("Board not connected".to_string()),
+        }
+    }
+    
+    /// Start the dedicated reader thread that processes Firmata messages immediately
+    pub fn start_reader(self: &Arc<Self>) {
+        // Stop any existing reader first
+        self.stop_reader();
+        
+        self.reader_running.store(true, std::sync::atomic::Ordering::SeqCst);
+        
+        let handle_clone = Arc::clone(self);
+        let thread_handle = std::thread::spawn(move || {
+            log::info!("Firmata reader thread started");
+            
+            while handle_clone.reader_running.load(std::sync::atomic::Ordering::SeqCst) {
+                // Try to read and process one message
+                let result = handle_clone.with_board(|conn| {
+                    match conn.board.read_and_decode() {
+                        Ok(_) => {
+                            // Immediately check for and emit pin changes
+                            conn.detect_and_emit_changes();
+                            Ok(true)
+                        }
+                        Err(e) => {
+                            let err_str = format!("{}", e);
+                            if err_str.contains("timed out") || err_str.contains("timeout") {
+                                // Timeout is normal - no data available
+                                Ok(false)
+                            } else {
+                                // Real error
+                                Err(format!("Read error: {}", e))
+                            }
+                        }
+                    }
+                });
+                
+                match result {
+                    Ok(true) => {
+                        // Message processed, immediately try to read more
+                        continue;
+                    }
+                    Ok(false) => {
+                        // Timeout - small sleep to avoid busy-waiting
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    }
+                    Err(e) => {
+                        if e == "Board not connected" {
+                            log::info!("Firmata reader: board disconnected, stopping");
+                            break;
+                        }
+                        log::warn!("Firmata reader error: {}", e);
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                }
+            }
+            
+            log::info!("Firmata reader thread stopped");
+        });
+        
+        *self.reader_handle.lock().unwrap() = Some(thread_handle);
+    }
+    
+    /// Stop the reader thread
+    pub fn stop_reader(&self) {
+        self.reader_running.store(false, std::sync::atomic::Ordering::SeqCst);
+        
+        if let Some(handle) = self.reader_handle.lock().unwrap().take() {
+            // Give the thread a moment to notice the flag
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            // Don't join - it might be blocked on read
+            drop(handle);
         }
     }
 }
@@ -370,17 +449,15 @@ impl BoardConnection {
     }
     
     /// Process all pending messages from the board and emit change events
-    /// Call this once per poll cycle to update all pin values
+    /// Note: With the dedicated reader thread, this is mainly used as a fallback
     pub fn read_all(&mut self) -> Result<(), String> {
-        // Read and decode all available messages (non-blocking if no data)
+        // Just do a single read - the reader thread handles continuous reading
         match self.board.read_and_decode() {
             Ok(_) => {
-                // Check for pin value changes and emit events
                 self.detect_and_emit_changes();
                 Ok(())
             }
             Err(e) => {
-                // Timeout is expected when no data available
                 let err_str = format!("{}", e);
                 if err_str.contains("timed out") || err_str.contains("timeout") {
                     Ok(())
@@ -535,11 +612,11 @@ impl ComponentBase {
         Self { id, value: initial_value, event_sender: None }
     }
 
-    /// Set the value and automatically emit a "change" event if the value changed
+    /// Set the value and automatically emit a "value" event if the value changed
     pub fn set_value(&mut self, value: ComponentValue) {
         if self.value != value {
             self.value = value;
-            self.emit("change");
+            self.emit("value");
         }
     }
 

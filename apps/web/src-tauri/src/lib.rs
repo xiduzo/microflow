@@ -77,6 +77,9 @@ pub fn run() {
     };
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .setup({
             let hardware_service = Arc::clone(&hardware_service);
             let flow_runtime = Arc::clone(&flow_runtime);
@@ -213,13 +216,17 @@ pub fn run() {
                                             // Install pin change callback after flow update
                                             let event_tx = runtime.event_sender();
                                             runtime.install_pin_change_callback(event_tx);
+                                            // Start the dedicated reader thread
+                                            runtime.board_handle().start_reader();
                                         }
                                     }
                                 } else {
-                                    // No pending flow, but still install callback for existing listeners
+                                    // No pending flow, but still install callback and start reader
                                     if let Ok(runtime) = flow_runtime_board.lock() {
                                         let event_tx = runtime.event_sender();
                                         runtime.install_pin_change_callback(event_tx);
+                                        // Start the dedicated reader thread
+                                        runtime.board_handle().start_reader();
                                     }
                                 }
                             }
