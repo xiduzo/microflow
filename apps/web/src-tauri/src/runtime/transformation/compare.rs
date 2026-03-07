@@ -80,7 +80,7 @@ impl Compare {
                 let n = input.as_number().unwrap_or(0.0).round() as i64;
                 match self.config.sub_validator.as_str() {
                     "odd" => n % 2 != 0,
-                    "even" | _ => n % 2 == 0,
+                    _ => n % 2 == 0,
                 }
             }
             CompareValidator::Number => {
@@ -88,14 +88,14 @@ impl Compare {
                 match self.config.sub_validator.as_str() {
                     "greater than" => n > self.config.number,
                     "less than" => n < self.config.number,
-                    "equal to" | _ => (n - self.config.number).abs() < f64::EPSILON,
+                    _ => (n - self.config.number).abs() < f64::EPSILON,
                 }
             }
             CompareValidator::Range => {
                 let n = input.as_number().unwrap_or(0.0);
                 match self.config.sub_validator.as_str() {
                     "outside" => n < self.config.range.min || n > self.config.range.max,
-                    "between" | _ => n > self.config.range.min && n < self.config.range.max,
+                    _ => n > self.config.range.min && n < self.config.range.max,
                 }
             }
             CompareValidator::Text => {
@@ -109,7 +109,7 @@ impl Compare {
                     "including" => s.contains(&self.config.text),
                     "starting with" => s.starts_with(&self.config.text),
                     "ending with" => s.ends_with(&self.config.text),
-                    "equal to" | _ => s == self.config.text,
+                    _ => s == self.config.text,
                 }
             }
         }

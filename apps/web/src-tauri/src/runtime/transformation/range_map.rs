@@ -4,6 +4,7 @@ use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -21,18 +22,12 @@ impl Default for Range {
     fn default() -> Self { Self { min: 0.0, max: default_max() } }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RangeMapConfig {
     #[serde(default)]
     pub from: Range,
     #[serde(default)]
     pub to: Range,
-}
-
-impl Default for RangeMapConfig {
-    fn default() -> Self {
-        Self { from: Range::default(), to: Range::default() }
-    }
 }
 
 pub struct RangeMap {
@@ -74,7 +69,7 @@ impl RangeMap {
             ComponentValue::Number(input_num),
             ComponentValue::Number(normalized),
         ]));
-        self.base.emit_with_value("to", ComponentValue::Number(normalized));
+        self.base.emit_with_value("to", Cow::Owned(ComponentValue::Number(normalized)));
     }
 }
 

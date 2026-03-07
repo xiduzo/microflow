@@ -26,10 +26,12 @@ pub mod board;
 mod events;
 mod firmata;
 mod port_monitor;
+pub mod state;
 mod types;
 
 pub use events::EventEmitter;
 pub use port_monitor::{PortMonitor, SerialPortInfo};
+pub use state::{BoardConnectionState, BoardStateMachine};
 pub use types::BoardState;
 
 use crate::flasher::{BoardConfig, Flasher};

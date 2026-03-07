@@ -56,7 +56,9 @@ impl Button {
     fn read_state(&self) -> Result<bool, String> {
         if let Some(board) = &self.board {
             let raw = board.with_board(|conn| conn.digital_read(self.config.pin))?;
-            Ok(if self.config.invert { !raw } else if self.config.is_pullup { !raw } else { raw })
+            // Invert if either invert flag is set OR if using pullup (pullup reads HIGH when not pressed)
+            let should_invert = self.config.invert || self.config.is_pullup;
+            Ok(if should_invert { !raw } else { raw })
         } else {
             Err("Board not connected".to_string())
         }

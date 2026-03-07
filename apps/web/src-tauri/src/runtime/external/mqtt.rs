@@ -14,6 +14,7 @@ use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -114,7 +115,7 @@ impl Mqtt {
         };
 
         self.base.value = component_value.clone();
-        self.base.emit_with_value("message", component_value);
+        self.base.emit_with_value("message", Cow::Owned(component_value));
     }
 }
 
@@ -173,7 +174,7 @@ impl Component for Mqtt {
                     "retain": self.config.retain,
                 });
                 
-                self.base.emit_with_value("_mqtt_publish", ComponentValue::String(publish_info.to_string()));
+                self.base.emit_with_value("_mqtt_publish", Cow::Owned(ComponentValue::String(publish_info.to_string())));
                 Ok(())
             }
             _ => Err(format!("Unknown method: {}", method)),

@@ -25,17 +25,13 @@ impl Default for RgbPins {
     fn default() -> Self { Self { red: default_red(), green: default_green(), blue: default_blue() } }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RgbConfig {
     #[serde(default)]
     pub pins: RgbPins,
     #[serde(default)]
     pub is_anode: bool,
-}
-
-impl Default for RgbConfig {
-    fn default() -> Self { Self { pins: RgbPins::default(), is_anode: false } }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

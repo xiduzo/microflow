@@ -32,4 +32,9 @@ tokio = { version = "1", features = ["sync", "rt", "macros", "time", "net"] }
 mqtt-endpoint-tokio = { version = "0.6", default-features = false, features = ["tls", "ws"] }
 uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
+rustc-hash = "1"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+thiserror = "1"
+
+[dev-dependencies]
+proptest = "1"

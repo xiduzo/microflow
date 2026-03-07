@@ -24,14 +24,10 @@ pub enum CalculateFunction {
     Round,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CalculateConfig {
     #[serde(default)]
     pub function: CalculateFunction,
-}
-
-impl Default for CalculateConfig {
-    fn default() -> Self { Self { function: CalculateFunction::default() } }
 }
 
 pub struct Calculate {

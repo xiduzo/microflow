@@ -4,6 +4,7 @@
 
 use firmata_rs::Firmata;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::io::{Read, Write};
@@ -90,11 +91,24 @@ impl ComponentValue {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ComponentEvent {
-    pub source: String,
-    pub source_handle: String,
+    #[serde(deserialize_with = "deserialize_arc_str")]
+    pub source: Arc<str>,
+    #[serde(deserialize_with = "deserialize_arc_str")]
+    pub source_handle: Arc<str>,
     pub value: ComponentValue,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edge_id: Option<String>,
+    #[serde(default)]
+    pub sequence: u64,  // Flow version when event was created
+}
+
+/// Custom deserializer to convert String -> Arc<str>
+fn deserialize_arc_str<'de, D>(deserializer: D) -> Result<Arc<str>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(Arc::from(s))
 }
 
 /// Pin configuration for components
@@ -255,6 +269,10 @@ impl BoardHandle {
                         continue;
                     }
                     Ok(false) => {
+                        // Check flag again before sleeping to ensure prompt exit
+                        if !handle_clone.reader_running.load(std::sync::atomic::Ordering::SeqCst) {
+                            break;
+                        }
                         // Timeout - small sleep to avoid busy-waiting
                         std::thread::sleep(std::time::Duration::from_millis(1));
                     }
@@ -264,6 +282,10 @@ impl BoardHandle {
                             break;
                         }
                         log::warn!("Firmata reader error: {}", e);
+                        // Check flag before sleeping on error to ensure prompt exit
+                        if !handle_clone.reader_running.load(std::sync::atomic::Ordering::SeqCst) {
+                            break;
+                        }
                         std::thread::sleep(std::time::Duration::from_millis(10));
                     }
                 }
@@ -275,15 +297,17 @@ impl BoardHandle {
         *self.reader_handle.lock().unwrap() = Some(thread_handle);
     }
     
-    /// Stop the reader thread
+    /// Stop the reader thread with proper cleanup
     pub fn stop_reader(&self) {
+        // Signal thread to stop
         self.reader_running.store(false, std::sync::atomic::Ordering::SeqCst);
         
         if let Some(handle) = self.reader_handle.lock().unwrap().take() {
-            // Give the thread a moment to notice the flag
-            std::thread::sleep(std::time::Duration::from_millis(150));
-            // Don't join - it might be blocked on read
-            drop(handle);
+            // Join the thread - wait for clean exit
+            match handle.join() {
+                Ok(_) => log::info!("Reader thread stopped cleanly"),
+                Err(_) => log::warn!("Reader thread panicked during shutdown"),
+            }
         }
     }
 }
@@ -589,11 +613,8 @@ impl BoardConnection {
         
         // Flush any pending data from the serial buffer
         // This is done by reading until timeout
-        loop {
-            match self.board.read_and_decode() {
-                Ok(_) => continue, // Keep reading
-                Err(_) => break,   // Timeout or error, buffer is clear
-            }
+        while self.board.read_and_decode().is_ok() {
+            // Keep reading until timeout or error
         }
         
         Ok(())
@@ -602,14 +623,18 @@ impl BoardConnection {
 
 /// Base implementation helper for components
 pub struct ComponentBase {
-    pub id: String,
+    pub id: Arc<str>,
     pub value: ComponentValue,
     pub event_sender: Option<mpsc::UnboundedSender<ComponentEvent>>,
 }
 
 impl ComponentBase {
     pub fn new(id: String, initial_value: ComponentValue) -> Self {
-        Self { id, value: initial_value, event_sender: None }
+        Self {
+            id: Arc::from(id),
+            value: initial_value,
+            event_sender: None,
+        }
     }
 
     /// Set the value and automatically emit a "value" event if the value changed
@@ -620,19 +645,20 @@ impl ComponentBase {
         }
     }
 
-    /// Emit an event with the current value
+    /// Emit an event with the current value (borrows value)
     pub fn emit(&self, handle: &str) {
-        self.emit_with_value(handle, self.value.clone());
+        self.emit_with_value(handle, Cow::Borrowed(&self.value));
     }
 
-    /// Emit an event with a custom value
-    pub fn emit_with_value(&self, handle: &str, value: ComponentValue) {
+    /// Emit an event with a custom value using Cow semantics
+    pub fn emit_with_value(&self, handle: &str, value: Cow<'_, ComponentValue>) {
         if let Some(sender) = &self.event_sender {
             let _ = sender.send(ComponentEvent {
-                source: self.id.clone(),
-                source_handle: handle.to_string(),
-                value,
+                source: Arc::clone(&self.id),  // No allocation - just ref count increment
+                source_handle: Arc::from(handle),  // Single allocation for handle
+                value: value.into_owned(),
                 edge_id: None,
+                sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
             });
         }
     }

@@ -77,9 +77,10 @@ impl Interval {
                 if let Some(tx) = &sender {
                     match tx.send(ComponentEvent {
                         source: source.clone(),
-                        source_handle: "event".to_string(),
+                        source_handle: Arc::from("event"),
                         value: ComponentValue::Number(elapsed),
                         edge_id: None,
+                        sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
                     }) {
                         Ok(_) => {
                             if tick_count <= 3 || tick_count % 10 == 0 {

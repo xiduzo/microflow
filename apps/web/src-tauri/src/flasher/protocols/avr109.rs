@@ -97,15 +97,14 @@ impl Avr109Flasher {
 
                 // Also look for any new USB serial port (Leonardo bootloader might appear differently)
                 for port in &ports {
-                    if port.port_name.contains("usbmodem") || port.port_name.contains("ttyACM") {
-                        if serialport::new(&port.port_name, self.config.baud_rate)
+                    if (port.port_name.contains("usbmodem") || port.port_name.contains("ttyACM"))
+                        && serialport::new(&port.port_name, self.config.baud_rate)
                             .timeout(Duration::from_millis(100))
                             .open()
                             .is_ok()
-                        {
-                            log::info!("Bootloader found on {} after {} attempts", port.port_name, attempt + 1);
-                            return Ok(port.port_name.clone());
-                        }
+                    {
+                        log::info!("Bootloader found on {} after {} attempts", port.port_name, attempt + 1);
+                        return Ok(port.port_name.clone());
                     }
                 }
             }
@@ -140,7 +139,7 @@ impl Avr109Flasher {
         // Try sync multiple times
         for attempt in 0..5 {
             // Send 'S' to get software identifier (7 bytes expected: "CATERIN")
-            if port.write_all(&[b'S']).is_err() {
+            if port.write_all(b"S").is_err() {
                 log::debug!("Sync attempt {}: write failed", attempt + 1);
                 continue;
             }
@@ -176,7 +175,7 @@ impl Avr109Flasher {
         // Clear buffer before erase
         let _ = port.clear(serialport::ClearBuffer::Input);
 
-        port.write_all(&[b'e'])
+        port.write_all(b"e")
             .map_err(|e| FlashError::Communication(format!("Failed to send erase: {}", e)))?;
         let _ = port.flush();
 
@@ -220,7 +219,7 @@ impl Avr109Flasher {
 
         // Program in blocks
         let block_size = 128;
-        let total_blocks = (data.len() + block_size - 1) / block_size;
+        let total_blocks = data.len().div_ceil(block_size);
         
         for (i, chunk) in data.chunks(block_size).enumerate() {
             let len = chunk.len() as u16;
@@ -260,7 +259,7 @@ impl Avr109Flasher {
         log::debug!("Exiting bootloader, starting application...");
         
         // Send 'E' to exit bootloader and start application
-        port.write_all(&[b'E'])
+        port.write_all(b"E")
             .map_err(|e| FlashError::Communication(e.to_string()))?;
         port.flush().ok();
         

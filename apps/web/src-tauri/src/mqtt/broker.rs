@@ -6,7 +6,41 @@ use mqtt_endpoint_tokio::mqtt_ep;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
+
+/// Configuration for MQTT reconnection with exponential backoff
+#[derive(Debug, Clone)]
+pub struct ReconnectConfig {
+    /// Initial delay before first reconnection attempt (default: 1s)
+    pub initial_delay: Duration,
+    /// Maximum delay between attempts (default: 60s)
+    pub max_delay: Duration,
+    /// Multiplier applied to delay after each failure (default: 2.0)
+    pub multiplier: f64,
+    /// Maximum number of attempts, None for infinite (default: None)
+    pub max_attempts: Option<usize>,
+}
+
+impl Default for ReconnectConfig {
+    fn default() -> Self {
+        Self {
+            initial_delay: Duration::from_secs(1),
+            max_delay: Duration::from_secs(60),
+            multiplier: 2.0,
+            max_attempts: None,
+        }
+    }
+}
+
+impl ReconnectConfig {
+    /// Calculate the next delay after a failed attempt
+    pub fn next_delay(&self, current: Duration) -> Duration {
+        let next_secs = current.as_secs_f64() * self.multiplier;
+        let capped_secs = next_secs.min(self.max_delay.as_secs_f64());
+        Duration::from_secs_f64(capped_secs)
+    }
+}
 
 /// Type alias for client endpoint
 type ClientEndpoint = mqtt_ep::endpoint::Endpoint<mqtt_ep::role::Client>;
@@ -45,16 +79,18 @@ impl BrokerConfig {
         let url = &self.url;
         
         // Determine protocol
-        let (use_tls, use_websocket, rest) = if url.starts_with("wss://") {
-            (true, true, &url[6..])
-        } else if url.starts_with("ws://") {
-            (false, true, &url[5..])
-        } else if url.starts_with("mqtts://") || url.starts_with("ssl://") {
-            let prefix_len = if url.starts_with("mqtts://") { 8 } else { 6 };
-            (true, false, &url[prefix_len..])
-        } else if url.starts_with("mqtt://") || url.starts_with("tcp://") {
-            let prefix_len = if url.starts_with("mqtt://") { 7 } else { 6 };
-            (false, false, &url[prefix_len..])
+        let (use_tls, use_websocket, rest) = if let Some(stripped) = url.strip_prefix("wss://") {
+            (true, true, stripped)
+        } else if let Some(stripped) = url.strip_prefix("ws://") {
+            (false, true, stripped)
+        } else if let Some(stripped) = url.strip_prefix("mqtts://") {
+            (true, false, stripped)
+        } else if let Some(stripped) = url.strip_prefix("ssl://") {
+            (true, false, stripped)
+        } else if let Some(stripped) = url.strip_prefix("mqtt://") {
+            (false, false, stripped)
+        } else if let Some(stripped) = url.strip_prefix("tcp://") {
+            (false, false, stripped)
         } else {
             // Default to mqtt:// if no scheme
             (false, false, url.as_str())
@@ -96,7 +132,7 @@ impl BrokerConfig {
     fn client_id(&self) -> String {
         format!(
             "microflow-{}",
-            uuid::Uuid::new_v4().to_string()[..8].to_string()
+            &uuid::Uuid::new_v4().to_string()[..8]
         )
     }
 }
@@ -124,6 +160,8 @@ pub struct MqttBroker {
     state: Arc<RwLock<BrokerState>>,
     endpoint: Option<Arc<ClientEndpoint>>,
     shutdown_tx: Option<mpsc::Sender<()>>,
+    /// Configuration for automatic reconnection with exponential backoff
+    reconnect_config: ReconnectConfig,
 }
 
 impl MqttBroker {
@@ -136,11 +174,67 @@ impl MqttBroker {
             })),
             endpoint: None,
             shutdown_tx: None,
+            reconnect_config: ReconnectConfig::default(),
+        }
+    }
+
+    /// Create a new MqttBroker with custom reconnection configuration
+    pub fn with_reconnect_config(config: BrokerConfig, reconnect_config: ReconnectConfig) -> Self {
+        Self {
+            config,
+            state: Arc::new(RwLock::new(BrokerState {
+                status: ConnectionStatus::Disconnected,
+                subscriptions: HashMap::new(),
+            })),
+            endpoint: None,
+            shutdown_tx: None,
+            reconnect_config,
         }
     }
 
     /// Connect to the MQTT broker
-    pub async fn connect(&mut self) -> Result<(), String> {
+    /// 
+    /// This method must be called on an Arc<RwLock<MqttBroker>> to enable
+    /// automatic reconnection when the connection is lost.
+    pub async fn connect(broker: Arc<RwLock<Self>>) -> Result<(), String> {
+        // Use internal connect method for the actual connection
+        {
+            let mut broker_guard = broker.write().await;
+            broker_guard.connect_internal().await?;
+        }
+
+        // Get the endpoint and config that was set by connect_internal
+        let (endpoint, state, reconnect_config) = {
+            let broker_guard = broker.read().await;
+            let endpoint = broker_guard
+                .endpoint
+                .as_ref()
+                .ok_or("Endpoint not set after connect_internal")?
+                .clone();
+            let state = broker_guard.state.clone();
+            let reconnect_config = broker_guard.reconnect_config.clone();
+            (endpoint, state, reconnect_config)
+        };
+
+        // Start receive loop
+        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+        {
+            let mut broker_guard = broker.write().await;
+            broker_guard.shutdown_tx = Some(shutdown_tx);
+        }
+
+        let broker_clone = broker.clone();
+        tokio::spawn(async move {
+            Self::receive_loop(endpoint, state, shutdown_rx, broker_clone, reconnect_config).await;
+        });
+
+        Ok(())
+    }
+
+    /// Internal connect method for reconnection
+    /// Same logic as connect() but without spawning receive_loop
+    /// Returns after CONNACK received
+    async fn connect_internal(&mut self) -> Result<(), String> {
         {
             let mut state = self.state.write().await;
             state.status = ConnectionStatus::Connecting;
@@ -160,8 +254,14 @@ impl MqttBroker {
 
         // Connect based on transport type
         let attach_result = match (parsed.use_websocket, parsed.use_tls) {
-            (true, true) => self.connect_wss(&endpoint, &addr, &parsed.host, &parsed.path).await,
-            (true, false) => self.connect_ws(&endpoint, &addr, &parsed.host, &parsed.path).await,
+            (true, true) => {
+                self.connect_wss(&endpoint, &addr, &parsed.host, &parsed.path)
+                    .await
+            }
+            (true, false) => {
+                self.connect_ws(&endpoint, &addr, &parsed.host, &parsed.path)
+                    .await
+            }
             (false, true) => self.connect_tls(&endpoint, &addr, &parsed.host).await,
             (false, false) => self.connect_tcp(&endpoint, &addr).await,
         };
@@ -205,17 +305,7 @@ impl MqttBroker {
             }
         }
 
-        let endpoint = Arc::new(endpoint);
-        self.endpoint = Some(endpoint.clone());
-
-        // Start receive loop
-        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        self.shutdown_tx = Some(shutdown_tx);
-
-        let state = self.state.clone();
-        tokio::spawn(async move {
-            Self::receive_loop(endpoint, state, shutdown_rx).await;
-        });
+        self.endpoint = Some(Arc::new(endpoint));
 
         Ok(())
     }
@@ -287,7 +377,7 @@ impl MqttBroker {
 
     async fn send_connect(&self, endpoint: &ClientEndpoint) -> Result<(), String> {
         let mut builder = mqtt_ep::packet::v5_0::Connect::builder()
-            .client_id(&self.config.client_id())
+            .client_id(self.config.client_id())
             .map_err(|e| format!("Invalid client ID: {:?}", e))?
             .keep_alive(60)
             .clean_start(true);
@@ -307,13 +397,23 @@ impl MqttBroker {
         endpoint
             .send(connect)
             .await
-            .map_err(|e| Self::format_connection_error(e))
+            .map_err(Self::format_connection_error)
     }
 
+    /// Receive loop that handles incoming MQTT packets
+    /// 
+    /// When a connection error occurs, this loop:
+    /// 1. Updates status to Disconnected
+    /// 2. Spawns the reconnect_loop to attempt automatic reconnection
+    /// 
+    /// # Requirements
+    /// - 1.1: Initiates automatic reconnection when connection is lost
     async fn receive_loop(
         endpoint: Arc<ClientEndpoint>,
         state: Arc<RwLock<BrokerState>>,
         mut shutdown_rx: mpsc::Receiver<()>,
+        broker: Arc<RwLock<MqttBroker>>,
+        reconnect_config: ReconnectConfig,
     ) {
         loop {
             tokio::select! {
@@ -328,8 +428,17 @@ impl MqttBroker {
                         }
                         Err(e) => {
                             log::error!("[MQTT] Receive error: {}", e);
-                            let mut state_guard = state.write().await;
-                            state_guard.status = ConnectionStatus::Disconnected;
+                            
+                            // Update status to Disconnected before starting reconnection
+                            {
+                                let mut state_guard = state.write().await;
+                                state_guard.status = ConnectionStatus::Disconnected;
+                            }
+                            
+                            // Spawn reconnect_loop to attempt automatic reconnection (Requirement 1.1)
+                            // Use spawn_reconnect_loop helper to avoid type cycle
+                            spawn_reconnect_loop(broker.clone(), reconnect_config.clone(), state.clone());
+                            
                             break;
                         }
                     }
@@ -445,7 +554,7 @@ impl MqttBroker {
         let packet_id = endpoint
             .acquire_packet_id()
             .await
-            .map_err(|e| Self::format_connection_error(e))?;
+            .map_err(Self::format_connection_error)?;
 
         let sub_entry = mqtt_ep::packet::SubEntry::new(topic, mqtt_ep::packet::SubOpts::new())
             .map_err(|e| format!("Invalid topic: {:?}", e))?;
@@ -459,7 +568,7 @@ impl MqttBroker {
         endpoint
             .send(subscribe)
             .await
-            .map_err(|e| Self::format_connection_error(e))?;
+            .map_err(Self::format_connection_error)?;
 
         let mut state = self.state.write().await;
         state.subscriptions.insert(topic.to_string(), callback);
@@ -476,7 +585,7 @@ impl MqttBroker {
         let packet_id = endpoint
             .acquire_packet_id()
             .await
-            .map_err(|e| Self::format_connection_error(e))?;
+            .map_err(Self::format_connection_error)?;
 
         let unsubscribe = mqtt_ep::packet::v5_0::Unsubscribe::builder()
             .packet_id(packet_id)
@@ -488,7 +597,7 @@ impl MqttBroker {
         endpoint
             .send(unsubscribe)
             .await
-            .map_err(|e| Self::format_connection_error(e))?;
+            .map_err(Self::format_connection_error)?;
 
         let mut state = self.state.write().await;
         state.subscriptions.remove(topic);
@@ -512,7 +621,7 @@ impl MqttBroker {
         endpoint
             .send(publish)
             .await
-            .map_err(|e| Self::format_connection_error(e))?;
+            .map_err(Self::format_connection_error)?;
 
         log::debug!("[MQTT] Published to topic: {}", topic);
         Ok(())
@@ -531,4 +640,168 @@ impl MqttBroker {
         }
     }
 
+    /// Resubscribe to a single topic without re-registering the callback
+    /// Used during reconnection when callbacks are already stored in state
+    async fn resubscribe_topic(&self, topic: &str) -> Result<(), String> {
+        let endpoint = self.endpoint.as_ref().ok_or("Not connected")?;
+
+        // Acquire packet ID from the endpoint's internal pool
+        let packet_id = endpoint
+            .acquire_packet_id()
+            .await
+            .map_err(Self::format_connection_error)?;
+
+        let sub_entry = mqtt_ep::packet::SubEntry::new(topic, mqtt_ep::packet::SubOpts::new())
+            .map_err(|e| format!("Invalid topic: {:?}", e))?;
+
+        let subscribe = mqtt_ep::packet::v5_0::Subscribe::builder()
+            .packet_id(packet_id)
+            .entries(vec![sub_entry])
+            .build()
+            .map_err(|e| format!("Failed to build SUBSCRIBE: {:?}", e))?;
+
+        endpoint
+            .send(subscribe)
+            .await
+            .map_err(Self::format_connection_error)?;
+
+        log::info!("[MQTT] Resubscribed to topic: {}", topic);
+        Ok(())
+    }
+
+    /// Resubscribe to all previously subscribed topics
+    /// Used after reconnection to restore subscriptions
+    pub async fn resubscribe_all(&self) -> Result<(), String> {
+        let state = self.state.read().await;
+        let topics: Vec<String> = state.subscriptions.keys().cloned().collect();
+        drop(state);
+
+        for topic in topics {
+            // Resubscribe without callback (already stored)
+            self.resubscribe_topic(&topic).await?;
+        }
+        Ok(())
+    }
+
+    /// Reconnection loop with exponential backoff
+    ///
+    /// This function implements automatic reconnection when the MQTT connection is lost.
+    /// It uses exponential backoff to avoid overwhelming the broker with reconnection attempts.
+    ///
+    /// # Arguments
+    /// * `broker` - Arc-wrapped RwLock to the MqttBroker instance
+    /// * `config` - ReconnectConfig with backoff parameters
+    /// * `_state` - Arc-wrapped RwLock to the BrokerState (reserved for future use)
+    ///
+    /// # Requirements
+    /// - 1.1: Initiates automatic reconnection when connection is lost
+    /// - 1.6: Waits for current delay before retrying on failure
+    /// - 1.9: Stops reconnecting when max_attempts is reached
+    /// - 1.11: Resets delay to initial_delay on success (handled by new receive_loop)
+    /// - 1.12: Logs each attempt with delay and attempt number
+    async fn reconnect_loop(
+        broker: Arc<RwLock<MqttBroker>>,
+        config: ReconnectConfig,
+        _state: Arc<RwLock<BrokerState>>,
+    ) {
+        let mut delay = config.initial_delay;
+        let mut attempts = 0;
+
+        loop {
+            // Check max attempts before attempting reconnection (Requirement 1.9)
+            if let Some(max) = config.max_attempts {
+                if attempts >= max {
+                    log::error!(
+                        "[MQTT] Max reconnection attempts ({}) reached, giving up",
+                        max
+                    );
+                    break;
+                }
+            }
+
+            // Log the reconnection attempt with delay and attempt number (Requirement 1.12)
+            log::info!(
+                "[MQTT] Reconnecting in {:?} (attempt {})",
+                delay,
+                attempts + 1
+            );
+
+            // Wait for the current delay before retrying (Requirement 1.6)
+            tokio::time::sleep(delay).await;
+
+            // Attempt reconnection
+            let result = {
+                let mut broker_guard = broker.write().await;
+                broker_guard.connect_internal().await
+            };
+
+            match result {
+                Ok(_) => {
+                    log::info!("[MQTT] Reconnected successfully");
+
+                    // Resubscribe to all topics (Requirement 1.10)
+                    {
+                        let broker_guard = broker.read().await;
+                        if let Err(e) = broker_guard.resubscribe_all().await {
+                            log::warn!("[MQTT] Failed to resubscribe: {}", e);
+                        }
+                    }
+
+                    // Spawn a new receive_loop to handle incoming packets
+                    // This also resets the delay for the next disconnect (Requirement 1.11)
+                    // Use spawn_receive_loop helper to avoid type cycle
+                    spawn_receive_loop(broker.clone());
+
+                    break;
+                }
+                Err(e) => {
+                    log::warn!("[MQTT] Reconnection failed: {}", e);
+                    attempts += 1;
+                    // Apply exponential backoff on failure (Requirement 1.7, 1.8)
+                    delay = config.next_delay(delay);
+                }
+            }
+        }
+    }
+}
+
+/// Helper function to spawn the receive loop
+/// This is a free function to break the type cycle between receive_loop and reconnect_loop
+fn spawn_receive_loop(broker: Arc<RwLock<MqttBroker>>) {
+    tokio::spawn(async move {
+        let (endpoint, state, reconnect_config) = {
+            let broker_guard = broker.read().await;
+            let endpoint = match broker_guard.endpoint.as_ref() {
+                Some(ep) => ep.clone(),
+                None => {
+                    log::error!("[MQTT] No endpoint for receive loop");
+                    return;
+                }
+            };
+            let state = broker_guard.state.clone();
+            let reconnect_config = broker_guard.reconnect_config.clone();
+            (endpoint, state, reconnect_config)
+        };
+
+        // Create new shutdown channel for the new receive_loop
+        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+        {
+            let mut broker_guard = broker.write().await;
+            broker_guard.shutdown_tx = Some(shutdown_tx);
+        }
+
+        MqttBroker::receive_loop(endpoint, state, shutdown_rx, broker.clone(), reconnect_config).await;
+    });
+}
+
+/// Helper function to spawn the reconnect loop
+/// This is a free function to break the type cycle between receive_loop and reconnect_loop
+fn spawn_reconnect_loop(
+    broker: Arc<RwLock<MqttBroker>>,
+    config: ReconnectConfig,
+    state: Arc<RwLock<BrokerState>>,
+) {
+    tokio::spawn(async move {
+        MqttBroker::reconnect_loop(broker, config, state).await;
+    });
 }

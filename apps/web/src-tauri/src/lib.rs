@@ -13,10 +13,13 @@
 //! └── flasher/         - Firmware flashing (protocols, hex parsing)
 //! ```
 
+mod error;
 mod flasher;
-mod hardware;
-mod mqtt;
+pub mod hardware;
+pub mod mqtt;
 mod runtime;
+
+pub use error::*;
 
 use hardware::HardwareService;
 use mqtt::MqttManager;
@@ -24,6 +27,7 @@ use runtime::{FlowRuntime, FlowUpdate};
 use std::sync::{Arc, Mutex, RwLock};
 use tauri::{Emitter, Listener};
 use tokio::sync::mpsc;
+use tokio::sync::Mutex as TokioMutex;
 
 /// MQTT publish request from flow components
 #[derive(Debug, Clone)]
@@ -38,7 +42,7 @@ pub struct MqttPublishRequest {
 /// Shared application state
 pub struct AppState {
     pub hardware_service: Arc<Mutex<HardwareService>>,
-    pub flow_runtime: Arc<Mutex<FlowRuntime>>,
+    pub flow_runtime: Arc<TokioMutex<FlowRuntime>>,
     /// Pending flow update to apply when board connects
     pub pending_flow: Arc<RwLock<Option<FlowUpdate>>>,
     /// Whether a Firmata board is connected
@@ -57,7 +61,7 @@ pub fn run() {
         .expect("Failed to install rustls crypto provider");
 
     let hardware_service = Arc::new(Mutex::new(HardwareService::new()));
-    let flow_runtime = Arc::new(Mutex::new(FlowRuntime::new()));
+    let flow_runtime = Arc::new(TokioMutex::new(FlowRuntime::new()));
     let pending_flow = Arc::new(RwLock::new(None));
     let board_connected = Arc::new(RwLock::new(false));
     
@@ -96,14 +100,16 @@ pub fn run() {
 
                 // Start hardware monitoring with shared board handle
                 let app_handle = app.handle().clone();
-                let board_handle = flow_runtime.lock().unwrap().board_handle();
+                // Use blocking_lock() for sync context during setup
+                let board_handle = flow_runtime.blocking_lock().board_handle();
                 hardware_service
                     .lock()
                     .unwrap()
                     .start_monitoring(app_handle.clone(), board_handle);
 
                 // Take the event receiver before spawning threads
-                let event_rx = flow_runtime.lock().unwrap().take_event_receiver();
+                // Use blocking_lock() for sync context during setup
+                let event_rx = flow_runtime.blocking_lock().take_event_receiver();
 
                 // Set up event forwarding from flow runtime
                 let app_handle_events = app_handle.clone();
@@ -119,7 +125,7 @@ pub fn run() {
                             
                             // Handle MQTT publish events specially
                             // These are emitted by MQTT publish nodes when they receive input
-                            if event.source_handle == "_mqtt_publish" {
+                            if event.source_handle.as_ref() == "_mqtt_publish" {
                                 log::info!("[MQTT] Publish event from component {}", event.source);
                                 
                                 // Parse the JSON publish info from the event value
@@ -135,7 +141,7 @@ pub fn run() {
                                         
                                         if !broker_id.is_empty() && !topic.is_empty() {
                                             let _ = mqtt_publish_tx_events.send(MqttPublishRequest {
-                                                component_id: event.source.clone(),
+                                                component_id: event.source.to_string(),
                                                 broker_id,
                                                 topic,
                                                 payload,
@@ -152,8 +158,18 @@ pub fn run() {
                             }
                             
                             let _ = app_handle_events.emit("component-event", &event);
-                            if let Ok(mut runtime) = flow_runtime_events.lock() {
-                                runtime.process_event(event);
+                            
+                            // Use try_lock() for async mutex in sync context
+                            // This avoids blocking the async runtime while still processing events
+                            match flow_runtime_events.try_lock() {
+                                Ok(mut runtime) => {
+                                    runtime.process_event(event);
+                                }
+                                Err(_) => {
+                                    // Lock is held (e.g., during flow update), skip processing
+                                    // The event has already been emitted to frontend
+                                    log::debug!("Flow runtime lock held, skipping event processing for: {}", event.source);
+                                }
                             }
                         }
                         log::warn!("Event receiver channel closed");
@@ -209,25 +225,25 @@ pub fn run() {
                                 if let Some(flow) = pending_flow_board.write().unwrap().take() {
                                     log::info!("Applying pending flow: {} nodes, {} edges", 
                                         flow.nodes.len(), flow.edges.len());
-                                    if let Ok(mut runtime) = flow_runtime_board.lock() {
-                                        if let Err(e) = runtime.update_flow(flow) {
-                                            log::error!("Failed to apply pending flow: {}", e);
-                                        } else {
-                                            // Install pin change callback after flow update
-                                            let event_tx = runtime.event_sender();
-                                            runtime.install_pin_change_callback(event_tx);
-                                            // Start the dedicated reader thread
-                                            runtime.board_handle().start_reader();
-                                        }
-                                    }
-                                } else {
-                                    // No pending flow, but still install callback and start reader
-                                    if let Ok(runtime) = flow_runtime_board.lock() {
+                                    // Use blocking_lock() for async mutex in sync callback context
+                                    let mut runtime = flow_runtime_board.blocking_lock();
+                                    if let Err(e) = runtime.update_flow(flow) {
+                                        log::error!("Failed to apply pending flow: {}", e);
+                                    } else {
+                                        // Install pin change callback after flow update
                                         let event_tx = runtime.event_sender();
                                         runtime.install_pin_change_callback(event_tx);
                                         // Start the dedicated reader thread
                                         runtime.board_handle().start_reader();
                                     }
+                                } else {
+                                    // No pending flow, but still install callback and start reader
+                                    // Use blocking_lock() for async mutex in sync callback context
+                                    let runtime = flow_runtime_board.blocking_lock();
+                                    let event_tx = runtime.event_sender();
+                                    runtime.install_pin_change_callback(event_tx);
+                                    // Start the dedicated reader thread
+                                    runtime.board_handle().start_reader();
                                 }
                             }
                             Some("disconnected") => {
@@ -258,7 +274,9 @@ pub fn run() {
                             continue;
                         }
                         
-                        if let Ok(mut runtime) = flow_runtime_poll.lock() {
+                        // Use try_lock() for async mutex in sync polling context
+                        // If lock is held (e.g., during flow update), skip this poll iteration
+                        if let Ok(mut runtime) = flow_runtime_poll.try_lock() {
                             let _ = runtime.poll_inputs();
                         }
                     }

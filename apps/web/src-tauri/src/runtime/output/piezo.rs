@@ -8,11 +8,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum PiezoType { Buzz, Song }
-
-impl Default for PiezoType { fn default() -> Self { PiezoType::Buzz } }
+pub enum PiezoType {
+    #[default]
+    Buzz,
+    Song,
+}
 
 pub type Note = (Option<String>, f64);
 
@@ -109,9 +111,10 @@ impl Piezo {
                 if let Some(tx) = sender {
                     let _ = tx.send(ComponentEvent {
                         source,
-                        source_handle: "_auto_stop".to_string(),
+                        source_handle: Arc::from("_auto_stop"),
                         value: ComponentValue::Bool(false),
                         edge_id: None,
+                        sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
                     });
                 }
             });
@@ -199,9 +202,10 @@ impl Piezo {
             if let Some(tx) = sender {
                 let _ = tx.send(ComponentEvent {
                     source,
-                    source_handle: "_auto_stop".to_string(),
+                    source_handle: Arc::from("_auto_stop"),
                     value: ComponentValue::Bool(false),
                     edge_id: None,
+                    sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
                 });
             }
         });

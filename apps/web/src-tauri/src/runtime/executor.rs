@@ -4,15 +4,77 @@
 
 use super::base::{BoardHandle, Component, ComponentEvent, ComponentValue};
 use super::types::FlowEdge;
+use rustc_hash::{FxHashMap, FxHasher};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+
+/// Target information for an edge
+#[derive(Clone)]
+pub struct EdgeTarget {
+    pub target_id: Arc<str>,
+    pub target_handle: Arc<str>,
+    /// Edge identifier for tracking (reserved for future use)
+    #[allow(dead_code)]
+    pub edge_id: Option<Arc<str>>,
+}
+
+/// Optimized edge lookup map using FxHashMap with pre-computed keys
+pub struct EdgeMap {
+    map: FxHashMap<u64, Vec<EdgeTarget>>,
+}
+
+impl EdgeMap {
+    pub fn new() -> Self {
+        Self {
+            map: FxHashMap::default(),
+        }
+    }
+
+    /// Compute a hash key from source and handle strings
+    #[inline]
+    pub fn key(source: &str, handle: &str) -> u64 {
+        let mut hasher = FxHasher::default();
+        source.hash(&mut hasher);
+        // Use a separator to avoid collisions like ("ab", "c") vs ("a", "bc")
+        0u8.hash(&mut hasher);
+        handle.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Insert an edge target for a source/handle pair
+    pub fn insert(&mut self, source: &str, handle: &str, target: EdgeTarget) {
+        let key = Self::key(source, handle);
+        self.map.entry(key).or_default().push(target);
+    }
+
+    /// Get all targets for a source/handle pair
+    #[inline]
+    pub fn get(&self, source: &str, handle: &str) -> Option<&[EdgeTarget]> {
+        let key = Self::key(source, handle);
+        self.map.get(&key).map(|v| v.as_slice())
+    }
+
+    /// Clear all edges
+    pub fn clear(&mut self) {
+        self.map.clear();
+    }
+}
+
+impl Default for EdgeMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Executes flow graphs by managing components and routing events
 pub struct FlowExecutor {
     components: HashMap<String, Box<dyn Component>>,
     edges: Vec<FlowEdge>,
-    /// Map from (source_id, source_handle) to list of (target_id, target_handle, edge_id)
-    edge_map: HashMap<(String, String), Vec<(String, String, Option<String>)>>,
+    /// Optimized edge lookup map using FxHashMap with pre-computed keys
+    edge_map: EdgeMap,
+    /// Current flow sequence for filtering stale events
+    current_sequence: u64,
 }
 
 impl FlowExecutor {
@@ -20,8 +82,22 @@ impl FlowExecutor {
         Self {
             components: HashMap::new(),
             edges: Vec::new(),
-            edge_map: HashMap::new(),
+            edge_map: EdgeMap::new(),
+            current_sequence: 0,
         }
+    }
+
+    /// Set the current flow sequence for stale event filtering
+    /// Events with sequence < current_sequence will be discarded
+    pub fn set_current_sequence(&mut self, sequence: u64) {
+        self.current_sequence = sequence;
+        log::debug!("FlowExecutor sequence updated to {}", sequence);
+    }
+
+    /// Get the current flow sequence
+    #[allow(dead_code)]
+    pub fn current_sequence(&self) -> u64 {
+        self.current_sequence
     }
 
     /// Add a component to the executor
@@ -51,6 +127,12 @@ impl FlowExecutor {
 
     /// Set the edges for the flow
     pub fn set_edges(&mut self, edges: Vec<FlowEdge>) {
+        log::info!("Setting {} edges:", edges.len());
+        for edge in &edges {
+            log::info!("  Edge: {} ({}) -> {} ({})", 
+                edge.source, edge.source_handle, 
+                edge.target, edge.target_handle);
+        }
         self.edges = edges;
         self.rebuild_edge_map();
     }
@@ -60,14 +142,12 @@ impl FlowExecutor {
         self.edge_map.clear();
 
         for edge in &self.edges {
-            let key = (edge.source.clone(), edge.source_handle.clone());
-            let value = (
-                edge.target.clone(),
-                edge.target_handle.clone(),
-                edge.id.clone(),
-            );
-
-            self.edge_map.entry(key).or_default().push(value);
+            let target = EdgeTarget {
+                target_id: Arc::from(edge.target.as_str()),
+                target_handle: Arc::from(edge.target_handle.as_str()),
+                edge_id: edge.id.as_ref().map(|s| Arc::from(s.as_str())),
+            };
+            self.edge_map.insert(&edge.source, &edge.source_handle, target);
         }
     }
 
@@ -91,12 +171,26 @@ impl FlowExecutor {
     }
 
     /// Process an event from a component and propagate to connected components
-    pub fn process_event(&mut self, event: ComponentEvent) {
+    /// Returns true if the event was processed, false if it was discarded as stale
+    pub fn process_event(&mut self, event: ComponentEvent) -> bool {
+        log::info!(">>> process_event called: {} ({}) seq={}", event.source, event.source_handle, event.sequence);
+        
+        // Check for stale events - discard events from previous flow versions
+        if event.sequence < self.current_sequence {
+            log::debug!(
+                "Discarding stale event from {} (seq={}, current={})",
+                event.source,
+                event.sequence,
+                self.current_sequence
+            );
+            return false;
+        }
+
         // Handle internal events (prefixed with _) by routing back to source component
         if event.source_handle.starts_with('_') {
             log::info!("Processing internal event: {} ({}) -> {:?}", 
                 event.source, event.source_handle, event.value);
-            if let Some(component) = self.components.get_mut(&event.source) {
+            if let Some(component) = self.components.get_mut(event.source.as_ref()) {
                 // Strip the leading underscore for the method name
                 let method = &event.source_handle[1..];
                 match component.call_method(method, event.value) {
@@ -104,51 +198,52 @@ impl FlowExecutor {
                     Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, method, e),
                 }
             }
-            return;
+            return true;
         }
-        
-        let key = (event.source.clone(), event.source_handle.clone());
 
-        log::info!("Processing event: {} ({}) -> looking for edges", event.source, event.source_handle);
+        log::info!("Processing event: {} ({}) -> looking for edges (total edges: {})", 
+            event.source, event.source_handle, self.edges.len());
 
-        // Find all targets for this event
-        let targets = match self.edge_map.get(&key) {
+        // Fast lookup using pre-computed hash
+        let targets = match self.edge_map.get(event.source.as_ref(), event.source_handle.as_ref()) {
             Some(t) => {
                 log::info!("Found {} target(s) for {} ({})", t.len(), event.source, event.source_handle);
-                t.clone()
+                t.to_vec()  // Clone the slice for iteration
             }
             None => {
                 log::info!("No edges found for {} ({})", event.source, event.source_handle);
-                return;
+                return true;
             }
         };
 
-        // Route to each target
-        for (target_id, target_handle, _edge_id) in targets {
-            log::info!("Routing to {}.{} with value {:?}", target_id, target_handle, event.value);
+        // Route to each target using Arc<str> - no allocations
+        for target in targets {
+            log::info!("Routing to {}.{} with value {:?}", target.target_id, target.target_handle, event.value);
             
             // Check if target component aggregates inputs
-            let aggregates = self.components.get(&target_id)
+            let aggregates = self.components.get(target.target_id.as_ref())
                 .map(|c| c.aggregates_inputs())
                 .unwrap_or(false);
             
             let args = if aggregates {
-                let all_inputs = self.collect_input_values(&target_id, &target_handle);
-                log::info!("Collected {} input values for {}.{}: {:?}", all_inputs.len(), target_id, target_handle, all_inputs);
+                let all_inputs = self.collect_input_values(target.target_id.as_ref(), target.target_handle.as_ref());
+                log::info!("Collected {} input values for {}.{}: {:?}", all_inputs.len(), target.target_id, target.target_handle, all_inputs);
                 ComponentValue::Array(all_inputs)
             } else {
                 event.value.clone()
             };
             
-            if let Some(target) = self.components.get_mut(&target_id) {
-                match target.call_method(&target_handle, args) {
-                    Ok(_) => log::info!("✓ Successfully called {}.{}", target_id, target_handle),
-                    Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target_id, target_handle, e),
+            if let Some(component) = self.components.get_mut(target.target_id.as_ref()) {
+                match component.call_method(&target.target_handle, args) {
+                    Ok(_) => log::info!("✓ Successfully called {}.{}", target.target_id, target.target_handle),
+                    Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target.target_id, target.target_handle, e),
                 }
             } else {
-                log::warn!("Target component {} not found!", target_id);
+                log::warn!("Target component {} not found!", target.target_id);
             }
         }
+        
+        true
     }
     
     /// Collect current values from all components connected to a target's specific handle
@@ -240,10 +335,11 @@ impl FlowExecutor {
             // Emit event through the component's event sender
             if let Some(sender) = component.event_sender() {
                 let _ = sender.send(ComponentEvent {
-                    source: component_id.to_string(),
-                    source_handle: "message".to_string(),
+                    source: Arc::from(component_id),
+                    source_handle: Arc::from("message"),
                     value: component_value,
                     edge_id: None,
+                    sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
                 });
             }
         }

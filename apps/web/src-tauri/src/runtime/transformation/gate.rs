@@ -19,14 +19,10 @@ pub enum GateType {
     Xnor,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GateConfig {
     #[serde(default)]
     pub gate: GateType,
-}
-
-impl Default for GateConfig {
-    fn default() -> Self { Self { gate: GateType::default() } }
 }
 
 pub struct Gate {

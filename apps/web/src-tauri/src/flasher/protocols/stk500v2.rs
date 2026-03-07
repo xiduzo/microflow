@@ -195,7 +195,7 @@ impl Stk500v2Flasher {
 
     fn program_flash(&mut self, data: &[u8]) -> Result<(), FlashError> {
         let page_size = self.config.page_size;
-        let total_pages = (data.len() + page_size - 1) / page_size;
+        let total_pages = data.len().div_ceil(page_size);
 
         log::info!("Programming {} bytes ({} pages)", data.len(), total_pages);
 

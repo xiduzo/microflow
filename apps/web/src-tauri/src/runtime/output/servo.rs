@@ -8,11 +8,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum ServoType { Standard, Continuous }
-
-impl Default for ServoType { fn default() -> Self { ServoType::Standard } }
+pub enum ServoType {
+    #[default]
+    Standard,
+    Continuous,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServoRange {

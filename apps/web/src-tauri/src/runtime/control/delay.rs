@@ -58,9 +58,10 @@ impl Delay {
             if let Some(tx) = sender {
                 let _ = tx.send(ComponentEvent {
                     source,
-                    source_handle: "event".to_string(),
+                    source_handle: Arc::from("event"),
                     value,
                     edge_id: None,
+                    sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
                 });
             }
         });

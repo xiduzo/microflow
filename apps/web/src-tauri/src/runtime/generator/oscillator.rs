@@ -99,9 +99,10 @@ impl Oscillator {
                 if let Some(tx) = &sender {
                     if tx.send(ComponentEvent {
                         source: source.clone(),
-                        source_handle: "value".to_string(),
+                        source_handle: Arc::from("value"),
                         value: ComponentValue::Number(value),
                         edge_id: None,
+                        sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
                     }).is_err() {
                         break;
                     }

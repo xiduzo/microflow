@@ -103,8 +103,8 @@ pub async fn flow_update(
     // Board is connected, apply flow immediately
     log::info!("Applying flow update to runtime");
     {
-        let mut runtime = state.flow_runtime.lock()
-            .map_err(|e| format!("Lock error: {:?}", e))?;
+        // Use async lock for tokio::sync::Mutex
+        let mut runtime = state.flow_runtime.lock().await;
         runtime.update_flow(flow)?;
         
         // Reinstall pin change callback with updated listeners
@@ -144,8 +144,15 @@ pub async fn flow_update(
                 );
 
                 // Route message to the flow component
-                if let Ok(mut runtime) = flow_runtime.lock() {
-                    runtime.route_mqtt_message(&component_id, &msg.payload);
+                // Use try_lock() for async mutex in sync callback context
+                // If lock is held, the message will be dropped (acceptable for MQTT)
+                match flow_runtime.try_lock() {
+                    Ok(mut runtime) => {
+                        runtime.route_mqtt_message(&component_id, &msg.payload);
+                    }
+                    Err(_) => {
+                        log::debug!("[MQTT] Flow runtime lock held, dropping message for {}", component_id);
+                    }
                 }
 
                 // Also emit a Tauri event for the frontend
@@ -191,6 +198,7 @@ pub async fn component_call(
 
     log::info!("Component call: {}.{}({:?})", component_id, method, value);
 
-    let mut runtime = state.flow_runtime.lock().unwrap();
+    // Use async lock for tokio::sync::Mutex
+    let mut runtime = state.flow_runtime.lock().await;
     runtime.call_component(&component_id, &method, value)
 }

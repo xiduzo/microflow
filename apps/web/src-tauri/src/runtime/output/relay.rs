@@ -7,10 +7,12 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum RelayType { NO, NC }
-
-impl Default for RelayType { fn default() -> Self { RelayType::NO } }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum RelayType {
+    #[default]
+    NO,
+    NC,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelayConfig {

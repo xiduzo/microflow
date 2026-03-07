@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 /// Internal broker entry with config and client
 struct BrokerEntry {
     config: BrokerConfig,
-    broker: MqttBroker,
+    broker: Arc<RwLock<MqttBroker>>,
 }
 
 /// Manages multiple MQTT broker connections
@@ -34,16 +34,17 @@ impl MqttManager {
         // Check if already connected
         if let Some(entry) = brokers.get(&config.id) {
             let entry_guard = entry.lock().await;
-            let status = entry_guard.broker.status().await;
+            let broker_guard = entry_guard.broker.read().await;
+            let status = broker_guard.status().await;
             if matches!(status, ConnectionStatus::Connected | ConnectionStatus::Connecting) {
                 log::info!("[MQTT Manager] Broker {} already connected", config.id);
                 return Ok(());
             }
         }
 
-        // Create new broker connection
-        let mut broker = MqttBroker::new(config.clone());
-        broker.connect().await?;
+        // Create new broker connection wrapped in Arc<RwLock<>>
+        let broker = Arc::new(RwLock::new(MqttBroker::new(config.clone())));
+        MqttBroker::connect(broker.clone()).await?;
         
         let entry = BrokerEntry {
             config,
@@ -59,8 +60,9 @@ impl MqttManager {
         let mut brokers = self.brokers.write().await;
 
         if let Some(entry) = brokers.remove(broker_id) {
-            let mut entry_guard = entry.lock().await;
-            entry_guard.broker.disconnect().await?;
+            let entry_guard = entry.lock().await;
+            let mut broker_guard = entry_guard.broker.write().await;
+            broker_guard.disconnect().await?;
         }
 
         Ok(())
@@ -71,8 +73,9 @@ impl MqttManager {
         let mut brokers = self.brokers.write().await;
 
         for (_, entry) in brokers.drain() {
-            let mut entry_guard = entry.lock().await;
-            let _ = entry_guard.broker.disconnect().await;
+            let entry_guard = entry.lock().await;
+            let mut broker_guard = entry_guard.broker.write().await;
+            let _ = broker_guard.disconnect().await;
         }
 
         Ok(())
@@ -84,7 +87,8 @@ impl MqttManager {
 
         if let Some(entry) = brokers.get(broker_id) {
             let entry_guard = entry.lock().await;
-            entry_guard.broker.status().await
+            let broker_guard = entry_guard.broker.read().await;
+            broker_guard.status().await
         } else {
             ConnectionStatus::Disconnected
         }
@@ -118,7 +122,8 @@ impl MqttManager {
 
         for (id, entry) in brokers.iter() {
             let entry_guard = entry.lock().await;
-            let status = entry_guard.broker.status().await;
+            let broker_guard = entry_guard.broker.read().await;
+            let status = broker_guard.status().await;
             statuses.push((id.clone(), status));
         }
 
@@ -139,7 +144,8 @@ impl MqttManager {
             .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
 
         let entry_guard = entry.lock().await;
-        entry_guard.broker.subscribe(topic, callback).await
+        let broker_guard = entry_guard.broker.read().await;
+        broker_guard.subscribe(topic, callback).await
     }
 
     /// Unsubscribe from a topic on a broker
@@ -151,7 +157,8 @@ impl MqttManager {
             .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
 
         let entry_guard = entry.lock().await;
-        entry_guard.broker.unsubscribe(topic).await
+        let broker_guard = entry_guard.broker.read().await;
+        broker_guard.unsubscribe(topic).await
     }
 
     /// Publish a message to a topic on a broker
@@ -169,7 +176,8 @@ impl MqttManager {
             .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
 
         let entry_guard = entry.lock().await;
-        entry_guard.broker.publish(topic, payload, retain).await
+        let broker_guard = entry_guard.broker.read().await;
+        broker_guard.publish(topic, payload, retain).await
     }
 
     /// Check if a broker is connected
@@ -184,7 +192,8 @@ impl MqttManager {
 
         for (id, entry) in brokers.iter() {
             let entry_guard = entry.lock().await;
-            if matches!(entry_guard.broker.status().await, ConnectionStatus::Connected) {
+            let broker_guard = entry_guard.broker.read().await;
+            if matches!(broker_guard.status().await, ConnectionStatus::Connected) {
                 connected.push(id.clone());
             }
         }

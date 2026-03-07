@@ -8,11 +8,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum SensorType { Analog, Digital }
-
-impl Default for SensorType { fn default() -> Self { SensorType::Analog } }
+pub enum SensorType {
+    #[default]
+    Analog,
+    Digital,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SensorConfig {

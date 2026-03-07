@@ -4,6 +4,7 @@ use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
@@ -74,7 +75,7 @@ impl Trigger {
 
         let should_bang = self.check_difference(value_num);
         if should_bang {
-            self.base.emit_with_value("bang", ComponentValue::Number(value_num));
+            self.base.emit_with_value("bang", Cow::Owned(ComponentValue::Number(value_num)));
         }
     }
 
