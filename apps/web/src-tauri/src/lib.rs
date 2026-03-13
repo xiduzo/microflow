@@ -237,9 +237,16 @@ pub fn run() {
                                         runtime.board_handle().start_reader();
                                     }
                                 } else {
-                                    // No pending flow, but still install callback and start reader
-                                    // Use blocking_lock() for async mutex in sync callback context
-                                    let runtime = flow_runtime_board.blocking_lock();
+                                    // No pending flow — board reconnected while a flow is
+                                    // already active.  Reinitialize all hardware components so
+                                    // that pin modes, analog reporting, etc. are reconfigured
+                                    // on the fresh Arduino.  Without this, outputs like LEDs
+                                    // and inputs like buttons silently stop working after
+                                    // unplug/replug.
+                                    let mut runtime = flow_runtime_board.blocking_lock();
+                                    if let Err(e) = runtime.initialize_hardware() {
+                                        log::warn!("Failed to reinitialize hardware on reconnect: {}", e);
+                                    }
                                     let event_tx = runtime.event_sender();
                                     runtime.install_pin_change_callback(event_tx);
                                     // Start the dedicated reader thread

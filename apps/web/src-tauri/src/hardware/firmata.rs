@@ -171,11 +171,20 @@ fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInf
     // Query firmware
     board.query_firmware().ok()?;
 
-    // Read firmware response
+    // Read firmware response — treat timeouts as "no data yet" and keep retrying.
+    // Only abort on real I/O errors (e.g., port disappeared) to avoid false negatives
+    // when the Arduino is still booting after a DTR reset.
     for _ in 0..FIRMWARE_READ_ITERATIONS {
         match board.read_and_decode() {
             Ok(_) if !board.firmware_name.is_empty() => break,
-            Err(_) => return None,
+            Err(e) => {
+                let err_str = format!("{}", e);
+                if err_str.contains("timed out") || err_str.contains("timeout") {
+                    continue; // Normal during boot — try again
+                }
+                log::warn!("Firmata firmware read error: {}", err_str);
+                return None; // Real I/O error — port gone or device error
+            }
             _ => continue,
         }
     }
@@ -196,8 +205,15 @@ fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInf
     let _ = board.query_analog_mapping();
 
     for _ in 0..CAPABILITY_READ_ITERATIONS {
-        if board.read_and_decode().is_err() {
-            break;
+        match board.read_and_decode() {
+            Ok(_) => {}
+            Err(e) => {
+                let err_str = format!("{}", e);
+                if err_str.contains("timed out") || err_str.contains("timeout") {
+                    continue; // Timeout is normal — keep draining
+                }
+                break; // Real I/O error — stop early
+            }
         }
     }
 

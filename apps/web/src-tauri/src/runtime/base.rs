@@ -207,24 +207,24 @@ impl BoardHandle {
     }
 
     pub fn connect(&self, connection: BoardConnection) {
-        *self.inner.lock().unwrap() = Some(connection);
+        *self.inner.lock().unwrap_or_else(|e| e.into_inner()) = Some(connection);
     }
 
     pub fn disconnect(&self) {
         // Stop the reader thread first
         self.stop_reader();
-        *self.inner.lock().unwrap() = None;
+        *self.inner.lock().unwrap_or_else(|e| e.into_inner()) = None;
     }
 
     pub fn is_connected(&self) -> bool {
-        self.inner.lock().unwrap().is_some()
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).is_some()
     }
 
     pub fn with_board<F, R>(&self, f: F) -> Result<R, String>
     where
         F: FnOnce(&mut BoardConnection) -> Result<R, String>,
     {
-        match self.inner.lock().unwrap().as_mut() {
+        match self.inner.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
             Some(conn) => f(conn),
             None => Err("Board not connected".to_string()),
         }
@@ -294,15 +294,15 @@ impl BoardHandle {
             log::info!("Firmata reader thread stopped");
         });
         
-        *self.reader_handle.lock().unwrap() = Some(thread_handle);
+        *self.reader_handle.lock().unwrap_or_else(|e| e.into_inner()) = Some(thread_handle);
     }
-    
+
     /// Stop the reader thread with proper cleanup
     pub fn stop_reader(&self) {
         // Signal thread to stop
         self.reader_running.store(false, std::sync::atomic::Ordering::SeqCst);
-        
-        if let Some(handle) = self.reader_handle.lock().unwrap().take() {
+
+        if let Some(handle) = self.reader_handle.lock().unwrap_or_else(|e| e.into_inner()).take() {
             // Join the thread - wait for clean exit
             match handle.join() {
                 Ok(_) => log::info!("Reader thread stopped cleanly"),

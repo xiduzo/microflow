@@ -133,6 +133,24 @@ export function NewNodeDialog() {
     });
   }, [filter]);
 
+  const nodeFilter = (value: string, search: string) => {
+    const [label, description] = value.split("|");
+
+    // Show all items when no search term
+    if (!search || search.trim() === "") return 1;
+
+    const searchLower = search.toLowerCase().trim();
+
+    // Priority 1: Label match (highest priority)
+    if (label.toLowerCase().includes(searchLower)) return 1;
+
+    // Priority 2: Description match
+    if (description.toLowerCase().includes(searchLower)) return 0.8;
+
+    // No match found
+    return 0;
+  };
+
   return (
     <CommandDialog
       className="min-w-10/12 md:min-w-8/12 lg:min-w-6/12 xl:min-w-4/12"
@@ -141,42 +159,10 @@ export function NewNodeDialog() {
         setOpen(state);
         if (!state) setFilter("");
       }}
-      filter={(value: string, search: string, keywords?: string[]) => {
-        const [label, description, groups, tags] = value.split("|");
-
-        // If no search term, return 0 (not relevant)
-        if (!search || search.trim() === "") return 0;
-
-        const searchLower = search.toLowerCase().trim();
-
-        // Priority 1: Label match (highest priority)
-        if (label.toLowerCase().includes(searchLower)) return 1;
-
-        // // Priority 2: Group match
-        // if (groups.toLowerCase().includes(searchLower)) return 0.9;
-
-        // // Priority 3: Tags match
-        // const allTags = tags.split(",");
-        // if (allTags.some((tag: string) => tag.toLowerCase().includes(searchLower))) return 0.8;
-
-        // Priority 4: Description match
-        if (description.toLowerCase().includes(searchLower)) return 0.8;
-
-        // // Priority 5: Keywords match
-        // if (
-        //   keywords?.some((keyword: string) =>
-        //     keyword.toLowerCase().includes(searchLower)
-        //   )
-        // ) {
-        //   return 0.6;
-        // }
-
-        // No match found
-        return 0;
-      }}
     >
       <Command
         className="[&_[data-slot=command-input-wrapper]>*]:h-12 **:data-[slot=command-input]:text-base **:data-[slot=command-input]:py-2.5 [&_[data-slot=command-input-wrapper]_svg]:size-5"
+        filter={nodeFilter}
       >
         <CommandInput placeholder={searchTerm} onValueChange={setFilter} />
         <CommandList ref={commandListRef} className="mb-2 min-h-[400px]">
@@ -219,10 +205,10 @@ export function NewNodeDialog() {
                         </ItemMedia>
                         <ItemContent>
                           <ItemTitle>
-                            {node.data.label}
+                            <HighlightedText text={node.data.label} query={filter} />
                           </ItemTitle>
                           <ItemDescription>
-                            {node.data.description ?? ""}
+                            <HighlightedText text={node.data.description ?? ""} query={filter} />
                           </ItemDescription>
                         </ItemContent>
                       </Item>
@@ -318,14 +304,23 @@ function useDraggableNewNode() {
       });
     }
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mousedown", addNode);
-    document.addEventListener("click", addNode);
+    // Defer registration so the click that triggered node selection doesn't
+    // immediately fire addNode and place the node without allowing dragging.
+    let registered = false;
+    const timeoutId = setTimeout(() => {
+      registered = true;
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mousedown", addNode);
+      document.addEventListener("click", addNode);
+    }, 0);
 
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mousedown", addNode);
-      document.removeEventListener("click", addNode);
+      clearTimeout(timeoutId);
+      if (registered) {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mousedown", addNode);
+        document.removeEventListener("click", addNode);
+      }
     };
   }, [
     nodeToAdd,
@@ -337,6 +332,16 @@ function useDraggableNewNode() {
   ]);
 
   return null;
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  if (!query || !query.trim()) return <span>{text}</span>;
+
+  const queryLower = query.toLowerCase().trim();
+  const idx = text.toLowerCase().indexOf(queryLower);
+  if (idx === -1) return <span>{text}</span>;
+
+  return <span>{text.slice(0, idx)}<mark className="bg-transparent text-foreground font-semibold underline underline-offset-2 decoration-primary/60">{text.slice(idx, idx + queryLower.length)}</mark>{text.slice(idx + queryLower.length)}</span>;
 }
 
 const groupIndicator = cva("rounded-md border-none ring-0", {

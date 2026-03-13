@@ -175,8 +175,13 @@ impl FlowExecutor {
     pub fn process_event(&mut self, event: ComponentEvent) -> bool {
         log::info!(">>> process_event called: {} ({}) seq={}", event.source, event.source_handle, event.sequence);
         
-        // Check for stale events - discard events from previous flow versions
-        if event.sequence < self.current_sequence {
+        // Check for stale events - discard events from previous flow versions.
+        // sequence == 0 means "unsequenced" (emitted by component logic, not the board
+        // reader callback). These are never stale — they are produced in direct response
+        // to an already-validated event and must always be processed.
+        // Only filter events that carry an explicit, non-zero sequence that predates the
+        // current flow version (i.e. leftover board-reader events from the old flow).
+        if event.sequence > 0 && event.sequence < self.current_sequence {
             log::debug!(
                 "Discarding stale event from {} (seq={}, current={})",
                 event.source,

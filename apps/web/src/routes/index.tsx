@@ -43,6 +43,7 @@ function HomeComponent() {
     <div className="h-full overflow-auto gap-8 flex flex-col pb-12">
       <header className="flex items-center justify-between sticky top-0 z-10 backdrop-blur-sm bg-background/50 p-8 rounded-t-xl">
         <section>
+          <h1 className="text-xl font-semibold">My Flows</h1>
         </section>
         <section>
           <CreateFlowDialog />
@@ -71,12 +72,18 @@ function HomeComponent() {
 function CloudFlows() {
   const { data, isLoading, error } = useQuery(trpc.flow.list.queryOptions());
 
-  if (isLoading) return null
-  if (error) return null
+  if (isLoading) return (
+    <>
+      <FlowCardSkeleton />
+      <FlowCardSkeleton />
+      <FlowCardSkeleton />
+    </>
+  );
+  if (error) return null;
 
   const flows = [...(data?.owned ?? []), ...(data?.collaborated ?? [])].sort((a,b) => compareDesc(a.updatedAt, b.updatedAt));
 
-  if (flows.length === 0) return null
+  if (flows.length === 0) return null;
 
   return (
     <>
