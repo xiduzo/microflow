@@ -10,6 +10,7 @@ import type { trpc } from "@/lib/trpc";
 
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { SetNameDialog } from "@/components/set-name-dialog";
 
 import "../index.css";
 import { HotkeysProvider } from "react-hotkeys-hook";
@@ -72,6 +73,7 @@ function RootComponent() {
           </SidebarInset>
         </SidebarProvider>
         <Toaster richColors position="top-right" />
+        <SetNameDialog />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-right" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />

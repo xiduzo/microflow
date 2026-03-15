@@ -3,10 +3,11 @@ import { sensorData, compareNumberData, ledData } from "../data-factories";
 
 export const clapSwitch: Template = {
   id: "clap-switch",
-  name: "Sound-Activated Light",
-  description: "Use a sound sensor to toggle a light. Clap on, clap off!",
+  name: "Knock",
+  description:
+    "Detect loud sounds or knocks using an analog sensor and toggle an LED when a threshold is exceeded.",
   difficulty: "beginner",
-  categories: ["Sensors", "LEDs", "Fun"],
+  categories: ["Sensors", "LEDs"],
   nodes: [
     {
       id: "sensor-1",

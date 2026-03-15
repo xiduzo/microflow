@@ -3,11 +3,11 @@ import { potentiometerData, rangeMapData, ledData, monitorData } from "../data-f
 
 export const dimmerSwitch: Template = {
   id: "dimmer-switch",
-  name: "Smooth Dimmer",
+  name: "Analog In, Out Serial",
   description:
-    "Use a potentiometer to smoothly control LED brightness with value smoothing.",
+    "Read a potentiometer, map the value to a PWM range, and use it to control LED brightness. The graph monitor shows the mapped output, equivalent to Serial Monitor output.",
   difficulty: "intermediate",
-  categories: ["LEDs", "Control", "Hardware"],
+  categories: ["Analog", "Hardware"],
   nodes: [
     {
       id: "pot-1",

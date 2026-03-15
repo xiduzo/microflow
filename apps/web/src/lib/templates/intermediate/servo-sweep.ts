@@ -3,11 +3,11 @@ import { oscillatorData, servoData, monitorData } from "../data-factories";
 
 export const servoSweep: Template = {
   id: "servo-sweep",
-  name: "Radar Sweep",
+  name: "Sweep",
   description:
-    "A servo sweeps back and forth like a radar scanner. Hypnotic to watch!",
+    "Move a servo motor back and forth in a smooth sweeping arc from 0 to 180 degrees. The classic Arduino servo example.",
   difficulty: "intermediate",
-  categories: ["Motors", "Animation"],
+  categories: ["Motors", "Servo"],
   nodes: [
     {
       id: "osc-1",

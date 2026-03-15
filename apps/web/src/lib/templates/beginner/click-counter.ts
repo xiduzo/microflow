@@ -3,11 +3,11 @@ import { buttonData, counterData, monitorData } from "../data-factories";
 
 export const clickCounter: Template = {
   id: "click-counter",
-  name: "Click Counter",
+  name: "State Change Detection",
   description:
-    "Count button presses and display the total. Great for keeping score!",
+    "Count the number of times a button transitions from off to on. Detects rising-edge state changes rather than holding the button down.",
   difficulty: "beginner",
-  categories: ["Hardware", "Games", "Fun"],
+  categories: ["Digital", "Hardware"],
   nodes: [
     {
       id: "button-1",

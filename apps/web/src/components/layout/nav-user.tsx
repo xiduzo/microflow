@@ -12,11 +12,12 @@ import {
   User2Icon,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
+import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -49,6 +50,8 @@ type Props = {
 export function NavUser({ user }: Props) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
 
   // Fetch user profile settings if signed in
   const { data: profile } = useQuery({
@@ -155,6 +158,8 @@ export function NavUser({ user }: Props) {
                 await authClient.signOut({
                   fetchOptions: {
                     onSuccess: () => {
+                      queryClient.removeQueries({ queryKey: trpc.flow.list.queryOptions().queryKey });
+                      setActiveFlowId("local");
                       navigate({ to: "/" });
                     },
                     onError: (error) => {

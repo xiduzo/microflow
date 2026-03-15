@@ -3,11 +3,11 @@ import { ldrData, compareNumberData, ledData } from "../data-factories";
 
 export const nightLight: Template = {
   id: "night-light",
-  name: "Auto Night Light",
+  name: "Calibration",
   description:
-    "An LED that automatically turns on when it gets dark. Perfect for hallways!",
+    "Set a threshold for a light sensor and automatically turn on an LED when readings fall below it. Demonstrates sensor calibration and conditional output.",
   difficulty: "beginner",
-  categories: ["Sensors", "LEDs", "Home"],
+  categories: ["Analog", "Sensors"],
   nodes: [
     {
       id: "ldr-1",

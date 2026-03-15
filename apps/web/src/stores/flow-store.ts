@@ -198,6 +198,10 @@ export const useFlowStore = create<FlowState>()((set, get) => {
 
       set({ flowDoc, mode: "local", flowId: "local" });
       console.log("[FLOW-STORE] Initialized local flow");
+
+      // Trigger initial sync so the backend gets the flow on startup
+      // (needed to set up MQTT subscriptions for nodes already in the flow)
+      debouncedSync.maybeExecute();
     },
 
     initCloudFlow: (flowId, initialData, meta) => {
@@ -223,6 +227,9 @@ export const useFlowStore = create<FlowState>()((set, get) => {
 
       set({ flowDoc, mode: "cloud", flowId });
       console.log(`[FLOW-STORE] Initialized cloud flow: ${flowId}`);
+
+      // Trigger initial sync so the backend gets the flow on startup
+      debouncedSync.maybeExecute();
     },
 
     // --------------------------------------------------------------------------

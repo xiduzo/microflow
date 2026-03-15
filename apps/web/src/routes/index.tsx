@@ -1,7 +1,8 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { CloudIcon, LayoutTemplateIcon, User2Icon } from "lucide-react";
+import { useMemo, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { User2Icon, HardDriveDownloadIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
@@ -9,13 +10,16 @@ import { FlowCard, FlowCardSkeleton } from "@/components/home/flow-card";
 import { Button } from "@/components/ui/button";
 
 import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
-import { ErrorState } from "@/components/states/error-state";
-import { LoadingStateSkeleton } from "@/components/states/loading-state";
 import { EmptyState } from "@/components/states/empty-state";
-import { ButtonGroup } from "@/components/ui/button-group";
-import { compareDesc } from 'date-fns'
-
-const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
+import { compareDesc } from "date-fns";
+import {
+  exportFlowData,
+  useOverviewImport,
+  LOCAL_FLOW_STORAGE_KEY,
+  type FlowExportData,
+} from "@/hooks/use-flow-import-export";
+import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { FLOW_COLORS } from "@/lib/flow-colors";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -24,6 +28,53 @@ export const Route = createFileRoute("/")({
 function HomeComponent() {
   const { data: session } = authClient.useSession();
   const isSignedIn = !!session?.user;
+  const triggerImport = useOverviewImport();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+
+  const createFromImportMutation = useMutation(
+    trpc.flow.createFromImport.mutationOptions({
+      onSuccess: (result) => {
+        toast.success("Flow imported", {
+          description: `${result.name} has been created`,
+        });
+        queryClient.invalidateQueries({ queryKey: trpc.flow.list.queryKey() });
+        setActiveFlowId(result.id);
+        navigate({ to: "/flow/$flowId/graph", params: { flowId: result.id } });
+      },
+      onError: (error) => {
+        toast.error("Failed to import flow", {
+          description: error.message,
+        });
+      },
+    })
+  );
+
+  const handleImport = useCallback(
+    async (data: FlowExportData) => {
+      const name = data.meta?.name ?? "Imported flow";
+      const color = FLOW_COLORS[Math.floor(Math.random() * FLOW_COLORS.length)];
+
+      if (isSignedIn) {
+        createFromImportMutation.mutate({
+          name,
+          color,
+          nodes: data.data.nodes,
+          edges: data.data.edges,
+        });
+      } else {
+        const payload = { nodes: data.data.nodes, edges: data.data.edges };
+        localStorage.setItem(LOCAL_FLOW_STORAGE_KEY, JSON.stringify(payload));
+        setActiveFlowId("local");
+        toast.success("Flow imported", {
+          description: `${data.data.nodes.length} nodes, ${data.data.edges.length} edges`,
+        });
+        navigate({ to: "/flow/local/graph" });
+      }
+    },
+    [isSignedIn, createFromImportMutation, setActiveFlowId, navigate]
+  );
 
   // Read local flow directly from localStorage to avoid showing the last visited flow
   const localFlowData = useMemo(() => {
@@ -45,7 +96,15 @@ function HomeComponent() {
         <section>
           <h1 className="text-xl font-semibold">My Flows</h1>
         </section>
-        <section>
+        <section className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => triggerImport(handleImport)}
+          >
+            <HardDriveDownloadIcon className="size-4 mr-2" />
+            Import
+          </Button>
           <CreateFlowDialog />
         </section>
       </header>
@@ -57,10 +116,14 @@ function HomeComponent() {
           updatedAt={new Date().toISOString()}
           nodes={localFlowData.nodes}
           edges={localFlowData.edges}
-          badges={[{
-            label: "LOCAL",
-            variant: "default"
-          }]}
+          badges={[{ label: "LOCAL", variant: "default" }]}
+          onExport={() => {
+            exportFlowData(
+              { name: "Local Flow", updatedAt: Date.now() },
+              { nodes: localFlowData.nodes, edges: localFlowData.edges }
+            );
+            toast.success("Flow exported");
+          }}
         />
         {isSignedIn && <CloudFlows />}
       </section>
@@ -99,8 +162,19 @@ function CloudFlows() {
             {
               label: "role" in flow ? String(flow.role) : "owner",
               variant: "secondary",
-            }
+            },
           ]}
+          onExport={() => {
+            exportFlowData(
+              {
+                name: flow.name,
+                updatedAt: new Date(flow.updatedAt).getTime(),
+              },
+              { nodes: flow.nodes, edges: flow.edges }
+            );
+            toast.success("Flow exported");
+          }}
+          settingsFlowId={flow.id}
         />
       ))}
     </>

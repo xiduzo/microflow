@@ -238,6 +238,45 @@ export const flowRouter = router({
     }),
 
   /**
+   * Create a new flow from imported data (nodes + edges)
+   */
+  createFromImport: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(100),
+        color: z
+          .string()
+          .regex(/^#[0-9A-Fa-f]{6}$/)
+          .optional(),
+        nodes: z.array(z.any()),
+        edges: z.array(z.any()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const id = uid();
+
+      const flowDoc = FlowDocument.createEmpty();
+      flowDoc.setMeta({ name: input.name });
+      flowDoc.setFlowData(input.nodes, input.edges);
+      const ydocData = flowDoc.encode();
+
+      const [createdFlow] = await db.insert(flow).values({
+        id,
+        name: input.name,
+        color: input.color,
+        ownerId: ctx.session.user.id,
+        ydoc: Buffer.from(ydocData),
+      }).returning({
+        id: flow.id,
+        name: flow.name,
+      });
+
+      flowDoc.destroy();
+
+      return createdFlow;
+    }),
+
+  /**
    * Update flow metadata
    */
   update: protectedProcedure

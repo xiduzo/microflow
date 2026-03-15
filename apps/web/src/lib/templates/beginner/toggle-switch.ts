@@ -3,11 +3,11 @@ import { switchData, ledData, relayData } from "../data-factories";
 
 export const toggleSwitch: Template = {
   id: "toggle-switch",
-  name: "Toggle Switch Light",
+  name: "Digital Read Serial",
   description:
-    "Control an LED and relay with a physical toggle switch. Simple on/off control!",
+    "Read the state of a digital switch and use it to control an LED and relay output. The equivalent of printing digitalRead() values to the Serial Monitor.",
   difficulty: "beginner",
-  categories: ["Hardware", "Control", "Home"],
+  categories: ["Digital", "Hardware"],
   nodes: [
     {
       id: "switch-1",

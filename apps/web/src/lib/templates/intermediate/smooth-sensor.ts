@@ -3,11 +3,11 @@ import { sensorData, smoothData, rangeMapData, ledData, monitorData } from "../d
 
 export const smoothSensor: Template = {
   id: "smooth-sensor",
-  name: "Noise-Free Sensor",
+  name: "Smoothing",
   description:
-    "Use smoothing to eliminate jitter from noisy sensor readings. Perfect for stable control!",
+    "Smooth multiple readings from an analog input to reduce noise. Compare the raw noisy signal against the smoothed output side by side.",
   difficulty: "intermediate",
-  categories: ["Sensors", "Control", "Transformation"],
+  categories: ["Analog", "Sensors"],
   nodes: [
     {
       id: "sensor-1",

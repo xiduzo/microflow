@@ -3,11 +3,11 @@ import { buttonData, ledData, piezoData } from "../data-factories";
 
 export const doorbell: Template = {
   id: "doorbell",
-  name: "Digital Doorbell",
+  name: "Tone Melody",
   description:
-    "Press a button to ring a buzzer and flash an LED. Your first interactive project!",
+    "Play a tone on a piezo buzzer when a button is pressed. Demonstrates how to use a piezo speaker to produce sound.",
   difficulty: "beginner",
-  categories: ["Hardware", "Audio", "Fun"],
+  categories: ["Digital", "Audio"],
   nodes: [
     {
       id: "button-1",

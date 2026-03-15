@@ -3,11 +3,11 @@ import { ledData, oscillatorData } from "../data-factories";
 
 export const heartbeat: Template = {
   id: "heartbeat",
-  name: "Heartbeat LED",
+  name: "Fade",
   description:
-    "A gentle pulsing LED that mimics a heartbeat rhythm. Calming and mesmerizing.",
+    "Fade an LED in and out using analog output (PWM). Demonstrates how to use analogWrite to smoothly control LED brightness.",
   difficulty: "beginner",
-  categories: ["LEDs", "Animation"],
+  categories: ["Basics", "LEDs"],
   nodes: [
     {
       id: "osc-1",

@@ -3,11 +3,11 @@ import { ledData, intervalData } from "../data-factories";
 
 export const blink: Template = {
   id: "blink",
-  name: "Blinking LED",
+  name: "Blink",
   description:
-    "The classic first project! Make an LED blink on and off automatically.",
+    "Turn an LED on and off at a regular interval. The classic first Arduino project from the Getting Started guide.",
   difficulty: "beginner",
-  categories: ["LEDs", "Getting Started"],
+  categories: ["Basics", "LEDs"],
   nodes: [
     {
       id: "interval-1",

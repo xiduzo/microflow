@@ -3,11 +3,11 @@ import { sensorData, triggerData, counterData, ledData, piezoData, delayData } f
 
 export const knockDetector: Template = {
   id: "knock-detector",
-  name: "Secret Knock Detector",
+  name: "Knock Sensor",
   description:
-    "Detect sudden vibrations using a trigger node. Count knocks to unlock a secret!",
+    "Detect knocks with a piezo element connected to an analog pin. Triggers a visual and audio response when a knock is detected above the threshold.",
   difficulty: "advanced",
-  categories: ["Sensors", "Security", "Fun"],
+  categories: ["Sensors", "Audio"],
   nodes: [
     {
       id: "sensor-1",

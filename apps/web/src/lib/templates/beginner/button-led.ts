@@ -3,11 +3,11 @@ import { buttonData, ledData } from "../data-factories";
 
 export const buttonLed: Template = {
   id: "button-led",
-  name: "Button & LED",
+  name: "Button",
   description:
-    "Press a button to turn on an LED. The simplest input-output project!",
+    "Use a pushbutton to control an LED. Press to turn on, release to turn off.",
   difficulty: "beginner",
-  categories: ["Hardware", "Getting Started"],
+  categories: ["Digital", "Hardware"],
   nodes: [
     {
       id: "button-1",

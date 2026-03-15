@@ -3,11 +3,11 @@ import { potentiometerData, ledData, rangeMapData } from "../data-factories";
 
 export const knobLed: Template = {
   id: "knob-led",
-  name: "Dimmer Knob",
+  name: "Analog Input",
   description:
-    "Turn a potentiometer to control LED brightness. Learn analog input and output!",
+    "Use a potentiometer to control LED brightness by reading an analog input and mapping it to a PWM output value.",
   difficulty: "beginner",
-  categories: ["Hardware", "LEDs", "Control"],
+  categories: ["Analog", "Hardware"],
   nodes: [
     {
       id: "pot-1",

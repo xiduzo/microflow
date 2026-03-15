@@ -3,11 +3,11 @@ import { ldrData, monitorData } from "../data-factories";
 
 export const lightMeter: Template = {
   id: "light-meter",
-  name: "Light Meter",
+  name: "Analog Read Serial",
   description:
-    "Measure ambient light levels with a photoresistor and see the values on a graph.",
+    "Read an analog input pin and display the values in real-time. The Arduino equivalent of printing sensor data to the Serial Monitor.",
   difficulty: "beginner",
-  categories: ["Sensors", "Monitoring"],
+  categories: ["Basics", "Sensors"],
   nodes: [
     {
       id: "ldr-1",

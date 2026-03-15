@@ -3,11 +3,11 @@ import { oscillatorData, ledData, monitorData } from "../data-factories";
 
 export const breathingLed: Template = {
   id: "breathing-led",
-  name: "Breathing LED",
+  name: "Fading",
   description:
-    "Create a smooth breathing effect on an LED using a sine wave oscillator.",
+    "Use analog output (PWM) to smoothly fade an LED in and out. A sine wave oscillator drives the brightness, with a graph monitor to visualize the waveform.",
   difficulty: "intermediate",
-  categories: ["LEDs", "Animation"],
+  categories: ["Analog", "LEDs"],
   nodes: [
     {
       id: "osc-1",

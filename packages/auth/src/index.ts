@@ -4,6 +4,7 @@ import { env } from "@microflow/env/server";
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { emailOTP } from "better-auth/plugins";
 
 import { polarClient } from "./lib/payments";
 
@@ -22,9 +23,6 @@ export const auth = betterAuth({
     "https://tauri.localhost",
     ...(isDev ? ["http://localhost:3001"] : []),
   ],
-  emailAndPassword: {
-    enabled: true,
-  },
   advanced: {
     defaultCookieAttributes: {
       // Use 'lax' in dev for Tauri compatibility, 'none' in production
@@ -34,6 +32,12 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    emailOTP({
+      async sendVerificationOTP({ email, otp }) {
+        // TODO: replace with your email provider (e.g. Resend, Nodemailer)
+        console.log(`[OTP] ${email} → ${otp}`);
+      },
+    }),
     polar({
       client: polarClient,
       createCustomerOnSignUp: true,

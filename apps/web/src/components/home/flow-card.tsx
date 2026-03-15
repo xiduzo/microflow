@@ -13,11 +13,13 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
+import { HardDriveUploadIcon, SettingsIcon } from "lucide-react";
 import { NODE_TYPES } from "../flow/nodes/_TYPES";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
+import { Button } from "../ui/button";
 
 type FlowCardProps = {
   id: string;
@@ -30,15 +32,19 @@ type FlowCardProps = {
     label: string;
     variant: "secondary" | "destructive" | "outline" | "default";
   }[];
-  beforeNavigate?: () => Promise<void>
+  beforeNavigate?: () => Promise<void>;
+  onExport?: () => void;
+  /** When set, show a Settings action that navigates to this flow's settings (e.g. for non-local flows) */
+  settingsFlowId?: string;
 };
 
 export function FlowCard(props: FlowCardProps) {
   const navigate = useNavigate();
 
-  async function handleClick() {
-    await props.beforeNavigate?.()
-    navigate({ to: "/flow/$flowId/graph", params: { flowId: props.id } })
+  async function handleClick(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest("[data-card-action]")) return;
+    await props.beforeNavigate?.();
+    navigate({ to: "/flow/$flowId/graph", params: { flowId: props.id } });
   }
 
   return (
@@ -48,6 +54,41 @@ export function FlowCard(props: FlowCardProps) {
           <ReactFlowProvider>
             <FlowThumbnail nodes={props.nodes} edges={props.edges} />
           </ReactFlowProvider>
+          {(props.onExport || props.settingsFlowId) && (
+            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" data-card-action>
+              {props.settingsFlowId && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="size-8 shadow-md"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate({
+                      to: "/flow/$flowId/settings",
+                      params: { flowId: props.settingsFlowId! },
+                    });
+                  }}
+                  title="Flow settings"
+                >
+                  <SettingsIcon className="size-4" />
+                </Button>
+              )}
+              {props.onExport && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="size-8 shadow-md"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.onExport?.();
+                  }}
+                  title="Export flow"
+                >
+                  <HardDriveUploadIcon className="size-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
       <CardHeader>

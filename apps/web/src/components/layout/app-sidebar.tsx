@@ -1,18 +1,9 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  BookCheckIcon,
   BookIcon,
-  BookSearchIcon,
   CircuitBoardIcon,
-  CuboidIcon,
-  GraduationCapIcon,
-  HandshakeIcon,
-  HardDriveDownloadIcon,
-  HardDriveUploadIcon,
-  HomeIcon,
   LibraryBigIcon,
-  NotebookTabsIcon,
   RadioTowerIcon,
   SettingsIcon,
   WaypointsIcon,
@@ -33,7 +24,6 @@ import { NavMicrocontroller } from "./nav-microcontroller";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
-import { useFlowImportExport } from "@/hooks/use-flow-import-export";
 import { useMemo } from "react";
 import { isDesktop } from "@/lib/platform";
 
@@ -41,7 +31,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = authClient.useSession();
   const user = session?.user ?? null;
   const activeFlowId = useActiveFlowStore((s) => s.activeFlowId);
-  const { exportFlow, importFlow } = useFlowImportExport();
 
   const { data: cloudFlows } = useQuery({
     ...trpc.flow.list.queryOptions(),
@@ -90,31 +79,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     icon: CircuitBoardIcon,
                     url: `/flow/${activeFlow.id}/circuit`,
                     badge: "beta",
-                  },
-                  ...(activeFlow.id !== "local"
-                    ? [
-                      {
-                        title: "Settings",
-                        icon: SettingsIcon,
-                        url: `/flow/${activeFlow.id}/settings`,
-                      },
-                    ]
-                    : []),
-                  {
-                    title: "Actions",
-                    url: "/actions",
-                    items: [
-                      {
-                        title: "Export",
-                        icon: HardDriveUploadIcon,
-                        onClick: exportFlow,
-                      },
-                      {
-                        title: "Import",
-                        icon: HardDriveDownloadIcon,
-                        onClick: importFlow,
-                      },
-                    ],
                   },
                 ],
               },
