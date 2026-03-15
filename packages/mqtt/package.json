@@ -13,7 +13,7 @@
     "build": "echo 'build'"
   },
   "dependencies": {
-    "mqtt": "^5.14.1",
+    "mqtt": "^5.15.0",
     "zod": "catalog:",
     "zustand": "^5.0.9"
   },

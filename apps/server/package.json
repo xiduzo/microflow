@@ -19,13 +19,13 @@
     "@trpc/server": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
-    "hono": "^4.11.7",
+    "hono": "^4.12.8",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@microflow/config": "workspace:*",
     "@types/bun": "catalog:",
-    "tsdown": "^0.20.1",
+    "tsdown": "^0.20.3",
     "typescript": "catalog:"
   }
 }
