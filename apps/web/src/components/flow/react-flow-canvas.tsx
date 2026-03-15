@@ -130,12 +130,12 @@ export function ReactFlowCanvas({
 function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
   const cursorPositionRef = useRef<XYPosition>({ x: 0, y: 0 });
 
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition, getNodes, getEdges, setNodes, setEdges } = useReactFlow();
 
   const clipboard = useFlowClipboard();
   const history = useFlowHistoryActions();
 
-  useHotkeys("meta+c", clipboard.copy, {
+  useHotkeys("mod+c", clipboard.copy, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -143,7 +143,7 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
   });
 
   useHotkeys(
-    "meta+v",
+    "mod+v",
     () => {
       clipboard.paste(screenToFlowPosition(cursorPositionRef.current));
     },
@@ -155,21 +155,28 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
     }
   );
 
-  useHotkeys("meta+a", clipboard.selectAll, {
+  useHotkeys(
+    "mod+a",
+    () => {
+      setNodes(getNodes().map((node) => ({ ...node, selected: true })));
+      setEdges(getEdges().map((edge) => ({ ...edge, selected: true })));
+    },
+    {
+      enabled: true,
+      enableOnFormTags: false,
+      preventDefault: true,
+      scopes: ["flow"],
+    },
+  );
+
+  useHotkeys("mod+z", history.undo, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
     scopes: ["flow"],
   });
 
-  useHotkeys("meta+z", history.undo, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-  });
-
-  useHotkeys("meta+shift+z", history.redo, {
+  useHotkeys("mod+shift+z", history.redo, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,

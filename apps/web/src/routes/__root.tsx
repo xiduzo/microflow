@@ -61,16 +61,16 @@ function RootComponent() {
         storageKey="microflow-ui-theme"
       >
         <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset>
-            <HotkeysProvider initiallyActiveScopes={["flow"]}>
+          <HotkeysProvider initiallyActiveScopes={["flow", "navigation"]}>
+            <AppSidebar />
+            <SidebarInset>
               <TooltipProvider>
                 <div className="h-full w-full absolute inset-0">
                   <Outlet />
                 </div>
               </TooltipProvider>
-            </HotkeysProvider>
-          </SidebarInset>
+            </SidebarInset>
+          </HotkeysProvider>
         </SidebarProvider>
         <Toaster richColors position="top-right" />
         <SetNameDialog />

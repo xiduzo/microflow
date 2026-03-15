@@ -20,6 +20,8 @@ import {
 import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useIsMac } from "@/hooks/is-mac";
+import { useState } from "react";
 
 export type Flow = {
   id: string;
@@ -50,9 +52,11 @@ export const LOCAL_FLOW: Flow = {
 export function FlowSwitcher(props: FlowSwitcherProps) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
+  const isMac = useIsMac();
   const isSignedIn = !!props.user;
   const { activeFlowId, setActiveFlowId } = useActiveFlowStore();
   const matches = useMatches()
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const activeFlow =
     props.flows.find(({ id }) => id === activeFlowId) ?? LOCAL_FLOW;
@@ -65,7 +69,6 @@ export function FlowSwitcher(props: FlowSwitcherProps) {
     setActiveFlowId(flow.id);
 
     const route = matches[matches.length - 1].routeId;
-    console.log(route);
 
     if (route === "/flow/$flowId/graph" || route === "/flow/$flowId/circuit" || route === "/flow/$flowId/settings") {
       navigate({
@@ -75,6 +78,12 @@ export function FlowSwitcher(props: FlowSwitcherProps) {
       });
       return
     }
+
+    // Navigate to the flow graph when not already on a flow route
+    navigate({
+      to: "/flow/$flowId/graph",
+      params: { flowId: flow.id },
+    });
   };
 
   const handleHotkeyShortcut = (index: number) => {
@@ -144,28 +153,27 @@ export function FlowSwitcher(props: FlowSwitcherProps) {
                     <Check className="size-4 text-primary" />
                   )}
                   {index < 9 && (
-                    <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                    <DropdownMenuShortcut>{isMac ? "⌘" : "ctrl+"}{index + 1}</DropdownMenuShortcut>
                   )}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             {isSignedIn ? (
-              <CreateFlowDialog
-                trigger={
-                  <DropdownMenuItem
-                    className="gap-2 p-2"
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                      <Plus className="size-4" />
-                    </div>
-                    <div className="text-muted-foreground font-medium">
-                      Add flow
-                    </div>
-                  </DropdownMenuItem>
-                }
-              />
+              <DropdownMenuItem
+                className="gap-2 p-2"
+                onClick={() => {
+                  // Delay to let the dropdown finish closing before opening the dialog
+                  requestAnimationFrame(() => setCreateDialogOpen(true));
+                }}
+              >
+                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                  <Plus className="size-4" />
+                </div>
+                <div className="text-muted-foreground font-medium">
+                  Add flow
+                </div>
+              </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
                 className="gap-2 p-2"
@@ -182,12 +190,15 @@ export function FlowSwitcher(props: FlowSwitcherProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+      {isSignedIn && (
+        <CreateFlowDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+      )}
     </SidebarMenu>
   );
 }
 
 function HotkeyShortcut(props: { index: number, callback: (index: number) => void }) {
-  useHotkeys(`meta+${props.index + 1}`, () => {
+  useHotkeys(`mod+${props.index + 1}`, () => {
     props.callback(props.index);
   }, {
     enabled: true,

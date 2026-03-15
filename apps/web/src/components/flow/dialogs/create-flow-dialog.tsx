@@ -25,9 +25,11 @@ import { toast } from "sonner";
 type Props = {
   trigger?: React.ReactElement;
   onSuccess?: (flowId: string) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function CreateFlowDialog({ trigger, onSuccess }: Props) {
+export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onOpenChange: controlledOnOpenChange }: Props) {
   const form = useForm({
     defaultValues: {
       name: "",
@@ -36,7 +38,9 @@ export function CreateFlowDialog({ trigger, onSuccess }: Props) {
     onSubmit: ({ value }) => createMutation.mutate(value),
   });
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
@@ -60,14 +64,9 @@ export function CreateFlowDialog({ trigger, onSuccess }: Props) {
       if (open) return
       form.reset();
     }}>
-      <DialogTrigger render={trigger ?? <Button size="sm" />}>
-        {!trigger && (
-          <>
-            <Plus className="size-4 mr-2" />
-            New Flow
-          </>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger render={trigger} />
+      )}
       <DialogContent>
         <form onSubmit={e => {
           e.preventDefault();

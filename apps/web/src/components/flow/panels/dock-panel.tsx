@@ -14,13 +14,11 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
-import { useIsMac } from "@/hooks/is-mac";
 import { Button } from "@/components/ui/button";
 
 export function DockPanel() {
   const { fitView, zoomIn, zoomOut, zoomTo } = useReactFlow();
   const { setOpen } = useNewNodeStore();
-  const isMac = useIsMac();
 
   const handleZoomIn = (event?: KeyboardEvent | MouseEvent) => {
     event?.stopPropagation();
@@ -54,7 +52,7 @@ export function DockPanel() {
     setOpen(true);
   };
 
-  useHotkeys(isMac ? "meta+equal" : "ctrl+equal", handleZoomIn, {
+  useHotkeys("mod+equal", handleZoomIn, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -62,7 +60,7 @@ export function DockPanel() {
     description: "Zoom in",
   });
 
-  useHotkeys(isMac ? "meta+minus" : "ctrl+minus", handleZoomOut, {
+  useHotkeys("mod+minus", handleZoomOut, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -70,7 +68,7 @@ export function DockPanel() {
     description: "Zoom out",
   });
 
-  useHotkeys("shit+1", handleZoomToFit, {
+  useHotkeys("shift+1", handleZoomToFit, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -78,7 +76,7 @@ export function DockPanel() {
     description: "Zoom to fit",
   });
 
-  useHotkeys(isMac ? "meta+0" : "ctrl+0", handleZoomTo100, {
+  useHotkeys("mod+0", handleZoomTo100, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -86,7 +84,7 @@ export function DockPanel() {
     description: "Zoom to 100%",
   });
 
-  useHotkeys(isMac ? "meta+z" : "ctrl+z", handleUndo, {
+  useHotkeys("mod+z", handleUndo, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -94,7 +92,7 @@ export function DockPanel() {
     description: "Undo",
   });
 
-  useHotkeys(isMac ? "meta+shift+z" : "ctrl+shift+z", handleRedo, {
+  useHotkeys("mod+shift+z", handleRedo, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
@@ -102,7 +100,7 @@ export function DockPanel() {
     description: "Redo",
   });
 
-  useHotkeys(isMac ? "meta+k" : "ctrl+k", handleAddNode, {
+  useHotkeys("mod+k", handleAddNode, {
     scopes: ["flow"],
     description: "Add node",
   });

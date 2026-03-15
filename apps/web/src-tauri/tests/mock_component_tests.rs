@@ -110,11 +110,11 @@ fn test_received_events_returns_all_events() {
     component.receive_event(event1);
     component.receive_event(event2);
 
-    let events = component.received_events();
-    assert_eq!(events.len(), 2);
-    assert_eq!(events[0].source, "source1");
-    assert_eq!(events[1].source, "source2");
-    assert_eq!(events[1].edge_id, Some("edge1".to_string()));
+    let received = component.received_events();
+    assert_eq!(received.len(), 2);
+    assert_eq!(received[0].source, "source1");
+    assert_eq!(received[1].source, "source2");
+    assert_eq!(received[1].edge_id, Some("edge1".to_string()));
 }
 
 #[test]

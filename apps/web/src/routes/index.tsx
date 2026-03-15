@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { User2Icon, HardDriveDownloadIcon } from "lucide-react";
+import { User2Icon, HardDriveDownloadIcon, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
@@ -105,7 +105,7 @@ function HomeComponent() {
             <HardDriveDownloadIcon className="size-4 mr-2" />
             Import
           </Button>
-          <CreateFlowDialog />
+          <CreateFlowDialog trigger={<Button size="sm"><Plus className="size-4 mr-2" />New Flow</Button>} />
         </section>
       </header>
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 px-8">
