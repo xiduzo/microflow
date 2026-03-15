@@ -5,21 +5,27 @@ import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
 /**
- * Vite plugin to redirect zod imports from @tscircuit/* packages to zod3.
+ * Vite plugin to redirect zod imports from @tscircuit/* packages to zod 3.x.
  * This isolates tscircuit's Zod 3.x dependency from the app's Zod 4.x.
+ *
+ * The "zod3" package is an npm alias for "zod@3" defined in package.json.
  */
 function tscircuitZodPlugin(): Plugin {
   return {
     name: "tscircuit-zod-redirect",
     enforce: "pre",
-    resolveId(source, importer) {
-      // Only intercept 'zod' imports from tscircuit packages
+    async resolveId(source, importer, options) {
       if (
         source === "zod" &&
         importer &&
         (importer.includes("@tscircuit") || importer.includes("tscircuit"))
       ) {
-        return { id: "zod3", external: false };
+        // Let Vite resolve "zod3" (the npm alias) through its normal pipeline
+        const resolved = await this.resolve("zod3", importer, {
+          ...options,
+          skipSelf: true,
+        });
+        return resolved;
       }
       return null;
     },
