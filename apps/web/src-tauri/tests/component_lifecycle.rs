@@ -1,10 +1,15 @@
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 //! Integration tests for Component Lifecycle
 //!
 //! These tests verify that components can be created, initialized, and operated
 //! correctly in various scenarios including:
 //! - Creation without a connected board
 //! - Graceful failure when no board is connected
-//! - Initialization with MockBoardHandle
+//! - Initialization with `MockBoardHandle`
 //!
 //! **Validates: Requirements 3.1, 3.2, 3.3**
 
@@ -14,7 +19,7 @@ use proptest::prelude::*;
 
 use common::{ComponentEvent, ComponentValue, MockBoardHandle, MockComponent};
 
-/// Test that MockComponent can be created without any board connection
+/// Test that `MockComponent` can be created without any board connection
 /// **Validates: Requirement 3.1**
 #[test]
 fn test_component_creation_without_board() {
@@ -47,7 +52,7 @@ fn test_multiple_components_creation_without_board() {
     assert_eq!(servo.event_count(), 0);
 }
 
-/// Test that MockBoardHandle can be created and is initially connected
+/// Test that `MockBoardHandle` can be created and is initially connected
 /// **Validates: Requirement 3.3**
 #[test]
 fn test_mock_board_handle_creation() {
@@ -61,7 +66,7 @@ fn test_mock_board_handle_creation() {
     assert_eq!(board.get_pin(13), None);
 }
 
-/// Test that components can be initialized with MockBoardHandle
+/// Test that components can be initialized with `MockBoardHandle`
 /// **Validates: Requirement 3.3**
 #[test]
 fn test_component_initialization_with_mock_board() {
@@ -170,7 +175,7 @@ fn test_component_state_tracking_without_board() {
     assert_eq!(component.event_count(), 2);
 }
 
-/// Test that MockBoardHandle can simulate pin operations
+/// Test that `MockBoardHandle` can simulate pin operations
 /// **Validates: Requirement 3.3**
 #[test]
 fn test_mock_board_pin_operations() {
@@ -192,7 +197,7 @@ fn test_mock_board_pin_operations() {
     assert_eq!(board.get_pin(9), Some(128));
 }
 
-/// Test that multiple components can share a MockBoardHandle
+/// Test that multiple components can share a `MockBoardHandle`
 /// **Validates: Requirement 3.3**
 #[test]
 fn test_multiple_components_with_shared_board() {
@@ -343,7 +348,7 @@ fn test_component_clear_and_reuse() {
     assert_eq!(component.value(), Some(ComponentValue::Bool(true)));
 }
 
-/// Test that MockBoardHandle default trait works
+/// Test that `MockBoardHandle` default trait works
 /// **Validates: Requirement 3.3**
 #[test]
 fn test_mock_board_handle_default() {
@@ -584,7 +589,9 @@ proptest! {
             if number_value.is_nan() {
                 prop_assert!(v.is_nan());
             } else {
-                prop_assert_eq!(v, number_value);
+                #[allow(clippy::float_cmp)]
+                let eq = v == number_value;
+                prop_assert!(eq);
             }
         } else {
             prop_assert!(false, "Expected Number value");
@@ -789,8 +796,8 @@ proptest! {
 // LED-Specific Lifecycle Tests
 // =============================================================================
 
-/// Test that LED turn_on() updates value to 1.0
-/// Simulates LED turn_on by sending an event with value 1.0
+/// Test that LED `turn_on()` updates value to 1.0
+/// Simulates LED `turn_on` by sending an event with value 1.0
 /// **Validates: Requirement 3.4**
 #[test]
 fn test_led_turn_on_updates_value_to_one() {
@@ -815,8 +822,8 @@ fn test_led_turn_on_updates_value_to_one() {
     assert_eq!(led.event_count(), 1);
 }
 
-/// Test that LED turn_off() updates value to 0.0
-/// Simulates LED turn_off by sending an event with value 0.0
+/// Test that LED `turn_off()` updates value to 0.0
+/// Simulates LED `turn_off` by sending an event with value 0.0
 /// **Validates: Requirement 3.5**
 #[test]
 fn test_led_turn_off_updates_value_to_zero() {
