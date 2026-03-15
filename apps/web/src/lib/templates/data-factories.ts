@@ -327,3 +327,41 @@ export const mqttSubscribeData = (topic: string) => ({
   icon: "RadioTowerIcon" as const,
   description: "Subscribe to MQTT messages",
 });
+
+export const matrixData = (pins = { data: 2, clock: 3, cs: 4 }) => ({
+  instance: "Matrix" as const,
+  pins,
+  shapes: [
+    ["00000000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000"],
+    ["01100110", "10011001", "10000001", "10000001", "01000010", "00100100", "00011000", "00000000"],
+    ["00111100", "01000010", "10100101", "10000001", "10100101", "10011001", "01000010", "00111100"],
+  ],
+  dims: "8x8",
+  devices: 1,
+  group: "act" as const,
+  tags: ["action"] as const,
+  label: "Matrix",
+  icon: "GridIcon" as const,
+  description: "Display patterns on an 8x8 LED matrix",
+});
+
+export const pixelData = (pin = 11, length = 8) => ({
+  instance: "Pixel" as const,
+  pin,
+  length,
+  controller: "FIRMATA" as const,
+  skip_firmware_check: true,
+  gamma: 2.8,
+  color_order: "BRG" as const,
+  presets: [
+    ["#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000", "#FF0000"],
+    ["#00FF00", "#00FF00", "#00FF00", "#00FF00", "#00FF00", "#00FF00", "#00FF00", "#00FF00"],
+    ["#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF"],
+    ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3", "#FFFFFF"],
+  ],
+  group: "act" as const,
+  tags: ["action"] as const,
+  label: "Pixel Strip",
+  icon: "SparklesIcon" as const,
+  description: "Control a NeoPixel LED strip with color presets",
+});

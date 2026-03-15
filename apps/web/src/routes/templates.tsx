@@ -1,11 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-
-import { FlowCard } from "@/components/home/flow-card";
+import {
+  ReactFlow,
+  ReactFlowProvider,
+  Background,
+  type Node,
+  type Edge,
+} from "@xyflow/react";
 import { useFlowStore } from "@/stores/flow-store";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { COMPONENT_TYPES } from "@/components/flow/nodes/_TYPES";
-import { useState } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { NODE_TYPES } from "@/components/flow/nodes/_TYPES";
+import { useState, useMemo } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -16,10 +25,20 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckIcon, ChevronsUpDownIcon, LayoutTemplateIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronsUpDownIcon,
+  XIcon,
+  DownloadIcon,
+  LayoutTemplateIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TEMPLATES, type Template } from "@/lib/templates";
 import { EmptyState } from "@/components/states/empty-state";
+import { useNavigate } from "@tanstack/react-router";
+import { FlowCard, FlowThumbnail } from "@/components/home/flow-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardFooter, CardDescription, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/templates")({
   component: TemplatesPage,
@@ -27,189 +46,141 @@ export const Route = createFileRoute("/templates")({
 
 const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
 
+const FEATURED_IDS = ["smart-home-hub", "weather-station", "security-gate"];
+
+const DIFFICULTY_BADGE_LABEL: Record<string, string> = {
+  beginner: "BEGINNER",
+  intermediate: "INTERMEDIATE",
+  advanced: "ADVANCED",
+};
+
 function TemplatesPage() {
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
-  const [componentsOpen, setComponentsOpen] = useState(false);
-
-  const toggleComponent = (component: string) => {
-    setSelectedComponents((prev) =>
-      prev.includes(component)
-        ? prev.filter((c) => c !== component)
-        : [...prev, component]
-    );
-  };
-
-  const removeComponent = (component: string) => {
-    setSelectedComponents((prev) => prev.filter((c) => c !== component));
-  };
-
-  const clearAllComponents = () => {
-    setSelectedComponents([]);
-  };
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const navigate = useNavigate();
 
   const setTemplate = async (template: Template) => {
     const { flowDoc, mode, destroy } = useFlowStore.getState();
-    // Destroy existing local flow so it will reinitialize from localStorage
     if (flowDoc && mode === "local") destroy();
-
-    // Save template to local storage
     localStorage.setItem(
       LOCAL_FLOW_STORAGE_KEY,
-      JSON.stringify({ nodes: template.nodes, edges: template.edges })
+      JSON.stringify({ nodes: template.nodes, edges: template.edges }),
     );
   };
 
-  // Filter templates based on selected components and difficulty
-  const filteredTemplates = TEMPLATES.filter((template) => {
-    // Filter by difficulty
-    if (selectedDifficulty !== "all" && selectedDifficulty !== template.difficulty) {
-      return false;
-    }
+  const handleImport = async (template: Template) => {
+    await setTemplate(template);
+    navigate({ to: "/flow/$flowId/graph", params: { flowId: "local" } });
+  };
 
-    // Filter by components - check actual node types in the template
+  // Derive unique categories
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    TEMPLATES.forEach((t) => t.categories?.forEach((c) => cats.add(c)));
+    return ["All", ...Array.from(cats).sort()];
+  }, []);
+
+  const featuredTemplates = TEMPLATES.filter((t) =>
+    FEATURED_IDS.includes(t.id),
+  );
+
+  const filteredTemplates = TEMPLATES.filter((template) => {
+    if (selectedCategory !== "All") {
+      if (!template.categories?.includes(selectedCategory)) return false;
+    }
     if (selectedComponents.length > 0) {
       const templateNodeTypes = template.nodes.map((node) => node.type);
-      const hasSelectedComponent = selectedComponents.some((comp) =>
-        templateNodeTypes.includes(comp)
-      );
-      if (!hasSelectedComponent) {
+      if (!selectedComponents.some((comp) => templateNodeTypes.includes(comp)))
         return false;
-      }
     }
-
     return true;
   });
 
+  const nonFeaturedFiltered = filteredTemplates.filter(
+    (t) => !FEATURED_IDS.includes(t.id),
+  );
+
   return (
-     <div className="h-full overflow-auto gap-8 flex flex-col pb-12">
-        <header className="flex flex-col gap-4 sticky top-0 z-10 backdrop-blur-sm bg-background/50 px-8 pt-8 pb-4 rounded-t-xl">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold">Templates</h1>
-            <span className="text-sm text-muted-foreground">
-              {filteredTemplates.length} template{filteredTemplates.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <section className="flex items-start gap-2">
-              <span className="text-xs font-medium text-muted-foreground w-16 pt-1.5">Contains</span>
-              <div className="flex flex-1 flex-wrap items-center gap-2">
-                <Popover open={componentsOpen} onOpenChange={setComponentsOpen}>
-                  <PopoverTrigger
-                    render={
-                      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
-                        <ChevronsUpDownIcon className="size-3.5" />
-                        Select components
-                      </Button>
-                    }
-                  />
-                  <PopoverContent className="w-52 p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search components..." />
-                      <CommandList>
-                        <CommandEmpty>No component found.</CommandEmpty>
-                        <CommandGroup>
-                          {COMPONENT_TYPES.map((type) => (
-                            <CommandItem
-                              key={type}
-                              value={type}
-                              data-checked={selectedComponents.includes(type)}
-                              onSelect={() => toggleComponent(type)}
-                            >
-                              <span
-                                className={cn(
-                                  "mr-2 flex size-4 items-center justify-center rounded-sm border border-primary",
-                                  selectedComponents.includes(type)
-                                    ? "bg-primary text-primary-foreground"
-                                    : "opacity-50 [&_svg]:invisible"
-                                )}
-                              >
-                                <CheckIcon className="size-3" />
-                              </span>
-                              {type}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
-                {selectedComponents.length > 0 && (
-                  <>
-                    {selectedComponents.map((component) => (
-                      <Badge key={component} variant="secondary" className="gap-1 pr-1">
-                        {component}
-                        <button
-                          type="button"
-                          className="rounded-sm hover:bg-muted-foreground/20"
-                          onClick={() => removeComponent(component)}
-                        >
-                          <XIcon className="size-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                    <button
-                      type="button"
-                      className="text-xs text-muted-foreground hover:text-foreground"
-                      onClick={clearAllComponents}
-                    >
-                      Clear all
-                    </button>
-                  </>
-                )}
-              </div>
-            </section>
-            <section className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Difficulty</span>
-              <ToggleGroup
-                variant="outline"
-                type="single"
-                value={selectedDifficulty}
-                onValueChange={(value) => setSelectedDifficulty(value || "all")}
-              >
-                <ToggleGroupItem value="all">All</ToggleGroupItem>
-                <ToggleGroupItem value="beginner">Beginner</ToggleGroupItem>
-                <ToggleGroupItem value="intermediate">Intermediate</ToggleGroupItem>
-                <ToggleGroupItem value="advanced">Advanced</ToggleGroupItem>
-              </ToggleGroup>
-            </section>
-          </div>
-        </header>
-
-        {filteredTemplates.length === 0 && (
-          <EmptyState
-            icon={LayoutTemplateIcon}
-            title="No templates found"
-            description="Try adjusting your filters to find what you're looking for"
-          />
-        )}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 px-8">
-       {filteredTemplates.map((template) => (
-            <FlowCard
-              key={template.id}
-              id={"local"}
-              name={template.name}
-              description={template.description}
-              updatedAt={new Date().toISOString()}
-              nodes={template.nodes}
-              edges={template.edges}
-              beforeNavigate={() => setTemplate(template)}
-              badges={
-                [
-                  {
-                    label: template.difficulty,
-                    variant: "default" as const,
-                  },
-                  ...(template.categories ? template.categories.map((category) => ({
-                    label: category,
-                    variant: "secondary" as const,
-                  })) : []),
-                ]
-              }
-            />
-          ))}
+    <div className="h-full overflow-auto flex flex-col pb-16">
+      <header className="sticky top-0 rounded-t-2xl px-8 bg-background/50 backdrop-blur-sm z-10">
+        <section className="container mx-auto py-4 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Templates</h1>
+          {/* <input type="text" placeholder="Search templates" className="p-2 rounded-md border border-gray-300" /> */}
         </section>
+      </header>
+      <section className="container mx-auto px-8">
+        <div className="flex flex-col gap-10 pt-8">
+          <section>
+            <div className="mb-5">
+              <h2 className="text-xl font-semibold">Featured Templates</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Jumpstart your project with our top picks
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {featuredTemplates.map((template) => (
+                <Card className="relative mx-auto w-full pt-0 col-span-1">
+                  <section className="relative z-20 aspect-video w-full object-cover">
+                    <ReactFlowProvider>
+                      <FlowThumbnail nodes={template.nodes} edges={template.edges} />
+                    </ReactFlowProvider>
+                  </section>
+                  {/* <img
+                    src="https://avatar.vercel.sh/shadcn1"
+                    alt="Event cover"
+                    className="relative z-20 aspect-video w-full object-cover brightness-60 grayscale dark:brightness-40"
+                  /> */}
+                  <CardHeader>
+                    <CardAction>
+                      <Badge variant="secondary">Featured</Badge>
+                    </CardAction>
+                    <CardTitle>{template.name}</CardTitle>
+                    <CardDescription>{template.description}</CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <Button className="w-full" onClick={() => handleImport(template)}>Use template</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+            <Tabs defaultValue="Basic">
+              <TabsList className="w-full">
+                <TabsTrigger value="Basic" className="flex-1">Basic</TabsTrigger>
+                <TabsTrigger value="Digital" className="flex-1">Digital</TabsTrigger>
+                <TabsTrigger value="Analog" className="flex-1">Analog</TabsTrigger>
+                <TabsTrigger value="Communication" className="flex-1">Communication</TabsTrigger>
+                <TabsTrigger value="Control structures" className="flex-1">Control structures</TabsTrigger>
+              </TabsList>
+              {["Basic", "Digital", "Analog", "Communication", "Control structures"].map((category) => (
+                <TabsContent key={category} value={category}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4">
+                    {TEMPLATES.filter((t) => t.categories?.includes(category)).map((template) => (
+                      <Card key={template.id} className="relative mx-auto w-full pt-0 col-span-1">
+                        <section className="relative z-20 aspect-video w-full object-cover">
+                          <ReactFlowProvider>
+                            <FlowThumbnail nodes={template.nodes} edges={template.edges} />
+                          </ReactFlowProvider>
+                        </section>
+                        <CardHeader>
+                          <CardAction>
+                            <Badge variant="outline">{DIFFICULTY_BADGE_LABEL[template.difficulty]}</Badge>
+                          </CardAction>
+                          <CardTitle>{template.name}</CardTitle>
+                          <CardDescription>{template.description}</CardDescription>
+                        </CardHeader>
+                        <CardFooter>
+                          <Button className="w-full" onClick={() => handleImport(template)}>Use template</Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+        </div>
+      </section>
     </div>
   );
 }

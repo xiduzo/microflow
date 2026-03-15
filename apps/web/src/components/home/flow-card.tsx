@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
   Background,
+  useReactFlow,
+  useNodesInitialized,
   type Node,
   type Edge,
 } from "@xyflow/react";
@@ -111,13 +114,24 @@ export function FlowCard(props: FlowCardProps) {
   );
 }
 
-function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
+function FitViewOnInit() {
+  const { fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
+
+  useEffect(() => {
+    if (nodesInitialized) {
+      fitView({ padding: 0.15, minZoom: 0.05, maxZoom: 1 });
+    }
+  }, [nodesInitialized, fitView]);
+
+  return null;
+}
+
+export function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
-      fitView
-      fitViewOptions={{ padding: 0.15, minZoom: 0.05, maxZoom: 1 }}
       nodesDraggable={false}
       nodesConnectable={false}
       nodesFocusable={false}
@@ -132,6 +146,7 @@ function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
       className="pointer-events-none"
       nodeTypes={NODE_TYPES}
     >
+      <FitViewOnInit />
       <Background gap={20} size={1} className="opacity-30" />
     </ReactFlow>
   );

@@ -15,6 +15,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
 import { useIsMac } from "@/hooks/is-mac";
+import { Button } from "@/components/ui/button";
 
 export function DockPanel() {
   const { fitView, zoomIn, zoomOut, zoomTo } = useReactFlow();
@@ -109,25 +110,22 @@ export function DockPanel() {
   return (
     <div className="relative">
       <Dock direction="middle">
-        <DockIcon onClick={handleUndo}>
-          <UndoIcon />
-        </DockIcon>
-        <DockIcon onClick={handleRedo}>
-          <RedoIcon />
-        </DockIcon>
-        <Separator orientation="vertical" className="h-full" />
-        <DockIcon>
-          <PlusIcon onClick={handleAddNode} />
-        </DockIcon>
-        <Separator orientation="vertical" className="h-full" />
         <DockIcon onClick={handleZoomIn}>
           <ZoomInIcon />
         </DockIcon>
         <DockIcon onClick={handleZoomOut}>
           <ZoomOutIcon />
         </DockIcon>
-        <DockIcon onClick={handleZoomToFit}>
-          <FullscreenIcon />
+        <Separator orientation="vertical" className="h-full" />
+        <DockIcon onClick={handleAddNode}>
+          <PlusIcon />
+        </DockIcon>
+        <Separator orientation="vertical" className="h-full" />
+        <DockIcon onClick={handleUndo}>
+          <UndoIcon />
+        </DockIcon>
+        <DockIcon onClick={handleRedo}>
+          <RedoIcon />
         </DockIcon>
       </Dock>
     </div>
