@@ -13,6 +13,28 @@
 //! └── flasher/         - Firmware flashing (protocols, hex parsing)
 //! ```
 
+// Hardware/embedded code uses intentional casts and simple APIs that don't
+// benefit from exhaustive doc sections or `try_from` ceremony.
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::unreadable_literal,
+    clippy::too_many_lines,
+    clippy::struct_field_names,
+    clippy::unnecessary_wraps,
+    clippy::needless_pass_by_value,
+    clippy::trivially_copy_pass_by_ref,
+    clippy::unused_self,
+    clippy::match_same_arms,
+    clippy::needless_continue,
+    clippy::format_push_string,
+    clippy::manual_let_else
+)]
+
 mod error;
 mod flasher;
 pub mod hardware;

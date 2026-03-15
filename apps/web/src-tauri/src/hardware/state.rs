@@ -29,7 +29,6 @@ impl BoardConnectionState {
     #[must_use] 
     pub fn from_u8(value: u8) -> Self {
         match value {
-            0 => Self::Disconnected,
             1 => Self::Detecting,
             2 => Self::Flashing,
             3 => Self::Connecting,

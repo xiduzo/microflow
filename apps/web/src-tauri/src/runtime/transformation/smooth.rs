@@ -54,7 +54,7 @@ impl Smooth {
         }
     }
 
-    pub fn signal(&mut self, value: ComponentValue) {
+    pub fn signal(&mut self, value: &ComponentValue) {
         let value_num = value.as_number().unwrap_or(0.0);
 
         match self.config.smooth_type {
@@ -93,7 +93,7 @@ impl Component for Smooth {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "value" => { self.signal(args); Ok(()) }
+            "value" => { self.signal(&args); Ok(()) }
             _ => Err(format!("Unknown method: {method}")),
         }
     }

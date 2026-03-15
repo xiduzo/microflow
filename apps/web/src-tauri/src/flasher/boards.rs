@@ -34,8 +34,8 @@ impl BoardProductIds {
 
 impl BoardConfig {
     /// Get configuration for a specific board type
-    pub fn find(board_type: BoardType) -> Option<Self> {
-        Some(match board_type {
+    pub fn find(board_type: BoardType) -> Self {
+        match board_type {
             BoardType::Uno => Self {
                 board_type: BoardType::Uno,
                 baud_rate: 115200,
@@ -84,7 +84,7 @@ impl BoardConfig {
                 timeout: 400,
                 protocol: Protocol::Avr109,
             },
-        })
+        }
     }
 
     /// Detect board type from USB product ID

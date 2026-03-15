@@ -68,8 +68,8 @@ impl Compare {
         }
     }
 
-    pub fn check(&mut self, input: ComponentValue) {
-        let result = self.validate(&input);
+    pub fn check(&mut self, input: &ComponentValue) {
+        let result = self.validate(input);
         self.base.set_value(ComponentValue::Bool(result));
         self.base.emit(if result { "true" } else { "false" });
     }
@@ -127,7 +127,7 @@ impl Component for Compare {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "value" => { self.check(args); Ok(()) }
+            "value" => { self.check(&args); Ok(()) }
             _ => Err(format!("Unknown method: {method}")),
         }
     }

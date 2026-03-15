@@ -31,20 +31,20 @@ impl EventEmitter {
     // ========================================================================
 
     /// Emit any board state
-    pub fn board_state(&self, state: BoardState) {
-        if let Err(e) = self.app_handle.emit("board-state", &state) {
+    pub fn board_state(&self, state: &BoardState) {
+        if let Err(e) = self.app_handle.emit("board-state", state) {
             log::error!("Failed to emit board-state: {e}");
         }
     }
 
     /// Emit connecting state
     pub fn board_connecting(&self) {
-        self.board_state(BoardState::Connecting {});
+        self.board_state(&BoardState::Connecting {});
     }
 
     /// Emit flashing state
     pub fn board_flashing(&self, port: &str, board: &str) {
-        self.board_state(BoardState::Flashing {
+        self.board_state(&BoardState::Flashing {
             port: port.to_string(),
             board: board.to_string(),
         });
@@ -52,12 +52,12 @@ impl EventEmitter {
 
     /// Emit disconnected state
     pub fn board_disconnected(&self) {
-        self.board_state(BoardState::Disconnected {});
+        self.board_state(&BoardState::Disconnected {});
     }
 
     /// Emit error state
     pub fn board_error(&self, message: &str) {
-        self.board_state(BoardState::Error {
+        self.board_state(&BoardState::Error {
             error: Some(message.to_string()),
         });
     }

@@ -28,7 +28,7 @@ impl BoardType {
     }
 
     /// Get board type as lowercase string
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Uno => "uno",
             Self::Nano => "nano",

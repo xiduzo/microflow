@@ -13,7 +13,7 @@ pub fn parse(hex_content: &str) -> Result<Vec<u8>, FlashError> {
             continue;
         }
 
-        let bytes = parse_line(&line[1..])?;
+        let bytes = parse_line(&line[1..]);
         if bytes.len() < 5 {
             continue;
         }
@@ -57,7 +57,7 @@ pub fn parse(hex_content: &str) -> Result<Vec<u8>, FlashError> {
     Ok(data)
 }
 
-fn parse_line(line: &str) -> Result<Vec<u8>, FlashError> {
+fn parse_line(line: &str) -> Vec<u8> {
     let mut bytes = Vec::new();
     let mut chars = line.chars().peekable();
 
@@ -71,5 +71,5 @@ fn parse_line(line: &str) -> Result<Vec<u8>, FlashError> {
         }
     }
 
-    Ok(bytes)
+    bytes
 }

@@ -44,7 +44,7 @@ impl Calculate {
         }
     }
 
-    pub fn check(&mut self, inputs: Vec<f64>) {
+    pub fn check(&mut self, inputs: &[f64]) {
         if inputs.is_empty() { return; }
 
         let result = match self.config.function {
@@ -82,7 +82,7 @@ impl Component for Calculate {
                     ComponentValue::Number(n) => vec![n],
                     _ => vec![],
                 };
-                self.check(inputs);
+                self.check(&inputs);
                 Ok(())
             }
             _ => Err(format!("Unknown method: {method}")),

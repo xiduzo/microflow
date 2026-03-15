@@ -65,7 +65,7 @@ impl Trigger {
         }
     }
 
-    pub fn signal(&mut self, value: ComponentValue) {
+    pub fn signal(&mut self, value: &ComponentValue) {
         let value_num = value.as_number().unwrap_or(0.0);
         let now = Instant::now();
         let within_duration = std::time::Duration::from_millis(self.config.within);
@@ -123,7 +123,7 @@ impl Component for Trigger {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "value" => { self.signal(args); Ok(()) }
+            "value" => { self.signal(&args); Ok(()) }
             _ => Err(format!("Unknown method: {method}")),
         }
     }

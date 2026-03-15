@@ -5,6 +5,7 @@ use super::{FlashResult, Flasher};
 
 /// Flash firmware to a board with custom hex content
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn flash_firmware(
     port_name: String,
     board_type: BoardType,
@@ -15,6 +16,7 @@ pub fn flash_firmware(
 
 /// Flash `StandardFirmata` to a board (uses embedded hex files)
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn flash_standard_firmata(
     port_name: String,
     board_type: BoardType,
@@ -24,6 +26,7 @@ pub fn flash_standard_firmata(
 
 /// Auto-detect board and flash `StandardFirmata`
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 pub fn auto_flash_firmata(
     port_name: String,
     vid: u16,

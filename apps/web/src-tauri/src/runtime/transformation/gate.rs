@@ -39,9 +39,9 @@ impl Gate {
         }
     }
 
-    pub fn check(&mut self, inputs: Vec<bool>) {
+    pub fn check(&mut self, inputs: &[bool]) {
         log::info!("[Gate {}] check called with {} inputs: {:?}", self.base.id, inputs.len(), inputs);
-        let result = self.passes_gate(&inputs);
+        let result = self.passes_gate(inputs);
         log::info!("[Gate {}] gate type {:?}, result: {}", self.base.id, self.config.gate, result);
         self.base.set_value(ComponentValue::Bool(result));
         self.base.emit(if result { "true" } else { "false" });
@@ -93,7 +93,7 @@ impl Component for Gate {
                 
                 // Only evaluate if we have inputs
                 if !inputs.is_empty() {
-                    self.check(inputs);
+                    self.check(&inputs);
                 }
                 Ok(())
             }

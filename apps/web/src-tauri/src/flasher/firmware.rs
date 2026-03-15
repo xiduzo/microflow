@@ -22,13 +22,13 @@ impl Firmware {
     pub const MICRO: &'static str = include_str!("./hex/micro/StandardFirmata.ino.hex");
 
     /// Get the `StandardFirmata` hex content for a board type
-    pub fn get_firmata_hex(board_type: BoardType) -> Option<&'static str> {
-        Some(match board_type {
+    pub fn get_firmata_hex(board_type: BoardType) -> &'static str {
+        match board_type {
             BoardType::Uno => Self::UNO,
             BoardType::Nano | BoardType::NanoNew => Self::NANO,
             BoardType::Mega => Self::MEGA,
             BoardType::Leonardo => Self::LEONARDO,
             BoardType::Micro => Self::MICRO,
-        })
+        }
     }
 }

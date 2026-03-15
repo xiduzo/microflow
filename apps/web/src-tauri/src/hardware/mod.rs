@@ -169,10 +169,7 @@ impl HardwareMonitorLoop {
     }
 
     fn poll_for_changes(&mut self) {
-        let current_ports = match PortMonitor::get_ports() {
-            Ok(p) => p,
-            Err(_) => return,
-        };
+        let Ok(current_ports) = PortMonitor::get_ports() else { return };
 
         let current_map: HashMap<String, SerialPortInfo> = current_ports
             .into_iter()
@@ -247,7 +244,7 @@ impl HardwareMonitorLoop {
         self.events.port_connected(&port);
 
         match board_state {
-            Some(state) => self.events.board_state(state),
+            Some(state) => self.events.board_state(&state),
             // Only emit error for known boards that failed - unknown USB devices
             // without Firmata are just ignored (no board_disconnected spam)
             None if is_known_board => self.events.no_firmata_error(&port.port_name),

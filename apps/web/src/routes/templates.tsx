@@ -102,13 +102,13 @@ function TemplatesPage() {
 
   return (
     <div className="h-full overflow-auto flex flex-col pb-16">
-      <header className="sticky top-0 rounded-t-2xl px-8 bg-background/50 backdrop-blur-sm z-10">
+      <header className="sticky top-0 rounded-t-2xl px-4 md:px-8 bg-background/50 backdrop-blur-sm z-40">
         <section className="container mx-auto py-4 flex items-center justify-between">
           <h1 className="text-3xl font-bold">Templates</h1>
           {/* <input type="text" placeholder="Search templates" className="p-2 rounded-md border border-gray-300" /> */}
         </section>
       </header>
-      <section className="container mx-auto px-8">
+      <section className="container mx-auto px-4 md:px-8">
         <div className="flex flex-col gap-10 pt-8">
           <section>
             <div className="mb-5">
@@ -117,7 +117,7 @@ function TemplatesPage() {
                 Jumpstart your project with our top picks
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
               {featuredTemplates.map((template) => (
                 <Card className="relative mx-auto w-full pt-0 col-span-1">
                   <section className="relative z-20 aspect-video w-full object-cover">
@@ -146,7 +146,7 @@ function TemplatesPage() {
           </section>
 
             <Tabs defaultValue="Basic">
-              <TabsList className="w-full">
+              <TabsList className="w-max min-w-full">
                 <TabsTrigger value="Basic" className="flex-1">Basic</TabsTrigger>
                 <TabsTrigger value="Digital" className="flex-1">Digital</TabsTrigger>
                 <TabsTrigger value="Analog" className="flex-1">Analog</TabsTrigger>
@@ -155,7 +155,7 @@ function TemplatesPage() {
               </TabsList>
               {["Basic", "Digital", "Analog", "Communication", "Control structures"].map((category) => (
                 <TabsContent key={category} value={category}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 pt-4">
                     {TEMPLATES.filter((t) => t.categories?.includes(category)).map((template) => (
                       <Card key={template.id} className="relative mx-auto w-full pt-0 col-span-1">
                         <section className="relative z-20 aspect-video w-full object-cover">

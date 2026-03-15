@@ -47,8 +47,7 @@ impl Flasher {
         board_type: BoardType,
         hex_content: &str,
     ) -> Result<FlashResult, FlashError> {
-        let config = BoardConfig::find(board_type)
-            .ok_or_else(|| FlashError::UnsupportedBoard(format!("{board_type:?}")))?;
+        let config = BoardConfig::find(board_type);
 
         log::info!(
             "Flashing {:?} on {} using {:?} protocol",
@@ -88,8 +87,7 @@ impl Flasher {
         port_name: &str,
         board_type: BoardType,
     ) -> Result<FlashResult, FlashError> {
-        let hex_content = Firmware::get_firmata_hex(board_type)
-            .ok_or_else(|| FlashError::UnsupportedBoard(format!("{board_type:?}")))?;
+        let hex_content = Firmware::get_firmata_hex(board_type);
 
         log::info!("Flashing StandardFirmata to {board_type:?} on {port_name}");
         Self::flash(port_name, board_type, hex_content)

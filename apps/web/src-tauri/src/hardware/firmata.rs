@@ -184,7 +184,7 @@ fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInf
                 log::warn!("Firmata firmware read error: {err_str}");
                 return None; // Real I/O error — port gone or device error
             }
-            _ => continue,
+            _ => {}
         }
     }
 

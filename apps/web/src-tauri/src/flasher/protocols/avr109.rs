@@ -129,6 +129,7 @@ impl Avr109Flasher {
         Ok(port)
     }
 
+    #[allow(clippy::unused_self)]
     fn sync(&self, port: &mut Box<dyn serialport::SerialPort>) -> Result<(), FlashError> {
         log::info!("Syncing with AVR109 bootloader...");
 
@@ -169,6 +170,7 @@ impl Avr109Flasher {
         Err(FlashError::SyncFailed)
     }
 
+    #[allow(clippy::unused_self)]
     fn erase(&self, port: &mut Box<dyn serialport::SerialPort>) -> Result<(), FlashError> {
         log::debug!("Erasing chip...");
 
@@ -197,6 +199,7 @@ impl Avr109Flasher {
         Ok(())
     }
 
+    #[allow(clippy::unused_self)]
     fn program(
         &self,
         port: &mut Box<dyn serialport::SerialPort>,
@@ -255,6 +258,7 @@ impl Avr109Flasher {
         Ok(())
     }
 
+    #[allow(clippy::unused_self)]
     fn exit_bootloader(&self, port: &mut Box<dyn serialport::SerialPort>) -> Result<(), FlashError> {
         log::debug!("Exiting bootloader, starting application...");
         

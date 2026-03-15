@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use serialport::SerialPortType;
 use std::collections::HashMap;
+use std::fmt::Write;
 
 /// Patterns indicating system ports to skip
 const SKIP_PATTERNS: &[&str] = &[
@@ -119,10 +120,10 @@ impl PortMonitor {
                 let mut desc =
                     format!("USB Device (VID: {:04X}, PID: {:04X})", info.vid, info.pid);
                 if let Some(serial) = &info.serial_number {
-                    desc.push_str(&format!(", Serial: {serial}"));
+                    let _ = write!(desc, ", Serial: {serial}");
                 }
                 if let Some(product) = &info.product {
-                    desc.push_str(&format!(", Product: {product}"));
+                    let _ = write!(desc, ", Product: {product}");
                 }
                 ("USB".to_string(), Some(desc), Some(info.vid), Some(info.pid))
             }

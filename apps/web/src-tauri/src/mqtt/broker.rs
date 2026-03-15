@@ -130,6 +130,7 @@ impl BrokerConfig {
         })
     }
 
+    #[allow(clippy::unused_self)]
     fn client_id(&self) -> String {
         format!(
             "microflow-{}",
