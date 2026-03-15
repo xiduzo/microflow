@@ -8,12 +8,13 @@ use std::sync::Arc;
 
 /// Board manager handles the lifecycle of a Firmata connection.
 /// The actual connection is managed by the hardware monitor and stored
-/// in the shared BoardHandle.
+/// in the shared `BoardHandle`.
 pub struct BoardManager {
     handle: Arc<BoardHandle>,
 }
 
 impl BoardManager {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             handle: Arc::new(BoardHandle::new()),
@@ -21,11 +22,13 @@ impl BoardManager {
     }
 
     /// Get a handle to the board for components to use
+    #[must_use] 
     pub fn handle(&self) -> Arc<BoardHandle> {
         Arc::clone(&self.handle)
     }
 
     /// Check if connected
+    #[must_use] 
     pub fn is_connected(&self) -> bool {
         self.handle.is_connected()
     }

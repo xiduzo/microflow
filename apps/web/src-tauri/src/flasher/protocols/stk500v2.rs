@@ -1,6 +1,6 @@
-//! STK500v2 protocol implementation (Mega 2560)
+//! `STK500v2` protocol implementation (Mega 2560)
 //!
-//! The STK500v2 protocol is more complex than v1, using a packet-based
+//! The `STK500v2` protocol is more complex than v1, using a packet-based
 //! communication with sequence numbers and checksums.
 
 use crate::flasher::boards::BoardConfig;
@@ -180,7 +180,7 @@ impl Stk500v2Flasher {
             signature.push(response[2]);
         }
 
-        log::info!("Device signature: {:02X?}", signature);
+        log::info!("Device signature: {signature:02X?}");
 
         if signature != self.config.signature {
             log::warn!(
@@ -302,7 +302,7 @@ impl Stk500v2Flasher {
         let mut header = [0u8; 5];
         self.port
             .read_exact(&mut header)
-            .map_err(|e| FlashError::Communication(format!("Header read error: {}", e)))?;
+            .map_err(|e| FlashError::Communication(format!("Header read error: {e}")))?;
 
         if header[0] != MESSAGE_START {
             return Err(FlashError::Communication(format!(
@@ -318,13 +318,13 @@ impl Stk500v2Flasher {
             )));
         }
 
-        let len = ((header[2] as u16) << 8) | (header[3] as u16);
+        let len = (u16::from(header[2]) << 8) | u16::from(header[3]);
 
         // Read body + checksum
         let mut body = vec![0u8; len as usize + 1];
         self.port
             .read_exact(&mut body)
-            .map_err(|e| FlashError::Communication(format!("Body read error: {}", e)))?;
+            .map_err(|e| FlashError::Communication(format!("Body read error: {e}")))?;
 
         // Verify checksum
         let received_checksum = body.pop().unwrap();
@@ -333,8 +333,7 @@ impl Stk500v2Flasher {
 
         if received_checksum != calculated {
             return Err(FlashError::Communication(format!(
-                "Checksum mismatch: expected {:02X}, got {:02X}",
-                calculated, received_checksum
+                "Checksum mismatch: expected {calculated:02X}, got {received_checksum:02X}"
             )));
         }
 

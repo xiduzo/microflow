@@ -30,6 +30,7 @@ impl Default for ProximityConfig {
 impl ProximityConfig {
     /// Get the pin number for analog operations
     /// Handles both legacy "A0" format and new numeric format
+    #[must_use] 
     pub fn analog_pin(&self) -> u8 {
         // If it starts with 'A' or 'a', strip it and parse (legacy format)
         if self.pin.starts_with('A') || self.pin.starts_with('a') {
@@ -53,6 +54,7 @@ pub struct Proximity {
 }
 
 impl Proximity {
+    #[must_use] 
     pub fn new(id: String, config: ProximityConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -64,15 +66,15 @@ impl Proximity {
     fn raw_to_cm(&self, raw: u16) -> f64 {
         match self.config.controller.as_str() {
             "GP2Y0A21YK" => {
-                let voltage = raw as f64 * 5.0 / 1024.0;
+                let voltage = f64::from(raw) * 5.0 / 1024.0;
                 if voltage > 0.42 { (27.86 / (voltage - 0.42)).clamp(10.0, 80.0) } else { 80.0 }
             }
             "GP2Y0A02YK0F" => {
-                let voltage = raw as f64 * 5.0 / 1024.0;
+                let voltage = f64::from(raw) * 5.0 / 1024.0;
                 if voltage > 0.4 { (60.0 / (voltage - 0.4)).clamp(20.0, 150.0) } else { 150.0 }
             }
-            "HCSR04" => (raw as f64 / 58.0).clamp(2.0, 400.0),
-            _ => (raw as f64 * 200.0 / 1023.0).clamp(0.0, 200.0),
+            "HCSR04" => (f64::from(raw) / 58.0).clamp(2.0, 400.0),
+            _ => (f64::from(raw) * 200.0 / 1023.0).clamp(0.0, 200.0),
         }
     }
 
@@ -99,7 +101,7 @@ impl Component for Proximity {
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         let pin = self.config.analog_pin();
-        log::info!("Proximity initialize: pin={}", pin);
+        log::info!("Proximity initialize: pin={pin}");
         board.send_command(BoardCommand::SetPinMode { pin, mode: pin_mode::ANALOG })?;
         board.send_command(BoardCommand::EnableAnalogReporting { pin })?;
         self.board = Some(board);
@@ -117,7 +119,7 @@ impl Component for Proximity {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

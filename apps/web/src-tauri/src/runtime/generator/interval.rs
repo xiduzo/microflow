@@ -36,6 +36,7 @@ pub struct Interval {
 }
 
 impl Interval {
+    #[must_use] 
     pub fn new(id: String, config: IntervalConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -60,10 +61,10 @@ impl Interval {
         let source = self.base.id.clone();
         let running = self.running.clone();
 
-        log::info!("Interval {} starting with {}ms interval", source, interval_ms);
+        log::info!("Interval {source} starting with {interval_ms}ms interval");
 
         std::thread::spawn(move || {
-            log::info!("Interval {} thread started", source);
+            log::info!("Interval {source} thread started");
             let start = std::time::Instant::now();
             let mut tick_count = 0u64;
             
@@ -82,19 +83,19 @@ impl Interval {
                         edge_id: None,
                         sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
                     }) {
-                        Ok(_) => {
+                        Ok(()) => {
                             if tick_count <= 3 || tick_count % 10 == 0 {
-                                log::info!("Interval {} tick #{}: elapsed {}ms", source, tick_count, elapsed);
+                                log::info!("Interval {source} tick #{tick_count}: elapsed {elapsed}ms");
                             }
                         }
                         Err(e) => {
-                            log::error!("Interval {} send failed: {}", source, e);
+                            log::error!("Interval {source} send failed: {e}");
                             break;
                         }
                     }
                 }
             }
-            log::info!("Interval {} thread stopped after {} ticks", source, tick_count);
+            log::info!("Interval {source} thread stopped after {tick_count} ticks");
         });
     }
 
@@ -116,7 +117,7 @@ impl Component for Interval {
         match method {
             "start" => { self.start(); Ok(()) }
             "stop" => { self.stop(); Ok(()) }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

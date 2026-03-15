@@ -36,6 +36,7 @@ pub struct Calculate {
 }
 
 impl Calculate {
+    #[must_use] 
     pub fn new(id: String, config: CalculateConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -50,10 +51,10 @@ impl Calculate {
             CalculateFunction::Add => inputs.iter().sum(),
             CalculateFunction::Subtract => inputs.iter().skip(1).fold(inputs[0], |acc, &v| acc - v),
             CalculateFunction::Multiply => inputs.iter().product(),
-            CalculateFunction::Divide => inputs.iter().skip(1).fold(inputs[0], |acc, &v| if v != 0.0 { acc / v } else { acc }),
-            CalculateFunction::Modulo => inputs.iter().skip(1).fold(inputs[0], |acc, &v| if v != 0.0 { acc % v } else { acc }),
-            CalculateFunction::Max => inputs.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
-            CalculateFunction::Min => inputs.iter().cloned().fold(f64::INFINITY, f64::min),
+            CalculateFunction::Divide => inputs.iter().skip(1).fold(inputs[0], |acc, &v| if v == 0.0 { acc } else { acc / v }),
+            CalculateFunction::Modulo => inputs.iter().skip(1).fold(inputs[0], |acc, &v| if v == 0.0 { acc } else { acc % v }),
+            CalculateFunction::Max => inputs.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            CalculateFunction::Min => inputs.iter().copied().fold(f64::INFINITY, f64::min),
             CalculateFunction::Pow => if inputs.len() >= 2 { inputs[0].powf(inputs[1]) } else { inputs[0] },
             CalculateFunction::Ceil => inputs[0].ceil(),
             CalculateFunction::Floor => inputs[0].floor(),
@@ -77,14 +78,14 @@ impl Component for Calculate {
         match method {
             "value" => {
                 let inputs = match args {
-                    ComponentValue::Array(arr) => arr.iter().filter_map(|v| v.as_number()).collect(),
+                    ComponentValue::Array(arr) => arr.iter().filter_map(super::super::base::ComponentValue::as_number).collect(),
                     ComponentValue::Number(n) => vec![n],
                     _ => vec![],
                 };
                 self.check(inputs);
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

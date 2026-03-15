@@ -1,13 +1,14 @@
+#![allow(dead_code)]
 //! Mock component for testing event routing
 //!
-//! This module provides a MockComponent that simulates a flow component
+//! This module provides a `MockComponent` that simulates a flow component
 //! for testing purposes, allowing tests to verify event routing and
 //! value propagation without actual hardware components.
 
 use std::sync::RwLock;
 
-/// Simplified ComponentValue for testing
-/// Mirrors the main crate's ComponentValue enum
+/// Simplified `ComponentValue` for testing
+/// Mirrors the main crate's `ComponentValue` enum
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComponentValue {
     Bool(bool),
@@ -21,8 +22,8 @@ impl Default for ComponentValue {
     }
 }
 
-/// Simplified ComponentEvent for testing
-/// Mirrors the main crate's ComponentEvent struct
+/// Simplified `ComponentEvent` for testing
+/// Mirrors the main crate's `ComponentEvent` struct
 #[derive(Debug, Clone)]
 pub struct ComponentEvent {
     pub source: String,

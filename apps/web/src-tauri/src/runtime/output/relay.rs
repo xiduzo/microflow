@@ -37,6 +37,7 @@ pub struct Relay {
 }
 
 impl Relay {
+    #[must_use] 
     pub fn new(id: String, config: RelayConfig) -> Self {
         Self { base: ComponentBase::new(id, ComponentValue::Bool(false)), config, board: None, is_open: false }
     }
@@ -84,7 +85,7 @@ impl Component for Relay {
             "true" => self.open(),
             "false" => self.close(),
             "toggle" => self.toggle(),
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

@@ -1,6 +1,6 @@
 //! Tauri Commands for the Runtime
 //!
-//! flow_update and component_call commands
+//! `flow_update` and `component_call` commands
 
 use super::base::ComponentValue;
 use super::FlowUpdate;
@@ -45,7 +45,7 @@ fn extract_mqtt_nodes(flow: &FlowUpdate) -> Vec<MqttNodeInfo> {
                 broker_id: node.data.get("brokerId")?.as_str()?.to_string(),
                 topic: node.data.get("topic")?.as_str()?.to_string(),
                 direction: node.data.get("direction")?.as_str().unwrap_or("subscribe").to_string(),
-                retain: node.data.get("retain").and_then(|v| v.as_bool()).unwrap_or(false),
+                retain: node.data.get("retain").and_then(serde_json::Value::as_bool).unwrap_or(false),
             })
         })
         .collect()
@@ -63,7 +63,7 @@ pub async fn flow_update(
         "=== FLOW UPDATE COMMAND === {} nodes, {} edges, {} brokers",
         flow.nodes.len(),
         flow.edges.len(),
-        brokers.as_ref().map(|b| b.len()).unwrap_or(0)
+        brokers.as_ref().map_or(0, std::vec::Vec::len)
     );
 
     // Auto-connect any brokers that are provided
@@ -148,7 +148,7 @@ pub async fn flow_update(
                         runtime.route_mqtt_message(&component_id, &msg.payload);
                     }
                     Err(_) => {
-                        log::debug!("[MQTT] Flow runtime lock held, dropping message for {}", component_id);
+                        log::debug!("[MQTT] Flow runtime lock held, dropping message for {component_id}");
                     }
                 }
 
@@ -193,7 +193,7 @@ pub async fn component_call(
         _ => ComponentValue::default(),
     };
 
-    log::info!("Component call: {}.{}({:?})", component_id, method, value);
+    log::info!("Component call: {component_id}.{method}({value:?})");
 
     // Use async lock for tokio::sync::Mutex
     let mut runtime = state.flow_runtime.lock().await;

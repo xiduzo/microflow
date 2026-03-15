@@ -17,6 +17,7 @@ pub struct Counter {
 }
 
 impl Counter {
+    #[must_use] 
     pub fn new(id: String, config: CounterConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -57,7 +58,7 @@ impl Component for Counter {
             "decrement" => { self.decrement(); Ok(()) }
             "reset" => { self.reset(); Ok(()) }
             "set" => { self.set(args.as_number().unwrap_or(0.0)); Ok(()) }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

@@ -103,6 +103,7 @@ pub struct FlowRuntime {
 }
 
 impl FlowRuntime {
+    #[must_use] 
     pub fn new() -> Self {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         Self {
@@ -117,16 +118,21 @@ impl FlowRuntime {
         }
     }
 
+    #[must_use] 
     pub fn board_manager(&self) -> &BoardManager { &self.board_manager }
     pub fn board_manager_mut(&mut self) -> &mut BoardManager { &mut self.board_manager }
+    #[must_use] 
     pub fn board_handle(&self) -> Arc<BoardHandle> { self.board_manager.handle() }
     pub fn take_event_receiver(&mut self) -> Option<mpsc::UnboundedReceiver<ComponentEvent>> { self.event_rx.take() }
+    #[must_use] 
     pub fn event_sender(&self) -> mpsc::UnboundedSender<ComponentEvent> { self.event_tx.clone() }
     
     /// Get the current flow sequence number for event filtering
+    #[must_use] 
     pub fn current_sequence(&self) -> u64 { self.current_sequence }
     
     /// Get the flow sequence counter for sharing with callbacks
+    #[must_use] 
     pub fn flow_sequence(&self) -> Arc<AtomicU64> { Arc::clone(&self.flow_sequence) }
 
     /// Register a pin listener for immediate event routing
@@ -142,12 +148,13 @@ impl FlowRuntime {
     }
 
     /// Get the pin listeners map for setting up the callback
+    #[must_use] 
     pub fn pin_listeners(&self) -> Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>> {
         Arc::clone(&self.pin_listeners)
     }
 
     /// Install the pin change callback on the board connection
-    /// This should be called after flow updates to ensure the callback uses the latest pin_listeners
+    /// This should be called after flow updates to ensure the callback uses the latest `pin_listeners`
     pub fn install_pin_change_callback(&self, event_tx: mpsc::UnboundedSender<ComponentEvent>) {
         let pin_listeners = self.pin_listeners();
         let flow_sequence = self.flow_sequence();
@@ -161,7 +168,7 @@ impl FlowRuntime {
                 for listener in pin_listeners {
                     // Emit internal event to trigger component's read processing
                     let value = if change.is_analog {
-                        ComponentValue::Number(change.value as f64)
+                        ComponentValue::Number(f64::from(change.value))
                     } else {
                         ComponentValue::Bool(change.value > 0)
                     };
@@ -282,7 +289,7 @@ impl FlowRuntime {
         match instance {
             "Button" | "Motion" => {
                 // Digital input components - handle both string and number pin formats
-                let pin: Option<u8> = if let Some(pin_num) = data.get("pin").and_then(|v| v.as_u64()) {
+                let pin: Option<u8> = if let Some(pin_num) = data.get("pin").and_then(serde_json::Value::as_u64) {
                     Some(pin_num as u8)
                 } else if let Some(pin_str) = data.get("pin").and_then(|v| v.as_str()) {
                     pin_str.parse().ok()
@@ -291,7 +298,7 @@ impl FlowRuntime {
                 };
                 
                 if let Some(pin) = pin {
-                    log::info!("Registering digital pin listener: component={}, pin={}", component_id, pin);
+                    log::info!("Registering digital pin listener: component={component_id}, pin={pin}");
                     self.register_pin_listener(PinListener {
                         component_id: Arc::from(component_id),
                         pin,
@@ -306,7 +313,7 @@ impl FlowRuntime {
             }
             "Sensor" | "Proximity" => {
                 // Analog input components - handle both string and number pin formats
-                let pin: u8 = if let Some(pin_num) = data.get("pin").and_then(|v| v.as_u64()) {
+                let pin: u8 = if let Some(pin_num) = data.get("pin").and_then(serde_json::Value::as_u64) {
                     pin_num as u8
                 } else if let Some(pin_str) = data.get("pin").and_then(|v| v.as_str()) {
                     if pin_str.starts_with('A') || pin_str.starts_with('a') {
@@ -318,9 +325,9 @@ impl FlowRuntime {
                     14
                 };
 
-                let threshold = data.get("threshold").and_then(|v| v.as_u64()).unwrap_or(1) as u16;
+                let threshold = data.get("threshold").and_then(serde_json::Value::as_u64).unwrap_or(1) as u16;
 
-                log::info!("Registering analog pin listener: component={}, pin={}, threshold={}", component_id, pin, threshold);
+                log::info!("Registering analog pin listener: component={component_id}, pin={pin}, threshold={threshold}");
                 self.register_pin_listener(PinListener {
                     component_id: Arc::from(component_id),
                     pin,
@@ -352,7 +359,7 @@ impl FlowRuntime {
 
     pub fn call_component(&mut self, component_id: &str, method: &str, value: ComponentValue) -> Result<(), String> {
         self.executor.get_component_mut(component_id)
-            .ok_or_else(|| format!("Component {} not found", component_id))?
+            .ok_or_else(|| format!("Component {component_id} not found"))?
             .call_method(method, value)
     }
 
@@ -362,15 +369,15 @@ impl FlowRuntime {
     }
 
     /// Get all component IDs of a specific type
+    #[must_use] 
     pub fn get_components_by_type(&self, component_type: &str) -> Vec<String> {
         self.executor.component_ids()
             .iter()
             .filter(|id| {
                 self.executor.get_component(id)
-                    .map(|c| c.component_type() == component_type)
-                    .unwrap_or(false)
+                    .is_some_and(|c| c.component_type() == component_type)
             })
-            .map(|s| s.to_string())
+            .map(|s| (*s).to_string())
             .collect()
     }
 }

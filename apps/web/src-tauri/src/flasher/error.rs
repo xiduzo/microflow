@@ -32,23 +32,22 @@ pub enum FlashError {
 impl fmt::Display for FlashError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::PortOpen(msg) => write!(f, "Failed to open port: {}", msg),
-            Self::Communication(msg) => write!(f, "Communication error: {}", msg),
+            Self::PortOpen(msg) => write!(f, "Failed to open port: {msg}"),
+            Self::Communication(msg) => write!(f, "Communication error: {msg}"),
             Self::SignatureMismatch { expected, actual } => {
                 write!(
                     f,
-                    "Signature mismatch: expected {:02X?}, got {:02X?}",
-                    expected, actual
+                    "Signature mismatch: expected {expected:02X?}, got {actual:02X?}"
                 )
             }
             Self::SyncFailed => write!(f, "Failed to sync with bootloader"),
-            Self::ProgramFailed(msg) => write!(f, "Programming failed: {}", msg),
-            Self::VerifyFailed(msg) => write!(f, "Verification failed: {}", msg),
-            Self::InvalidHex(msg) => write!(f, "Invalid hex file: {}", msg),
-            Self::UnsupportedBoard(board) => write!(f, "Unsupported board: {}", board),
-            Self::UnsupportedProtocol(proto) => write!(f, "Unsupported protocol: {}", proto),
-            Self::BoardNotFound(port) => write!(f, "Board not found on {} after reset", port),
-            Self::Io(msg) => write!(f, "IO error: {}", msg),
+            Self::ProgramFailed(msg) => write!(f, "Programming failed: {msg}"),
+            Self::VerifyFailed(msg) => write!(f, "Verification failed: {msg}"),
+            Self::InvalidHex(msg) => write!(f, "Invalid hex file: {msg}"),
+            Self::UnsupportedBoard(board) => write!(f, "Unsupported board: {board}"),
+            Self::UnsupportedProtocol(proto) => write!(f, "Unsupported protocol: {proto}"),
+            Self::BoardNotFound(port) => write!(f, "Board not found on {port} after reset"),
+            Self::Io(msg) => write!(f, "IO error: {msg}"),
         }
     }
 }

@@ -71,12 +71,13 @@ pub enum MqttError {
 
 impl RuntimeError {
     /// Convert to a frontend-friendly error message
+    #[must_use] 
     pub fn to_frontend_message(&self) -> String {
         self.to_string()
     }
 }
 
-/// Conversion from RuntimeError to String for Tauri command error handling
+/// Conversion from `RuntimeError` to String for Tauri command error handling
 impl From<RuntimeError> for String {
     fn from(err: RuntimeError) -> String {
         err.to_string()
@@ -131,7 +132,7 @@ mod tests {
         let err = HardwareError::UnsupportedPinMode { pin: 13, mode: 3 };
         let msg = err.to_string();
         assert!(msg.contains("13"));
-        assert!(msg.contains("3"));
+        assert!(msg.contains('3'));
     }
 
     #[test]

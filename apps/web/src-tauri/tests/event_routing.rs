@@ -1,6 +1,6 @@
 //! Integration tests for flow edge routing.
 //!
-//! Tests that FlowExecutor correctly routes events through edges,
+//! Tests that `FlowExecutor` correctly routes events through edges,
 //! handles stale sequence filtering, and supports fan-out routing.
 
 use app_lib::runtime::{ComponentEvent, ComponentValue, FlowEdge, FlowExecutor};

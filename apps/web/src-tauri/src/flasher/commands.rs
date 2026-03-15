@@ -13,7 +13,7 @@ pub fn flash_firmware(
     Flasher::flash(&port_name, board_type, &hex_content).map_err(|e| e.to_string())
 }
 
-/// Flash StandardFirmata to a board (uses embedded hex files)
+/// Flash `StandardFirmata` to a board (uses embedded hex files)
 #[tauri::command]
 pub fn flash_standard_firmata(
     port_name: String,
@@ -22,7 +22,7 @@ pub fn flash_standard_firmata(
     Flasher::flash_standard_firmata(&port_name, board_type).map_err(|e| e.to_string())
 }
 
-/// Auto-detect board and flash StandardFirmata
+/// Auto-detect board and flash `StandardFirmata`
 #[tauri::command]
 pub fn auto_flash_firmata(
     port_name: String,

@@ -54,6 +54,7 @@ pub struct Rgb {
 }
 
 impl Rgb {
+    #[must_use] 
     pub fn new(id: String, config: RgbConfig) -> Self {
         Self { base: ComponentBase::new(id, RgbaColor::default().into()), config, board: None, color: RgbaColor::default() }
     }
@@ -69,16 +70,16 @@ impl Rgb {
         if let Some(board) = &self.board {
             let (r, g, b) = self.apply_intensity();
             let (r, g, b) = self.apply_anode(r, g, b);
-            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.red, value: r as u16 })?;
-            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.green, value: g as u16 })?;
-            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.blue, value: b as u16 })?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.red, value: u16::from(r) })?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.green, value: u16::from(g) })?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.blue, value: u16::from(b) })?;
         }
         self.base.set_value(self.color.clone().into());
         Ok(())
     }
 
     fn apply_intensity(&self) -> (u8, u8, u8) {
-        ((self.color.r as f64 * self.color.a) as u8, (self.color.g as f64 * self.color.a) as u8, (self.color.b as f64 * self.color.a) as u8)
+        ((f64::from(self.color.r) * self.color.a) as u8, (f64::from(self.color.g) * self.color.a) as u8, (f64::from(self.color.b) * self.color.a) as u8)
     }
 
     fn apply_anode(&self, r: u8, g: u8, b: u8) -> (u8, u8, u8) {
@@ -108,7 +109,7 @@ impl Component for Rgb {
             "blue" => self.blue(args.as_u8().unwrap_or(0)),
             "alpha" => self.alpha(args.as_number().unwrap_or(100.0)),
             "off" => self.off(),
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

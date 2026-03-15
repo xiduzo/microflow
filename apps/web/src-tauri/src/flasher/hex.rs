@@ -19,13 +19,13 @@ pub fn parse(hex_content: &str) -> Result<Vec<u8>, FlashError> {
         }
 
         let byte_count = bytes[0] as usize;
-        let address = ((bytes[1] as u16) << 8) | (bytes[2] as u16);
+        let address = (u16::from(bytes[1]) << 8) | u16::from(bytes[2]);
         let record_type = bytes[3];
 
         match record_type {
             0x00 => {
                 // Data record
-                let full_address = extended_address + address as u32;
+                let full_address = extended_address + u32::from(address);
                 let data_end = 4 + byte_count;
 
                 if bytes.len() < data_end {
@@ -44,11 +44,11 @@ pub fn parse(hex_content: &str) -> Result<Vec<u8>, FlashError> {
             0x01 => break, // End of file
             0x02 if byte_count == 2 && bytes.len() >= 6 => {
                 // Extended segment address
-                extended_address = (((bytes[4] as u32) << 8) | (bytes[5] as u32)) << 4;
+                extended_address = ((u32::from(bytes[4]) << 8) | u32::from(bytes[5])) << 4;
             }
             0x04 if byte_count == 2 && bytes.len() >= 6 => {
                 // Extended linear address
-                extended_address = (((bytes[4] as u32) << 8) | (bytes[5] as u32)) << 16;
+                extended_address = ((u32::from(bytes[4]) << 8) | u32::from(bytes[5])) << 16;
             }
             _ => {}
         }

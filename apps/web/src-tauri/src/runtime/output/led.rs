@@ -30,6 +30,7 @@ pub struct Led {
 }
 
 impl Led {
+    #[must_use] 
     pub fn new(id: String, config: LedConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -65,11 +66,11 @@ impl Led {
         self.stop_blink();
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::PWM })?;
-            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: value as u16 })?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: u16::from(value) })?;
         }
         self.brightness_value = value;
         self.is_on = value > 0;
-        self.base.set_value(ComponentValue::Number(value as f64 / 255.0));
+        self.base.set_value(ComponentValue::Number(f64::from(value) / 255.0));
         Ok(())
     }
 
@@ -98,7 +99,7 @@ impl Component for Led {
             "false" => self.turn_off(),
             "toggle" => self.toggle(),
             "value" => self.brightness(args.as_u8().unwrap_or(255)),
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

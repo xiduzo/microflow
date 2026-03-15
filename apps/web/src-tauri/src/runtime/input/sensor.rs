@@ -40,6 +40,7 @@ impl Default for SensorConfig {
 impl SensorConfig {
     /// Get the pin number for analog operations
     /// Handles both legacy "A0" format and new numeric format
+    #[must_use] 
     pub fn analog_pin(&self) -> u8 {
         // If it starts with 'A' or 'a', strip it and parse (legacy format)
         if self.pin.starts_with('A') || self.pin.starts_with('a') {
@@ -63,6 +64,7 @@ pub struct Sensor {
 }
 
 impl Sensor {
+    #[must_use] 
     pub fn new(id: String, config: SensorConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -72,12 +74,12 @@ impl Sensor {
     }
 
     fn process_reading(&mut self, value: u16) {
-        let diff = (value as i32 - self.last_value as i32).unsigned_abs() as u16;
+        let diff = (i32::from(value) - i32::from(self.last_value)).unsigned_abs() as u16;
         log::debug!("Sensor {} process_reading: value={}, last={}, diff={}, threshold={}", 
             self.base.id, value, self.last_value, diff, self.config.threshold);
         if diff >= self.config.threshold {
             self.last_value = value;
-            self.base.set_value(ComponentValue::Number(value as f64));
+            self.base.set_value(ComponentValue::Number(f64::from(value)));
         }
     }
 
@@ -96,7 +98,7 @@ impl Component for Sensor {
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         let pin = self.config.analog_pin();
-        log::info!("Sensor initialize: pin={}", pin);
+        log::info!("Sensor initialize: pin={pin}");
         board.send_command(BoardCommand::SetPinMode { pin, mode: pin_mode::ANALOG })?;
         board.send_command(BoardCommand::EnableAnalogReporting { pin })?;
         self.board = Some(board);
@@ -114,7 +116,7 @@ impl Component for Sensor {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

@@ -1,7 +1,7 @@
 //! Component Registry
 //!
 //! Provides a centralized way to create components by name, eliminating
-//! the massive match statement in FlowRuntime::create_component.
+//! the massive match statement in `FlowRuntime::create_component`.
 
 use super::base::{BoardHandle, Component, ComponentEvent};
 use super::control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerConfig};
@@ -46,7 +46,7 @@ impl ComponentRegistry {
         board_handle: Arc<BoardHandle>,
     ) -> Result<Box<dyn Component>, String> {
         let entry = self.entries.get(instance)
-            .ok_or_else(|| format!("Unknown component type: {}", instance))?;
+            .ok_or_else(|| format!("Unknown component type: {instance}"))?;
 
         let mut component = (entry.factory)(id.to_string(), data);
         component.set_event_sender(event_sender);
@@ -93,7 +93,7 @@ impl ComponentRegistry {
             let config: PiezoConfig = match serde_json::from_value(data.clone()) {
                 Ok(c) => c,
                 Err(e) => {
-                    log::warn!("Failed to parse PiezoConfig: {}, using defaults", e);
+                    log::warn!("Failed to parse PiezoConfig: {e}, using defaults");
                     PiezoConfig::default()
                 }
             };

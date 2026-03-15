@@ -61,6 +61,7 @@ pub struct Oscillator {
 }
 
 impl Oscillator {
+    #[must_use] 
     pub fn new(id: String, config: OscillatorConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -85,10 +86,10 @@ impl Oscillator {
         let source = self.base.id.clone();
         let running = self.running.clone();
 
-        log::info!("Oscillator {} starting", source);
+        log::info!("Oscillator {source} starting");
 
         std::thread::spawn(move || {
-            log::info!("Oscillator {} thread started", source);
+            log::info!("Oscillator {source} thread started");
             let start = std::time::Instant::now();
             let refresh_rate = 1000 / 60; // 60 FPS
 
@@ -110,7 +111,7 @@ impl Oscillator {
 
                 std::thread::sleep(Duration::from_millis(refresh_rate));
             }
-            log::info!("Oscillator {} thread stopped", source);
+            log::info!("Oscillator {source} thread stopped");
         });
     }
 
@@ -199,7 +200,7 @@ impl Component for Oscillator {
             "start" => { self.start(); Ok(()) }
             "stop" => { self.stop(); Ok(()) }
             "reset" => { self.reset(); Ok(()) }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

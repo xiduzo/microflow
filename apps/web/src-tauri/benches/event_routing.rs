@@ -57,7 +57,7 @@ fn make_executor(component_count: usize) -> (FlowExecutor, ComponentEvent) {
     // N target components each connected to the source
     let mut edges = Vec::with_capacity(component_count);
     for i in 0..component_count {
-        let id = format!("target-{}", i);
+        let id = format!("target-{i}");
         executor.add_component(&id.clone(), Box::new(BenchComponent::new(&id)));
         edges.push(FlowEdge {
             id: None,
@@ -87,21 +87,21 @@ fn make_executor(component_count: usize) -> (FlowExecutor, ComponentEvent) {
 fn bench_route_event_10_targets(c: &mut Criterion) {
     let (mut executor, event) = make_executor(10);
     c.bench_function("route_event_10_targets", |b| {
-        b.iter(|| executor.process_event(black_box(event.clone())))
+        b.iter(|| executor.process_event(black_box(event.clone())));
     });
 }
 
 fn bench_route_event_100_targets(c: &mut Criterion) {
     let (mut executor, event) = make_executor(100);
     c.bench_function("route_event_100_targets", |b| {
-        b.iter(|| executor.process_event(black_box(event.clone())))
+        b.iter(|| executor.process_event(black_box(event.clone())));
     });
 }
 
 fn bench_route_event_no_targets(c: &mut Criterion) {
     let (mut executor, event) = make_executor(0);
     c.bench_function("route_event_no_targets", |b| {
-        b.iter(|| executor.process_event(black_box(event.clone())))
+        b.iter(|| executor.process_event(black_box(event.clone())));
     });
 }
 
@@ -118,7 +118,7 @@ fn bench_stale_event_discard(c: &mut Criterion) {
     };
 
     c.bench_function("stale_event_discard", |b| {
-        b.iter(|| executor.process_event(black_box(stale_event.clone())))
+        b.iter(|| executor.process_event(black_box(stale_event.clone())));
     });
 }
 

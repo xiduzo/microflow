@@ -92,6 +92,7 @@ pub struct Piezo {
 }
 
 impl Piezo {
+    #[must_use] 
     pub fn new(id: String, config: PiezoConfig) -> Self {
         Self { base: ComponentBase::new(id, ComponentValue::Bool(false)), config, board: None, is_playing: false }
     }
@@ -108,7 +109,7 @@ impl Piezo {
             let source = self.base.id.clone();
             
             std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(duration_ms as u64));
+                std::thread::sleep(std::time::Duration::from_millis(u64::from(duration_ms)));
                 if let Some(tx) = sender {
                     let _ = tx.send(ComponentEvent {
                         source,
@@ -172,7 +173,7 @@ impl Piezo {
         std::thread::spawn(move || {
             let frequencies = note_frequencies();
             // Beat duration in ms (tempo is BPM, so 60000/tempo = ms per beat)
-            let beat_ms = 60000.0 / tempo as f64;
+            let beat_ms = 60000.0 / f64::from(tempo);
             
             for (note, beats) in song {
                 let duration_ms = (beat_ms * beats) as u64;
@@ -180,7 +181,7 @@ impl Piezo {
                 if let Some(note_name) = note {
                     // Play the note
                     let _freq = frequencies.get(note_name.to_lowercase().as_str()).copied().unwrap_or(440);
-                    log::info!("Playing note {} for {}ms", note_name, duration_ms);
+                    log::info!("Playing note {note_name} for {duration_ms}ms");
                     // For PWM-based tone, we write a mid-value to create sound
                     let _ = board.send_command(BoardCommand::AnalogWrite { pin, value: 128 });
                     // Play for most of the duration, tiny gap for articulation
@@ -192,7 +193,7 @@ impl Piezo {
                     }
                 } else {
                     // Rest - silence
-                    log::info!("Rest for {}ms", duration_ms);
+                    log::info!("Rest for {duration_ms}ms");
                     let _ = board.send_command(BoardCommand::AnalogWrite { pin, value: 0 });
                     std::thread::sleep(std::time::Duration::from_millis(duration_ms));
                 }
@@ -239,7 +240,7 @@ impl Component for Piezo {
                 }
             }
             "stop" | "auto_stop" => self.handle_auto_stop(),
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

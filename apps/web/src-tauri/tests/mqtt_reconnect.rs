@@ -1,6 +1,6 @@
 //! Property-based tests for MQTT reconnection with exponential backoff
 //!
-//! These tests verify the correctness of the ReconnectConfig delay calculation
+//! These tests verify the correctness of the `ReconnectConfig` delay calculation
 //! and topic resubscription logic using the proptest framework.
 
 use proptest::prelude::*;
@@ -24,14 +24,14 @@ impl MockSubscriptionStore {
         }
     }
 
-    /// Add a subscription (mimics MqttBroker::subscribe)
+    /// Add a subscription (mimics `MqttBroker::subscribe`)
     fn subscribe(&mut self, topic: &str) {
         // Use a dummy callback since we only care about topic storage
         self.subscriptions
             .insert(topic.to_string(), Arc::new(|| {}));
     }
 
-    /// Collect all subscribed topics (mimics the logic in resubscribe_all)
+    /// Collect all subscribed topics (mimics the logic in `resubscribe_all`)
     fn collect_topics(&self) -> Vec<String> {
         self.subscriptions.keys().cloned().collect()
     }
@@ -49,7 +49,7 @@ proptest! {
     #[test]
     fn delay_calculation_respects_bounds(
         initial_ms in 100u64..5000,
-        max_ms in 10000u64..120000,
+        max_ms in 10000u64..120_000,
         multiplier in 1.5f64..3.0,
         attempts in 1usize..20
     ) {
@@ -79,8 +79,8 @@ proptest! {
     }
 }
 
-/// Simulates the max_attempts termination logic from reconnect_loop.
-/// This function mirrors the exact logic used in MqttBroker::reconnect_loop
+/// Simulates the `max_attempts` termination logic from `reconnect_loop`.
+/// This function mirrors the exact logic used in `MqttBroker::reconnect_loop`
 /// to determine when to stop reconnecting.
 ///
 /// Returns the number of attempts made before termination.
@@ -103,10 +103,9 @@ fn simulate_reconnect_attempts(config: &ReconnectConfig, all_attempts_fail: bool
         if success {
             // Reconnection succeeded, exit loop
             break;
-        } else {
-            // Reconnection failed, increment attempt counter
-            attempts += 1;
         }
+        // Reconnection failed, increment attempt counter
+        attempts += 1;
 
         // Safety check: if max_attempts is None and all attempts fail,
         // we would loop forever. For testing, we cap at a reasonable limit.
@@ -136,7 +135,7 @@ proptest! {
     fn max_attempts_terminates_after_exactly_m_attempts(
         max_attempts in 1usize..100,
         initial_ms in 100u64..5000,
-        max_ms in 10000u64..120000,
+        max_ms in 10000u64..120_000,
         multiplier in 1.5f64..3.0
     ) {
         let config = ReconnectConfig {
@@ -168,7 +167,7 @@ proptest! {
     fn max_attempts_allows_early_termination_on_success(
         max_attempts in 2usize..100,
         initial_ms in 100u64..5000,
-        max_ms in 10000u64..120000,
+        max_ms in 10000u64..120_000,
         multiplier in 1.5f64..3.0
     ) {
         let config = ReconnectConfig {
@@ -198,7 +197,7 @@ proptest! {
     #[test]
     fn none_max_attempts_continues_indefinitely(
         initial_ms in 100u64..5000,
-        max_ms in 10000u64..120000,
+        max_ms in 10000u64..120_000,
         multiplier in 1.5f64..3.0
     ) {
         let config = ReconnectConfig {
@@ -229,7 +228,7 @@ proptest! {
     #[test]
     fn max_attempts_boundary_single_attempt(
         initial_ms in 100u64..5000,
-        max_ms in 10000u64..120000,
+        max_ms in 10000u64..120_000,
         multiplier in 1.5f64..3.0
     ) {
         let config = ReconnectConfig {

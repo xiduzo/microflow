@@ -35,6 +35,7 @@ pub struct Motion {
 }
 
 impl Motion {
+    #[must_use] 
     pub fn new(id: String, config: MotionConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
@@ -84,7 +85,7 @@ impl Component for Motion {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

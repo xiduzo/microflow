@@ -21,6 +21,7 @@ pub struct MqttManager {
 }
 
 impl MqttManager {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             brokers: Arc::new(RwLock::new(HashMap::new())),
@@ -141,7 +142,7 @@ impl MqttManager {
 
         let entry = brokers
             .get(broker_id)
-            .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
+            .ok_or_else(|| format!("Broker {broker_id} not connected"))?;
 
         let entry_guard = entry.lock().await;
         let broker_guard = entry_guard.broker.read().await;
@@ -154,7 +155,7 @@ impl MqttManager {
 
         let entry = brokers
             .get(broker_id)
-            .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
+            .ok_or_else(|| format!("Broker {broker_id} not connected"))?;
 
         let entry_guard = entry.lock().await;
         let broker_guard = entry_guard.broker.read().await;
@@ -173,7 +174,7 @@ impl MqttManager {
 
         let entry = brokers
             .get(broker_id)
-            .ok_or_else(|| format!("Broker {} not connected", broker_id))?;
+            .ok_or_else(|| format!("Broker {broker_id} not connected"))?;
 
         let entry_guard = entry.lock().await;
         let broker_guard = entry_guard.broker.read().await;

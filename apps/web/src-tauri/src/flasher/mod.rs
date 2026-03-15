@@ -1,6 +1,6 @@
 //! Firmware Flasher Module
 //!
-//! This module handles flashing firmware (like StandardFirmata) to Arduino boards.
+//! This module handles flashing firmware (like `StandardFirmata`) to Arduino boards.
 //!
 //! # Architecture
 //!
@@ -48,7 +48,7 @@ impl Flasher {
         hex_content: &str,
     ) -> Result<FlashResult, FlashError> {
         let config = BoardConfig::find(board_type)
-            .ok_or_else(|| FlashError::UnsupportedBoard(format!("{:?}", board_type)))?;
+            .ok_or_else(|| FlashError::UnsupportedBoard(format!("{board_type:?}")))?;
 
         log::info!(
             "Flashing {:?} on {} using {:?} protocol",
@@ -78,35 +78,34 @@ impl Flasher {
         Ok(FlashResult {
             success: true,
             message: "Firmware flashed successfully".to_string(),
-            board: format!("{:?}", board_type),
+            board: format!("{board_type:?}"),
             port: port_name.to_string(),
         })
     }
 
-    /// Flash StandardFirmata to a board (auto-selects the correct hex file)
+    /// Flash `StandardFirmata` to a board (auto-selects the correct hex file)
     pub fn flash_standard_firmata(
         port_name: &str,
         board_type: BoardType,
     ) -> Result<FlashResult, FlashError> {
         let hex_content = Firmware::get_firmata_hex(board_type)
-            .ok_or_else(|| FlashError::UnsupportedBoard(format!("{:?}", board_type)))?;
+            .ok_or_else(|| FlashError::UnsupportedBoard(format!("{board_type:?}")))?;
 
-        log::info!("Flashing StandardFirmata to {:?} on {}", board_type, port_name);
+        log::info!("Flashing StandardFirmata to {board_type:?} on {port_name}");
         Self::flash(port_name, board_type, hex_content)
     }
 
-    /// Detect board type from USB VID/PID and flash StandardFirmata
+    /// Detect board type from USB VID/PID and flash `StandardFirmata`
     pub fn auto_flash_firmata(
         port_name: &str,
         vid: u16,
         pid: u16,
     ) -> Result<FlashResult, FlashError> {
         let board_type = BoardConfig::detect_from_usb(vid, pid)
-            .ok_or_else(|| FlashError::UnsupportedBoard(format!("VID:{:04x} PID:{:04x}", vid, pid)))?;
+            .ok_or_else(|| FlashError::UnsupportedBoard(format!("VID:{vid:04x} PID:{pid:04x}")))?;
 
         log::info!(
-            "Auto-detected board type {:?} from VID:{:04x} PID:{:04x}",
-            board_type, vid, pid
+            "Auto-detected board type {board_type:?} from VID:{vid:04x} PID:{pid:04x}"
         );
 
         Self::flash_standard_firmata(port_name, board_type)

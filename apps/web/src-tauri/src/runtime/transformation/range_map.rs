@@ -1,4 +1,4 @@
-//! RangeMap Component - Transformation
+//! `RangeMap` Component - Transformation
 
 use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
@@ -36,6 +36,7 @@ pub struct RangeMap {
 }
 
 impl RangeMap {
+    #[must_use] 
     pub fn new(id: String, config: RangeMapConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Array(vec![
@@ -61,7 +62,7 @@ impl RangeMap {
 
         let mapped = ((input_num - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min;
         let distance = (out_max - out_min).abs();
-        let precision = if distance <= 10.0 { 1 } else { 0 };
+        let precision = i32::from(distance <= 10.0);
         let factor = 10_f64.powi(precision);
         let normalized = (mapped * factor).round() / factor;
 
@@ -84,7 +85,7 @@ impl Component for RangeMap {
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "value" => { self.map_value(args); Ok(()) }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

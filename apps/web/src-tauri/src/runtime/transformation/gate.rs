@@ -31,6 +31,7 @@ pub struct Gate {
 }
 
 impl Gate {
+    #[must_use] 
     pub fn new(id: String, config: GateConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
@@ -96,7 +97,7 @@ impl Component for Gate {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

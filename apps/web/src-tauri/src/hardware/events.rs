@@ -21,6 +21,7 @@ pub struct EventEmitter {
 }
 
 impl EventEmitter {
+    #[must_use] 
     pub fn new(app_handle: tauri::AppHandle) -> Self {
         Self { app_handle }
     }
@@ -32,7 +33,7 @@ impl EventEmitter {
     /// Emit any board state
     pub fn board_state(&self, state: BoardState) {
         if let Err(e) = self.app_handle.emit("board-state", &state) {
-            log::error!("Failed to emit board-state: {}", e);
+            log::error!("Failed to emit board-state: {e}");
         }
     }
 
@@ -63,7 +64,7 @@ impl EventEmitter {
 
     /// Emit error for port without Firmata
     pub fn no_firmata_error(&self, port_name: &str) {
-        self.board_error(&format!("No Firmata detected on {}", port_name));
+        self.board_error(&format!("No Firmata detected on {port_name}"));
     }
 
     // ========================================================================
@@ -77,7 +78,7 @@ impl EventEmitter {
             event_type: "connected".to_string(),
         };
         if let Err(e) = self.app_handle.emit("serial-port-connected", &event) {
-            log::error!("Failed to emit serial-port-connected: {}", e);
+            log::error!("Failed to emit serial-port-connected: {e}");
         }
     }
 
@@ -88,7 +89,7 @@ impl EventEmitter {
             event_type: "disconnected".to_string(),
         };
         if let Err(e) = self.app_handle.emit("serial-port-disconnected", &event) {
-            log::error!("Failed to emit serial-port-disconnected: {}", e);
+            log::error!("Failed to emit serial-port-disconnected: {e}");
         }
     }
 }

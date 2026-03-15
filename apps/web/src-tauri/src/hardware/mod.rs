@@ -18,7 +18,7 @@
 //! # Design Principles
 //!
 //! 1. **Single Responsibility**: Each submodule has one job
-//! 2. **Dependency Inversion**: HardwareService orchestrates, submodules don't know each other
+//! 2. **Dependency Inversion**: `HardwareService` orchestrates, submodules don't know each other
 //! 3. **Event Centralization**: All Tauri events flow through `events.rs`
 //! 4. **Clean Boundaries**: Flasher module is called, never calls back
 
@@ -55,6 +55,7 @@ pub struct HardwareService {
 impl HardwareService {
     const POLL_INTERVAL_MS: u64 = 250;
 
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             app_handle: None,
@@ -64,7 +65,7 @@ impl HardwareService {
     }
 
     /// Start monitoring for hardware changes.
-    /// The board_handle is shared with the runtime - when Firmata is detected,
+    /// The `board_handle` is shared with the runtime - when Firmata is detected,
     /// the connection is stored directly in this handle.
     pub fn start_monitoring(&mut self, app_handle: tauri::AppHandle, board_handle: Arc<BoardHandle>) {
         if self.monitoring.load(Ordering::Relaxed) {
@@ -163,7 +164,7 @@ impl HardwareMonitorLoop {
                     self.handle_port_connected(port);
                 }
             }
-            Err(e) => log::error!("Failed to get initial ports: {}", e),
+            Err(e) => log::error!("Failed to get initial ports: {e}"),
         }
     }
 
@@ -292,16 +293,16 @@ impl HardwareMonitorLoop {
         // First check if Firmata is already running
         self.events.board_connecting();
         if let Some(state) = firmata::detect_and_connect(&port.port_name, &self.board_handle) {
-            log::info!("Firmata already running on {:?}", board_type);
+            log::info!("Firmata already running on {board_type:?}");
             return Some(state);
         }
 
         // No Firmata - flash StandardFirmata
-        log::info!("No Firmata on {:?}, flashing...", board_type);
+        log::info!("No Firmata on {board_type:?}, flashing...");
         self.flash_and_detect(port, board_type)
     }
 
-    /// Flash StandardFirmata and detect
+    /// Flash `StandardFirmata` and detect
     fn flash_and_detect(
         &self,
         port: &SerialPortInfo,
@@ -324,8 +325,8 @@ impl HardwareMonitorLoop {
                 firmata::detect_and_connect(&port.port_name, &self.board_handle)
             }
             Err(e) => {
-                log::error!("Flash failed: {}", e);
-                self.events.board_error(&format!("Flash failed: {}", e));
+                log::error!("Flash failed: {e}");
+                self.events.board_error(&format!("Flash failed: {e}"));
                 None
             }
         }

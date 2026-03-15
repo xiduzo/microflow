@@ -26,6 +26,7 @@ pub enum BoardConnectionState {
 
 impl BoardConnectionState {
     /// Convert from u8, returns Disconnected for invalid values
+    #[must_use] 
     pub fn from_u8(value: u8) -> Self {
         match value {
             0 => Self::Disconnected,
@@ -39,6 +40,7 @@ impl BoardConnectionState {
     }
 
     /// Get human-readable state name
+    #[must_use] 
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Disconnected => "disconnected",
@@ -63,7 +65,8 @@ pub struct BoardStateMachine {
 }
 
 impl BoardStateMachine {
-    /// Create a new BoardStateMachine with initial Disconnected state
+    /// Create a new `BoardStateMachine` with initial Disconnected state
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             state: AtomicU8::new(BoardConnectionState::Disconnected as u8),
@@ -73,7 +76,7 @@ impl BoardStateMachine {
 
     /// Get current state
     ///
-    /// Uses SeqCst ordering to ensure consistent reads across threads.
+    /// Uses `SeqCst` ordering to ensure consistent reads across threads.
     pub fn current(&self) -> BoardConnectionState {
         BoardConnectionState::from_u8(self.state.load(Ordering::SeqCst))
     }
@@ -93,7 +96,7 @@ impl BoardStateMachine {
     ///
     /// This method bypasses the normal transition logic and directly sets the state.
     /// Primarily intended for testing purposes to set up specific initial states.
-    /// Invalid u8 values (>= 6) will be treated as Disconnected by from_u8.
+    /// Invalid u8 values (>= 6) will be treated as Disconnected by `from_u8`.
     ///
     /// # Arguments
     /// * `value` - The raw u8 value to set as state
@@ -103,7 +106,7 @@ impl BoardStateMachine {
 
     /// Attempt atomic state transition
     ///
-    /// Uses compare_exchange to atomically transition from one state to another.
+    /// Uses `compare_exchange` to atomically transition from one state to another.
     /// Returns true if transition succeeded (current state matched `from`),
     /// false if current state didn't match `from` (state remains unchanged).
     ///
@@ -138,7 +141,7 @@ impl BoardStateMachine {
 
     /// Set error state with message
     ///
-    /// Stores the error message in last_error and forces transition to Error state.
+    /// Stores the error message in `last_error` and forces transition to Error state.
     /// This is used when an error occurs during connection operations.
     ///
     /// # Arguments

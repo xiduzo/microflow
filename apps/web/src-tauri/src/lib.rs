@@ -134,10 +134,9 @@ pub fn run() {
                                         let broker_id = publish_info.get("brokerId").and_then(|v| v.as_str()).unwrap_or("").to_string();
                                         let topic = publish_info.get("topic").and_then(|v| v.as_str()).unwrap_or("").to_string();
                                         let payload = publish_info.get("payload").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                        let retain = publish_info.get("retain").and_then(|v| v.as_bool()).unwrap_or(false);
+                                        let retain = publish_info.get("retain").and_then(serde_json::Value::as_bool).unwrap_or(false);
                                         
-                                        log::info!("[MQTT] Publishing to broker={}, topic={}, payload={}, retain={}", 
-                                            broker_id, topic, payload, retain);
+                                        log::info!("[MQTT] Publishing to broker={broker_id}, topic={topic}, payload={payload}, retain={retain}");
                                         
                                         if !broker_id.is_empty() && !topic.is_empty() {
                                             let _ = mqtt_publish_tx_events.send(MqttPublishRequest {
@@ -192,7 +191,7 @@ pub fn run() {
                                     request.payload.as_bytes(),
                                     request.retain,
                                 ).await {
-                                    log::error!("[MQTT] Failed to publish: {}", e);
+                                    log::error!("[MQTT] Failed to publish: {e}");
                                 }
                             } else {
                                 log::warn!("[MQTT] Publish request missing broker_id or topic");
@@ -223,7 +222,7 @@ pub fn run() {
                                     // Use blocking_lock() for async mutex in sync callback context
                                     let mut runtime = flow_runtime_board.blocking_lock();
                                     if let Err(e) = runtime.update_flow(flow) {
-                                        log::error!("Failed to apply pending flow: {}", e);
+                                        log::error!("Failed to apply pending flow: {e}");
                                     } else {
                                         // Install pin change callback after flow update
                                         let event_tx = runtime.event_sender();
@@ -238,7 +237,7 @@ pub fn run() {
                                     // unplug/replug.
                                     let mut runtime = flow_runtime_board.blocking_lock();
                                     if let Err(e) = runtime.initialize_hardware() {
-                                        log::warn!("Failed to reinitialize hardware on reconnect: {}", e);
+                                        log::warn!("Failed to reinitialize hardware on reconnect: {e}");
                                     }
                                     let event_tx = runtime.event_sender();
                                     runtime.install_pin_change_callback(event_tx);
@@ -250,7 +249,7 @@ pub fn run() {
                                 // Board handle is already disconnected by hardware monitor
                             }
                             Some(other) => {
-                                log::debug!("Board state: {}", other);
+                                log::debug!("Board state: {other}");
                             }
                             None => {}
                         }

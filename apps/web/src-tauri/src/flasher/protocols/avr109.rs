@@ -27,7 +27,7 @@ impl Avr109Flasher {
 
         // Step 2: Wait for bootloader to appear
         let bootloader_port = self.wait_for_bootloader()?;
-        log::info!("Bootloader ready on {}", bootloader_port);
+        log::info!("Bootloader ready on {bootloader_port}");
 
         // Step 3: Open port and flash
         let mut port = self.open_bootloader_port(&bootloader_port)?;
@@ -48,7 +48,7 @@ impl Avr109Flasher {
         let mut port = serialport::new(&self.port_name, 1200)
             .timeout(Duration::from_millis(1000))
             .open()
-            .map_err(|e| FlashError::PortOpen(format!("Failed to open for reset: {}", e)))?;
+            .map_err(|e| FlashError::PortOpen(format!("Failed to open for reset: {e}")))?;
 
         // Set DTR/RTS low (false) - matches TypeScript: sendResetSignals(false, 250)
         port.write_data_terminal_ready(false)
@@ -121,7 +121,7 @@ impl Avr109Flasher {
         let port = serialport::new(port_name, self.config.baud_rate)
             .timeout(Duration::from_millis(2000))
             .open()
-            .map_err(|e| FlashError::PortOpen(format!("Failed to open bootloader port: {}", e)))?;
+            .map_err(|e| FlashError::PortOpen(format!("Failed to open bootloader port: {e}")))?;
         
         // Give the port a moment to stabilize
         thread::sleep(Duration::from_millis(100));
@@ -150,7 +150,7 @@ impl Avr109Flasher {
 
             let mut response = [0u8; 7];
             match port.read_exact(&mut response) {
-                Ok(_) => {
+                Ok(()) => {
                     let id = String::from_utf8_lossy(&response);
                     log::info!("Bootloader ID: '{}' (attempt {})", id, attempt + 1);
                     
@@ -176,7 +176,7 @@ impl Avr109Flasher {
         let _ = port.clear(serialport::ClearBuffer::Input);
 
         port.write_all(b"e")
-            .map_err(|e| FlashError::Communication(format!("Failed to send erase: {}", e)))?;
+            .map_err(|e| FlashError::Communication(format!("Failed to send erase: {e}")))?;
         let _ = port.flush();
 
         // Wait for erase to complete - can take a moment
@@ -184,7 +184,7 @@ impl Avr109Flasher {
 
         let mut response = [0u8; 1];
         port.read_exact(&mut response)
-            .map_err(|e| FlashError::Communication(format!("Erase response error: {}", e)))?;
+            .map_err(|e| FlashError::Communication(format!("Erase response error: {e}")))?;
 
         if response[0] != b'\r' {
             return Err(FlashError::ProgramFailed(format!(
@@ -237,7 +237,7 @@ impl Avr109Flasher {
             port.flush().ok();
             
             port.read_exact(&mut response)
-                .map_err(|e| FlashError::Communication(format!("Block {} write error: {}", i, e)))?;
+                .map_err(|e| FlashError::Communication(format!("Block {i} write error: {e}")))?;
 
             if response[0] != b'\r' {
                 return Err(FlashError::ProgramFailed(format!(

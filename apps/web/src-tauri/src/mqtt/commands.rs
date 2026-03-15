@@ -118,7 +118,7 @@ pub async fn mqtt_publish(
 #[tauri::command]
 pub async fn mqtt_status(state: State<'_, AppState>, broker_id: String) -> Result<String, String> {
     let status = state.mqtt_manager.status(&broker_id).await;
-    Ok(format!("{:?}", status))
+    Ok(format!("{status:?}"))
 }
 
 /// Get list of connected brokers
@@ -150,7 +150,7 @@ pub async fn mqtt_sync_brokers(
     
     // Disconnect brokers that were removed
     for id in current_ids.difference(&new_ids) {
-        log::info!("[MQTT] Disconnecting removed broker: {}", id);
+        log::info!("[MQTT] Disconnecting removed broker: {id}");
         let _ = state.mqtt_manager.disconnect(id).await;
     }
     

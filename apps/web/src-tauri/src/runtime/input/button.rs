@@ -46,6 +46,7 @@ pub struct Button {
 }
 
 impl Button {
+    #[must_use] 
     pub fn new(id: String, config: ButtonConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
@@ -111,7 +112,7 @@ impl Component for Button {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

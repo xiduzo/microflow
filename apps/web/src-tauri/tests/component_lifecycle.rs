@@ -377,10 +377,10 @@ fn test_graceful_handling_of_edge_cases() {
 
     // Test event with empty strings
     let event = ComponentEvent {
-        source: "".to_string(),
-        source_handle: "".to_string(),
-        value: ComponentValue::String("".to_string()),
-        edge_id: Some("".to_string()),
+        source: String::new(),
+        source_handle: String::new(),
+        value: ComponentValue::String(String::new()),
+        edge_id: Some(String::new()),
         sequence: 0,
     };
     component.receive_event(event);
@@ -400,14 +400,14 @@ fn test_component_thread_safety() {
     let mut handles = vec![];
 
     // Spawn multiple threads that interact with the component and board
-    for i in 0..10 {
+    for i in 0u64..10 {
         let comp = Arc::clone(&component);
         let brd = Arc::clone(&board);
 
         let handle = thread::spawn(move || {
             // Each thread sends an event
             let event = ComponentEvent {
-                source: format!("source-{}", i),
+                source: format!("source-{i}"),
                 source_handle: "output".to_string(),
                 value: ComponentValue::Number(i as f64),
                 edge_id: None,
@@ -669,7 +669,7 @@ proptest! {
         // Send multiple events
         for i in 0..event_count {
             let event = ComponentEvent {
-                source: format!("source-{}", i),
+                source: format!("source-{i}"),
                 source_handle: "output".to_string(),
                 value: ComponentValue::Number(i as f64),
                 edge_id: None,

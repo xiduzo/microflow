@@ -1,12 +1,12 @@
 //! MQTT Component - External
 //!
-//! Publishes and subscribes to MQTT topics for IoT connectivity.
+//! Publishes and subscribes to MQTT topics for `IoT` connectivity.
 //! 
 //! # Architecture
 //! 
-//! The MQTT component works with the MqttManager through events:
-//! - Subscribe nodes: MqttManager routes incoming messages to the component via `receive_message`
-//! - Publish nodes: Component emits values that get published via MqttManager
+//! The MQTT component works with the `MqttManager` through events:
+//! - Subscribe nodes: `MqttManager` routes incoming messages to the component via `receive_message`
+//! - Publish nodes: Component emits values that get published via `MqttManager`
 //!
 //! The wiring happens in lib.rs where flow events are processed.
 
@@ -55,6 +55,7 @@ pub struct Mqtt {
 }
 
 impl Mqtt {
+    #[must_use] 
     pub fn new(id: String, config: MqttConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
@@ -64,41 +65,47 @@ impl Mqtt {
 
     /// Get the full config
     #[allow(dead_code)]
+    #[must_use] 
     pub fn config(&self) -> &MqttConfig {
         &self.config
     }
 
     /// Get the broker ID this component is configured for
     #[allow(dead_code)]
+    #[must_use] 
     pub fn broker_id(&self) -> &str {
         &self.config.broker_id
     }
 
     /// Get the topic this component subscribes to or publishes on
     #[allow(dead_code)]
+    #[must_use] 
     pub fn topic(&self) -> &str {
         &self.config.topic
     }
 
     /// Check if this is a subscribe node
     #[allow(dead_code)]
+    #[must_use] 
     pub fn is_subscribe(&self) -> bool {
         self.config.direction == "subscribe"
     }
 
     /// Check if this is a publish node
+    #[must_use] 
     pub fn is_publish(&self) -> bool {
         self.config.direction == "publish"
     }
 
     /// Get retain flag for publish
     #[allow(dead_code)]
+    #[must_use] 
     pub fn retain(&self) -> bool {
         self.config.retain
     }
 
     /// Called when a message is received from the broker (for subscribe nodes)
-    /// This is called by the MqttManager integration in lib.rs
+    /// This is called by the `MqttManager` integration in lib.rs
     #[allow(dead_code)]
     pub fn receive_message(&mut self, payload: &[u8]) {
         let value = String::from_utf8_lossy(payload).to_string();
@@ -177,7 +184,7 @@ impl Component for Mqtt {
                 self.base.emit_with_value("_mqtt_publish", Cow::Owned(ComponentValue::String(publish_info.to_string())));
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

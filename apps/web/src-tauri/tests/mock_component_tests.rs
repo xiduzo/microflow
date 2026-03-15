@@ -1,6 +1,6 @@
-//! Tests for MockComponent
+//! Tests for `MockComponent`
 //!
-//! This test file verifies the MockComponent implementation for testing
+//! This test file verifies the `MockComponent` implementation for testing
 //! event routing and value propagation.
 //!
 //! **Validates: Requirements 4.2**
@@ -152,7 +152,7 @@ fn test_component_id() {
     assert_eq!(component.id, "my-component-id");
 }
 
-/// Test that MockComponent can be used for edge routing verification
+/// Test that `MockComponent` can be used for edge routing verification
 /// **Validates: Requirements 4.2**
 #[test]
 fn test_event_routing_verification() {
@@ -183,7 +183,7 @@ fn test_event_routing_verification() {
     assert_eq!(events[0].edge_id, Some("edge-1".to_string()));
 }
 
-/// Test that MockComponent correctly tracks value from events
+/// Test that `MockComponent` correctly tracks value from events
 /// **Validates: Requirements 4.3**
 #[test]
 fn test_target_receives_correct_value() {

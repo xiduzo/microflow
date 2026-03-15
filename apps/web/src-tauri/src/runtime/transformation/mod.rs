@@ -1,6 +1,6 @@
 //! Transformation Components
 //!
-//! Components that transform data: Calculate, Compare, Gate, RangeMap, Smooth
+//! Components that transform data: Calculate, Compare, Gate, `RangeMap`, Smooth
 
 mod calculate;
 mod compare;

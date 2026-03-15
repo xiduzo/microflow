@@ -90,7 +90,7 @@ impl BoardConfig {
     /// Detect board type from USB product ID
     /// Returns the most likely board type based on PID
     pub fn detect_from_pid(pid: u16) -> Option<BoardType> {
-        let pid_str = format!("{:04x}", pid);
+        let pid_str = format!("{pid:04x}");
 
         // Check in order of specificity (more unique PIDs first)
         if BoardProductIds::UNO.contains(&pid_str.as_str()) {
@@ -128,7 +128,7 @@ impl BoardConfig {
 
     /// Detect board type from USB VID and PID combination
     pub fn detect_from_usb(vid: u16, pid: u16) -> Option<BoardType> {
-        let pid_str = format!("{:04x}", pid);
+        let pid_str = format!("{pid:04x}");
 
         // CH340 chips (VID 0x1A86) are typically used on Nano clones
         // FTDI chips (VID 0x0403) can be Nano or Uno clones

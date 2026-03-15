@@ -22,21 +22,20 @@ const PORT_TIMEOUT_MS: u64 = 100;
 const FIRMWARE_READ_ITERATIONS: usize = 5;
 const CAPABILITY_READ_ITERATIONS: usize = 10;
 
-/// Detect Firmata on a port and connect directly to the provided BoardHandle.
-/// Returns BoardState if successful, and the board connection is stored in the handle.
+/// Detect Firmata on a port and connect directly to the provided `BoardHandle`.
+/// Returns `BoardState` if successful, and the board connection is stored in the handle.
 pub fn detect_and_connect(port_name: &str, board_handle: &Arc<BoardHandle>) -> Option<BoardState> {
     if PortMonitor::should_skip_firmata_test(port_name) {
         return None;
     }
 
-    log::info!("Starting Firmata detection on: {}", port_name);
+    log::info!("Starting Firmata detection on: {port_name}");
 
     // Quick probe to find working baud rate
     let baud_rate = find_firmata_baud(port_name)?;
 
     log::info!(
-        "Quick probe found Firmata at {} baud, doing full detection",
-        baud_rate
+        "Quick probe found Firmata at {baud_rate} baud, doing full detection"
     );
 
     // Full detection with firmata-rs - returns the board connection
@@ -70,13 +69,13 @@ fn find_firmata_baud(port_name: &str) -> Option<u32> {
             return Some(baud_rate);
         }
     }
-    log::info!("Firmata not detected on: {}", port_name);
+    log::info!("Firmata not detected on: {port_name}");
     None
 }
 
 /// Quick probe to check if Firmata is running (without firmata-rs)
 fn quick_probe(port_name: &str, baud_rate: u32) -> bool {
-    log::info!("Quick probe on {} at {} baud", port_name, baud_rate);
+    log::info!("Quick probe on {port_name} at {baud_rate} baud");
 
     let mut port = match serialport::new(port_name, baud_rate)
         .timeout(Duration::from_millis(1000))
@@ -84,7 +83,7 @@ fn quick_probe(port_name: &str, baud_rate: u32) -> bool {
     {
         Ok(p) => p,
         Err(e) => {
-            log::info!("Failed to open port: {}", e);
+            log::info!("Failed to open port: {e}");
             return false;
         }
     };
@@ -158,7 +157,7 @@ fn has_firmata_markers(buf: &[u8]) -> bool {
 
 /// Full Firmata detection with capability query - returns the Board instance
 fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInfo, Board<SerialPortWrapper>)> {
-    log::info!("Full Firmata detection on {} at {} baud", port_name, baud_rate);
+    log::info!("Full Firmata detection on {port_name} at {baud_rate} baud");
 
     let port = serialport::new(port_name, baud_rate)
         .timeout(Duration::from_millis(PORT_TIMEOUT_MS))
@@ -178,11 +177,11 @@ fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInf
         match board.read_and_decode() {
             Ok(_) if !board.firmware_name.is_empty() => break,
             Err(e) => {
-                let err_str = format!("{}", e);
+                let err_str = format!("{e}");
                 if err_str.contains("timed out") || err_str.contains("timeout") {
                     continue; // Normal during boot — try again
                 }
-                log::warn!("Firmata firmware read error: {}", err_str);
+                log::warn!("Firmata firmware read error: {err_str}");
                 return None; // Real I/O error — port gone or device error
             }
             _ => continue,
@@ -208,7 +207,7 @@ fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInf
         match board.read_and_decode() {
             Ok(_) => {}
             Err(e) => {
-                let err_str = format!("{}", e);
+                let err_str = format!("{e}");
                 if err_str.contains("timed out") || err_str.contains("timeout") {
                     continue; // Timeout is normal — keep draining
                 }

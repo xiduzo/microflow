@@ -56,6 +56,7 @@ pub struct Trigger {
 }
 
 impl Trigger {
+    #[must_use] 
     pub fn new(id: String, config: TriggerConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
@@ -123,7 +124,7 @@ impl Component for Trigger {
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "value" => { self.signal(args); Ok(()) }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

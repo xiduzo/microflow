@@ -1,4 +1,4 @@
-//! STK500v1 protocol implementation (Uno, Nano)
+//! `STK500v1` protocol implementation (Uno, Nano)
 
 use crate::flasher::boards::BoardConfig;
 use crate::flasher::error::FlashError;
@@ -16,7 +16,7 @@ const STK_LOAD_ADDRESS: u8 = 0x55;
 const STK_PROG_PAGE: u8 = 0x64;
 const STK_READ_SIGN: u8 = 0x75;
 
-/// Baud rates to try for STK500v1 bootloaders
+/// Baud rates to try for `STK500v1` bootloaders
 const BAUD_RATES: &[u32] = &[57600, 115200, 19200];
 
 pub struct Stk500v1Flasher {
@@ -70,7 +70,7 @@ impl Stk500v1Flasher {
                 continue; // Already tried this one
             }
 
-            log::info!("Trying {} baud...", baud);
+            log::info!("Trying {baud} baud...");
             
             // Close current port and reopen at new baud rate
             drop(std::mem::replace(
@@ -84,7 +84,7 @@ impl Stk500v1Flasher {
             self.reset()?;
             
             if self.sync().is_ok() {
-                log::info!("Sync successful at {} baud", baud);
+                log::info!("Sync successful at {baud} baud");
                 return Ok(true);
             }
         }
@@ -154,7 +154,7 @@ impl Stk500v1Flasher {
             
             let mut response = [0u8; 2];
             match self.port.read_exact(&mut response) {
-                Ok(_) => {
+                Ok(()) => {
                     log::info!(
                         "Sync attempt {}: got {:02X} {:02X}",
                         attempt + 1, response[0], response[1]
@@ -180,16 +180,16 @@ impl Stk500v1Flasher {
         
         let mut response = [0u8; 5];
         self.port.read_exact(&mut response)
-            .map_err(|e| FlashError::Communication(format!("Failed to read signature: {}", e)))?;
+            .map_err(|e| FlashError::Communication(format!("Failed to read signature: {e}")))?;
 
         if response[0] != STK_INSYNC {
             return Err(FlashError::Communication(format!(
-                "Invalid signature response: {:02X?}", response
+                "Invalid signature response: {response:02X?}"
             )));
         }
 
         let signature = &response[1..4];
-        log::info!("Device signature: {:02X?}", signature);
+        log::info!("Device signature: {signature:02X?}");
         
         if signature != self.config.signature.as_slice() {
             log::warn!(
@@ -270,7 +270,7 @@ impl Stk500v1Flasher {
     fn expect_ok(&mut self) -> Result<(), FlashError> {
         let mut response = [0u8; 2];
         self.port.read_exact(&mut response)
-            .map_err(|e| FlashError::Communication(format!("Read error: {}", e)))?;
+            .map_err(|e| FlashError::Communication(format!("Read error: {e}")))?;
 
         if response[0] == STK_INSYNC && response[1] == STK_OK {
             Ok(())

@@ -26,6 +26,7 @@ pub struct Constant {
 }
 
 impl Constant {
+    #[must_use] 
     pub fn new(id: String, config: ConstantConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(config.value)),
@@ -43,7 +44,7 @@ impl Component for Constant {
     fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
 
     fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
-        Err(format!("Unknown method: {}", method))
+        Err(format!("Unknown method: {method}"))
     }
 
     fn destroy(&mut self) {}

@@ -55,22 +55,23 @@ pub struct Servo {
 }
 
 impl Servo {
+    #[must_use] 
     pub fn new(id: String, config: ServoConfig) -> Self {
         let initial_pos = (config.range.min + config.range.max) / 2;
-        Self { base: ComponentBase::new(id, ComponentValue::Number(initial_pos as f64)), config, board: None, current_position: initial_pos }
+        Self { base: ComponentBase::new(id, ComponentValue::Number(f64::from(initial_pos))), config, board: None, current_position: initial_pos }
     }
 
-    pub fn min(&mut self) -> Result<(), String> { self.to(self.config.range.min as f64) }
-    pub fn max(&mut self) -> Result<(), String> { self.to(self.config.range.max as f64) }
+    pub fn min(&mut self) -> Result<(), String> { self.to(f64::from(self.config.range.min)) }
+    pub fn max(&mut self) -> Result<(), String> { self.to(f64::from(self.config.range.max)) }
 
     pub fn to(&mut self, position: f64) -> Result<(), String> {
         if position.is_nan() { return Ok(()); }
-        let clamped = position.clamp(self.config.range.min as f64, self.config.range.max as f64) as u16;
+        let clamped = position.clamp(f64::from(self.config.range.min), f64::from(self.config.range.max)) as u16;
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: clamped })?;
         }
         self.current_position = clamped;
-        self.base.set_value(ComponentValue::Number(clamped as f64));
+        self.base.set_value(ComponentValue::Number(f64::from(clamped)));
         Ok(())
     }
 
@@ -98,7 +99,7 @@ impl Component for Servo {
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::SERVO })?;
         self.board = Some(board);
         let center = (self.config.range.min + self.config.range.max) / 2;
-        self.to(center as f64)
+        self.to(f64::from(center))
     }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
@@ -108,11 +109,11 @@ impl Component for Servo {
             "value" => self.to(args.as_number().unwrap_or(90.0)),
             "rotate" => self.rotate(args.as_number().unwrap_or(0.0)),
             "stop" => self.stop(),
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 
-    fn destroy(&mut self) { let _ = self.to((self.config.range.min + self.config.range.max) as f64 / 2.0); self.board = None; }
+    fn destroy(&mut self) { let _ = self.to(f64::from(self.config.range.min + self.config.range.max) / 2.0); self.board = None; }
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
 }

@@ -20,6 +20,7 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    #[must_use] 
     pub fn new(id: String, config: MonitorConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -43,7 +44,7 @@ impl Component for Monitor {
                 self.base.set_value(args);
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

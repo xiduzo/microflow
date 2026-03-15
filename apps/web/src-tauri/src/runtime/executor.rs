@@ -19,7 +19,7 @@ pub struct EdgeTarget {
     pub edge_id: Option<Arc<str>>,
 }
 
-/// Optimized edge lookup map using FxHashMap with pre-computed keys.
+/// Optimized edge lookup map using `FxHashMap` with pre-computed keys.
 ///
 /// Uses `rustc_hash::FxHasher` for fast integer hashing of `(source, handle)` pairs.
 /// Keys are pre-computed 64-bit hashes to avoid repeated string hashing on hot paths.
@@ -55,7 +55,7 @@ impl EdgeMap {
     #[inline]
     pub fn get(&self, source: &str, handle: &str) -> Option<&[EdgeTarget]> {
         let key = Self::key(source, handle);
-        self.map.get(&key).map(|v| v.as_slice())
+        self.map.get(&key).map(std::vec::Vec::as_slice)
     }
 
     /// Clear all edges
@@ -77,13 +77,14 @@ impl Default for EdgeMap {
 pub struct FlowExecutor {
     components: HashMap<String, Box<dyn Component>>,
     edges: Vec<FlowEdge>,
-    /// Optimized edge lookup map using FxHashMap with pre-computed keys
+    /// Optimized edge lookup map using `FxHashMap` with pre-computed keys
     edge_map: EdgeMap,
     /// Current flow sequence for filtering stale events
     current_sequence: u64,
 }
 
 impl FlowExecutor {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             components: HashMap::new(),
@@ -94,14 +95,15 @@ impl FlowExecutor {
     }
 
     /// Set the current flow sequence for stale event filtering
-    /// Events with sequence < current_sequence will be discarded
+    /// Events with sequence < `current_sequence` will be discarded
     pub fn set_current_sequence(&mut self, sequence: u64) {
         self.current_sequence = sequence;
-        log::debug!("FlowExecutor sequence updated to {}", sequence);
+        log::debug!("FlowExecutor sequence updated to {sequence}");
     }
 
     /// Get the current flow sequence
     #[allow(dead_code)]
+    #[must_use] 
     pub fn current_sequence(&self) -> u64 {
         self.current_sequence
     }
@@ -164,7 +166,7 @@ impl FlowExecutor {
         for (id, component) in &mut self.components {
             if component.requires_hardware() {
                 if let Err(e) = component.initialize(board_handle.clone()) {
-                    errors.push(format!("{}: {}", id, e));
+                    errors.push(format!("{id}: {e}"));
                 }
             }
         }
@@ -205,7 +207,7 @@ impl FlowExecutor {
                 // Strip the leading underscore for the method name
                 let method = &event.source_handle[1..];
                 match component.call_method(method, event.value) {
-                    Ok(_) => log::info!("✓ Internal call {}.{}", event.source, method),
+                    Ok(()) => log::info!("✓ Internal call {}.{}", event.source, method),
                     Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, method, e),
                 }
             }
@@ -216,15 +218,12 @@ impl FlowExecutor {
             event.source, event.source_handle, self.edges.len());
 
         // Fast lookup using pre-computed hash
-        let targets = match self.edge_map.get(event.source.as_ref(), event.source_handle.as_ref()) {
-            Some(t) => {
-                log::info!("Found {} target(s) for {} ({})", t.len(), event.source, event.source_handle);
-                t.to_vec()  // Clone the slice for iteration
-            }
-            None => {
-                log::info!("No edges found for {} ({})", event.source, event.source_handle);
-                return true;
-            }
+        let targets = if let Some(t) = self.edge_map.get(event.source.as_ref(), event.source_handle.as_ref()) {
+            log::info!("Found {} target(s) for {} ({})", t.len(), event.source, event.source_handle);
+            t.to_vec()  // Clone the slice for iteration
+        } else {
+            log::info!("No edges found for {} ({})", event.source, event.source_handle);
+            return true;
         };
 
         // Route to each target using Arc<str> - no allocations
@@ -233,8 +232,7 @@ impl FlowExecutor {
             
             // Check if target component aggregates inputs
             let aggregates = self.components.get(target.target_id.as_ref())
-                .map(|c| c.aggregates_inputs())
-                .unwrap_or(false);
+                .is_some_and(|c| c.aggregates_inputs());
             
             let args = if aggregates {
                 let all_inputs = self.collect_input_values(target.target_id.as_ref(), target.target_handle.as_ref());
@@ -246,7 +244,7 @@ impl FlowExecutor {
             
             if let Some(component) = self.components.get_mut(target.target_id.as_ref()) {
                 match component.call_method(&target.target_handle, args) {
-                    Ok(_) => log::info!("✓ Successfully called {}.{}", target.target_id, target.target_handle),
+                    Ok(()) => log::info!("✓ Successfully called {}.{}", target.target_id, target.target_handle),
                     Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target.target_id, target.target_handle, e),
                 }
             } else {
@@ -268,8 +266,9 @@ impl FlowExecutor {
 
     /// Get a component by ID
     #[allow(dead_code)]
+    #[must_use] 
     pub fn get_component(&self, id: &str) -> Option<&dyn Component> {
-        self.components.get(id).map(|c| c.as_ref())
+        self.components.get(id).map(std::convert::AsRef::as_ref)
     }
 
     /// Get a mutable component by ID
@@ -278,18 +277,21 @@ impl FlowExecutor {
     }
 
     /// Get all component IDs
+    #[must_use] 
     pub fn component_ids(&self) -> Vec<&str> {
-        self.components.keys().map(|s| s.as_str()).collect()
+        self.components.keys().map(std::string::String::as_str).collect()
     }
 
     /// Get the value of a component
     #[allow(dead_code)]
+    #[must_use] 
     pub fn get_value(&self, id: &str) -> Option<ComponentValue> {
         self.components.get(id).map(|c| c.value())
     }
 
     /// Get values of all components connected to a target
     #[allow(dead_code)]
+    #[must_use] 
     pub fn get_input_values(&self, target_id: &str) -> Vec<ComponentValue> {
         self.edges
             .iter()

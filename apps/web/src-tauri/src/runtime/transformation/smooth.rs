@@ -45,6 +45,7 @@ pub struct Smooth {
 }
 
 impl Smooth {
+    #[must_use] 
     pub fn new(id: String, config: SmoothConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
@@ -93,7 +94,7 @@ impl Component for Smooth {
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "value" => { self.signal(args); Ok(()) }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

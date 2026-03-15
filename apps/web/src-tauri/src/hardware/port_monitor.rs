@@ -35,10 +35,12 @@ pub struct SerialPortInfo {
 }
 
 impl SerialPortInfo {
+    #[must_use] 
     pub fn is_usb(&self) -> bool {
         self.port_type == "USB"
     }
 
+    #[must_use] 
     pub fn usb_ids(&self) -> Option<(u16, u16)> {
         match (self.vid, self.pid) {
             (Some(vid), Some(pid)) => Some((vid, pid)),
@@ -85,6 +87,7 @@ impl PortMonitor {
 
     /// Extract canonical device identifier from port name.
     /// On macOS, removes /dev/cu. or /dev/tty. prefix to deduplicate device pairs.
+    #[must_use] 
     pub fn canonical_id(port_name: &str) -> String {
         port_name
             .strip_prefix("/dev/cu.")
@@ -94,6 +97,7 @@ impl PortMonitor {
     }
 
     /// Check if a port should be skipped for Firmata testing.
+    #[must_use] 
     pub fn should_skip_firmata_test(port_name: &str) -> bool {
         let port_lower = port_name.to_lowercase();
         let skip = SKIP_PATTERNS
@@ -101,7 +105,7 @@ impl PortMonitor {
             .any(|pattern| port_lower.contains(pattern));
 
         if skip {
-            log::debug!("Skipping system port: {}", port_name);
+            log::debug!("Skipping system port: {port_name}");
         }
         skip
     }
@@ -115,10 +119,10 @@ impl PortMonitor {
                 let mut desc =
                     format!("USB Device (VID: {:04X}, PID: {:04X})", info.vid, info.pid);
                 if let Some(serial) = &info.serial_number {
-                    desc.push_str(&format!(", Serial: {}", serial));
+                    desc.push_str(&format!(", Serial: {serial}"));
                 }
                 if let Some(product) = &info.product {
-                    desc.push_str(&format!(", Product: {}", product));
+                    desc.push_str(&format!(", Product: {product}"));
                 }
                 ("USB".to_string(), Some(desc), Some(info.vid), Some(info.pid))
             }

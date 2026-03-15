@@ -60,6 +60,7 @@ pub struct Compare {
 }
 
 impl Compare {
+    #[must_use] 
     pub fn new(id: String, config: CompareConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
@@ -127,7 +128,7 @@ impl Component for Compare {
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "value" => { self.check(args); Ok(()) }
-            _ => Err(format!("Unknown method: {}", method)),
+            _ => Err(format!("Unknown method: {method}")),
         }
     }
 

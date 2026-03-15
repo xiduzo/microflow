@@ -1,6 +1,6 @@
 //! Mock board handle for testing components without hardware
 //!
-//! This module provides a MockBoardHandle that simulates hardware board
+//! This module provides a `MockBoardHandle` that simulates hardware board
 //! interactions for testing purposes, allowing tests to run without
 //! actual hardware connected.
 
@@ -11,8 +11,8 @@ use std::sync::RwLock;
 /// Mock board handle for testing components without hardware
 ///
 /// Provides a thread-safe simulation of a hardware board with:
-/// - Pin value tracking via a HashMap
-/// - Connection state via an AtomicBool
+/// - Pin value tracking via a `HashMap`
+/// - Connection state via an `AtomicBool`
 ///
 /// # Example
 /// ```
@@ -29,10 +29,10 @@ use std::sync::RwLock;
 /// ```
 pub struct MockBoardHandle {
     /// Pin values stored as pin number -> value mapping
-    /// Uses RwLock for thread-safe read/write access
+    /// Uses `RwLock` for thread-safe read/write access
     pin_values: RwLock<HashMap<u8, u16>>,
     /// Connection state - true when "connected" to mock hardware
-    /// Uses AtomicBool for lock-free thread-safe access
+    /// Uses `AtomicBool` for lock-free thread-safe access
     connected: AtomicBool,
 }
 
@@ -54,7 +54,7 @@ impl MockBoardHandle {
     /// * `value` - The value to set (0-65535 for analog, typically 0/1 for digital)
     ///
     /// # Note
-    /// If the RwLock is poisoned, this operation silently fails.
+    /// If the `RwLock` is poisoned, this operation silently fails.
     pub fn set_pin(&self, pin: u8, value: u16) {
         if let Ok(mut guard) = self.pin_values.write() {
             guard.insert(pin, value);
@@ -68,7 +68,7 @@ impl MockBoardHandle {
     ///
     /// # Returns
     /// * `Some(value)` if the pin has been set
-    /// * `None` if the pin has never been set or the RwLock is poisoned
+    /// * `None` if the pin has never been set or the `RwLock` is poisoned
     pub fn get_pin(&self, pin: u8) -> Option<u16> {
         self.pin_values.read().ok().and_then(|g| g.get(&pin).copied())
     }
@@ -77,7 +77,7 @@ impl MockBoardHandle {
     ///
     /// # Returns
     /// * `true` if the board is in connected state
-    /// * `false` if disconnect() has been called
+    /// * `false` if `disconnect()` has been called
     pub fn is_connected(&self) -> bool {
         self.connected.load(Ordering::SeqCst)
     }

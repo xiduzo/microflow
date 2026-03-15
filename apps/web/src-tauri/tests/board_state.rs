@@ -1,6 +1,6 @@
 //! Property-based tests for Board Connection State Machine
 //!
-//! These tests verify the correctness of the BoardStateMachine's atomic
+//! These tests verify the correctness of the `BoardStateMachine`'s atomic
 //! state transitions using the proptest framework.
 //!
 //! **Validates: Requirements 2.4, 2.5, 2.6**
@@ -206,10 +206,10 @@ proptest! {
     ) {
         let message = match pattern_type {
             0 => base_content.clone(), // Basic alphanumeric
-            1 => format!("Error: {}", base_content), // Prefixed message
-            2 => format!("{}\n{}", base_content, base_content), // Multi-line
-            3 => format!("  {}  ", base_content), // Whitespace padded
-            _ => format!("{}!@#$%", base_content), // Special characters
+            1 => format!("Error: {base_content}"), // Prefixed message
+            2 => format!("{base_content}\n{base_content}"), // Multi-line
+            3 => format!("  {base_content}  "), // Whitespace padded
+            _ => format!("{base_content}!@#$%"), // Special characters
         };
         
         let sm = BoardStateMachine::new();
@@ -297,7 +297,7 @@ proptest! {
     }
 }
 
-/// Unit tests for BoardConnectionState enum
+/// Unit tests for `BoardConnectionState` enum
 #[cfg(test)]
 mod state_enum_tests {
     use super::*;
@@ -316,7 +316,7 @@ mod state_enum_tests {
     fn from_u8_round_trips_correctly() {
         for i in 0u8..6 {
             let state = BoardConnectionState::from_u8(i);
-            assert_eq!(state as u8, i, "from_u8({}) should round-trip correctly", i);
+            assert_eq!(state as u8, i, "from_u8({i}) should round-trip correctly");
         }
     }
 
@@ -331,7 +331,7 @@ mod state_enum_tests {
     }
 }
 
-/// Unit tests for BoardStateMachine
+/// Unit tests for `BoardStateMachine`
 #[cfg(test)]
 mod state_machine_tests {
     use super::*;
