@@ -2,8 +2,9 @@ name: 'build'
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build-macos:
@@ -11,9 +12,11 @@ jobs:
       matrix:
         include:
           - args: '--target aarch64-apple-darwin'
+            target: aarch64-apple-darwin
             arch: 'silicon'
             platform: macos-14
           - args: '--target x86_64-apple-darwin'
+            target: x86_64-apple-darwin
             arch: 'intel'
             platform: macos-14
     runs-on: ${{ matrix.platform }}
@@ -31,6 +34,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
