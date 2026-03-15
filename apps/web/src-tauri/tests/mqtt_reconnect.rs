@@ -70,8 +70,10 @@ proptest! {
             "Delay {:?} exceeded max_delay {:?}", delay, config.max_delay);
 
         // Verify delay follows formula (within floating point tolerance)
+        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let expected = (initial_ms as f64 * multiplier.powi((attempts - 1) as i32))
             .min(max_ms as f64);
+        #[allow(clippy::cast_precision_loss)]
         let actual = delay.as_millis() as f64;
         prop_assert!((actual - expected).abs() < 1.0,
             "Delay mismatch: expected {} ms, got {} ms (diff: {})",
