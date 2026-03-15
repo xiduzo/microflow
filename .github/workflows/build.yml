@@ -58,10 +58,16 @@ jobs:
 
       - name: Verify Certificate
         run: |
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Apple Development")
-          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning build.keychain
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep -E "Apple Development|Developer ID Application|Apple Distribution" || true)
+          if [ -z "$CERT_INFO" ]; then
+            echo "::error::No valid signing identity found in build.keychain"
+            exit 1
+          fi
+          CERT_ID=$(echo "$CERT_INFO" | head -n1 | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
-          echo "Certificate imported."
+          echo "Using signing identity: $CERT_ID"
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
