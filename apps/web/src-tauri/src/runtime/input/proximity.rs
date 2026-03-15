@@ -1,7 +1,8 @@
 //! Proximity Sensor Component - Input
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -60,12 +61,6 @@ impl Proximity {
         }
     }
 
-    fn read_value(&self) -> Result<u16, String> {
-        if let Some(board) = &self.board {
-            board.with_board(|conn| conn.analog_read(self.config.analog_pin()))
-        } else { Err("Board not connected".to_string()) }
-    }
-
     fn raw_to_cm(&self, raw: u16) -> f64 {
         match self.config.controller.as_str() {
             "GP2Y0A21YK" => {
@@ -105,10 +100,8 @@ impl Component for Proximity {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         let pin = self.config.analog_pin();
         log::info!("Proximity initialize: pin={}", pin);
-        board.with_board(|conn| {
-            conn.set_pin_mode(pin, pin_mode::ANALOG)?;
-            conn.enable_analog_reporting(pin)
-        })?;
+        board.send_command(BoardCommand::SetPinMode { pin, mode: pin_mode::ANALOG })?;
+        board.send_command(BoardCommand::EnableAnalogReporting { pin })?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())
@@ -116,7 +109,7 @@ impl Component for Proximity {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "read" => { let v = self.read_value()?; self.process_reading(v); Ok(()) }
+            "read" => Ok(()),
             "pin_change" => {
                 // Handle immediate pin change event from Firmata callback
                 if let Some(value) = args.as_number() {
@@ -134,7 +127,7 @@ impl Component for Proximity {
         if let Some(board) = &self.board {
             let pin = self.config.analog_pin();
             log::info!("Proximity {} destroy: disabling analog reporting for pin {}", self.base.id, pin);
-            let _ = board.with_board(|conn| conn.disable_analog_reporting(pin));
+            let _ = board.send_command(BoardCommand::DisableAnalogReporting { pin });
         }
         self.board = None;
     }

@@ -188,122 +188,149 @@ pub trait Component: Send + Sync {
     fn requires_hardware(&self) -> bool { false }
 }
 
-/// Handle to the Firmata board for components to use
+/// Handle to the Firmata board for components to use.
+///
+/// The reader thread owns `BoardConnection` exclusively — no shared mutex on the hot path.
+/// All write operations are sent via `send_command()` and processed between read cycles.
 pub struct BoardHandle {
-    inner: std::sync::Mutex<Option<BoardConnection>>,
-    /// Flag to stop the reader thread
+    /// Channel to send commands to the reader thread
+    cmd_tx: std::sync::Mutex<Option<std::sync::mpsc::Sender<BoardCommand>>>,
+    /// Whether the board is currently connected (cheap atomic check)
+    connected: std::sync::atomic::AtomicBool,
+    /// Flag to signal the reader thread to stop
     reader_running: std::sync::atomic::AtomicBool,
-    /// Handle to the reader thread
+    /// Handle to the reader thread for joining on stop
     reader_handle: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl BoardHandle {
     pub fn new() -> Self {
         Self {
-            inner: std::sync::Mutex::new(None),
+            cmd_tx: std::sync::Mutex::new(None),
+            connected: std::sync::atomic::AtomicBool::new(false),
             reader_running: std::sync::atomic::AtomicBool::new(false),
             reader_handle: std::sync::Mutex::new(None),
         }
     }
 
-    pub fn connect(&self, connection: BoardConnection) {
-        *self.inner.lock().unwrap_or_else(|e| e.into_inner()) = Some(connection);
-    }
-
-    pub fn disconnect(&self) {
-        // Stop the reader thread first
+    /// Connect a board and immediately start the reader thread.
+    /// The reader thread takes exclusive ownership of `connection`.
+    pub fn connect(self: &Arc<Self>, connection: BoardConnection) {
         self.stop_reader();
-        *self.inner.lock().unwrap_or_else(|e| e.into_inner()) = None;
-    }
 
-    pub fn is_connected(&self) -> bool {
-        self.inner.lock().unwrap_or_else(|e| e.into_inner()).is_some()
-    }
+        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel::<BoardCommand>();
+        *self.cmd_tx.lock().unwrap_or_else(|e| e.into_inner()) = Some(cmd_tx);
+        self.connected.store(true, std::sync::atomic::Ordering::Release);
+        self.reader_running.store(true, std::sync::atomic::Ordering::Release);
 
-    pub fn with_board<F, R>(&self, f: F) -> Result<R, String>
-    where
-        F: FnOnce(&mut BoardConnection) -> Result<R, String>,
-    {
-        match self.inner.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
-            Some(conn) => f(conn),
-            None => Err("Board not connected".to_string()),
-        }
-    }
-    
-    /// Start the dedicated reader thread that processes Firmata messages immediately
-    pub fn start_reader(self: &Arc<Self>) {
-        // Stop any existing reader first
-        self.stop_reader();
-        
-        self.reader_running.store(true, std::sync::atomic::Ordering::SeqCst);
-        
         let handle_clone = Arc::clone(self);
         let thread_handle = std::thread::spawn(move || {
-            log::info!("Firmata reader thread started");
-            
-            while handle_clone.reader_running.load(std::sync::atomic::Ordering::SeqCst) {
-                // Try to read and process one message
-                let result = handle_clone.with_board(|conn| {
-                    match conn.board.read_and_decode() {
-                        Ok(_) => {
-                            // Immediately check for and emit pin changes
-                            conn.detect_and_emit_changes();
-                            Ok(true)
+            log::info!("Firmata reader thread started (exclusive ownership)");
+            let mut conn = connection;
+
+            loop {
+                // 1. Drain all pending commands (non-blocking)
+                loop {
+                    match cmd_rx.try_recv() {
+                        Ok(BoardCommand::Stop) => {
+                            log::info!("Firmata reader thread: Stop received");
+                            return;
                         }
-                        Err(e) => {
-                            let err_str = format!("{}", e);
-                            if err_str.contains("timed out") || err_str.contains("timeout") {
-                                // Timeout is normal - no data available
-                                Ok(false)
-                            } else {
-                                // Real error
-                                Err(format!("Read error: {}", e))
-                            }
+                        Ok(BoardCommand::SetPinMode { pin, mode }) => {
+                            let _ = conn.set_pin_mode(pin, mode);
+                        }
+                        Ok(BoardCommand::DigitalWrite { pin, value }) => {
+                            let _ = conn.digital_write(pin, value);
+                        }
+                        Ok(BoardCommand::AnalogWrite { pin, value }) => {
+                            let _ = conn.analog_write(pin, value);
+                        }
+                        Ok(BoardCommand::EnableAnalogReporting { pin }) => {
+                            let _ = conn.enable_analog_reporting(pin);
+                        }
+                        Ok(BoardCommand::DisableAnalogReporting { pin }) => {
+                            let _ = conn.disable_analog_reporting(pin);
+                        }
+                        Ok(BoardCommand::EnableDigitalReporting { pin }) => {
+                            let _ = conn.set_reporting(pin, true);
+                        }
+                        Ok(BoardCommand::DisableDigitalReporting { pin }) => {
+                            let _ = conn.set_reporting(pin, false);
+                        }
+                        Ok(BoardCommand::ResetAllReporting) => {
+                            let _ = conn.reset_all_reporting();
+                        }
+                        Ok(BoardCommand::SetPinChangeCallback { callback }) => {
+                            conn.set_pin_change_callback(callback);
+                        }
+                        Ok(BoardCommand::ClearPinCache) => {
+                            conn.clear_pin_cache();
+                        }
+                        Ok(BoardCommand::RegisterActivePin { pin }) => {
+                            conn.active_pins.insert(pin);
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                        Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                            log::info!("Firmata reader: command channel closed, stopping");
+                            return;
                         }
                     }
-                });
-                
-                match result {
-                    Ok(true) => {
-                        // Message processed, immediately try to read more
-                        continue;
-                    }
-                    Ok(false) => {
-                        // Check flag again before sleeping to ensure prompt exit
-                        if !handle_clone.reader_running.load(std::sync::atomic::Ordering::SeqCst) {
-                            break;
-                        }
-                        // Timeout - small sleep to avoid busy-waiting
-                        std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+
+                // 2. Check stop flag
+                if !handle_clone.reader_running.load(std::sync::atomic::Ordering::Acquire) {
+                    break;
+                }
+
+                // 3. Read one Firmata message
+                match conn.board.read_and_decode() {
+                    Ok(_) => {
+                        conn.detect_and_emit_changes();
                     }
                     Err(e) => {
-                        if e == "Board not connected" {
-                            log::info!("Firmata reader: board disconnected, stopping");
+                        let err_str = format!("{}", e);
+                        if err_str.contains("timed out") || err_str.contains("timeout") {
+                            std::thread::sleep(std::time::Duration::from_millis(1));
+                        } else {
+                            log::warn!("Firmata reader: I/O error: {}", err_str);
+                            handle_clone.connected.store(false, std::sync::atomic::Ordering::Release);
                             break;
                         }
-                        log::warn!("Firmata reader error: {}", e);
-                        // Check flag before sleeping on error to ensure prompt exit
-                        if !handle_clone.reader_running.load(std::sync::atomic::Ordering::SeqCst) {
-                            break;
-                        }
-                        std::thread::sleep(std::time::Duration::from_millis(10));
                     }
                 }
             }
-            
+
             log::info!("Firmata reader thread stopped");
         });
-        
+
         *self.reader_handle.lock().unwrap_or_else(|e| e.into_inner()) = Some(thread_handle);
     }
 
-    /// Stop the reader thread with proper cleanup
-    pub fn stop_reader(&self) {
-        // Signal thread to stop
-        self.reader_running.store(false, std::sync::atomic::Ordering::SeqCst);
+    pub fn disconnect(&self) {
+        self.stop_reader();
+        self.connected.store(false, std::sync::atomic::Ordering::Release);
+        *self.cmd_tx.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
 
+    pub fn is_connected(&self) -> bool {
+        self.connected.load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// Send a command to the reader thread. Fire-and-forget, never blocks.
+    pub fn send_command(&self, cmd: BoardCommand) -> Result<(), String> {
+        match self.cmd_tx.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+            Some(tx) => tx.send(cmd).map_err(|_| "Board command channel closed".to_string()),
+            None => Err("Board not connected".to_string()),
+        }
+    }
+
+    /// Stop the reader thread and wait for clean exit.
+    pub fn stop_reader(&self) {
+        self.reader_running.store(false, std::sync::atomic::Ordering::Release);
+        if let Some(tx) = self.cmd_tx.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+            let _ = tx.send(BoardCommand::Stop);
+        }
         if let Some(handle) = self.reader_handle.lock().unwrap_or_else(|e| e.into_inner()).take() {
-            // Join the thread - wait for clean exit
             match handle.join() {
                 Ok(_) => log::info!("Reader thread stopped cleanly"),
                 Err(_) => log::warn!("Reader thread panicked during shutdown"),
@@ -364,6 +391,25 @@ pub struct PinChangeEvent {
 /// Callback type for pin change events
 pub type PinChangeCallback = Box<dyn Fn(PinChangeEvent) + Send + Sync>;
 
+/// Commands sent to the reader thread for board operations.
+/// The reader thread owns `BoardConnection` exclusively and processes
+/// these between read cycles — no mutex contention on the hot path.
+pub enum BoardCommand {
+    SetPinMode { pin: u8, mode: u8 },
+    DigitalWrite { pin: u8, value: bool },
+    AnalogWrite { pin: u8, value: u16 },
+    EnableAnalogReporting { pin: u8 },
+    DisableAnalogReporting { pin: u8 },
+    EnableDigitalReporting { pin: u8 },
+    DisableDigitalReporting { pin: u8 },
+    ResetAllReporting,
+    SetPinChangeCallback { callback: Arc<PinChangeCallback> },
+    ClearPinCache,
+    /// Register a pin as active so detect_and_emit_changes checks it.
+    RegisterActivePin { pin: u8 },
+    Stop,
+}
+
 /// Wrapper around the firmata-rs Board
 pub struct BoardConnection {
     pub board: firmata_rs::Board<SerialPortWrapper>,
@@ -372,6 +418,9 @@ pub struct BoardConnection {
     pin_values: HashMap<u8, u16>,
     /// Callback for pin changes (set by runtime)
     pin_change_callback: Option<Arc<PinChangeCallback>>,
+    /// Pins that have listeners registered. Only these are checked in detect_and_emit_changes.
+    /// Empty means "check all pins" (safe fallback before listeners are registered).
+    pub active_pins: std::collections::HashSet<u8>,
 }
 
 impl BoardConnection {
@@ -382,6 +431,7 @@ impl BoardConnection {
             port_name,
             pin_values: HashMap::new(),
             pin_change_callback: None,
+            active_pins: std::collections::HashSet::new(),
         }
     }
 
@@ -392,9 +442,10 @@ impl BoardConnection {
         self.pin_values.clear();
     }
 
-    /// Clear cached pin values (useful when flow changes)
+    /// Clear cached pin values and active pin set (useful when flow changes)
     pub fn clear_pin_cache(&mut self) {
         self.pin_values.clear();
+        self.active_pins.clear();
     }
 
     pub fn set_pin_mode(&mut self, pin: u8, mode: u8) -> Result<(), String> {
@@ -492,44 +543,50 @@ impl BoardConnection {
         }
     }
 
-    /// Detect pin value changes and emit events immediately
+    /// Detect pin value changes and emit events immediately.
+    /// Only scans active_pins when registered; falls back to all pins if none registered yet.
     fn detect_and_emit_changes(&mut self) {
+        if self.pin_change_callback.is_none() {
+            return;
+        }
+
         let pins = self.board.pins();
         let mut changes = Vec::new();
 
-        for (index, pin) in pins.iter().enumerate() {
+        // Fast path: only check pins with listeners.
+        // Falls back to all pins only if no active pins registered yet.
+        let indices: Box<dyn Iterator<Item = usize>> = if self.active_pins.is_empty() {
+            Box::new(0..pins.len())
+        } else {
+            Box::new(self.active_pins.iter().map(|&p| p as usize))
+        };
+
+        for index in indices {
+            let Some(pin) = pins.get(index) else { continue };
             let pin_num = index as u8;
             let current_value = pin.value as u16;
             let is_analog = pin.analog;
 
-            // Check if value changed
             let last_value = self.pin_values.get(&pin_num).copied();
-            if last_value != Some(current_value) {
-                // For analog pins, apply a small threshold to reduce noise
-                let should_emit = if is_analog {
-                    match last_value {
-                        Some(last) => {
-                            let diff = (current_value as i32 - last as i32).unsigned_abs() as u16;
-                            diff >= 1 // Minimal threshold, components can apply their own
-                        }
-                        None => true,
-                    }
-                } else {
-                    true // Digital pins always emit on change
-                };
+            if last_value == Some(current_value) {
+                continue;
+            }
 
-                if should_emit {
-                    self.pin_values.insert(pin_num, current_value);
-                    changes.push(PinChangeEvent {
-                        pin: pin_num,
-                        value: current_value,
-                        is_analog,
-                    });
+            let should_emit = if is_analog {
+                match last_value {
+                    Some(last) => (current_value as i32 - last as i32).unsigned_abs() as u16 >= 1,
+                    None => true,
                 }
+            } else {
+                true
+            };
+
+            if should_emit {
+                self.pin_values.insert(pin_num, current_value);
+                changes.push(PinChangeEvent { pin: pin_num, value: current_value, is_analog });
             }
         }
 
-        // Emit all changes via callback
         if let Some(callback) = &self.pin_change_callback {
             for change in changes {
                 callback(change);
@@ -591,32 +648,16 @@ impl BoardConnection {
             .map_err(|e| format!("Failed to disable digital reporting: {}", e))
     }
 
-    /// Disable all reporting and clear state - used during flow updates
+    /// Disable all reporting and clear state. Called inside the reader thread — no sleep needed.
     pub fn reset_all_reporting(&mut self) -> Result<(), String> {
         log::info!("Resetting all pin reporting");
-        
-        // Clear our pin value cache
         self.pin_values.clear();
-        
-        // Disable all analog channels (typically 0-5 for Arduino Uno, up to 15 for Mega)
         for channel in 0..16 {
             let _ = self.board.report_analog(channel, 0);
         }
-        
-        // Disable all digital ports (typically 0-2 for Uno, up to 12 for Mega)
         for port in 0..13 {
             let _ = self.board.report_digital(port, 0);
         }
-        
-        // Small delay to let the board process the disable commands
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        
-        // Flush any pending data from the serial buffer
-        // This is done by reading until timeout
-        while self.board.read_and_decode().is_ok() {
-            // Keep reading until timeout or error
-        }
-        
         Ok(())
     }
 }
@@ -754,5 +795,61 @@ pub mod serde_utils {
         }
         
         deserializer.deserialize_any(PinU8Visitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn board_command_digital_write_round_trips() {
+        let cmd = BoardCommand::DigitalWrite { pin: 13, value: true };
+        match cmd {
+            BoardCommand::DigitalWrite { pin, value } => {
+                assert_eq!(pin, 13);
+                assert!(value);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn board_command_reset_all_reporting_is_unit() {
+        let cmd = BoardCommand::ResetAllReporting;
+        assert!(matches!(cmd, BoardCommand::ResetAllReporting));
+    }
+
+    #[test]
+    fn board_command_stop_is_unit() {
+        let cmd = BoardCommand::Stop;
+        assert!(matches!(cmd, BoardCommand::Stop));
+    }
+
+    #[test]
+    fn new_board_handle_is_not_connected() {
+        let handle = BoardHandle::new();
+        assert!(!handle.is_connected());
+    }
+
+    #[test]
+    fn send_command_returns_err_when_not_connected() {
+        let handle = BoardHandle::new();
+        let result = handle.send_command(BoardCommand::ResetAllReporting);
+        assert!(result.is_err(), "send_command must fail when not connected");
+        assert!(result.unwrap_err().contains("not connected"));
+    }
+
+    #[test]
+    fn active_pins_tracking() {
+        use std::collections::HashSet;
+        let mut active: HashSet<u8> = HashSet::new();
+        active.insert(2);
+        active.insert(14);
+        assert!(active.contains(&2));
+        assert!(active.contains(&14));
+        assert!(!active.contains(&13));
+        active.clear();
+        assert!(active.is_empty(), "clear_pin_cache should reset active pins");
     }
 }

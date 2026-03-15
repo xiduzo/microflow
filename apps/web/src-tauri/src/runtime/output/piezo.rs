@@ -1,7 +1,8 @@
 //! Piezo Buzzer Component - Output
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -99,7 +100,7 @@ impl Piezo {
         self.stop()?;
         if self.config.r#type != PiezoType::Buzz { return Ok(()); }
         if let Some(board) = &self.board {
-            board.with_board(|conn| conn.analog_write(self.config.pin, 128))?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: 128 })?;
             
             // Schedule automatic stop after duration using std::thread
             let duration_ms = self.config.duration;
@@ -126,7 +127,7 @@ impl Piezo {
     
     fn handle_auto_stop(&mut self) -> Result<(), String> {
         if let Some(board) = &self.board {
-            board.with_board(|conn| conn.analog_write(self.config.pin, 0))?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: 0 })?;
         }
         self.is_playing = false;
         self.base.set_value(ComponentValue::Bool(false));
@@ -181,18 +182,18 @@ impl Piezo {
                     let _freq = frequencies.get(note_name.to_lowercase().as_str()).copied().unwrap_or(440);
                     log::info!("Playing note {} for {}ms", note_name, duration_ms);
                     // For PWM-based tone, we write a mid-value to create sound
-                    let _ = board.with_board(|conn| conn.analog_write(pin, 128));
+                    let _ = board.send_command(BoardCommand::AnalogWrite { pin, value: 128 });
                     // Play for most of the duration, tiny gap for articulation
                     let gap = 5.min(duration_ms / 10); // 5ms or 10% of note, whichever is smaller
                     std::thread::sleep(std::time::Duration::from_millis(duration_ms.saturating_sub(gap)));
-                    let _ = board.with_board(|conn| conn.analog_write(pin, 0));
+                    let _ = board.send_command(BoardCommand::AnalogWrite { pin, value: 0 });
                     if gap > 0 {
                         std::thread::sleep(std::time::Duration::from_millis(gap));
                     }
                 } else {
                     // Rest - silence
                     log::info!("Rest for {}ms", duration_ms);
-                    let _ = board.with_board(|conn| conn.analog_write(pin, 0));
+                    let _ = board.send_command(BoardCommand::AnalogWrite { pin, value: 0 });
                     std::thread::sleep(std::time::Duration::from_millis(duration_ms));
                 }
             }
@@ -222,10 +223,8 @@ impl Component for Piezo {
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
-        board.with_board(|conn| {
-            conn.set_pin_mode(self.config.pin, pin_mode::PWM)?;
-            conn.analog_write(self.config.pin, 0)
-        })?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::PWM })?;
+        board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: 0 })?;
         self.board = Some(board);
         Ok(())
     }

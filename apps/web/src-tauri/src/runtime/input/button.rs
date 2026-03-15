@@ -1,7 +1,8 @@
 //! Button Component - Input
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -53,17 +54,6 @@ impl Button {
         }
     }
 
-    fn read_state(&self) -> Result<bool, String> {
-        if let Some(board) = &self.board {
-            let raw = board.with_board(|conn| conn.digital_read(self.config.pin))?;
-            // Invert if either invert flag is set OR if using pullup (pullup reads HIGH when not pressed)
-            let should_invert = self.config.invert || self.config.is_pullup;
-            Ok(if should_invert { !raw } else { raw })
-        } else {
-            Err("Board not connected".to_string())
-        }
-    }
-
     fn process_state(&mut self, pressed: bool) {
         if pressed != self.is_pressed {
             self.is_pressed = pressed;
@@ -104,10 +94,8 @@ impl Component for Button {
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
         let mode = if self.config.is_pullup { pin_mode::PULLUP } else { pin_mode::INPUT };
-        board.with_board(|conn| {
-            conn.set_pin_mode(self.config.pin, mode)?;
-            conn.set_reporting(self.config.pin, true)
-        })?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode })?;
+        board.send_command(BoardCommand::EnableDigitalReporting { pin: self.config.pin })?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())
@@ -115,7 +103,7 @@ impl Component for Button {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "read" => { let state = self.read_state()?; self.process_state(state); Ok(()) }
+            "read" => Ok(()),
             "pin_change" => {
                 // Handle immediate pin change event from Firmata callback
                 if let Some(pressed) = args.as_bool() {
@@ -132,7 +120,7 @@ impl Component for Button {
         // Disable digital reporting for this pin before releasing board
         if let Some(board) = &self.board {
             log::info!("Button {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
-            let _ = board.with_board(|conn| conn.disable_digital_reporting(self.config.pin));
+            let _ = board.send_command(BoardCommand::DisableDigitalReporting { pin: self.config.pin });
         }
         self.board = None;
     }

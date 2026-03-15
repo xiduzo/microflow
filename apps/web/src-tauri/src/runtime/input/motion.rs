@@ -1,7 +1,8 @@
 //! Motion Sensor Component - Input
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -42,12 +43,6 @@ impl Motion {
         }
     }
 
-    fn read_state(&self) -> Result<bool, String> {
-        if let Some(board) = &self.board {
-            board.with_board(|conn| conn.digital_read(self.config.pin))
-        } else { Err("Board not connected".to_string()) }
-    }
-
     fn process_state(&mut self, detected: bool) {
         if !self.is_calibrated { self.is_calibrated = true; }
         if detected != self.motion_detected {
@@ -72,10 +67,8 @@ impl Component for Motion {
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
-        board.with_board(|conn| {
-            conn.set_pin_mode(self.config.pin, pin_mode::INPUT)?;
-            conn.set_reporting(self.config.pin, true)
-        })?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::INPUT })?;
+        board.send_command(BoardCommand::EnableDigitalReporting { pin: self.config.pin })?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())
@@ -83,7 +76,7 @@ impl Component for Motion {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
-            "read" => { let state = self.read_state()?; self.process_state(state); Ok(()) }
+            "read" => Ok(()),
             "pin_change" => {
                 // Handle immediate pin change event from Firmata callback
                 if let Some(detected) = args.as_bool() {
@@ -100,7 +93,7 @@ impl Component for Motion {
         // Disable digital reporting for this pin before releasing board
         if let Some(board) = &self.board {
             log::info!("Motion {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
-            let _ = board.with_board(|conn| conn.disable_digital_reporting(self.config.pin));
+            let _ = board.send_command(BoardCommand::DisableDigitalReporting { pin: self.config.pin });
         }
         self.board = None;
     }

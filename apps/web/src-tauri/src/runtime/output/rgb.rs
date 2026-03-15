@@ -1,7 +1,8 @@
 //! RGB LED Component - Output
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -68,11 +69,9 @@ impl Rgb {
         if let Some(board) = &self.board {
             let (r, g, b) = self.apply_intensity();
             let (r, g, b) = self.apply_anode(r, g, b);
-            board.with_board(|conn| {
-                conn.analog_write(self.config.pins.red, r as u16)?;
-                conn.analog_write(self.config.pins.green, g as u16)?;
-                conn.analog_write(self.config.pins.blue, b as u16)
-            })?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.red, value: r as u16 })?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.green, value: g as u16 })?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pins.blue, value: b as u16 })?;
         }
         self.base.set_value(self.color.clone().into());
         Ok(())
@@ -95,11 +94,9 @@ impl Component for Rgb {
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
-        board.with_board(|conn| {
-            conn.set_pin_mode(self.config.pins.red, pin_mode::PWM)?;
-            conn.set_pin_mode(self.config.pins.green, pin_mode::PWM)?;
-            conn.set_pin_mode(self.config.pins.blue, pin_mode::PWM)
-        })?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.red, mode: pin_mode::PWM })?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.green, mode: pin_mode::PWM })?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.blue, mode: pin_mode::PWM })?;
         self.board = Some(board);
         self.off()
     }

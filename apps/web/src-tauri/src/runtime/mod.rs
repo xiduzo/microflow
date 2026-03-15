@@ -40,9 +40,11 @@ mod registry;
 pub mod transformation;
 mod types;
 
-pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
+pub use base::{BoardCommand, BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
 pub use executor::FlowExecutor;
-pub use types::FlowUpdate;
+// FlowEdge is re-exported for use in integration tests and external consumers
+#[allow(unused_imports)]
+pub use types::{FlowEdge, FlowUpdate};
 
 // Re-export component types for external use (e.g., tests, plugins)
 #[allow(unused_imports)]
@@ -72,7 +74,20 @@ pub struct PinListener {
     pub threshold: u16,
 }
 
-/// Flow runtime manages the lifecycle of components and flow execution
+/// Manages the lifecycle of flow components and event routing.
+///
+/// # Example
+///
+/// ```ignore
+/// let mut runtime = FlowRuntime::new();
+/// // runtime.update_flow(flow)?;
+/// // runtime.process_event(event);
+/// ```
+///
+/// # Thread Safety
+///
+/// This struct is `Send` but not `Sync`. Access from multiple threads
+/// requires external synchronization (typically via `Arc<tokio::sync::Mutex<FlowRuntime>>`).
 pub struct FlowRuntime {
     board_manager: BoardManager,
     executor: FlowExecutor,
@@ -171,12 +186,10 @@ impl FlowRuntime {
         });
         
         // Install the callback on the board connection and clear pin cache
-        let _ = self.board_handle().with_board(|conn| {
-            conn.clear_pin_cache();
-            conn.set_pin_change_callback(Arc::new(callback));
-            Ok(())
-        });
-        
+        let board = self.board_handle();
+        let _ = board.send_command(BoardCommand::ClearPinCache);
+        let _ = board.send_command(BoardCommand::SetPinChangeCallback { callback: Arc::new(callback) });
+
         log::info!("Pin change callback installed (cache cleared)");
     }
 
@@ -208,7 +221,7 @@ impl FlowRuntime {
         let board_handle = self.board_handle();
         if board_handle.is_connected() {
             log::info!("Resetting all Firmata reporting for clean flow update");
-            let _ = board_handle.with_board(|conn| conn.reset_all_reporting());
+            let _ = board_handle.send_command(BoardCommand::ResetAllReporting);
         }
 
         // Create components from nodes
@@ -285,26 +298,28 @@ impl FlowRuntime {
                         is_analog: false,
                         threshold: 0,
                     });
+                    let board = self.board_handle();
+                    if board.is_connected() {
+                        let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
+                    }
                 }
             }
             "Sensor" | "Proximity" => {
                 // Analog input components - handle both string and number pin formats
                 let pin: u8 = if let Some(pin_num) = data.get("pin").and_then(|v| v.as_u64()) {
-                    // Numeric format (e.g., 17)
                     pin_num as u8
                 } else if let Some(pin_str) = data.get("pin").and_then(|v| v.as_str()) {
-                    // String format (e.g., "A0" or "17")
                     if pin_str.starts_with('A') || pin_str.starts_with('a') {
                         pin_str[1..].parse().unwrap_or(14)
                     } else {
                         pin_str.parse().unwrap_or(14)
                     }
                 } else {
-                    14 // Default to A0
+                    14
                 };
-                
+
                 let threshold = data.get("threshold").and_then(|v| v.as_u64()).unwrap_or(1) as u16;
-                
+
                 log::info!("Registering analog pin listener: component={}, pin={}, threshold={}", component_id, pin, threshold);
                 self.register_pin_listener(PinListener {
                     component_id: Arc::from(component_id),
@@ -312,6 +327,10 @@ impl FlowRuntime {
                     is_analog: true,
                     threshold,
                 });
+                let board = self.board_handle();
+                if board.is_connected() {
+                    let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
+                }
             }
             _ => {}
         }
@@ -329,13 +348,6 @@ impl FlowRuntime {
 
     pub fn process_event(&mut self, event: ComponentEvent) -> bool { 
         self.executor.process_event(event)
-    }
-
-    pub fn poll_inputs(&mut self) -> Result<(), String> {
-        if self.board_manager.is_connected() { 
-            self.board_manager.poll()?; 
-        }
-        self.executor.poll_inputs()
     }
 
     pub fn call_component(&mut self, component_id: &str, method: &str, value: ComponentValue) -> Result<(), String> {

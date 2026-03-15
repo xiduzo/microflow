@@ -19,7 +19,10 @@ pub struct EdgeTarget {
     pub edge_id: Option<Arc<str>>,
 }
 
-/// Optimized edge lookup map using FxHashMap with pre-computed keys
+/// Optimized edge lookup map using FxHashMap with pre-computed keys.
+///
+/// Uses `rustc_hash::FxHasher` for fast integer hashing of `(source, handle)` pairs.
+/// Keys are pre-computed 64-bit hashes to avoid repeated string hashing on hot paths.
 pub struct EdgeMap {
     map: FxHashMap<u64, Vec<EdgeTarget>>,
 }
@@ -67,7 +70,10 @@ impl Default for EdgeMap {
     }
 }
 
-/// Executes flow graphs by managing components and routing events
+/// Executes flow graphs by managing components and routing events.
+///
+/// Holds a map of components keyed by ID and an [`EdgeMap`] for O(1) event routing.
+/// Stale events from previous flow versions are filtered by sequence number.
 pub struct FlowExecutor {
     components: HashMap<String, Box<dyn Component>>,
     edges: Vec<FlowEdge>,
@@ -274,33 +280,6 @@ impl FlowExecutor {
     /// Get all component IDs
     pub fn component_ids(&self) -> Vec<&str> {
         self.components.keys().map(|s| s.as_str()).collect()
-    }
-
-    /// Poll all input components (buttons, sensors, etc.)
-    pub fn poll_inputs(&mut self) -> Result<(), String> {
-        // Collect IDs of input components
-        let input_ids: Vec<String> = self
-            .components
-            .iter()
-            .filter(|(_, c)| {
-                matches!(
-                    c.component_type(),
-                    "Button" | "Sensor" | "Motion" | "Proximity"
-                )
-            })
-            .map(|(id, _)| id.clone())
-            .collect();
-
-        // Poll each input component
-        for id in input_ids {
-            if let Some(component) = self.components.get_mut(&id) {
-                if let Err(e) = component.call_method("read", ComponentValue::default()) {
-                    log::debug!("Poll error for {}: {}", id, e);
-                }
-            }
-        }
-
-        Ok(())
     }
 
     /// Get the value of a component

@@ -17,7 +17,7 @@ mod error;
 mod flasher;
 pub mod hardware;
 pub mod mqtt;
-mod runtime;
+pub mod runtime;
 
 pub use error::*;
 
@@ -159,18 +159,13 @@ pub fn run() {
                             
                             let _ = app_handle_events.emit("component-event", &event);
                             
-                            // Use try_lock() for async mutex in sync context
-                            // This avoids blocking the async runtime while still processing events
-                            match flow_runtime_events.try_lock() {
-                                Ok(mut runtime) => {
-                                    runtime.process_event(event);
-                                }
-                                Err(_) => {
-                                    // Lock is held (e.g., during flow update), skip processing
-                                    // The event has already been emitted to frontend
-                                    log::debug!("Flow runtime lock held, skipping event processing for: {}", event.source);
-                                }
-                            }
+                            // This thread is std::thread::spawn, NOT tokio::spawn — blocking_lock() is safe
+                            // here and will not stall the Tokio executor. The original try_lock() rationale
+                            // ("avoid blocking the async runtime") was incorrect for this call site.
+                            // blocking_lock() ensures events are NEVER dropped — they queue in the mpsc buffer
+                            // and are processed as soon as the runtime is free.
+                            let mut runtime = flow_runtime_events.blocking_lock();
+                            runtime.process_event(event);
                         }
                         log::warn!("Event receiver channel closed");
                     } else {
@@ -233,8 +228,6 @@ pub fn run() {
                                         // Install pin change callback after flow update
                                         let event_tx = runtime.event_sender();
                                         runtime.install_pin_change_callback(event_tx);
-                                        // Start the dedicated reader thread
-                                        runtime.board_handle().start_reader();
                                     }
                                 } else {
                                     // No pending flow — board reconnected while a flow is
@@ -249,8 +242,6 @@ pub fn run() {
                                     }
                                     let event_tx = runtime.event_sender();
                                     runtime.install_pin_change_callback(event_tx);
-                                    // Start the dedicated reader thread
-                                    runtime.board_handle().start_reader();
                                 }
                             }
                             Some("disconnected") => {
@@ -267,27 +258,6 @@ pub fn run() {
                 });
 
                 // Remove the separate board-disconnected listener since we handle it above
-
-                // Start input polling loop
-                let flow_runtime_poll = Arc::clone(&flow_runtime);
-                let board_connected_poll = Arc::clone(&board_connected_setup);
-                std::thread::spawn(move || {
-                    loop {
-                        // Poll at ~100Hz for responsive input
-                        std::thread::sleep(std::time::Duration::from_millis(10));
-                        
-                        // Only poll if board is connected
-                        if !*board_connected_poll.read().unwrap() {
-                            continue;
-                        }
-                        
-                        // Use try_lock() for async mutex in sync polling context
-                        // If lock is held (e.g., during flow update), skip this poll iteration
-                        if let Ok(mut runtime) = flow_runtime_poll.try_lock() {
-                            let _ = runtime.poll_inputs();
-                        }
-                    }
-                });
 
                 Ok(())
             }

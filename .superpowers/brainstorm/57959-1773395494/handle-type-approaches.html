@@ -1,0 +1,322 @@
+<h2>Handle Type Legibility — Approaches</h2>
+<p class="subtitle">Four distinct directions for making handle types more readable. These can also be combined.</p>
+
+<style>
+:root {
+  --v: #64b5f6;   /* value   - blue  */
+  --e: #ba68c8;   /* event   - violet */
+  --c: #ffb74d;   /* command - amber */
+  --s: #4db6ac;   /* state   - teal  */
+}
+
+.approach-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.approach-card {
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.approach-header {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.approach-header h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 3px;
+}
+.approach-header p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.approach-demo {
+  padding: 14px 16px;
+  background: var(--surface);
+}
+
+/* ========================
+   APPROACH A: Color-coded glyphs (always-on)
+   ======================== */
+.approach-a .handle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  font-size: 11px;
+}
+.approach-a .glyph {
+  font-size: 13px;
+  line-height: 1;
+  width: 16px;
+  text-align: center;
+}
+.approach-a .label { color: var(--muted); }
+.approach-a .type-hint {
+  margin-left: auto;
+  font-size: 9px;
+  opacity: 0.5;
+  font-family: monospace;
+}
+
+/* ========================
+   APPROACH B: CSS-drawn shapes
+   ======================== */
+.approach-b .shape-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 11px;
+}
+.shape-circle {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--v);
+  flex-shrink: 0;
+}
+.shape-diamond {
+  width: 10px; height: 10px;
+  background: var(--e);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+.shape-triangle {
+  width: 0; height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 10px solid var(--c);
+  flex-shrink: 0;
+}
+.shape-square {
+  width: 11px; height: 11px;
+  background: var(--s);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ========================
+   APPROACH C: Colored badge on label
+   ======================== */
+.approach-c .badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px 2px 5px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+.type-badge.value   { background: color-mix(in srgb, var(--v) 15%, transparent); color: var(--v); border: 1px solid color-mix(in srgb, var(--v) 35%, transparent); }
+.type-badge.event   { background: color-mix(in srgb, var(--e) 15%, transparent); color: var(--e); border: 1px solid color-mix(in srgb, var(--e) 35%, transparent); }
+.type-badge.command { background: color-mix(in srgb, var(--c) 15%, transparent); color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); }
+.type-badge.state   { background: color-mix(in srgb, var(--s) 15%, transparent); color: var(--s); border: 1px solid color-mix(in srgb, var(--s) 35%, transparent); }
+.approach-c .handle-name {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ========================
+   APPROACH D: Colored edges / wires
+   ======================== */
+.approach-d .wire-demo {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 12px;
+}
+.wire-node {
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.wire-line {
+  height: 2px;
+  flex: 1;
+  border-radius: 1px;
+}
+.wire-dot-l, .wire-dot-r {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.wire-dot-l { margin-right: -1px; }
+.wire-dot-r { margin-left: -1px; }
+
+/* Legend strip */
+.legend-strip {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--muted);
+}
+</style>
+
+<div class="approach-grid">
+
+  <!-- A: Always-on color coding -->
+  <div class="approach-card">
+    <div class="approach-header">
+      <h3>A — Always-on Color per Type</h3>
+      <p>Keep the glyphs (●◆▶■), but each type has its own color — always visible, not just on hover or selection.</p>
+    </div>
+    <div class="approach-demo approach-a">
+      <div class="handle-row">
+        <span class="glyph" style="color:var(--v)">●</span>
+        <span class="label">value</span>
+        <span class="type-hint">data flows</span>
+      </div>
+      <div class="handle-row">
+        <span class="glyph" style="color:var(--e)">◆</span>
+        <span class="label">event</span>
+        <span class="type-hint">something happened</span>
+      </div>
+      <div class="handle-row">
+        <span class="glyph" style="color:var(--c)">▶</span>
+        <span class="label">trigger</span>
+        <span class="type-hint">do this action</span>
+      </div>
+      <div class="handle-row">
+        <span class="glyph" style="color:var(--s)">■</span>
+        <span class="label">true</span>
+        <span class="type-hint">boolean condition</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+        ✅ Minimal code change &nbsp; ✅ Redundant encoding (shape + color) &nbsp; ✅ Always readable
+      </div>
+    </div>
+  </div>
+
+  <!-- B: CSS-drawn shapes -->
+  <div class="approach-card">
+    <div class="approach-header">
+      <h3>B — Precision CSS Shapes</h3>
+      <p>Replace Unicode glyphs with crisp CSS-drawn shapes. More visually distinct, pixel-accurate, no font-rendering quirks.</p>
+    </div>
+    <div class="approach-demo approach-b">
+      <div class="shape-row">
+        <div class="shape-circle"></div>
+        <span style="color:var(--v);font-size:11px;font-weight:600">value</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:auto">●  filled circle</span>
+      </div>
+      <div class="shape-row">
+        <div class="shape-diamond"></div>
+        <span style="color:var(--e);font-size:11px;font-weight:600">event</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:auto">◆  rotated square</span>
+      </div>
+      <div class="shape-row">
+        <div class="shape-triangle"></div>
+        <span style="color:var(--c);font-size:11px;font-weight:600">command</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:auto">▶  CSS triangle</span>
+      </div>
+      <div class="shape-row">
+        <div class="shape-square"></div>
+        <span style="color:var(--s);font-size:11px;font-weight:600">state</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:auto">■  rounded square</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+        ✅ Crisp at all sizes &nbsp; ⚠️ More refactor (replace after: pseudoelements) &nbsp; ✅ Scalable
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Type badge labels -->
+  <div class="approach-card">
+    <div class="approach-header">
+      <h3>C — Colored Type Badges</h3>
+      <p>The handle label becomes a colored badge that shows both the name <em>and</em> the type. Vocabulary is always visible near the handle.</p>
+    </div>
+    <div class="approach-demo approach-c">
+      <div class="badge-row">
+        <span class="type-badge value">● value</span>
+        <span class="handle-name" style="color:var(--muted);font-size:10px">output</span>
+      </div>
+      <div class="badge-row">
+        <span class="type-badge event">◆ event</span>
+        <span class="handle-name" style="color:var(--muted);font-size:10px">on change</span>
+      </div>
+      <div class="badge-row">
+        <span class="type-badge command">▶ trigger</span>
+        <span class="handle-name" style="color:var(--muted);font-size:10px">input</span>
+      </div>
+      <div class="badge-row">
+        <span class="type-badge state">■ true</span>
+        <span class="handle-name" style="color:var(--muted);font-size:10px">boolean out</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+        ✅ Self-documenting &nbsp; ⚠️ More visual weight &nbsp; ✅ Teaches the vocabulary
+      </div>
+    </div>
+  </div>
+
+  <!-- D: Colored connection wires -->
+  <div class="approach-card">
+    <div class="approach-header">
+      <h3>D — Typed Connection Wires</h3>
+      <p>The <em>wires</em> between nodes take on the color of the handle type. The whole graph becomes a color-coded data flow diagram.</p>
+    </div>
+    <div class="approach-demo approach-d">
+      <div class="wire-demo">
+        <div class="wire-node">Button</div>
+        <div class="wire-dot-l" style="background:var(--v)"></div>
+        <div class="wire-line" style="background:var(--v)"></div>
+        <div class="wire-dot-r" style="background:var(--v)"></div>
+        <div class="wire-node">Smooth</div>
+        <div style="font-size:9px;color:var(--v);margin-left:6px">value</div>
+      </div>
+      <div class="wire-demo">
+        <div class="wire-node">Interval</div>
+        <div class="wire-dot-l" style="background:var(--e)"></div>
+        <div class="wire-line" style="background:var(--e)"></div>
+        <div class="wire-dot-r" style="background:var(--e)"></div>
+        <div class="wire-node">LED</div>
+        <div style="font-size:9px;color:var(--e);margin-left:6px">event→trigger</div>
+      </div>
+      <div class="wire-demo">
+        <div class="wire-node">Compare</div>
+        <div class="wire-dot-l" style="background:var(--s)"></div>
+        <div class="wire-line" style="background:var(--s);"></div>
+        <div class="wire-dot-r" style="background:var(--s)"></div>
+        <div class="wire-node">Relay</div>
+        <div style="font-size:9px;color:var(--s);margin-left:6px">state</div>
+      </div>
+      <div style="margin-top:4px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+        ✅ Type visible at any zoom &nbsp; ✅ Graph tells a story &nbsp; ⚠️ Needs edge type tracking
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--hover)">
+  <div style="font-size:11px;font-weight:600;margin-bottom:6px">Note: these are composable</div>
+  <div style="font-size:11px;color:var(--muted)">
+    A + B = best shape legibility &nbsp;|&nbsp; A + D = types visible everywhere, even when zoomed out &nbsp;|&nbsp; A + C = most self-documenting for new users
+  </div>
+</div>

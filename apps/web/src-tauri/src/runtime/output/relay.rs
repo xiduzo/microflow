@@ -1,7 +1,8 @@
 //! Relay Component - Output
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -43,7 +44,7 @@ impl Relay {
     pub fn open(&mut self) -> Result<(), String> {
         let signal = matches!(self.config.r#type, RelayType::NO);
         if let Some(board) = &self.board {
-            board.with_board(|conn| conn.digital_write(self.config.pin, signal))?;
+            board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: signal })?;
         }
         self.is_open = true;
         self.base.set_value(ComponentValue::Bool(true));
@@ -53,7 +54,7 @@ impl Relay {
     pub fn close(&mut self) -> Result<(), String> {
         let signal = matches!(self.config.r#type, RelayType::NC);
         if let Some(board) = &self.board {
-            board.with_board(|conn| conn.digital_write(self.config.pin, signal))?;
+            board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: signal })?;
         }
         self.is_open = false;
         self.base.set_value(ComponentValue::Bool(false));
@@ -73,7 +74,7 @@ impl Component for Relay {
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
-        board.with_board(|conn| conn.set_pin_mode(self.config.pin, pin_mode::OUTPUT))?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::OUTPUT })?;
         self.board = Some(board);
         self.close()
     }

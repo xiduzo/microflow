@@ -38,13 +38,7 @@ impl BoardManager {
         }
     }
 
-    /// Execute a read cycle to get latest pin states
-    /// Reads all pending messages from the serial buffer
-    pub fn poll(&self) -> Result<(), String> {
-        self.handle.with_board(|conn| {
-            conn.read_all()
-        })
-    }
+
 }
 
 impl Default for BoardManager {

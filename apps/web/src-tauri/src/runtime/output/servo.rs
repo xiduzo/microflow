@@ -1,9 +1,9 @@
 //! Servo Component - Output
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    ComponentValue,
 };
-use firmata_rs::Firmata;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -67,7 +67,7 @@ impl Servo {
         if position.is_nan() { return Ok(()); }
         let clamped = position.clamp(self.config.range.min as f64, self.config.range.max as f64) as u16;
         if let Some(board) = &self.board {
-            board.with_board(|conn| conn.board.analog_write(self.config.pin as i32, clamped as i32).map_err(|e| format!("Failed to write servo: {}", e)))?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: clamped })?;
         }
         self.current_position = clamped;
         self.base.set_value(ComponentValue::Number(clamped as f64));
@@ -78,7 +78,7 @@ impl Servo {
         if self.config.r#type != ServoType::Continuous { return Err("Rotate only works with continuous servos".to_string()); }
         let servo_value = if speed.abs() < 0.05 { 90 } else { ((speed + 1.0) * 90.0).clamp(0.0, 180.0) as u16 };
         if let Some(board) = &self.board {
-            board.with_board(|conn| conn.board.analog_write(self.config.pin as i32, servo_value as i32).map_err(|e| format!("Failed to write servo: {}", e)))?;
+            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: servo_value })?;
         }
         self.base.set_value(ComponentValue::Number(speed));
         Ok(())
@@ -95,7 +95,7 @@ impl Component for Servo {
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
-        board.with_board(|conn| conn.set_pin_mode(self.config.pin, pin_mode::SERVO))?;
+        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::SERVO })?;
         self.board = Some(board);
         let center = (self.config.range.min + self.config.range.max) / 2;
         self.to(center as f64)
