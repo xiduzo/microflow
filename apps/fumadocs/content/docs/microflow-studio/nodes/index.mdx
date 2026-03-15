@@ -1,0 +1,47 @@
+---
+title: Nodes
+description: Nodes are the building blocks of any flow — each one performs a specific job.
+---
+
+Nodes are the building blocks of a flow. Each node does one specific thing — reading a sensor, turning on a light, doing math, making a decision — and you connect them together to build something interactive.
+
+You connect nodes using [edges](/docs/microflow-studio/edges) (the lines between them). Data and signals travel along these edges from one node to the next.
+
+**Example:** A light sensor reads brightness → a Map node scales the value → an LED adjusts its brightness accordingly.
+
+## Adding a node to the canvas
+
+Right-click anywhere on the blank canvas to open the node menu. You will see all available nodes organised by category. Click any node to place it on the canvas.
+
+Once a node is on the canvas, you can:
+
+- **Move it** by clicking and dragging
+- **Configure it** by clicking the settings icon in its top right corner
+- **Delete it** by selecting it and pressing the Delete or Backspace key
+
+<Cards>
+  <Card title="Sense" href="/docs/microflow-studio/nodes/sense" description="Read data from the physical world — buttons, sensors, switches, and more." />
+  <Card title="Generate" href="/docs/microflow-studio/nodes/generate" description="Produce values, signals, and events — constants, waves, timers, and reactive triggers." />
+  <Card title="Shape" href="/docs/microflow-studio/nodes/shape" description="Transform and process data as it moves through the flow — math, mapping, and smoothing." />
+  <Card title="Decide" href="/docs/microflow-studio/nodes/decide" description="Add logic — comparisons, counting, delays, and logical gates." />
+  <Card title="Express" href="/docs/microflow-studio/nodes/express" description="Output to the physical world — LEDs, buzzers, servos, and more." />
+  <Card title="Internal" href="/docs/microflow-studio/nodes/internal" description="Monitor values and add notes to document and understand your flow." />
+</Cards>
+
+---
+
+## Anatomy of a node
+
+Every node has the same basic structure.
+
+<Callout type="info" title="Image placeholder">
+  Diagram showing the anatomy of a node: input handles on the left (blue), output handles on the right (green), the node value display in the center, and the settings icon in the top right corner.
+</Callout>
+
+**Input handles** — the blue dots on the left side. Connect other nodes here to send data into this node.
+
+**Output handles** — the green dots on the right side. Connect these to other nodes to pass data onward. Different handles carry different types of signals (e.g. "pressed" vs "released" for a button).
+
+**Node value** — the display in the center of the node. Shows the current value or state in real-time, so you can see exactly what is happening in your flow.
+
+**Settings** — the icon in the top right corner. Click it to configure the node: which pin it uses, what values to compare against, how fast something repeats, and so on. Every node has its own settings.

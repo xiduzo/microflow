@@ -1,0 +1,37 @@
+---
+title: Getting started
+description: Connect your physical hardware to Figma designs using the Microflow Hardware Bridge plugin.
+---
+
+The Microflow Hardware Bridge is a **Figma plugin** that connects your physical hardware projects to Figma designs. This means you can use real sensors, buttons, and other components to control values inside a Figma prototype — and vice versa, have Figma variables control what your hardware does.
+
+**Example:** A light sensor reads a value → the brightness of an element in your Figma design updates in real-time.
+
+---
+
+## How it works
+
+The Hardware Bridge works together with [Microflow Studio](/docs/microflow-studio). Here is how the two tools connect:
+
+1. You build a flow in Microflow Studio with your hardware components
+2. You install the Microflow Hardware Bridge plugin in Figma
+3. Both tools connect to the same [MQTT messaging server](/docs/microflow-hardware-bridge/mqtt)
+4. When something changes in your hardware, it updates in Figma — and changes in Figma can update your hardware too
+
+---
+
+<Callout type="info" title="Video placeholder">
+  Setup video (3–4 min): Show the full end-to-end flow — open Microflow Studio with a light sensor already wired up, install the Hardware Bridge plugin in Figma, configure matching identifiers in both tools, create a variable in the MHB collection, connect the LDR node to the Figma node in Studio, then show the Figma variable updating live as a hand moves over the sensor.
+</Callout>
+
+## Getting started
+
+Install the plugin in Figma to begin:
+
+[Install Microflow Hardware Bridge on Figma](https://www.figma.com/community/plugin/1373258770799080545)
+
+<Callout title="You also need Microflow Studio">
+The Hardware Bridge is an extension of Microflow Studio, not a standalone tool. Make sure you have [Microflow Studio set up](/docs/microflow-studio) before continuing.
+</Callout>
+
+Once the plugin is installed, the next step is to set up [variables](/docs/microflow-hardware-bridge/variables) — the values that get shared between Figma and your hardware.

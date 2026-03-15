@@ -1,0 +1,27 @@
+---
+title: Sense
+description: Sense nodes read data from the physical world — buttons, sensors, switches, and external services.
+---
+
+Sense nodes are how your flow receives information from the outside world. They read from physical components connected to your Arduino, like buttons, sensors, and switches. They can also receive data from external services like MQTT.
+
+Every flow usually starts with at least one Sense node — it is what kicks things off.
+
+Sense nodes can read two kinds of signals:
+
+- **Digital** — on or off, like a button being pressed or released
+- **Analog** — a continuous range of values, like a light sensor reading from 0 to 1023
+
+| Node | What it does |
+| --- | --- |
+| [Button](/docs/microflow-studio/nodes/sense/button) | Detects button presses and releases |
+| [Force](/docs/microflow-studio/nodes/sense/force) | Reads pressure from a force-sensitive resistor |
+| [Hall Effect](/docs/microflow-studio/nodes/sense/hall-effect) | Detects magnetic fields |
+| [LDR](/docs/microflow-studio/nodes/sense/ldr) | Reads ambient light levels |
+| [Motion](/docs/microflow-studio/nodes/sense/motion) | Detects movement with a PIR sensor |
+| [MQTT](/docs/microflow-studio/nodes/sense/mqtt) | Receives data from an MQTT broker |
+| [Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer) | Reads a rotary or sliding dial position |
+| [Proximity](/docs/microflow-studio/nodes/sense/proximity) | Measures distance to an object |
+| [Sensor](/docs/microflow-studio/nodes/sense/sensor) | Generic digital or analog sensor input |
+| [Switch](/docs/microflow-studio/nodes/sense/switch) | Reads the state of a toggle switch |
+| [Tilt](/docs/microflow-studio/nodes/sense/tilt) | Detects whether something is tilted or upright |

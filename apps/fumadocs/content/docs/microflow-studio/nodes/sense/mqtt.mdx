@@ -1,0 +1,32 @@
+---
+title: MQTT
+description: Receive data from an MQTT broker to use in your flow.
+---
+
+The MQTT node lets your flow receive data from an MQTT broker — a kind of message-passing server. This is primarily useful when you are using the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) to connect your hardware to Figma.
+
+<Callout title="Most users do not need this directly">
+If you want to connect your hardware to Figma, use the [Figma node](/docs/microflow-studio/nodes/express/figma) and the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) plugin instead. The MQTT node is for advanced users who want to connect to their own MQTT server for other purposes.
+</Callout>
+
+By default, the node connects to a free public server run by [Mosquitto](https://mosquitto.org/). You can change the connection settings in **Settings → MQTT settings**.
+
+<Callout type="warn" title="Public server means public data">
+The default server is open to everyone. Do not send passwords, personal information, or anything sensitive through it. It is fine for testing and prototyping.
+</Callout>
+
+## Connection settings
+
+| Setting | What it does |
+| --- | --- |
+| **Identifier** | A unique name that keeps your messages separate from others using the same server |
+| **Host** | The address of the MQTT server |
+| **Port** | The connection port number — check your server's documentation |
+| **Username** | Only needed if your server requires one |
+| **Password** | Only needed if your server requires one |
+
+If you are using the Hardware Bridge, make sure both Microflow Studio and the Figma plugin are configured with the same settings.
+
+## Resources
+
+- [mqtt.org](https://mqtt.org/)

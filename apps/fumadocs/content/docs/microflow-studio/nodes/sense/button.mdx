@@ -1,0 +1,32 @@
+---
+title: Button
+description: A simple input device that sends a signal when pressed to trigger actions in your flow.
+---
+
+A button is a simple input device that you can press to interact with your project. When you press it, it completes an electrical circuit, and when you release it, the circuit opens.
+
+**How it works:** Connect a button to your Arduino, and the Button node sends a signal whenever someone presses or releases it. You can use each of those signals separately — for example, turning on a light when the button is pressed down, and turning it off again when it is released.
+
+## Outputs
+
+The Button node has two output handles:
+
+- **Down** — fires when the button is pressed
+- **Up** — fires when the button is released
+
+Connect whichever output (or both) you need to other nodes in your flow.
+
+## Settings
+
+Open the settings panel (the icon in the top right corner of the node) to configure:
+
+- **Pin** — which numbered pin on your Arduino the button is connected to
+
+<Callout title="Which pin should I use?">
+Pins are the numbered connection points on your Arduino board. They are the physical holes or legs you plug wires into. Connect your button to any available digital pin and set that same number in the node's settings. Pin 13 is special — it has a built-in LED on the board, which is handy for testing.
+</Callout>
+
+## Resources
+
+- [Johnny-Five](https://johnny-five.io/api/button/)
+- [Arduino](https://docs.arduino.cc/built-in-examples/digital/Button/)

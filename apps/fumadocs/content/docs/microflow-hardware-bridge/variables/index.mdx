@@ -1,0 +1,26 @@
+---
+title: Variables
+description: Configure MQTT settings to link Figma variables with your hardware.
+---
+
+The Microflow Hardware Bridge uses [MQTT](/docs/microflow-hardware-bridge/mqtt) to share data between Figma and your hardware. Variables are the values that get shared — when a sensor reading changes in Microflow Studio, it updates a Figma variable, and vice versa.
+
+**Important:** For the two tools to communicate, both Microflow Studio and the Figma plugin must connect to the **same MQTT broker** (the server that passes messages between them). If they are on different servers, they cannot find each other.
+
+---
+
+## MQTT settings
+
+You configure these settings in both Microflow Studio and the Figma plugin. They need to match exactly so the two tools can find each other.
+
+<Callout title="Just starting out? You only need to set the Identifier">
+The default server settings work out of the box. The only thing you need to change is the **Identifier** — give it a unique name so your messages do not mix with other people using the same public server.
+</Callout>
+
+| Setting | What it does |
+| --- | --- |
+| **Identifier** | A unique name for your connection. Think of it like a private channel name — only devices using the same identifier can talk to each other. Use something unique, like your name or project name. |
+| **Host** | The address of the MQTT server. Leave this at the default unless you are [running your own server](/docs/microflow-hardware-bridge/mqtt#running-your-own-mqtt-server). |
+| **Port** | The connection port number. Leave this at the default unless your server requires a different one. |
+| **Username** | Only needed if your server requires it. Leave blank otherwise. |
+| **Password** | Only needed if your server requires it. Leave blank otherwise. |

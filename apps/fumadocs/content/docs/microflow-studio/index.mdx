@@ -1,0 +1,104 @@
+---
+title: Getting started
+description: Download Microflow Studio and connect your first microcontroller in a few steps.
+---
+
+Microflow Studio is a desktop application that lets you build interactive hardware projects on a **visual canvas**. You connect blocks (called [nodes](/docs/microflow-studio/nodes)) together with lines (called [edges](/docs/microflow-studio/edges)), and Microflow runs it all on your Arduino automatically.
+
+No coding needed.
+
+[Download Microflow Studio](https://github.com/xiduzo/microflow/releases)
+
+---
+
+## The canvas
+
+When you open Microflow Studio, you see a large blank canvas — this is where you build your project.
+
+- **Add a node:** Right-click anywhere on the canvas to open the node menu and choose a building block to add
+- **Move nodes:** Click and drag a node to reposition it
+- **Connect nodes:** Click and drag from the green dot (right side of a node) to the blue dot (left side of another node) — this creates a connection
+- **Pan the canvas:** Click and drag on an empty area of the canvas
+- **Zoom:** Use your scroll wheel, or pinch on a trackpad
+
+Once your flow is ready and your board is connected, Microflow runs it automatically — you do not need to press a "run" button.
+
+---
+
+## Connecting your microcontroller
+
+A **microcontroller** (like an Arduino) is the small board you connect to your computer via USB. It is what physically controls your components — LEDs, buttons, sensors, and more.
+
+Once you plug it in, Microflow Studio detects it automatically and goes through these steps:
+
+1. **Waiting** — looking for a board to be plugged in
+2. **Detecting** — identifying which board it is
+3. **Uploading** — sending your flow to the board
+4. **Running** — your project is live
+
+<Callout title="First-time setup takes a moment">
+The very first time you connect a board, Microflow installs **StandardFirmata** on it. This is a small program that lets your computer communicate with the board. It only happens once per board and takes about 30–60 seconds.
+
+Do not unplug the board while this is happening.
+</Callout>
+
+<Callout type="info" title="Video placeholder">
+  Setup video (1–2 min): Show the full first-time board connection experience — plug in an Arduino Uno via USB, watch Microflow detect it, show the progress through the four steps (Waiting → Detecting → Uploading → Running), and confirm it is working by toggling pin 13's built-in LED.
+</Callout>
+
+If your board does not reach step 4, see the troubleshooting section below.
+
+### Supported boards
+
+Microflow Studio officially supports the following Arduino boards:
+
+- Arduino Uno
+- Arduino Mega
+- Arduino Leonardo
+- Arduino Micro
+- Arduino Nano
+- Arduino Yun
+
+[Other boards](https://johnny-five.io/platform-support/) may work but are not guaranteed to behave correctly.
+
+---
+
+## Troubleshooting connection issues
+
+If you see `Upload failed for unknown reasons`, your board is not connecting properly. Try the following:
+
+### 1. Test with Arduino IDE
+
+The **Arduino IDE** is a free program that lets you test whether your board is working at all. This helps narrow down if the problem is with your board or with Microflow.
+
+1. Close Microflow Studio
+2. Download [the StandardFirmata file for Microflow](https://github.com/xiduzo/microflow/tree/7eed72541c6d6b455cf8c84a71b737400a6d7e68/packages/flasher/StandardFirmata)
+3. Install [the Arduino IDE](https://www.arduino.cc/en/software)
+4. Open the Arduino IDE and plug in your board
+5. Go to **Tools → Port** and select your board's port
+6. Go to **Tools → Board** and select your board type (e.g. "Arduino Uno")
+7. Open the StandardFirmata file you downloaded
+8. Click the **Upload** button (the arrow icon)
+9. Re-open Microflow Studio — your board should now connect
+
+If the upload works in Arduino IDE, your hardware is fine and the issue is likely a Microflow bug. If it fails there too, the board or cable may be the problem.
+
+### 2. Install board drivers
+
+Some boards — especially cheaper Arduino clones — need an extra driver before your computer can detect them.
+
+The most common one is the **CH34x driver**. Download it [here](https://sparks.gogo.co.nz/ch340.html), and follow [this YouTube guide](https://www.youtube.com/watch?v=MM9Fj6bwHLk) for installation steps.
+
+---
+
+<Callout type="warn" title="Still stuck?">
+If nothing above worked, you can help us find the bug by sharing your **log file** — a file that records everything Microflow did, which helps us diagnose the issue.
+
+| OS | Log file location |
+| --- | --- |
+| Linux | `~/.config/microflow-studio/logs/main.log` |
+| macOS | `~/Library/Logs/microflow-studio/main.log` |
+| Windows | `%USERPROFILE%\AppData\Roaming\microflow-studio\logs\main.log` |
+
+[Open a bug report](https://github.com/xiduzo/microflow/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=) and attach the log file. Thank you!
+</Callout>

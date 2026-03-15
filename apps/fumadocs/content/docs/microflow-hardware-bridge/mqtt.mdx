@@ -1,0 +1,42 @@
+---
+title: MQTT
+description: MQTT is the messaging system used to pass data between Microflow Studio and the Figma plugin.
+---
+
+The Microflow Hardware Bridge uses **MQTT** (Message Queuing Telemetry Transport) to send and receive data between your hardware and your Figma designs.
+
+MQTT is a lightweight messaging protocol designed for devices that need to send small bits of data quickly. It works like a publish/subscribe system: one side publishes a message on a topic, and any other side that is subscribed to that topic receives it instantly.
+
+You do not need to understand the details of MQTT to use Microflow — it works in the background. But knowing it exists helps if you ever need to troubleshoot or set up your own server.
+
+---
+
+## Default server
+
+By default, both Microflow Studio and the Figma plugin connect to a free public MQTT server run by [Mosquitto](https://mosquitto.org/). This is the easiest way to get started and requires no setup.
+
+<Callout type="warn" title="The default server is public">
+Messages sent through the public Mosquitto server can be seen by anyone. Do not send passwords, personal information, or any sensitive data through it. It is fine for learning and prototyping, but not for anything private.
+</Callout>
+
+---
+
+## Running your own MQTT server
+
+For private projects or production use, you can run your own MQTT server. This gives you full control over who can see your data.
+
+A few things to know:
+
+- Figma requires a **secure WebSocket connection** (`wss://`) to talk to an MQTT server — a plain connection (`ws://`) will not work
+- This means your server needs a valid **SSL certificate** (like the kind used by websites with HTTPS)
+- Tools like [Caddy](https://hub.docker.com/_/caddy) or [Nginx](https://hub.docker.com/_/nginx) can handle the secure tunnel for a local server
+
+Setting up your own server is an advanced task. If you are just getting started, the default public server is perfectly fine.
+
+---
+
+## Resources
+
+- [mqtt.org](https://mqtt.org/)
+- [Mosquitto — the default public broker](https://mosquitto.org/)
+- [List of free public MQTT brokers](https://iot4beginners.com/top-15-open-source-public-free-brokers-of-mqtt/)

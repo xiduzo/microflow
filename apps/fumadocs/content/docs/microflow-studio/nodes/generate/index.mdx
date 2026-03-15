@@ -1,0 +1,19 @@
+---
+title: Generate
+description: Generate nodes produce values, signals, and events to feed into your flow.
+---
+
+Generate nodes create data for the rest of your flow to work with. Unlike Sense nodes, they do not read from physical hardware — they produce values internally, based on time, patterns, or fixed settings.
+
+Use them to:
+
+- Feed a constant number into a calculation
+- Create a repeating signal that drives a timer or animation
+- Detect when a value changes and react to it
+
+| Node | What it does |
+| --- | --- |
+| [Constant](/docs/microflow-studio/nodes/generate/constant) | Outputs a fixed number that never changes |
+| [Oscillator](/docs/microflow-studio/nodes/generate/oscillator) | Generates a repeating wave pattern (sine, square, triangle, sawtooth) |
+| [Interval](/docs/microflow-studio/nodes/generate/interval) | Sends a signal at regular time intervals, like a clock tick |
+| [Trigger](/docs/microflow-studio/nodes/generate/trigger) | Fires when a value crosses a threshold or changes in a specific way |

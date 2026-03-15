@@ -1,0 +1,4 @@
+{
+  "title": "Sense",
+  "pages": ["index", "button", "force", "hall-effect", "ldr", "motion", "mqtt", "potentiometer", "proximity", "sensor", "switch", "tilt"]
+}

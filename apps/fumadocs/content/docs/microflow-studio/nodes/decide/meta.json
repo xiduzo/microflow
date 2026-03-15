@@ -1,0 +1,4 @@
+{
+  "title": "Decide",
+  "pages": ["index", "compare", "counter", "delay", "gate"]
+}

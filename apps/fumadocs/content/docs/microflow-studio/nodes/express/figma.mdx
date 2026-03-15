@@ -1,0 +1,29 @@
+---
+title: Figma
+description: Send values from your hardware flow into Figma variables to update your design in real-time.
+---
+
+The Figma node lets your hardware talk to a Figma design. When a value changes in your flow — for example, a sensor reading — the Figma node sends that value to a variable inside Figma, and your design updates instantly.
+
+**Example:** A potentiometer on your desk controls a slider element in a Figma prototype. As you turn the dial, the slider moves in real-time.
+
+This node works together with the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) plugin, which must be running in Figma at the same time.
+
+## Setup
+
+1. Install and open the [Microflow Hardware Bridge plugin](https://www.figma.com/community/plugin/1373258770799080545) in your Figma file
+2. In that plugin, create a variable to link with your hardware (see [Connecting variables](/docs/microflow-hardware-bridge/variables/connecting))
+3. In Microflow Studio, add a Figma node to your flow and select that variable in the node's settings
+
+## Variable types
+
+The Figma node behaves slightly differently depending on the type of Figma variable you connect it to:
+
+- **Number** — sends numeric values (e.g. a sensor reading of 750)
+- **Boolean** — sends true or false (e.g. whether a button is pressed)
+- **String** — sends text
+- **Color** — sends color values
+
+## Resources
+
+- [Figma plugin](https://www.figma.com/community/plugin/1373258770799080545)

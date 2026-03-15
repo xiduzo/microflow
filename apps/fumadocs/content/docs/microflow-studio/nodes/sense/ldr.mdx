@@ -1,0 +1,29 @@
+---
+title: LDR
+description: Detect the amount of light in a space using a Light Dependent Resistor.
+---
+
+A Light Dependent Resistor (LDR) — also called a photoresistor — is a small sensor that changes its readings based on how much light hits it. The darker it is, the lower the value. The brighter it is, the higher the value.
+
+**Example uses:**
+- Automatically turn on a lamp when a room gets dark
+- Detect whether a drawer or box is open or closed
+- React to sunlight levels throughout the day
+
+## Output values
+
+The LDR node outputs a number between **0 and 1023**:
+- **0** = complete darkness
+- **1023** = very bright light
+
+Because these values are large, you will often want to pair the LDR with a [Map](/docs/microflow-studio/nodes/shape/map) node to convert the range into something more useful — for example, converting 0–1023 into 0–255 to control LED brightness.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Pin** — which analog pin on your Arduino the LDR is connected to (analog pins are usually labelled A0, A1, A2, etc.)
+
+## Resources
+
+- [Johnny-Five](https://johnny-five.io/api/light)

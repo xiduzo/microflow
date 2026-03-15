@@ -1,0 +1,25 @@
+---
+title: Vibration
+description: Provide haptic feedback using a vibration motor with analog or digital control.
+---
+
+A vibration motor makes your project physically shake or buzz — the same kind of feeling as a phone vibrating. This is useful for giving physical feedback to a person without using sound or light.
+
+**Example uses:**
+- Vibrate when a button is pressed to confirm an action
+- Give a buzz alert when a sensor detects something
+- Create a wearable that vibrates in response to events
+
+## Intensity control
+
+If the vibration motor is connected to an **analog pin**, you can control how strong the vibration is by sending a value between 0 and 255:
+- **0** = no vibration
+- **255** = full intensity
+
+If connected to a **digital pin**, the motor is simply on or off — no intensity control.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Pin** — which pin on your Arduino the vibration motor is connected to. Use an analog-capable pin if you want to control intensity.

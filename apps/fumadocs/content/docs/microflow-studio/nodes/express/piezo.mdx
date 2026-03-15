@@ -1,0 +1,29 @@
+---
+title: Piezo
+description: Play tones or compose melodies with a piezo buzzer.
+---
+
+A piezo is a small buzzer that can make sounds. It is not a speaker — it produces simple electronic tones rather than rich audio — but it is perfect for beeps, alerts, or simple melodies.
+
+**Example uses:**
+- Play a beep when a button is pressed
+- Sound an alert when a sensor crosses a threshold
+- Play a short melody when a project completes a task
+
+## What you can do
+
+- **Play a tone** — send a frequency value (in Hz) to make the piezo buzz at that pitch. Higher numbers = higher pitch. For example, 440 Hz is the musical note A.
+- **Play a melody** — compose a sequence of notes in the node's settings and trigger them to play in order.
+- **Stop** — send a signal to stop any sound currently playing.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Pin** — which digital pin on your Arduino the piezo is connected to
+- **Melody** — compose a custom melody by entering notes and their durations
+
+## Resources
+
+- [Johnny-Five](https://johnny-five.io/api/piezo/)
+- [Arduino](https://docs.arduino.cc/built-in-examples/digital/toneMelody/)

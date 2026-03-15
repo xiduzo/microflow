@@ -1,0 +1,25 @@
+---
+title: Force
+description: Detect the amount of force applied to a force-sensitive resistor.
+---
+
+A force sensor (also called a Force Sensitive Resistor, or FSR) is a thin, flexible sensor that measures how hard something is pressing on it. The harder you press, the higher the value it outputs.
+
+**Example uses:**
+- Detect how hard someone is gripping a handle
+- Trigger an action when an object is placed on a surface
+- Create a pressure-sensitive button that responds differently based on how hard it is pressed
+
+## Output values
+
+The Force node outputs a number that increases as more pressure is applied. The exact range depends on your sensor, but it typically goes from near **0** (no pressure) to a higher value (maximum pressure).
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Pin** — which analog pin on your Arduino the force sensor is connected to
+
+## Resources
+
+- [Johnny-Five](https://johnny-five.io/api/sensor/)
