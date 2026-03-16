@@ -14,11 +14,17 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardContent,
+  CardAction,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { HardDriveUploadIcon, SettingsIcon } from "lucide-react";
+import { HardDriveUploadIcon, MoreHorizontalIcon, SettingsIcon } from "lucide-react";
 import { NODE_TYPES } from "../flow/nodes/_TYPES";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
@@ -50,65 +56,62 @@ export function FlowCard(props: FlowCardProps) {
     navigate({ to: "/flow/$flowId/graph", params: { flowId: props.id } });
   }
 
+  const hasActions = !!(props.onExport || props.settingsFlowId);
+
   return (
-    <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0 group relative hover:cursor-pointer" onClick={handleClick}>
-      <CardContent className="px-0 mb-4">
-        <div className="aspect-4/3 bg-muted/30 relative overflow-hidden">
-          <ReactFlowProvider>
-            <FlowThumbnail nodes={props.nodes} edges={props.edges} />
-          </ReactFlowProvider>
-          {(props.onExport || props.settingsFlowId) && (
-            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" data-card-action>
-              {props.settingsFlowId && (
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="size-8 shadow-md"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate({
-                      to: "/flow/$flowId/settings",
-                      params: { flowId: props.settingsFlowId! },
-                    });
-                  }}
-                  title="Flow settings"
-                >
-                  <SettingsIcon className="size-4" />
-                </Button>
-              )}
-              {props.onExport && (
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="size-8 shadow-md"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    props.onExport?.();
-                  }}
-                  title="Export flow"
-                >
-                  <HardDriveUploadIcon className="size-4" />
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
+    <Card className="relative mx-auto w-full pt-0">
+      <section className="relative z-20 aspect-video w-full overflow-hidden">
+        <ReactFlowProvider>
+          <FlowThumbnail nodes={props.nodes} edges={props.edges} />
+        </ReactFlowProvider>
+      </section>
       <CardHeader>
-        <CardTitle className="truncate group-hover:text-primary transition-colors">
-          {props.name}
-        </CardTitle>
+        {props.badges && props.badges.length > 0 && (
+          <CardAction>
+            {props.badges.map((badge) => (
+              <Badge key={badge.label} variant={badge.variant}>
+                {badge.label}
+              </Badge>
+            ))}
+          </CardAction>
+        )}
+        <CardTitle>{props.name}</CardTitle>
         <CardDescription>
-          {props.description && <p className="text-xs text-muted-foreground">{props.description}</p>}
-          {!props.description && <p className="text-xs text-muted-foreground">Edited {formatDistanceToNow(props.updatedAt, { addSuffix: true })}</p>}
+          {props.description
+            ? props.description
+            : `Edited ${formatDistanceToNow(props.updatedAt, { addSuffix: true })}`}
         </CardDescription>
       </CardHeader>
-      <CardFooter className="gap-2 flex flex-wrap">
-        {props.badges?.map((badge) => (
-          <Badge key={badge.label} variant={badge.variant}>
-            {badge.label}
-          </Badge>
-        ))}
+      <CardFooter className="gap-2">
+        <Button className="flex-1" onClick={handleClick}>Open flow</Button>
+        {hasActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <Button variant="outline" size="icon" data-card-action>
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {props.onExport && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); props.onExport?.(); }}>
+                  <HardDriveUploadIcon className="size-4 mr-2" />
+                  Export
+                </DropdownMenuItem>
+              )}
+              {props.settingsFlowId && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate({ to: "/flow/$flowId/settings", params: { flowId: props.settingsFlowId! } });
+                  }}
+                >
+                  <SettingsIcon className="size-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </CardFooter>
     </Card>
   );
@@ -154,10 +157,10 @@ export function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }
 
 export function FlowCardSkeleton() {
   return (
-    <Card className="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full pt-0">
-      <CardContent className="px-0 mb-2">
-        <Skeleton className="aspect-4/3 rounded-none" />
-      </CardContent>
+    <Card className="relative mx-auto w-full pt-0">
+      <section className="aspect-video w-full overflow-hidden">
+        <Skeleton className="h-full w-full rounded-none" />
+      </section>
       <CardHeader>
         <CardTitle>
           <Skeleton className="h-4 w-3/4" />
@@ -166,9 +169,8 @@ export function FlowCardSkeleton() {
           <Skeleton className="h-3 w-1/2" />
         </CardDescription>
       </CardHeader>
-      <CardFooter className="gap-2">
-        <Skeleton className="h-5 w-16" />
-        {Math.random() > 0.7 && <Skeleton className="h-5 w-16" />}
+      <CardFooter>
+        <Skeleton className="h-9 w-full" />
       </CardFooter>
     </Card>
   );

@@ -176,7 +176,26 @@ impl HardwareMonitorLoop {
             .map(|p| (PortMonitor::canonical_id(&p.port_name), p))
             .collect();
 
-        // Detect new ports
+        // Detect implicit disconnect: board reset without USB disconnect.
+        // The reader thread sets is_connected=false on I/O error, but the USB port
+        // stays present, so the normal disconnect detection never fires.
+        if !self.board_handle.is_connected() {
+            let stale: Vec<_> = self
+                .known_devices
+                .iter()
+                .filter(|(id, port)| port.has_firmata == Some(true) && current_map.contains_key(*id))
+                .map(|(id, _)| id.clone())
+                .collect();
+            for id in stale {
+                if let Some(port) = self.known_devices.remove(&id) {
+                    log::info!("Board on {} lost connection without USB disconnect, re-detecting", port.port_name);
+                    self.board_handle.disconnect();
+                    self.events.board_disconnected();
+                }
+            }
+        }
+
+        // Detect new ports (including any cleared by implicit disconnect above)
         for (device_id, port) in &current_map {
             if !self.known_devices.contains_key(device_id) {
                 self.handle_port_connected(port.clone());

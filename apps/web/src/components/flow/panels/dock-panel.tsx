@@ -4,21 +4,28 @@ import { Dock } from "@/components/ui/dock";
 import { Separator } from "@/components/ui/separator";
 import { useReactFlow } from "@xyflow/react";
 import {
-  FullscreenIcon,
+  HardDriveUploadIcon,
   PlusIcon,
   RedoIcon,
+  SettingsIcon,
   UndoIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
 } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
-import { Button } from "@/components/ui/button";
+import { useFlowHistoryActions } from "@/stores/flow-store";
+import { cn } from "@/lib/utils";
+import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { useNavigate } from "@tanstack/react-router";
+import { useFlowImportExport } from "@/hooks/use-flow-import-export";
 
 export function DockPanel() {
   const { fitView, zoomIn, zoomOut, zoomTo } = useReactFlow();
   const { setOpen } = useNewNodeStore();
+  const history = useFlowHistoryActions();
+  const navigate = useNavigate();
+  const { activeFlowId } = useActiveFlowStore();
+  const { exportFlow } = useFlowImportExport();
 
   const handleZoomIn = (event?: KeyboardEvent | MouseEvent) => {
     event?.stopPropagation();
@@ -39,17 +46,23 @@ export function DockPanel() {
   };
 
   const handleUndo = () => {
-    console.log("undo");
-    // undo();
+    history.undo();
   };
 
   const handleRedo = () => {
-    console.log("redo");
-    // redo();
+    history.redo();
   };
 
   const handleAddNode = () => {
     setOpen(true);
+  };
+
+  const handleSettings = () => {
+    // navigate to settings page
+    navigate({
+      to: "/flow/$flowId/settings",
+      params: { flowId: activeFlowId },
+    });
   };
 
   useHotkeys("mod+equal", handleZoomIn, {
@@ -106,26 +119,24 @@ export function DockPanel() {
   });
 
   return (
-    <div className="relative">
       <Dock direction="middle">
-        <DockIcon onClick={handleZoomIn}>
-          <ZoomInIcon />
-        </DockIcon>
-        <DockIcon onClick={handleZoomOut}>
-          <ZoomOutIcon />
-        </DockIcon>
-        <Separator orientation="vertical" className="h-full" />
         <DockIcon onClick={handleAddNode}>
           <PlusIcon />
         </DockIcon>
         <Separator orientation="vertical" className="h-full" />
         <DockIcon onClick={handleUndo}>
-          <UndoIcon />
+          <UndoIcon className={cn(history.canUndo() ? "text-primary" : "text-muted-foreground")} />
         </DockIcon>
         <DockIcon onClick={handleRedo}>
-          <RedoIcon />
+          <RedoIcon className={cn(history.canRedo() ? "text-primary" : "text-muted-foreground")} />
+        </DockIcon>
+        <Separator orientation="vertical" className="h-full" />
+        <DockIcon onClick={exportFlow}>
+          <HardDriveUploadIcon />
+        </DockIcon>
+        <DockIcon onClick={handleSettings}>
+          <SettingsIcon />
         </DockIcon>
       </Dock>
-    </div>
   );
 }

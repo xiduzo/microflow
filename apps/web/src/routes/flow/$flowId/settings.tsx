@@ -66,21 +66,23 @@ function RouteComponent() {
         return <ErrorState title="Flow not found" error="Flow not found" />;
 
     return (
-        <div className="container max-w-3xl mx-auto py-8 px-4 space-y-6">
-            <div>
-                <h1 className="text-2xl font-semibold">Flow Settings</h1>
-                <p className="text-muted-foreground text-sm">Manage your flow</p>
-            </div>
-            <div className="space-y-6">
-                <FlowSettingsCard name={data.name} color={data.color} flowId={flowId} />
-                <FlowCollaboratorsCard
-                    collaborators={data.collaborators}
-                    owner={data.owner}
-                    flowId={flowId}
-                    flowName={data.name}
-                />
-                <DeleteFlowCard flowId={flowId} flowName={data.name} />
-            </div>
+        <div className="h-full overflow-auto flex flex-col pb-16">
+            <section className="container mx-auto px-4 md:px-8">
+                <div className="flex flex-col gap-6 pt-8 max-w-3xl mx-auto">
+                    <div>
+                        <h1 className="text-xl font-semibold">Flow Settings</h1>
+                        <p className="text-muted-foreground text-sm">Manage your flow</p>
+                    </div>
+                    <FlowSettingsCard name={data.name} color={data.color} flowId={flowId} />
+                    <FlowCollaboratorsCard
+                        collaborators={data.collaborators}
+                        owner={data.owner}
+                        flowId={flowId}
+                        flowName={data.name}
+                    />
+                    <DeleteFlowCard flowId={flowId} flowName={data.name} />
+                </div>
+            </section>
         </div>
     );
 }

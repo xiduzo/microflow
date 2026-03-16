@@ -70,7 +70,7 @@ function HomeComponent() {
         toast.success("Flow imported", {
           description: `${data.data.nodes.length} nodes, ${data.data.edges.length} edges`,
         });
-        navigate({ to: "/flow/local/graph" });
+        navigate({ to: "/flow/$flowId/graph", params: { flowId: "local" } });
       }
     },
     [isSignedIn, createFromImportMutation, setActiveFlowId, navigate]
@@ -91,41 +91,47 @@ function HomeComponent() {
   }, []);
 
   return (
-    <div className="h-full overflow-auto gap-8 flex flex-col pb-12">
-      <header className="flex items-center justify-between sticky top-0 z-10 backdrop-blur-sm bg-background/50 p-8 rounded-t-xl">
-        <section>
-          <h1 className="text-xl font-semibold">My Flows</h1>
-        </section>
-        <section className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => triggerImport(handleImport)}
-          >
-            <HardDriveDownloadIcon className="size-4 mr-2" />
-            Import
-          </Button>
-          <CreateFlowDialog trigger={<Button size="sm"><Plus className="size-4 mr-2" />New Flow</Button>} />
-        </section>
-      </header>
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 px-8">
-        <FlowCard
-          id="local"
-          name="Local Flow"
-          description="This flow is only available on this device"
-          updatedAt={new Date().toISOString()}
-          nodes={localFlowData.nodes}
-          edges={localFlowData.edges}
-          badges={[{ label: "LOCAL", variant: "default" }]}
-          onExport={() => {
-            exportFlowData(
-              { name: "Local Flow", updatedAt: Date.now() },
-              { nodes: localFlowData.nodes, edges: localFlowData.edges }
-            );
-            toast.success("Flow exported");
-          }}
-        />
-        {isSignedIn && <CloudFlows />}
+    <div className="h-full overflow-auto flex flex-col pb-16">
+      <section className="container mx-auto px-4 md:px-8">
+        <div className="flex flex-col gap-10 pt-8">
+          <section>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-semibold">My Flows</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => triggerImport(handleImport)}
+                >
+                  <HardDriveDownloadIcon className="size-4 mr-2" />
+                  Import
+                </Button>
+                <CreateFlowDialog trigger={<Button size="sm"><Plus className="size-4 mr-2" />New Flow</Button>} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              <FlowCard
+                id="local"
+                name="Local Flow"
+                description="This flow is only available on this device"
+                updatedAt={new Date().toISOString()}
+                nodes={localFlowData.nodes}
+                edges={localFlowData.edges}
+                badges={[{ label: "LOCAL", variant: "default" }]}
+                onExport={() => {
+                  exportFlowData(
+                    { name: "Local Flow", updatedAt: Date.now() },
+                    { nodes: localFlowData.nodes, edges: localFlowData.edges }
+                  );
+                  toast.success("Flow exported");
+                }}
+              />
+              {isSignedIn && <CloudFlows />}
+            </div>
+          </section>
+        </div>
       </section>
       {!isSignedIn && <SignInNudge />}
     </div>

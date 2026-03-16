@@ -102,12 +102,6 @@ function TemplatesPage() {
 
   return (
     <div className="h-full overflow-auto flex flex-col pb-16">
-      <header className="sticky top-0 rounded-t-2xl px-4 md:px-8 bg-background/50 backdrop-blur-sm z-40">
-        <section className="container mx-auto py-4 flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Templates</h1>
-          {/* <input type="text" placeholder="Search templates" className="p-2 rounded-md border border-gray-300" /> */}
-        </section>
-      </header>
       <section className="container mx-auto px-4 md:px-8">
         <div className="flex flex-col gap-10 pt-8">
           <section>
@@ -145,40 +139,50 @@ function TemplatesPage() {
             </div>
           </section>
 
-            <Tabs defaultValue="Basic">
-              <TabsList className="w-max min-w-full">
-                <TabsTrigger value="Basic" className="flex-1">Basic</TabsTrigger>
-                <TabsTrigger value="Digital" className="flex-1">Digital</TabsTrigger>
-                <TabsTrigger value="Analog" className="flex-1">Analog</TabsTrigger>
-                <TabsTrigger value="Communication" className="flex-1">Communication</TabsTrigger>
-                <TabsTrigger value="Control structures" className="flex-1">Control structures</TabsTrigger>
-              </TabsList>
-              {["Basic", "Digital", "Analog", "Communication", "Control structures"].map((category) => (
-                <TabsContent key={category} value={category}>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 pt-4">
-                    {TEMPLATES.filter((t) => t.categories?.includes(category)).map((template) => (
-                      <Card key={template.id} className="relative mx-auto w-full pt-0 col-span-1">
-                        <section className="relative z-20 aspect-video w-full object-cover">
-                          <ReactFlowProvider>
-                            <FlowThumbnail nodes={template.nodes} edges={template.edges} />
-                          </ReactFlowProvider>
-                        </section>
-                        <CardHeader>
-                          <CardAction>
-                            <Badge variant="outline">{DIFFICULTY_BADGE_LABEL[template.difficulty]}</Badge>
-                          </CardAction>
-                          <CardTitle>{template.name}</CardTitle>
-                          <CardDescription>{template.description}</CardDescription>
-                        </CardHeader>
-                        <CardFooter>
-                          <Button className="w-full" onClick={() => handleImport(template)}>Use template</Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
+          <section>
+            <div className="mb-5">
+              <h2 className="text-xl font-semibold">All Templates</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Explore all templates
+              </p>
+            </div>
+
+          <Tabs defaultValue="Basic">
+            <TabsList className="w-max min-w-full">
+              <TabsTrigger value="Basic" className="flex-1">Basic</TabsTrigger>
+              <TabsTrigger value="Digital" className="flex-1">Digital</TabsTrigger>
+              <TabsTrigger value="Analog" className="flex-1">Analog</TabsTrigger>
+              <TabsTrigger value="Communication" className="flex-1">Communication</TabsTrigger>
+              <TabsTrigger value="Control structures" className="flex-1">Control structures</TabsTrigger>
+            </TabsList>
+            {["Basic", "Digital", "Analog", "Communication", "Control structures"].map((category) => (
+              <TabsContent key={category} value={category}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 pt-4">
+                  {TEMPLATES.filter((t) => t.categories?.includes(category)).map((template) => (
+                    <Card key={template.id} className="relative mx-auto w-full pt-0 col-span-1">
+                      <section className="relative z-20 aspect-video w-full object-cover">
+                        <ReactFlowProvider>
+                          <FlowThumbnail nodes={template.nodes} edges={template.edges} />
+                        </ReactFlowProvider>
+                      </section>
+                      <CardHeader>
+                        <CardAction>
+                          <Badge variant="outline">{DIFFICULTY_BADGE_LABEL[template.difficulty]}</Badge>
+                        </CardAction>
+                        <CardTitle>{template.name}</CardTitle>
+                        <CardDescription>{template.description}</CardDescription>
+                      </CardHeader>
+                      <CardFooter>
+                        <Button className="w-full" onClick={() => handleImport(template)}>Use template</Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+
+          </section>
         </div>
       </section>
     </div>
