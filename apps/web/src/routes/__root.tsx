@@ -33,11 +33,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "microflow-t-stack",
+        title: "microflow",
       },
       {
         name: "description",
-        content: "microflow-t-stack is a web application",
+        content: "microflow is a a visual, flow-based programming tool for hardware prototyping and IoT",
       },
     ],
     links: [

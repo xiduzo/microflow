@@ -1,17 +1,17 @@
-name: microflow-t-stack
+name: microflow
 
 services:
   postgres:
     image: postgres
-    container_name: microflow-t-stack-postgres
+    container_name: microflow-postgres
     environment:
-      POSTGRES_DB: microflow-t-stack
+      POSTGRES_DB: microflow
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:
-      - microflow-t-stack_postgres_data:/var/lib/postgresql
+      - microflow_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -20,4 +20,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  microflow-t-stack_postgres_data:
+  microflow_postgres_data:

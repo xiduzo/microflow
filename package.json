@@ -1,5 +1,5 @@
 {
-  "name": "microflow-t-stack",
+  "name": "microflow",
   "private": true,
   "workspaces": {
     "packages": [
