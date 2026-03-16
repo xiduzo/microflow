@@ -106,7 +106,14 @@ pub async fn flow_update(
         // Use async lock for tokio::sync::Mutex
         let mut runtime = state.flow_runtime.lock().await;
         runtime.update_flow(flow)?;
-        
+
+        // Initialize hardware components (sets pin modes and enables analog/digital reporting)
+        // This must be called after update_flow because update_flow destroys old components
+        // (which call disable_analog_reporting) and creates new ones that need initialization.
+        if let Err(e) = runtime.initialize_hardware() {
+            log::warn!("Failed to initialize hardware after flow update: {e}");
+        }
+
         // Reinstall pin change callback with updated listeners
         let event_tx = runtime.event_sender();
         runtime.install_pin_change_callback(event_tx);

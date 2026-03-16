@@ -1,20 +1,27 @@
 import { cn } from "@/lib/utils";
 import { SIGNAL_DURATION, useEdgeSignals, type Signal } from "@/stores/signal";
-import { BaseEdge, getSimpleBezierPath, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, getBezierPath, type EdgeProps } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const SIGNAL_RATE_THRESHOLD = 10;
 const RATE_WINDOW_MS = 500;
 
 export function AnimatedEdge(props: EdgeProps) {
-  const { id, sourceX, sourceY, targetX, targetY } = props;
+  const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition } = props;
   const signals = useEdgeSignals(id);
   const signalTimestampsRef = useRef<Set<number>>(new Set());
   const [useLightweightMode, setUseLightweightMode] = useState(false);
 
   const [edgePath] = useMemo(() => {
-    return getSimpleBezierPath({ sourceX, sourceY, targetX, targetY });
-  }, [sourceX, sourceY, targetX, targetY]);
+    return getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+    });
+  }, [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]);
 
   useEffect(() => {
     const now = Date.now();

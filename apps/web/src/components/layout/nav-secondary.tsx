@@ -9,6 +9,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { isDesktop } from "@/lib/platform";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 type Link = {
   title: string;
@@ -20,7 +21,7 @@ type Link = {
 const LINKS: Link[] = [
   {
     title: "Documentation",
-    url: "https://microflow.vercel.app/docs",
+    url: "https://docs.microflow.tech",
     icon: BookMarkedIcon,
   },
   {
@@ -37,6 +38,7 @@ export function NavSecondary(
 
   const handleLinkClick = (url: string) => {
     if (isDesktop()) {
+      openUrl(url)
       return
     }
 

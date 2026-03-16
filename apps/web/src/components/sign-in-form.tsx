@@ -22,6 +22,12 @@ import {
   FieldLabel,
 } from "./ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from "./ui/input-otp";
 
 export function SignInForm() {
   const navigate = useNavigate({ from: "/" });
@@ -95,20 +101,30 @@ export function SignInForm() {
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name}>Sign-in code</FieldLabel>
-                    <InputGroup>
-                      <InputGroupInput
+                    <div className="flex flex-col gap-2 items-center justify-center">
+                      <InputOTP
                         id={field.name}
-                        name={field.name}
-                        type="text"
+                        value={field.state.value}
+                        onChange={(value) => field.handleChange(value)}
+                        onBlur={field.handleBlur}
+                        maxLength={6}
                         inputMode="numeric"
                         autoComplete="one-time-code"
-                        placeholder="123456"
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
                         autoFocus
-                      />
-                    </InputGroup>
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} className="text-4xl size-14" />
+                          <InputOTPSlot index={1} className="text-4xl size-14" />
+                          <InputOTPSlot index={2} className="text-4xl size-14" />
+                        </InputOTPGroup>
+                        <InputOTPSeparator />
+                        <InputOTPGroup>
+                          <InputOTPSlot index={3} className="text-4xl size-14" />
+                          <InputOTPSlot index={4} className="text-4xl size-14"/>
+                          <InputOTPSlot index={5} className="text-4xl size-14"/>
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
                     <FieldError errors={field.state.meta.errors} />
                   </Field>
                 )}

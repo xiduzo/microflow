@@ -106,6 +106,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .setup({
             let hardware_service = Arc::clone(&hardware_service);
             let flow_runtime = Arc::clone(&flow_runtime);
@@ -246,6 +247,10 @@ pub fn run() {
                                     if let Err(e) = runtime.update_flow(flow) {
                                         log::error!("Failed to apply pending flow: {e}");
                                     } else {
+                                        // Initialize hardware (enables analog/digital reporting)
+                                        if let Err(e) = runtime.initialize_hardware() {
+                                            log::warn!("Failed to initialize hardware after pending flow: {e}");
+                                        }
                                         // Install pin change callback after flow update
                                         let event_tx = runtime.event_sender();
                                         runtime.install_pin_change_callback(event_tx);

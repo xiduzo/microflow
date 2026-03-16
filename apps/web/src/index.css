@@ -4,77 +4,79 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─── PCB Light Theme (White Soldermask) ──────────────────────────────── */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: oklch(0.97 0.006 145);
+  --foreground: oklch(0.11 0.022 145);
+  --card: oklch(0.94 0.009 145);
+  --card-foreground: oklch(0.11 0.022 145);
+  --popover: oklch(0.94 0.009 145);
+  --popover-foreground: oklch(0.11 0.022 145);
+  --primary: oklch(0.38 0.16 148);
+  --primary-foreground: oklch(0.97 0.006 145);
+  --secondary: oklch(0.90 0.010 145);
+  --secondary-foreground: oklch(0.11 0.022 145);
+  --muted: oklch(0.91 0.008 145);
+  --muted-foreground: oklch(0.44 0.044 145);
+  --accent: oklch(0.58 0.14 56);
+  --accent-foreground: oklch(0.97 0.006 145);
   --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: oklch(0.80 0.016 145);
+  --input: oklch(0.86 0.012 145);
+  --ring: oklch(0.38 0.16 148);
+  --chart-1: oklch(0.65 0.20 148);
+  --chart-2: oklch(0.55 0.18 165);
+  --chart-3: oklch(0.58 0.14 56);
+  --chart-4: oklch(0.58 0.22 27);
+  --chart-5: oklch(0.52 0.18 280);
+  --radius: 0.25rem;
+  --sidebar: oklch(0.93 0.010 145);
+  --sidebar-foreground: oklch(0.11 0.022 145);
+  --sidebar-primary: oklch(0.38 0.16 148);
+  --sidebar-primary-foreground: oklch(0.97 0.006 145);
+  --sidebar-accent: oklch(0.88 0.012 145);
+  --sidebar-accent-foreground: oklch(0.11 0.022 145);
+  --sidebar-border: oklch(0.80 0.016 145);
+  --sidebar-ring: oklch(0.38 0.16 148);
 }
 
+/* ─── PCB Dark Theme (Aged FR4 / Sepia Substrate) ────────────────────── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.17 0.018 55);
+  --foreground: oklch(0.85 0.028 55);
+  --card: oklch(0.21 0.020 55);
+  --card-foreground: oklch(0.85 0.028 55);
+  --popover: oklch(0.20 0.019 55);
+  --popover-foreground: oklch(0.85 0.028 55);
+  --primary: oklch(0.72 0.18 148);
+  --primary-foreground: oklch(0.13 0.018 55);
+  --secondary: oklch(0.24 0.022 55);
+  --secondary-foreground: oklch(0.85 0.028 55);
+  --muted: oklch(0.22 0.018 55);
+  --muted-foreground: oklch(0.55 0.036 55);
+  --accent: oklch(0.65 0.14 56);
+  --accent-foreground: oklch(0.13 0.018 55);
+  --destructive: oklch(0.60 0.22 25);
+  --border: oklch(0.30 0.024 55);
+  --input: oklch(0.22 0.018 55);
+  --ring: oklch(0.72 0.18 148);
+  --chart-1: oklch(0.72 0.18 148);
+  --chart-2: oklch(0.60 0.16 165);
+  --chart-3: oklch(0.65 0.14 56);
+  --chart-4: oklch(0.60 0.22 27);
+  --chart-5: oklch(0.53 0.16 280);
+  --sidebar: oklch(0.14 0.019 55);
+  --sidebar-foreground: oklch(0.85 0.028 55);
+  --sidebar-primary: oklch(0.72 0.18 148);
+  --sidebar-primary-foreground: oklch(0.13 0.018 55);
+  --sidebar-accent: oklch(0.22 0.020 55);
+  --sidebar-accent-foreground: oklch(0.85 0.028 55);
+  --sidebar-border: oklch(0.28 0.024 55);
+  --sidebar-ring: oklch(0.72 0.18 148);
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
+  --font-sans: "IBM Plex Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -106,9 +108,9 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
@@ -127,12 +129,39 @@
   html {
     @apply font-sans;
   }
+
+  /* IDE-style text selection */
+  ::selection {
+    background: oklch(0.72 0.18 148 / 0.28);
+    color: oklch(0.92 0.018 55);
+  }
+
+  /* Precision scrollbars */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.28 0.026 55);
+    border-radius: 0;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.72 0.18 148);
+  }
+
+  /* Phosphor glow on focused inputs in dark mode */
+  .dark input:focus-visible,
+  .dark textarea:focus-visible,
+  .dark [cmdk-input]:focus-visible {
+    box-shadow: 0 0 0 1px oklch(0.72 0.18 148), 0 0 10px oklch(0.72 0.18 148 / 0.30);
+  }
 }
-
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-
 
 /*
  *
@@ -188,10 +217,14 @@ svg g.trace-overlays>circle.trace-junction {
  * React flow style overwrites
  *
 */
+.react-flow.dark .react-flow__renderer {
+  @apply bg-background;
+}
 
 /* Nodes */
 .react-flow__panel.react-flow__minimap {
-  @apply dark:bg-neutral-950 bg-neutral-300;
+  @apply dark:bg-stone-950 bg-neutral-300;
+  border: 1px solid oklch(0.22 0.025 148);
 }
 
 .react-flow__minimap .react-flow__minimap-node {
@@ -199,7 +232,7 @@ svg g.trace-overlays>circle.trace-junction {
 }
 
 .react-flow__minimap .react-flow__minimap-node.selected {
-  @apply fill-blue-500;
+  fill: oklch(0.67 0.16 56); /* copper */
 }
 
 .react-flow__node.dragging {
@@ -213,11 +246,13 @@ svg g.trace-overlays>circle.trace-junction {
 
 .react-flow__edges .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edges .react-flow__edge.selectable:focus .react-flow__edge-path {
-  @apply stroke-blue-500;
+  stroke: oklch(0.67 0.16 56); /* copper trace */
+  filter: drop-shadow(0 0 3px oklch(0.67 0.16 56 / 0.6));
 }
 
 .react-flow__edges .react-flow__edge .react-flow__edge-path.animated {
-  @apply stroke-yellow-500;
+  stroke: oklch(0.74 0.20 148); /* phosphor green */
+  filter: drop-shadow(0 0 5px oklch(0.74 0.20 148 / 0.75));
   stroke-dasharray: 8, 32;
   stroke-dashoffset: 0;
   animation: dash-animation 1s linear infinite;
@@ -253,7 +288,12 @@ svg g.trace-overlays>circle.trace-junction {
 }
 
 .react-flow .react-flow__handle.selected-via-edge {
-  @apply after:text-blue-500 text-blue-500 font-bold;
+  color: oklch(0.67 0.16 56);
+  font-weight: bold;
+}
+
+.react-flow .react-flow__handle.selected-via-edge::after {
+  color: oklch(0.67 0.16 56);
 }
 
 /* possible allowed connections */

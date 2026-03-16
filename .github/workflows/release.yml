@@ -114,14 +114,27 @@ jobs:
           
           rm certificate.p12
 
-      - name: Verify updater signing key
+      - name: Verify updater signing key (non-Windows)
+        if: runner.os != 'Windows'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        shell: bash
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "::error::TAURI_SIGNING_PRIVATE_KEY secret is not set. Add it to your repository secrets."
             exit 1
           fi
+
+      - name: Verify updater signing key (Windows)
+        if: runner.os == 'Windows'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        shell: pwsh
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            Write-Error "TAURI_SIGNING_PRIVATE_KEY secret is not set. Add it to your repository secrets."
+            exit 1
+          }
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0

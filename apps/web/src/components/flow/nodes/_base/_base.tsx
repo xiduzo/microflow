@@ -33,8 +33,8 @@ function NodeHeader(props: { error?: string }) {
       <div className={groupIndicator({ group: data.group })}>
         <Icon icon={data.icon} />
       </div>
-      <section className="grow">
-        <CardTitle>
+      <section className="grow overflow-hidden">
+        <CardTitle className="truncate whitespace-nowrap">
           {data.label}
         </CardTitle>
         <NodeDescription />
@@ -53,15 +53,15 @@ function NodeHeader(props: { error?: string }) {
   );
 }
 
-const groupIndicator = cva("size-9 rounded-sm flex items-center justify-center", {
+export const groupIndicator = cva("size-9 min-w-9 rounded-sm flex items-center justify-center", {
   variants: {
     group: {
-      sense: "text-sky-900 bg-sky-500/30 dark:text-sky-200 dark:bg-sky-600/30",
-      generate: "text-emerald-900 bg-emerald-500/20 dark:text-emerald-200 dark:bg-emerald-400/20",
-      shape: "text-cyan-900 bg-cyan-300/50 dark:text-cyan-200 dark:bg-cyan-400/20",
-      decide: "text-amber-900 bg-amber-500/20 dark:text-amber-200 dark:bg-amber-400/20",
-      express: "text-violet-900 bg-violet-500/20 dark:text-violet-200 dark:bg-violet-400/20",
-      internal: "text-slate-900 bg-slate-500/20 dark:text-slate-200 dark:bg-slate-400/20",
+      sense: "text-red-900 bg-red-500/30 dark:text-red-200 dark:bg-red-600/30",
+      generate: "text-yellow-900 bg-yellow-500/30 dark:text-yellow-200 dark:bg-yellow-600/30",
+      shape: "text-emerald-900 bg-emerald-500/30 dark:text-emerald-200 dark:bg-emerald-600/30",
+      decide: "text-sky-900 bg-sky-500/30 dark:text-sky-200 dark:bg-sky-600/30",
+      express: "text-violet-900 bg-violet-500/30 dark:text-violet-200 dark:bg-violet-600/30",
+      internal: "text-pink-900 bg-pink-500/30 dark:text-pink-200 dark:bg-pink-600/30",
     },
   },
 });
@@ -294,7 +294,7 @@ const node = cva(
     variants: {
       draggable: { true: "active:cursor-grabbing", false: "" },
       hasError: { true: "bg-red-500/5 dark:bg-red-500/20 ring-4 ring-red-500/80", false: "" },
-      selected: { true: "ring-4 ring-blue-500/80 dark:bg-blue-500/5 bg-blue-500/10", false: "" },
+      selected: { true: "ring-4 ring-orange-500/80 dark:bg-orange-500/5 bg-orange-500/10", false: "" },
     },
     defaultVariants: {
       selected: false,

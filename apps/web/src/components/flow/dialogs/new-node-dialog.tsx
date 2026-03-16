@@ -4,7 +4,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { NODE_TYPES } from "../nodes/_TYPES";
 import { useFlowStore } from "@/stores/flow-store";
 import { useNewNodeStore } from "@/stores/new-node";
-import type { BaseNode } from "../nodes/_base/_base";
+import { groupIndicator, type BaseNode } from "../nodes/_base/_base";
 import { uid } from "@/lib/uid";
 import {
   Command,
@@ -15,13 +15,7 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "@/components/ui/command";
-import {
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   SearchIcon,
   BookIcon,
@@ -31,11 +25,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { EmptyState } from "@/components/states/empty-state";
 import type { FlowNode } from "@microflow/collab";
-import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Kbd } from "@/components/ui/kbd";
@@ -87,6 +79,7 @@ export function NewNodeDialog() {
 
       addNode(item);
       setNodeToAdd(item.id);
+      setFilter("");
       setOpen(false);
     };
   }
@@ -173,7 +166,7 @@ export function NewNodeDialog() {
               icon={SearchIcon}
             >
               <a
-                href="https://microflow.vercel.app/docs/microflow-studio/nodes"
+                href="https://docs.microflow.tech/microflow-studio/nodes"
                 target="_blank"
               >
                 <Button variant="link">Visit the documentation</Button>
@@ -343,16 +336,3 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
 
   return <span>{text.slice(0, idx)}<mark className="bg-transparent text-foreground font-semibold underline underline-offset-2 decoration-primary/60">{text.slice(idx, idx + queryLower.length)}</mark>{text.slice(idx + queryLower.length)}</span>;
 }
-
-const groupIndicator = cva("rounded-md border-none ring-0", {
-  variants: {
-    group: {
-      sense: "text-sky-900 bg-sky-500/30 dark:text-sky-200 dark:bg-sky-600/30",
-      generate: "text-emerald-900 bg-emerald-500/20 dark:text-emerald-200 dark:bg-emerald-400/20",
-      shape: "text-cyan-900 bg-cyan-300/50 dark:text-cyan-200 dark:bg-cyan-400/20",
-      decide: "text-amber-900 bg-amber-500/20 dark:text-amber-200 dark:bg-amber-400/20",
-      express: "text-violet-900 bg-violet-500/20 dark:text-violet-200 dark:bg-violet-400/20",
-      internal: "text-slate-900 bg-slate-500/20 dark:text-slate-200 dark:bg-slate-400/20",
-    },
-  },
-});

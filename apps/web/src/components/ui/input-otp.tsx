@@ -55,7 +55,19 @@ function InputOTPSlot({
       data-slot="input-otp-slot"
       data-active={isActive}
       className={cn(
-        "dark:bg-input/30 border-input data-[active=true]:border-ring data-[active=true]:ring-ring/50 data-[active=true]:aria-invalid:ring-destructive/20 dark:data-[active=true]:aria-invalid:ring-destructive/40 aria-invalid:border-destructive data-[active=true]:aria-invalid:border-destructive size-8 border-y border-r text-xs transition-all outline-none first:rounded-none first:border-l last:rounded-none data-[active=true]:ring-1 relative flex items-center justify-center data-[active=true]:z-10",
+        // Base slot styles with improved dark-mode contrast
+        "bg-card dark:bg-card/40 text-foreground",
+        "border-input dark:border-muted-foreground/70",
+        "size-8 border-y border-r text-xs transition-all outline-none",
+        "first:rounded-none first:border-l last:rounded-none",
+        "relative flex items-center justify-center data-[active=true]:z-10",
+        // Focus & validation states
+        "data-[active=true]:border-ring data-[active=true]:ring-ring/60",
+        "data-[active=true]:ring-1",
+        "aria-invalid:border-destructive",
+        "data-[active=true]:aria-invalid:border-destructive",
+        "data-[active=true]:aria-invalid:ring-destructive/30",
+        "dark:data-[active=true]:aria-invalid:ring-destructive/50",
         className,
       )}
       {...props}

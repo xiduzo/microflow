@@ -12,10 +12,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
 
-const HANDLE_SIZE = 14;
+const HANDLE_SIZE = 18;
 const HANDLE_TRANSLATE_OFFSET = HANDLE_SIZE * 0.9;
 
-const HANDLE_SPACING_OFFSET = 12;
+const HANDLE_SPACING_OFFSET = 14;
 const HANDLE_SPACING = HANDLE_SIZE * 1.5;
 
 export function Handle(props: Props) {
@@ -81,6 +81,12 @@ export function Handle(props: Props) {
     };
   }, [props.id, getZoom]);
 
+  const tooltipSide = useMemo(() => {
+    // For bottom handles, show tooltip above so it appears closer to the label text.
+    if (position === "bottom") return "top";
+    return position;
+  }, [position]);
+
   return (
     <Tooltip>
       <TooltipTrigger>
@@ -126,7 +132,7 @@ export function Handle(props: Props) {
           </span>
         </XyFlowHandle>
       </TooltipTrigger>
-      {props.hint && <TooltipContent side={position}>{props.hint}</TooltipContent>}
+      {props.hint && <TooltipContent side={tooltipSide}>{props.hint}</TooltipContent>}
     </Tooltip>
   );
 }
@@ -144,7 +150,7 @@ type Props = Omit<HandleProps, "isConnectable" | "isValidConnection" | "position
   handleType?: HandleType;
 };
 
-const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:text-3xl after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {
+const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {
   variants: {
     position: {
       left: "items-center justify-start",
@@ -153,10 +159,10 @@ const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:text-
       bottom: "justify-center",
     },
     variant: {
-      value: "after:content-['●'] after:-ml-px after:-mt-px",
-      event: "after:content-['◆'] after:-ml-[4px] after:-mt-[3px]",
-      command: "after:content-['▶'] after:scale-60 after:-ml-[2px] after:-mt-px",
-      state: "after:content-['■'] after:-ml-px",
+      value: "after:content-['●'] after:text-2xl after:-ml-px",
+      event: "after:content-['◆'] after:text-3xl after:-mt-[2px]",
+      command: "after:content-['▶'] after:text-2xl after:-ml-[1px] after:-mt-px",
+      state: "after:content-['■'] after:text-2xl",
     },
     isHandleSelectedViaEdge: {
       true: "selected-via-edge",
@@ -168,13 +174,13 @@ const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:text-
   },
 });
 
-const handleText = cva("pointer-events-none mb-0.5 transition-all whitespace-nowrap", {
+const handleText = cva("pointer-events-none mb-1 transition-all whitespace-nowrap", {
   variants: {
     position: {
-      left: "translate-x-5",
-      right: "-translate-x-5",
-      top: "translate-y-5",
-      bottom: "-translate-y-5",
+      left: "translate-x-6",
+      right: "-translate-x-6",
+      top: "translate-y-6",
+      bottom: "-translate-y-6",
     },
     showHandle: {
       true: "opacity-100",
