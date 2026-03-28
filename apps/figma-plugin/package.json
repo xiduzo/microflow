@@ -1,10 +1,11 @@
 {
-  "name": "@microflow/figma-plugin",
+  "name": "figma-plugin",
   "version": "0.9.1",
   "private": true,
   "scripts": {
     "build": "build-figma-plugin --typecheck --minify",
-    "watch": "build-figma-plugin --typecheck --watch"
+    "watch": "build-figma-plugin --typecheck --watch",
+    "dev": "build-figma-plugin --typecheck --watch"
   },
   "dependencies": {
     "@create-figma-plugin/ui": "^4.0.3",

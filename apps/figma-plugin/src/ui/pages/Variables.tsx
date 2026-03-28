@@ -8,6 +8,7 @@ import { useMessageListener } from "../hooks/use-message-listener";
 import { useWindowSize } from "../hooks/use-window-size";
 import { useCopyToClipboard } from "../hooks/use-copy-to-clipboard";
 import { useAppStore } from "../stores/app";
+import { shortVarId } from "../../common/mqtt-topics";
 
 export function Variables() {
   const { mqttConfig } = useAppStore();
@@ -99,12 +100,12 @@ function VariableRow(props: { variable: FullVariable; uniqueId?: string }) {
       <div style={{ display: "flex", gap: 2, opacity: 0.3 }}>
         <CopyBtn
           title="Copy publish topic"
-          text={`microflow/v1/${uniqueId}/YOUR_APP_NAME/variable/${variable.id}/set`}
+          text={`microflow/${uniqueId}/YOUR_APP_NAME/variable/${shortVarId(variable.id)}/set`}
           icon={<RadioTower size={12} />}
         />
         <CopyBtn
           title="Copy subscribe topic"
-          text={`microflow/v1/${uniqueId}/plugin/variable/${variable.id}`}
+          text={`microflow/${uniqueId}/plugin/variable/${shortVarId(variable.id)}`}
           icon={<Radio size={12} />}
         />
         <CopyBtn

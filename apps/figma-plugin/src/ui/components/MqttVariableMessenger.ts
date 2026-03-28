@@ -7,6 +7,7 @@ import {
   messages,
   sendToPlugin,
 } from "../../common/messages";
+import { shortVarId, fullVarId } from "../../common/mqtt-topics";
 import { useMessageListener } from "../hooks/use-message-listener";
 
 /**
@@ -32,7 +33,7 @@ export function MqttVariableMessenger() {
 
     const newJson = JSON.stringify(newVars);
     if (newJson !== JSON.stringify(knownVariables.current)) {
-      publish(`microflow/v1/${uniqueId}/plugin/variables`, newJson);
+      publish(`microflow/${uniqueId}/plugin/variables`, newJson);
     }
     knownVariables.current = newVars;
 
@@ -41,7 +42,7 @@ export function MqttVariableMessenger() {
       const json = JSON.stringify(value);
       if (publishedValues.current.get(v.id) === json) continue;
 
-      publish(`microflow/v1/${uniqueId}/plugin/variable/${v.id}`, json);
+      publish(`microflow/${uniqueId}/plugin/variable/${shortVarId(v.id)}`, json);
       publishedValues.current.set(v.id, json);
     }
   }
@@ -52,25 +53,26 @@ export function MqttVariableMessenger() {
 
     // Respond to variable requests from other clients
     const unsubReq = subscribe(
-      `microflow/v1/${uniqueId}/+/variables/request`,
+      `microflow/${uniqueId}/+/variables/request`,
       (topic) => {
-        const app = topic.split("/")[3];
+        const app = topic.split("/")[2];
         publish(
-          `microflow/v1/${uniqueId}/${app}/variables/response`,
+          `microflow/${uniqueId}/${app}/variables/response`,
           JSON.stringify(knownVariables.current),
         );
         publishedValues.current.forEach((value, id) => {
-          publish(`microflow/v1/${uniqueId}/${app}/variable/${id}`, value);
+          publish(`microflow/${uniqueId}/${app}/variable/${shortVarId(id)}`, value);
         });
       },
     );
 
     // Handle variable set commands from other clients
     const unsubSet = subscribe(
-      `microflow/v1/${uniqueId}/+/variable/+/set`,
+      `microflow/${uniqueId}/+/variable/+/set`,
       (topic, message) => {
-        const variableId = topic.split("/")[5];
-        if (!variableId) return;
+        const shortId = topic.split("/")[4];
+        if (!shortId) return;
+        const variableId = fullVarId(shortId);
 
         let value: unknown;
         try {

@@ -104,8 +104,6 @@ export function MqttSettings() {
           </div>
         </div>
 
-        <VerticalSpace space="small" />
-
         <div>
           <label style={{ fontSize: "11px", fontWeight: 600 }}>Broker URL</label>
           <VerticalSpace space="extraSmall" />
@@ -126,11 +124,9 @@ export function MqttSettings() {
               marginTop: 4,
             }}
           >
-            Format: [protocol://]host[:port][/path] — defaults: wss, 8883, /mqtt
+            [protocol://]host[:port][/path]
           </div>
         </div>
-
-        <VerticalSpace space="small" />
 
         <div>
           <label style={{ fontSize: "11px", fontWeight: 600 }}>Username</label>
@@ -141,8 +137,6 @@ export function MqttSettings() {
             placeholder="optional"
           />
         </div>
-
-        <VerticalSpace space="small" />
 
         <div>
           <label style={{ fontSize: "11px", fontWeight: 600 }}>Password</label>
@@ -155,13 +149,12 @@ export function MqttSettings() {
           />
         </div>
 
-        <VerticalSpace space="medium" />
+        <VerticalSpace space="extraSmall" />
 
         <Button fullWidth onClick={handleSubmit}>
           Save MQTT settings
         </Button>
 
-        <VerticalSpace space="small" />
         <div style={{ fontSize: "11px", color: "#3b82f6" }}>
           <Info size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
           Use <code>wss://</code> protocol for encrypted connections.
