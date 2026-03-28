@@ -14,6 +14,7 @@ import type {
 import { isDesktop } from "@/lib/platform";
 import { invokeCommand } from "@/lib/ipc";
 import { useMqttBrokerStore } from "@/stores/mqtt-broker";
+import { useFigmaStore } from "@/stores/figma";
 
 // ============================================================================
 // Constants
@@ -120,6 +121,16 @@ export const useFlowStore = create<FlowState>()((set, get) => {
 
       // Sync to desktop app if running in Tauri
       if (isDesktop()) {
+        // Always inject the current username as uniqueId for Figma nodes
+        const figmaUniqueId = useFigmaStore.getState().uniqueId;
+        if (figmaUniqueId) {
+          for (const node of nodes) {
+            if (node.data?.instance === "Figma") {
+              node.data = { ...node.data, uniqueId: figmaUniqueId };
+            }
+          }
+        }
+
         // Get broker configs for any MQTT nodes in the flow
         const mqttBrokerIds = new Set<string>();
         for (const node of nodes) {

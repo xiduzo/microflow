@@ -151,7 +151,7 @@ export class MqttClientManager {
       return;
     }
 
-    const statusTopic = `microflow/v1/${this.config.uniqueId}/+/status`;
+    const statusTopic = `microflow/${this.config.uniqueId}/+/status`;
 
     for (const [topic, { options }] of Array.from(this.subscriptions)) {
       if (topic === statusTopic) continue;
@@ -195,7 +195,7 @@ export class MqttClientManager {
    * Handle status messages from other clients
    */
   private handleStatusMessage = (topic: string, payload: Buffer) => {
-    const from = topic.split("/")[3]?.toString() ?? "[UNKNOWN_CLIENT]";
+    const from = topic.split("/")[2]?.toString() ?? "[UNKNOWN_CLIENT]";
     if (from === this.appName) return; // No need to get status from self
 
     this.connectedClients.set(from as Client, payload.toString() as "connected" | "disconnected");
@@ -246,7 +246,7 @@ export class MqttClientManager {
           }
         : {}),
       will: {
-        topic: `microflow/v1/${configParam.uniqueId}/${appName}/status`,
+        topic: `microflow/${configParam.uniqueId}/${appName}/status`,
         retain: true,
         qos: 2,
         properties: {
@@ -267,11 +267,11 @@ export class MqttClientManager {
         console.debug("[MQTT] <connect>", this.config?.uniqueId);
         await this.resubscribe();
         this.subscribe(
-          `microflow/v1/${this.config?.uniqueId ?? "[NO_UNIQUE_ID_SET]"}/+/status`,
+          `microflow/${this.config?.uniqueId ?? "[NO_UNIQUE_ID_SET]"}/+/status`,
           this.handleStatusMessage,
         );
         this.publish(
-          `microflow/v1/${this.config?.uniqueId ?? "[NO_UNIQUE_ID_SET]"}/${appName}/status`,
+          `microflow/${this.config?.uniqueId ?? "[NO_UNIQUE_ID_SET]"}/${appName}/status`,
           "connected",
           {
             retain: true,

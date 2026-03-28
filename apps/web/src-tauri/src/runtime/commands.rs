@@ -3,6 +3,7 @@
 //! `flow_update` and `component_call` commands
 
 use super::base::ComponentValue;
+use super::external::Figma;
 use super::FlowUpdate;
 use crate::AppState;
 use crate::mqtt::broker::BrokerConfig;
@@ -28,6 +29,48 @@ struct MqttNodeInfo {
     topic: String,
     direction: String,
     retain: bool,
+}
+
+/// Figma node info extracted from flow nodes
+#[derive(Debug, Clone)]
+struct FigmaNodeInfo {
+    component_id: String,
+    broker_id: String,
+    unique_id: String,
+    variable_id: String,
+    resolved_type: String,
+}
+
+/// Extract Figma node info from flow nodes
+fn extract_figma_nodes(flow: &FlowUpdate) -> Vec<FigmaNodeInfo> {
+    flow.nodes
+        .iter()
+        .filter_map(|node| {
+            // Accept either data.instance == "Figma" or the node's top-level type == "Figma"
+            let instance = node.data.get("instance").and_then(|v| v.as_str())
+                .or(node.node_type.as_deref())
+                .unwrap_or("");
+            if instance != "Figma" {
+                return None;
+            }
+            let variable_id = node.data.get("variableId")?.as_str()?.to_string();
+            if variable_id.is_empty() {
+                return None;
+            }
+            Some(FigmaNodeInfo {
+                component_id: node.id.clone(),
+                broker_id: node.data.get("brokerId")?.as_str()?.to_string(),
+                unique_id: node.data.get("uniqueId")?.as_str()?.to_string(),
+                variable_id,
+                resolved_type: node
+                    .data
+                    .get("resolvedType")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("STRING")
+                    .to_string(),
+            })
+        })
+        .collect()
 }
 
 /// Extract MQTT node info from flow nodes
@@ -86,37 +129,37 @@ pub async fn flow_update(
         }
     }
 
-    // Extract MQTT nodes before applying flow
+    // Extract MQTT and Figma nodes before applying flow
     let mqtt_nodes = extract_mqtt_nodes(&flow);
+    let figma_nodes = extract_figma_nodes(&flow);
     log::info!("[MQTT] Found {} MQTT nodes in flow", mqtt_nodes.len());
 
-    // Check if board is connected
+    // Check if board is connected (only affects hardware init, not MQTT/Figma)
     let board_connected = *state.board_connected.read().unwrap();
-    
-    if !board_connected {
-        // Store as pending flow - will be applied when board connects
-        log::info!("Board not connected, storing flow as pending");
-        *state.pending_flow.write().unwrap() = Some(flow);
-        return Ok(());
-    }
 
-    // Board is connected, apply flow immediately
-    log::info!("Applying flow update to runtime");
+    // Always apply the flow so components (Figma, Interval, etc.) are created
+    // and MQTT subscriptions can be set up regardless of board connectivity.
+    log::info!("Applying flow update to runtime (board_connected={board_connected})");
     {
-        // Use async lock for tokio::sync::Mutex
         let mut runtime = state.flow_runtime.lock().await;
-        runtime.update_flow(flow)?;
+        runtime.update_flow(flow.clone())?;
 
-        // Initialize hardware components (sets pin modes and enables analog/digital reporting)
-        // This must be called after update_flow because update_flow destroys old components
-        // (which call disable_analog_reporting) and creates new ones that need initialization.
-        if let Err(e) = runtime.initialize_hardware() {
-            log::warn!("Failed to initialize hardware after flow update: {e}");
+        if board_connected {
+            // Initialize hardware components (sets pin modes and enables analog/digital reporting)
+            // This must be called after update_flow because update_flow destroys old components
+            // (which call disable_analog_reporting) and creates new ones that need initialization.
+            if let Err(e) = runtime.initialize_hardware() {
+                log::warn!("Failed to initialize hardware after flow update: {e}");
+            }
+
+            // Reinstall pin change callback with updated listeners
+            let event_tx = runtime.event_sender();
+            runtime.install_pin_change_callback(event_tx);
+        } else {
+            // Store as pending so hardware init runs when the board connects later
+            log::info!("Board not connected — storing pending flow for hardware init on connect");
+            *state.pending_flow.write().unwrap() = Some(flow);
         }
-
-        // Reinstall pin change callback with updated listeners
-        let event_tx = runtime.event_sender();
-        runtime.install_pin_change_callback(event_tx);
     }
 
     // Set up MQTT subscriptions for subscribe nodes
@@ -179,6 +222,73 @@ pub async fn flow_update(
                     mqtt_node.component_id, mqtt_node.topic, e
                 );
             }
+        }
+    }
+
+    // Set up MQTT subscriptions and initial publish for Figma nodes
+    log::info!("[Figma] Found {} Figma nodes in flow", figma_nodes.len());
+    for figma_node in figma_nodes {
+        if figma_node.broker_id.is_empty() || figma_node.unique_id.is_empty() || figma_node.variable_id.is_empty() {
+            log::warn!("[Figma] Skipping node {} — missing broker_id, unique_id, or variable_id", figma_node.component_id);
+            continue;
+        }
+
+        if !state.mqtt_manager.is_connected(&figma_node.broker_id).await {
+            log::warn!("[Figma] Broker {} not connected, skipping node {}", figma_node.broker_id, figma_node.component_id);
+            continue;
+        }
+
+        // Build a temporary Figma instance just to get the topic strings
+        let tmp = Figma::new(figma_node.component_id.clone(), super::external::FigmaConfig {
+            broker_id: figma_node.broker_id.clone(),
+            unique_id: figma_node.unique_id.clone(),
+            variable_id: figma_node.variable_id.clone(),
+            resolved_type: figma_node.resolved_type.clone(),
+            debounce_time: 100,
+        });
+        let plugin_topic = tmp.plugin_variable_topic();
+        let app_topic = tmp.app_variable_topic();
+
+        // Subscribe to both topics (ongoing plugin updates + request/response)
+        for sub_topic in [plugin_topic, app_topic] {
+            let component_id = figma_node.component_id.clone();
+            let flow_runtime = Arc::clone(&state.flow_runtime);
+            let app_handle = app.clone();
+            let t = sub_topic.clone();
+
+            let callback = Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
+                log::info!("[Figma] Message on {} for component {}", msg.topic, component_id);
+                match flow_runtime.try_lock() {
+                    Ok(mut runtime) => {
+                        runtime.route_figma_message(&component_id, &msg.topic, &msg.payload);
+                    }
+                    Err(_) => {
+                        log::debug!("[Figma] Runtime lock held, dropping message for {component_id}");
+                    }
+                }
+                let _ = app_handle.emit("mqtt-message", serde_json::json!({
+                    "brokerId": "",
+                    "topic": msg.topic,
+                    "payload": String::from_utf8_lossy(&msg.payload).to_string(),
+                    "componentId": component_id,
+                }));
+            });
+
+            if let Err(e) = state.mqtt_manager.subscribe(&figma_node.broker_id, &t, callback).await {
+                log::error!("[Figma] Failed to subscribe {t}: {e}");
+            }
+        }
+
+        // Publish app/status: connected (retained) so the plugin sees us
+        let status_topic = format!("microflow/{}/app/status", figma_node.unique_id);
+        if let Err(e) = state.mqtt_manager.publish(&figma_node.broker_id, &status_topic, b"connected", true).await {
+            log::error!("[Figma] Failed to publish app/status: {e}");
+        }
+
+        // Request current variable values from the plugin
+        let request_topic = format!("microflow/{}/app/variables/request", figma_node.unique_id);
+        if let Err(e) = state.mqtt_manager.publish(&figma_node.broker_id, &request_topic, b"", false).await {
+            log::error!("[Figma] Failed to publish variables/request: {e}");
         }
     }
 

@@ -300,6 +300,13 @@ impl FlowExecutor {
             .collect()
     }
 
+    /// Route a topic-aware MQTT message to a Figma component
+    pub fn route_figma_message(&mut self, component_id: &str, topic: &str, payload: &[u8]) {
+        if let Some(component) = self.components.get_mut(component_id) {
+            component.receive_raw_message(topic, payload);
+        }
+    }
+
     /// Route an MQTT message to the appropriate subscribe component
     pub fn route_mqtt_message(&mut self, component_id: &str, payload: &[u8]) {
         if let Some(component) = self.components.get_mut(component_id) {

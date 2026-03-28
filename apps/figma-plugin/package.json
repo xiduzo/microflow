@@ -1,0 +1,39 @@
+{
+  "name": "figma-plugin",
+  "version": "0.9.1",
+  "private": true,
+  "scripts": {
+    "build": "build-figma-plugin --typecheck --minify",
+    "watch": "build-figma-plugin --typecheck --watch",
+    "dev": "build-figma-plugin --typecheck --watch"
+  },
+  "dependencies": {
+    "@create-figma-plugin/ui": "^4.0.3",
+    "@create-figma-plugin/utilities": "^4.0.3",
+    "@microflow/mqtt": "workspace:*",
+    "lucide-react": "^0.577.0",
+    "preact": ">=10",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@microflow/config": "workspace:*",
+    "@create-figma-plugin/build": "^4.0.3",
+    "@create-figma-plugin/tsconfig": "^4.0.3",
+    "@figma/plugin-typings": "1.109.0",
+    "typescript": ">=5"
+  },
+  "figma-plugin": {
+    "editorType": [
+      "figma"
+    ],
+    "id": "1373258770799080545",
+    "name": "Microflow hardware bridge",
+    "main": "src/plugin/main.ts",
+    "ui": "src/ui/index.tsx",
+    "documentAccess": "dynamic-page",
+    "networkAccess": {
+      "allowedDomains": ["*"],
+      "reasoning": "This plugin could connect to any MQTT broker of your liking to send and receive messages."
+    }
+  }
+}

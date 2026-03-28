@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ import { LoadingState } from "@/components/states/loading-state";
 import { ErrorState } from "@/components/states/error-state";
 import { EmptyState } from "@/components/states/empty-state";
 import { useTheme } from "@/providers/theme-provider";
+import { useDebouncedValue } from "@tanstack/react-pacer";
 import { ButtonGroup } from "@/components/ui/button-group";
 
 const COLLAB_ICONS: IconName[] = [
@@ -61,6 +63,29 @@ function ProfilePage() {
 
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [hoveredIcon, setHoveredIcon] = useState<IconName | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [debouncedUsername] = useDebouncedValue(username, { wait: 600 });
+
+  useEffect(() => {
+    if (profile) setUsername(profile.name ?? "");
+  }, [profile?.name]);
+
+  const updateName = useMutation(
+    trpc.profile.updateName.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: trpc.profile.get.queryKey() });
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    })
+  );
+
+  useEffect(() => {
+    if (debouncedUsername !== null && debouncedUsername.trim() && debouncedUsername !== profile?.name) {
+      updateName.mutate({ name: debouncedUsername.trim() });
+    }
+  }, [debouncedUsername]);
 
   const updateCollab = useMutation(
     trpc.profile.updateCollab.mutationOptions({
@@ -97,6 +122,15 @@ function ProfilePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              value={username ?? ""}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Your name"
+            />
+          </div>
           <div className="space-y-3">
             <Label>Theme</Label>
             <ButtonGroup className="w-full">

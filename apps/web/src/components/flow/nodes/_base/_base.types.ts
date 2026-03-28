@@ -27,6 +27,7 @@ export const COMPONENT_TYPES = [
   "Constant",
   "Counter",
   "Delay",
+  "Figma",
   "Force",
   "Gate",
   "HallEffect",

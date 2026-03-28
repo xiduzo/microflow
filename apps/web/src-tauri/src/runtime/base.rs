@@ -188,7 +188,11 @@ pub trait Component: Send + Sync {
     /// Whether this component aggregates multiple inputs on a handle
     /// When true, the executor will collect all input values and pass as array
     fn aggregates_inputs(&self) -> bool { false }
-    
+
+    /// Called when a raw MQTT message arrives for this component (topic-aware).
+    /// Default no-op; override in components that need topic context (e.g. Figma).
+    fn receive_raw_message(&mut self, _topic: &str, _payload: &[u8]) {}
+
     /// Whether this component requires hardware (board connection)
     fn requires_hardware(&self) -> bool { false }
 }
