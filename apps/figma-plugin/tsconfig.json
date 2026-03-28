@@ -9,7 +9,10 @@
       "react-dom": ["./node_modules/preact/compat"]
     },
     "skipLibCheck": true,
-    "typeRoots": ["node_modules/@figma", "node_modules/@types"]
+    "typeRoots": ["node_modules/@figma", "node_modules/@types"],
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "verbatimModuleSyntax": false
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
