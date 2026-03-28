@@ -240,7 +240,7 @@ impl FlowRuntime {
             );
             
             let instance_str = node.data.get("instance").and_then(|v| v.as_str())
-                .or_else(|| node.node_type.as_deref());
+                .or(node.node_type.as_deref());
             if let Some(instance) = instance_str {
                 log::info!("Creating component: {} ({})", node.id, instance);
                 match self.registry.create(

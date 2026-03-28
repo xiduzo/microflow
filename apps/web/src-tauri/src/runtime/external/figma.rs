@@ -76,6 +76,7 @@ impl Figma {
     }
 
     /// Topic the plugin publishes variable values to
+    #[must_use]
     pub fn plugin_variable_topic(&self) -> String {
         format!(
             "microflow/{}/plugin/variable/{}",
@@ -85,6 +86,7 @@ impl Figma {
     }
 
     /// Topic the plugin responds to after a variables/request
+    #[must_use]
     pub fn app_variable_topic(&self) -> String {
         format!(
             "microflow/{}/app/variable/{}",
@@ -102,10 +104,12 @@ impl Figma {
         )
     }
 
+    #[must_use]
     pub fn broker_id(&self) -> &str {
         &self.config.broker_id
     }
 
+    #[must_use]
     pub fn unique_id(&self) -> &str {
         &self.config.unique_id
     }
@@ -140,10 +144,10 @@ impl Figma {
             "COLOR" => {
                 // Figma COLOR is {r, g, b, a} with r/g/b in 0-1 range
                 if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&raw) {
-                    let r = obj.get("r").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let g = obj.get("g").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let b = obj.get("b").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let a = obj.get("a").and_then(|v| v.as_f64()).unwrap_or(1.0);
+                    let r = obj.get("r").and_then(serde_json::Value::as_f64).unwrap_or(0.0);
+                    let g = obj.get("g").and_then(serde_json::Value::as_f64).unwrap_or(0.0);
+                    let b = obj.get("b").and_then(serde_json::Value::as_f64).unwrap_or(0.0);
+                    let a = obj.get("a").and_then(serde_json::Value::as_f64).unwrap_or(1.0);
                     ComponentValue::Rgba {
                         r: (r * 255.0).round() as u8,
                         g: (g * 255.0).round() as u8,
@@ -185,7 +189,7 @@ impl Figma {
                 })
                 .to_string()
             }
-            _ => String::new(),
+            ComponentValue::Array(_) => String::new(),
         }
     }
 

@@ -48,7 +48,7 @@ fn extract_figma_nodes(flow: &FlowUpdate) -> Vec<FigmaNodeInfo> {
         .filter_map(|node| {
             // Accept either data.instance == "Figma" or the node's top-level type == "Figma"
             let instance = node.data.get("instance").and_then(|v| v.as_str())
-                .or_else(|| node.node_type.as_deref())
+                .or(node.node_type.as_deref())
                 .unwrap_or("");
             if instance != "Figma" {
                 return None;
@@ -275,7 +275,7 @@ pub async fn flow_update(
             });
 
             if let Err(e) = state.mqtt_manager.subscribe(&figma_node.broker_id, &t, callback).await {
-                log::error!("[Figma] Failed to subscribe {}: {e}", t);
+                log::error!("[Figma] Failed to subscribe {t}: {e}");
             }
         }
 
