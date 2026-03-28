@@ -151,10 +151,18 @@ export const useFlowStore = create<FlowState>()((set, get) => {
             password: b.password,
           }));
 
+        // Pass LLM provider configs so the backend can inject base_url/api_key into LLM nodes
+        const { useLlmProviderStore } = await import("@/stores/llm-provider");
+        const allProviders = useLlmProviderStore.getState().providers;
+        const providers = allProviders.map((p) => ({
+          id: p.id, name: p.name, base_url: p.baseUrl, api_key: p.apiKey,
+        }));
+
         const response = await invokeCommand({
           type: "flow_update",
           flow: { nodes, edges },
           brokers,
+          providers,
         });
         if (!response.success) {
           console.error("[FLOW-STORE] Desktop sync failed:", response.error);

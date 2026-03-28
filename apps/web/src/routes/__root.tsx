@@ -20,6 +20,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { useBoardEvents } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
 import { useMqttSync } from "@/hooks/use-mqtt-sync";
+import { useLlmSync } from "@/hooks/use-llm-sync";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
@@ -85,5 +86,6 @@ function Board() {
   useBoardEvents();
   useComponentEvents();
   useMqttSync();
+  useLlmSync();
   return null;
 }

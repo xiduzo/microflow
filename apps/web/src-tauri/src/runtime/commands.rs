@@ -10,6 +10,15 @@ use crate::mqtt::broker::BrokerConfig;
 use std::sync::Arc;
 use tauri::Emitter;
 
+/// LLM provider configuration from frontend
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct FrontendProviderConfig {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    pub api_key: String,
+}
+
 /// Broker configuration from frontend
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct FrontendBrokerConfig {
@@ -98,8 +107,9 @@ fn extract_mqtt_nodes(flow: &FlowUpdate) -> Vec<MqttNodeInfo> {
 #[tauri::command]
 pub async fn flow_update(
     app: tauri::AppHandle,
-    flow: FlowUpdate,
+    mut flow: FlowUpdate,
     brokers: Option<Vec<FrontendBrokerConfig>>,
+    providers: Option<Vec<FrontendProviderConfig>>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
@@ -125,6 +135,24 @@ pub async fn flow_update(
                 log::error!("[MQTT] Failed to auto-connect broker {}: {}", broker.name, e);
             } else {
                 log::info!("[MQTT] Successfully connected to broker: {}", broker.name);
+            }
+        }
+    }
+
+    // Inject LLM provider config into LLM nodes
+    if let Some(ref provider_configs) = providers {
+        let provider_map: std::collections::HashMap<&str, &FrontendProviderConfig> =
+            provider_configs.iter().map(|p| (p.id.as_str(), p)).collect();
+        for node in &mut flow.nodes {
+            let instance = node.data.get("instance").and_then(|v| v.as_str()).unwrap_or("");
+            if instance == "Llm" {
+                let provider_id = node.data.get("providerId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if let Some(p) = provider_map.get(provider_id.as_str()) {
+                    if let Some(obj) = node.data.as_object_mut() {
+                        obj.insert("baseUrl".to_string(), serde_json::Value::String(p.base_url.clone()));
+                        obj.insert("apiKey".to_string(), serde_json::Value::String(p.api_key.clone()));
+                    }
+                }
             }
         }
     }
