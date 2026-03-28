@@ -19,7 +19,7 @@
       },
     },
     "apps/figma-plugin": {
-      "name": "@microflow/figma-plugin",
+      "name": "figma-plugin",
       "version": "0.9.1",
       "dependencies": {
         "@create-figma-plugin/ui": "^4.0.3",
@@ -91,6 +91,7 @@
         "@microflow/auth": "workspace:*",
         "@microflow/collab": "workspace:*",
         "@microflow/env": "workspace:*",
+        "@microflow/mqtt": "workspace:*",
         "@polar-sh/better-auth": "catalog:",
         "@tailwindcss/vite": "^4.2.1",
         "@tanstack/react-form": "^1.28.5",
@@ -580,8 +581,6 @@
     "@microflow/db": ["@microflow/db@workspace:packages/db"],
 
     "@microflow/env": ["@microflow/env@workspace:packages/env"],
-
-    "@microflow/figma-plugin": ["@microflow/figma-plugin@workspace:apps/figma-plugin"],
 
     "@microflow/mqtt": ["@microflow/mqtt@workspace:packages/mqtt"],
 
@@ -1734,6 +1733,8 @@
     "fetch-blob": ["fetch-blob@3.2.0", "", { "dependencies": { "node-domexception": "^1.0.0", "web-streams-polyfill": "^3.0.3" } }, "sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ=="],
 
     "fflate": ["fflate@0.8.2", "", {}, "sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A=="],
+
+    "figma-plugin": ["figma-plugin@workspace:apps/figma-plugin"],
 
     "figures": ["figures@6.1.0", "", { "dependencies": { "is-unicode-supported": "^2.0.0" } }, "sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg=="],
 

@@ -111,7 +111,7 @@ function HomeComponent() {
                 <CreateFlowDialog trigger={<Button size="sm"><Plus className="size-4 mr-2" />New Flow</Button>} />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
               <FlowCard
                 id="local"
                 name="Local Flow"

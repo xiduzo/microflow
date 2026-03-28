@@ -72,6 +72,19 @@ export const profileRouter = router({
   }),
 
   /**
+   * Update user name
+   */
+  updateName: protectedProcedure
+    .input(z.object({ name: z.string().min(1).max(100) }))
+    .mutation(async ({ ctx, input }) => {
+      await db
+        .update(user)
+        .set({ name: input.name })
+        .where(eq(user.id, ctx.session.user.id));
+      return { success: true };
+    }),
+
+  /**
    * Update collaboration settings
    */
   updateCollab: protectedProcedure

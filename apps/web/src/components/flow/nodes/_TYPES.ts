@@ -18,7 +18,7 @@ import { Button } from ".//button/button";
 import { Constant } from "./constant/constant";
 import { Counter } from "./counter/counter";
 import { Delay } from "./delay/delay";
-// import { Figma } from "./figma";
+import { Figma } from "./figma/figma";
 import { Gate } from "./gate/gate";
 import { Interval } from "./interval/interval";
 import { Led } from "./led/led";
@@ -48,6 +48,7 @@ export const NODE_TYPES = {
   Constant: Constant,
   Counter: Counter,
   Delay: Delay,
+  Figma: Figma,
   Force: Force,
   Gate: Gate,
   HallEffect: HallEffect,

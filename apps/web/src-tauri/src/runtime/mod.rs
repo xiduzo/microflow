@@ -239,7 +239,9 @@ impl FlowRuntime {
                 node.data
             );
             
-            if let Some(instance) = node.data.get("instance").and_then(|v| v.as_str()) {
+            let instance_str = node.data.get("instance").and_then(|v| v.as_str())
+                .or_else(|| node.node_type.as_deref());
+            if let Some(instance) = instance_str {
                 log::info!("Creating component: {} ({})", node.id, instance);
                 match self.registry.create(
                     &node.id,
@@ -366,6 +368,11 @@ impl FlowRuntime {
     /// Route an MQTT message to a subscribe component
     pub fn route_mqtt_message(&mut self, component_id: &str, payload: &[u8]) {
         self.executor.route_mqtt_message(component_id, payload);
+    }
+
+    /// Route a topic-aware MQTT message to a Figma component
+    pub fn route_figma_message(&mut self, component_id: &str, topic: &str, payload: &[u8]) {
+        self.executor.route_figma_message(component_id, topic, payload);
     }
 
     /// Get all component IDs of a specific type

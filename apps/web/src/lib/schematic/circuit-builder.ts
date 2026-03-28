@@ -125,6 +125,18 @@ const componentMap: Record<string, TscircuitComponent> = {
     signalPins: "pin1",
     powerPins: { gnd: "pin2" },
   },
+  ldr: {
+    toJsx: (name, _data) =>
+      `<resistor
+        name="${name}"
+        resistance="100"
+        manufacturePartNumber="${_data.label ?? name}"
+        displayName="${_data.label ?? name}"
+        footprint="0603"
+      />`,
+    signalPins: "pin2",
+    powerPins: { vcc: "pin1" },
+  },
   // Custom components
   sensor: {
     toJsx: (name, _data) =>
