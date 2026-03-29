@@ -45,6 +45,8 @@ export type AwarenessUser = {
   icon: string;
   cursor?: { x: number; y: number };
   selectedNodes?: string[];
+  /** Yjs client ID — unique per connection, not per account */
+  clientId?: number;
 };
 
 export type SyncProviderEvents = {
@@ -65,6 +67,8 @@ export type SyncProviderOptions = {
     color?: string;
     icon?: string;
   };
+  /** Bearer token for auth (used in Tauri where cookies aren't available) */
+  authToken?: string;
 };
 
 // ============================================================================
@@ -86,11 +90,13 @@ export class SyncProvider {
   readonly flowId: string;
   readonly wsUrl: string;
   readonly localUser: AwarenessUser;
+  private authToken?: string;
 
   constructor(options: SyncProviderOptions) {
     this.doc = options.doc;
     this.flowId = options.flowId;
     this.wsUrl = options.wsUrl;
+    this.authToken = options.authToken;
     this.localUser = {
       id: options.user.id,
       name: options.user.name,
@@ -101,6 +107,7 @@ export class SyncProvider {
     };
 
     this.awareness = new awarenessProtocol.Awareness(this.doc);
+    this.localUser.clientId = this.doc.clientID;
     this.awareness.setLocalStateField("user", this.localUser);
 
     // Listen for awareness changes
@@ -152,7 +159,10 @@ export class SyncProvider {
 
     this.setState("connecting");
 
-    const url = `${this.wsUrl}/yjs/${this.flowId}`;
+    let url = `${this.wsUrl}/yjs/${this.flowId}`;
+    if (this.authToken) {
+      url += `?token=${encodeURIComponent(this.authToken)}`;
+    }
     this.ws = new WebSocket(url);
     this.ws.binaryType = "arraybuffer";
 
@@ -348,7 +358,7 @@ export class SyncProvider {
     const users = new Map<number, AwarenessUser>();
     this.awareness.getStates().forEach((state, clientId) => {
       if (state.user) {
-        users.set(clientId, state.user as AwarenessUser);
+        users.set(clientId, { ...state.user as AwarenessUser, clientId });
       }
     });
     return users;

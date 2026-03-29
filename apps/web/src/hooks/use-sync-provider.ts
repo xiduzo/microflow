@@ -12,6 +12,8 @@ export type UseSyncProviderOptions = {
   flowId: string | null;
   user: { id: string; name: string; color?: string; icon?: string } | null;
   wsUrl?: string;
+  /** Bearer token for auth (used in Tauri where cookies aren't available) */
+  authToken?: string;
   enabled?: boolean;
 };
 
@@ -33,7 +35,7 @@ export type UseSyncProviderReturn = {
 // ============================================================================
 
 export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProviderReturn {
-  const { flowDoc, flowId, user, wsUrl, enabled = true } = options;
+  const { flowDoc, flowId, user, wsUrl, authToken, enabled = true } = options;
 
   const [state, setState] = useState<SyncState>("disconnected");
   const [error, setError] = useState<Error | null>(null);
@@ -93,6 +95,7 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
       doc: flowDoc.doc,
       wsUrl: computedWsUrl,
       user,
+      authToken,
     });
 
     providerRef.current = provider;
@@ -130,7 +133,7 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
       providerRef.current = null;
       connectedFlowIdRef.current = null;
     };
-  }, [enabled, flowDoc, flowId, user?.id, user?.name, user?.color, user?.icon, computedWsUrl, clearFlowState]);
+  }, [enabled, flowDoc, flowId, user?.id, user?.name, user?.color, user?.icon, computedWsUrl, authToken, clearFlowState]);
 
   // Cursor update
   const updateCursor = useCallback(
@@ -190,12 +193,13 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
 
 export function useCollabPresence(syncResult: UseSyncProviderReturn) {
   const { users, localUser } = syncResult;
-  const localUserId = localUser?.id;
+  const localClientId = localUser?.clientId;
 
-  // Memoize to prevent unnecessary re-renders
+  // Filter by clientId (unique per connection) instead of user.id (unique per account)
+  // This allows the same user to see their own cursor from other tabs/windows
   const otherUsers = useMemo(
-    () => (localUserId ? users.filter((u) => u.id !== localUserId) : []),
-    [users, localUserId],
+    () => (localClientId != null ? users.filter((u) => u.clientId !== localClientId) : []),
+    [users, localClientId],
   );
 
   return useMemo(
