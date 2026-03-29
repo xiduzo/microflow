@@ -1,6 +1,6 @@
 //! LLM Component - External
 //!
-//! Calls an OpenAI-compatible LLM API (OpenRouter, Ollama, etc.)
+//! Calls an `OpenAI`-compatible LLM API (`OpenRouter`, Ollama, etc.)
 //! and emits the text response downstream.
 //!
 //! # Handles
@@ -105,7 +105,7 @@ impl Llm {
         let event_sender = self.base.event_sender.clone();
 
         let Some(handle) = &self.rt_handle else {
-            log::error!("[Llm] {} no Tokio runtime available, cannot spawn task", component_id);
+            log::error!("[Llm] {component_id} no Tokio runtime available, cannot spawn task");
             return;
         };
 
@@ -143,7 +143,7 @@ impl Llm {
                 req = req.bearer_auth(&config.api_key);
             }
 
-            log::info!("[Llm] {} → POST {url}", component_id);
+            log::info!("[Llm] {component_id} → POST {url}");
 
             match req.send().await {
                 Ok(resp) => match resp.json::<serde_json::Value>().await {
@@ -161,12 +161,12 @@ impl Llm {
                         send(ComponentValue::String(response));
                     }
                     Err(e) => {
-                        log::error!("[Llm] {} failed to parse response: {e}", component_id);
+                        log::error!("[Llm] {component_id} failed to parse response: {e}");
                         send(ComponentValue::Bool(false));
                     }
                 },
                 Err(e) => {
-                    log::error!("[Llm] {} request to {url} failed: {e}", component_id);
+                    log::error!("[Llm] {component_id} request to {url} failed: {e}");
                     send(ComponentValue::Bool(false));
                 }
             }
