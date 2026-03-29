@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { isDesktop } from "@/lib/platform";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -158,6 +159,9 @@ export function NavUser({ user }: Props) {
                 await authClient.signOut({
                   fetchOptions: {
                     onSuccess: () => {
+                      if (isDesktop()) {
+                        localStorage.removeItem("bearer_token");
+                      }
                       queryClient.removeQueries({ queryKey: trpc.flow.list.queryOptions().queryKey });
                       setActiveFlowId("local");
                       navigate({ to: "/" });

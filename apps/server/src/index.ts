@@ -28,6 +28,7 @@ app.use(
     origin: (origin) => (allowedOrigins.includes(origin) ? origin : allowedOrigins[0]),
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["set-auth-token"],
     credentials: true,
   }),
 );

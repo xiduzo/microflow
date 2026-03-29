@@ -5,6 +5,7 @@ import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
+import { isDesktop } from "./platform";
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -23,6 +24,15 @@ export const trpcClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: `${env.VITE_SERVER_URL}/trpc`,
+      headers() {
+        if (isDesktop()) {
+          const token = localStorage.getItem("bearer_token");
+          if (token) {
+            return { Authorization: `Bearer ${token}` };
+          }
+        }
+        return {};
+      },
       fetch(url, options) {
         return fetch(url, {
           ...options,

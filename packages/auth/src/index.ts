@@ -4,7 +4,7 @@ import { env } from "@microflow/env/server";
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { emailOTP } from "better-auth/plugins";
+import { bearer, emailOTP } from "better-auth/plugins";
 
 import { Resend } from "resend";
 
@@ -36,6 +36,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    bearer(),
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
         const { error } = await resend.emails.send({
