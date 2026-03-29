@@ -217,7 +217,7 @@ svg g.trace-overlays>circle.trace-junction {
  * React flow style overwrites
  *
 */
-.react-flow.dark .react-flow__renderer {
+.react-flow.dark .react-flow__background {
   @apply bg-background;
 }
 

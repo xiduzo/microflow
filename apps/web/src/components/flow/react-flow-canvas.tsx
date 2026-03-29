@@ -110,7 +110,7 @@ export function ReactFlowCanvas({
         className="rounded-3xl relative"
       >
         <MiniMap nodeBorderRadius={6} pannable zoomable />
-        <Background gap={140} size={12} variant={BackgroundVariant.Cross} />
+        <Background gap={260} size={2} />
         <NewNodeDialog />
         <HotkeySheet />
         <Panel position="top-right">
