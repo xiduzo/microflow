@@ -38,12 +38,14 @@
 mod error;
 mod flasher;
 pub mod hardware;
+pub mod llm;
 pub mod mqtt;
 pub mod runtime;
 
 pub use error::*;
 
 use hardware::HardwareService;
+use llm::LlmManager;
 use mqtt::MqttManager;
 use runtime::{FlowRuntime, FlowUpdate};
 use std::sync::{Arc, Mutex, RwLock};
@@ -73,6 +75,8 @@ pub struct AppState {
     pub mqtt_manager: MqttManager,
     /// Channel for MQTT publish requests from flow components
     pub mqtt_publish_tx: mpsc::UnboundedSender<MqttPublishRequest>,
+    /// LLM provider manager
+    pub llm_manager: LlmManager,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -92,6 +96,7 @@ pub fn run() {
 
     let mqtt_manager = MqttManager::new();
     let mqtt_manager_for_publish = mqtt_manager.clone();
+    let llm_manager = LlmManager::new();
 
     let app_state = AppState {
         hardware_service: Arc::clone(&hardware_service),
@@ -100,6 +105,7 @@ pub fn run() {
         board_connected: Arc::clone(&board_connected),
         mqtt_manager,
         mqtt_publish_tx: mqtt_publish_tx.clone(),
+        llm_manager,
     };
 
     tauri::Builder::default()
@@ -306,6 +312,8 @@ pub fn run() {
             mqtt::commands::mqtt_connected_brokers,
             mqtt::commands::mqtt_sync_brokers,
             mqtt::commands::mqtt_all_statuses,
+            llm::commands::llm_sync_providers,
+            llm::commands::llm_test_provider,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

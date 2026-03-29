@@ -33,6 +33,7 @@ type Flow = {
     edges: Edge[];
   };
   brokers?: BrokerConfig[];
+  providers?: ProviderConfig[];
 };
 
 type MqttConnect = {
@@ -82,7 +83,25 @@ type MqttAllStatuses = {
   type: "mqtt_all_statuses";
 };
 
-type Command = Flow | MqttConnect | MqttDisconnect | MqttSubscribe | MqttUnsubscribe | MqttPublish | MqttStatus | MqttSyncBrokers | MqttAllStatuses;
+type ProviderConfig = {
+  id: string;
+  name: string;
+  base_url: string;
+  api_key: string;
+};
+
+type LlmSyncProviders = {
+  type: "llm_sync_providers";
+  providers: ProviderConfig[];
+};
+
+type LlmTestProvider = {
+  type: "llm_test_provider";
+  baseUrl: string;
+  apiKey: string;
+};
+
+type Command = Flow | MqttConnect | MqttDisconnect | MqttSubscribe | MqttUnsubscribe | MqttPublish | MqttStatus | MqttSyncBrokers | MqttAllStatuses | LlmSyncProviders | LlmTestProvider;
 
 export async function invokeCommand<
   TCommand extends Command,

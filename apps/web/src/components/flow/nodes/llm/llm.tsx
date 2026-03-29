@@ -8,17 +8,22 @@ import {
   useNodeId,
   type BaseNode,
 } from "../_base/_base";
+import { useLlmProviderStore } from "@/stores/llm-provider";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useNodeValue } from "@/stores/node-data";
 import { IconWithValue } from "../../icon-with-value";
 import { BotIcon, BotMessageSquareIcon } from "lucide-react";
-import { folder } from "leva";
 import { toast } from "sonner";
 
 export function Llm(props: Props) {
+  const providers = useLlmProviderStore((s) => s.providers);
+  const hasProviders = providers.length > 0;
+  const provider = providers.find((p) => p.id === props.data.providerId);
+  const error = !hasProviders ? "No LLM providers configured" : !provider ? "Select a provider" : undefined;
+
   return (
-    <NodeContainer {...props}>
+    <NodeContainer {...props} error={error}>
       <Value />
       <Settings />
       <Handle type="target" position="left" id="trigger" handleType="command" />
@@ -53,7 +58,7 @@ function DynamicHandles() {
   return (
     <>
       {handles.slice(0, 7).map((handle, index) => (
-        <Handle key={handle} type="target" position="bottom" id={handle} handleType="value" offset={index * 1 - 3} />
+        <Handle key={handle} type="target" position="bottom" id={handle} handleType="value" offset={index - (handles.length - 1) / 2} />
       ))}
     </>
   );
@@ -63,11 +68,14 @@ function Value() {
   const data = useNodeData<Data>();
   const value = useNodeValue<Value>(false);
 
+  const isThinking = value === true;
+  const hasResponse = typeof value === "string";
+
   return (
     <IconWithValue
-      icon={value ? BotMessageSquareIcon : BotIcon}
-      iconClassName={value ? "animate-pulse" : ""}
-      value={value ? "Thinking..." : data.model ? data.model : "No model selected"}
+      icon={isThinking || hasResponse ? BotMessageSquareIcon : BotIcon}
+      iconClassName={isThinking ? "animate-pulse" : ""}
+      value={isThinking ? "Thinking..." : hasResponse ? value : data.model || "No model selected"}
     />
   );
 }
@@ -75,67 +83,48 @@ function Value() {
 function Settings() {
   const [models, setModels] = useState<string[]>([]);
   const data = useNodeData<Data>();
+  const providers = useLlmProviderStore((s) => s.providers);
+
+  const providerOptions = useMemo(() => {
+    const opts: Record<string, string> = { "Select provider...": "" };
+    for (const p of providers) opts[p.name + (p.isDefault ? " (default)" : "")] = p.id;
+    return opts;
+  }, [providers]);
+
+  const selectedProvider = providers.find((p) => p.id === data.providerId);
 
   const { render } = useNodeControls(
     {
-      provider: { value: data.provider, options: ["ollama"] },
+      providerId: { value: data.providerId, options: providerOptions, label: "Provider" },
       model: { value: data.model, options: [...models] },
       system: { value: data.system, rows: 5 },
       prompt: { value: data.prompt, rows: 5 },
-      advanced: folder(
-        {
-          baseUrl: { value: data.baseUrl!, label: "Base URL" },
-          frequencyPenalty: {
-            value: data.frequencyPenalty!,
-            label: "Frequency Penalty",
-          },
-          temperature: { value: data.temperature!, label: "Temperature" },
-          topK: { value: data.topK!, label: "Top K" },
-          topP: { value: data.topP!, label: "Top P" },
-          mirostat: { value: data.mirostat!, label: "Mirostat" },
-          mirostatTau: { value: data.mirostatTau!, label: "Mirostat Tau" },
-          mirostatEta: { value: data.mirostatEta!, label: "Mirostat Eta" },
-          repeatPenalty: {
-            value: data.repeatPenalty!,
-            label: "Repeat Penalty",
-          },
-          typicalP: { value: data.typicalP!, label: "Typical P" },
-          presencePenalty: {
-            value: data.presencePenalty!,
-            label: "Presence Penalty",
-          },
-          repeatLastN: { value: data.repeatLastN!, label: "Repeat Last N" },
-        },
-        { collapsed: true },
-      ),
     },
     [models],
   );
 
   useEffect(() => {
     async function getModels() {
-      switch (data.provider) {
-        case "ollama":
-          try {
-            const ollamaModelsResponse = await fetch(`${data.baseUrl}/api/tags`);
-            const ollamaModels = await ollamaModelsResponse.json();
-            setModels(ollamaModels.models.map((model: { model: string }) => model.model));
-          } catch {
-            toast.warning("Ollama", {
-              description:
-                "Failed to get models, make sure the base URL is correct and the server is running",
-            });
-          }
-          break;
-        default:
-          return setModels([]);
+      const baseUrl = selectedProvider?.baseUrl ?? "http://localhost:11434";
+      const providerName = selectedProvider?.name ?? "Ollama";
+
+      // Only Ollama exposes /api/tags for model listing
+      const isOllama = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("11434");
+      if (!isOllama) return setModels([]);
+
+      try {
+        const response = await fetch(`${baseUrl}/api/tags`);
+        const json = await response.json();
+        setModels(json.models.map((model: { model: string }) => model.model));
+      } catch {
+        toast.warning(providerName, {
+          description: "Failed to get models, make sure the base URL is correct and the server is running",
+        });
       }
     }
 
-    if (!data.provider) return;
-
     getModels();
-  }, [data.provider, data.baseUrl]);
+  }, [data.providerId, selectedProvider]);
 
   return <>{render()}</>;
 }

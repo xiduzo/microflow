@@ -91,7 +91,6 @@
         "@microflow/auth": "workspace:*",
         "@microflow/collab": "workspace:*",
         "@microflow/env": "workspace:*",
-        "@microflow/mqtt": "workspace:*",
         "@polar-sh/better-auth": "catalog:",
         "@tailwindcss/vite": "^4.2.1",
         "@tanstack/react-form": "^1.28.5",
