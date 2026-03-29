@@ -42,9 +42,9 @@ export function SetNameDialog() {
     <Dialog open={open}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>What&apos;s your name?</DialogTitle>
+          <DialogTitle>Oops, we did not catch your name!</DialogTitle>
           <DialogDescription>
-            Tell us your name so others can identify you.
+            Let us know what to call you so your collaborators can recognize you.
           </DialogDescription>
         </DialogHeader>
         <form
