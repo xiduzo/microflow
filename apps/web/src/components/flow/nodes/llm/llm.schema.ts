@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { baseDataSchema } from "../_base/_base.schema";
 
-export const valueSchema = z.boolean();
+export const valueSchema = z.union([z.boolean(), z.string()]);
 export type Value = z.infer<typeof valueSchema>;
 
 export const dataSchema = baseDataSchema.extend({

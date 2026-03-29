@@ -13,7 +13,6 @@ use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -56,6 +55,10 @@ pub struct Llm {
     config: LlmConfig,
     /// Stored values for `{{var}}` template slots in the prompt
     template_vars: HashMap<String, String>,
+    /// Handle to the Tokio runtime so we can spawn tasks from sync contexts
+    rt_handle: Option<tokio::runtime::Handle>,
+    /// Abort handle for the currently running generation task
+    running_task: Option<tokio::task::AbortHandle>,
 }
 
 impl Llm {
@@ -65,6 +68,8 @@ impl Llm {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,
             template_vars: HashMap::new(),
+            rt_handle: tokio::runtime::Handle::try_current().ok(),
+            running_task: None,
         }
     }
 
@@ -76,12 +81,47 @@ impl Llm {
         prompt
     }
 
-    fn spawn_generate(&self, prompt: String) {
+    fn emit(&self, handle: &'static str, value: ComponentValue) {
+        if let Some(sender) = &self.base.event_sender {
+            let _ = sender.send(ComponentEvent {
+                source: Arc::clone(&self.base.id),
+                source_handle: Arc::from(handle),
+                value,
+                edge_id: None,
+                sequence: 0,
+            });
+        }
+    }
+
+    fn spawn_generate(&mut self, prompt: String) {
+        // Cancel any in-flight request
+        if let Some(abort) = self.running_task.take() {
+            log::info!("[Llm] {} cancelling previous task", self.base.id);
+            abort.abort();
+        }
+
         let config = self.config.clone();
         let component_id = Arc::clone(&self.base.id);
         let event_sender = self.base.event_sender.clone();
 
-        tokio::spawn(async move {
+        let Some(handle) = &self.rt_handle else {
+            log::error!("[Llm] {} no Tokio runtime available, cannot spawn task", component_id);
+            return;
+        };
+
+        let join_handle = handle.spawn(async move {
+            let send = |value: ComponentValue| {
+                if let Some(sender) = &event_sender {
+                    let _ = sender.send(ComponentEvent {
+                        source: Arc::clone(&component_id),
+                        source_handle: Arc::from("value"),
+                        value,
+                        edge_id: None,
+                        sequence: 0,
+                    });
+                }
+            };
+
             let base = config.base_url.trim_end_matches('/');
             let url = format!("{base}/v1/chat/completions");
 
@@ -118,22 +158,21 @@ impl Llm {
                             .to_string();
 
                         log::info!("[Llm] {} response: {} chars", component_id, response.len());
-
-                        if let Some(sender) = &event_sender {
-                            let _ = sender.send(ComponentEvent {
-                                source: Arc::clone(&component_id),
-                                source_handle: Arc::from("value"),
-                                value: ComponentValue::String(response),
-                                edge_id: None,
-                                sequence: 0,
-                            });
-                        }
+                        send(ComponentValue::String(response));
                     }
-                    Err(e) => log::error!("[Llm] {} failed to parse response: {e}", component_id),
+                    Err(e) => {
+                        log::error!("[Llm] {} failed to parse response: {e}", component_id);
+                        send(ComponentValue::Bool(false));
+                    }
                 },
-                Err(e) => log::error!("[Llm] {} request to {url} failed: {e}", component_id),
+                Err(e) => {
+                    log::error!("[Llm] {} request to {url} failed: {e}", component_id);
+                    send(ComponentValue::Bool(false));
+                }
             }
         });
+
+        self.running_task = Some(join_handle.abort_handle());
     }
 }
 
@@ -144,6 +183,9 @@ impl Component for Llm {
     fn component_type(&self) -> &'static str { "Llm" }
 
     fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> {
+        if self.rt_handle.is_none() {
+            self.rt_handle = tokio::runtime::Handle::try_current().ok();
+        }
         log::info!("[Llm] {} initialized: provider={}, model={}, base_url={}",
             self.base.id, self.config.provider, self.config.model, self.config.base_url);
         Ok(())
@@ -152,8 +194,8 @@ impl Component for Llm {
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "trigger" => {
-                // Signal thinking state to the frontend display
-                self.base.emit_with_value("value", Cow::Owned(ComponentValue::Bool(true)));
+                // Signal thinking state — emitted before spawning so UI updates immediately
+                self.emit("value", ComponentValue::Bool(true));
                 let prompt = self.build_prompt();
                 self.spawn_generate(prompt);
             }
@@ -172,6 +214,9 @@ impl Component for Llm {
     }
 
     fn destroy(&mut self) {
+        if let Some(abort) = self.running_task.take() {
+            abort.abort();
+        }
         log::info!("[Llm] {} destroyed", self.base.id);
     }
 

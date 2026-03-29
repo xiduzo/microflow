@@ -68,11 +68,14 @@ function Value() {
   const data = useNodeData<Data>();
   const value = useNodeValue<Value>(false);
 
+  const isThinking = value === true;
+  const hasResponse = typeof value === "string";
+
   return (
     <IconWithValue
-      icon={value ? BotMessageSquareIcon : BotIcon}
-      iconClassName={value ? "animate-pulse" : ""}
-      value={value ? "Thinking..." : data.model ? data.model : "No model selected"}
+      icon={isThinking || hasResponse ? BotMessageSquareIcon : BotIcon}
+      iconClassName={isThinking ? "animate-pulse" : ""}
+      value={isThinking ? "Thinking..." : hasResponse ? value : data.model || "No model selected"}
     />
   );
 }
