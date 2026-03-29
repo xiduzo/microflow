@@ -196,7 +196,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Frontend env vars (inlined by Vite at build time)
-          VITE_SERVER_URL: ${{ secrets.VITE_SERVER_URL }}
+          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
           # Updater signing
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
