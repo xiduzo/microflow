@@ -15,10 +15,17 @@ const { upgradeWebSocket, websocket } = createBunWebSocket();
 const app = new Hono();
 
 app.use(logger());
+const allowedOrigins = [
+  env.CORS_ORIGIN,
+  "tauri://localhost",
+  "https://tauri.localhost",
+  ...(env.NODE_ENV === "development" ? ["http://localhost:3001"] : []),
+];
+
 app.use(
   "/*",
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: (origin) => (allowedOrigins.includes(origin) ? origin : allowedOrigins[0]),
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -41,7 +48,7 @@ app.use(
 app.get(
   "/yjs/:flowId",
   upgradeWebSocket((c) => {
-    const flowId = c.req.param("flowId");
+    const flowId = c.req.param("flowId")!;
 
     const handler = createYjsHandler();
 
