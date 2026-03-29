@@ -16,7 +16,7 @@ const app = new Hono();
 
 app.use(logger());
 const allowedOrigins = [
-  env.CORS_ORIGIN,
+  ...env.CORS_ORIGINS,
   "tauri://localhost",
   "https://tauri.localhost",
   ...(env.NODE_ENV === "development" ? ["http://localhost:3001"] : []),

@@ -21,7 +21,7 @@ export const auth = betterAuth({
     schema: schema,
   }),
   trustedOrigins: [
-    env.CORS_ORIGIN,
+    ...env.CORS_ORIGINS,
     // Tauri app origins
     "tauri://localhost",
     "https://tauri.localhost",
