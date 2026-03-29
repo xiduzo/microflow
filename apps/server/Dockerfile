@@ -18,4 +18,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Run migrations then start the server
-CMD ["sh", "-c", "bunx drizzle-kit migrate --config=../../packages/db/drizzle.config.ts && bun run start"]
+CMD ["sh", "-c", "bun run ../../packages/db/src/migrate.ts && bun run start"]
