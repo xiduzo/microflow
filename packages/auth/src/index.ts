@@ -6,7 +6,11 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 
+import { Resend } from "resend";
+
 import { polarClient } from "./lib/payments";
+
+const resend = new Resend(env.RESEND_API_KEY);
 
 const isDev = env.NODE_ENV === "development";
 
@@ -34,8 +38,16 @@ export const auth = betterAuth({
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
-        // TODO: replace with your email provider (e.g. Resend, Nodemailer)
-        console.log(`[OTP] ${email} → ${otp}`);
+        const { error } = await resend.emails.send({
+          from: env.EMAIL_FROM,
+          to: email,
+          subject: "Your Microflow sign-in code",
+          html: `<p>Your sign-in code is: <strong>${otp}</strong></p><p>This code expires in 5 minutes.</p>`,
+        });
+        if (error) {
+          console.error("[OTP] Failed to send:", error);
+          throw new Error("Failed to send verification email");
+        }
       },
     }),
     polar({
@@ -44,12 +56,7 @@ export const auth = betterAuth({
       enableCustomerPortal: true,
       use: [
         checkout({
-          products: [
-            {
-              productId: "your-product-id",
-              slug: "pro",
-            },
-          ],
+          products: [],
           successUrl: env.POLAR_SUCCESS_URL,
           authenticatedUsersOnly: true,
         }),

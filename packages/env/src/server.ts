@@ -11,6 +11,8 @@ export const env = createEnv({
     POLAR_SUCCESS_URL: z.url(),
     CORS_ORIGIN: z.url(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+    RESEND_API_KEY: z.string().min(1),
+    EMAIL_FROM: z.string().min(1),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

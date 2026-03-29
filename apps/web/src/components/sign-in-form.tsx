@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { Mail } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -33,6 +33,30 @@ export function SignInForm() {
   const navigate = useNavigate({ from: "/" });
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const handleResend = useCallback(async () => {
+    if (resendCooldown > 0 || isResending) return;
+    setIsResending(true);
+    const { error } = await authClient.emailOtp.sendVerificationOtp({
+      email,
+      type: "sign-in",
+    });
+    setIsResending(false);
+    if (error) {
+      toast.error(error.message || "Failed to resend code");
+      return;
+    }
+    setResendCooldown(30);
+    toast.success("A new code has been sent to your email");
+  }, [email, resendCooldown, isResending]);
 
   const emailForm = useForm({
     defaultValues: { email: "" },
@@ -47,6 +71,7 @@ export function SignInForm() {
       }
       setEmail(value.email);
       setStep("otp");
+      setResendCooldown(30);
       toast.success("Check your email for the sign-in code");
     },
     validators: {
@@ -142,6 +167,18 @@ export function SignInForm() {
                     </Button>
                   )}
                 </otpForm.Subscribe>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendCooldown > 0 || isResending}
+                  className="w-full text-center text-muted-foreground underline underline-offset-4 hover:text-primary text-xs mt-2 disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  {isResending
+                    ? "Resending..."
+                    : resendCooldown > 0
+                      ? `Resend code (${resendCooldown}s)`
+                      : "Resend code"}
+                </button>
                 <button
                   type="button"
                   onClick={() => setStep("email")}
