@@ -6,7 +6,6 @@ import {
   LibraryBigIcon,
   BotIcon,
   RadioTowerIcon,
-  SettingsIcon,
   WaypointsIcon,
 } from "lucide-react";
 
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { FlowSwitcher, LOCAL_FLOW } from "./flow-switcher";
 import { NavMicrocontroller } from "./nav-microcontroller";
+import { NavDownloadStudio } from "./nav-download-studio";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
@@ -65,6 +65,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarHeader>
         <SidebarContent>
           <NavMicrocontroller />
+          <NavDownloadStudio />
           <NavMain
             groups={[
               {
