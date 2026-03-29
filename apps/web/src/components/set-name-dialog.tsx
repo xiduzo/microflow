@@ -1,8 +1,10 @@
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/lib/trpc";
 
 import { Button } from "./ui/button";
 import {
@@ -18,6 +20,7 @@ import { InputGroup, InputGroupInput } from "./ui/input-group";
 
 export function SetNameDialog() {
   const { data: session, refetch } = authClient.useSession();
+  const queryClient = useQueryClient();
   const open = !!session?.user && !session.user.name;
 
   const form = useForm({
@@ -29,6 +32,7 @@ export function SetNameDialog() {
         return;
       }
       await refetch();
+      await queryClient.invalidateQueries({ queryKey: trpc.profile.get.queryKey() });
       toast.success("Welcome!");
     },
     validators: {

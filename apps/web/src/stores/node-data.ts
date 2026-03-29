@@ -36,6 +36,11 @@ export function useNodeValue<T>(defaultValue: T) {
   return useNodeDataStore((state) => (state.data[id] as T) ?? defaultValue);
 }
 
+export function useNodeHandleValue<T>(handle: string, defaultValue: T) {
+  const id = useNodeId();
+  return useNodeDataStore((state) => (state.data[`${id}:${handle}`] as T) ?? defaultValue);
+}
+
 export function useClearNodeData() {
   return useNodeDataStore((state) => state.clear);
 }

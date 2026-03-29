@@ -69,7 +69,7 @@ function Value() {
 
 function NumberValue(props: { value: Value }) {
   return (
-    <section className="text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16">
+    <section className="text-xl tabular-nums max-w-lg text-muted-foreground whitespace-pre-line px-16">
       {numberFormat.format(Number(props.value))}
     </section>
   );
@@ -77,7 +77,7 @@ function NumberValue(props: { value: Value }) {
 
 function StringValue(props: { value: Value }) {
   return (
-    <section className="text-xl tabular-nums text-muted-foreground whitespace-pre-line px-16">
+    <section className="text-xl tabular-nums max-w-lg text-muted-foreground whitespace-pre-line px-16">
       {String(props.value)}
     </section>
   );

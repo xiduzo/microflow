@@ -7,7 +7,9 @@
 //!
 //! - `trigger` (input): any incoming value starts generation
 //! - `{{var}}` (input): dynamic prompt template variables
-//! - `value` (output): emits the generated text response
+//! - `thinking` (output, state): true while generating, false when idle
+//! - `done` (output, event): fires when generation completes successfully
+//! - `value` (output, value): emits the generated text response
 
 use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
@@ -65,7 +67,7 @@ impl Llm {
     #[must_use]
     pub fn new(id: String, config: LlmConfig) -> Self {
         Self {
-            base: ComponentBase::new(id, ComponentValue::Bool(false)),
+            base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,
             template_vars: HashMap::new(),
             rt_handle: tokio::runtime::Handle::try_current().ok(),
@@ -110,11 +112,11 @@ impl Llm {
         };
 
         let join_handle = handle.spawn(async move {
-            let send = |value: ComponentValue| {
+            let send = |handle: &str, value: ComponentValue| {
                 if let Some(sender) = &event_sender {
                     let _ = sender.send(ComponentEvent {
                         source: Arc::clone(&component_id),
-                        source_handle: Arc::from("value"),
+                        source_handle: Arc::from(handle),
                         value,
                         edge_id: None,
                         sequence: 0,
@@ -158,16 +160,20 @@ impl Llm {
                             .to_string();
 
                         log::info!("[Llm] {} response: {} chars", component_id, response.len());
-                        send(ComponentValue::String(response));
+                        send("thinking", ComponentValue::Bool(false));
+                        send("value", ComponentValue::String(response));
+                        send("done", ComponentValue::Bool(true));
                     }
                     Err(e) => {
                         log::error!("[Llm] {component_id} failed to parse response: {e}");
-                        send(ComponentValue::Bool(false));
+                        send("thinking", ComponentValue::Bool(false));
+                        send("error", ComponentValue::String(e.to_string()));
                     }
                 },
                 Err(e) => {
                     log::error!("[Llm] {component_id} request to {url} failed: {e}");
-                    send(ComponentValue::Bool(false));
+                    send("thinking", ComponentValue::Bool(false));
+                    send("error", ComponentValue::String(e.to_string()));
                 }
             }
         });
@@ -194,8 +200,8 @@ impl Component for Llm {
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
         match method {
             "trigger" => {
-                // Signal thinking state — emitted before spawning so UI updates immediately
-                self.emit("value", ComponentValue::Bool(true));
+                // Signal thinking state on dedicated handle so UI updates immediately
+                self.emit("thinking", ComponentValue::Bool(true));
                 let prompt = self.build_prompt();
                 self.spawn_generate(prompt);
             }
