@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { AppWindowIcon, AppWindowMacIcon, DownloadIcon, MonitorIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  AppWindowIcon,
+  AppWindowMacIcon,
+  DownloadIcon,
+  LoaderIcon,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,53 +17,90 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const GITHUB_RELEASES_URL = "https://github.com/xiduzo/microflow/releases/latest";
+const GITHUB_REPO = "xiduzo/microflow";
+const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+const RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases/latest`;
 
 type Platform = "macos-arm" | "macos-intel" | "windows" | "linux";
 
-type PlatformOption = {
+type PlatformConfig = {
   id: Platform;
   label: string;
   description: string;
   icon: React.ReactNode;
-  url: string;
+  /** Pattern to match the asset filename in the GitHub release */
+  assetPattern: RegExp;
 };
 
-const PLATFORMS: PlatformOption[] = [
+const PLATFORMS: PlatformConfig[] = [
   {
     id: "macos-arm",
     label: "macOS (Apple Silicon)",
     description: "For M1, M2, M3, and M4 Macs",
     icon: <AppWindowMacIcon className="size-4" />,
-    url: `${GITHUB_RELEASES_URL}/download/Microflow_aarch64.dmg`,
+    assetPattern: /aarch64\.dmg$/,
   },
   {
     id: "macos-intel",
     label: "macOS (Intel)",
     description: "For older Intel-based Macs",
     icon: <AppWindowMacIcon className="size-4" />,
-    url: `${GITHUB_RELEASES_URL}/download/Microflow_x64.dmg`,
+    assetPattern: /x64\.dmg$/,
   },
   {
     id: "windows",
     label: "Windows",
     description: "Windows 10 or later",
     icon: <AppWindowIcon className="size-4" />,
-    url: `${GITHUB_RELEASES_URL}/download/Microflow_x64-setup.exe`,
+    assetPattern: /x64-setup\.exe$/,
   },
   {
     id: "linux",
     label: "Linux",
     description: "Debian-based distributions",
     icon: <AppWindowIcon className="size-4" />,
-    url: `${GITHUB_RELEASES_URL}/download/Microflow_amd64.deb`,
+    assetPattern: /amd64\.deb$/,
   },
 ];
+
+type ReleaseAsset = {
+  name: string;
+  browser_download_url: string;
+};
+
+type AssetUrls = Partial<Record<Platform, string>>;
+
+function useLatestReleaseUrls() {
+  const [urls, setUrls] = useState<AssetUrls>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(GITHUB_API_URL)
+      .then((res) => res.json())
+      .then((release: { assets: ReleaseAsset[] }) => {
+        const resolved: AssetUrls = {};
+        for (const platform of PLATFORMS) {
+          const asset = release.assets.find((a) =>
+            platform.assetPattern.test(a.name),
+          );
+          if (asset) {
+            resolved[platform.id] = asset.browser_download_url;
+          }
+        }
+        setUrls(resolved);
+      })
+      .catch(() => {
+        // Fallback: send users to the releases page
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { urls, loading };
+}
 
 function detectPlatform(): Platform {
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("mac")) {
-    // Simple heuristic: newer Macs are likely ARM
     return "macos-arm";
   }
   if (ua.includes("linux")) return "linux";
@@ -82,8 +124,10 @@ export function DownloadStudioDialog({
 
   const detectedPlatform = detectPlatform();
   const [selected, setSelected] = useState<Platform>(detectedPlatform);
+  const { urls, loading } = useLatestReleaseUrls();
 
   const selectedPlatform = PLATFORMS.find((p) => p.id === selected)!;
+  const downloadUrl = urls[selected] ?? RELEASES_PAGE;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -108,7 +152,7 @@ export function DownloadStudioDialog({
                 "flex items-center gap-3 rounded-md px-3 py-2 text-left text-xs transition-colors",
                 selected === platform.id
                   ? "bg-primary/10 text-primary ring-1 ring-primary/20"
-                  : "hover:bg-muted text-muted-foreground"
+                  : "hover:bg-muted text-muted-foreground",
               )}
             >
               {platform.icon}
@@ -126,9 +170,14 @@ export function DownloadStudioDialog({
             Stay in browser
           </Button>
           <Button
-            onClick={() => window.open(selectedPlatform.url, "_blank")}
+            disabled={loading}
+            onClick={() => window.open(downloadUrl, "_blank")}
           >
-            <DownloadIcon className="size-4" />
+            {loading ? (
+              <LoaderIcon className="size-4 animate-spin" />
+            ) : (
+              <DownloadIcon className="size-4" />
+            )}
             Download for {selectedPlatform.label.split(" (")[0]}
           </Button>
         </DialogFooter>
