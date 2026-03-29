@@ -1,6 +1,6 @@
 [package]
 name = "microflow"
-version = "0.2.3"
+version = "0.2.4"
 description = "A application to control microcontrollers"
 authors = ["xiduzo"]
 license = "GPL-3.0"
