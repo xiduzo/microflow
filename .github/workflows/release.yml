@@ -39,8 +39,49 @@ jobs:
           prerelease: false
           generate_release_notes: true
 
-  build-tauri:
+  bump-version:
     needs: create-release
+    runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump version files
+        run: |
+          TAG="${{ needs.create-release.outputs.tag_name }}"
+          VERSION="${TAG#v}"
+          echo "Bumping version to $VERSION"
+
+          # Update tauri.conf.json
+          jq --arg v "$VERSION" '.version = $v' apps/web/src-tauri/tauri.conf.json > tmp.json && mv tmp.json apps/web/src-tauri/tauri.conf.json
+
+          # Update Cargo.toml
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" apps/web/src-tauri/Cargo.toml
+
+      - name: Commit and push version bump
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src-tauri/tauri.conf.json apps/web/src-tauri/Cargo.toml
+
+          # Only commit if there are actual changes
+          if git diff --cached --quiet; then
+            echo "Version already up to date, skipping commit"
+            echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: bump version to ${{ needs.create-release.outputs.tag_name }}"
+            git push origin main
+            echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          fi
+
+  build-tauri:
+    needs: [create-release, bump-version]
     strategy:
       fail-fast: false
       matrix:
@@ -66,6 +107,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-version.outputs.commit_sha }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
