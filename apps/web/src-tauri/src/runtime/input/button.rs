@@ -43,6 +43,8 @@ pub struct Button {
     hold_emitted: bool,
     polling_active: Arc<AtomicBool>,
     poll_handle: Option<tokio::task::JoinHandle<()>>,
+    /// Timestamp of the last state change, used for debouncing
+    last_change: Option<Instant>,
 }
 
 impl Button {
@@ -52,11 +54,21 @@ impl Button {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config, board: None, is_pressed: false, press_start: None,
             hold_emitted: false, polling_active: Arc::new(AtomicBool::new(false)), poll_handle: None,
+            last_change: None,
         }
     }
 
     fn process_state(&mut self, pressed: bool) {
         if pressed != self.is_pressed {
+            // Debounce: ignore state changes that arrive within XXXms of the last one.
+            // Most mechanical switches settle within 5ms;
+            // keeping latency imperceptible for real-time flows.
+            if let Some(last) = self.last_change {
+                if last.elapsed() < Duration::from_millis(20) {
+                    return;
+                }
+            }
+            self.last_change = Some(Instant::now());
             self.is_pressed = pressed;
             self.base.set_value(ComponentValue::Bool(pressed));
             if pressed {

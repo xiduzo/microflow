@@ -289,7 +289,7 @@ impl FlowRuntime {
     /// Register pin listener for an input component based on its type and config
     fn register_component_pin_listener(&self, component_id: &str, instance: &str, data: &serde_json::Value) {
         match instance {
-            "Button" | "Motion" => {
+            "Button" | "Motion" | "Switch" => {
                 // Digital input components - handle both string and number pin formats
                 let pin: Option<u8> = if let Some(pin_num) = data.get("pin").and_then(serde_json::Value::as_u64) {
                     Some(pin_num as u8)
