@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, createContext, useContext } from "react";
 import { env } from "@microflow/env/web";
 import { ErrorState } from "@/components/states/error-state";
 import { LoadingState } from "@/components/states/loading-state";
+import { isDesktop } from "@/lib/platform";
 import type { Node } from "@xyflow/react";
 
 // Context to provide sync provider to child routes
@@ -217,11 +218,13 @@ function CloudFlowLayout() {
     );
 
     // Connect to sync provider for real-time collaboration
+    const authToken = isDesktop() ? (localStorage.getItem("bearer_token") ?? undefined) : undefined;
     const sync = useSyncProvider({
         flowDoc,
         flowId,
         user,
         wsUrl,
+        authToken,
         enabled: !!flowDoc && !!flow,
     });
 

@@ -11,7 +11,7 @@ import {
 import { useLlmProviderStore } from "@/stores/llm-provider";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUpdateNodeInternals } from "@xyflow/react";
-import { useNodeValue } from "@/stores/node-data";
+import { useNodeValue, useNodeHandleValue } from "@/stores/node-data";
 import { IconWithValue } from "../../icon-with-value";
 import { BotIcon, BotMessageSquareIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -27,7 +27,9 @@ export function Llm(props: Props) {
       <Value />
       <Settings />
       <Handle type="target" position="left" id="trigger" handleType="command" />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <Handle type="source" position="right" id="thinking" handleType="state" offset={-1} hint="true while generating" />
+      <Handle type="source" position="right" id="done" handleType="event" offset={0} hint="fires on completion" />
+      <Handle type="source" position="right" id="value" handleType="value" offset={1} />
       <DynamicHandles />
     </NodeContainer>
   );
@@ -66,16 +68,16 @@ function DynamicHandles() {
 
 function Value() {
   const data = useNodeData<Data>();
-  const value = useNodeValue<Value>(false);
+  const value = useNodeValue<Value>("");
+  const isThinking = useNodeHandleValue<boolean>("thinking", false);
 
-  const isThinking = value === true;
-  const hasResponse = typeof value === "string";
+  const hasResponse = value.length > 0;
 
   return (
     <IconWithValue
       icon={isThinking || hasResponse ? BotMessageSquareIcon : BotIcon}
       iconClassName={isThinking ? "animate-pulse" : ""}
-      value={isThinking ? "Thinking..." : hasResponse ? value : data.model || "No model selected"}
+      value={isThinking ? "Thinking..." : data.model || "No model selected"}
     />
   );
 }

@@ -56,8 +56,15 @@ app.get(
     return {
       onOpen: async (event: Event, ws: WSContext) => {
         // Get session from cookie/header for auth
+        // Also support bearer token via query param (for Tauri where cookies aren't available)
+        const token = c.req.query("token");
+        const headers = new Headers(c.req.raw.headers);
+        if (token && !headers.get("authorization")) {
+          headers.set("authorization", `Bearer ${token}`);
+        }
+
         const session = await auth.api.getSession({
-          headers: c.req.raw.headers,
+          headers,
         });
 
         if (!session) {

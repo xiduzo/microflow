@@ -18,8 +18,11 @@ export function useComponentEvents() {
     handler: ({ payload }) => {
       const { source, sourceHandle, value } = payload;
 
-      // Update node data when a "value" event is received
-      if (sourceHandle === "value") updateNodeData(source, value);
+      // Update node data when a "value" or "event" event is received
+      if (sourceHandle === "value" || sourceHandle === "event") updateNodeData(source, value);
+
+      // Store state-handle values so UI components can read them
+      if (sourceHandle === "thinking") updateNodeData(`${source}:thinking`, value);
 
       console.log("[COMPONENT-EVENT]", { source, sourceHandle, value });
 

@@ -7,6 +7,7 @@ import {
   type ColorMode,
   type XYPosition,
   type Connection,
+  BackgroundVariant,
 } from "@xyflow/react";
 import {
   useFlowDocument,
@@ -109,7 +110,7 @@ export function ReactFlowCanvas({
         className="rounded-3xl relative"
       >
         <MiniMap nodeBorderRadius={6} pannable zoomable />
-        <Background gap={140} />
+        <Background gap={260} size={2} />
         <NewNodeDialog />
         <HotkeySheet />
         <Panel position="top-right">
