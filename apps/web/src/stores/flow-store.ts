@@ -60,7 +60,7 @@ export type FlowState = {
 
   // Clipboard
   selectAll: () => void;
-  copy: () => void;
+  copy: (selectedNodes?: FlowNode[]) => void;
   paste: (cursorPosition: XYPosition) => void;
 
   // History (delegates to FlowDocument's UndoManager)
@@ -392,13 +392,12 @@ export const useFlowStore = create<FlowState>()((set, get) => {
       // This is a no-op in the store
     },
 
-    copy: () => {
+    copy: (selectedNodes) => {
       const { flowDoc } = get();
       if (!flowDoc) return;
 
-      // Get selected nodes from ReactFlow (passed via UI)
-      // For now, copy all nodes - UI should filter selected
-      const nodes = flowDoc.getNodes().filter((n) => n.selected);
+      // Use provided selected nodes (from ReactFlow state) or fall back to flowDoc
+      const nodes = selectedNodes ?? flowDoc.getNodes().filter((n) => n.selected);
       if (nodes.length === 0) {
         toast.info("No nodes selected");
         return;

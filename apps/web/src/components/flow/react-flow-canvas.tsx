@@ -15,7 +15,7 @@ import {
   useFlowHistoryActions,
 } from "@/stores/flow-store";
 import { useFlowState } from "@/hooks/use-flow-document";
-import type { AwarenessUser, FlowEdge } from "@microflow/collab";
+import type { AwarenessUser, FlowEdge, FlowNode } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";
 import { NODE_TYPES } from "./nodes/_TYPES";
@@ -136,7 +136,10 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
   const clipboard = useFlowClipboard();
   const history = useFlowHistoryActions();
 
-  useHotkeys("mod+c", clipboard.copy, {
+  useHotkeys("mod+c", () => {
+    const selectedNodes = getNodes().filter((n) => n.selected) as FlowNode[];
+    clipboard.copy(selectedNodes);
+  }, {
     enabled: true,
     enableOnFormTags: false,
     preventDefault: true,
