@@ -4,6 +4,7 @@ use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -27,7 +28,9 @@ impl Default for DelayConfig {
 pub struct Delay {
     base: ComponentBase,
     config: DelayConfig,
-    pending_handle: Option<tokio::task::JoinHandle<()>>,
+    /// Cancellation flag shared with the pending delay thread.
+    /// Setting this to `true` causes the thread to skip sending its event.
+    cancel_flag: Arc<AtomicBool>,
 }
 
 impl Delay {
@@ -36,38 +39,43 @@ impl Delay {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
-            pending_handle: None,
+            cancel_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
     pub fn signal(&mut self, value: ComponentValue) {
         if self.config.forget_previous {
-            if let Some(handle) = self.pending_handle.take() {
-                handle.abort();
-            }
+            // Signal the previous thread (if any) to not fire its event
+            self.cancel_flag.store(true, Ordering::Relaxed);
+            // Create a fresh flag for the new delay
+            self.cancel_flag = Arc::new(AtomicBool::new(false));
         }
 
         let delay_ms = self.config.delay;
         let sender = self.base.event_sender.clone();
         let source = self.base.id.clone();
+        let cancel = Arc::clone(&self.cancel_flag);
 
         // Store value without emitting change (delay component stores input, emits later)
         self.base.value = value.clone();
 
-        let handle = tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+        // Use a plain OS thread + sleep so this works regardless of whether
+        // a Tokio runtime is present on the calling thread.
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(delay_ms));
+            if cancel.load(Ordering::Relaxed) {
+                return; // cancelled by a newer signal (forget_previous)
+            }
             if let Some(tx) = sender {
                 let _ = tx.send(ComponentEvent {
                     source,
                     source_handle: Arc::from("event"),
                     value,
                     edge_id: None,
-                    sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
+                    sequence: 0,
                 });
             }
         });
-
-        self.pending_handle = Some(handle);
     }
 }
 
@@ -87,7 +95,8 @@ impl Component for Delay {
     }
 
     fn destroy(&mut self) {
-        if let Some(handle) = self.pending_handle.take() { handle.abort(); }
+        // Cancel any pending delay thread
+        self.cancel_flag.store(true, Ordering::Relaxed);
     }
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }

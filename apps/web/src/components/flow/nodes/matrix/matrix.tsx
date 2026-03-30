@@ -156,7 +156,7 @@ function Settings() {
       {render()}
       {editorOpened && (
         <Dialog defaultOpen onOpenChange={setEditorOpened}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-3xl overflow-hidden">
             <DialogHeader>
               <DialogTitle>Shapes</DialogTitle>
               <DialogDescription>
@@ -164,8 +164,8 @@ function Settings() {
                 shape number
               </DialogDescription>
             </DialogHeader>
-            <section className="flex items-center justify-center">
-              <Carousel className="w-full max-w-xl">
+            <section className="flex items-center justify-center min-w-0 w-full">
+              <Carousel className="w-full max-w-xl min-w-0">
                 <CarouselContent>
                   {shapes.map((shape, index) => {
                     return (
@@ -206,7 +206,7 @@ function Settings() {
                             <ArrowLeftRightIcon /> Swap
                           </Button>
                           <div>
-                            Shape #{index + 1} of {shapes.length}
+                            {index + 1}/{shapes.length}
                           </div>
                           <Button
                             variant="outline"

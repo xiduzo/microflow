@@ -8,7 +8,7 @@ use super::control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, Trigge
 use super::external::{Figma, FigmaConfig, Llm, LlmConfig, Mqtt, MqttConfig};
 use super::generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
 use super::input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig, Switch, SwitchConfig};
-use super::output::{Led, LedConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
+use super::output::{Led, LedConfig, Matrix, MatrixConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
 use super::transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -100,6 +100,11 @@ impl ComponentRegistry {
             log::info!("Piezo config parsed: type={:?}, song_len={}, tempo={}", 
                 config.r#type, config.song.len(), config.tempo);
             Box::new(Piezo::new(id, config))
+        });
+
+        self.register_hardware("Matrix", |id, data| {
+            let config: MatrixConfig = serde_json::from_value(data.clone()).unwrap_or_default();
+            Box::new(Matrix::new(id, config))
         });
 
         // Monitor (software only - display component)
