@@ -157,7 +157,7 @@ const knobServo: Template = {
   ],
   edges: [
     { id: "e1", source: "pot-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
-    { id: "e2", source: "rangemap-1", target: "servo-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e2", source: "rangemap-1", target: "servo-1", sourceHandle: "to", targetHandle: "value" },
   ],
 };
 
@@ -191,7 +191,7 @@ const servoSweep: Template = {
   ],
   edges: [
     { id: "e1", source: "oscillator-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
-    { id: "e2", source: "rangemap-1", target: "servo-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e2", source: "rangemap-1", target: "servo-1", sourceHandle: "to", targetHandle: "value" },
   ],
 };
 

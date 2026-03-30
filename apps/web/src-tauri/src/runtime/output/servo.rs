@@ -106,7 +106,10 @@ impl Component for Servo {
         match method {
             "min" => self.min(),
             "max" => self.max(),
-            "value" => self.to(args.as_number().unwrap_or(90.0)),
+            "value" => match self.config.r#type {
+                ServoType::Standard => self.to(args.as_number().unwrap_or(90.0)),
+                ServoType::Continuous => self.rotate(args.as_number().unwrap_or(0.0)),
+            },
             "rotate" => self.rotate(args.as_number().unwrap_or(0.0)),
             "stop" => self.stop(),
             _ => Err(format!("Unknown method: {method}")),
