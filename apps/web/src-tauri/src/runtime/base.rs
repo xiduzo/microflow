@@ -279,6 +279,9 @@ impl BoardHandle {
                         Ok(BoardCommand::RegisterActivePin { pin }) => {
                             conn.active_pins.insert(pin);
                         }
+                        Ok(BoardCommand::ShiftOut { data_pin, clock_pin, value }) => {
+                            let _ = conn.shift_out(data_pin, clock_pin, value);
+                        }
                         Err(std::sync::mpsc::TryRecvError::Empty) => break,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                             log::info!("Firmata reader: command channel closed, stopping");
@@ -418,6 +421,10 @@ pub enum BoardCommand {
     ClearPinCache,
     /// Register a pin as active so `detect_and_emit_changes` checks it.
     RegisterActivePin { pin: u8 },
+    /// Shift out a byte MSB-first on data_pin, clocking clock_pin.
+    /// Equivalent to Arduino's shiftOut(dataPin, clockPin, MSBFIRST, value).
+    /// Performed atomically on the reader thread for correct timing.
+    ShiftOut { data_pin: u8, clock_pin: u8, value: u8 },
     Stop,
 }
 
@@ -476,6 +483,26 @@ impl BoardConnection {
         self.board
             .analog_write(i32::from(pin), i32::from(value))
             .map_err(|e| format!("Failed to analog write: {e}"))
+    }
+
+    /// Shift out a byte MSB-first, toggling data_pin and clock_pin.
+    /// This performs all the digital writes atomically on the reader thread,
+    /// matching Arduino's shiftOut(dataPin, clockPin, MSBFIRST, value).
+    pub fn shift_out(&mut self, data_pin: u8, clock_pin: u8, value: u8) -> Result<(), String> {
+        for i in 0..8 {
+            // Match J5 board.shiftOut exactly: CLK low → set data → CLK high
+            self.board
+                .digital_write(i32::from(clock_pin), 0)
+                .map_err(|e| format!("Failed to clock low: {e}"))?;
+            let bit = i32::from((value >> (7 - i)) & 1);
+            self.board
+                .digital_write(i32::from(data_pin), bit)
+                .map_err(|e| format!("Failed to shift data: {e}"))?;
+            self.board
+                .digital_write(i32::from(clock_pin), 1)
+                .map_err(|e| format!("Failed to clock high: {e}"))?;
+        }
+        Ok(())
     }
 
     pub fn digital_read(&mut self, pin: u8) -> Result<bool, String> {
