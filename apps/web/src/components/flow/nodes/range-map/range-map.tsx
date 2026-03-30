@@ -14,7 +14,7 @@ export function RangeMap(props: Props) {
       <Value />
       <Settings />
       <Handle type="target" position="left" id="value" handleType="value" />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <Handle type="source" position="right" id="to" handleType="value" />
     </NodeContainer>
   );
 }
