@@ -2,7 +2,7 @@
 //!
 //! A latching on/off toggle switch (as opposed to a momentary Button).
 //! Supports Normally-Open (NO) and Normally-Closed (NC) wiring.
-//! Reference: https://johnny-five.io/examples/switch/
+//! Reference: <https://johnny-five.io/examples/switch/>
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
@@ -13,18 +13,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SwitchType {
     /// Normally Open — circuit is open when not actuated
+    #[default]
     NO,
     /// Normally Closed — circuit is closed when not actuated
     NC,
-}
-
-impl Default for SwitchType {
-    fn default() -> Self {
-        SwitchType::NO
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
