@@ -9,7 +9,7 @@ import { folder } from "leva";
 
 export function Rgb(props: Props) {
   return (
-    <NodeContainer {...props}>
+    <NodeContainer {...props} className="min-w-sm">
       <Value />
       <Settings />
       <Handle type="target" position="left" id="red" handleType="value" hint="0-255" offset={-1.5} />

@@ -22,7 +22,7 @@ import { cva } from "class-variance-authority";
 import { OctagonAlertIcon, CableIcon } from "lucide-react";
 import { useFlowStore } from "@/stores/flow-store";
 import { usePins } from "@/stores/board";
-import { Pin } from "@/components/hardware/pin";
+import { Pin, pinDisplayValue } from "@/components/hardware/pin";
 import { Icon, type IconName } from "@/components/ui/icon";
 
 function NodeHeader(props: { error?: string }) {
@@ -86,7 +86,7 @@ function NodeDescription() {
           <div key={key} className="flex items-center gap-1">
             <CableIcon size={12} />
             <span className="font-extralight">
-              {key}: {String(value)}
+              {key}: {pinDisplayValue(value, pins)}
             </span>
           </div>
         ))}

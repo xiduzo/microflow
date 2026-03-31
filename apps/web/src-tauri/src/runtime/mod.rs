@@ -56,7 +56,7 @@ pub use control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerCo
 #[allow(unused_imports)]
 pub use generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
 #[allow(unused_imports)]
-pub use transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
+pub use transformation::{Calculate, CalculateConfig, CalculateFunction, Compare, CompareConfig, CompareValidator, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 
 use crate::hardware::board::BoardManager;
 use registry::ComponentRegistry;
