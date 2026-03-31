@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { baseDataSchema } from "../_base/_base.schema";
+import { DEFAULT_SONG } from "./piezo.constants";
 
 export const valueSchema = z.boolean();
 export type Value = z.infer<typeof valueSchema>;
@@ -17,8 +18,8 @@ const noteSchema = z.tuple([z.string().nullable(), z.number()]);
 const songDataSchema = baseDataSchema.extend({
   instance: z.literal("Piezo").default("Piezo"),
   type: z.literal("song").default("song"),
-  song: z.array(noteSchema).default([]),
-  tempo: z.number().default(120),
+  song: z.array(noteSchema).default(DEFAULT_SONG),
+  tempo: z.number().default(113),
   pin: z.number().default(11),
 });
 
