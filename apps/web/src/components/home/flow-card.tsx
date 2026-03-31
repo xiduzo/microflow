@@ -60,7 +60,7 @@ export function FlowCard(props: FlowCardProps) {
 
   return (
     <Card className="relative mx-auto w-full pt-0">
-      <section className="relative z-20 aspect-video w-full overflow-hidden">
+      <section className="relative z-20 aspect-video w-full overflow-hidden bg-background">
         <ReactFlowProvider>
           <FlowThumbnail nodes={props.nodes} edges={props.edges} />
         </ReactFlowProvider>

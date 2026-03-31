@@ -114,7 +114,7 @@ function TemplatesPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
               {featuredTemplates.map((template) => (
                 <Card className="relative mx-auto w-full pt-0 col-span-1">
-                  <section className="relative z-20 aspect-video w-full object-cover">
+                  <section className="relative z-20 aspect-video w-full object-cover bg-background">
                     <ReactFlowProvider>
                       <FlowThumbnail nodes={template.nodes} edges={template.edges} />
                     </ReactFlowProvider>
@@ -160,7 +160,7 @@ function TemplatesPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 pt-4">
                   {TEMPLATES.filter((t) => t.categories?.includes(category)).map((template) => (
                     <Card key={template.id} className="relative mx-auto w-full pt-0 col-span-1">
-                      <section className="relative z-20 aspect-video w-full object-cover">
+                      <section className="relative z-20 aspect-video w-full object-cover bg-background">
                         <ReactFlowProvider>
                           <FlowThumbnail nodes={template.nodes} edges={template.edges} />
                         </ReactFlowProvider>

@@ -289,7 +289,7 @@ export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
 }
 
 const node = cva(
-  "border-none backdrop-blur-sm min-w-80 transition-all duration-300 bg-muted-foreground/10 rounded-md",
+  "border-none backdrop-blur-sm min-w-80 transition-all duration-300 bg-card rounded-md",
   {
     variants: {
       draggable: { true: "active:cursor-grabbing", false: "" },
