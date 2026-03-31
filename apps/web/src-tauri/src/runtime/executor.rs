@@ -199,6 +199,14 @@ impl FlowExecutor {
             return false;
         }
 
+        // Keep the source component's stored value in sync with what it emitted.
+        // Components that emit from background threads (Interval, Oscillator, Delay, LLM)
+        // cannot call set_value() themselves because they lack &mut self. By updating here
+        // we guarantee collect_input_values() always sees the latest emitted value.
+        if let Some(component) = self.components.get_mut(event.source.as_ref()) {
+            component.set_value(event.value.clone());
+        }
+
         // Handle internal events (prefixed with _) by routing back to source component
         if event.source_handle.starts_with('_') {
             log::info!("Processing internal event: {} ({}) -> {:?}", 
@@ -255,7 +263,7 @@ impl FlowExecutor {
         true
     }
     
-    /// Collect current values from all components connected to a target's specific handle
+    /// Collect current values from all components connected to a target's specific handle.
     fn collect_input_values(&self, target_id: &str, target_handle: &str) -> Vec<ComponentValue> {
         self.edges
             .iter()
