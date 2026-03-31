@@ -1,7 +1,8 @@
 //! LED Matrix Component - Output (MAX7219)
 //!
-//! Drives a MAX7219-based LED matrix via bit-banged SPI using digital writes.
-//! Receives a shape index number and displays the corresponding pattern.
+//! Drives a MAX7219-based LED matrix via bit-banged SPI.
+//! Uses `ShiftOut` board command for atomic byte transfers matching
+//! Johnny-Five's `LedControl.send()` approach.
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
@@ -12,7 +13,6 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 // MAX7219 registers
-const REG_NOOP: u8 = 0x00;
 const REG_DECODE_MODE: u8 = 0x09;
 const REG_INTENSITY: u8 = 0x0A;
 const REG_SCAN_LIMIT: u8 = 0x0B;
@@ -64,6 +64,11 @@ pub struct Matrix {
 impl Matrix {
     #[must_use]
     pub fn new(id: String, config: MatrixConfig) -> Self {
+        log::info!(
+            "Matrix::new id={id} pins=(data={}, clock={}, cs={}) devices={} shapes={}",
+            config.pins.data, config.pins.clock, config.pins.cs,
+            config.devices, config.shapes.len()
+        );
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
@@ -72,95 +77,105 @@ impl Matrix {
         }
     }
 
-    /// Bit-bang a single byte out the data pin, MSB first.
-    fn shift_out(&self, board: &Arc<BoardHandle>, byte: u8) -> Result<(), String> {
-        for i in (0..8).rev() {
-            let bit = (byte >> i) & 1 == 1;
-            board.send_command(BoardCommand::DigitalWrite { pin: self.config.pins.data, value: bit })?;
-            board.send_command(BoardCommand::DigitalWrite { pin: self.config.pins.clock, value: true })?;
-            board.send_command(BoardCommand::DigitalWrite { pin: self.config.pins.clock, value: false })?;
-        }
-        Ok(())
-    }
+    /// Send a register+data command to a specific device in the chain.
+    /// Mirrors Johnny-Five's `LedControl.send()` approach:
+    /// - Build a buffer of (devices * 2) bytes, all zeros (NOOPs)
+    /// - Place opcode and data for the target device
+    /// - Pull CS low, shift out all bytes in reverse order, pull CS high
+    fn send(&self, board: &Arc<BoardHandle>, addr: u8, opcode: u8, data: u8) -> Result<(), String> {
+        let offset = (addr as usize) * 2;
+        let max_bytes = (self.config.devices as usize) * 2;
+        let mut spi_data = vec![0u8; max_bytes];
 
-    /// Send a register+data pair to all chained devices.
-    fn send_command_to_all(&self, board: &Arc<BoardHandle>, register: u8, data: u8) -> Result<(), String> {
-        board.send_command(BoardCommand::DigitalWrite { pin: self.config.pins.cs, value: false })?;
-        for _ in 0..self.config.devices {
-            self.shift_out(board, register)?;
-            self.shift_out(board, data)?;
-        }
-        board.send_command(BoardCommand::DigitalWrite { pin: self.config.pins.cs, value: true })?;
-        Ok(())
-    }
+        if (addr as usize) < self.config.devices as usize {
+            spi_data[offset + 1] = opcode;
+            spi_data[offset] = data;
 
-    /// Send a register+data pair to a specific device in the chain.
-    fn send_to_device(&self, board: &Arc<BoardHandle>, device: u8, register: u8, data: u8) -> Result<(), String> {
-        board.send_command(BoardCommand::DigitalWrite { pin: self.config.pins.cs, value: false })?;
-        // Devices are daisy-chained: last shifted data goes to first device.
-        // Send NOOPs to devices after the target, then the real command, then NOOPs before.
-        for d in (0..self.config.devices).rev() {
-            if d == device {
-                self.shift_out(board, register)?;
-                self.shift_out(board, data)?;
-            } else {
-                self.shift_out(board, REG_NOOP)?;
-                self.shift_out(board, 0)?;
+            board.send_command(BoardCommand::DigitalWrite {
+                pin: self.config.pins.cs,
+                value: false,
+            })?;
+
+            for j in (0..max_bytes).rev() {
+                board.send_command(BoardCommand::ShiftOut {
+                    data_pin: self.config.pins.data,
+                    clock_pin: self.config.pins.clock,
+                    value: spi_data[j],
+                })?;
             }
+
+            board.send_command(BoardCommand::DigitalWrite {
+                pin: self.config.pins.cs,
+                value: true,
+            })?;
         }
-        board.send_command(BoardCommand::DigitalWrite { pin: self.config.pins.cs, value: true })?;
+        Ok(())
+    }
+
+    /// Send a command to all devices.
+    fn send_to_all(&self, board: &Arc<BoardHandle>, opcode: u8, data: u8) -> Result<(), String> {
+        for device in 0..self.config.devices {
+            self.send(board, device, opcode, data)?;
+        }
         Ok(())
     }
 
     /// Initialize the MAX7219 chip(s).
     fn init_max7219(&self, board: &Arc<BoardHandle>) -> Result<(), String> {
-        self.send_command_to_all(board, REG_DISPLAY_TEST, 0)?;
-        self.send_command_to_all(board, REG_SCAN_LIMIT, 7)?;
-        self.send_command_to_all(board, REG_DECODE_MODE, 0)?;
-        self.send_command_to_all(board, REG_INTENSITY, 4)?;
-        self.send_command_to_all(board, REG_SHUTDOWN, 1)?;
-        // Clear all rows
-        for row in 1..=8 {
-            self.send_command_to_all(board, row, 0)?;
+        log::info!("Matrix {}: initializing MAX7219 (pins: data={}, clock={}, cs={})",
+            self.base.id, self.config.pins.data, self.config.pins.clock, self.config.pins.cs);
+        for device in 0..self.config.devices {
+            // Match J5 LedControl init order exactly — wrong order causes all LEDs to stay lit
+            self.send(board, device, REG_DECODE_MODE, 0)?;
+            self.send(board, device, REG_INTENSITY, 3)?;
+            self.send(board, device, REG_SCAN_LIMIT, 7)?;
+            self.send(board, device, REG_SHUTDOWN, 1)?;
+            self.send(board, device, REG_DISPLAY_TEST, 0)?;
+            for row in 1..=8 {
+                self.send(board, device, row, 0)?;
+            }
+            // J5 calls on() after clear, re-asserting normal operation
+            self.send(board, device, REG_SHUTDOWN, 1)?;
         }
+        log::info!("Matrix {}: MAX7219 initialized", self.base.id);
         Ok(())
     }
 
-    /// Display a shape (array of binary strings) on the matrix.
+    /// Display a shape on the matrix.
     fn display_shape(&self, board: &Arc<BoardHandle>, shape: &[String]) -> Result<(), String> {
-        let cols_per_device = 8u8;
         for device in 0..self.config.devices {
             for row in 0..8u8 {
                 let row_idx = row as usize;
                 let byte = if row_idx < shape.len() {
                     let row_str = &shape[row_idx];
-                    let start = (device as usize) * (cols_per_device as usize);
-                    let end = start + (cols_per_device as usize);
-                    // Parse the relevant 8-bit slice of this row
+                    let start = (device as usize) * 8;
+                    let end = start + 8;
                     if start < row_str.len() {
                         let slice_end = end.min(row_str.len());
-                        let slice = &row_str[start..slice_end];
-                        u8::from_str_radix(slice, 2).unwrap_or(0)
+                        u8::from_str_radix(&row_str[start..slice_end], 2).unwrap_or(0)
                     } else {
                         0
                     }
                 } else {
                     0
                 };
-                // MAX7219 rows are registers 1-8
-                self.send_to_device(board, device, row + 1, byte)?;
+                log::debug!("Matrix {}: row {} device {} = 0x{:02X} (0b{:08b})",
+                    self.base.id, row, device, byte, byte);
+                self.send(board, device, row + 1, byte)?;
             }
         }
         Ok(())
     }
 
-    /// Set shape by index, clamping to available shapes.
     fn set_shape(&mut self, index: usize) -> Result<(), String> {
         if self.config.shapes.is_empty() {
+            log::warn!("Matrix {}: no shapes configured", self.base.id);
             return Ok(());
         }
         let clamped = index.min(self.config.shapes.len() - 1);
         self.current_shape_index = clamped;
+        log::info!("Matrix {}: set_shape index={index} clamped={clamped} board={}",
+            self.base.id, self.board.is_some());
 
         if let Some(board) = &self.board {
             let board = Arc::clone(board);
@@ -168,7 +183,6 @@ impl Matrix {
             self.display_shape(&board, &shape)?;
         }
 
-        // Emit the current shape as the value (array of strings)
         let shape = &self.config.shapes[clamped];
         let val = ComponentValue::Array(
             shape.iter().map(|s| ComponentValue::String(s.clone())).collect()
@@ -177,11 +191,10 @@ impl Matrix {
         Ok(())
     }
 
-    /// Clear the display.
     fn clear(&mut self) -> Result<(), String> {
         if let Some(board) = &self.board {
             for row in 1..=8 {
-                self.send_command_to_all(board, row, 0)?;
+                self.send_to_all(board, row, 0)?;
             }
         }
         self.base.set_value(ComponentValue::Number(0.0));
@@ -197,19 +210,36 @@ impl Component for Matrix {
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
-        board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.data, mode: pin_mode::OUTPUT })?;
-        board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.clock, mode: pin_mode::OUTPUT })?;
-        board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.cs, mode: pin_mode::OUTPUT })?;
+        log::info!(
+            "Matrix {}: initialize called, board connected={}",
+            self.base.id, board.is_connected()
+        );
+        board.send_command(BoardCommand::SetPinMode {
+            pin: self.config.pins.data, mode: pin_mode::OUTPUT,
+        })?;
+        board.send_command(BoardCommand::SetPinMode {
+            pin: self.config.pins.clock, mode: pin_mode::OUTPUT,
+        })?;
+        board.send_command(BoardCommand::SetPinMode {
+            pin: self.config.pins.cs, mode: pin_mode::OUTPUT,
+        })?;
+        // MAX7219 LOAD idles HIGH — set before first transaction
+        board.send_command(BoardCommand::DigitalWrite {
+            pin: self.config.pins.cs,
+            value: true,
+        })?;
         self.board = Some(Arc::clone(&board));
         self.init_max7219(&board)?;
-        // Display first shape if available
         if !self.config.shapes.is_empty() {
+            log::info!("Matrix {}: displaying initial shape", self.base.id);
             self.set_shape(0)?;
         }
         Ok(())
     }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+        log::info!("Matrix {}: call_method '{}' board={}",
+            self.base.id, method, self.board.is_some());
         match method {
             "value" => {
                 let index = args.as_number().unwrap_or(0.0).round() as usize;
@@ -224,14 +254,18 @@ impl Component for Matrix {
     }
 
     fn destroy(&mut self) {
+        log::info!("Matrix {}: destroy", self.base.id);
         let _ = self.clear();
-        // Shutdown the MAX7219
         if let Some(board) = &self.board {
-            let _ = self.send_command_to_all(board, REG_SHUTDOWN, 0);
+            let _ = self.send_to_all(board, REG_SHUTDOWN, 0);
         }
         self.board = None;
     }
 
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
+    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
+        self.base.event_sender.clone()
+    }
+    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
+        self.base.event_sender = Some(sender);
+    }
 }
