@@ -362,6 +362,8 @@ export function buildCircuitCode(
   components.push(`
     <chip
       name="MCU"
+      manufacturerPartNumber="MCU"
+      displayName="MCU"
       footprint="${mcuFootprint}"
       pinLabels={{ ${mcuPinLabelEntries} }}
     />`);
