@@ -210,6 +210,9 @@ pub struct BoardHandle {
     reader_running: std::sync::atomic::AtomicBool,
     /// Handle to the reader thread for joining on stop
     reader_handle: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
+    /// Flag to cancel an in-progress tone on the reader thread.
+    /// Checked inside the `tone()` spin-loop so `NoTone` can interrupt it.
+    tone_cancel: std::sync::atomic::AtomicBool,
 }
 
 impl BoardHandle {
@@ -220,6 +223,7 @@ impl BoardHandle {
             connected: std::sync::atomic::AtomicBool::new(false),
             reader_running: std::sync::atomic::AtomicBool::new(false),
             reader_handle: std::sync::Mutex::new(None),
+            tone_cancel: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
@@ -281,6 +285,14 @@ impl BoardHandle {
                         }
                         Ok(BoardCommand::ShiftOut { data_pin, clock_pin, value }) => {
                             let _ = conn.shift_out(data_pin, clock_pin, value);
+                        }
+                        Ok(BoardCommand::Tone { pin, half_period_us, duration_ms }) => {
+                            handle_clone.tone_cancel.store(false, std::sync::atomic::Ordering::Release);
+                            let _ = conn.tone(pin, half_period_us, duration_ms, &handle_clone.tone_cancel);
+                        }
+                        Ok(BoardCommand::NoTone { pin }) => {
+                            handle_clone.tone_cancel.store(true, std::sync::atomic::Ordering::Release);
+                            let _ = conn.no_tone(pin);
                         }
                         Err(std::sync::mpsc::TryRecvError::Empty) => break,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
@@ -425,6 +437,11 @@ pub enum BoardCommand {
     /// Equivalent to Arduino's shiftOut(dataPin, clockPin, MSBFIRST, value).
     /// Performed atomically on the reader thread for correct timing.
     ShiftOut { data_pin: u8, clock_pin: u8, value: u8 },
+    /// Play a tone by toggling a pin at the given half-period (µs) for duration (ms).
+    /// Executed directly on the reader thread for tight timing (no channel overhead).
+    Tone { pin: u8, half_period_us: u32, duration_ms: u32 },
+    /// Stop tone and drive pin low.
+    NoTone { pin: u8 },
     Stop,
 }
 
@@ -503,6 +520,46 @@ impl BoardConnection {
                 .map_err(|e| format!("Failed to clock high: {e}"))?;
         }
         Ok(())
+
+    }
+
+    /// Play a tone by toggling a digital pin at the given half-period.
+    /// Runs directly on the reader thread for tight timing — mirrors J5's
+    /// DEFAULT controller approach (OUTPUT mode + digitalWrite toggling).
+    pub fn tone(&mut self, pin: u8, half_period_us: u32, duration_ms: u32, cancel: &std::sync::atomic::AtomicBool) -> Result<(), String> {
+        let half_period = std::time::Duration::from_micros(u64::from(half_period_us));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(u64::from(duration_ms));
+        let mut value = 1;
+
+        while std::time::Instant::now() < deadline {
+            if cancel.load(std::sync::atomic::Ordering::Acquire) {
+                break;
+            }
+            let _ = self.board.digital_write(i32::from(pin), value);
+            value = if value == 1 { 0 } else { 1 };
+            // Spin-sleep for accurate sub-millisecond timing
+            let target = std::time::Instant::now() + half_period;
+            if half_period > std::time::Duration::from_millis(1) {
+                std::thread::sleep(half_period - std::time::Duration::from_micros(500));
+            }
+            while std::time::Instant::now() < target {
+                if cancel.load(std::sync::atomic::Ordering::Acquire) {
+                    break;
+                }
+                std::hint::spin_loop();
+            }
+        }
+
+        // Ensure pin is low when done
+        let _ = self.board.digital_write(i32::from(pin), 0);
+        Ok(())
+    }
+
+    /// Stop tone — drive pin low.
+    pub fn no_tone(&mut self, pin: u8) -> Result<(), String> {
+        self.board
+            .digital_write(i32::from(pin), 0)
+            .map_err(|e| format!("Failed to stop tone: {e}"))
     }
 
     pub fn digital_read(&mut self, pin: u8) -> Result<bool, String> {

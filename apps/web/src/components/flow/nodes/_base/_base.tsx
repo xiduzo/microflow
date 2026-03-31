@@ -145,8 +145,15 @@ export const useNodeControls = <
     [id, getNode, onNodesChange, updateNodeInternals],
   );
 
+  // Defer the Leva → node sync so that any setNodeData() calls made from
+  // onChange callbacks (which fire synchronously before this effect) have
+  // time to commit through the Yjs → ReactFlow cycle first.  Without the
+  // deferral, getNode(id) inside updateNodeData reads stale data and the
+  // merge silently drops fields that were just set by onChange/setNodeData.
   useEffect(() => {
-    updateNodeData(controlsData as Data);
+    requestAnimationFrame(() => {
+      updateNodeData(controlsData as Data);
+    });
   }, [controlsData]);
 
   /**

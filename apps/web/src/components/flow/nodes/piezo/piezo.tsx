@@ -2,7 +2,6 @@ import { button, folder } from "leva";
 import { Handle } from "../../handle";
 import {
   NodeContainer,
-  useDeleteHandles,
   useNodeControls,
   useNodeData,
   type BaseNode,
@@ -62,8 +61,6 @@ function Settings() {
   const data = useNodeData<Data>();
   const pins = usePins([MODES.INPUT, MODES.PWM]);
   const [editorOpened, setEditorOpened] = useState(false);
-  const deleteHandles = useDeleteHandles();
-
   const { render, setNodeData } = useNodeControls<Data>(
     {
       pin: { options: pins.reduce(reducePinsToOptions, {}), value: data.pin },
@@ -72,11 +69,11 @@ function Settings() {
         value: data.type,
         transient: false,
         onChange: (event) => {
-          deleteHandles(event === "song" ? ["trigger"] : ["trigger"]);
           setNodeData({
             ...data,
             type: event,
-            tempo: event === "song" ? 120 : undefined,
+            tempo: event === "song" ? 113 : undefined,
+            song: event === "song" ? ((data as SongData).song?.length ? (data as SongData).song : DEFAULT_SONG) : undefined,
             duration: event === "buzz" ? 500 : undefined,
           });
         },
@@ -100,13 +97,13 @@ function Settings() {
           render: (get) => get("type") === "buzz",
         }
       ),
-      song: folder(
+      songSettings: folder(
         {
           tempo: {
             min: 40,
             max: 240,
-            step: 10,
-            value: (data as SongData).tempo ?? 120,
+            step: 1,
+            value: (data as SongData).tempo ?? 113,
           },
           "edit song": button(() => setEditorOpened(true)),
         },

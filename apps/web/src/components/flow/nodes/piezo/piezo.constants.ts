@@ -110,23 +110,40 @@ export const NOTE_DURATION = {
 export const DEFAULT_NOTE = "C4";
 export const DEFAULT_NOTE_DURATION = NOTE_DURATION.Quarter;
 
+// "Never Gonna Give You Up" - Rick Astley (chorus melody, 113 BPM)
 export const DEFAULT_SONG: [string | null, number][] = [
-  ["C4", NOTE_DURATION.Quarter],
-  ["D4", NOTE_DURATION.Quarter],
-  ["F4", NOTE_DURATION.Quarter],
-  ["D4", NOTE_DURATION.Quarter],
+  // "Never gonna"
   ["A4", NOTE_DURATION.Quarter],
-  [null, NOTE_DURATION.Quarter],
-  ["A4", NOTE_DURATION.Whole],
-  ["G4", NOTE_DURATION.Whole],
-  [null, NOTE_DURATION.Half],
-  ["C4", NOTE_DURATION.Quarter],
-  ["D4", NOTE_DURATION.Quarter],
-  ["F4", NOTE_DURATION.Quarter],
-  ["D4", NOTE_DURATION.Quarter],
-  ["G4", NOTE_DURATION.Quarter],
-  [null, NOTE_DURATION.Quarter],
-  ["G4", NOTE_DURATION.Whole],
-  ["F4", NOTE_DURATION.Whole],
-  [null, NOTE_DURATION.Half],
+  ["B4", NOTE_DURATION.Quarter],
+  ["D5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "give you up"
+  ["F#5", NOTE_DURATION.Half],
+  ["F#5", NOTE_DURATION.Half],
+  ["E5", NOTE_DURATION.Whole],
+  // "Never gonna"
+  ["A4", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  ["D5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "let you down"
+  ["E5", NOTE_DURATION.Half],
+  ["E5", NOTE_DURATION.Half],
+  ["D5", NOTE_DURATION.Half],
+  ["C#5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "Never gonna"
+  ["A4", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  ["D5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "run around and"
+  ["D5", NOTE_DURATION.Half],
+  ["E5", NOTE_DURATION.Half],
+  ["C#5", NOTE_DURATION.Half],
+  ["A4", NOTE_DURATION.Quarter],
+  // "desert you"
+  ["A4", NOTE_DURATION.Quarter],
+  ["E5", NOTE_DURATION.Half],
+  ["D5", NOTE_DURATION.Whole],
 ];

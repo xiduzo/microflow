@@ -199,14 +199,6 @@ impl FlowExecutor {
             return false;
         }
 
-        // Keep the source component's stored value in sync with what it emitted.
-        // Components that emit from background threads (Interval, Oscillator, Delay, LLM)
-        // cannot call set_value() themselves because they lack &mut self. By updating here
-        // we guarantee collect_input_values() always sees the latest emitted value.
-        if let Some(component) = self.components.get_mut(event.source.as_ref()) {
-            component.set_value(event.value.clone());
-        }
-
         // Handle internal events (prefixed with _) by routing back to source component
         if event.source_handle.starts_with('_') {
             log::info!("Processing internal event: {} ({}) -> {:?}", 
@@ -220,6 +212,18 @@ impl FlowExecutor {
                 }
             }
             return true;
+        }
+
+        // Keep the source component's stored value in sync with what it emitted.
+        // Components that emit from background threads (Interval, Oscillator, Delay, LLM)
+        // cannot call set_value() themselves because they lack &mut self. By updating here
+        // we guarantee collect_input_values() always sees the latest emitted value.
+        // NOTE: This must happen AFTER the internal-event early return above, because
+        // internal handlers (e.g. auto_stop) call set_value() themselves and rely on
+        // change detection to emit a "value" event to the frontend. Pre-setting the value
+        // here would suppress that emission.
+        if let Some(component) = self.components.get_mut(event.source.as_ref()) {
+            component.set_value(event.value.clone());
         }
 
         log::info!("Processing event: {} ({}) -> looking for edges (total edges: {})", 
