@@ -70,7 +70,7 @@ impl Component for ThreadEmitter {
     }
 }
 
-/// A simple sink that stores whatever it receives via call_method.
+/// A simple sink that stores whatever it receives via `call_method`.
 struct Sink {
     base: ComponentBase,
 }
@@ -138,7 +138,7 @@ fn test_executor_syncs_stored_value_across_multiple_events() {
     executor.set_edges(vec![edge("emitter", "value", "sink", "value")]);
 
     for i in 1..=5 {
-        let val = i as f64 * 100.0;
+        let val = f64::from(i) * 100.0;
         executor.process_event(event("emitter", "value", ComponentValue::Number(val)));
         assert_eq!(
             executor.get_component("emitter").unwrap().value(),
@@ -238,7 +238,7 @@ fn test_calculate_add_with_thread_emitter() {
 // ---------------------------------------------------------------------------
 
 /// Calculate must emit its result downstream after processing.
-/// Before the fix, Calculate called set_value but never emitted, so
+/// Before the fix, Calculate called `set_value` but never emitted, so
 /// downstream nodes were never reached.
 #[test]
 fn test_calculate_emits_downstream() {
@@ -273,7 +273,7 @@ fn test_calculate_emits_downstream() {
 // Smooth transformation: set_value auto-emits, verify propagation
 // ---------------------------------------------------------------------------
 
-/// Smooth calls set_value which auto-emits "value". Verify the stored value
+/// Smooth calls `set_value` which auto-emits "value". Verify the stored value
 /// is correct after processing.
 #[test]
 fn test_smooth_updates_stored_value() {
