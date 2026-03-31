@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { isDesktop } from '@/lib/platform';
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
 
@@ -45,14 +46,17 @@ export function useUpdater() {
     setState(s => ({ ...s, status: 'downloading', progress: 0 }));
 
     try {
+      let contentLength = 0;
+      let downloaded = 0;
+
       await state.update.downloadAndInstall((event) => {
-        if (event.event === 'Started' && event.data.contentLength) {
+        if (event.event === 'Started') {
+          contentLength = event.data.contentLength ?? 0;
           setState(s => ({ ...s, progress: 0 }));
         } else if (event.event === 'Progress') {
-          setState(s => ({
-            ...s,
-            progress: Math.round((event.data.chunkLength / (event.data.contentLength || 1)) * 100),
-          }));
+          downloaded += event.data.chunkLength;
+          const percent = contentLength > 0 ? Math.round((downloaded / contentLength) * 100) : 0;
+          setState(s => ({ ...s, progress: percent }));
         } else if (event.event === 'Finished') {
           setState(s => ({ ...s, status: 'ready', progress: 100 }));
         }
@@ -69,9 +73,9 @@ export function useUpdater() {
     await relaunch();
   }, []);
 
-  // Check for updates on mount (only in production)
+  // Check for updates on mount (only in Tauri desktop + production)
   useEffect(() => {
-    if (import.meta.env.PROD) {
+    if (isDesktop() && import.meta.env.PROD) {
       checkForUpdates();
     }
   }, [checkForUpdates]);
