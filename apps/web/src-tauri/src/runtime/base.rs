@@ -421,7 +421,7 @@ pub enum BoardCommand {
     ClearPinCache,
     /// Register a pin as active so `detect_and_emit_changes` checks it.
     RegisterActivePin { pin: u8 },
-    /// Shift out a byte MSB-first on data_pin, clocking clock_pin.
+    /// Shift out a byte MSB-first on `data_pin`, clocking `clock_pin`.
     /// Equivalent to Arduino's shiftOut(dataPin, clockPin, MSBFIRST, value).
     /// Performed atomically on the reader thread for correct timing.
     ShiftOut { data_pin: u8, clock_pin: u8, value: u8 },
@@ -485,7 +485,7 @@ impl BoardConnection {
             .map_err(|e| format!("Failed to analog write: {e}"))
     }
 
-    /// Shift out a byte MSB-first, toggling data_pin and clock_pin.
+    /// Shift out a byte MSB-first, toggling `data_pin` and `clock_pin`.
     /// This performs all the digital writes atomically on the reader thread,
     /// matching Arduino's shiftOut(dataPin, clockPin, MSBFIRST, value).
     pub fn shift_out(&mut self, data_pin: u8, clock_pin: u8, value: u8) -> Result<(), String> {

@@ -1,8 +1,8 @@
 //! LED Matrix Component - Output (MAX7219)
 //!
 //! Drives a MAX7219-based LED matrix via bit-banged SPI.
-//! Uses ShiftOut board command for atomic byte transfers matching
-//! Johnny-Five's LedControl.send() approach.
+//! Uses `ShiftOut` board command for atomic byte transfers matching
+//! Johnny-Five's `LedControl.send()` approach.
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
@@ -78,7 +78,7 @@ impl Matrix {
     }
 
     /// Send a register+data command to a specific device in the chain.
-    /// Mirrors Johnny-Five's LedControl.send() approach:
+    /// Mirrors Johnny-Five's `LedControl.send()` approach:
     /// - Build a buffer of (devices * 2) bytes, all zeros (NOOPs)
     /// - Place opcode and data for the target device
     /// - Pull CS low, shift out all bytes in reverse order, pull CS high
