@@ -536,11 +536,11 @@ impl BoardConnection {
                 break;
             }
             let _ = self.board.digital_write(i32::from(pin), value);
-            value = if value == 1 { 0 } else { 1 };
+            value = i32::from(value != 1);
             // Spin-sleep for accurate sub-millisecond timing
             let target = std::time::Instant::now() + half_period;
             if half_period > std::time::Duration::from_millis(1) {
-                std::thread::sleep(half_period - std::time::Duration::from_micros(500));
+                std::thread::sleep(half_period.checked_sub(std::time::Duration::from_micros(500)).unwrap());
             }
             while std::time::Instant::now() < target {
                 if cancel.load(std::sync::atomic::Ordering::Acquire) {

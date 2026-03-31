@@ -1,8 +1,8 @@
 //! Piezo Buzzer Component - Output
 //!
-//! Tone generation uses the Johnny-Five approach: OUTPUT mode + DigitalWrite
+//! Tone generation uses the Johnny-Five approach: OUTPUT mode + `DigitalWrite`
 //! toggling at the note's half-period to produce a square wave at the desired
-//! frequency. The toggling runs on the Firmata reader thread (via BoardCommand::Tone)
+//! frequency. The toggling runs on the Firmata reader thread (via `BoardCommand::Tone`)
 //! for tight timing with direct serial access — no channel overhead per toggle.
 
 use crate::runtime::base::{
@@ -83,7 +83,7 @@ fn note_frequencies() -> HashMap<&'static str, u16> {
 }
 
 /// Convert frequency (Hz) to half-period (microseconds).
-/// J5 approach: tone = round((1/freq) / 2 * 1_000_000)
+/// J5 approach: tone = round((1/freq) / 2 * `1_000_000`)
 fn hz_to_half_period_us(freq: u16) -> u32 {
     if freq == 0 { return 0; }
     500_000 / u32::from(freq)
