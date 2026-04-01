@@ -2578,7 +2578,7 @@ dependencies = [
 
 [[package]]
 name = "microflow"
-version = "0.3.0"
+version = "0.4.1"
 dependencies = [
  "criterion",
  "firmata-rs",
