@@ -38,7 +38,7 @@ impl Led {
         }
     }
 
-    pub fn turn_on(&mut self) -> Result<(), String> {
+    pub fn turn_on(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: true })?;
@@ -48,7 +48,7 @@ impl Led {
         Ok(())
     }
 
-    pub fn turn_off(&mut self) -> Result<(), String> {
+    pub fn turn_off(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: false })?;
@@ -58,11 +58,11 @@ impl Led {
         Ok(())
     }
 
-    pub fn toggle(&mut self) -> Result<(), String> {
+    pub fn toggle(&mut self) -> Result<(), crate::error::RuntimeError> {
         if self.is_on { self.turn_off() } else { self.turn_on() }
     }
 
-    pub fn brightness(&mut self, value: u8) -> Result<(), String> {
+    pub fn brightness(&mut self, value: u8) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::PWM })?;
@@ -86,20 +86,20 @@ impl Component for Led {
     fn component_type(&self) -> &'static str { "Led" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::OUTPUT })?;
         board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: false })?;
         self.board = Some(board);
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "true" => self.turn_on(),
             "false" => self.turn_off(),
             "toggle" => self.toggle(),
             "value" => self.brightness(args.as_u8().unwrap_or(255)),
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

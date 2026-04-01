@@ -33,6 +33,7 @@ pub struct Interval {
     config: IntervalConfig,
     running: Arc<AtomicBool>,
     started: bool,
+    thread_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Interval {
@@ -43,6 +44,7 @@ impl Interval {
             config,
             running: Arc::new(AtomicBool::new(false)),
             started: false,
+            thread_handle: None,
         }
     }
 
@@ -63,7 +65,7 @@ impl Interval {
 
         log::info!("Interval {source} starting with {interval_ms}ms interval");
 
-        std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || {
             log::info!("Interval {source} thread started");
             let start = std::time::Instant::now();
             let mut tick_count = 0u64;
@@ -97,10 +99,15 @@ impl Interval {
             }
             log::info!("Interval {source} thread stopped after {tick_count} ticks");
         });
+
+        self.thread_handle = Some(handle);
     }
 
     pub fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
+        if let Some(handle) = self.thread_handle.take() {
+            let _ = handle.join();
+        }
         self.started = false;
     }
 }
@@ -111,13 +118,13 @@ impl Component for Interval {
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Interval" }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> { Ok(()) }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "start" => { self.start(); Ok(()) }
             "stop" => { self.stop(); Ok(()) }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

@@ -69,9 +69,9 @@ impl Component for Gate {
     fn component_type(&self) -> &'static str { "Gate" }
     fn aggregates_inputs(&self) -> bool { true }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> { Ok(()) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "value" => {
                 log::info!("[Gate {}] call_method '{}' with args: {:?}", self.base.id, method, args);
@@ -97,7 +97,7 @@ impl Component for Gate {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

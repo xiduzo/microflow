@@ -163,7 +163,7 @@ pub async fn flow_update(
     log::info!("[MQTT] Found {} MQTT nodes in flow", mqtt_nodes.len());
 
     // Check if board is connected (only affects hardware init, not MQTT/Figma)
-    let board_connected = *state.board_connected.read().unwrap();
+    let board_connected = *state.board_connected.read().unwrap_or_else(std::sync::PoisonError::into_inner);
 
     // Always apply the flow so components (Figma, Interval, etc.) are created
     // and MQTT subscriptions can be set up regardless of board connectivity.
@@ -186,7 +186,7 @@ pub async fn flow_update(
         } else {
             // Store as pending so hardware init runs when the board connects later
             log::info!("Board not connected — storing pending flow for hardware init on connect");
-            *state.pending_flow.write().unwrap() = Some(flow);
+            *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(flow);
         }
     }
 
@@ -342,5 +342,5 @@ pub async fn component_call(
 
     // Use async lock for tokio::sync::Mutex
     let mut runtime = state.flow_runtime.lock().await;
-    runtime.call_component(&component_id, &method, value)
+    Ok(runtime.call_component(&component_id, &method, value)?)
 }

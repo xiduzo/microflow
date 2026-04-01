@@ -88,7 +88,7 @@ export function Home() {
         status={appStatus}
         actions={
           <IconButton
-            onClick={() => window.open("https://microflow.vercel.app/", "_blank")}
+            onClick={() => window.open("https://microflow.tech/", "_blank")}
           >
             <ExternalLink size={16} />
           </IconButton>

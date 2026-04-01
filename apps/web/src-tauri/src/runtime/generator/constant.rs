@@ -41,10 +41,10 @@ impl Component for Constant {
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Constant" }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> { Ok(()) }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
-        Err(format!("Unknown method: {method}"))
+    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}")))
     }
 
     fn destroy(&mut self) {}

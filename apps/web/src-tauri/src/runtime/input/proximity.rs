@@ -99,7 +99,7 @@ impl Component for Proximity {
     fn component_type(&self) -> &'static str { "Proximity" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         let pin = self.config.analog_pin();
         log::info!("Proximity initialize: pin={pin}");
         board.send_command(BoardCommand::SetPinMode { pin, mode: pin_mode::ANALOG })?;
@@ -109,7 +109,7 @@ impl Component for Proximity {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "read" => Ok(()),
             "pin_change" => {
@@ -119,7 +119,7 @@ impl Component for Proximity {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

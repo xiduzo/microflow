@@ -42,7 +42,7 @@ impl Relay {
         Self { base: ComponentBase::new(id, ComponentValue::Bool(false)), config, board: None, is_open: false }
     }
 
-    pub fn open(&mut self) -> Result<(), String> {
+    pub fn open(&mut self) -> Result<(), crate::error::RuntimeError> {
         let signal = matches!(self.config.r#type, RelayType::NO);
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: signal })?;
@@ -52,7 +52,7 @@ impl Relay {
         Ok(())
     }
 
-    pub fn close(&mut self) -> Result<(), String> {
+    pub fn close(&mut self) -> Result<(), crate::error::RuntimeError> {
         let signal = matches!(self.config.r#type, RelayType::NC);
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: signal })?;
@@ -62,7 +62,7 @@ impl Relay {
         Ok(())
     }
 
-    pub fn toggle(&mut self) -> Result<(), String> {
+    pub fn toggle(&mut self) -> Result<(), crate::error::RuntimeError> {
         if self.is_open { self.close() } else { self.open() }
     }
 }
@@ -74,18 +74,18 @@ impl Component for Relay {
     fn component_type(&self) -> &'static str { "Relay" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::OUTPUT })?;
         self.board = Some(board);
         self.close()
     }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "true" => self.open(),
             "false" => self.close(),
             "toggle" => self.toggle(),
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

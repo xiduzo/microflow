@@ -143,7 +143,7 @@ impl Component for Mqtt {
         "Mqtt"
     }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!(
             "[MQTT] Component {} initialized: broker={}, direction={}, topic={}",
             self.base.id,
@@ -154,11 +154,11 @@ impl Component for Mqtt {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => {
                 if !self.is_publish() {
-                    return Err("This MQTT node is configured for subscribe, not publish".to_string());
+                    return Err(crate::error::RuntimeError::ComponentError("This MQTT node is configured for subscribe, not publish".to_string()));
                 }
 
                 // Store the value and emit it - the lib.rs event handler will publish it
@@ -184,7 +184,7 @@ impl Component for Mqtt {
                 self.base.emit_with_value("_mqtt_publish", Cow::Owned(ComponentValue::String(publish_info.to_string())));
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

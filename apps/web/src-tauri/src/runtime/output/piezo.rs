@@ -111,7 +111,7 @@ impl Piezo {
         }
     }
 
-    pub fn buzz(&mut self) -> Result<(), String> {
+    pub fn buzz(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop()?;
         if self.config.r#type != PiezoType::Buzz { return Ok(()); }
         // Fresh token for this buzz
@@ -119,10 +119,10 @@ impl Piezo {
         self.buzz_once(self.config.frequency as u16, self.config.duration)
     }
 
-    fn buzz_once(&mut self, freq: u16, duration_ms: u32) -> Result<(), String> {
+    fn buzz_once(&mut self, freq: u16, duration_ms: u32) -> Result<(), crate::error::RuntimeError> {
         let board = match &self.board {
             Some(b) => Arc::clone(b),
-            None => return Err("No board connected".to_string()),
+            None => return Err(crate::error::RuntimeError::BoardNotConnected),
         };
 
         let pin = self.config.pin;
@@ -152,7 +152,7 @@ impl Piezo {
         Ok(())
     }
 
-    fn handle_auto_stop(&mut self) -> Result<(), String> {
+    fn handle_auto_stop(&mut self) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             let _ = board.send_command(BoardCommand::NoTone { pin: self.config.pin });
         }
@@ -161,13 +161,13 @@ impl Piezo {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<(), String> {
+    pub fn stop(&mut self) -> Result<(), crate::error::RuntimeError> {
         // Signal any background thread (buzz or song) to exit early
         self.cancel_token.store(true, Ordering::Release);
         self.handle_auto_stop()
     }
 
-    pub fn play(&mut self) -> Result<(), String> {
+    pub fn play(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop()?;
 
         log::info!("Piezo play() called - type: {:?}, song length: {}", self.config.r#type, self.config.song.len());
@@ -185,7 +185,7 @@ impl Piezo {
 
         let board = match &self.board {
             Some(b) => Arc::clone(b),
-            None => return Err("No board connected".to_string()),
+            None => return Err(crate::error::RuntimeError::BoardNotConnected),
         };
 
         let song = self.config.song.clone();
@@ -282,7 +282,7 @@ impl Component for Piezo {
     fn component_type(&self) -> &'static str { "Piezo" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         // Use OUTPUT mode like J5 — we generate frequency via DigitalWrite toggling
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::OUTPUT })?;
         board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: false })?;
@@ -290,7 +290,7 @@ impl Component for Piezo {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => {
                 match self.config.r#type {
@@ -299,7 +299,7 @@ impl Component for Piezo {
                 }
             }
             "stop" | "auto_stop" => self.handle_auto_stop(),
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

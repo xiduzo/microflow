@@ -30,8 +30,8 @@ impl Component for BenchComponent {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, v: ComponentValue) { self.base.value = v; }
     fn component_type(&self) -> &'static str { "Bench" }
-    fn initialize(&mut self, _: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
-    fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), String> {
+    fn initialize(&mut self, _: Arc<BoardHandle>) -> Result<(), app_lib::RuntimeError> { Ok(()) }
+    fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.base.value = args;
         Ok(())
     }

@@ -1,7 +1,7 @@
 /** @jsxImportSource preact */
 import { useState } from "preact/hooks";
 import { IconButton } from "@create-figma-plugin/ui";
-import { ClipboardList, Radio, RadioTower, Link, Check, Palette, HelpCircle } from "lucide-react";
+import { ClipboardList, Radio, RadioTower, Check, Palette, HelpCircle } from "lucide-react";
 import { type FullVariable, MSG, messages, sendToPlugin } from "../../common/messages";
 import { PageContent, PageHeader } from "../components/PageLayout";
 import { useMessageListener } from "../hooks/use-message-listener";
@@ -28,7 +28,7 @@ export function Variables() {
             onClick={() =>
               sendToPlugin(
                 messages.openLink(
-                  "https://microflow.vercel.app/docs/microflow-hardware-bridge/variables/manipulating#updating-variables-from-within-a-prototype",
+                  "https://docs.microflow.tech/docs/microflow-hardware-bridge/variables/manipulating#updating-variables-from-within-a-prototype",
                 ),
               )
             }
@@ -105,13 +105,8 @@ function VariableRow(props: { variable: FullVariable; uniqueId?: string }) {
         />
         <CopyBtn
           title="Copy subscribe topic"
-          text={`microflow/${uniqueId}/plugin/variable/${shortVarId(variable.id)}`}
+          text={`microflow/${uniqueId}/figma/variable/${shortVarId(variable.id)}`}
           icon={<Radio size={12} />}
-        />
-        <CopyBtn
-          title="Copy prototype link"
-          text={`https://microflow.vercel.app/set/${variable.id}/YOUR_VALUE`}
-          icon={<Link size={12} />}
         />
       </div>
     </div>

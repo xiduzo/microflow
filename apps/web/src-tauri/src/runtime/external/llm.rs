@@ -188,7 +188,7 @@ impl Component for Llm {
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Llm" }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         if self.rt_handle.is_none() {
             self.rt_handle = tokio::runtime::Handle::try_current().ok();
         }
@@ -197,7 +197,7 @@ impl Component for Llm {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => {
                 // Signal thinking state on dedicated handle so UI updates immediately

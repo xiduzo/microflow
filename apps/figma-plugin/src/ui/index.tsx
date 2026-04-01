@@ -91,7 +91,7 @@ function MqttConnection() {
 
   useEffect(() => {
     if (!mqttConfig) return;
-    connect(mqttConfig, "plugin");
+    connect(mqttConfig, "figma");
   }, [connect, mqttConfig]);
 
   return null;

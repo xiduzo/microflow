@@ -59,14 +59,14 @@ impl Rgb {
         Self { base: ComponentBase::new(id, RgbaColor::default().into()), config, board: None, color: RgbaColor::default() }
     }
 
-    pub fn red(&mut self, value: u8) -> Result<(), String> { self.color.r = value; self.update_hardware() }
-    pub fn green(&mut self, value: u8) -> Result<(), String> { self.color.g = value; self.update_hardware() }
-    pub fn blue(&mut self, value: u8) -> Result<(), String> { self.color.b = value; self.update_hardware() }
-    pub fn alpha(&mut self, value: f64) -> Result<(), String> { self.color.a = (value / 100.0).clamp(0.0, 1.0); self.update_hardware() }
+    pub fn red(&mut self, value: u8) -> Result<(), crate::error::RuntimeError> { self.color.r = value; self.update_hardware() }
+    pub fn green(&mut self, value: u8) -> Result<(), crate::error::RuntimeError> { self.color.g = value; self.update_hardware() }
+    pub fn blue(&mut self, value: u8) -> Result<(), crate::error::RuntimeError> { self.color.b = value; self.update_hardware() }
+    pub fn alpha(&mut self, value: f64) -> Result<(), crate::error::RuntimeError> { self.color.a = (value / 100.0).clamp(0.0, 1.0); self.update_hardware() }
 
-    pub fn off(&mut self) -> Result<(), String> { self.color = RgbaColor::default(); self.update_hardware() }
+    pub fn off(&mut self) -> Result<(), crate::error::RuntimeError> { self.color = RgbaColor::default(); self.update_hardware() }
 
-    fn update_hardware(&mut self) -> Result<(), String> {
+    fn update_hardware(&mut self) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             let (r, g, b) = self.apply_intensity();
             let (r, g, b) = self.apply_anode(r, g, b);
@@ -94,7 +94,7 @@ impl Component for Rgb {
     fn component_type(&self) -> &'static str { "Rgb" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.red, mode: pin_mode::PWM })?;
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.green, mode: pin_mode::PWM })?;
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pins.blue, mode: pin_mode::PWM })?;
@@ -102,14 +102,14 @@ impl Component for Rgb {
         self.off()
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "red" => self.red(args.as_u8().unwrap_or(0)),
             "green" => self.green(args.as_u8().unwrap_or(0)),
             "blue" => self.blue(args.as_u8().unwrap_or(0)),
             "alpha" => self.alpha(args.as_number().unwrap_or(100.0)),
             "off" => self.off(),
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

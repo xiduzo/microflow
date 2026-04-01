@@ -61,10 +61,10 @@ impl Servo {
         Self { base: ComponentBase::new(id, ComponentValue::Number(f64::from(initial_pos))), config, board: None, current_position: initial_pos }
     }
 
-    pub fn min(&mut self) -> Result<(), String> { self.to(f64::from(self.config.range.min)) }
-    pub fn max(&mut self) -> Result<(), String> { self.to(f64::from(self.config.range.max)) }
+    pub fn min(&mut self) -> Result<(), crate::error::RuntimeError> { self.to(f64::from(self.config.range.min)) }
+    pub fn max(&mut self) -> Result<(), crate::error::RuntimeError> { self.to(f64::from(self.config.range.max)) }
 
-    pub fn to(&mut self, position: f64) -> Result<(), String> {
+    pub fn to(&mut self, position: f64) -> Result<(), crate::error::RuntimeError> {
         if position.is_nan() { return Ok(()); }
         let clamped = position.clamp(f64::from(self.config.range.min), f64::from(self.config.range.max)) as u16;
         if let Some(board) = &self.board {
@@ -75,8 +75,8 @@ impl Servo {
         Ok(())
     }
 
-    pub fn rotate(&mut self, speed: f64) -> Result<(), String> {
-        if self.config.r#type != ServoType::Continuous { return Err("Rotate only works with continuous servos".to_string()); }
+    pub fn rotate(&mut self, speed: f64) -> Result<(), crate::error::RuntimeError> {
+        if self.config.r#type != ServoType::Continuous { return Err(crate::error::RuntimeError::ComponentError("Rotate only works with continuous servos".to_string())); }
         let servo_value = if speed.abs() < 0.05 { 90 } else { ((speed + 1.0) * 90.0).clamp(0.0, 180.0) as u16 };
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: servo_value })?;
@@ -85,7 +85,7 @@ impl Servo {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<(), String> { self.rotate(0.0) }
+    pub fn stop(&mut self) -> Result<(), crate::error::RuntimeError> { self.rotate(0.0) }
 }
 
 impl Component for Servo {
@@ -95,14 +95,14 @@ impl Component for Servo {
     fn component_type(&self) -> &'static str { "Servo" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::SERVO })?;
         self.board = Some(board);
         let center = (self.config.range.min + self.config.range.max) / 2;
         self.to(f64::from(center))
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "min" => self.min(),
             "max" => self.max(),
@@ -112,7 +112,7 @@ impl Component for Servo {
             },
             "rotate" => self.rotate(args.as_number().unwrap_or(0.0)),
             "stop" => self.stop(),
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

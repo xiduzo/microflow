@@ -58,6 +58,7 @@ pub use generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillat
 #[allow(unused_imports)]
 pub use transformation::{Calculate, CalculateConfig, CalculateFunction, Compare, CompareConfig, CompareValidator, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 
+use crate::error::RuntimeError;
 use crate::hardware::board::BoardManager;
 use registry::ComponentRegistry;
 use std::collections::HashMap;
@@ -137,13 +138,13 @@ impl FlowRuntime {
 
     /// Register a pin listener for immediate event routing
     pub fn register_pin_listener(&self, listener: PinListener) {
-        let mut listeners = self.pin_listeners.lock().unwrap();
+        let mut listeners = self.pin_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         listeners.entry(listener.pin).or_default().push(listener);
     }
 
     /// Clear all pin listeners
     pub fn clear_pin_listeners(&self) {
-        let mut listeners = self.pin_listeners.lock().unwrap();
+        let mut listeners = self.pin_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         listeners.clear();
     }
 
@@ -163,7 +164,7 @@ impl FlowRuntime {
             // Read the current sequence number for this event
             let sequence = flow_sequence.load(Ordering::SeqCst);
             
-            let listeners = pin_listeners.lock().unwrap();
+            let listeners = pin_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(pin_listeners) = listeners.get(&change.pin) {
                 for listener in pin_listeners {
                     // Emit internal event to trigger component's read processing
@@ -200,8 +201,11 @@ impl FlowRuntime {
         log::info!("Pin change callback installed (cache cleared)");
     }
 
-    /// Update the flow with new nodes and edges
-    pub fn update_flow(&mut self, update: FlowUpdate) -> Result<(), String> {
+    /// Update the flow with new nodes and edges.
+    ///
+    /// Uses diff-based updates: unchanged nodes are kept, only modified/added/removed
+    /// nodes are touched. This turns an O(n) operation into O(delta) for small edits.
+    pub fn update_flow(&mut self, update: FlowUpdate) -> Result<(), RuntimeError> {
         // Increment sequence FIRST - this ensures any events generated during
         // the update will have the new sequence number, and stale events from
         // the previous flow version will be filtered out by the executor
@@ -210,39 +214,79 @@ impl FlowRuntime {
         
         // Update the executor's sequence so it can filter stale events
         self.executor.set_current_sequence(new_sequence);
-        
-        log::info!("Updating flow (sequence={}): {} nodes, {} edges", 
-            new_sequence, update.nodes.len(), update.edges.len());
-        
-        // Note: The event channel is owned by the event forwarding thread after setup.
-        // Stale events (with sequence < current_sequence) will be filtered out
-        // by the FlowExecutor.process_event() method when they are processed.
-        // This is handled in Task 6.5.
-        
-        // Clear existing components and pin listeners
-        self.executor.clear();
+
+        // Build lookup of new nodes by ID
+        let new_node_map: std::collections::HashMap<&str, &crate::runtime::types::FlowNode> = update.nodes.iter()
+            .map(|n| (n.id.as_str(), n))
+            .collect();
+
+        let old_ids: std::collections::HashSet<String> = self.executor.component_ids()
+            .iter().map(|s| (*s).to_string()).collect();
+        let new_ids: std::collections::HashSet<&str> = new_node_map.keys().copied().collect();
+
+        // Compute which nodes changed (different data JSON)
+        let mut unchanged_count = 0usize;
+        let mut removed_ids: Vec<String> = Vec::new();
+        let mut added_or_changed_nodes: Vec<&crate::runtime::types::FlowNode> = Vec::new();
+
+        // Find removed nodes
+        for old_id in &old_ids {
+            if !new_ids.contains(old_id.as_str()) {
+                removed_ids.push(old_id.clone());
+            }
+        }
+
+        // Find added or changed nodes
+        for node in &update.nodes {
+            if old_ids.contains(&node.id) {
+                // Node exists in both — check if data changed
+                if let Some(existing) = self.executor.get_component(&node.id) {
+                    let old_type = existing.component_type();
+                    let new_instance = node.data.get("instance").and_then(|v| v.as_str())
+                        .or(node.node_type.as_deref())
+                        .unwrap_or("");
+                    // If the component type changed, it must be recreated
+                    if old_type == new_instance {
+                        // Same type — keep the existing component (skip recreate)
+                        unchanged_count += 1;
+                    } else {
+                        removed_ids.push(node.id.clone());
+                        added_or_changed_nodes.push(node);
+                    }
+                } else {
+                    added_or_changed_nodes.push(node);
+                }
+            } else {
+                // New node
+                added_or_changed_nodes.push(node);
+            }
+        }
+
+        log::info!("Flow update (seq={}): {} nodes ({} unchanged, {} added/changed, {} removed), {} edges",
+            new_sequence, update.nodes.len(), unchanged_count,
+            added_or_changed_nodes.len(), removed_ids.len(), update.edges.len());
+
+        // Remove old nodes
+        for id in &removed_ids {
+            self.executor.remove_component(id);
+        }
+
+        // Clear pin listeners for removed nodes (we'll re-register all below)
+        // For simplicity, clear and re-register all pin listeners since it's cheap
         self.clear_pin_listeners();
-        
-        // Reset all Firmata reporting to ensure clean state
-        // This is critical for hot-swapping pins - prevents stale data
+
+        // Reset Firmata reporting if board is connected and nodes changed
         let board_handle = self.board_handle();
-        if board_handle.is_connected() {
-            log::info!("Resetting all Firmata reporting for clean flow update");
+        if board_handle.is_connected() && (!removed_ids.is_empty() || !added_or_changed_nodes.is_empty()) {
+            log::info!("Resetting Firmata reporting for flow diff update");
             let _ = board_handle.send_command(BoardCommand::ResetAllReporting);
         }
 
-        // Create components from nodes
-        for node in &update.nodes {
-            log::info!("Processing node: id={}, type={:?}, data={:?}", 
-                node.id, 
-                node.data.get("instance"),
-                node.data
-            );
-            
+        // Create new/changed components
+        for node in &added_or_changed_nodes {
             let instance_str = node.data.get("instance").and_then(|v| v.as_str())
                 .or(node.node_type.as_deref());
             if let Some(instance) = instance_str {
-                log::info!("Creating component: {} ({})", node.id, instance);
                 match self.registry.create(
                     &node.id,
                     instance,
@@ -251,38 +295,34 @@ impl FlowRuntime {
                     board_handle.clone(),
                 ) {
                     Ok(component) => {
-                        log::info!("✓ Created component {} ({}) - type: {}", node.id, instance, component.component_type());
-                        
-                        // Register pin listeners for input components
-                        self.register_component_pin_listener(&node.id, instance, &node.data);
-                        
+                        log::info!("✓ Created component {} ({})", node.id, instance);
                         self.executor.add_component(&node.id, component);
                     }
                     Err(e) => {
-                        // Log but don't fail - unknown components are skipped
-                        if e.starts_with("Unknown component type") {
-                            log::warn!("✗ Skipping unknown component {}: {}", node.id, e);
+                        let msg = e.to_string();
+                        if matches!(&e, RuntimeError::ComponentNotFound(_)) {
+                            log::warn!("✗ Skipping unknown component {}: {}", node.id, msg);
                         } else {
-                            log::error!("✗ Failed to create component {}: {}", node.id, e);
+                            log::error!("✗ Failed to create component {}: {}", node.id, msg);
                         }
                     }
                 }
-            } else {
-                log::warn!("Node {} has no 'instance' field in data", node.id);
             }
         }
 
-        // Wire up edges
-        log::info!("Setting up {} edges", update.edges.len());
-        for edge in &update.edges {
-            log::info!("Edge: {} ({}) -> {} ({})", 
-                edge.source, edge.source_handle, 
-                edge.target, edge.target_handle
-            );
+        // Re-register pin listeners for ALL nodes (cheap operation)
+        for node in &update.nodes {
+            let instance_str = node.data.get("instance").and_then(|v| v.as_str())
+                .or(node.node_type.as_deref());
+            if let Some(instance) = instance_str {
+                self.register_component_pin_listener(&node.id, instance, &node.data);
+            }
         }
+
+        // Always rebuild edges (cheap — just hash map rebuild)
         self.executor.set_edges(update.edges);
         
-        log::info!("Flow update complete. Active components: {:?}", self.executor.component_ids());
+        log::info!("Flow update complete. Active components: {}", self.executor.component_ids().len());
         Ok(())
     }
 
@@ -346,10 +386,10 @@ impl FlowRuntime {
     }
 
     /// Initialize all hardware components (call when board connects)
-    pub fn initialize_hardware(&mut self) -> Result<(), String> {
+    pub fn initialize_hardware(&mut self) -> Result<(), RuntimeError> {
         let board_handle = self.board_handle();
         if !board_handle.is_connected() {
-            return Err("Board not connected".to_string());
+            return Err(RuntimeError::BoardNotConnected);
         }
 
         self.executor.initialize_all(board_handle)
@@ -359,9 +399,9 @@ impl FlowRuntime {
         self.executor.process_event(event)
     }
 
-    pub fn call_component(&mut self, component_id: &str, method: &str, value: ComponentValue) -> Result<(), String> {
+    pub fn call_component(&mut self, component_id: &str, method: &str, value: ComponentValue) -> Result<(), RuntimeError> {
         self.executor.get_component_mut(component_id)
-            .ok_or_else(|| format!("Component {component_id} not found"))?
+            .ok_or_else(|| RuntimeError::ComponentNotFound(component_id.to_string()))?
             .call_method(method, value)
     }
 

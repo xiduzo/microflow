@@ -4,6 +4,7 @@
 
 use super::base::{BoardHandle, Component, ComponentEvent, ComponentValue};
 use super::types::FlowEdge;
+use crate::error::RuntimeError;
 use rustc_hash::{FxHashMap, FxHasher};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -135,9 +136,9 @@ impl FlowExecutor {
 
     /// Set the edges for the flow
     pub fn set_edges(&mut self, edges: Vec<FlowEdge>) {
-        log::info!("Setting {} edges:", edges.len());
+        log::info!("Setting {} edges", edges.len());
         for edge in &edges {
-            log::info!("  Edge: {} ({}) -> {} ({})", 
+            log::debug!("  Edge: {} ({}) -> {} ({})", 
                 edge.source, edge.source_handle, 
                 edge.target, edge.target_handle);
         }
@@ -160,7 +161,7 @@ impl FlowExecutor {
     }
 
     /// Initialize all components that require hardware
-    pub fn initialize_all(&mut self, board_handle: Arc<BoardHandle>) -> Result<(), String> {
+    pub fn initialize_all(&mut self, board_handle: Arc<BoardHandle>) -> Result<(), RuntimeError> {
         let mut errors = Vec::new();
 
         for (id, component) in &mut self.components {
@@ -174,14 +175,16 @@ impl FlowExecutor {
         if errors.is_empty() {
             Ok(())
         } else {
-            Err(format!("Failed to initialize components: {}", errors.join(", ")))
+            Err(RuntimeError::Hardware(crate::error::HardwareError::FirmataCommunication(
+                format!("Failed to initialize components: {}", errors.join(", "))
+            )))
         }
     }
 
     /// Process an event from a component and propagate to connected components
     /// Returns true if the event was processed, false if it was discarded as stale
     pub fn process_event(&mut self, event: ComponentEvent) -> bool {
-        log::info!(">>> process_event called: {} ({}) seq={}", event.source, event.source_handle, event.sequence);
+        log::trace!("process_event: {} ({}) seq={}", event.source, event.source_handle, event.sequence);
         
         // Check for stale events - discard events from previous flow versions.
         // sequence == 0 means "unsequenced" (emitted by component logic, not the board
@@ -201,13 +204,12 @@ impl FlowExecutor {
 
         // Handle internal events (prefixed with _) by routing back to source component
         if event.source_handle.starts_with('_') {
-            log::info!("Processing internal event: {} ({}) -> {:?}", 
-                event.source, event.source_handle, event.value);
+            log::trace!("Internal event: {} ({})", event.source, event.source_handle);
             if let Some(component) = self.components.get_mut(event.source.as_ref()) {
                 // Strip the leading underscore for the method name
                 let method = &event.source_handle[1..];
                 match component.call_method(method, event.value) {
-                    Ok(()) => log::info!("✓ Internal call {}.{}", event.source, method),
+                    Ok(()) => log::trace!("✓ Internal call {}.{}", event.source, method),
                     Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, method, e),
                 }
             }
@@ -215,32 +217,24 @@ impl FlowExecutor {
         }
 
         // Keep the source component's stored value in sync with what it emitted.
-        // Components that emit from background threads (Interval, Oscillator, Delay, LLM)
-        // cannot call set_value() themselves because they lack &mut self. By updating here
-        // we guarantee collect_input_values() always sees the latest emitted value.
-        // NOTE: This must happen AFTER the internal-event early return above, because
-        // internal handlers (e.g. auto_stop) call set_value() themselves and rely on
-        // change detection to emit a "value" event to the frontend. Pre-setting the value
-        // here would suppress that emission.
         if let Some(component) = self.components.get_mut(event.source.as_ref()) {
             component.set_value(event.value.clone());
         }
 
-        log::info!("Processing event: {} ({}) -> looking for edges (total edges: {})", 
+        log::trace!("Routing event: {} ({}) edges={}", 
             event.source, event.source_handle, self.edges.len());
 
         // Fast lookup using pre-computed hash
         let targets = if let Some(t) = self.edge_map.get(event.source.as_ref(), event.source_handle.as_ref()) {
-            log::info!("Found {} target(s) for {} ({})", t.len(), event.source, event.source_handle);
+            log::trace!("Found {} target(s) for {} ({})", t.len(), event.source, event.source_handle);
             t.to_vec()  // Clone the slice for iteration
         } else {
-            log::info!("No edges found for {} ({})", event.source, event.source_handle);
             return true;
         };
 
         // Route to each target using Arc<str> - no allocations
         for target in targets {
-            log::info!("Routing to {}.{} with value {:?}", target.target_id, target.target_handle, event.value);
+            log::trace!("Routing to {}.{}", target.target_id, target.target_handle);
             
             // Check if target component aggregates inputs
             let aggregates = self.components.get(target.target_id.as_ref())
@@ -248,7 +242,6 @@ impl FlowExecutor {
             
             let args = if aggregates {
                 let all_inputs = self.collect_input_values(target.target_id.as_ref(), target.target_handle.as_ref());
-                log::info!("Collected {} input values for {}.{}: {:?}", all_inputs.len(), target.target_id, target.target_handle, all_inputs);
                 ComponentValue::Array(all_inputs)
             } else {
                 event.value.clone()
@@ -256,7 +249,7 @@ impl FlowExecutor {
             
             if let Some(component) = self.components.get_mut(target.target_id.as_ref()) {
                 match component.call_method(&target.target_handle, args) {
-                    Ok(()) => log::info!("✓ Successfully called {}.{}", target.target_id, target.target_handle),
+                    Ok(()) => log::trace!("✓ {}.{}", target.target_id, target.target_handle),
                     Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target.target_id, target.target_handle, e),
                 }
             } else {

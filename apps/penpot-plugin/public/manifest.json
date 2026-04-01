@@ -1,0 +1,14 @@
+{
+  "name": "Microflow hardware bridge",
+  "description": "Bridge Penpot design tokens to hardware prototypes via MQTT",
+  "host": "http://localhost:5173",
+  "code": "plugin.js",
+  "icon": "icon.png",
+  "permissions": [
+    "content:read",
+    "content:write",
+    "library:read",
+    "library:write",
+    "allow:localstorage"
+  ]
+}

@@ -31,6 +31,8 @@ pub struct Delay {
     /// Cancellation flag shared with the pending delay thread.
     /// Setting this to `true` causes the thread to skip sending its event.
     cancel_flag: Arc<AtomicBool>,
+    /// Handle to the most recent delay thread for joining on destroy
+    thread_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Delay {
@@ -40,6 +42,7 @@ impl Delay {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             cancel_flag: Arc::new(AtomicBool::new(false)),
+            thread_handle: None,
         }
     }
 
@@ -61,7 +64,7 @@ impl Delay {
 
         // Use a plain OS thread + sleep so this works regardless of whether
         // a Tokio runtime is present on the calling thread.
-        std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(delay_ms));
             if cancel.load(Ordering::Relaxed) {
                 return; // cancelled by a newer signal (forget_previous)
@@ -76,6 +79,8 @@ impl Delay {
                 });
             }
         });
+
+        self.thread_handle = Some(handle);
     }
 }
 
@@ -85,18 +90,21 @@ impl Component for Delay {
     fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
     fn component_type(&self) -> &'static str { "Delay" }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> { Ok(()) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => { self.signal(args); Ok(()) }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 
     fn destroy(&mut self) {
-        // Cancel any pending delay thread
+        // Cancel any pending delay thread and wait for it
         self.cancel_flag.store(true, Ordering::Relaxed);
+        if let Some(handle) = self.thread_handle.take() {
+            let _ = handle.join();
+        }
     }
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
     fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }

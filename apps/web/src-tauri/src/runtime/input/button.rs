@@ -105,7 +105,7 @@ impl Component for Button {
     fn component_type(&self) -> &'static str { "Button" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         let mode = if self.config.is_pullup { pin_mode::PULLUP } else { pin_mode::INPUT };
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode })?;
         board.send_command(BoardCommand::EnableDigitalReporting { pin: self.config.pin })?;
@@ -114,7 +114,7 @@ impl Component for Button {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "read" => Ok(()),
             "pin_change" => {
@@ -124,7 +124,7 @@ impl Component for Button {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

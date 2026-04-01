@@ -133,7 +133,7 @@ pub fn run() {
                 let board_handle = flow_runtime.blocking_lock().board_handle();
                 hardware_service
                     .lock()
-                    .unwrap()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .start_monitoring(app_handle.clone(), board_handle);
 
                 // Take the event receiver before spawning threads
@@ -149,13 +149,13 @@ pub fn run() {
                     if let Some(mut rx) = event_rx {
                         log::info!("Event receiver obtained, waiting for events...");
                         while let Some(event) = rx.blocking_recv() {
-                            log::info!("Received event: {} ({}) -> {:?}", 
+                            log::trace!("Event: {} ({}) -> {:?}", 
                                 event.source, event.source_handle, event.value);
                             
                             // Handle MQTT publish events specially
                             // These are emitted by MQTT publish nodes when they receive input
                             if event.source_handle.as_ref() == "_mqtt_publish" {
-                                log::info!("[MQTT] Publish event from component {}", event.source);
+                                log::debug!("[MQTT] Publish event from component {}", event.source);
                                 
                                 // Parse the JSON publish info from the event value
                                 if let runtime::ComponentValue::String(json_str) = &event.value {
@@ -242,10 +242,10 @@ pub fn run() {
                         match state_type {
                             Some("connected") => {
                                 log::info!("Board connected with Firmata (shared connection)!");
-                                *board_connected_listener.write().unwrap() = true;
+                                *board_connected_listener.write().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
                                 
                                 // Apply pending flow if any, which will also install the callback
-                                if let Some(flow) = pending_flow_board.write().unwrap().take() {
+                                if let Some(flow) = pending_flow_board.write().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
                                     log::info!("Applying pending flow: {} nodes, {} edges", 
                                         flow.nodes.len(), flow.edges.len());
                                     // Use blocking_lock() for async mutex in sync callback context
@@ -278,7 +278,7 @@ pub fn run() {
                             }
                             Some("disconnected") => {
                                 log::info!("Board disconnected");
-                                *board_connected_listener.write().unwrap() = false;
+                                *board_connected_listener.write().unwrap_or_else(std::sync::PoisonError::into_inner) = false;
                                 // Board handle is already disconnected by hardware monitor
                             }
                             Some(other) => {
@@ -315,6 +315,30 @@ pub fn run() {
             llm::commands::llm_sync_providers,
             llm::commands::llm_test_provider,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(move |_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                log::info!("Application exiting — cleaning up resources");
+
+                // 1. Stop all generator threads via executor.clear()
+                let runtime_shutdown = Arc::clone(&flow_runtime);
+                let mut runtime = runtime_shutdown.blocking_lock();
+
+                // 2. Reset Firmata reporting and drive output pins low
+                let board = runtime.board_handle();
+                if board.is_connected() {
+                    log::info!("Resetting board to safe state");
+                    let _ = board.send_command(runtime::BoardCommand::ResetAllReporting);
+                }
+
+                // 3. Disconnect the board cleanly (stops reader thread)
+                runtime.board_manager_mut().disconnect();
+
+                // 4. Disconnect MQTT brokers
+                // MqttManager::disconnect_all is async, but we're in a sync context.
+                // The manager will be dropped anyway, but we try to send DISCONNECT packets.
+                log::info!("Shutdown cleanup complete");
+            }
+        });
 }

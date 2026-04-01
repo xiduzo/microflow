@@ -33,7 +33,7 @@ export function MqttVariableMessenger() {
 
     const newJson = JSON.stringify(newVars);
     if (newJson !== JSON.stringify(knownVariables.current)) {
-      publish(`microflow/${uniqueId}/plugin/variables`, newJson);
+      publish(`microflow/${uniqueId}/figma/variables`, newJson);
     }
     knownVariables.current = newVars;
 
@@ -42,7 +42,7 @@ export function MqttVariableMessenger() {
       const json = JSON.stringify(value);
       if (publishedValues.current.get(v.id) === json) continue;
 
-      publish(`microflow/${uniqueId}/plugin/variable/${shortVarId(v.id)}`, json);
+      publish(`microflow/${uniqueId}/figma/variable/${shortVarId(v.id)}`, json);
       publishedValues.current.set(v.id, json);
     }
   }
