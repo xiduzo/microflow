@@ -1,0 +1,28 @@
+{
+  "name": "penpot-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@microflow/mqtt": "workspace:*",
+    "lucide-react": "^0.577.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@microflow/config": "workspace:*",
+    "@penpot/plugin-types": "^1.4.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.5.2",
+    "tailwindcss": "^4.1.11",
+    "typescript": "catalog:",
+    "vite": "^6.3.5"
+  }
+}

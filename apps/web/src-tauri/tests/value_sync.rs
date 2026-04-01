@@ -59,8 +59,8 @@ impl Component for ThreadEmitter {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, v: ComponentValue) { self.base.value = v; }
     fn component_type(&self) -> &'static str { "ThreadEmitter" }
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
-    fn call_method(&mut self, _method: &str, _args: ComponentValue) -> Result<(), String> { Ok(()) }
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), app_lib::RuntimeError> { Ok(()) }
+    fn call_method(&mut self, _method: &str, _args: ComponentValue) -> Result<(), app_lib::RuntimeError> { Ok(()) }
     fn destroy(&mut self) {}
     fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
         self.base.event_sender.clone()
@@ -86,8 +86,8 @@ impl Component for Sink {
     fn value(&self) -> ComponentValue { self.base.value.clone() }
     fn set_value(&mut self, v: ComponentValue) { self.base.value = v; }
     fn component_type(&self) -> &'static str { "Sink" }
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
-    fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), String> {
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), app_lib::RuntimeError> { Ok(()) }
+    fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.base.value = args;
         Ok(())
     }

@@ -73,9 +73,9 @@ impl Component for Calculate {
     fn component_type(&self) -> &'static str { "Calculate" }
     fn aggregates_inputs(&self) -> bool { true }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> { Ok(()) }
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> { Ok(()) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "value" => {
                 let inputs = match args {
@@ -86,7 +86,7 @@ impl Component for Calculate {
                 self.check(&inputs);
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

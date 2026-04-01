@@ -10,8 +10,17 @@ use super::generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscil
 use super::input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig, Switch, SwitchConfig};
 use super::output::{Led, LedConfig, Matrix, MatrixConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
 use super::transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
+use crate::error::RuntimeError;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+
+use serde::Deserialize;
+
+/// Deserialize a config from a `&serde_json::Value` without cloning.
+/// Falls back to `Default` on parse failure.
+fn parse_config<'de, T: Deserialize<'de> + Default>(data: &'de serde_json::Value) -> T {
+    T::deserialize(data).unwrap_or_default()
+}
 
 /// Factory function type for creating components
 type ComponentFactory = fn(id: String, data: &serde_json::Value) -> Box<dyn Component>;
@@ -44,9 +53,9 @@ impl ComponentRegistry {
         data: &serde_json::Value,
         event_sender: mpsc::UnboundedSender<ComponentEvent>,
         board_handle: Arc<BoardHandle>,
-    ) -> Result<Box<dyn Component>, String> {
+    ) -> Result<Box<dyn Component>, RuntimeError> {
         let entry = self.entries.get(instance)
-            .ok_or_else(|| format!("Unknown component type: {instance}"))?;
+            .ok_or_else(|| RuntimeError::ComponentNotFound(format!("Unknown component type: {instance}")))?;
 
         let mut component = (entry.factory)(id.to_string(), data);
         component.set_event_sender(event_sender);
@@ -74,131 +83,103 @@ impl ComponentRegistry {
     fn register_all(&mut self) {
         // Output components (require hardware)
         self.register_hardware("Led", |id, data| {
-            let config: LedConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Led::new(id, config))
+            Box::new(Led::new(id, parse_config::<LedConfig>(data)))
         });
         self.register_hardware("Servo", |id, data| {
-            let config: ServoConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Servo::new(id, config))
+            Box::new(Servo::new(id, parse_config::<ServoConfig>(data)))
         });
         self.register_hardware("Rgb", |id, data| {
-            let config: RgbConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Rgb::new(id, config))
+            Box::new(Rgb::new(id, parse_config::<RgbConfig>(data)))
         });
         self.register_hardware("Relay", |id, data| {
-            let config: RelayConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Relay::new(id, config))
+            Box::new(Relay::new(id, parse_config::<RelayConfig>(data)))
         });
         self.register_hardware("Piezo", |id, data| {
-            let config: PiezoConfig = match serde_json::from_value(data.clone()) {
+            let config: PiezoConfig = match PiezoConfig::deserialize(data) {
                 Ok(c) => c,
                 Err(e) => {
                     log::warn!("Failed to parse PiezoConfig: {e}, using defaults");
                     PiezoConfig::default()
                 }
             };
-            log::info!("Piezo config parsed: type={:?}, song_len={}, tempo={}", 
-                config.r#type, config.song.len(), config.tempo);
             Box::new(Piezo::new(id, config))
         });
-
         self.register_hardware("Matrix", |id, data| {
-            let config: MatrixConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Matrix::new(id, config))
+            Box::new(Matrix::new(id, parse_config::<MatrixConfig>(data)))
         });
 
         // Monitor (software only - display component)
         self.register_software("Monitor", |id, data| {
-            let config: MonitorConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Monitor::new(id, config))
+            Box::new(Monitor::new(id, parse_config::<MonitorConfig>(data)))
         });
 
         // Input components (require hardware)
         self.register_hardware("Button", |id, data| {
-            let config: ButtonConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Button::new(id, config))
+            Box::new(Button::new(id, parse_config::<ButtonConfig>(data)))
         });
         self.register_hardware("Sensor", |id, data| {
-            let config: SensorConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Sensor::new(id, config))
+            Box::new(Sensor::new(id, parse_config::<SensorConfig>(data)))
         });
         self.register_hardware("Motion", |id, data| {
-            let config: MotionConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Motion::new(id, config))
+            Box::new(Motion::new(id, parse_config::<MotionConfig>(data)))
         });
         self.register_hardware("Proximity", |id, data| {
-            let config: ProximityConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Proximity::new(id, config))
+            Box::new(Proximity::new(id, parse_config::<ProximityConfig>(data)))
         });
         self.register_hardware("Switch", |id, data| {
-            let config: SwitchConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Switch::new(id, config))
+            Box::new(Switch::new(id, parse_config::<SwitchConfig>(data)))
         });
 
         // Control components (software only)
         self.register_software("Counter", |id, data| {
-            let config: CounterConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Counter::new(id, config))
+            Box::new(Counter::new(id, parse_config::<CounterConfig>(data)))
         });
         self.register_software("Delay", |id, data| {
-            let config: DelayConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Delay::new(id, config))
+            Box::new(Delay::new(id, parse_config::<DelayConfig>(data)))
         });
         self.register_software("Trigger", |id, data| {
-            let config: TriggerConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Trigger::new(id, config))
+            Box::new(Trigger::new(id, parse_config::<TriggerConfig>(data)))
         });
 
         // Generator components (software only)
         self.register_software("Constant", |id, data| {
-            let config: ConstantConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Constant::new(id, config))
+            Box::new(Constant::new(id, parse_config::<ConstantConfig>(data)))
         });
         self.register_software("Interval", |id, data| {
-            let config: IntervalConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Interval::new(id, config))
+            Box::new(Interval::new(id, parse_config::<IntervalConfig>(data)))
         });
         self.register_software("Oscillator", |id, data| {
-            let config: OscillatorConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Oscillator::new(id, config))
+            Box::new(Oscillator::new(id, parse_config::<OscillatorConfig>(data)))
         });
 
         // Transformation components (software only)
         self.register_software("Calculate", |id, data| {
-            let config: CalculateConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Calculate::new(id, config))
+            Box::new(Calculate::new(id, parse_config::<CalculateConfig>(data)))
         });
         self.register_software("Compare", |id, data| {
-            let config: CompareConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Compare::new(id, config))
+            Box::new(Compare::new(id, parse_config::<CompareConfig>(data)))
         });
         self.register_software("Gate", |id, data| {
-            let config: GateConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Gate::new(id, config))
+            Box::new(Gate::new(id, parse_config::<GateConfig>(data)))
         });
         self.register_software("RangeMap", |id, data| {
-            let config: RangeMapConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(RangeMap::new(id, config))
+            Box::new(RangeMap::new(id, parse_config::<RangeMapConfig>(data)))
         });
         self.register_software("Smooth", |id, data| {
-            let config: SmoothConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Smooth::new(id, config))
+            Box::new(Smooth::new(id, parse_config::<SmoothConfig>(data)))
         });
 
         // LLM component (software only - HTTP/AI inference)
         self.register_software("Llm", |id, data| {
-            let config: LlmConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Llm::new(id, config))
+            Box::new(Llm::new(id, parse_config::<LlmConfig>(data)))
         });
 
         // External components (software only - network/IoT)
         self.register_software("Mqtt", |id, data| {
-            let config: MqttConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Mqtt::new(id, config))
+            Box::new(Mqtt::new(id, parse_config::<MqttConfig>(data)))
         });
         self.register_software("Figma", |id, data| {
-            let config: FigmaConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-            Box::new(Figma::new(id, config))
+            Box::new(Figma::new(id, parse_config::<FigmaConfig>(data)))
         });
     }
 

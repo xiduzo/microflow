@@ -4,7 +4,7 @@
 //!
 //! # Architecture
 //!
-//! - Subscribes to `microflow/${uniqueId}/plugin/variable/${shortVarId}` and
+//! - Subscribes to `microflow/${uniqueId}/figma/variable/${shortVarId}` and
 //!   `microflow/${uniqueId}/app/variable/${shortVarId}` for incoming values.
 //! - Emits a "change" event downstream when a value arrives.
 //! - Handles `call_method` (set / toggle / true / false / increment / decrement / reset / red /
@@ -75,11 +75,11 @@ impl Figma {
             .replace(':', "-")
     }
 
-    /// Topic the plugin publishes variable values to
+    /// Topic the Figma plugin publishes variable values to
     #[must_use]
     pub fn plugin_variable_topic(&self) -> String {
         format!(
-            "microflow/{}/plugin/variable/{}",
+            "microflow/{}/figma/variable/{}",
             self.config.unique_id,
             self.short_var_id()
         )
@@ -234,7 +234,7 @@ impl Component for Figma {
         "Figma"
     }
 
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!(
             "[Figma] Component {} initialized: broker={}, unique_id={}, variable={}",
             self.base.id,
@@ -245,7 +245,7 @@ impl Component for Figma {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         let payload = match method {
             // ---- BOOLEAN ----
             "true" => "true".to_string(),
@@ -288,7 +288,7 @@ impl Component for Figma {
                 serde_json::json!({ "r": r, "g": g, "b": b, "a": a }).to_string()
             }
 
-            _ => return Err(format!("Unknown method: {method}")),
+            _ => return Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         };
 
         // Update local state optimistically so subsequent calls (e.g. repeated toggle)

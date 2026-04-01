@@ -94,7 +94,7 @@ impl Matrix {
     /// Get a live board reference, or drop the stale one and return an error.
     /// This is the single gate for all board operations — if the board
     /// disconnected since we last checked, we find out here.
-    fn live_board(&mut self) -> Result<Arc<BoardHandle>, String> {
+    fn live_board(&mut self) -> Result<Arc<BoardHandle>, crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             if board.is_connected() {
                 return Ok(Arc::clone(board));
@@ -103,7 +103,7 @@ impl Matrix {
             log::warn!("Matrix {}: board disconnected, dropping stale handle", self.base.id);
             self.board = None;
         }
-        Err(format!("Matrix {}: no board connected", self.base.id))
+        Err(crate::error::RuntimeError::BoardNotConnected)
     }
 
     /// Send a register+data command to a specific device in the chain.
@@ -112,7 +112,7 @@ impl Matrix {
     /// in a corrupted mid-transaction state. This is the most critical
     /// hardening — a stuck-low CS line makes every subsequent transaction
     /// garbage and the matrix appears "dead".
-    fn send(&self, board: &Arc<BoardHandle>, addr: u8, opcode: u8, data: u8) -> Result<(), String> {
+    fn send(&self, board: &Arc<BoardHandle>, addr: u8, opcode: u8, data: u8) -> Result<(), crate::error::RuntimeError> {
         if (addr as usize) >= self.config.devices as usize {
             return Ok(());
         }
@@ -130,7 +130,7 @@ impl Matrix {
         })?;
 
         // Shift out all bytes; if any fail, restore CS HIGH before returning
-        let shift_result = (|| -> Result<(), String> {
+        let shift_result = (|| -> Result<(), crate::error::RuntimeError> {
             for j in (0..max_bytes).rev() {
                 board.send_command(BoardCommand::ShiftOut {
                     data_pin: self.config.pins.data,
@@ -156,7 +156,7 @@ impl Matrix {
     }
 
     /// Send a command to all devices.
-    fn send_to_all(&self, board: &Arc<BoardHandle>, opcode: u8, data: u8) -> Result<(), String> {
+    fn send_to_all(&self, board: &Arc<BoardHandle>, opcode: u8, data: u8) -> Result<(), crate::error::RuntimeError> {
         for device in 0..self.config.devices {
             self.send(board, device, opcode, data)?;
         }
@@ -165,7 +165,7 @@ impl Matrix {
 
     /// Initialize the MAX7219 chip(s).
     /// Safe to call multiple times — used both at startup and for recovery.
-    fn init_max7219(&self, board: &Arc<BoardHandle>) -> Result<(), String> {
+    fn init_max7219(&self, board: &Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!("Matrix {}: initializing MAX7219 (pins: data={}, clock={}, cs={})",
             self.base.id, self.config.pins.data, self.config.pins.clock, self.config.pins.cs);
 
@@ -196,7 +196,7 @@ impl Matrix {
     /// Attempt a full re-initialization of the MAX7219 and redisplay the
     /// current shape. Called when a transaction fails to recover from
     /// corrupted chip state.
-    fn reinitialize(&mut self) -> Result<(), String> {
+    fn reinitialize(&mut self) -> Result<(), crate::error::RuntimeError> {
         let board = self.live_board()?;
         log::warn!("Matrix {}: reinitializing MAX7219 after failure", self.base.id);
         self.init_max7219(&board)?;
@@ -208,7 +208,7 @@ impl Matrix {
     }
 
     /// Display a shape on the matrix.
-    fn display_shape(&self, board: &Arc<BoardHandle>, shape: &[String]) -> Result<(), String> {
+    fn display_shape(&self, board: &Arc<BoardHandle>, shape: &[String]) -> Result<(), crate::error::RuntimeError> {
         for device in 0..self.config.devices {
             for row in 0..8u8 {
                 let row_idx = row as usize;
@@ -243,7 +243,7 @@ impl Matrix {
         Ok(())
     }
 
-    fn set_shape(&mut self, index: usize) -> Result<(), String> {
+    fn set_shape(&mut self, index: usize) -> Result<(), crate::error::RuntimeError> {
         if self.config.shapes.is_empty() {
             log::warn!("Matrix {}: no shapes configured", self.base.id);
             return Ok(());
@@ -293,7 +293,7 @@ impl Matrix {
         Ok(())
     }
 
-    fn clear(&mut self) -> Result<(), String> {
+    fn clear(&mut self) -> Result<(), crate::error::RuntimeError> {
         if let Ok(board) = self.live_board() {
             for row in 1..=8 {
                 self.send_to_all(&board, row, 0)?;
@@ -311,13 +311,13 @@ impl Component for Matrix {
     fn component_type(&self) -> &'static str { "Matrix" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!(
             "Matrix {}: initialize called, board connected={}",
             self.base.id, board.is_connected()
         );
         if !board.is_connected() {
-            return Err(format!("Matrix {}: board not connected at init", self.base.id));
+            return Err(crate::error::RuntimeError::BoardNotConnected);
         }
         board.send_command(BoardCommand::SetPinMode {
             pin: self.config.pins.data, mode: pin_mode::OUTPUT,
@@ -337,7 +337,7 @@ impl Component for Matrix {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         log::info!("Matrix {}: call_method '{}' board={}",
             self.base.id, method, self.board.is_some());
         match method {
@@ -350,7 +350,7 @@ impl Component for Matrix {
                 self.clear()
             }
             "reinitialize" => self.reinitialize(),
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

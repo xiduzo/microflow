@@ -105,7 +105,7 @@ impl Component for Switch {
     fn component_type(&self) -> &'static str { "Switch" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!("Switch {} initialize: pin={}, type={:?}", self.base.id, self.config.pin, self.config.switch_type);
         // With external 5V wiring (GND-SIG-5V), use plain INPUT mode
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::INPUT })?;
@@ -114,7 +114,7 @@ impl Component for Switch {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "read" => Ok(()),
             "pin_change" => {
@@ -126,7 +126,7 @@ impl Component for Switch {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

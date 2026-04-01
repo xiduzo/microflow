@@ -2,6 +2,7 @@
 //!
 //! Defines the interface that all hardware components must implement.
 
+use crate::error::RuntimeError;
 use firmata_rs::Firmata;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -170,10 +171,10 @@ pub trait Component: Send + Sync {
     
     /// Initialize hardware resources. Called when board connects.
     /// May be called multiple times if board reconnects.
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String>;
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), RuntimeError>;
     
     /// Handle a method call from a flow edge or external command
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String>;
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), RuntimeError>;
     
     /// Cleanup resources when component is removed
     fn destroy(&mut self);
@@ -342,10 +343,10 @@ impl BoardHandle {
     }
 
     /// Send a command to the reader thread. Fire-and-forget, never blocks.
-    pub fn send_command(&self, cmd: BoardCommand) -> Result<(), String> {
+    pub fn send_command(&self, cmd: BoardCommand) -> Result<(), RuntimeError> {
         match self.cmd_tx.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref() {
-            Some(tx) => tx.send(cmd).map_err(|_| "Board command channel closed".to_string()),
-            None => Err("Board not connected".to_string()),
+            Some(tx) => tx.send(cmd).map_err(|_| RuntimeError::Hardware(crate::error::HardwareError::FirmataCommunication("Board command channel closed".to_string()))),
+            None => Err(RuntimeError::BoardNotConnected),
         }
     }
 
@@ -934,7 +935,7 @@ mod tests {
         let handle = BoardHandle::new();
         let result = handle.send_command(BoardCommand::ResetAllReporting);
         assert!(result.is_err(), "send_command must fail when not connected");
-        assert!(result.unwrap_err().contains("not connected"));
+        assert!(result.unwrap_err().to_string().contains("not connected"));
     }
 
     #[test]

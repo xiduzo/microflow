@@ -96,7 +96,7 @@ impl Component for Sensor {
     fn component_type(&self) -> &'static str { "Sensor" }
     fn requires_hardware(&self) -> bool { true }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         let pin = self.config.analog_pin();
         log::info!("Sensor initialize: pin={pin}");
         board.send_command(BoardCommand::SetPinMode { pin, mode: pin_mode::ANALOG })?;
@@ -106,7 +106,7 @@ impl Component for Sensor {
         Ok(())
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
+    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "read" => Ok(()),
             "pin_change" => {
@@ -116,7 +116,7 @@ impl Component for Sensor {
                 }
                 Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
 

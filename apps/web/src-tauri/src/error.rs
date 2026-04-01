@@ -35,6 +35,10 @@ pub enum RuntimeError {
     /// Mutex was poisoned
     #[error("Lock poisoned: {0}")]
     LockPoisoned(String),
+
+    /// Generic component error (for component-specific failures)
+    #[error("{0}")]
+    ComponentError(String),
 }
 
 /// Hardware-specific errors with context

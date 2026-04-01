@@ -1,6 +1,6 @@
 // Overarching types used across multiple modules
 
-export const clients = ["app", "plugin"] as const;
+export const clients = ["app", "figma", "penpot"] as const;
 export type Client = (typeof clients)[number];
 
 export const ConnectionStatuses = ["connected", "disconnected", "connecting"] as const;

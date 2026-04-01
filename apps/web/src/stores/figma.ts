@@ -74,8 +74,8 @@ export function useFigmaSync() {
 
     // Only the topics the frontend needs: variables list + connection status
     const topics = [
-      `microflow/${uniqueId}/plugin/variables`,
-      `microflow/${uniqueId}/plugin/status`,
+      `microflow/${uniqueId}/figma/variables`,
+      `microflow/${uniqueId}/figma/status`,
       `microflow/${uniqueId}/app/variables/response`,
     ];
 
@@ -114,7 +114,7 @@ export function useFigmaSync() {
       const { setVariables, setPluginConnected } = useFigmaStore.getState();
 
       if (
-        topic === `microflow/${uniqueId}/plugin/variables` ||
+        topic === `microflow/${uniqueId}/figma/variables` ||
         topic === `microflow/${uniqueId}/app/variables/response`
       ) {
         try {
@@ -123,7 +123,7 @@ export function useFigmaSync() {
         return;
       }
 
-      if (topic === `microflow/${uniqueId}/plugin/status`) {
+      if (topic === `microflow/${uniqueId}/figma/status`) {
         setPluginConnected(payload === "connected");
       }
     },
