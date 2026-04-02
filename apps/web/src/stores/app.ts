@@ -7,6 +7,10 @@ type AppState = {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
 
+  // Active flow
+  activeFlowId: string;
+  setActiveFlowId: (id: string | null) => void;
+
   // First Arduino connection celebration
   hasConnectedArduino: boolean;
   showConfetti: boolean;
@@ -21,6 +25,12 @@ export const useAppStore = create<AppState>()(
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
+      activeFlowId: "local",
+      setActiveFlowId: (id) => {
+        if (id === null) return;
+        set({ activeFlowId: id });
+      },
+
       hasConnectedArduino: false,
       showConfetti: false,
       markArduinoConnected: () => set({ hasConnectedArduino: true, showConfetti: true }),
@@ -30,6 +40,7 @@ export const useAppStore = create<AppState>()(
       name: "microflow:app",
       partialize: (state) => ({
         sidebarOpen: state.sidebarOpen,
+        activeFlowId: state.activeFlowId,
         hasConnectedArduino: state.hasConnectedArduino,
       }),
     },

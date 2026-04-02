@@ -15,7 +15,7 @@ import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
 import { useFlowHistoryActions } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
-import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { useAppStore } from "@/stores/app";
 import { useNavigate } from "@tanstack/react-router";
 import { useFlowImportExport } from "@/hooks/use-flow-import-export";
 
@@ -24,7 +24,7 @@ export function DockPanel() {
   const { setOpen } = useNewNodeStore();
   const history = useFlowHistoryActions();
   const navigate = useNavigate();
-  const { activeFlowId } = useActiveFlowStore();
+  const { activeFlowId } = useAppStore();
   const { exportFlow } = useFlowImportExport();
 
   const handleZoomIn = (event?: KeyboardEvent | MouseEvent) => {

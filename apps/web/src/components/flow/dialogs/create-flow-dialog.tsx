@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Plus } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
-import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { useAppStore } from "@/stores/app";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +43,7 @@ export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onO
   const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
 
   const createMutation = useMutation(trpc.flow.create.mutationOptions({
     onSuccess: (result) => {

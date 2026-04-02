@@ -17,7 +17,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { useAppStore } from "@/stores/app";
 import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useIsMac } from "@/hooks/is-mac";
@@ -54,7 +54,7 @@ export function FlowSwitcher(props: FlowSwitcherProps) {
   const navigate = useNavigate();
   const isMac = useIsMac();
   const isSignedIn = !!props.user;
-  const { activeFlowId, setActiveFlowId } = useActiveFlowStore();
+  const { activeFlowId, setActiveFlowId } = useAppStore();
   const matches = useMatches()
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 

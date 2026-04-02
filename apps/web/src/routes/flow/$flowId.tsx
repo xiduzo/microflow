@@ -1,5 +1,5 @@
 import { authClient } from "@/lib/auth-client";
-import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { useAppStore } from "@/stores/app";
 import {
     useFlowStore,
     useFlowDocument,
@@ -104,7 +104,7 @@ const localFlowSync: UseSyncProviderReturn = {
 };
 
 function LocalFlowLayout() {
-    const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+    const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
     const { initLocalFlow } = useFlowInit();
     const flowDoc = useFlowDocument();
 
@@ -133,7 +133,7 @@ function LocalFlowLayout() {
 function CloudFlowLayout() {
     const { flowId } = Route.useParams();
     const { session } = Route.useRouteContext();
-    const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+    const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
     const flowDoc = useFlowDocument();
 
     // Track initialization state to prevent double-init

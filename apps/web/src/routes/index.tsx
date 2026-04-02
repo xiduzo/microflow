@@ -18,7 +18,7 @@ import {
   LOCAL_FLOW_STORAGE_KEY,
   type FlowExportData,
 } from "@/hooks/use-flow-import-export";
-import { useActiveFlowStore } from "@/stores/active-flow-store";
+import { useAppStore } from "@/stores/app";
 import { FLOW_COLORS } from "@/lib/flow-colors";
 
 export const Route = createFileRoute("/")({
@@ -31,7 +31,7 @@ function HomeComponent() {
   const triggerImport = useOverviewImport();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
 
   const createFromImportMutation = useMutation(
     trpc.flow.createFromImport.mutationOptions({
