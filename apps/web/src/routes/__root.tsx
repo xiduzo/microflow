@@ -27,6 +27,9 @@ import { useUpdater } from "@/hooks/use-updater";
 import { useFigmaUniqueId, useFigmaStore } from "@/stores/figma";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import ReactConfetti from "react-confetti";
+import { useFirstArduinoConnection } from "@/hooks/use-first-arduino-connection";
+import { useAppStore } from "@/stores/app";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -55,17 +58,30 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+  const showConfetti = useFirstArduinoConnection();
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
+
   return (
     <>
       <HeadContent />
       <Board />
+      {showConfetti && (
+        <ReactConfetti
+          style={{ position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none" }}
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={500}
+        />
+      )}
       <ThemeProvider
         attribute="class"
         defaultTheme="system"
         enableSystem
         storageKey="microflow-ui-theme"
       >
-        <SidebarProvider>
+        <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <HotkeysProvider>
             <AppSidebar />
             <SidebarInset>
