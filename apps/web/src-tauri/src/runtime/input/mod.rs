@@ -4,6 +4,7 @@
 
 mod button;
 mod hotkey;
+mod i2c_device;
 mod motion;
 mod proximity;
 mod sensor;
@@ -11,6 +12,7 @@ mod switch;
 
 pub use button::{Button, ButtonConfig};
 pub use hotkey::{Hotkey, HotkeyConfig};
+pub use i2c_device::{I2cDevice, I2cDeviceConfig};
 pub use motion::{Motion, MotionConfig};
 pub use proximity::{Proximity, ProximityConfig};
 pub use sensor::{Sensor, SensorConfig};

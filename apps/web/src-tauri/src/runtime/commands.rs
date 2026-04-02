@@ -221,7 +221,8 @@ pub async fn flow_update(
                 log::warn!("Failed to initialize hardware after flow update: {e}");
             }
             let event_tx = runtime.event_sender();
-            runtime.install_pin_change_callback(event_tx);
+            runtime.install_pin_change_callback(event_tx.clone());
+            runtime.install_i2c_reply_callback(event_tx);
         } else {
             log::info!("Board not connected — storing pending flow for hardware init on connect");
             *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(flow);

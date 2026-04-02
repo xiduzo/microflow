@@ -194,7 +194,7 @@ impl Figma {
     }
 
     /// Emit a `_mqtt_publish` event intercepted by lib.rs to actually send the MQTT message.
-    fn publish(&self, payload: String) {
+    fn publish(&mut self, payload: String) {
         let info = serde_json::json!({
             "brokerId": self.config.broker_id,
             "topic": self.set_topic(),
@@ -212,7 +212,7 @@ impl Figma {
         let value = self.parse_payload(payload);
         self.base.value = value.clone();
         // "value" updates the node display in the frontend (useNodeValue hook listens for this)
-        self.base.emit_with_value("value", Cow::Borrowed(&self.base.value));
+        self.base.emit_with_value("value", Cow::Owned(value.clone()));
         self.base.emit_with_value("change", Cow::Owned(value));
     }
 }
@@ -296,7 +296,7 @@ impl Component for Figma {
         let new_value = self.parse_payload(payload.as_bytes());
         self.base.value = new_value.clone();
         // "value" updates the node display in the frontend (useNodeValue hook listens for this)
-        self.base.emit_with_value("value", Cow::Borrowed(&self.base.value));
+        self.base.emit_with_value("value", Cow::Owned(new_value.clone()));
         self.base.emit_with_value("change", Cow::Owned(new_value));
 
         self.publish(payload);

@@ -7,8 +7,8 @@ use super::base::{BoardHandle, Component, ComponentEvent};
 use super::control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerConfig};
 use super::external::{Figma, FigmaConfig, Llm, LlmConfig, Mqtt, MqttConfig};
 use super::generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
-use super::input::{Button, ButtonConfig, Hotkey, HotkeyConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig, Switch, SwitchConfig};
-use super::output::{Led, LedConfig, Matrix, MatrixConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
+use super::input::{Button, ButtonConfig, Hotkey, HotkeyConfig, I2cDevice, I2cDeviceConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig, Switch, SwitchConfig};
+use super::output::{Led, LedConfig, Matrix, MatrixConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Pixel, PixelConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
 use super::transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 use crate::error::RuntimeError;
 use std::sync::Arc;
@@ -107,6 +107,9 @@ impl ComponentRegistry {
         self.register_hardware("Matrix", |id, data| {
             Box::new(Matrix::new(id, parse_config::<MatrixConfig>(data)))
         });
+        self.register_hardware("Pixel", |id, data| {
+            Box::new(Pixel::new(id, parse_config::<PixelConfig>(data)))
+        });
 
         // Monitor (software only - display component)
         self.register_software("Monitor", |id, data| {
@@ -128,6 +131,9 @@ impl ComponentRegistry {
         });
         self.register_hardware("Switch", |id, data| {
             Box::new(Switch::new(id, parse_config::<SwitchConfig>(data)))
+        });
+        self.register_hardware("I2cDevice", |id, data| {
+            Box::new(I2cDevice::new(id, parse_config::<I2cDeviceConfig>(data)))
         });
 
         // Hotkey (software only - keyboard input)
