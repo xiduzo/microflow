@@ -22,7 +22,7 @@ import { Figma } from "./figma/figma";
 import { Gate } from "./gate/gate";
 import { Hotkey } from "./hotkey/hotkey";
 import { Interval } from "./interval/interval";
-import { Led } from "./led/led";
+import { Led, Vibration } from "./led/led";
 import { Llm } from "./llm/llm";
 import type { NodeTypes } from "@xyflow/react";
 import { Compare } from "./compare/compare";
@@ -76,4 +76,5 @@ export const NODE_TYPES = {
   Switch: Switch,
   Tilt: Tilt,
   Trigger: Trigger,
+  Vibration: Vibration,
 } as const satisfies NodeTypes & Record<ComponentType, unknown>;

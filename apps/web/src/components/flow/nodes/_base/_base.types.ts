@@ -54,6 +54,7 @@ export const COMPONENT_TYPES = [
   "Switch",
   "Tilt",
   "Trigger",
+  "Vibration",
 ] as const;
 
 /**
