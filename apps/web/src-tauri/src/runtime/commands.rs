@@ -103,6 +103,18 @@ fn extract_mqtt_nodes(flow: &FlowUpdate) -> Vec<MqttNodeInfo> {
         .collect()
 }
 
+/// Collect `unique_ids` from Figma nodes to determine which display topics to manage
+fn collect_figma_unique_ids(figma_nodes: &[FigmaNodeInfo]) -> std::collections::HashMap<String, String> {
+    // Map unique_id -> broker_id (one broker per unique_id)
+    let mut map = std::collections::HashMap::new();
+    for node in figma_nodes {
+        if !node.unique_id.is_empty() && !node.broker_id.is_empty() {
+            map.entry(node.unique_id.clone()).or_insert_with(|| node.broker_id.clone());
+        }
+    }
+    map
+}
+
 /// Update the flow with new nodes and edges
 #[tauri::command]
 pub async fn flow_update(
@@ -162,6 +174,38 @@ pub async fn flow_update(
     let figma_nodes = extract_figma_nodes(&flow);
     log::info!("[MQTT] Found {} MQTT nodes in flow", mqtt_nodes.len());
 
+    // ---- Clean up previous Figma subscriptions ----
+    {
+        let mut old_subs = state.figma_subscriptions.lock().await;
+
+        // Collect unique_ids from old subs to publish disconnected status
+        let mut old_unique_ids: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        for sub in old_subs.iter() {
+            // Extract unique_id from topics like "microflow/{unique_id}/figma/..."
+            let parts: Vec<&str> = sub.topic.split('/').collect();
+            if parts.len() >= 3 && parts[0] == "microflow" {
+                old_unique_ids.entry(parts[1].to_string()).or_insert_with(|| sub.broker_id.clone());
+            }
+        }
+
+        // Publish disconnected status for old unique_ids that won't be in the new flow
+        let new_unique_ids = collect_figma_unique_ids(&figma_nodes);
+        for (uid, broker_id) in &old_unique_ids {
+            if !new_unique_ids.contains_key(uid) {
+                let status_topic = format!("microflow/{uid}/app/status");
+                let _ = state.mqtt_manager.publish(broker_id, &status_topic, b"disconnected", true).await;
+                log::info!("[Figma] Published disconnected status for {uid}");
+            }
+        }
+
+        for sub in old_subs.drain(..) {
+            log::info!("[Figma] Unsubscribing old topic: {} on broker {}", sub.topic, sub.broker_id);
+            if let Err(e) = state.mqtt_manager.unsubscribe(&sub.broker_id, &sub.topic).await {
+                log::warn!("[Figma] Failed to unsubscribe {}: {}", sub.topic, e);
+            }
+        }
+    }
+
     // Check if board is connected (only affects hardware init, not MQTT/Figma)
     let board_connected = *state.board_connected.read().unwrap_or_else(std::sync::PoisonError::into_inner);
 
@@ -173,18 +217,12 @@ pub async fn flow_update(
         runtime.update_flow(flow.clone())?;
 
         if board_connected {
-            // Initialize hardware components (sets pin modes and enables analog/digital reporting)
-            // This must be called after update_flow because update_flow destroys old components
-            // (which call disable_analog_reporting) and creates new ones that need initialization.
             if let Err(e) = runtime.initialize_hardware() {
                 log::warn!("Failed to initialize hardware after flow update: {e}");
             }
-
-            // Reinstall pin change callback with updated listeners
             let event_tx = runtime.event_sender();
             runtime.install_pin_change_callback(event_tx);
         } else {
-            // Store as pending so hardware init runs when the board connects later
             log::info!("Board not connected — storing pending flow for hardware init on connect");
             *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(flow);
         }
@@ -198,7 +236,6 @@ pub async fn flow_update(
                 mqtt_node.component_id, mqtt_node.broker_id, mqtt_node.topic
             );
 
-            // Check if broker is connected
             if !state.mqtt_manager.is_connected(&mqtt_node.broker_id).await {
                 log::warn!(
                     "[MQTT] Broker {} not connected, skipping subscription for {}",
@@ -207,7 +244,6 @@ pub async fn flow_update(
                 continue;
             }
 
-            // Create callback that routes messages to the flow runtime
             let component_id = mqtt_node.component_id.clone();
             let flow_runtime = Arc::clone(&state.flow_runtime);
             let app_handle = app.clone();
@@ -217,10 +253,6 @@ pub async fn flow_update(
                     "[MQTT] Received message on topic {} for component {}",
                     msg.topic, component_id
                 );
-
-                // Route message to the flow component
-                // Use try_lock() for async mutex in sync callback context
-                // If lock is held, the message will be dropped (acceptable for MQTT)
                 match flow_runtime.try_lock() {
                     Ok(mut runtime) => {
                         runtime.route_mqtt_message(&component_id, &msg.payload);
@@ -229,8 +261,6 @@ pub async fn flow_update(
                         log::debug!("[MQTT] Flow runtime lock held, dropping message for {component_id}");
                     }
                 }
-
-                // Also emit a Tauri event for the frontend
                 let _ = app_handle.emit("mqtt-message", serde_json::json!({
                     "brokerId": "",
                     "topic": msg.topic,
@@ -239,7 +269,6 @@ pub async fn flow_update(
                 }));
             });
 
-            // Subscribe to the topic
             if let Err(e) = state.mqtt_manager.subscribe(
                 &mqtt_node.broker_id,
                 &mqtt_node.topic,
@@ -253,9 +282,14 @@ pub async fn flow_update(
         }
     }
 
-    // Set up MQTT subscriptions and initial publish for Figma nodes
-    log::info!("[Figma] Found {} Figma nodes in flow", figma_nodes.len());
-    for figma_node in figma_nodes {
+    // ---- Set up Figma MQTT subscriptions (per-variable + display topics) ----
+    let mut new_subs: Vec<crate::FigmaSubscription> = Vec::new();
+    let unique_id_brokers = collect_figma_unique_ids(&figma_nodes);
+
+    log::info!("[Figma] Found {} Figma nodes in flow, {} unique users", figma_nodes.len(), unique_id_brokers.len());
+
+    // 1. Subscribe to per-variable topics (route to flow runtime)
+    for figma_node in &figma_nodes {
         if figma_node.broker_id.is_empty() || figma_node.unique_id.is_empty() || figma_node.variable_id.is_empty() {
             log::warn!("[Figma] Skipping node {} — missing broker_id, unique_id, or variable_id", figma_node.component_id);
             continue;
@@ -266,7 +300,6 @@ pub async fn flow_update(
             continue;
         }
 
-        // Build a temporary Figma instance just to get the topic strings
         let tmp = Figma::new(figma_node.component_id.clone(), super::external::FigmaConfig {
             broker_id: figma_node.broker_id.clone(),
             unique_id: figma_node.unique_id.clone(),
@@ -277,12 +310,10 @@ pub async fn flow_update(
         let plugin_topic = tmp.plugin_variable_topic();
         let app_topic = tmp.app_variable_topic();
 
-        // Subscribe to both topics (ongoing plugin updates + request/response)
         for sub_topic in [plugin_topic, app_topic] {
             let component_id = figma_node.component_id.clone();
             let flow_runtime = Arc::clone(&state.flow_runtime);
             let app_handle = app.clone();
-            let t = sub_topic.clone();
 
             let callback = Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
                 log::info!("[Figma] Message on {} for component {}", msg.topic, component_id);
@@ -302,22 +333,65 @@ pub async fn flow_update(
                 }));
             });
 
-            if let Err(e) = state.mqtt_manager.subscribe(&figma_node.broker_id, &t, callback).await {
-                log::error!("[Figma] Failed to subscribe {t}: {e}");
+            if let Err(e) = state.mqtt_manager.subscribe(&figma_node.broker_id, &sub_topic, callback).await {
+                log::error!("[Figma] Failed to subscribe {sub_topic}: {e}");
             }
+            new_subs.push(crate::FigmaSubscription {
+                broker_id: figma_node.broker_id.clone(),
+                topic: sub_topic,
+            });
+        }
+    }
+
+    // 2. Subscribe to display topics (variables list, plugin status) per unique_id
+    //    and emit Tauri events so the frontend store stays updated.
+    for (unique_id, broker_id) in &unique_id_brokers {
+        if !state.mqtt_manager.is_connected(broker_id).await {
+            continue;
+        }
+
+        let display_topics = vec![
+            format!("microflow/{unique_id}/figma/variables"),
+            format!("microflow/{unique_id}/figma/status"),
+            format!("microflow/{unique_id}/app/variables/response"),
+        ];
+
+        for topic in display_topics {
+            let app_handle = app.clone();
+            let callback = Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
+                let _ = app_handle.emit("mqtt-message", serde_json::json!({
+                    "brokerId": "",
+                    "topic": msg.topic,
+                    "payload": String::from_utf8_lossy(&msg.payload).to_string(),
+                }));
+            });
+
+            if let Err(e) = state.mqtt_manager.subscribe(broker_id, &topic, callback).await {
+                log::error!("[Figma] Failed to subscribe display topic {topic}: {e}");
+            }
+            new_subs.push(crate::FigmaSubscription {
+                broker_id: broker_id.clone(),
+                topic,
+            });
         }
 
         // Publish app/status: connected (retained) so the plugin sees us
-        let status_topic = format!("microflow/{}/app/status", figma_node.unique_id);
-        if let Err(e) = state.mqtt_manager.publish(&figma_node.broker_id, &status_topic, b"connected", true).await {
+        let status_topic = format!("microflow/{unique_id}/app/status");
+        if let Err(e) = state.mqtt_manager.publish(broker_id, &status_topic, b"connected", true).await {
             log::error!("[Figma] Failed to publish app/status: {e}");
         }
 
         // Request current variable values from the plugin
-        let request_topic = format!("microflow/{}/app/variables/request", figma_node.unique_id);
-        if let Err(e) = state.mqtt_manager.publish(&figma_node.broker_id, &request_topic, b"", false).await {
+        let request_topic = format!("microflow/{unique_id}/app/variables/request");
+        if let Err(e) = state.mqtt_manager.publish(broker_id, &request_topic, b"", false).await {
             log::error!("[Figma] Failed to publish variables/request: {e}");
         }
+    }
+
+    // Store new subscriptions for cleanup on next flow_update
+    {
+        let mut subs = state.figma_subscriptions.lock().await;
+        *subs = new_subs;
     }
 
     Ok(())
@@ -340,7 +414,6 @@ pub async fn component_call(
 
     log::info!("Component call: {component_id}.{method}({value:?})");
 
-    // Use async lock for tokio::sync::Mutex
     let mut runtime = state.flow_runtime.lock().await;
     Ok(runtime.call_component(&component_id, &method, value)?)
 }

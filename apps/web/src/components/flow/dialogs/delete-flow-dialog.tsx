@@ -26,10 +26,17 @@ type Props = {
   flow: { id: string; name: string };
   trigger?: React.ReactElement;
   onSuccess?: () => void;
+  /** Controlled open state (when used without a trigger) */
+  open?: boolean;
+  /** Controlled open state callback */
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function DeleteFlowDialog({ flow, trigger, onSuccess }: Props) {
-  const [open, setOpen] = useState(false);
+export function DeleteFlowDialog({ flow, trigger, onSuccess, open: controlledOpen, onOpenChange }: Props) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (v: boolean) => onOpenChange?.(v) : setInternalOpen;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -55,23 +62,16 @@ export function DeleteFlowDialog({ flow, trigger, onSuccess }: Props) {
   );
 
   return (
-    <AlertDialog open={open} onOpenChange={open => {
-      setOpen(open);
-      if (open) return
+    <AlertDialog open={open} onOpenChange={v => {
+      setOpen(v);
+      if (v) return
       form.reset();
     }}>
-      <AlertDialogTrigger
-        render={
-          trigger ?? (
-            <Button
-              size="sm"
-              variant="destructive"
-            />
-          )
-        }
-      >
-        {!trigger && <Trash2 className="size-4" />}
-      </AlertDialogTrigger>
+      {trigger && (
+        <AlertDialogTrigger
+          render={trigger}
+        />
+      )}
       <form>
         <AlertDialogContent>
           <AlertDialogHeader>

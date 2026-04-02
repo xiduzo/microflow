@@ -10,7 +10,7 @@ import {
   SettingsIcon,
   UndoIcon,
 } from "lucide-react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
 import { useFlowHistoryActions } from "@/stores/flow-store";
@@ -65,57 +65,38 @@ export function DockPanel() {
     });
   };
 
-  useHotkeys("mod+equal", handleZoomIn, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-    description: "Zoom in",
+  useHotkey("Mod+=", handleZoomIn, {
+    ignoreInputs: true,
+    meta: { name: "Zoom in", description: "Zoom in" },
   });
 
-  useHotkeys("mod+minus", handleZoomOut, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-    description: "Zoom out",
+  useHotkey("Mod+-", handleZoomOut, {
+    ignoreInputs: true,
+    meta: { name: "Zoom out", description: "Zoom out" },
   });
 
-  useHotkeys("shift+1", handleZoomToFit, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-    description: "Zoom to fit",
+  useHotkey("Shift+1", handleZoomToFit, {
+    ignoreInputs: true,
+    meta: { name: "Zoom to fit", description: "Zoom to fit" },
   });
 
-  useHotkeys("mod+0", handleZoomTo100, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-    description: "Zoom to 100%",
+  useHotkey("Mod+0", handleZoomTo100, {
+    ignoreInputs: true,
+    meta: { name: "Zoom to 100%", description: "Zoom to 100%" },
   });
 
-  useHotkeys("mod+z", handleUndo, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-    description: "Undo",
+  useHotkey("Mod+Z", handleUndo, {
+    ignoreInputs: true,
+    meta: { name: "Undo", description: "Undo" },
   });
 
-  useHotkeys("mod+shift+z", handleRedo, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-    description: "Redo",
+  useHotkey("Mod+Shift+Z", handleRedo, {
+    ignoreInputs: true,
+    meta: { name: "Redo", description: "Redo" },
   });
 
-  useHotkeys("mod+k", handleAddNode, {
-    scopes: ["flow"],
-    description: "Add node",
+  useHotkey("Mod+K", handleAddNode, {
+    meta: { name: "Add node", description: "Add node" },
   });
 
   return (

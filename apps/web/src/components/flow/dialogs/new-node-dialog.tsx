@@ -1,6 +1,6 @@
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { NODE_TYPES } from "../nodes/_TYPES";
 import { useFlowStore } from "@/stores/flow-store";
 import { useNewNodeStore } from "@/stores/new-node";
@@ -245,23 +245,30 @@ function useDraggableNewNode() {
 
   // Handle Escape/Backspace to cancel node placement
   useHotkeys(
-    ["escape", "backspace"],
-    () => {
-      if (!nodeToAdd) return;
-      removeNode(nodeToAdd);
-      setNodeToAdd(null);
-    },
-    {
-      enabled: !!nodeToAdd,
-      enableOnFormTags: false,
-      preventDefault: true,
-      scopes: ["flow"],
-    },
-    [nodeToAdd, removeNode, setNodeToAdd]
+    [
+      {
+        hotkey: "Escape",
+        callback: () => {
+          if (!nodeToAdd) return;
+          removeNode(nodeToAdd);
+          setNodeToAdd(null);
+        },
+        options: { enabled: !!nodeToAdd, ignoreInputs: true },
+      },
+      {
+        hotkey: "Backspace",
+        callback: () => {
+          if (!nodeToAdd) return;
+          removeNode(nodeToAdd);
+          setNodeToAdd(null);
+        },
+        options: { enabled: !!nodeToAdd, ignoreInputs: true },
+      },
+    ],
   );
 
-  useHotkeys(
-    "enter",
+  useHotkey(
+    "Enter",
     () => {
       if (!nodeToAdd) return;
       updateNode(nodeToAdd, { selected: false });
@@ -269,9 +276,8 @@ function useDraggableNewNode() {
     },
     {
       enabled: !!nodeToAdd,
-      enableOnFormTags: false,
+      ignoreInputs: true,
       preventDefault: false,
-      scopes: ["flow"],
     }
   );
 

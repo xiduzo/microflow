@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useActiveFlowStore } from "@/stores/active-flow-store";
 import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useIsMac } from "@/hooks/is-mac";
 import { useState } from "react";
 
@@ -198,13 +198,10 @@ export function FlowSwitcher(props: FlowSwitcherProps) {
 }
 
 function HotkeyShortcut(props: { index: number, callback: (index: number) => void }) {
-  useHotkeys(`mod+${props.index + 1}`, () => {
+  useHotkey({ key: String(props.index + 1), mod: true }, () => {
     props.callback(props.index);
   }, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["navigation"],
+    ignoreInputs: true,
   });
   return null
 }

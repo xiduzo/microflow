@@ -181,6 +181,7 @@ function CloudFlows() {
             toast.success("Flow exported");
           }}
           settingsFlowId={flow.id}
+          deleteFlow={{ id: flow.id, name: flow.name }}
         />
       ))}
     </>
