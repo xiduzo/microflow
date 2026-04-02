@@ -1,14 +1,28 @@
 ---
 title: Counter
-description: Keep track of how many times something happens with a tally counter node.
+description: Keep track of how many times something happens.
 ---
 
-The Counter node keeps track of how many times something happens. It's like a tally counter that goes up (or down) each time it receives a signal.
+The Counter node keeps a running total. Each time it receives a signal, it increases or decreases the count and outputs the new total. You can also reset it, or jump it to a specific value at any time.
 
 **Examples:**
 - Count how many times a button has been pressed
-- Track how many times a sensor detects something
-- Keep a running total of events
-- Count down from a number and trigger something when it reaches zero
+- Track how many times a sensor detects movement
+- Count down from 10 and trigger something when it reaches zero
+- Keep score in an interactive game
 
-You can increase the counter, decrease it, set it to a specific value, or reset it back to zero. This is useful for creating games, tracking usage, or triggering actions after a certain number of events.
+## Inputs
+
+- **Increment** — increases the count by the step value
+- **Decrement** — decreases the count by the step value
+- **Reset** — sets the count back to the starting value
+- **Set** — sets the count to a specific incoming value
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Start value** — the initial count when the flow starts (default: 0)
+- **Step** — how much to add or subtract on each increment or decrement (default: 1)
+- **Min** *(optional)* — a lower limit; the count will not go below this value
+- **Max** *(optional)* — an upper limit; the count will not go above this value

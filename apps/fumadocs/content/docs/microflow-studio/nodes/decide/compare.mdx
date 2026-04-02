@@ -1,12 +1,24 @@
 ---
 title: Compare
-description: Check if values meet conditions and route your flow based on true or false results.
+description: Check if values meet a condition and route your flow based on true or false results.
 ---
 
-The Compare node lets you check if something meets certain conditions and make decisions based on that check.
+The Compare node checks whether a value meets a condition — greater than, less than, equal to, and so on. Based on whether the check passes or fails, it routes a signal down one of two paths.
 
-For example, you can check if a sensor reading is greater than 100, equal to 50, or less than 10. Based on whether the condition is true or false, the node sends a signal down different paths in your flow.
+**Example:** If a temperature sensor reads above 80°C, send a signal to turn on a fan. Otherwise, send a signal to keep the fan off.
 
-**Simple example:** If a temperature sensor reads above 80 degrees, turn on a fan. Otherwise, keep the fan off.
+The Compare node fires on every incoming value. When you want to detect a *crossing point* (like "fire once when the value rises above 80") use the [Trigger](/docs/microflow-studio/nodes/generate/trigger) node instead.
 
-When you want to detect changes or patterns (like "when the value increases by 10") rather than checking exact values, you can use the [`Trigger`](/docs/microflow-studio/nodes/generate/trigger) node instead.
+## Outputs
+
+- **True** — fires when the condition is met
+- **False** — fires when the condition is not met
+
+Both outputs fire on every incoming value, so your flow reacts continuously as readings arrive.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Condition** — the comparison to apply: greater than (>), less than (<), equal to (=), greater than or equal (≥), less than or equal (≤), not equal (≠)
+- **Value** — the number to compare against

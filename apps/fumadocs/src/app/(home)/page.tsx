@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Github,
   ArrowRight,
+  PenTool,
 } from "lucide-react";
 
 const features = [
@@ -25,10 +26,10 @@ const features = [
       "Integrate with IoT ecosystems using MQTT. Publish and subscribe to topics to connect your prototypes to the wider world.",
   },
   {
-    icon: Figma,
-    title: "Figma",
+    icon: PenTool,
+    title: "Design",
     description:
-      "Bridge your Figma designs with real hardware. Sync variables between your design prototypes and physical components.",
+      "Bridge your designs with real hardware. Sync variables between your design prototypes and physical components. Fully supports Figma, penpot coming soon!",
   },
 ];
 

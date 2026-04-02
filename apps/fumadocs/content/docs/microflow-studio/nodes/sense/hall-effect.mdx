@@ -3,25 +3,51 @@ title: Hall effect
 description: Detect the presence and polarity of a magnetic field using an analog hall effect sensor.
 ---
 
-A hall effect sensor is a sensor that detects the presence of a magnetic field. It will detect both the north and south pole of a magnet. The sensor will output a voltage that is proportional to the strength of the magnetic field. `Microflow` **only** supports analog hall effect sensors.
+A hall effect sensor detects magnetic fields. Hold a magnet near it, and the sensor responds — the closer the magnet, the more the output value shifts away from its resting state.
 
-**North pole**
+Microflow supports **analog** hall effect sensors only.
 
-When recognizing a north pole, the output voltage will _decrease_.
+**Example uses:**
+- Detect whether a lid or door with a magnet is open or closed
+- Sense the rotation of a shaft or wheel with a magnet attached
+- Detect which side of an object is facing down using two magnets of opposite poles
 
-**South pole**
+## Output values
 
-When recognizing a south pole, the output voltage will _increase_.
+The sensor outputs a number on a scale of **0 to 1023**. With no magnet nearby, it reads approximately **512** — the midpoint.
+
+- **North pole nearby** — the value *decreases* (below 512)
+- **South pole nearby** — the value *increases* (above 512)
+- **No magnet** — the value rests near 512
+
+Because the resting value sits in the middle of the range, you can detect both poles and measure field strength with a single sensor.
+
+<Callout title="Pairing with Map or Compare">
+Since the resting value is around 512 (not 0), you will often want to use a [Compare](/docs/microflow-studio/nodes/decide/compare) node to trigger when the value crosses a threshold, or a [Map](/docs/microflow-studio/nodes/shape/map) node to convert the range into something more useful.
+</Callout>
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Pin** — which analog pin on your Arduino the sensor is connected to (analog pins are labelled A0, A1, A2, etc.)
 
 ## Wiring
-Not every hall effect sensor is the same, but most of them have three pins: 5V, GND, and SIG.
 
-Depending on the sensor the wiring may differ.
+Most hall effect sensors have three pins: **5V**, **GND**, and **SIG** (signal).
+
+Not every sensor is wired identically — check the datasheet for your specific model, but the general pattern is:
+
+| Sensor pin | Connect to |
+| --- | --- |
+| 5V | 5V on your Arduino |
+| GND | GND on your Arduino |
+| SIG | An analog pin (A0, A1, etc.) |
 
 ### 503
 
 <Callout type="info" title="Image placeholder">
-  Wiring diagram for the hall effect 503 sensor, showing the three pins (5V, GND, SIG) and their connections to a microcontroller.
+  Wiring diagram for the hall effect 503 sensor, showing the three pins (5V, GND, SIG) and their connections to an Arduino's 5V, GND, and analog input pins.
 </Callout>
 
 ## Resources

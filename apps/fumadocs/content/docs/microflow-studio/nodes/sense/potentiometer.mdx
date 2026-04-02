@@ -3,12 +3,33 @@ title: Potentiometer
 description: Use a rotary or sliding potentiometer to control values in your flow.
 ---
 
-A potentiometer is a dial or slider that you can turn or slide to set a value anywhere between its minimum and maximum. Think of it like a volume knob — turning it one way gives you a low value, turning it the other way gives you a high value.
+A potentiometer is a dial or slider that outputs a value proportional to its position. Think of a volume knob — all the way down gives you a low number, all the way up gives you a high number.
 
-A potentiometer can be used to control the brightness of an LED, the speed of a motor, the pitch of a buzzer, or any other value in your flow.
+Use it to give yourself real-time manual control over any value in your flow.
 
-## 2 channel sliding potentiometer
-Some sliding potentiometers have two channels. This means that the potentiometer has two separate resistive tracks. This can be useful when you want to control two separate devices with one potentiometer.
+**Example uses:**
+- Control LED brightness by turning a knob
+- Set motor speed with a slider
+- Adjust the pitch of a piezo buzzer
+- Scrub through LED matrix animation frames
+
+## Output values
+
+The potentiometer outputs a number between **0 and 1023**:
+- **0** = one extreme (fully turned or slid one way)
+- **1023** = the other extreme (fully turned or slid the other way)
+
+Because this range is large, you will often pair the potentiometer with a [Map](/docs/microflow-studio/nodes/shape/map) node to scale the value to something more useful — for example, 0–180 for a servo position, or 0–255 for LED brightness.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Pin** — which analog pin on your Arduino the potentiometer is connected to (analog pins are labelled A0, A1, A2, etc.)
+
+## 2-channel sliding potentiometer
+
+Some linear (sliding) potentiometers have two independent channels — two separate resistive tracks built into one physical slider. This lets you control two values independently with a single component.
 
 <Callout type="info" title="Image placeholder">
   Wiring diagram for a 2-channel linear slider potentiometer, showing how both channels connect to separate analog pins on a microcontroller.

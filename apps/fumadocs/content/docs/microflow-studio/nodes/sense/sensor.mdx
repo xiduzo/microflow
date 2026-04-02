@@ -1,32 +1,36 @@
 ---
 title: Sensor
-description: Use any digital or analog sensor that isn't specifically listed in the documentation.
+description: Use any digital or analog sensor not specifically listed in the documentation.
 ---
 
-If you have a sensor that isn't specifically mentioned in the documentation, you can still use it with Microflow! You just need to know whether it's a digital or analog sensor.
+If your sensor does not have its own dedicated node in Microflow, you can still use it with the generic Sensor node. You just need to know one thing: is it a **digital** or **analog** sensor?
 
-**Digital vs Analog:**
-- **Digital Sensor:** Gives you simple on/off or yes/no readings (like a motion detector that says "motion detected" or "no motion")
-- **Analog Sensor:** Gives you a range of values (like a light sensor that reads from 0 to 1023, where 0 is completely dark and 1023 is very bright)
+## Digital vs analog
 
-## Digital Sensor
+**Digital sensor** — outputs one of two states: on or off, detected or not detected. These sensors give a clear yes/no answer. Example: a motion detector that says "motion detected" or "no motion."
 
-A digital sensor detects whether something is present or not, on or off, above or below a threshold. It gives you simple yes/no information.
+**Analog sensor** — outputs a continuous range of numbers (typically 0–1023 on an Arduino). These sensors measure a quantity that can vary smoothly. Example: a soil moisture sensor that reads anywhere from dry to saturated.
 
-## Analog Sensor
+If you are unsure which type your sensor is, check its datasheet or packaging. A sensor that connects to one of the A0–A5 pins is almost certainly analog. A sensor that only needs a single digital pin is digital.
 
-An analog sensor measures a continuous range of values. These sensors can be used to measure a variety of things, such as:
+## Settings
 
-- [Rotary Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer)
-- [Linear Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer#2-channel-sliding-potentiometer)
-- Flex Sensitive Resistor
-- Pressure Sensitive Resistor
-- [Force Sensitive Resistor](/docs/microflow-studio/nodes/sense/force)
-- [Hall Sensor](/docs/microflow-studio/nodes/sense/hall-effect)
-- [Tilt Sensor](/docs/microflow-studio/nodes/sense/tilt)
-- [Photoresistor/Light Dependent Resistor (LDR)](/docs/microflow-studio/nodes/sense/ldr)
+Open the settings panel to configure:
 
-...And many more.
+- **Pin** — which pin on your Arduino the sensor is connected to
+- **Type** — digital or analog
+
+## When to use this node
+
+Use the generic Sensor node for sensors that do not have a dedicated page in the documentation, such as:
+
+- Flex resistors (bend sensors)
+- Soil moisture sensors
+- Vibration sensors
+- Rain or water level sensors
+- Any other standard digital or analog sensor
+
+For sensors that have their own dedicated node — [Button](/docs/microflow-studio/nodes/sense/button), [LDR](/docs/microflow-studio/nodes/sense/ldr), [Force](/docs/microflow-studio/nodes/sense/force), [Hall Effect](/docs/microflow-studio/nodes/sense/hall-effect), [Tilt](/docs/microflow-studio/nodes/sense/tilt), [Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer), and others — use the specific node instead. Dedicated nodes include settings and context specific to that sensor type.
 
 ## Resources
 

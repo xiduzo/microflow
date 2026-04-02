@@ -3,10 +3,16 @@ title: Smooth
 description: Stabilize noisy or jumpy sensor readings by averaging them out over time.
 ---
 
-Some sensors can give you jumpy or noisy readings that change rapidly and unpredictably. The Smooth node helps stabilize these readings by averaging them out.
+Some sensors give readings that jump around even when conditions have not really changed. This is called *noise* — tiny electrical fluctuations that affect the output. The Smooth node removes this jitter by averaging the last several readings into one stable value.
 
-**How it works:** The Smooth node takes the last several readings and calculates their average. Instead of using each individual reading (which might jump around), it uses the average, which gives you a more stable, smoother value.
+**How it works:** The Smooth node keeps a rolling window of recent readings and outputs their average. The larger the window, the smoother — but slower to respond to real changes.
 
-**Example:** A light sensor might read 100, then 105, then 98, then 102 - jumping around even when the light hasn't really changed. The Smooth node averages these values to give you a steadier reading around 101, making it easier to work with.
+**Example:** A light sensor reads 100, then 105, then 98, then 102 in quick succession, even though the light has not moved. The Smooth node averages these into a stable value around 101, making it much easier to work with.
 
-This is especially useful for analog sensors that can be sensitive to small changes or electrical noise.
+This is especially useful before feeding sensor data into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Map](/docs/microflow-studio/nodes/shape/map) node, where erratic values would cause unwanted triggering.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Samples** — how many recent readings to average together. More samples = smoother output, but slower to react to genuine changes. A value of 5–10 is a good starting point for most sensors

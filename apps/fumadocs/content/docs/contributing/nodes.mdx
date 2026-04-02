@@ -3,11 +3,11 @@ title: How to add your own node
 description: Step-by-step guide to adding a custom node to Microflow.
 ---
 
-Adding your own node requires a bit of boilerplate and manual work at the moment.
+Adding your own node requires some boilerplate and a few manual wiring steps across the codebase. The process below walks through each one.
 
 ## Step 1: creating your own component type
 
-Let's say you want to create your own node type called `MyNode`. First you need to create a file with it's own class in `packages/components/src/YourNode.ts` your type must extend the BaseComponent class. Here's an example declaration:
+Let's say you want to create your own node type called `MyNode`. First you need to create a file with its own class in `packages/components/src/YourNode.ts`. Your type must extend the BaseComponent class. Here's an example declaration:
 
 ```ts
 export type MyNodeValueType = number;

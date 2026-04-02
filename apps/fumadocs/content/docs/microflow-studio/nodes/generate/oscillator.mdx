@@ -3,21 +3,25 @@ title: Oscillator
 description: Create a repeating wave-like pattern of numbers that goes up and down.
 ---
 
-An Oscillator node creates a repeating pattern of numbers that goes up and down in a wave-like pattern. Think of it like a wave in the ocean - it goes up, then down, then up again in a smooth, repeating cycle.
+An Oscillator generates a continuously repeating pattern of numbers that rises and falls in a wave. Where a sensor only fires when something in the physical world changes, an Oscillator produces its own changing values driven purely by time.
 
-**Wave types:** You can choose different wave patterns:
-- **Sine wave:** A smooth, curved wave (like ocean waves)
-- **Square wave:** A sharp on/off pattern (like a blinking light)
-- **Triangle wave:** A straight-line up and down pattern
-- **Sawtooth wave:** A gradual rise with a sharp drop
+**Wave types:**
+- **Sine wave** — a smooth, curved wave (like ocean waves). Good for slow, natural-feeling transitions
+- **Square wave** — a sharp on/off pattern that toggles between two values. Good for blinking or pulsing at a fixed rate
+- **Triangle wave** — a straight-line up and down pattern. Similar to sine but with sharper turning points
+- **Sawtooth wave** — a gradual rise followed by a sudden drop. Good for one-directional sweeps that reset
 
 **Examples:**
-- Create a pulsing LED that smoothly fades in and out
-- Generate a vibration pattern that varies in intensity
-- Make a servo motor move back and forth smoothly
-- Create any repeating pattern that goes up and down
+- Create a pulsing LED that smoothly fades in and out using a sine wave
+- Blink an LED at a precise frequency using a square wave
+- Make a servo motor sweep back and forth automatically
+- Drive a repeating animation in a Figma prototype
 
-You can control:
-- **Frequency** — how fast the wave repeats (e.g. once per second vs. ten times per second)
-- **Amplitude** — how big the wave is (how high and low the values go)
-- **Phase** — where in the cycle the wave starts (most of the time you can leave this at the default)
+## Settings
+
+Open the settings panel to configure:
+
+- **Wave type** — the shape of the repeating pattern (sine, square, triangle, sawtooth)
+- **Frequency** — how fast the wave repeats, in Hz (cycles per second). 1 Hz = one full cycle per second. 0.5 Hz = one cycle every two seconds. 10 Hz = ten cycles per second
+- **Amplitude** — how large the swings are. An amplitude of 100 means the wave travels from −100 to +100
+- **Phase** — where in the cycle the wave starts. Leave this at 0 for most uses

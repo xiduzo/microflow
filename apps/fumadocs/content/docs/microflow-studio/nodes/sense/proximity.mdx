@@ -1,38 +1,49 @@
 ---
 title: Proximity
-description: Read the distance to an object using various proximity sensor types.
+description: Measure how far away an object is using a proximity sensor.
 ---
 
-A proximity sensor measures how far away an object is. It outputs a distance value that you can use to trigger actions based on how close something (or someone) gets.
+A proximity sensor measures how far away an object is. It outputs a distance value you can use to trigger actions based on how close something — or someone — gets.
 
 **Example uses:**
-- Trigger an action when someone's hand gets within 20 cm
-- Display how far away an obstacle is
+- Trigger an action when a hand gets within 20 cm
+- Display the distance to the nearest obstacle
 - Create an alarm that activates when something enters a zone
 
-The node outputs a distance in centimetres.
+The node outputs a distance in **centimetres**.
 
-## Types of proximity sensors
-There are different types of proximity sensors available. The most common types are:
+## Settings
 
-### Pulse/PWM
-_No pulse/PWM proximity sensors have been tested with `Microflow` yet._
+Open the settings panel to configure:
 
-### Analog
-_No analog proximity sensors have been tested with `Microflow` yet._
+- **Pin** — which pin your sensor is connected to. Infrared sensors use analog pins (A0, A1, etc.)
+- **Sensor type** — select the model of your sensor from the list
+
+## Supported sensors
+
+Proximity sensors send distance readings to your Arduino in different ways. The table below shows which models have been tested and confirmed to work with Microflow.
+
+<Callout title="Not sure which type you have?">
+Most hobbyist distance sensors sold as "IR distance sensors" are **infrared** sensors. If your sensor has a part number starting with **GP2Y**, it is an infrared sensor — use one of the models in the table below.
+
+Sensors labelled **I2C**, **PWM**, or **ultrasonic** (like the common HC-SR04) use different communication methods and have not been tested with Microflow yet.
+</Callout>
 
 ### Infrared
 
-| Sensor                        | Range (Close) | Range (Long) | Resolution |
-|-------------------------------|---------------|--------------|------------|
-| GP2Y0A21YK                    | 0-10cm        | 10-80cm      | 1cm        |
-| GP2D120XJ00F                  | 0-4cm         | 4-30cm       | 1cm        |
-| GP2Y0A02YK0F                  | 0-15cm        | 15-150cm     | 1cm        |
-| GP2Y0A41SK0F                  | 0-4cm         | 4-30cm       | 1cm        |
-| GP2Y0A710K0F                  | 0-50cm        | 50-500cm     | 1cm        |
+Infrared sensors measure distance by emitting an invisible light pulse and detecting how much bounces back. The closer an object, the stronger the reflection and the lower the reported distance.
 
-### I2C
-_No I2C proximity sensors have been tested with `Microflow` yet._
+| Sensor | Short range | Long range | Resolution |
+| --- | --- | --- | --- |
+| GP2Y0A21YK | 0–10 cm | 10–80 cm | 1 cm |
+| GP2D120XJ00F | 0–4 cm | 4–30 cm | 1 cm |
+| GP2Y0A02YK0F | 0–15 cm | 15–150 cm | 1 cm |
+| GP2Y0A41SK0F | 0–4 cm | 4–30 cm | 1 cm |
+| GP2Y0A710K0F | 0–50 cm | 50–500 cm | 1 cm |
+
+### Other sensor types
+
+Pulse/PWM, plain analog, and I2C proximity sensors have not been tested with Microflow yet. If you have successfully used one, [let us know](https://github.com/xiduzo/microflow/issues/new?assignees=&labels=&projects=&template=feature_request.md&title=).
 
 ## Resources
 

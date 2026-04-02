@@ -3,20 +3,41 @@ title: Servo
 description: Control a servo motor for precise positioning or continuous rotation in your projects.
 ---
 
-A servo is a small motor which can be rotated. Servos are commonly used in robotics to control the movement of robot arms, legs, and other parts.
+A servo motor moves to a position or spins at a speed when you send it a value. Unlike a basic motor that just spins freely, a servo gives you precise control — either over *where* it points, or *how fast* it spins.
 
-<Callout title="Servo type">
-There are two types of servos out there: `positional` and `continuous`.
+Servos are commonly used for robot arms, mechanical linkages, automated valves, and any project that needs controlled movement.
 
-The `positional` servo can only be set to a specific angle, while the `continuous` servo can only be set to a specific speed and direction.
+<Callout title="Two types of servo">
+**Positional (standard)** — rotates to a specific angle between 0° and 180° and holds there. Send a number between 0 and 180 to set the angle. If the packaging does not mention "360", it is almost certainly positional.
 
-When the label on the servo mentions `360`, it is a `continuous` servo. Otherwise it is most likely a `positional` servo.
+**Continuous (360)** — spins continuously at a controlled speed and direction. Send a number between 0 and 180, where 90 = stopped, below 90 = one direction, above 90 = the other. Packaging or markings will usually say "360".
 </Callout>
 
-<Callout type="warn" title="Power consumption">
-Servos can draw a lot of power, especially when they are moving. Make sure to use a power supply that can provide enough current to power your servo.
+## Inputs
 
-Powering the servo directly from the microcontroller can cause the microcontroller to reset or behave erratically. It is advised to power the servo from a separate power supply.
+- **Value** — for a positional servo: the target angle in degrees (0–180). For a continuous servo: the speed and direction (0–180, where 90 = stopped)
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Pin** — which PWM-capable pin on your Arduino the servo signal wire is connected to. Servos require a PWM pin
+- **Type** — positional or continuous
+
+## Wiring
+
+A servo has three wires. The color coding below is common but not universal — verify with your servo's documentation.
+
+| Wire color | Function | Connect to |
+| --- | --- | --- |
+| Brown or black | Ground | GND on Arduino *and* external power supply |
+| Red | Power (5V) | External 5V power supply |
+| Orange or yellow | Signal | A PWM pin on your Arduino |
+
+<Callout type="warn" title="Use a separate power supply for the servo">
+Servos can draw significantly more current than an Arduino can safely provide. Powering a servo from the Arduino's 5V pin may cause the board to reset, behave erratically, or sustain damage.
+
+Power the servo from a **separate 5V power supply** and connect only the signal wire and ground to the Arduino. Connect the negative (GND) of the external supply to the Arduino's GND — this shared ground is required for the signal wire to work correctly.
 </Callout>
 
 ## Resources

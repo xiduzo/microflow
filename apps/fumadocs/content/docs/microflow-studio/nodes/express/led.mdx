@@ -3,31 +3,84 @@ title: LED
 description: Control LED lights including single LEDs, RGB LEDs, and LED matrices.
 ---
 
-An LED (Light Emitting Diode) is a small light that turns on when electricity flows through it. LEDs are commonly used in electronics projects to show status, provide feedback, or create visual effects.
+An LED (Light Emitting Diode) is a small light that turns on when electricity flows through it. The LED node supports three variants: a single-color LED, an RGB LED, and an LED matrix.
 
-**How it works:** Connect an LED to your microcontroller, and the LED node can turn it on, turn it off, or control its brightness. LEDs are perfect for indicating when something is happening in your flow - like showing when a button is pressed, when a sensor detects something, or just as a status indicator.
+**Example uses:**
+- Turn on a light when a button is pressed
+- Gradually dim a light based on a sensor reading
+- Show status using different colors with an RGB LED
+- Display patterns or animations on a grid of LEDs
 
-## LED - RGB
+---
 
-An RGB LED is like three LEDs in one - it has red, green, and blue lights all in the same component. By controlling how bright each color is, you can create any color you want!
+## Single LED
 
-**How it works:** Instead of just on/off or brightness, you control three values (red, green, blue) from 0 to 255. Mixing these values creates different colors - for example, full red + full green = yellow, all three at full = white, all at zero = off.
+A single LED can be switched on and off, or have its brightness controlled.
 
-## LED - matrix
+### Inputs
 
-An LED matrix is a grid of LEDs (like an 8x8 grid = 64 LEDs) that can display patterns, shapes, or simple animations. Currently, Microflow supports basic 8x8 LED matrices.
+- **Value** — a number from 0 to 255 that sets brightness. 0 = off, 255 = full brightness. Values in between dim the LED
+- **On** — turns the LED fully on
+- **Off** — turns the LED fully off
+- **Toggle** — switches between on and off
 
-**How it works:**
+### Settings
 
-- You can draw patterns using an editor built into Microflow
-- You can create multiple "frames" (like animation frames) that show different patterns
-- To display a specific frame, send a number to the `show` input handle
+- **Pin** — which pin on your Arduino the LED is connected to
 
-<Callout title="Counting like a coder">
-The frames are numbered starting from 0, not 1. So the first frame is frame 0, the second frame is frame 1, the third is frame 2, and so on. This is common in programming - just remember to start counting from zero!
+<Callout title="Brightness requires a PWM pin">
+Dimming an LED (sending values between 0 and 255) requires a PWM-capable pin. On an Arduino Uno, PWM pins are marked with a tilde (~): pins **3, 5, 6, 9, 10, and 11**.
+
+A non-PWM pin can only switch fully on or off — sending intermediate values will have no effect. Use the On and Off inputs in that case.
+</Callout>
+
+---
+
+## RGB LED
+
+An RGB LED packs three LEDs — red, green, and blue — into a single component. Mixing the brightness of each channel produces any color.
+
+**Color mixing reference:**
+- Red 255 + Green 255 + Blue 0 = yellow
+- Red 255 + Green 0 + Blue 255 = magenta
+- Red 0 + Green 255 + Blue 255 = cyan
+- All three at 255 = white
+- All three at 0 = off
+
+### Inputs
+
+- **Red** — brightness of the red channel (0–255)
+- **Green** — brightness of the green channel (0–255)
+- **Blue** — brightness of the blue channel (0–255)
+
+### Settings
+
+- **Red pin, Green pin, Blue pin** — which PWM-capable pins each color channel is connected to (all three require PWM pins)
+
+---
+
+## LED matrix
+
+An LED matrix is a grid of individual LEDs — typically 8×8 (64 LEDs total). You can display patterns, icons, or simple frame-by-frame animations.
+
+You draw patterns using the built-in pixel editor in Microflow and create multiple frames. To display a specific frame, send its index number to the Show input.
+
+### Inputs
+
+- **Show** — which frame to display, as a number (0 for the first frame, 1 for the second, and so on)
+
+### Settings
+
+- **Pin** — which data pin the LED matrix is connected to
+- **Frame editor** — draw pixel patterns for each frame directly in Microflow
+
+<Callout title="Frames start at 0, not 1">
+The first frame is frame 0, the second is frame 1, and so on. This is standard in programming — just remember to count from zero when sending values to the Show input.
 </Callout>
 
 [Download LED matrix example flow](/flow-examples/led_matrix.microflow)
+
+---
 
 ## Resources
 

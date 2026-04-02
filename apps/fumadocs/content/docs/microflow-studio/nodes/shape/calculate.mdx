@@ -3,12 +3,22 @@ title: Calculate
 description: Perform mathematical operations like addition, subtraction, multiplication, and division.
 ---
 
-The Calculate node lets you do math with numbers in your flow. You can add, subtract, multiply, or divide values.
+The Calculate node performs arithmetic on numbers passing through your flow. Connect a value, choose the operation, and it outputs the result.
 
 **Examples:**
-- Add two sensor readings together
-- Multiply a sensor value by 2 to double it
-- Subtract one number from another
-- Divide a large number to make it smaller
+- Add two sensor readings together to combine them
+- Multiply a sensor reading by 2 to double it
+- Divide a large number by 4 to scale it down
+- Subtract a fixed offset to zero-calibrate a sensor
 
-This is useful when you need to combine values, scale them up or down, or perform any mathematical calculation as part of your flow.
+## Inputs
+
+- **Value** — the number to perform the operation on. Connect a sensor or another node here
+- **Operand** *(optional)* — the second number in the calculation. You can wire it from another node, or set it as a fixed value in the settings panel
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Operation** — the math to apply: Add (+), Subtract (−), Multiply (×), Divide (÷)
+- **Value** — the fixed number to use as the operand, if you are not connecting the Operand input to another node

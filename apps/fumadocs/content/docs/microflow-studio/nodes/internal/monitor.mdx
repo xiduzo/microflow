@@ -1,14 +1,15 @@
 ---
 title: Monitor
-description: Display values and data as they pass through your flow for debugging and understanding.
+description: Display values as they pass through your flow for debugging and understanding.
 ---
 
-The Monitor node lets you see what's happening in your flow by displaying the values and data as they pass through. It's like a window into your flow that shows you numbers, graphs, or other visual information.
+The Monitor node shows you what is happening inside your flow in real-time. Place it anywhere in your flow, and it displays the values passing through that point — as a number, a graph over time, or an on/off state.
 
-**Why use it:**
-- **Debugging:** See what values your sensors are actually reading
-- **Understanding:** Watch how data changes as it flows through your nodes
-- **Learning:** Understand how your flow works by seeing the data in real-time
-- **Testing:** Verify that your flow is working as expected
+It does not change your flow in any way. It is purely for observation.
 
-The Monitor node doesn't change your flow - it just shows you what's happening. You can see graphs, numbers, or other visual displays of the data flowing through your project. This is especially helpful when things aren't working as expected and you need to figure out why.
+**When to use it:**
+- Your flow is not behaving as expected and you want to see what values your sensors are actually producing
+- You want to verify that a [Map](/docs/microflow-studio/nodes/shape/map) or [Calculate](/docs/microflow-studio/nodes/shape/calculate) node is producing the right output
+- You are building something new and want to watch how values change as they move through nodes
+
+**Tip:** Place a Monitor node just *before* the node that is not working as expected. If the values arriving look wrong, the problem is upstream of that point. If they look correct, the problem is in that node's settings.

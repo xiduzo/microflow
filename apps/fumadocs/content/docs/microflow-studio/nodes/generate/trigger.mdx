@@ -3,11 +3,27 @@ title: Trigger
 description: Detect when values change in a specific way rather than checking exact numbers.
 ---
 
-The Trigger node detects when values change in a specific way, rather than checking if they match an exact number (which is what the [Compare](/docs/microflow-studio/nodes/decide/compare) node does).
+The Trigger node watches for a value to change in a specific way and fires once when that change happens — for example, "fire when the value crosses 500 going upward."
+
+This is different from the [Compare](/docs/microflow-studio/nodes/decide/compare) node, which continuously checks whether a value meets a condition right now. The Trigger node cares about *direction and crossing points*, not just the current state. This means it fires once at the moment of crossing, not on every incoming value.
 
 **Examples:**
-- Detect when a temperature increases by more than 10 degrees (even if you don't know the exact starting temperature)
-- Trigger when a sensor value suddenly drops
-- Activate something when a value crosses a threshold going up or down
+- Fire once when a temperature reading climbs above 30°C
+- Fire once when a sensor value drops below a threshold
+- Fire every time any change is detected in a value
 
-**Real-world example:** When the temperature of a room increases above a certain threshold, you can trigger an event to turn on the air conditioning. The Trigger node watches for the change, not just checking if it's above a fixed number.
+**Real-world example:** Turn on a fan the moment a temperature reading rises above 30°C — not every time a reading comes in while it is already above 30°C.
+
+## Outputs
+
+- **Change** — fires each time the trigger condition is met
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Condition** — what kind of change to watch for:
+  - **Rises above** — fires once when a rising value crosses the threshold
+  - **Falls below** — fires once when a falling value crosses the threshold
+  - **Changes** — fires on every incoming change
+- **Threshold** — the value to watch for (used with "rises above" and "falls below")

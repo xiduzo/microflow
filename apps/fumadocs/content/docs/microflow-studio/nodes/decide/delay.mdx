@@ -1,13 +1,26 @@
 ---
 title: Delay
-description: Make your flow wait for a set amount of time before continuing.
+description: Make your flow wait before continuing.
 ---
 
-The Delay node makes your flow wait for a certain amount of time before continuing. Instead of acting immediately when something happens, you can pause and then proceed.
+The Delay node holds a signal for a set amount of time before passing it on. Instead of acting immediately when something happens, you can add a pause.
 
 **Examples:**
 - Wait 2 seconds after a button is pressed before turning on an LED
-- Delay turning off a light for 5 seconds after motion is detected
-- Create a pause between actions in a sequence
+- Keep a light on for 10 seconds after motion is detected, then let it turn off
+- Add a gap between steps in a sequence
 
-**Debouncing:** This is a special feature that resets the timer every time the input changes. This is useful when you want to wait for things to settle down. For example, if a sensor is giving you lots of quick readings, you can set it to wait 1 second after the last reading before doing something. This prevents acting on every single reading and instead waits until things have been stable for a moment.
+## Debouncing
+
+When **debounce** is enabled, the timer resets every time a new signal arrives. The Delay only fires after signals have stopped arriving for the full duration.
+
+This is useful for sensors that fire many times in quick succession. Instead of acting on every single reading, you wait for activity to settle down first.
+
+**Example:** A vibration sensor fires 20 times when tapped. With a 500 ms debounce, the Delay waits until tapping has fully stopped for half a second before passing the signal through.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Duration** — how long to wait, in milliseconds (1000 ms = 1 second)
+- **Debounce** — when enabled, the timer resets on every new incoming signal instead of starting once
