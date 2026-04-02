@@ -309,7 +309,7 @@ pub fn run() {
                     let payload = event.payload();
                     if let Ok(data) = serde_json::from_str::<serde_json::Value>(payload) {
                         let key = data.get("key").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
-                        let pressed = data.get("pressed").and_then(|v| v.as_bool()).unwrap_or(false);
+                        let pressed = data.get("pressed").and_then(serde_json::Value::as_bool).unwrap_or(false);
 
                         log::info!("[HOTKEY] Received key_event: key={key}, pressed={pressed}");
 
@@ -327,12 +327,9 @@ pub fn run() {
                                 let listeners = runtime.key_listeners();
                                 let map = listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                                 log::info!("[HOTKEY] key_listeners map: {:?}", map.keys().collect::<Vec<_>>());
-                                match map.get(&key) {
-                                    Some(ids) => ids.clone(),
-                                    None => {
-                                        log::warn!("[HOTKEY] No listeners found for key={key}");
-                                        return;
-                                    }
+                                if let Some(ids) = map.get(&key) { ids.clone() } else {
+                                    log::warn!("[HOTKEY] No listeners found for key={key}");
+                                    return;
                                 }
                             };
 
@@ -340,7 +337,7 @@ pub fn run() {
                             let value = runtime::ComponentValue::Bool(pressed);
                             for component_id in &component_ids {
                                 if let Err(e) = runtime.call_component(component_id, "key_event", value.clone()) {
-                                    log::warn!("Failed to route key event to {}: {}", component_id, e);
+                                    log::warn!("Failed to route key event to {component_id}: {e}");
                                 }
                             }
                         });

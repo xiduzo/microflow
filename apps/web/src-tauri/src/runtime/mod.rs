@@ -157,7 +157,7 @@ impl FlowRuntime {
         Arc::clone(&self.pin_listeners)
     }
 
-    /// Get the key listeners map (for use from the key_event Tauri command)
+    /// Get the key listeners map (for use from the `key_event` Tauri command)
     #[must_use]
     pub fn key_listeners(&self) -> Arc<std::sync::Mutex<HashMap<String, Vec<Arc<str>>>>> {
         Arc::clone(&self.key_listeners)

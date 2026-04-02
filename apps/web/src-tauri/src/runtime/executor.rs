@@ -121,6 +121,7 @@ impl FlowExecutor {
     }
 
     /// Get the stored node data for a component (used for diff comparison)
+    #[must_use]
     pub fn get_node_data(&self, id: &str) -> Option<&serde_json::Value> {
         self.node_data.get(id)
     }

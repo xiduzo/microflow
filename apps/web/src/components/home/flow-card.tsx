@@ -63,74 +63,72 @@ export function FlowCard(props: FlowCardProps) {
   const hasActions = !!(props.onExport || props.settingsFlowId || props.deleteFlow);
 
   return (
-    <>
-      <Card className="relative mx-auto h-full w-full pt-0">
-        <section className="relative z-20 aspect-video w-full overflow-hidden bg-background">
-          <ReactFlowProvider>
-            <FlowThumbnail nodes={props.nodes} edges={props.edges} />
-          </ReactFlowProvider>
-        </section>
-        <CardHeader>
-          {props.badges && props.badges.length > 0 && (
-            <CardAction>
-              {props.badges.map((badge) => (
-                <Badge key={badge.label} variant={badge.variant}>
-                  {badge.label}
-                </Badge>
-              ))}
-            </CardAction>
-          )}
-          <CardTitle>{props.name}</CardTitle>
-          <CardDescription>
-            {props.description
-              ? props.description
-              : `Edited ${formatDistanceToNow(props.updatedAt, { addSuffix: true })}`}
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="gap-2">
-          <Button className="flex-1" onClick={handleClick}>Open flow</Button>
-          {hasActions && (
-            <DropdownMenu>
-              <DropdownMenuTrigger>
-                <Button variant="outline" size="icon" data-card-action>
-                  <MoreHorizontalIcon className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {props.onExport && (
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); props.onExport?.(); }}>
-                    <HardDriveUploadIcon className="size-4 mr-2" />
-                    Export
-                  </DropdownMenuItem>
-                )}
-                {props.settingsFlowId && (
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate({ to: "/flow/$flowId/settings", params: { flowId: props.settingsFlowId! } });
-                    }}
-                  >
-                    <SettingsIcon className="size-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                )}
-                {props.deleteFlow && (
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => {
-                      // Delay to let the dropdown finish closing before opening the dialog
-                      requestAnimationFrame(() => setDeleteDialogOpen(true));
-                    }}
-                  >
-                    <Trash2Icon className="size-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </CardFooter>
-      </Card>
+    <Card className="relative mx-auto h-full w-full pt-0">
+      <section className="relative z-20 aspect-video w-full overflow-hidden bg-background">
+        <ReactFlowProvider>
+          <FlowThumbnail nodes={props.nodes} edges={props.edges} />
+        </ReactFlowProvider>
+      </section>
+      <CardHeader>
+        {props.badges && props.badges.length > 0 && (
+          <CardAction>
+            {props.badges.map((badge) => (
+              <Badge key={badge.label} variant={badge.variant}>
+                {badge.label}
+              </Badge>
+            ))}
+          </CardAction>
+        )}
+        <CardTitle>{props.name}</CardTitle>
+        <CardDescription>
+          {props.description
+            ? props.description
+            : `Edited ${formatDistanceToNow(props.updatedAt, { addSuffix: true })}`}
+        </CardDescription>
+      </CardHeader>
+      <CardFooter className="gap-2">
+        <Button className="flex-1" onClick={handleClick}>Open flow</Button>
+        {hasActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <Button variant="outline" size="icon" data-card-action>
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {props.onExport && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); props.onExport?.(); }}>
+                  <HardDriveUploadIcon className="size-4 mr-2" />
+                  Export
+                </DropdownMenuItem>
+              )}
+              {props.settingsFlowId && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate({ to: "/flow/$flowId/settings", params: { flowId: props.settingsFlowId! } });
+                  }}
+                >
+                  <SettingsIcon className="size-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+              )}
+              {props.deleteFlow && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    // Delay to let the dropdown finish closing before opening the dialog
+                    requestAnimationFrame(() => setDeleteDialogOpen(true));
+                  }}
+                >
+                  <Trash2Icon className="size-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </CardFooter>
       {props.deleteFlow && (
         <DeleteFlowDialog
           flow={props.deleteFlow}
@@ -138,7 +136,7 @@ export function FlowCard(props: FlowCardProps) {
           onOpenChange={setDeleteDialogOpen}
         />
       )}
-    </>
+    </Card>
   );
 }
 

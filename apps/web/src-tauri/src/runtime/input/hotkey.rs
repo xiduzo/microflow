@@ -1,7 +1,7 @@
 //! Hotkey Component - Input
 //!
 //! Software-only component that responds to keyboard key press/release events
-//! routed from the HotkeyManager. Emits events on "event", "true", and "false" handles.
+//! routed from the `HotkeyManager`. Emits events on "event", "true", and "false" handles.
 
 use crate::runtime::base::{
     BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
@@ -44,6 +44,7 @@ impl Hotkey {
     }
 
     /// Get the configured accelerator key (lowercase)
+    #[must_use]
     pub fn accelerator(&self) -> &str {
         &self.config.accelerator
     }
