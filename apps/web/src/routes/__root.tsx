@@ -14,7 +14,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SetNameDialog } from "@/components/set-name-dialog";
 
 import "../index.css";
-import { HotkeysProvider } from "react-hotkeys-hook";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -65,7 +65,7 @@ function RootComponent() {
         storageKey="microflow-ui-theme"
       >
         <SidebarProvider>
-          <HotkeysProvider initiallyActiveScopes={["flow", "navigation"]}>
+          <HotkeysProvider>
             <AppSidebar />
             <SidebarInset>
               <TooltipProvider>

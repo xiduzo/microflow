@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -24,11 +24,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { HardDriveUploadIcon, MoreHorizontalIcon, SettingsIcon } from "lucide-react";
+import { HardDriveUploadIcon, MoreHorizontalIcon, SettingsIcon, Trash2Icon } from "lucide-react";
 import { NODE_TYPES } from "../flow/nodes/_TYPES";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";
+import { DeleteFlowDialog } from "../flow/dialogs/delete-flow-dialog";
 
 type FlowCardProps = {
   id: string;
@@ -45,10 +46,13 @@ type FlowCardProps = {
   onExport?: () => void;
   /** When set, show a Settings action that navigates to this flow's settings (e.g. for non-local flows) */
   settingsFlowId?: string;
+  /** When set, show a Delete action in the dropdown menu */
+  deleteFlow?: { id: string; name: string };
 };
 
 export function FlowCard(props: FlowCardProps) {
   const navigate = useNavigate();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   async function handleClick(e: React.MouseEvent) {
     if ((e.target as HTMLElement).closest("[data-card-action]")) return;
@@ -56,7 +60,7 @@ export function FlowCard(props: FlowCardProps) {
     navigate({ to: "/flow/$flowId/graph", params: { flowId: props.id } });
   }
 
-  const hasActions = !!(props.onExport || props.settingsFlowId);
+  const hasActions = !!(props.onExport || props.settingsFlowId || props.deleteFlow);
 
   return (
     <Card className="relative mx-auto w-full pt-0">
@@ -109,10 +113,29 @@ export function FlowCard(props: FlowCardProps) {
                   Settings
                 </DropdownMenuItem>
               )}
+              {props.deleteFlow && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => {
+                    // Delay to let the dropdown finish closing before opening the dialog
+                    requestAnimationFrame(() => setDeleteDialogOpen(true));
+                  }}
+                >
+                  <Trash2Icon className="size-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
       </CardFooter>
+      {props.deleteFlow && (
+        <DeleteFlowDialog
+          flow={props.deleteFlow}
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+        />
+      )}
     </Card>
   );
 }

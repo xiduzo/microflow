@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMac } from "@/hooks/is-mac";
 import { MousePointerClickIcon, MoveIcon, SplineIcon } from "lucide-react";
 import { useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 export function HotkeySheet() {
   const isMac = useIsMac();
@@ -22,11 +22,8 @@ export function HotkeySheet() {
     setOpen(!open);
   };
 
-  useHotkeys("control+shift+slash", toggleSheet, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
+  useHotkey({ key: "/", ctrl: true, shift: true }, toggleSheet, {
+    ignoreInputs: true,
   });
   return (
     <Sheet open={open} onOpenChange={setOpen}>

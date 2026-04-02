@@ -22,7 +22,7 @@ import { NODE_TYPES } from "./nodes/_TYPES";
 import { NewNodeDialog } from "./dialogs/new-node-dialog";
 import { SettingsPanel } from "./panels/settings-panel";
 import { useEffect, useRef, useCallback } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { EDGE_TYPES } from "./edges/edges.constants";
 import { DockPanel } from "./panels/dock-panel";
 import { useTheme } from "@/providers/theme-provider";
@@ -136,74 +136,53 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
   const clipboard = useFlowClipboard();
   const history = useFlowHistoryActions();
 
-  useHotkeys("mod+c", () => {
-    const selectedNodes = getNodes().filter((n) => n.selected) as FlowNode[];
-    clipboard.copy(selectedNodes);
-  }, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-  });
-
-  useHotkeys(
-    "mod+v",
-    () => {
-      clipboard.paste(screenToFlowPosition(cursorPositionRef.current));
+  useHotkeys([
+    {
+      hotkey: "Mod+C",
+      callback: () => {
+        const selectedNodes = getNodes().filter((n) => n.selected) as FlowNode[];
+        clipboard.copy(selectedNodes);
+      },
+      options: { ignoreInputs: true },
     },
     {
-      enabled: true,
-      enableOnFormTags: false,
-      preventDefault: true,
-      scopes: ["flow"],
-    }
-  );
-
-  useHotkeys(
-    "mod+a",
-    () => {
-      setNodes(getNodes().map((node) => ({ ...node, selected: true })));
-      setEdges(getEdges().map((edge) => ({ ...edge, selected: true })));
+      hotkey: "Mod+V",
+      callback: () => {
+        clipboard.paste(screenToFlowPosition(cursorPositionRef.current));
+      },
+      options: { ignoreInputs: true },
     },
     {
-      enabled: true,
-      enableOnFormTags: false,
-      preventDefault: true,
-      scopes: ["flow"],
-    },
-  );
-
-  useHotkeys("mod+z", history.undo, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-  });
-
-  useHotkeys("mod+shift+z", history.redo, {
-    enabled: true,
-    enableOnFormTags: false,
-    preventDefault: true,
-    scopes: ["flow"],
-  });
-
-  useHotkeys(
-    "shift+1",
-    () => {
-      const selectedNodes = nodes.filter((node) => node.selected);
-      fitView({
-        nodes: selectedNodes.length ? selectedNodes : nodes,
-        padding: 0.25,
-        duration: 250,
-      });
+      hotkey: "Mod+A",
+      callback: () => {
+        setNodes(getNodes().map((node) => ({ ...node, selected: true })));
+        setEdges(getEdges().map((edge) => ({ ...edge, selected: true })));
+      },
+      options: { ignoreInputs: true },
     },
     {
-      enabled: true,
-      enableOnFormTags: false,
-      preventDefault: true,
-      scopes: ["flow"],
-    }
-  );
+      hotkey: "Mod+Z",
+      callback: history.undo,
+      options: { ignoreInputs: true },
+    },
+    {
+      hotkey: "Mod+Shift+Z",
+      callback: history.redo,
+      options: { ignoreInputs: true },
+    },
+    {
+      hotkey: "Shift+1",
+      callback: () => {
+        const selectedNodes = nodes.filter((node) => node.selected);
+        fitView({
+          nodes: selectedNodes.length ? selectedNodes : nodes,
+          padding: 0.25,
+          duration: 250,
+        });
+      },
+      options: { ignoreInputs: true },
+    },
+  ]);
 
   useEffect(() => {
     function handleMouseMove(event: MouseEvent) {
