@@ -53,7 +53,7 @@ export function DockPanel() {
     history.redo();
   };
 
-  const handleAddNode = () => {
+  const handleAddNode = (event?: KeyboardEvent | MouseEvent) => {
     setOpen(true);
   };
 
@@ -97,6 +97,7 @@ export function DockPanel() {
 
   useHotkey("Mod+K", handleAddNode, {
     meta: { name: "Add node", description: "Add node" },
+    preventDefault: true
   });
 
   return (
