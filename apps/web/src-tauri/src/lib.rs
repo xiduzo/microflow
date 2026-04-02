@@ -63,6 +63,13 @@ pub struct MqttPublishRequest {
     pub retain: bool,
 }
 
+/// Tracks active Figma MQTT subscriptions so they can be cleaned up on flow switch
+#[derive(Debug, Clone)]
+pub struct FigmaSubscription {
+    pub broker_id: String,
+    pub topic: String,
+}
+
 /// Shared application state
 pub struct AppState {
     pub hardware_service: Arc<Mutex<HardwareService>>,
@@ -77,6 +84,8 @@ pub struct AppState {
     pub mqtt_publish_tx: mpsc::UnboundedSender<MqttPublishRequest>,
     /// LLM provider manager
     pub llm_manager: LlmManager,
+    /// Active Figma MQTT subscriptions (cleaned up on flow switch)
+    pub figma_subscriptions: Arc<TokioMutex<Vec<FigmaSubscription>>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -106,6 +115,7 @@ pub fn run() {
         mqtt_manager,
         mqtt_publish_tx: mqtt_publish_tx.clone(),
         llm_manager,
+        figma_subscriptions: Arc::new(TokioMutex::new(Vec::new())),
     };
 
     tauri::Builder::default()

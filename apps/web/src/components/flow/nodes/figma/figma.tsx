@@ -3,7 +3,6 @@ import {
   useFigmaVariable,
   useFigmaVariables,
   useFigmaPluginConnected,
-  useFigmaSync,
 } from "@/stores/figma";
 import { useMqttBrokerStore } from "@/stores/mqtt-broker";
 import { Switch } from "@/components/ui/switch";
@@ -27,7 +26,6 @@ export function Figma(props: Props) {
   const pluginConnected = useFigmaPluginConnected();
   const brokers = useMqttBrokerStore((s) => s.brokers);
   const hasBroker = brokers.some((b) => b.id === props.data.brokerId);
-  useFigmaSync();
 
   const error = !brokers.length
     ? "No MQTT brokers configured"

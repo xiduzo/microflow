@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import {
   HeadContent,
@@ -22,6 +23,7 @@ import { useComponentEvents } from "@/hooks/use-component-events";
 import { useMqttSync } from "@/hooks/use-mqtt-sync";
 import { useLlmSync } from "@/hooks/use-llm-sync";
 import { useUpdater } from "@/hooks/use-updater";
+import { useFigmaUniqueId, useFigmaStore } from "@/stores/figma";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
@@ -89,5 +91,12 @@ function Board() {
   useMqttSync();
   useLlmSync();
   useUpdater();
+
+  // Keep the figma store's uniqueId in sync with the auth session
+  const uniqueId = useFigmaUniqueId();
+  useEffect(() => {
+    useFigmaStore.getState().setUniqueId(uniqueId);
+  }, [uniqueId]);
+
   return null;
 }

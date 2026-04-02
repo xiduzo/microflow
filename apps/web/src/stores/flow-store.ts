@@ -131,10 +131,11 @@ export const useFlowStore = create<FlowState>()((set, get) => {
           }
         }
 
-        // Get broker configs for any MQTT nodes in the flow
+        // Get broker configs for any MQTT or Figma nodes in the flow
         const mqttBrokerIds = new Set<string>();
         for (const node of nodes) {
-          if (node.data?.instance === "Mqtt" && node.data?.brokerId) {
+          const instance = node.data?.instance;
+          if ((instance === "Mqtt" || instance === "Figma") && node.data?.brokerId) {
             mqttBrokerIds.add(node.data.brokerId as string);
           }
         }
