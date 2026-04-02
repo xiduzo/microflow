@@ -267,10 +267,20 @@ impl FlowRuntime {
                         .or(node.node_type.as_deref())
                         .unwrap_or("");
                     // If the component type changed, it must be recreated
-                    if old_type == new_instance {
-                        // Same type — keep the existing component (skip recreate)
-                        unchanged_count += 1;
+                    if old_type != new_instance {
+                        removed_ids.push(node.id.clone());
+                        added_or_changed_nodes.push(node);
+                    } else if let Some(old_data) = self.executor.get_node_data(&node.id) {
+                        // Same type — check if the node data itself changed
+                        // (e.g. Piezo switching from buzz to song)
+                        if *old_data == node.data {
+                            unchanged_count += 1;
+                        } else {
+                            removed_ids.push(node.id.clone());
+                            added_or_changed_nodes.push(node);
+                        }
                     } else {
+                        // No stored data to compare — recreate to be safe
                         removed_ids.push(node.id.clone());
                         added_or_changed_nodes.push(node);
                     }
@@ -318,7 +328,7 @@ impl FlowRuntime {
                 ) {
                     Ok(component) => {
                         log::info!("✓ Created component {} ({})", node.id, instance);
-                        self.executor.add_component(&node.id, component);
+                        self.executor.add_component(&node.id, component, node.data.clone());
                     }
                     Err(e) => {
                         let msg = e.to_string();

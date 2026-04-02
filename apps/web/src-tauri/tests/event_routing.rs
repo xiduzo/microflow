@@ -77,8 +77,8 @@ fn event(source: &str, handle: &str, value: ComponentValue) -> ComponentEvent {
 fn test_single_edge_routing() {
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("button", Box::new(MockComponent::new("button")));
-    executor.add_component("led", Box::new(MockComponent::new("led")));
+    executor.add_component("button", Box::new(MockComponent::new("button")), serde_json::Value::Null);
+    executor.add_component("led", Box::new(MockComponent::new("led")), serde_json::Value::Null);
 
     executor.set_edges(vec![
         edge("button", "event", "led", "value"),
@@ -94,8 +94,8 @@ fn test_single_edge_routing() {
 fn test_no_edge_event_is_ignored() {
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("button", Box::new(MockComponent::new("button")));
-    executor.add_component("led", Box::new(MockComponent::new("led")));
+    executor.add_component("button", Box::new(MockComponent::new("button")), serde_json::Value::Null);
+    executor.add_component("led", Box::new(MockComponent::new("led")), serde_json::Value::Null);
     // No edges wired
 
     let processed = executor.process_event(event("button", "event", ComponentValue::Bool(true)));
@@ -110,9 +110,9 @@ fn test_no_edge_event_is_ignored() {
 fn test_fan_out_routing() {
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("button", Box::new(MockComponent::new("button")));
-    executor.add_component("led1", Box::new(MockComponent::new("led1")));
-    executor.add_component("led2", Box::new(MockComponent::new("led2")));
+    executor.add_component("button", Box::new(MockComponent::new("button")), serde_json::Value::Null);
+    executor.add_component("led1", Box::new(MockComponent::new("led1")), serde_json::Value::Null);
+    executor.add_component("led2", Box::new(MockComponent::new("led2")), serde_json::Value::Null);
 
     executor.set_edges(vec![
         edge("button", "event", "led1", "value"),
@@ -130,8 +130,8 @@ fn test_stale_event_is_discarded() {
     let mut executor = FlowExecutor::new();
     executor.set_current_sequence(5);
 
-    executor.add_component("button", Box::new(MockComponent::new("button")));
-    executor.add_component("led", Box::new(MockComponent::new("led")));
+    executor.add_component("button", Box::new(MockComponent::new("button")), serde_json::Value::Null);
+    executor.add_component("led", Box::new(MockComponent::new("led")), serde_json::Value::Null);
     executor.set_edges(vec![edge("button", "event", "led", "value")]);
 
     let stale = ComponentEvent {
@@ -153,8 +153,8 @@ fn test_current_sequence_event_is_processed() {
     let mut executor = FlowExecutor::new();
     executor.set_current_sequence(5);
 
-    executor.add_component("button", Box::new(MockComponent::new("button")));
-    executor.add_component("led", Box::new(MockComponent::new("led")));
+    executor.add_component("button", Box::new(MockComponent::new("button")), serde_json::Value::Null);
+    executor.add_component("led", Box::new(MockComponent::new("led")), serde_json::Value::Null);
     executor.set_edges(vec![edge("button", "event", "led", "value")]);
 
     let current = ComponentEvent {
@@ -174,8 +174,8 @@ fn test_sequence_zero_always_processed() {
     let mut executor = FlowExecutor::new();
     executor.set_current_sequence(10);
 
-    executor.add_component("src", Box::new(MockComponent::new("src")));
-    executor.add_component("dst", Box::new(MockComponent::new("dst")));
+    executor.add_component("src", Box::new(MockComponent::new("src")), serde_json::Value::Null);
+    executor.add_component("dst", Box::new(MockComponent::new("dst")), serde_json::Value::Null);
     executor.set_edges(vec![edge("src", "out", "dst", "in")]);
 
     let unsequenced = ComponentEvent {
@@ -194,8 +194,8 @@ fn test_sequence_zero_always_processed() {
 fn test_clear_removes_all_components_and_edges() {
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("a", Box::new(MockComponent::new("a")));
-    executor.add_component("b", Box::new(MockComponent::new("b")));
+    executor.add_component("a", Box::new(MockComponent::new("a")), serde_json::Value::Null);
+    executor.add_component("b", Box::new(MockComponent::new("b")), serde_json::Value::Null);
     executor.set_edges(vec![edge("a", "out", "b", "in")]);
 
     executor.clear();
@@ -211,9 +211,9 @@ fn test_chain_routing() {
     // a -> b -> c
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("a", Box::new(MockComponent::new("a")));
-    executor.add_component("b", Box::new(MockComponent::new("b")));
-    executor.add_component("c", Box::new(MockComponent::new("c")));
+    executor.add_component("a", Box::new(MockComponent::new("a")), serde_json::Value::Null);
+    executor.add_component("b", Box::new(MockComponent::new("b")), serde_json::Value::Null);
+    executor.add_component("c", Box::new(MockComponent::new("c")), serde_json::Value::Null);
 
     executor.set_edges(vec![
         edge("a", "out", "b", "in"),

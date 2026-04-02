@@ -77,6 +77,10 @@ impl Default for EdgeMap {
 /// Stale events from previous flow versions are filtered by sequence number.
 pub struct FlowExecutor {
     components: HashMap<String, Box<dyn Component>>,
+    /// Snapshot of each component's node data at creation time, used for
+    /// diff-based flow updates to detect when a node's config changed even
+    /// though its component type stayed the same (e.g. Piezo buzz → song).
+    node_data: HashMap<String, serde_json::Value>,
     edges: Vec<FlowEdge>,
     /// Optimized edge lookup map using `FxHashMap` with pre-computed keys
     edge_map: EdgeMap,
@@ -89,6 +93,7 @@ impl FlowExecutor {
     pub fn new() -> Self {
         Self {
             components: HashMap::new(),
+            node_data: HashMap::new(),
             edges: Vec::new(),
             edge_map: EdgeMap::new(),
             current_sequence: 0,
@@ -110,13 +115,20 @@ impl FlowExecutor {
     }
 
     /// Add a component to the executor
-    pub fn add_component(&mut self, id: &str, component: Box<dyn Component>) {
+    pub fn add_component(&mut self, id: &str, component: Box<dyn Component>, data: serde_json::Value) {
         self.components.insert(id.to_string(), component);
+        self.node_data.insert(id.to_string(), data);
+    }
+
+    /// Get the stored node data for a component (used for diff comparison)
+    pub fn get_node_data(&self, id: &str) -> Option<&serde_json::Value> {
+        self.node_data.get(id)
     }
 
     /// Remove a component
     #[allow(dead_code)]
     pub fn remove_component(&mut self, id: &str) -> Option<Box<dyn Component>> {
+        self.node_data.remove(id);
         if let Some(mut component) = self.components.remove(id) {
             component.destroy();
             Some(component)
@@ -130,6 +142,7 @@ impl FlowExecutor {
         for (_, mut component) in self.components.drain() {
             component.destroy();
         }
+        self.node_data.clear();
         self.edges.clear();
         self.edge_map.clear();
     }
