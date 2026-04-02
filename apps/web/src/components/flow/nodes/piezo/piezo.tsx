@@ -9,7 +9,7 @@ import {
 import { useNodeValue } from "@/stores/node-data";
 import { useState } from "react";
 import { MODES } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 import { SongEditor } from "./song-editor";
 import { usePins } from "@/stores/board";
 import {
@@ -63,7 +63,7 @@ function Settings() {
   const [editorOpened, setEditorOpened] = useState(false);
   const { render, setNodeData } = useNodeControls<Data>(
     {
-      pin: { options: pins.reduce(reducePinsToOptions, {}), value: data.pin },
+      pin: { options: pinsToOptions(pins), value: data.pin },
       type: {
         options: ["buzz", "song"],
         value: data.type,

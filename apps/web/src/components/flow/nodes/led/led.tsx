@@ -1,4 +1,4 @@
-import { isPmwPin, reducePinsToOptions } from "@/components/hardware/pin";
+import { isPmwPin, pinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
@@ -72,7 +72,7 @@ function Settings() {
 
   const { render } = useNodeControls(
     {
-      pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+      pin: { value: data.pin, options: pinsToOptions(pins) },
     },
     [pins],
   );

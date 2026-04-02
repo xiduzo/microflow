@@ -3,11 +3,12 @@ import {
   pinDisplayValue,
   findPin,
   isPwmPin,
+  pinsToOptions,
   reducePinsToOptions,
 } from "@/lib/pin";
 
 // Re-export utilities for backward compatibility
-export { pinDisplayValue, reducePinsToOptions };
+export { pinDisplayValue, pinsToOptions, reducePinsToOptions };
 
 export function isPmwPin(pin: Pin | string | number, pins: Pin[] = []) {
   const foundPin = findPin(pin, pins);

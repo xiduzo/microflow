@@ -3,7 +3,7 @@ import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RgbaColorPicker } from "react-colorful";
 import { MODES, usePins } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 import { dataSchema, type Data, type Value } from "./rgb.schema";
 import { folder } from "leva";
 
@@ -39,7 +39,7 @@ function Settings() {
       pins: folder({
         red: {
           value: Array.isArray(data.pins) ? data.pins[0] : data.pins.red,
-          options: pins.reduce(reducePinsToOptions, {}),
+          options: pinsToOptions(pins),
           onChange: (value) => {
             setNodeData({
               pins: { red: value, green: data.pins.green, blue: data.pins.blue },
@@ -48,7 +48,7 @@ function Settings() {
         },
         green: {
           value: Array.isArray(data.pins) ? data.pins[1] : data.pins.green,
-          options: pins.reduce(reducePinsToOptions, {}),
+          options: pinsToOptions(pins),
           onChange: (value) => {
             setNodeData({
               pins: { red: data.pins.red, green: value, blue: data.pins.blue },
@@ -57,7 +57,7 @@ function Settings() {
         },
         blue: {
           value: Array.isArray(data.pins) ? data.pins[2] : data.pins.blue,
-          options: pins.reduce(reducePinsToOptions, {}),
+          options: pinsToOptions(pins),
           onChange: (value) => {
             setNodeData({
               pins: { red: data.pins.red, green: data.pins.green, blue: value },

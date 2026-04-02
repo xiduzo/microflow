@@ -16,7 +16,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { cva, type VariantProps } from "class-variance-authority";
 import { MODES, usePins } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 
 export function Sensor(props: Props) {
   return (
@@ -132,7 +132,7 @@ function Settings() {
     {
       pin: {
         value: pinValue,
-        options: pins.reduce(reducePinsToOptions, {}),
+        options: pinsToOptions(pins),
       },
       advanced: folder(
         {

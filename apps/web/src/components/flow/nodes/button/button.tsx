@@ -4,7 +4,7 @@ import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_
 import { Handle } from "../../handle";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, type Data, type Value } from "./button.schema";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 import { PointerIcon, PointerOffIcon } from "lucide-react";
 
 export function Button(props: Props) {
@@ -39,7 +39,7 @@ function Settings() {
 
   const { render, set } = useNodeControls(
     {
-      pin: { options: pins.reduce(reducePinsToOptions, {}), value: data.pin },
+      pin: { options: pinsToOptions(pins), value: data.pin },
       isPullup: { value: data.isPullup!, render: () => false },
       isPulldown: { value: data.isPulldown!, render: () => false },
 

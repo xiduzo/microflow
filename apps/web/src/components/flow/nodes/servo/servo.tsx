@@ -4,7 +4,7 @@ import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from 
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { type Data, type Value, dataSchema } from "./servo.schema";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
 
 export function Servo(props: Props) {
@@ -69,7 +69,7 @@ function Settings() {
 
   const { render } = useNodeControls(
     {
-      pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+      pin: { value: data.pin, options: pinsToOptions(pins) },
       type: {
         value: data.type,
         options: ["standard", "continuous"],

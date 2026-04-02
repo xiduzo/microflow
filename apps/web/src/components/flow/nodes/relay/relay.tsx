@@ -4,7 +4,7 @@ import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_
 import { ZapIcon, ZapOffIcon } from "lucide-react";
 import { type Value, type Data, dataSchema } from "./relay.schema";
 import { MODES, usePins } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 
 export function Relay(props: Props) {
   return (
@@ -30,7 +30,7 @@ function Settings() {
   const data = useNodeData<Data>();
   const { render } = useNodeControls(
     {
-      pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+      pin: { value: data.pin, options: pinsToOptions(pins) },
       type: {
         value: data.type,
         options: {

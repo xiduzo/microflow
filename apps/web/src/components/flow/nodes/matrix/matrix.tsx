@@ -30,7 +30,7 @@ import {
 import { DEFAULT_MATRIX_SHAPE } from "./matrix.constants";
 import { usePins } from "@/stores/board";
 import { MODES } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 import { useNodeControls } from "../_base/_base";
 import { ArrowLeftRightIcon, ArrowRightLeftIcon } from "lucide-react";
 
@@ -99,7 +99,7 @@ function Settings() {
       pins: folder({
         data: {
           value: data.pins.data,
-          options: pins.reduce(reducePinsToOptions, {}),
+          options: pinsToOptions(pins),
           label: "data (DIN)",
           onChange: (value) => {
             setNodeData({
@@ -110,9 +110,9 @@ function Settings() {
         },
         clock: {
           value: data.pins.clock,
-          options: pins
-            .filter((pin) => pin.supportedModes.includes(MODES.PWM))
-            .reduce(reducePinsToOptions, {}),
+          options: pinsToOptions(
+            pins.filter((pin) => pin.supportedModes.includes(MODES.PWM)),
+          ),
           label: "clock (CLK)",
           onChange: (value) => {
             setNodeData({
@@ -123,7 +123,7 @@ function Settings() {
         },
         cs: {
           value: data.pins.cs,
-          options: pins.reduce(reducePinsToOptions, {}),
+          options: pinsToOptions(pins),
           label: "chip select (CS)",
           onChange: (value) => {
             setNodeData({

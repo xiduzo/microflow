@@ -12,7 +12,7 @@ import { PixelDisplay } from "./pixel-display";
 import { useState } from "react";
 import { MODES } from "@/stores/board";
 import { usePins } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 import { button, folder } from "leva";
 import { PixelEditor } from "./pixel-editor";
 import {
@@ -96,7 +96,7 @@ function Settings() {
   const { render, setNodeData } = useNodeControls({
     pin: {
       value: data.pin,
-      options: pins.reduce(reducePinsToOptions, {}),
+      options: pinsToOptions(pins),
       label: "pin",
     },
     length: {

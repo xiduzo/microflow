@@ -3,7 +3,7 @@ import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { EyeClosedIcon, EyeIcon } from "lucide-react";
 import { MODES, usePins } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 import { MOTION_CONTROLLERS } from "./motion.constants";
 import { dataSchema, type Data, type Value } from "./motion.schema";
 
@@ -34,7 +34,7 @@ function Settings() {
   );
   const { render } = useNodeControls(
     {
-      pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+      pin: { value: data.pin, options: pinsToOptions(pins) },
       controller: { value: data.controller, options: MOTION_CONTROLLERS },
     },
     [pins],

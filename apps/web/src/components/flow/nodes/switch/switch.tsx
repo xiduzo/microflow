@@ -4,7 +4,7 @@ import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_
 import { dataSchema, type Data, type Value } from "./switch.schema";
 import { ToggleLeftIcon, ToggleRightIcon } from "lucide-react";
 import { MODES, usePins } from "@/stores/board";
-import { reducePinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/components/hardware/pin";
 
 export function Switch(props: Props) {
   return (
@@ -30,7 +30,7 @@ function Settings() {
   const pins = usePins([MODES.INPUT]);
   const { render } = useNodeControls(
     {
-      pin: { value: data.pin, options: pins.reduce(reducePinsToOptions, {}) },
+      pin: { value: data.pin, options: pinsToOptions(pins) },
       type: {
         value: data.type,
         options: {

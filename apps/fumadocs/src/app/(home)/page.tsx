@@ -69,6 +69,8 @@ const faqs = [
     question: "I found a bug, what should I do?",
     answer:
       "Create an issue on our GitHub repository so we are aware of the bug.",
+    link: "https://github.com/xiduzo/microflow/issues/new?template=BUG.md",
+    linkLabel: "Report a bug",
   },
   {
     question: "My sensor is not supported, what can I do?",
@@ -103,9 +105,13 @@ function Trace({ className }: { className?: string }) {
 function FAQItem({
   question,
   answer,
+  link,
+  linkLabel,
 }: {
   question: string;
   answer: string;
+  link?: string;
+  linkLabel?: string;
 }) {
   return (
     <details className="group border-b border-fd-border last:border-b-0">
@@ -113,7 +119,23 @@ function FAQItem({
         {question}
         <ChevronDown className="size-4 shrink-0 text-fd-muted-foreground transition-transform duration-200 group-open:rotate-180" />
       </summary>
-      <p className="pb-4 text-sm text-fd-muted-foreground">{answer}</p>
+      <p className="pb-4 text-sm text-fd-muted-foreground">
+        {answer}
+      </p>
+      {link && (
+        <p className="pb-4">
+          {" "}
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-fd-primary underline transition-colors hover:text-fd-primary/80"
+          >
+            {linkLabel ?? "Learn more"}
+            <ArrowRight className="size-3" />
+          </a>
+        </p>
+      )}
     </details>
   );
 }
@@ -250,7 +272,7 @@ export default function HomePage() {
           </p>
           <div className="border border-fd-border bg-fd-background px-6">
             {faqs.map((faq) => (
-              <FAQItem key={faq.question} question={faq.question} answer={faq.answer} />
+              <FAQItem key={faq.question} question={faq.question} answer={faq.answer} link={faq.link} linkLabel={faq.linkLabel} />
             ))}
           </div>
         </div>

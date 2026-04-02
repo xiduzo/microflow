@@ -108,7 +108,37 @@ export function pinDisplayValue(pin: Pin | string | number, pins: Pin[] = []): s
 }
 
 /**
- * Reducer to convert pins array to options object for select inputs
+ * Sort pins by pin number: digital pins first (sorted numerically), then analog pins (A0, A1, ...)
+ */
+function sortPinsByNumber(pins: Pin[]): Pin[] {
+  return [...pins].sort((a, b) => {
+    const aIsAnalog = isAnalogPin(a);
+    const bIsAnalog = isAnalogPin(b);
+    if (aIsAnalog !== bIsAnalog) return aIsAnalog ? 1 : -1;
+    return a.pin - b.pin;
+  });
+}
+
+/**
+ * Convert a pins array to a sorted options object for select inputs.
+ * Digital pins are sorted by pin number first, then analog pins (A0, A1, ...).
+ *
+ * Plain digit-only keys (e.g. "2") are treated as integer indices by JS and
+ * get auto-sorted before string keys, breaking insertion order. To prevent
+ * this, every key is prefixed with an invisible zero-width space (\u200B).
+ */
+export function pinsToOptions(pins: Pin[]): Record<string, string | number> {
+  const sorted = sortPinsByNumber(pins);
+  const options: Record<string, string | number> = {};
+  for (const pin of sorted) {
+    const label = formatPinValueWithPwm(pin, pins);
+    options[`\u200B${label}`] = pin.pin;
+  }
+  return options;
+}
+
+/**
+ * @deprecated Use pinsToOptions() instead for correct pin ordering.
  */
 export function reducePinsToOptions(
   prev: Record<string, string | number>,
