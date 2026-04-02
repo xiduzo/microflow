@@ -21,6 +21,7 @@ import { Delay } from "./delay/delay";
 import { Figma } from "./figma/figma";
 import { Gate } from "./gate/gate";
 import { Hotkey } from "./hotkey/hotkey";
+import { I2cDevice } from "./i2c-device/i2c-device";
 import { Interval } from "./interval/interval";
 import { Led, Vibration } from "./led/led";
 import { Llm } from "./llm/llm";
@@ -54,6 +55,7 @@ export const NODE_TYPES = {
   Gate: Gate,
   HallEffect: HallEffect,
   Hotkey: Hotkey,
+  I2cDevice: I2cDevice,
   Interval: Interval,
   Ldr: Ldr,
   Led: Led,

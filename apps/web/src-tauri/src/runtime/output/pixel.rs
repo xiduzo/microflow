@@ -1,7 +1,7 @@
 //! WS2812 Pixel Strip Component - Output
 //!
-//! Communicates with the StandardFirmata ws2812 extension via sysex messages.
-//! Protocol uses PIXEL_COMMAND (0x51) with sub-commands for config, set pixel,
+//! Communicates with the `StandardFirmata` ws2812 extension via sysex messages.
+//! Protocol uses `PIXEL_COMMAND` (0x51) with sub-commands for config, set pixel,
 //! set strip, show, and shift operations.
 
 use crate::runtime::base::{
@@ -121,7 +121,7 @@ impl Pixel {
         }
     }
 
-    /// Send PIXEL_CONFIG sysex to configure the strip
+    /// Send `PIXEL_CONFIG` sysex to configure the strip
     fn send_config(&self) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             // Config data: [PIXEL_CONFIG, pin_with_color_order, length_lsb, length_msb]
@@ -133,7 +133,7 @@ impl Pixel {
         Ok(())
     }
 
-    /// Send PIXEL_SHOW sysex to latch and display pixels
+    /// Send `PIXEL_SHOW` sysex to latch and display pixels
     fn send_show(&self) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::Sysex {
@@ -144,7 +144,7 @@ impl Pixel {
         Ok(())
     }
 
-    /// Send PIXEL_SET_PIXEL sysex for a single pixel
+    /// Send `PIXEL_SET_PIXEL` sysex for a single pixel
     fn send_set_pixel(&self, index: u16, color: u32) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             let idx = Self::encode_16bit(index);
@@ -155,7 +155,7 @@ impl Pixel {
         Ok(())
     }
 
-    /// Send PIXEL_SET_STRIP sysex to set entire strip to one color
+    /// Send `PIXEL_SET_STRIP` sysex to set entire strip to one color
     fn send_set_strip(&self, color: u32) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             let col = Self::encode_32bit(color);
@@ -165,7 +165,7 @@ impl Pixel {
         Ok(())
     }
 
-    /// Send PIXEL_SHIFT sysex
+    /// Send `PIXEL_SHIFT` sysex
     fn send_shift(&self, amount: u8, forward: bool, wrap: bool) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             let mut shift_byte = amount & 0x1F;
@@ -211,7 +211,7 @@ impl Pixel {
     /// Update the component value from current pixel state
     fn update_value(&mut self) {
         let colors: Vec<ComponentValue> = self.pixels.iter()
-            .map(|&c| ComponentValue::String(format!("#{:06X}", c)))
+            .map(|&c| ComponentValue::String(format!("#{c:06X}")))
             .collect();
         self.base.set_value(ComponentValue::Array(colors));
     }

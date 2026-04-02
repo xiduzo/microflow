@@ -32,6 +32,7 @@ export const COMPONENT_TYPES = [
   "Gate",
   "HallEffect",
   "Hotkey",
+  "I2cDevice",
   "Interval",
   "Ldr",
   "Led",

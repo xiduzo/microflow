@@ -99,6 +99,8 @@ pub struct FlowRuntime {
     pin_listeners: Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>>,
     /// Map of key (lowercase) -> component IDs for hotkey routing
     key_listeners: Arc<std::sync::Mutex<HashMap<String, Vec<Arc<str>>>>>,
+    /// Map of I2C address -> component IDs for I2C reply routing
+    i2c_listeners: Arc<std::sync::Mutex<HashMap<u8, Vec<Arc<str>>>>>,
     /// Monotonically increasing counter for flow update versions (shared with pin callback)
     flow_sequence: Arc<AtomicU64>,
     /// Current flow sequence for event filtering
@@ -117,6 +119,7 @@ impl FlowRuntime {
             event_rx: Some(event_rx),
             pin_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
             key_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            i2c_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
             flow_sequence: Arc::new(AtomicU64::new(0)),
             current_sequence: 0,
         }
@@ -222,6 +225,53 @@ impl FlowRuntime {
         log::info!("Pin change callback installed (cache cleared)");
     }
 
+    /// Install the I2C reply callback on the board connection.
+    /// Routes I2C replies to the correct `I2cDevice` component by address.
+    pub fn install_i2c_reply_callback(&self, event_tx: mpsc::UnboundedSender<ComponentEvent>) {
+        let i2c_listeners = Arc::clone(&self.i2c_listeners);
+        let flow_sequence = self.flow_sequence();
+
+        let callback: base::I2cReplyCallback = Box::new(move |reply: base::I2cReplyEvent| {
+            let sequence = flow_sequence.load(Ordering::SeqCst);
+
+            let listeners = i2c_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(component_ids) = listeners.get(&reply.address) {
+                let data_values: Vec<ComponentValue> = reply.data.iter()
+                    .map(|&b| ComponentValue::Number(f64::from(b)))
+                    .collect();
+
+                for component_id in component_ids {
+                    log::debug!("I2C reply from 0x{:02X} (reg=0x{:02X}, {} bytes) → component {}",
+                        reply.address, reply.register, reply.data.len(), component_id);
+
+                    let _ = event_tx.send(ComponentEvent {
+                        source: Arc::clone(component_id),
+                        source_handle: Arc::from("_i2c_reply"),
+                        value: ComponentValue::Array(data_values.clone()),
+                        edge_id: None,
+                        sequence,
+                    });
+                }
+            }
+        });
+
+        let board = self.board_handle();
+        let _ = board.send_command(BoardCommand::SetI2cReplyCallback { callback: Arc::new(callback) });
+        log::info!("I2C reply callback installed");
+    }
+
+    /// Register an I2C listener for a component
+    pub fn register_i2c_listener(&self, address: u8, component_id: Arc<str>) {
+        let mut listeners = self.i2c_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        listeners.entry(address).or_default().push(component_id);
+    }
+
+    /// Clear all I2C listeners
+    pub fn clear_i2c_listeners(&self) {
+        let mut listeners = self.i2c_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        listeners.clear();
+    }
+
     /// Update the flow with new nodes and edges.
     ///
     /// Uses diff-based updates: unchanged nodes are kept, only modified/added/removed
@@ -306,6 +356,7 @@ impl FlowRuntime {
         // For simplicity, clear and re-register all pin listeners since it's cheap
         self.clear_pin_listeners();
         self.clear_key_listeners();
+        self.clear_i2c_listeners();
 
         // Reset Firmata reporting if board is connected and nodes changed
         let board_handle = self.board_handle();
@@ -422,6 +473,12 @@ impl FlowRuntime {
                 if board.is_connected() {
                     let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
                 }
+            }
+            "I2cDevice" => {
+                // I2C device — register by address for I2C reply routing
+                let address = data.get("address").and_then(serde_json::Value::as_u64).unwrap_or(0x48) as u8;
+                log::info!("Registering I2C listener: component={component_id}, address=0x{address:02X}");
+                self.register_i2c_listener(address, Arc::from(component_id));
             }
             _ => {}
         }

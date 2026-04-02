@@ -278,6 +278,9 @@ impl BoardHandle {
                         Ok(BoardCommand::SetPinChangeCallback { callback }) => {
                             conn.set_pin_change_callback(callback);
                         }
+                        Ok(BoardCommand::SetI2cReplyCallback { callback }) => {
+                            conn.i2c_reply_callback = Some(callback);
+                        }
                         Ok(BoardCommand::ClearPinCache) => {
                             conn.clear_pin_cache();
                         }
@@ -298,6 +301,24 @@ impl BoardHandle {
                         Ok(BoardCommand::Sysex { command, data }) => {
                             let _ = conn.sysex_write(command, &data);
                         }
+                        Ok(BoardCommand::I2cConfig { delay }) => {
+                            let _ = conn.board.i2c_config(delay);
+                        }
+                        Ok(BoardCommand::I2cRead { address, size }) => {
+                            let _ = conn.board.i2c_read(address, size);
+                        }
+                        Ok(BoardCommand::I2cWrite { address, data }) => {
+                            let _ = conn.board.i2c_write(address, &data);
+                        }
+                        Ok(BoardCommand::I2cStopReading { address }) => {
+                            // Send I2C stop reading mode (mode bits = 0b11)
+                            use std::io::Write;
+                            let mode_byte = 0b11 << 3;
+                            let _ = conn.board.connection.write_all(&[
+                                0xF0, 0x76, address as u8, mode_byte, 0xF7
+                            ]);
+                            let _ = conn.board.connection.flush();
+                        }
                         Err(std::sync::mpsc::TryRecvError::Empty) => break,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                             log::info!("Firmata reader: command channel closed, stopping");
@@ -315,6 +336,7 @@ impl BoardHandle {
                 match conn.board.read_and_decode() {
                     Ok(_) => {
                         conn.detect_and_emit_changes();
+                        conn.drain_i2c_replies();
                     }
                     Err(e) => {
                         let err_str = format!("{e}");
@@ -418,8 +440,19 @@ pub struct PinChangeEvent {
     pub is_analog: bool,
 }
 
+/// I2C reply event emitted when an I2C device responds
+#[derive(Debug, Clone)]
+pub struct I2cReplyEvent {
+    pub address: u8,
+    pub register: u8,
+    pub data: Vec<u8>,
+}
+
 /// Callback type for pin change events
 pub type PinChangeCallback = Box<dyn Fn(PinChangeEvent) + Send + Sync>;
+
+/// Callback type for I2C reply events
+pub type I2cReplyCallback = Box<dyn Fn(I2cReplyEvent) + Send + Sync>;
 
 /// Commands sent to the reader thread for board operations.
 /// The reader thread owns `BoardConnection` exclusively and processes
@@ -434,6 +467,8 @@ pub enum BoardCommand {
     DisableDigitalReporting { pin: u8 },
     ResetAllReporting,
     SetPinChangeCallback { callback: Arc<PinChangeCallback> },
+    /// Set the callback for I2C reply events.
+    SetI2cReplyCallback { callback: Arc<I2cReplyCallback> },
     ClearPinCache,
     /// Register a pin as active so `detect_and_emit_changes` checks it.
     RegisterActivePin { pin: u8 },
@@ -446,8 +481,16 @@ pub enum BoardCommand {
     Tone { pin: u8, half_period_us: u32, duration_ms: u32 },
     /// Stop tone and drive pin low.
     NoTone { pin: u8 },
-    /// Send a raw sysex message (START_SYSEX + command + data + END_SYSEX).
+    /// Send a raw sysex message (`START_SYSEX` + command + data + `END_SYSEX`).
     Sysex { command: u8, data: Vec<u8> },
+    /// Configure the I2C bus delay (microseconds). Must be sent before any I2C operations.
+    I2cConfig { delay: i32 },
+    /// Read `size` bytes from I2C device at `address`. Uses read-once mode.
+    I2cRead { address: i32, size: i32 },
+    /// Write `data` bytes to I2C device at `address`.
+    I2cWrite { address: i32, data: Vec<u8> },
+    /// Stop continuous I2C reading for `address`.
+    I2cStopReading { address: i32 },
     Stop,
 }
 
@@ -459,6 +502,8 @@ pub struct BoardConnection {
     pin_values: HashMap<u8, u16>,
     /// Callback for pin changes (set by runtime)
     pin_change_callback: Option<Arc<PinChangeCallback>>,
+    /// Callback for I2C reply events (set by runtime)
+    pub i2c_reply_callback: Option<Arc<I2cReplyCallback>>,
     /// Pins that have listeners registered. Only these are checked in `detect_and_emit_changes`.
     /// Empty means "check all pins" (safe fallback before listeners are registered).
     pub active_pins: std::collections::HashSet<u8>,
@@ -473,6 +518,7 @@ impl BoardConnection {
             port_name,
             pin_values: HashMap::new(),
             pin_change_callback: None,
+            i2c_reply_callback: None,
             active_pins: std::collections::HashSet::new(),
         }
     }
@@ -568,7 +614,7 @@ impl BoardConnection {
             .map_err(|e| format!("Failed to stop tone: {e}"))
     }
 
-    /// Send a raw sysex message: START_SYSEX (0xF0) + command + data + END_SYSEX (0xF7).
+    /// Send a raw sysex message: `START_SYSEX` (0xF0) + command + data + `END_SYSEX` (0xF7).
     /// Data bytes must already be 7-bit encoded per the Firmata protocol.
     pub fn sysex_write(&mut self, command: u8, data: &[u8]) -> Result<(), String> {
         use std::io::Write;
@@ -711,6 +757,26 @@ impl BoardConnection {
         if let Some(callback) = &self.pin_change_callback {
             for change in changes {
                 callback(change);
+            }
+        }
+    }
+
+    /// Drain any pending I2C replies and emit them via the callback.
+    fn drain_i2c_replies(&mut self) {
+        if self.i2c_reply_callback.is_none() {
+            // Still drain to prevent unbounded growth
+            self.board.i2c_data().clear();
+            return;
+        }
+
+        let replies: Vec<_> = self.board.i2c_data().drain(..).collect();
+        if let Some(callback) = &self.i2c_reply_callback {
+            for reply in replies {
+                callback(I2cReplyEvent {
+                    address: reply.address as u8,
+                    register: reply.register as u8,
+                    data: reply.data,
+                });
             }
         }
     }
@@ -861,6 +927,7 @@ pub mod pin_mode {
     pub const ANALOG: u8 = 2;
     pub const PWM: u8 = 3;
     pub const SERVO: u8 = 4;
+    pub const I2C: u8 = 6;
     pub const PULLUP: u8 = 11;
 }
 

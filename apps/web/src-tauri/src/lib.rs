@@ -269,7 +269,8 @@ pub fn run() {
                                         }
                                         // Install pin change callback after flow update
                                         let event_tx = runtime.event_sender();
-                                        runtime.install_pin_change_callback(event_tx);
+                                        runtime.install_pin_change_callback(event_tx.clone());
+                                        runtime.install_i2c_reply_callback(event_tx);
                                     }
                                 } else {
                                     // No pending flow — board reconnected while a flow is
@@ -283,7 +284,8 @@ pub fn run() {
                                         log::warn!("Failed to reinitialize hardware on reconnect: {e}");
                                     }
                                     let event_tx = runtime.event_sender();
-                                    runtime.install_pin_change_callback(event_tx);
+                                    runtime.install_pin_change_callback(event_tx.clone());
+                                    runtime.install_i2c_reply_callback(event_tx);
                                 }
                             }
                             Some("disconnected") => {
