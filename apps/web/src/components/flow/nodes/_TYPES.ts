@@ -12,6 +12,7 @@ import { Relay } from "./relay/relay";
 import { Force, HallEffect, Ldr, Potentiometer, Sensor, Tilt } from "./sensor/sensor";
 import { Servo } from "./servo/servo";
 import { Smooth } from "./smooth/smooth";
+import { Stepper } from "./stepper/stepper";
 import { Switch } from "./switch/switch";
 import { Trigger } from "./trigger/trigger";
 import { Button } from ".//button/button";
@@ -75,6 +76,7 @@ export const NODE_TYPES = {
   Sensor: Sensor,
   Servo: Servo,
   Smooth: Smooth,
+  Stepper: Stepper,
   Switch: Switch,
   Tilt: Tilt,
   Trigger: Trigger,

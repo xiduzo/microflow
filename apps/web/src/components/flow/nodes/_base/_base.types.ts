@@ -52,6 +52,7 @@ export const COMPONENT_TYPES = [
   "Sensor",
   "Servo",
   "Smooth",
+  "Stepper",
   "Switch",
   "Tilt",
   "Trigger",

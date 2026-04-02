@@ -1,0 +1,89 @@
+---
+title: Stepper
+description: Control a stepper motor with precise positioning using a driver board like A4988, DRV8825, or TMC2209.
+---
+
+A stepper motor moves in discrete steps, giving you precise control over position and speed. Unlike a servo (limited to 180° or continuous without position feedback), a stepper can rotate any number of degrees in either direction and always knows exactly where it is.
+
+Steppers are commonly used for CNC machines, 3D printers, camera sliders, turntables, and any project that needs repeatable, precise motion.
+
+<Callout title="Driver board required">
+Stepper motors cannot be driven directly from an Arduino pin. You need a **driver board** that sits between the Arduino and the motor. The driver handles the high-current switching while the Arduino sends simple step and direction signals on two digital pins.
+
+Common driver boards: **A4988**, **DRV8825**, **TMC2209**, **EasyDriver**, **TB6600**.
+</Callout>
+
+## Inputs
+
+- **Value** — relative move: number of steps to move. Positive values move clockwise, negative values move counter-clockwise
+- **To** — absolute move: move to a specific step position (relative to the zero point)
+- **Stop** — stop the motor. If acceleration is set, the motor decelerates to a stop
+- **Zero** — reset the position counter to zero without moving the motor
+
+## Outputs
+
+- **Position** — the current position in steps after a move completes
+- **Complete** — fires an event when a move finishes
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Interface** — choose between "Step/Dir driver" (for A4988, DRV8825, etc.) or "4-wire (H-bridge)" (for L293D, L298N, or similar dual H-bridge boards)
+- **Step pin** (driver mode) — the digital pin connected to the driver's STEP input
+- **Dir pin** (driver mode) — the digital pin connected to the driver's DIR (direction) input
+- **IN1–IN4** (4-wire mode) — the four digital pins connected to the H-bridge inputs controlling the two motor coils
+- **Steps/rev** — steps per full revolution of your motor. Most standard stepper motors are 200 steps/rev (1.8° per step). If your driver is set to microstepping, multiply accordingly (e.g. 1/16 microstepping on a 200-step motor = 3200)
+- **Speed** — maximum speed in steps per second
+- **Acceleration** — acceleration and deceleration rate in steps per second squared. Set to 0 for instant speed changes (no ramping)
+
+## Wiring
+
+A typical setup with a step/direction driver board (A4988, DRV8825, etc.):
+
+| Connection | From | To |
+| --- | --- | --- |
+| STEP | Driver board STEP input | A digital pin on your Arduino |
+| DIR | Driver board DIR input | A digital pin on your Arduino |
+| GND | Driver board GND | Arduino GND *and* motor power supply GND |
+| VMOT | Driver board motor power | External power supply (12V, 24V, etc.) |
+| Motor | Driver board motor outputs (A1, A2, B1, B2) | Stepper motor coils |
+
+<Callout type="warn" title="Use a separate power supply for the motor">
+Stepper motors draw significant current (often 1–2A per coil). Never power them from the Arduino's 5V or VIN pin. Use a dedicated power supply rated for your motor's voltage and current requirements.
+
+Connect the power supply ground to both the driver board GND and the Arduino GND — this shared ground is required for the step/direction signals to work correctly.
+</Callout>
+
+### 4-wire H-bridge wiring (L293D, L298N)
+
+If you are using a dual H-bridge board with IN1–IN4 inputs, select "4-wire (H-bridge)" in the interface setting.
+
+| Connection | From | To |
+| --- | --- | --- |
+| IN1 | H-bridge IN1 | A digital pin on your Arduino |
+| IN2 | H-bridge IN2 | A digital pin on your Arduino |
+| IN3 | H-bridge IN3 | A digital pin on your Arduino |
+| IN4 | H-bridge IN4 | A digital pin on your Arduino |
+| GND | H-bridge GND | Arduino GND *and* motor power supply GND |
+| VS / VMot | H-bridge motor power | External power supply (12V, etc.) |
+| Motor A | H-bridge OUT1 + OUT2 | Stepper motor coil A |
+| Motor B | H-bridge OUT3 + OUT4 | Stepper motor coil B |
+
+<Callout type="info" title="Which wires are which coil?">
+A 4-wire stepper motor has two coils (A and B), each with two wires. If you are unsure which wires belong to which coil, use a multimeter in resistance mode. Wires from the same coil will show low resistance (a few ohms). Wires from different coils will show no continuity.
+</Callout>
+
+<Callout type="info" title="Microstepping">
+Most driver boards support microstepping (1/2, 1/4, 1/8, 1/16, 1/32 steps) configured via jumpers or solder bridges on the driver board itself. Microstepping gives smoother motion and finer positioning but reduces torque and maximum speed. Adjust the **steps/rev** setting to match your microstepping configuration.
+</Callout>
+
+## Firmware requirement
+
+The stepper node uses Firmata's AccelStepper protocol. Your Arduino must be flashed with **ConfigurableFirmata** with the AccelStepperFirmata feature enabled. StandardFirmata does not include stepper support.
+
+## Resources
+
+- [AccelStepper library](https://www.airspayce.com/mikem/arduino/AccelStepper/)
+- [Firmata AccelStepper protocol](https://github.com/firmata/protocol/blob/master/accelStepperFirmata.md)
+- [A4988 driver guide](https://www.pololu.com/product/1182)

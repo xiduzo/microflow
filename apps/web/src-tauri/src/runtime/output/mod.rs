@@ -10,6 +10,7 @@ mod pixel;
 mod relay;
 mod rgb;
 mod servo;
+mod stepper;
 
 pub use led::{Led, LedConfig};
 pub use matrix::{Matrix, MatrixConfig};
@@ -19,3 +20,4 @@ pub use pixel::{Pixel, PixelConfig};
 pub use relay::{Relay, RelayConfig};
 pub use rgb::{Rgb, RgbConfig};
 pub use servo::{Servo, ServoConfig};
+pub use stepper::{Stepper, StepperConfig};
