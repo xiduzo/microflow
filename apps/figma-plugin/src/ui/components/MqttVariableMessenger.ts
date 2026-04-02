@@ -13,18 +13,29 @@ import { useMessageListener } from "../hooks/use-message-listener";
 /**
  * Headless component that bridges MQTT messages ↔ Figma variables.
  *
- * Improvements over prototype:
- * - Poll interval raised from 100ms → 250ms (less CPU, still responsive)
- * - Ref-based dedup to avoid redundant publishes
- * - Cleaner subscription lifecycle
+ * - Polls Figma sandbox for variable changes every 250ms
+ * - Publishes variable list (retained) and individual values via MQTT
+ * - Responds to variable requests from other clients
+ * - Handles inbound set commands
+ * - Resets dedup caches on reconnect so state is always re-published
  */
 export function MqttVariableMessenger() {
   const { status, publish, subscribe, uniqueId } = useMqttStore();
   const publishedValues = useRef<Map<string, string>>(new Map());
   const knownVariables = useRef<Record<string, PickedVariable>>({});
+  const prevStatus = useRef(status);
+
+  // Reset dedup caches when MQTT reconnects so everything gets re-published
+  useEffect(() => {
+    if (status === "connected" && prevStatus.current !== "connected") {
+      knownVariables.current = {};
+      publishedValues.current.clear();
+    }
+    prevStatus.current = status;
+  }, [status]);
 
   function publishVariables(variables?: FullVariable[]) {
-    if (!variables) return;
+    if (!variables || status !== "connected") return;
 
     const newVars: Record<string, PickedVariable> = {};
     for (const v of variables) {
@@ -33,7 +44,8 @@ export function MqttVariableMessenger() {
 
     const newJson = JSON.stringify(newVars);
     if (newJson !== JSON.stringify(knownVariables.current)) {
-      publish(`microflow/${uniqueId}/figma/variables`, newJson);
+      // Retain the variables list so late-joining subscribers get it immediately
+      publish(`microflow/${uniqueId}/figma/variables`, newJson, { retain: true });
     }
     knownVariables.current = newVars;
 

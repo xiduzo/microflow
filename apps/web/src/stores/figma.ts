@@ -72,6 +72,8 @@ export function useFigmaSync() {
   useEffect(() => {
     if (!isDesktop() || !brokerId) return;
 
+    let cancelled = false;
+
     // Only the topics the frontend needs: variables list + connection status
     const topics = [
       `microflow/${uniqueId}/figma/variables`,
@@ -79,13 +81,18 @@ export function useFigmaSync() {
       `microflow/${uniqueId}/app/variables/response`,
     ];
 
-    Promise.all(topics.map((t) => subscribeToTopic(brokerId, t))).then(() => {
+    function requestVariables() {
+      if (cancelled) return;
       invokeCommand({
         type: "mqtt_publish",
-        brokerId,
+        brokerId: brokerId!,
         topic: `microflow/${uniqueId}/app/variables/request`,
         payload: "",
       });
+    }
+
+    Promise.all(topics.map((t) => subscribeToTopic(brokerId, t))).then(() => {
+      requestVariables();
     });
 
     invokeCommand({
@@ -96,7 +103,19 @@ export function useFigmaSync() {
       retain: true,
     });
 
+    // Re-request variables periodically until we have them.
+    // The plugin may not be connected yet when we first subscribe,
+    // and retained messages may not be available. Once we have
+    // variables the interval is cheap (plugin deduplicates responses).
+    const retryId = setInterval(() => {
+      const { variables, pluginConnected } = useFigmaStore.getState();
+      if (pluginConnected && Object.keys(variables).length > 0) return;
+      requestVariables();
+    }, 3000);
+
     return () => {
+      cancelled = true;
+      clearInterval(retryId);
       topics.forEach((t) => unsubscribeFromTopic(brokerId, t));
       invokeCommand({
         type: "mqtt_publish",
@@ -111,11 +130,12 @@ export function useFigmaSync() {
   const handleMessage = useCallback(
     (event: { payload: MqttMessagePayload }) => {
       const { topic, payload } = event.payload;
+      const { uniqueId: currentId } = useFigmaStore.getState();
       const { setVariables, setPluginConnected } = useFigmaStore.getState();
 
       if (
-        topic === `microflow/${uniqueId}/figma/variables` ||
-        topic === `microflow/${uniqueId}/app/variables/response`
+        topic === `microflow/${currentId}/figma/variables` ||
+        topic === `microflow/${currentId}/app/variables/response`
       ) {
         try {
           setVariables(JSON.parse(payload) as Record<string, PickedVariable>);
@@ -123,11 +143,11 @@ export function useFigmaSync() {
         return;
       }
 
-      if (topic === `microflow/${uniqueId}/figma/status`) {
+      if (topic === `microflow/${currentId}/figma/status`) {
         setPluginConnected(payload === "connected");
       }
     },
-    [uniqueId],
+    [],
   );
 
   useEffect(() => {

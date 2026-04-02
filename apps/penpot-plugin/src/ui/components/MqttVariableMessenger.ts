@@ -16,17 +16,28 @@ import { useMessageListener } from "../hooks/use-message-listener";
  * Penpot's design token terminology and path-based IDs.
  *
  * - Polls sandbox for token changes at 250ms interval
- * - Publishes token list and individual values to MQTT
+ * - Publishes token list (retained) and individual values to MQTT
  * - Subscribes to inbound set commands and variable requests
  * - Deduplicates publishes using a ref-based value cache
+ * - Resets dedup caches on reconnect so state is always re-published
  */
 export function MqttVariableMessenger() {
   const { status, publish, subscribe, uniqueId } = useMqttStore();
   const publishedValues = useRef<Map<string, string>>(new Map());
   const knownTokens = useRef<Record<string, { path: string; name: string; type: string }>>({});
+  const prevStatus = useRef(status);
+
+  // Reset dedup caches when MQTT reconnects so everything gets re-published
+  useEffect(() => {
+    if (status === "connected" && prevStatus.current !== "connected") {
+      knownTokens.current = {};
+      publishedValues.current.clear();
+    }
+    prevStatus.current = status;
+  }, [status]);
 
   function publishTokens(tokens?: DesignToken[]) {
-    if (!tokens) return;
+    if (!tokens || status !== "connected") return;
 
     const newMap: Record<string, { path: string; name: string; type: string }> = {};
     for (const t of tokens) {
@@ -35,7 +46,8 @@ export function MqttVariableMessenger() {
 
     const newJson = JSON.stringify(newMap);
     if (newJson !== JSON.stringify(knownTokens.current)) {
-      publish(`microflow/${uniqueId}/penpot/variables`, newJson);
+      // Retain the token list so late-joining subscribers get it immediately
+      publish(`microflow/${uniqueId}/penpot/variables`, newJson, { retain: true });
     }
     knownTokens.current = newMap;
 
