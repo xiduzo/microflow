@@ -103,7 +103,7 @@ fn extract_mqtt_nodes(flow: &FlowUpdate) -> Vec<MqttNodeInfo> {
         .collect()
 }
 
-/// Collect unique_ids from Figma nodes to determine which display topics to manage
+/// Collect `unique_ids` from Figma nodes to determine which display topics to manage
 fn collect_figma_unique_ids(figma_nodes: &[FigmaNodeInfo]) -> std::collections::HashMap<String, String> {
     // Map unique_id -> broker_id (one broker per unique_id)
     let mut map = std::collections::HashMap::new();
