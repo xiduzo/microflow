@@ -62,7 +62,6 @@ impl Calculate {
         };
 
         self.base.set_value(ComponentValue::Number(result));
-        self.base.emit("value");
     }
 }
 

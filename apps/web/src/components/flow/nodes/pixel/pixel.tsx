@@ -143,7 +143,7 @@ function Settings() {
       {render()}
       {editorOpened && (
         <Dialog defaultOpen onOpenChange={setEditorOpened}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-3xl overflow-hidden">
             <DialogHeader>
               <DialogTitle>Presets</DialogTitle>
               <DialogDescription>
@@ -151,8 +151,8 @@ function Settings() {
                 preset number
               </DialogDescription>
             </DialogHeader>
-            <section className="flex items-center justify-center">
-              <Carousel className="w-full max-w-xl">
+            <section className="flex items-center justify-center min-w-0 w-full">
+              <Carousel className="w-full max-w-xl min-w-0">
                 <CarouselContent>
                   {presets.map((preset, index) => {
                     return (
@@ -176,7 +176,7 @@ function Settings() {
                           }}
                         >
                           <section className="flex-col flex items-center justify-center">
-                            <section className="max-w-xl overflow-x-scroll pb-8">
+                            <section className="max-w-xl overflow-x-auto pb-8">
                               <PixelDisplay
                                 value={preset}
                                 length={data.length}
@@ -193,7 +193,7 @@ function Settings() {
                             <ArrowLeftRightIcon /> Swap
                           </Button>
                           <div>
-                            Preset #{index + 1} of {presets.length}
+                            {index + 1}/{presets.length}
                           </div>
                           <Button
                             variant="outline"

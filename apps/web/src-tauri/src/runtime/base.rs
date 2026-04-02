@@ -295,6 +295,9 @@ impl BoardHandle {
                             handle_clone.tone_cancel.store(true, std::sync::atomic::Ordering::Release);
                             let _ = conn.no_tone(pin);
                         }
+                        Ok(BoardCommand::Sysex { command, data }) => {
+                            let _ = conn.sysex_write(command, &data);
+                        }
                         Err(std::sync::mpsc::TryRecvError::Empty) => break,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                             log::info!("Firmata reader: command channel closed, stopping");
@@ -443,6 +446,8 @@ pub enum BoardCommand {
     Tone { pin: u8, half_period_us: u32, duration_ms: u32 },
     /// Stop tone and drive pin low.
     NoTone { pin: u8 },
+    /// Send a raw sysex message (START_SYSEX + command + data + END_SYSEX).
+    Sysex { command: u8, data: Vec<u8> },
     Stop,
 }
 
@@ -561,6 +566,25 @@ impl BoardConnection {
         self.board
             .digital_write(i32::from(pin), 0)
             .map_err(|e| format!("Failed to stop tone: {e}"))
+    }
+
+    /// Send a raw sysex message: START_SYSEX (0xF0) + command + data + END_SYSEX (0xF7).
+    /// Data bytes must already be 7-bit encoded per the Firmata protocol.
+    pub fn sysex_write(&mut self, command: u8, data: &[u8]) -> Result<(), String> {
+        use std::io::Write;
+        let mut buf = Vec::with_capacity(data.len() + 3);
+        buf.push(0xF0); // START_SYSEX
+        buf.push(command);
+        buf.extend_from_slice(data);
+        buf.push(0xF7); // END_SYSEX
+        self.board
+            .connection
+            .write_all(&buf)
+            .map_err(|e| format!("Failed to write sysex: {e}"))?;
+        self.board
+            .connection
+            .flush()
+            .map_err(|e| format!("Failed to flush sysex: {e}"))
     }
 
     pub fn digital_read(&mut self, pin: u8) -> Result<bool, String> {
@@ -764,6 +788,8 @@ pub struct ComponentBase {
     pub id: Arc<str>,
     pub value: ComponentValue,
     pub event_sender: Option<mpsc::UnboundedSender<ComponentEvent>>,
+    /// Last emitted value per handle, used for deduplication
+    last_emitted: HashMap<Arc<str>, ComponentValue>,
 }
 
 impl ComponentBase {
@@ -773,6 +799,7 @@ impl ComponentBase {
             id: Arc::from(id),
             value: initial_value,
             event_sender: None,
+            last_emitted: HashMap::new(),
         }
     }
 
@@ -784,20 +811,45 @@ impl ComponentBase {
         }
     }
 
-    /// Emit an event with the current value (borrows value)
-    pub fn emit(&self, handle: &str) {
-        self.emit_with_value(handle, Cow::Borrowed(&self.value));
+    /// Emit an event with the current value, only if it differs from the last
+    /// emitted value on this handle.
+    pub fn emit(&mut self, handle: &str) {
+        if self.is_duplicate(handle, &self.value.clone()) {
+            return;
+        }
+        self.send(handle, Cow::Borrowed(&self.value));
     }
 
-    /// Emit an event with a custom value using Cow semantics
-    pub fn emit_with_value(&self, handle: &str, value: Cow<'_, ComponentValue>) {
+    /// Emit an event with a custom value, only if it differs from the last
+    /// emitted value on this handle.
+    pub fn emit_with_value(&mut self, handle: &str, value: Cow<'_, ComponentValue>) {
+        if self.is_duplicate(handle, value.as_ref()) {
+            return;
+        }
+        self.send(handle, value);
+    }
+
+    /// Check if the value for this handle is the same as the last emitted value.
+    /// Updates the stored value if different.
+    fn is_duplicate(&mut self, handle: &str, value: &ComponentValue) -> bool {
+        if let Some(last) = self.last_emitted.get(handle) {
+            if last == value {
+                return true;
+            }
+        }
+        self.last_emitted.insert(Arc::from(handle), value.clone());
+        false
+    }
+
+    /// Send the event through the channel.
+    fn send(&self, handle: &str, value: Cow<'_, ComponentValue>) {
         if let Some(sender) = &self.event_sender {
             let _ = sender.send(ComponentEvent {
-                source: Arc::clone(&self.id),  // No allocation - just ref count increment
-                source_handle: Arc::from(handle),  // Single allocation for handle
+                source: Arc::clone(&self.id),
+                source_handle: Arc::from(handle),
                 value: value.into_owned(),
                 edge_id: None,
-                sequence: 0,  // Will be set by FlowRuntime when sequence tracking is enabled
+                sequence: 0,
             });
         }
     }
