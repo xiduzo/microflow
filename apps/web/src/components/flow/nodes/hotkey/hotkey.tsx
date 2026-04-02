@@ -30,8 +30,9 @@ export function Hotkey(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="event" handleType="event" offset={-0.5} />
-      <Handle type="source" position="right" id="true" handleType="state" offset={0.5} />
+      <Handle type="source" position="right" id="event" handleType="event" offset={-1} />
+      <Handle type="source" position="right" id="true" handleType="state" offset={0} />
+      <Handle type="source" position="right" id="false" handleType="state" offset={1} />
     </NodeContainer>
   );
 }

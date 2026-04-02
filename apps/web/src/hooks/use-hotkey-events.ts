@@ -11,6 +11,9 @@ import type { Hotkey } from "@tanstack/react-hotkeys";
  * On keydown/keyup, fires a Tauri event so the Rust runtime handles all
  * component routing and flow graph processing. No logic lives here.
  *
+ * Uses `requireReset` to suppress OS key-repeat — only the initial
+ * keydown fires, then nothing until keyup.
+ *
  * Mount once at the app root level.
  */
 export function useHotkeyEvents() {
@@ -29,7 +32,6 @@ export function useHotkeyEvents() {
 
     const emitKeyEvent = (key: string, pressed: boolean) => {
       if (isDesktop()) {
-        console.log({key, pressed})
         emit("key_event", { key, pressed });
       }
     };
@@ -41,6 +43,7 @@ export function useHotkeyEvents() {
         callback: () => emitKeyEvent(key, true),
         options: {
           eventType: "keydown" as const,
+          requireReset: true,
           ignoreInputs: true,
           preventDefault: false,
           stopPropagation: false,
