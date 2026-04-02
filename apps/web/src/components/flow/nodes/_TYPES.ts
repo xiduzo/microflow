@@ -20,6 +20,7 @@ import { Counter } from "./counter/counter";
 import { Delay } from "./delay/delay";
 import { Figma } from "./figma/figma";
 import { Gate } from "./gate/gate";
+import { Hotkey } from "./hotkey/hotkey";
 import { Interval } from "./interval/interval";
 import { Led } from "./led/led";
 import { Llm } from "./llm/llm";
@@ -52,6 +53,7 @@ export const NODE_TYPES = {
   Force: Force,
   Gate: Gate,
   HallEffect: HallEffect,
+  Hotkey: Hotkey,
   Interval: Interval,
   Ldr: Ldr,
   Led: Led,

@@ -417,3 +417,4 @@ pub async fn component_call(
     let mut runtime = state.flow_runtime.lock().await;
     Ok(runtime.call_component(&component_id, &method, value)?)
 }
+

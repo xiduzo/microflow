@@ -7,7 +7,7 @@ use super::base::{BoardHandle, Component, ComponentEvent};
 use super::control::{Counter, CounterConfig, Delay, DelayConfig, Trigger, TriggerConfig};
 use super::external::{Figma, FigmaConfig, Llm, LlmConfig, Mqtt, MqttConfig};
 use super::generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
-use super::input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig, Switch, SwitchConfig};
+use super::input::{Button, ButtonConfig, Hotkey, HotkeyConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig, Switch, SwitchConfig};
 use super::output::{Led, LedConfig, Matrix, MatrixConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
 use super::transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 use crate::error::RuntimeError;
@@ -128,6 +128,11 @@ impl ComponentRegistry {
         });
         self.register_hardware("Switch", |id, data| {
             Box::new(Switch::new(id, parse_config::<SwitchConfig>(data)))
+        });
+
+        // Hotkey (software only - keyboard input)
+        self.register_software("Hotkey", |id, data| {
+            Box::new(Hotkey::new(id, parse_config::<HotkeyConfig>(data)))
         });
 
         // Control components (software only)

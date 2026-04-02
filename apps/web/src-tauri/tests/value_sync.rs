@@ -110,8 +110,8 @@ impl Component for Sink {
 fn test_executor_syncs_source_stored_value_on_event() {
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")));
-    executor.add_component("sink", Box::new(Sink::new("sink")));
+    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")), serde_json::Value::Null);
+    executor.add_component("sink", Box::new(Sink::new("sink")), serde_json::Value::Null);
     executor.set_edges(vec![edge("emitter", "value", "sink", "value")]);
 
     // Emitter's stored value starts at 0
@@ -133,8 +133,8 @@ fn test_executor_syncs_source_stored_value_on_event() {
 fn test_executor_syncs_stored_value_across_multiple_events() {
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")));
-    executor.add_component("sink", Box::new(Sink::new("sink")));
+    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")), serde_json::Value::Null);
+    executor.add_component("sink", Box::new(Sink::new("sink")), serde_json::Value::Null);
     executor.set_edges(vec![edge("emitter", "value", "sink", "value")]);
 
     for i in 1..=5 {
@@ -153,8 +153,8 @@ fn test_stale_event_does_not_update_stored_value() {
     let mut executor = FlowExecutor::new();
     executor.set_current_sequence(10);
 
-    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")));
-    executor.add_component("sink", Box::new(Sink::new("sink")));
+    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")), serde_json::Value::Null);
+    executor.add_component("sink", Box::new(Sink::new("sink")), serde_json::Value::Null);
     executor.set_edges(vec![edge("emitter", "value", "sink", "value")]);
 
     let stale = ComponentEvent {
@@ -185,10 +185,10 @@ fn test_calculate_min_with_thread_emitter_and_constant() {
     let mut executor = FlowExecutor::new();
 
     // Constant(255) and a thread emitter (simulating Interval) both feed into Calculate(min)
-    executor.add_component("constant", Box::new(Constant::new("constant".into(), ConstantConfig { value: 255.0 })));
-    executor.add_component("interval", Box::new(ThreadEmitter::new("interval")));
-    executor.add_component("calc", Box::new(Calculate::new("calc".into(), CalculateConfig { function: CalculateFunction::Min })));
-    executor.add_component("sink", Box::new(Sink::new("sink")));
+    executor.add_component("constant", Box::new(Constant::new("constant".into(), ConstantConfig { value: 255.0 })), serde_json::Value::Null);
+    executor.add_component("interval", Box::new(ThreadEmitter::new("interval")), serde_json::Value::Null);
+    executor.add_component("calc", Box::new(Calculate::new("calc".into(), CalculateConfig { function: CalculateFunction::Min })), serde_json::Value::Null);
+    executor.add_component("sink", Box::new(Sink::new("sink")), serde_json::Value::Null);
 
     executor.set_edges(vec![
         edge("constant", "value", "calc", "value"),
@@ -213,10 +213,10 @@ fn test_calculate_min_with_thread_emitter_and_constant() {
 fn test_calculate_add_with_thread_emitter() {
     let mut executor = FlowExecutor::new();
 
-    executor.add_component("constant", Box::new(Constant::new("constant".into(), ConstantConfig { value: 10.0 })));
-    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")));
-    executor.add_component("calc", Box::new(Calculate::new("calc".into(), CalculateConfig::default()))); // default = Add
-    executor.add_component("sink", Box::new(Sink::new("sink")));
+    executor.add_component("constant", Box::new(Constant::new("constant".into(), ConstantConfig { value: 10.0 })), serde_json::Value::Null);
+    executor.add_component("emitter", Box::new(ThreadEmitter::new("emitter")), serde_json::Value::Null);
+    executor.add_component("calc", Box::new(Calculate::new("calc".into(), CalculateConfig::default())), serde_json::Value::Null); // default = Add
+    executor.add_component("sink", Box::new(Sink::new("sink")), serde_json::Value::Null);
 
     executor.set_edges(vec![
         edge("constant", "value", "calc", "value"),
@@ -247,8 +247,8 @@ fn test_calculate_emits_downstream() {
 
     let mut calc = Calculate::new("calc".into(), CalculateConfig::default());
     calc.set_event_sender(tx);
-    executor.add_component("calc", Box::new(calc));
-    executor.add_component("sink", Box::new(Sink::new("sink")));
+    executor.add_component("calc", Box::new(calc), serde_json::Value::Null);
+    executor.add_component("sink", Box::new(Sink::new("sink")), serde_json::Value::Null);
 
     executor.set_edges(vec![
         edge("calc", "value", "sink", "value"),
@@ -282,7 +282,7 @@ fn test_smooth_updates_stored_value() {
 
     let mut smooth = Smooth::new("smooth".into(), SmoothConfig::default());
     smooth.set_event_sender(tx);
-    executor.add_component("smooth", Box::new(smooth));
+    executor.add_component("smooth", Box::new(smooth), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("smooth") {
         c.call_method("value", ComponentValue::Number(100.0)).unwrap();
@@ -307,7 +307,7 @@ fn test_gate_emits_and_updates_value() {
 
     let mut gate = Gate::new("gate".into(), GateConfig::default()); // default = And
     gate.set_event_sender(tx);
-    executor.add_component("gate", Box::new(gate));
+    executor.add_component("gate", Box::new(gate), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("gate") {
         c.call_method("value", ComponentValue::Array(vec![
@@ -341,10 +341,10 @@ fn test_full_pipeline_two_emitters_to_calculate_to_sink() {
     let mut calc = Calculate::new("calc".into(), CalculateConfig::default());
     calc.set_event_sender(tx);
 
-    executor.add_component("em1", Box::new(ThreadEmitter::new("em1")));
-    executor.add_component("em2", Box::new(ThreadEmitter::new("em2")));
-    executor.add_component("calc", Box::new(calc));
-    executor.add_component("sink", Box::new(Sink::new("sink")));
+    executor.add_component("em1", Box::new(ThreadEmitter::new("em1")), serde_json::Value::Null);
+    executor.add_component("em2", Box::new(ThreadEmitter::new("em2")), serde_json::Value::Null);
+    executor.add_component("calc", Box::new(calc), serde_json::Value::Null);
+    executor.add_component("sink", Box::new(Sink::new("sink")), serde_json::Value::Null);
 
     executor.set_edges(vec![
         edge("em1", "value", "calc", "value"),
@@ -387,7 +387,7 @@ fn test_compare_emits_and_updates_value() {
         ..CompareConfig::default()
     });
     compare.set_event_sender(tx);
-    executor.add_component("cmp", Box::new(compare));
+    executor.add_component("cmp", Box::new(compare), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("cmp") {
         c.call_method("value", ComponentValue::Number(100.0)).unwrap();
@@ -414,7 +414,7 @@ fn test_range_map_emits_mapped_value() {
 
     let mut range_map = RangeMap::new("rm".into(), RangeMapConfig::default());
     range_map.set_event_sender(tx);
-    executor.add_component("rm", Box::new(range_map));
+    executor.add_component("rm", Box::new(range_map), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("rm") {
         c.call_method("value", ComponentValue::Number(512.0)).unwrap();

@@ -52,13 +52,13 @@ fn make_executor(component_count: usize) -> (FlowExecutor, ComponentEvent) {
     let mut executor = FlowExecutor::new();
 
     // One source component
-    executor.add_component("source", Box::new(BenchComponent::new("source")));
+    executor.add_component("source", Box::new(BenchComponent::new("source")), serde_json::Value::Null);
 
     // N target components each connected to the source
     let mut edges = Vec::with_capacity(component_count);
     for i in 0..component_count {
         let id = format!("target-{i}");
-        executor.add_component(&id.clone(), Box::new(BenchComponent::new(&id)));
+        executor.add_component(&id.clone(), Box::new(BenchComponent::new(&id)), serde_json::Value::Null);
         edges.push(FlowEdge {
             id: None,
             source: "source".to_string(),

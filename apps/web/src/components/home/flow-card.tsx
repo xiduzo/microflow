@@ -63,7 +63,7 @@ export function FlowCard(props: FlowCardProps) {
   const hasActions = !!(props.onExport || props.settingsFlowId || props.deleteFlow);
 
   return (
-    <Card className="relative mx-auto w-full pt-0">
+    <Card className="relative mx-auto h-full w-full pt-0">
       <section className="relative z-20 aspect-video w-full overflow-hidden bg-background">
         <ReactFlowProvider>
           <FlowThumbnail nodes={props.nodes} edges={props.edges} />

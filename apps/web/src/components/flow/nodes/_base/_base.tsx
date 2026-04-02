@@ -86,7 +86,7 @@ function NodeDescription() {
           <div key={key} className="flex items-center gap-1">
             <CableIcon size={12} />
             <span className="font-extralight">
-              {key}: {pinDisplayValue(value, pins)}
+              {key}: {pinDisplayValue(value as string, pins)}
             </span>
           </div>
         ))}

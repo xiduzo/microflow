@@ -1,8 +1,13 @@
 import { button } from "leva";
-import { NodeContainer, useNodeControls, useNodeData, useNodeId, type BaseNode } from "../_base/_base";
+import {
+  NodeContainer,
+  useNodeControls,
+  useNodeData,
+  type BaseNode,
+} from "../_base/_base";
 import { Handle } from "../../handle";
-import { useEffect, useState } from "react";
-import { dataSchema, type Data, type Value } from "./hotkey.schema";
+import { useState } from "react";
+import { dataSchema, VALID_HOTKEYS, type Data, type Value, type HotkeyChar } from "./hotkey.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { IconWithValue } from "../../icon-with-value";
 import { KeyboardIcon } from "lucide-react";
@@ -16,40 +21,20 @@ import {
 } from "@/components/ui/dialog";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
+import { useHotkeyRecorder } from "@tanstack/react-hotkeys";
+import type { Hotkey as HotkeyType } from "@tanstack/react-hotkeys";
+import { cn } from "@/lib/utils";
 
 export function Hotkey(props: Props) {
   return (
     <NodeContainer {...props}>
-      <HotkeyHandler />
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="event" handleType="event" offset={-0.5} />
-      <Handle type="source" position="right" id="true" handleType="state" offset={0.5} />
+      <Handle type="source" position="right" id="event" handleType="event" offset={-1} />
+      <Handle type="source" position="right" id="true" handleType="state" offset={0} />
+      <Handle type="source" position="right" id="false" handleType="state" offset={1} />
     </NodeContainer>
   );
-}
-
-function HotkeyHandler() {
-  const data = useNodeData<Data>();
-  const nodeId = useNodeId();
-
-  useEffect(() => {
-    if (!data.accelerator) return;
-
-    // hotkeys(data.accelerator, { keyup: true }, event => {
-    // 	if (event.repeat) return;
-    // 	window.electron.ipcRenderer.send('ipc-external-value', {
-    // 		nodeId: nodeId,
-    // 		value: event.type === 'keydown',
-    // 	});
-    // });
-
-    // return () => {
-    // 	hotkeys.unbind(data.accelerator);
-    // };
-  }, [data.accelerator, nodeId]);
-
-  return null;
 }
 
 function Value() {
@@ -57,115 +42,97 @@ function Value() {
   const value = useNodeValue<Value>(false);
 
   return (
-    <IconWithValue
-      icon={KeyboardIcon}
-      value={data.accelerator}
-      iconClassName={value ? "text-green-500" : "text-muted-foreground"}
-    />
+    <KbdGroup className="flex flex-wrap gap-1 scale-250">
+      <Kbd className={cn("min-w-6 h-6 px-2", {
+        "text-green-500": value,
+        "text-muted-foreground": !value,
+      })}>{String(data.accelerator).toUpperCase()}</Kbd>
+    </KbdGroup>
   );
+}
+
+function isValidHotkeyChar(hotkey: HotkeyType): boolean {
+  const key = String(hotkey).toLowerCase();
+  return VALID_HOTKEYS.includes(key as HotkeyChar);
 }
 
 type HotkeyRecorderDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (accelerator: string) => void;
+  onSave: (key: string) => void;
   initialKey?: string;
 };
-
-function convertKeyboardEventToHotkeyJsString(event: KeyboardEvent) {
-  const code = event.code;
-
-  switch (code) {
-    case "MetaLeft":
-    case "MetaRight":
-    case "Meta":
-    case "ControlLeft":
-    case "ControlRight":
-    case "Control":
-    case "AltLeft":
-    case "AltRight":
-    case "Alt":
-    case "ShiftLeft":
-    case "ShiftRight":
-    case "Shift":
-      return null;
-    case "Digit0":
-    case "Digit1":
-    case "Digit2":
-    case "Digit3":
-    case "Digit4":
-    case "Digit5":
-    case "Digit6":
-    case "Digit7":
-    case "Digit8":
-    case "Digit9":
-      return code.replace("Digit", "");
-    case "ArrowUp":
-    case "ArrowDown":
-    case "ArrowLeft":
-    case "ArrowRight":
-      return code.replace("Arrow", "");
-    default:
-      return code.replace("Key", "");
-  }
-}
 
 function HotkeyRecorderDialog(props: HotkeyRecorderDialogProps) {
   const [key, setKey] = useState<string | undefined>(props.initialKey);
 
-  useEffect(() => {
-    if (!open) return;
+  const recorder = useHotkeyRecorder({
+    onRecord: (hotkey) => {
+      if (isValidHotkeyChar(hotkey)) {
+        setKey(String(hotkey).toLowerCase());
+      }
+      // Restart so the user can keep trying if they pressed a modifier combo
+      recorder.startRecording();
+    },
+    onCancel: () => {
+      props.onOpenChange(false);
+    },
+    onClear: () => {
+      setKey(undefined);
+    },
+  });
 
-    function handleKeyDown(event: KeyboardEvent) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      event.stopPropagation();
-
-      const key = convertKeyboardEventToHotkeyJsString(event);
-      if (!key) return;
-      setKey(key);
+  const handleOpen = (open: boolean) => {
+    if (open) {
+      recorder.startRecording();
+    } else {
+      recorder.stopRecording();
     }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
-  const handleSave = () => {
-    if (!key) return;
-    props.onSave(key);
-    props.onOpenChange(false);
+    props.onOpenChange(open);
   };
 
-  const handleCancel = () => {
-    props.onOpenChange(false);
-  };
-
-  const handleClear = () => {
-    setKey(undefined);
-  };
+  // Start recording when dialog opens
+  if (props.open && !recorder.isRecording) {
+    recorder.startRecording();
+  }
 
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+    <Dialog open={props.open} onOpenChange={handleOpen}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Set hotkey</DialogTitle>
-          <DialogDescription>Press the key you want to create a trigger for</DialogDescription>
+          <DialogDescription>
+            Press a key to assign as a trigger
+          </DialogDescription>
         </DialogHeader>
         <section className="min-h-24 flex flex-col gap-4 items-center justify-center">
-          <KbdGroup className="flex flex-wrap gap-1">
-            <Kbd className="min-w-6 h-6 px-2">{key}</Kbd>
+          <KbdGroup className="flex flex-wrap gap-1 scale-300">
+            <Kbd className="min-w-6 h-6 px-2">{key?.toUpperCase()}</Kbd>
           </KbdGroup>
         </section>
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              recorder.stopRecording();
+              props.onOpenChange(false);
+            }}
+          >
             Cancel
           </Button>
-          <Button variant="outline" onClick={handleClear} disabled={!key}>
+          <Button variant="outline" onClick={() => setKey(undefined)} disabled={!key}>
             Clear
           </Button>
-          <Button onClick={handleSave} disabled={!key}>
+          <Button
+            onClick={() => {
+              if (key) {
+                recorder.stopRecording();
+                props.onSave(key);
+                props.onOpenChange(false);
+              }
+            }}
+            disabled={!key}
+          >
             Save
           </Button>
         </DialogFooter>
@@ -196,7 +163,6 @@ function Settings() {
           onOpenChange={setDialogOpened}
           onSave={(accelerator) => {
             set({ accelerator });
-            setDialogOpened(false);
           }}
         />
       )}
@@ -212,6 +178,6 @@ Hotkey.defaultProps = {
     tags: ["trigger", "source"],
     label: "Hotkey",
     icon: "KeyboardIcon",
-    description: "Detect when a keyboard shortcut is pressed or released",
+    description: "Detect when a keyboard key is pressed or released",
   } satisfies Props["data"],
 };
