@@ -20,6 +20,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { useBoardEvents } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
+import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
 import { useMqttSync } from "@/hooks/use-mqtt-sync";
 import { useLlmSync } from "@/hooks/use-llm-sync";
 import { useUpdater } from "@/hooks/use-updater";
@@ -88,6 +89,7 @@ function RootComponent() {
 function Board() {
   useBoardEvents();
   useComponentEvents();
+  useHotkeyEvents();
   useMqttSync();
   useLlmSync();
   useUpdater();

@@ -301,6 +301,52 @@ pub fn run() {
 
                 // Remove the separate board-disconnected listener since we handle it above
 
+                // Listen for key events from the webview (fire-and-forget, no IPC round-trip).
+                // The frontend emits "key_event" with { key, pressed } — Rust owns all
+                // hotkey→component routing and flow graph processing.
+                let flow_runtime_keys = Arc::clone(&flow_runtime);
+                app_handle.listen("key_event", move |event| {
+                    let payload = event.payload();
+                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(payload) {
+                        let key = data.get("key").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
+                        let pressed = data.get("pressed").and_then(|v| v.as_bool()).unwrap_or(false);
+
+                        log::info!("[HOTKEY] Received key_event: key={key}, pressed={pressed}");
+
+                        if key.is_empty() { return; }
+
+                        // The listen callback runs on the Tokio async runtime, so we
+                        // cannot call blocking_lock() directly (it panics). Spawn onto
+                        // a blocking thread where it is safe to block.
+                        let rt = Arc::clone(&flow_runtime_keys);
+                        tokio::task::spawn_blocking(move || {
+                            let mut runtime = rt.blocking_lock();
+
+                            // Look up which components are listening for this key
+                            let component_ids: Vec<Arc<str>> = {
+                                let listeners = runtime.key_listeners();
+                                let map = listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                                log::info!("[HOTKEY] key_listeners map: {:?}", map.keys().collect::<Vec<_>>());
+                                match map.get(&key) {
+                                    Some(ids) => ids.clone(),
+                                    None => {
+                                        log::warn!("[HOTKEY] No listeners found for key={key}");
+                                        return;
+                                    }
+                                }
+                            };
+
+                            log::info!("[HOTKEY] Routing key={key} to {} component(s)", component_ids.len());
+                            let value = runtime::ComponentValue::Bool(pressed);
+                            for component_id in &component_ids {
+                                if let Err(e) = runtime.call_component(component_id, "key_event", value.clone()) {
+                                    log::warn!("Failed to route key event to {}: {}", component_id, e);
+                                }
+                            }
+                        });
+                    }
+                });
+
                 Ok(())
             }
         })

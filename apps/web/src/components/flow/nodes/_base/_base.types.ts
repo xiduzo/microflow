@@ -31,6 +31,7 @@ export const COMPONENT_TYPES = [
   "Force",
   "Gate",
   "HallEffect",
+  "Hotkey",
   "Interval",
   "Ldr",
   "Led",

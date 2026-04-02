@@ -25,6 +25,7 @@ export function HotkeySheet() {
   useHotkey({ key: "/", ctrl: true, shift: true }, toggleSheet, {
     ignoreInputs: true,
   });
+  
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent side="bottom">

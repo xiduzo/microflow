@@ -48,7 +48,7 @@ pub use types::{FlowEdge, FlowUpdate};
 
 // Re-export component types for external use (e.g., tests, plugins)
 #[allow(unused_imports)]
-pub use input::{Button, ButtonConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig};
+pub use input::{Button, ButtonConfig, Hotkey, HotkeyConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig};
 #[allow(unused_imports)]
 pub use output::{Led, LedConfig, Piezo, PiezoConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig};
 #[allow(unused_imports)]
@@ -97,6 +97,8 @@ pub struct FlowRuntime {
     event_rx: Option<mpsc::UnboundedReceiver<ComponentEvent>>,
     /// Map of pin -> listeners for immediate event routing
     pin_listeners: Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>>,
+    /// Map of key (lowercase) -> component IDs for hotkey routing
+    key_listeners: Arc<std::sync::Mutex<HashMap<String, Vec<Arc<str>>>>>,
     /// Monotonically increasing counter for flow update versions (shared with pin callback)
     flow_sequence: Arc<AtomicU64>,
     /// Current flow sequence for event filtering
@@ -114,6 +116,7 @@ impl FlowRuntime {
             event_tx,
             event_rx: Some(event_rx),
             pin_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            key_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
             flow_sequence: Arc::new(AtomicU64::new(0)),
             current_sequence: 0,
         }
@@ -152,6 +155,24 @@ impl FlowRuntime {
     #[must_use] 
     pub fn pin_listeners(&self) -> Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>> {
         Arc::clone(&self.pin_listeners)
+    }
+
+    /// Get the key listeners map (for use from the key_event Tauri command)
+    #[must_use]
+    pub fn key_listeners(&self) -> Arc<std::sync::Mutex<HashMap<String, Vec<Arc<str>>>>> {
+        Arc::clone(&self.key_listeners)
+    }
+
+    /// Clear all key listeners
+    pub fn clear_key_listeners(&self) {
+        let mut listeners = self.key_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        listeners.clear();
+    }
+
+    /// Register a key listener for a Hotkey component
+    pub fn register_key_listener(&self, key: String, component_id: Arc<str>) {
+        let mut listeners = self.key_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        listeners.entry(key).or_default().push(component_id);
     }
 
     /// Install the pin change callback on the board connection
@@ -274,6 +295,7 @@ impl FlowRuntime {
         // Clear pin listeners for removed nodes (we'll re-register all below)
         // For simplicity, clear and re-register all pin listeners since it's cheap
         self.clear_pin_listeners();
+        self.clear_key_listeners();
 
         // Reset Firmata reporting if board is connected and nodes changed
         let board_handle = self.board_handle();
@@ -310,12 +332,22 @@ impl FlowRuntime {
             }
         }
 
-        // Re-register pin listeners for ALL nodes (cheap operation)
+        // Re-register pin and key listeners for ALL nodes (cheap operation)
         for node in &update.nodes {
             let instance_str = node.data.get("instance").and_then(|v| v.as_str())
                 .or(node.node_type.as_deref());
             if let Some(instance) = instance_str {
                 self.register_component_pin_listener(&node.id, instance, &node.data);
+                if instance == "Hotkey" {
+                    if let Some(key) = node.data.get("accelerator").and_then(|v| v.as_str()) {
+                        let key_lower = key.to_lowercase();
+                        log::info!("[HOTKEY] Registering key listener: component={}, key={}", node.id, key_lower);
+                        self.register_key_listener(key_lower, Arc::from(node.id.as_str()));
+                    } else {
+                        log::warn!("[HOTKEY] Hotkey node {} has no valid accelerator string. Raw data: {:?}", 
+                            node.id, node.data.get("accelerator"));
+                    }
+                }
             }
         }
 
