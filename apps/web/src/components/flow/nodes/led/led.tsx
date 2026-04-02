@@ -88,7 +88,7 @@ Led.defaultProps = {
     tags: ["action"],
     label: "LED",
     icon: "LightbulbIcon",
-    description: "Turn a light on or off, or control its brightness",
+    description: "Turn an LED on or off, or dim it by controlling brightness via PWM",
   } satisfies Props["data"],
 };
 

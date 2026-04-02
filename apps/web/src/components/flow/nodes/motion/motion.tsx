@@ -51,6 +51,6 @@ Motion.defaultProps = {
     tags: ["trigger", "source"],
     icon: "EyeIcon",
     label: "Motion",
-    description: "Detect when something moves nearby, like a person walking past",
+    description: "Detect movement using a PIR sensor (HC-SR501) — like someone walking into a room",
   } satisfies Props["data"],
 };

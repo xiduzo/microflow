@@ -53,7 +53,6 @@ Relay.defaultProps = {
     label: "Relay",
     icon: "ZapIcon",
     tags: ["action"],
-    description:
-      "Safely turn on or off devices that need more power, like lights, motors, or appliances",
+    description: "Switch high-power devices on or off safely — lights, motors, fans, or household appliances",
   } satisfies Props["data"],
 };

@@ -67,7 +67,6 @@ RangeMap.defaultProps = {
     tags: ["value"],
     icon: "SeparatorVerticalIcon",
     label: "Map",
-    description:
-      "Convert a number from one range to another, like turning a sensor reading into a brightness value",
+    description: "Remap a value from one range to another — like converting a sensor reading (0–1023) to brightness (0–255)",
   } satisfies Props["data"],
 };

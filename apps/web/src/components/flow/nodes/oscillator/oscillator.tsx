@@ -78,6 +78,6 @@ Oscillator.defaultProps = {
     tags: ["value", "source", "time-based"],
     label: "Oscillator",
     icon: "AudioWaveformIcon",
-    description: "Create repeating patterns of numbers that go up and down, like waves",
+    description: "Generate repeating wave patterns — sine, square, sawtooth, or triangle — to animate or cycle values",
   } satisfies Props["data"],
 };

@@ -251,6 +251,6 @@ Matrix.defaultProps = {
     tags: ["action"],
     label: "LED Matrix",
     icon: "GridIcon",
-    description: "Display patterns, shapes, or images on a grid of LED lights",
+    description: "Display patterns, shapes, or text on an LED matrix — like an 8×8 MAX7219 grid",
   } satisfies Props["data"],
 };

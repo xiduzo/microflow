@@ -145,7 +145,6 @@ Piezo.defaultProps = {
     tags: ["action"],
     label: "Piezo",
     icon: "BellIcon",
-    description:
-      "Make sounds, play tones, or create melodies using a buzzer or speaker",
+    description: "Play tones, beeps, or melodies through a piezo buzzer — a small speaker common in Arduino kits",
   } satisfies Props["data"],
 };

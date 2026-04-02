@@ -60,6 +60,6 @@ Smooth.defaultProps = {
     tags: ["value", "stateful"],
     label: "Smooth",
     icon: "EraserIcon",
-    description: "Make jumpy or noisy sensor readings smoother and more stable",
+    description: "Reduce noise in sensor readings using a moving average or low-pass smoothing filter",
   } satisfies Props["data"],
 };

@@ -95,6 +95,6 @@ Mqtt.defaultProps = {
     tags: ["value", "source", "action", "external"],
     label: "MQTT",
     icon: "RadioTowerIcon",
-    description: "Send and receive messages over the network using MQTT protocol",
+    description: "Send and receive real-time messages over a network using MQTT — great for IoT and smart home setups",
   } satisfies Props["data"],
 };

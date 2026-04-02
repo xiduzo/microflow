@@ -47,7 +47,7 @@ Gate.defaultProps = {
     tags: ["trigger", "logic", "stateful"],
     label: "Gate",
     icon: "GitPullRequestClosedIcon",
-    description: "Combine multiple signals together using simple rules to make decisions",
+    description: "Apply boolean logic (AND, OR, XOR, NAND, NOR, XNOR) to combine signals and control flow",
   } satisfies Props["data"],
 };
 

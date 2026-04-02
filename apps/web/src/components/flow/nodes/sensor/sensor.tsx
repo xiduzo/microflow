@@ -158,8 +158,7 @@ Sensor.defaultProps = {
     tags: ["value", "source"],
     label: "Analog Sensor",
     icon: "GaugeIcon",
-    description:
-      "Measure values that change smoothly, like temperature, pressure, or how bright something is",
+    description: "Read analog values (0–1023) from sensors that change smoothly, like temperature, pressure, or light",
   } satisfies Props["data"],
 };
 
@@ -171,7 +170,7 @@ DigitalSensor.defaultProps = {
     tags: ["trigger", "source"],
     type: "digital",
     icon: "PowerIcon",
-    description: "Detect when something is on or off, like a switch or motion detector",
+    description: "Read a digital HIGH or LOW signal from any on/off sensor or module",
   } satisfies Props["data"],
 };
 
@@ -196,7 +195,7 @@ Ldr.defaultProps = {
     tags: ["value", "source"],
     subType: "ldr",
     icon: "SunIcon",
-    description: "Measure how bright or dark the surrounding environment is",
+    description: "Measure ambient light level using a photoresistor (LDR) — bright outdoors, dim indoors",
   } satisfies Props["data"],
 };
 
@@ -208,7 +207,7 @@ Potentiometer.defaultProps = {
     tags: ["value", "source"],
     subType: "potentiometer",
     icon: "CircleArrowOutUpLeftIcon",
-    description: "Read values from a knob or slider that you can turn or move to control something",
+    description: "Read a knob or slider position — perfect for controlling speed, volume, or brightness",
   } satisfies Props["data"],
 };
 
@@ -220,7 +219,7 @@ Force.defaultProps = {
     tags: ["value", "source"],
     subType: "force",
     icon: "BicepsFlexedIcon",
-    description: "Measure how much pressure or force is being applied to a surface",
+    description: "Measure how hard something is pressed using a force-sensitive resistor (FSR)",
   } satisfies Props["data"],
 };
 
@@ -232,6 +231,6 @@ HallEffect.defaultProps = {
     tags: ["value", "source"],
     subType: "hall-effect",
     icon: "MagnetIcon",
-    description: "Detect when a magnet or magnetic object is nearby and how strong it is",
+    description: "Detect the presence of a magnet or measure magnetic field strength using a Hall effect sensor",
   } satisfies Props["data"],
 };

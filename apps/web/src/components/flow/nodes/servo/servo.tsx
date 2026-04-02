@@ -100,6 +100,6 @@ Servo.defaultProps = {
     tags: ["action", "value"],
     label: "Servo",
     icon: "RotateCwIcon",
-    description: "Control a motor that can move to specific positions or rotate continuously",
+    description: "Move a servo motor to a specific angle (0–180°) or spin it continuously",
   } satisfies Props["data"],
 };

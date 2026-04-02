@@ -81,7 +81,6 @@ Rgb.defaultProps = {
     tags: ["action"],
     label: "RGB",
     icon: "PaletteIcon",
-    description:
-      "Control a colored light that can display any color by mixing red, green, and blue",
+    description: "Control an RGB LED to show any color by mixing red, green, and blue channels",
   } satisfies Props["data"],
 };

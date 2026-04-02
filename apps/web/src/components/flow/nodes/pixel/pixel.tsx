@@ -238,7 +238,6 @@ Pixel.defaultProps = {
     tags: ["action"],
     label: "LED Strip",
     icon: "RainbowIcon",
-    description:
-      "Control a strip of addressable RGB LEDs (WS2812, NeoPixel, etc.)",
+    description: "Control a strip of individually addressable color LEDs — supports WS2812 and NeoPixel strips",
   } satisfies Props["data"],
 };

@@ -100,6 +100,6 @@ Monitor.defaultProps = {
     tags: ["action"],
     label: "Monitor",
     icon: "MonitorIcon",
-    description: "Watch and visualize the values flowing through your circuit in real-time",
+    description: "Inspect and graph values flowing through your flow in real-time — great for debugging",
   } satisfies Props["data"],
 };

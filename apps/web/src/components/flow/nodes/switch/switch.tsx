@@ -53,6 +53,6 @@ Switch.defaultProps = {
     icon: "ToggleLeftIcon",
     label: "Switch",
     tags: ["trigger", "source"],
-    description: "Detect when a physical switch is turned on or off",
+    description: "Detect when a toggle switch flips on or off — supports normally open (NO) and normally closed (NC)",
   } satisfies Props["data"],
 };

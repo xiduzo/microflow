@@ -53,6 +53,6 @@ Delay.defaultProps = {
     tags: ["trigger", "time-based", "stateful"],
     label: "Delay",
     icon: "SnailIcon",
-    description: "Wait for a specified amount of time before sending a signal forward",
+    description: "Hold a signal for a set duration before passing it forward — also supports debounce",
   } satisfies Props["data"],
 };

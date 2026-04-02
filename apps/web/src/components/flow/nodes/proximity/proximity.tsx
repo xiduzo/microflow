@@ -49,6 +49,6 @@ Proximity.defaultProps = {
     tags: ["value", "source"],
     label: "Proximity",
     icon: "TargetIcon",
-    description: "Measure how far away an object is from the sensor",
+    description: "Measure the distance to an object using an ultrasonic sensor like the HC-SR04 or SRF04",
   } satisfies Props["data"],
 };
