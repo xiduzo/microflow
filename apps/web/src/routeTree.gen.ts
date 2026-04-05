@@ -81,7 +81,9 @@ const FlowFlowIdCircuitRoute = FlowFlowIdCircuitRouteImport.update({
   id: '/circuit',
   path: '/circuit',
   getParentRoute: () => FlowFlowIdRoute,
-} as any)
+} as any).lazy(() =>
+  import('./routes/flow/$flowId/circuit.lazy').then((d) => d.Route),
+)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute

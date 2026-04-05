@@ -98,6 +98,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Increase Node.js heap for Vite production build (OOM on CI)
+          NODE_OPTIONS: '--max-old-space-size=4096'
           # Frontend env vars (inlined by Vite at build time)
           VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

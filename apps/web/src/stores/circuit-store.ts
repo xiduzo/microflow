@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { createCircuitWebWorker, type CircuitWebWorker } from "@tscircuit/eval";
+import type { CircuitWebWorker } from "@tscircuit/eval";
 import type { AnyCircuitElement } from "circuit-json";
 import type { Node } from "@xyflow/react";
 import type { Pin } from "@/stores/board";
@@ -30,6 +30,7 @@ export const useCircuitStore = create<CircuitState>()((set, get) => {
 
   async function getWorker(): Promise<CircuitWebWorker> {
     if (worker) return worker;
+    const { createCircuitWebWorker } = await import("@tscircuit/eval");
     worker = await createCircuitWebWorker({
       projectConfig: {
         pcbDisabled: true,

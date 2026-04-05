@@ -39,6 +39,26 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Monaco editor (~7 MB) — only used in function node code editor
+          monaco: ["monaco-editor", "@monaco-editor/react"],
+          // tscircuit ecosystem — only used on /circuit route
+          tscircuit: [
+            "tscircuit",
+            "@tscircuit/eval",
+            "@tscircuit/schematic-viewer",
+            "@tscircuit/schematic-autolayout",
+            "circuit-json",
+          ],
+          // React + core libs
+          vendor: ["react", "react-dom", "zustand", "yjs"],
+        },
+      },
+    },
+  },
   server: {
     port: 3001,
     allowedHosts: ["microflow.tech"],

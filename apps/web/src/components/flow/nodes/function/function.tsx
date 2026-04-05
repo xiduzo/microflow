@@ -1,5 +1,4 @@
 import { dataSchema, type Data, type Value } from "./function.schema";
-import { FunctionCodeEditor } from "./function-code-editor";
 import { Handle } from "../../handle";
 import {
   NodeContainer,
@@ -11,10 +10,14 @@ import {
 } from "../_base/_base";
 import { BracesIcon } from "lucide-react";
 import { button } from "leva";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useNodeValue } from "@/stores/node-data";
 import { IconWithValue } from "../../icon-with-value";
+
+const FunctionCodeEditor = lazy(() =>
+  import("./function-code-editor").then((m) => ({ default: m.FunctionCodeEditor })),
+);
 
 export function Function(props: Props) {
   return (
@@ -66,15 +69,17 @@ function Settings() {
     <>
       {render()}
       {editorOpened && (
-        <FunctionCodeEditor
-          code={data.code}
-          dynamicVars={dynamicVars}
-          onSave={(code) => {
-            setNodeData({ ...data, code });
-            setEditorOpened(false);
-          }}
-          onClose={() => setEditorOpened(false)}
-        />
+        <Suspense>
+          <FunctionCodeEditor
+            code={data.code}
+            dynamicVars={dynamicVars}
+            onSave={(code) => {
+              setNodeData({ ...data, code });
+              setEditorOpened(false);
+            }}
+            onClose={() => setEditorOpened(false)}
+          />
+        </Suspense>
       )}
     </>
   );
