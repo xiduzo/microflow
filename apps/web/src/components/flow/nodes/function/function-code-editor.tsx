@@ -222,9 +222,91 @@ function setupTemplateSupport(editor: MonacoEditor.IStandaloneCodeEditor, m: Mon
   setTimeout(update, 300);
 }
 
+/** Built-in utility function type declarations available inside the function editor. */
+const BUILTIN_LIB = `
+/**
+ * Coerce any value to a number.
+ * Returns \`fallback\` (default \`0\`) when the result would be \`NaN\`.
+ *
+ * @param value - The value to coerce
+ * @param fallback - Value to return when coercion yields NaN (default: \`0\`)
+ * @returns The numeric representation of the value, or the fallback
+ *
+ * @example
+ * const n = toNumber(input);       // 0 if input is not numeric
+ * const n = toNumber(input, -1);   // -1 as fallback
+ */
+declare function toNumber(value: unknown, fallback?: number): number;
+
+/**
+ * Coerce any value to a string.
+ * Objects and arrays are JSON-stringified.
+ *
+ * @param value - The value to coerce
+ * @returns The string representation of the value
+ *
+ * @example
+ * const s = toString(input);       // always a string
+ */
+declare function toString(value: unknown): string;
+
+/**
+ * Coerce any value to a boolean using JavaScript truthiness,
+ * with special handling: the strings \`"false"\`, \`"0"\`, and \`""\` return \`false\`.
+ *
+ * @param value - The value to coerce
+ * @returns The boolean representation of the value
+ *
+ * @example
+ * const b = toBool(input);
+ */
+declare function toBool(value: unknown): boolean;
+
+/**
+ * Return the value as a number if it falls within \`[min, max]\`.
+ * Otherwise return \`fallback\` (default \`min\`).
+ *
+ * @param value - The value to check
+ * @param min - Minimum allowed value (inclusive)
+ * @param max - Maximum allowed value (inclusive)
+ * @param fallback - Value to return when out of range (default: \`min\`)
+ * @returns The value if in range, otherwise the fallback
+ *
+ * @example
+ * const safe = ensureRange(input, 0, 255);       // min (0) as fallback
+ * const safe = ensureRange(input, 0, 255, 128);  // 128 as fallback
+ */
+declare function ensureRange(value: unknown, min: number, max: number, fallback?: number): number;
+
+/**
+ * Return the value if it is strictly equal to one of the \`allowed\` entries,
+ * otherwise return \`fallback\`.
+ *
+ * @param value - The value to check
+ * @param allowed - Array of allowed values
+ * @param fallback - Value to return when not in the allowed list
+ * @returns The value if allowed, otherwise the fallback
+ *
+ * @example
+ * const mode = oneOf(input, ["on", "off", "blink"], "off");
+ */
+declare function oneOf<T>(value: unknown, allowed: T[], fallback: T): T;
+
+/**
+ * Return \`true\` if the value is not \`null\`, \`undefined\`, or \`NaN\`.
+ *
+ * @param value - The value to check
+ * @returns Whether the value is valid (not null, undefined, or NaN)
+ *
+ * @example
+ * if (!isValid(input)) return 0;
+ */
+declare function isValid(value: unknown): boolean;
+`;
+
 function publishDeclarations(vars: string[]) {
-  const lib = vars
+  const varDecls = vars
     .map((v) => `/** Template variable {{${v}}} — connected via a bottom handle */\ndeclare var ${v}: any;`)
     .join("\n");
-  tsLang.typescriptDefaults.addExtraLib(lib, "ts:function-context.d.ts");
+  tsLang.typescriptDefaults.addExtraLib(BUILTIN_LIB + "\n" + varDecls, "ts:function-context.d.ts");
 }

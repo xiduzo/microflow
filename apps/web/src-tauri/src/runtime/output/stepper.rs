@@ -1,7 +1,7 @@
 //! Stepper Motor Component - Output
 //!
-//! Controls stepper motors via Firmata's AccelStepper protocol (sysex `0x62`).
-//! Supports step/direction driver boards (A4988, DRV8825, TMC2209, EasyDriver)
+//! Controls stepper motors via Firmata's `AccelStepper` protocol (sysex `0x62`).
+//! Supports step/direction driver boards (A4988, DRV8825, TMC2209, `EasyDriver`)
 //! as well as 2-wire and 4-wire H-bridge configurations.
 //!
 //! ## Lifecycle
@@ -22,10 +22,10 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-/// AccelStepper sysex command byte
+/// `AccelStepper` sysex command byte
 const ACCELSTEPPER_DATA: u8 = 0x62;
 
-/// AccelStepper sub-commands
+/// `AccelStepper` sub-commands
 const CMD_CONFIG: u8 = 0x00;
 const CMD_ZERO: u8 = 0x01;
 const CMD_STEP: u8 = 0x02;
@@ -121,7 +121,7 @@ impl Stepper {
         }
     }
 
-    /// Send a sysex message for the AccelStepper protocol.
+    /// Send a sysex message for the `AccelStepper` protocol.
     fn send_sysex(&self, data: Vec<u8>) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
             board.send_command(BoardCommand::Sysex {
@@ -178,14 +178,14 @@ impl Stepper {
         self.send_sysex(data)
     }
 
-    /// Encode a float into AccelStepper's custom 4-byte format.
+    /// Encode a float into `AccelStepper`'s custom 4-byte format.
     /// 23-bit significand + 4-bit exponent (biased -11) + 1-bit sign.
     fn encode_custom_float(value: f32) -> [u8; 4] {
         if value == 0.0 {
             return [0, 0, 0, 0];
         }
 
-        let sign: u8 = if value < 0.0 { 1 } else { 0 };
+        let sign: u8 = u8::from(value < 0.0);
         let mut val = value.abs();
 
         // Find exponent: we need to express val as significand * 10^(exp-11)
@@ -232,7 +232,7 @@ impl Stepper {
     }
 
     /// Decode a 32-bit signed integer from 5 bytes of 7-bit data.
-    fn decode_signed_long(bytes: &[u8]) -> i32 {
+    pub fn decode_signed_long(bytes: &[u8]) -> i32 {
         if bytes.len() < 5 {
             return 0;
         }
@@ -304,7 +304,7 @@ impl Stepper {
         self.send_sysex(vec![
             CMD_ENABLE,
             self.config.device_num,
-            if state { 1 } else { 0 },
+            u8::from(state),
         ])
     }
 }
@@ -358,7 +358,7 @@ impl Component for Stepper {
             "stop" => self.stop(),
             "zero" => self.zero(),
             "enable" => {
-                let state = args.as_number().map(|n| n > 0.0).unwrap_or(true);
+                let state = args.as_number().map_or(true, |n| n > 0.0);
                 self.enable(state)
             }
             "stepper_reply" => {

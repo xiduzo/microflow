@@ -1,7 +1,7 @@
 //! Function Component - Transformation
 //!
 //! Executes user-authored JavaScript to transform values inline.
-//! Runs inside the Rust process via boa_engine — no Tauri IPC round-trips.
+//! Runs inside the Rust process via `boa_engine` — no Tauri IPC round-trips.
 //!
 //! # Handles
 //!
@@ -61,7 +61,61 @@ impl Function {
         let mut ctx = Context::default();
         // Limit loop iterations to prevent runaway infinite loops
         ctx.runtime_limits_mut().set_loop_iteration_limit(10_000);
+        // Inject built-in utility functions
+        Self::inject_builtins(&mut ctx);
         ctx
+    }
+
+    /// Inject the built-in utility functions described in the Function node docs.
+    /// These are always available inside user code — no imports needed.
+    fn inject_builtins(ctx: &mut Context) {
+        let builtins = r#"
+function toNumber(value, fallback) {
+    if (fallback === undefined) fallback = 0;
+    if (typeof value === "number") return isNaN(value) ? fallback : value;
+    if (typeof value === "boolean") return value ? 1 : 0;
+    var n = Number(value);
+    return isNaN(n) ? fallback : n;
+}
+
+function toString(value) {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+}
+
+function toBool(value) {
+    if (typeof value === "string") {
+        var lower = value.toLowerCase();
+        if (lower === "false" || lower === "0" || lower === "") return false;
+        return true;
+    }
+    return !!value;
+}
+
+function ensureRange(value, min, max, fallback) {
+    if (fallback === undefined) fallback = min;
+    var n = toNumber(value, NaN);
+    if (isNaN(n) || n < min || n > max) return fallback;
+    return n;
+}
+
+function oneOf(value, allowed, fallback) {
+    for (var i = 0; i < allowed.length; i++) {
+        if (value === allowed[i]) return value;
+    }
+    return fallback;
+}
+
+function isValid(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "number" && isNaN(value)) return false;
+    return true;
+}
+"#;
+        if let Err(e) = ctx.eval(Source::from_bytes(builtins.as_bytes())) {
+            log::error!("[Function] Failed to inject built-in utilities: {e}");
+        }
     }
 
     /// Substitute `{{var}}` placeholders with their stored JS literal values.
