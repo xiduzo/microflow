@@ -342,10 +342,18 @@ impl BoardHandle {
                         let err_str = format!("{e}");
                         if err_str.contains("timed out") || err_str.contains("timeout") {
                             std::thread::sleep(std::time::Duration::from_millis(1));
-                        } else {
+                        } else if err_str.contains("I/O error") {
+                            // Real serial/transport error — disconnect.
                             log::warn!("Firmata reader: I/O error: {err_str}");
                             handle_clone.connected.store(false, std::sync::atomic::Ordering::Release);
                             break;
+                        } else {
+                            // Protocol-level parse errors from firmata-rs:
+                            // - "Unknown SysEx code: N" — unhandled SysEx (AccelStepper, string data, etc.)
+                            // - "Message was too short." — truncated/unexpected SysEx payload
+                            // - "Received a bad byte: N" — framing glitch after skipped SysEx
+                            // These are non-fatal; the stream re-syncs on the next message boundary.
+                            log::debug!("Firmata reader: skipping parse error: {err_str}");
                         }
                     }
                 }

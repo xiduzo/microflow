@@ -29,6 +29,7 @@ export const COMPONENT_TYPES = [
   "Delay",
   "Figma",
   "Force",
+  "Function",
   "Gate",
   "HallEffect",
   "Hotkey",

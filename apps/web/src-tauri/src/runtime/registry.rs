@@ -9,7 +9,7 @@ use super::external::{Figma, FigmaConfig, Llm, LlmConfig, Mqtt, MqttConfig};
 use super::generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillator, OscillatorConfig};
 use super::input::{Button, ButtonConfig, Hotkey, HotkeyConfig, I2cDevice, I2cDeviceConfig, Motion, MotionConfig, Proximity, ProximityConfig, Sensor, SensorConfig, Switch, SwitchConfig};
 use super::output::{Led, LedConfig, Matrix, MatrixConfig, Monitor, MonitorConfig, Piezo, PiezoConfig, Pixel, PixelConfig, Relay, RelayConfig, Rgb, RgbConfig, Servo, ServoConfig, Stepper, StepperConfig};
-use super::transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
+use super::transformation::{Calculate, CalculateConfig, Compare, CompareConfig, Function, FunctionConfig, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 use crate::error::RuntimeError;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -181,6 +181,9 @@ impl ComponentRegistry {
         });
         self.register_software("Smooth", |id, data| {
             Box::new(Smooth::new(id, parse_config::<SmoothConfig>(data)))
+        });
+        self.register_software("Function", |id, data| {
+            Box::new(Function::new(id, parse_config::<FunctionConfig>(data)))
         });
 
         // LLM component (software only - HTTP/AI inference)

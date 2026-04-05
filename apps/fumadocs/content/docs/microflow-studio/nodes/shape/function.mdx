@@ -1,0 +1,106 @@
+---
+title: Function
+description: Write custom JavaScript to transform values inline within your flow.
+---
+
+The Function node lets you write custom JavaScript that runs each time a value arrives. It is the escape hatch for transformations that are too specific or complex for the built-in nodes.
+
+Your code lives inside a `trigger(input)` wrapper. Whatever you `return` becomes the output value.
+
+```ts
+function trigger(input: unknown) {
+  // your code here
+  return input;
+}
+```
+
+## Inputs
+
+- **Trigger** (left handle) — the incoming value, available as `input` inside your code
+- **Template variables** (bottom handles) — use `{{varName}}` anywhere in your code to create additional input handles. Each connected value is substituted at runtime before execution
+
+## Output
+
+- **Value** (right handle) — emits whatever your function returns
+
+## Settings
+
+Click **Edit code** to open the Monaco editor. You get full TypeScript IntelliSense, syntax highlighting, and error checking.
+
+### Template variables
+
+Write `{{brightness}}` or `{{threshold}}` in your code and a new handle appears on the bottom of the node. Connect any value-producing node to it and the placeholder is replaced with the live value at runtime.
+
+```ts
+// Two template variables: {{min}} and {{max}}
+if (typeof input !== "number") return 0;
+return Math.min(Math.max(input, {{min}}), {{max}});
+```
+
+Template variables inside comments (`//` or `/* */`) are ignored and will not create handles.
+
+## Built-in utility functions
+
+Because `input` is typed as `unknown`, safely handling the incoming value requires boilerplate. The Function node provides a set of built-in sanitization helpers that are always available inside your code — no imports needed. They are designed to make type coercion and validation concise and safe.
+
+### `toNumber(value, fallback?)`
+
+Coerce any value to a number. Returns `fallback` (default `0`) when the result would be `NaN`.
+
+```ts
+const n = toNumber(input);       // 0 if input is not numeric
+const n = toNumber(input, -1);   // -1 as fallback
+```
+
+### `toString(value)`
+
+Coerce any value to a string. Objects and arrays are JSON-stringified.
+
+```ts
+const s = toString(input);       // always a string
+```
+
+### `toBool(value)`
+
+Coerce any value to a boolean using JavaScript truthiness, with special handling: the strings `"false"`, `"0"`, and `""` return `false`.
+
+```ts
+const b = toBool(input);
+```
+
+### `ensureRange(value, min, max, fallback?)`
+
+Return the value as a number if it falls within `[min, max]`. Otherwise return `fallback` (default `min`).
+
+```ts
+const safe = ensureRange(input, 0, 255);       // clamps to 0 if out of range
+const safe = ensureRange(input, 0, 255, 128);  // 128 as fallback
+```
+
+### `oneOf(value, allowed, fallback)`
+
+Return the value if it is strictly equal to one of the `allowed` entries, otherwise return `fallback`.
+
+```ts
+const mode = oneOf(input, ["on", "off", "blink"], "off");
+```
+
+### `isValid(value)`
+
+Return `true` if the value is not `null`, `undefined`, or `NaN`.
+
+```ts
+if (!isValid(input)) return 0;
+```
+
+### Example: combining utilities
+
+```ts
+// Safely read a sensor value, clamp it, and pass it on
+if (!isValid(input)) return {{fallback}};
+return ensureRange(input, {{min}}, {{max}});
+```
+
+## Runtime
+
+On the desktop app, user code executes in an embedded JavaScript engine (boa) inside the Rust process — there are no network round-trips. A loop iteration limit of 10,000 prevents infinite loops from freezing the runtime. If your code throws an error, the node emits the last successfully computed value so the rest of the flow keeps running.

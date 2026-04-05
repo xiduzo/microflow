@@ -1,3 +1,8 @@
+/**
+ * THIS COMPONENT IS IN PROGRESS
+ * it still requires a lot of testing before exposing it to users
+ */
+
 import { Handle } from "../../handle";
 import {
   NodeContainer,

@@ -20,6 +20,7 @@ import { Constant } from "./constant/constant";
 import { Counter } from "./counter/counter";
 import { Delay } from "./delay/delay";
 import { Figma } from "./figma/figma";
+import { Function } from "./function/function";
 import { Gate } from "./gate/gate";
 import { Hotkey } from "./hotkey/hotkey";
 import { I2cDevice } from "./i2c-device/i2c-device";
@@ -53,10 +54,11 @@ export const NODE_TYPES = {
   Delay: Delay,
   Figma: Figma,
   Force: Force,
+  Function: Function,
   Gate: Gate,
   HallEffect: HallEffect,
   Hotkey: Hotkey,
-  I2cDevice: I2cDevice,
+  // I2cDevice: I2cDevice,
   Interval: Interval,
   Ldr: Ldr,
   Led: Led,
@@ -76,7 +78,7 @@ export const NODE_TYPES = {
   Sensor: Sensor,
   Servo: Servo,
   Smooth: Smooth,
-  Stepper: Stepper,
+  // Stepper: Stepper,
   Switch: Switch,
   Tilt: Tilt,
   Trigger: Trigger,

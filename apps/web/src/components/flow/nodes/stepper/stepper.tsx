@@ -1,4 +1,14 @@
-import { CogIcon, RotateCcwIcon, RotateCwIcon } from "lucide-react";
+/**
+ * THIS COMPONENT IS IN PROGRESS
+ * most likely this needs the `StandardFirmataPlus`
+ * which limits the boards we can support
+ */
+
+import {
+  DotIcon,
+  RedoDotIcon,
+  UndoDotIcon,
+} from "lucide-react";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeData } from "../_base/_base";
@@ -7,18 +17,59 @@ import { type Data, type Value, dataSchema } from "./stepper.schema";
 import { pinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
 import { folder } from "leva";
+import { IconWithValue } from "../../icon-with-value";
+import { useMemo } from "react";
 
 export function Stepper(props: Props) {
   return (
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="value" handleType="value" hint="steps (±)" offset={-1.5} />
-      <Handle type="target" position="left" id="to" handleType="value" hint="go to position" offset={-0.5} />
-      <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
-      <Handle type="target" position="left" id="zero" handleType="command" hint="reset position" offset={1.5} />
-      <Handle type="source" position="right" id="position" handleType="value" offset={-0.5} />
-      <Handle type="source" position="right" id="complete" handleType="event" offset={0.5} />
+      <Handle
+        type="target"
+        position="left"
+        id="value"
+        handleType="value"
+        hint="steps (±)"
+        offset={-1.5}
+      />
+      <Handle
+        type="target"
+        position="left"
+        id="to"
+        handleType="value"
+        hint="go to position"
+        offset={-0.5}
+      />
+      <Handle
+        type="target"
+        position="left"
+        id="stop"
+        handleType="command"
+        offset={0.5}
+      />
+      <Handle
+        type="target"
+        position="left"
+        id="zero"
+        handleType="command"
+        hint="reset position"
+        offset={1.5}
+      />
+      <Handle
+        type="source"
+        position="right"
+        id="position"
+        handleType="value"
+        offset={-0.5}
+      />
+      <Handle
+        type="source"
+        position="right"
+        id="complete"
+        handleType="event"
+        offset={0.5}
+      />
     </NodeContainer>
   );
 }
@@ -26,20 +77,12 @@ export function Stepper(props: Props) {
 function Value() {
   const value = useNodeValue<Value>(0);
 
-  return (
-    <section className="flex items-center gap-2">
-      {value !== 0 ? (
-        value > 0 ? (
-          <RotateCwIcon className="animate-spin text-muted-foreground" size={32} />
-        ) : (
-          <RotateCcwIcon className="animate-spin text-muted-foreground" size={32} />
-        )
-      ) : (
-        <CogIcon className="text-muted-foreground" size={32} />
-      )}
-      <span className="text-2xl font-light tabular-nums">{value}</span>
-    </section>
-  );
+  const icon = useMemo(() => {
+    if (value === 0) return DotIcon;
+    return value > 0 ? RedoDotIcon : UndoDotIcon;
+  }, [value]);
+
+  return <IconWithValue icon={icon} value={value} />;
 }
 
 function Settings() {
@@ -91,11 +134,29 @@ function Settings() {
         label: "IN4",
         render: (get) => get("interface") === "four_wire",
       },
-      stepsPerRev: { value: data.stepsPerRev, min: 1, max: 6400, step: 1, label: "steps/rev" },
+      stepsPerRev: {
+        value: data.stepsPerRev,
+        min: 1,
+        max: 6400,
+        step: 1,
+        label: "steps/rev",
+      },
       motion: folder(
         {
-          speed: { value: data.speed, min: 1, max: 10000, step: 1, label: "speed (steps/s)" },
-          acceleration: { value: data.acceleration, min: 0, max: 10000, step: 1, label: "accel (steps/s²)" },
+          speed: {
+            value: data.speed,
+            min: 1,
+            max: 10000,
+            step: 1,
+            label: "speed (steps/s)",
+          },
+          acceleration: {
+            value: data.acceleration,
+            min: 0,
+            max: 10000,
+            step: 1,
+            label: "accel (steps/s²)",
+          },
         },
         { collapsed: true },
       ),
@@ -114,6 +175,7 @@ Stepper.defaultProps = {
     tags: ["action", "value"],
     label: "Stepper",
     icon: "CogIcon",
-    description: "Control a stepper motor with precise positioning via a driver board (A4988, DRV8825, etc.)",
+    description:
+      "Control a stepper motor with precise positioning via a driver board (A4988, DRV8825, etc.)",
   } satisfies Props["data"],
 };

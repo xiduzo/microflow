@@ -403,3 +403,12 @@ svg g.trace-overlays>circle.trace-junction {
   animation: none;
   mix-blend-mode: normal;
 }
+
+/* Template variable highlights in the Function code editor */
+.template-variable-highlight {
+  color: oklch(0.65 0.18 250) !important;
+  font-style: italic;
+}
+.dark .template-variable-highlight {
+  color: oklch(0.75 0.15 200) !important;
+}
