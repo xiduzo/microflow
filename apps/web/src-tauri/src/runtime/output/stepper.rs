@@ -232,6 +232,7 @@ impl Stepper {
     }
 
     /// Decode a 32-bit signed integer from 5 bytes of 7-bit data.
+    #[must_use]
     pub fn decode_signed_long(bytes: &[u8]) -> i32 {
         if bytes.len() < 5 {
             return 0;
