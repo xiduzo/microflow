@@ -1,3 +1,8 @@
+/**
+ * THIS COMPONENT IS IN PROGRESS
+ * it still requires a lot of testing before exposing it to users
+ */
+
 import { Handle } from "../../handle";
 import {
   NodeContainer,
@@ -53,17 +58,23 @@ function Value() {
 function Settings() {
   const data = useNodeData<Data>();
 
-  const { render, setNodeData } = useNodeControls({
+  const { render, set, setNodeData } = useNodeControls({
     device: {
       value: data.device,
       options: I2C_DEVICE_OPTIONS,
       label: "device preset",
-      onChange: (value: string) => {
+      onChange: (value: string, _path: string, context: { initial: boolean }) => {
+        if (context.initial) return;
         const preset = I2C_PRESETS[value];
         if (preset && value !== "custom") {
           setNodeData({
-            ...data,
             device: value,
+            address: preset.address,
+            register: preset.register,
+            readLength: preset.readLength,
+            output: preset.output,
+          });
+          set({
             address: preset.address,
             register: preset.register,
             readLength: preset.readLength,

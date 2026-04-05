@@ -1,0 +1,66 @@
+---
+title: I2C Device
+description: Read from and write to I2C sensors like BME280, MPU6050, BH1750, and other I2C peripherals.
+---
+
+<Callout type="warn" title="Work in progress">
+The I2C Device node is not yet supported in Microflow. The node and its documentation describe planned functionality that is still under development. It is not available for use in flows at this time.
+</Callout>
+
+The I2C Device node lets you communicate with sensors and peripherals over the I2C (Inter-Integrated Communication) bus. I2C uses just two wires (SDA and SCL) and supports multiple devices on the same bus, each identified by a unique address.
+
+This node is intended for devices that don't have a dedicated node in Microflow, such as temperature/humidity sensors (BME280), accelerometers (MPU6050), light sensors (BH1750), ADCs (ADS1115), and distance sensors (VL53L0X).
+
+## Inputs
+
+- **Write** — send bytes to the device at the configured address and register
+- **Trigger** — perform a one-shot read from the device
+
+## Outputs
+
+- **Value** — the data read from the device, formatted according to the output setting (raw bytes, unsigned int, or signed int)
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Device preset** — choose a known device (ADS1115, BH1750, BME280, MPU6050, VL53L0X) to auto-fill address, register, and read length, or select "Custom" for manual configuration
+- **Address** — the 7-bit I2C address of the device (0–127, decimal)
+- **Register** — the register address to read from (0–255, decimal)
+- **Read bytes** — number of bytes to read from the device (1–32)
+- **Output format** — how to interpret the raw bytes: "Raw bytes" (array of numbers), "Unsigned int", or "Signed int"
+
+## Device presets
+
+| Preset | Address | Register | Read bytes | Output | Description |
+| --- | --- | --- | --- | --- | --- |
+| ADS1115 | 0x48 | 0x00 | 2 | Signed int | 16-bit ADC |
+| BH1750 | 0x23 | 0x10 | 2 | Unsigned int | Light sensor (lux) |
+| BME280 (temp) | 0x76 | 0xFA | 3 | Unsigned int | Temperature sensor |
+| BME280 (humidity) | 0x76 | 0xFD | 2 | Unsigned int | Humidity sensor |
+| MPU6050 | 0x68 | 0x3B | 6 | Raw bytes | Accelerometer/Gyro XYZ |
+| VL53L0X | 0x29 | 0x14 | 2 | Unsigned int | Distance sensor (mm) |
+
+## Wiring
+
+I2C uses two shared signal lines plus power:
+
+| Connection | From | To |
+| --- | --- | --- |
+| SDA | Sensor SDA pin | Arduino A4 (SDA) |
+| SCL | Sensor SCL pin | Arduino A5 (SCL) |
+| VCC | Sensor VCC | Arduino 3.3V or 5V (check your sensor's voltage) |
+| GND | Sensor GND | Arduino GND |
+
+<Callout type="info" title="Multiple devices on one bus">
+You can connect multiple I2C devices to the same SDA/SCL lines as long as each device has a unique address. Some devices have address pins that let you change the default address to avoid conflicts.
+</Callout>
+
+<Callout type="info" title="Pull-up resistors">
+I2C requires pull-up resistors on SDA and SCL (typically 4.7kΩ to 10kΩ). Most breakout boards include these already. If you are using a bare chip, you may need to add them yourself.
+</Callout>
+
+## Resources
+
+- [I2C protocol overview](https://learn.sparkfun.com/tutorials/i2c)
+- [Arduino Wire library](https://www.arduino.cc/reference/en/language/functions/communication/wire/)
