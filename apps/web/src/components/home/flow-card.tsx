@@ -90,10 +90,10 @@ export function FlowCard(props: FlowCardProps) {
         <Button className="flex-1" onClick={handleClick}>Open flow</Button>
         {hasActions && (
           <DropdownMenu>
-            <DropdownMenuTrigger>
-              <Button variant="outline" size="icon" data-card-action>
-                <MoreHorizontalIcon className="size-4" />
-              </Button>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" size="icon" data-card-action />}
+            >
+              <MoreHorizontalIcon className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {props.onExport && (
