@@ -3,7 +3,7 @@ import { folder } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import { useNodeValue } from "@/stores/node-data";
-import { dataSchema, type Data, type Value } from "./button.schema";
+import { dataSchema, defaults, type Data, type Value } from "./button.schema";
 import { pinsToOptions } from "@/components/hardware/pin";
 import { PointerIcon, PointerOffIcon } from "lucide-react";
 
@@ -75,13 +75,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Button.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "sense",
-    tags: ["trigger", "source"],
-    icon: "PointerIcon",
-    label: "Button",
-    description: "Detect when a physical button is pressed or released",
-  } satisfies Props["data"],
-};
+Button.defaultProps = { data: defaults };

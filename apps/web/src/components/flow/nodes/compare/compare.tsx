@@ -8,6 +8,7 @@ import {
   type TextData,
   type Value,
   dataSchema,
+  defaults,
 } from "./compare.schema";
 import { useMemo } from "react";
 import { IconWithValue } from "../../icon-with-value";
@@ -117,14 +118,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Compare.defaultProps = {
-  data: {
-    ...dataSchema.parse({ validator: "boolean" }),
-    group: "decide",
-    tags: ["trigger", "logic"],
-    label: "Compare",
-    icon: "ShieldCheckIcon",
-    description:
-      "Check if a value meets certain conditions and send different signals based on the result",
-  } satisfies Props["data"],
-};
+Compare.defaultProps = { data: defaults };

@@ -42,6 +42,8 @@ impl ComponentRegistry {
             entries: std::collections::HashMap::new(),
         };
         registry.register_all();
+        #[cfg(debug_assertions)]
+        registry.assert_manifest_complete();
         registry
     }
 
@@ -126,6 +128,24 @@ impl ComponentRegistry {
         self.register_hardware("Sensor", |id, data| {
             Box::new(Sensor::new(id, parse_config::<SensorConfig>(data)))
         });
+        self.register_hardware("Force", |id, data| {
+            Box::new(Sensor::new(id, parse_config::<SensorConfig>(data)))
+        });
+        self.register_hardware("HallEffect", |id, data| {
+            Box::new(Sensor::new(id, parse_config::<SensorConfig>(data)))
+        });
+        self.register_hardware("Ldr", |id, data| {
+            Box::new(Sensor::new(id, parse_config::<SensorConfig>(data)))
+        });
+        self.register_hardware("Potentiometer", |id, data| {
+            Box::new(Sensor::new(id, parse_config::<SensorConfig>(data)))
+        });
+        self.register_hardware("Tilt", |id, data| {
+            Box::new(Sensor::new(id, parse_config::<SensorConfig>(data)))
+        });
+        self.register_hardware("Vibration", |id, data| {
+            Box::new(Led::new(id, parse_config::<LedConfig>(data)))
+        });
         self.register_hardware("Motion", |id, data| {
             Box::new(Motion::new(id, parse_config::<MotionConfig>(data)))
         });
@@ -206,6 +226,17 @@ impl ComponentRegistry {
 
     fn register_software(&mut self, name: &'static str, factory: ComponentFactory) {
         self.entries.insert(name, RegistryEntry { factory, requires_hardware: false });
+    }
+
+    fn assert_manifest_complete(&self) {
+        include!(concat!(env!("OUT_DIR"), "/component_manifest.rs"));
+        for (name, _requires_hardware) in MANIFEST {
+            assert!(
+                self.entries.contains_key(*name),
+                "registry.rs is missing component from manifest: {}",
+                name
+            );
+        }
     }
 }
 

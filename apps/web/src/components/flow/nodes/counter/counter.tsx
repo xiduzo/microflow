@@ -1,6 +1,6 @@
 import { NodeContainer, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
-import { dataSchema, type Data, type Value } from "./counter.schema";
+import { dataSchema, defaults, type Data, type Value } from "./counter.schema";
 import { Handle } from "../../handle";
 
 const numberFormat = new Intl.NumberFormat();
@@ -32,13 +32,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Counter.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "generate",
-    tags: ["value", "source", "stateful"],
-    label: "Counter",
-    icon: "Tally5Icon",
-    description: "Keep track of a number that can be increased, decreased, set, or reset",
-  } satisfies Props["data"],
-};
+Counter.defaultProps = { data: defaults };

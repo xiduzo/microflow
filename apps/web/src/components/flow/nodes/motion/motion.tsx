@@ -5,7 +5,7 @@ import { EyeClosedIcon, EyeIcon } from "lucide-react";
 import { MODES, usePins } from "@/stores/board";
 import { pinsToOptions } from "@/components/hardware/pin";
 import { MOTION_CONTROLLERS } from "./motion.constants";
-import { dataSchema, type Data, type Value } from "./motion.schema";
+import { dataSchema, defaults, type Data, type Value } from "./motion.schema";
 
 export function Motion(props: Props) {
   return (
@@ -44,13 +44,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Motion.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "sense",
-    tags: ["trigger", "source"],
-    icon: "EyeIcon",
-    label: "Motion",
-    description: "Detect movement using a PIR sensor (HC-SR501) — like someone walking into a room",
-  } satisfies Props["data"],
-};
+Motion.defaultProps = { data: defaults };

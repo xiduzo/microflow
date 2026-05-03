@@ -24,3 +24,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "shape",
+  tags: ["value"],
+  label: "Calculate",
+  description: "Perform math operations like adding, subtracting, multiplying, or dividing numbers",
+  icon: "CalculatorIcon",
+};

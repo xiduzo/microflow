@@ -15,3 +15,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action", "external"],
+  label: "Figma",
+  description: "Connect your flow to Figma design files to control colors, numbers, and text from your device",
+  icon: "Figma",
+};

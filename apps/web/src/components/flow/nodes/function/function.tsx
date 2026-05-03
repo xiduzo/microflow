@@ -1,4 +1,4 @@
-import { dataSchema, type Data, type Value } from "./function.schema";
+import { dataSchema, defaults, type Data, type Value } from "./function.schema";
 import { Handle } from "../../handle";
 import {
   NodeContainer,
@@ -120,13 +120,4 @@ function DynamicHandles() {
 }
 
 type Props = BaseNode<Data>;
-Function.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "shape",
-    icon: "BracesIcon",
-    tags: ["value", "logic"],
-    label: "Function",
-    description: "Write custom JavaScript to transform values inline within your flow",
-  } satisfies Props["data"],
-};
+Function.defaultProps = { data: defaults };

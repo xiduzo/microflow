@@ -27,3 +27,12 @@ export const dataSchema = baseDataSchema.extend({
   presets: z.array(valueSchema).default([[]]).describe("Preset color patterns for the pixel strip"),
 });
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action"],
+  label: "LED Strip",
+  description: "Control a strip of individually addressable color LEDs — supports WS2812 and NeoPixel strips",
+  icon: "RainbowIcon",
+};

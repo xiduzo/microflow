@@ -2,7 +2,7 @@ import { isPmwPin, pinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
-import { dataSchema, type Data, type Value } from "./led.schema";
+import { dataSchema, defaults, type Data, type Value } from "./led.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { LightbulbIcon, LightbulbOffIcon, VibrateIcon } from "lucide-react";
 
@@ -81,25 +81,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Led.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action"],
-    label: "LED",
-    icon: "LightbulbIcon",
-    description: "Turn an LED on or off, or dim it by controlling brightness via PWM",
-  } satisfies Props["data"],
-};
-
-export const Vibration = (props: Props) => <Led {...props} />;
-Vibration.defaultProps = {
-  data: {
-    ...Led.defaultProps.data,
-    label: "Vibration",
-    tags: ["action"],
-    subType: "vibration",
-    icon: "VibrateIcon",
-    description: "Make a device vibrate with different intensities",
-  } satisfies Props["data"],
-};
+Led.defaultProps = { data: defaults };

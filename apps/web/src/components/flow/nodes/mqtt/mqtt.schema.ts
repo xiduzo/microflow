@@ -14,3 +14,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "sense",
+  tags: ["value", "source", "action", "external"],
+  label: "MQTT",
+  description: "Send and receive real-time messages over a network using MQTT protocol",
+  icon: "RadioTowerIcon",
+};

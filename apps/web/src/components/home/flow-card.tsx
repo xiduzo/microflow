@@ -25,7 +25,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { HardDriveUploadIcon, MoreHorizontalIcon, SettingsIcon, Trash2Icon } from "lucide-react";
-import { NODE_TYPES } from "../flow/nodes/_TYPES";
+import { NODE_TYPES } from "../flow/nodes/_REGISTRY";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";

@@ -17,3 +17,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action", "value"],
+  label: "Servo",
+  description: "Move a servo motor to a specific angle (0–180°) or spin it continuously",
+  icon: "RotateCwIcon",
+};

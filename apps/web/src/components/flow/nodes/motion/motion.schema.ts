@@ -13,3 +13,12 @@ export const dataSchema = baseDataSchema.extend({
 
 export type Data = z.infer<typeof dataSchema>;
 export type { Controller };
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "sense",
+  tags: ["trigger", "source"],
+  label: "Motion",
+  description: "Detect movement using a PIR sensor (HC-SR501) — like someone walking into a room",
+  icon: "EyeIcon",
+};

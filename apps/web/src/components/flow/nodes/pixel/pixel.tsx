@@ -6,7 +6,7 @@ import {
   type BaseNode,
 } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
-import { dataSchema, type Data, type Value } from "./pixel.schema";
+import { dataSchema, defaults, type Data, type Value } from "./pixel.schema";
 import { COLORS, DEFAULT_OFF_PIXEL_COLOR } from "./pixel.constants";
 import { PixelDisplay } from "./pixel-display";
 import { useState } from "react";
@@ -231,13 +231,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Pixel.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action"],
-    label: "LED Strip",
-    icon: "RainbowIcon",
-    description: "Control a strip of individually addressable color LEDs — supports WS2812 and NeoPixel strips",
-  } satisfies Props["data"],
-};
+Pixel.defaultProps = { data: defaults };

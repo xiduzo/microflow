@@ -1,4 +1,4 @@
-import { dataSchema, type Data, type Value } from "./interval.schema";
+import { dataSchema, defaults, type Data, type Value } from "./interval.schema";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
@@ -45,13 +45,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Interval.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "generate",
-    tags: ["trigger", "source", "time-based"],
-    label: "Interval",
-    icon: "TimerIcon",
-    description: "Automatically send a signal at regular time intervals, like a timer",
-  } satisfies Props["data"],
-};
+Interval.defaultProps = { data: defaults };

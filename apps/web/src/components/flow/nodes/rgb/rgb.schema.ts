@@ -17,3 +17,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action"],
+  label: "RGB",
+  description: "Control an RGB LED to show any color by mixing red, green, and blue channels",
+  icon: "PaletteIcon",
+};

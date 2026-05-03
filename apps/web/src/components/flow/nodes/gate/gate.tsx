@@ -1,7 +1,7 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { dataSchema, type Data, type Value } from "./gate.schema";
+import { dataSchema, defaults, type Data, type Value } from "./gate.schema";
 
 export function Gate(props: Props) {
   return (
@@ -40,16 +40,7 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Gate.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "decide",
-    tags: ["trigger", "logic", "stateful"],
-    label: "Gate",
-    icon: "GitPullRequestClosedIcon",
-    description: "Apply boolean logic (AND, OR, XOR, NAND, NOR, XNOR) to combine signals and control flow",
-  } satisfies Props["data"],
-};
+Gate.defaultProps = { data: defaults };
 
 const DEFAULT_ICON_SIZE = 60;
 function GateIcon(props: { gate: Data["gate"]; size?: number; className?: string }) {

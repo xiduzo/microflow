@@ -1,4 +1,4 @@
-import { dataSchema, type Data } from "./constant.schema";
+import { dataSchema, defaults, type Data } from "./constant.schema";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 
@@ -30,13 +30,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Constant.defaultProps = {
-  data: {
-    ...dataSchema.parse({ value: 1337 }),
-    group: "generate",
-    tags: ["value", "source"],
-    label: "Constant",
-    icon: "HashIcon",
-    description: "Provide a fixed number that stays the same and can be used by other nodes",
-  } satisfies Props["data"],
-};
+Constant.defaultProps = { data: defaults };

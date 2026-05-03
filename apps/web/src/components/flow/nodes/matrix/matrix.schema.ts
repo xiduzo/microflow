@@ -26,3 +26,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action"],
+  label: "LED Matrix",
+  description: "Display patterns, shapes, or text on an LED matrix — like an 8×8 MAX7219 grid",
+  icon: "GridIcon",
+};

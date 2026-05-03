@@ -3,7 +3,7 @@ import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { IconWithValue } from "../../icon-with-value";
 import { useNodeValue } from "@/stores/node-data";
-import { dataSchema, type Data, type Value } from "./trigger.schema";
+import { dataSchema, defaults, type Data, type Value } from "./trigger.schema";
 import { TrendingUpIcon } from "lucide-react";
 import { TrendingDownIcon } from "lucide-react";
 
@@ -61,14 +61,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Trigger.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "decide",
-    tags: ["trigger", "logic", "time-based", "stateful"],
-    label: "Trigger",
-    icon: "TrendingUpIcon",
-    description:
-      "Send a signal when a value changes by a certain amount, like detecting a sudden change",
-  } satisfies Props["data"],
-};
+Trigger.defaultProps = { data: defaults };

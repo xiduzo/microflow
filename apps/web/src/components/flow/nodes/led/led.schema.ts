@@ -10,3 +10,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action"],
+  label: "LED",
+  description: "Turn an LED on or off, or dim it by controlling brightness via PWM",
+  icon: "LightbulbIcon",
+};

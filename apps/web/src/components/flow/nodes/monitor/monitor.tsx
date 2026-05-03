@@ -1,7 +1,7 @@
 import { LevaPanel, monitor, useControls, useCreateStore } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
-import { dataSchema, type Data, type Value } from "./monitor.schema";
+import { dataSchema, defaults, type Data, type Value } from "./monitor.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { useEffect, useRef } from "react";
 
@@ -93,13 +93,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Monitor.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action"],
-    label: "Monitor",
-    icon: "MonitorIcon",
-    description: "Inspect and graph values flowing through your flow in real-time — great for debugging",
-  } satisfies Props["data"],
-};
+Monitor.defaultProps = { data: defaults };

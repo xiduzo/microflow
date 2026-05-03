@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
-import { dataSchema, type Data } from "./oscillator.schema";
+import { dataSchema, defaults, type Data } from "./oscillator.schema";
 
 export function Oscillator(props: Props) {
   return (
@@ -71,13 +71,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Oscillator.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "generate",
-    tags: ["value", "source", "time-based"],
-    label: "Oscillator",
-    icon: "AudioWaveformIcon",
-    description: "Generate repeating wave patterns — sine, square, sawtooth, or triangle — to animate or cycle values",
-  } satisfies Props["data"],
-};
+Oscillator.defaultProps = { data: defaults };

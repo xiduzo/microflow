@@ -13,3 +13,12 @@ export const dataSchema = baseDataSchema.extend({
   invert: z.boolean().default(false),
 });
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "sense",
+  tags: ["trigger", "source"],
+  label: "Button",
+  description: "Detect when a physical button is pressed or released",
+  icon: "PointerIcon",
+};

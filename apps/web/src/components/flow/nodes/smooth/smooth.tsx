@@ -1,7 +1,7 @@
 import { Handle } from "../../handle";
 import { IconWithValue } from "../../icon-with-value";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { dataSchema, type Data, type MovingAverage, type SmoothAverage } from "./smooth.schema";
+import { dataSchema, defaults, type Data, type MovingAverage, type SmoothAverage } from "./smooth.schema";
 import { EraserIcon, HighlighterIcon } from "lucide-react";
 
 export function Smooth(props: Props) {
@@ -53,13 +53,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Smooth.defaultProps = {
-  data: {
-    ...dataSchema.parse({ type: "smooth" }),
-    group: "shape",
-    tags: ["value", "stateful"],
-    label: "Smooth",
-    icon: "EraserIcon",
-    description: "Reduce noise in sensor readings using a moving average or low-pass smoothing filter",
-  } satisfies Props["data"],
-};
+Smooth.defaultProps = { data: defaults };

@@ -1,7 +1,7 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { dataSchema, type Data, type Value } from "./switch.schema";
+import { dataSchema, defaults, type Data, type Value } from "./switch.schema";
 import { ToggleLeftIcon, ToggleRightIcon } from "lucide-react";
 import { MODES, usePins } from "@/stores/board";
 import { pinsToOptions } from "@/components/hardware/pin";
@@ -46,13 +46,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Switch.defaultProps = {
-  data: {
-    ...dataSchema.parse({ type: "NC" }),
-    group: "sense",
-    icon: "ToggleLeftIcon",
-    label: "Switch",
-    tags: ["trigger", "source"],
-    description: "Detect when a toggle switch flips on or off — supports normally open (NO) and normally closed (NC)",
-  } satisfies Props["data"],
-};
+Switch.defaultProps = { data: defaults };

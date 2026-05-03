@@ -11,3 +11,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "sense",
+  tags: ["trigger", "source"],
+  label: "Switch",
+  description: "Detect when a toggle switch flips on or off — supports normally open (NO) and normally closed (NC)",
+  icon: "ToggleLeftIcon",
+};

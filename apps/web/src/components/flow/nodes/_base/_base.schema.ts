@@ -11,10 +11,14 @@ export { COMPONENT_TYPES, type ComponentType, isComponentType } from "./_base.ty
 export const componentTypeSchema = z.enum(COMPONENT_TYPES);
 
 export const baseDataSchema = z.looseObject({
-  id: z.string().optional(),
-  instance: componentTypeSchema.optional(),
-  subType: z.string().optional(),
-  board: z.any().optional(),
+  id:          z.string().optional(),
+  instance:    componentTypeSchema.optional(),
+  subType:     z.string().optional(),
+  board:       z.any().optional(),
+  group:       z.string().optional(),
+  tags:        z.array(z.string()).default([]),
+  label:       z.string().optional(),
+  description: z.string().optional(),
 });
 
 export type BaseData = z.infer<typeof baseDataSchema>;

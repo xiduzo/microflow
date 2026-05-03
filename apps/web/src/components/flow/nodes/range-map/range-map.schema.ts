@@ -18,3 +18,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "shape",
+  tags: ["value"],
+  label: "Map",
+  description: "Remap a value from one range to another — like converting a sensor reading (0–1023) to brightness (0–255)",
+  icon: "SeparatorVerticalIcon",
+};

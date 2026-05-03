@@ -2,8 +2,15 @@
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
   "tasks": {
+    "codegen": {
+      "inputs": ["node-components.json"],
+      "outputs": [
+        "src/components/flow/nodes/_base/_base.types.ts",
+        "src/components/flow/nodes/_REGISTRY.ts"
+      ]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "codegen"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },

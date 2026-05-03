@@ -1,4 +1,4 @@
-import { type Data, dataSchema } from "./calculate.schema";
+import { type Data, dataSchema, defaults } from "./calculate.schema";
 import { NodeContainer, useNodeData, useNodeControls, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import {
@@ -85,14 +85,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Calculate.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "shape",
-    icon: "CalculatorIcon",
-    tags: ["value"],
-    label: "Calculate",
-    description:
-      "Perform math operations like adding, subtracting, multiplying, or dividing numbers",
-  } satisfies Props["data"],
-};
+Calculate.defaultProps = { data: defaults };

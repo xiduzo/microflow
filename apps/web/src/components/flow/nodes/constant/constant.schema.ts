@@ -10,3 +10,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "generate",
+  tags: ["value", "source"],
+  label: "Constant",
+  description: "Provide a fixed number that stays the same and can be used by other nodes",
+  icon: "HashIcon",
+};

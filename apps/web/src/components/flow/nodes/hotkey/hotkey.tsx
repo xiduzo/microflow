@@ -7,7 +7,7 @@ import {
 } from "../_base/_base";
 import { Handle } from "../../handle";
 import { useState } from "react";
-import { dataSchema, VALID_HOTKEYS, type Data, type Value, type HotkeyChar } from "./hotkey.schema";
+import { dataSchema, defaults, VALID_HOTKEYS, type Data, type Value, type HotkeyChar } from "./hotkey.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { IconWithValue } from "../../icon-with-value";
 import { KeyboardIcon } from "lucide-react";
@@ -171,13 +171,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Hotkey.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "sense",
-    tags: ["trigger", "source"],
-    label: "Hotkey",
-    icon: "KeyboardIcon",
-    description: "Detect when a keyboard key is pressed or released",
-  } satisfies Props["data"],
-};
+Hotkey.defaultProps = { data: defaults };

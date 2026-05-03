@@ -18,7 +18,7 @@ import { useFlowState } from "@/hooks/use-flow-document";
 import type { AwarenessUser, FlowEdge, FlowNode } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";
-import { NODE_TYPES } from "./nodes/_TYPES";
+import { NODE_TYPES } from "./nodes/_REGISTRY";
 import { NewNodeDialog } from "./dialogs/new-node-dialog";
 import { SettingsPanel } from "./panels/settings-panel";
 import { useEffect, useRef, useCallback } from "react";

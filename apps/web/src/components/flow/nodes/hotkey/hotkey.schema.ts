@@ -21,3 +21,12 @@ export const dataSchema = baseDataSchema.extend({
   accelerator: z.string().default("x"),
 });
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "sense",
+  tags: ["trigger", "source"],
+  label: "Hotkey",
+  description: "Detect when a keyboard key is pressed or released",
+  icon: "KeyboardIcon",
+};

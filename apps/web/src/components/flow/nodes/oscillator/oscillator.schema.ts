@@ -18,3 +18,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "generate",
+  tags: ["value", "source", "time-based"],
+  label: "Oscillator",
+  description: "Generate repeating wave patterns — sine, square, sawtooth, or triangle — to animate or cycle values",
+  icon: "AudioWaveformIcon",
+};

@@ -18,6 +18,7 @@ import {
   type SongData,
   type Value,
   dataSchema,
+  defaults,
 } from "./piezo.schema";
 import { BellIcon, BellRingIcon, Disc3Icon, DiscIcon } from "lucide-react";
 import {
@@ -138,13 +139,4 @@ function Settings() {
 export const DEFAULT_FREQUENCY = NOTES_AND_FREQUENCIES.get(DEFAULT_NOTE);
 
 type Props = BaseNode<Data>;
-Piezo.defaultProps = {
-  data: {
-    ...dataSchema.parse({ type: "buzz" }),
-    group: "express",
-    tags: ["action"],
-    label: "Piezo",
-    icon: "BellIcon",
-    description: "Play tones, beeps, or melodies through a piezo buzzer — a small speaker common in Arduino kits",
-  } satisfies Props["data"],
-};
+Piezo.defaultProps = { data: defaults };

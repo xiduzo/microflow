@@ -1,10 +1,11 @@
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { NODE_TYPES } from "../nodes/_TYPES";
+import { NODE_REGISTRY } from "../nodes/_REGISTRY";
+import type { NodeDefaults } from "../nodes/_REGISTRY";
 import { useFlowStore } from "@/stores/flow-store";
 import { useNewNodeStore } from "@/stores/new-node";
-import { groupIndicator, type BaseNode } from "../nodes/_base/_base";
+import { groupIndicator } from "../nodes/_base/_base";
 import { uid } from "@/lib/uid";
 import {
   Command,
@@ -68,10 +69,10 @@ export function NewNodeDialog() {
     });
   }, [flowToScreenPosition, windowSize, getZoom]);
 
-  function selectNode(node: BaseNode, type: string) {
+  function selectNode(defaults: NodeDefaults, type: string) {
     return function () {
       const item: FlowNode = {
-        data: node.data,
+        data: defaults,
         id: uid(),
         type,
         position,
@@ -85,21 +86,16 @@ export function NewNodeDialog() {
   }
 
   const groups = useMemo(() => {
-    const byGroup = Object.entries(NODE_TYPES).reduce(
-      (acc, [type, Component]) => {
-        const node: BaseNode =
-          "defaultProps" in Component
-            ? (Component.defaultProps as any)
-            : { data: {} };
-
-        if (node.data.group === "internal") return acc;
-        const group = node.data.group;
+    const byGroup = Object.entries(NODE_REGISTRY).reduce(
+      (acc, [type, { defaults }]) => {
+        if (defaults.group === "internal") return acc;
+        const group = defaults.group ?? "sense";
         const list = acc.get(group) ?? [];
-        list.push({ node, type });
+        list.push({ defaults, type });
         acc.set(group, list);
         return acc;
       },
-      new Map<string, { node: BaseNode; type: string }[]>()
+      new Map<string, { defaults: NodeDefaults; type: string }[]>()
     );
     return GROUP_ORDER.map((key) => [key, byGroup.get(key) ?? []] as const).filter(
       ([, nodes]) => nodes.length > 0
@@ -176,21 +172,21 @@ export function NewNodeDialog() {
           {groups.map(([groupKey, nodes], index) => (
             <section key={groupKey}>
               <CommandGroup heading={groupKey.charAt(0).toUpperCase() + groupKey.slice(1)}>
-                {nodes.map(({ node, type }) => {
+                {nodes.map(({ defaults, type }) => {
                   return (
                     <CommandItem
-                      value={`${node.data.label}|${node.data.description}|${node.data.group}|${node.data.tags.join(",")}`}
-                      keywords={node.data.tags}
-                      key={node.data.label}
-                      onSelect={selectNode(node, type)}
+                      value={`${defaults.label ?? ""}|${defaults.description ?? ""}|${defaults.group ?? ""}|${(defaults.tags ?? []).join(",")}`}
+                      keywords={[...(defaults.tags ?? [])]}
+                      key={defaults.label}
+                      onSelect={selectNode(defaults, type)}
                       className="data-[selected=true]:bg-muted-foreground/5 items-start group"
                     >
                       <Item className="px-0">
                         <ItemMedia variant="image">
                           <Avatar size="lg" className="after:ring-0 after:border-none after:content-['']">
-                            <AvatarFallback className={cn(groupIndicator({ group: node.data.group }))}>
+                            <AvatarFallback className={cn(groupIndicator({ group: defaults.group as any }))}>
                               <Icon
-                                icon={node.data.icon}
+                                icon={defaults.icon as any}
                                 className="group-data-[selected=true]:scale-110 transition-all duration-100 size-4 stroke-1 group-data-[selected=true]:stroke-2"
                               />
                             </AvatarFallback>
@@ -198,10 +194,10 @@ export function NewNodeDialog() {
                         </ItemMedia>
                         <ItemContent>
                           <ItemTitle>
-                            <HighlightedText text={node.data.label} query={filter} />
+                            <HighlightedText text={defaults.label ?? ""} query={filter} />
                           </ItemTitle>
                           <ItemDescription>
-                            <HighlightedText text={node.data.description ?? ""} query={filter} />
+                            <HighlightedText text={defaults.description ?? ""} query={filter} />
                           </ItemDescription>
                         </ItemContent>
                       </Item>

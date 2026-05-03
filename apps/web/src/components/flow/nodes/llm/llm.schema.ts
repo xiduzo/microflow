@@ -14,3 +14,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action", "external", "stateful"],
+  label: "LLM",
+  description: "Use AI to generate text responses based on what you ask it",
+  icon: "BotMessageSquareIcon",
+};

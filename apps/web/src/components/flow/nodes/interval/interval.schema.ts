@@ -12,3 +12,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "generate",
+  tags: ["trigger", "source", "time-based"],
+  label: "Interval",
+  description: "Automatically send a signal at regular time intervals, like a timer",
+  icon: "TimerIcon",
+};

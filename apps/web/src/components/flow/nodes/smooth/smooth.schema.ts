@@ -23,3 +23,12 @@ export const dataSchema = z
 export type SmoothAverage = z.infer<typeof smoothAverageSchema>;
 export type MovingAverage = z.infer<typeof movingAverageSchema>;
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "shape",
+  tags: ["value", "stateful"],
+  label: "Smooth",
+  description: "Reduce noise in sensor readings using a moving average or low-pass smoothing filter",
+  icon: "EraserIcon",
+};

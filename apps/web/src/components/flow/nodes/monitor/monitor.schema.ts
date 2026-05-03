@@ -10,3 +10,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action"],
+  label: "Monitor",
+  description: "Inspect and graph values flowing through your flow in real-time — great for debugging",
+  icon: "MonitorIcon",
+};

@@ -1,4 +1,4 @@
-import { dataSchema, type Data, type Value } from "./llm.schema";
+import { dataSchema, defaults, type Data, type Value } from "./llm.schema";
 import { Handle } from "../../handle";
 import {
   NodeContainer,
@@ -132,13 +132,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Llm.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action", "external", "stateful"],
-    label: "LLM",
-    icon: "BotMessageSquareIcon",
-    description: "Use AI to generate text responses based on what you ask it",
-  } satisfies Props["data"],
-};
+Llm.defaultProps = { data: defaults };

@@ -9,3 +9,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "generate",
+  tags: ["value", "source", "stateful"],
+  label: "Counter",
+  description: "Keep track of a number that can be increased, decreased, set, or reset",
+  icon: "Tally5Icon",
+};

@@ -1,7 +1,7 @@
 import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { type Data, type Value, dataSchema } from "./range-map.schema";
+import { type Data, type Value, dataSchema, defaults } from "./range-map.schema";
 import { ActivityIcon } from "lucide-react";
 
 const numberFormat = new Intl.NumberFormat("en-US", {
@@ -60,13 +60,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-RangeMap.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "shape",
-    tags: ["value"],
-    icon: "SeparatorVerticalIcon",
-    label: "Map",
-    description: "Remap a value from one range to another — like converting a sensor reading (0–1023) to brightness (0–255)",
-  } satisfies Props["data"],
-};
+RangeMap.defaultProps = { data: defaults };

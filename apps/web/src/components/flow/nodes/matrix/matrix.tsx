@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/carousel";
 import { MatrixEditor } from "./matrix-editor";
 import { Button } from "@/components/ui/button";
-import { type Data, type Value, dataSchema } from "./matrix.schema";
+import { type Data, type Value, dataSchema, defaults } from "./matrix.schema";
 import { type BaseNode } from "../_base/_base";
 import {
   DEFAULT_MATRIX_START_SHAPE,
@@ -244,13 +244,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Matrix.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action"],
-    label: "LED Matrix",
-    icon: "GridIcon",
-    description: "Display patterns, shapes, or text on an LED matrix — like an 8×8 MAX7219 grid",
-  } satisfies Props["data"],
-};
+Matrix.defaultProps = { data: defaults };

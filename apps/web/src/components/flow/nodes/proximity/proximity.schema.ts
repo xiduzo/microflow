@@ -13,3 +13,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "sense",
+  tags: ["value", "source"],
+  label: "Proximity",
+  description: "Measure the distance to an object using an ultrasonic sensor like the HC-SR04 or SRF04",
+  icon: "TargetIcon",
+};

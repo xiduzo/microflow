@@ -3,7 +3,7 @@ import { Handle } from "../../handle";
 import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
-import { type Data, type Value, dataSchema } from "./servo.schema";
+import { type Data, type Value, dataSchema, defaults } from "./servo.schema";
 import { pinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
 
@@ -93,13 +93,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Servo.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action", "value"],
-    label: "Servo",
-    icon: "RotateCwIcon",
-    description: "Move a servo motor to a specific angle (0–180°) or spin it continuously",
-  } satisfies Props["data"],
-};
+Servo.defaultProps = { data: defaults };

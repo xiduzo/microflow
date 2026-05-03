@@ -31,3 +31,12 @@ export type BuzzData = z.infer<typeof buzzDataSchema>;
 export type Note = z.infer<typeof noteSchema>;
 export type SongData = z.infer<typeof songDataSchema>;
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action"],
+  label: "Piezo",
+  description: "Play tones, beeps, or melodies through a piezo buzzer — a small speaker common in Arduino kits",
+  icon: "BellIcon",
+};

@@ -2,7 +2,7 @@ import { useNodeValue } from "@/stores/node-data";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { ZapIcon, ZapOffIcon } from "lucide-react";
-import { type Value, type Data, dataSchema } from "./relay.schema";
+import { type Value, type Data, dataSchema, defaults } from "./relay.schema";
 import { MODES, usePins } from "@/stores/board";
 import { pinsToOptions } from "@/components/hardware/pin";
 
@@ -46,13 +46,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Relay.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    label: "Relay",
-    icon: "ZapIcon",
-    tags: ["action"],
-    description: "Switch high-power devices on or off safely — lights, motors, fans, or household appliances",
-  } satisfies Props["data"],
-};
+Relay.defaultProps = { data: defaults };

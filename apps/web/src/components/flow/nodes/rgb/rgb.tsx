@@ -4,7 +4,7 @@ import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_
 import { RgbaColorPicker } from "react-colorful";
 import { MODES, usePins } from "@/stores/board";
 import { pinsToOptions } from "@/components/hardware/pin";
-import { dataSchema, type Data, type Value } from "./rgb.schema";
+import { dataSchema, defaults, type Data, type Value } from "./rgb.schema";
 import { folder } from "leva";
 
 export function Rgb(props: Props) {
@@ -74,13 +74,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Rgb.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action"],
-    label: "RGB",
-    icon: "PaletteIcon",
-    description: "Control an RGB LED to show any color by mixing red, green, and blue channels",
-  } satisfies Props["data"],
-};
+Rgb.defaultProps = { data: defaults };

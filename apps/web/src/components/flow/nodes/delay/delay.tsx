@@ -1,4 +1,4 @@
-import { dataSchema, type Data } from "./delay.schema";
+import { dataSchema, defaults, type Data } from "./delay.schema";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { IconWithValue } from "../../icon-with-value";
@@ -46,13 +46,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Delay.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "decide",
-    tags: ["trigger", "time-based", "stateful"],
-    label: "Delay",
-    icon: "SnailIcon",
-    description: "Hold a signal for a set duration before passing it forward — also supports debounce",
-  } satisfies Props["data"],
-};
+Delay.defaultProps = { data: defaults };

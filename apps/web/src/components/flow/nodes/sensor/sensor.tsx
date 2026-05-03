@@ -2,7 +2,7 @@ import { folder } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import { useNodeValue } from "@/stores/node-data";
-import { type Value, type Data, dataSchema } from "./sensor.schema";
+import { type Value, type Data, dataSchema, defaults } from "./sensor.schema";
 import { Switch } from "@/components/ui/switch";
 import {
   BicepsFlexedIcon,
@@ -151,86 +151,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Sensor.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "sense",
-    tags: ["value", "source"],
-    label: "Analog Sensor",
-    icon: "GaugeIcon",
-    description: "Read analog values (0–1023) from sensors that change smoothly, like temperature, pressure, or light",
-  } satisfies Props["data"],
-};
-
-export const DigitalSensor = (props: Props) => <Sensor {...props} />;
-DigitalSensor.defaultProps = {
-  data: {
-    ...Sensor.defaultProps.data,
-    label: "Digital Sensor",
-    tags: ["trigger", "source"],
-    type: "digital",
-    icon: "PowerIcon",
-    description: "Read a digital HIGH or LOW signal from any on/off sensor or module",
-  } satisfies Props["data"],
-};
-
-export const Tilt = (props: Props) => <Sensor {...props} />;
-Tilt.defaultProps = {
-  data: {
-    ...Sensor.defaultProps.data,
-    label: "Tilt",
-    tags: ["value", "trigger", "source"],
-    subType: "tilt",
-    icon: "MoveUpIcon",
-    threshold: 10,
-    description: "Detect when an object is tilted or rotated from its normal position",
-  } satisfies Props["data"],
-};
-
-export const Ldr = (props: Props) => <Sensor {...props} />;
-Ldr.defaultProps = {
-  data: {
-    ...Sensor.defaultProps.data,
-    label: "Light Dependent Resistor (LDR)",
-    tags: ["value", "source"],
-    subType: "ldr",
-    icon: "SunIcon",
-    description: "Measure ambient light level using a photoresistor (LDR) — bright outdoors, dim indoors",
-  } satisfies Props["data"],
-};
-
-export const Potentiometer = (props: Props) => <Sensor {...props} />;
-Potentiometer.defaultProps = {
-  data: {
-    ...Sensor.defaultProps.data,
-    label: "Potentiometer",
-    tags: ["value", "source"],
-    subType: "potentiometer",
-    icon: "CircleArrowOutUpLeftIcon",
-    description: "Read a knob or slider position — perfect for controlling speed, volume, or brightness",
-  } satisfies Props["data"],
-};
-
-export const Force = (props: Props) => <Sensor {...props} />;
-Force.defaultProps = {
-  data: {
-    ...Sensor.defaultProps.data,
-    label: "Force",
-    tags: ["value", "source"],
-    subType: "force",
-    icon: "BicepsFlexedIcon",
-    description: "Measure how hard something is pressed using a force-sensitive resistor (FSR)",
-  } satisfies Props["data"],
-};
-
-export const HallEffect = (props: Props) => <Sensor {...props} />;
-HallEffect.defaultProps = {
-  data: {
-    ...Sensor.defaultProps.data,
-    label: "Hall Effect",
-    tags: ["value", "source"],
-    subType: "hall-effect",
-    icon: "MagnetIcon",
-    description: "Detect the presence of a magnet or measure magnetic field strength using a Hall effect sensor",
-  } satisfies Props["data"],
-};
+Sensor.defaultProps = { data: defaults };

@@ -10,3 +10,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "shape",
+  tags: ["value", "logic"],
+  label: "Function",
+  description: "Write custom JavaScript to transform values inline within your flow",
+  icon: "BracesIcon",
+};

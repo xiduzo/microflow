@@ -1,4 +1,4 @@
-import { type Data, type Value, dataSchema } from "./figma.schema";
+import { type Data, type Value, dataSchema, defaults } from "./figma.schema";
 import {
   useFigmaVariable,
   useFigmaVariables,
@@ -255,14 +255,4 @@ function Value() {
 }
 
 type Props = BaseNode<Data>;
-Figma.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "express",
-    tags: ["action", "external"],
-    label: "Figma",
-    icon: "Figma",
-    description:
-      "Connect your flow to Figma design files to control colors, numbers, and text from your device",
-  } satisfies Props["data"],
-};
+Figma.defaultProps = { data: defaults };

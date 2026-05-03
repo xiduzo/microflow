@@ -10,3 +10,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "decide",
+  tags: ["trigger", "logic", "stateful"],
+  label: "Gate",
+  description: "Apply boolean logic (AND, OR, XOR, NAND, NOR, XNOR) to combine signals and control flow",
+  icon: "GitPullRequestClosedIcon",
+};

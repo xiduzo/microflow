@@ -1,4 +1,4 @@
-import { dataSchema, type Data } from "./mqtt.schema";
+import { dataSchema, defaults, type Data } from "./mqtt.schema";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RadioIcon, RadioTowerIcon } from "lucide-react";
@@ -88,13 +88,4 @@ function Settings() {
 }
 
 type Props = BaseNode<Data>;
-Mqtt.defaultProps = {
-  data: {
-    ...dataSchema.parse({}),
-    group: "sense",
-    tags: ["value", "source", "action", "external"],
-    label: "MQTT",
-    icon: "RadioTowerIcon",
-    description: "Send and receive real-time messages over a network using MQTT — great for IoT and smart home setups",
-  } satisfies Props["data"],
-};
+Mqtt.defaultProps = { data: defaults };

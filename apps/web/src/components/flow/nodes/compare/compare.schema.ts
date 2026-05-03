@@ -63,3 +63,12 @@ export type NumberData = z.infer<typeof oddEvenDataSchema>;
 export type SingleNumberData = z.infer<typeof numberDataSchema>;
 export type RangeNumberData = z.infer<typeof rangeDataSchema>;
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "decide",
+  tags: ["trigger", "logic"],
+  label: "Compare",
+  description: "Check if a value meets a condition and output true or false",
+  icon: "ShieldCheckIcon",
+};

@@ -13,3 +13,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "decide",
+  tags: ["trigger", "logic", "time-based", "stateful"],
+  label: "Trigger",
+  description: "Send a signal when a value changes by a certain amount, like detecting a sudden change",
+  icon: "TrendingUpIcon",
+};
