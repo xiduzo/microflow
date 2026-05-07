@@ -13,6 +13,7 @@
 use crate::runtime::base::{
     BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
+use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -133,6 +134,10 @@ impl Component for I2cDevice {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "I2cDevice" }
     fn requires_hardware(&self) -> bool { true }
+
+    fn listener_wiring(&self) -> Vec<ListenerWiring> {
+        vec![ListenerWiring::I2cAddress { address: self.config.address }]
+    }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!(

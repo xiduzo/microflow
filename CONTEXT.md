@@ -41,3 +41,20 @@ A Rust module path under `runtime/`. Determines `use super::<category>::{<Impl>,
 ## Component (Rust trait)
 
 In `apps/web/src-tauri/src/runtime/base.rs`. The interface every impl satisfies. Audited and being split (see `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3).
+
+## Wiring
+
+Per-impl description of how a constructed **Component** attaches to its execution environment. Returned as plain data from the trait (or sibling `ExternalSubscriber` trait); the runtime reads and applies it without naming any specific component.
+
+Replaces the instance-name `match` blocks formerly in `runtime/mod.rs::register_component_pin_listener` and `runtime/commands.rs::extract_*`. Wiring is **descriptive, not active** — components return data, runtime acts. Lets a component's wiring be tested as a value, no `&mut self`, no sinks.
+
+Two kinds:
+
+- **Listener Wiring** — sync, in-process. Pin (digital, or analog with threshold), I2C address, hotkey accelerator. Returned from `Component::listener_wiring()` as `Vec<ListenerWiring>`.
+- **Subscriber Wiring** — async, broker-dependent. MQTT topic + handler kind. Returned from `ExternalSubscriber::subscriber_wiring()` (only impl'd by components that need brokers, e.g. `Mqtt`, `Figma`).
+
+Distinct from the **Component Catalog**: catalog is metadata for *registration* (what UI shows, how to construct); Wiring is per-impl *behavior* applied after construction.
+
+## Runtime Context
+
+Read-only bundle passed to component factories at construction time: connected brokers, configured LLM providers. Lets a component pluck the bits it needs (e.g. `Llm` reads its provider's `base_url`/`api_key`) without mutating `node.data` upstream. Empty for components with no external deps.

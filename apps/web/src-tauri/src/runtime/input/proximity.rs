@@ -3,6 +3,7 @@
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
+use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -95,6 +96,14 @@ impl Component for Proximity {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Proximity" }
     fn requires_hardware(&self) -> bool { true }
+
+    fn listener_wiring(&self) -> Vec<ListenerWiring> {
+        // Proximity has no threshold field; FlowRuntime previously defaulted to 1.
+        vec![ListenerWiring::AnalogPin {
+            pin: self.config.analog_pin(),
+            threshold: 1,
+        }]
+    }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         let pin = self.config.analog_pin();

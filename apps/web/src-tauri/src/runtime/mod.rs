@@ -39,8 +39,10 @@ pub mod output;
 mod registry;
 pub mod transformation;
 mod types;
+pub mod wiring;
 
 pub use base::{BoardCommand, BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
+pub use wiring::ListenerWiring;
 pub use executor::FlowExecutor;
 // FlowEdge is re-exported for use in integration tests and external consumers
 #[allow(unused_imports)]
@@ -393,22 +395,16 @@ impl FlowRuntime {
             }
         }
 
-        // Re-register pin and key listeners for ALL nodes (cheap operation)
-        for node in &update.nodes {
-            let instance_str = node.data.get("instance").and_then(|v| v.as_str())
-                .or(node.node_type.as_deref());
-            if let Some(instance) = instance_str {
-                self.register_component_pin_listener(&node.id, instance, &node.data);
-                if instance == "Hotkey" {
-                    if let Some(key) = node.data.get("accelerator").and_then(|v| v.as_str()) {
-                        let key_lower = key.to_lowercase();
-                        log::info!("[HOTKEY] Registering key listener: component={}, key={}", node.id, key_lower);
-                        self.register_key_listener(key_lower, Arc::from(node.id.as_str()));
-                    } else {
-                        log::warn!("[HOTKEY] Hotkey node {} has no valid accelerator string. Raw data: {:?}", 
-                            node.id, node.data.get("accelerator"));
-                    }
-                }
+        // Walk each constructed component's wiring spec and apply it.
+        // See CONTEXT.md § Wiring.
+        let ids: Vec<String> = self.executor.component_ids().iter().map(|s| (*s).to_string()).collect();
+        for id in ids {
+            let wirings = match self.executor.get_component(&id) {
+                Some(c) => c.listener_wiring(),
+                None => continue,
+            };
+            for wiring in wirings {
+                self.apply_listener_wiring(&id, wiring);
             }
         }
 
@@ -419,49 +415,24 @@ impl FlowRuntime {
         Ok(())
     }
 
-    /// Register pin listener for an input component based on its type and config
-    fn register_component_pin_listener(&self, component_id: &str, instance: &str, data: &serde_json::Value) {
-        match instance {
-            "Button" | "Motion" | "Switch" => {
-                // Digital input components - handle both string and number pin formats
-                let pin: Option<u8> = if let Some(pin_num) = data.get("pin").and_then(serde_json::Value::as_u64) {
-                    Some(pin_num as u8)
-                } else if let Some(pin_str) = data.get("pin").and_then(|v| v.as_str()) {
-                    pin_str.parse().ok()
-                } else {
-                    None
-                };
-                
-                if let Some(pin) = pin {
-                    log::info!("Registering digital pin listener: component={component_id}, pin={pin}");
-                    self.register_pin_listener(PinListener {
-                        component_id: Arc::from(component_id),
-                        pin,
-                        is_analog: false,
-                        threshold: 0,
-                    });
-                    let board = self.board_handle();
-                    if board.is_connected() {
-                        let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
-                    }
+    /// Apply a single `ListenerWiring` returned by a component.
+    /// See CONTEXT.md § Wiring.
+    fn apply_listener_wiring(&self, component_id: &str, wiring: ListenerWiring) {
+        match wiring {
+            ListenerWiring::DigitalPin { pin } => {
+                log::info!("Registering digital pin listener: component={component_id}, pin={pin}");
+                self.register_pin_listener(PinListener {
+                    component_id: Arc::from(component_id),
+                    pin,
+                    is_analog: false,
+                    threshold: 0,
+                });
+                let board = self.board_handle();
+                if board.is_connected() {
+                    let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
                 }
             }
-            "Sensor" | "Proximity" => {
-                // Analog input components - handle both string and number pin formats
-                let pin: u8 = if let Some(pin_num) = data.get("pin").and_then(serde_json::Value::as_u64) {
-                    pin_num as u8
-                } else if let Some(pin_str) = data.get("pin").and_then(|v| v.as_str()) {
-                    if pin_str.starts_with('A') || pin_str.starts_with('a') {
-                        pin_str[1..].parse().unwrap_or(14)
-                    } else {
-                        pin_str.parse().unwrap_or(14)
-                    }
-                } else {
-                    14
-                };
-
-                let threshold = data.get("threshold").and_then(serde_json::Value::as_u64).unwrap_or(1) as u16;
-
+            ListenerWiring::AnalogPin { pin, threshold } => {
                 log::info!("Registering analog pin listener: component={component_id}, pin={pin}, threshold={threshold}");
                 self.register_pin_listener(PinListener {
                     component_id: Arc::from(component_id),
@@ -474,13 +445,14 @@ impl FlowRuntime {
                     let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
                 }
             }
-            "I2cDevice" => {
-                // I2C device — register by address for I2C reply routing
-                let address = data.get("address").and_then(serde_json::Value::as_u64).unwrap_or(0x48) as u8;
+            ListenerWiring::I2cAddress { address } => {
                 log::info!("Registering I2C listener: component={component_id}, address=0x{address:02X}");
                 self.register_i2c_listener(address, Arc::from(component_id));
             }
-            _ => {}
+            ListenerWiring::HotKey { accelerator } => {
+                log::info!("[HOTKEY] Registering key listener: component={component_id}, key={accelerator}");
+                self.register_key_listener(accelerator, Arc::from(component_id));
+            }
         }
     }
 

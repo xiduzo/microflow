@@ -3,6 +3,7 @@
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
+use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -63,6 +64,10 @@ impl Component for Motion {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Motion" }
     fn requires_hardware(&self) -> bool { true }
+
+    fn listener_wiring(&self) -> Vec<ListenerWiring> {
+        vec![ListenerWiring::DigitalPin { pin: self.config.pin }]
+    }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::INPUT })?;

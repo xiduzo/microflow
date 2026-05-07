@@ -209,6 +209,11 @@ pub trait Component: Send + Sync {
     /// Whether this component requires hardware (board connection). Override and return `true`
     /// in hardware components so the executor calls `initialize` after deferred board connection.
     fn requires_hardware(&self) -> bool { false }
+
+    /// Static wiring this component needs once constructed: pin/I2C/key listeners.
+    /// Default empty for software-only components with no external event sources.
+    /// See `CONTEXT.md` § Wiring.
+    fn listener_wiring(&self) -> Vec<crate::runtime::wiring::ListenerWiring> { Vec::new() }
 }
 
 /// Handle to the Firmata board for components to use.

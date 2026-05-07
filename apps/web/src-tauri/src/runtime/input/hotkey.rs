@@ -4,6 +4,7 @@
 //! routed from the `HotkeyManager`. Emits events on "event", "true", and "false" handles.
 
 use crate::runtime::base::{Component, ComponentBase, ComponentValue};
+use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +51,10 @@ impl Component for Hotkey {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Hotkey" }
+
+    fn listener_wiring(&self) -> Vec<ListenerWiring> {
+        vec![ListenerWiring::HotKey { accelerator: self.config.accelerator.to_lowercase() }]
+    }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
