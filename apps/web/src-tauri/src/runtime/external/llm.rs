@@ -11,13 +11,10 @@
 //! - `done` (output, event): fires when generation completes successfully
 //! - `value` (output, value): emits the generated text response
 
-use crate::runtime::base::{
-    BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
-};
+use crate::runtime::base::{Component, ComponentBase, ComponentEvent, ComponentValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -183,30 +180,18 @@ impl Llm {
 }
 
 impl Component for Llm {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Llm" }
-
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        if self.rt_handle.is_none() {
-            self.rt_handle = tokio::runtime::Handle::try_current().ok();
-        }
-        log::info!("[Llm] {} initialized: provider={}, model={}, base_url={}",
-            self.base.id, self.config.provider, self.config.model, self.config.base_url);
-        Ok(())
-    }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => {
-                // Signal thinking state on dedicated handle so UI updates immediately
                 self.emit("thinking", ComponentValue::Bool(true));
                 let prompt = self.build_prompt();
                 self.spawn_generate(prompt);
             }
             var => {
-                // Store dynamic template variable
                 let val_str = match &args {
                     ComponentValue::String(s) => s.clone(),
                     ComponentValue::Number(n) => n.to_string(),
@@ -225,14 +210,4 @@ impl Component for Llm {
         }
         log::info!("[Llm] {} destroyed", self.base.id);
     }
-
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
-    }
-
-    fn requires_hardware(&self) -> bool { false }
 }

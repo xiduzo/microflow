@@ -4,9 +4,8 @@
 //! handles stale sequence filtering, and supports fan-out routing.
 
 use app_lib::runtime::{ComponentEvent, ComponentValue, FlowEdge, FlowExecutor};
-use app_lib::runtime::base::{BoardHandle, Component, ComponentBase};
+use app_lib::runtime::base::{Component, ComponentBase};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 // ---------------------------------------------------------------------------
 // Minimal mock component for routing tests
@@ -29,23 +28,14 @@ impl MockComponent {
 }
 
 impl Component for MockComponent {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, v: ComponentValue) { self.base.value = v; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Mock" }
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), app_lib::RuntimeError> { Ok(()) }
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.last_method = Some(method.to_string());
         self.call_count += 1;
         self.base.value = args;
         Ok(())
-    }
-    fn destroy(&mut self) {}
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
     }
 }
 

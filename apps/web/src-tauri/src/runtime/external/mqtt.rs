@@ -10,13 +10,9 @@
 //!
 //! The wiring happens in lib.rs where flow events are processed.
 
-use crate::runtime::base::{
-    BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
-};
+use crate::runtime::base::{Component, ComponentBase, ComponentValue};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::sync::Arc;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -127,32 +123,9 @@ impl Mqtt {
 }
 
 impl Component for Mqtt {
-    fn id(&self) -> &str {
-        &self.base.id
-    }
-
-    fn value(&self) -> ComponentValue {
-        self.base.value.clone()
-    }
-
-    fn set_value(&mut self, value: ComponentValue) {
-        self.base.value = value;
-    }
-
-    fn component_type(&self) -> &'static str {
-        "Mqtt"
-    }
-
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        log::info!(
-            "[MQTT] Component {} initialized: broker={}, direction={}, topic={}",
-            self.base.id,
-            self.config.broker_id,
-            self.config.direction,
-            self.config.topic
-        );
-        Ok(())
-    }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
+    fn component_type(&self) -> &'static str { "Mqtt" }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -161,26 +134,22 @@ impl Component for Mqtt {
                     return Err(crate::error::RuntimeError::ComponentError("This MQTT node is configured for subscribe, not publish".to_string()));
                 }
 
-                // Store the value and emit it - the lib.rs event handler will publish it
                 self.base.value = args.clone();
-                
-                // Emit a special event that lib.rs will intercept to publish
-                // Include the broker_id, topic, and retain in the event value as JSON
+
                 let payload = match &args {
                     ComponentValue::String(s) => s.clone(),
                     ComponentValue::Number(n) => n.to_string(),
                     ComponentValue::Bool(b) => b.to_string(),
                     _ => String::new(),
                 };
-                
-                // Create a structured value with all the info needed for publishing
+
                 let publish_info = serde_json::json!({
                     "brokerId": self.config.broker_id,
                     "topic": self.config.topic,
                     "payload": payload,
                     "retain": self.config.retain,
                 });
-                
+
                 self.base.emit_with_value("_mqtt_publish", Cow::Owned(ComponentValue::String(publish_info.to_string())));
                 Ok(())
             }
@@ -190,17 +159,5 @@ impl Component for Mqtt {
 
     fn destroy(&mut self) {
         log::info!("[MQTT] Component {} destroyed", self.base.id);
-    }
-
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
-    }
-
-    fn requires_hardware(&self) -> bool {
-        false
     }
 }

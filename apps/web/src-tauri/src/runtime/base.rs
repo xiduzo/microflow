@@ -145,56 +145,69 @@ impl Default for PinConfig {
     }
 }
 
-/// Trait that all hardware components must implement
-/// 
+/// Trait that all flow components implement.
+///
 /// # Lifecycle
-/// 1. `new()` - Create component with config
-/// 2. `set_event_sender()` - Wire up event channel
-/// 3. `initialize()` - Called when board connects (may be called multiple times)
-/// 4. `call_method()` - Handle incoming events from flow edges
-/// 5. `destroy()` - Cleanup when component is removed
+/// 1. `new()` — create component with config (concrete fn on each impl)
+/// 2. `set_event_sender()` — wire up event channel
+/// 3. `initialize()` — called when board connects (hardware only; default no-op)
+/// 4. `call_method()` — handle incoming events from flow edges
+/// 5. `destroy()` — cleanup when component is removed (default no-op)
+///
+/// Implementors must provide `base()` / `base_mut()` returning their
+/// `ComponentBase` field. The trait then defaults id/value/set_value and the
+/// event-sender accessors. Software components only need to define `base/base_mut`,
+/// `component_type`, and `call_method`. Hardware components additionally
+/// override `initialize` and `requires_hardware`.
 pub trait Component: Send + Sync {
-    /// Unique identifier for this component instance
-    #[allow(dead_code)]
-    fn id(&self) -> &str;
-    
-    /// Current value of the component
-    #[allow(dead_code)]
-    fn value(&self) -> ComponentValue;
-    
-    /// Set the component's value directly
-    #[allow(dead_code)]
-    fn set_value(&mut self, value: ComponentValue);
-    
-    /// Type name for logging/debugging (e.g., "Led", "Button")
+    /// Reference to the shared `ComponentBase`. The trait reads id/value/event_sender from here.
+    fn base(&self) -> &ComponentBase;
+
+    /// Mutable reference to the shared `ComponentBase`.
+    fn base_mut(&mut self) -> &mut ComponentBase;
+
+    /// Type name for logging/debugging (e.g., "Led", "Button").
     fn component_type(&self) -> &'static str;
-    
-    /// Initialize hardware resources. Called when board connects.
-    /// May be called multiple times if board reconnects.
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), RuntimeError>;
-    
-    /// Handle a method call from a flow edge or external command
+
+    /// Handle a method call from a flow edge or external command.
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), RuntimeError>;
-    
-    /// Cleanup resources when component is removed
-    fn destroy(&mut self);
-    
-    /// Get the event sender for emitting events
-    #[allow(dead_code)]
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>>;
-    
-    /// Set the event sender for emitting events
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>);
-    
-    /// Whether this component aggregates multiple inputs on a handle
-    /// When true, the executor will collect all input values and pass as array
+
+    /// Unique identifier for this component instance.
+    fn id(&self) -> &str { &self.base().id }
+
+    /// Current value of the component.
+    fn value(&self) -> ComponentValue { self.base().value.clone() }
+
+    /// Set the component's value directly (no event emission — use `base_mut().set_value()` to emit).
+    fn set_value(&mut self, value: ComponentValue) { self.base_mut().value = value; }
+
+    /// Event sender for emitting events.
+    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
+        self.base().event_sender.clone()
+    }
+
+    /// Wire up the event sender; called by the registry after construction.
+    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
+        self.base_mut().event_sender = Some(sender);
+    }
+
+    /// Initialize hardware resources. Default no-op for software components.
+    /// Called when the board connects; may be called multiple times if board reconnects.
+    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), RuntimeError> { Ok(()) }
+
+    /// Cleanup resources when component is removed. Default no-op.
+    fn destroy(&mut self) {}
+
+    /// Whether this component aggregates multiple inputs on a handle.
+    /// When true, the executor collects all input values and passes them as an array.
     fn aggregates_inputs(&self) -> bool { false }
 
     /// Called when a raw MQTT message arrives for this component (topic-aware).
-    /// Default no-op; override in components that need topic context (e.g. Figma).
+    /// Override in components that need topic context (e.g. Figma).
     fn receive_raw_message(&mut self, _topic: &str, _payload: &[u8]) {}
 
-    /// Whether this component requires hardware (board connection)
+    /// Whether this component requires hardware (board connection). Override and return `true`
+    /// in hardware components so the executor calls `initialize` after deferred board connection.
     fn requires_hardware(&self) -> bool { false }
 }
 

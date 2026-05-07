@@ -5,13 +5,11 @@
 //! Reference: <https://johnny-five.io/examples/switch/>
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
-    ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SwitchType {
@@ -99,15 +97,13 @@ impl Switch {
 }
 
 impl Component for Switch {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Switch" }
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!("Switch {} initialize: pin={}, type={:?}", self.base.id, self.config.pin, self.config.switch_type);
-        // With external 5V wiring (GND-SIG-5V), use plain INPUT mode
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::INPUT })?;
         board.send_command(BoardCommand::EnableDigitalReporting { pin: self.config.pin })?;
         self.board = Some(board);
@@ -137,7 +133,4 @@ impl Component for Switch {
         }
         self.board = None;
     }
-
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
 }

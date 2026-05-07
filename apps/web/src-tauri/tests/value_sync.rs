@@ -6,7 +6,7 @@
 //! This ensures `collect_input_values` (used by aggregating nodes like
 //! Calculate and Gate) always sees the latest emitted value.
 
-use app_lib::runtime::base::{BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue};
+use app_lib::runtime::base::{Component, ComponentBase, ComponentEvent, ComponentValue};
 use app_lib::runtime::{
     Calculate, CalculateConfig, CalculateFunction, Constant, ConstantConfig, FlowEdge, FlowExecutor,
     Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig, Compare, CompareConfig,
@@ -55,19 +55,10 @@ impl ThreadEmitter {
 }
 
 impl Component for ThreadEmitter {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, v: ComponentValue) { self.base.value = v; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "ThreadEmitter" }
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), app_lib::RuntimeError> { Ok(()) }
     fn call_method(&mut self, _method: &str, _args: ComponentValue) -> Result<(), app_lib::RuntimeError> { Ok(()) }
-    fn destroy(&mut self) {}
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
-    }
 }
 
 /// A simple sink that stores whatever it receives via `call_method`.
@@ -82,21 +73,12 @@ impl Sink {
 }
 
 impl Component for Sink {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, v: ComponentValue) { self.base.value = v; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Sink" }
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), app_lib::RuntimeError> { Ok(()) }
     fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.base.value = args;
         Ok(())
-    }
-    fn destroy(&mut self) {}
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
     }
 }
 

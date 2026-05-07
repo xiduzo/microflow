@@ -10,13 +10,9 @@
 //! - Handles `call_method` (set / toggle / true / false / increment / decrement / reset / red /
 //!   green / blue / opacity) by emitting a `_mqtt_publish` event that lib.rs intercepts.
 
-use crate::runtime::base::{
-    BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
-};
+use crate::runtime::base::{Component, ComponentBase, ComponentValue};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::sync::Arc;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -218,32 +214,9 @@ impl Figma {
 }
 
 impl Component for Figma {
-    fn id(&self) -> &str {
-        &self.base.id
-    }
-
-    fn value(&self) -> ComponentValue {
-        self.base.value.clone()
-    }
-
-    fn set_value(&mut self, value: ComponentValue) {
-        self.base.value = value;
-    }
-
-    fn component_type(&self) -> &'static str {
-        "Figma"
-    }
-
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        log::info!(
-            "[Figma] Component {} initialized: broker={}, unique_id={}, variable={}",
-            self.base.id,
-            self.config.broker_id,
-            self.config.unique_id,
-            self.config.variable_id
-        );
-        Ok(())
-    }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
+    fn component_type(&self) -> &'static str { "Figma" }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         let payload = match method {
@@ -307,19 +280,7 @@ impl Component for Figma {
         log::info!("[Figma] Component {} destroyed", self.base.id);
     }
 
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
-    }
-
     fn receive_raw_message(&mut self, topic: &str, payload: &[u8]) {
         self.receive_message(topic, payload);
-    }
-
-    fn requires_hardware(&self) -> bool {
-        false
     }
 }

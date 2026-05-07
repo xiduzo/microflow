@@ -14,8 +14,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use tokio::sync::mpsc;
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum PiezoType {
@@ -276,14 +274,12 @@ impl Piezo {
 }
 
 impl Component for Piezo {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Piezo" }
     fn requires_hardware(&self) -> bool { true }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        // Use OUTPUT mode like J5 — we generate frequency via DigitalWrite toggling
         board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::OUTPUT })?;
         board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: false })?;
         self.board = Some(board);
@@ -304,6 +300,4 @@ impl Component for Piezo {
     }
 
     fn destroy(&mut self) { let _ = self.stop(); self.board = None; }
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
 }

@@ -11,11 +11,10 @@
 //! 3. `destroy()` — Sends I2C stop reading command.
 
 use crate::runtime::base::{
-    BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
+    BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -130,9 +129,8 @@ impl I2cDevice {
 }
 
 impl Component for I2cDevice {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "I2cDevice" }
     fn requires_hardware(&self) -> bool { true }
 
@@ -222,13 +220,5 @@ impl Component for I2cDevice {
         }
         self.board = None;
         self.initialized = false;
-    }
-
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
     }
 }

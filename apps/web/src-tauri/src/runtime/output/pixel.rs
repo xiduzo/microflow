@@ -5,12 +5,10 @@
 //! set strip, show, and shift operations.
 
 use crate::runtime::base::{
-    serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
-    ComponentValue,
+    serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 // Firmata sysex command for pixel operations (matches ws2812.h)
 const PIXEL_COMMAND: u8 = 0x51;
@@ -218,9 +216,8 @@ impl Pixel {
 }
 
 impl Component for Pixel {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Pixel" }
     fn requires_hardware(&self) -> bool { true }
 
@@ -308,13 +305,5 @@ impl Component for Pixel {
     fn destroy(&mut self) {
         let _ = self.off();
         self.board = None;
-    }
-
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
     }
 }

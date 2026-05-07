@@ -14,13 +14,11 @@
 //! 7. `destroy()` — Stop motor.
 
 use crate::runtime::base::{
-    serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
-    ComponentValue,
+    serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 /// `AccelStepper` sysex command byte
 const ACCELSTEPPER_DATA: u8 = 0x62;
@@ -311,9 +309,8 @@ impl Stepper {
 }
 
 impl Component for Stepper {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Stepper" }
     fn requires_hardware(&self) -> bool { true }
 
@@ -388,13 +385,5 @@ impl Component for Stepper {
             let _ = self.enable(false);
         }
         self.board = None;
-    }
-
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
     }
 }

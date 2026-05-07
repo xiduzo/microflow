@@ -1,11 +1,7 @@
 //! Smooth Component - Transformation
 
-use crate::runtime::base::{
-    BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
-};
+use crate::runtime::base::{Component, ComponentBase, ComponentValue};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -84,12 +80,9 @@ impl Smooth {
 }
 
 impl Component for Smooth {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Smooth" }
-
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> { Ok(()) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -99,6 +92,4 @@ impl Component for Smooth {
     }
 
     fn destroy(&mut self) { self.history.clear(); }
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> { self.base.event_sender.clone() }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) { self.base.event_sender = Some(sender); }
 }

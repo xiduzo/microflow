@@ -16,12 +16,10 @@
 //!   silently producing zeros.
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
-    ComponentValue,
+    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 // MAX7219 registers
 const REG_DECODE_MODE: u8 = 0x09;
@@ -305,9 +303,8 @@ impl Matrix {
 }
 
 impl Component for Matrix {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Matrix" }
     fn requires_hardware(&self) -> bool { true }
 
@@ -361,12 +358,5 @@ impl Component for Matrix {
             let _ = self.send_to_all(&board, REG_SHUTDOWN, 0);
         }
         self.board = None;
-    }
-
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
     }
 }
