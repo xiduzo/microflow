@@ -21,15 +21,9 @@ fn parse_config<'de, T: Deserialize<'de> + Default>(data: &'de serde_json::Value
 /// Factory function type for creating components
 type ComponentFactory = fn(id: String, data: &serde_json::Value, ctx: &RuntimeContext) -> Box<dyn Component>;
 
-/// Registry entry with factory and metadata
-struct RegistryEntry {
-    factory: ComponentFactory,
-    requires_hardware: bool,
-}
-
 /// Component registry for creating components by instance name
 pub struct ComponentRegistry {
-    entries: std::collections::HashMap<&'static str, RegistryEntry>,
+    entries: std::collections::HashMap<&'static str, ComponentFactory>,
 }
 
 impl ComponentRegistry {
@@ -51,14 +45,14 @@ impl ComponentRegistry {
         event_sender: mpsc::UnboundedSender<ComponentEvent>,
         board_handle: Arc<BoardHandle>,
     ) -> Result<Box<dyn Component>, RuntimeError> {
-        let entry = self.entries.get(instance)
+        let factory = self.entries.get(instance)
             .ok_or_else(|| RuntimeError::ComponentNotFound(format!("Unknown component type: {instance}")))?;
 
-        let mut component = (entry.factory)(id.to_string(), data, ctx);
+        let mut component = factory(id.to_string(), data, ctx);
         component.set_event_sender(event_sender);
 
-        // Initialize hardware components if board is connected
-        if entry.requires_hardware && board_handle.is_connected() {
+        // Initialize when the board is already connected; software components no-op by default.
+        if board_handle.is_connected() {
             component.initialize(board_handle)?;
         }
 
@@ -81,12 +75,8 @@ impl ComponentRegistry {
         include!(concat!(env!("OUT_DIR"), "/register_all_body.rs"));
     }
 
-    fn register_hardware(&mut self, name: &'static str, factory: ComponentFactory) {
-        self.entries.insert(name, RegistryEntry { factory, requires_hardware: true });
-    }
-
-    fn register_software(&mut self, name: &'static str, factory: ComponentFactory) {
-        self.entries.insert(name, RegistryEntry { factory, requires_hardware: false });
+    fn register(&mut self, name: &'static str, factory: ComponentFactory) {
+        self.entries.insert(name, factory);
     }
 }
 

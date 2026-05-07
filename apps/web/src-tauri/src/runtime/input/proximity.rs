@@ -95,7 +95,6 @@ impl Component for Proximity {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Proximity" }
-    fn requires_hardware(&self) -> bool { true }
 
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
         // Proximity has no threshold field; FlowRuntime previously defaulted to 1.

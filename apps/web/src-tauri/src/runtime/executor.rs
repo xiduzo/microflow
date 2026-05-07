@@ -174,15 +174,15 @@ impl FlowExecutor {
         }
     }
 
-    /// Initialize all components that require hardware
+    /// Initialize every component now that the board is connected.
+    /// Software components default to a no-op `initialize`; hardware components
+    /// configure pin modes, enable reporting, etc.
     pub fn initialize_all(&mut self, board_handle: Arc<BoardHandle>) -> Result<(), RuntimeError> {
         let mut errors = Vec::new();
 
         for (id, component) in &mut self.components {
-            if component.requires_hardware() {
-                if let Err(e) = component.initialize(board_handle.clone()) {
-                    errors.push(format!("{id}: {e}"));
-                }
+            if let Err(e) = component.initialize(board_handle.clone()) {
+                errors.push(format!("{id}: {e}"));
             }
         }
 

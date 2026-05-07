@@ -101,7 +101,6 @@ impl Component for Button {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Button" }
-    fn requires_hardware(&self) -> bool { true }
 
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
         vec![ListenerWiring::DigitalPin { pin: self.config.pin }]

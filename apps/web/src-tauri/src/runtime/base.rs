@@ -150,7 +150,7 @@ impl Default for PinConfig {
 /// # Lifecycle
 /// 1. `new()` — create component with config (concrete fn on each impl)
 /// 2. `set_event_sender()` — wire up event channel
-/// 3. `initialize()` — called when board connects (hardware only; default no-op)
+/// 3. `initialize()` — called when board connects (default no-op for software)
 /// 4. `call_method()` — handle incoming events from flow edges
 /// 5. `destroy()` — cleanup when component is removed (default no-op)
 ///
@@ -158,7 +158,8 @@ impl Default for PinConfig {
 /// `ComponentBase` field. The trait then defaults id/value/set_value and the
 /// event-sender accessors. Software components only need to define `base/base_mut`,
 /// `component_type`, and `call_method`. Hardware components additionally
-/// override `initialize` and `requires_hardware`.
+/// override `initialize`. The `requiresHardware` flag in `node-components.json`
+/// is the single source of truth for hardware vs. software classification.
 pub trait Component: Send + Sync {
     /// Reference to the shared `ComponentBase`. The trait reads id/value/event_sender from here.
     fn base(&self) -> &ComponentBase;
@@ -205,10 +206,6 @@ pub trait Component: Send + Sync {
     /// Called when a raw MQTT message arrives for this component (topic-aware).
     /// Override in components that need topic context (e.g. Figma).
     fn receive_raw_message(&mut self, _topic: &str, _payload: &[u8]) {}
-
-    /// Whether this component requires hardware (board connection). Override and return `true`
-    /// in hardware components so the executor calls `initialize` after deferred board connection.
-    fn requires_hardware(&self) -> bool { false }
 
     /// Static wiring this component needs once constructed: pin/I2C/key listeners.
     /// Default empty for software-only components with no external event sources.
