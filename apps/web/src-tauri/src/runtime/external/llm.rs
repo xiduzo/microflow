@@ -12,6 +12,7 @@
 //! - `value` (output, value): emits the generated text response
 
 use crate::runtime::base::{Component, ComponentBase, ComponentEvent, ComponentValue};
+use crate::runtime::context::RuntimeContext;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -21,6 +22,9 @@ use std::sync::Arc;
 pub struct LlmConfig {
     #[serde(default = "default_provider")]
     pub provider: String,
+    /// Frontend provider record id; resolved against `RuntimeContext` at construction.
+    #[serde(default)]
+    pub provider_id: String,
     #[serde(default)]
     pub model: String,
     #[serde(default)]
@@ -40,6 +44,7 @@ impl Default for LlmConfig {
     fn default() -> Self {
         Self {
             provider: default_provider(),
+            provider_id: String::new(),
             model: String::new(),
             prompt: String::new(),
             system: String::new(),
@@ -70,6 +75,19 @@ impl Llm {
             rt_handle: tokio::runtime::Handle::try_current().ok(),
             running_task: None,
         }
+    }
+
+    /// Codegen factory hook: parse config, resolve provider against `ctx`, return boxed component.
+    /// Called from `ComponentRegistry::register_all` when `usesRuntimeContext` is true in the
+    /// component manifest. See `CONTEXT.md` § Runtime Context.
+    #[must_use]
+    pub fn from_data(id: String, data: &serde_json::Value, ctx: &RuntimeContext) -> Box<dyn Component> {
+        let mut config: LlmConfig = serde::Deserialize::deserialize(data).unwrap_or_default();
+        if let Some(provider) = ctx.provider(&config.provider_id) {
+            config.base_url = provider.base_url.clone();
+            config.api_key = provider.api_key.clone();
+        }
+        Box::new(Llm::new(id, config))
     }
 
     fn build_prompt(&self) -> String {

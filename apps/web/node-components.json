@@ -51,7 +51,7 @@
     { "name": "I2cDevice",  "category": "input",          "requiresHardware": true  },
     { "name": "Interval",   "category": "generator",      "requiresHardware": false },
     { "name": "Led",        "category": "output",         "requiresHardware": true  },
-    { "name": "Llm",        "category": "external",       "requiresHardware": false },
+    { "name": "Llm",        "category": "external",       "requiresHardware": false, "usesRuntimeContext": true },
     { "name": "Matrix",     "category": "output",         "requiresHardware": true  },
     { "name": "Monitor",    "category": "output",         "requiresHardware": false },
     { "name": "Motion",     "category": "input",          "requiresHardware": true  },

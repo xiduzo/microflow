@@ -5,6 +5,7 @@
 //! and included into [`ComponentRegistry::register_all`] below.
 
 use super::base::{BoardHandle, Component, ComponentEvent};
+use super::context::RuntimeContext;
 use crate::error::RuntimeError;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -18,7 +19,7 @@ fn parse_config<'de, T: Deserialize<'de> + Default>(data: &'de serde_json::Value
 }
 
 /// Factory function type for creating components
-type ComponentFactory = fn(id: String, data: &serde_json::Value) -> Box<dyn Component>;
+type ComponentFactory = fn(id: String, data: &serde_json::Value, ctx: &RuntimeContext) -> Box<dyn Component>;
 
 /// Registry entry with factory and metadata
 struct RegistryEntry {
@@ -46,13 +47,14 @@ impl ComponentRegistry {
         id: &str,
         instance: &str,
         data: &serde_json::Value,
+        ctx: &RuntimeContext,
         event_sender: mpsc::UnboundedSender<ComponentEvent>,
         board_handle: Arc<BoardHandle>,
     ) -> Result<Box<dyn Component>, RuntimeError> {
         let entry = self.entries.get(instance)
             .ok_or_else(|| RuntimeError::ComponentNotFound(format!("Unknown component type: {instance}")))?;
 
-        let mut component = (entry.factory)(id.to_string(), data);
+        let mut component = (entry.factory)(id.to_string(), data, ctx);
         component.set_event_sender(event_sender);
 
         // Initialize hardware components if board is connected

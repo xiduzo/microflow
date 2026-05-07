@@ -18,13 +18,14 @@ fn main() {
     let impls = json["impls"].as_array()
         .expect("impls must be an array");
 
-    // Build impl lookup: name -> (category, requires_hardware)
-    let mut impl_meta: HashMap<&str, (&str, bool)> = HashMap::new();
+    // Build impl lookup: name -> (category, requires_hardware, uses_runtime_context)
+    let mut impl_meta: HashMap<&str, (&str, bool, bool)> = HashMap::new();
     for i in impls {
         let name = i["name"].as_str().expect("impl.name");
         let category = i["category"].as_str().expect("impl.category");
         let requires_hardware = i["requiresHardware"].as_bool().expect("impl.requiresHardware");
-        impl_meta.insert(name, (category, requires_hardware));
+        let uses_runtime_context = i["usesRuntimeContext"].as_bool().unwrap_or(false);
+        impl_meta.insert(name, (category, requires_hardware, uses_runtime_context));
     }
 
     // Validate: every entry's impl exists in impls
@@ -49,11 +50,18 @@ fn main() {
     for e in entries {
         let entry_name = e["name"].as_str().unwrap();
         let impl_name = e["impl"].as_str().unwrap();
-        let (category, requires_hardware) = impl_meta[impl_name];
+        let (category, requires_hardware, uses_runtime_context) = impl_meta[impl_name];
         let helper = if requires_hardware { "register_hardware" } else { "register_software" };
-        body.push_str(&format!(
-            "    self.{helper}(\"{entry_name}\", |id, data| Box::new(super::{category}::{impl_name}::new(id, parse_config::<super::{category}::{impl_name}Config>(data))));\n"
-        ));
+        if uses_runtime_context {
+            // Component opts in to RuntimeContext via a custom from_data() factory.
+            body.push_str(&format!(
+                "    self.{helper}(\"{entry_name}\", |id, data, ctx| super::{category}::{impl_name}::from_data(id, data, ctx));\n"
+            ));
+        } else {
+            body.push_str(&format!(
+                "    self.{helper}(\"{entry_name}\", |id, data, _ctx| Box::new(super::{category}::{impl_name}::new(id, parse_config::<super::{category}::{impl_name}Config>(data))));\n"
+            ));
+        }
     }
 
     body.push_str("}\n");

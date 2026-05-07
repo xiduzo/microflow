@@ -47,7 +47,7 @@ pub use error::*;
 use hardware::HardwareService;
 use llm::LlmManager;
 use mqtt::MqttManager;
-use runtime::{FlowRuntime, FlowUpdate};
+use runtime::{FlowRuntime, FlowUpdate, RuntimeContext};
 use std::sync::{Arc, Mutex, RwLock};
 use tauri::{Emitter, Listener};
 use tokio::sync::mpsc;
@@ -74,8 +74,8 @@ pub struct FigmaSubscription {
 pub struct AppState {
     pub hardware_service: Arc<Mutex<HardwareService>>,
     pub flow_runtime: Arc<TokioMutex<FlowRuntime>>,
-    /// Pending flow update to apply when board connects
-    pub pending_flow: Arc<RwLock<Option<FlowUpdate>>>,
+    /// Pending flow update + its runtime context, applied when the board connects.
+    pub pending_flow: Arc<RwLock<Option<(FlowUpdate, RuntimeContext)>>>,
     /// Whether a Firmata board is connected
     pub board_connected: Arc<RwLock<bool>>,
     /// MQTT broker manager
@@ -255,12 +255,12 @@ pub fn run() {
                                 *board_connected_listener.write().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
                                 
                                 // Apply pending flow if any, which will also install the callback
-                                if let Some(flow) = pending_flow_board.write().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
-                                    log::info!("Applying pending flow: {} nodes, {} edges", 
+                                if let Some((flow, ctx)) = pending_flow_board.write().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
+                                    log::info!("Applying pending flow: {} nodes, {} edges",
                                         flow.nodes.len(), flow.edges.len());
                                     // Use blocking_lock() for async mutex in sync callback context
                                     let mut runtime = flow_runtime_board.blocking_lock();
-                                    if let Err(e) = runtime.update_flow(flow) {
+                                    if let Err(e) = runtime.update_flow(flow, &ctx) {
                                         log::error!("Failed to apply pending flow: {e}");
                                     } else {
                                         // Initialize hardware (enables analog/digital reporting)

@@ -3,6 +3,7 @@
 //! `flow_update` and `component_call` commands
 
 use super::base::ComponentValue;
+use super::context::{ProviderEntry, RuntimeContext};
 use super::wiring::SubscriberWiring;
 use super::FlowUpdate;
 use crate::AppState;
@@ -41,7 +42,7 @@ fn microflow_uid(topic: &str) -> Option<&str> {
 #[tauri::command]
 pub async fn flow_update(
     app: tauri::AppHandle,
-    mut flow: FlowUpdate,
+    flow: FlowUpdate,
     brokers: Option<Vec<FrontendBrokerConfig>>,
     providers: Option<Vec<FrontendProviderConfig>>,
     state: tauri::State<'_, AppState>,
@@ -73,24 +74,14 @@ pub async fn flow_update(
         }
     }
 
-    // Inject LLM provider config into LLM nodes
-    // (Slice 4 will replace this with a RuntimeContext arg threaded through the registry.)
-    if let Some(ref provider_configs) = providers {
-        let provider_map: HashMap<&str, &FrontendProviderConfig> =
-            provider_configs.iter().map(|p| (p.id.as_str(), p)).collect();
-        for node in &mut flow.nodes {
-            let instance = node.data.get("instance").and_then(|v| v.as_str()).unwrap_or("");
-            if instance == "Llm" {
-                let provider_id = node.data.get("providerId").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                if let Some(p) = provider_map.get(provider_id.as_str()) {
-                    if let Some(obj) = node.data.as_object_mut() {
-                        obj.insert("baseUrl".to_string(), serde_json::Value::String(p.base_url.clone()));
-                        obj.insert("apiKey".to_string(), serde_json::Value::String(p.api_key.clone()));
-                    }
-                }
-            }
-        }
-    }
+    // Build the RuntimeContext that components like Llm consult during construction.
+    let ctx = RuntimeContext {
+        providers: providers.unwrap_or_default().into_iter().map(|p| ProviderEntry {
+            id: p.id,
+            base_url: p.base_url,
+            api_key: p.api_key,
+        }).collect(),
+    };
 
     // Apply the flow first so components are constructed and can describe their wiring.
     let board_connected = *state.board_connected.read().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -98,7 +89,7 @@ pub async fn flow_update(
 
     let component_wirings: Vec<(String, SubscriberWiring)> = {
         let mut runtime = state.flow_runtime.lock().await;
-        runtime.update_flow(flow.clone())?;
+        runtime.update_flow(flow.clone(), &ctx)?;
 
         if board_connected {
             if let Err(e) = runtime.initialize_hardware() {
@@ -109,7 +100,7 @@ pub async fn flow_update(
             runtime.install_i2c_reply_callback(event_tx);
         } else {
             log::info!("Board not connected — storing pending flow for hardware init on connect");
-            *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(flow);
+            *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some((flow, ctx.clone()));
         }
 
         runtime.collect_subscriber_wirings()
