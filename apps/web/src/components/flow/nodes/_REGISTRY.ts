@@ -64,6 +64,8 @@ import { Servo } from "./servo/servo";
 import { defaults as ServoDefaults } from "./servo/servo.schema";
 import { Smooth } from "./smooth/smooth";
 import { defaults as SmoothDefaults } from "./smooth/smooth.schema";
+import { Stepper } from "./stepper/stepper";
+import { defaults as StepperDefaults } from "./stepper/stepper.schema";
 import { Switch } from "./switch/switch";
 import { defaults as SwitchDefaults } from "./switch/switch.schema";
 import { Tilt } from "./tilt/tilt";
@@ -119,6 +121,7 @@ export const NODE_REGISTRY = {
   Sensor: { component: Sensor, defaults: SensorDefaults as NodeDefaults },
   Servo: { component: Servo, defaults: ServoDefaults as NodeDefaults },
   Smooth: { component: Smooth, defaults: SmoothDefaults as NodeDefaults },
+  Stepper: { component: Stepper, defaults: StepperDefaults as NodeDefaults },
   Switch: { component: Switch, defaults: SwitchDefaults as NodeDefaults },
   Tilt: { component: Tilt, defaults: TiltDefaults as NodeDefaults },
   Trigger: { component: Trigger, defaults: TriggerDefaults as NodeDefaults },
@@ -158,6 +161,7 @@ export const NODE_TYPES = {
   Sensor,
   Servo,
   Smooth,
+  Stepper,
   Switch,
   Tilt,
   Trigger,

@@ -10,16 +10,10 @@ function toKebabCase(str: string): string {
   return str.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
-function getFilePath(name: string, file?: string): string {
-  if (file) return file;
-  const kebab = toKebabCase(name);
-  return `./${kebab}/${kebab}`;
-}
-
-const { components } = manifest;
+const { entries } = manifest;
 
 // _base/_base.types.ts
-const typeNames = components.map((c) => `  "${c.name}"`).join(",\n");
+const typeNames = entries.map((e) => `  "${e.name}"`).join(",\n");
 const baseTypesContent = `// GENERATED — edit node-components.json, then run \`bun run codegen\`
 
 export const COMPONENT_TYPES = [
@@ -42,10 +36,11 @@ const lines: string[] = [
   "",
 ];
 
-for (const c of components) {
-  const fp = getFilePath(c.name, (c as { file?: string }).file);
-  lines.push(`import { ${c.name} } from "${fp}";`);
-  lines.push(`import { defaults as ${c.name}Defaults } from "${fp}.schema";`);
+for (const e of entries) {
+  const kebab = toKebabCase(e.name);
+  const fp = `./${kebab}/${kebab}`;
+  lines.push(`import { ${e.name} } from "${fp}";`);
+  lines.push(`import { defaults as ${e.name}Defaults } from "${fp}.schema";`);
 }
 
 lines.push(
@@ -67,9 +62,9 @@ lines.push(
   "export const NODE_REGISTRY = {",
 );
 
-for (const c of components) {
+for (const e of entries) {
   lines.push(
-    `  ${c.name}: { component: ${c.name}, defaults: ${c.name}Defaults as NodeDefaults },`,
+    `  ${e.name}: { component: ${e.name}, defaults: ${e.name}Defaults as NodeDefaults },`,
   );
 }
 
@@ -80,8 +75,8 @@ lines.push(
   "export const NODE_TYPES = {",
 );
 
-for (const c of components) {
-  lines.push(`  ${c.name},`);
+for (const e of entries) {
+  lines.push(`  ${e.name},`);
 }
 
 lines.push(
