@@ -214,6 +214,10 @@ pub trait Component: Send + Sync {
     /// Default empty for software-only components with no external event sources.
     /// See `CONTEXT.md` § Wiring.
     fn listener_wiring(&self) -> Vec<crate::runtime::wiring::ListenerWiring> { Vec::new() }
+
+    /// Async subscriptions this component requests against an MQTT broker.
+    /// Default empty for components that don't talk to brokers. See `CONTEXT.md` § Wiring.
+    fn subscriber_wiring(&self) -> Vec<crate::runtime::wiring::SubscriberWiring> { Vec::new() }
 }
 
 /// Handle to the Firmata board for components to use.

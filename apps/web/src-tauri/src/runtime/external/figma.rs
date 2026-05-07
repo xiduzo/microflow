@@ -11,6 +11,7 @@
 //!   green / blue / opacity) by emitting a `_mqtt_publish` event that lib.rs intercepts.
 
 use crate::runtime::base::{Component, ComponentBase, ComponentValue};
+use crate::runtime::wiring::SubscriberWiring;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -217,6 +218,35 @@ impl Component for Figma {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Figma" }
+
+    fn subscriber_wiring(&self) -> Vec<SubscriberWiring> {
+        if self.config.broker_id.is_empty()
+            || self.config.unique_id.is_empty()
+            || self.config.variable_id.is_empty()
+        {
+            return Vec::new();
+        }
+        let broker = self.config.broker_id.clone();
+        let uid = &self.config.unique_id;
+        vec![
+            // Per-variable: route topic+payload back through receive_raw_message.
+            SubscriberWiring::TopicAware { broker_id: broker.clone(), topic: self.plugin_variable_topic() },
+            SubscriberWiring::TopicAware { broker_id: broker.clone(), topic: self.app_variable_topic() },
+            // Display topics (echoed to frontend; runtime dedupes by (broker, topic)).
+            SubscriberWiring::DisplayEcho {
+                broker_id: broker.clone(),
+                topic: format!("microflow/{uid}/figma/variables"),
+            },
+            SubscriberWiring::DisplayEcho {
+                broker_id: broker.clone(),
+                topic: format!("microflow/{uid}/figma/status"),
+            },
+            SubscriberWiring::DisplayEcho {
+                broker_id: broker,
+                topic: format!("microflow/{uid}/app/variables/response"),
+            },
+        ]
+    }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         let payload = match method {

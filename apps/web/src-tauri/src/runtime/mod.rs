@@ -42,7 +42,7 @@ mod types;
 pub mod wiring;
 
 pub use base::{BoardCommand, BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
-pub use wiring::ListenerWiring;
+pub use wiring::{ListenerWiring, SubscriberWiring};
 pub use executor::FlowExecutor;
 // FlowEdge is re-exported for use in integration tests and external consumers
 #[allow(unused_imports)]
@@ -486,8 +486,23 @@ impl FlowRuntime {
         self.executor.route_figma_message(component_id, topic, payload);
     }
 
+    /// Collect every component's subscriber wiring, paired with its component ID.
+    /// See `CONTEXT.md` § Wiring.
+    #[must_use]
+    pub fn collect_subscriber_wirings(&self) -> Vec<(String, crate::runtime::wiring::SubscriberWiring)> {
+        let mut out = Vec::new();
+        for id in self.executor.component_ids() {
+            if let Some(component) = self.executor.get_component(id) {
+                for wiring in component.subscriber_wiring() {
+                    out.push((id.to_string(), wiring));
+                }
+            }
+        }
+        out
+    }
+
     /// Get all component IDs of a specific type
-    #[must_use] 
+    #[must_use]
     pub fn get_components_by_type(&self, component_type: &str) -> Vec<String> {
         self.executor.component_ids()
             .iter()

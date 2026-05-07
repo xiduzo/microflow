@@ -11,6 +11,7 @@
 //! The wiring happens in lib.rs where flow events are processed.
 
 use crate::runtime::base::{Component, ComponentBase, ComponentValue};
+use crate::runtime::wiring::SubscriberWiring;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -126,6 +127,19 @@ impl Component for Mqtt {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Mqtt" }
+
+    fn subscriber_wiring(&self) -> Vec<SubscriberWiring> {
+        if self.config.direction != "subscribe"
+            || self.config.broker_id.is_empty()
+            || self.config.topic.is_empty()
+        {
+            return Vec::new();
+        }
+        vec![SubscriberWiring::Plain {
+            broker_id: self.config.broker_id.clone(),
+            topic: self.config.topic.clone(),
+        }]
+    }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
