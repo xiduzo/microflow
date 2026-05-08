@@ -36,3 +36,32 @@ pub enum BoardCommand {
     I2cStopReading { address: i32 },
     Stop,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn digital_write_round_trips() {
+        let cmd = BoardCommand::DigitalWrite { pin: 13, value: true };
+        match cmd {
+            BoardCommand::DigitalWrite { pin, value } => {
+                assert_eq!(pin, 13);
+                assert!(value);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn reset_all_reporting_is_unit() {
+        let cmd = BoardCommand::ResetAllReporting;
+        assert!(matches!(cmd, BoardCommand::ResetAllReporting));
+    }
+
+    #[test]
+    fn stop_is_unit() {
+        let cmd = BoardCommand::Stop;
+        assert!(matches!(cmd, BoardCommand::Stop));
+    }
+}
