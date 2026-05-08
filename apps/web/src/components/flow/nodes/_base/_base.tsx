@@ -1,14 +1,5 @@
-import { LevaPanel, useControls, useCreateStore } from "leva";
-import { type Node, type NodeProps, useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
-import {
-  createContext,
-  type PropsWithChildren,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-} from "react";
-import { createPortal } from "react-dom";
+import { type Node, type NodeProps } from "@xyflow/react";
+import { createContext, type PropsWithChildren, useContext } from "react";
 import {
   CardAction,
   CardHeader,
@@ -20,10 +11,14 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
 import { OctagonAlertIcon, CableIcon } from "lucide-react";
-import { useFlowStore } from "@/stores/flow-store";
 import { usePins } from "@/stores/board";
 import { Pin, pinDisplayValue } from "@/components/hardware/pin";
 import { Icon, type IconName } from "@/components/ui/icon";
+
+// Re-exports so existing callers (`from "../_base/_base"`) keep working transparently.
+// Hook implementations live in their own modules to keep the layout file focused.
+export { useNodeControls, type Controls } from "./use-node-controls";
+export { useDeleteHandles } from "./use-delete-handles";
 
 function NodeHeader(props: { error?: string }) {
   const data = useNodeData();
@@ -100,161 +95,15 @@ function NodeDescription() {
   );
 }
 
-type UseControlParameters = Parameters<typeof useControls>;
-export type Controls = Exclude<UseControlParameters[0], string | Function>;
-
-export const useNodeControls = <
-  Data extends Record<string, any> = Record<string, any>,
-  S extends Controls = Controls,
->(
-  controls: S,
-  dependencies: unknown[] = [],
-) => {
-  const store = useCreateStore();
-  const { selected, id, data } = useNode();
-  const isFirstRender = useRef(true);
-  const { getNode } = useReactFlow();
-  const onNodesChange = useFlowStore((state) => state.onNodesChange);
-  const updateNodeInternals = useUpdateNodeInternals();
-
-  const [controlsData, set] = useControls(
-    () => ({ label: data.label, ...controls }),
-    { store },
-    dependencies,
-  );
-  const lastControlData = useRef(controlsData);
-
-  const updateNodeData = useCallback(
-    async (data: Record<string, unknown>) => {
-      const node = getNode(id);
-      if (!node) return;
-
-      onNodesChange([
-        {
-          id: node.id,
-          type: "replace",
-          item: {
-            ...node,
-            data: { ...node.data, ...(data as Record<string, unknown>) },
-          },
-        },
-      ]);
-      updateNodeInternals(node.id);
-      // Note: Flow sync is now automatic through FlowDocument observers
-    },
-    [id, getNode, onNodesChange, updateNodeInternals],
-  );
-
-  // Defer the Leva → node sync so that any setNodeData() calls made from
-  // onChange callbacks (which fire synchronously before this effect) have
-  // time to commit through the Yjs → ReactFlow cycle first.  Without the
-  // deferral, getNode(id) inside updateNodeData reads stale data and the
-  // merge silently drops fields that were just set by onChange/setNodeData.
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      updateNodeData(controlsData as Data);
-    });
-  }, [controlsData]);
-
-  /**
-   * Sometimes it is impossible to set the node data using the controls,
-   * use this handler to forcefully update the node
-   * ⚠️ this might cause descrepencies between the `data` from `useNodeData` and the actual data
-   */
-  const setNodeData = useCallback(
-    <T extends Record<string, unknown>>(node: Partial<Data>) => {
-      updateNodeData(node as T);
-    },
-    [updateNodeData],
-  );
-
-  const render = useCallback(() => {
-    if (!selected) return null;
-    const element = document.getElementById("settings-panels")
-    if (!element) return
-    return createPortal(
-      <LevaPanel store={store} hideCopyButton fill titleBar={false} />,
-      element,
-    );
-  }, [store, selected]);
-
-  /**
-   * Sync the data back to the controls when history is reverted
-   */
-  useEffect(() => {
-    if (isFirstRender.current) return;
-
-    // Only compare keys which are in the controls data
-    const keys = Object.keys(lastControlData.current as Record<string, unknown>);
-    const dataKeys = Object.keys(data);
-
-    // Check if any value has changed
-    const hasChanged = keys.some(
-      (key) =>
-        dataKeys.includes(key) &&
-        lastControlData.current[key as keyof typeof lastControlData.current] !==
-        data[key as keyof typeof data],
-    );
-    if (!hasChanged) return;
-
-    if (JSON.stringify(lastControlData.current) === JSON.stringify(data)) return;
-
-    // Only get the keys which are in the controls data
-    const newData = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
-    // Prevent other effects from running
-    lastControlData.current = newData as typeof lastControlData.current;
-    set(newData as Parameters<typeof set>[0]);
-    console.debug("[NODE-CONTROLS] <useEffect>", lastControlData.current, {
-      data,
-      newData,
-    });
-    // flowChanged();
-  }, [data, set]);
-
-  return { render, set, setNodeData };
-};
-
-/**
- * Forces to delete rendered handles, and connected edges, from a node
- */
-export function useDeleteHandles() {
-  const id = useNodeId();
-  const flowDoc = useFlowStore((state) => state.flowDoc);
-  const onEdgesChange = useFlowStore((state) => state.onEdgesChange);
-  const updateNodeInternals = useUpdateNodeInternals();
-
-  const deleteHandles = useCallback(
-    (handles: string[]) => {
-      if (!flowDoc) return;
-
-      // Find edges connected to the specified handles on this node
-      const edges = flowDoc.getEdges();
-      const edgesToRemove = edges.filter(
-        (edge) =>
-          (edge.source === id && edge.sourceHandle && handles.includes(edge.sourceHandle)) ||
-          (edge.target === id && edge.targetHandle && handles.includes(edge.targetHandle)),
-      );
-
-      // Remove each edge by its actual edge ID
-      if (edgesToRemove.length > 0) {
-        onEdgesChange(edgesToRemove.map((edge) => ({ id: edge.id, type: "remove" })));
-      }
-
-      updateNodeInternals(id); // for xyflow to apply the changes of the removed handles
-    },
-    [id, flowDoc, onEdgesChange, updateNodeInternals],
-  );
-
-  return deleteHandles;
-}
-
 type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
 
 const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
   {} as ContainerProps<Record<string, unknown>>,
 );
 
-const useNode = <T extends Record<string, unknown>>() =>
+/** Internal accessor for everything the container provides. Hook modules use this
+ *  to read id/data/selected/etc. without each one re-deriving the context shape. */
+export const useNode = <T extends Record<string, unknown>>() =>
   useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
 
 export const useNodeId = () => {
