@@ -190,11 +190,103 @@ impl BoardHandle {
     }
 
     /// Send a command to the reader thread. Fire-and-forget, never blocks.
+    /// Most callers should use the typed methods below instead of constructing
+    /// `BoardCommand` variants by hand.
     pub fn send_command(&self, cmd: BoardCommand) -> Result<(), RuntimeError> {
         match self.cmd_tx.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref() {
             Some(tx) => tx.send(cmd).map_err(|_| RuntimeError::Hardware(HardwareError::FirmataCommunication("Board command channel closed".to_string()))),
             None => Err(RuntimeError::BoardNotConnected),
         }
+    }
+
+    // --- Typed pin-mode + write helpers -------------------------------------
+
+    pub fn set_pin_mode(&self, pin: u8, mode: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::SetPinMode { pin, mode })
+    }
+
+    pub fn digital_write(&self, pin: u8, value: bool) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::DigitalWrite { pin, value })
+    }
+
+    pub fn analog_write(&self, pin: u8, value: u16) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::AnalogWrite { pin, value })
+    }
+
+    // --- Reporting toggles --------------------------------------------------
+
+    pub fn enable_analog_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::EnableAnalogReporting { pin })
+    }
+
+    pub fn disable_analog_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::DisableAnalogReporting { pin })
+    }
+
+    pub fn enable_digital_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::EnableDigitalReporting { pin })
+    }
+
+    pub fn disable_digital_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::DisableDigitalReporting { pin })
+    }
+
+    pub fn reset_all_reporting(&self) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::ResetAllReporting)
+    }
+
+    // --- Reader-thread state hooks ------------------------------------------
+
+    pub fn set_pin_change_callback(&self, callback: Arc<PinChangeCallback>) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::SetPinChangeCallback { callback })
+    }
+
+    pub fn set_i2c_reply_callback(&self, callback: Arc<I2cReplyCallback>) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::SetI2cReplyCallback { callback })
+    }
+
+    pub fn clear_pin_cache(&self) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::ClearPinCache)
+    }
+
+    pub fn register_active_pin(&self, pin: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::RegisterActivePin { pin })
+    }
+
+    // --- Bit-bang + tone + sysex --------------------------------------------
+
+    pub fn shift_out(&self, data_pin: u8, clock_pin: u8, value: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::ShiftOut { data_pin, clock_pin, value })
+    }
+
+    pub fn tone(&self, pin: u8, half_period_us: u32, duration_ms: u32) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::Tone { pin, half_period_us, duration_ms })
+    }
+
+    pub fn no_tone(&self, pin: u8) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::NoTone { pin })
+    }
+
+    pub fn sysex(&self, command: u8, data: Vec<u8>) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::Sysex { command, data })
+    }
+
+    // --- I2C ----------------------------------------------------------------
+
+    pub fn i2c_config(&self, delay: i32) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::I2cConfig { delay })
+    }
+
+    pub fn i2c_read(&self, address: i32, size: i32) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::I2cRead { address, size })
+    }
+
+    pub fn i2c_write(&self, address: i32, data: Vec<u8>) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::I2cWrite { address, data })
+    }
+
+    pub fn i2c_stop_reading(&self, address: i32) -> Result<(), RuntimeError> {
+        self.send_command(BoardCommand::I2cStopReading { address })
     }
 
     /// Stop the reader thread and wait for clean exit.

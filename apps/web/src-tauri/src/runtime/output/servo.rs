@@ -1,7 +1,7 @@
 //! Servo Component - Output
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -66,7 +66,7 @@ impl Servo {
         if position.is_nan() { return Ok(()); }
         let clamped = position.clamp(f64::from(self.config.range.min), f64::from(self.config.range.max)) as u16;
         if let Some(board) = &self.board {
-            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: clamped })?;
+            board.analog_write(self.config.pin, clamped)?;
         }
         self.current_position = clamped;
         self.base.set_value(ComponentValue::Number(f64::from(clamped)));
@@ -77,7 +77,7 @@ impl Servo {
         if self.config.r#type != ServoType::Continuous { return Err(crate::error::RuntimeError::ComponentError("Rotate only works with continuous servos".to_string())); }
         let servo_value = if speed.abs() < 0.05 { 90 } else { ((speed + 1.0) * 90.0).clamp(0.0, 180.0) as u16 };
         if let Some(board) = &self.board {
-            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: servo_value })?;
+            board.analog_write(self.config.pin, servo_value)?;
         }
         self.base.set_value(ComponentValue::Number(speed));
         Ok(())
@@ -92,7 +92,7 @@ impl Component for Servo {
     fn component_type(&self) -> &'static str { "Servo" }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::SERVO })?;
+        board.set_pin_mode(self.config.pin, pin_mode::SERVO)?;
         self.board = Some(board);
         let center = (self.config.range.min + self.config.range.max) / 2;
         self.to(f64::from(center))

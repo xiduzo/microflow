@@ -6,7 +6,7 @@
 //! for tight timing with direct serial access — no channel overhead per toggle.
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentEvent,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentEvent,
     ComponentValue,
 };
 use serde::{Deserialize, Serialize};
@@ -130,7 +130,7 @@ impl Piezo {
         let cancel = Arc::clone(&self.cancel_token);
 
         std::thread::spawn(move || {
-            let _ = board.send_command(BoardCommand::Tone { pin, half_period_us, duration_ms });
+            let _ = board.tone(pin, half_period_us, duration_ms);
             // Only emit auto_stop if we weren't cancelled (avoids stale event after re-trigger)
             if !cancel.load(Ordering::Acquire) {
                 if let Some(tx) = sender {
@@ -152,7 +152,7 @@ impl Piezo {
 
     fn handle_auto_stop(&mut self) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
-            let _ = board.send_command(BoardCommand::NoTone { pin: self.config.pin });
+            let _ = board.no_tone(self.config.pin);
         }
         self.is_playing = false;
         self.base.set_value(ComponentValue::Bool(false));
@@ -228,7 +228,7 @@ impl Piezo {
                     let gap: u64 = 20;
                     let tone_duration = duration_ms.saturating_sub(gap) as u32;
 
-                    let _ = board.send_command(BoardCommand::Tone { pin, half_period_us, duration_ms: tone_duration });
+                    let _ = board.tone(pin, half_period_us, tone_duration);
 
                     // Sleep in small increments so we can check cancellation
                     let sleep_end = std::time::Instant::now() + Duration::from_millis(duration_ms);
@@ -240,7 +240,7 @@ impl Piezo {
                     }
                 } else {
                     log::info!("Rest for {duration_ms}ms");
-                    let _ = board.send_command(BoardCommand::NoTone { pin });
+                    let _ = board.no_tone(pin);
 
                     let sleep_end = std::time::Instant::now() + Duration::from_millis(duration_ms);
                     while std::time::Instant::now() < sleep_end {
@@ -254,7 +254,7 @@ impl Piezo {
 
             // Only emit auto_stop if we weren't cancelled
             if !cancel.load(Ordering::Acquire) {
-                let _ = board.send_command(BoardCommand::NoTone { pin });
+                let _ = board.no_tone(pin);
 
                 log::info!("Song finished, emitting auto_stop");
                 if let Some(tx) = sender {
@@ -279,8 +279,8 @@ impl Component for Piezo {
     fn component_type(&self) -> &'static str { "Piezo" }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::OUTPUT })?;
-        board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: false })?;
+        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
+        board.digital_write(self.config.pin, false)?;
         self.board = Some(board);
         Ok(())
     }

@@ -46,7 +46,7 @@ pub mod transformation;
 mod types;
 pub mod wiring;
 
-pub use base::{BoardCommand, BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
+pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
 pub use context::{ProviderEntry, RuntimeContext};
 pub use wiring::{ListenerWiring, SubscriberWiring};
 pub use executor::FlowExecutor;
@@ -227,8 +227,8 @@ impl FlowRuntime {
         
         // Install the callback on the board connection and clear pin cache
         let board = self.board_handle();
-        let _ = board.send_command(BoardCommand::ClearPinCache);
-        let _ = board.send_command(BoardCommand::SetPinChangeCallback { callback: Arc::new(callback) });
+        let _ = board.clear_pin_cache();
+        let _ = board.set_pin_change_callback(Arc::new(callback));
 
         log::info!("Pin change callback installed (cache cleared)");
     }
@@ -264,7 +264,7 @@ impl FlowRuntime {
         });
 
         let board = self.board_handle();
-        let _ = board.send_command(BoardCommand::SetI2cReplyCallback { callback: Arc::new(callback) });
+        let _ = board.set_i2c_reply_callback(Arc::new(callback));
         log::info!("I2C reply callback installed");
     }
 
@@ -370,7 +370,7 @@ impl FlowRuntime {
         let board_handle = self.board_handle();
         if board_handle.is_connected() && (!removed_ids.is_empty() || !added_or_changed_nodes.is_empty()) {
             log::info!("Resetting Firmata reporting for flow diff update");
-            let _ = board_handle.send_command(BoardCommand::ResetAllReporting);
+            let _ = board_handle.reset_all_reporting();
         }
 
         // Create new/changed components
@@ -436,7 +436,7 @@ impl FlowRuntime {
                 });
                 let board = self.board_handle();
                 if board.is_connected() {
-                    let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
+                    let _ = board.register_active_pin(pin);
                 }
             }
             ListenerWiring::AnalogPin { pin, threshold } => {
@@ -449,7 +449,7 @@ impl FlowRuntime {
                 });
                 let board = self.board_handle();
                 if board.is_connected() {
-                    let _ = board.send_command(BoardCommand::RegisterActivePin { pin });
+                    let _ = board.register_active_pin(pin);
                 }
             }
             ListenerWiring::I2cAddress { address } => {

@@ -384,7 +384,7 @@ pub fn run() {
                 let board = runtime.board_handle();
                 if board.is_connected() {
                     log::info!("Resetting board to safe state");
-                    let _ = board.send_command(runtime::BoardCommand::ResetAllReporting);
+                    let _ = board.reset_all_reporting();
                 }
 
                 // 3. Disconnect the board cleanly (stops reader thread)

@@ -16,7 +16,7 @@
 //!   silently producing zeros.
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -122,19 +122,12 @@ impl Matrix {
         spi_data[offset] = data;
 
         // Pull CS low to start transaction
-        board.send_command(BoardCommand::DigitalWrite {
-            pin: self.config.pins.cs,
-            value: false,
-        })?;
+        board.digital_write(self.config.pins.cs, false)?;
 
         // Shift out all bytes; if any fail, restore CS HIGH before returning
         let shift_result = (|| -> Result<(), crate::error::RuntimeError> {
             for j in (0..max_bytes).rev() {
-                board.send_command(BoardCommand::ShiftOut {
-                    data_pin: self.config.pins.data,
-                    clock_pin: self.config.pins.clock,
-                    value: spi_data[j],
-                })?;
+                board.shift_out(self.config.pins.data, self.config.pins.clock, spi_data[j])?;
             }
             Ok(())
         })();
@@ -143,10 +136,7 @@ impl Matrix {
         // Even if shift_out failed mid-byte, the MAX7219 will see the
         // rising edge of CS and latch whatever partial data it received,
         // then be ready for the next clean transaction.
-        let cs_result = board.send_command(BoardCommand::DigitalWrite {
-            pin: self.config.pins.cs,
-            value: true,
-        });
+        let cs_result = board.digital_write(self.config.pins.cs, true);
 
         // Propagate the first error (shift failure takes priority)
         shift_result?;
@@ -169,10 +159,7 @@ impl Matrix {
 
         // Force CS HIGH before init to reset any stuck SPI state from a
         // previous partial transaction (e.g. after a crash or hot-reload)
-        board.send_command(BoardCommand::DigitalWrite {
-            pin: self.config.pins.cs,
-            value: true,
-        })?;
+        board.digital_write(self.config.pins.cs, true)?;
 
         for device in 0..self.config.devices {
             // Match J5 LedControl init order exactly — wrong order causes all LEDs to stay lit
@@ -315,15 +302,9 @@ impl Component for Matrix {
         if !board.is_connected() {
             return Err(crate::error::RuntimeError::BoardNotConnected);
         }
-        board.send_command(BoardCommand::SetPinMode {
-            pin: self.config.pins.data, mode: pin_mode::OUTPUT,
-        })?;
-        board.send_command(BoardCommand::SetPinMode {
-            pin: self.config.pins.clock, mode: pin_mode::OUTPUT,
-        })?;
-        board.send_command(BoardCommand::SetPinMode {
-            pin: self.config.pins.cs, mode: pin_mode::OUTPUT,
-        })?;
+        board.set_pin_mode(self.config.pins.data, pin_mode::OUTPUT)?;
+        board.set_pin_mode(self.config.pins.clock, pin_mode::OUTPUT)?;
+        board.set_pin_mode(self.config.pins.cs, pin_mode::OUTPUT)?;
         self.board = Some(Arc::clone(&board));
         self.init_max7219(&board)?;
         if !self.config.shapes.is_empty() {

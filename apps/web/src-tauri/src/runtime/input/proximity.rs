@@ -1,7 +1,7 @@
 //! Proximity Sensor Component - Input
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
@@ -107,8 +107,8 @@ impl Component for Proximity {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         let pin = self.config.analog_pin();
         log::info!("Proximity initialize: pin={pin}");
-        board.send_command(BoardCommand::SetPinMode { pin, mode: pin_mode::ANALOG })?;
-        board.send_command(BoardCommand::EnableAnalogReporting { pin })?;
+        board.set_pin_mode(pin, pin_mode::ANALOG)?;
+        board.enable_analog_reporting(pin)?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())
@@ -132,7 +132,7 @@ impl Component for Proximity {
         if let Some(board) = &self.board {
             let pin = self.config.analog_pin();
             log::info!("Proximity {} destroy: disabling analog reporting for pin {}", self.base.id, pin);
-            let _ = board.send_command(BoardCommand::DisableAnalogReporting { pin });
+            let _ = board.disable_analog_reporting(pin);
         }
         self.board = None;
     }

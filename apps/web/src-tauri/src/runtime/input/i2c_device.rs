@@ -10,9 +10,7 @@
 //!    via `call_method("i2c_reply", ...)`.
 //! 3. `destroy()` — Sends I2C stop reading command.
 
-use crate::runtime::base::{
-    BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
-};
+use crate::runtime::base::{BoardHandle, Component, ComponentBase, ComponentValue};
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -114,16 +112,10 @@ impl I2cDevice {
         if let Some(board) = &self.board {
             // Write the register address first (sets the device's internal pointer)
             if self.config.register != 0 {
-                board.send_command(BoardCommand::I2cWrite {
-                    address: i32::from(self.config.address),
-                    data: vec![self.config.register],
-                })?;
+                board.i2c_write(i32::from(self.config.address), vec![self.config.register])?;
             }
             // Request a read
-            board.send_command(BoardCommand::I2cRead {
-                address: i32::from(self.config.address),
-                size: i32::from(self.config.read_length),
-            })?;
+            board.i2c_read(i32::from(self.config.address), i32::from(self.config.read_length))?;
         }
         Ok(())
     }
@@ -146,7 +138,7 @@ impl Component for I2cDevice {
         );
 
         // Configure I2C bus (delay=0 for most devices)
-        board.send_command(BoardCommand::I2cConfig { delay: 0 })?;
+        board.i2c_config(0)?;
 
         self.board = Some(board);
         self.initialized = true;
@@ -193,10 +185,7 @@ impl Component for I2cDevice {
                         }
                         _ => {}
                     }
-                    board.send_command(BoardCommand::I2cWrite {
-                        address: i32::from(self.config.address),
-                        data,
-                    })?;
+                    board.i2c_write(i32::from(self.config.address), data)?;
                     self.base.emit("value");
                 }
                 Ok(())
@@ -217,9 +206,7 @@ impl Component for I2cDevice {
             if let Some(board) = &self.board {
                 log::info!("I2cDevice {} destroy: stopping I2C reads for address 0x{:02X}",
                     self.base.id, self.config.address);
-                let _ = board.send_command(BoardCommand::I2cStopReading {
-                    address: i32::from(self.config.address),
-                });
+                let _ = board.i2c_stop_reading(i32::from(self.config.address));
             }
         }
         self.board = None;

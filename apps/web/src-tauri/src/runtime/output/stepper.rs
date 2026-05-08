@@ -14,7 +14,7 @@
 //! 7. `destroy()` — Stop motor.
 
 use crate::runtime::base::{
-    serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
+    serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -122,10 +122,7 @@ impl Stepper {
     /// Send a sysex message for the `AccelStepper` protocol.
     fn send_sysex(&self, data: Vec<u8>) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
-            board.send_command(BoardCommand::Sysex {
-                command: ACCELSTEPPER_DATA,
-                data,
-            })?;
+            board.sysex(ACCELSTEPPER_DATA, data)?;
         }
         Ok(())
     }

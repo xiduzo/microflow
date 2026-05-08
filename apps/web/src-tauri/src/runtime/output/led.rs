@@ -1,7 +1,7 @@
 //! LED Component - Output
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -39,7 +39,7 @@ impl Led {
     pub fn turn_on(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
-            board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: true })?;
+            board.digital_write(self.config.pin, true)?;
         }
         self.is_on = true;
         self.base.set_value(ComponentValue::Number(1.0));
@@ -49,7 +49,7 @@ impl Led {
     pub fn turn_off(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
-            board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: false })?;
+            board.digital_write(self.config.pin, false)?;
         }
         self.is_on = false;
         self.base.set_value(ComponentValue::Number(0.0));
@@ -63,8 +63,8 @@ impl Led {
     pub fn brightness(&mut self, value: u8) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
-            board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::PWM })?;
-            board.send_command(BoardCommand::AnalogWrite { pin: self.config.pin, value: u16::from(value) })?;
+            board.set_pin_mode(self.config.pin, pin_mode::PWM)?;
+            board.analog_write(self.config.pin, u16::from(value))?;
         }
         self.brightness_value = value;
         self.is_on = value > 0;
@@ -83,8 +83,8 @@ impl Component for Led {
     fn component_type(&self) -> &'static str { "Led" }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::OUTPUT })?;
-        board.send_command(BoardCommand::DigitalWrite { pin: self.config.pin, value: false })?;
+        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
+        board.digital_write(self.config.pin, false)?;
         self.board = Some(board);
         Ok(())
     }

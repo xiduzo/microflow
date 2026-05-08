@@ -1,7 +1,7 @@
 //! Motion Sensor Component - Input
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardCommand, BoardHandle, Component, ComponentBase, ComponentValue,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
 };
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
@@ -69,8 +69,8 @@ impl Component for Motion {
     }
 
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.send_command(BoardCommand::SetPinMode { pin: self.config.pin, mode: pin_mode::INPUT })?;
-        board.send_command(BoardCommand::EnableDigitalReporting { pin: self.config.pin })?;
+        board.set_pin_mode(self.config.pin, pin_mode::INPUT)?;
+        board.enable_digital_reporting(self.config.pin)?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())
@@ -93,7 +93,7 @@ impl Component for Motion {
         self.stop_polling();
         if let Some(board) = &self.board {
             log::info!("Motion {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
-            let _ = board.send_command(BoardCommand::DisableDigitalReporting { pin: self.config.pin });
+            let _ = board.disable_digital_reporting(self.config.pin);
         }
         self.board = None;
     }
