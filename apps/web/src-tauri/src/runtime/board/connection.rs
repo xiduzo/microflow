@@ -1,7 +1,7 @@
 //! Private `firmata-rs` wrapper held by the **Board IO Loop**.
 //!
 //! Owns the open serial port and forwards Firmata reads into the shared
-//! pin-value cache, active-pin set, and callback slots that **BoardHandle**
+//! pin-value cache, active-pin set, and callback slots that **`BoardHandle`**
 //! also clones — so `ClearPinCache`, `RegisterActivePin`,
 //! `SetPinChangeCallback`, and `SetI2cReplyCallback` no longer flow through
 //! the command channel.

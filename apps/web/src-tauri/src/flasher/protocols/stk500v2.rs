@@ -33,7 +33,7 @@ pub struct Stk500v2Flasher {
 impl Stk500v2Flasher {
     pub fn new(port_name: &str, config: BoardConfig) -> Result<Self, FlashError> {
         let port = serialport::new(port_name, config.baud_rate)
-            .timeout(Duration::from_millis(1000))
+            .timeout(Duration::from_secs(1))
             .open()
             .map_err(|e| FlashError::PortOpen(e.to_string()))?;
 

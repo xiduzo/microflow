@@ -1,4 +1,4 @@
-//! Internal protocol between **BoardHandle** and the **Board IO Loop**.
+//! Internal protocol between **`BoardHandle`** and the **Board IO Loop**.
 //!
 //! The reader thread owns `BoardConnection` exclusively and dispatches these
 //! between Firmata reads. Reader-thread state (callbacks, pin caches) lives on

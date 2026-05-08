@@ -46,7 +46,7 @@ impl Avr109Flasher {
 
         // Open at 1200 baud - this is the "1200 baud touch" that triggers bootloader
         let mut port = serialport::new(&self.port_name, 1200)
-            .timeout(Duration::from_millis(1000))
+            .timeout(Duration::from_secs(1))
             .open()
             .map_err(|e| FlashError::PortOpen(format!("Failed to open for reset: {e}")))?;
 
@@ -119,7 +119,7 @@ impl Avr109Flasher {
     fn open_bootloader_port(&self, port_name: &str) -> Result<Box<dyn serialport::SerialPort>, FlashError> {
         // Bootloader uses 57600 baud for AVR109
         let port = serialport::new(port_name, self.config.baud_rate)
-            .timeout(Duration::from_millis(2000))
+            .timeout(Duration::from_secs(2))
             .open()
             .map_err(|e| FlashError::PortOpen(format!("Failed to open bootloader port: {e}")))?;
         

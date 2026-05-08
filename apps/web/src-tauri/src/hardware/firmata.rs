@@ -78,7 +78,7 @@ fn quick_probe(port_name: &str, baud_rate: u32) -> bool {
     log::info!("Quick probe on {port_name} at {baud_rate} baud");
 
     let mut port = match serialport::new(port_name, baud_rate)
-        .timeout(Duration::from_millis(1000))
+        .timeout(Duration::from_secs(1))
         .open()
     {
         Ok(p) => p,

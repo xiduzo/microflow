@@ -45,7 +45,8 @@ impl RangeMap {
 
     pub fn map_value(&mut self, input: ComponentValue) {
         let input_num = match input {
-            ComponentValue::Bool(b) => if b { 1.0 } else { 0.0 },
+            ComponentValue::Bool(true) => 1.0,
+            ComponentValue::Bool(false) => 0.0,
             ComponentValue::Number(n) => n,
             ComponentValue::String(s) => s.parse().unwrap_or(0.0),
             _ => 0.0,

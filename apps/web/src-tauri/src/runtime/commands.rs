@@ -150,7 +150,7 @@ pub async fn flow_update(
         let topic = wiring.topic().to_string();
 
         if !state.mqtt_manager.is_connected(&broker_id).await {
-            log::warn!("[MQTT] Broker {} not connected, skipping subscription for {}", broker_id, component_id);
+            log::warn!("[MQTT] Broker {broker_id} not connected, skipping subscription for {component_id}");
             continue;
         }
 

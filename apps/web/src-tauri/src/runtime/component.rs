@@ -158,13 +158,13 @@ impl Default for PinConfig {
 /// 5. `destroy()` — cleanup when component is removed (default no-op)
 ///
 /// Implementors must provide `base()` / `base_mut()` returning their
-/// `ComponentBase` field. The trait then defaults id/value/set_value and the
+/// `ComponentBase` field. The trait then defaults `id`/`value`/`set_value` and the
 /// event-sender accessors. Software components only need to define `base/base_mut`,
 /// `component_type`, and `call_method`. Hardware components additionally
 /// override `initialize`. The `requiresHardware` flag in `node-components.json`
 /// is the single source of truth for hardware vs. software classification.
 pub trait Component: Send + Sync {
-    /// Reference to the shared `ComponentBase`. The trait reads id/value/event_sender from here.
+    /// Reference to the shared `ComponentBase`. The trait reads `id`/`value`/`event_sender` from here.
     fn base(&self) -> &ComponentBase;
 
     /// Mutable reference to the shared `ComponentBase`.

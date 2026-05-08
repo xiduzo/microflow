@@ -84,8 +84,8 @@ impl Llm {
     pub fn from_data(id: String, data: &serde_json::Value, ctx: &RuntimeContext) -> Box<dyn Component> {
         let mut config: LlmConfig = serde::Deserialize::deserialize(data).unwrap_or_default();
         if let Some(provider) = ctx.provider(&config.provider_id) {
-            config.base_url = provider.base_url.clone();
-            config.api_key = provider.api_key.clone();
+            config.base_url.clone_from(&provider.base_url);
+            config.api_key.clone_from(&provider.api_key);
         }
         Box::new(Llm::new(id, config))
     }
