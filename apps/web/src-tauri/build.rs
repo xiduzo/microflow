@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::fs;
 use std::path::Path;
 
@@ -6,7 +7,7 @@ fn main() {
     tauri_build::build();
 
     let manifest_path = "../node-components.json";
-    println!("cargo:rerun-if-changed={}", manifest_path);
+    println!("cargo:rerun-if-changed={manifest_path}");
 
     let content = fs::read_to_string(manifest_path)
         .expect("Failed to read node-components.json");
@@ -56,13 +57,15 @@ fn main() {
         let (category, uses_runtime_context) = impl_meta[impl_name];
         if uses_runtime_context {
             // Component opts in to RuntimeContext via a custom from_data() factory.
-            body.push_str(&format!(
-                "    self.register(\"{entry_name}\", |id, data, ctx| super::{category}::{impl_name}::from_data(id, data, ctx));\n"
-            ));
+            writeln!(
+                body,
+                "    self.register(\"{entry_name}\", |id, data, ctx| super::{category}::{impl_name}::from_data(id, data, ctx));"
+            ).unwrap();
         } else {
-            body.push_str(&format!(
-                "    self.register(\"{entry_name}\", |id, data, _ctx| Box::new(super::{category}::{impl_name}::new(id, parse_config::<super::{category}::{impl_name}Config>(data))));\n"
-            ));
+            writeln!(
+                body,
+                "    self.register(\"{entry_name}\", |id, data, _ctx| Box::new(super::{category}::{impl_name}::new(id, parse_config::<super::{category}::{impl_name}Config>(data))));"
+            ).unwrap();
         }
     }
 
