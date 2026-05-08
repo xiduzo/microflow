@@ -39,6 +39,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 thiserror = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 boa_engine = "0.20"
+dashmap = "6"
 
 [dev-dependencies]
 proptest = "1"

@@ -2925,6 +2925,7 @@ version = "0.6.0"
 dependencies = [
  "boa_engine",
  "criterion",
+ "dashmap",
  "firmata-rs",
  "log",
  "mqtt-endpoint-tokio",
