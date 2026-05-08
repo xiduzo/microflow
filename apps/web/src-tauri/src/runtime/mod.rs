@@ -67,7 +67,6 @@ pub use generator::{Constant, ConstantConfig, Interval, IntervalConfig, Oscillat
 pub use transformation::{Calculate, CalculateConfig, CalculateFunction, Compare, CompareConfig, CompareValidator, Gate, GateConfig, RangeMap, RangeMapConfig, Smooth, SmoothConfig};
 
 use crate::error::RuntimeError;
-use crate::hardware::board::BoardManager;
 use registry::ComponentRegistry;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -98,7 +97,7 @@ pub struct PinListener {
 /// This struct is `Send` but not `Sync`. Access from multiple threads
 /// requires external synchronization (typically via `Arc<tokio::sync::Mutex<FlowRuntime>>`).
 pub struct FlowRuntime {
-    board_manager: BoardManager,
+    board_handle: Arc<BoardHandle>,
     executor: FlowExecutor,
     registry: ComponentRegistry,
     event_tx: mpsc::UnboundedSender<ComponentEvent>,
@@ -120,7 +119,7 @@ impl FlowRuntime {
     pub fn new() -> Self {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         Self {
-            board_manager: BoardManager::new(),
+            board_handle: Arc::new(BoardHandle::new()),
             executor: FlowExecutor::new(),
             registry: ComponentRegistry::new(),
             event_tx,
@@ -133,11 +132,8 @@ impl FlowRuntime {
         }
     }
 
-    #[must_use] 
-    pub fn board_manager(&self) -> &BoardManager { &self.board_manager }
-    pub fn board_manager_mut(&mut self) -> &mut BoardManager { &mut self.board_manager }
-    #[must_use] 
-    pub fn board_handle(&self) -> Arc<BoardHandle> { self.board_manager.handle() }
+    #[must_use]
+    pub fn board_handle(&self) -> Arc<BoardHandle> { Arc::clone(&self.board_handle) }
     pub fn take_event_receiver(&mut self) -> Option<mpsc::UnboundedReceiver<ComponentEvent>> { self.event_rx.take() }
     #[must_use] 
     pub fn event_sender(&self) -> mpsc::UnboundedSender<ComponentEvent> { self.event_tx.clone() }

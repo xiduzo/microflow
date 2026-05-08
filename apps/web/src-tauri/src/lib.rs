@@ -378,7 +378,7 @@ pub fn run() {
 
                 // 1. Stop all generator threads via executor.clear()
                 let runtime_shutdown = Arc::clone(&flow_runtime);
-                let mut runtime = runtime_shutdown.blocking_lock();
+                let runtime = runtime_shutdown.blocking_lock();
 
                 // 2. Reset Firmata reporting and drive output pins low
                 let board = runtime.board_handle();
@@ -388,7 +388,7 @@ pub fn run() {
                 }
 
                 // 3. Disconnect the board cleanly (stops reader thread)
-                runtime.board_manager_mut().disconnect();
+                runtime.board_handle().disconnect();
 
                 // 4. Disconnect MQTT brokers
                 // MqttManager::disconnect_all is async, but we're in a sync context.

@@ -12,7 +12,7 @@
 //! ├── port_monitor.rs  - Serial port discovery and monitoring
 //! ├── firmata.rs       - Firmata protocol detection
 //! ├── events.rs        - Event emission (single source of truth)
-//! └── board.rs         - Board connection management
+//! └── state.rs         - BoardConnectionState machine
 //! ```
 //!
 //! # Design Principles
@@ -22,7 +22,6 @@
 //! 3. **Event Centralization**: All Tauri events flow through `events.rs`
 //! 4. **Clean Boundaries**: Flasher module is called, never calls back
 
-pub mod board;
 mod events;
 mod firmata;
 mod port_monitor;
