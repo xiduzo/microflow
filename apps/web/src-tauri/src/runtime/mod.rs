@@ -29,7 +29,9 @@
 //! 6. Events flow through the graph via `process_event()`
 
 pub mod base;
+pub mod board;
 pub mod commands;
+pub mod component;
 pub mod context;
 pub mod control;
 mod executor;
@@ -37,7 +39,9 @@ pub mod external;
 pub mod generator;
 pub mod input;
 pub mod output;
+pub mod pin_mode;
 mod registry;
+pub mod serde_utils;
 pub mod transformation;
 mod types;
 pub mod wiring;
