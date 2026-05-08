@@ -25,7 +25,7 @@ export type MovingAverage = z.infer<typeof movingAverageSchema>;
 export type Data = z.infer<typeof dataSchema>;
 
 export const defaults = {
-  ...dataSchema.parse({}),
+  ...dataSchema.parse(undefined),
   group: "shape",
   tags: ["value", "stateful"],
   label: "Smooth",

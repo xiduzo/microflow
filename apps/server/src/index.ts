@@ -15,6 +15,11 @@ const { upgradeWebSocket, websocket } = createBunWebSocket();
 const app = new Hono();
 
 app.use(logger());
+
+app.onError((err, c) => {
+  console.error("[error]", err);
+  return c.json({ error: err.message, stack: err.stack }, 500);
+});
 const allowedOrigins = [
   ...env.CORS_ORIGINS,
   "tauri://localhost",
@@ -33,7 +38,15 @@ app.use(
   }),
 );
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  const res = await auth.handler(c.req.raw);
+  if (res.status >= 500) {
+    const clone = res.clone();
+    const body = await clone.text();
+    console.error("[auth 500]", c.req.path, body);
+  }
+  return res;
+});
 
 app.use(
   "/trpc/*",

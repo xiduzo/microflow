@@ -33,7 +33,7 @@ export type SongData = z.infer<typeof songDataSchema>;
 export type Data = z.infer<typeof dataSchema>;
 
 export const defaults = {
-  ...dataSchema.parse({}),
+  ...dataSchema.parse(undefined),
   group: "express",
   tags: ["action"],
   label: "Piezo",

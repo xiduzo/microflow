@@ -22,3 +22,13 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "express",
+  tags: ["action", "value"],
+  label: "Stepper",
+  icon: "CogIcon",
+  description:
+    "Control a stepper motor with precise positioning via a driver board (A4988, DRV8825, etc.)",
+};

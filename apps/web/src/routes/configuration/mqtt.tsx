@@ -162,54 +162,6 @@ function BrokerCard({ broker }: { broker: MqttBrokerConfig }) {
         </Button>
       </ItemActions>
     </Item>
-  )
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle>{broker.name}</CardTitle>
-            {broker.isDefault && <Badge variant="secondary">Default</Badge>}
-            <StatusIndicator status={status} />
-          </div>
-          <div className="flex gap-2">
-            {!broker.isDefault && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setDefaultBroker(broker.id)}
-              >
-                <StarIcon className="h-4 w-4" />
-                Set Default
-              </Button>
-            )}
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogTrigger render={<Button variant="ghost" size="sm"><PencilIcon className="h-4 w-4" /></Button>} />
-              <EditBrokerDialogContent broker={broker} onClose={() => setEditOpen(false)} />
-            </Dialog>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                deleteBroker(broker.id);
-                toast.success("Broker deleted");
-              }}
-            >
-              <TrashIcon className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <CardDescription className="font-mono text-xs">{broker.url}</CardDescription>
-      </CardHeader>
-      {broker.username && (
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Username: {broker.username}
-          </p>
-        </CardContent>
-      )}
-    </Card>
   );
 }
 

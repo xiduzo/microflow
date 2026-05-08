@@ -65,7 +65,7 @@ export type RangeNumberData = z.infer<typeof rangeDataSchema>;
 export type Data = z.infer<typeof dataSchema>;
 
 export const defaults = {
-  ...dataSchema.parse({}),
+  ...dataSchema.parse(undefined),
   group: "decide",
   tags: ["trigger", "logic"],
   label: "Compare",

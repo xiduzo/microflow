@@ -19,7 +19,7 @@ const HANDLE_SPACING_OFFSET = 14;
 const HANDLE_SPACING = HANDLE_SIZE * 1.5;
 
 export function Handle(props: Props) {
-  const { position, ...restProps } = props;
+  const { position, handleType: _handleType, offset: _offset, hint: _hint, ...restProps } = props;
   const edges = useEdges();
   const ref = useRef<HTMLDivElement>(null);
   const { getZoom } = useReactFlow();
