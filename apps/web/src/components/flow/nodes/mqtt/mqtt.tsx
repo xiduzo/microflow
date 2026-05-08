@@ -1,3 +1,4 @@
+import type { NodeHostAdapter } from "../_base/host-adapter";
 import { dataSchema, defaults, type Data } from "./mqtt.schema";
 import { Handle } from "../../handle";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
@@ -20,7 +21,9 @@ export function Mqtt(props: Props) {
     <NodeContainer {...props} error={error}>
       <Value />
       <Settings />
-      {props.data.direction === "publish" && <Handle type="target" position="left" id="trigger" handleType="command" />}
+      {props.data.direction === "publish" && (
+        <Handle type="target" position="left" id="trigger" handleType="command" />
+      )}
       {props.data.direction === "subscribe" && (
         <Handle type="source" position="right" id="value" handleType="value" />
       )}
@@ -81,7 +84,7 @@ function Settings() {
         retain: { value: data.retain },
       }),
     },
-    [brokers, data.direction]
+    [brokers, data.direction],
   );
 
   return <>{render()}</>;
@@ -89,3 +92,7 @@ function Settings() {
 
 type Props = BaseNode<Data>;
 Mqtt.defaultProps = { data: defaults };
+
+export const adapter: NodeHostAdapter = {
+  brokerIds: (node) => (node.data?.brokerId ? [node.data.brokerId as string] : []),
+};

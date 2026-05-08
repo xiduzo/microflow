@@ -1,9 +1,6 @@
+import type { NodeHostAdapter } from "../_base/host-adapter";
 import { type Data, type Value, dataSchema, defaults } from "./figma.schema";
-import {
-  useFigmaVariable,
-  useFigmaVariables,
-  useFigmaPluginConnected,
-} from "@/stores/figma";
+import { useFigmaVariable, useFigmaVariables, useFigmaPluginConnected } from "@/stores/figma";
 import { useMqttBrokerStore } from "@/stores/mqtt-broker";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,17 +33,13 @@ export function Figma(props: Props) {
         : undefined;
 
   return (
-    <NodeContainer
-      {...props}
-      error={error}
-    >
+    <NodeContainer {...props} error={error}>
       <Value />
       <Settings />
       <FigmaHandles variableId={props.data?.variableId} id={props.id} />
     </NodeContainer>
   );
 }
-
 
 function FigmaHandles(props: { variableId?: string; id: string }) {
   const updateNodeInternals = useUpdateNodeInternals();
@@ -73,13 +66,7 @@ function FigmaHandles(props: { variableId?: string; id: string }) {
           <Handle type="target" position={Position.Left} id="red" hint="0-255" offset={-1.5} />
           <Handle type="target" position={Position.Left} id="green" hint="0-255" offset={-0.5} />
           <Handle type="target" position={Position.Left} id="blue" hint="0-255" offset={0.5} />
-          <Handle
-            type="target"
-            position={Position.Left}
-            id="opacity"
-            hint="0-100"
-            offset={1.5}
-          />
+          <Handle type="target" position={Position.Left} id="opacity" hint="0-100" offset={1.5} />
         </>
       )}
       {variable?.resolvedType === "FLOAT" && (
@@ -256,3 +243,9 @@ function Value() {
 
 type Props = BaseNode<Data>;
 Figma.defaultProps = { data: defaults };
+
+export const adapter: NodeHostAdapter = {
+  prepareData: (_node, hosts) =>
+    hosts.figma.uniqueId ? { uniqueId: hosts.figma.uniqueId } : undefined,
+  brokerIds: (node) => (node.data?.brokerId ? [node.data.brokerId as string] : []),
+};

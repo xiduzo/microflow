@@ -10,7 +10,14 @@ function toKebabCase(str: string): string {
   return str.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
-const { entries } = manifest;
+const { entries, impls } = manifest;
+
+// Map impl name -> usesHostAdapter flag, so each entry can decide whether
+// to import an `adapter` export from its own component file.
+const usesHostAdapter = new Map<string, boolean>(
+  impls.map((i) => [i.name, Boolean((i as Record<string, unknown>).usesHostAdapter)]),
+);
+const entryUsesAdapter = (e: { impl: string }) => usesHostAdapter.get(e.impl) ?? false;
 
 // _base/_base.types.ts
 const typeNames = entries.map((e) => `  "${e.name}"`).join(",\n");
@@ -33,6 +40,7 @@ const lines: string[] = [
   "// GENERATED — edit node-components.json, then run `bun run codegen`",
   'import type { NodeTypes } from "@xyflow/react";',
   'import type { ComponentType } from "./_base/_base.types";',
+  'import type { NodeHostAdapter } from "./_base/host-adapter";',
   "",
 ];
 
@@ -41,6 +49,9 @@ for (const e of entries) {
   const fp = `./${kebab}/${kebab}`;
   lines.push(`import { ${e.name} } from "${fp}";`);
   lines.push(`import { defaults as ${e.name}Defaults } from "${fp}.schema";`);
+  if (entryUsesAdapter(e)) {
+    lines.push(`import { adapter as ${e.name}Adapter } from "${fp}";`);
+  }
 }
 
 lines.push(
@@ -57,14 +68,16 @@ lines.push(
   "export type NodeRegistryEntry = {",
   "  component: unknown;",
   "  defaults: NodeDefaults;",
+  "  adapter?: NodeHostAdapter;",
   "};",
   "",
   "export const NODE_REGISTRY = {",
 );
 
 for (const e of entries) {
+  const adapterField = entryUsesAdapter(e) ? `${e.name}Adapter` : "undefined";
   lines.push(
-    `  ${e.name}: { component: ${e.name}, defaults: ${e.name}Defaults as NodeDefaults },`,
+    `  ${e.name}: { component: ${e.name}, defaults: ${e.name}Defaults as NodeDefaults, adapter: ${adapterField} },`,
   );
 }
 
@@ -79,10 +92,7 @@ for (const e of entries) {
   lines.push(`  ${e.name},`);
 }
 
-lines.push(
-  "} as const satisfies NodeTypes & Record<ComponentType, unknown>;",
-  "",
-);
+lines.push("} as const satisfies NodeTypes & Record<ComponentType, unknown>;", "");
 
 writeFileSync(join(nodesDir, "_REGISTRY.ts"), lines.join("\n"));
 

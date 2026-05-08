@@ -11,13 +11,13 @@ The single source of truth for every flow component the UI exposes and the runti
 
 ### Fields
 
-| Field              | Where           | Meaning                                                                  |
-|--------------------|-----------------|--------------------------------------------------------------------------|
-| `entries[].name`   | UI + Yjs        | Instance string used as ReactFlow node type and `data.instance`.         |
-| `entries[].impl`   | runtime mapping | The `impls` row this entry resolves to. May be the entry's own name, or a parent impl for variants. |
-| `impls[].name`     | Rust            | The Rust struct name (also derives `<Name>Config`).                      |
-| `impls[].category` | Rust            | Module path under `runtime/`: `input`, `output`, `control`, `transformation`, `generator`, `external`. |
-| `impls[].requiresHardware` | Rust    | If true, registry calls `Component::initialize(board)` when board connected. |
+| Field                      | Where           | Meaning                                                                                                |
+| -------------------------- | --------------- | ------------------------------------------------------------------------------------------------------ |
+| `entries[].name`           | UI + Yjs        | Instance string used as ReactFlow node type and `data.instance`.                                       |
+| `entries[].impl`           | runtime mapping | The `impls` row this entry resolves to. May be the entry's own name, or a parent impl for variants.    |
+| `impls[].name`             | Rust            | The Rust struct name (also derives `<Name>Config`).                                                    |
+| `impls[].category`         | Rust            | Module path under `runtime/`: `input`, `output`, `control`, `transformation`, `generator`, `external`. |
+| `impls[].requiresHardware` | Rust            | If true, registry calls `Component::initialize(board)` when board connected.                           |
 
 ### Generation
 
@@ -53,8 +53,18 @@ Two kinds:
 - **Listener Wiring** — sync, in-process. Pin (digital, or analog with threshold), I2C address, hotkey accelerator. Returned from `Component::listener_wiring()` as `Vec<ListenerWiring>`.
 - **Subscriber Wiring** — async, broker-dependent. MQTT topic + handler kind. Returned from `ExternalSubscriber::subscriber_wiring()` (only impl'd by components that need brokers, e.g. `Mqtt`, `Figma`).
 
-Distinct from the **Component Catalog**: catalog is metadata for *registration* (what UI shows, how to construct); Wiring is per-impl *behavior* applied after construction.
+Distinct from the **Component Catalog**: catalog is metadata for _registration_ (what UI shows, how to construct); Wiring is per-impl _behavior_ applied after construction.
 
 ## Runtime Context
 
 Read-only bundle passed to component factories at construction time: connected brokers, configured LLM providers. Lets a component pluck the bits it needs (e.g. `Llm` reads its provider's `base_url`/`api_key`) without mutating `node.data` upstream. Empty for components with no external deps.
+
+## Host Adapter
+
+Frontend mirror of **Wiring**. Each node component module may export an `adapter: NodeHostAdapter` (see `apps/web/src/components/flow/nodes/_base/host-adapter.ts`) describing what the host store + global hotkey listener need from this node:
+
+- `prepareData(node, hosts)` — partial `data` patch to merge before sync (e.g. `Figma` injects `uniqueId` from `useFigmaStore`).
+- `brokerIds(node)` — broker IDs this node depends on; collected and forwarded to the runtime.
+- `accelerator(node)` — keyboard accelerator this node listens to; registered with `useHotkeys`.
+
+The catalog `impls[].usesHostAdapter` flag drives codegen: when `true`, `_REGISTRY.ts` imports the entry's `adapter` export. The frontend registry exposes `adapter` on every entry (undefined when no adapter is needed), so consumers walk it without pattern-matching `data.instance`.

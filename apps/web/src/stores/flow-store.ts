@@ -15,6 +15,9 @@ import { isDesktop } from "@/lib/platform";
 import { invokeCommand } from "@/lib/ipc";
 import { useMqttBrokerStore } from "@/stores/mqtt-broker";
 import { useFigmaStore } from "@/stores/figma";
+import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
+import { isComponentType } from "@/components/flow/nodes/_base/_base.types";
+import type { HostState } from "@/components/flow/nodes/_base/host-adapter";
 
 // ============================================================================
 // Constants
@@ -41,7 +44,11 @@ export type FlowState = {
 
   // Actions
   initLocalFlow: () => void;
-  initCloudFlow: (flowId: string, initialData?: Uint8Array, meta?: { name?: string; description?: string }) => void;
+  initCloudFlow: (
+    flowId: string,
+    initialData?: Uint8Array,
+    meta?: { name?: string; description?: string },
+  ) => void;
 
   // ReactFlow callbacks (these modify the FlowDocument)
   onNodesChange: OnNodesChange;
@@ -121,30 +128,33 @@ export const useFlowStore = create<FlowState>()((set, get) => {
 
       // Sync to desktop app if running in Tauri
       if (isDesktop()) {
-        // Always inject the current username as uniqueId for Figma nodes
-        const figmaUniqueId = useFigmaStore.getState().uniqueId;
-        if (figmaUniqueId) {
-          for (const node of nodes) {
-            if (node.data?.instance === "Figma") {
-              node.data = { ...node.data, uniqueId: figmaUniqueId };
-            }
-          }
-        }
+        const hosts: HostState = {
+          figma: { uniqueId: useFigmaStore.getState().uniqueId },
+        };
 
-        // Get broker configs for any MQTT or Figma nodes in the flow
+        // Walk each node's host adapter to apply data patches and collect broker IDs.
+        // The adapter is owned by the node's component module — see _base/host-adapter.ts.
         const mqttBrokerIds = new Set<string>();
         for (const node of nodes) {
           const instance = node.data?.instance;
-          if ((instance === "Mqtt" || instance === "Figma") && node.data?.brokerId) {
-            mqttBrokerIds.add(node.data.brokerId as string);
+          if (typeof instance !== "string" || !isComponentType(instance)) continue;
+          const adapter = NODE_REGISTRY[instance].adapter;
+          if (!adapter) continue;
+
+          const patch = adapter.prepareData?.(node, hosts);
+          if (patch) {
+            node.data = { ...node.data, ...patch };
+          }
+          for (const id of adapter.brokerIds?.(node) ?? []) {
+            mqttBrokerIds.add(id);
           }
         }
-        
+
         // Get full broker configs from the store
         const allBrokers = useMqttBrokerStore.getState().brokers;
         const brokers = allBrokers
-          .filter(b => mqttBrokerIds.has(b.id))
-          .map(b => ({
+          .filter((b) => mqttBrokerIds.has(b.id))
+          .map((b) => ({
             id: b.id,
             name: b.name,
             url: b.url,
@@ -156,7 +166,10 @@ export const useFlowStore = create<FlowState>()((set, get) => {
         const { useLlmProviderStore } = await import("@/stores/llm-provider");
         const allProviders = useLlmProviderStore.getState().providers;
         const providers = allProviders.map((p) => ({
-          id: p.id, name: p.name, base_url: p.baseUrl, api_key: p.apiKey,
+          id: p.id,
+          name: p.name,
+          base_url: p.baseUrl,
+          api_key: p.apiKey,
         }));
 
         const response = await invokeCommand({

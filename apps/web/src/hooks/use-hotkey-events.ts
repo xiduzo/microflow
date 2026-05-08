@@ -5,6 +5,8 @@ import { emit } from "@tauri-apps/api/event";
 import { useFlowStore } from "@/stores/flow-store";
 import { useFlowNodes } from "@/hooks/use-flow-document";
 import type { Hotkey } from "@tanstack/react-hotkeys";
+import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
+import { isComponentType } from "@/components/flow/nodes/_base/_base.types";
 
 /**
  * Registers TanStack hotkeys for every Hotkey node in the current flow.
@@ -20,11 +22,18 @@ export function useHotkeyEvents() {
   const flowDoc = useFlowStore((s) => s.flowDoc);
   const nodes = useFlowNodes(flowDoc);
 
+  // Walk each node's host adapter to collect accelerator keys.
+  // The adapter is owned by the node's component module — see _base/host-adapter.ts.
   const accelerators = useMemo(() => {
-    return nodes
-        .filter(node => node.data?.instance === "Hotkey")
-        .map(node => String(node.data?.accelerator))
-  }, [nodes])
+    const out: string[] = [];
+    for (const node of nodes) {
+      const instance = node.data?.instance;
+      if (typeof instance !== "string" || !isComponentType(instance)) continue;
+      const accel = NODE_REGISTRY[instance].adapter?.accelerator?.(node);
+      if (accel) out.push(accel);
+    }
+    return out;
+  }, [nodes]);
 
   const hotkeys = useMemo(() => {
     // Collect unique accelerator keys from Hotkey nodes

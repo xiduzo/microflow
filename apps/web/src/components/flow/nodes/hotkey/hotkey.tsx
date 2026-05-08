@@ -1,13 +1,15 @@
 import { button } from "leva";
-import {
-  NodeContainer,
-  useNodeControls,
-  useNodeData,
-  type BaseNode,
-} from "../_base/_base";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle } from "../../handle";
 import { useState } from "react";
-import { dataSchema, defaults, VALID_HOTKEYS, type Data, type Value, type HotkeyChar } from "./hotkey.schema";
+import {
+  dataSchema,
+  defaults,
+  VALID_HOTKEYS,
+  type Data,
+  type Value,
+  type HotkeyChar,
+} from "./hotkey.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { IconWithValue } from "../../icon-with-value";
 import { KeyboardIcon } from "lucide-react";
@@ -24,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { useHotkeyRecorder } from "@tanstack/react-hotkeys";
 import type { Hotkey as HotkeyType } from "@tanstack/react-hotkeys";
 import { cn } from "@/lib/utils";
+import type { NodeHostAdapter } from "../_base/host-adapter";
 
 export function Hotkey(props: Props) {
   return (
@@ -43,10 +46,14 @@ function Value() {
 
   return (
     <KbdGroup className="flex flex-wrap gap-1 scale-250">
-      <Kbd className={cn("min-w-6 h-6 px-2", {
-        "text-green-500": value,
-        "text-muted-foreground": !value,
-      })}>{String(data.accelerator).toUpperCase()}</Kbd>
+      <Kbd
+        className={cn("min-w-6 h-6 px-2", {
+          "text-green-500": value,
+          "text-muted-foreground": !value,
+        })}
+      >
+        {String(data.accelerator).toUpperCase()}
+      </Kbd>
     </KbdGroup>
   );
 }
@@ -101,9 +108,7 @@ function HotkeyRecorderDialog(props: HotkeyRecorderDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Set hotkey</DialogTitle>
-          <DialogDescription>
-            Press a key to assign as a trigger
-          </DialogDescription>
+          <DialogDescription>Press a key to assign as a trigger</DialogDescription>
         </DialogHeader>
         <section className="min-h-24 flex flex-col gap-4 items-center justify-center">
           <KbdGroup className="flex flex-wrap gap-1 scale-300">
@@ -172,3 +177,7 @@ function Settings() {
 
 type Props = BaseNode<Data>;
 Hotkey.defaultProps = { data: defaults };
+
+export const adapter: NodeHostAdapter = {
+  accelerator: (node) => (node.data?.accelerator ? String(node.data.accelerator) : undefined),
+};

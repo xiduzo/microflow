@@ -1,6 +1,7 @@
 // GENERATED — edit node-components.json, then run `bun run codegen`
 import type { NodeTypes } from "@xyflow/react";
 import type { ComponentType } from "./_base/_base.types";
+import type { NodeHostAdapter } from "./_base/host-adapter";
 
 import { Button } from "./button/button";
 import { defaults as ButtonDefaults } from "./button/button.schema";
@@ -16,6 +17,7 @@ import { Delay } from "./delay/delay";
 import { defaults as DelayDefaults } from "./delay/delay.schema";
 import { Figma } from "./figma/figma";
 import { defaults as FigmaDefaults } from "./figma/figma.schema";
+import { adapter as FigmaAdapter } from "./figma/figma";
 import { Force } from "./force/force";
 import { defaults as ForceDefaults } from "./force/force.schema";
 import { Function } from "./function/function";
@@ -26,6 +28,7 @@ import { HallEffect } from "./hall-effect/hall-effect";
 import { defaults as HallEffectDefaults } from "./hall-effect/hall-effect.schema";
 import { Hotkey } from "./hotkey/hotkey";
 import { defaults as HotkeyDefaults } from "./hotkey/hotkey.schema";
+import { adapter as HotkeyAdapter } from "./hotkey/hotkey";
 import { Interval } from "./interval/interval";
 import { defaults as IntervalDefaults } from "./interval/interval.schema";
 import { Ldr } from "./ldr/ldr";
@@ -42,6 +45,7 @@ import { Motion } from "./motion/motion";
 import { defaults as MotionDefaults } from "./motion/motion.schema";
 import { Mqtt } from "./mqtt/mqtt";
 import { defaults as MqttDefaults } from "./mqtt/mqtt.schema";
+import { adapter as MqttAdapter } from "./mqtt/mqtt";
 import { Oscillator } from "./oscillator/oscillator";
 import { defaults as OscillatorDefaults } from "./oscillator/oscillator.schema";
 import { Piezo } from "./piezo/piezo";
@@ -87,45 +91,70 @@ export type NodeDefaults = {
 export type NodeRegistryEntry = {
   component: unknown;
   defaults: NodeDefaults;
+  adapter?: NodeHostAdapter;
 };
 
 export const NODE_REGISTRY = {
-  Button: { component: Button, defaults: ButtonDefaults as NodeDefaults },
-  Calculate: { component: Calculate, defaults: CalculateDefaults as NodeDefaults },
-  Compare: { component: Compare, defaults: CompareDefaults as NodeDefaults },
-  Constant: { component: Constant, defaults: ConstantDefaults as NodeDefaults },
-  Counter: { component: Counter, defaults: CounterDefaults as NodeDefaults },
-  Delay: { component: Delay, defaults: DelayDefaults as NodeDefaults },
-  Figma: { component: Figma, defaults: FigmaDefaults as NodeDefaults },
-  Force: { component: Force, defaults: ForceDefaults as NodeDefaults },
-  Function: { component: Function, defaults: FunctionDefaults as NodeDefaults },
-  Gate: { component: Gate, defaults: GateDefaults as NodeDefaults },
-  HallEffect: { component: HallEffect, defaults: HallEffectDefaults as NodeDefaults },
-  Hotkey: { component: Hotkey, defaults: HotkeyDefaults as NodeDefaults },
-  Interval: { component: Interval, defaults: IntervalDefaults as NodeDefaults },
-  Ldr: { component: Ldr, defaults: LdrDefaults as NodeDefaults },
-  Led: { component: Led, defaults: LedDefaults as NodeDefaults },
-  Llm: { component: Llm, defaults: LlmDefaults as NodeDefaults },
-  Matrix: { component: Matrix, defaults: MatrixDefaults as NodeDefaults },
-  Monitor: { component: Monitor, defaults: MonitorDefaults as NodeDefaults },
-  Motion: { component: Motion, defaults: MotionDefaults as NodeDefaults },
-  Mqtt: { component: Mqtt, defaults: MqttDefaults as NodeDefaults },
-  Oscillator: { component: Oscillator, defaults: OscillatorDefaults as NodeDefaults },
-  Piezo: { component: Piezo, defaults: PiezoDefaults as NodeDefaults },
-  Pixel: { component: Pixel, defaults: PixelDefaults as NodeDefaults },
-  Potentiometer: { component: Potentiometer, defaults: PotentiometerDefaults as NodeDefaults },
-  Proximity: { component: Proximity, defaults: ProximityDefaults as NodeDefaults },
-  RangeMap: { component: RangeMap, defaults: RangeMapDefaults as NodeDefaults },
-  Relay: { component: Relay, defaults: RelayDefaults as NodeDefaults },
-  Rgb: { component: Rgb, defaults: RgbDefaults as NodeDefaults },
-  Sensor: { component: Sensor, defaults: SensorDefaults as NodeDefaults },
-  Servo: { component: Servo, defaults: ServoDefaults as NodeDefaults },
-  Smooth: { component: Smooth, defaults: SmoothDefaults as NodeDefaults },
-  Stepper: { component: Stepper, defaults: StepperDefaults as NodeDefaults },
-  Switch: { component: Switch, defaults: SwitchDefaults as NodeDefaults },
-  Tilt: { component: Tilt, defaults: TiltDefaults as NodeDefaults },
-  Trigger: { component: Trigger, defaults: TriggerDefaults as NodeDefaults },
-  Vibration: { component: Vibration, defaults: VibrationDefaults as NodeDefaults },
+  Button: { component: Button, defaults: ButtonDefaults as NodeDefaults, adapter: undefined },
+  Calculate: {
+    component: Calculate,
+    defaults: CalculateDefaults as NodeDefaults,
+    adapter: undefined,
+  },
+  Compare: { component: Compare, defaults: CompareDefaults as NodeDefaults, adapter: undefined },
+  Constant: { component: Constant, defaults: ConstantDefaults as NodeDefaults, adapter: undefined },
+  Counter: { component: Counter, defaults: CounterDefaults as NodeDefaults, adapter: undefined },
+  Delay: { component: Delay, defaults: DelayDefaults as NodeDefaults, adapter: undefined },
+  Figma: { component: Figma, defaults: FigmaDefaults as NodeDefaults, adapter: FigmaAdapter },
+  Force: { component: Force, defaults: ForceDefaults as NodeDefaults, adapter: undefined },
+  Function: { component: Function, defaults: FunctionDefaults as NodeDefaults, adapter: undefined },
+  Gate: { component: Gate, defaults: GateDefaults as NodeDefaults, adapter: undefined },
+  HallEffect: {
+    component: HallEffect,
+    defaults: HallEffectDefaults as NodeDefaults,
+    adapter: undefined,
+  },
+  Hotkey: { component: Hotkey, defaults: HotkeyDefaults as NodeDefaults, adapter: HotkeyAdapter },
+  Interval: { component: Interval, defaults: IntervalDefaults as NodeDefaults, adapter: undefined },
+  Ldr: { component: Ldr, defaults: LdrDefaults as NodeDefaults, adapter: undefined },
+  Led: { component: Led, defaults: LedDefaults as NodeDefaults, adapter: undefined },
+  Llm: { component: Llm, defaults: LlmDefaults as NodeDefaults, adapter: undefined },
+  Matrix: { component: Matrix, defaults: MatrixDefaults as NodeDefaults, adapter: undefined },
+  Monitor: { component: Monitor, defaults: MonitorDefaults as NodeDefaults, adapter: undefined },
+  Motion: { component: Motion, defaults: MotionDefaults as NodeDefaults, adapter: undefined },
+  Mqtt: { component: Mqtt, defaults: MqttDefaults as NodeDefaults, adapter: MqttAdapter },
+  Oscillator: {
+    component: Oscillator,
+    defaults: OscillatorDefaults as NodeDefaults,
+    adapter: undefined,
+  },
+  Piezo: { component: Piezo, defaults: PiezoDefaults as NodeDefaults, adapter: undefined },
+  Pixel: { component: Pixel, defaults: PixelDefaults as NodeDefaults, adapter: undefined },
+  Potentiometer: {
+    component: Potentiometer,
+    defaults: PotentiometerDefaults as NodeDefaults,
+    adapter: undefined,
+  },
+  Proximity: {
+    component: Proximity,
+    defaults: ProximityDefaults as NodeDefaults,
+    adapter: undefined,
+  },
+  RangeMap: { component: RangeMap, defaults: RangeMapDefaults as NodeDefaults, adapter: undefined },
+  Relay: { component: Relay, defaults: RelayDefaults as NodeDefaults, adapter: undefined },
+  Rgb: { component: Rgb, defaults: RgbDefaults as NodeDefaults, adapter: undefined },
+  Sensor: { component: Sensor, defaults: SensorDefaults as NodeDefaults, adapter: undefined },
+  Servo: { component: Servo, defaults: ServoDefaults as NodeDefaults, adapter: undefined },
+  Smooth: { component: Smooth, defaults: SmoothDefaults as NodeDefaults, adapter: undefined },
+  Stepper: { component: Stepper, defaults: StepperDefaults as NodeDefaults, adapter: undefined },
+  Switch: { component: Switch, defaults: SwitchDefaults as NodeDefaults, adapter: undefined },
+  Tilt: { component: Tilt, defaults: TiltDefaults as NodeDefaults, adapter: undefined },
+  Trigger: { component: Trigger, defaults: TriggerDefaults as NodeDefaults, adapter: undefined },
+  Vibration: {
+    component: Vibration,
+    defaults: VibrationDefaults as NodeDefaults,
+    adapter: undefined,
+  },
 } satisfies Record<ComponentType, NodeRegistryEntry>;
 
 // ReactFlow compatibility — derived from NODE_REGISTRY
