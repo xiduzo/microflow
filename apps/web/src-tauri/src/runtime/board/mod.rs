@@ -10,6 +10,7 @@
 //! Re-exported via `super::base` for backwards compatibility.
 
 mod connection;
+mod io_loop;
 mod protocol;
 
 pub use connection::{
@@ -21,7 +22,6 @@ pub use protocol::BoardCommand;
 use connection::{I2cReplyCallbackSlot, PinChangeCallbackSlot};
 use crate::error::{HardwareError, RuntimeError};
 use dashmap::DashMap;
-use firmata_rs::Firmata;
 use std::sync::{Arc, RwLock};
 
 /// Handle to the Firmata board for components to use.
@@ -33,15 +33,16 @@ use std::sync::{Arc, RwLock};
 pub struct BoardHandle {
     /// Channel to send commands to the reader thread
     cmd_tx: std::sync::Mutex<Option<std::sync::mpsc::Sender<BoardCommand>>>,
-    /// Whether the board is currently connected (cheap atomic check)
-    connected: std::sync::atomic::AtomicBool,
-    /// Flag to signal the reader thread to stop
-    reader_running: std::sync::atomic::AtomicBool,
+    /// Whether the board is currently connected (cheap atomic check).
+    /// `pub(super)` so the IO loop can flip it on I/O failure.
+    pub(super) connected: std::sync::atomic::AtomicBool,
+    /// Flag to signal the reader thread to stop. Read by the IO loop.
+    pub(super) reader_running: std::sync::atomic::AtomicBool,
     /// Handle to the reader thread for joining on stop
     reader_handle: std::sync::Mutex<Option<std::thread::JoinHandle<()>>>,
     /// Flag to cancel an in-progress tone on the reader thread.
     /// Checked inside the `tone()` spin-loop so `NoTone` can interrupt it.
-    tone_cancel: std::sync::atomic::AtomicBool,
+    pub(super) tone_cancel: std::sync::atomic::AtomicBool,
     /// Pin-value cache shared with the IO loop. Reader writes after Firmata
     /// reads; handle clears on flow update.
     pin_values: Arc<DashMap<u8, u16>>,
@@ -99,117 +100,7 @@ impl BoardHandle {
         self.connected.store(true, std::sync::atomic::Ordering::Release);
         self.reader_running.store(true, std::sync::atomic::Ordering::Release);
 
-        let handle_clone = Arc::clone(self);
-        let thread_handle = std::thread::spawn(move || {
-            log::info!("Firmata reader thread started (exclusive ownership)");
-            let mut conn = connection;
-
-            loop {
-                // 1. Drain all pending commands (non-blocking)
-                loop {
-                    match cmd_rx.try_recv() {
-                        Ok(BoardCommand::Stop) => {
-                            log::info!("Firmata reader thread: Stop received");
-                            return;
-                        }
-                        Ok(BoardCommand::SetPinMode { pin, mode }) => {
-                            let _ = conn.set_pin_mode(pin, mode);
-                        }
-                        Ok(BoardCommand::DigitalWrite { pin, value }) => {
-                            let _ = conn.digital_write(pin, value);
-                        }
-                        Ok(BoardCommand::AnalogWrite { pin, value }) => {
-                            let _ = conn.analog_write(pin, value);
-                        }
-                        Ok(BoardCommand::EnableAnalogReporting { pin }) => {
-                            let _ = conn.enable_analog_reporting(pin);
-                        }
-                        Ok(BoardCommand::DisableAnalogReporting { pin }) => {
-                            let _ = conn.disable_analog_reporting(pin);
-                        }
-                        Ok(BoardCommand::EnableDigitalReporting { pin }) => {
-                            let _ = conn.set_reporting(pin, true);
-                        }
-                        Ok(BoardCommand::DisableDigitalReporting { pin }) => {
-                            let _ = conn.set_reporting(pin, false);
-                        }
-                        Ok(BoardCommand::ResetAllReporting) => {
-                            let _ = conn.reset_all_reporting();
-                        }
-                        Ok(BoardCommand::ShiftOut { data_pin, clock_pin, value }) => {
-                            let _ = conn.shift_out(data_pin, clock_pin, value);
-                        }
-                        Ok(BoardCommand::Tone { pin, half_period_us, duration_ms }) => {
-                            handle_clone.tone_cancel.store(false, std::sync::atomic::Ordering::Release);
-                            let _ = conn.tone(pin, half_period_us, duration_ms, &handle_clone.tone_cancel);
-                        }
-                        Ok(BoardCommand::NoTone { pin }) => {
-                            handle_clone.tone_cancel.store(true, std::sync::atomic::Ordering::Release);
-                            let _ = conn.no_tone(pin);
-                        }
-                        Ok(BoardCommand::Sysex { command, data }) => {
-                            let _ = conn.sysex_write(command, &data);
-                        }
-                        Ok(BoardCommand::I2cConfig { delay }) => {
-                            let _ = conn.board.i2c_config(delay);
-                        }
-                        Ok(BoardCommand::I2cRead { address, size }) => {
-                            let _ = conn.board.i2c_read(address, size);
-                        }
-                        Ok(BoardCommand::I2cWrite { address, data }) => {
-                            let _ = conn.board.i2c_write(address, &data);
-                        }
-                        Ok(BoardCommand::I2cStopReading { address }) => {
-                            // Send I2C stop reading mode (mode bits = 0b11)
-                            use std::io::Write;
-                            let mode_byte = 0b11 << 3;
-                            let _ = conn.board.connection.write_all(&[
-                                0xF0, 0x76, address as u8, mode_byte, 0xF7
-                            ]);
-                            let _ = conn.board.connection.flush();
-                        }
-                        Err(std::sync::mpsc::TryRecvError::Empty) => break,
-                        Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                            log::info!("Firmata reader: command channel closed, stopping");
-                            return;
-                        }
-                    }
-                }
-
-                // 2. Check stop flag
-                if !handle_clone.reader_running.load(std::sync::atomic::Ordering::Acquire) {
-                    break;
-                }
-
-                // 3. Read one Firmata message
-                match conn.board.read_and_decode() {
-                    Ok(_) => {
-                        conn.detect_and_emit_changes();
-                        conn.drain_i2c_replies();
-                    }
-                    Err(e) => {
-                        let err_str = format!("{e}");
-                        if err_str.contains("timed out") || err_str.contains("timeout") {
-                            std::thread::sleep(std::time::Duration::from_millis(1));
-                        } else if err_str.contains("I/O error") {
-                            // Real serial/transport error — disconnect.
-                            log::warn!("Firmata reader: I/O error: {err_str}");
-                            handle_clone.connected.store(false, std::sync::atomic::Ordering::Release);
-                            break;
-                        } else {
-                            // Protocol-level parse errors from firmata-rs:
-                            // - "Unknown SysEx code: N" — unhandled SysEx (AccelStepper, string data, etc.)
-                            // - "Message was too short." — truncated/unexpected SysEx payload
-                            // - "Received a bad byte: N" — framing glitch after skipped SysEx
-                            // These are non-fatal; the stream re-syncs on the next message boundary.
-                            log::debug!("Firmata reader: skipping parse error: {err_str}");
-                        }
-                    }
-                }
-            }
-
-            log::info!("Firmata reader thread stopped");
-        });
+        let thread_handle = io_loop::spawn(connection, cmd_rx, Arc::clone(self));
 
         *self.reader_handle.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(thread_handle);
     }
