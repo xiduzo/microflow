@@ -4,10 +4,9 @@
 //! numbers of components and edges to track regression over time.
 
 use app_lib::runtime::{ComponentEvent, ComponentValue, FlowEdge, FlowExecutor};
-use app_lib::runtime::base::{BoardHandle, Component, ComponentBase};
+use app_lib::runtime::base::{Component, ComponentBase};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 // ---------------------------------------------------------------------------
 // Minimal zero-cost mock component
@@ -26,21 +25,12 @@ impl BenchComponent {
 }
 
 impl Component for BenchComponent {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, v: ComponentValue) { self.base.value = v; }
+    fn base(&self) -> &ComponentBase { &self.base }
+    fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Bench" }
-    fn initialize(&mut self, _: Arc<BoardHandle>) -> Result<(), app_lib::RuntimeError> { Ok(()) }
     fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.base.value = args;
         Ok(())
-    }
-    fn destroy(&mut self) {}
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
     }
 }
 
