@@ -5,7 +5,7 @@
 
 use super::port_monitor::PortMonitor;
 use super::types::{BoardState, PinInfo};
-use crate::runtime::{BoardConnection, BoardHandle, SerialPortWrapper};
+use crate::runtime::{BoardHandle, SerialPortWrapper};
 use firmata_rs::{Board, Firmata};
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -41,9 +41,9 @@ pub fn detect_and_connect(port_name: &str, board_handle: &Arc<BoardHandle>) -> O
     // Full detection with firmata-rs - returns the board connection
     let (info, board) = full_detect_with_board(port_name, baud_rate)?;
 
-    // Create the connection wrapper and store it in the handle
-    let connection = BoardConnection::new(board, port_name.to_string());
-    board_handle.connect(connection);
+    // Hand the firmata board to the BoardHandle, which builds the connection
+    // with shared pin/cache/callback state and starts the reader thread.
+    board_handle.connect_board(board, port_name.to_string());
     
     log::info!("Board connected and stored in BoardHandle");
 

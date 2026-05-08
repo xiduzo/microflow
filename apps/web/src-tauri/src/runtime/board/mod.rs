@@ -3,23 +3,33 @@
 //!
 //! The reader thread owns `BoardConnection` exclusively and processes commands
 //! between read cycles, so component code never blocks on a serial port mutex.
+//! Reader-thread state (callbacks, pin caches) lives on shared `Arc`s held by
+//! both `BoardHandle` and `BoardConnection`, so it does not flow through the
+//! channel.
+//!
 //! Re-exported via `super::base` for backwards compatibility.
 
 mod connection;
+mod protocol;
 
 pub use connection::{
     BoardConnection, I2cReplyCallback, I2cReplyEvent, PinChangeCallback, PinChangeEvent,
     SerialPortWrapper,
 };
+pub use protocol::BoardCommand;
 
+use connection::{I2cReplyCallbackSlot, PinChangeCallbackSlot};
 use crate::error::{HardwareError, RuntimeError};
+use dashmap::DashMap;
 use firmata_rs::Firmata;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// Handle to the Firmata board for components to use.
 ///
 /// The reader thread owns `BoardConnection` exclusively — no shared mutex on the hot path.
-/// All write operations are sent via `send_command()` and processed between read cycles.
+/// Pin-cache reads and callback installs go through shared `Arc`s instead of the
+/// command channel; serial-port writes still flow through `send_command()` and are
+/// processed between read cycles.
 pub struct BoardHandle {
     /// Channel to send commands to the reader thread
     cmd_tx: std::sync::Mutex<Option<std::sync::mpsc::Sender<BoardCommand>>>,
@@ -32,6 +42,17 @@ pub struct BoardHandle {
     /// Flag to cancel an in-progress tone on the reader thread.
     /// Checked inside the `tone()` spin-loop so `NoTone` can interrupt it.
     tone_cancel: std::sync::atomic::AtomicBool,
+    /// Pin-value cache shared with the IO loop. Reader writes after Firmata
+    /// reads; handle clears on flow update.
+    pin_values: Arc<DashMap<u8, u16>>,
+    /// Active-pin set shared with the IO loop. Handle inserts when a component
+    /// registers a pin listener; reader iterates to decide which pins to scan.
+    active_pins: Arc<DashMap<u8, ()>>,
+    /// Pin-change callback slot. Reader reads once per emission; handle swaps
+    /// when the runtime installs a new callback.
+    pin_change_cb: PinChangeCallbackSlot,
+    /// I2C-reply callback slot.
+    i2c_reply_cb: I2cReplyCallbackSlot,
 }
 
 impl BoardHandle {
@@ -43,12 +64,34 @@ impl BoardHandle {
             reader_running: std::sync::atomic::AtomicBool::new(false),
             reader_handle: std::sync::Mutex::new(None),
             tone_cancel: std::sync::atomic::AtomicBool::new(false),
+            pin_values: Arc::new(DashMap::new()),
+            active_pins: Arc::new(DashMap::new()),
+            pin_change_cb: Arc::new(RwLock::new(None)),
+            i2c_reply_cb: Arc::new(RwLock::new(None)),
         }
     }
 
-    /// Connect a board and immediately start the reader thread.
-    /// The reader thread takes exclusive ownership of `connection`.
-    pub fn connect(self: &Arc<Self>, connection: BoardConnection) {
+    /// Connect a board: build the `BoardConnection` with shared state and start
+    /// the reader thread that takes exclusive ownership of it.
+    pub fn connect_board(
+        self: &Arc<Self>,
+        board: firmata_rs::Board<SerialPortWrapper>,
+        port_name: String,
+    ) {
+        let connection = BoardConnection::new(
+            board,
+            port_name,
+            Arc::clone(&self.pin_values),
+            Arc::clone(&self.active_pins),
+            Arc::clone(&self.pin_change_cb),
+            Arc::clone(&self.i2c_reply_cb),
+        );
+        self.connect(connection);
+    }
+
+    /// Spawn the IO loop with the supplied `BoardConnection`. Used by
+    /// `connect_board` and tests.
+    pub(crate) fn connect(self: &Arc<Self>, connection: BoardConnection) {
         self.stop_reader();
 
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel::<BoardCommand>();
@@ -92,18 +135,6 @@ impl BoardHandle {
                         }
                         Ok(BoardCommand::ResetAllReporting) => {
                             let _ = conn.reset_all_reporting();
-                        }
-                        Ok(BoardCommand::SetPinChangeCallback { callback }) => {
-                            conn.set_pin_change_callback(callback);
-                        }
-                        Ok(BoardCommand::SetI2cReplyCallback { callback }) => {
-                            conn.i2c_reply_callback = Some(callback);
-                        }
-                        Ok(BoardCommand::ClearPinCache) => {
-                            conn.clear_pin_cache();
-                        }
-                        Ok(BoardCommand::RegisterActivePin { pin }) => {
-                            conn.active_pins.insert(pin);
                         }
                         Ok(BoardCommand::ShiftOut { data_pin, clock_pin, value }) => {
                             let _ = conn.shift_out(data_pin, clock_pin, value);
@@ -239,22 +270,36 @@ impl BoardHandle {
         self.send_command(BoardCommand::ResetAllReporting)
     }
 
-    // --- Reader-thread state hooks ------------------------------------------
+    // --- Reader-thread state hooks (shared-state writes, no command) --------
 
+    /// Install the pin-change callback. The IO loop reads this slot on every
+    /// emission; clears the pin-value cache so fresh comparisons happen.
     pub fn set_pin_change_callback(&self, callback: Arc<PinChangeCallback>) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::SetPinChangeCallback { callback })
+        *self.pin_change_cb.write().unwrap_or_else(std::sync::PoisonError::into_inner) =
+            Some(callback);
+        self.pin_values.clear();
+        Ok(())
     }
 
+    /// Install the I2C-reply callback.
     pub fn set_i2c_reply_callback(&self, callback: Arc<I2cReplyCallback>) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::SetI2cReplyCallback { callback })
+        *self.i2c_reply_cb.write().unwrap_or_else(std::sync::PoisonError::into_inner) =
+            Some(callback);
+        Ok(())
     }
 
+    /// Clear cached pin values and active pin set (useful when flow changes).
     pub fn clear_pin_cache(&self) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::ClearPinCache)
+        self.pin_values.clear();
+        self.active_pins.clear();
+        Ok(())
     }
 
+    /// Register a pin as active so the IO loop's `detect_and_emit_changes`
+    /// includes it in its scan.
     pub fn register_active_pin(&self, pin: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::RegisterActivePin { pin })
+        self.active_pins.insert(pin, ());
+        Ok(())
     }
 
     // --- Bit-bang + tone + sysex --------------------------------------------
@@ -312,44 +357,4 @@ impl Default for BoardHandle {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Commands sent to the reader thread for board operations.
-/// The reader thread owns `BoardConnection` exclusively and processes
-/// these between read cycles — no mutex contention on the hot path.
-pub enum BoardCommand {
-    SetPinMode { pin: u8, mode: u8 },
-    DigitalWrite { pin: u8, value: bool },
-    AnalogWrite { pin: u8, value: u16 },
-    EnableAnalogReporting { pin: u8 },
-    DisableAnalogReporting { pin: u8 },
-    EnableDigitalReporting { pin: u8 },
-    DisableDigitalReporting { pin: u8 },
-    ResetAllReporting,
-    SetPinChangeCallback { callback: Arc<PinChangeCallback> },
-    /// Set the callback for I2C reply events.
-    SetI2cReplyCallback { callback: Arc<I2cReplyCallback> },
-    ClearPinCache,
-    /// Register a pin as active so `detect_and_emit_changes` checks it.
-    RegisterActivePin { pin: u8 },
-    /// Shift out a byte MSB-first on `data_pin`, clocking `clock_pin`.
-    /// Equivalent to Arduino's shiftOut(dataPin, clockPin, MSBFIRST, value).
-    /// Performed atomically on the reader thread for correct timing.
-    ShiftOut { data_pin: u8, clock_pin: u8, value: u8 },
-    /// Play a tone by toggling a pin at the given half-period (µs) for duration (ms).
-    /// Executed directly on the reader thread for tight timing (no channel overhead).
-    Tone { pin: u8, half_period_us: u32, duration_ms: u32 },
-    /// Stop tone and drive pin low.
-    NoTone { pin: u8 },
-    /// Send a raw sysex message (`START_SYSEX` + command + data + `END_SYSEX`).
-    Sysex { command: u8, data: Vec<u8> },
-    /// Configure the I2C bus delay (microseconds). Must be sent before any I2C operations.
-    I2cConfig { delay: i32 },
-    /// Read `size` bytes from I2C device at `address`. Uses read-once mode.
-    I2cRead { address: i32, size: i32 },
-    /// Write `data` bytes to I2C device at `address`.
-    I2cWrite { address: i32, data: Vec<u8> },
-    /// Stop continuous I2C reading for `address`.
-    I2cStopReading { address: i32 },
-    Stop,
 }

@@ -1,14 +1,16 @@
 //! Private `firmata-rs` wrapper held by the **Board IO Loop**.
 //!
-//! Owns the open serial port plus pin-value cache, active-pin set, and the
-//! pin-change / I2C-reply callbacks. Never escapes the loop's thread; mutated
-//! exclusively from there.
+//! Owns the open serial port and forwards Firmata reads into the shared
+//! pin-value cache, active-pin set, and callback slots that **BoardHandle**
+//! also clones — so `ClearPinCache`, `RegisterActivePin`,
+//! `SetPinChangeCallback`, and `SetI2cReplyCallback` no longer flow through
+//! the command channel.
 
+use dashmap::DashMap;
 use firmata_rs::Firmata;
-use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::io::{Read, Write};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 /// Serial port wrapper for firmata-rs
 pub struct SerialPortWrapper {
@@ -68,46 +70,49 @@ pub type PinChangeCallback = Box<dyn Fn(PinChangeEvent) + Send + Sync>;
 /// Callback type for I2C reply events
 pub type I2cReplyCallback = Box<dyn Fn(I2cReplyEvent) + Send + Sync>;
 
+/// Slot holding the optional pin-change callback. Read by the IO loop on every
+/// pin-change emission; written by `BoardHandle::set_pin_change_callback`.
+pub(super) type PinChangeCallbackSlot = Arc<RwLock<Option<Arc<PinChangeCallback>>>>;
+
+/// Slot holding the optional I2C reply callback.
+pub(super) type I2cReplyCallbackSlot = Arc<RwLock<Option<Arc<I2cReplyCallback>>>>;
+
 /// Wrapper around the firmata-rs Board
 pub struct BoardConnection {
     pub board: firmata_rs::Board<SerialPortWrapper>,
     pub port_name: String,
-    /// Track previous pin values for change detection
-    pin_values: HashMap<u8, u16>,
-    /// Callback for pin changes (set by runtime)
-    pin_change_callback: Option<Arc<PinChangeCallback>>,
-    /// Callback for I2C reply events (set by runtime)
-    pub i2c_reply_callback: Option<Arc<I2cReplyCallback>>,
-    /// Pins that have listeners registered. Only these are checked in `detect_and_emit_changes`.
-    /// Empty means "check all pins" (safe fallback before listeners are registered).
-    pub active_pins: HashSet<u8>,
+    /// Track previous pin values for change detection. Shared with `BoardHandle`.
+    pin_values: Arc<DashMap<u8, u16>>,
+    /// Pins that have listeners registered. Only these are checked in
+    /// `detect_and_emit_changes`. Shared with `BoardHandle`. Empty means
+    /// "check all pins" (safe fallback before listeners are registered).
+    active_pins: Arc<DashMap<u8, ()>>,
+    /// Callback for pin changes. Shared with `BoardHandle`.
+    pin_change_cb: PinChangeCallbackSlot,
+    /// Callback for I2C reply events. Shared with `BoardHandle`.
+    i2c_reply_cb: I2cReplyCallbackSlot,
 }
 
 impl BoardConnection {
-    /// Create a new `BoardConnection` with change tracking
-    #[must_use]
-    pub fn new(board: firmata_rs::Board<SerialPortWrapper>, port_name: String) -> Self {
+    /// Construct a connection bound to a `BoardHandle`'s shared state.
+    /// Only callable from within the `board` module — `BoardHandle::connect_board`
+    /// is the public entry point.
+    pub(super) fn new(
+        board: firmata_rs::Board<SerialPortWrapper>,
+        port_name: String,
+        pin_values: Arc<DashMap<u8, u16>>,
+        active_pins: Arc<DashMap<u8, ()>>,
+        pin_change_cb: PinChangeCallbackSlot,
+        i2c_reply_cb: I2cReplyCallbackSlot,
+    ) -> Self {
         Self {
             board,
             port_name,
-            pin_values: HashMap::new(),
-            pin_change_callback: None,
-            i2c_reply_callback: None,
-            active_pins: HashSet::new(),
+            pin_values,
+            active_pins,
+            pin_change_cb,
+            i2c_reply_cb,
         }
-    }
-
-    /// Set the callback for pin change events
-    pub fn set_pin_change_callback(&mut self, callback: Arc<PinChangeCallback>) {
-        self.pin_change_callback = Some(callback);
-        // Clear cached pin values so fresh comparisons happen
-        self.pin_values.clear();
-    }
-
-    /// Clear cached pin values and active pin set (useful when flow changes)
-    pub fn clear_pin_cache(&mut self) {
-        self.pin_values.clear();
-        self.active_pins.clear();
     }
 
     pub fn set_pin_mode(&mut self, pin: u8, mode: u8) -> Result<(), String> {
@@ -224,8 +229,6 @@ impl BoardConnection {
     ///
     /// Note: This assumes `report_analog` has already been enabled for this pin
     /// and `read_and_decode` has been called to update pin values.
-    /// For best performance, call `read_and_decode()` once per poll cycle,
-    /// then read pin values directly.
     pub fn analog_read(&mut self, pin: u8) -> Result<u16, String> {
         let pins = self.board.pins();
 
@@ -239,7 +242,6 @@ impl BoardConnection {
     pub fn enable_analog_reporting(&mut self, pin: u8) -> Result<(), String> {
         let pins = self.board.pins();
 
-        // Verify this pin supports analog
         let pin_info = pins
             .get(pin as usize)
             .ok_or_else(|| format!("Pin {pin} not found"))?;
@@ -248,7 +250,6 @@ impl BoardConnection {
             return Err(format!("Pin {pin} is not an analog pin"));
         }
 
-        // Find the analog channel index (0-based) by counting analog pins before this one
         let analog_channel = pins
             .iter()
             .take(pin as usize)
@@ -265,7 +266,6 @@ impl BoardConnection {
     /// Process all pending messages from the board and emit change events
     /// Note: With the dedicated reader thread, this is mainly used as a fallback
     pub fn read_all(&mut self) -> Result<(), String> {
-        // Just do a single read - the reader thread handles continuous reading
         match self.board.read_and_decode() {
             Ok(_) => {
                 self.detect_and_emit_changes();
@@ -285,19 +285,25 @@ impl BoardConnection {
     /// Detect pin value changes and emit events immediately.
     /// Only scans `active_pins` when registered; falls back to all pins if none registered yet.
     pub(super) fn detect_and_emit_changes(&mut self) {
-        if self.pin_change_callback.is_none() {
+        let cb_guard = self
+            .pin_change_cb
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(callback) = cb_guard.as_ref().cloned() else {
             return;
-        }
+        };
+        drop(cb_guard);
 
         let pins = self.board.pins();
         let mut changes = Vec::new();
 
         // Fast path: only check pins with listeners.
         // Falls back to all pins only if no active pins registered yet.
-        let indices: Box<dyn Iterator<Item = usize>> = if self.active_pins.is_empty() {
-            Box::new(0..pins.len())
+        let scan_all = self.active_pins.is_empty();
+        let indices: Vec<usize> = if scan_all {
+            (0..pins.len()).collect()
         } else {
-            Box::new(self.active_pins.iter().map(|&p| p as usize))
+            self.active_pins.iter().map(|e| *e.key() as usize).collect()
         };
 
         for index in indices {
@@ -306,7 +312,7 @@ impl BoardConnection {
             let current_value = pin.value as u16;
             let is_analog = pin.analog;
 
-            let last_value = self.pin_values.get(&pin_num).copied();
+            let last_value = self.pin_values.get(&pin_num).map(|v| *v);
             if last_value == Some(current_value) {
                 continue;
             }
@@ -326,30 +332,31 @@ impl BoardConnection {
             }
         }
 
-        if let Some(callback) = &self.pin_change_callback {
-            for change in changes {
-                callback(change);
-            }
+        for change in changes {
+            callback(change);
         }
     }
 
     /// Drain any pending I2C replies and emit them via the callback.
     pub(super) fn drain_i2c_replies(&mut self) {
-        if self.i2c_reply_callback.is_none() {
+        let cb_guard = self
+            .i2c_reply_cb
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(callback) = cb_guard.as_ref().cloned() else {
             // Still drain to prevent unbounded growth
             self.board.i2c_data().clear();
             return;
-        }
+        };
+        drop(cb_guard);
 
         let replies: Vec<_> = self.board.i2c_data().drain(..).collect();
-        if let Some(callback) = &self.i2c_reply_callback {
-            for reply in replies {
-                callback(I2cReplyEvent {
-                    address: reply.address as u8,
-                    register: reply.register as u8,
-                    data: reply.data,
-                });
-            }
+        for reply in replies {
+            callback(I2cReplyEvent {
+                address: reply.address as u8,
+                register: reply.register as u8,
+                data: reply.data,
+            });
         }
     }
 
@@ -360,22 +367,19 @@ impl BoardConnection {
             .map_err(|e| format!("Failed to set reporting: {e}"))
     }
 
-    /// Disable analog reporting for a pin
-    /// Call this during component cleanup to stop receiving updates
+    /// Disable analog reporting for a pin.
+    /// Call this during component cleanup to stop receiving updates.
     pub fn disable_analog_reporting(&mut self, pin: u8) -> Result<(), String> {
         let pins = self.board.pins();
 
-        // Verify this pin exists and is analog
         let pin_info = pins
             .get(pin as usize)
             .ok_or_else(|| format!("Pin {pin} not found"))?;
 
         if !pin_info.analog {
-            // Not an analog pin, nothing to disable
             return Ok(());
         }
 
-        // Find the analog channel index (0-based) by counting analog pins before this one
         let analog_channel = pins
             .iter()
             .take(pin as usize)
@@ -384,7 +388,6 @@ impl BoardConnection {
 
         log::info!("Disabling analog reporting: pin={pin}, analog_channel={analog_channel}");
 
-        // Remove from our cache
         self.pin_values.remove(&pin);
 
         self.board
@@ -392,14 +395,13 @@ impl BoardConnection {
             .map_err(|e| format!("Failed to disable analog reporting: {e}"))
     }
 
-    /// Disable digital reporting for a pin's port
-    /// Note: This disables reporting for the entire port (8 pins)
+    /// Disable digital reporting for a pin's port.
+    /// Note: This disables reporting for the entire port (8 pins).
     pub fn disable_digital_reporting(&mut self, pin: u8) -> Result<(), String> {
         let port = pin / 8;
 
         log::info!("Disabling digital reporting: pin={pin}, port={port}");
 
-        // Remove from our cache
         self.pin_values.remove(&pin);
 
         self.board
