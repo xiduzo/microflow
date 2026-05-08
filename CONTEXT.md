@@ -42,6 +42,22 @@ A Rust module path under `runtime/`. Determines `use super::<category>::{<Impl>,
 
 In `apps/web/src-tauri/src/runtime/base.rs`. The interface every impl satisfies. Audited and being split (see `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3).
 
+## BoardHandle
+
+Public flow-runtime seam to the connected Firmata board. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Hardware **Component** impls receive `Arc<BoardHandle>` via `Component::initialize` and call typed methods (`set_pin_mode`, `digital_write`, `analog_write`, `enable_analog_reporting`, …) returning `Result<(), RuntimeError>`. Each typed method enqueues a `BoardCommand` on the **Board IO Loop**'s channel — never blocks on the serial port. Read-side caches (pin values, active pins) are exposed as direct getters that consult shared `DashMap`s.
+
+## Board IO Loop
+
+Single-thread engine that owns the **BoardConnection** exclusively. Lives in `apps/web/src-tauri/src/runtime/board/io_loop.rs`. Drains a `mpsc::Receiver<BoardCommand>` between Firmata reads: pull all pending commands → mutate connection → read one Firmata message → emit pin-change / I2C-reply events → repeat. The channel is the synchronization primitive — `firmata-rs` requires `&mut self` for every op including reads, so a shared `Mutex<BoardConnection>` would starve writers behind blocking reads. This loop is the only place `&mut BoardConnection` exists.
+
+## BoardConnection
+
+Private `firmata-rs` wrapper held by the **Board IO Loop**. Lives in `apps/web/src-tauri/src/runtime/board/connection.rs`. Owns the open serial port. Pin-value cache and active-pin set are `Arc<DashMap>` fields shared read-only with **BoardHandle**; pin-change / I2C-reply callbacks are closure-captured at IO-loop spawn. Never escapes the loop's thread.
+
+## BoardCommand
+
+Internal protocol between **BoardHandle** and the **Board IO Loop**. Module-private (`pub(super)`) enum carrying Firmata wire ops (`SetPinMode`, `DigitalWrite`, `AnalogWrite`, `ShiftOut`, `Tone`, `Sysex`, `Enable/DisableAnalog/DigitalReporting`, `ResetAllReporting`, the I2C ops) plus `Stop`. Constructed only by `BoardHandle` typed methods — callers never see it.
+
 ## Wiring
 
 Per-impl description of how a constructed **Component** attaches to its execution environment. Returned as plain data from the trait (or sibling `ExternalSubscriber` trait); the runtime reads and applies it without naming any specific component.
