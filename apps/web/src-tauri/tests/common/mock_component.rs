@@ -65,7 +65,7 @@ impl MockComponent {
 
     /// Get the count of received events
     pub fn event_count(&self) -> usize {
-        self.received_events.read().map(|g| g.len()).unwrap_or(0)
+        self.received_events.read().map_or(0, |g| g.len())
     }
 
     /// Get the current value (last received event's value)
