@@ -1,0 +1,66 @@
+---
+title: Board not detected
+description: Microflow Studio cannot find your Arduino. Things to check, in order.
+---
+
+If the connection panel sits at **Waiting**, fails at **Detecting**, or never advances past **Uploading**, work through these checks in order. The most common causes are at the top.
+
+## 1. The cable
+
+A surprising number of "broken Arduinos" are just bad cables. Many phone cables are **charge-only** and carry no data, even though they fit the port perfectly.
+
+- Try a different USB cable. One that you have used to flash an Arduino with the official Arduino IDE before is ideal.
+- Try a different USB port on your computer. USB hubs sometimes refuse to power a board reliably; plug straight into the computer.
+
+## 2. The power LED on the board
+
+When you plug the board in, a small power LED should light up (usually labelled `ON` or `PWR`).
+
+- **No light** — the board is not getting power. Bad cable (see above) or bad port.
+- **Light is on** — power is fine; move to the next check.
+
+## 3. USB drivers
+
+Some boards (especially clones) need a driver before the operating system will see them as a serial device.
+
+- Open your operating system's device list:
+  - **Windows** — *Device Manager → Ports (COM & LPT)*.
+  - **macOS** — *System Information → USB*.
+  - **Linux** — `ls /dev/tty*` before and after plugging in.
+- If the board does not appear, install the right driver. See [Install board drivers](/docs/how-to/install-board-drivers).
+
+## 4. Another program is using the serial port
+
+Only one program can hold a serial port at a time. The most common conflict is the Arduino IDE's **Serial Monitor**, but anything that connects to the board (PlatformIO, mosquitto pubsub examples, screen sessions) blocks Microflow.
+
+- Close the Arduino IDE entirely (the Serial Monitor closing is not enough on Windows).
+- Close any other tool talking to the board.
+- Restart Microflow Studio.
+
+## 5. Firmware corruption
+
+If a different program has uploaded a custom sketch to the board, StandardFirmata is gone and Microflow's "Detecting" probes get no useful response.
+
+- Open the connection panel in Studio and choose **Re-flash firmware** to reinstall StandardFirmata.
+- See [Flash firmware manually](/docs/how-to/flash-firmware-manually) for a step-by-step.
+
+## 6. The board itself
+
+If everything else is ruled out, the board may be physically faulty.
+
+- Open the Arduino IDE. Try the **Bare Minimum** example: *File → Examples → 01.Basics → BareMinimum*. Upload it. If even that fails with errors like "avrdude: stk500_recv()", the board has a bootloader issue and needs hardware-level recovery.
+- Try a known-working board on the same computer. If it works, the original board is the problem.
+
+## 7. Unsupported board
+
+Microflow officially supports Arduino Uno, Mega, Leonardo, Micro, Nano, and Yun. Other boards may work but are not guaranteed. Boards based on ESP32, RP2040, Teensy, and similar typically need a different firmware path that Microflow does not handle today.
+
+## When to ask for help
+
+After working through the above, open an issue on the [GitHub repository](https://github.com/xiduzo/microflow-t-stack/issues) and include:
+
+- Board name and source (genuine Arduino vs. clone)
+- Operating system and version
+- Microflow Studio version
+- What appears in the connection panel
+- Whether the Arduino IDE can talk to the same board

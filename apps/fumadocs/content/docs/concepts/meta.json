@@ -1,0 +1,11 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "index",
+    "what-is-microflow",
+    "flows-signals-events",
+    "the-microcontroller-bridge",
+    "collaboration",
+    "glossary"
+  ]
+}

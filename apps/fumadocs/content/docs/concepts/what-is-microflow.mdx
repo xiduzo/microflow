@@ -1,0 +1,71 @@
+---
+title: What is Microflow?
+description: A working mental model of the two tools and how they relate.
+---
+
+"Microflow" is not one program — it is two, designed to be used either separately or together. This page explains what each one does and why a project might use one, the other, or both.
+
+## Microflow Studio
+
+A desktop app. The thing you open when you want to make hardware do something.
+
+Studio gives you a **canvas** — a blank infinite grid — and a library of building blocks called **nodes**. You drag nodes onto the canvas, connect them, and configure them. Plug in an Arduino-compatible board over USB and Microflow runs your flow on it. No code, no compilation, no Arduino IDE.
+
+Six categories of node cover everything Studio can do:
+
+- **Sense** — read from the world (buttons, sensors, switches).
+- **Generate** — produce values from time, intervals, or constants.
+- **Shape** — transform values (math, smoothing, mapping).
+- **Decide** — apply logic (comparisons, gates, counters, delays).
+- **Express** — drive the world (LEDs, motors, sounds).
+- **Internal** — observe (Monitor) and document (Note) your flow.
+
+Most flows are a chain like: Sense → Shape → Decide → Express. The Generate and Internal categories slot in wherever they are useful.
+
+Studio runs **everywhere**: macOS, Windows, Linux. The Arduino runs StandardFirmata; Studio sends commands to it over USB. The runtime that executes your flow lives inside the desktop app itself, not on the Arduino.
+
+## Microflow Hardware Bridge
+
+A Figma plugin. It turns a Figma file into the screen of a real device.
+
+The Bridge does only one thing: it connects Figma variables to the outside world. When something in your flow changes a value, the Bridge can write that value into a Figma variable. When something in Figma changes a variable, the Bridge can publish that value out to anything subscribed.
+
+This is what unlocks the workflow product designers care about:
+
+> "Make my Figma prototype react to a real button press" — Studio reads the button, publishes via MQTT, the Bridge sets a variable, Figma redraws.
+
+> "Make a real LED light up when the user taps a Figma button" — the Figma prototype changes a variable, the Bridge publishes via MQTT, Studio's MQTT (Sense) node receives it and drives the LED.
+
+The Bridge does not know anything about hardware. It just speaks MQTT. Microflow Studio is what bridges the gap between MQTT and your Arduino — but anything else that publishes to MQTT (a Raspberry Pi, an ESP32, a custom script) could also drive the same Figma file.
+
+## How they fit together
+
+```
+[Arduino]  ←USB→  [Microflow Studio]  ←MQTT→  [Hardware Bridge]  ↔  [Figma]
+```
+
+The pipe between Studio and the Bridge is **MQTT**, an off-the-shelf messaging protocol. By default, both Studio and the Bridge connect to a free public MQTT broker — but you can [run your own](/docs/how-to/run-your-own-mqtt-broker) in seconds.
+
+Importantly:
+
+- **Studio works on its own.** You do not need the Bridge or Figma.
+- **The Bridge works on its own.** Anything that speaks MQTT can drive the Figma side.
+- **They are both free, open-source, and locally running** — your data does not have to leave your network.
+
+## When to use which
+
+| Project | Tool(s) |
+| --- | --- |
+| Make a thing that responds to physical inputs | Studio |
+| Prototype a smart device with no real hardware yet | Figma + Bridge |
+| Demo a connected product behaviour to a stakeholder | Studio + Bridge + Figma |
+| Run a workshop teaching electronics without code | Studio |
+| Plug your Figma prototype into a real button on a model you 3D-printed | Studio + Bridge + Figma |
+
+When you are unsure: start with Studio. The Bridge is an optional layer you can add at any point.
+
+## Where to go next
+
+- [Flows, signals, and events](/docs/concepts/flows-signals-events) — the model behind a Studio canvas.
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — what actually runs on the Arduino.
+- [Collaboration](/docs/concepts/collaboration) — how real-time multi-user editing fits in.

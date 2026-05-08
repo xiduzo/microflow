@@ -1,0 +1,42 @@
+---
+title: MQTT settings (Penpot)
+description: Configure which MQTT broker the Penpot plugin connects to.
+---
+
+The Microflow plugin for Penpot uses MQTT to receive values from Microflow Studio. The defaults work out-of-the-box on a public broker — change them only when you have a reason.
+
+## Default server
+
+Both Microflow Studio and the Penpot plugin ship pointed at a free public MQTT broker. Plug both in, and they find each other automatically.
+
+<Callout type="warn" title="Public means public">
+The default broker is shared with anyone else using Microflow. Use it for prototyping, not for sensitive data. Move to your own broker for anything you do not want third parties to be able to read.
+</Callout>
+
+## Changing the broker
+
+In Penpot, open the Microflow plugin and go to **Settings**. The fields are:
+
+| Setting | What it does |
+| --- | --- |
+| **Identifier** | A unique client name. Defaults to a generated random string — change only if you have several plugins on the same broker and need to debug them. |
+| **Host** | The broker's hostname or IP. `mqtt://localhost:1883` for a local broker. |
+| **Port** | Connection port. `1883` for plain MQTT, `8883` for MQTT over TLS, `9001` for WebSockets. |
+| **Username** | Required only if your broker is configured with auth. |
+| **Password** | Required only if your broker is configured with auth. |
+
+Make sure Microflow Studio's MQTT settings match — same host, same port, same credentials.
+
+## Running your own broker
+
+The full guide is at [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker). Mosquitto is the default pick. Both the Penpot plugin and Studio will work with any standard MQTT 3.1.1 or 5.0 broker.
+
+## Verifying the connection
+
+When the plugin connects, the status indicator turns green and shows **Connected**. If it sits on **Reconnecting** indefinitely, see [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect).
+
+## Resources
+
+- [mqtt.org](https://mqtt.org/)
+- [Mosquitto](https://mosquitto.org/)
+- [Hardware Bridge MQTT settings (Figma equivalent)](/docs/microflow-hardware-bridge/mqtt) — same wire format.

@@ -1,0 +1,73 @@
+---
+title: Flows, signals, and events
+description: The single data model that powers every Microflow flow.
+---
+
+Once you have built a couple of flows, you start to recognise patterns. This page explains the model under those patterns: what a flow *is*, what travels along its edges, and when nodes wake up to do work.
+
+## A flow is a directed graph
+
+A **flow** is the entire diagram on the Studio canvas. Each box is a **node**. Each line connecting two boxes is an **edge**. Edges go in one direction — from a node's *output* on the right to another node's *input* on the left.
+
+Cycles are allowed but rare; most flows fan out and converge again, like a tree.
+
+## Nodes are pure little machines
+
+Each node has:
+
+- **Settings** — fixed configuration (which pin? which range? which math operation?). Set in the side panel and stored as part of the flow.
+- **Inputs** — incoming edges. Most nodes have one main input, sometimes plus auxiliary ones (e.g. Function nodes have template-variable inputs).
+- **Outputs** — outgoing edges. Most nodes emit one value, but some emit several (e.g. RGB has separate red, green, and blue outputs).
+- **An update function** — runs when an input arrives. Reads the inputs and settings, computes a new output value, sends it to whatever is connected.
+
+A node has *no memory* unless explicitly defined (e.g. a [Counter](/docs/microflow-studio/nodes/decide/counter) holds a count, a [Smooth](/docs/microflow-studio/nodes/shape/smooth) holds a window of recent values). Most nodes are stateless transformations.
+
+## Values flow on **events**, not on a clock
+
+Microflow is **event-driven**. There is no global clock that ticks every X ms scanning every node. Instead:
+
+- A sense node fires when its physical input changes (e.g. button pressed) or, for analog inputs, when its value changes by enough to matter.
+- A generate node fires on its own schedule (Interval, Oscillator) or once at startup (Constant).
+- Every other node fires *only when one of its inputs changes*.
+
+When a node fires, its new output value flows down all its outgoing edges. Each downstream node fires in turn. The chain reaction stops when the last node is reached or when no node's output actually changed (a node that re-emits the same value as last time does not retrigger downstream).
+
+This has practical consequences:
+
+- **A flow with no Generate node and no Sense activity does nothing.** No timer means no events.
+- **Adding a Monitor node never affects timing.** It is a leaf — it observes but does not propagate.
+- **A loop does not block.** A node firing simply schedules its downstream nodes. There is no "while" — just causality.
+
+## Signals: digital, analog, and beyond
+
+The values flowing on edges fall into a few rough buckets:
+
+| Kind | Looks like | Examples |
+| --- | --- | --- |
+| **Digital** | `0` or `1` | Button press, switch state |
+| **Analog** | Number in a range | Potentiometer (`0`–`1023`), brightness (`0`–`255`) |
+| **Boolean** | `true` / `false` | Output of Compare, Gate, etc. |
+| **String** | text | MQTT topic data, Function node output |
+| **Object** | structured | Stepper position, RGB triple |
+
+Most nodes are forgiving — a `Compare` node will accept any number-like input. The [Function](/docs/microflow-studio/nodes/shape/function) node makes the type explicit because user code lives there.
+
+## Hot-swapping the flow
+
+You can edit a running flow. Add, remove, reconnect — the runtime catches up:
+
+- **Add a node** — it sits idle until something connects to it.
+- **Add an edge** — the upstream node's *next* output will flow through it.
+- **Remove a node** — its hardware (a pin, a buffer) is released; downstream nodes stop receiving.
+- **Change settings** — the node picks up the new config on its next event.
+
+This is why building feels iterative — you can leave the Arduino running and tweak the flow without restarting anything.
+
+## Where the runtime lives
+
+Inside Microflow Studio (a Tauri desktop app), the executor is a **Rust runtime** that translates your flow into pin operations on the connected board, manages I/O loops, and feeds events back to the UI. The Arduino itself does not know your flow exists — it just answers Firmata commands. See [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) for that side of the story.
+
+## Related
+
+- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — applying this model in practice.
+- [Glossary](/docs/concepts/glossary) — definitions of node, edge, handle, etc.

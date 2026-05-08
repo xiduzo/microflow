@@ -1,0 +1,40 @@
+---
+title: Connect a microcontroller
+description: Plug in a board, get it detected by Microflow Studio, and confirm it is running.
+---
+
+Most projects start the same way: plug in the board, wait for Microflow Studio to take over, confirm it is running. This guide walks through the four-state lifecycle, what each state means, and what to check if the board does not advance.
+
+## Steps
+
+1. **Plug the board into your computer** with a USB cable. The on-board power LED should light up.
+2. **Open Microflow Studio.** Open the project (or create a new flow) you want to run.
+3. **Watch the bottom panel.** Studio cycles the board through four states automatically:
+   - **Waiting** — looking for a board to be plugged in.
+   - **Detecting** — identifying which board it is.
+   - **Uploading** — sending [StandardFirmata](#what-is-standardfirmata) to the board (only on first connect, or after re-flashing).
+   - **Running** — your flow is live on the board.
+4. **Confirm Running.** Once the panel shows **Running**, the board is reading inputs and driving outputs as your flow describes.
+
+## What is StandardFirmata
+
+The Arduino has no idea what Microflow is. To bridge that gap, Microflow Studio uploads a small program called **StandardFirmata** the first time you connect a board. From then on, your computer can send instructions over USB ("set pin 9 to HIGH", "report me when pin 2 changes") and the board will follow them.
+
+You only see the **Uploading** state once per board. If the board behaves strangely later, you can [flash it manually](/docs/how-to/flash-firmware-manually).
+
+## Supported boards
+
+Officially supported:
+
+- Arduino Uno
+- Arduino Mega
+- Arduino Leonardo
+- Arduino Micro
+- Arduino Nano
+- Arduino Yun
+
+Other [Johnny-Five-supported boards](https://johnny-five.io/platform-support/) may work but are not guaranteed.
+
+## If detection never completes
+
+See [Board not detected](/docs/troubleshooting/board-not-detected). Common causes are missing USB drivers, a charge-only USB cable, another program holding the serial port (the Arduino IDE Serial Monitor is the usual culprit), or a board running its own custom sketch that needs to be wiped first.

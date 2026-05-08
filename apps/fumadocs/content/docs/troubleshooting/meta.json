@@ -1,0 +1,10 @@
+{
+  "title": "Troubleshooting",
+  "pages": [
+    "index",
+    "board-not-detected",
+    "pin-conflicts",
+    "flow-stops-mid-run",
+    "mqtt-cant-connect"
+  ]
+}

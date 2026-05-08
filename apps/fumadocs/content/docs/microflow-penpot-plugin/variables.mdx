@@ -1,0 +1,70 @@
+---
+title: Variables (design tokens) in Penpot
+description: Connect Penpot design tokens to Microflow Studio flow values.
+---
+
+Where Figma has *variables*, Penpot has *design tokens*. The Microflow plugin treats them the same: a Penpot token can be driven by a Microflow Studio flow value, and any layer or property bound to that token updates live.
+
+## What works today
+
+- **Hardware → Penpot** (publishing updates) — Microflow Studio publishes a value, the plugin writes it into a design token.
+- **Number, boolean, and string token types** — the plugin matches the value type to the token's expected type.
+
+## What is *not* yet supported
+
+<Callout type="warn" title="Work in progress">
+The Penpot plugin is experimental. The following features are not yet available:
+
+- **Numerical values as variables for text** — text layers cannot currently be bound to numeric tokens through the plugin.
+- **Updating tokens from a running prototype** — Penpot prototype interactions cannot trigger MQTT publishes back to hardware. (The Figma Bridge supports this; the Penpot side does not yet.)
+
+Track progress on the [GitHub repository](https://github.com/xiduzo/microflow-t-stack).
+</Callout>
+
+## Setup
+
+### 1. Create a design token in Penpot
+
+In Penpot, open the design tokens panel and create a new token. Pick the type matching what you want to drive:
+
+| Studio sense node | Token type |
+| --- | --- |
+| Button, Switch, Motion (digital) | Boolean *or* Number |
+| Potentiometer, LDR, Sensor (analog) | Number |
+| Function node returning text | String |
+
+Name it clearly — e.g. `light_level` — and bind it to a layer property so you can see the change.
+
+### 2. Open the plugin's Variables page
+
+Run the Microflow plugin in Penpot. Navigate to the **Variables** tab. The plugin lists tokens detected in the file along with their MQTT subscription state.
+
+### 3. Publish from Microflow Studio
+
+In your Studio flow, add an [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node and connect a sense node's output to it. Set the **topic** to `figma/<token-name>`.
+
+<Callout type="info" title="The topic prefix is `figma/` even for Penpot">
+The Penpot plugin uses the same MQTT topic format as the Figma Bridge so flows can drive either tool. Use `figma/<token-name>` regardless of which design tool is on the other end.
+</Callout>
+
+### 4. Watch the token update
+
+Trigger the sense node (twist a knob, press a button). The token's value updates and any layer bound to it redraws.
+
+## Type conversions
+
+If your hardware emits an analog range and the token expects a 0–1 fraction, insert a [Map](/docs/microflow-studio/nodes/shape/map) node in Studio:
+
+- **From min** = `0`, **From max** = `1023` (raw analog range)
+- **To min** = `0`, **To max** = `1` (token range)
+
+For string tokens, use a [Function](/docs/microflow-studio/nodes/shape/function) node to format.
+
+## Verifying
+
+Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) on the MQTT node's input in Studio. Values should be flowing. If they are flowing and the token is *not* updating, the plugin probably has not picked up the new token name — refresh the plugin's Variables page.
+
+## Related
+
+- [Variables in the Figma Bridge](/docs/microflow-hardware-bridge/variables) — feature-complete equivalent.
+- [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma) — same flow shape, applies here.

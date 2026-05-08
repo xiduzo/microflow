@@ -1,0 +1,60 @@
+---
+title: Flow stops mid-run
+description: The flow worked, then values stopped. Causes and recovery.
+---
+
+A flow that ran fine for a while suddenly stops responding — Monitors freeze, hardware sits still, but the connection panel still says **Running**. This is rare but worth diagnosing carefully because the cause varies.
+
+## Step 1 — Distinguish "frozen" from "still running but boring"
+
+Before assuming the flow froze, make sure something *should* have changed.
+
+- Does the flow have a [Generate](/docs/microflow-studio/nodes/generate) node (Interval, Oscillator, Trigger, Constant)? If not, the only way values flow is when a Sense input changes — and your sensor may simply not be producing new data.
+- Push a button, twist a knob, breathe on a temperature sensor. If a Monitor reacts, the flow is fine.
+
+## Step 2 — Check the connection state
+
+In the bottom panel, what does the state say?
+
+- **Running** — the connection is still live.
+- **Disconnected** or back to **Waiting** — the USB connection dropped. Re-plug the board; Studio will reconnect automatically.
+
+USB drops happen with marginal cables, USB hubs, or when something on your computer aggressively suspends devices.
+
+## Step 3 — A specific node hung
+
+The most common cause of a flow that stops in the middle is a [Function](/docs/microflow-studio/nodes/shape/function) node whose user code has an issue. The runtime guards against infinite loops (10,000 iteration cap), but slow code can still stall a chain.
+
+- Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) just *before* and just *after* every Function node.
+- If a Function's input changes but its output never updates, the code inside is the suspect. Look for: large recursive operations, loops over big arrays, accidental string operations on huge data.
+
+If a Function node throws an error, the runtime emits the *last successfully computed value* — so a node may appear to be working when it is actually emitting stale data. Check the Studio console for error messages.
+
+## Step 4 — A Stepper or Servo blocking
+
+Stepper motors with high acceleration or large step counts take real time. While they are moving, the flow does not stop, but a *new* command sent to the same Stepper while it is already moving may be queued or dropped depending on the driver. If a Stepper appears to ignore commands, wait for the previous motion to finish.
+
+## Step 5 — Restart the connection
+
+If nothing else explains it:
+
+1. In the connection panel, click **Disconnect**.
+2. Click **Connect** again.
+3. The board re-detects, re-flashes if needed, and the flow resumes.
+
+This rebuilds the entire runtime graph and clears any stale state.
+
+## Step 6 — Restart Studio
+
+If the connection won't recover:
+
+1. Quit Microflow Studio entirely.
+2. Unplug the board, count to five, plug it back in.
+3. Re-open Studio and the flow.
+
+This is the nuclear option but always works for a wedged runtime. If you have to do this often, that is a bug — please [report it](https://github.com/xiduzo/microflow-t-stack/issues) with details.
+
+## Related
+
+- [Pin conflicts](/docs/troubleshooting/pin-conflicts) — also a cause of "this node does nothing".
+- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — the bisection method.

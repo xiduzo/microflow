@@ -1,4 +1,10 @@
 {
   "title": "Contributing",
-  "pages": ["how-to", "nodes"]
+  "pages": [
+    "index",
+    "report-bug-or-request",
+    "build-from-source",
+    "adding-a-node",
+    "docs-style-guide"
+  ]
 }

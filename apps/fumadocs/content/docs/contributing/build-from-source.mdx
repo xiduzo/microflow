@@ -1,0 +1,103 @@
+---
+title: Build Microflow from source
+description: Set up the dev environment so you can run Microflow Studio locally and modify it.
+---
+
+If you want to fix bugs, add nodes, or just see how Microflow works, build it from source. The whole project is a [Bun](https://bun.sh) + [Turborepo](https://turbo.build) monorepo.
+
+## Prerequisites
+
+- **Bun** ≥ 1.3 — the package manager and runtime. [Install Bun](https://bun.sh).
+- **Rust** stable, installed via [rustup](https://rustup.rs/) — the desktop runtime is Tauri / Rust.
+- **Node.js** is *not* needed; everything runs through Bun.
+- **Docker** — used for the local PostgreSQL instance behind the collaboration server.
+- **The Tauri prerequisites** for your OS: see [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/).
+
+## Clone and install
+
+```sh
+git clone https://github.com/xiduzo/microflow-t-stack.git
+cd microflow-t-stack
+bun install
+```
+
+`bun install` resolves the entire workspace (apps + packages) in one go.
+
+## The repo layout
+
+```
+apps/
+├── web/             Studio: React frontend + Tauri (Rust) runtime
+├── server/          Hono + tRPC API server (collaboration, persistence)
+├── figma-plugin/    Microflow Hardware Bridge
+├── penpot-plugin/   Penpot equivalent (work in progress)
+└── fumadocs/        These docs (Next.js + Fumadocs)
+
+packages/
+├── api/             tRPC router definitions
+├── auth/            Better Auth config
+├── collab/          Yjs document, sync provider, server room
+├── db/              Drizzle schema, migrations
+├── env/             Type-safe environment variables
+├── mqtt/            Shared MQTT client utilities
+└── config/          Shared TypeScript and lint config
+```
+
+The Studio runtime that runs your flows lives in `apps/web/src-tauri/src/runtime/` (Rust). The flow editor UI lives in `apps/web/src/components/flow/` (React + React Flow).
+
+## Set up the database
+
+The collaboration server needs PostgreSQL. The repo ships a Docker Compose config:
+
+```sh
+bun run db:start     # starts a local Postgres container
+bun run db:push      # applies the schema (Drizzle)
+```
+
+Stop with `bun run db:stop` when you are done.
+
+## Run everything
+
+```sh
+bun run dev
+```
+
+This starts every dev server in parallel using Turborepo:
+
+- Web frontend
+- Tauri desktop wrapper (Studio)
+- Hono API + collaboration WebSocket server
+- Fumadocs site (these docs)
+- Figma plugin builder
+
+You can also start a single piece:
+
+```sh
+bun run dev:web      # only the Studio frontend
+bun run dev:server   # only the API server
+bun run dev:native   # only the Tauri desktop shell
+```
+
+## Type-check and lint
+
+```sh
+bun run check-types   # tsc -b across the whole repo
+bun run check         # oxlint + oxfmt
+```
+
+Both are run automatically by Turborepo's pipeline; running them manually is faster when you only changed a few files.
+
+## Common gotchas
+
+- **Tauri build fails on first run** — usually a missing system dependency. Re-read the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS.
+- **`bun install` is fast but quiet** — if a package has issues, errors appear at the very bottom of the output. Scroll up.
+- **The web app cannot find a workspace package** — restart Turbo's daemon: `turbo daemon stop`. Cache invalidation occasionally trips on workspace changes.
+
+## Where to read first
+
+If you have never touched the codebase before:
+
+- `apps/web/src-tauri/src/runtime/mod.rs` — the runtime entry point.
+- `apps/web/src/components/flow/nodes/` — every node has a `.tsx` (UI) + `.schema.ts` (validation).
+- `apps/web/node-components.json` — the single source of truth that lists every node.
+- `packages/collab/src/schema.ts` — the Yjs flow document model.

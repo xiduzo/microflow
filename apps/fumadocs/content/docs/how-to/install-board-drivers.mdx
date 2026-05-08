@@ -1,0 +1,39 @@
+---
+title: Install board drivers
+description: Install USB-to-serial drivers so your computer can talk to the Arduino.
+---
+
+Some Arduino-compatible boards — especially cheap clones — use a USB-to-serial chip that your operating system does not recognise out of the box. If Microflow Studio cannot detect a board you know is plugged in, the cause is almost always a missing driver.
+
+## How to tell if you need a driver
+
+1. With the board plugged in, open your operating system's device list:
+   - **Windows** — *Device Manager* → *Ports (COM & LPT)*.
+   - **macOS** — `System Information` → *USB*.
+   - **Linux** — `ls /dev/tty*` in a terminal before and after plugging in.
+2. If the board does not show up, or shows up with a yellow warning icon, you need a driver.
+
+## Common chips and where to get the driver
+
+| Chip on the board | Common boards | Driver |
+| --- | --- | --- |
+| ATmega16U2 | Genuine Arduino Uno R3 | Bundled with the Arduino IDE |
+| FTDI FT232 | Older Arduino Nanos | [FTDI VCP drivers](https://ftdichip.com/drivers/vcp-drivers/) |
+| CH340 / CH341 | Most Nano clones, generic Uno clones | [CH340 driver](https://www.wch.cn/downloads/CH341SER_EXE.html) |
+| CP210x | NodeMCU, some ESP boards | [Silicon Labs CP210x VCP](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
+
+When you do not know which chip your board uses, install the **CH340** driver first — it is the most common on clones.
+
+## Steps
+
+1. Download the right driver for your operating system.
+2. Close Microflow Studio if it is open.
+3. Run the installer.
+4. Restart your computer (Windows) or unplug and re-plug the board (macOS, Linux).
+5. Re-open Microflow Studio and reconnect the board.
+
+## Verify it worked
+
+Open the device list again. The board should now appear with a clear name (e.g. *USB-SERIAL CH340 (COM3)*).
+
+If Microflow Studio still cannot detect the board, see [Board not detected](/docs/troubleshooting/board-not-detected).

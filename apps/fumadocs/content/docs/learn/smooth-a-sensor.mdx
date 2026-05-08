@@ -1,0 +1,58 @@
+---
+title: Smooth a noisy sensor
+description: Use shape nodes to clean up jumpy readings before they reach an output.
+---
+
+Plug a sensor into a Monitor node and you will see it: even when nothing changes, the readings flicker. This is normal — analog inputs always carry some electrical noise. In this lesson you will *see* the noise, then *remove* it.
+
+## What you need
+
+- The setup from the [previous lesson](/docs/learn/fade-with-potentiometer): potentiometer on `A0`, LED on pin `9`.
+
+## Step 1 — See the noise
+
+In your flow, drag a [**Monitor**](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas and connect the Potentiometer's output to it.
+
+Hold the knob completely still. The Monitor should show a value that twitches by 1–3 every reading even though you are not touching the pot. That is sensor noise.
+
+For an LED that does not matter much. For things like motor speed, audio thresholds, or data sent to other software, noise can cause real problems.
+
+## Step 2 — Add a Smooth node
+
+Insert a [**Smooth**](/docs/microflow-studio/nodes/shape/smooth) node between the Potentiometer and the Map node.
+
+Connect: Potentiometer → Smooth → Map → LED. Also keep the Monitor on the Potentiometer so you can compare.
+
+In the Smooth node settings:
+
+- **Window** = `10` — the number of recent readings to average
+
+Add a second Monitor and connect it to the Smooth node's output. You should see the smoothed reading change much less when you hold the knob still — and lag slightly when you move the knob fast.
+
+## Step 3 — Tune the trade-off
+
+Smoothing is always a trade-off:
+
+- **Bigger window** → less noise, more lag.
+- **Smaller window** → more noise, more responsive.
+
+Try `5`, `20`, `50`. Watch how the Monitor value behaves and how the LED feels when you twist the knob.
+
+## What just happened?
+
+You learned three things at once:
+
+- Shape nodes do not change *what* a flow does; they change *how* values look on the way through.
+- Smoothing is a recipe — there is no "right" answer, only a choice that fits your project.
+- The Monitor node is your best debugging tool. Place it before and after a node to see exactly what it is doing.
+
+If you find yourself fighting noise often, also look at:
+
+- [Calculate](/docs/microflow-studio/nodes/shape/calculate) — for math operations.
+- [Function](/docs/microflow-studio/nodes/shape/function) — for custom JavaScript when nothing else fits.
+
+## Going further
+
+Your flow is fully self-contained. The next lesson breaks out of the desktop app and pushes a real sensor reading into Figma.
+
+→ [Link a sensor to Figma](/docs/learn/link-to-figma)

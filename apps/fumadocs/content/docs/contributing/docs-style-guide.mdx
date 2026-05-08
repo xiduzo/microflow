@@ -1,0 +1,201 @@
+---
+title: Documentation style guide
+description: Templates and conventions for the Microflow docs.
+---
+
+These docs follow the [Diátaxis](https://diataxis.fr/) framework. Each page is one of four types — **Tutorial**, **How-to**, **Reference**, or **Explanation** — and each type has its own job.
+
+When in doubt, ask yourself: is this page teaching, problem-solving, listing facts, or explaining? The answer tells you which template to use.
+
+## File layout
+
+```
+apps/fumadocs/content/docs/
+├── learn/                  Tutorials  (learning-oriented)
+├── how-to/                 How-to     (problem-oriented)
+├── microflow-studio/       Reference  (info-oriented, Studio)
+├── microflow-hardware-bridge/  Reference (info-oriented, Bridge)
+├── concepts/               Explanation (understanding-oriented)
+├── troubleshooting/        How-to (symptom-oriented)
+└── contributing/           Mixed (project meta)
+```
+
+Every directory needs a `meta.json` that lists pages in nav order:
+
+```json
+{
+  "title": "Section title",
+  "pages": ["index", "page-a", "page-b"]
+}
+```
+
+Every page needs frontmatter:
+
+```mdx
+---
+title: Page title
+description: One sentence that shows up in cards and search results.
+---
+```
+
+## Templates by document type
+
+### Tutorial template
+
+Goal: a beginner *learns* by doing. End state: the reader has built or done a working thing.
+
+```mdx
+---
+title: <verb-led, "Build a thing">
+description: <one-sentence promise of the outcome>
+---
+
+<one paragraph: what you'll have at the end>
+
+## What you need
+<bullet list>
+
+## Step 1 — <action>
+<concrete instruction; tell them what to type / drag>
+
+## Step 2 — <action>
+...
+
+## What just happened?
+<short conceptual debrief — connect to bigger picture>
+
+## Next up
+→ <link to next tutorial>
+```
+
+Use `Step N — Verb` headings. Promise success at every step.
+
+### How-to template
+
+Goal: a competent reader needs to *get something done*.
+
+```mdx
+---
+title: <verb-led, "Do specific thing">
+description: <one-sentence problem statement and approach>
+---
+
+<one paragraph: what this guide solves and when to use it>
+
+## When you need it
+<symptoms — bullet list>
+
+## Steps
+1. <action>
+2. <action>
+3. <verify>
+
+## Verify it worked
+<a check the reader can run>
+
+## Related
+- <link to reference>
+- <link to concept>
+```
+
+Skip explanation; assume background knowledge. Be terse.
+
+### Reference template (node pages)
+
+Goal: a reader needs to *look up an answer about a specific node*.
+
+```mdx
+---
+title: <NodeName>
+description: <one-sentence: what the node does>
+---
+
+<one paragraph: what the node is for, with example use cases>
+
+## Inputs
+<bullet list of input handles, what they accept>
+
+## Outputs
+<bullet list of output handles, what they emit>
+
+## Settings
+- **Setting name** — what it does, accepted values, default
+
+## Wiring
+<table OR diagram: only if hardware is involved>
+
+## Tips
+<short notes about pitfalls; optional>
+
+## Resources
+<links to upstream protocol docs / external references>
+```
+
+Order matters: Inputs, Outputs, Settings, Wiring, Tips, Resources. Skip sections that do not apply.
+
+### Concept (explanation) template
+
+Goal: a curious reader wants to *understand*.
+
+```mdx
+---
+title: <noun phrase>
+description: <one-sentence summary of the idea>
+---
+
+<opening: framing question or scenario>
+
+## <First subhead>
+<prose, ~3 paragraphs>
+
+## <Second subhead>
+<prose>
+
+...
+
+## Related
+- <links to reference and how-to>
+```
+
+Concepts can be longer (1–2 thousand words). Discursive style is fine. The voice is "essay", not "checklist".
+
+## Voice and tone
+
+- **Friendly, not formal.** Address the reader as *you*. Avoid corporate boilerplate.
+- **Direct.** "Click X" beats "you may wish to consider clicking X".
+- **No hedging unless real.** "Sometimes a board needs a driver" is fine; "it might possibly perhaps require" is not.
+- **No emoji** unless asked.
+- **No "AI" voice.** Avoid "let's", "in this guide we", "it is worth noting that".
+
+## Code samples
+
+- TypeScript and Rust samples should be syntactically correct and copy-pasteable.
+- Use `sh` for shell, `ts` for TypeScript, `rust` for Rust.
+- Example values should be sensible (not `foo`/`bar` — use realistic names like `light_level`).
+
+## Cross-linking
+
+Every page should link to:
+
+- **Up** — the section index (`/docs/learn`, `/docs/how-to`, etc.).
+- **Across** — at least one Related link to a sibling page.
+- **Down** — to specific reference pages when mentioning a node by name.
+
+Wherever you mention a node, link to its reference page using `[NodeName](/docs/microflow-studio/nodes/<category>/<name>)`.
+
+## When to add a new page
+
+- **A reader could solve a real problem with it.** New how-to.
+- **A reader might want to learn the concept once.** New concept page.
+- **A reader needs to look up specific facts.** New reference entry (if it is a new node, add it; otherwise extend an existing page).
+- **It is something only a contributor needs.** Put it under `contributing/`.
+
+## When *not* to add a new page
+
+- Internal architecture notes — keep those in the repo's `docs/` folder, not in user-facing docs.
+- Things that change often — link to GitHub or external docs instead of duplicating.
+- One-off announcements — use the GitHub release notes.
+
+## Publishing
+
+Docs are part of the same repo, so a docs change is a regular pull request. Run `bun run dev` to preview locally before sending it.

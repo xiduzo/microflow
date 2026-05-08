@@ -1,0 +1,16 @@
+{
+  "title": "How-to guides",
+  "pages": [
+    "index",
+    "connect-a-microcontroller",
+    "install-board-drivers",
+    "flash-firmware-manually",
+    "wire-an-h-bridge",
+    "debounce-a-button",
+    "run-your-own-mqtt-broker",
+    "send-a-sensor-to-figma",
+    "control-hardware-from-figma",
+    "debug-with-monitor-node",
+    "collaborate-on-a-flow"
+  ]
+}

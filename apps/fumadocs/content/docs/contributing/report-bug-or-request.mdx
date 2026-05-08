@@ -1,0 +1,44 @@
+---
+title: Report a bug or request a feature
+description: How to file useful issues that get acted on quickly.
+---
+
+The fastest help anyone can give Microflow is a clear bug report or a well-described feature request. This page tells you what makes one *clear*.
+
+## Found a bug?
+
+1. **Search existing issues first.** Someone may have already reported it: [search the issue tracker](https://github.com/xiduzo/microflow-t-stack/issues).
+2. **If it is new, [open a bug report](https://github.com/xiduzo/microflow-t-stack/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=).** Include the items below.
+3. **Add a comment if you find more info.** Even a "still happens on version X" helps.
+
+A good bug report tells the maintainer four things:
+
+- **What you did.** The exact steps. "I built this flow and pressed this button."
+- **What you expected.** The behaviour you anticipated.
+- **What actually happened.** Screenshots, log output, or short videos help.
+- **Your environment.** OS, Microflow Studio version, board model.
+
+The shorter the steps to reproduce, the faster the fix.
+
+## Want a new feature?
+
+[Open a feature request issue](https://github.com/xiduzo/microflow-t-stack/issues/new?assignees=&labels=&projects=&template=feature_request.md&title=). Describe:
+
+- **The problem.** What were you trying to do that Microflow does not currently support?
+- **What you have tried.** A workaround or a near-miss with existing nodes.
+- **Why it matters.** Who else benefits if this lands?
+
+You do not need to know how to build it. A clear "what" and "why" is enough — solutions can come later.
+
+## Want to fix it yourself?
+
+If you have a fix in mind, you are welcome to [send a pull request](https://github.com/xiduzo/microflow-t-stack/pulls). For non-trivial changes:
+
+1. Open an issue first to discuss the approach.
+2. Read [Build Microflow from source](/docs/contributing/build-from-source) so you can run the project locally.
+3. If you are adding a node, follow [Add a new node](/docs/contributing/adding-a-node).
+4. Match the existing code style — there's no hard rulebook, just a "leave it as you'd want to find it" principle.
+
+## Want to improve the docs?
+
+Doc sources are MDX files in `apps/fumadocs/content/docs/`. The [docs style guide](/docs/contributing/docs-style-guide) covers conventions. Send a PR or open an issue describing what's missing.

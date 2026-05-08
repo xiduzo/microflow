@@ -1,0 +1,72 @@
+---
+title: Fade an LED with a potentiometer
+description: Read an analog sensor and use its full range to control LED brightness.
+---
+
+So far values have been on or off. A potentiometer (a "pot") gives you something richer: a value that smoothly slides between two extremes as you twist the knob. In this lesson, twisting the knob makes an LED grow brighter or dimmer.
+
+## What you need
+
+- A standard 10kΩ rotary potentiometer (three legs)
+- An LED and a 220Ω resistor
+- A breadboard and jumper wires
+- An Arduino and Microflow Studio
+
+## Step 1 — Wire the potentiometer
+
+A pot has three legs: two outer legs and a middle "wiper". The outer legs go to power and ground, the wiper reports a voltage between them.
+
+| Connection | From | To |
+| --- | --- | --- |
+| Power | Arduino 5V | One outer leg of the pot |
+| Ground | Arduino GND | The other outer leg of the pot |
+| Signal | Middle (wiper) leg of the pot | Arduino **A0** (an analog pin) |
+
+## Step 2 — Wire the LED
+
+The LED needs to be on a **PWM** pin so we can dim it. On an Uno, PWM pins are marked with a `~` (3, 5, 6, 9, 10, 11).
+
+| Connection | From | To |
+| --- | --- | --- |
+| Signal | Arduino pin 9 | 220Ω resistor → long leg of the LED |
+| Ground | Short leg of the LED | Arduino GND |
+
+## Step 3 — Build the flow
+
+In a new flow, add:
+
+1. A [**Potentiometer**](/docs/microflow-studio/nodes/sense/potentiometer) node — set its pin to `A0`.
+2. A [**Map**](/docs/microflow-studio/nodes/shape/map) node.
+3. An [**LED**](/docs/microflow-studio/nodes/express/led) node — set **Pin** to `9`.
+4. Connect Potentiometer → Map → LED.
+
+The Potentiometer outputs a number from `0` to `1023`. The LED expects a brightness from `0` to `255`. The Map node converts between them.
+
+In the Map node settings:
+
+- **From min** = `0`
+- **From max** = `1023`
+- **To min** = `0`
+- **To max** = `255`
+
+## Step 4 — Try it
+
+Twist the knob. The LED should fade smoothly between off and full brightness.
+
+If the brightness only changes in big jumps, your wiper might be on the wrong leg — try a different middle pin. If it stays dark or stays full-bright, double-check ground and 5V are not swapped on the outer legs.
+
+## What just happened?
+
+Three categories of node now appear in your flow:
+
+- **Sense** (Potentiometer) — read a real-world signal
+- **Shape** (Map) — transform a value into the right range
+- **Express** (LED) — produce a real-world effect
+
+Map's job is small but constant: it turns a number from one range (`0–1023`) into another (`0–255`). You will reach for it again whenever a sensor's "natural" range does not match what the next node expects.
+
+## Going further
+
+Real sensors are noisy. The raw value bounces around even when the knob is still. The next lesson shows you how to clean that up.
+
+→ [Smooth a noisy sensor](/docs/learn/smooth-a-sensor)

@@ -1,0 +1,75 @@
+---
+title: The microcontroller bridge
+description: What actually happens between your flow and an Arduino — the protocol, the pins, the trade-offs.
+---
+
+You drag a Button node onto the canvas, type `2` into a settings field, and a real button on pin 2 starts working. This page explains the layers under that magic — useful context when something does not work the way you expect.
+
+## The Arduino does not know about Microflow
+
+Your flow does not get compiled and uploaded to the board. Instead, Microflow uploads a small generic program once — **StandardFirmata** — and from then on, the desktop app sends short instructions to the board over USB:
+
+- *"Set pin 13 to OUTPUT mode."*
+- *"Write HIGH to pin 13."*
+- *"Start reporting changes on pin 2."*
+- *"Read analog pin A0 every 19 ms."*
+
+These instructions follow the [Firmata protocol](https://github.com/firmata/protocol) — a thin, well-documented standard for talking to microcontrollers. Whatever you build in Microflow ends up as a sequence of Firmata commands.
+
+This has three big consequences:
+
+### 1. The board is interchangeable
+
+Any board running StandardFirmata is fungible. Swap an Uno for a Mega and Microflow notices the higher pin count and lets you use the new pins. Nothing about your flow changes.
+
+It also means anything that runs StandardFirmata can in principle work — [johnny-five.io's platform list](https://johnny-five.io/platform-support/) tells you what has been tested.
+
+### 2. The board is not autonomous
+
+Pull the USB cable and the board stops responding to your flow. The "logic" lives in your computer; the board is a remote-controlled bag of pins. This is the right trade-off for prototyping — you can change behaviour at the speed of dragging a node — but it is *not* the right trade-off for shipping a product into the world.
+
+If you reach the stage where you want a project to run untethered, the standard path is: keep prototyping in Microflow, then port the final logic into a regular Arduino sketch when you are ready to commit.
+
+### 3. The latency model is "fast enough for prototyping"
+
+USB round-trip times are ~1–2 ms on a modern computer. That is far faster than any human can perceive but slower than what you need for tight closed-loop control (motor servoing, audio, anything that needs sub-millisecond response). For UI-feeling behaviour — light up an LED when I press a button, fade based on a knob — it is invisible.
+
+## What runs *inside* Microflow Studio
+
+Studio is built with [Tauri](https://tauri.app), so the same desktop app is part React (UI) and part Rust (everything else). The Rust runtime does the heavy lifting:
+
+- Parses your flow into a graph of components.
+- Opens the serial port and speaks Firmata to the board.
+- Routes input events from pins to whichever nodes are listening.
+- Schedules generators (Interval, Oscillator).
+- Runs the [Function](/docs/microflow-studio/nodes/shape/function) node's user-written JavaScript inside an embedded engine — no network round-trip needed.
+
+When you edit a flow on the canvas, the React side serialises the change, the Rust side reconciles it against the running graph, and the board's pin state is updated. You can do this while the flow is running.
+
+## Pin modes — why pin 13 just works for LED but not for a servo
+
+The Firmata protocol defines a pin "mode" — `INPUT`, `OUTPUT`, `INPUT_PULLUP`, `ANALOG`, `PWM`, `SERVO`, etc. Each Microflow node sets its pin to the right mode the moment it starts. This is why:
+
+- **The built-in LED on pin 13 just works** — `OUTPUT` is straightforward.
+- **A servo on pin 9 works because pin 9 supports PWM** — try pin 7 (no PWM) and the [Servo](/docs/microflow-studio/nodes/express/servo) node will not be able to drive it smoothly.
+- **A button on pin A0 works as a digital input** — analog pins can be used digitally on most boards.
+
+If you change the pin number on a node, the old pin is released and the new pin is acquired in its new mode. This "hot-swap" is fragile: if you have two nodes claiming the same pin, only the most-recently configured one wins. See [Pin conflicts](/docs/troubleshooting/pin-conflicts).
+
+## I2C, SPI, and other buses
+
+I2C support is *being implemented*. The [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) node ships in the canvas but is documented as work-in-progress. SPI is not currently exposed.
+
+For now, the supported I/O surface is:
+
+- Digital pins (read and write).
+- Analog input pins.
+- PWM-capable digital pins (analog output / fading / servo).
+- Tone output (Piezo).
+- AccelStepper — step/direction or H-bridge stepper drivers.
+
+## Related
+
+- [Connect a microcontroller](/docs/how-to/connect-a-microcontroller) — the user-facing flow.
+- [Pin conflicts](/docs/troubleshooting/pin-conflicts) — what happens when two nodes claim the same pin.
+- [Flash firmware manually](/docs/how-to/flash-firmware-manually) — re-uploading StandardFirmata.

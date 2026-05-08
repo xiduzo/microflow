@@ -1,0 +1,49 @@
+---
+title: Debounce a button
+description: Stop a single button press from being read as several presses.
+---
+
+Mechanical buttons do not switch cleanly. When you press one, the contacts inside it bounce against each other for a few milliseconds before settling. The Arduino reads each bounce as a separate event — so one press becomes "press, release, press, release, press" all in a heartbeat.
+
+This is called **bouncing**, and the fix is **debouncing**.
+
+## When you need it
+
+- A button is supposed to advance a counter by 1, but jumps by 2 or 3.
+- A toggle (e.g. with a [Counter](/docs/microflow-studio/nodes/decide/counter) node) flips back and forth too fast.
+- A motion or vibration sensor fires bursts of events for a single physical event.
+
+You will *not* need this for analog sensors (potentiometers, light sensors) — they have a different problem (noise) which the [Smooth](/docs/microflow-studio/nodes/shape/smooth) node handles.
+
+## Method 1 — A Delay node with debounce
+
+The [Delay](/docs/microflow-studio/nodes/decide/delay) node has a `Debounce` setting. When enabled, the timer **resets every time a new value arrives** and only fires when no new value has arrived for the full duration.
+
+Setup:
+
+1. Sense node (Button or other) → Delay node → next node.
+2. In the Delay node settings, set:
+   - **Duration** — `30` ms is plenty for a typical push-button. `200` ms for a vibration sensor.
+   - **Debounce** — enabled.
+
+Now: press the button, the Delay sees five rapid changes from bouncing contacts, the timer resets each time, and only after 30 ms of stillness does it pass the value through. The downstream node sees one clean event.
+
+## Method 2 — Counter with `delay` reset
+
+If you actually want to *count* button presses but ignore bounces, the [Counter](/docs/microflow-studio/nodes/decide/counter) node has a `delay` setting that ignores increment events that arrive too soon after the previous one. Use this when you want the counting itself to be debounce-aware.
+
+## Picking a duration
+
+| Component | Typical debounce |
+| --- | --- |
+| Push-button | 20–50 ms |
+| Toggle switch | 10–30 ms |
+| Reed switch | 5–20 ms |
+| Vibration sensor (taps) | 100–300 ms |
+| PIR motion sensor | already handled internally — usually no debounce needed |
+
+Start short and increase only if you still see double-fires. Long debounce times make a button feel sluggish.
+
+## Verify it worked
+
+Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node *before* and *after* the Delay. Press the button. The "before" Monitor will flicker a few times; the "after" Monitor will tick once.

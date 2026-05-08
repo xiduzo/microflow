@@ -104,3 +104,9 @@ return ensureRange(input, {{min}}, {{max}});
 ## Runtime
 
 On the desktop app, user code executes in an embedded JavaScript engine (boa) inside the Rust process — there are no network round-trips. A loop iteration limit of 10,000 prevents infinite loops from freezing the runtime. If your code throws an error, the node emits the last successfully computed value so the rest of the flow keeps running.
+
+## Related
+
+- How-to: [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma) — uses Function to format values for Figma variables.
+- Concept: [Flows, signals, and events](/docs/concepts/flows-signals-events) — when Function nodes are evaluated.
+- Troubleshooting: [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run) — Function code is the most common cause.

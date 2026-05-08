@@ -1,0 +1,64 @@
+---
+title: MQTT can't connect
+description: Studio or the Hardware Bridge sits at "Reconnecting" and never lights up green.
+---
+
+If the MQTT connection between Microflow Studio and the Hardware Bridge is not coming up — values aren't arriving, the Bridge plugin says *Reconnecting* — work through these checks.
+
+## 1. Are both pointed at the same broker?
+
+The single most common cause: Studio is on the default public broker and the Bridge is on a custom broker (or vice versa).
+
+- In **Microflow Studio**, open *Configuration → MQTT*. Note the broker URL.
+- In the **Hardware Bridge** plugin (gear icon), note its broker URL.
+
+They must match exactly, including the protocol (`mqtt://` vs `mqtts://`) and the port.
+
+## 2. Are credentials matched?
+
+If the broker requires authentication, both Studio and the Bridge need the same username and password. A small typo is enough to fail silently — most brokers do not surface "wrong password" as a user-visible error.
+
+## 3. Is the broker reachable?
+
+For the **default public broker**: it is occasionally unstable or rate-limited. If you suspect this, try connecting to it from another tool:
+
+```sh
+mosquitto_sub -h <default-broker-host> -t test
+```
+
+If that hangs or errors, the broker is the problem. Wait, or [run your own](/docs/how-to/run-your-own-mqtt-broker).
+
+For a **self-hosted broker**:
+
+- Is the broker process actually running? `ps aux | grep mosquitto` (Linux/macOS).
+- Is the host reachable? `ping <broker-host>` from each machine.
+- Is the port open? `nc -zv <broker-host> 1883`. A firewall rule on the broker's machine commonly blocks port 1883.
+
+## 4. Is your network blocking outgoing MQTT?
+
+Many corporate or institutional networks block outbound connections on ports other than 80/443. Both `1883` (MQTT) and `8883` (MQTT over TLS) are commonly blocked.
+
+- Try the connection from your phone's hotspot. If it works there but not on Wi-Fi, the network is blocking it.
+- Workarounds: use a broker that supports MQTT over WebSocket (port 80/443), or run a local broker on the same machine.
+
+## 5. Is one side stuck on stale state?
+
+Restart in this order:
+
+1. Quit and reopen the **Hardware Bridge** plugin in Figma.
+2. In Studio, open *Configuration → MQTT*, click **Reconnect**.
+3. If still failing, quit Studio entirely and re-open.
+
+## 6. Topic names
+
+If the connection itself is fine but values do not arrive, the topic names probably do not match. Microflow's Bridge listens on the `figma/` prefix.
+
+- Studio's MQTT (Express) node should publish on `figma/<variable-name>`.
+- The Figma variable must have *exactly the same name* as the suffix.
+- Topic names are case-sensitive: `figma/Light` and `figma/light` are different topics.
+
+## Related
+
+- [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)
+- [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma)
+- [Hardware Bridge MQTT settings](/docs/microflow-hardware-bridge/mqtt)

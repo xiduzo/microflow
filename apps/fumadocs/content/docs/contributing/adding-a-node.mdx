@@ -1,0 +1,205 @@
+---
+title: Add a new node
+description: Walkthrough for adding a brand-new node to Microflow Studio — runtime, frontend, and registry.
+---
+
+Adding a node touches three places: the **runtime** (Rust, where it executes), the **frontend** (React, where the user configures it), and the **registry** (a JSON file that stitches the two together). This page walks you through each.
+
+You should already have the dev environment running — see [Build from source](/docs/contributing/build-from-source).
+
+## The big picture
+
+```
+node-components.json              ← single source of truth (UI ↔ runtime mapping)
+        │
+        ├── frontend (React + Zod schema)        — apps/web/src/components/flow/nodes/<name>/
+        │     ├── <name>.tsx              UI component
+        │     └── <name>.schema.ts        Zod schema for data + value
+        │
+        └── runtime (Rust)                         — apps/web/src-tauri/src/runtime/<category>/<name>.rs
+              implements the Component trait
+```
+
+The two sides never call each other directly — they communicate through the Yjs document and the runtime event channel.
+
+For this walkthrough, we will add a hypothetical `Sparkle` node that emits a random number between two bounds whenever it receives an input.
+
+## Step 1 — Pick a category
+
+Every node belongs to one of the existing categories: **sense**, **generate**, **shape**, **decide**, **express**, or **internal**. The category is also a Rust module path — `runtime::shape`, `runtime::express`, etc.
+
+`Sparkle` transforms an input into an output, so it is a **shape** node.
+
+## Step 2 — Define the runtime component (Rust)
+
+Create `apps/web/src-tauri/src/runtime/shape/sparkle.rs`:
+
+```rust
+use crate::runtime::base::{Component, ComponentEvent, ComponentValue};
+
+pub struct Sparkle {
+    min: f64,
+    max: f64,
+}
+
+impl Sparkle {
+    pub fn new(min: f64, max: f64) -> Self {
+        Self { min, max }
+    }
+}
+
+impl Component for Sparkle {
+    fn requires_hardware(&self) -> bool {
+        false
+    }
+
+    fn call_method(
+        &mut self,
+        method: &str,
+        _args: &[ComponentValue],
+    ) -> Result<Option<ComponentEvent>, String> {
+        match method {
+            "trigger" => {
+                let value = self.min + rand::random::<f64>() * (self.max - self.min);
+                Ok(Some(ComponentEvent::value(ComponentValue::Number(value))))
+            }
+            _ => Err(format!("Unknown method: {method}")),
+        }
+    }
+}
+```
+
+Then register it in `apps/web/src-tauri/src/runtime/shape/mod.rs`:
+
+```rust
+pub mod sparkle;
+```
+
+And add it to the runtime's component factory in `apps/web/src-tauri/src/runtime/registry.rs` (open the file and follow the existing pattern — each `impl` from `node-components.json` maps to a constructor).
+
+## Step 3 — Define the frontend schema
+
+Create `apps/web/src/components/flow/nodes/sparkle/sparkle.schema.ts`:
+
+```ts
+import { z } from "zod";
+import { baseDataSchema } from "../_base/_base.schema";
+
+export const sparkleDataSchema = baseDataSchema.extend({
+  min: z.number().default(0),
+  max: z.number().default(100),
+});
+
+export type SparkleData = z.infer<typeof sparkleDataSchema>;
+export type SparkleValue = number;
+```
+
+`baseDataSchema` includes the fields every node has (`label`, `instance`, etc.). You only declare the new ones.
+
+## Step 4 — Build the React node
+
+Create `apps/web/src/components/flow/nodes/sparkle/sparkle.tsx`:
+
+```tsx
+import { Handle, Position } from "@xyflow/react";
+import { NodeContainer } from "../_base/_base";
+import { useNodeControls, useNodeData, useNodeValue } from "@/hooks/...";
+import type { SparkleData, SparkleValue } from "./sparkle.schema";
+
+export function SparkleNode(props: BaseNode<SparkleData>) {
+  return (
+    <NodeContainer {...props}>
+      <Value />
+      <Settings />
+      <Handle type="target" position={Position.Left} id="trigger" />
+      <Handle type="source" position={Position.Right} id="value" />
+    </NodeContainer>
+  );
+}
+
+function Value() {
+  const value = useNodeValue<SparkleValue>(0);
+  return <div>{value.toFixed(1)}</div>;
+}
+
+function Settings() {
+  const data = useNodeData<SparkleData>();
+  const { render } = useNodeControls<SparkleData>({
+    min: { value: data.min, label: "Min" },
+    max: { value: data.max, label: "Max" },
+  });
+  return <>{render()}</>;
+}
+
+SparkleNode.defaultProps = {
+  data: {
+    group: "shape",
+    label: "Sparkle",
+    min: 0,
+    max: 100,
+  },
+};
+```
+
+Match an existing nearby node (e.g. `apps/web/src/components/flow/nodes/calculate/`) for the exact import paths and hook signatures — they evolve.
+
+## Step 5 — Register it everywhere
+
+Open `apps/web/node-components.json` and add two entries:
+
+```json
+{
+  "entries": [
+    /* ... existing entries ... */
+    {
+      "name": "Sparkle",
+      "category": "shape",
+      "impl": "Sparkle"
+    }
+  ],
+  "impls": [
+    /* ... existing impls ... */
+    {
+      "name": "Sparkle",
+      "category": "runtime::shape::sparkle::Sparkle",
+      "requiresHardware": false
+    }
+  ]
+}
+```
+
+The build pipeline reads this file to wire everything up.
+
+## Step 6 — Make the node draggable
+
+Add the React component to the type registry at `apps/web/src/components/flow/nodes/_TYPES.ts`:
+
+```ts
+import { SparkleNode } from "./sparkle/sparkle";
+
+export const NODE_TYPES = {
+  // ...
+  Sparkle: SparkleNode,
+};
+```
+
+## Step 7 — Verify
+
+```sh
+bun run dev:web
+```
+
+Open Studio. Open the Add Node panel. Drag a Sparkle node onto the canvas. Connect a [Trigger](/docs/microflow-studio/nodes/generate/trigger) to its input and a [Monitor](/docs/microflow-studio/nodes/internal/monitor) to its output. Press the trigger — the Monitor should show a fresh random value each time.
+
+## Step 8 — Document it
+
+Add a reference page at `apps/fumadocs/content/docs/microflow-studio/nodes/shape/sparkle.mdx`. Match the template used by neighbouring node pages — see the [docs style guide](/docs/contributing/docs-style-guide) for the canonical structure.
+
+Add `"sparkle"` to `apps/fumadocs/content/docs/microflow-studio/nodes/shape/meta.json` so it appears in the nav.
+
+## Common pitfalls
+
+- **Zod schema mismatch with Rust component.** If the frontend sends `min` and the Rust struct expects `lower`, the runtime will silently fail to construct. Match field names exactly.
+- **Forgetting `node-components.json`.** Without it the node will not appear in the Add Node panel even if everything else is correct.
+- **Hardware flag wrong.** If your node touches a pin, `requiresHardware` must be `true` so the runtime initialises the board connection for it.
+- **Hot reload does not always pick up schema changes.** Restart `bun run dev:web` after edits to schema files.

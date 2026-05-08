@@ -1,0 +1,85 @@
+---
+title: Run your own MQTT broker
+description: Replace the public broker with your own — useful for privacy, reliability, or air-gapped networks.
+---
+
+Microflow ships pointed at a free public MQTT broker so the Hardware Bridge works straight out of the box. That is fine for prototyping but not what you want when:
+
+- You are presenting a finished project and need reliability.
+- Your network blocks outbound connections to public servers.
+- You do not want your sensor data passing through a third party.
+- You want to run multiple Hardware Bridge instances on a private network.
+
+## Pick a broker
+
+Anything that speaks MQTT 3.1.1 or 5.0 works. The most common picks:
+
+- **[Mosquitto](https://mosquitto.org/)** — small, free, available on every OS. The standard default.
+- **[HiveMQ Community Edition](https://www.hivemq.com/developers/community-edition/)** — Java-based, more features, free for self-hosting.
+- **[EMQX](https://www.emqx.io/)** — clusterable, scales to lots of clients.
+
+Mosquitto is the right choice unless you have a reason to pick differently.
+
+## Install Mosquitto
+
+- **macOS** — `brew install mosquitto`
+- **Linux (Debian / Ubuntu)** — `sudo apt install mosquitto`
+- **Windows** — download the [Windows installer](https://mosquitto.org/download/).
+
+## Run it
+
+Default install starts a broker on `localhost:1883` with no authentication and no encryption. That is fine for a local network you trust.
+
+Confirm it is running by subscribing to a test topic in one terminal:
+
+```sh
+mosquitto_sub -h localhost -t test
+```
+
+Publish to the same topic in another:
+
+```sh
+mosquitto_pub -h localhost -t test -m hello
+```
+
+If `hello` appears in the first terminal, the broker is up.
+
+## Point Microflow at your broker
+
+In **Microflow Studio**:
+
+1. Open *Configuration → MQTT*.
+2. Set the broker URL: `mqtt://your-host:1883` (use the LAN IP if you are running it on a different machine).
+3. Set username and password if you configured auth (see [Auth](#optional-add-authentication) below).
+
+In the **Hardware Bridge** plugin:
+
+1. Open the plugin in Figma.
+2. Open settings (gear icon).
+3. Set the same broker URL, username, and password.
+
+## Optional: add authentication
+
+Anyone on the network can publish to an open Mosquitto broker. To require credentials:
+
+```sh
+mosquitto_passwd -c /etc/mosquitto/passwd microflow
+# enter password
+```
+
+Add to `mosquitto.conf`:
+
+```
+allow_anonymous false
+password_file /etc/mosquitto/passwd
+```
+
+Restart Mosquitto. Then set the same username/password in both Studio and the Bridge.
+
+## Optional: TLS
+
+For traffic going over the open internet (a hosted broker, for example), enable TLS. The [Mosquitto TLS guide](https://mosquitto.org/man/mosquitto-tls-7.html) walks through it. Once configured, use `mqtts://` instead of `mqtt://` and port `8883` instead of `1883` in your Microflow settings.
+
+## Verify it end-to-end
+
+In the Studio MQTT settings panel, the connection status should be **Connected**. Publish a test message from a flow (use the [MQTT Express node](/docs/microflow-studio/nodes/express/figma) on a topic like `test/value`), and subscribe to that topic with `mosquitto_sub` from the broker host.

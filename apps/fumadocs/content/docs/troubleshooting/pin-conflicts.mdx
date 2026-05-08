@@ -1,0 +1,43 @@
+---
+title: Pin conflicts
+description: Two nodes claim the same pin. The symptoms and the fix.
+---
+
+Each digital or analog pin on your Arduino can be in one *mode* at a time — input, output, PWM, servo, etc. When two nodes in your flow point at the same pin number, only one can win, and the loser silently does nothing.
+
+## Symptoms
+
+- A node looks correct in the panel, the flow is **Running**, but nothing happens at that pin.
+- An LED is permanently on, off, or flickering wrong even when no input is changing.
+- A button press registers in the wrong node.
+- The board's behaviour changes depending on the order in which you placed the nodes.
+
+## How to find the conflict
+
+1. **Open every Express, Sense, and Generate node that touches a pin.** Note the pin number on each.
+2. **Look for duplicates.** Most often it is two LED nodes both set to pin 13, or a Button and a Sensor on the same pin.
+3. **Check pin mode mismatches** too: if you have a Button (input) and an LED (output) both on pin 9, they want incompatible modes.
+
+A quick visual technique: drop a [Note](/docs/microflow-studio/nodes/internal/note) node next to each pin-using node listing the pin. Conflicts become obvious at a glance.
+
+## How to fix
+
+- Move one of the conflicting nodes to a different free pin.
+- If you really only need one of them, delete the other.
+- If the two are conceptually one (e.g. you wired the LED to pin 9 by mistake when you meant pin 10), update the *node settings*, not the wiring on the breadboard, then verify the wiring matches.
+
+## Reserved pins
+
+A few pins are usually best avoided unless you know what you are doing:
+
+- **Pins 0 and 1** on most boards — these are RX/TX, the same lines USB uses to talk to the board. Setting these as outputs in your flow can break communication and require a re-flash.
+- **Pin 13** — has the on-board LED. Driving it from your flow is fine, but be aware that the LED will mirror anything you do.
+- **A4, A5** on Uno and Nano — these are also the I2C lines (SDA, SCL). If you use [I2C](/docs/microflow-studio/nodes/sense/i2c-device) (when supported), do not also use them as analog inputs.
+
+## What about reusing a pin in two flows?
+
+You can have multiple flows saved, but you can only run **one at a time** against a single board. Pin conflicts within a single flow are the only kind that matters at runtime.
+
+## Related
+
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — why pin modes exist at all.

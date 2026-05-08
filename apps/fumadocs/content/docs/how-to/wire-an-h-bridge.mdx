@@ -1,0 +1,72 @@
+---
+title: Wire an H-bridge
+description: Drive a DC motor or 4-wire stepper safely using an L293D, L298N, or similar.
+---
+
+An Arduino's pins can only push tens of milliamps. Motors want hundreds, sometimes thousands. An **H-bridge** is the chip in between — a switching network that takes small logic-level signals from the Arduino and uses them to flip much larger currents from a separate power supply, in either direction.
+
+This guide covers two cases:
+
+- A DC motor (one or two coils, you control speed and direction).
+- A 4-wire bipolar stepper motor (used by the [Stepper](/docs/microflow-studio/nodes/express/stepper) node).
+
+## Parts
+
+- An H-bridge module: L293D, L298N, or equivalent.
+- A DC motor *or* a 4-wire bipolar stepper motor.
+- An external power supply rated for your motor (commonly 6V, 9V, or 12V).
+- Jumper wires.
+
+## Shared rule: ground
+
+<Callout type="warn" title="Connect grounds together">
+The Arduino's GND, the H-bridge's GND, and the external power supply's negative terminal must all share a connection. Without a common ground, the logic signals between the Arduino and the H-bridge will not work.
+</Callout>
+
+Without this you typically see: motor twitches occasionally, runs only at full speed regardless of input, or the Arduino resets at random.
+
+## DC motor
+
+| Connection | From | To |
+| --- | --- | --- |
+| Logic power | Arduino 5V | H-bridge logic VCC |
+| Ground | Arduino GND | H-bridge GND *and* power supply ground |
+| Motor power | External supply (+) | H-bridge motor VS / VMot |
+| Speed | Arduino PWM pin | H-bridge enable pin |
+| Direction A | Arduino digital pin | H-bridge IN1 |
+| Direction B | Arduino digital pin | H-bridge IN2 |
+| Motor | Both motor leads | H-bridge OUT1 and OUT2 |
+
+The combination of IN1/IN2 controls direction:
+
+- IN1 HIGH, IN2 LOW → forward
+- IN1 LOW, IN2 HIGH → reverse
+- Both LOW → coast (motor spins down freely)
+- Both HIGH → brake (motor coil is shorted, decelerates fast)
+
+In Microflow you control these pins with [LED](/docs/microflow-studio/nodes/express/led) or [Relay](/docs/microflow-studio/nodes/express/relay) nodes; PWM speed control uses the LED node on the enable pin (LED brightness = motor speed).
+
+## 4-wire bipolar stepper
+
+For steppers, use the [Stepper](/docs/microflow-studio/nodes/express/stepper) node in **4-wire (H-bridge)** mode.
+
+| Connection | From | To |
+| --- | --- | --- |
+| IN1 | H-bridge IN1 | An Arduino digital pin |
+| IN2 | H-bridge IN2 | An Arduino digital pin |
+| IN3 | H-bridge IN3 | An Arduino digital pin |
+| IN4 | H-bridge IN4 | An Arduino digital pin |
+| GND | H-bridge GND | Arduino GND *and* motor power supply GND |
+| VS / VMot | H-bridge motor power | External power supply |
+| Coil A | Motor coil A (two wires) | H-bridge OUT1 + OUT2 |
+| Coil B | Motor coil B (two wires) | H-bridge OUT3 + OUT4 |
+
+<Callout type="info" title="Which wires belong to which coil?">
+A 4-wire stepper has two coils. Wires on the same coil will read low resistance (a few ohms) on a multimeter. Wires from different coils will read open circuit.
+</Callout>
+
+## Verify it works
+
+Add the relevant Express node ([LED](/docs/microflow-studio/nodes/express/led), [Relay](/docs/microflow-studio/nodes/express/relay), or [Stepper](/docs/microflow-studio/nodes/express/stepper)) to your flow with the matching pin numbers, then drive it from a [Constant](/docs/microflow-studio/nodes/generate/constant), [Interval](/docs/microflow-studio/nodes/generate/interval), or [Trigger](/docs/microflow-studio/nodes/generate/trigger).
+
+If the motor sits silent: check the shared ground. If the motor whines but does not turn (steppers): coil pairing is probably swapped — try reversing IN3 and IN4 in your wiring.

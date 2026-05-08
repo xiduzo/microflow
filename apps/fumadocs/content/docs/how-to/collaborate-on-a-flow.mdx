@@ -1,0 +1,58 @@
+---
+title: Collaborate on a flow in real-time
+description: Share a flow with someone else and edit together — both screens stay in sync.
+---
+
+Microflow Studio supports real-time collaboration: multiple people can have the same flow open at the same time and see each other's changes as they happen — much like a Figma file or Google Doc.
+
+## What you need
+
+- Both collaborators on the same network *or* a Microflow account on a hosted server.
+- Microflow Studio installed on both machines.
+
+## Share a flow
+
+1. Open the flow you want to share.
+2. Click the **Share** button in the top-right corner.
+3. Copy the link.
+4. Send it to a collaborator.
+
+When they open the link in Microflow Studio, the flow loads with the latest server state. Their cursor appears on your canvas as a coloured pointer; yours appears on theirs.
+
+## Who runs the hardware?
+
+Only one person at a time can run the flow against a real Arduino, because there is only one physical board. The hardware connection is local to the machine that has the board plugged in.
+
+In practice that means:
+
+- You can both **edit the flow** at the same time.
+- One of you also **runs the flow** on a real board, and the other watches via Monitor nodes.
+- If the board is plugged into your machine, the flow runs locally — your collaborator sees the same Yjs document but does not control the hardware.
+
+## What stays in sync
+
+- Node positions on the canvas.
+- Node settings.
+- Edges (connections between nodes).
+
+What is **not** synced (it stays per-machine):
+
+- Live Monitor values — these are runtime, not part of the flow definition.
+- Hardware connection state — depends on which board is plugged into which computer.
+- Cursor positions of *other* collaborators (only your own and theirs).
+
+## Conflict handling
+
+Microflow uses [Yjs](https://yjs.dev) for conflict resolution. If two of you edit the same node setting at the same instant, the operations are merged — you will not lose work and you will not see error dialogs. The result might be a setting that's the union of both edits, or one wins; if you find yourselves disagreeing, talk first.
+
+## Working offline
+
+Edits made offline are stored locally. When the network reconnects, your changes are merged with the server's. There is no separate "save" step.
+
+## Hosting your own server
+
+Self-hosting the collaboration server is possible — Microflow's collaboration layer is just a WebSocket bridge for Yjs documents. See the [Microflow GitHub repository](https://github.com/xiduzo/microflow-t-stack) for current self-hosting options.
+
+## Related
+
+- [Concepts: collaboration](/docs/concepts/collaboration) — how the sync model works.

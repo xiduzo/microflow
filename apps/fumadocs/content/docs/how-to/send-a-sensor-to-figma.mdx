@@ -1,0 +1,65 @@
+---
+title: Send a sensor reading to Figma
+description: Push a live value from a hardware sensor into a Figma variable.
+---
+
+This is the *hardware-to-Figma* direction of the bridge: a sensor in the real world drives a variable in your Figma file, and any layer bound to that variable updates live.
+
+## What you need
+
+- Microflow Studio with a working sensor flow (e.g. a [Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer) on `A0`, or any sense node).
+- A Figma file open with the [Microflow Hardware Bridge](https://www.figma.com/community/plugin/1373258770799080545) plugin running.
+- Both Studio and the Bridge configured to use the same MQTT broker.
+
+## Steps
+
+### 1. Create a variable in Figma
+
+In your Figma file, open *Local variables* and create a variable with the type matching what your sensor produces:
+
+| Sensor type | Figma variable type |
+| --- | --- |
+| Button, Switch, Motion (digital) | Boolean *or* Number |
+| Potentiometer, LDR, Force, Sensor (analog) | Number |
+| Function node returning a string | String |
+
+Give it a clear name (e.g. `light_level`). Bind it to a layer property — width, fill colour, opacity, or anything else Figma variables can drive — so you can *see* it changing.
+
+### 2. Add an MQTT node in Studio
+
+In your flow, add an [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node and connect your sense node's output to it.
+
+Set the node's **topic** to `figma/<variable-name>`, e.g. `figma/light_level`. The Hardware Bridge listens on the `figma/` prefix and uses the suffix as the variable name.
+
+### 3. Run
+
+The Bridge should report **Connected**. Studio's connection panel should show the board **Running**. Touch the sensor — the Figma layer should update live.
+
+## Sending multiple values to one variable type
+
+If the variable is a colour, your flow needs to produce a hex string or RGB triple. Use a [Function](/docs/microflow-studio/nodes/shape/function) node to convert:
+
+```ts
+function trigger(input: unknown) {
+  const value = ensureRange(toNumber(input, 0), 0, 1023, 0);
+  const r = Math.round((value / 1023) * 255);
+  // simple red ramp
+  return `#${r.toString(16).padStart(2, '0')}0000`;
+}
+```
+
+## Sending several variables
+
+Add one MQTT node per variable. Each gets its own topic (`figma/var_a`, `figma/var_b`, etc.). They can read from completely different parts of your flow.
+
+## Verify it worked
+
+- The Bridge plugin should say **Connected**.
+- The Bridge "log" panel (if your version has one) should show messages arriving.
+- Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the MQTT node's input in Studio — values should be flowing.
+
+If the Bridge is connected but the variable does not update, the topic name probably does not match the variable name. Topic names are case-sensitive.
+
+## Going the other way
+
+To make Figma drive *hardware* instead, see [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma).

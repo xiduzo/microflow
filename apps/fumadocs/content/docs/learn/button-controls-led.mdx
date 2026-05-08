@@ -1,0 +1,67 @@
+---
+title: A button controls an LED
+description: Wire up a real button and use it to switch an LED on and off.
+---
+
+In the last lesson, time told the LED what to do. In this one, *you* will — by pressing a button.
+
+## What you need
+
+- Everything from the [first flow](/docs/learn/first-flow)
+- A push-button (a momentary switch)
+- A 10kΩ resistor (a "pull-down" resistor)
+- A breadboard and a few jumper wires
+- An LED and a 220Ω resistor (or skip these and reuse the built-in LED on pin 13)
+
+## Step 1 — Wire the button
+
+A button on its own is not enough — you also need a **pull-down resistor**, which makes sure the input reads `LOW` when the button is not pressed (otherwise it floats randomly).
+
+| Connection | From | To |
+| --- | --- | --- |
+| Power | Arduino 5V | One side of the button |
+| Signal | Other side of the button | Arduino digital pin 2 *and* one end of the 10kΩ resistor |
+| Ground | Other end of the 10kΩ resistor | Arduino GND |
+
+Pressing the button connects 5V to pin 2 directly; releasing it leaves pin 2 connected to GND through the resistor.
+
+<Callout type="info" title="No breadboard? Use the built-in pull-up">
+If you wire the button between pin 2 and GND (no resistor), set the Button node's **mode** to "Input pull-up" instead. The Arduino will use its internal resistor and pin 2 will read `HIGH` when *not* pressed and `LOW` when pressed.
+</Callout>
+
+## Step 2 — Wire the LED (skip if reusing pin 13)
+
+| Connection | From | To |
+| --- | --- | --- |
+| Signal | Arduino pin 9 | One leg of the 220Ω resistor |
+| LED | Other leg of the resistor | Long leg (anode) of the LED |
+| Ground | Short leg (cathode) of the LED | Arduino GND |
+
+## Step 3 — Build the flow
+
+In Microflow Studio, create a new flow and add:
+
+1. A [**Button**](/docs/microflow-studio/nodes/sense/button) node — set **Pin** to `2`.
+2. An [**LED**](/docs/microflow-studio/nodes/express/led) node — set **Pin** to `9` (or `13` if you skipped step 2).
+3. Connect the Button's output to the LED's input.
+
+## Step 4 — Try it
+
+Press the button. The LED should turn on. Release the button. The LED should turn off.
+
+If nothing happens:
+
+- Drop a [**Monitor**](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas and connect the Button's output to it. Press the button — the Monitor should show `1`. If it stays at `0`, the button is wired wrong.
+- Make sure the Arduino is still in the **Running** state.
+
+## What just happened?
+
+The Button node reads pin 2 and emits a value: `1` when pressed, `0` when not. The LED node turns on when it receives any non-zero value and off when it receives `0`. No "if-then" logic was needed — values flow through and the LED reacts.
+
+This is the **sense → express** pattern: input from the world, output to the world.
+
+## Going further
+
+A button only has two states. The next lesson uses an **analog** sensor — one that reports a whole *range* of values — and uses that range to control how *bright* an LED is.
+
+→ [Fade an LED with a potentiometer](/docs/learn/fade-with-potentiometer)

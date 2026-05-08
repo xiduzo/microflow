@@ -1,0 +1,11 @@
+{
+  "title": "Learn",
+  "pages": [
+    "index",
+    "first-flow",
+    "button-controls-led",
+    "fade-with-potentiometer",
+    "smooth-a-sensor",
+    "link-to-figma"
+  ]
+}

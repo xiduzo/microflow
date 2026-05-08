@@ -1,0 +1,37 @@
+---
+title: Troubleshooting
+description: Things that commonly go wrong, organised by symptom.
+---
+
+If something is not behaving the way you expect, this page is the fastest way to a fix. Each entry below is a *symptom* — pick the one that matches what you are seeing.
+
+## My board never reaches "Running"
+The connection panel shows **Waiting**, **Detecting**, or **Uploading** but never advances.
+
+→ [Board not detected](/docs/troubleshooting/board-not-detected)
+
+## My flow runs, but a node has no effect
+Specifically: a Sense node never produces values, or an Express node does nothing physical, even though the flow is **Running**.
+
+→ [Pin conflicts](/docs/troubleshooting/pin-conflicts)
+
+## My flow stops working after a while
+It worked at first, then values stopped flowing or hardware froze.
+
+→ [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run)
+
+## The Hardware Bridge says "Reconnecting"
+Or values from Studio do not appear in Figma.
+
+→ [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)
+
+## Something else
+
+Open an issue on the [Microflow GitHub repository](https://github.com/xiduzo/microflow-t-stack/issues). Include:
+
+- Operating system
+- Microflow Studio version
+- A short description of what you expected and what happened
+- Whether you can reproduce it from scratch (and how)
+
+The [contributing guide](/docs/contributing) has more on how to write a good bug report.

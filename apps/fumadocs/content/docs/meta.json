@@ -1,4 +1,18 @@
 {
   "title": "Microflow",
-  "pages": ["index", "microflow-studio", "microflow-hardware-bridge", "contributing"]
+  "pages": [
+    "index",
+    "---Get started---",
+    "learn",
+    "how-to",
+    "---Products---",
+    "microflow-studio",
+    "microflow-hardware-bridge",
+    "microflow-penpot-plugin",
+    "---Reference & background---",
+    "concepts",
+    "troubleshooting",
+    "---Project---",
+    "contributing"
+  ]
 }

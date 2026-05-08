@@ -1,0 +1,31 @@
+---
+title: Flash firmware manually
+description: Re-upload StandardFirmata to a board that is misbehaving or running someone else's sketch.
+---
+
+Microflow Studio uploads StandardFirmata automatically the first time you connect a board. Sometimes you need to do it again — for example after a different program (the Arduino IDE, another tool, or another user's sketch) has overwritten what was on the board.
+
+## When to re-flash
+
+- Studio detects the board but never reaches **Running**.
+- The board reaches **Running** but pins do not respond to your flow.
+- You used the board with the Arduino IDE and then came back to Microflow.
+- A new firmware version of Microflow ships with an updated StandardFirmata.
+
+## Steps
+
+1. Make sure the board is plugged in and detected by your operating system. If not, see [Install board drivers](/docs/how-to/install-board-drivers).
+2. In Microflow Studio, open the connection panel at the bottom of the canvas.
+3. Click the menu next to the connection state and choose **Re-flash firmware** (label may also say *Upload firmware* depending on version).
+4. Studio reports **Uploading**. Wait 30–60 seconds — do not unplug the board.
+5. The state advances to **Running**. The board is fresh.
+
+## Verify it worked
+
+Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas, connect any sense node to it, and watch values appear. If the Monitor stays blank, see [Pin conflicts](/docs/troubleshooting/pin-conflicts) or [Board not detected](/docs/troubleshooting/board-not-detected).
+
+## If re-flashing keeps failing
+
+The most common cause is **another program holding the serial port**. The Arduino IDE's Serial Monitor is the usual suspect. Close any other program that talks to the board and try again.
+
+If the failure persists across reboots, the board may have a bootloader issue. Use the Arduino IDE to upload the *Bare Minimum* example sketch first — if even that fails, the board needs hardware-level recovery, which is outside Microflow's scope.
