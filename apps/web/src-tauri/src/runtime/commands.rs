@@ -95,9 +95,9 @@ pub async fn flow_update(
             if let Err(e) = runtime.initialize_hardware() {
                 log::warn!("Failed to initialize hardware after flow update: {e}");
             }
-            let event_tx = runtime.event_sender();
-            runtime.install_pin_change_callback(event_tx.clone());
-            runtime.install_i2c_reply_callback(event_tx);
+            // Pin-change and I2C-reply callbacks are installed once at
+            // FlowRuntime::new(); they observe live wiring updates via the
+            // shared `WiringRegistry` indices. Nothing to reinstall here.
         } else {
             log::info!("Board not connected — storing pending flow for hardware init on connect");
             *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some((flow, ctx.clone()));

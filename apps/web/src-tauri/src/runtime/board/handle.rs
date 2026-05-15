@@ -182,6 +182,12 @@ impl BoardHandle {
         Ok(())
     }
 
+    /// Stop the IO loop's `detect_and_emit_changes` from scanning this pin.
+    /// Paired with `register_active_pin` when a flow update removes a component.
+    pub fn unregister_active_pin(&self, pin: u8) {
+        self.active_pins.remove(&pin);
+    }
+
     // --- Bit-bang + tone + sysex --------------------------------------------
 
     pub fn shift_out(&self, data_pin: u8, clock_pin: u8, value: u8) -> Result<(), RuntimeError> {

@@ -262,16 +262,12 @@ pub fn run() {
                                     let mut runtime = flow_runtime_board.blocking_lock();
                                     if let Err(e) = runtime.update_flow(flow, &ctx) {
                                         log::error!("Failed to apply pending flow: {e}");
-                                    } else {
-                                        // Initialize hardware (enables analog/digital reporting)
-                                        if let Err(e) = runtime.initialize_hardware() {
-                                            log::warn!("Failed to initialize hardware after pending flow: {e}");
-                                        }
-                                        // Install pin change callback after flow update
-                                        let event_tx = runtime.event_sender();
-                                        runtime.install_pin_change_callback(event_tx.clone());
-                                        runtime.install_i2c_reply_callback(event_tx);
+                                    } else if let Err(e) = runtime.initialize_hardware() {
+                                        log::warn!("Failed to initialize hardware after pending flow: {e}");
                                     }
+                                    // Pin-change and I2C-reply callbacks are installed once
+                                    // in FlowRuntime::new() and observe live wiring updates
+                                    // via shared `WiringRegistry` indices — no reinstall.
                                 } else {
                                     // No pending flow — board reconnected while a flow is
                                     // already active.  Reinitialize all hardware components so
@@ -283,9 +279,6 @@ pub fn run() {
                                     if let Err(e) = runtime.initialize_hardware() {
                                         log::warn!("Failed to reinitialize hardware on reconnect: {e}");
                                     }
-                                    let event_tx = runtime.event_sender();
-                                    runtime.install_pin_change_callback(event_tx.clone());
-                                    runtime.install_i2c_reply_callback(event_tx);
                                 }
                             }
                             Some("disconnected") => {

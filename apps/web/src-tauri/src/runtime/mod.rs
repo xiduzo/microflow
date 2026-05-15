@@ -46,6 +46,7 @@ pub mod serde_utils;
 pub mod transformation;
 mod types;
 pub mod wiring;
+mod wiring_registry;
 
 pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
 pub use context::{ProviderEntry, RuntimeContext};
@@ -73,15 +74,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::mpsc;
+use wiring_registry::{WiringRegistry, WiringDelta};
 
-/// Pin listener registration for immediate event routing
-#[derive(Clone)]
-pub struct PinListener {
-    pub component_id: Arc<str>,
-    pub pin: u8,
-    pub is_analog: bool,
-    pub threshold: u16,
-}
+pub use wiring_registry::PinListener;
 
 /// Manages the lifecycle of flow components and event routing.
 ///
@@ -103,12 +98,11 @@ pub struct FlowRuntime {
     registry: ComponentRegistry,
     event_tx: mpsc::UnboundedSender<ComponentEvent>,
     event_rx: Option<mpsc::UnboundedReceiver<ComponentEvent>>,
-    /// Map of pin -> listeners for immediate event routing
-    pin_listeners: Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>>,
-    /// Map of key (lowercase) -> component IDs for hotkey routing
-    key_listeners: Arc<std::sync::Mutex<HashMap<String, Vec<Arc<str>>>>>,
-    /// Map of I2C address -> component IDs for I2C reply routing
-    i2c_listeners: Arc<std::sync::Mutex<HashMap<u8, Vec<Arc<str>>>>>,
+    /// Per-component wiring bookkeeping + pin/key/i2c indices.
+    /// Replaces the three separate Arc<Mutex<HashMap>> fields plus the
+    /// `clear_*_listeners` + `register_*_listener` methods. See
+    /// `runtime/wiring_registry.rs` and `CONTEXT.md` § Wiring.
+    wiring: Arc<WiringRegistry>,
     /// Monotonically increasing counter for flow update versions (shared with pin callback)
     flow_sequence: Arc<AtomicU64>,
     /// Current flow sequence for event filtering
@@ -116,21 +110,27 @@ pub struct FlowRuntime {
 }
 
 impl FlowRuntime {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
-        Self {
+        let runtime = Self {
             board_handle: Arc::new(BoardHandle::new()),
             executor: FlowExecutor::new(),
             registry: ComponentRegistry::new(),
-            event_tx,
+            event_tx: event_tx.clone(),
             event_rx: Some(event_rx),
-            pin_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            key_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            i2c_listeners: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            wiring: Arc::new(WiringRegistry::new()),
             flow_sequence: Arc::new(AtomicU64::new(0)),
             current_sequence: 0,
-        }
+        };
+        // The pin-change and I2C-reply callbacks both capture the wiring
+        // registry's index `Arc`s plus the event sender — all stable for the
+        // lifetime of the runtime. Install once at construction; flow updates
+        // mutate the indices in place and the same callback observes the new
+        // state.
+        runtime.install_pin_change_callback();
+        runtime.install_i2c_reply_callback();
+        runtime
     }
 
     #[must_use]
@@ -147,65 +147,47 @@ impl FlowRuntime {
     #[must_use] 
     pub fn flow_sequence(&self) -> Arc<AtomicU64> { Arc::clone(&self.flow_sequence) }
 
-    /// Register a pin listener for immediate event routing
-    pub fn register_pin_listener(&self, listener: PinListener) {
-        let mut listeners = self.pin_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        listeners.entry(listener.pin).or_default().push(listener);
-    }
-
-    /// Clear all pin listeners
-    pub fn clear_pin_listeners(&self) {
-        let mut listeners = self.pin_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        listeners.clear();
-    }
-
-    /// Get the pin listeners map for setting up the callback
-    #[must_use] 
+    /// Shared handle to the pin listeners map.
+    ///
+    /// Kept for the pin-change callback closure built in
+    /// `install_pin_change_callback`. External callers should not mutate the
+    /// map directly — go through [`WiringRegistry::install`] / `revoke`.
+    #[must_use]
     pub fn pin_listeners(&self) -> Arc<std::sync::Mutex<HashMap<u8, Vec<PinListener>>>> {
-        Arc::clone(&self.pin_listeners)
+        self.wiring.pin_listeners()
     }
 
-    /// Get the key listeners map (for use from the `key_event` Tauri command)
+    /// Shared handle to the key listeners map. Used by the `key_event` Tauri
+    /// command to dispatch a hotkey to all subscribed Hotkey components.
     #[must_use]
     pub fn key_listeners(&self) -> Arc<std::sync::Mutex<HashMap<String, Vec<Arc<str>>>>> {
-        Arc::clone(&self.key_listeners)
+        self.wiring.key_listeners()
     }
 
-    /// Clear all key listeners
-    pub fn clear_key_listeners(&self) {
-        let mut listeners = self.key_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        listeners.clear();
-    }
-
-    /// Register a key listener for a Hotkey component
-    pub fn register_key_listener(&self, key: String, component_id: Arc<str>) {
-        let mut listeners = self.key_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        listeners.entry(key).or_default().push(component_id);
-    }
-
-    /// Install the pin change callback on the board connection
-    /// This should be called after flow updates to ensure the callback uses the latest `pin_listeners`
-    pub fn install_pin_change_callback(&self, event_tx: mpsc::UnboundedSender<ComponentEvent>) {
+    fn install_pin_change_callback(&self) {
         let pin_listeners = self.pin_listeners();
         let flow_sequence = self.flow_sequence();
-        
+        let event_tx = self.event_tx.clone();
+
         let callback: base::PinChangeCallback = Box::new(move |change: base::PinChangeEvent| {
-            // Read the current sequence number for this event
             let sequence = flow_sequence.load(Ordering::SeqCst);
-            
-            let listeners = pin_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+
+            let listeners = pin_listeners
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(pin_listeners) = listeners.get(&change.pin) {
                 for listener in pin_listeners {
-                    // Emit internal event to trigger component's read processing
                     let value = if change.is_analog {
                         ComponentValue::Number(f64::from(change.value))
                     } else {
                         ComponentValue::Bool(change.value > 0)
                     };
-                    
-                    log::info!("Pin {} changed to {:?}, notifying component {} (analog={}, seq={})", 
-                        change.pin, change.value, listener.component_id, change.is_analog, sequence);
-                    
+
+                    log::info!(
+                        "Pin {} changed to {:?}, notifying component {} (analog={}, seq={})",
+                        change.pin, change.value, listener.component_id, change.is_analog, sequence
+                    );
+
                     let _ = event_tx.send(ComponentEvent {
                         source: Arc::clone(&listener.component_id),
                         source_handle: Arc::from("_pin_change"),
@@ -214,40 +196,38 @@ impl FlowRuntime {
                         sequence,
                     });
                 }
-            } else {
-                // Log pins that change but have no listeners (helps debug stale reporting)
-                if change.is_analog {
-                    log::trace!("Pin {} changed but no listener registered", change.pin);
-                }
+            } else if change.is_analog {
+                log::trace!("Pin {} changed but no listener registered", change.pin);
             }
         });
-        
-        // Install the callback on the board connection and clear pin cache
-        let board = self.board_handle();
-        let _ = board.clear_pin_cache();
-        let _ = board.set_pin_change_callback(Arc::new(callback));
 
-        log::info!("Pin change callback installed (cache cleared)");
+        let _ = self.board_handle.set_pin_change_callback(Arc::new(callback));
+        log::info!("Pin change callback installed");
     }
 
-    /// Install the I2C reply callback on the board connection.
-    /// Routes I2C replies to the correct `I2cDevice` component by address.
-    pub fn install_i2c_reply_callback(&self, event_tx: mpsc::UnboundedSender<ComponentEvent>) {
-        let i2c_listeners = Arc::clone(&self.i2c_listeners);
+    fn install_i2c_reply_callback(&self) {
+        let i2c_listeners = self.wiring.i2c_listeners();
         let flow_sequence = self.flow_sequence();
+        let event_tx = self.event_tx.clone();
 
         let callback: base::I2cReplyCallback = Box::new(move |reply: base::I2cReplyEvent| {
             let sequence = flow_sequence.load(Ordering::SeqCst);
 
-            let listeners = i2c_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let listeners = i2c_listeners
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(component_ids) = listeners.get(&reply.address) {
-                let data_values: Vec<ComponentValue> = reply.data.iter()
+                let data_values: Vec<ComponentValue> = reply
+                    .data
+                    .iter()
                     .map(|&b| ComponentValue::Number(f64::from(b)))
                     .collect();
 
                 for component_id in component_ids {
-                    log::debug!("I2C reply from 0x{:02X} (reg=0x{:02X}, {} bytes) → component {}",
-                        reply.address, reply.register, reply.data.len(), component_id);
+                    log::debug!(
+                        "I2C reply from 0x{:02X} (reg=0x{:02X}, {} bytes) → component {}",
+                        reply.address, reply.register, reply.data.len(), component_id
+                    );
 
                     let _ = event_tx.send(ComponentEvent {
                         source: Arc::clone(component_id),
@@ -260,21 +240,8 @@ impl FlowRuntime {
             }
         });
 
-        let board = self.board_handle();
-        let _ = board.set_i2c_reply_callback(Arc::new(callback));
+        let _ = self.board_handle.set_i2c_reply_callback(Arc::new(callback));
         log::info!("I2C reply callback installed");
-    }
-
-    /// Register an I2C listener for a component
-    pub fn register_i2c_listener(&self, address: u8, component_id: Arc<str>) {
-        let mut listeners = self.i2c_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        listeners.entry(address).or_default().push(component_id);
-    }
-
-    /// Clear all I2C listeners
-    pub fn clear_i2c_listeners(&self) {
-        let mut listeners = self.i2c_listeners.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        listeners.clear();
     }
 
     /// Update the flow with new nodes and edges.
@@ -352,25 +319,22 @@ impl FlowRuntime {
             new_sequence, update.nodes.len(), unchanged_count,
             added_or_changed_nodes.len(), removed_ids.len(), update.edges.len());
 
-        // Remove old nodes
+        let board_handle = self.board_handle();
+
+        // --- Phase 1: revoke wiring for everything that is leaving or being
+        // recreated. `WiringRegistry::install` is idempotent (revokes first),
+        // but doing the revoke explicitly here lets us snapshot the pre-state.
+        let pre_pins = self.wiring.pin_use_snapshot();
+
         for id in &removed_ids {
+            self.wiring.revoke(id);
             self.executor.remove_component(id);
         }
-
-        // Clear pin listeners for removed nodes (we'll re-register all below)
-        // For simplicity, clear and re-register all pin listeners since it's cheap
-        self.clear_pin_listeners();
-        self.clear_key_listeners();
-        self.clear_i2c_listeners();
-
-        // Reset Firmata reporting if board is connected and nodes changed
-        let board_handle = self.board_handle();
-        if board_handle.is_connected() && (!removed_ids.is_empty() || !added_or_changed_nodes.is_empty()) {
-            log::info!("Resetting Firmata reporting for flow diff update");
-            let _ = board_handle.reset_all_reporting();
+        for node in &added_or_changed_nodes {
+            self.wiring.revoke(&node.id);
         }
 
-        // Create new/changed components
+        // --- Phase 2: create new / replacement components.
         for node in &added_or_changed_nodes {
             let instance_str = node.data.get("instance").and_then(|v| v.as_str())
                 .or(node.node_type.as_deref());
@@ -399,64 +363,59 @@ impl FlowRuntime {
             }
         }
 
-        // Walk each constructed component's wiring spec and apply it.
-        // See CONTEXT.md § Wiring.
-        let ids: Vec<String> = self.executor.component_ids().iter().map(|s| (*s).to_string()).collect();
-        for id in ids {
-            let wirings = match self.executor.get_component(&id) {
-                Some(c) => c.listener_wiring(),
-                None => continue,
-            };
-            for wiring in wirings {
-                self.apply_listener_wiring(&id, wiring);
+        // --- Phase 3: install wiring for every (still-)active component.
+        // Unchanged components stay in `WiringRegistry`; install only the new
+        // and the recreated ones. See `CONTEXT.md` § Wiring.
+        for node in &added_or_changed_nodes {
+            if let Some(component) = self.executor.get_component(&node.id) {
+                let wirings = component.listener_wiring();
+                if !wirings.is_empty() {
+                    self.wiring.install(Arc::from(node.id.as_str()), wirings);
+                }
             }
         }
 
+        // --- Phase 4: reconcile Firmata reporting state. Apply the precise
+        // pin-level delta against the wire — no global `reset_all_reporting`.
+        let post_pins = self.wiring.pin_use_snapshot();
+        let delta = WiringRegistry::delta(&pre_pins, &post_pins);
+        self.apply_wiring_delta(&board_handle, &delta);
+
         // Always rebuild edges (cheap — just hash map rebuild)
         self.executor.set_edges(update.edges);
-        
-        log::info!("Flow update complete. Active components: {}", self.executor.component_ids().len());
+
+        log::info!(
+            "Flow update complete. Active components: {} (pins +{}/-{})",
+            self.executor.component_ids().len(),
+            delta.pins_to_enable.len(),
+            delta.pins_to_disable.len()
+        );
         Ok(())
     }
 
-    /// Apply a single `ListenerWiring` returned by a component.
-    /// See CONTEXT.md § Wiring.
-    fn apply_listener_wiring(&self, component_id: &str, wiring: ListenerWiring) {
-        match wiring {
-            ListenerWiring::DigitalPin { pin } => {
-                log::info!("Registering digital pin listener: component={component_id}, pin={pin}");
-                self.register_pin_listener(PinListener {
-                    component_id: Arc::from(component_id),
-                    pin,
-                    is_analog: false,
-                    threshold: 0,
-                });
-                let board = self.board_handle();
-                if board.is_connected() {
-                    let _ = board.register_active_pin(pin);
-                }
-            }
-            ListenerWiring::AnalogPin { pin, threshold } => {
-                log::info!("Registering analog pin listener: component={component_id}, pin={pin}, threshold={threshold}");
-                self.register_pin_listener(PinListener {
-                    component_id: Arc::from(component_id),
-                    pin,
-                    is_analog: true,
-                    threshold,
-                });
-                let board = self.board_handle();
-                if board.is_connected() {
-                    let _ = board.register_active_pin(pin);
-                }
-            }
-            ListenerWiring::I2cAddress { address } => {
-                log::info!("Registering I2C listener: component={component_id}, address=0x{address:02X}");
-                self.register_i2c_listener(address, Arc::from(component_id));
-            }
-            ListenerWiring::HotKey { accelerator } => {
-                log::info!("[HOTKEY] Registering key listener: component={component_id}, key={accelerator}");
-                self.register_key_listener(accelerator, Arc::from(component_id));
-            }
+    /// Apply a [`WiringDelta`] to the Firmata wire: enable reporting for
+    /// newly-needed pins and disable reporting for vanished pins. Each call
+    /// is a small number of `BoardCommand` enqueues, proportional to the
+    /// diff — not the entire pin space.
+    fn apply_wiring_delta(&self, board: &Arc<BoardHandle>, delta: &WiringDelta) {
+        if !board.is_connected() {
+            return;
+        }
+        for &(pin, is_analog) in &delta.pins_to_enable {
+            let _ = board.register_active_pin(pin);
+            let _ = if is_analog {
+                board.enable_analog_reporting(pin)
+            } else {
+                board.enable_digital_reporting(pin)
+            };
+        }
+        for &(pin, is_analog) in &delta.pins_to_disable {
+            let _ = if is_analog {
+                board.disable_analog_reporting(pin)
+            } else {
+                board.disable_digital_reporting(pin)
+            };
+            board.unregister_active_pin(pin);
         }
     }
 
