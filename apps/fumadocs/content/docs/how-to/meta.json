@@ -11,6 +11,8 @@
     "send-a-sensor-to-figma",
     "control-hardware-from-figma",
     "debug-with-monitor-node",
-    "collaborate-on-a-flow"
+    "collaborate-on-a-flow",
+    "collaborate-without-hardware",
+    "save-and-share-a-flow"
   ]
 }

@@ -24,7 +24,7 @@ Once a node is on the canvas, you can:
   <Card title="Generate" href="/docs/microflow-studio/nodes/generate" description="Produce values, signals, and events — constants, waves, timers, and reactive triggers." />
   <Card title="Shape" href="/docs/microflow-studio/nodes/shape" description="Transform and process data as it moves through the flow — math, mapping, and smoothing." />
   <Card title="Decide" href="/docs/microflow-studio/nodes/decide" description="Add logic — comparisons, counting, delays, and logical gates." />
-  <Card title="Express" href="/docs/microflow-studio/nodes/express" description="Output to the physical world — LEDs, buzzers, servos, and more." />
+  <Card title="Express" href="/docs/microflow-studio/nodes/express" description="Output to the physical world or to other tools — LEDs, buzzers, servos, and MQTT publishes." />
   <Card title="Internal" href="/docs/microflow-studio/nodes/internal" description="Monitor values and add notes to document and understand your flow." />
 </Cards>
 
@@ -37,6 +37,21 @@ Every node has the same basic structure.
 <Callout type="info" title="Image placeholder">
   Diagram showing the anatomy of a node: input handles on the left (blue), output handles on the right (green), the node value display in the center, and the settings icon in the top right corner.
 </Callout>
+
+```
+   ┌─────────────────────── ⚙ settings
+   │
+   ▼
+┌──────────────────────────┐
+●  │        Node name        │  ●
+●  │      [ live value ]     │  ●
+●  │                          │  ●
+└──────────────────────────┘
+▲                              ▲
+│                              │
+input handles                  output handles
+(blue, on the left)            (green, on the right)
+```
 
 **Input handles** — the blue dots on the left side. Connect other nodes here to send data into this node.
 

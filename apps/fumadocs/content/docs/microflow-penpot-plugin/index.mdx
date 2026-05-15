@@ -33,6 +33,18 @@ When a value changes in your Microflow Studio flow, the MQTT node publishes it. 
 
 The wire format is identical to the Figma plugin's — the same MQTT broker can drive both at the same time.
 
+## Status
+
+| Capability | Status |
+| --- | --- |
+| Studio → Penpot (drive design tokens) | Working |
+| Penpot → Studio (design drives hardware) | Not yet supported |
+| Numeric tokens bound to text | Not yet supported |
+| Public plugin distribution | No — install via [build from source](/docs/contributing/build-from-source) |
+| MQTT topic format | Stable: `figma/<token-name>` (intentionally shares format with Figma Bridge) |
+
+If you need a feature-complete bridge today, use the [Figma Hardware Bridge](/docs/microflow-hardware-bridge) instead.
+
 ## In this section
 
 <Cards>

@@ -1,4 +1,4 @@
 {
   "title": "Microflow Studio",
-  "pages": ["index", "edges", "nodes"]
+  "pages": ["index", "edges", "nodes", "keyboard-shortcuts"]
 }

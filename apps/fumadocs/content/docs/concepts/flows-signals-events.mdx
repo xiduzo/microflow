@@ -32,6 +32,10 @@ Microflow is **event-driven**. There is no global clock that ticks every X ms sc
 
 When a node fires, its new output value flows down all its outgoing edges. Each downstream node fires in turn. The chain reaction stops when the last node is reached or when no node's output actually changed (a node that re-emits the same value as last time does not retrigger downstream).
 
+<img src="/diagrams/event-propagation.svg" alt="Event chain: Physical world → Button (Sense) → Smooth (Shape) → Compare (Decide) → LED (Express) → Physical world. One physical event triggers one chain of fires." />
+
+If `Compare` had emitted the same value as last time, the chain stops there — `LED` does not re-fire. Same-value emissions are deduplicated downstream.
+
 This has practical consequences:
 
 - **A flow with no Generate node and no Sense activity does nothing.** No timer means no events.

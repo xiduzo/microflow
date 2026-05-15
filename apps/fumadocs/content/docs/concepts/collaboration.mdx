@@ -5,6 +5,10 @@ description: How multi-user editing works in Microflow Studio, and what it means
 
 Microflow Studio supports real-time collaboration: many people can have the same flow open at once and see each other's edits as they happen. This page explains how it works under the hood and what consequences that model has for hardware projects.
 
+<img src="/diagrams/collaboration-topology.svg" alt="Two editors share one flow: both hold a local Yjs doc synced through the Collab server; only Editor A also has the USB cable to a real Arduino that drives a real LED." />
+
+Both editors see the same flow document. Only Editor A's runtime drives the Arduino.
+
 ## CRDTs, not "save and merge"
 
 The collaboration layer is built on [Yjs](https://yjs.dev), a library for **Conflict-free Replicated Data Types** (CRDTs). Each editor holds a local copy of the flow document; changes propagate over WebSocket to every other editor and to a server that persists the document.

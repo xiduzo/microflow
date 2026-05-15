@@ -5,6 +5,10 @@ description: What actually happens between your flow and an Arduino — the prot
 
 You drag a Button node onto the canvas, type `2` into a settings field, and a real button on pin 2 starts working. This page explains the layers under that magic — useful context when something does not work the way you expect.
 
+<img src="/diagrams/microcontroller-bridge.svg" alt="Architecture of the Microflow runtime: React canvas and Rust runtime live on your computer; StandardFirmata and pins live on the Arduino; they talk Firmata over USB; pins connect to the physical world." />
+
+Each layer only knows about the one next to it. The board has no idea what your flow looks like; the canvas has no idea about voltages.
+
 ## The Arduino does not know about Microflow
 
 Your flow does not get compiled and uploaded to the board. Instead, Microflow uploads a small generic program once — **StandardFirmata** — and from then on, the desktop app sends short instructions to the board over USB:

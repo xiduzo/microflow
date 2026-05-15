@@ -13,9 +13,13 @@ This is the *hardware-to-Figma* direction of the bridge: a sensor in the real wo
 
 ## Steps
 
-### 1. Create a variable in Figma
+<Callout type="info" title="Video placeholder">
+  90-second screencast: twist a knob, watch a rectangle in Figma resize live. Full setup shown end-to-end.
+</Callout>
 
-In your Figma file, open *Local variables* and create a variable with the type matching what your sensor produces:
+### 1. Create a variable in the MHB collection
+
+In your Figma file, open *Local variables* and select the **MHB** collection (auto-created by the Bridge plugin on first run — only variables in this collection are connected to your hardware). Create a variable with the type matching what your sensor produces:
 
 | Sensor type | Figma variable type |
 | --- | --- |
@@ -58,7 +62,10 @@ Add one MQTT node per variable. Each gets its own topic (`figma/var_a`, `figma/v
 - The Bridge "log" panel (if your version has one) should show messages arriving.
 - Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the MQTT node's input in Studio — values should be flowing.
 
-If the Bridge is connected but the variable does not update, the topic name probably does not match the variable name. Topic names are case-sensitive.
+If the Bridge is connected but the variable does not update, check:
+
+- The topic name matches the variable name exactly (case-sensitive).
+- The variable lives **inside the MHB collection**, not another collection.
 
 ## Going the other way
 

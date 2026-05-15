@@ -1,0 +1,45 @@
+---
+title: Collaborate on a flow without hardware
+description: Edit and reason about a flow with someone who does not have a board on their desk.
+---
+
+Only one collaborator can run the flow against a real Arduino at a time — there is just one physical board. The other editors see the canvas but no live values. This guide shows how to work productively from the "no hardware" side.
+
+For *why* this limitation exists, see [Concepts: collaboration](/docs/concepts/collaboration#one-flow-multiple-machines-one-board).
+
+## Substitute the world with Constants
+
+Replace each Sense node temporarily with a [Constant](/docs/microflow-studio/nodes/generate/constant) producing a representative value. A potentiometer becomes a Constant at `512`. A button becomes a Constant toggled by a [Trigger](/docs/microflow-studio/nodes/generate/trigger).
+
+This lets you exercise the downstream Shape/Decide/Express logic end-to-end. The Express side does nothing physical without a board — but it runs, and its inputs are visible.
+
+## Observe with Monitor
+
+Drop [Monitor](/docs/microflow-studio/nodes/internal/monitor) nodes liberally. They are the eyes of a hardware-less collaborator: each one shows the live value passing a particular point on the canvas.
+
+Pair Monitors with the Constants from the previous step. You can change a Constant, watch the value propagate, and confirm the flow behaves the way you expect — all without touching a wire.
+
+## Coordinate with the cable-holder
+
+The collaborator who *does* have the board plugged in is the one who can verify "it works in the real world." A useful split:
+
+- **Hardware-less collaborator** — builds and tweaks the flow, places Monitors, names nodes, writes Notes.
+- **Cable-holder** — switches the Constants back to Sense nodes when ready, watches the LED actually light up, reports back.
+
+Switching a Constant back to a Sense node is fast — drag the new node in, rewire the edge, delete the Constant.
+
+## Use Notes to leave context
+
+A [Note](/docs/microflow-studio/nodes/internal/note) node is free-text on the canvas. Use it to flag:
+
+- "Constant here — replace with potentiometer on A0 before running."
+- "Threshold value picked from yesterday's sensor test; verify."
+- "TODO: wire H-bridge."
+
+Notes travel with the flow file and are visible to every collaborator.
+
+## Related
+
+- [Collaborate on a flow in real-time](/docs/how-to/collaborate-on-a-flow) — the live-sharing setup.
+- [Concepts: collaboration](/docs/concepts/collaboration) — the model.
+- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — bisection method applies here too.

@@ -1,12 +1,12 @@
 ---
-title: MQTT
-description: Receive data from an MQTT broker to use in your flow.
+title: MQTT (Sense)
+description: Subscribe to an MQTT topic and feed incoming messages into your flow.
 ---
 
-The MQTT node lets your flow receive data from an MQTT broker — a kind of message-passing server. This is primarily useful when you are using the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) to connect your hardware to Figma.
+The MQTT (Sense) node subscribes to a topic on an MQTT broker — a message-passing server — and emits each message it receives as a value into your flow. It is the subscribe counterpart to the [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node, which publishes.
 
-<Callout title="Most users do not need this directly">
-If you want to connect your hardware to Figma, use the [Figma node](/docs/microflow-studio/nodes/express/figma) and the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) plugin instead. The MQTT node is for advanced users who want to connect to their own MQTT server for other purposes.
+<Callout title="Going Figma → hardware? You probably want this node">
+When the [Hardware Bridge](/docs/microflow-hardware-bridge) writes a Figma variable change back out to MQTT, this is the node that picks it up in Studio. See [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma).
 </Callout>
 
 By default, the node connects to a free public server run by [Mosquitto](https://mosquitto.org/). You can change the connection settings in **Settings → MQTT settings**.

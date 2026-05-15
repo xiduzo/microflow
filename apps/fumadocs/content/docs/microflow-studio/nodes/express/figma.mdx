@@ -1,35 +1,48 @@
 ---
-title: Figma
-description: Send values from your hardware flow into Figma variables to update your design in real-time.
+title: MQTT (Express)
+description: Publish a value from your flow onto an MQTT topic — the protocol the Hardware Bridge uses to update Figma.
 ---
 
-The Figma node lets your hardware talk to a Figma design. When a value changes in your flow — for example, a sensor reading — the Figma node sends that value to a variable inside Figma, and your design updates instantly.
+<Callout type="info" title="Also known as the &quot;Figma&quot; node">
+Earlier releases labelled this node **Figma** because its most common use is publishing values to the [Hardware Bridge](/docs/microflow-hardware-bridge) Figma plugin. The label has been canonicalised to **MQTT (Express)** because the node speaks MQTT, not anything Figma-specific — the Figma plugin is just one possible subscriber.
+</Callout>
 
-**Example:** A potentiometer on your desk controls a slider element in a Figma prototype. As you turn the dial, the slider moves in real-time.
+The MQTT (Express) node publishes the value on its input onto an MQTT topic every time that value changes. Anything subscribed to the same topic — the Figma Hardware Bridge, the Penpot plugin, a Raspberry Pi, your own script — receives it.
 
-This node works together with the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) plugin, which must be running in Figma at the same time.
+**Example:** A potentiometer on your desk controls a slider in a Figma prototype. As you turn the dial, the value is published to `figma/<variable-name>`, the Bridge updates the matching variable in the `MHB` collection, and the slider moves in real-time.
 
-## Setup
+This node pairs with the [MQTT (Sense)](/docs/microflow-studio/nodes/sense/mqtt) node, which subscribes to a topic.
 
-1. Install and open the [Microflow Hardware Bridge plugin](https://www.figma.com/community/plugin/1373258770799080545) in your Figma file
-2. In that plugin, create a variable to link with your hardware (see [Connecting variables](/docs/microflow-hardware-bridge/variables/connecting))
-3. In Microflow Studio, add a Figma node to your flow and select that variable in the node's settings
+## Setup with the Figma Hardware Bridge
+
+1. Install and open the [Microflow Hardware Bridge plugin](https://www.figma.com/community/plugin/1373258770799080545) in your Figma file. The plugin auto-creates the `MHB` variable collection.
+2. Create a variable inside the `MHB` collection (see [Connecting variables](/docs/microflow-hardware-bridge/variables/connecting)).
+3. In Microflow Studio, add an MQTT (Express) node to your flow.
+4. Set the **topic** to `figma/<variable-name>` — case-sensitive, must match the variable name exactly.
 
 ## Variable types
 
-The Figma node behaves slightly differently depending on the type of Figma variable you connect it to:
+The node sends values in a format the Bridge can write into the target variable. The Bridge maps:
 
-- **Number** — sends numeric values (e.g. a sensor reading of 750)
-- **Boolean** — sends true or false (e.g. whether a button is pressed)
-- **String** — sends text
-- **Color** — sends color values
+- **Number** — numeric values (e.g. a sensor reading of `750`)
+- **Boolean** — `true` / `false` (e.g. whether a button is pressed)
+- **String** — text
+- **Color** — color values
+
+## Settings
+
+- **Broker** — which MQTT broker to publish to. Defaults to the shared public broker; change for self-hosted setups.
+- **Topic** — the topic string. Use `figma/<name>` to drive the Figma Bridge or the Penpot plugin; any other topic for custom subscribers.
 
 ## Related
 
 - Tutorial: [Link a sensor to Figma](/docs/learn/link-to-figma)
 - How-to: [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma)
 - How-to: [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma) — going the other direction.
+- How-to: [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)
+- Reference: [MQTT (Sense)](/docs/microflow-studio/nodes/sense/mqtt) — the subscribe counterpart.
 
 ## Resources
 
 - [Figma plugin](https://www.figma.com/community/plugin/1373258770799080545)
+- [mqtt.org](https://mqtt.org/)

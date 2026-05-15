@@ -11,28 +11,36 @@ The Microflow ecosystem has a second tool for designers: the **Hardware Bridge**
 - A Figma account
 - The [Microflow Hardware Bridge](https://www.figma.com/community/plugin/1373258770799080545) plugin installed in Figma
 
-## Step 1 — Create a variable in Figma
+<Callout type="info" title="Video placeholder">
+  60-second Figma-side screencast: open plugin → MHB collection appears → create variable → bind to rectangle width → watch it move as a knob turns on a real desk.
+</Callout>
 
-1. Open a Figma file.
-2. Open the **Local variables** panel (right-click empty canvas → *Local variables*).
-3. Create a new variable. Call it `pot_value`. Type: **Number**.
+## Step 1 — Open the Hardware Bridge plugin
+
+In Figma, run **Plugins → Microflow Hardware Bridge**. The first time you run it the plugin automatically creates a variable collection called **MHB** (short for Microflow Hardware Bridge) in your file.
+
+<Callout type="info" title="Only MHB variables are exposed to hardware">
+The Bridge listens **only** to variables inside the `MHB` collection. Variables in any other collection are ignored. This is by design — it keeps your design system variables out of the live data path.
+</Callout>
+
+Leave the MQTT defaults — the Bridge ships connected to a free public MQTT server out of the box. The plugin should report **Connected**.
+
+## Step 2 — Create a variable in the MHB collection
+
+1. Open Figma's **Local variables** panel.
+2. Select the **MHB** collection.
+3. Create a new variable inside it. Call it `pot_value`. Type: **Number**.
 4. Set the default to `0`.
 
 Bind that variable to *something visible* — for example, the width of a rectangle, or the opacity of a layer. Bind it the same way you bind any Figma variable.
-
-## Step 2 — Open the Hardware Bridge plugin
-
-In Figma, run **Plugins → Microflow Hardware Bridge**. The plugin opens a small panel with MQTT connection settings. Leave the defaults — the Bridge ships connected to a free public MQTT server out of the box.
-
-The plugin should report **Connected**.
 
 ## Step 3 — Send from Studio
 
 Back in Microflow Studio, in your potentiometer flow:
 
-1. Add an [**MQTT (Express)**](/docs/microflow-studio/nodes/express/figma) node — its label says "Figma" since it is the standard way to push values to the Bridge. (If your version names it `MQTT`, that is the same node.)
+1. Add an [**MQTT (Express)**](/docs/microflow-studio/nodes/express/figma) node.
 2. Connect the Potentiometer's output to the MQTT node's input.
-3. In the MQTT node, set the **topic** to `figma/pot_value` (the prefix `figma/` is what the Bridge listens to; the suffix has to match the variable name).
+3. In the MQTT node, set the **topic** to `figma/pot_value`. The prefix `figma/` is what the Bridge listens to; the suffix must exactly match the variable name in the MHB collection (case-sensitive).
 
 That is it on the Studio side.
 
@@ -52,19 +60,20 @@ Microflow Studio is publishing the potentiometer's reading to an MQTT topic. The
 
 Three pieces, one signal:
 
-```
-Arduino → Studio → MQTT broker → Figma plugin → Figma variable
-```
+<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="The signal flow: Arduino potentiometer → Studio (with MQTT Express node) publishes on topic figma/pot_value → MQTT broker → Hardware Bridge Figma plugin → Figma variable in the MHB collection." />
 
-You have now used:
+You have now used five of the six node categories — Sense, Generate, Shape, Express, and Internal. The remaining category, **Decide**, is introduced in the [next lesson](/docs/learn/react-on-threshold), plus:
 
-- All five categories of node (sense, generate, shape, decide, express, internal — minus decide which gets covered in the [Decide overview](/docs/microflow-studio/nodes/decide))
 - The Microflow Hardware Bridge
 - MQTT — the thing that connects them
 
 ## Where to go next
 
-You have completed the learning path. Useful next stops:
+One short lesson rounds out the learning path — it introduces the Decide category:
+
+→ [React only when a sensor crosses a threshold](/docs/learn/react-on-threshold)
+
+After that, useful next stops:
 
 - [How-to guides](/docs/how-to) — recipes for common tasks.
 - [Concepts](/docs/concepts) — the *why* behind everything you just did.

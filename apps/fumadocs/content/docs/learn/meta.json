@@ -6,6 +6,7 @@
     "button-controls-led",
     "fade-with-potentiometer",
     "smooth-a-sensor",
-    "link-to-figma"
+    "link-to-figma",
+    "react-on-threshold"
   ]
 }

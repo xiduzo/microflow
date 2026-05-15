@@ -40,9 +40,7 @@ The Bridge does not know anything about hardware. It just speaks MQTT. Microflow
 
 ## How they fit together
 
-```
-[Arduino]  ←USB→  [Microflow Studio]  ←MQTT→  [Hardware Bridge]  ↔  [Figma]
-```
+<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="Pipeline: Arduino + components ↔ USB/Firmata ↔ Microflow Studio ↔ MQTT ↔ Hardware Bridge Figma plugin ↔ variables ↔ Figma file MHB collection." />
 
 The pipe between Studio and the Bridge is **MQTT**, an off-the-shelf messaging protocol. By default, both Studio and the Bridge connect to a free public MQTT broker — but you can [run your own](/docs/how-to/run-your-own-mqtt-broker) in seconds.
 

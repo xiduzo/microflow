@@ -1,0 +1,50 @@
+---
+title: React only when a sensor crosses a threshold
+description: Use a Compare node to fire an output only when a value crosses a boundary, instead of every time it changes.
+---
+
+So far every value flowing in your flow has reached the output. Sometimes that is too much — you want the LED to come on only when the room is *dark enough*, or the buzzer to sound only when motion is *fast enough*. That decision lives in the **Decide** category.
+
+In this lesson you will use a [Compare](/docs/microflow-studio/nodes/decide/compare) node to turn an analog reading into a yes/no signal and only light an LED when the reading crosses a threshold.
+
+## What you need
+
+- The setup from [Fade an LED with a potentiometer](/docs/learn/fade-with-potentiometer): potentiometer on `A0`, LED on pin `9`.
+
+## Step 1 — See the raw value
+
+Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) on the Potentiometer's output. Twist the knob and watch the value swing between `0` and `1023`. Pick a value somewhere in the middle to use as your threshold — say, `512`.
+
+## Step 2 — Add a Compare node
+
+In a fresh flow (or by editing the previous one):
+
+1. Add a [**Compare**](/docs/microflow-studio/nodes/decide/compare) node.
+2. Connect the Potentiometer's output to the Compare node's input.
+3. Open the Compare settings. Set the operator to `>` and the **value** to `512`.
+
+The Compare node now emits `1` (true) whenever the potentiometer reading is above 512, and `0` (false) otherwise.
+
+## Step 3 — Drive the LED from the Compare output
+
+Connect the Compare node's output directly to an [**LED**](/docs/microflow-studio/nodes/express/led) node on pin `9`.
+
+Twist the knob. The LED should be **off** while the value is below 512, then snap **on** as soon as it crosses.
+
+## Step 4 — Try other operators
+
+The Compare node supports `>`, `>=`, `<`, `<=`, `==`, `!=`. Try `<` and the LED inverts. Try `==` with a value like `500` and the LED flickers only when the knob lands exactly there.
+
+## What just happened?
+
+The flow is now: **Sense → Decide → Express**. The Decide category does not transform values the way Shape does — it makes a *choice*. The output is a clean boolean, ready to drive anything that responds to `0` or `1`.
+
+Decide nodes are how you keep a flow from doing too much. Without one, every change downstream reacts to every wobble upstream. With one, the flow stays quiet until the world crosses a line you have drawn.
+
+## Going further
+
+- [Counter](/docs/microflow-studio/nodes/decide/counter) — count how many times the threshold has been crossed.
+- [Delay](/docs/microflow-studio/nodes/decide/delay) — wait a moment before reacting.
+- [Gate](/docs/microflow-studio/nodes/decide/gate) — let a value through only when another signal allows it.
+
+You have now used every category of node in Microflow. The [How-to guides](/docs/how-to) and [Concepts](/docs/concepts) sections are the natural next stops.

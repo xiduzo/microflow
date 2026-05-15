@@ -1,0 +1,49 @@
+---
+title: Save, export, and share a flow file
+description: Persist a flow to disk, hand it to someone else, and open one they sent you.
+---
+
+A flow is just a file. You can save it, drop it into a chat, commit it to a repo. This guide covers the three things you will do with that file.
+
+## Save the current flow
+
+Microflow Studio autosaves to its local store while you work, so closing the app does not lose your changes. To produce a *standalone* file you can move around:
+
+1. Open the flow you want to export.
+2. **File → Save as…** (or `Cmd/Ctrl + Shift + S`).
+3. Pick a location and name. The file extension is `.microflow`.
+
+The file contains the entire flow: every node, every edge, every setting, plus the canvas layout. It does **not** contain runtime state, the connected board's identity, or your MQTT credentials.
+
+<Callout type="info" title="Want collaborative real-time editing instead?">
+Use the **Share** button in the top-right corner. See [Collaborate on a flow in real-time](/docs/how-to/collaborate-on-a-flow). File-based sharing is for one-shot handoffs; the Share link is for ongoing collaboration.
+</Callout>
+
+## Open a flow someone sent you
+
+1. Receive the `.microflow` file (any channel — email, drag-drop, git).
+2. **File → Open…** in Microflow Studio.
+3. Select the file.
+
+The flow opens on a fresh canvas. Pin numbers, settings, and MQTT topics travel with it. If the original used a board you do not have plugged in, the connection panel will sit at **Waiting** until you connect a matching board.
+
+## Commit a flow to version control
+
+Treat `.microflow` files as text — they diff reasonably in git. The format is structured (Yjs document serialised to a stable form), so you can review changes with a normal `git diff`.
+
+A common layout:
+
+```
+my-project/
+  flows/
+    main.microflow
+    demo.microflow
+  README.md
+```
+
+For a project with many people editing the *same* flow simultaneously, prefer the [collaboration server](/docs/how-to/collaborate-on-a-flow) over a `git` workflow. Yjs handles concurrent edits; git merges of binary-ish documents do not.
+
+## Related
+
+- [Collaborate on a flow in real-time](/docs/how-to/collaborate-on-a-flow)
+- [Concepts: collaboration](/docs/concepts/collaboration) — what is *inside* a flow file.
