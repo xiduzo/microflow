@@ -17,6 +17,7 @@
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
+    HardwareComponent,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -294,25 +295,7 @@ impl Component for Matrix {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Matrix" }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        log::info!(
-            "Matrix {}: initialize called, board connected={}",
-            self.base.id, board.is_connected()
-        );
-        if !board.is_connected() {
-            return Err(crate::error::RuntimeError::BoardNotConnected);
-        }
-        board.set_pin_mode(self.config.pins.data, pin_mode::OUTPUT)?;
-        board.set_pin_mode(self.config.pins.clock, pin_mode::OUTPUT)?;
-        board.set_pin_mode(self.config.pins.cs, pin_mode::OUTPUT)?;
-        self.board = Some(Arc::clone(&board));
-        self.init_max7219(&board)?;
-        if !self.config.shapes.is_empty() {
-            log::info!("Matrix {}: displaying initial shape", self.base.id);
-            self.set_shape(0)?;
-        }
-        Ok(())
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         log::info!("Matrix {}: call_method '{}' board={}",
@@ -338,5 +321,27 @@ impl Component for Matrix {
             let _ = self.send_to_all(&board, REG_SHUTDOWN, 0);
         }
         self.board = None;
+    }
+}
+
+impl HardwareComponent for Matrix {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        log::info!(
+            "Matrix {}: initialize called, board connected={}",
+            self.base.id, board.is_connected()
+        );
+        if !board.is_connected() {
+            return Err(crate::error::RuntimeError::BoardNotConnected);
+        }
+        board.set_pin_mode(self.config.pins.data, pin_mode::OUTPUT)?;
+        board.set_pin_mode(self.config.pins.clock, pin_mode::OUTPUT)?;
+        board.set_pin_mode(self.config.pins.cs, pin_mode::OUTPUT)?;
+        self.board = Some(Arc::clone(&board));
+        self.init_max7219(&board)?;
+        if !self.config.shapes.is_empty() {
+            log::info!("Matrix {}: displaying initial shape", self.base.id);
+            self.set_shape(0)?;
+        }
+        Ok(())
     }
 }

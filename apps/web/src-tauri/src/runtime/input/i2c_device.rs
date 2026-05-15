@@ -10,7 +10,7 @@
 //!    via `call_method("i2c_reply", ...)`.
 //! 3. `destroy()` — Sends I2C stop reading command.
 
-use crate::runtime::base::{BoardHandle, Component, ComponentBase, ComponentValue};
+use crate::runtime::base::{BoardHandle, Component, ComponentBase, ComponentValue, HardwareComponent};
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -130,24 +130,7 @@ impl Component for I2cDevice {
         vec![ListenerWiring::I2cAddress { address: self.config.address }]
     }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        log::info!(
-            "I2cDevice {} initialize: address=0x{:02X}, register=0x{:02X}, read_length={}, output={:?}",
-            self.base.id, self.config.address, self.config.register,
-            self.config.read_length, self.config.output
-        );
-
-        // Configure I2C bus (delay=0 for most devices)
-        board.i2c_config(0)?;
-
-        self.board = Some(board);
-        self.initialized = true;
-
-        // Start initial read
-        self.request_read()?;
-
-        Ok(())
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -211,5 +194,26 @@ impl Component for I2cDevice {
         }
         self.board = None;
         self.initialized = false;
+    }
+}
+
+impl HardwareComponent for I2cDevice {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        log::info!(
+            "I2cDevice {} initialize: address=0x{:02X}, register=0x{:02X}, read_length={}, output={:?}",
+            self.base.id, self.config.address, self.config.register,
+            self.config.read_length, self.config.output
+        );
+
+        // Configure I2C bus (delay=0 for most devices)
+        board.i2c_config(0)?;
+
+        self.board = Some(board);
+        self.initialized = true;
+
+        // Start initial read
+        self.request_read()?;
+
+        Ok(())
     }
 }

@@ -153,15 +153,16 @@ impl Default for PinConfig {
 /// # Lifecycle
 /// 1. `new()` — create component with config (concrete fn on each impl)
 /// 2. `set_event_sender()` — wire up event channel
-/// 3. `initialize()` — called when board connects (default no-op for software)
+/// 3. `HardwareComponent::initialize()` — called when board connects (hardware components only)
 /// 4. `call_method()` — handle incoming events from flow edges
 /// 5. `destroy()` — cleanup when component is removed (default no-op)
 ///
 /// Implementors must provide `base()` / `base_mut()` returning their
 /// `ComponentBase` field. The trait then defaults `id`/`value`/`set_value` and the
 /// event-sender accessors. Software components only need to define `base/base_mut`,
-/// `component_type`, and `call_method`. Hardware components additionally
-/// override `initialize`. The `requiresHardware` flag in `node-components.json`
+/// `component_type`, and `call_method`. Hardware components additionally implement
+/// [`HardwareComponent`] and override `as_hardware_mut` to expose themselves to the
+/// runtime's board-init pass. The `requiresHardware` flag in `node-components.json`
 /// is the single source of truth for hardware vs. software classification.
 pub trait Component: Send + Sync {
     /// Reference to the shared `ComponentBase`. The trait reads `id`/`value`/`event_sender` from here.
@@ -195,9 +196,10 @@ pub trait Component: Send + Sync {
         self.base_mut().event_sender = Some(sender);
     }
 
-    /// Initialize hardware resources. Default no-op for software components.
-    /// Called when the board connects; may be called multiple times if board reconnects.
-    fn initialize(&mut self, _board: Arc<BoardHandle>) -> Result<(), RuntimeError> { Ok(()) }
+    /// Hardware classifier. Returns `Some(self)` for `HardwareComponent` impls so the
+    /// runtime can call `initialize` only on components that need a `BoardHandle`.
+    /// Default `None` keeps software components free of dead-weight hardware concerns.
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { None }
 
     /// Cleanup resources when component is removed. Default no-op.
     fn destroy(&mut self) {}
@@ -218,6 +220,18 @@ pub trait Component: Send + Sync {
     /// Async subscriptions this component requests against an MQTT broker.
     /// Default empty for components that don't talk to brokers. See `CONTEXT.md` § Wiring.
     fn subscriber_wiring(&self) -> Vec<crate::runtime::wiring::SubscriberWiring> { Vec::new() }
+}
+
+/// Extension trait for components that need a [`BoardHandle`] at runtime.
+///
+/// Implemented by the 14 hardware components in the Component Catalog
+/// (`requiresHardware: true`). The runtime invokes `initialize` once when the
+/// board connects, via `Component::as_hardware_mut`, and may invoke it again on
+/// reconnect.
+pub trait HardwareComponent: Component {
+    /// Acquire any pin modes, reporting toggles, or I/O state the component
+    /// needs against the connected board.
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), RuntimeError>;
 }
 
 /// Base implementation helper for components

@@ -2,6 +2,7 @@
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
+    HardwareComponent,
 };
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
@@ -100,15 +101,7 @@ impl Component for Sensor {
         }]
     }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        let pin = self.config.analog_pin();
-        log::info!("Sensor initialize: pin={pin}");
-        board.set_pin_mode(pin, pin_mode::ANALOG)?;
-        board.enable_analog_reporting(pin)?;
-        self.board = Some(board);
-        self.polling_active.store(true, Ordering::Relaxed);
-        Ok(())
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -131,5 +124,17 @@ impl Component for Sensor {
             let _ = board.disable_analog_reporting(pin);
         }
         self.board = None;
+    }
+}
+
+impl HardwareComponent for Sensor {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        let pin = self.config.analog_pin();
+        log::info!("Sensor initialize: pin={pin}");
+        board.set_pin_mode(pin, pin_mode::ANALOG)?;
+        board.enable_analog_reporting(pin)?;
+        self.board = Some(board);
+        self.polling_active.store(true, Ordering::Relaxed);
+        Ok(())
     }
 }

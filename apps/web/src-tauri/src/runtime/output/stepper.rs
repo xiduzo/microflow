@@ -14,7 +14,7 @@
 //! 7. `destroy()` — Stop motor.
 
 use crate::runtime::base::{
-    serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
+    serde_utils, BoardHandle, Component, ComponentBase, ComponentValue, HardwareComponent,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -310,28 +310,7 @@ impl Component for Stepper {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Stepper" }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        log::info!(
-            "Stepper {} initialize: device={}, step_pin={}, dir_pin={}, speed={}, accel={}",
-            self.base.id, self.config.device_num, self.config.step_pin,
-            self.config.dir_pin, self.config.speed, self.config.acceleration
-        );
-
-        self.board = Some(board);
-
-        // 1. Send stepper config (pins, interface type)
-        self.send_config()?;
-        // 2. Set max speed
-        self.send_speed()?;
-        // 3. Set acceleration (if non-zero)
-        self.send_acceleration()?;
-        // 4. Enable driver if enable pin is configured
-        if self.config.enable_pin.is_some() {
-            self.enable(true)?;
-        }
-
-        Ok(())
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -381,5 +360,30 @@ impl Component for Stepper {
             let _ = self.enable(false);
         }
         self.board = None;
+    }
+}
+
+impl HardwareComponent for Stepper {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        log::info!(
+            "Stepper {} initialize: device={}, step_pin={}, dir_pin={}, speed={}, accel={}",
+            self.base.id, self.config.device_num, self.config.step_pin,
+            self.config.dir_pin, self.config.speed, self.config.acceleration
+        );
+
+        self.board = Some(board);
+
+        // 1. Send stepper config (pins, interface type)
+        self.send_config()?;
+        // 2. Set max speed
+        self.send_speed()?;
+        // 3. Set acceleration (if non-zero)
+        self.send_acceleration()?;
+        // 4. Enable driver if enable pin is configured
+        if self.config.enable_pin.is_some() {
+            self.enable(true)?;
+        }
+
+        Ok(())
     }
 }

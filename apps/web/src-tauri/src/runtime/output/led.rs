@@ -2,6 +2,7 @@
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
+    HardwareComponent,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -82,12 +83,7 @@ impl Component for Led {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Led" }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
-        board.digital_write(self.config.pin, false)?;
-        self.board = Some(board);
-        Ok(())
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -103,5 +99,14 @@ impl Component for Led {
         self.stop_blink();
         let _ = self.turn_off();
         self.board = None;
+    }
+}
+
+impl HardwareComponent for Led {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
+        board.digital_write(self.config.pin, false)?;
+        self.board = Some(board);
+        Ok(())
     }
 }

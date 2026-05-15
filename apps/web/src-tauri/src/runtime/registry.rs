@@ -51,9 +51,13 @@ impl ComponentRegistry {
         let mut component = factory(id.to_string(), data, ctx);
         component.set_event_sender(event_sender);
 
-        // Initialize when the board is already connected; software components no-op by default.
+        // Initialize only when the component is hardware-bound and the board is
+        // already connected. Software components return `None` from
+        // `as_hardware_mut` and skip this path entirely.
         if board_handle.is_connected() {
-            component.initialize(board_handle)?;
+            if let Some(hw) = component.as_hardware_mut() {
+                hw.initialize(board_handle)?;
+            }
         }
 
         Ok(component)

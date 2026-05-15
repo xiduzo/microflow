@@ -2,6 +2,7 @@
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
+    HardwareComponent,
 };
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
@@ -68,13 +69,7 @@ impl Component for Motion {
         vec![ListenerWiring::DigitalPin { pin: self.config.pin }]
     }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pin, pin_mode::INPUT)?;
-        board.enable_digital_reporting(self.config.pin)?;
-        self.board = Some(board);
-        self.polling_active.store(true, Ordering::Relaxed);
-        Ok(())
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -96,5 +91,15 @@ impl Component for Motion {
             let _ = board.disable_digital_reporting(self.config.pin);
         }
         self.board = None;
+    }
+}
+
+impl HardwareComponent for Motion {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        board.set_pin_mode(self.config.pin, pin_mode::INPUT)?;
+        board.enable_digital_reporting(self.config.pin)?;
+        self.board = Some(board);
+        self.polling_active.store(true, Ordering::Relaxed);
+        Ok(())
     }
 }

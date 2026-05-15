@@ -5,7 +5,7 @@
 //! set strip, show, and shift operations.
 
 use crate::runtime::base::{
-    serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
+    serde_utils, BoardHandle, Component, ComponentBase, ComponentValue, HardwareComponent,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -217,13 +217,7 @@ impl Component for Pixel {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Pixel" }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        self.board = Some(board);
-        self.send_config()?;
-        // Small delay to let the firmware process the config
-        std::thread::sleep(std::time::Duration::from_millis(10));
-        self.off()
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -301,5 +295,15 @@ impl Component for Pixel {
     fn destroy(&mut self) {
         let _ = self.off();
         self.board = None;
+    }
+}
+
+impl HardwareComponent for Pixel {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        self.board = Some(board);
+        self.send_config()?;
+        // Small delay to let the firmware process the config
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        self.off()
     }
 }

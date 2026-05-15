@@ -2,6 +2,7 @@
 
 use crate::runtime::base::{
     pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
+    HardwareComponent,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -90,13 +91,7 @@ impl Component for Rgb {
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Rgb" }
 
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pins.red, pin_mode::PWM)?;
-        board.set_pin_mode(self.config.pins.green, pin_mode::PWM)?;
-        board.set_pin_mode(self.config.pins.blue, pin_mode::PWM)?;
-        self.board = Some(board);
-        self.off()
-    }
+    fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
@@ -110,4 +105,14 @@ impl Component for Rgb {
     }
 
     fn destroy(&mut self) { let _ = self.off(); self.board = None; }
+}
+
+impl HardwareComponent for Rgb {
+    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
+        board.set_pin_mode(self.config.pins.red, pin_mode::PWM)?;
+        board.set_pin_mode(self.config.pins.green, pin_mode::PWM)?;
+        board.set_pin_mode(self.config.pins.blue, pin_mode::PWM)?;
+        self.board = Some(board);
+        self.off()
+    }
 }

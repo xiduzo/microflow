@@ -2921,7 +2921,7 @@ dependencies = [
 
 [[package]]
 name = "microflow"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "boa_engine",
  "criterion",
