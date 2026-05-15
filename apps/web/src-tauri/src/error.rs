@@ -36,6 +36,15 @@ pub enum RuntimeError {
     #[error("Lock poisoned: {0}")]
     LockPoisoned(String),
 
+    /// Component config failed to deserialize against the expected `Config` type.
+    /// Surfaces deserialization errors instead of silently falling back to `Default`.
+    #[error("Component '{component}' has invalid config: {source}")]
+    ConfigDeserialize {
+        component: String,
+        #[source]
+        source: serde_json::Error,
+    },
+
     /// Generic component error (for component-specific failures)
     #[error("{0}")]
     ComponentError(String),

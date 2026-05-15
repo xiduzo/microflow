@@ -19,17 +19,20 @@ fn main() {
     let impls = json["impls"].as_array()
         .expect("impls must be an array");
 
-    // Build impl lookup: name -> (category, uses_runtime_context).
-    // The `requiresHardware` flag is validated for presence (frontend codegen + UI consume it)
-    // but is not consumed by the Rust registry — the runtime always calls `initialize`,
-    // and software components default to a no-op.
+    // Build impl lookup: name -> (category, requires_hardware).
+    // `requiresHardware` is now load-bearing: it picks `register_hardware::<T>`
+    // (which adds a `HardwareComponent` bound) over `register::<T>`. A catalog
+    // entry marked `requiresHardware: true` whose impl forgot `HardwareComponent`
+    // fails to compile.
+    // `usesRuntimeContext` is no longer used: every `ComponentBuilder::build`
+    // receives a `RuntimeContext` and ignores it unless it needs it (only `Llm`
+    // currently does).
     let mut impl_meta: HashMap<&str, (&str, bool)> = HashMap::new();
     for i in impls {
         let name = i["name"].as_str().expect("impl.name");
         let category = i["category"].as_str().expect("impl.category");
-        let _ = i["requiresHardware"].as_bool().expect("impl.requiresHardware");
-        let uses_runtime_context = i["usesRuntimeContext"].as_bool().unwrap_or(false);
-        impl_meta.insert(name, (category, uses_runtime_context));
+        let requires_hardware = i["requiresHardware"].as_bool().expect("impl.requiresHardware");
+        impl_meta.insert(name, (category, requires_hardware));
     }
 
     // Validate: every entry's impl exists in impls
@@ -54,19 +57,12 @@ fn main() {
     for e in entries {
         let entry_name = e["name"].as_str().unwrap();
         let impl_name = e["impl"].as_str().unwrap();
-        let (category, uses_runtime_context) = impl_meta[impl_name];
-        if uses_runtime_context {
-            // Component opts in to RuntimeContext via a custom from_data() factory.
-            writeln!(
-                body,
-                "    self.register(\"{entry_name}\", |id, data, ctx| super::{category}::{impl_name}::from_data(id, data, ctx));"
-            ).unwrap();
-        } else {
-            writeln!(
-                body,
-                "    self.register(\"{entry_name}\", |id, data, _ctx| Box::new(super::{category}::{impl_name}::new(id, parse_config::<super::{category}::{impl_name}Config>(data))));"
-            ).unwrap();
-        }
+        let (category, requires_hardware) = impl_meta[impl_name];
+        let helper = if requires_hardware { "register_hardware" } else { "register" };
+        writeln!(
+            body,
+            "    self.{helper}::<super::{category}::{impl_name}>(\"{entry_name}\");"
+        ).unwrap();
     }
 
     body.push_str("}\n");

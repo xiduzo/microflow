@@ -30,6 +30,7 @@
 
 pub mod base;
 pub mod board;
+mod builders;
 pub mod commands;
 pub mod component;
 pub mod context;

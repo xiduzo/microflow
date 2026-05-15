@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use super::board::BoardHandle;
+use super::context::RuntimeContext;
 
 /// Value that a component can hold
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -232,6 +233,32 @@ pub trait HardwareComponent: Component {
     /// Acquire any pin modes, reporting toggles, or I/O state the component
     /// needs against the connected board.
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), RuntimeError>;
+}
+
+/// Catalog factory contract used by [`ComponentRegistry`].
+///
+/// Every entry in the Component Catalog (`node-components.json`) implements
+/// this trait. `build` consumes the deserialized `Config` plus the active
+/// [`RuntimeContext`] and produces the concrete component. Deserialization
+/// errors surface as [`RuntimeError::ConfigDeserialize`] inside the registry —
+/// no silent `Default` fallback.
+///
+/// Hardware components are bound by `register_hardware::<B>(name)` in the
+/// registry, which adds a `HardwareComponent` bound so a catalog
+/// `requiresHardware: true` entry that forgets to implement
+/// [`HardwareComponent`] fails to compile.
+pub trait ComponentBuilder: Component + Sized + 'static {
+    /// The deserialized configuration shape declared by this component.
+    type Config: serde::de::DeserializeOwned;
+
+    /// Construct the component from a config plus the active runtime context.
+    /// Most impls ignore `ctx`; the `Llm` node uses it to resolve a provider
+    /// referenced by `provider_id`.
+    fn build(
+        id: String,
+        config: Self::Config,
+        ctx: &RuntimeContext,
+    ) -> Result<Self, RuntimeError>;
 }
 
 /// Base implementation helper for components
