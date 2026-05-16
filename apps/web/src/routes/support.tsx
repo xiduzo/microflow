@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Github, Heart, LogIn, Sparkles } from "lucide-react";
 
-import { env } from "@microflow/env/web";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -18,8 +17,8 @@ export const Route = createFileRoute("/support")({
   component: SupportPage,
 });
 
-function startCheckout(slug: "supporter" | "donation") {
-  window.location.href = `${env.VITE_SERVER_URL}/api/auth/checkout/${slug}`;
+async function startCheckout(slug: "supporter" | "donation") {
+  await authClient.checkout({ slug });
 }
 
 function SupportPage() {

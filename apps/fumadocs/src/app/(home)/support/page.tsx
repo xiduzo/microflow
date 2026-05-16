@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Github, Heart, Sparkles, ArrowRight } from "lucide-react";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? "";
 
 type Supporter = { name: string; since: string | null };
 
@@ -35,16 +36,16 @@ const tiers = [
     blurb:
       "Recurring tip jar. No paid features unlocked — just a Supporter badge in the app and your name in credits.",
     cta: "Become a Supporter",
-    href: `${SERVER_URL}/api/auth/checkout/supporter`,
-    external: false,
+    href: `${WEB_URL}/support`,
+    external: true,
   },
   {
     icon: Sparkles,
     title: "One-time donation",
     blurb: "Throw a coin in the jar. Same cosmetic Supporter mention, no recurring charge.",
     cta: "Send a one-time tip",
-    href: `${SERVER_URL}/api/auth/checkout/donation`,
-    external: false,
+    href: `${WEB_URL}/support`,
+    external: true,
   },
 ];
 
@@ -134,13 +135,15 @@ export default async function SupportPage() {
               <p className="mb-6 text-sm text-fd-muted-foreground">
                 Be the first to keep Microflow growing. Your first name will land here.
               </p>
-              <Link
-                href={`${SERVER_URL}/api/auth/checkout/supporter`}
+              <a
+                href={`${WEB_URL}/support`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 border border-fd-primary bg-fd-primary px-4 py-2 text-sm font-medium text-fd-primary-foreground transition-colors hover:bg-fd-primary/90"
               >
                 Be the first Supporter
                 <ArrowRight className="size-3.5" />
-              </Link>
+              </a>
             </div>
           )}
         </div>
