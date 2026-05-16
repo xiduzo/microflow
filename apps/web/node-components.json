@@ -1,78 +1,440 @@
 {
   "entries": [
-    { "name": "Button", "impl": "Button" },
-    { "name": "Calculate", "impl": "Calculate" },
-    { "name": "Compare", "impl": "Compare" },
-    { "name": "Constant", "impl": "Constant" },
-    { "name": "Counter", "impl": "Counter" },
-    { "name": "Delay", "impl": "Delay" },
-    { "name": "Figma", "impl": "Figma" },
-    { "name": "Force", "impl": "Sensor" },
-    { "name": "Function", "impl": "Function" },
-    { "name": "Gate", "impl": "Gate" },
-    { "name": "HallEffect", "impl": "Sensor" },
-    { "name": "Hotkey", "impl": "Hotkey" },
-    { "name": "Interval", "impl": "Interval" },
-    { "name": "Ldr", "impl": "Sensor" },
-    { "name": "Led", "impl": "Led" },
-    { "name": "Llm", "impl": "Llm" },
-    { "name": "Matrix", "impl": "Matrix" },
-    { "name": "Monitor", "impl": "Monitor" },
-    { "name": "Motion", "impl": "Motion" },
-    { "name": "Mqtt", "impl": "Mqtt" },
-    { "name": "Oscillator", "impl": "Oscillator" },
-    { "name": "Piezo", "impl": "Piezo" },
-    { "name": "Pixel", "impl": "Pixel" },
-    { "name": "Potentiometer", "impl": "Sensor" },
-    { "name": "Proximity", "impl": "Proximity" },
-    { "name": "RangeMap", "impl": "RangeMap" },
-    { "name": "Relay", "impl": "Relay" },
-    { "name": "Rgb", "impl": "Rgb" },
-    { "name": "Sensor", "impl": "Sensor" },
-    { "name": "Servo", "impl": "Servo" },
-    { "name": "Smooth", "impl": "Smooth" },
-    { "name": "Stepper", "impl": "Stepper" },
-    { "name": "Switch", "impl": "Switch" },
-    { "name": "Tilt", "impl": "Sensor" },
-    { "name": "Trigger", "impl": "Trigger" },
-    { "name": "Vibration", "impl": "Led" }
+    {
+      "name": "Button",
+      "impl": "Button"
+    },
+    {
+      "name": "Calculate",
+      "impl": "Calculate"
+    },
+    {
+      "name": "Compare",
+      "impl": "Compare"
+    },
+    {
+      "name": "Constant",
+      "impl": "Constant"
+    },
+    {
+      "name": "Counter",
+      "impl": "Counter"
+    },
+    {
+      "name": "Delay",
+      "impl": "Delay"
+    },
+    {
+      "name": "Figma",
+      "impl": "Figma"
+    },
+    {
+      "name": "Force",
+      "impl": "Sensor"
+    },
+    {
+      "name": "Function",
+      "impl": "Function"
+    },
+    {
+      "name": "Gate",
+      "impl": "Gate"
+    },
+    {
+      "name": "HallEffect",
+      "impl": "Sensor"
+    },
+    {
+      "name": "Hotkey",
+      "impl": "Hotkey"
+    },
+    {
+      "name": "Interval",
+      "impl": "Interval"
+    },
+    {
+      "name": "Ldr",
+      "impl": "Sensor"
+    },
+    {
+      "name": "Led",
+      "impl": "Led"
+    },
+    {
+      "name": "Llm",
+      "impl": "Llm"
+    },
+    {
+      "name": "Matrix",
+      "impl": "Matrix"
+    },
+    {
+      "name": "Monitor",
+      "impl": "Monitor"
+    },
+    {
+      "name": "Motion",
+      "impl": "Motion"
+    },
+    {
+      "name": "Mqtt",
+      "impl": "Mqtt"
+    },
+    {
+      "name": "Oscillator",
+      "impl": "Oscillator"
+    },
+    {
+      "name": "Piezo",
+      "impl": "Piezo"
+    },
+    {
+      "name": "Pixel",
+      "impl": "Pixel"
+    },
+    {
+      "name": "Potentiometer",
+      "impl": "Sensor"
+    },
+    {
+      "name": "Proximity",
+      "impl": "Proximity"
+    },
+    {
+      "name": "RangeMap",
+      "impl": "RangeMap"
+    },
+    {
+      "name": "Relay",
+      "impl": "Relay"
+    },
+    {
+      "name": "Rgb",
+      "impl": "Rgb"
+    },
+    {
+      "name": "Sensor",
+      "impl": "Sensor"
+    },
+    {
+      "name": "Servo",
+      "impl": "Servo"
+    },
+    {
+      "name": "Smooth",
+      "impl": "Smooth"
+    },
+    {
+      "name": "Stepper",
+      "impl": "Stepper"
+    },
+    {
+      "name": "Switch",
+      "impl": "Switch"
+    },
+    {
+      "name": "Tilt",
+      "impl": "Sensor"
+    },
+    {
+      "name": "Trigger",
+      "impl": "Trigger"
+    },
+    {
+      "name": "Vibration",
+      "impl": "Led"
+    }
   ],
   "impls": [
-    { "name": "Button", "category": "input", "requiresHardware": true },
-    { "name": "Calculate", "category": "transformation", "requiresHardware": false },
-    { "name": "Compare", "category": "transformation", "requiresHardware": false },
-    { "name": "Constant", "category": "generator", "requiresHardware": false },
-    { "name": "Counter", "category": "control", "requiresHardware": false },
-    { "name": "Delay", "category": "control", "requiresHardware": false },
-    { "name": "Figma", "category": "external", "requiresHardware": false, "usesHostAdapter": true },
-    { "name": "Function", "category": "transformation", "requiresHardware": false },
-    { "name": "Gate", "category": "transformation", "requiresHardware": false },
-    { "name": "Hotkey", "category": "input", "requiresHardware": false, "usesHostAdapter": true },
-    { "name": "I2cDevice", "category": "input", "requiresHardware": true },
-    { "name": "Interval", "category": "generator", "requiresHardware": false },
-    { "name": "Led", "category": "output", "requiresHardware": true },
+    {
+      "name": "Button",
+      "category": "input",
+      "requiresHardware": true,
+      "ports": [
+        "read"
+      ]
+    },
+    {
+      "name": "Calculate",
+      "category": "transformation",
+      "requiresHardware": false,
+      "ports": [
+        "value"
+      ]
+    },
+    {
+      "name": "Compare",
+      "category": "transformation",
+      "requiresHardware": false,
+      "ports": [
+        "value"
+      ]
+    },
+    {
+      "name": "Constant",
+      "category": "generator",
+      "requiresHardware": false,
+      "ports": []
+    },
+    {
+      "name": "Counter",
+      "category": "control",
+      "requiresHardware": false,
+      "ports": [
+        "increment",
+        "decrement",
+        "reset",
+        "set"
+      ]
+    },
+    {
+      "name": "Delay",
+      "category": "control",
+      "requiresHardware": false,
+      "ports": [
+        "trigger"
+      ]
+    },
+    {
+      "name": "Figma",
+      "category": "external",
+      "requiresHardware": false,
+      "usesHostAdapter": true,
+      "ports": [
+        "true",
+        "false",
+        "toggle",
+        "set",
+        "increment",
+        "decrement",
+        "reset",
+        "red",
+        "green",
+        "blue",
+        "opacity"
+      ]
+    },
+    {
+      "name": "Function",
+      "category": "transformation",
+      "requiresHardware": false,
+      "ports": [
+        "trigger"
+      ]
+    },
+    {
+      "name": "Gate",
+      "category": "transformation",
+      "requiresHardware": false,
+      "ports": [
+        "value"
+      ]
+    },
+    {
+      "name": "Hotkey",
+      "category": "input",
+      "requiresHardware": false,
+      "usesHostAdapter": true,
+      "ports": [
+        "key_event"
+      ]
+    },
+    {
+      "name": "I2cDevice",
+      "category": "input",
+      "requiresHardware": true,
+      "ports": [
+        "write",
+        "trigger"
+      ]
+    },
+    {
+      "name": "Interval",
+      "category": "generator",
+      "requiresHardware": false,
+      "ports": [
+        "start",
+        "stop"
+      ]
+    },
+    {
+      "name": "Led",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "true",
+        "false",
+        "toggle",
+        "value"
+      ]
+    },
     {
       "name": "Llm",
       "category": "external",
       "requiresHardware": false,
-      "usesRuntimeContext": true
+      "usesRuntimeContext": true,
+      "ports": [
+        "trigger"
+      ]
     },
-    { "name": "Matrix", "category": "output", "requiresHardware": true },
-    { "name": "Monitor", "category": "output", "requiresHardware": false },
-    { "name": "Motion", "category": "input", "requiresHardware": true },
-    { "name": "Mqtt", "category": "external", "requiresHardware": false, "usesHostAdapter": true },
-    { "name": "Oscillator", "category": "generator", "requiresHardware": false },
-    { "name": "Piezo", "category": "output", "requiresHardware": true },
-    { "name": "Pixel", "category": "output", "requiresHardware": true },
-    { "name": "Proximity", "category": "input", "requiresHardware": true },
-    { "name": "RangeMap", "category": "transformation", "requiresHardware": false },
-    { "name": "Relay", "category": "output", "requiresHardware": true },
-    { "name": "Rgb", "category": "output", "requiresHardware": true },
-    { "name": "Sensor", "category": "input", "requiresHardware": true },
-    { "name": "Servo", "category": "output", "requiresHardware": true },
-    { "name": "Smooth", "category": "transformation", "requiresHardware": false },
-    { "name": "Stepper", "category": "output", "requiresHardware": true },
-    { "name": "Switch", "category": "input", "requiresHardware": true },
-    { "name": "Trigger", "category": "control", "requiresHardware": false }
+    {
+      "name": "Matrix",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "value",
+        "reset",
+        "reinitialize"
+      ]
+    },
+    {
+      "name": "Monitor",
+      "category": "output",
+      "requiresHardware": false,
+      "ports": [
+        "value"
+      ]
+    },
+    {
+      "name": "Motion",
+      "category": "input",
+      "requiresHardware": true,
+      "ports": [
+        "read"
+      ]
+    },
+    {
+      "name": "Mqtt",
+      "category": "external",
+      "requiresHardware": false,
+      "usesHostAdapter": true,
+      "ports": [
+        "trigger"
+      ]
+    },
+    {
+      "name": "Oscillator",
+      "category": "generator",
+      "requiresHardware": false,
+      "ports": [
+        "start",
+        "stop",
+        "reset"
+      ]
+    },
+    {
+      "name": "Piezo",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "trigger",
+        "stop"
+      ]
+    },
+    {
+      "name": "Pixel",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "value",
+        "color",
+        "set",
+        "reset"
+      ]
+    },
+    {
+      "name": "Proximity",
+      "category": "input",
+      "requiresHardware": true,
+      "ports": [
+        "read"
+      ]
+    },
+    {
+      "name": "RangeMap",
+      "category": "transformation",
+      "requiresHardware": false,
+      "ports": [
+        "value"
+      ]
+    },
+    {
+      "name": "Relay",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "true",
+        "false",
+        "toggle"
+      ]
+    },
+    {
+      "name": "Rgb",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "red",
+        "green",
+        "blue",
+        "alpha",
+        "off"
+      ]
+    },
+    {
+      "name": "Sensor",
+      "category": "input",
+      "requiresHardware": true,
+      "ports": [
+        "read"
+      ]
+    },
+    {
+      "name": "Servo",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "min",
+        "max",
+        "value",
+        "rotate",
+        "stop"
+      ]
+    },
+    {
+      "name": "Smooth",
+      "category": "transformation",
+      "requiresHardware": false,
+      "ports": [
+        "value"
+      ]
+    },
+    {
+      "name": "Stepper",
+      "category": "output",
+      "requiresHardware": true,
+      "ports": [
+        "value",
+        "to",
+        "stop",
+        "zero",
+        "enable"
+      ]
+    },
+    {
+      "name": "Switch",
+      "category": "input",
+      "requiresHardware": true,
+      "ports": [
+        "read"
+      ]
+    },
+    {
+      "name": "Trigger",
+      "category": "control",
+      "requiresHardware": false,
+      "ports": [
+        "value"
+      ]
+    }
   ]
 }

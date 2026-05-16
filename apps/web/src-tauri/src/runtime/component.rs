@@ -155,17 +155,32 @@ impl Default for PinConfig {
 /// 1. `new()` — create component with config (concrete fn on each impl)
 /// 2. `set_event_sender()` — wire up event channel
 /// 3. `HardwareComponent::initialize()` — called when board connects (hardware components only)
-/// 4. `call_method()` — handle incoming events from flow edges
+/// 4. `dispatch()` — handle incoming events from flow edges
 /// 5. `destroy()` — cleanup when component is removed (default no-op)
 ///
 /// Implementors must provide `base()` / `base_mut()` returning their
 /// `ComponentBase` field. The trait then defaults `id`/`value`/`set_value` and the
 /// event-sender accessors. Software components only need to define `base/base_mut`,
-/// `component_type`, and `call_method`. Hardware components additionally implement
+/// `component_type`, and `dispatch`. Hardware components additionally implement
 /// [`HardwareComponent`] and override `as_hardware_mut` to expose themselves to the
 /// runtime's board-init pass. The `requiresHardware` flag in `node-components.json`
 /// is the single source of truth for hardware vs. software classification.
 pub trait Component: Send + Sync {
+    /// Declared **Port** names — the closed set of edge-input handles this
+    /// impl's [`dispatch`](Component::dispatch) accepts.
+    ///
+    /// Mirrored by `impls[].ports[]` in `node-components.json`. The two are
+    /// asserted equal at registry construction by
+    /// `ComponentRegistry::register` / `register_hardware`; a drift fails
+    /// the assertion at startup (debug builds) and forms the build-time
+    /// validation seam between the frontend's typed handle IDs and the
+    /// Rust dispatch surface. Default empty for components with no edge
+    /// inputs (e.g. `Constant`). See `CONTEXT.md` § Port.
+    ///
+    /// `where Self: Sized` keeps the trait object-safe; access via concrete
+    /// type at the registry call site (`B::ports()`).
+    fn ports() -> &'static [&'static str] where Self: Sized { &[] }
+
     /// Reference to the shared `ComponentBase`. The trait reads `id`/`value`/`event_sender` from here.
     fn base(&self) -> &ComponentBase;
 
@@ -176,7 +191,7 @@ pub trait Component: Send + Sync {
     fn component_type(&self) -> &'static str;
 
     /// Handle a method call from a flow edge or external command.
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), RuntimeError>;
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), RuntimeError>;
 
     /// Handle an **Internal Event** — a self-routed method delivered by the
     /// executor when this component emitted an event whose `source_handle`
@@ -184,7 +199,7 @@ pub trait Component: Send + Sync {
     ///
     /// Implementors override this to handle internally scheduled state
     /// transitions (e.g. `Piezo` `auto_stop` after a song finishes) without
-    /// polluting `call_method`'s Port namespace. Default no-op.
+    /// polluting `dispatch`'s Port namespace. Default no-op.
     ///
     /// See `CONTEXT.md` § Internal Event.
     fn dispatch_internal(&mut self, _method: &str, _value: ComponentValue) -> Result<(), RuntimeError> {
@@ -245,11 +260,11 @@ pub trait Component: Send + Sync {
 ///
 /// **Hardware Callbacks** (see `CONTEXT.md`) are delivered through the typed
 /// methods on this trait — `on_pin_change`, `on_i2c_reply` — not through
-/// [`Component::call_method`]. The board-reader-driven event flow is therefore
+/// [`Component::dispatch`]. The board-reader-driven event flow is therefore
 /// separated from the edge-input flow at the trait level: an impl that
 /// doesn't override a callback is silently a no-op for that hardware event
 /// kind, and no flow edge can ever target a callback because Ports live on
-/// `call_method` (current) / `dispatch` (Phase 3).
+/// `dispatch` (current) / `dispatch` (Phase 3).
 pub trait HardwareComponent: Component {
     /// Acquire any pin modes, reporting toggles, or I/O state the component
     /// needs against the connected board.

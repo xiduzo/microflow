@@ -28,7 +28,7 @@ impl Component for BenchComponent {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Bench" }
-    fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
+    fn dispatch(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.base.value = args;
         Ok(())
     }

@@ -96,11 +96,7 @@ export type NodeRegistryEntry = {
 
 export const NODE_REGISTRY = {
   Button: { component: Button, defaults: ButtonDefaults as NodeDefaults, adapter: undefined },
-  Calculate: {
-    component: Calculate,
-    defaults: CalculateDefaults as NodeDefaults,
-    adapter: undefined,
-  },
+  Calculate: { component: Calculate, defaults: CalculateDefaults as NodeDefaults, adapter: undefined },
   Compare: { component: Compare, defaults: CompareDefaults as NodeDefaults, adapter: undefined },
   Constant: { component: Constant, defaults: ConstantDefaults as NodeDefaults, adapter: undefined },
   Counter: { component: Counter, defaults: CounterDefaults as NodeDefaults, adapter: undefined },
@@ -109,11 +105,7 @@ export const NODE_REGISTRY = {
   Force: { component: Force, defaults: ForceDefaults as NodeDefaults, adapter: undefined },
   Function: { component: Function, defaults: FunctionDefaults as NodeDefaults, adapter: undefined },
   Gate: { component: Gate, defaults: GateDefaults as NodeDefaults, adapter: undefined },
-  HallEffect: {
-    component: HallEffect,
-    defaults: HallEffectDefaults as NodeDefaults,
-    adapter: undefined,
-  },
+  HallEffect: { component: HallEffect, defaults: HallEffectDefaults as NodeDefaults, adapter: undefined },
   Hotkey: { component: Hotkey, defaults: HotkeyDefaults as NodeDefaults, adapter: HotkeyAdapter },
   Interval: { component: Interval, defaults: IntervalDefaults as NodeDefaults, adapter: undefined },
   Ldr: { component: Ldr, defaults: LdrDefaults as NodeDefaults, adapter: undefined },
@@ -123,23 +115,11 @@ export const NODE_REGISTRY = {
   Monitor: { component: Monitor, defaults: MonitorDefaults as NodeDefaults, adapter: undefined },
   Motion: { component: Motion, defaults: MotionDefaults as NodeDefaults, adapter: undefined },
   Mqtt: { component: Mqtt, defaults: MqttDefaults as NodeDefaults, adapter: MqttAdapter },
-  Oscillator: {
-    component: Oscillator,
-    defaults: OscillatorDefaults as NodeDefaults,
-    adapter: undefined,
-  },
+  Oscillator: { component: Oscillator, defaults: OscillatorDefaults as NodeDefaults, adapter: undefined },
   Piezo: { component: Piezo, defaults: PiezoDefaults as NodeDefaults, adapter: undefined },
   Pixel: { component: Pixel, defaults: PixelDefaults as NodeDefaults, adapter: undefined },
-  Potentiometer: {
-    component: Potentiometer,
-    defaults: PotentiometerDefaults as NodeDefaults,
-    adapter: undefined,
-  },
-  Proximity: {
-    component: Proximity,
-    defaults: ProximityDefaults as NodeDefaults,
-    adapter: undefined,
-  },
+  Potentiometer: { component: Potentiometer, defaults: PotentiometerDefaults as NodeDefaults, adapter: undefined },
+  Proximity: { component: Proximity, defaults: ProximityDefaults as NodeDefaults, adapter: undefined },
   RangeMap: { component: RangeMap, defaults: RangeMapDefaults as NodeDefaults, adapter: undefined },
   Relay: { component: Relay, defaults: RelayDefaults as NodeDefaults, adapter: undefined },
   Rgb: { component: Rgb, defaults: RgbDefaults as NodeDefaults, adapter: undefined },
@@ -150,11 +130,7 @@ export const NODE_REGISTRY = {
   Switch: { component: Switch, defaults: SwitchDefaults as NodeDefaults, adapter: undefined },
   Tilt: { component: Tilt, defaults: TiltDefaults as NodeDefaults, adapter: undefined },
   Trigger: { component: Trigger, defaults: TriggerDefaults as NodeDefaults, adapter: undefined },
-  Vibration: {
-    component: Vibration,
-    defaults: VibrationDefaults as NodeDefaults,
-    adapter: undefined,
-  },
+  Vibration: { component: Vibration, defaults: VibrationDefaults as NodeDefaults, adapter: undefined },
 } satisfies Record<ComponentType, NodeRegistryEntry>;
 
 // ReactFlow compatibility — derived from NODE_REGISTRY

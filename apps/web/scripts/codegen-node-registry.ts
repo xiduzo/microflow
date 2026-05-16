@@ -19,8 +19,29 @@ const usesHostAdapter = new Map<string, boolean>(
 );
 const entryUsesAdapter = (e: { impl: string }) => usesHostAdapter.get(e.impl) ?? false;
 
+// Map impl name -> declared Port set. Variants (e.g. Potentiometer over
+// Sensor) inherit their parent impl's ports. See CONTEXT.md § Port.
+const implPorts = new Map<string, readonly string[]>(
+  impls.map((i) => [
+    i.name,
+    Object.freeze(((i as Record<string, unknown>).ports as string[] | undefined) ?? []),
+  ]),
+);
+const entryPorts = (e: { impl: string; name: string }): readonly string[] => {
+  const ports = implPorts.get(e.impl);
+  if (!ports) throw new Error(`Entry ${e.name} references unknown impl ${e.impl}`);
+  return ports;
+};
+
 // _base/_base.types.ts
 const typeNames = entries.map((e) => `  "${e.name}"`).join(",\n");
+const portsObjectLines = entries
+  .map((e) => {
+    const ports = entryPorts(e);
+    const literal = ports.length === 0 ? "[]" : `[${ports.map((p) => `"${p}"`).join(", ")}]`;
+    return `  ${e.name}: ${literal} as const,`;
+  })
+  .join("\n");
 const baseTypesContent = `// GENERATED — edit node-components.json, then run \`bun run codegen\`
 
 export const COMPONENT_TYPES = [
@@ -32,6 +53,21 @@ export type ComponentType = (typeof COMPONENT_TYPES)[number];
 export function isComponentType(value: string): value is ComponentType {
   return COMPONENT_TYPES.includes(value as ComponentType);
 }
+
+/**
+ * Declared **Port** set per Component (catalog-driven). Mirrors
+ * \`impls[].ports[]\` in \`node-components.json\` and the Rust impl's
+ * \`Component::ports()\` const. The Rust registry asserts equality at
+ * construction; this object is the single source of truth for what target
+ * handles a ReactFlow edge may carry. Empty array for components with no
+ * edge inputs (e.g. \`Constant\`). See CONTEXT.md § Port.
+ */
+export const COMPONENT_PORTS = {
+${portsObjectLines}
+} as const satisfies Record<ComponentType, readonly string[]>;
+
+/** Valid \`target_handle\` literal-union for a given Component instance type. */
+export type PortOf<T extends ComponentType> = (typeof COMPONENT_PORTS)[T][number];
 `;
 writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
 

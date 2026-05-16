@@ -41,11 +41,13 @@ impl Counter {
 }
 
 impl Component for Counter {
+    fn ports() -> &'static [&'static str] { &["increment", "decrement", "reset", "set"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Counter" }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "increment" => { self.increment(); Ok(()) }
             "decrement" => { self.decrement(); Ok(()) }

@@ -79,13 +79,15 @@ impl Led {
 }
 
 impl Component for Led {
+    fn ports() -> &'static [&'static str] { &["true", "false", "toggle", "value"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Led" }
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "true" => self.turn_on(),
             "false" => self.turn_off(),

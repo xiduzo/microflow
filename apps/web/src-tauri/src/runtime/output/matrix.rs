@@ -291,14 +291,16 @@ impl Matrix {
 }
 
 impl Component for Matrix {
+    fn ports() -> &'static [&'static str] { &["value", "reset", "reinitialize"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Matrix" }
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
-        log::info!("Matrix {}: call_method '{}' board={}",
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+        log::info!("Matrix {}: dispatch '{}' board={}",
             self.base.id, method, self.board.is_some());
         match method {
             "value" => {

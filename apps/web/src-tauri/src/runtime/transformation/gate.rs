@@ -59,15 +59,17 @@ impl Gate {
 }
 
 impl Component for Gate {
+    fn ports() -> &'static [&'static str] { &["value"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Gate" }
     fn aggregates_inputs(&self) -> bool { true }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "value" => {
-                log::info!("[Gate {}] call_method '{}' with args: {:?}", self.base.id, method, args);
+                log::info!("[Gate {}] dispatch '{}' with args: {:?}", self.base.id, method, args);
                 let inputs: Vec<bool> = match args {
                     ComponentValue::Array(arr) => {
                         log::info!("[Gate {}] Processing array of {} items", self.base.id, arr.len());

@@ -90,6 +90,8 @@ impl Sensor {
 }
 
 impl Component for Sensor {
+    fn ports() -> &'static [&'static str] { &["read"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Sensor" }
@@ -103,7 +105,7 @@ impl Component for Sensor {
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "read" => Ok(()),
             _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),

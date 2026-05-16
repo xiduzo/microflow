@@ -123,6 +123,8 @@ impl I2cDevice {
 }
 
 impl Component for I2cDevice {
+    fn ports() -> &'static [&'static str] { &["write", "trigger"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "I2cDevice" }
@@ -133,7 +135,7 @@ impl Component for I2cDevice {
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "write" => {
                 // Write data to the I2C device. Input can be a number or array of numbers.

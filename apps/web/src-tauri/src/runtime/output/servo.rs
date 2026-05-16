@@ -88,13 +88,15 @@ impl Servo {
 }
 
 impl Component for Servo {
+    fn ports() -> &'static [&'static str] { &["min", "max", "value", "rotate", "stop"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Servo" }
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "min" => self.min(),
             "max" => self.max(),

@@ -274,13 +274,15 @@ impl Piezo {
 }
 
 impl Component for Piezo {
+    fn ports() -> &'static [&'static str] { &["trigger", "stop"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Piezo" }
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => {
                 match self.config.r#type {

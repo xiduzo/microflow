@@ -6,18 +6,21 @@
 //!
 //! ## Lifecycle
 //! 1. `initialize()` — Sends config, speed, and acceleration sysex messages.
-//! 2. `call_method("value", steps)` — Relative move by N steps.
-//! 3. `call_method("to", position)` — Absolute move to position.
-//! 4. `call_method("stop", _)` — Stop with deceleration.
-//! 5. `call_method("zero", _)` — Reset position counter.
-//! 6. `call_method("stepper_reply", data)` — Handle move complete / position report.
-//! 7. `destroy()` — Stop motor.
+//! 2. `dispatch("value", steps)` — Relative move by N steps.
+//! 3. `dispatch("to", position)` — Absolute move to position.
+//! 4. `dispatch("stop", _)` — Stop with deceleration.
+//! 5. `dispatch("zero", _)` — Reset position counter.
+//! 6. `destroy()` — Stop motor.
+//!
+//! Move-complete / position-report sysex replies will eventually land on a
+//! `HardwareComponent::on_stepper_reply` Hardware Callback (mirrors
+//! `on_pin_change` / `on_i2c_reply`); the dispatch path no longer carries
+//! a reserved string for it.
 
 use crate::runtime::base::{
     serde_utils, BoardHandle, Component, ComponentBase, ComponentValue, HardwareComponent,
 };
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 /// `AccelStepper` sysex command byte
@@ -306,13 +309,15 @@ impl Stepper {
 }
 
 impl Component for Stepper {
+    fn ports() -> &'static [&'static str] { &["value", "to", "stop", "zero", "enable"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Stepper" }
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "value" => {
                 // Relative move: number of steps
@@ -333,20 +338,6 @@ impl Component for Stepper {
             "enable" => {
                 let state = args.as_number().map_or(true, |n| n > 0.0);
                 self.enable(state)
-            }
-            "stepper_reply" => {
-                // Called by the reader thread when a move-complete or position-report
-                // sysex reply arrives for this device number.
-                // args is expected to be a Number (the decoded position).
-                if let Some(position) = args.as_number() {
-                    self.current_position = position as i32;
-                    self.base.set_value(ComponentValue::Number(position));
-                    // Emit on the "position" handle
-                    self.base.emit("position");
-                    // Emit on the "complete" handle to signal move finished
-                    self.base.emit_with_value("complete", Cow::Owned(ComponentValue::Bool(true)));
-                }
-                Ok(())
             }
             _ => Err(crate::error::RuntimeError::ComponentError(
                 format!("Stepper: unknown method '{method}'")

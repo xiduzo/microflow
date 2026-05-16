@@ -82,11 +82,13 @@ impl Delay {
 }
 
 impl Component for Delay {
+    fn ports() -> &'static [&'static str] { &["trigger"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Delay" }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => { self.signal(args); Ok(()) }
             _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),

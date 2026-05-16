@@ -32,11 +32,13 @@ impl Constant {
 }
 
 impl Component for Constant {
+    fn ports() -> &'static [&'static str] { &[] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Constant" }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}")))
     }
 }

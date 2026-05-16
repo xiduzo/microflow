@@ -48,6 +48,8 @@ impl Hotkey {
 }
 
 impl Component for Hotkey {
+    fn ports() -> &'static [&'static str] { &["key_event"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Hotkey" }
@@ -56,7 +58,7 @@ impl Component for Hotkey {
         vec![ListenerWiring::HotKey { accelerator: self.config.accelerator.to_lowercase() }]
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "key_event" => {
                 let pressed = args.is_truthy();

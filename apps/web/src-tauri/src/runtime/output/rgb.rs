@@ -87,13 +87,15 @@ impl Rgb {
 }
 
 impl Component for Rgb {
+    fn ports() -> &'static [&'static str] { &["red", "green", "blue", "alpha", "off"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Rgb" }
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "red" => self.red(args.as_u8().unwrap_or(0)),
             "green" => self.green(args.as_u8().unwrap_or(0)),

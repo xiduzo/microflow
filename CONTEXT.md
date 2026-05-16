@@ -18,6 +18,7 @@ The single source of truth for every flow component the UI exposes and the runti
 | `impls[].name`             | Rust            | The Rust struct name (also derives `<Name>Config`).                                                    |
 | `impls[].category`         | Rust            | Module path under `runtime/`: `input`, `output`, `control`, `transformation`, `generator`, `external`. |
 | `impls[].requiresHardware` | Rust            | If true, registry calls `Component::initialize(board)` when board connected.                           |
+| `impls[].ports`            | Rust + UI       | The declared **Port** set this impl accepts on `dispatch`. Asserted equal to `<Impl>::ports()` at registry construction; consumed by frontend codegen to emit `COMPONENT_PORTS` and `PortOf<T>`. See § Port. |
 
 ### Generation
 
@@ -40,9 +41,9 @@ A Rust module path under `runtime/`. Determines `use super::<category>::{<Impl>,
 
 ## Component (Rust trait)
 
-In `apps/web/src-tauri/src/runtime/component.rs`. The interface every impl satisfies. Audited and being split (see `docs/adr/0001-component-trait-flow-separation.md` and `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3). Three distinct flows enter the trait, each with its own method:
+In `apps/web/src-tauri/src/runtime/component.rs`. The interface every impl satisfies. Decision and migration captured in `docs/adr/0001-component-trait-flow-separation.md` (see also `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3). Three distinct flows enter the trait, each with its own method:
 
-- **Port** — edge inputs. Delivered via `call_method(&str, ComponentValue)`. (Phase 3 renames to `dispatch` and adds a typed `PORTS` declaration per impl.)
+- **Port** — edge inputs. Delivered via `dispatch(&str, ComponentValue)`. Each impl declares its accepted Port set via `fn ports() -> &'static [&'static str] where Self: Sized`.
 - **Internal Event** — self-routed methods. Delivered via `dispatch_internal(&str, ComponentValue)`.
 - **Hardware Callback** — board-reader-driven events. Delivered via `HardwareComponent::on_pin_change` / `on_i2c_reply`.
 
@@ -50,7 +51,9 @@ The shared underscore-prefix routing in `runtime/executor.rs::process_event` dis
 
 ## Port
 
-A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::call_method`. Current shape: a magic string the impl's `call_method` match arm interprets (e.g. `Led` accepts `"true"/"false"/"toggle"/"value"`; `Stepper` accepts `"value"/"to"/"stop"/"zero"`). Phase 3 target: a per-impl `const PORTS: &'static [&'static str]` declaration, mirrored to `node-components.json impls[].ports[]`, build-time validated, consumed by frontend codegen for typed handle IDs.
+A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::dispatch`. Each impl declares its closed Port set via `fn ports() -> &'static [&'static str]`. The set is mirrored to `node-components.json impls[].ports[]` and asserted equal at registry construction by `ComponentRegistry::register` / `register_hardware`; a drift panics at startup with a quoted diff. The frontend codegen (`apps/web/scripts/codegen-node-registry.ts`) emits `COMPONENT_PORTS` (a typed const object) and `PortOf<T>` (a literal-union helper) into `_base/_base.types.ts`, so ReactFlow target handles are type-checked against the same source of truth. Empty array for components with no edge inputs (e.g. `Constant`).
+
+Examples: `Led` accepts `"true"/"false"/"toggle"/"value"`; `Stepper` accepts `"value"/"to"/"stop"/"zero"/"enable"`; `Button` accepts `"read"` (and receives the digital-pin Hardware Callback separately via `on_pin_change`).
 
 Distinct from **Internal Event** names (never on edges, self-routed only) and **Hardware Callback** names (never on edges, runtime-delivered only).
 

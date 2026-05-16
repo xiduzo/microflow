@@ -26,11 +26,13 @@ impl Monitor {
 }
 
 impl Component for Monitor {
+    fn ports() -> &'static [&'static str] { &["value"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Monitor" }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "value" => {
                 self.base.set_value(args);

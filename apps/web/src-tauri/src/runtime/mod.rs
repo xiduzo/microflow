@@ -436,7 +436,7 @@ impl FlowRuntime {
     pub fn call_component(&mut self, component_id: &str, method: &str, value: ComponentValue) -> Result<(), RuntimeError> {
         self.executor.get_component_mut(component_id)
             .ok_or_else(|| RuntimeError::ComponentNotFound(component_id.to_string()))?
-            .call_method(method, value)
+            .dispatch(method, value)
     }
 
     /// Route an MQTT message to a subscribe component

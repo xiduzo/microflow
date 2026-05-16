@@ -19,20 +19,30 @@ fn main() {
     let impls = json["impls"].as_array()
         .expect("impls must be an array");
 
-    // Build impl lookup: name -> (category, requires_hardware).
-    // `requiresHardware` is now load-bearing: it picks `register_hardware::<T>`
+    // Build impl lookup: name -> (category, requires_hardware, ports_literal).
+    // `requiresHardware` is load-bearing: it picks `register_hardware::<T>`
     // (which adds a `HardwareComponent` bound) over `register::<T>`. A catalog
     // entry marked `requiresHardware: true` whose impl forgot `HardwareComponent`
     // fails to compile.
-    // `usesRuntimeContext` is no longer used: every `ComponentBuilder::build`
-    // receives a `RuntimeContext` and ignores it unless it needs it (only `Llm`
-    // currently does).
-    let mut impl_meta: HashMap<&str, (&str, bool)> = HashMap::new();
+    // `ports` is the catalog declaration of the impl's **Port** set; emitted
+    // here as a Rust slice literal and asserted equal to `B::ports()` inside
+    // the registry. See `CONTEXT.md` § Port and ADR-0001.
+    let mut impl_meta: HashMap<&str, (&str, bool, String)> = HashMap::new();
     for i in impls {
         let name = i["name"].as_str().expect("impl.name");
         let category = i["category"].as_str().expect("impl.category");
         let requires_hardware = i["requiresHardware"].as_bool().expect("impl.requiresHardware");
-        impl_meta.insert(name, (category, requires_hardware));
+        let ports = i["ports"].as_array()
+            .unwrap_or_else(|| panic!("impl {name:?} missing 'ports' array"));
+        let mut ports_lit = String::from("&[");
+        for (idx, p) in ports.iter().enumerate() {
+            let s = p.as_str()
+                .unwrap_or_else(|| panic!("impl {name:?}: every port must be a string"));
+            if idx > 0 { ports_lit.push_str(", "); }
+            write!(ports_lit, "\"{s}\"").unwrap();
+        }
+        ports_lit.push(']');
+        impl_meta.insert(name, (category, requires_hardware, ports_lit));
     }
 
     // Validate: every entry's impl exists in impls
@@ -57,11 +67,11 @@ fn main() {
     for e in entries {
         let entry_name = e["name"].as_str().unwrap();
         let impl_name = e["impl"].as_str().unwrap();
-        let (category, requires_hardware) = impl_meta[impl_name];
-        let helper = if requires_hardware { "register_hardware" } else { "register" };
+        let (category, requires_hardware, ports_lit) = &impl_meta[impl_name];
+        let helper = if *requires_hardware { "register_hardware" } else { "register" };
         writeln!(
             body,
-            "    self.{helper}::<super::{category}::{impl_name}>(\"{entry_name}\");"
+            "    self.{helper}::<super::{category}::{impl_name}>(\"{entry_name}\", {ports_lit});"
         ).unwrap();
     }
 

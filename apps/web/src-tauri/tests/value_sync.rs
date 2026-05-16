@@ -58,10 +58,10 @@ impl Component for ThreadEmitter {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "ThreadEmitter" }
-    fn call_method(&mut self, _method: &str, _args: ComponentValue) -> Result<(), app_lib::RuntimeError> { Ok(()) }
+    fn dispatch(&mut self, _method: &str, _args: ComponentValue) -> Result<(), app_lib::RuntimeError> { Ok(()) }
 }
 
-/// A simple sink that stores whatever it receives via `call_method`.
+/// A simple sink that stores whatever it receives via `dispatch`.
 struct Sink {
     base: ComponentBase,
 }
@@ -76,7 +76,7 @@ impl Component for Sink {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Sink" }
-    fn call_method(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
+    fn dispatch(&mut self, _method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.base.value = args;
         Ok(())
     }
@@ -238,7 +238,7 @@ fn test_calculate_emits_downstream() {
 
     // Directly call the calculate component's method
     if let Some(c) = executor.get_component_mut("calc") {
-        c.call_method("value", ComponentValue::Array(vec![
+        c.dispatch("value", ComponentValue::Array(vec![
             ComponentValue::Number(3.0),
             ComponentValue::Number(7.0),
         ])).unwrap();
@@ -267,7 +267,7 @@ fn test_smooth_updates_stored_value() {
     executor.add_component("smooth", Box::new(smooth), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("smooth") {
-        c.call_method("value", ComponentValue::Number(100.0)).unwrap();
+        c.dispatch("value", ComponentValue::Number(100.0)).unwrap();
     }
 
     let val = executor.get_component("smooth").unwrap().value();
@@ -292,7 +292,7 @@ fn test_gate_emits_and_updates_value() {
     executor.add_component("gate", Box::new(gate), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("gate") {
-        c.call_method("value", ComponentValue::Array(vec![
+        c.dispatch("value", ComponentValue::Array(vec![
             ComponentValue::Bool(true),
             ComponentValue::Bool(true),
         ])).unwrap();
@@ -372,7 +372,7 @@ fn test_compare_emits_and_updates_value() {
     executor.add_component("cmp", Box::new(compare), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("cmp") {
-        c.call_method("value", ComponentValue::Number(100.0)).unwrap();
+        c.dispatch("value", ComponentValue::Number(100.0)).unwrap();
     }
 
     // 100 > 50 = true
@@ -399,7 +399,7 @@ fn test_range_map_emits_mapped_value() {
     executor.add_component("rm", Box::new(range_map), serde_json::Value::Null);
 
     if let Some(c) = executor.get_component_mut("rm") {
-        c.call_method("value", ComponentValue::Number(512.0)).unwrap();
+        c.dispatch("value", ComponentValue::Number(512.0)).unwrap();
     }
 
     // RangeMap's set_value auto-emits "value" first, then explicitly emits on "to"

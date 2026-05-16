@@ -124,6 +124,8 @@ impl Mqtt {
 }
 
 impl Component for Mqtt {
+    fn ports() -> &'static [&'static str] { &["trigger"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Mqtt" }
@@ -141,7 +143,7 @@ impl Component for Mqtt {
         }]
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => {
                 if !self.is_publish() {

@@ -31,7 +31,7 @@ impl Component for MockComponent {
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Mock" }
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), app_lib::RuntimeError> {
         self.last_method = Some(method.to_string());
         self.call_count += 1;
         self.base.value = args;

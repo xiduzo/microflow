@@ -111,11 +111,13 @@ impl Interval {
 }
 
 impl Component for Interval {
+    fn ports() -> &'static [&'static str] { &["start", "stop"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Interval" }
 
-    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "start" => { self.start(); Ok(()) }
             "stop" => { self.stop(); Ok(()) }

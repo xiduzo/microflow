@@ -7,7 +7,7 @@
 //! - Subscribes to `microflow/${uniqueId}/figma/variable/${shortVarId}` and
 //!   `microflow/${uniqueId}/app/variable/${shortVarId}` for incoming values.
 //! - Emits a "change" event downstream when a value arrives.
-//! - Handles `call_method` (set / toggle / true / false / increment / decrement / reset / red /
+//! - Handles `dispatch` (set / toggle / true / false / increment / decrement / reset / red /
 //!   green / blue / opacity) by emitting a `_mqtt_publish` event that lib.rs intercepts.
 
 use crate::runtime::base::{Component, ComponentBase, ComponentValue};
@@ -215,6 +215,8 @@ impl Figma {
 }
 
 impl Component for Figma {
+    fn ports() -> &'static [&'static str] { &["true", "false", "toggle", "set", "increment", "decrement", "reset", "red", "green", "blue", "opacity"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Figma" }
@@ -248,7 +250,7 @@ impl Component for Figma {
         ]
     }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         let payload = match method {
             // ---- BOOLEAN ----
             "true" => "true".to_string(),

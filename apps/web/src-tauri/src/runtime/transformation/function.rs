@@ -202,11 +202,13 @@ fn json_to_component_value(value: &serde_json::Value) -> ComponentValue {
 }
 
 impl Component for Function {
+    fn ports() -> &'static [&'static str] { &["trigger"] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Function" }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn dispatch(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "trigger" => {
                 let code = self.build_code();

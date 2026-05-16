@@ -225,7 +225,7 @@ impl FlowExecutor {
         // - **Hardware Callback** (`_pin_change`, `_i2c_reply`) — emitted by the
         //   pin-change / I2C-reply callbacks in `runtime/mod.rs`. Routed to the
         //   typed `HardwareComponent::on_pin_change` / `on_i2c_reply` methods so
-        //   hardware impls don't have to string-match these in `call_method`.
+        //   hardware impls don't have to string-match these in `dispatch`.
         // - **Internal Event** (e.g. `_auto_stop` from Piezo) — self-routed
         //   method a component schedules for itself. Routed to
         //   `Component::dispatch_internal` so the namespace is separate from
@@ -287,7 +287,7 @@ impl FlowExecutor {
             };
             
             if let Some(component) = self.components.get_mut(target.target_id.as_ref()) {
-                match component.call_method(&target.target_handle, args) {
+                match component.dispatch(&target.target_handle, args) {
                     Ok(()) => log::trace!("✓ {}.{}", target.target_id, target.target_handle),
                     Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target.target_id, target.target_handle, e),
                 }

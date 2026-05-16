@@ -5,11 +5,17 @@
 //! and included into [`ComponentRegistry::register_all`] below.
 //!
 //! Each catalog entry compiles to either
-//! `self.register::<Type>("Name")` (software) or
-//! `self.register_hardware::<Type>("Name")` (`requiresHardware: true`). The
-//! hardware variant adds a [`HardwareComponent`] bound so a catalog flag drift
-//! — e.g., an entry marked `requiresHardware: true` whose impl forgot the
-//! `HardwareComponent` trait — fails to compile.
+//! `self.register::<Type>("Name", &[...ports])` (software) or
+//! `self.register_hardware::<Type>("Name", &[...ports])` (`requiresHardware:
+//! true`). The hardware variant adds a [`HardwareComponent`] bound so a
+//! catalog flag drift — e.g., an entry marked `requiresHardware: true` whose
+//! impl forgot the `HardwareComponent` trait — fails to compile.
+//!
+//! The `ports` slice is the catalog-declared **Port** set. `register` /
+//! `register_hardware` assert it equals `B::ports()`, so a drift between
+//! `node-components.json impls[].ports[]` and the Rust impl's declared
+//! `fn ports()` panics at registry construction. See `CONTEXT.md` § Port and
+//! ADR-0001.
 
 use super::base::{BoardHandle, Component, ComponentEvent};
 use super::component::{ComponentBuilder, HardwareComponent};
@@ -94,16 +100,37 @@ impl ComponentRegistry {
 
     /// Register a software-only Component Catalog entry. Used by the
     /// `build.rs`-generated body inside [`register_all`].
-    fn register<B: ComponentBuilder>(&mut self, name: &'static str) {
+    fn register<B: ComponentBuilder>(&mut self, name: &'static str, catalog_ports: &'static [&'static str]) {
+        assert_ports_match::<B>(name, catalog_ports);
         self.entries.insert(name, make_factory::<B>(name));
     }
 
     /// Register a hardware-bound Component Catalog entry. The
     /// `B: HardwareComponent` bound asserts at compile time that the impl
     /// implements [`HardwareComponent`], catching catalog/impl drift.
-    fn register_hardware<B: ComponentBuilder + HardwareComponent>(&mut self, name: &'static str) {
+    fn register_hardware<B: ComponentBuilder + HardwareComponent>(
+        &mut self,
+        name: &'static str,
+        catalog_ports: &'static [&'static str],
+    ) {
+        assert_ports_match::<B>(name, catalog_ports);
         self.entries.insert(name, make_factory::<B>(name));
     }
+}
+
+/// Assert the Rust impl's declared **Port** set equals the catalog's. A drift
+/// would mean a flow edge could target a handle the impl ignores, or that
+/// `node-components.json impls[].ports[]` is missing a Port the impl actually
+/// handles. Both are silent footguns in the absence of this check.
+fn assert_ports_match<B: Component>(name: &'static str, catalog_ports: &'static [&'static str]) {
+    let rust_ports = B::ports();
+    assert_eq!(
+        rust_ports, catalog_ports,
+        "Port drift for component {name:?}: \
+         Rust impl declares {rust_ports:?}, \
+         node-components.json declares {catalog_ports:?}. \
+         Update both to match — see CONTEXT.md § Port."
+    );
 }
 
 /// Build a [`Factory`] closure that captures the catalog name for use in
