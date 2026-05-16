@@ -1,6 +1,7 @@
 import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@microflow/api/context";
 import { appRouter } from "@microflow/api/routers/index";
+import { getPublicSupportersCached } from "@microflow/api/routers/supporters";
 import { auth } from "@microflow/auth";
 import { env } from "@microflow/env/server";
 import { createYjsHandler } from "@microflow/collab/server";
@@ -103,6 +104,11 @@ app.get(
     };
   }),
 );
+
+app.get("/api/public/supporters", async (c) => {
+  const supporters = await getPublicSupportersCached();
+  return c.json({ supporters });
+});
 
 app.get("/", (c) => {
   return c.text("OK");

@@ -4,6 +4,7 @@ import {
   ChevronsUpDown,
   CreditCard,
   GemIcon,
+  Heart,
   LogIn,
   LogOut,
   PickaxeIcon,
@@ -59,6 +60,13 @@ export function NavUser({ user }: Props) {
     ...trpc.profile.get.queryOptions(),
     enabled: !!user,
   });
+
+  const { data: supporterStatus } = useQuery({
+    ...trpc.supporters.myStatus.queryOptions(),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+  const isSupporter = supporterStatus?.isSupporter ?? false;
 
   if (!user) {
     return (
@@ -133,7 +141,15 @@ export function NavUser({ user }: Props) {
                     <Icon icon={collabIcon} size={16} className="text-white" />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{profile?.name ?? user.name}</span>
+                    <span className="truncate font-medium inline-flex items-center gap-1">
+                    {profile?.name ?? user.name}
+                    {isSupporter ? (
+                      <Heart
+                        className="size-3 text-rose-500 fill-rose-500"
+                        aria-label="Supporter"
+                      />
+                    ) : null}
+                  </span>
                     <span className="truncate text-xs">{user.email}</span>
                   </div>
                 </div>

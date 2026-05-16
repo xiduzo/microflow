@@ -3,6 +3,22 @@ import { Github, Heart, Sparkles, ArrowRight } from "lucide-react";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? "";
 
+type Supporter = { name: string; since: string | null };
+
+async function getSupporters(): Promise<Supporter[]> {
+  if (!SERVER_URL) return [];
+  try {
+    const res = await fetch(`${SERVER_URL}/api/public/supporters`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { supporters?: Supporter[] };
+    return data.supporters ?? [];
+  } catch {
+    return [];
+  }
+}
+
 const tiers = [
   {
     icon: Github,
@@ -32,7 +48,8 @@ const tiers = [
   },
 ];
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  const supporters = await getSupporters();
   return (
     <main className="flex flex-col">
       <section className="px-4 py-20 text-center md:py-28">
@@ -81,6 +98,51 @@ export default function SupportPage() {
               )}
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="border-t border-fd-border px-4 py-16">
+        <div className="mx-auto max-w-4xl">
+          {supporters.length > 0 ? (
+            <>
+              <div className="mb-8 text-center">
+                <h2 className="mb-2 text-2xl font-bold text-fd-foreground">
+                  Wall of Supporters
+                </h2>
+                <p className="text-sm text-fd-muted-foreground">
+                  {supporters.length} {supporters.length === 1 ? "person keeps" : "people keep"} Microflow growing. Thank you.
+                </p>
+              </div>
+              <ul className="flex flex-wrap justify-center gap-2">
+                {supporters.map((supporter, i) => (
+                  <li
+                    key={`${supporter.name}-${i}`}
+                    className="inline-flex items-center gap-1.5 border border-fd-border bg-fd-card px-3 py-1.5 text-sm text-fd-foreground"
+                  >
+                    <Heart className="size-3 fill-rose-500 text-rose-500" />
+                    {supporter.name}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <div className="mx-auto max-w-md text-center">
+              <Heart className="mx-auto mb-4 size-8 fill-rose-500 text-rose-500" />
+              <h2 className="mb-2 text-2xl font-bold text-fd-foreground">
+                No supporters yet
+              </h2>
+              <p className="mb-6 text-sm text-fd-muted-foreground">
+                Be the first to keep Microflow growing. Your first name will land here.
+              </p>
+              <Link
+                href={`${SERVER_URL}/api/auth/checkout/supporter`}
+                className="inline-flex items-center justify-center gap-2 border border-fd-primary bg-fd-primary px-4 py-2 text-sm font-medium text-fd-primary-foreground transition-colors hover:bg-fd-primary/90"
+              >
+                Be the first Supporter
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

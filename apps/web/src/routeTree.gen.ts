@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TemplatesRouteImport } from './routes/templates'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
@@ -25,6 +26,11 @@ import { Route as FlowFlowIdCircuitRouteImport } from './routes/flow/$flowId/cir
 const TemplatesRoute = TemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuccessRoute = SuccessRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
+  '/support': typeof SupportRoute
   '/templates': typeof TemplatesRoute
   '/configuration/llm': typeof ConfigurationLlmRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
+  '/support': typeof SupportRoute
   '/templates': typeof TemplatesRoute
   '/configuration/llm': typeof ConfigurationLlmRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
+  '/support': typeof SupportRoute
   '/templates': typeof TemplatesRoute
   '/configuration/llm': typeof ConfigurationLlmRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/success'
+    | '/support'
     | '/templates'
     | '/configuration/llm'
     | '/configuration/mqtt'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/success'
+    | '/support'
     | '/templates'
     | '/configuration/llm'
     | '/configuration/mqtt'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/success'
+    | '/support'
     | '/templates'
     | '/configuration/llm'
     | '/configuration/mqtt'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SuccessRoute: typeof SuccessRoute
+  SupportRoute: typeof SupportRoute
   TemplatesRoute: typeof TemplatesRoute
   ConfigurationLlmRoute: typeof ConfigurationLlmRoute
   ConfigurationMqttRoute: typeof ConfigurationMqttRoute
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       path: '/templates'
       fullPath: '/templates'
       preLoaderRoute: typeof TemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/success': {
@@ -295,6 +315,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SuccessRoute: SuccessRoute,
+  SupportRoute: SupportRoute,
   TemplatesRoute: TemplatesRoute,
   ConfigurationLlmRoute: ConfigurationLlmRoute,
   ConfigurationMqttRoute: ConfigurationMqttRoute,

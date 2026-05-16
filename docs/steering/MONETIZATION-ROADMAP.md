@@ -4,6 +4,48 @@
 
 Last updated: 2026-05-16
 
+## Status
+
+| Phase | Item | State |
+|---|---|---|
+| Q1 lead bullet | GitHub Sponsors (`FUNDING.yml`) | ✅ Shipped |
+| Q1 lead bullet | Polar storefront link in `FUNDING.yml` | ✅ Shipped |
+| Q1 lead bullet | Supporter tier (€3/mo) wired in better-auth checkout | ✅ Code shipped — needs Polar product ID in `.env` |
+| Q1 lead bullet | One-time donation product wired in checkout | ✅ Code shipped — needs Polar product ID in `.env` |
+| Q1 lead bullet | `/support` page on fumadocs | ✅ Shipped (with empty-state nudge when no supporters) |
+| Q1 lead bullet | Support link in fumadocs nav | ✅ Shipped |
+| Q1 lead bullet | Supporter badge UI in web app | ✅ Shipped (Heart icon in `nav-user.tsx` via `trpc.supporters.myStatus`) |
+| Q1 lead bullet | Supporters credits page (Wall of Supporters) | ✅ Shipped on fumadocs (dynamic, 5-min ISR) **and** in-app at `/support` (TanStack Router route, `trpc.supporters.publicList`) |
+| Q1 lead bullet | In-app `/support` page (web) | ✅ Shipped — tiers + Wall + empty state; sidebar nav entry under General |
+| Q1 validation | Microflow Cloud waitlist landing page | ⬜ Not started |
+| Q2 cannonball | Microflow Cloud MVP (sync + hosted MQTT + collab persistence) | ⬜ Not started |
+| Q3 cannonball | Education Pack (classroom dashboard, seat invites, lesson templates) | ⬜ Not started |
+
+### Manual setup still required
+- Create 2 products in Polar dashboard:
+  - "Microflow Supporter" — recurring €3/mo
+  - "One-time donation" — fixed price or pay-what-you-want
+- Server `.env`: `POLAR_SUPPORTER_PRODUCT_ID=…`, `POLAR_DONATION_PRODUCT_ID=…`
+- Fumadocs deploy env: `NEXT_PUBLIC_SERVER_URL=<server origin>`
+- Enable GitHub Sponsors at https://github.com/sponsors/xiduzo
+
+### Code changes (commit `feat(monetization): wire Supporter tier, donation, and Sponsors`)
+- `.github/FUNDING.yml` — `github: xiduzo`, `polar: microflow`
+- `packages/env/src/server.ts` — optional `POLAR_SUPPORTER_PRODUCT_ID`, `POLAR_DONATION_PRODUCT_ID`
+- `packages/auth/src/index.ts` — checkout products array gated on env, slugs `supporter` + `donation`
+- `apps/fumadocs/src/app/(home)/support/page.tsx` — 3-tier support page
+- `apps/fumadocs/src/lib/layout.shared.tsx` — `Support` nav link
+
+### Code changes (badge + dynamic supporters)
+- `packages/api/src/routers/supporters.ts` — tRPC router with `myStatus` (auth), `publicList` (public), and shared `getPublicSupportersCached()` helper (5-min module cache, first-name only)
+- `packages/api/src/routers/index.ts` — mount supporters router
+- `apps/server/src/index.ts` — `GET /api/public/supporters` Hono route delegates to shared helper
+- `apps/web/src/routes/support.tsx` — in-app Support page (TanStack Router); 3 tiers (GH external + `authClient.checkout({ slug })` for Supporter/Donation); Wall of Supporters with empty-state nudge
+- `apps/web/src/components/layout/app-sidebar.tsx` — "Support Microflow" link in General sidebar group (HeartIcon)
+- `apps/web/src/components/layout/nav-user.tsx` — `Heart` badge next to user name when `supporters.myStatus.isSupporter` is true
+- `apps/fumadocs/src/app/(home)/support/page.tsx` — async Server Component; Wall of Supporters with empty-state nudge; Next ISR `revalidate: 300`
+
+
 ## Constraints
 
 - OSS core inviolable. Paid features live on top, never gate the canvas.

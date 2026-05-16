@@ -1,5 +1,6 @@
 import * as React from "react";
-import { BookMarkedIcon, HeartIcon, type LucideIcon } from "lucide-react";
+import { BookMarkedIcon, HeartIcon, HeartPlusIcon, type LucideIcon } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
 import {
   SidebarGroup,
@@ -11,14 +12,21 @@ import {
 import { isDesktop } from "@/lib/platform";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-type Link = {
+type LinkItem = {
   title: string;
   url: string;
   icon: LucideIcon;
   tooltip?: string;
+  internal?: boolean;
 };
 
-const LINKS: Link[] = [
+const LINKS: LinkItem[] = [
+  {
+    title: "Support Microflow",
+    url: "/support",
+    icon: HeartPlusIcon,
+    internal: true,
+  },
   {
     title: "Documentation",
     url: "https://docs.microflow.tech",
@@ -35,15 +43,20 @@ const LINKS: Link[] = [
 export function NavSecondary(
   props: React.ComponentPropsWithoutRef<typeof SidebarGroup>
 ) {
+  const navigate = useNavigate();
 
-  const handleLinkClick = (url: string) => {
-    if (isDesktop()) {
-      openUrl(url)
-      return
+  const handleClick = (item: LinkItem) => {
+    if (item.internal) {
+      navigate({ to: item.url });
+      return;
     }
+    if (isDesktop()) {
+      openUrl(item.url);
+      return;
+    }
+    window.open(item.url, "_blank");
+  };
 
-    window.open(url, "_blank")
-  }
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
@@ -56,7 +69,7 @@ export function NavSecondary(
               <SidebarMenuButton
                 size="sm"
                 tooltip={item.tooltip ?? item.title}
-                onClick={() => handleLinkClick(item.url)}
+                onClick={() => handleClick(item)}
               >
                 <item.icon />
                 <span>{item.title}</span>
