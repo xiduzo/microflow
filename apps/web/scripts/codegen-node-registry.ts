@@ -66,8 +66,14 @@ export const COMPONENT_PORTS = {
 ${portsObjectLines}
 } as const satisfies Record<ComponentType, readonly string[]>;
 
-/** Valid \`target_handle\` literal-union for a given Component instance type. */
-export type PortOf<T extends ComponentType> = (typeof COMPONENT_PORTS)[T][number];
+/**
+ * Valid \`target_handle\` literal-union for a given Component instance type.
+ * Distributive conditional ensures the result is the union of port literals
+ * across all members of \`T\` when \`T\` is itself a union of ComponentTypes.
+ */
+export type PortOf<T extends ComponentType> = T extends ComponentType
+  ? (typeof COMPONENT_PORTS)[T][number]
+  : never;
 `;
 writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
 

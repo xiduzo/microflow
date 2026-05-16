@@ -1,5 +1,7 @@
 import { dataSchema, defaults, type Data, type Value } from "./llm.schema";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Llm">;
 import {
   NodeContainer,
   useDeleteHandles,
@@ -60,7 +62,10 @@ function DynamicHandles() {
   return (
     <>
       {handles.slice(0, 7).map((handle, index) => (
-        <Handle key={handle} type="target" position="bottom" id={handle} handleType="value" offset={index - (handles.length - 1) / 2} />
+        // Dynamic input handles from runtime template vars — open-port outlier,
+        // not a catalogued **Port**. Use raw `BaseHandle` and cast `id` to escape
+        // the closed-set check.
+        <BaseHandle key={handle} type="target" position="bottom" id={handle as never} handleType="value" offset={index - (handles.length - 1) / 2} />
       ))}
     </>
   );

@@ -1,6 +1,8 @@
 import { folder } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Sensor">;
 import { useNodeValue } from "@/stores/node-data";
 import { type Value, type Data, dataSchema, defaults } from "./sensor.schema";
 import { Switch } from "@/components/ui/switch";

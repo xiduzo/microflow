@@ -1,5 +1,7 @@
 import { useNodeValue } from "@/stores/node-data";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"RangeMap">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { type Data, type Value, dataSchema, defaults } from "./range-map.schema";
 import { ActivityIcon } from "lucide-react";

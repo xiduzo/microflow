@@ -9,7 +9,9 @@ import {
   RedoDotIcon,
   UndoDotIcon,
 } from "lucide-react";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Stepper">;
 import { NodeContainer, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";

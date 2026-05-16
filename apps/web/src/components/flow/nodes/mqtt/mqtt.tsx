@@ -1,6 +1,8 @@
 import type { NodeHostAdapter } from "../_base/host-adapter";
 import { dataSchema, defaults, type Data } from "./mqtt.schema";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Mqtt">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RadioIcon, RadioTowerIcon } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";

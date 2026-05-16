@@ -1,5 +1,7 @@
 import { dataSchema, defaults, type Data, type Value } from "./interval.schema";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Interval">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { MIN_INTERVAL_IN_MS } from "./interval.constants";

@@ -29,6 +29,8 @@ import { defaults as HallEffectDefaults } from "./hall-effect/hall-effect.schema
 import { Hotkey } from "./hotkey/hotkey";
 import { defaults as HotkeyDefaults } from "./hotkey/hotkey.schema";
 import { adapter as HotkeyAdapter } from "./hotkey/hotkey";
+import { I2cDevice } from "./i2c-device/i2c-device";
+import { defaults as I2cDeviceDefaults } from "./i2c-device/i2c-device.schema";
 import { Interval } from "./interval/interval";
 import { defaults as IntervalDefaults } from "./interval/interval.schema";
 import { Ldr } from "./ldr/ldr";
@@ -107,6 +109,7 @@ export const NODE_REGISTRY = {
   Gate: { component: Gate, defaults: GateDefaults as NodeDefaults, adapter: undefined },
   HallEffect: { component: HallEffect, defaults: HallEffectDefaults as NodeDefaults, adapter: undefined },
   Hotkey: { component: Hotkey, defaults: HotkeyDefaults as NodeDefaults, adapter: HotkeyAdapter },
+  I2cDevice: { component: I2cDevice, defaults: I2cDeviceDefaults as NodeDefaults, adapter: undefined },
   Interval: { component: Interval, defaults: IntervalDefaults as NodeDefaults, adapter: undefined },
   Ldr: { component: Ldr, defaults: LdrDefaults as NodeDefaults, adapter: undefined },
   Led: { component: Led, defaults: LedDefaults as NodeDefaults, adapter: undefined },
@@ -147,6 +150,7 @@ export const NODE_TYPES = {
   Gate,
   HallEffect,
   Hotkey,
+  I2cDevice,
   Interval,
   Ldr,
   Led,

@@ -1,6 +1,8 @@
 import { type Data, dataSchema, defaults } from "./calculate.schema";
 import { NodeContainer, useNodeData, useNodeControls, type BaseNode } from "../_base/_base";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Calculate">;
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,

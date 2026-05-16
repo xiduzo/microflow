@@ -1,5 +1,7 @@
 import { button, folder } from "leva";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Piezo">;
 import {
   NodeContainer,
   useNodeControls,

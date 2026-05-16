@@ -1,5 +1,7 @@
 import { dataSchema, defaults, type Data } from "./constant.schema";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Constant">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 
 const numberFormat = new Intl.NumberFormat();

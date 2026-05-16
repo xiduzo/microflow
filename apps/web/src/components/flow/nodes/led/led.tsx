@@ -1,7 +1,9 @@
 import { isPmwPin, pinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Led">;
 import { dataSchema, defaults, type Data, type Value } from "./led.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { LightbulbIcon, LightbulbOffIcon, VibrateIcon } from "lucide-react";

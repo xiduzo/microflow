@@ -1,5 +1,7 @@
 import { dataSchema, defaults, type Data, type Value } from "./function.schema";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Function">;
 import {
   NodeContainer,
   useDeleteHandles,
@@ -106,11 +108,14 @@ function DynamicHandles() {
   return (
     <>
       {handles.slice(0, 7).map((handle, index) => (
-        <Handle
+        // Dynamic input handles from JS template vars — open-port outlier, not a
+        // catalogued **Port**. Use raw `BaseHandle` and cast `id` to escape the
+        // closed-set check.
+        <BaseHandle
           key={handle}
           type="target"
           position="bottom"
-          id={handle}
+          id={handle as never}
           handleType="value"
           offset={index - (handles.length - 1) / 2}
         />

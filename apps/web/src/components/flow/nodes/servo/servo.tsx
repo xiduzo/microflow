@@ -1,5 +1,7 @@
 import { CircleIcon, RotateCcwIcon, RotateCwIcon, SlashIcon } from "lucide-react";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Servo">;
 import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";

@@ -1,4 +1,6 @@
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Compare">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import {

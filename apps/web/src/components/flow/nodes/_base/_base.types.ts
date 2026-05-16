@@ -13,6 +13,7 @@ export const COMPONENT_TYPES = [
   "Gate",
   "HallEffect",
   "Hotkey",
+  "I2cDevice",
   "Interval",
   "Ldr",
   "Led",
@@ -66,6 +67,7 @@ export const COMPONENT_PORTS = {
   Gate: ["value"] as const,
   HallEffect: ["read"] as const,
   Hotkey: ["key_event"] as const,
+  I2cDevice: ["write", "trigger"] as const,
   Interval: ["start", "stop"] as const,
   Ldr: ["read"] as const,
   Led: ["true", "false", "toggle", "value"] as const,
@@ -92,5 +94,11 @@ export const COMPONENT_PORTS = {
   Vibration: ["true", "false", "toggle", "value"] as const,
 } as const satisfies Record<ComponentType, readonly string[]>;
 
-/** Valid `target_handle` literal-union for a given Component instance type. */
-export type PortOf<T extends ComponentType> = (typeof COMPONENT_PORTS)[T][number];
+/**
+ * Valid `target_handle` literal-union for a given Component instance type.
+ * Distributive conditional ensures the result is the union of port literals
+ * across all members of `T` when `T` is itself a union of ComponentTypes.
+ */
+export type PortOf<T extends ComponentType> = T extends ComponentType
+  ? (typeof COMPONENT_PORTS)[T][number]
+  : never;

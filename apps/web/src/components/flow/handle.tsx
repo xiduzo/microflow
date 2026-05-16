@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
+import type { ComponentType, PortOf } from "./nodes/_base/_base.types";
 
 const HANDLE_SIZE = 18;
 const HANDLE_TRANSLATE_OFFSET = HANDLE_SIZE * 0.9;
@@ -18,7 +19,7 @@ const HANDLE_TRANSLATE_OFFSET = HANDLE_SIZE * 0.9;
 const HANDLE_SPACING_OFFSET = 14;
 const HANDLE_SPACING = HANDLE_SIZE * 1.5;
 
-export function Handle(props: Props) {
+export function Handle<T extends ComponentType = ComponentType>(props: Props<T>) {
   const { position, handleType: _handleType, offset: _offset, hint: _hint, ...restProps } = props;
   const edges = useEdges();
   const ref = useRef<HTMLDivElement>(null);
@@ -141,7 +142,13 @@ type PositionType = `${Position.Left}` | `${Position.Right}` | `${Position.Botto
 
 type HandleType = "value" | "event" | "command" | "state";
 
-type Props = Omit<HandleProps, "isConnectable" | "isValidConnection" | "position"> & {
+/**
+ * Shared props for both target (input) and source (output) handles.
+ */
+type CommonProps = Omit<
+  HandleProps,
+  "isConnectable" | "isValidConnection" | "position" | "id" | "type"
+> & {
   offset?: number;
   hint?: string;
   isConnectable?: ((edges: Edge[]) => boolean) | boolean;
@@ -149,6 +156,36 @@ type Props = Omit<HandleProps, "isConnectable" | "isValidConnection" | "position
   position: PositionType;
   handleType?: HandleType;
 };
+
+/**
+ * Target (input) handle — receives flow edges. `id` must be a declared **Port**
+ * of the parent Component. When `<Handle>` is called without binding the
+ * generic, `T` defaults to the union of every catalogued Component, so `id`
+ * must at minimum match _some_ Port in the catalog — typos against the
+ * aggregate port set fail at compile time. Bind the generic explicitly
+ * (`<Handle<"Led"> ...>`) for per-Component tightening that catches
+ * cross-Component port confusion too.
+ *
+ * Mirrors `Component::dispatch`'s Port surface in the Rust runtime. See
+ * `CONTEXT.md` § Port and ADR-0001.
+ */
+type TargetProps<T extends ComponentType> = CommonProps & {
+  type: "target";
+  id: PortOf<T>;
+};
+
+/**
+ * Source (output) handle — emits flow edges. `id` is the emit-handle name
+ * the component calls `ComponentBase::emit(handle)` with. This namespace
+ * is not yet catalogued; for now `id` is free-form `string`.
+ */
+type SourceProps = CommonProps & {
+  type: "source";
+  id?: string;
+};
+
+export type HandleProps_<T extends ComponentType = ComponentType> = TargetProps<T> | SourceProps;
+type Props<T extends ComponentType = ComponentType> = HandleProps_<T>;
 
 const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {
   variants: {

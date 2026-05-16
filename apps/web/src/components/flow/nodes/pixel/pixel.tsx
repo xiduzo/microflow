@@ -1,4 +1,6 @@
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Pixel">;
 import {
   NodeContainer,
   useNodeControls,

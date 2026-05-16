@@ -1,5 +1,7 @@
 import { useNodeValue } from "@/stores/node-data";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Switch">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { dataSchema, defaults, type Data, type Value } from "./switch.schema";
 import { ToggleLeftIcon, ToggleRightIcon } from "lucide-react";

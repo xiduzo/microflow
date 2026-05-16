@@ -1,5 +1,7 @@
 import { useNodeValue } from "@/stores/node-data";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Relay">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { ZapIcon, ZapOffIcon } from "lucide-react";
 import { type Value, type Data, dataSchema, defaults } from "./relay.schema";

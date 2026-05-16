@@ -1,7 +1,9 @@
 import { NodeContainer, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, defaults, type Data, type Value } from "./counter.schema";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Counter">;
 
 const numberFormat = new Intl.NumberFormat();
 

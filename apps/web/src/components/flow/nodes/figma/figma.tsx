@@ -7,7 +7,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { CloudOffIcon, VariableIcon } from "lucide-react";
 import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect, useMemo } from "react";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Figma">;
 import {
   type BaseNode,
   NodeContainer,

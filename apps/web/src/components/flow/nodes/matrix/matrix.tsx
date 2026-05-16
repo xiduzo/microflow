@@ -1,5 +1,7 @@
 import { NodeContainer } from "../_base/_base";
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+const Handle = BaseHandle<"Matrix">;
 import { button, folder } from "leva";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";

@@ -3,7 +3,12 @@
  * it still requires a lot of testing before exposing it to users
  */
 
-import { Handle } from "../../handle";
+import { Handle as BaseHandle } from "../../handle";
+
+// Bind Handle to this node's ComponentType so `id` on target handles is
+// constrained to `PortOf<"I2cDevice">` (the catalog-declared **Port** set).
+// See CONTEXT.md § Port.
+const Handle = BaseHandle<"I2cDevice">;
 import {
   NodeContainer,
   useNodeControls,
