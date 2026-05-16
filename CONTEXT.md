@@ -136,9 +136,9 @@ Distinct from the **Component Catalog**: catalog is metadata for _registration_ 
 
 ## Runtime Context
 
-Read-only bundle passed to component factories at construction time: connected brokers, configured LLM providers. Lets a component pluck the bits it needs (e.g. `Llm` reads its provider's `base_url`/`api_key`) without mutating `node.data` upstream. Empty for components with no external deps.
+Construction-time bundle passed to component factories. Today carries one field — `llm_registry: Arc<LlmRegistry>` — cloned out by `Llm::build` so the component can resolve providers at dispatch time. Empty for components with no external deps; the catalog flag `usesRuntimeContext` is no longer load-bearing because every builder takes `&RuntimeContext` and the 31 that don't need it simply ignore it.
 
-_Deprecated by [ADR-0002](docs/adr/0002-per-capability-service-traits.md); will be replaced by **Runtime Services** + per-impl **Component Deps** in Phase 4. The struct still ships today as `runtime/context.rs::RuntimeContext { providers: Vec<ProviderEntry> }` and is read only by `Llm::build`._
+_Deprecated by [ADR-0002](docs/adr/0002-per-capability-service-traits.md); will be replaced by **Runtime Services** + per-impl **Component Deps** in Phase 4. The struct still ships today as `runtime/context.rs::RuntimeContext { llm_registry: Arc<LlmRegistry> }`._
 
 ## Capability Trait
 

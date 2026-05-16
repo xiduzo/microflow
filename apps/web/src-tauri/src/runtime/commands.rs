@@ -3,7 +3,8 @@
 //! `flow_update` and `component_call` commands
 
 use super::base::ComponentValue;
-use super::context::{ProviderEntry, RuntimeContext};
+use super::context::RuntimeContext;
+use super::services::{HttpLlmProvider, LlmProvider};
 use super::wiring::SubscriberWiring;
 use super::FlowUpdate;
 use crate::AppState;
@@ -74,14 +75,27 @@ pub async fn flow_update(
         }
     }
 
-    // Build the RuntimeContext that components like Llm consult during construction.
-    let ctx = RuntimeContext {
-        providers: providers.unwrap_or_default().into_iter().map(|p| ProviderEntry {
-            id: p.id,
-            base_url: p.base_url,
-            api_key: p.api_key,
-        }).collect(),
-    };
+    // Sync any provider records straight into the shared LlmRegistry so
+    // components built by this flow_update — and any subsequent
+    // `Llm::dispatch("trigger")` — see live credentials. This replaces the
+    // legacy build-time snapshot into `LlmConfig.base_url/api_key`. See
+    // ADR-0002 § Decision D2.
+    if let Some(provider_configs) = providers {
+        let entries: Vec<(String, Arc<dyn LlmProvider>)> = provider_configs
+            .into_iter()
+            .map(|p| {
+                let provider: Arc<dyn LlmProvider> =
+                    Arc::new(HttpLlmProvider::new(p.base_url, p.api_key));
+                (p.id, provider)
+            })
+            .collect();
+        state.llm_registry.sync(entries).await;
+    }
+
+    // RuntimeContext for component factories. Components that need an
+    // LlmRegistry clone the `Arc` out of `ctx` at build time and resolve
+    // providers at dispatch time.
+    let ctx = RuntimeContext::with_llm_registry(Arc::clone(&state.llm_registry));
 
     // Apply the flow first so components are constructed and can describe their wiring.
     let board_connected = *state.board_connected.read().unwrap_or_else(std::sync::PoisonError::into_inner);

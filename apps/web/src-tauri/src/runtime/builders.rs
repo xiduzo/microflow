@@ -2,13 +2,16 @@
 //!
 //! Each impl plugs a Component into the registry by declaring its `Config`
 //! type and a `build` constructor. Almost all impls reduce to
-//! `Ok(Self::new(id, config))`; the `Llm` entry uses the [`RuntimeContext`] to
-//! resolve a provider record into its `base_url` / `api_key`.
+//! `Ok(Self::new(id, config))`; the `Llm` entry pulls the shared
+//! [`super::services::LlmRegistry`] out of [`RuntimeContext`] so it can
+//! resolve a provider by id at dispatch time (per ADR-0002).
 //!
 //! Keeping these impls in one module avoids editing 30+ component files when
 //! the registry contract evolves. The catalog flag `usesRuntimeContext` is no
 //! longer load-bearing: every builder takes a `RuntimeContext` and the ones
 //! that don't need it simply ignore the argument.
+
+use std::sync::Arc;
 
 use crate::error::RuntimeError;
 
@@ -237,21 +240,17 @@ impl ComponentBuilder for super::external::Mqtt {
     }
 }
 
-/// `Llm` is the one Catalog entry that consults [`RuntimeContext`]: it resolves
-/// a frontend-side provider record (by id) into the LLM endpoint's `base_url`
-/// and `api_key`. Previously this lived in a `from_data` codegen branch; now
-/// it sits beside the other builders.
+/// `Llm` is the one Catalog entry that consults [`RuntimeContext`]: it pulls
+/// the shared [`super::services::LlmRegistry`] handle out of the context and
+/// hands it to the component, which then resolves its `provider_id` against
+/// the registry at dispatch time (ADR-0002, Phase 2).
 impl ComponentBuilder for super::external::Llm {
     type Config = super::external::LlmConfig;
     fn build(
         id: String,
-        mut config: Self::Config,
+        config: Self::Config,
         ctx: &RuntimeContext,
     ) -> Result<Self, RuntimeError> {
-        if let Some(provider) = ctx.provider(&config.provider_id) {
-            config.base_url.clone_from(&provider.base_url);
-            config.api_key.clone_from(&provider.api_key);
-        }
-        Ok(Self::new(id, config))
+        Ok(Self::new(id, config, Arc::clone(&ctx.llm_registry)))
     }
 }

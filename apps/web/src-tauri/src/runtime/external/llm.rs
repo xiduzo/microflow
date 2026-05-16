@@ -1,7 +1,7 @@
 //! LLM Component - External
 //!
-//! Calls an `OpenAI`-compatible LLM API (`OpenRouter`, Ollama, etc.)
-//! and emits the text response downstream.
+//! Resolves an [`LlmProvider`](crate::runtime::services::LlmProvider) by id
+//! against the shared [`LlmRegistry`] and emits the text response downstream.
 //!
 //! # Handles
 //!
@@ -10,18 +10,32 @@
 //! - `thinking` (output, state): true while generating, false when idle
 //! - `done` (output, event): fires when generation completes successfully
 //! - `value` (output, value): emits the generated text response
+//! - `error` (output, event): fires with an error message when generation fails
+//!
+//! Provider lookup happens *per dispatch* against [`LlmRegistry`], not at
+//! `Llm::build` time — credential rotation via [`LlmRegistry::sync`] takes
+//! effect on the next `trigger` without rebuilding the component. See
+//! `docs/adr/0002-per-capability-service-traits.md`.
 
 use crate::runtime::base::{Component, ComponentBase, ComponentEvent, ComponentValue};
+use crate::runtime::services::{LlmError, LlmRegistry, LlmRequest};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Static config — the structural fields that describe *what* this node
+/// generates. Credentials (`base_url`/`api_key`) live on the registry's
+/// provider impls now, not on the node config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LlmConfig {
+    /// Human-facing provider kind label (`ollama`, `openrouter`, …). Not
+    /// load-bearing for the runtime; kept for parity with the frontend
+    /// schema and surfaced in logs.
     #[serde(default = "default_provider")]
     pub provider: String,
-    /// Frontend provider record id; resolved against `RuntimeContext` at construction.
+    /// Frontend provider record id; resolved against [`LlmRegistry`] at
+    /// dispatch time.
     #[serde(default)]
     pub provider_id: String,
     #[serde(default)]
@@ -30,14 +44,9 @@ pub struct LlmConfig {
     pub prompt: String,
     #[serde(default)]
     pub system: String,
-    #[serde(default = "default_base_url")]
-    pub base_url: String,
-    #[serde(default)]
-    pub api_key: String,
 }
 
 fn default_provider() -> String { "ollama".to_string() }
-fn default_base_url() -> String { "http://localhost:11434".to_string() }
 
 impl Default for LlmConfig {
     fn default() -> Self {
@@ -47,8 +56,6 @@ impl Default for LlmConfig {
             model: String::new(),
             prompt: String::new(),
             system: String::new(),
-            base_url: default_base_url(),
-            api_key: String::new(),
         }
     }
 }
@@ -62,17 +69,21 @@ pub struct Llm {
     rt_handle: Option<tokio::runtime::Handle>,
     /// Abort handle for the currently running generation task
     running_task: Option<tokio::task::AbortHandle>,
+    /// Shared LLM provider registry. Cloned into each spawned task so the
+    /// lookup happens at dispatch time, not at construction time.
+    llm_registry: Arc<LlmRegistry>,
 }
 
 impl Llm {
     #[must_use]
-    pub fn new(id: String, config: LlmConfig) -> Self {
+    pub fn new(id: String, config: LlmConfig, llm_registry: Arc<LlmRegistry>) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,
             template_vars: HashMap::new(),
             rt_handle: tokio::runtime::Handle::try_current().ok(),
             running_task: None,
+            llm_registry,
         }
     }
 
@@ -103,9 +114,19 @@ impl Llm {
             abort.abort();
         }
 
-        let config = self.config.clone();
         let component_id = Arc::clone(&self.base.id);
         let event_sender = self.base.event_sender.clone();
+        let registry = Arc::clone(&self.llm_registry);
+        let provider_id = self.config.provider_id.clone();
+        let request = LlmRequest {
+            model: self.config.model.clone(),
+            system: if self.config.system.is_empty() {
+                None
+            } else {
+                Some(self.config.system.clone())
+            },
+            prompt,
+        };
 
         let Some(handle) = &self.rt_handle else {
             log::error!("[Llm] {component_id} no Tokio runtime available, cannot spawn task");
@@ -125,54 +146,41 @@ impl Llm {
                 }
             };
 
-            let base = config.base_url.trim_end_matches('/');
-            let url = format!("{base}/v1/chat/completions");
+            let Some(provider) = registry.get(&provider_id).await else {
+                log::error!(
+                    "[Llm] {component_id} provider '{provider_id}' not in registry"
+                );
+                send("thinking", ComponentValue::Bool(false));
+                send(
+                    "error",
+                    ComponentValue::String(format!(
+                        "LLM provider '{provider_id}' not configured"
+                    )),
+                );
+                return;
+            };
 
-            let mut messages = Vec::new();
-            if !config.system.is_empty() {
-                messages.push(serde_json::json!({ "role": "system", "content": config.system }));
-            }
-            messages.push(serde_json::json!({ "role": "user", "content": prompt }));
+            log::info!(
+                "[Llm] {component_id} → provider={provider_id} model={}",
+                request.model
+            );
 
-            let body = serde_json::json!({
-                "model": config.model,
-                "messages": messages,
-                "stream": false,
-            });
-
-            let client = reqwest::Client::new();
-            let mut req = client.post(&url).json(&body);
-            if !config.api_key.is_empty() {
-                req = req.bearer_auth(&config.api_key);
-            }
-
-            log::info!("[Llm] {component_id} → POST {url}");
-
-            match req.send().await {
-                Ok(resp) => match resp.json::<serde_json::Value>().await {
-                    Ok(json) => {
-                        let response = json
-                            .get("choices")
-                            .and_then(|c| c.get(0))
-                            .and_then(|c| c.get("message"))
-                            .and_then(|m| m.get("content"))
-                            .and_then(|s| s.as_str())
-                            .unwrap_or("")
-                            .to_string();
-
-                        log::info!("[Llm] {} response: {} chars", component_id, response.len());
-                        send("thinking", ComponentValue::Bool(false));
-                        send("value", ComponentValue::String(response));
-                        send("done", ComponentValue::Bool(true));
-                    }
-                    Err(e) => {
-                        log::error!("[Llm] {component_id} failed to parse response: {e}");
-                        send("thinking", ComponentValue::Bool(false));
-                        send("error", ComponentValue::String(e.to_string()));
-                    }
-                },
+            match provider.generate(request).await {
+                Ok(response) => {
+                    log::info!(
+                        "[Llm] {component_id} response: {} chars",
+                        response.text.len()
+                    );
+                    send("thinking", ComponentValue::Bool(false));
+                    send("value", ComponentValue::String(response.text));
+                    send("done", ComponentValue::Bool(true));
+                }
+                Err(LlmError::Cancelled) => {
+                    log::info!("[Llm] {component_id} cancelled");
+                    // No error event; the abort path disowned this task.
+                }
                 Err(e) => {
-                    log::error!("[Llm] {component_id} request to {url} failed: {e}");
+                    log::error!("[Llm] {component_id} generate failed: {e}");
                     send("thinking", ComponentValue::Bool(false));
                     send("error", ComponentValue::String(e.to_string()));
                 }
@@ -215,5 +223,156 @@ impl Component for Llm {
             abort.abort();
         }
         log::info!("[Llm] {} destroyed", self.base.id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::services::{LlmProvider, RecordingLlmProvider};
+    use std::time::Duration;
+    use tokio::sync::mpsc;
+
+    /// Drain events until either the `done` handle fires or the deadline
+    /// elapses. Returns the collected events in arrival order.
+    async fn drain_until_done(
+        rx: &mut mpsc::UnboundedReceiver<ComponentEvent>,
+        timeout: Duration,
+    ) -> Vec<ComponentEvent> {
+        let mut events = Vec::new();
+        let deadline = tokio::time::Instant::now() + timeout;
+        while tokio::time::Instant::now() < deadline {
+            match tokio::time::timeout(Duration::from_millis(20), rx.recv()).await {
+                Ok(Some(event)) => {
+                    let handle = event.source_handle.clone();
+                    events.push(event);
+                    if handle.as_ref() == "done" || handle.as_ref() == "error" {
+                        return events;
+                    }
+                }
+                Ok(None) => return events,
+                Err(_) => continue,
+            }
+        }
+        events
+    }
+
+    #[tokio::test]
+    async fn dispatches_to_registry_provider_and_emits_value() {
+        let registry = Arc::new(LlmRegistry::new());
+        let recorder = Arc::new(RecordingLlmProvider::new());
+        recorder.script_ok("hi back");
+        registry
+            .insert("test-provider".into(), recorder.clone() as Arc<dyn LlmProvider>)
+            .await;
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mut config = LlmConfig::default();
+        config.provider_id = "test-provider".into();
+        config.model = "test-model".into();
+        config.prompt = "hello".into();
+
+        let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
+        llm.set_event_sender(tx);
+
+        llm.dispatch("trigger", ComponentValue::Bool(true))
+            .expect("trigger ok");
+
+        let events = drain_until_done(&mut rx, Duration::from_secs(2)).await;
+
+        let value = events.iter().find_map(|e| {
+            if e.source_handle.as_ref() == "value" {
+                if let ComponentValue::String(s) = &e.value {
+                    return Some(s.clone());
+                }
+            }
+            None
+        });
+        assert_eq!(value.as_deref(), Some("hi back"));
+        assert!(events
+            .iter()
+            .any(|e| e.source_handle.as_ref() == "done"));
+
+        let recorded = recorder.recorded();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0].model, "test-model");
+        assert_eq!(recorded[0].prompt, "hello");
+        assert!(recorded[0].system.is_none());
+    }
+
+    #[tokio::test]
+    async fn emits_error_when_provider_not_in_registry() {
+        let registry = Arc::new(LlmRegistry::new()); // empty
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mut config = LlmConfig::default();
+        config.provider_id = "missing".into();
+        let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
+        llm.set_event_sender(tx);
+
+        llm.dispatch("trigger", ComponentValue::Bool(true)).unwrap();
+
+        let events = drain_until_done(&mut rx, Duration::from_secs(2)).await;
+        let err = events.iter().find(|e| e.source_handle.as_ref() == "error");
+        assert!(err.is_some(), "expected error event, got {events:?}");
+        if let Some(e) = err {
+            if let ComponentValue::String(msg) = &e.value {
+                assert!(msg.contains("missing"));
+            } else {
+                panic!("error event carried non-string value");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn forwards_system_prompt_when_set() {
+        let registry = Arc::new(LlmRegistry::new());
+        let recorder = Arc::new(RecordingLlmProvider::new());
+        recorder.script_ok("ok");
+        registry
+            .insert("p".into(), recorder.clone() as Arc<dyn LlmProvider>)
+            .await;
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mut config = LlmConfig::default();
+        config.provider_id = "p".into();
+        config.system = "you are terse".into();
+        config.prompt = "hi".into();
+        let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
+        llm.set_event_sender(tx);
+
+        llm.dispatch("trigger", ComponentValue::Bool(true)).unwrap();
+        drain_until_done(&mut rx, Duration::from_secs(2)).await;
+
+        let recorded = recorder.recorded();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0].system.as_deref(), Some("you are terse"));
+    }
+
+    #[tokio::test]
+    async fn substitutes_template_vars_into_prompt() {
+        let registry = Arc::new(LlmRegistry::new());
+        let recorder = Arc::new(RecordingLlmProvider::new());
+        recorder.script_ok("ok");
+        registry
+            .insert("p".into(), recorder.clone() as Arc<dyn LlmProvider>)
+            .await;
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mut config = LlmConfig::default();
+        config.provider_id = "p".into();
+        config.prompt = "hello {{name}}".into();
+        let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
+        llm.set_event_sender(tx);
+
+        // Set the template var via the {{var}} input port.
+        llm.dispatch("name", ComponentValue::String("world".into()))
+            .unwrap();
+        // Trigger the generation.
+        llm.dispatch("trigger", ComponentValue::Bool(true)).unwrap();
+        drain_until_done(&mut rx, Duration::from_secs(2)).await;
+
+        let recorded = recorder.recorded();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0].prompt, "hello world");
     }
 }
