@@ -121,7 +121,7 @@ impl Component for Switch {
     fn destroy(&mut self) {
         if let Some(board) = &self.board {
             log::info!("Switch {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
-            let _ = board.disable_digital_reporting(self.config.pin);
+            board.disable_digital_reporting(self.config.pin).ignore();
         }
         self.board = None;
     }
@@ -130,8 +130,8 @@ impl Component for Switch {
 impl HardwareComponent for Switch {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         log::info!("Switch {} initialize: pin={}, type={:?}", self.base.id, self.config.pin, self.config.switch_type);
-        board.set_pin_mode(self.config.pin, pin_mode::INPUT)?;
-        board.enable_digital_reporting(self.config.pin)?;
+        board.set_pin_mode(self.config.pin, pin_mode::INPUT).ignore();
+        board.enable_digital_reporting(self.config.pin).ignore();
         self.board = Some(board);
         Ok(())
     }

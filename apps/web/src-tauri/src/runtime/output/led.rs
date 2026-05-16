@@ -40,7 +40,7 @@ impl Led {
     pub fn turn_on(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
-            board.digital_write(self.config.pin, true)?;
+            board.digital_write(self.config.pin, true).ignore();
         }
         self.is_on = true;
         self.base.set_value(ComponentValue::Number(1.0));
@@ -50,7 +50,7 @@ impl Led {
     pub fn turn_off(&mut self) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
-            board.digital_write(self.config.pin, false)?;
+            board.digital_write(self.config.pin, false).ignore();
         }
         self.is_on = false;
         self.base.set_value(ComponentValue::Number(0.0));
@@ -64,8 +64,8 @@ impl Led {
     pub fn brightness(&mut self, value: u8) -> Result<(), crate::error::RuntimeError> {
         self.stop_blink();
         if let Some(board) = &self.board {
-            board.set_pin_mode(self.config.pin, pin_mode::PWM)?;
-            board.analog_write(self.config.pin, u16::from(value))?;
+            board.set_pin_mode(self.config.pin, pin_mode::PWM).ignore();
+            board.analog_write(self.config.pin, u16::from(value)).ignore();
         }
         self.brightness_value = value;
         self.is_on = value > 0;
@@ -106,8 +106,8 @@ impl Component for Led {
 
 impl HardwareComponent for Led {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
-        board.digital_write(self.config.pin, false)?;
+        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT).ignore();
+        board.digital_write(self.config.pin, false).ignore();
         self.board = Some(board);
         Ok(())
     }

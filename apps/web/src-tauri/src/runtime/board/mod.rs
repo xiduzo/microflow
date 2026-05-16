@@ -13,9 +13,14 @@ mod connection;
 mod handle;
 mod io_loop;
 mod protocol;
+mod receipt;
+mod test_io_loop;
 
 pub use connection::{
     BoardConnection, I2cReplyCallback, I2cReplyEvent, PinChangeCallback, PinChangeEvent,
     SerialPortWrapper,
 };
 pub use handle::BoardHandle;
+pub use protocol::BoardCommand;
+pub use receipt::{CommandReceipt, PinSnapshot};
+pub use test_io_loop::TestIoLoop;

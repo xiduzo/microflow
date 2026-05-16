@@ -69,9 +69,9 @@ impl Rgb {
         if let Some(board) = &self.board {
             let (r, g, b) = self.apply_intensity();
             let (r, g, b) = self.apply_anode(r, g, b);
-            board.analog_write(self.config.pins.red, u16::from(r))?;
-            board.analog_write(self.config.pins.green, u16::from(g))?;
-            board.analog_write(self.config.pins.blue, u16::from(b))?;
+            board.analog_write(self.config.pins.red, u16::from(r)).ignore();
+            board.analog_write(self.config.pins.green, u16::from(g)).ignore();
+            board.analog_write(self.config.pins.blue, u16::from(b)).ignore();
         }
         self.base.set_value(self.color.clone().into());
         Ok(())
@@ -111,9 +111,9 @@ impl Component for Rgb {
 
 impl HardwareComponent for Rgb {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pins.red, pin_mode::PWM)?;
-        board.set_pin_mode(self.config.pins.green, pin_mode::PWM)?;
-        board.set_pin_mode(self.config.pins.blue, pin_mode::PWM)?;
+        board.set_pin_mode(self.config.pins.red, pin_mode::PWM).ignore();
+        board.set_pin_mode(self.config.pins.green, pin_mode::PWM).ignore();
+        board.set_pin_mode(self.config.pins.blue, pin_mode::PWM).ignore();
         self.board = Some(board);
         self.off()
     }

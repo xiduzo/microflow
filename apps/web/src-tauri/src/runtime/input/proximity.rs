@@ -121,7 +121,7 @@ impl Component for Proximity {
         if let Some(board) = &self.board {
             let pin = self.config.analog_pin();
             log::info!("Proximity {} destroy: disabling analog reporting for pin {}", self.base.id, pin);
-            let _ = board.disable_analog_reporting(pin);
+            board.disable_analog_reporting(pin).ignore();
         }
         self.board = None;
     }
@@ -131,8 +131,8 @@ impl HardwareComponent for Proximity {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         let pin = self.config.analog_pin();
         log::info!("Proximity initialize: pin={pin}");
-        board.set_pin_mode(pin, pin_mode::ANALOG)?;
-        board.enable_analog_reporting(pin)?;
+        board.set_pin_mode(pin, pin_mode::ANALOG).ignore();
+        board.enable_analog_reporting(pin).ignore();
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())

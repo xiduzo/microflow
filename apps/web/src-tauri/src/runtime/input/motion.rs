@@ -84,7 +84,7 @@ impl Component for Motion {
         self.stop_polling();
         if let Some(board) = &self.board {
             log::info!("Motion {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
-            let _ = board.disable_digital_reporting(self.config.pin);
+            board.disable_digital_reporting(self.config.pin).ignore();
         }
         self.board = None;
     }
@@ -92,8 +92,8 @@ impl Component for Motion {
 
 impl HardwareComponent for Motion {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pin, pin_mode::INPUT)?;
-        board.enable_digital_reporting(self.config.pin)?;
+        board.set_pin_mode(self.config.pin, pin_mode::INPUT).ignore();
+        board.enable_digital_reporting(self.config.pin).ignore();
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())

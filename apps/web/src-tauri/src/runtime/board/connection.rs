@@ -12,6 +12,7 @@ use firmata_rs::Firmata;
 use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 /// Wrap a Firmata-side failure into `HardwareError::FirmataCommunication`
 /// with a contextual prefix.
@@ -89,7 +90,9 @@ pub struct BoardConnection {
     pub board: firmata_rs::Board<SerialPortWrapper>,
     pub port_name: String,
     /// Track previous pin values for change detection. Shared with `BoardHandle`.
-    pin_values: Arc<DashMap<u8, u16>>,
+    /// Each entry pairs the observed value with the `Instant` at which the IO
+    /// loop captured it; `BoardHandle::pin_snapshot` surfaces both.
+    pin_values: Arc<DashMap<u8, (u16, Instant)>>,
     /// Pins that have listeners registered. Only these are checked in
     /// `detect_and_emit_changes`. Shared with `BoardHandle`. Empty means
     /// "check all pins" (safe fallback before listeners are registered).
@@ -107,7 +110,7 @@ impl BoardConnection {
     pub(super) fn new(
         board: firmata_rs::Board<SerialPortWrapper>,
         port_name: String,
-        pin_values: Arc<DashMap<u8, u16>>,
+        pin_values: Arc<DashMap<u8, (u16, Instant)>>,
         active_pins: Arc<DashMap<u8, ()>>,
         pin_change_cb: PinChangeCallbackSlot,
         i2c_reply_cb: I2cReplyCallbackSlot,
@@ -322,7 +325,7 @@ impl BoardConnection {
             let current_value = pin.value as u16;
             let is_analog = pin.analog;
 
-            let last_value = self.pin_values.get(&pin_num).map(|v| *v);
+            let last_value = self.pin_values.get(&pin_num).map(|v| v.0);
             if last_value == Some(current_value) {
                 continue;
             }
@@ -337,7 +340,7 @@ impl BoardConnection {
             };
 
             if should_emit {
-                self.pin_values.insert(pin_num, current_value);
+                self.pin_values.insert(pin_num, (current_value, Instant::now()));
                 changes.push(PinChangeEvent { pin: pin_num, value: current_value, is_analog });
             }
         }

@@ -72,7 +72,7 @@ Emission of these reserved handles is the runtime's responsibility (in `FlowRunt
 
 ## BoardHandle
 
-Public flow-runtime seam to the connected Firmata board. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Hardware **Component** impls receive `Arc<BoardHandle>` via `Component::initialize` and call typed methods (`set_pin_mode`, `digital_write`, `analog_write`, `enable_analog_reporting`, …) returning `Result<(), RuntimeError>`. Each typed method enqueues a `BoardCommand` on the **Board IO Loop**'s channel — never blocks on the serial port. Read-side caches (pin values, active pins) are exposed as direct getters that consult shared `DashMap`s.
+Public flow-runtime seam to the connected Firmata board. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Hardware **Component** impls receive `Arc<BoardHandle>` via `Component::initialize` and call typed methods (`set_pin_mode`, `digital_write`, `analog_write`, `enable_analog_reporting`, …) returning a [`CommandReceipt`](#commandreceipt). Each typed method allocates a oneshot reply, enqueues a `BoardCommand` on the **Board IO Loop**'s channel, and returns the receipt — never blocks on the serial port. Hot-path Component callers call `.ignore()` to make fire-and-forget intent explicit; Tauri callers `.into_future().await` for the wire result; tests use `.wait()` or `BoardHandle::test_pair()` with a [`TestIoLoop`](#testioloop). Read-side: `pin_snapshot(pin) -> Option<PinSnapshot>` returns a point-in-time view of the cached pin value; live reads still flow through the `on_pin_change` callback path established by [ADR-0001](docs/adr/0001-component-trait-flow-separation.md). Five non-seam methods (`set_pin_change_callback`, `set_i2c_reply_callback`, `clear_pin_cache`, `register_active_pin`, `unregister_active_pin`) write directly to shared state and still return `Result<(), RuntimeError>`.
 
 ## Board IO Loop
 
@@ -84,7 +84,29 @@ Private `firmata-rs` wrapper held by the **Board IO Loop**. Lives in `apps/web/s
 
 ## BoardCommand
 
-Internal protocol between **BoardHandle** and the **Board IO Loop**. Module-private (`pub(super)`) enum carrying Firmata wire ops (`SetPinMode`, `DigitalWrite`, `AnalogWrite`, `ShiftOut`, `Tone`, `Sysex`, `Enable/DisableAnalog/DigitalReporting`, `ResetAllReporting`, the I2C ops) plus `Stop`. Constructed only by `BoardHandle` typed methods — callers never see it.
+Internal protocol between **BoardHandle** and the **Board IO Loop**. Enum carrying Firmata wire ops (`SetPinMode`, `DigitalWrite`, `AnalogWrite`, `ShiftOut`, `Tone`, `Sysex`, `Enable/DisableAnalog/DigitalReporting`, `ResetAllReporting`, the I2C ops) plus `Stop`. Every wire-op variant carries `reply: oneshot::Sender<Result<(), HardwareError>>`; the IO loop fills the reply after running the underlying `BoardConnection` call, and `BoardHandle` wraps the matching `Receiver` in a [`CommandReceipt`](#commandreceipt). Constructed only by `BoardHandle` typed methods — production callers never see it. Re-exported from `board::mod` so the **TestIoLoop** can pattern-match in integration tests.
+
+## CommandReceipt
+
+Outcome handle returned by every **BoardHandle** write method. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Wraps a `oneshot::Receiver<Result<(), HardwareError>>` that the **Board IO Loop** resolves after it runs the underlying **BoardConnection** call. Three consume methods: `wait()` (sync, blocks — used inside `Component::call_method`), `into_future()` (async — `.await` from Tauri commands), `ignore()` (drops the receipt, making fire-and-forget intent visible at the call site). `try_now(&mut self)` is a non-blocking peek.
+
+Resolves to `HardwareError::Disconnected` if the IO loop shut down before the command was processed, to the underlying `HardwareError` variant if `BoardConnection`'s call failed, or to `Ok(())` after a successful wire write.
+
+The receipt makes the **BoardCommand** channel into a real seam: tests pair a real **BoardHandle** with a **TestIoLoop** that records each command and scripts the outcome, replacing the parallel `MockBoardHandle` that previously asserted at the call site instead of at the wire.
+
+## PinSnapshot
+
+Point-in-time read of a pin's cached value, returned by `BoardHandle::pin_snapshot(pin) -> Option<PinSnapshot>`. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Replaces the bare `pin_value(pin) -> Option<u16>` getter, which silently returned stale data after the board disconnected.
+
+Carries `value: u16`, `captured_at: Instant` (last time **BoardConnection** observed this pin), and `board_connected: bool` (connection state at read time, not at capture time). Tauri commands serving the UI can distinguish "fresh, board live" from "last known, board gone" without consulting a separate `is_connected()` method.
+
+Live reads (edge components reacting to pin changes) still flow through the `on_pin_change` callback path established by [ADR-0001](docs/adr/0001-component-trait-flow-separation.md). `PinSnapshot` is for snapshot queries only, not subscriptions.
+
+## TestIoLoop
+
+Test-mode replacement for the **Board IO Loop**. Lives in `apps/web/src-tauri/src/runtime/board/test_io_loop.rs`. Constructed via `BoardHandle::test_pair() -> (Arc<BoardHandle>, TestIoLoop)`. Drains the same `BoardCommand` channel as the production IO loop but, instead of running a `BoardConnection`, records each command in a `pending` vec and lets the test script the outcome: `take_next() -> Option<BoardCommand>` for pattern-matching, `complete_next(outcome)` to script a single reply, `complete_all_ok()` to bulk-resolve.
+
+`TestIoLoop` is the second adapter at the `BoardCommand` seam — the production IO loop is the first — which is what makes the seam a real seam rather than a hypothetical one. Tests assert what was sent over the wire (`BoardCommand::DigitalWrite { pin: 13, value: true, .. }`) and drive **Component**s through both success and failure paths without hardware. The standalone `MockBoardHandle` in `tests/common/mock_board.rs` is a HashMap-with-flag scaffold, never substituted for `BoardHandle`; it is unrelated to this seam.
 
 ## Wiring
 

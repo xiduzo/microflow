@@ -1,8 +1,9 @@
 //! Public flow-runtime seam to the connected Firmata board. Hardware
 //! `Component` impls receive `Arc<BoardHandle>` and call typed methods that
 //! either enqueue a `BoardCommand` on the **Board IO Loop**'s channel
-//! (Firmata wire ops) or write directly to shared state (cache + callback
-//! installs). The handle never blocks on the serial port.
+//! (Firmata wire ops, returning a [`CommandReceipt`]) or write directly to
+//! shared state (cache + callback installs, returning `Result`). The handle
+//! never blocks on the serial port.
 
 use super::connection::{
     BoardConnection, I2cReplyCallback, I2cReplyCallbackSlot, PinChangeCallback,
@@ -10,16 +11,19 @@ use super::connection::{
 };
 use super::io_loop;
 use super::protocol::BoardCommand;
-use crate::error::{HardwareError, RuntimeError};
+use super::receipt::{CommandReceipt, PinSnapshot};
+use crate::error::RuntimeError;
 use dashmap::DashMap;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
+use tokio::sync::oneshot;
 
 /// Handle to the Firmata board for components to use.
 ///
 /// The reader thread owns `BoardConnection` exclusively — no shared mutex on the hot path.
 /// Pin-cache reads and callback installs go through shared `Arc`s instead of the
-/// command channel; serial-port writes still flow through `send_command()` and are
-/// processed between read cycles.
+/// command channel; serial-port writes flow through typed methods that return a
+/// [`CommandReceipt`] resolved by the IO loop.
 pub struct BoardHandle {
     /// Channel to send commands to the reader thread
     cmd_tx: std::sync::Mutex<Option<std::sync::mpsc::Sender<BoardCommand>>>,
@@ -34,8 +38,10 @@ pub struct BoardHandle {
     /// Checked inside the `tone()` spin-loop so `NoTone` can interrupt it.
     pub(super) tone_cancel: std::sync::atomic::AtomicBool,
     /// Pin-value cache shared with the IO loop. Reader writes after Firmata
-    /// reads; handle clears on flow update.
-    pin_values: Arc<DashMap<u8, u16>>,
+    /// reads; handle clears on flow update. Each entry pairs the observed value
+    /// with the `Instant` at which the IO loop captured it, so `pin_snapshot`
+    /// can expose honest staleness.
+    pin_values: Arc<DashMap<u8, (u16, Instant)>>,
     /// Active-pin set shared with the IO loop. Handle inserts when a component
     /// registers a pin listener; reader iterates to decide which pins to scan.
     active_pins: Arc<DashMap<u8, ()>>,
@@ -105,49 +111,72 @@ impl BoardHandle {
         self.connected.load(std::sync::atomic::Ordering::Acquire)
     }
 
-    /// Enqueue a command on the reader thread's channel. Fire-and-forget,
-    /// never blocks. Internal: callers use the typed methods below.
-    pub(super) fn send_command(&self, cmd: BoardCommand) -> Result<(), RuntimeError> {
-        match self.cmd_tx.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref() {
-            Some(tx) => tx.send(cmd).map_err(|_| RuntimeError::Hardware(HardwareError::FirmataCommunication("Board command channel closed".to_string()))),
-            None => Err(RuntimeError::BoardNotConnected),
+    /// Enqueue a wire command on the reader thread's channel and return its
+    /// [`CommandReceipt`]. If the channel is closed or no IO loop is running,
+    /// the receipt resolves to `Err(HardwareError::Disconnected)` because the
+    /// command's reply sender drops with the unsent command.
+    fn send_command(
+        &self,
+        cmd: BoardCommand,
+        rx: oneshot::Receiver<Result<(), crate::error::HardwareError>>,
+    ) -> CommandReceipt {
+        if let Some(tx) = self
+            .cmd_tx
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+        {
+            // If the IO loop has dropped its receiver, send returns Err(SendError(cmd));
+            // cmd contains the reply sender, which drops here → receipt resolves to
+            // Err(Disconnected). No explicit branching needed.
+            let _ = tx.send(cmd);
         }
+        // If cmd_tx is None, `cmd` is dropped at end of scope → same outcome path.
+        CommandReceipt::new(rx)
     }
 
     // --- Typed pin-mode + write helpers -------------------------------------
 
-    pub fn set_pin_mode(&self, pin: u8, mode: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::SetPinMode { pin, mode })
+    pub fn set_pin_mode(&self, pin: u8, mode: u8) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::SetPinMode { pin, mode, reply }, rx)
     }
 
-    pub fn digital_write(&self, pin: u8, value: bool) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::DigitalWrite { pin, value })
+    pub fn digital_write(&self, pin: u8, value: bool) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::DigitalWrite { pin, value, reply }, rx)
     }
 
-    pub fn analog_write(&self, pin: u8, value: u16) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::AnalogWrite { pin, value })
+    pub fn analog_write(&self, pin: u8, value: u16) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::AnalogWrite { pin, value, reply }, rx)
     }
 
     // --- Reporting toggles --------------------------------------------------
 
-    pub fn enable_analog_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::EnableAnalogReporting { pin })
+    pub fn enable_analog_reporting(&self, pin: u8) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::EnableAnalogReporting { pin, reply }, rx)
     }
 
-    pub fn disable_analog_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::DisableAnalogReporting { pin })
+    pub fn disable_analog_reporting(&self, pin: u8) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::DisableAnalogReporting { pin, reply }, rx)
     }
 
-    pub fn enable_digital_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::EnableDigitalReporting { pin })
+    pub fn enable_digital_reporting(&self, pin: u8) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::EnableDigitalReporting { pin, reply }, rx)
     }
 
-    pub fn disable_digital_reporting(&self, pin: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::DisableDigitalReporting { pin })
+    pub fn disable_digital_reporting(&self, pin: u8) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::DisableDigitalReporting { pin, reply }, rx)
     }
 
-    pub fn reset_all_reporting(&self) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::ResetAllReporting)
+    pub fn reset_all_reporting(&self) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::ResetAllReporting { reply }, rx)
     }
 
     // --- Reader-thread state hooks (shared-state writes, no command) --------
@@ -188,40 +217,72 @@ impl BoardHandle {
         self.active_pins.remove(&pin);
     }
 
+    /// Point-in-time read of a pin's last cached value. Returns `None` if the
+    /// IO loop has never observed the pin. The snapshot's `board_connected`
+    /// field reflects connection state at read time, not at capture time —
+    /// callers can distinguish "fresh, board live" from "last known, board gone".
+    ///
+    /// Live reads (edge components reacting to changes) flow through the
+    /// `on_pin_change` callback path; this method is for snapshot queries.
+    pub fn pin_snapshot(&self, pin: u8) -> Option<PinSnapshot> {
+        self.pin_values.get(&pin).map(|entry| {
+            let (value, captured_at) = *entry;
+            PinSnapshot {
+                value,
+                captured_at,
+                board_connected: self.is_connected(),
+            }
+        })
+    }
+
     // --- Bit-bang + tone + sysex --------------------------------------------
 
-    pub fn shift_out(&self, data_pin: u8, clock_pin: u8, value: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::ShiftOut { data_pin, clock_pin, value })
+    pub fn shift_out(&self, data_pin: u8, clock_pin: u8, value: u8) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(
+            BoardCommand::ShiftOut { data_pin, clock_pin, value, reply },
+            rx,
+        )
     }
 
-    pub fn tone(&self, pin: u8, half_period_us: u32, duration_ms: u32) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::Tone { pin, half_period_us, duration_ms })
+    pub fn tone(&self, pin: u8, half_period_us: u32, duration_ms: u32) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(
+            BoardCommand::Tone { pin, half_period_us, duration_ms, reply },
+            rx,
+        )
     }
 
-    pub fn no_tone(&self, pin: u8) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::NoTone { pin })
+    pub fn no_tone(&self, pin: u8) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::NoTone { pin, reply }, rx)
     }
 
-    pub fn sysex(&self, command: u8, data: Vec<u8>) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::Sysex { command, data })
+    pub fn sysex(&self, command: u8, data: Vec<u8>) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::Sysex { command, data, reply }, rx)
     }
 
     // --- I2C ----------------------------------------------------------------
 
-    pub fn i2c_config(&self, delay: i32) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::I2cConfig { delay })
+    pub fn i2c_config(&self, delay: i32) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::I2cConfig { delay, reply }, rx)
     }
 
-    pub fn i2c_read(&self, address: i32, size: i32) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::I2cRead { address, size })
+    pub fn i2c_read(&self, address: i32, size: i32) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::I2cRead { address, size, reply }, rx)
     }
 
-    pub fn i2c_write(&self, address: i32, data: Vec<u8>) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::I2cWrite { address, data })
+    pub fn i2c_write(&self, address: i32, data: Vec<u8>) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::I2cWrite { address, data, reply }, rx)
     }
 
-    pub fn i2c_stop_reading(&self, address: i32) -> Result<(), RuntimeError> {
-        self.send_command(BoardCommand::I2cStopReading { address })
+    pub fn i2c_stop_reading(&self, address: i32) -> CommandReceipt {
+        let (reply, rx) = oneshot::channel();
+        self.send_command(BoardCommand::I2cStopReading { address, reply }, rx)
     }
 
     /// Stop the reader thread and wait for clean exit.
@@ -245,15 +306,41 @@ impl Default for BoardHandle {
     }
 }
 
+impl BoardHandle {
+    /// Construct a `BoardHandle` paired with a [`super::TestIoLoop`] for tests.
+    /// The handle is in "connected" state but no serial port is opened — wire
+    /// ops flow through the test IO loop, which records each `BoardCommand`
+    /// and lets the test script the outcome.
+    pub fn test_pair() -> (Arc<Self>, super::TestIoLoop) {
+        let handle = Arc::new(Self::new());
+        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel::<BoardCommand>();
+        *handle
+            .cmd_tx
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(cmd_tx);
+        handle
+            .connected
+            .store(true, std::sync::atomic::Ordering::Release);
+        let io_loop = super::TestIoLoop::new(cmd_rx, Arc::clone(&handle));
+        (handle, io_loop)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::HardwareError;
 
     #[test]
-    fn send_command_returns_err_when_not_connected() {
+    fn write_when_not_connected_resolves_to_disconnected() {
         let handle = BoardHandle::new();
-        let result = handle.send_command(BoardCommand::ResetAllReporting);
-        assert!(result.is_err(), "send_command must fail when not connected");
-        assert!(result.unwrap_err().to_string().contains("not connected"));
+        let receipt = handle.digital_write(13, true);
+        assert!(matches!(receipt.wait(), Err(HardwareError::Disconnected)));
+    }
+
+    #[test]
+    fn pin_snapshot_returns_none_when_never_captured() {
+        let handle = BoardHandle::new();
+        assert!(handle.pin_snapshot(13).is_none());
     }
 }

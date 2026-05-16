@@ -126,7 +126,7 @@ impl Pixel {
             let pin_byte = (self.config.pin & 0x1F) | (self.color_order_byte() << 5);
             let len_bytes = Self::encode_16bit(self.config.length);
             let data = vec![PIXEL_CONFIG, pin_byte, len_bytes[0], len_bytes[1]];
-            board.sysex(PIXEL_COMMAND, data)?;
+            board.sysex(PIXEL_COMMAND, data).ignore();
         }
         Ok(())
     }
@@ -134,7 +134,7 @@ impl Pixel {
     /// Send `PIXEL_SHOW` sysex to latch and display pixels
     fn send_show(&self) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
-            board.sysex(PIXEL_COMMAND, vec![PIXEL_SHOW])?;
+            board.sysex(PIXEL_COMMAND, vec![PIXEL_SHOW]).ignore();
         }
         Ok(())
     }
@@ -145,7 +145,7 @@ impl Pixel {
             let idx = Self::encode_16bit(index);
             let col = Self::encode_32bit(color);
             let data = vec![PIXEL_SET_PIXEL, idx[0], idx[1], col[0], col[1], col[2], col[3]];
-            board.sysex(PIXEL_COMMAND, data)?;
+            board.sysex(PIXEL_COMMAND, data).ignore();
         }
         Ok(())
     }
@@ -155,7 +155,7 @@ impl Pixel {
         if let Some(board) = &self.board {
             let col = Self::encode_32bit(color);
             let data = vec![PIXEL_SET_STRIP, col[0], col[1], col[2], col[3]];
-            board.sysex(PIXEL_COMMAND, data)?;
+            board.sysex(PIXEL_COMMAND, data).ignore();
         }
         Ok(())
     }
@@ -167,7 +167,7 @@ impl Pixel {
             if forward { shift_byte |= 0x20; }
             if wrap { shift_byte |= 0x40; }
             let data = vec![PIXEL_SHIFT, shift_byte];
-            board.sysex(PIXEL_COMMAND, data)?;
+            board.sysex(PIXEL_COMMAND, data).ignore();
         }
         Ok(())
     }

@@ -122,7 +122,7 @@ impl Component for Button {
         self.stop_polling();
         if let Some(board) = &self.board {
             log::info!("Button {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
-            let _ = board.disable_digital_reporting(self.config.pin);
+            board.disable_digital_reporting(self.config.pin).ignore();
         }
         self.board = None;
     }
@@ -131,8 +131,8 @@ impl Component for Button {
 impl HardwareComponent for Button {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
         let mode = if self.config.is_pullup { pin_mode::PULLUP } else { pin_mode::INPUT };
-        board.set_pin_mode(self.config.pin, mode)?;
-        board.enable_digital_reporting(self.config.pin)?;
+        board.set_pin_mode(self.config.pin, mode).ignore();
+        board.enable_digital_reporting(self.config.pin).ignore();
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
         Ok(())

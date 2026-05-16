@@ -64,6 +64,12 @@ pub enum HardwareError {
     /// Pin doesn't support requested mode
     #[error("Pin {pin} does not support mode {mode}")]
     UnsupportedPinMode { pin: u8, mode: u8 },
+
+    /// The Board IO Loop has shut down before the command could be processed.
+    /// Resolves a `CommandReceipt` whose IO loop dropped without sending an outcome
+    /// (e.g. disconnect mid-flight, channel closed at shutdown).
+    #[error("Board IO loop disconnected before command completed")]
+    Disconnected,
 }
 
 /// MQTT-specific errors

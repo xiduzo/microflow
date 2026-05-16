@@ -44,7 +44,7 @@ impl Relay {
     pub fn open(&mut self) -> Result<(), crate::error::RuntimeError> {
         let signal = matches!(self.config.r#type, RelayType::NO);
         if let Some(board) = &self.board {
-            board.digital_write(self.config.pin, signal)?;
+            board.digital_write(self.config.pin, signal).ignore();
         }
         self.is_open = true;
         self.base.set_value(ComponentValue::Bool(true));
@@ -54,7 +54,7 @@ impl Relay {
     pub fn close(&mut self) -> Result<(), crate::error::RuntimeError> {
         let signal = matches!(self.config.r#type, RelayType::NC);
         if let Some(board) = &self.board {
-            board.digital_write(self.config.pin, signal)?;
+            board.digital_write(self.config.pin, signal).ignore();
         }
         self.is_open = false;
         self.base.set_value(ComponentValue::Bool(false));
@@ -89,7 +89,7 @@ impl Component for Relay {
 
 impl HardwareComponent for Relay {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
+        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT).ignore();
         self.board = Some(board);
         self.close()
     }

@@ -130,7 +130,7 @@ impl Piezo {
         let cancel = Arc::clone(&self.cancel_token);
 
         std::thread::spawn(move || {
-            let _ = board.tone(pin, half_period_us, duration_ms);
+            board.tone(pin, half_period_us, duration_ms).ignore();
             // Only emit auto_stop if we weren't cancelled (avoids stale event after re-trigger)
             if !cancel.load(Ordering::Acquire) {
                 if let Some(tx) = sender {
@@ -152,7 +152,7 @@ impl Piezo {
 
     fn handle_auto_stop(&mut self) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
-            let _ = board.no_tone(self.config.pin);
+            board.no_tone(self.config.pin).ignore();
         }
         self.is_playing = false;
         self.base.set_value(ComponentValue::Bool(false));
@@ -228,7 +228,7 @@ impl Piezo {
                     let gap: u64 = 20;
                     let tone_duration = duration_ms.saturating_sub(gap) as u32;
 
-                    let _ = board.tone(pin, half_period_us, tone_duration);
+                    board.tone(pin, half_period_us, tone_duration).ignore();
 
                     // Sleep in small increments so we can check cancellation
                     let sleep_end = std::time::Instant::now() + Duration::from_millis(duration_ms);
@@ -240,7 +240,7 @@ impl Piezo {
                     }
                 } else {
                     log::info!("Rest for {duration_ms}ms");
-                    let _ = board.no_tone(pin);
+                    board.no_tone(pin).ignore();
 
                     let sleep_end = std::time::Instant::now() + Duration::from_millis(duration_ms);
                     while std::time::Instant::now() < sleep_end {
@@ -254,7 +254,7 @@ impl Piezo {
 
             // Only emit auto_stop if we weren't cancelled
             if !cancel.load(Ordering::Acquire) {
-                let _ = board.no_tone(pin);
+                board.no_tone(pin).ignore();
 
                 log::info!("Song finished, emitting auto_stop");
                 if let Some(tx) = sender {
@@ -309,8 +309,8 @@ impl Component for Piezo {
 
 impl HardwareComponent for Piezo {
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), crate::error::RuntimeError> {
-        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
-        board.digital_write(self.config.pin, false)?;
+        board.set_pin_mode(self.config.pin, pin_mode::OUTPUT).ignore();
+        board.digital_write(self.config.pin, false).ignore();
         self.board = Some(board);
         Ok(())
     }

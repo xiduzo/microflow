@@ -113,10 +113,10 @@ impl I2cDevice {
         if let Some(board) = &self.board {
             // Write the register address first (sets the device's internal pointer)
             if self.config.register != 0 {
-                board.i2c_write(i32::from(self.config.address), vec![self.config.register])?;
+                board.i2c_write(i32::from(self.config.address), vec![self.config.register]).ignore();
             }
             // Request a read
-            board.i2c_read(i32::from(self.config.address), i32::from(self.config.read_length))?;
+            board.i2c_read(i32::from(self.config.address), i32::from(self.config.read_length)).ignore();
         }
         Ok(())
     }
@@ -154,7 +154,7 @@ impl Component for I2cDevice {
                         }
                         _ => {}
                     }
-                    board.i2c_write(i32::from(self.config.address), data)?;
+                    board.i2c_write(i32::from(self.config.address), data).ignore();
                     self.base.emit("value");
                 }
                 Ok(())
@@ -175,7 +175,7 @@ impl Component for I2cDevice {
             if let Some(board) = &self.board {
                 log::info!("I2cDevice {} destroy: stopping I2C reads for address 0x{:02X}",
                     self.base.id, self.config.address);
-                let _ = board.i2c_stop_reading(i32::from(self.config.address));
+                board.i2c_stop_reading(i32::from(self.config.address)).ignore();
             }
         }
         self.board = None;
@@ -192,7 +192,7 @@ impl HardwareComponent for I2cDevice {
         );
 
         // Configure I2C bus (delay=0 for most devices)
-        board.i2c_config(0)?;
+        board.i2c_config(0).ignore();
 
         self.board = Some(board);
         self.initialized = true;

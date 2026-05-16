@@ -125,7 +125,7 @@ impl Stepper {
     /// Send a sysex message for the `AccelStepper` protocol.
     fn send_sysex(&self, data: Vec<u8>) -> Result<(), crate::error::RuntimeError> {
         if let Some(board) = &self.board {
-            board.sysex(ACCELSTEPPER_DATA, data)?;
+            board.sysex(ACCELSTEPPER_DATA, data).ignore();
         }
         Ok(())
     }
