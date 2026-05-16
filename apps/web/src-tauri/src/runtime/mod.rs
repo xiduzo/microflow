@@ -9,7 +9,8 @@
 //! ├── mod.rs          - Module exports and FlowRuntime
 //! ├── base.rs         - Component trait and board connection
 //! ├── types.rs        - Flow types (Node, Edge, etc.)
-//! ├── executor.rs     - Flow execution logic
+//! ├── executor.rs     - Event pump: stale gate, internal branch, dispatch
+//! ├── router.rs       - Edge index + per-target delivery shape (FlowRouter)
 //! ├── registry.rs     - Component factory registry
 //! ├── commands.rs     - Tauri commands
 //! ├── input/          - Input components (Button, Sensor, Motion, Proximity)
@@ -42,6 +43,7 @@ pub mod input;
 pub mod output;
 pub mod pin_mode;
 mod registry;
+mod router;
 pub mod serde_utils;
 pub mod transformation;
 mod types;

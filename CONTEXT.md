@@ -70,6 +70,19 @@ Board-reader-driven event delivered to a **HardwareComponent** in response to Fi
 
 Emission of these reserved handles is the runtime's responsibility (in `FlowRuntime::install_pin_change_callback` / `install_i2c_reply_callback`); no flow edge may emit them. A third reserved name `"stepper_reply"` is referenced in `Stepper::call_method` and the module docstring but has no current emission path — forward-looking placeholder pending stepper sysex wiring.
 
+## FlowRouter
+
+The seam that turns one outgoing `ComponentEvent` into the list of `DispatchCall`s the executor invokes. Lives in `apps/web/src-tauri/src/runtime/router.rs`. Owns the (source, source_handle) → target index (`EdgeMap` backed by `FxHasher` over both strings with a 0-byte separator) and the per-target delivery decision; nothing else in `FlowExecutor` knows the edge layout.
+
+Two delivery shapes today, chosen per target via `ComponentLookup::aggregates(target_id)`:
+
+- **Direct** — pass `event.value` (cloned once) through to one target. The default for non-aggregating targets.
+- **Snapshot** — collect every source feeding the same `(target_id, target_handle)` via `ComponentLookup::value_of(source)` and wrap as `ComponentValue::Array`. Chosen for targets that return `Component::aggregates_inputs() == true` (today `Calculate`, `Gate`). The just-emitted source must already have been `set_value`'d by the executor's echo step, or snapshot reads a stale value for it — see `runtime/executor.rs::process_event`.
+
+`ComponentLookup` is a 2-method trait (`aggregates`, `value_of`) the executor satisfies with a thin `ComponentMapLookup` adapter over its `HashMap<String, Box<dyn Component>>`. The router has no opinion about how components are stored; router tests pass a `HashMap<String, (bool, ComponentValue)>` mock and never instantiate real Components.
+
+Internal Events and Hardware Callbacks never reach `FlowRouter` — source == target by construction, dispatched straight from `executor::process_event`. Stale-sequence gating also happens upstream of `route()`. Decision and migration captured in `docs/adr/0002-flow-router-seam.md`.
+
 ## BoardHandle
 
 Public flow-runtime seam to the connected Firmata board. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Hardware **Component** impls receive `Arc<BoardHandle>` via `Component::initialize` and call typed methods (`set_pin_mode`, `digital_write`, `analog_write`, `enable_analog_reporting`, …) returning a [`CommandReceipt`](#commandreceipt). Each typed method allocates a oneshot reply, enqueues a `BoardCommand` on the **Board IO Loop**'s channel, and returns the receipt — never blocks on the serial port. Hot-path Component callers call `.ignore()` to make fire-and-forget intent explicit; Tauri callers `.into_future().await` for the wire result; tests use `.wait()` or `BoardHandle::test_pair()` with a [`TestIoLoop`](#testioloop). Read-side: `pin_snapshot(pin) -> Option<PinSnapshot>` returns a point-in-time view of the cached pin value; live reads still flow through the `on_pin_change` callback path established by [ADR-0001](docs/adr/0001-component-trait-flow-separation.md). Five non-seam methods (`set_pin_change_callback`, `set_i2c_reply_callback`, `clear_pin_cache`, `register_active_pin`, `unregister_active_pin`) write directly to shared state and still return `Result<(), RuntimeError>`.

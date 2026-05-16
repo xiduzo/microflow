@@ -1,79 +1,24 @@
 //! Flow Executor
 //!
-//! Handles the execution of flow graphs by routing events between components.
+//! Drives one flow graph: owns the components and a [`FlowRouter`].
+//! `process_event` is the pump — it gates stale events, branches
+//! internal/hardware callbacks, echoes `set_value` on the source, asks
+//! the router for the `DispatchCall` plan, and invokes each call.
+//!
+//! Routing logic (edge index, fanout, snapshot delivery for aggregating
+//! targets) lives in [`super::router`]. See `CONTEXT.md` § FlowRouter
+//! and `docs/adr/0002-flow-router-seam.md`.
 
 use super::base::{BoardHandle, Component, ComponentEvent, ComponentValue};
+use super::router::{ComponentLookup, FlowRouter};
 use super::types::FlowEdge;
 use crate::error::RuntimeError;
-use rustc_hash::{FxHashMap, FxHasher};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-
-/// Target information for an edge
-#[derive(Clone)]
-pub struct EdgeTarget {
-    pub target_id: Arc<str>,
-    pub target_handle: Arc<str>,
-    /// Edge identifier for tracking (reserved for future use)
-    #[allow(dead_code)]
-    pub edge_id: Option<Arc<str>>,
-}
-
-/// Optimized edge lookup map using `FxHashMap` with pre-computed keys.
-///
-/// Uses `rustc_hash::FxHasher` for fast integer hashing of `(source, handle)` pairs.
-/// Keys are pre-computed 64-bit hashes to avoid repeated string hashing on hot paths.
-pub struct EdgeMap {
-    map: FxHashMap<u64, Vec<EdgeTarget>>,
-}
-
-impl EdgeMap {
-    pub fn new() -> Self {
-        Self {
-            map: FxHashMap::default(),
-        }
-    }
-
-    /// Compute a hash key from source and handle strings
-    #[inline]
-    pub fn key(source: &str, handle: &str) -> u64 {
-        let mut hasher = FxHasher::default();
-        source.hash(&mut hasher);
-        // Use a separator to avoid collisions like ("ab", "c") vs ("a", "bc")
-        0u8.hash(&mut hasher);
-        handle.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    /// Insert an edge target for a source/handle pair
-    pub fn insert(&mut self, source: &str, handle: &str, target: EdgeTarget) {
-        let key = Self::key(source, handle);
-        self.map.entry(key).or_default().push(target);
-    }
-
-    /// Get all targets for a source/handle pair
-    #[inline]
-    pub fn get(&self, source: &str, handle: &str) -> Option<&[EdgeTarget]> {
-        let key = Self::key(source, handle);
-        self.map.get(&key).map(std::vec::Vec::as_slice)
-    }
-
-    /// Clear all edges
-    pub fn clear(&mut self) {
-        self.map.clear();
-    }
-}
-
-impl Default for EdgeMap {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 /// Executes flow graphs by managing components and routing events.
 ///
-/// Holds a map of components keyed by ID and an [`EdgeMap`] for O(1) event routing.
+/// Holds a map of components keyed by ID and a [`FlowRouter`] for fanout.
 /// Stale events from previous flow versions are filtered by sequence number.
 pub struct FlowExecutor {
     components: HashMap<String, Box<dyn Component>>,
@@ -81,21 +26,34 @@ pub struct FlowExecutor {
     /// diff-based flow updates to detect when a node's config changed even
     /// though its component type stayed the same (e.g. Piezo buzz → song).
     node_data: HashMap<String, serde_json::Value>,
-    edges: Vec<FlowEdge>,
-    /// Optimized edge lookup map using `FxHashMap` with pre-computed keys
-    edge_map: EdgeMap,
+    router: FlowRouter,
     /// Current flow sequence for filtering stale events
     current_sequence: u64,
 }
 
+/// Adapter that lets [`FlowRouter`] read the executor's component map
+/// without seeing its shape. Lives just for the scope of one `route` call.
+struct ComponentMapLookup<'a> {
+    components: &'a HashMap<String, Box<dyn Component>>,
+}
+
+impl<'a> ComponentLookup for ComponentMapLookup<'a> {
+    fn aggregates(&self, id: &str) -> bool {
+        self.components.get(id).is_some_and(|c| c.aggregates_inputs())
+    }
+
+    fn value_of(&self, id: &str) -> Option<ComponentValue> {
+        self.components.get(id).map(|c| c.value())
+    }
+}
+
 impl FlowExecutor {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             components: HashMap::new(),
             node_data: HashMap::new(),
-            edges: Vec::new(),
-            edge_map: EdgeMap::new(),
+            router: FlowRouter::new(),
             current_sequence: 0,
         }
     }
@@ -109,7 +67,7 @@ impl FlowExecutor {
 
     /// Get the current flow sequence
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn current_sequence(&self) -> u64 {
         self.current_sequence
     }
@@ -138,40 +96,18 @@ impl FlowExecutor {
         }
     }
 
-    /// Clear all components
+    /// Clear all components and edges
     pub fn clear(&mut self) {
         for (_, mut component) in self.components.drain() {
             component.destroy();
         }
         self.node_data.clear();
-        self.edges.clear();
-        self.edge_map.clear();
+        self.router.clear();
     }
 
-    /// Set the edges for the flow
+    /// Replace the edge set for the flow.
     pub fn set_edges(&mut self, edges: Vec<FlowEdge>) {
-        log::info!("Setting {} edges", edges.len());
-        for edge in &edges {
-            log::debug!("  Edge: {} ({}) -> {} ({})", 
-                edge.source, edge.source_handle, 
-                edge.target, edge.target_handle);
-        }
-        self.edges = edges;
-        self.rebuild_edge_map();
-    }
-
-    /// Rebuild the edge lookup map
-    fn rebuild_edge_map(&mut self) {
-        self.edge_map.clear();
-
-        for edge in &self.edges {
-            let target = EdgeTarget {
-                target_id: Arc::from(edge.target.as_str()),
-                target_handle: Arc::from(edge.target_handle.as_str()),
-                edge_id: edge.id.as_ref().map(|s| Arc::from(s.as_str())),
-            };
-            self.edge_map.insert(&edge.source, &edge.source_handle, target);
-        }
+        self.router.set_edges(edges);
     }
 
     /// Initialize every hardware-bound component now that the board is connected.
@@ -197,31 +133,26 @@ impl FlowExecutor {
         }
     }
 
-    /// Process an event from a component and propagate to connected components
-    /// Returns true if the event was processed, false if it was discarded as stale
+    /// Process an event from a component and propagate to connected components.
+    /// Returns true if the event was processed, false if it was discarded as stale.
     pub fn process_event(&mut self, event: ComponentEvent) -> bool {
         log::trace!("process_event: {} ({}) seq={}", event.source, event.source_handle, event.sequence);
-        
-        // Check for stale events - discard events from previous flow versions.
-        // sequence == 0 means "unsequenced" (emitted by component logic, not the board
-        // reader callback). These are never stale — they are produced in direct response
-        // to an already-validated event and must always be processed.
-        // Only filter events that carry an explicit, non-zero sequence that predates the
-        // current flow version (i.e. leftover board-reader events from the old flow).
+
+        // Stale-event gate. sequence == 0 means "unsequenced" (emitted by component
+        // logic, not the board reader callback). These are never stale — they are
+        // produced in direct response to an already-validated event and must always
+        // be processed. Only filter events that carry an explicit, non-zero sequence
+        // that predates the current flow version (i.e. leftover board-reader events
+        // from the old flow).
         if event.sequence > 0 && event.sequence < self.current_sequence {
             log::debug!(
                 "Discarding stale event from {} (seq={}, current={})",
-                event.source,
-                event.sequence,
-                self.current_sequence
+                event.source, event.sequence, self.current_sequence
             );
             return false;
         }
 
-        // Handle internal events (prefixed with _) by routing back to source component.
-        //
-        // Two flavors share the underscore prefix today:
-        //
+        // Internal-event branch (underscore-prefixed source_handle). Two flavors:
         // - **Hardware Callback** (`_pin_change`, `_i2c_reply`) — emitted by the
         //   pin-change / I2C-reply callbacks in `runtime/mod.rs`. Routed to the
         //   typed `HardwareComponent::on_pin_change` / `on_i2c_reply` methods so
@@ -230,87 +161,72 @@ impl FlowExecutor {
         //   method a component schedules for itself. Routed to
         //   `Component::dispatch_internal` so the namespace is separate from
         //   edge-input Ports.
-        //
+        // Never flows through `FlowRouter` — source == target by construction.
         // See `CONTEXT.md` § Hardware Callback, § Internal Event.
         if event.source_handle.starts_with('_') {
-            log::trace!("Internal event: {} ({})", event.source, event.source_handle);
-            if let Some(component) = self.components.get_mut(event.source.as_ref()) {
-                let handle = event.source_handle.as_ref();
-                let result = match handle {
-                    "_pin_change" => component.as_hardware_mut()
-                        .map_or(Ok(()), |hw| hw.on_pin_change(event.value)),
-                    "_i2c_reply" => component.as_hardware_mut()
-                        .map_or(Ok(()), |hw| hw.on_i2c_reply(event.value)),
-                    _ => {
-                        // Internal Event: strip the leading underscore for the method name
-                        let method = &handle[1..];
-                        component.dispatch_internal(method, event.value)
-                    }
-                };
-                match result {
-                    Ok(()) => log::trace!("✓ Internal call {}.{}", event.source, handle),
-                    Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, handle, e),
-                }
-            }
-            return true;
+            return self.dispatch_internal_event(event);
         }
 
-        // Keep the source component's stored value in sync with what it emitted.
+        // Echo `set_value` on the source so a subsequent snapshot delivery
+        // (aggregating target) reads the just-emitted value instead of stale
+        // state. Load-bearing for `FlowRouter::route` when any target on this
+        // edge returns `aggregates_inputs() == true`.
         if let Some(component) = self.components.get_mut(event.source.as_ref()) {
             component.set_value(event.value.clone());
         }
 
-        log::trace!("Routing event: {} ({}) edges={}", 
-            event.source, event.source_handle, self.edges.len());
-
-        // Fast lookup using pre-computed hash
-        let targets = if let Some(t) = self.edge_map.get(event.source.as_ref(), event.source_handle.as_ref()) {
-            log::trace!("Found {} target(s) for {} ({})", t.len(), event.source, event.source_handle);
-            t.to_vec()  // Clone the slice for iteration
-        } else {
-            return true;
+        let plan = {
+            let lookup = ComponentMapLookup { components: &self.components };
+            self.router.route(&event, &lookup)
         };
 
-        // Route to each target using Arc<str> - no allocations
-        for target in targets {
-            log::trace!("Routing to {}.{}", target.target_id, target.target_handle);
-            
-            // Check if target component aggregates inputs
-            let aggregates = self.components.get(target.target_id.as_ref())
-                .is_some_and(|c| c.aggregates_inputs());
-            
-            let args = if aggregates {
-                let all_inputs = self.collect_input_values(target.target_id.as_ref(), target.target_handle.as_ref());
-                ComponentValue::Array(all_inputs)
-            } else {
-                event.value.clone()
-            };
-            
-            if let Some(component) = self.components.get_mut(target.target_id.as_ref()) {
-                match component.dispatch(&target.target_handle, args) {
-                    Ok(()) => log::trace!("✓ {}.{}", target.target_id, target.target_handle),
-                    Err(e) => log::warn!("✗ Failed to call {}.{}: {}", target.target_id, target.target_handle, e),
+        log::trace!(
+            "Routing event: {} ({}) → {} call(s)",
+            event.source, event.source_handle, plan.len()
+        );
+
+        for call in plan {
+            log::trace!("Routing to {}.{}", call.target_id, call.target_handle);
+            if let Some(component) = self.components.get_mut(call.target_id.as_ref()) {
+                match component.dispatch(&call.target_handle, call.args) {
+                    Ok(()) => log::trace!("✓ {}.{}", call.target_id, call.target_handle),
+                    Err(e) => log::warn!("✗ Failed to call {}.{}: {}", call.target_id, call.target_handle, e),
                 }
             } else {
-                log::warn!("Target component {} not found!", target.target_id);
+                log::warn!("Target component {} not found!", call.target_id);
             }
         }
-        
+
         true
     }
-    
-    /// Collect current values from all components connected to a target's specific handle.
-    fn collect_input_values(&self, target_id: &str, target_handle: &str) -> Vec<ComponentValue> {
-        self.edges
-            .iter()
-            .filter(|e| e.target == target_id && e.target_handle == target_handle)
-            .filter_map(|e| self.components.get(&e.source).map(|c| c.value()))
-            .collect()
+
+    fn dispatch_internal_event(&mut self, event: ComponentEvent) -> bool {
+        log::trace!("Internal event: {} ({})", event.source, event.source_handle);
+        if let Some(component) = self.components.get_mut(event.source.as_ref()) {
+            let handle = event.source_handle.as_ref();
+            let result = match handle {
+                "_pin_change" => component
+                    .as_hardware_mut()
+                    .map_or(Ok(()), |hw| hw.on_pin_change(event.value)),
+                "_i2c_reply" => component
+                    .as_hardware_mut()
+                    .map_or(Ok(()), |hw| hw.on_i2c_reply(event.value)),
+                _ => {
+                    let method = &handle[1..];
+                    component.dispatch_internal(method, event.value)
+                }
+            };
+            match result {
+                Ok(()) => log::trace!("✓ Internal call {}.{}", event.source, handle),
+                Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, handle, e),
+            }
+        }
+        true
     }
 
     /// Get a component by ID
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn get_component(&self, id: &str) -> Option<&dyn Component> {
         self.components.get(id).map(std::convert::AsRef::as_ref)
     }
@@ -321,27 +237,16 @@ impl FlowExecutor {
     }
 
     /// Get all component IDs
-    #[must_use] 
+    #[must_use]
     pub fn component_ids(&self) -> Vec<&str> {
         self.components.keys().map(std::string::String::as_str).collect()
     }
 
     /// Get the value of a component
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn get_value(&self, id: &str) -> Option<ComponentValue> {
         self.components.get(id).map(|c| c.value())
-    }
-
-    /// Get values of all components connected to a target
-    #[allow(dead_code)]
-    #[must_use] 
-    pub fn get_input_values(&self, target_id: &str) -> Vec<ComponentValue> {
-        self.edges
-            .iter()
-            .filter(|e| e.target == target_id)
-            .filter_map(|e| self.get_value(&e.source))
-            .collect()
     }
 
     /// Route a topic-aware MQTT message to a Figma component
@@ -365,10 +270,10 @@ impl FlowExecutor {
             } else {
                 ComponentValue::String(value)
             };
-            
+
             // Set the value and emit the message event
             component.set_value(component_value.clone());
-            
+
             // Emit event through the component's event sender
             if let Some(sender) = component.event_sender() {
                 let _ = sender.send(ComponentEvent {
