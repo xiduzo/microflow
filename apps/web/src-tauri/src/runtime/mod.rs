@@ -52,7 +52,7 @@ pub mod wiring;
 mod wiring_registry;
 
 pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
-pub use context::{ProviderEntry, RuntimeContext};
+pub use context::RuntimeContext;
 pub use wiring::{ListenerWiring, SubscriberWiring};
 pub use executor::FlowExecutor;
 // FlowEdge is re-exported for use in integration tests and external consumers

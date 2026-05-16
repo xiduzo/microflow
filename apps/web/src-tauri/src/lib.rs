@@ -45,8 +45,8 @@ pub mod runtime;
 pub use error::*;
 
 use hardware::HardwareService;
-use llm::LlmManager;
 use mqtt::MqttManager;
+use runtime::services::LlmRegistry;
 use runtime::{FlowRuntime, FlowUpdate, RuntimeContext};
 use std::sync::{Arc, Mutex, RwLock};
 use tauri::{Emitter, Listener};
@@ -82,8 +82,11 @@ pub struct AppState {
     pub mqtt_manager: MqttManager,
     /// Channel for MQTT publish requests from flow components
     pub mqtt_publish_tx: mpsc::UnboundedSender<MqttPublishRequest>,
-    /// LLM provider manager
-    pub llm_manager: LlmManager,
+    /// Live LLM provider registry. Shared with `RuntimeContext` so components
+    /// resolve providers at dispatch time and pick up credential rotation
+    /// without rebuilding. Filled by the `flow_update` and
+    /// `llm_sync_providers` Tauri commands.
+    pub llm_registry: Arc<LlmRegistry>,
     /// Active Figma MQTT subscriptions (cleaned up on flow switch)
     pub figma_subscriptions: Arc<TokioMutex<Vec<FigmaSubscription>>>,
 }
@@ -105,7 +108,7 @@ pub fn run() {
 
     let mqtt_manager = MqttManager::new();
     let mqtt_manager_for_publish = mqtt_manager.clone();
-    let llm_manager = LlmManager::new();
+    let llm_registry = Arc::new(LlmRegistry::new());
 
     let app_state = AppState {
         hardware_service: Arc::clone(&hardware_service),
@@ -114,7 +117,7 @@ pub fn run() {
         board_connected: Arc::clone(&board_connected),
         mqtt_manager,
         mqtt_publish_tx: mqtt_publish_tx.clone(),
-        llm_manager,
+        llm_registry,
         figma_subscriptions: Arc::new(TokioMutex::new(Vec::new())),
     };
 
