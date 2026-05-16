@@ -60,7 +60,7 @@ export function Home() {
   const { status, connectedClients } = useMqttStore();
   const { mqttConfig } = useAppStore();
   const { navigate } = useNavigation();
-  useWindowSize({ width: 275, height: 190 });
+  useWindowSize({ width: 275, height: 220 });
 
   const appStatus = useMemo(
     () => connectedClients.find(({ appName }) => appName === "app")?.status,
@@ -96,13 +96,53 @@ export function Home() {
       />
       <div
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "4px 0",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", fontSize: "13px" }}>
+          Support Microflow
+          <Heart
+            size={10}
+            style={{
+              marginLeft: 6,
+              display: "inline",
+              verticalAlign: "middle",
+              fill: "#f43f5e",
+              color: "#f43f5e",
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <IconButton
+            onClick={() =>
+              window.open("https://microflow.tech/support", "_blank")
+            }
+          >
+            <ExternalLink size={16} />
+          </IconButton>
+        </div>
+      </div>
+      <div
+        style={{
           textAlign: "center",
           fontSize: "11px",
           color: "var(--figma-color-text-secondary)",
-          paddingTop: 12,
+          paddingTop: 8,
         }}
       >
-        Made with <Heart size={10} style={{ display: "inline", verticalAlign: "middle", fill: "currentColor" }} /> by Xiduzo
+        Made with{" "}
+        <Heart
+          size={10}
+          style={{
+            display: "inline",
+            verticalAlign: "middle",
+            fill: "currentColor",
+          }}
+        />{" "}
+        by Xiduzo
       </div>
     </PageContent>
   );

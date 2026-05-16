@@ -99,13 +99,29 @@ export function Home() {
           </IconButton>
         }
       />
-      <div className="pt-3 text-center text-[11px] text-gray-400 dark:text-gray-500">
+      <div className="flex items-center justify-between py-1">
+        <div className="flex items-center text-[13px] text-gray-900 dark:text-gray-100">
+          Support Microflow
+          <Heart
+            size={10}
+            className="ml-1.5 inline fill-rose-500 align-middle text-rose-500"
+          />
+        </div>
+        <div className="flex gap-1">
+          <IconButton
+            onClick={() =>
+              sendToPlugin(messages.openLink("https://microflow.tech/support"))
+            }
+            title="Support Microflow"
+          >
+            <ExternalLink size={16} />
+          </IconButton>
+        </div>
+      </div>
+      <div className="pt-2 text-center text-[11px] text-gray-400 dark:text-gray-500">
         Made with{" "}
-        <Heart
-          size={10}
-          className="inline fill-current align-middle"
-        />{" "}
-        by Xiduzo
+        <Heart size={10} className="inline fill-current align-middle" /> by
+        Xiduzo
       </div>
     </PageContent>
   );
