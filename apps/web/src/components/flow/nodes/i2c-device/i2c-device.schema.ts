@@ -15,3 +15,12 @@ export const dataSchema = baseDataSchema.extend({
 });
 
 export type Data = z.infer<typeof dataSchema>;
+
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "sense",
+  tags: ["i2c", "sensor", "hardware"],
+  label: "I2C Device",
+  description: "Read raw bytes from a custom I2C peripheral by address and register",
+  icon: "CpuIcon",
+};
