@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use super::board::BoardHandle;
-use super::context::RuntimeContext;
+use super::services::FromServices;
 
 /// Value that a component can hold
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -295,10 +295,21 @@ pub trait HardwareComponent: Component {
 /// Catalog factory contract used by [`ComponentRegistry`].
 ///
 /// Every entry in the Component Catalog (`node-components.json`) implements
-/// this trait. `build` consumes the deserialized `Config` plus the active
-/// [`RuntimeContext`] and produces the concrete component. Deserialization
-/// errors surface as [`RuntimeError::ConfigDeserialize`] inside the registry —
-/// no silent `Default` fallback.
+/// this trait. `build` consumes the deserialized [`Config`](Self::Config)
+/// plus the typed [`Deps`](Self::Deps) the component needs (projected from
+/// the active [`super::services::RuntimeServices`] by the registry) and
+/// produces the concrete component. Deserialization errors surface as
+/// [`RuntimeError::ConfigDeserialize`] inside the registry — no silent
+/// `Default` fallback.
+///
+/// `Deps` is the per-impl record of which external services the component
+/// touches. Components that need nothing declare `type Deps = ();` — the
+/// `()` impl of [`FromServices`] returns unit. The `Llm` component
+/// declares `type Deps = Arc<LlmRegistry>`; `Mqtt` / `Figma` declare
+/// `type Deps = Arc<dyn MqttPublisher>`. Adding a new external kind = add
+/// a field to `RuntimeServices` and a `FromServices` impl for the new
+/// `Arc<..>`; the 29 unaffected builders keep their `type Deps = ()`.
+/// See `CONTEXT.md` § Runtime Services and § Capability Trait.
 ///
 /// Hardware components are bound by `register_hardware::<B>(name)` in the
 /// registry, which adds a `HardwareComponent` bound so a catalog
@@ -308,13 +319,16 @@ pub trait ComponentBuilder: Component + Sized + 'static {
     /// The deserialized configuration shape declared by this component.
     type Config: serde::de::DeserializeOwned;
 
-    /// Construct the component from a config plus the active runtime context.
-    /// Most impls ignore `ctx`; the `Llm` node uses it to resolve a provider
-    /// referenced by `provider_id`.
+    /// The typed services this component needs from
+    /// [`super::services::RuntimeServices`]. Use `()` for components that
+    /// need nothing.
+    type Deps: FromServices;
+
+    /// Construct the component from a config plus the projected `Deps`.
     fn build(
         id: String,
         config: Self::Config,
-        ctx: &RuntimeContext,
+        deps: Self::Deps,
     ) -> Result<Self, RuntimeError>;
 }
 

@@ -134,11 +134,27 @@ Two kinds:
 
 Distinct from the **Component Catalog**: catalog is metadata for _registration_ (what UI shows, how to construct); Wiring is per-impl _behavior_ applied after construction.
 
-## Runtime Context
+## Runtime Services
 
-Construction-time bundle passed to component factories. Today carries two fields — `llm_registry: Arc<LlmRegistry>` and `mqtt_publisher: Arc<dyn MqttPublisher>` — each cloned out by the components that need them (`Llm`, `Mqtt`, `Figma`) so those components resolve services at dispatch time. Empty for components with no external deps; the catalog flag `usesRuntimeContext` is no longer load-bearing because every builder takes `&RuntimeContext` and the 29 that don't need it simply ignore it.
+Typed bundle of every external service the runtime can hand to a component, threaded through component construction. Lives in `runtime/services/mod.rs` as `RuntimeServices`. One field per **Capability Trait** / **Service Registry**:
 
-_Deprecated by [ADR-0002](docs/adr/0002-per-capability-service-traits.md); will be replaced by **Runtime Services** + per-impl **Component Deps** in Phase 4._
+- `llm_registry: Arc<LlmRegistry>`
+- `mqtt_publisher: Arc<dyn MqttPublisher>`
+- _(future kinds — HTTP, OSC, WebSocket — accrete as new fields with no churn in unrelated components)_
+
+Built once at application startup (`AppState::run`) and reused across every `flow_update`. `Clone` so it can be carried alongside a pending `FlowUpdate` on `AppState::pending_flow` and replayed on board-connect without losing live registries.
+
+Replaces the former `RuntimeContext` struct: same role, more honest name. The corresponding ADR is [ADR-0002](docs/adr/0002-per-capability-service-traits.md).
+
+## Component Deps
+
+The associated `type Deps: FromServices` on the `ComponentBuilder` trait — each impl's typed record of the slice of **Runtime Services** it needs to construct.
+
+- Components that need nothing declare `type Deps = ();` (the default-friendliest shape — `FromServices for ()` returns unit). 29 of the 32 Catalog impls do this.
+- `Llm` declares `type Deps = Arc<LlmRegistry>`.
+- `Mqtt` and `Figma` declare `type Deps = Arc<dyn MqttPublisher>`.
+
+The component registry's `Factory` closure (`runtime/registry.rs::make_factory`) projects `<B::Deps as FromServices>::from_services(services)` at build time and hands the slice to `B::build`. Adding a new external kind = add a field to `RuntimeServices` + a `FromServices` impl for the new `Arc<..>` — zero touches in the 29 unaffected builders.
 
 ## Capability Trait
 

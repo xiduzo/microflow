@@ -3,8 +3,7 @@
 //! `flow_update` and `component_call` commands
 
 use super::base::ComponentValue;
-use super::context::RuntimeContext;
-use super::services::{HttpLlmProvider, LlmProvider};
+use super::services::{HttpLlmProvider, LlmProvider, RuntimeServices};
 use super::wiring::SubscriberWiring;
 use super::FlowUpdate;
 use crate::AppState;
@@ -92,10 +91,12 @@ pub async fn flow_update(
         state.llm_registry.sync(entries).await;
     }
 
-    // RuntimeContext for component factories. Components that need an
-    // LlmRegistry / MqttPublisher clone the `Arc` out of `ctx` at build
-    // time and resolve providers / publish at dispatch time.
-    let ctx = RuntimeContext::with_services(
+    // RuntimeServices for component factories. The registry's factory
+    // closure projects each impl's typed `Deps` out of this bundle via
+    // `FromServices`, so components that need nothing pay nothing and
+    // components that need an `LlmRegistry` / `MqttPublisher` receive
+    // exactly the shared `Arc` they declared.
+    let services = RuntimeServices::new(
         Arc::clone(&state.llm_registry),
         Arc::clone(&state.mqtt_publisher),
     );
@@ -106,7 +107,7 @@ pub async fn flow_update(
 
     let component_wirings: Vec<(String, SubscriberWiring)> = {
         let mut runtime = state.flow_runtime.lock().await;
-        runtime.update_flow(flow.clone(), &ctx)?;
+        runtime.update_flow(flow.clone(), &services)?;
 
         if board_connected {
             if let Err(e) = runtime.initialize_hardware() {
@@ -117,7 +118,7 @@ pub async fn flow_update(
             // shared `WiringRegistry` indices. Nothing to reinstall here.
         } else {
             log::info!("Board not connected — storing pending flow for hardware init on connect");
-            *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some((flow, ctx.clone()));
+            *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some((flow, services.clone()));
         }
 
         runtime.collect_subscriber_wirings()

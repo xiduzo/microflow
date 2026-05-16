@@ -19,21 +19,22 @@
 
 use super::base::{BoardHandle, Component, ComponentEvent};
 use super::component::{ComponentBuilder, HardwareComponent};
-use super::context::RuntimeContext;
+use super::services::{FromServices, RuntimeServices};
 use crate::error::RuntimeError;
 use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-/// Boxed builder closure: deserializes a config off the catalog node `data`
-/// and produces a constructed `Box<dyn Component>`. Errors out with
+/// Boxed builder closure: deserializes a config off the catalog node `data`,
+/// projects the impl's typed `Deps` slice out of [`RuntimeServices`], and
+/// produces a constructed `Box<dyn Component>`. Errors out with
 /// [`RuntimeError::ConfigDeserialize`] if the JSON doesn't match the
 /// builder's `Config` type — no silent `Default` fallback.
 type Factory = Box<
     dyn Fn(
             String,
             &serde_json::Value,
-            &RuntimeContext,
+            &RuntimeServices,
         ) -> Result<Box<dyn Component>, RuntimeError>
         + Send
         + Sync,
@@ -59,7 +60,7 @@ impl ComponentRegistry {
         id: &str,
         instance: &str,
         data: &serde_json::Value,
-        ctx: &RuntimeContext,
+        services: &RuntimeServices,
         event_sender: mpsc::UnboundedSender<ComponentEvent>,
         board_handle: Arc<BoardHandle>,
     ) -> Result<Box<dyn Component>, RuntimeError> {
@@ -67,7 +68,7 @@ impl ComponentRegistry {
             RuntimeError::ComponentNotFound(format!("Unknown component type: {instance}"))
         })?;
 
-        let mut component = factory(id.to_string(), data, ctx)?;
+        let mut component = factory(id.to_string(), data, services)?;
         component.set_event_sender(event_sender);
 
         // Initialize only when the component is hardware-bound and the board is
@@ -135,15 +136,21 @@ fn assert_ports_match<B: Component>(name: &'static str, catalog_ports: &'static 
 
 /// Build a [`Factory`] closure that captures the catalog name for use in
 /// [`RuntimeError::ConfigDeserialize`] when deserialization fails.
+///
+/// The closure projects each impl's typed [`ComponentBuilder::Deps`] out of
+/// the active [`RuntimeServices`] via [`FromServices`], so the builder
+/// receives exactly the slice it declared (an `Arc<LlmRegistry>` for
+/// `Llm`, `()` for the 29 components that need nothing, etc.).
 fn make_factory<B: ComponentBuilder>(name: &'static str) -> Factory {
-    Box::new(move |id, data, ctx| {
+    Box::new(move |id, data, services| {
         let config = B::Config::deserialize(data).map_err(|e| {
             RuntimeError::ConfigDeserialize {
                 component: name.to_string(),
                 source: e,
             }
         })?;
-        let component = B::build(id, config, ctx)?;
+        let deps = <B::Deps as FromServices>::from_services(services);
+        let component = B::build(id, config, deps)?;
         Ok(Box::new(component) as Box<dyn Component>)
     })
 }
