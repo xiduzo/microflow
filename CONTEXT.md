@@ -136,9 +136,9 @@ Distinct from the **Component Catalog**: catalog is metadata for _registration_ 
 
 ## Runtime Context
 
-Construction-time bundle passed to component factories. Today carries one field — `llm_registry: Arc<LlmRegistry>` — cloned out by `Llm::build` so the component can resolve providers at dispatch time. Empty for components with no external deps; the catalog flag `usesRuntimeContext` is no longer load-bearing because every builder takes `&RuntimeContext` and the 31 that don't need it simply ignore it.
+Construction-time bundle passed to component factories. Today carries two fields — `llm_registry: Arc<LlmRegistry>` and `mqtt_publisher: Arc<dyn MqttPublisher>` — each cloned out by the components that need them (`Llm`, `Mqtt`, `Figma`) so those components resolve services at dispatch time. Empty for components with no external deps; the catalog flag `usesRuntimeContext` is no longer load-bearing because every builder takes `&RuntimeContext` and the 29 that don't need it simply ignore it.
 
-_Deprecated by [ADR-0002](docs/adr/0002-per-capability-service-traits.md); will be replaced by **Runtime Services** + per-impl **Component Deps** in Phase 4. The struct still ships today as `runtime/context.rs::RuntimeContext { llm_registry: Arc<LlmRegistry> }`._
+_Deprecated by [ADR-0002](docs/adr/0002-per-capability-service-traits.md); will be replaced by **Runtime Services** + per-impl **Component Deps** in Phase 4._
 
 ## Capability Trait
 
@@ -167,6 +167,20 @@ async fn generate(&self, request: LlmRequest) -> Result<LlmResponse, LlmError>;
 `LlmRequest` is `{ model, system: Option<String>, prompt }` — template substitution is the caller's job, the provider sees the rendered text. `LlmResponse` is `{ text }` for now; token counts / finish reasons accrete only when a consumer needs them.
 
 Production adapter: `HttpLlmProvider` (one `reqwest::Client` per instance for connection-pool reuse; empty `api_key` skips the `Authorization` header so local Ollama works). Test adapter: `RecordingLlmProvider` (records every request, returns scripted responses or errors from a FIFO queue, returns `LlmError::Cancelled` when the script is exhausted).
+
+## MQTT Publisher
+
+The **Capability Trait** for any backend that can publish a single MQTT message. Lives in `runtime/services/mqtt.rs`. One method:
+
+```rust
+async fn publish(&self, broker_id: &str, topic: &str, payload: &[u8], retain: bool) -> Result<(), MqttPublishError>;
+```
+
+`MqttPublishError::BrokerNotConnected` is distinguished from `PublishFailed` so callers (UI, logs) can prompt for a reconnect instead of surfacing a generic wire error.
+
+Production adapter: `crate::mqtt::manager::MqttManager` (via `impl MqttPublisher for MqttManager` in `runtime/services/mqtt.rs`) — delegates to the existing broker pool, translating the legacy `String` error into the typed variant. Test adapter: `RecordingMqttPublisher` (records every `(broker_id, topic, payload, retain)` tuple and pops scripted errors from a FIFO queue).
+
+`Mqtt` and `Figma` components hold `Arc<dyn MqttPublisher>` and call `publish(...)` directly from their `dispatch` arms via a Tokio-spawned task. Replaces the legacy `_mqtt_publish` reserved-event pattern (component emits a JSON-encoded publish request, `lib.rs` parses it and re-routes through a dedicated handler thread) — that path was retired in [ADR-0002](docs/adr/0002-per-capability-service-traits.md) Phase 3.
 
 ## Host Adapter
 

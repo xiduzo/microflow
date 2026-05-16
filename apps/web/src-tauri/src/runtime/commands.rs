@@ -93,9 +93,12 @@ pub async fn flow_update(
     }
 
     // RuntimeContext for component factories. Components that need an
-    // LlmRegistry clone the `Arc` out of `ctx` at build time and resolve
-    // providers at dispatch time.
-    let ctx = RuntimeContext::with_llm_registry(Arc::clone(&state.llm_registry));
+    // LlmRegistry / MqttPublisher clone the `Arc` out of `ctx` at build
+    // time and resolve providers / publish at dispatch time.
+    let ctx = RuntimeContext::with_services(
+        Arc::clone(&state.llm_registry),
+        Arc::clone(&state.mqtt_publisher),
+    );
 
     // Apply the flow first so components are constructed and can describe their wiring.
     let board_connected = *state.board_connected.read().unwrap_or_else(std::sync::PoisonError::into_inner);

@@ -10,34 +10,47 @@
 
 use std::sync::Arc;
 
-use super::services::LlmRegistry;
+use super::services::{LlmRegistry, MqttPublisher, RecordingMqttPublisher};
 
-/// Construction-time bundle. Holds shared service registries via `Arc`
-/// so live config rotation is visible to every component that already
-/// holds a registry handle.
+/// Construction-time bundle. Holds shared service handles via `Arc` so
+/// live config rotation is visible to every component that already holds
+/// a handle. Each external **Capability Trait** gets one field.
 #[derive(Clone)]
 pub struct RuntimeContext {
     /// Shared LLM provider registry. `Llm` resolves its `provider_id`
     /// against this at dispatch time — credential rotation takes effect
     /// on the next request without rebuilding the component.
     pub llm_registry: Arc<LlmRegistry>,
+    /// Shared MQTT publish handle. `Mqtt` and `Figma` call
+    /// [`MqttPublisher::publish`] directly from their `dispatch` arms,
+    /// replacing the legacy `_mqtt_publish` event-out pattern (ADR-0002
+    /// Phase 3).
+    pub mqtt_publisher: Arc<dyn MqttPublisher>,
 }
 
 impl RuntimeContext {
-    /// Build a context wrapping a freshly-allocated, empty [`LlmRegistry`].
-    /// Most production call sites should clone an existing
-    /// `Arc<LlmRegistry>` from `AppState` instead — use [`RuntimeContext::with_llm_registry`].
+    /// Build a context wrapping freshly-allocated, empty services. Used in
+    /// unit tests that don't exercise the external dispatch paths; most
+    /// production call sites should clone shared handles from `AppState`
+    /// via [`RuntimeContext::with_services`].
     #[must_use]
     pub fn empty() -> Self {
         Self {
             llm_registry: Arc::new(LlmRegistry::new()),
+            mqtt_publisher: Arc::new(RecordingMqttPublisher::new()),
         }
     }
 
-    /// Build a context around an existing shared registry.
+    /// Build a context around shared service handles.
     #[must_use]
-    pub fn with_llm_registry(llm_registry: Arc<LlmRegistry>) -> Self {
-        Self { llm_registry }
+    pub fn with_services(
+        llm_registry: Arc<LlmRegistry>,
+        mqtt_publisher: Arc<dyn MqttPublisher>,
+    ) -> Self {
+        Self {
+            llm_registry,
+            mqtt_publisher,
+        }
     }
 }
 

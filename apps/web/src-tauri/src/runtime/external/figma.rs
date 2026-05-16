@@ -7,13 +7,17 @@
 //! - Subscribes to `microflow/${uniqueId}/figma/variable/${shortVarId}` and
 //!   `microflow/${uniqueId}/app/variable/${shortVarId}` for incoming values.
 //! - Emits a "change" event downstream when a value arrives.
-//! - Handles `dispatch` (set / toggle / true / false / increment / decrement / reset / red /
-//!   green / blue / opacity) by emitting a `_mqtt_publish` event that lib.rs intercepts.
+//! - Handles `dispatch` (set / toggle / true / false / increment / decrement /
+//!   reset / red / green / blue / opacity) by computing a payload and calling
+//!   the held `Arc<dyn MqttPublisher>` directly. Replaces the legacy
+//!   `_mqtt_publish` event-out pattern (ADR-0002 Phase 3).
 
 use crate::runtime::base::{Component, ComponentBase, ComponentValue};
+use crate::runtime::services::MqttPublisher;
 use crate::runtime::wiring::SubscriberWiring;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,14 +57,21 @@ impl Default for FigmaConfig {
 pub struct Figma {
     base: ComponentBase,
     config: FigmaConfig,
+    /// Shared MQTT publish handle. Cloned into each spawned publish task.
+    publisher: Arc<dyn MqttPublisher>,
+    /// Tokio handle captured at construction so `dispatch` (sync) can spawn
+    /// the async publish call.
+    rt_handle: Option<tokio::runtime::Handle>,
 }
 
 impl Figma {
     #[must_use]
-    pub fn new(id: String, config: FigmaConfig) -> Self {
+    pub fn new(id: String, config: FigmaConfig, publisher: Arc<dyn MqttPublisher>) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,
+            publisher,
+            rt_handle: tokio::runtime::Handle::try_current().ok(),
         }
     }
 
@@ -190,18 +201,37 @@ impl Figma {
         }
     }
 
-    /// Emit a `_mqtt_publish` event intercepted by lib.rs to actually send the MQTT message.
-    fn publish(&mut self, payload: String) {
-        let info = serde_json::json!({
-            "brokerId": self.config.broker_id,
-            "topic": self.set_topic(),
-            "payload": payload,
-            "retain": false,
+    /// Push a JSON payload back into Figma over the configured broker.
+    ///
+    /// Spawns the async [`MqttPublisher::publish`] call onto the captured
+    /// Tokio handle and logs any wire failure — the component's `dispatch`
+    /// path stays synchronous and never blocks on the broker.
+    fn publish(&self, payload: String) {
+        let publisher = Arc::clone(&self.publisher);
+        let broker_id = self.config.broker_id.clone();
+        let topic = self.set_topic();
+        let component_id = Arc::clone(&self.base.id);
+
+        let Some(handle) = &self.rt_handle else {
+            log::error!(
+                "[Figma] {component_id} no Tokio runtime available, cannot spawn publish"
+            );
+            return;
+        };
+
+        handle.spawn(async move {
+            log::debug!(
+                "[Figma] {component_id} publish → broker={broker_id} topic={topic}"
+            );
+            if let Err(e) = publisher
+                .publish(&broker_id, &topic, payload.as_bytes(), false)
+                .await
+            {
+                log::error!(
+                    "[Figma] {component_id} publish failed (broker={broker_id} topic={topic}): {e}"
+                );
+            }
         });
-        self.base.emit_with_value(
-            "_mqtt_publish",
-            Cow::Owned(ComponentValue::String(info.to_string())),
-        );
     }
 
     /// Called by commands.rs when a message arrives on any of this component's subscribed topics.
@@ -314,5 +344,101 @@ impl Component for Figma {
 
     fn receive_raw_message(&mut self, topic: &str, payload: &[u8]) {
         self.receive_message(topic, payload);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::services::RecordingMqttPublisher;
+    use std::time::Duration;
+
+    async fn wait_for_publishes(
+        recorder: &RecordingMqttPublisher,
+        min: usize,
+        timeout: Duration,
+    ) -> Vec<crate::runtime::services::RecordedPublish> {
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            let snap = recorder.recorded();
+            if snap.len() >= min {
+                return snap;
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return snap;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
+    fn config() -> FigmaConfig {
+        let mut c = FigmaConfig::default();
+        c.broker_id = "broker-1".into();
+        c.unique_id = "uid-1".into();
+        c.variable_id = "VariableID:1:2".into();
+        c.resolved_type = "BOOLEAN".into();
+        c
+    }
+
+    #[tokio::test]
+    async fn dispatch_true_publishes_true_payload_to_set_topic() {
+        let recorder = Arc::new(RecordingMqttPublisher::new());
+        let mut figma = Figma::new(
+            "node-1".into(),
+            config(),
+            recorder.clone() as Arc<dyn MqttPublisher>,
+        );
+
+        figma
+            .dispatch("true", ComponentValue::Bool(true))
+            .expect("dispatch ok");
+
+        let recorded = wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0].broker_id, "broker-1");
+        assert_eq!(recorded[0].topic, "microflow/uid-1/app/variable/1-2/set");
+        assert_eq!(recorded[0].payload, b"true");
+        assert!(!recorded[0].retain);
+    }
+
+    #[tokio::test]
+    async fn dispatch_increment_publishes_summed_payload() {
+        let mut c = config();
+        c.resolved_type = "FLOAT".into();
+        let recorder = Arc::new(RecordingMqttPublisher::new());
+        let mut figma = Figma::new(
+            "node-1".into(),
+            c,
+            recorder.clone() as Arc<dyn MqttPublisher>,
+        );
+        // Seed current value to 5.
+        figma
+            .dispatch("set", ComponentValue::Number(5.0))
+            .expect("set ok");
+        // Drain the seed publish.
+        wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
+
+        figma
+            .dispatch("increment", ComponentValue::Number(3.0))
+            .expect("increment ok");
+        let recorded = wait_for_publishes(&recorder, 2, Duration::from_secs(1)).await;
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(recorded[1].payload, b"8");
+    }
+
+    #[tokio::test]
+    async fn dispatch_unknown_method_does_not_publish() {
+        let recorder = Arc::new(RecordingMqttPublisher::new());
+        let mut figma = Figma::new(
+            "node-1".into(),
+            config(),
+            recorder.clone() as Arc<dyn MqttPublisher>,
+        );
+        let err = figma
+            .dispatch("definitely-not-a-method", ComponentValue::Bool(true))
+            .expect_err("should fail");
+        assert!(err.to_string().contains("Unknown method"));
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(recorder.recorded().is_empty());
     }
 }
