@@ -1,5 +1,11 @@
 import * as React from "react";
-import { BookMarkedIcon, HeartIcon, HeartPlusIcon, type LucideIcon } from "lucide-react";
+import {
+  BookMarkedIcon,
+  HandFistIcon,
+  HeartIcon,
+  HeartPlusIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 import {
@@ -24,7 +30,7 @@ const LINKS: LinkItem[] = [
   {
     title: "Support Microflow",
     url: "/support",
-    icon: HeartPlusIcon,
+    icon: HandFistIcon,
     internal: true,
   },
   {
@@ -41,7 +47,7 @@ const LINKS: LinkItem[] = [
 ];
 
 export function NavSecondary(
-  props: React.ComponentPropsWithoutRef<typeof SidebarGroup>
+  props: React.ComponentPropsWithoutRef<typeof SidebarGroup>,
 ) {
   const navigate = useNavigate();
 
