@@ -34,7 +34,6 @@ pub mod board;
 mod builders;
 pub mod commands;
 pub mod component;
-pub mod context;
 pub mod control;
 mod executor;
 pub mod external;
@@ -52,7 +51,7 @@ pub mod wiring;
 mod wiring_registry;
 
 pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
-pub use context::RuntimeContext;
+pub use services::RuntimeServices;
 pub use wiring::{ListenerWiring, SubscriberWiring};
 pub use executor::FlowExecutor;
 // FlowEdge is re-exported for use in integration tests and external consumers
@@ -251,7 +250,7 @@ impl FlowRuntime {
     ///
     /// Uses diff-based updates: unchanged nodes are kept, only modified/added/removed
     /// nodes are touched. This turns an O(n) operation into O(delta) for small edits.
-    pub fn update_flow(&mut self, update: FlowUpdate, ctx: &crate::runtime::context::RuntimeContext) -> Result<(), RuntimeError> {
+    pub fn update_flow(&mut self, update: FlowUpdate, services: &crate::runtime::services::RuntimeServices) -> Result<(), RuntimeError> {
         // Increment sequence FIRST - this ensures any events generated during
         // the update will have the new sequence number, and stale events from
         // the previous flow version will be filtered out by the executor
@@ -346,7 +345,7 @@ impl FlowRuntime {
                     &node.id,
                     instance,
                     &node.data,
-                    ctx,
+                    services,
                     self.event_tx.clone(),
                     board_handle.clone(),
                 ) {
