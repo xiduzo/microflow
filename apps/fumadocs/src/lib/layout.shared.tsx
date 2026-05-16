@@ -5,5 +5,15 @@ export function baseOptions(): BaseLayoutProps {
     nav: {
       title: "Microflow",
     },
+    links: [
+      {
+        text: "Docs",
+        url: "/docs",
+      },
+      {
+        text: "Support",
+        url: "/support",
+      },
+    ],
   };
 }

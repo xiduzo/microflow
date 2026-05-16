@@ -57,7 +57,14 @@ export const auth = betterAuth({
       enableCustomerPortal: true,
       use: [
         checkout({
-          products: [],
+          products: [
+            ...(env.POLAR_SUPPORTER_PRODUCT_ID
+              ? [{ productId: env.POLAR_SUPPORTER_PRODUCT_ID, slug: "supporter" }]
+              : []),
+            ...(env.POLAR_DONATION_PRODUCT_ID
+              ? [{ productId: env.POLAR_DONATION_PRODUCT_ID, slug: "donation" }]
+              : []),
+          ],
           successUrl: env.POLAR_SUCCESS_URL,
           authenticatedUsersOnly: true,
         }),

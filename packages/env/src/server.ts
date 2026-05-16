@@ -9,6 +9,8 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     POLAR_ACCESS_TOKEN: z.string().min(1),
     POLAR_SUCCESS_URL: z.url(),
+    POLAR_SUPPORTER_PRODUCT_ID: z.string().min(1).optional(),
+    POLAR_DONATION_PRODUCT_ID: z.string().min(1).optional(),
     CORS_ORIGINS: z.string().min(1).transform((s) => s.split(",")),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     RESEND_API_KEY: z.string().min(1),
