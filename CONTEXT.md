@@ -138,6 +138,36 @@ Distinct from the **Component Catalog**: catalog is metadata for _registration_ 
 
 Read-only bundle passed to component factories at construction time: connected brokers, configured LLM providers. Lets a component pluck the bits it needs (e.g. `Llm` reads its provider's `base_url`/`api_key`) without mutating `node.data` upstream. Empty for components with no external deps.
 
+_Deprecated by [ADR-0002](docs/adr/0002-per-capability-service-traits.md); will be replaced by **Runtime Services** + per-impl **Component Deps** in Phase 4. The struct still ships today as `runtime/context.rs::RuntimeContext { providers: Vec<ProviderEntry> }` and is read only by `Llm::build`._
+
+## Capability Trait
+
+A Rust trait describing one external kind's outbound operations (e.g. [`LlmProvider`](#llm-provider)`::generate`, `MqttPublisher::publish`). Lives in `runtime/services/<kind>.rs`. Components depend on `Arc<dyn CapabilityTrait>` (or on the **Service Registry** that maps id → `Arc<dyn CapabilityTrait>`), never on the concrete HTTP client / broker library.
+
+Each Capability Trait ships with two adapters from day one — a production impl (e.g. `HttpLlmProvider`) and a recording test impl (e.g. `RecordingLlmProvider`) — which is what makes the trait a real seam rather than a hypothetical one (same rule as **BoardHandle** + **TestIoLoop**).
+
+See [ADR-0002](docs/adr/0002-per-capability-service-traits.md).
+
+## Service Registry
+
+Live, mutable map of `id → Arc<dyn CapabilityTrait>` for one capability kind (e.g. `LlmRegistry`, future `MqttRegistry`). Lives in `runtime/services/<kind>.rs`. The frontend's authoritative list is pushed in full via `sync(providers: Vec<(id, Arc<dyn ..>)>)`; existing in-flight calls against the previous instance run to completion, subsequent lookups see the new entry.
+
+Components hold `Arc<Registry>` and resolve the **Capability Trait** by id at dispatch time, not at construction time. Consequence: credential / endpoint rotation takes effect on the next call, no component rebuild, no flow_update re-fire.
+
+Replaces the parallel `LlmManager` + `RuntimeContext.providers` dual-state pattern.
+
+## LLM Provider
+
+The **Capability Trait** for any backend that can run an LLM completion against an OpenAI-compatible `/v1/chat/completions` request shape. Lives in `runtime/services/llm.rs`. Carries one method:
+
+```rust
+async fn generate(&self, request: LlmRequest) -> Result<LlmResponse, LlmError>;
+```
+
+`LlmRequest` is `{ model, system: Option<String>, prompt }` — template substitution is the caller's job, the provider sees the rendered text. `LlmResponse` is `{ text }` for now; token counts / finish reasons accrete only when a consumer needs them.
+
+Production adapter: `HttpLlmProvider` (one `reqwest::Client` per instance for connection-pool reuse; empty `api_key` skips the `Authorization` header so local Ollama works). Test adapter: `RecordingLlmProvider` (records every request, returns scripted responses or errors from a FIFO queue, returns `LlmError::Cancelled` when the script is exhausted).
+
 ## Host Adapter
 
 Frontend mirror of **Wiring**. Each node component module may export an `adapter: NodeHostAdapter` (see `apps/web/src/components/flow/nodes/_base/host-adapter.ts`) describing what the host store + global hotkey listener need from this node:
