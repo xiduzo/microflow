@@ -228,15 +228,15 @@ impl ComponentBuilder for super::generator::Oscillator {
 
 impl ComponentBuilder for super::external::Figma {
     type Config = super::external::FigmaConfig;
-    fn build(id: String, config: Self::Config, _ctx: &RuntimeContext) -> Result<Self, RuntimeError> {
-        Ok(Self::new(id, config))
+    fn build(id: String, config: Self::Config, ctx: &RuntimeContext) -> Result<Self, RuntimeError> {
+        Ok(Self::new(id, config, Arc::clone(&ctx.mqtt_publisher)))
     }
 }
 
 impl ComponentBuilder for super::external::Mqtt {
     type Config = super::external::MqttConfig;
-    fn build(id: String, config: Self::Config, _ctx: &RuntimeContext) -> Result<Self, RuntimeError> {
-        Ok(Self::new(id, config))
+    fn build(id: String, config: Self::Config, ctx: &RuntimeContext) -> Result<Self, RuntimeError> {
+        Ok(Self::new(id, config, Arc::clone(&ctx.mqtt_publisher)))
     }
 }
 

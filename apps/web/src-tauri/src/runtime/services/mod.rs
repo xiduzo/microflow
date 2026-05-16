@@ -25,8 +25,10 @@
 //! - Phase 4: `RuntimeServices` bundle + `ComponentBuilder::Deps`.
 
 pub mod llm;
+pub mod mqtt;
 
 pub use llm::{
     HttpLlmProvider, LlmError, LlmProvider, LlmRegistry, LlmRequest, LlmResponse,
     RecordingLlmProvider,
 };
+pub use mqtt::{MqttPublishError, MqttPublisher, RecordedPublish, RecordingMqttPublisher};

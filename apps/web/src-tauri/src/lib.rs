@@ -46,22 +46,11 @@ pub use error::*;
 
 use hardware::HardwareService;
 use mqtt::MqttManager;
-use runtime::services::LlmRegistry;
+use runtime::services::{LlmRegistry, MqttPublisher};
 use runtime::{FlowRuntime, FlowUpdate, RuntimeContext};
 use std::sync::{Arc, Mutex, RwLock};
 use tauri::{Emitter, Listener};
-use tokio::sync::mpsc;
 use tokio::sync::Mutex as TokioMutex;
-
-/// MQTT publish request from flow components
-#[derive(Debug, Clone)]
-pub struct MqttPublishRequest {
-    pub component_id: String,
-    pub broker_id: String,
-    pub topic: String,
-    pub payload: String,
-    pub retain: bool,
-}
 
 /// Tracks active Figma MQTT subscriptions so they can be cleaned up on flow switch
 #[derive(Debug, Clone)]
@@ -80,8 +69,11 @@ pub struct AppState {
     pub board_connected: Arc<RwLock<bool>>,
     /// MQTT broker manager
     pub mqtt_manager: MqttManager,
-    /// Channel for MQTT publish requests from flow components
-    pub mqtt_publish_tx: mpsc::UnboundedSender<MqttPublishRequest>,
+    /// MQTT publish handle wired into the runtime via `RuntimeContext` so
+    /// `Mqtt` / `Figma` components publish straight through the manager
+    /// instead of emitting `_mqtt_publish` events for `lib.rs` to re-route
+    /// (ADR-0002 Phase 3).
+    pub mqtt_publisher: Arc<dyn MqttPublisher>,
     /// Live LLM provider registry. Shared with `RuntimeContext` so components
     /// resolve providers at dispatch time and pick up credential rotation
     /// without rebuilding. Filled by the `flow_update` and
@@ -102,12 +94,12 @@ pub fn run() {
     let flow_runtime = Arc::new(TokioMutex::new(FlowRuntime::new()));
     let pending_flow = Arc::new(RwLock::new(None));
     let board_connected = Arc::new(RwLock::new(false));
-    
-    // Create channel for MQTT publish requests
-    let (mqtt_publish_tx, mqtt_publish_rx) = mpsc::unbounded_channel::<MqttPublishRequest>();
 
     let mqtt_manager = MqttManager::new();
-    let mqtt_manager_for_publish = mqtt_manager.clone();
+    // `MqttManager` is `Clone` (its broker map lives behind `Arc<RwLock<..>>`),
+    // so the cloned instance handed to the dyn-trait `Arc` shares the same
+    // broker pool as the one held on `AppState`.
+    let mqtt_publisher: Arc<dyn MqttPublisher> = Arc::new(mqtt_manager.clone());
     let llm_registry = Arc::new(LlmRegistry::new());
 
     let app_state = AppState {
@@ -116,7 +108,7 @@ pub fn run() {
         pending_flow: Arc::clone(&pending_flow),
         board_connected: Arc::clone(&board_connected),
         mqtt_manager,
-        mqtt_publish_tx: mqtt_publish_tx.clone(),
+        mqtt_publisher,
         llm_registry,
         figma_subscriptions: Arc::new(TokioMutex::new(Vec::new())),
     };
@@ -153,53 +145,30 @@ pub fn run() {
                 // Use blocking_lock() for sync context during setup
                 let event_rx = flow_runtime.blocking_lock().take_event_receiver();
 
-                // Set up event forwarding from flow runtime
+                // Set up event forwarding from flow runtime.
+                //
+                // Outbound MQTT publishes used to ride this channel under the
+                // `_mqtt_publish` reserved handle — components emitted the
+                // request as a JSON value, this thread parsed it and
+                // re-dispatched to a dedicated publish-handler thread. Since
+                // ADR-0002 Phase 3 that path is gone: `Mqtt` / `Figma` hold an
+                // `Arc<dyn MqttPublisher>` and publish directly. The event
+                // channel now carries only plain component events, all of
+                // which go straight to the frontend + executor.
                 let app_handle_events = app_handle.clone();
                 let flow_runtime_events = Arc::clone(&flow_runtime);
-                let mqtt_publish_tx_events = mqtt_publish_tx.clone();
                 std::thread::spawn(move || {
                     log::info!("Event forwarding thread started");
                     if let Some(mut rx) = event_rx {
                         log::info!("Event receiver obtained, waiting for events...");
                         while let Some(event) = rx.blocking_recv() {
-                            log::trace!("Event: {} ({}) -> {:?}", 
-                                event.source, event.source_handle, event.value);
-                            
-                            // Handle MQTT publish events specially
-                            // These are emitted by MQTT publish nodes when they receive input
-                            if event.source_handle.as_ref() == "_mqtt_publish" {
-                                log::debug!("[MQTT] Publish event from component {}", event.source);
-                                
-                                // Parse the JSON publish info from the event value
-                                if let runtime::ComponentValue::String(json_str) = &event.value {
-                                    if let Ok(publish_info) = serde_json::from_str::<serde_json::Value>(json_str) {
-                                        let broker_id = publish_info.get("brokerId").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                        let topic = publish_info.get("topic").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                        let payload = publish_info.get("payload").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                        let retain = publish_info.get("retain").and_then(serde_json::Value::as_bool).unwrap_or(false);
-                                        
-                                        log::info!("[MQTT] Publishing to broker={broker_id}, topic={topic}, payload={payload}, retain={retain}");
-                                        
-                                        if !broker_id.is_empty() && !topic.is_empty() {
-                                            let _ = mqtt_publish_tx_events.send(MqttPublishRequest {
-                                                component_id: event.source.to_string(),
-                                                broker_id,
-                                                topic,
-                                                payload,
-                                                retain,
-                                            });
-                                        } else {
-                                            log::warn!("[MQTT] Publish request missing broker_id or topic");
-                                        }
-                                    } else {
-                                        log::error!("[MQTT] Failed to parse publish info JSON");
-                                    }
-                                }
-                                continue;
-                            }
-                            
+                            log::trace!(
+                                "Event: {} ({}) -> {:?}",
+                                event.source, event.source_handle, event.value
+                            );
+
                             let _ = app_handle_events.emit("component-event", &event);
-                            
+
                             // This thread is std::thread::spawn, NOT tokio::spawn — blocking_lock() is safe
                             // here and will not stall the Tokio executor. The original try_lock() rationale
                             // ("avoid blocking the async runtime") was incorrect for this call site.
@@ -212,34 +181,6 @@ pub fn run() {
                     } else {
                         log::error!("Failed to obtain event receiver!");
                     }
-                });
-
-                // Spawn MQTT publish handler thread
-                let mqtt_manager_publish = mqtt_manager_for_publish;
-                std::thread::spawn(move || {
-                    let rt = tokio::runtime::Runtime::new().unwrap();
-                    rt.block_on(async move {
-                        let mut rx = mqtt_publish_rx;
-                        log::info!("[MQTT] Publish handler thread started");
-                        while let Some(request) = rx.recv().await {
-                            log::info!("[MQTT] Processing publish request for component {}", request.component_id);
-                            
-                            // For now, we need the broker_id and topic from the request
-                            // In a full implementation, we'd look these up from the component
-                            if !request.broker_id.is_empty() && !request.topic.is_empty() {
-                                if let Err(e) = mqtt_manager_publish.publish(
-                                    &request.broker_id,
-                                    &request.topic,
-                                    request.payload.as_bytes(),
-                                    request.retain,
-                                ).await {
-                                    log::error!("[MQTT] Failed to publish: {e}");
-                                }
-                            } else {
-                                log::warn!("[MQTT] Publish request missing broker_id or topic");
-                            }
-                        }
-                    });
                 });
 
                 // Listen for board-state events from hardware monitor
