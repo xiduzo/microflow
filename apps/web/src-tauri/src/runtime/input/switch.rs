@@ -109,18 +109,9 @@ impl Component for Switch {
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "read" => Ok(()),
-            "pin_change" => {
-                log::info!("Switch {} pin_change called with args: {:?}", self.base.id, args);
-                if let Some(pin_high) = args.as_bool() {
-                    self.process_state(pin_high);
-                } else {
-                    log::warn!("Switch {} pin_change: could not extract bool from {:?}", self.base.id, args);
-                }
-                Ok(())
-            }
             _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
@@ -140,6 +131,16 @@ impl HardwareComponent for Switch {
         board.set_pin_mode(self.config.pin, pin_mode::INPUT)?;
         board.enable_digital_reporting(self.config.pin)?;
         self.board = Some(board);
+        Ok(())
+    }
+
+    fn on_pin_change(&mut self, value: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+        log::info!("Switch {} pin_change with value: {:?}", self.base.id, value);
+        if let Some(pin_high) = value.as_bool() {
+            self.process_state(pin_high);
+        } else {
+            log::warn!("Switch {} pin_change: could not extract bool from {:?}", self.base.id, value);
+        }
         Ok(())
     }
 }

@@ -103,15 +103,9 @@ impl Component for Sensor {
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> { Some(self) }
 
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+    fn call_method(&mut self, method: &str, _args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
             "read" => Ok(()),
-            "pin_change" => {
-                if let Some(value) = args.as_number() {
-                    self.process_reading(value as u16);
-                }
-                Ok(())
-            }
             _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
@@ -135,6 +129,13 @@ impl HardwareComponent for Sensor {
         board.enable_analog_reporting(pin)?;
         self.board = Some(board);
         self.polling_active.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    fn on_pin_change(&mut self, value: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+        if let Some(reading) = value.as_number() {
+            self.process_reading(reading as u16);
+        }
         Ok(())
     }
 }

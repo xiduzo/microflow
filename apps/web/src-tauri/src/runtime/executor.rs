@@ -218,15 +218,38 @@ impl FlowExecutor {
             return false;
         }
 
-        // Handle internal events (prefixed with _) by routing back to source component
+        // Handle internal events (prefixed with _) by routing back to source component.
+        //
+        // Two flavors share the underscore prefix today:
+        //
+        // - **Hardware Callback** (`_pin_change`, `_i2c_reply`) — emitted by the
+        //   pin-change / I2C-reply callbacks in `runtime/mod.rs`. Routed to the
+        //   typed `HardwareComponent::on_pin_change` / `on_i2c_reply` methods so
+        //   hardware impls don't have to string-match these in `call_method`.
+        // - **Internal Event** (e.g. `_auto_stop` from Piezo) — self-routed
+        //   method a component schedules for itself. Routed to
+        //   `Component::dispatch_internal` so the namespace is separate from
+        //   edge-input Ports.
+        //
+        // See `CONTEXT.md` § Hardware Callback, § Internal Event.
         if event.source_handle.starts_with('_') {
             log::trace!("Internal event: {} ({})", event.source, event.source_handle);
             if let Some(component) = self.components.get_mut(event.source.as_ref()) {
-                // Strip the leading underscore for the method name
-                let method = &event.source_handle[1..];
-                match component.call_method(method, event.value) {
-                    Ok(()) => log::trace!("✓ Internal call {}.{}", event.source, method),
-                    Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, method, e),
+                let handle = event.source_handle.as_ref();
+                let result = match handle {
+                    "_pin_change" => component.as_hardware_mut()
+                        .map_or(Ok(()), |hw| hw.on_pin_change(event.value)),
+                    "_i2c_reply" => component.as_hardware_mut()
+                        .map_or(Ok(()), |hw| hw.on_i2c_reply(event.value)),
+                    _ => {
+                        // Internal Event: strip the leading underscore for the method name
+                        let method = &handle[1..];
+                        component.dispatch_internal(method, event.value)
+                    }
+                };
+                match result {
+                    Ok(()) => log::trace!("✓ Internal call {}.{}", event.source, handle),
+                    Err(e) => log::warn!("✗ Internal call {}.{} failed: {}", event.source, handle, e),
                 }
             }
             return true;

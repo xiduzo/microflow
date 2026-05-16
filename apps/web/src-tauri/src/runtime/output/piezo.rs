@@ -288,8 +288,17 @@ impl Component for Piezo {
                     PiezoType::Song => self.play(),
                 }
             }
-            "stop" | "auto_stop" => self.handle_auto_stop(),
+            "stop" => self.handle_auto_stop(),
             _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown method: {method}"))),
+        }
+    }
+
+    fn dispatch_internal(&mut self, method: &str, _value: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+        match method {
+            // Self-emitted after the song-playback thread finishes; resets
+            // `is_playing` and clears the pin. Never reachable from an edge.
+            "auto_stop" => self.handle_auto_stop(),
+            _ => Err(crate::error::RuntimeError::ComponentError(format!("Unknown internal method: {method}"))),
         }
     }
 

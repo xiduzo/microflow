@@ -178,6 +178,19 @@ pub trait Component: Send + Sync {
     /// Handle a method call from a flow edge or external command.
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), RuntimeError>;
 
+    /// Handle an **Internal Event** — a self-routed method delivered by the
+    /// executor when this component emitted an event whose `source_handle`
+    /// started with `_`. Never reachable from a flow edge.
+    ///
+    /// Implementors override this to handle internally scheduled state
+    /// transitions (e.g. `Piezo` `auto_stop` after a song finishes) without
+    /// polluting `call_method`'s Port namespace. Default no-op.
+    ///
+    /// See `CONTEXT.md` § Internal Event.
+    fn dispatch_internal(&mut self, _method: &str, _value: ComponentValue) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
     /// Unique identifier for this component instance.
     fn id(&self) -> &str { &self.base().id }
 
@@ -229,10 +242,39 @@ pub trait Component: Send + Sync {
 /// (`requiresHardware: true`). The runtime invokes `initialize` once when the
 /// board connects, via `Component::as_hardware_mut`, and may invoke it again on
 /// reconnect.
+///
+/// **Hardware Callbacks** (see `CONTEXT.md`) are delivered through the typed
+/// methods on this trait — `on_pin_change`, `on_i2c_reply` — not through
+/// [`Component::call_method`]. The board-reader-driven event flow is therefore
+/// separated from the edge-input flow at the trait level: an impl that
+/// doesn't override a callback is silently a no-op for that hardware event
+/// kind, and no flow edge can ever target a callback because Ports live on
+/// `call_method` (current) / `dispatch` (Phase 3).
 pub trait HardwareComponent: Component {
     /// Acquire any pin modes, reporting toggles, or I/O state the component
     /// needs against the connected board.
     fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), RuntimeError>;
+
+    /// Pin-change Hardware Callback. Delivered by the runtime when the
+    /// **Board IO Loop**'s `PinChangeCallback` fires for a pin this component
+    /// has registered as a `ListenerWiring::DigitalPin` or `AnalogPin`.
+    ///
+    /// `value` is `ComponentValue::Bool` for digital pins, `ComponentValue::Number`
+    /// (raw u16 cast to f64) for analog pins. Default no-op for hardware
+    /// impls that don't listen to pins.
+    fn on_pin_change(&mut self, _value: ComponentValue) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    /// I²C-reply Hardware Callback. Delivered by the runtime when the
+    /// **Board IO Loop**'s `I2cReplyCallback` fires for an address this
+    /// component has registered as a `ListenerWiring::I2cAddress`.
+    ///
+    /// `value` is `ComponentValue::Array` of byte values. Default no-op for
+    /// hardware impls that don't listen to I²C.
+    fn on_i2c_reply(&mut self, _value: ComponentValue) -> Result<(), RuntimeError> {
+        Ok(())
+    }
 }
 
 /// Catalog factory contract used by [`ComponentRegistry`].

@@ -7,7 +7,8 @@
 //! 1. `initialize()` — Sends `I2C_CONFIG`, then writes the register address and
 //!    starts a continuous read for the configured number of bytes.
 //! 2. Reader thread drains `I2CReply` from `firmata_rs` and routes them here
-//!    via `call_method("i2c_reply", ...)`.
+//!    via the typed `HardwareComponent::on_i2c_reply` callback (see `CONTEXT.md`
+//!    § Hardware Callback).
 //! 3. `destroy()` — Sends I2C stop reading command.
 
 use crate::runtime::base::{BoardHandle, Component, ComponentBase, ComponentValue, HardwareComponent};
@@ -134,23 +135,6 @@ impl Component for I2cDevice {
 
     fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         match method {
-            "i2c_reply" => {
-                // Called by the reader thread when an I2C reply arrives for our address.
-                // args is an Array of byte values.
-                if let ComponentValue::Array(bytes) = &args {
-                    let raw: Vec<u8> = bytes.iter()
-                        .filter_map(|v| v.as_number().map(|n| n as u8))
-                        .collect();
-
-                    let value = self.convert_bytes(&raw);
-                    self.base.set_value(value);
-                    self.base.emit("value");
-
-                    // Schedule next read after processing
-                    let _ = self.request_read();
-                }
-                Ok(())
-            }
             "write" => {
                 // Write data to the I2C device. Input can be a number or array of numbers.
                 if let Some(board) = &self.board {
@@ -214,6 +198,23 @@ impl HardwareComponent for I2cDevice {
         // Start initial read
         self.request_read()?;
 
+        Ok(())
+    }
+
+    fn on_i2c_reply(&mut self, value: ComponentValue) -> Result<(), crate::error::RuntimeError> {
+        // value is an Array of byte values from the I2C-reply Hardware Callback.
+        if let ComponentValue::Array(bytes) = &value {
+            let raw: Vec<u8> = bytes.iter()
+                .filter_map(|v| v.as_number().map(|n| n as u8))
+                .collect();
+
+            let converted = self.convert_bytes(&raw);
+            self.base.set_value(converted);
+            self.base.emit("value");
+
+            // Schedule next read after processing
+            let _ = self.request_read();
+        }
         Ok(())
     }
 }

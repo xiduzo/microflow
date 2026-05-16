@@ -40,7 +40,32 @@ A Rust module path under `runtime/`. Determines `use super::<category>::{<Impl>,
 
 ## Component (Rust trait)
 
-In `apps/web/src-tauri/src/runtime/base.rs`. The interface every impl satisfies. Audited and being split (see `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3).
+In `apps/web/src-tauri/src/runtime/component.rs`. The interface every impl satisfies. Audited and being split (see `docs/adr/0001-component-trait-flow-separation.md` and `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3). Three distinct flows enter the trait, each with its own method:
+
+- **Port** — edge inputs. Delivered via `call_method(&str, ComponentValue)`. (Phase 3 renames to `dispatch` and adds a typed `PORTS` declaration per impl.)
+- **Internal Event** — self-routed methods. Delivered via `dispatch_internal(&str, ComponentValue)`.
+- **Hardware Callback** — board-reader-driven events. Delivered via `HardwareComponent::on_pin_change` / `on_i2c_reply`.
+
+The shared underscore-prefix routing in `runtime/executor.rs::process_event` dispatches to the right method based on the reserved handle name; everything else is a Port.
+
+## Port
+
+A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::call_method`. Current shape: a magic string the impl's `call_method` match arm interprets (e.g. `Led` accepts `"true"/"false"/"toggle"/"value"`; `Stepper` accepts `"value"/"to"/"stop"/"zero"`). Phase 3 target: a per-impl `const PORTS: &'static [&'static str]` declaration, mirrored to `node-components.json impls[].ports[]`, build-time validated, consumed by frontend codegen for typed handle IDs.
+
+Distinct from **Internal Event** names (never on edges, self-routed only) and **Hardware Callback** names (never on edges, runtime-delivered only).
+
+## Internal Event
+
+Self-routed method delivered when a **Component (Rust trait)** emits a `ComponentEvent` whose `source_handle` starts with `_` and is not a reserved **Hardware Callback** name. The executor (`runtime/executor.rs::process_event`) strips the leading `_` and calls `Component::dispatch_internal` on the source component. Used by components that schedule their own state transitions (e.g. `Piezo` `auto_stop` after a song-playback thread finishes). Never observable as a **Port** — edges cannot target an internal-event name.
+
+## Hardware Callback
+
+Board-reader-driven event delivered to a **HardwareComponent** in response to Firmata wire activity. Two live kinds today, routed by `runtime/executor.rs::process_event` to typed methods on `HardwareComponent`:
+
+- `_pin_change` (from the **Board IO Loop**'s `PinChangeCallback`) → `on_pin_change(value)`. `value` is `Bool` for digital pins, `Number(u16)` for analog.
+- `_i2c_reply` (from `I2cReplyCallback`) → `on_i2c_reply(value)`. `value` is `Array` of byte values.
+
+Emission of these reserved handles is the runtime's responsibility (in `FlowRuntime::install_pin_change_callback` / `install_i2c_reply_callback`); no flow edge may emit them. A third reserved name `"stepper_reply"` is referenced in `Stepper::call_method` and the module docstring but has no current emission path — forward-looking placeholder pending stepper sysex wiring.
 
 ## BoardHandle
 
