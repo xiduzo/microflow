@@ -45,6 +45,7 @@ pub mod pin_mode;
 mod registry;
 mod router;
 pub mod serde_utils;
+pub mod services;
 pub mod transformation;
 mod types;
 pub mod wiring;
