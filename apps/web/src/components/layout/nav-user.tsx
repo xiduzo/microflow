@@ -119,7 +119,7 @@ export function NavUser({ user }: Props) {
               </div>
               {isSupporter ? (
                 <Heart
-                  className="absolute -top-1.5 -left-1.5 size-3 dark:fill-rose-200 fill-rose-600 drop-shadow-[0_0_2px_var(--sidebar)]"
+                  className="absolute -top-1 -left-1 size-3! dark:fill-rose-200 fill-rose-600"
                   aria-label="Supporter"
                 />
               ) : null}
@@ -157,7 +157,7 @@ export function NavUser({ user }: Props) {
                     </div>
                     {isSupporter ? (
                       <Heart
-                        className="absolute -top-1 -right-1 size-3 text-rose-500 fill-rose-500 drop-shadow-[0_0_2px_var(--popover)]"
+                        className="absolute -top-0.5 -left-0.5 size-2! dark:fill-rose-200 fill-rose-600"
                         aria-label="Supporter"
                       />
                     ) : null}
