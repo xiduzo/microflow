@@ -44,7 +44,7 @@ pub mod runtime;
 
 pub use error::*;
 
-use hardware::HardwareService;
+use hardware::{BoardState, HardwareService};
 use mqtt::MqttManager;
 use runtime::services::{LlmRegistry, MqttPublisher, RuntimeServices};
 use runtime::{FlowRuntime, FlowUpdate};
@@ -133,14 +133,60 @@ pub fn run() {
                     )?;
                 }
 
-                // Start hardware monitoring with shared board handle
+                // Start hardware monitoring with shared board handle.
+                //
+                // The hardware monitor calls `observer(&BoardState)` for every
+                // transition *before* it emits `board-state` to the Tauri bus,
+                // so AppState (`board_connected`, `pending_flow`) is updated
+                // in-process. lib.rs used to subscribe to its own bus with
+                // `app_handle.listen("board-state", ...)`, which round-tripped
+                // through JSON for a purely-local state mutation.
                 let app_handle = app.handle().clone();
                 // Use blocking_lock() for sync context during setup
                 let board_handle = flow_runtime.blocking_lock().board_handle();
+                let observer_runtime = Arc::clone(&flow_runtime);
+                let observer_pending = Arc::clone(&pending_flow_setup);
+                let observer_connected = Arc::clone(&board_connected_setup);
+                let observer: hardware::BoardStateObserver = Arc::new(move |state: &BoardState| {
+                    match state {
+                        BoardState::Connected { .. } => {
+                            log::info!("Board connected with Firmata (shared connection)!");
+                            *observer_connected.write().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+
+                            // Apply pending flow if any; otherwise reinitialize
+                            // hardware so an unplug/replug doesn't leave the
+                            // active flow's pin modes silently unconfigured.
+                            let pending = observer_pending
+                                .write()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .take();
+                            let mut runtime = observer_runtime.blocking_lock();
+                            if let Some((flow, services)) = pending {
+                                log::info!(
+                                    "Applying pending flow: {} nodes, {} edges",
+                                    flow.nodes.len(),
+                                    flow.edges.len()
+                                );
+                                if let Err(e) = runtime.update_flow(flow, &services) {
+                                    log::error!("Failed to apply pending flow: {e}");
+                                } else if let Err(e) = runtime.initialize_hardware() {
+                                    log::warn!("Failed to initialize hardware after pending flow: {e}");
+                                }
+                            } else if let Err(e) = runtime.initialize_hardware() {
+                                log::warn!("Failed to reinitialize hardware on reconnect: {e}");
+                            }
+                        }
+                        BoardState::Disconnected {} => {
+                            log::info!("Board disconnected");
+                            *observer_connected.write().unwrap_or_else(std::sync::PoisonError::into_inner) = false;
+                        }
+                        _ => {}
+                    }
+                });
                 hardware_service
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .start_monitoring(app_handle.clone(), board_handle);
+                    .start_monitoring(app_handle.clone(), board_handle, observer);
 
                 // Take the event receiver before spawning threads
                 // Use blocking_lock() for sync context during setup
@@ -183,63 +229,6 @@ pub fn run() {
                         log::error!("Failed to obtain event receiver!");
                     }
                 });
-
-                // Listen for board-state events from hardware monitor
-                let flow_runtime_board = Arc::clone(&flow_runtime);
-                let pending_flow_board = Arc::clone(&pending_flow_setup);
-                let board_connected_listener = Arc::clone(&board_connected_setup);
-                app_handle.listen("board-state", move |event| {
-                    // Parse the board state to check if it's actually connected
-                    let payload = event.payload();
-                    if let Ok(state) = serde_json::from_str::<serde_json::Value>(payload) {
-                        let state_type = state.get("state").and_then(|s| s.as_str());
-                        
-                        match state_type {
-                            Some("connected") => {
-                                log::info!("Board connected with Firmata (shared connection)!");
-                                *board_connected_listener.write().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
-                                
-                                // Apply pending flow if any, which will also install the callback
-                                if let Some((flow, services)) = pending_flow_board.write().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
-                                    log::info!("Applying pending flow: {} nodes, {} edges",
-                                        flow.nodes.len(), flow.edges.len());
-                                    // Use blocking_lock() for async mutex in sync callback context
-                                    let mut runtime = flow_runtime_board.blocking_lock();
-                                    if let Err(e) = runtime.update_flow(flow, &services) {
-                                        log::error!("Failed to apply pending flow: {e}");
-                                    } else if let Err(e) = runtime.initialize_hardware() {
-                                        log::warn!("Failed to initialize hardware after pending flow: {e}");
-                                    }
-                                    // Pin-change and I2C-reply callbacks are installed once
-                                    // in FlowRuntime::new() and observe live wiring updates
-                                    // via shared `WiringRegistry` indices — no reinstall.
-                                } else {
-                                    // No pending flow — board reconnected while a flow is
-                                    // already active.  Reinitialize all hardware components so
-                                    // that pin modes, analog reporting, etc. are reconfigured
-                                    // on the fresh Arduino.  Without this, outputs like LEDs
-                                    // and inputs like buttons silently stop working after
-                                    // unplug/replug.
-                                    let mut runtime = flow_runtime_board.blocking_lock();
-                                    if let Err(e) = runtime.initialize_hardware() {
-                                        log::warn!("Failed to reinitialize hardware on reconnect: {e}");
-                                    }
-                                }
-                            }
-                            Some("disconnected") => {
-                                log::info!("Board disconnected");
-                                *board_connected_listener.write().unwrap_or_else(std::sync::PoisonError::into_inner) = false;
-                                // Board handle is already disconnected by hardware monitor
-                            }
-                            Some(other) => {
-                                log::debug!("Board state: {other}");
-                            }
-                            None => {}
-                        }
-                    }
-                });
-
-                // Remove the separate board-disconnected listener since we handle it above
 
                 // Listen for key events from the webview (fire-and-forget, no IPC round-trip).
                 // The frontend emits "key_event" with { key, pressed } — Rust owns all

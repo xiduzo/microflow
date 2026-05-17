@@ -12,13 +12,15 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use ts_rs::TS;
 
 use super::board::BoardHandle;
 use super::services::FromServices;
 
 /// Value that a component can hold
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(untagged)]
+#[ts(export)]
 pub enum ComponentValue {
     Bool(bool),
     Number(f64),
@@ -96,28 +98,24 @@ impl ComponentValue {
     }
 }
 
-/// Event emitted by a component
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Event emitted by a component.
+///
+/// `Serialize`-only: the frontend consumes these via the `component-event`
+/// Tauri event, never sends them back. Dropping `Deserialize` lets us keep
+/// `Arc<str>` fields without a custom deserializer (which `ts-rs` cannot
+/// parse and would otherwise warn about on every build).
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct ComponentEvent {
-    #[serde(deserialize_with = "deserialize_arc_str")]
+    #[ts(type = "string")]
     pub source: Arc<str>,
-    #[serde(deserialize_with = "deserialize_arc_str")]
+    #[ts(type = "string")]
     pub source_handle: Arc<str>,
     pub value: ComponentValue,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub edge_id: Option<String>,
-    #[serde(default)]
+    #[ts(type = "number")]
     pub sequence: u64, // Flow version when event was created
-}
-
-/// Custom deserializer to convert String -> Arc<str>
-fn deserialize_arc_str<'de, D>(deserializer: D) -> Result<Arc<str>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    Ok(Arc::from(s))
 }
 
 /// Pin configuration for components

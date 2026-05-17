@@ -183,12 +183,15 @@ pub async fn flow_update(
                         Ok(mut runtime) => runtime.route_mqtt_message(&component_id, &msg.payload),
                         Err(_) => log::debug!("[MQTT] Flow runtime lock held, dropping message for {component_id}"),
                     }
-                    let _ = app_handle.emit("mqtt-message", serde_json::json!({
-                        "brokerId": "",
-                        "topic": msg.topic,
-                        "payload": String::from_utf8_lossy(&msg.payload).to_string(),
-                        "componentId": component_id,
-                    }));
+                    let _ = app_handle.emit(
+                        "mqtt-message",
+                        &crate::mqtt::commands::MqttMessage {
+                            broker_id: String::new(),
+                            topic: msg.topic,
+                            payload: String::from_utf8_lossy(&msg.payload).to_string(),
+                            component_id: Some(component_id.clone()),
+                        },
+                    );
                 })
             }
             SubscriberWiring::TopicAware { .. } => {
@@ -201,12 +204,15 @@ pub async fn flow_update(
                         Ok(mut runtime) => runtime.route_figma_message(&component_id, &msg.topic, &msg.payload),
                         Err(_) => log::debug!("[Figma] Runtime lock held, dropping message for {component_id}"),
                     }
-                    let _ = app_handle.emit("mqtt-message", serde_json::json!({
-                        "brokerId": "",
-                        "topic": msg.topic,
-                        "payload": String::from_utf8_lossy(&msg.payload).to_string(),
-                        "componentId": component_id,
-                    }));
+                    let _ = app_handle.emit(
+                        "mqtt-message",
+                        &crate::mqtt::commands::MqttMessage {
+                            broker_id: String::new(),
+                            topic: msg.topic,
+                            payload: String::from_utf8_lossy(&msg.payload).to_string(),
+                            component_id: Some(component_id.clone()),
+                        },
+                    );
                 })
             }
             SubscriberWiring::DisplayEcho { .. } => {
@@ -216,11 +222,15 @@ pub async fn flow_update(
                 }
                 let app_handle = app.clone();
                 Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
-                    let _ = app_handle.emit("mqtt-message", serde_json::json!({
-                        "brokerId": "",
-                        "topic": msg.topic,
-                        "payload": String::from_utf8_lossy(&msg.payload).to_string(),
-                    }));
+                    let _ = app_handle.emit(
+                        "mqtt-message",
+                        &crate::mqtt::commands::MqttMessage {
+                            broker_id: String::new(),
+                            topic: msg.topic,
+                            payload: String::from_utf8_lossy(&msg.payload).to_string(),
+                            component_id: None,
+                        },
+                    );
                 })
             }
         };

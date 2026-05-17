@@ -11,8 +11,7 @@
 //! ├── types.rs         - Shared types (BoardState, events, etc.)
 //! ├── port_monitor.rs  - Serial port discovery and monitoring
 //! ├── firmata.rs       - Firmata protocol detection
-//! ├── events.rs        - Event emission (single source of truth)
-//! └── state.rs         - BoardConnectionState machine
+//! └── events.rs        - Event emission (single source of truth)
 //! ```
 //!
 //! # Design Principles
@@ -25,12 +24,10 @@
 mod events;
 mod firmata;
 mod port_monitor;
-pub mod state;
 mod types;
 
-pub use events::EventEmitter;
+pub use events::{BoardStateObserver, EventEmitter};
 pub use port_monitor::{PortMonitor, SerialPortInfo};
-pub use state::{BoardConnectionState, BoardStateMachine};
 pub use types::BoardState;
 
 use crate::flasher::{BoardConfig, Flasher};
@@ -65,8 +62,15 @@ impl HardwareService {
 
     /// Start monitoring for hardware changes.
     /// The `board_handle` is shared with the runtime - when Firmata is detected,
-    /// the connection is stored directly in this handle.
-    pub fn start_monitoring(&mut self, app_handle: tauri::AppHandle, board_handle: Arc<BoardHandle>) {
+    /// the connection is stored directly in this handle. The `observer` runs
+    /// in-process on every `board-state` transition (before the Tauri emit) so
+    /// the host can mutate `AppState` without listening to its own event bus.
+    pub fn start_monitoring(
+        &mut self,
+        app_handle: tauri::AppHandle,
+        board_handle: Arc<BoardHandle>,
+        observer: BoardStateObserver,
+    ) {
         if self.monitoring.load(Ordering::Relaxed) {
             log::warn!("Hardware monitoring already running");
             return;
@@ -77,7 +81,7 @@ impl HardwareService {
 
         let monitoring = Arc::clone(&self.monitoring);
         let handle = thread::spawn(move || {
-            HardwareMonitorLoop::new(app_handle, monitoring, board_handle).run();
+            HardwareMonitorLoop::new(app_handle, monitoring, board_handle, observer).run();
         });
 
         self.monitor_handle = Some(handle);
@@ -130,9 +134,14 @@ struct HardwareMonitorLoop {
 }
 
 impl HardwareMonitorLoop {
-    fn new(app_handle: tauri::AppHandle, monitoring: Arc<AtomicBool>, board_handle: Arc<BoardHandle>) -> Self {
+    fn new(
+        app_handle: tauri::AppHandle,
+        monitoring: Arc<AtomicBool>,
+        board_handle: Arc<BoardHandle>,
+        observer: BoardStateObserver,
+    ) -> Self {
         Self {
-            events: EventEmitter::new(app_handle),
+            events: EventEmitter::with_observer(app_handle, observer),
             monitoring,
             board_handle,
             known_devices: HashMap::new(),

@@ -1,0 +1,8 @@
+# ts-rs writes generated TypeScript files into this directory. Path is
+# resolved relative to *this* config.toml, so `cargo test` from anywhere
+# (workspace root, src-tauri, IDE) lands the bindings in the same place.
+#
+# Frontend imports the generated types from `apps/web/src/lib/bindings/`.
+# Each `#[derive(TS)] #[ts(export)]` struct contributes one `.ts` file.
+[env]
+TS_RS_EXPORT_DIR = { value = "../src/lib/bindings", relative = true, force = true }

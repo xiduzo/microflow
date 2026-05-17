@@ -41,6 +41,11 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 boa_engine = "0.20"
 dashmap = "6"
 async-trait = "0.1"
+# TypeScript bindings for shared frontend payloads. `#[derive(TS)]` plus
+# `#[ts(export, export_to = "../src/lib/bindings/")]` makes `cargo test` write
+# the corresponding `.ts` file. Frontend imports the generated types so the
+# Rust struct is the single source of truth for event payload shape.
+ts-rs = "10"
 
 [dev-dependencies]
 proptest = "1"

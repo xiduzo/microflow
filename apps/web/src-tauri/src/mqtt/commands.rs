@@ -6,16 +6,25 @@ use super::broker::{BrokerConfig, ConnectionStatus, MqttMessage as BrokerMessage
 use crate::AppState;
 use std::sync::Arc;
 use tauri::{Emitter, State};
+use ts_rs::TS;
 
-#[derive(Debug, Clone, serde::Serialize)]
+/// Payload of the `mqtt-message` Tauri event. Frontend deserializes this with
+/// snake_case field names; do not hand-roll JSON for this event elsewhere.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, TS)]
+#[ts(export)]
 pub struct MqttMessage {
     pub broker_id: String,
     pub topic: String,
     pub payload: String,
+    /// Set when the message reached a subscribed component (Plain/TopicAware
+    /// flows in `runtime::commands`); `null` for direct broker subscriptions.
+    /// Always serialized so the ts-rs binding mirrors the struct verbatim.
+    pub component_id: Option<String>,
 }
 
 /// Broker status info returned to frontend
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, TS)]
+#[ts(export)]
 pub struct BrokerStatus {
     pub id: String,
     pub status: ConnectionStatus,
@@ -79,6 +88,7 @@ pub async fn mqtt_subscribe(
             broker_id: broker_id_clone.clone(),
             topic: msg.topic,
             payload: String::from_utf8_lossy(&msg.payload).to_string(),
+            component_id: None,
         };
         let _ = app_handle.emit("mqtt-message", message);
     });

@@ -47,8 +47,9 @@ impl ReconnectConfig {
 type ClientEndpoint = mqtt_ep::endpoint::Endpoint<mqtt_ep::role::Client>;
 
 /// Connection status for a broker
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
 #[serde(rename_all = "lowercase")]
+#[ts(export)]
 pub enum ConnectionStatus {
     Disconnected,
     Connecting,

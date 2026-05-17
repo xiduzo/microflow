@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serialport::SerialPortType;
 use std::collections::HashMap;
 use std::fmt::Write;
+use ts_rs::TS;
 
 /// Patterns indicating system ports to skip
 const SKIP_PATTERNS: &[&str] = &[
@@ -23,15 +24,16 @@ const SKIP_PATTERNS: &[&str] = &[
 ];
 
 /// Information about a serial port
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[ts(export)]
 pub struct SerialPortInfo {
     pub port_name: String,
     pub port_type: String,
     pub description: Option<String>,
     pub has_firmata: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    // Always serialized so the ts-rs binding stays a faithful mirror of the
+    // Rust struct — `None` becomes `null` instead of being omitted.
     pub vid: Option<u16>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub pid: Option<u16>,
 }
 

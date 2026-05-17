@@ -1,16 +1,21 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/shallow";
 import { useMemo } from "react";
-import { useListen } from "@/lib/ipc";
+import { useListen, type BoardState, type PinInfo } from "@/lib/ipc";
 
-type BoardState = {
+// `Board` is the legacy alias the rest of the app uses for the generated
+// tagged-union payload of the `board-state` Tauri event.
+export type Board = BoardState;
+export type Pin = PinInfo;
+
+type BoardStoreState = {
   board: Board;
   setBoard: (board: Board) => void;
 };
 
-export const useBoardStore = create<BoardState>((set) => {
+export const useBoardStore = create<BoardStoreState>((set) => {
   return {
-    board: { state: "disconnected", pins: [] },
+    board: { state: "disconnected" },
     setBoard: (board: Board) => {
       set({ board: board });
     },
@@ -31,7 +36,7 @@ export function useBoardEvents() {
 
 export const usePins = (shouldHaveMode?: MODES[], shouldNotHaveMode?: MODES[]) => {
   const boardPins = useBoardStore(
-    useShallow((state) => (state.board.state === "connected" ? state.board.pins : [])),
+    useShallow((state) => (state.board.state === "connected" ? state.board.pins : ([] as Pin[]))),
   );
 
   const filteredPins = useMemo(() => {
@@ -99,42 +104,6 @@ export const PIN_MODES = new Map<MODES, string>([
   [MODES.UNKOWN, "unkown"],
 ]);
 
-export type Pin = {
-  supportedModes: MODES[];
-  analogChannel: number;
-  mode?: unknown;
-  pin: number;
-};
-
-type BoardReady = {
-  state: "connected";
-  port: string;
-  firmwareName: string;
-  firmwareVersion: string;
-  pins: Array<{
-    pin: number;
-    supportedModes: MODES[];
-    analogChannel: number;
-  }>;
-};
-
-type BoardError = {
-  state: "error";
-  error?: string;
-};
-
-type BoardDisconnected = {
-  state: "disconnected";
-};
-
-type BoardConnecting = {
-  state: "connecting";
-};
-
-type BoardFlashing = {
-  state: "flashing";
-  port: string;
-  board: string;
-};
-
-export type Board = BoardReady | BoardError | BoardDisconnected | BoardConnecting | BoardFlashing;
+// `Board` and `Pin` are re-exported above as aliases for the generated
+// `BoardState` / `PinInfo` types — the legacy hand-typed unions are gone so
+// drift between Rust and TS is structurally impossible.

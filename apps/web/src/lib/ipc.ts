@@ -4,6 +4,29 @@ import { type Node, type Edge } from "@xyflow/react";
 import { isDesktop } from "./platform";
 import { useEffect } from "react";
 
+// Generated bindings: ts-rs writes one file per #[derive(TS)] type into
+// ./bindings/ during `cargo test`. Always import event-payload types from
+// there so the Rust struct stays the single source of truth.
+import type { BoardState } from "./bindings/BoardState";
+import type { BrokerStatus } from "./bindings/BrokerStatus";
+import type { ComponentEvent } from "./bindings/ComponentEvent";
+import type { ConnectionStatus } from "./bindings/ConnectionStatus";
+import type { MqttMessage } from "./bindings/MqttMessage";
+import type { PinInfo } from "./bindings/PinInfo";
+import type { SerialPortEvent } from "./bindings/SerialPortEvent";
+import type { SerialPortInfo } from "./bindings/SerialPortInfo";
+
+export type {
+  BoardState,
+  BrokerStatus,
+  ComponentEvent,
+  ConnectionStatus,
+  MqttMessage,
+  PinInfo,
+  SerialPortEvent,
+  SerialPortInfo,
+};
+
 type ErrorResponse = {
   success: false;
   error: string;
@@ -120,23 +143,11 @@ export async function invokeCommand<
   }
 }
 
-export type MqttMessagePayload = {
-  broker_id: string;
-  topic: string;
-  payload: string;
-};
-
-export type BrokerStatusPayload = {
-  id: string;
-  status: "disconnected" | "connecting" | "connected" | "error";
-};
-
-export type ComponentEventPayload = {
-  source: string;
-  sourceHandle: string;
-  value: boolean | number | string | { r: number; g: number; b: number; a: number } | unknown[];
-  edgeId?: string;
-};
+// Legacy aliases kept for existing call sites; generated types are the source
+// of truth (see imports at the top of this file).
+export type MqttMessagePayload = MqttMessage;
+export type BrokerStatusPayload = BrokerStatus;
+export type ComponentEventPayload = ComponentEvent;
 
 export function useListen<T>(event: { type: string; handler: (event: Event<T>) => void }) {
   useEffect(() => {

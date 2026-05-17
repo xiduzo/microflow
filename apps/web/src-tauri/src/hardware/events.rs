@@ -6,10 +6,19 @@
 use super::port_monitor::SerialPortInfo;
 use super::types::BoardState;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::Emitter;
+use ts_rs::TS;
+
+/// Callback invoked in-process for every `board-state` transition, before the
+/// Tauri event is emitted. Lets the host runtime mutate `AppState`
+/// (`board_connected`, `pending_flow`, …) without round-tripping through the
+/// Tauri event bus.
+pub type BoardStateObserver = Arc<dyn Fn(&BoardState) + Send + Sync>;
 
 /// Event payload for serial port connection/disconnection
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct SerialPortEvent {
     pub port: SerialPortInfo,
     pub event_type: String,
@@ -18,20 +27,34 @@ pub struct SerialPortEvent {
 /// Centralized event emitter for hardware events
 pub struct EventEmitter {
     app_handle: tauri::AppHandle,
+    board_state_observer: Option<BoardStateObserver>,
 }
 
 impl EventEmitter {
-    #[must_use] 
+    #[must_use]
     pub fn new(app_handle: tauri::AppHandle) -> Self {
-        Self { app_handle }
+        Self { app_handle, board_state_observer: None }
+    }
+
+    /// Construct with an in-process observer that runs for every board-state
+    /// transition. Used by the host (`lib.rs`) to update `AppState` directly
+    /// instead of subscribing to its own Tauri event bus.
+    #[must_use]
+    pub fn with_observer(app_handle: tauri::AppHandle, observer: BoardStateObserver) -> Self {
+        Self { app_handle, board_state_observer: Some(observer) }
     }
 
     // ========================================================================
     // Board State Events
     // ========================================================================
 
-    /// Emit any board state
+    /// Notify in-process observer (if any), then emit to the Tauri event bus.
+    /// Observer runs first so internal state (e.g. `AppState.board_connected`)
+    /// is updated before any UI handler reacts to the same transition.
     pub fn board_state(&self, state: &BoardState) {
+        if let Some(observer) = &self.board_state_observer {
+            observer(state);
+        }
         if let Err(e) = self.app_handle.emit("board-state", state) {
             log::error!("Failed to emit board-state: {e}");
         }
