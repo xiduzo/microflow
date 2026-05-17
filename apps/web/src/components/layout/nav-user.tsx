@@ -108,16 +108,26 @@ export function NavUser({ user }: Props) {
               />
             }
           >
-            <div
-              className="aspect-square size-8 rounded-lg bg-card-foreground flex items-center justify-center"
-              style={{
-                backgroundColor: collabColor ?? "var(--foreground)",
-              }}
-            >
-              <Icon icon={collabIcon} size={16} className="text-white" />
+            <div className="relative aspect-square size-8 shrink-0">
+              <div
+                className="size-8 rounded-lg bg-card-foreground flex items-center justify-center"
+                style={{
+                  backgroundColor: collabColor ?? "var(--foreground)",
+                }}
+              >
+                <Icon icon={collabIcon} size={16} className="text-white" />
+              </div>
+              {isSupporter ? (
+                <Heart
+                  className="absolute -top-1.5 -left-1.5 size-3 dark:fill-rose-200 fill-rose-600 drop-shadow-[0_0_2px_var(--sidebar)]"
+                  aria-label="Supporter"
+                />
+              ) : null}
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{profile?.name ?? user.name}</span>
+              <span className="truncate font-medium">
+                {profile?.name ?? user.name}
+              </span>
               <span className="truncate text-xs text-muted-foreground">
                 {user.email}
               </span>
@@ -134,22 +144,28 @@ export function NavUser({ user }: Props) {
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <div
-                    className="h-8 w-8 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: collabColor }}
-                  >
-                    <Icon icon={collabIcon} size={16} className="text-white" />
-                  </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium inline-flex items-center gap-1">
-                    {profile?.name ?? user.name}
+                  <div className="relative h-8 w-8 shrink-0">
+                    <div
+                      className="h-8 w-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: collabColor }}
+                    >
+                      <Icon
+                        icon={collabIcon}
+                        size={16}
+                        className="text-white"
+                      />
+                    </div>
                     {isSupporter ? (
                       <Heart
-                        className="size-3 text-rose-500 fill-rose-500"
+                        className="absolute -top-1 -right-1 size-3 text-rose-500 fill-rose-500 drop-shadow-[0_0_2px_var(--popover)]"
                         aria-label="Supporter"
                       />
                     ) : null}
-                  </span>
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">
+                      {profile?.name ?? user.name}
+                    </span>
                     <span className="truncate text-xs">{user.email}</span>
                   </div>
                 </div>
@@ -178,7 +194,9 @@ export function NavUser({ user }: Props) {
                       if (isDesktop()) {
                         localStorage.removeItem("bearer_token");
                       }
-                      queryClient.removeQueries({ queryKey: trpc.flow.list.queryOptions().queryKey });
+                      queryClient.removeQueries({
+                        queryKey: trpc.flow.list.queryOptions().queryKey,
+                      });
                       setActiveFlowId("local");
                       navigate({ to: "/" });
                     },

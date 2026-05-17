@@ -1,4 +1,8 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { EmptyState } from "@/components/states/empty-state";
+import { Button } from "@/components/ui/button";
+import { Link, createFileRoute, useSearch } from "@tanstack/react-router";
+import { PartyPopperIcon } from "lucide-react";
+import ReactConfetti from "react-confetti";
 
 export const Route = createFileRoute("/success")({
   component: SuccessPage,
@@ -12,13 +16,26 @@ export const Route = createFileRoute("/success")({
 });
 
 function SuccessPage() {
-  const { checkout_id, customer_session_token } = useSearch({ from: "/success" });
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1>Payment Successful!</h1>
-      {checkout_id && <p>Checkout ID: {checkout_id}</p>}
-      {customer_session_token && <p>Session: {customer_session_token}</p>}
-    </div>
+    <>
+      <ReactConfetti
+        style={{ position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none" }}
+        width={window.innerWidth}
+        height={window.innerHeight}
+        recycle={false}
+        numberOfPieces={500}
+      />
+      <div className="h-full w-full">
+        <EmptyState
+          title="Thank you for your support!"
+          description="Your contribution keeps Microflow alive and growing. We truly appreciate you."
+          icon={PartyPopperIcon}
+        >
+          <Link to="/">
+            <Button>Back to my flows</Button>
+          </Link>
+        </EmptyState>
+      </div>
+    </>
   );
 }

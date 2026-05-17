@@ -10,7 +10,7 @@ import { useSyncStateStore } from "@/stores/sync-state-store";
 export type UseSyncProviderOptions = {
   flowDoc: FlowDocument | null;
   flowId: string | null;
-  user: { id: string; name: string; color?: string; icon?: string } | null;
+  user: { id: string; name: string; color?: string; icon?: string; isSupporter?: boolean } | null;
   wsUrl?: string;
   /** Bearer token for auth (used in Tauri where cookies aren't available) */
   authToken?: string;
@@ -133,7 +133,7 @@ export function useSyncProvider(options: UseSyncProviderOptions): UseSyncProvide
       providerRef.current = null;
       connectedFlowIdRef.current = null;
     };
-  }, [enabled, flowDoc, flowId, user?.id, user?.name, user?.color, user?.icon, computedWsUrl, authToken, clearFlowState]);
+  }, [enabled, flowDoc, flowId, user?.id, user?.name, user?.color, user?.icon, user?.isSupporter, computedWsUrl, authToken, clearFlowState]);
 
   // Cursor update
   const updateCursor = useCallback(

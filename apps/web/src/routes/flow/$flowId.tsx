@@ -201,6 +201,13 @@ function CloudFlowLayout() {
         enabled: !!session.data,
     });
 
+    const { data: supporterStatus } = useQuery({
+        ...trpc.supporters.myStatus.queryOptions(),
+        enabled: !!session.data,
+        staleTime: 5 * 60 * 1000,
+    });
+    const isSupporter = supporterStatus?.isSupporter ?? false;
+
     // User info for sync provider - memoized to prevent reconnections
     const user = useMemo(
         () => ({
@@ -208,12 +215,14 @@ function CloudFlowLayout() {
             name: session.data!.user.name ?? "Anonymous",
             color: profile?.settings.collabColor,
             icon: profile?.settings.collabIcon,
+            isSupporter,
         }),
         [
             session.data?.user.id,
             session.data?.user.name,
             profile?.settings.collabColor,
             profile?.settings.collabIcon,
+            isSupporter,
         ]
     );
 

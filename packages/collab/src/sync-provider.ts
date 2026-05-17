@@ -47,6 +47,7 @@ export type AwarenessUser = {
   selectedNodes?: string[];
   /** Yjs client ID — unique per connection, not per account */
   clientId?: number;
+  isSupporter?: boolean;
 };
 
 export type SyncProviderEvents = {
@@ -66,6 +67,7 @@ export type SyncProviderOptions = {
     name: string;
     color?: string;
     icon?: string;
+    isSupporter?: boolean;
   };
   /** Bearer token for auth (used in Tauri where cookies aren't available) */
   authToken?: string;
@@ -104,6 +106,7 @@ export class SyncProvider {
         options.user.color ??
         COLLAB_COLORS[Math.floor(Math.random() * COLLAB_COLORS.length)]!,
       icon: options.user.icon ?? "Cat",
+      isSupporter: options.user.isSupporter ?? false,
     };
 
     this.awareness = new awarenessProtocol.Awareness(this.doc);

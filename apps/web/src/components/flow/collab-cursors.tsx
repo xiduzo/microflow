@@ -1,6 +1,6 @@
 import type { AwarenessUser } from "@microflow/collab";
 import { useReactFlow } from "@xyflow/react";
-import { MousePointer2Icon } from "lucide-react";
+import { Heart, MousePointer2Icon } from "lucide-react";
 import { Icon, type IconName } from "../ui/icon";
 
 type CollabCursorsProps = {
@@ -39,14 +39,22 @@ export function Cursor(props: AwarenessUser) {
         transform: "translate(-2px, -2px)",
       }}
     >
-      <MousePointer2Icon style={{ stroke: props.color, fill: props.color }} />
+      <div className="relative">
+        <MousePointer2Icon style={{ stroke: props.color, fill: props.color }} />
+      </div>
       {/* User name label */}
       <section className="absolute left-4.5 top-4.5 flex items-center gap-2">
         <div
           style={{ backgroundColor: props.color }}
-          className="px-2 py-0.5 rounded text-white"
+          className="px-2 py-0.5 rounded text-white flex items-center gap-1"
         >
           {props.name}
+          {props.isSupporter ? (
+            <Heart
+              className="size-3 text-rose-200 dark:fill-rose-200 fill-rose-600 -top-1 -right-1 absolute"
+              aria-label="Supporter"
+            />
+          ) : null}
         </div>
       </section>
     </div>
