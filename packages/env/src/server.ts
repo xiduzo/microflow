@@ -11,6 +11,8 @@ export const env = createEnv({
     POLAR_SUCCESS_URL: z.url(),
     POLAR_SUPPORTER_PRODUCT_ID: z.string().min(1).optional(),
     POLAR_DONATION_PRODUCT_ID: z.string().min(1).optional(),
+    GITHUB_SPONSORS_TOKEN: z.string().min(1).optional(),
+    GITHUB_SPONSORS_LOGIN: z.string().min(1).default("xiduzo"),
     CORS_ORIGINS: z.string().min(1).transform((s) => s.split(",")),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     RESEND_API_KEY: z.string().min(1),
