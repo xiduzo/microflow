@@ -43,14 +43,10 @@ impl CommandReceipt {
 
     /// Consume into an async future. `.await` from Tauri commands or any
     /// async context.
-    pub fn into_future(
-        self,
-    ) -> impl std::future::Future<Output = Result<(), HardwareError>> + Send + 'static {
-        async move {
-            self.rx
-                .await
-                .unwrap_or(Err(HardwareError::Disconnected))
-        }
+    pub async fn into_future(self) -> Result<(), HardwareError> {
+        self.rx
+            .await
+            .unwrap_or(Err(HardwareError::Disconnected))
     }
 
     /// Drop the receipt without consuming the outcome. Makes fire-and-forget
