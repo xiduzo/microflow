@@ -372,12 +372,13 @@ mod tests {
     }
 
     fn config() -> FigmaConfig {
-        let mut c = FigmaConfig::default();
-        c.broker_id = "broker-1".into();
-        c.unique_id = "uid-1".into();
-        c.variable_id = "VariableID:1:2".into();
-        c.resolved_type = "BOOLEAN".into();
-        c
+        FigmaConfig {
+            broker_id: "broker-1".into(),
+            unique_id: "uid-1".into(),
+            variable_id: "VariableID:1:2".into(),
+            resolved_type: "BOOLEAN".into(),
+            ..FigmaConfig::default()
+        }
     }
 
     #[tokio::test]

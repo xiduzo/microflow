@@ -267,10 +267,12 @@ mod tests {
             .await;
 
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let mut config = LlmConfig::default();
-        config.provider_id = "test-provider".into();
-        config.model = "test-model".into();
-        config.prompt = "hello".into();
+        let config = LlmConfig {
+            provider_id: "test-provider".into(),
+            model: "test-model".into(),
+            prompt: "hello".into(),
+            ..LlmConfig::default()
+        };
 
         let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
         llm.set_event_sender(tx);
@@ -304,8 +306,10 @@ mod tests {
     async fn emits_error_when_provider_not_in_registry() {
         let registry = Arc::new(LlmRegistry::new()); // empty
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let mut config = LlmConfig::default();
-        config.provider_id = "missing".into();
+        let config = LlmConfig {
+            provider_id: "missing".into(),
+            ..LlmConfig::default()
+        };
         let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
         llm.set_event_sender(tx);
 
@@ -333,10 +337,12 @@ mod tests {
             .await;
 
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let mut config = LlmConfig::default();
-        config.provider_id = "p".into();
-        config.system = "you are terse".into();
-        config.prompt = "hi".into();
+        let config = LlmConfig {
+            provider_id: "p".into(),
+            system: "you are terse".into(),
+            prompt: "hi".into(),
+            ..LlmConfig::default()
+        };
         let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
         llm.set_event_sender(tx);
 
@@ -358,9 +364,11 @@ mod tests {
             .await;
 
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let mut config = LlmConfig::default();
-        config.provider_id = "p".into();
-        config.prompt = "hello {{name}}".into();
+        let config = LlmConfig {
+            provider_id: "p".into(),
+            prompt: "hello {{name}}".into(),
+            ..LlmConfig::default()
+        };
         let mut llm = Llm::new("node-1".into(), config, Arc::clone(&registry));
         llm.set_event_sender(tx);
 

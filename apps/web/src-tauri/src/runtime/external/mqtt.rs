@@ -246,11 +246,13 @@ mod tests {
     #[tokio::test]
     async fn publish_node_dispatches_to_publisher() {
         let recorder = Arc::new(RecordingMqttPublisher::new());
-        let mut config = MqttConfig::default();
-        config.direction = "publish".into();
-        config.broker_id = "broker-1".into();
-        config.topic = "sensors/light".into();
-        config.retain = true;
+        let config = MqttConfig {
+            direction: "publish".into(),
+            broker_id: "broker-1".into(),
+            topic: "sensors/light".into(),
+            retain: true,
+            ..MqttConfig::default()
+        };
 
         let mut node = Mqtt::new(
             "node-1".into(),
@@ -272,10 +274,12 @@ mod tests {
     #[tokio::test]
     async fn subscribe_node_rejects_trigger_without_publishing() {
         let recorder = Arc::new(RecordingMqttPublisher::new());
-        let mut config = MqttConfig::default();
-        config.direction = "subscribe".into();
-        config.broker_id = "broker-1".into();
-        config.topic = "sensors/light".into();
+        let config = MqttConfig {
+            direction: "subscribe".into(),
+            broker_id: "broker-1".into(),
+            topic: "sensors/light".into(),
+            ..MqttConfig::default()
+        };
 
         let mut node = Mqtt::new(
             "node-1".into(),
