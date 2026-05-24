@@ -1,6 +1,16 @@
+import type { Metadata, Viewport } from "next";
 import { RootProvider } from "fumadocs-ui/provider/next";
 
 import "./global.css";
+
+export const metadata: Metadata = {
+  title: { default: "Microflow", template: "%s | Microflow" },
+  manifest: "/site.webmanifest",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1E293B",
+};
 
 export default function Layout({ children }: LayoutProps<"/">) {
   return (
