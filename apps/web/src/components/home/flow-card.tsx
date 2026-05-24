@@ -28,6 +28,8 @@ import { HardDriveUploadIcon, MoreHorizontalIcon, SettingsIcon, Trash2Icon } fro
 import { NODE_TYPES } from "../flow/nodes/_REGISTRY";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
+import { PreviewFlowSessionProvider } from "@/session";
+import type { FlowEdge, FlowNode } from "@microflow/collab";
 import { Button } from "../ui/button";
 import { DeleteFlowDialog } from "../flow/dialogs/delete-flow-dialog";
 
@@ -155,26 +157,28 @@ function FitViewOnInit() {
 
 export function FlowThumbnail({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodesDraggable={false}
-      nodesConnectable={false}
-      nodesFocusable={false}
-      edgesFocusable={false}
-      elementsSelectable={false}
-      panOnDrag={false}
-      zoomOnScroll={false}
-      zoomOnPinch={false}
-      zoomOnDoubleClick={false}
-      preventScrolling={false}
-      proOptions={{ hideAttribution: true }} // Sorry - proper attribution is given on the main page
-      className="pointer-events-none"
-      nodeTypes={NODE_TYPES}
-    >
-      <FitViewOnInit />
-      <Background gap={20} size={1} className="opacity-30" />
-    </ReactFlow>
+    <PreviewFlowSessionProvider nodes={nodes as FlowNode[]} edges={edges as FlowEdge[]}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        nodesFocusable={false}
+        edgesFocusable={false}
+        elementsSelectable={false}
+        panOnDrag={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+        preventScrolling={false}
+        proOptions={{ hideAttribution: true }} // Sorry - proper attribution is given on the main page
+        className="pointer-events-none"
+        nodeTypes={NODE_TYPES}
+      >
+        <FitViewOnInit />
+        <Background gap={20} size={1} className="opacity-30" />
+      </ReactFlow>
+    </PreviewFlowSessionProvider>
   );
 }
 

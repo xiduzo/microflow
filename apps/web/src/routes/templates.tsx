@@ -6,7 +6,7 @@ import {
   type Node,
   type Edge,
 } from "@xyflow/react";
-import { useFlowStore } from "@/stores/flow-store";
+import { evictSession } from "@/session";
 import { COMPONENT_TYPES } from "@/components/flow/nodes/_TYPES";
 import { NODE_TYPES } from "@/components/flow/nodes/_TYPES";
 import { useState, useMemo } from "react";
@@ -60,8 +60,9 @@ function TemplatesPage() {
   const navigate = useNavigate();
 
   const setTemplate = async (template: Template) => {
-    const { flowDoc, mode, destroy } = useFlowStore.getState();
-    if (flowDoc && mode === "local") destroy();
+    // Force-destroy any cached local session so the next /flow/local mount
+    // constructs a fresh adapter that loads from the new localStorage payload.
+    evictSession("local");
     localStorage.setItem(
       LOCAL_FLOW_STORAGE_KEY,
       JSON.stringify({ nodes: template.nodes, edges: template.edges }),

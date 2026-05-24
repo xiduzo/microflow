@@ -207,3 +207,68 @@ Frontend mirror of **Wiring**. Each node component module may export an `adapter
 - `accelerator(node)` — keyboard accelerator this node listens to; registered with `useHotkeys`.
 
 The catalog `impls[].usesHostAdapter` flag drives codegen: when `true`, `_REGISTRY.ts` imports the entry's `adapter` export. The frontend registry exposes `adapter` on every entry (undefined when no adapter is needed), so consumers walk it without pattern-matching `data.instance`.
+
+## FlowSession
+
+Live editing context wrapping a **FlowDocument** plus a **SyncAdapter**. Lives in `apps/web/src/session/flow-session.ts`. A plain object: `{ flowId, mode, readOnly, doc, sync, destroy }`. Held by a **FlowSessionProvider** (one per route layout) and retrieved by `useFlowSession()` — which throws if called outside a provider, so consumers get type-narrowed access (`FlowSession`, never `FlowSession | null`) inside the subtree. Three factories: `createLocalSession()` pairs a fresh `FlowDocument` with a `LocalStorageSyncAdapter` (`readOnly: false`); `createCloudSession({ flowId, user, wsUrl, authToken, initialData? })` pairs a `FlowDocument` (seeded from `initialData` if provided) with a `WebSocketSyncAdapter` (`readOnly: false`); `createPreviewSession(nodes, edges)` pairs a fresh `FlowDocument` with a `NoOpSyncAdapter` for read-only thumbnail surfaces (`readOnly: true`). `destroy()` tears down the sync adapter, then the doc, in that order. The `readOnly` flag is consumed by `useNodeControls` to suppress the Leva→Yjs commit effect — without it, Leva's per-render `controlsData` identity churn would write to the preview doc on every render and (with no `ReactFlowBridge` to absorb the echo) loop.
+
+## SyncAdapter
+
+Base interface for the session's persistence/sync seam, mirroring the **Capability Trait** discipline on the Rust side ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)). Lives in `apps/web/src/session/sync-adapter.ts`. Carries only `destroy()`. Two-tier: extended by `RemoteSyncAdapter` for server-backed adapters. `LocalStorageSyncAdapter` satisfies the base only — no `state`, no `users`, no `error`, because none of those are meaningful for localStorage. UI code switches on `session.mode === "cloud"` (or a `discriminator: "remote"` field on `session.sync`) to render the sync chip / collaborator panel.
+
+## RemoteSyncAdapter
+
+Sub-interface of **SyncAdapter** for server-backed adapters. Adds `state: SyncState`, `isSynced: boolean`, `users: AwarenessUser[]`, `localUser: AwarenessUser | null`, `error: Error | null`, `updateCursor`, `updateSelectedNodes`, `reconnect`, `disconnect`, and an `on(event, cb): () => void` subscription surface (events: `"state"`, `"awareness"`, `"error"`). Implemented by `WebSocketSyncAdapter` (production) and `RecordingSyncAdapter` (tests). Not implemented by `LocalStorageSyncAdapter`. The two-tier split is type-honest — local sessions don't lie about being "synced to nothing."
+
+## LocalStorageSyncAdapter
+
+The `SyncAdapter` for local-only flows. Lives in `apps/web/src/session/local-storage-sync-adapter.ts`. Subscribes to the `FlowDocument`'s Y.Doc updates and persists a snapshot to `localStorage` under `microflow-local-flow`. On construction, reads any existing snapshot and applies it to the doc. No `connect`/`disconnect` concept — the adapter is "always synced" with localStorage. `destroy()` flushes any pending write and removes the observer.
+
+## WebSocketSyncAdapter
+
+The production `RemoteSyncAdapter`. Lives in `apps/web/src/session/websocket-sync-adapter.ts`. Wraps the `SyncProvider` from [`@microflow/collab`](packages/collab/src/sync-provider.ts), forwarding `connect`/`disconnect`/`destroy`/`updateCursor`/`updateSelectedNodes` and translating `SyncProvider`'s `on(event, cb)` event names. If the constructor receives `initialData: Uint8Array` (typically a Yjs snapshot fetched via tRPC `flow.get`), it applies the snapshot to the doc synchronously before opening the WebSocket — eliminating blank-canvas during the sync handshake. `isSynced` flips true only after the Yjs `messageYjsSyncStep2` handshake completes, so UI gating on `isSynced` guarantees "latest state."
+
+## RecordingSyncAdapter
+
+Test-mode replacement for `WebSocketSyncAdapter`. Lives in `apps/web/src/session/recording-sync-adapter.ts`. Mirrors the [`TestIoLoop`](#testioloop) / `RecordingLlmProvider` ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)) discipline. Records `appliedUpdates: Uint8Array[]`, `awarenessUpdates: AwarenessUpdate[]`, `connectCalls`, `disconnectCalls`, `destroyed`. Scripts `injectRemoteUpdate(update)` (simulate a collaborator's edit), `injectAwareness(users)` (simulate presence), `injectState(state)` (simulate connection drop / recover), `injectError(err)` (simulate sync error). Two `RecordingSyncAdapter`s pointed at separate `FlowDocument`s can replay each other's updates in vitest — the convergence property is testable without a Yjs server.
+
+## SessionRegistry
+
+Module-level `Map<flowId, { session, refs, pendingDestroy }>` keyed on `flowId`. Lives in `apps/web/src/session/session-registry.ts`. `acquireLocalSession()` / `acquireCloudSession(opts)` increment `refs` (cancelling any `pendingDestroy` timer); `releaseSession(flowId)` decrements and, when `refs` hits zero, schedules `destroy()` via `setTimeout(_, 100)`. The 100ms grace period absorbs React 18 Strict Mode's mount → unmount → mount cycle (second mount lands inside the window and reuses the same instance) and fast browser back-button navigation. Production behaviour with no Strict Mode is `refs: 1 → 0 → destroy after 100ms` — perceptually instant. Keyed on `flowId` so cross-mode navigation (`/flow/abc` → `/flow/local`) fully tears down without reuse. Pattern mirrors TanStack Query `gcTime`.
+
+## FlowSessionProvider
+
+React Context provider component. Lives in `apps/web/src/session/flow-session-context.tsx`. Wraps an editing subtree with one `FlowSession` value. One provider mounted per route layout — `LocalFlowLayout` and `CloudFlowLayout` in `apps/web/src/routes/flow/$flowId.tsx` each own one. Children call `useFlowSession()` to read; reading outside a provider throws (`"useFlowSession must be inside a FlowSessionProvider"`) so a misplaced consumer surfaces immediately rather than silently no-op'ing. The Context value is the session reference (rare change); high-frequency reactive data (nodes, edges, sync state) bypasses Context via Y.Doc observers and `RemoteSyncAdapter.on(...)` subscriptions.
+
+For non-editable surfaces that still render real node components (thumbnails, template cards) use the **PreviewFlowSessionProvider** wrapper (`apps/web/src/session/preview-flow-session-provider.tsx`). It seeds a throwaway `FlowSession` via `createPreviewSession(nodes, edges)` — a fresh `FlowDocument` paired with a `NoOpSyncAdapter` that doesn't persist or connect — so node components calling `useFlowSession()` resolve to a real (but ephemeral) session instead of throwing. The session is destroyed when the provider unmounts; the nodes/edges identity drives rebuilds.
+
+## FlowUpdateDispatcher
+
+Class that observes a `FlowSession`'s `FlowDocument` for any Y-update (local edits AND remote sync arrivals), schedules a dispatch via an injected `DispatchScheduler`, then builds a `FlowUpdate` payload and ships it through an injected `FlowUpdateSender`. Lives in `apps/web/src/session/flow-update-dispatcher.ts`. Five injected dependencies, each with a production and test impl:
+
+- **`FlowSession`** — the doc to observe.
+- **`HostSnapshotProvider: () => HostSnapshot`** — re-read on every dispatch so credential rotation (MQTT password, LLM API key) takes effect on the next call without rebuilding the dispatcher.
+- **`FlowUpdateSender`** — transport. Production: `TauriFlowUpdateSender` (wraps `invokeCommand("flow_update", ...)`). Tests: `RecordingFlowUpdateSender` (captures every dispatched payload, supports scripted errors via `scriptError(msg)`).
+- **`DispatchScheduler`** — debounce strategy. Production: `DebounceScheduler` (500ms via `@tanstack/react-pacer`). Tests: `ManualDispatchScheduler` with `.flush()` for deterministic assertions.
+- **`NodeAdapterRegistry`** — minimal `Record<instance, { adapter? }>` shape the dispatcher needs from the codegen'd `NODE_REGISTRY`. Injected (not imported) so the dispatcher module doesn't pull every node component + its env/auth deps into tests.
+
+The pure compositional helpers, each independently testable:
+
+- **`applyHostAdapterPatches(nodes, hostState, registry)`** — walks each node's **Host Adapter** to apply `prepareData` patches and collect broker IDs. Returns `{ nodes, brokerIds }`.
+- **`gatherBrokers(brokerIds, allBrokers)`** — filter + project to the wire shape the runtime expects.
+- **`gatherProviders(allProviders)`** — project LLM provider configs to the snake-case wire shape.
+- **`buildFlowUpdate(doc, snapshot, registry)`** — composes the three helpers into a complete `FlowUpdate`. Pure: same inputs → same payload.
+
+Mounted by the desktop layout only — the `useFlowUpdateDispatcher(session)` hook is `isDesktop`-gated at the route, never inside the dispatcher itself, so platform concerns don't leak into the dispatch layer. Construction fires an immediate dispatch so the runtime gets the current flow on mount (matches the legacy `setupDocSync` behaviour). Because the observer fires on every Y.Doc mutation regardless of origin, remote collaborator edits arriving via `WebSocketSyncAdapter` also dispatch to the local runtime, keeping the native runtime in sync with whatever the user sees on screen.
+
+## ReactFlowBridge
+
+Bidirectional reconciler between a `FlowDocument` (Y.Doc CRDT) and the [ReactFlow](https://reactflow.dev) change protocol. Lives in `apps/web/src/session/react-flow-bridge.ts`. One instance per canvas mount; the hook `useReactFlowBridge(doc)` constructs and tears down via `useState` lazy init + `useEffect` cleanup, exposes a `useSyncExternalStore`-backed snapshot. Five named invariants live on the class:
+
+- **`classifyNodeChange` / `classifyEdgeChange`** (static, pure) — decide whether a `NodeChange` / `EdgeChange` is `"structural"` (flows to Y.Doc) or `"ephemeral"` (local React state only). `select` is always ephemeral; `position` is ephemeral while `dragging === true`, structural on drag-end; `add` / `remove` / `dimensions` / `replace` are always structural.
+- **`isFlushingToDoc`** — loop guard. Set during the bridge's own `transact("local")` so the synchronous Y.Map observer fire skips the merge-back. Replaces the legacy `pendingYjsSync` ref trick.
+- **`mergeYjsIntoSnapshot`** (static, pure) — carries `selected` / `dragging` from the current React snapshot onto an incoming Y.Doc snapshot; those fields never round-trip through Y.Doc.
+- **`nodeNeedsWrite`** (static, pure) — diff skip rule: if position + dimensions match the existing Y.Map entry, no write.
+- **`scheduleFlush` / `flush`** — RAF-batched structural writes. Multiple `applyNodeChanges` / `applyEdgeChanges` calls in one frame coalesce into one `transact("local")` and therefore one `UndoManager` entry. `flush()` is public so tests and callers needing a write barrier (e.g. before navigation) can force the flush synchronously.
+
+Each invariant is independently unit-testable (28 vitest cases in `__tests__/react-flow-bridge.test.ts`, including a convergence-via-`RecordingSyncAdapter` headline test that proves CRDT replay end-to-end without a React renderer). Drag-during positions are **not** sent over the doc today — the right channel for ephemeral peer state is Yjs awareness, not the doc, and a future enhancement will broadcast `draggingNode: { id, position }` via `RemoteSyncAdapter.updateCursor`-style awareness so live collaborators see smooth drag motion without polluting undo history.

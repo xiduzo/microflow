@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { useFlowDocument } from "@/stores/flow-store";
+import { useFlowSession } from "@/session";
 import type { FlowData, FlowMeta } from "@microflow/collab";
 
 export type FlowExportData = {
@@ -43,31 +43,20 @@ export function exportFlowData(
 }
 
 export function useFlowImportExport() {
-  const flowDoc = useFlowDocument();
+  const { doc } = useFlowSession();
 
   const exportFlow = useCallback(() => {
-    if (!flowDoc) {
-      toast.error("No flow to export");
-      return;
-    }
-
     try {
-      exportFlowData(flowDoc.getMeta(), flowDoc.getFlowData());
+      exportFlowData(doc.getMeta(), doc.getFlowData());
       toast.success("Flow exported");
     } catch (error) {
       console.error("[FLOW-EXPORT] Error:", error);
       toast.error("Failed to export flow");
     }
-  }, [flowDoc]);
+  }, [doc]);
 
   const importFlow = useCallback(() => {
-    if (!flowDoc) {
-      toast.error("No active flow to import into");
-      return;
-    }
-
     try {
-      // Create file input
       const input = document.createElement("input");
       input.type = "file";
       input.accept = ".json";
@@ -80,21 +69,14 @@ export function useFlowImportExport() {
           const text = await file.text();
           const importData = JSON.parse(text) as FlowExportData;
 
-          // Validate structure
-          if (
-            !importData.data ||
-            !importData.data.nodes ||
-            !importData.data.edges
-          ) {
+          if (!importData.data || !importData.data.nodes || !importData.data.edges) {
             throw new Error("Invalid flow file format");
           }
 
-          // Import the flow data
-          flowDoc.setFlowData(importData.data.nodes, importData.data.edges);
+          doc.setFlowData(importData.data.nodes, importData.data.edges);
 
-          // Update meta if available
           if (importData.meta) {
-            flowDoc.setMeta({
+            doc.setMeta({
               name: importData.meta.name,
               description: importData.meta.description,
             });
@@ -106,8 +88,7 @@ export function useFlowImportExport() {
         } catch (error) {
           console.error("[FLOW-IMPORT] Error:", error);
           toast.error("Failed to import flow", {
-            description:
-              error instanceof Error ? error.message : "Something went wrong",
+            description: error instanceof Error ? error.message : "Something went wrong",
           });
         }
       };
@@ -117,13 +98,13 @@ export function useFlowImportExport() {
       console.error("[FLOW-IMPORT] Error:", error);
       toast.error("Failed to import flow");
     }
-  }, [flowDoc]);
+  }, [doc]);
 
   return {
     exportFlow,
     importFlow,
-    canExport: !!flowDoc,
-    canImport: !!flowDoc,
+    canExport: true,
+    canImport: true,
   };
 }
 

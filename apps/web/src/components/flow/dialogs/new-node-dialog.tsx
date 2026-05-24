@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { NODE_REGISTRY } from "../nodes/_REGISTRY";
 import type { NodeDefaults } from "../nodes/_REGISTRY";
-import { useFlowStore } from "@/stores/flow-store";
+import { useFlowSession } from "@/session";
 import { useNewNodeStore } from "@/stores/new-node";
 import { groupIndicator } from "../nodes/_base/_base";
 import { uid } from "@/lib/uid";
@@ -45,7 +45,8 @@ export function NewNodeDialog() {
 
   const { open, setOpen, setNodeToAdd } = useNewNodeStore();
   const { flowToScreenPosition, getZoom } = useReactFlow();
-  const addNode = useFlowStore((state) => state.addNode);
+  const { doc } = useFlowSession();
+  const addNode = useCallback((node: FlowNode) => doc.addNode(node), [doc]);
   const [filter, setFilter] = useState("");
   const commandListRef = useRef<HTMLDivElement>(null);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
@@ -236,8 +237,12 @@ export function NewNodeDialog() {
 function useDraggableNewNode() {
   const { nodeToAdd, setNodeToAdd } = useNewNodeStore();
   const { screenToFlowPosition, getZoom } = useReactFlow();
-  const removeNode = useFlowStore((state) => state.removeNode);
-  const updateNode = useFlowStore((state) => state.updateNode);
+  const { doc } = useFlowSession();
+  const removeNode = useCallback((id: string) => doc.removeNode(id), [doc]);
+  const updateNode = useCallback(
+    (id: string, updates: Parameters<typeof doc.updateNode>[1]) => doc.updateNode(id, updates),
+    [doc],
+  );
 
   // Handle Escape/Backspace to cancel node placement
   useHotkeys(

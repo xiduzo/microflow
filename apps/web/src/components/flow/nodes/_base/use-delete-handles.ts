@@ -1,6 +1,6 @@
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useCallback } from "react";
-import { useFlowStore } from "@/stores/flow-store";
+import { useFlowSession } from "@/session";
 import { useNodeId } from "./_base";
 
 /**
@@ -10,30 +10,27 @@ import { useNodeId } from "./_base";
  */
 export function useDeleteHandles() {
   const id = useNodeId();
-  const flowDoc = useFlowStore((state) => state.flowDoc);
-  const onEdgesChange = useFlowStore((state) => state.onEdgesChange);
+  const { doc } = useFlowSession();
   const updateNodeInternals = useUpdateNodeInternals();
 
   const deleteHandles = useCallback(
     (handles: string[]) => {
-      if (!flowDoc) return;
-
-      // Find edges connected to the specified handles on this node
-      const edges = flowDoc.getEdges();
+      const edges = doc.getEdges();
       const edgesToRemove = edges.filter(
         (edge) =>
           (edge.source === id && edge.sourceHandle && handles.includes(edge.sourceHandle)) ||
           (edge.target === id && edge.targetHandle && handles.includes(edge.targetHandle)),
       );
 
-      // Remove each edge by its actual edge ID
       if (edgesToRemove.length > 0) {
-        onEdgesChange(edgesToRemove.map((edge) => ({ id: edge.id, type: "remove" })));
+        doc.doc.transact(() => {
+          for (const edge of edgesToRemove) doc.edges.delete(edge.id);
+        }, "local");
       }
 
-      updateNodeInternals(id); // for xyflow to apply the changes of the removed handles
+      updateNodeInternals(id);
     },
-    [id, flowDoc, onEdgesChange, updateNodeInternals],
+    [id, doc, updateNodeInternals],
   );
 
   return deleteHandles;

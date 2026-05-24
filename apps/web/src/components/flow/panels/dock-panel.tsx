@@ -13,7 +13,7 @@ import {
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
-import { useFlowHistoryActions } from "@/stores/flow-store";
+import { useFlowHistory, useFlowSession } from "@/session";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app";
 import { useNavigate } from "@tanstack/react-router";
@@ -22,7 +22,8 @@ import { useFlowImportExport } from "@/hooks/use-flow-import-export";
 export function DockPanel() {
   const { fitView, zoomIn, zoomOut, zoomTo } = useReactFlow();
   const { setOpen } = useNewNodeStore();
-  const history = useFlowHistoryActions();
+  const { doc } = useFlowSession();
+  const history = useFlowHistory(doc);
   const navigate = useNavigate();
   const { activeFlowId } = useAppStore();
   const { exportFlow } = useFlowImportExport();
@@ -107,10 +108,10 @@ export function DockPanel() {
         </DockIcon>
         <Separator orientation="vertical" className="h-full" />
         <DockIcon onClick={handleUndo}>
-          <UndoIcon className={cn(history.canUndo() ? "text-primary" : "text-muted-foreground")} />
+          <UndoIcon className={cn(history.canUndo ? "text-primary" : "text-muted-foreground")} />
         </DockIcon>
         <DockIcon onClick={handleRedo}>
-          <RedoIcon className={cn(history.canRedo() ? "text-primary" : "text-muted-foreground")} />
+          <RedoIcon className={cn(history.canRedo ? "text-primary" : "text-muted-foreground")} />
         </DockIcon>
         <Separator orientation="vertical" className="h-full" />
         <DockIcon onClick={exportFlow}>

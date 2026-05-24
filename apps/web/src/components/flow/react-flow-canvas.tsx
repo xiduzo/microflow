@@ -7,15 +7,16 @@ import {
   type ColorMode,
   type XYPosition,
   type Connection,
-  BackgroundVariant,
 } from "@xyflow/react";
 import {
-  useFlowDocument,
-  useFlowClipboard,
-  useFlowHistoryActions,
-} from "@/stores/flow-store";
-import { useFlowState } from "@/hooks/use-flow-document";
-import type { AwarenessUser, FlowEdge, FlowNode } from "@microflow/collab";
+  useFlowSession,
+  useFlowHistory,
+  useReactFlowBridge,
+  useCollabPresence,
+  useFlowAwareness,
+} from "@/session";
+import { useClipboardStore } from "@/stores/clipboard-store";
+import type { FlowEdge, FlowNode } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";
 import { NODE_TYPES } from "./nodes/_REGISTRY";
@@ -32,29 +33,18 @@ import { PressensePanel } from "./panels/pressense-panel";
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
-type ReactFlowCanvasProps = {
-  updateCursor?: (cursor: { x: number; y: number }) => void;
-  otherUsers?: AwarenessUser[];
-};
-
-export function ReactFlowCanvas({
-  updateCursor,
-  otherUsers = [],
-}: ReactFlowCanvasProps) {
+export function ReactFlowCanvas() {
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
 
-  // Get FlowDocument
-  const flowDoc = useFlowDocument();
+  const { doc } = useFlowSession();
+  const { otherUsers } = useCollabPresence();
+  const { updateCursor } = useFlowAwareness();
 
-  // Use the integrated flow state hook
-  const { nodes, edges, onNodesChange, onEdgesChange } = useFlowState(flowDoc);
+  const { nodes, edges, onNodesChange, onEdgesChange } = useReactFlowBridge(doc);
 
-  // Handle new connections
   const onConnect = useCallback(
     (connection: Connection) => {
-      if (!flowDoc) return;
-
       const newEdge: FlowEdge = {
         id: uid(),
         source: connection.source!,
@@ -63,32 +53,25 @@ export function ReactFlowCanvas({
         targetHandle: connection.targetHandle ?? undefined,
         type: "animated",
       };
-
-      flowDoc.addEdge(newEdge);
+      doc.addEdge(newEdge);
     },
-    [flowDoc]
+    [doc],
   );
 
-  // Setup hotkeys
   useHelperHotkeys(nodes);
 
-  // Handle cursor tracking for collab
   const { screenToFlowPosition } = useReactFlow();
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      if (!updateCursor) return;
-      const flowPosition = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
+      const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       updateCursor(flowPosition);
     },
-    [updateCursor, screenToFlowPosition]
+    [updateCursor, screenToFlowPosition],
   );
 
   useEffect(() => {
     fitView({ duration: 250, padding: 0.15 });
-  }, [fitView, flowDoc?.meta.doc?.clientID]);
+  }, [fitView, doc.doc.clientID]);
 
   return (
     <div className="w-full h-full relative overflow-hidden">
@@ -133,22 +116,24 @@ function useHelperHotkeys(nodes: Array<{ id: string; selected?: boolean }>) {
 
   const { fitView, screenToFlowPosition, getNodes, getEdges, setNodes, setEdges } = useReactFlow();
 
-  const clipboard = useFlowClipboard();
-  const history = useFlowHistoryActions();
+  const { doc } = useFlowSession();
+  const history = useFlowHistory(doc);
+  const copy = useClipboardStore((s) => s.copy);
+  const paste = useClipboardStore((s) => s.paste);
 
   useHotkeys([
     {
       hotkey: "Mod+C",
       callback: () => {
         const selectedNodes = getNodes().filter((n) => n.selected) as FlowNode[];
-        clipboard.copy(selectedNodes);
+        copy(selectedNodes);
       },
       options: { ignoreInputs: true },
     },
     {
       hotkey: "Mod+V",
       callback: () => {
-        clipboard.paste(screenToFlowPosition(cursorPositionRef.current));
+        paste(doc, screenToFlowPosition(cursorPositionRef.current));
       },
       options: { ignoreInputs: true },
     },

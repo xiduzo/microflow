@@ -2,7 +2,7 @@ import { LevaPanel, useControls, useCreateStore } from "leva";
 import { useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useFlowStore } from "@/stores/flow-store";
+import { useFlowSession } from "@/session";
 import { useNode } from "./_base";
 
 type UseControlParameters = Parameters<typeof useControls>;
@@ -38,7 +38,7 @@ export const useNodeControls = <
   const { selected, id, data } = useNode();
   const isFirstRender = useRef(true);
   const { getNode } = useReactFlow();
-  const onNodesChange = useFlowStore((state) => state.onNodesChange);
+  const { doc, readOnly } = useFlowSession();
   const updateNodeInternals = useUpdateNodeInternals();
 
   const [controlsData, set] = useControls(
@@ -52,21 +52,10 @@ export const useNodeControls = <
     async (data: Record<string, unknown>) => {
       const node = getNode(id);
       if (!node) return;
-
-      onNodesChange([
-        {
-          id: node.id,
-          type: "replace",
-          item: {
-            ...node,
-            data: { ...node.data, ...(data as Record<string, unknown>) },
-          },
-        },
-      ]);
+      doc.updateNodeData(node.id, data);
       updateNodeInternals(node.id);
-      // Note: Flow sync is now automatic through FlowDocument observers
     },
-    [id, getNode, onNodesChange, updateNodeInternals],
+    [id, getNode, doc, updateNodeInternals],
   );
 
   // Defer the Leva → node sync so that any setNodeData() calls made from
@@ -74,11 +63,16 @@ export const useNodeControls = <
   // time to commit through the Yjs → ReactFlow cycle first.  Without the
   // deferral, getNode(id) inside updateNodeData reads stale data and the
   // merge silently drops fields that were just set by onChange/setNodeData.
+  //
+  // Skipped on read-only (preview) sessions — writing back to the doc on
+  // every render loops because Leva's controlsData identity churns each
+  // render and the preview has no ReactFlowBridge to absorb the echo.
   useEffect(() => {
+    if (readOnly) return;
     requestAnimationFrame(() => {
       updateNodeData(controlsData as Data);
     });
-  }, [controlsData]);
+  }, [controlsData, readOnly, updateNodeData]);
 
   /**
    * Sometimes it is impossible to set the node data using the controls,

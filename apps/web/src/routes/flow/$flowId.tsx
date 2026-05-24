@@ -1,250 +1,204 @@
 import { authClient } from "@/lib/auth-client";
 import { useAppStore } from "@/stores/app";
-import {
-    useFlowStore,
-    useFlowDocument,
-    useFlowInit,
-} from "@/stores/flow-store";
 import { useCircuitStore } from "@/stores/circuit-store";
-import { useSyncProvider, type UseSyncProviderReturn } from "@/hooks/use-sync-provider";
-import { useFlowNodes } from "@/hooks/use-flow-document";
+import {
+  FlowSessionProvider,
+  useCloudSession,
+  useFlowSession,
+  useFlowUpdateDispatcher,
+  useFlowNodes,
+  useLocalSession,
+  type FlowSession,
+} from "@/session";
 import { usePins, type Pin } from "@/stores/board";
+import { useComponentEvents } from "@/hooks/use-component-events";
+import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, createContext, useContext } from "react";
+import { useEffect, useMemo } from "react";
 import { env } from "@microflow/env/web";
 import { ErrorState } from "@/components/states/error-state";
 import { LoadingState } from "@/components/states/loading-state";
 import { isDesktop } from "@/lib/platform";
 import type { Node } from "@xyflow/react";
 
-// Context to provide sync provider to child routes
-const FlowSyncContext = createContext<UseSyncProviderReturn | null>(null);
-
 /**
- * Listens to flow-store (nodes) and board store (pins) and triggers circuit build
- * in the circuit store. Runs when mounted under /flow/$flowId so the circuit
- * is built in the background before the user opens the circuit tab.
+ * Inside-provider listeners — events that need access to the session's
+ * FlowDocument (component events, hotkey events, optional desktop dispatch).
+ * Returns null; effects only.
  */
-function CircuitBuildListener() {
-    const flowDoc = useFlowDocument();
-    const nodes = useFlowNodes(flowDoc);
-    const pins = usePins();
-    const buildCircuit = useCircuitStore((s) => s.buildCircuit);
-
-    const debouncer = useDebouncer(
-        (nodes: Node[], pins: Pin[]) => {
-            buildCircuit(nodes, pins);
-        },
-        { wait: 1000 },
-    );
-
-    useEffect(() => {
-        if (!flowDoc) return;
-        debouncer.maybeExecute(nodes, pins);
-    }, [flowDoc, nodes, pins, debouncer.maybeExecute]);
-
-    return null;
+function FlowEventListeners() {
+  const session = useFlowSession();
+  useComponentEvents();
+  useHotkeyEvents();
+  if (isDesktop()) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useFlowUpdateDispatcher(session);
+  }
+  return null;
 }
 
-export function useFlowSync() {
-    return useContext(FlowSyncContext);
+/**
+ * Listens to session doc nodes and board pins; triggers circuit build in the
+ * circuit store. Mounted under /flow/$flowId so the circuit is built in the
+ * background before the user opens the circuit tab.
+ */
+function CircuitBuildListener() {
+  const { doc } = useFlowSession();
+  const nodes = useFlowNodes(doc);
+  const pins = usePins();
+  const buildCircuit = useCircuitStore((s) => s.buildCircuit);
+
+  const debouncer = useDebouncer(
+    (nodes: Node[], pins: Pin[]) => {
+      buildCircuit(nodes, pins);
+    },
+    { wait: 1000 },
+  );
+
+  useEffect(() => {
+    debouncer.maybeExecute(nodes, pins);
+  }, [nodes, pins, debouncer.maybeExecute]);
+
+  return null;
 }
 
 export const Route = createFileRoute("/flow/$flowId")({
-    component: RouteComponent,
-    beforeLoad: async ({ params }) => {
-        const session = await authClient.getSession();
+  component: RouteComponent,
+  beforeLoad: async ({ params }) => {
+    const session = await authClient.getSession();
 
-        // For local flow, no auth required
-        if (params.flowId === "local") {
-            const { data: customerState } = await authClient.customer.state();
-            return { session, customerState };
-        }
+    if (params.flowId === "local") {
+      const { data: customerState } = await authClient.customer.state();
+      return { session, customerState };
+    }
 
-        // For cloud flows, redirect to login if not authenticated
-        if (!session.data) {
-            throw redirect({
-                to: "/login",
-                search: { redirect: `/flow/${params.flowId}` },
-            });
-        }
+    if (!session.data) {
+      throw redirect({
+        to: "/login",
+        search: { redirect: `/flow/${params.flowId}` },
+      });
+    }
 
-        const { data: customerState } = await authClient.customer.state();
-        return { session, customerState };
-    },
+    const { data: customerState } = await authClient.customer.state();
+    return { session, customerState };
+  },
 });
 
 function RouteComponent() {
-    const { flowId } = Route.useParams();
-
-    // Handle local flow
-    if (flowId === "local") {
-        return <LocalFlowLayout />;
-    }
-
-    // Handle cloud flow
-    return <CloudFlowLayout />;
+  const { flowId } = Route.useParams();
+  return flowId === "local" ? <LocalFlowLayout /> : <CloudFlowLayout />;
 }
 
-// No-op sync provider for local flows (no collaboration needed)
-const localFlowSync: UseSyncProviderReturn = {
-    state: "synced",
-    isConnected: false,
-    isSynced: true,
-    error: null,
-    users: [],
-    localUser: null,
-    updateCursor: () => { },
-    updateSelectedNodes: () => { },
-    reconnect: () => { },
-    disconnect: () => { },
-};
+function FlowProviderShell({ session }: { session: FlowSession }) {
+  return (
+    <FlowSessionProvider session={session}>
+      <FlowEventListeners />
+      <CircuitBuildListener />
+      <Outlet />
+    </FlowSessionProvider>
+  );
+}
 
 function LocalFlowLayout() {
-    const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
-    const { initLocalFlow } = useFlowInit();
-    const flowDoc = useFlowDocument();
+  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const session = useLocalSession();
 
-    // Initialize local flow when visiting this route
-    useEffect(() => {
-        setActiveFlowId("local");
+  useEffect(() => {
+    setActiveFlowId("local");
+  }, [setActiveFlowId]);
 
-        // Only initialize if not already initialized
-        if (!flowDoc) {
-            initLocalFlow();
-        }
-
-        // Don't destroy on unmount - local flow persists across navigation
-        // It will be cleaned up when switching to a cloud flow or explicitly
-    }, [setActiveFlowId, initLocalFlow, flowDoc]);
-
-    // Provide mock sync context for local flow
-    return (
-        <FlowSyncContext.Provider value={localFlowSync}>
-            <CircuitBuildListener />
-            <Outlet />
-        </FlowSyncContext.Provider>
-    );
+  return <FlowProviderShell session={session} />;
 }
 
 function CloudFlowLayout() {
-    const { flowId } = Route.useParams();
-    const { session } = Route.useRouteContext();
-    const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
-    const flowDoc = useFlowDocument();
+  const { flowId } = Route.useParams();
+  const { session: authSession } = Route.useRouteContext();
+  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
 
-    // Track initialization state to prevent double-init
-    const initializedFlowId = useRef<string | null>(null);
+  const wsUrl = useMemo(() => {
+    const serverUrl = new URL(env.VITE_SERVER_URL);
+    serverUrl.protocol = serverUrl.protocol === "https:" ? "wss:" : "ws:";
+    return serverUrl.origin;
+  }, []);
 
-    // Derive WebSocket URL from server URL
-    const wsUrl = useMemo(() => {
-        const serverUrl = new URL(env.VITE_SERVER_URL);
-        serverUrl.protocol = serverUrl.protocol === "https:" ? "wss:" : "ws:";
-        return serverUrl.origin;
-    }, []);
+  const { data: flow, isLoading, error } = useQuery({
+    ...trpc.flow.get.queryOptions({ id: flowId }),
+    enabled: flowId !== "local",
+  });
 
-    // Fetch flow metadata
-    const {
-        data: flow,
-        isLoading,
-        error,
-    } = useQuery({
-        ...trpc.flow.get.queryOptions({ id: flowId }),
-        enabled: flowId !== "local",
-    });
+  useEffect(() => {
+    setActiveFlowId(flowId);
+    return () => {
+      useCircuitStore.getState().reset();
+    };
+  }, [flowId, setActiveFlowId]);
 
-    // Set active flow ID when route loads
-    useEffect(() => {
-        setActiveFlowId(flowId);
-        // Don't reset on cleanup - preserve active flow when navigating away
-    }, [flowId, setActiveFlowId]);
+  const { data: profile } = useQuery({
+    ...trpc.profile.get.queryOptions(),
+    enabled: !!authSession.data,
+  });
 
-    // Initialize the flow document with data from server
-    useEffect(() => {
-        if (!flow) return;
+  const { data: supporterStatus } = useQuery({
+    ...trpc.supporters.myStatus.queryOptions(),
+    enabled: !!authSession.data,
+    staleTime: 5 * 60 * 1000,
+  });
+  const isSupporter = supporterStatus?.isSupporter ?? false;
 
-        // Prevent re-initialization for the same flow
-        if (initializedFlowId.current === flowId) return;
+  const user = useMemo(
+    () => ({
+      id: authSession.data!.user.id,
+      name: authSession.data!.user.name ?? "Anonymous",
+      color: profile?.settings.collabColor,
+      icon: profile?.settings.collabIcon,
+      isSupporter,
+    }),
+    [
+      authSession.data?.user.id,
+      authSession.data?.user.name,
+      profile?.settings.collabColor,
+      profile?.settings.collabIcon,
+      isSupporter,
+    ],
+  );
 
-        const initCloudFlow = useFlowStore.getState().initCloudFlow;
+  const authToken = isDesktop() ? (localStorage.getItem("bearer_token") ?? undefined) : undefined;
 
-        if (flow.ydocBase64) {
-            const ydocData = Uint8Array.from(atob(flow.ydocBase64), (c) =>
-                c.charCodeAt(0)
-            );
-            initCloudFlow(flowId, ydocData, {
-                name: flow.name,
-            });
-        } else {
-            initCloudFlow(flowId, undefined, {
-                name: flow.name,
-            });
-        }
+  const initialData = useMemo(() => {
+    if (!flow?.ydocBase64) return undefined;
+    return Uint8Array.from(atob(flow.ydocBase64), (c) => c.charCodeAt(0));
+  }, [flow?.ydocBase64]);
 
-        initializedFlowId.current = flowId;
+  if (isLoading || !flow) return <LoadingState />;
+  if (error) return <ErrorState title="Failed to load flow" error={error} />;
 
-        // Cleanup when leaving the route
-        return () => {
-            console.log(`[FLOW-LAYOUT] Leaving flow ${flowId}, cleaning up...`);
-            initializedFlowId.current = null;
-            useFlowStore.getState().destroy();
-            useCircuitStore.getState().reset();
-        };
-    }, [flowId, flow?.ydocBase64]);
+  return (
+    <CloudFlowSessionMount
+      flowId={flowId}
+      wsUrl={wsUrl}
+      user={user}
+      authToken={authToken}
+      initialData={initialData}
+      meta={{ name: flow.name }}
+    />
+  );
+}
 
-    // Fetch user profile settings
-    const { data: profile } = useQuery({
-        ...trpc.profile.get.queryOptions(),
-        enabled: !!session.data,
-    });
-
-    const { data: supporterStatus } = useQuery({
-        ...trpc.supporters.myStatus.queryOptions(),
-        enabled: !!session.data,
-        staleTime: 5 * 60 * 1000,
-    });
-    const isSupporter = supporterStatus?.isSupporter ?? false;
-
-    // User info for sync provider - memoized to prevent reconnections
-    const user = useMemo(
-        () => ({
-            id: session.data!.user.id,
-            name: session.data!.user.name ?? "Anonymous",
-            color: profile?.settings.collabColor,
-            icon: profile?.settings.collabIcon,
-            isSupporter,
-        }),
-        [
-            session.data?.user.id,
-            session.data?.user.name,
-            profile?.settings.collabColor,
-            profile?.settings.collabIcon,
-            isSupporter,
-        ]
-    );
-
-    // Connect to sync provider for real-time collaboration
-    const authToken = isDesktop() ? (localStorage.getItem("bearer_token") ?? undefined) : undefined;
-    const sync = useSyncProvider({
-        flowDoc,
-        flowId,
-        user,
-        wsUrl,
-        authToken,
-        enabled: !!flowDoc && !!flow,
-    });
-
-    if (isLoading) return <LoadingState />;
-    if (error) return <ErrorState title="Failed to load flow" error={error} />;
-
-    // Provide sync through React context since TanStack Router context doesn't work well with hooks
-    return (
-        <FlowSyncContext.Provider value={sync}>
-            <CircuitBuildListener />
-            <Outlet />
-        </FlowSyncContext.Provider>
-    );
+/**
+ * Calling `useCloudSession` requires `flow` to be loaded — split into a
+ * separate component so the hook never sees a half-set `user`/`initialData`.
+ */
+function CloudFlowSessionMount(props: {
+  flowId: string;
+  wsUrl: string;
+  user: { id: string; name: string; color?: string; icon?: string; isSupporter?: boolean };
+  authToken?: string;
+  initialData?: Uint8Array;
+  meta?: { name?: string; description?: string };
+}) {
+  const session = useCloudSession(props);
+  return <FlowProviderShell session={session} />;
 }
