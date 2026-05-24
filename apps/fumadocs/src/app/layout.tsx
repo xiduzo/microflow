@@ -4,7 +4,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import "./global.css";
 
 export const metadata: Metadata = {
-  title: { default: "Microflow", template: "%s | Microflow" },
+  title: { default: "microflow docs", template: "%s | microflow docs" },
   manifest: "/site.webmanifest",
 };
 
