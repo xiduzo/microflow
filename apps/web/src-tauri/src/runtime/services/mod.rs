@@ -13,7 +13,7 @@
 //! reconfiguration take effect without rebuilding components.
 //!
 //! [`RuntimeServices`] is the typed bundle handed to the component registry
-//! per flow_update; each `ComponentBuilder` impl declares which slice of
+//! per `flow_update`; each `ComponentBuilder` impl declares which slice of
 //! it the component needs via its associated `Deps` type. The
 //! [`FromServices`] trait does the projection.
 

@@ -9,7 +9,7 @@ use tauri::{Emitter, State};
 use ts_rs::TS;
 
 /// Payload of the `mqtt-message` Tauri event. Frontend deserializes this with
-/// snake_case field names; do not hand-roll JSON for this event elsewhere.
+/// `snake_case` field names; do not hand-roll JSON for this event elsewhere.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, TS)]
 #[ts(export)]
 pub struct MqttMessage {

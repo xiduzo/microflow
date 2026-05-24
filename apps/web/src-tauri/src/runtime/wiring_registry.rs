@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 /// Pin listener registration for immediate event routing.
 ///
 /// The pin callback in `FlowRuntime::install_pin_change_callback` consults
-/// the pin_listeners map (held inside the registry) and dispatches one of
+/// the `pin_listeners` map (held inside the registry) and dispatches one of
 /// these per pin change.
 #[derive(Clone)]
 pub struct PinListener {

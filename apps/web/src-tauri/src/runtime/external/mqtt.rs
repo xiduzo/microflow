@@ -263,12 +263,12 @@ mod tests {
         node.dispatch("trigger", ComponentValue::Number(42.0))
             .expect("dispatch ok");
 
-        let recorded = wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
-        assert_eq!(recorded.len(), 1);
-        assert_eq!(recorded[0].broker_id, "broker-1");
-        assert_eq!(recorded[0].topic, "sensors/light");
-        assert_eq!(recorded[0].payload, b"42");
-        assert!(recorded[0].retain);
+        let published = wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
+        assert_eq!(published.len(), 1);
+        assert_eq!(published[0].broker_id, "broker-1");
+        assert_eq!(published[0].topic, "sensors/light");
+        assert_eq!(published[0].payload, b"42");
+        assert!(published[0].retain);
     }
 
     #[tokio::test]

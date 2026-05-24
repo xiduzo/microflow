@@ -394,12 +394,12 @@ mod tests {
             .dispatch("true", ComponentValue::Bool(true))
             .expect("dispatch ok");
 
-        let recorded = wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
-        assert_eq!(recorded.len(), 1);
-        assert_eq!(recorded[0].broker_id, "broker-1");
-        assert_eq!(recorded[0].topic, "microflow/uid-1/app/variable/1-2/set");
-        assert_eq!(recorded[0].payload, b"true");
-        assert!(!recorded[0].retain);
+        let published = wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
+        assert_eq!(published.len(), 1);
+        assert_eq!(published[0].broker_id, "broker-1");
+        assert_eq!(published[0].topic, "microflow/uid-1/app/variable/1-2/set");
+        assert_eq!(published[0].payload, b"true");
+        assert!(!published[0].retain);
     }
 
     #[tokio::test]
@@ -422,9 +422,9 @@ mod tests {
         figma
             .dispatch("increment", ComponentValue::Number(3.0))
             .expect("increment ok");
-        let recorded = wait_for_publishes(&recorder, 2, Duration::from_secs(1)).await;
-        assert_eq!(recorded.len(), 2);
-        assert_eq!(recorded[1].payload, b"8");
+        let published = wait_for_publishes(&recorder, 2, Duration::from_secs(1)).await;
+        assert_eq!(published.len(), 2);
+        assert_eq!(published[1].payload, b"8");
     }
 
     #[tokio::test]

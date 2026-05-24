@@ -1,4 +1,4 @@
-//! Outcome handles for **BoardHandle** write methods.
+//! Outcome handles for **`BoardHandle`** write methods.
 //!
 //! Every typed write method on `BoardHandle` returns a [`CommandReceipt`]. The
 //! receipt resolves after the **Board IO Loop** has run the underlying
@@ -69,14 +69,14 @@ impl CommandReceipt {
     }
 }
 
-/// Point-in-time read of a pin's cached value from the **BoardHandle**.
+/// Point-in-time read of a pin's cached value from the **`BoardHandle`**.
 ///
 /// Returned by `BoardHandle::pin_snapshot`. Carries enough context for callers
 /// to distinguish "fresh, board live" from "last known, board gone" without
 /// consulting a separate `is_connected()` check.
 #[derive(Debug, Clone, Copy)]
 pub struct PinSnapshot {
-    /// Last value the **BoardConnection** observed for this pin.
+    /// Last value the **`BoardConnection`** observed for this pin.
     pub value: u16,
     /// When the value was captured by the IO loop (not when the snapshot was read).
     pub captured_at: Instant,

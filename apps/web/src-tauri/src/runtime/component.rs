@@ -177,6 +177,7 @@ pub trait Component: Send + Sync {
     ///
     /// `where Self: Sized` keeps the trait object-safe; access via concrete
     /// type at the registry call site (`B::ports()`).
+    #[must_use]
     fn ports() -> &'static [&'static str] where Self: Sized { &[] }
 
     /// Reference to the shared `ComponentBase`. The trait reads `id`/`value`/`event_sender` from here.

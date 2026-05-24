@@ -1,14 +1,14 @@
 //! Flow Router
 //!
 //! Plans the dispatch calls produced by one outgoing `ComponentEvent`.
-//! Owns the (source, source_handle) → target index plus the per-target
+//! Owns the (source, `source_handle`) → target index plus the per-target
 //! delivery decision (direct value vs aggregating snapshot).
 //!
 //! `FlowExecutor` reduces to: gate stale events, branch internal/hardware
 //! callbacks, echo `set_value` on the source, then ask the router for the
 //! list of `DispatchCall`s and invoke each one.
 //!
-//! See `CONTEXT.md` § FlowRouter and `docs/adr/0002-flow-router-seam.md`.
+//! See `CONTEXT.md` § `FlowRouter` and `docs/adr/0002-flow-router-seam.md`.
 
 use super::base::{ComponentEvent, ComponentValue};
 use super::types::FlowEdge;

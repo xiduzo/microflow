@@ -97,7 +97,7 @@ pub trait LlmProvider: Send + Sync {
 // ---------------------------------------------------------------------------
 
 /// Production [`LlmProvider`] backed by an OpenAI-compatible
-/// `/v1/chat/completions` endpoint (OpenAI, OpenRouter, Ollama with
+/// `/v1/chat/completions` endpoint (`OpenAI`, `OpenRouter`, Ollama with
 /// `/v1` enabled, vLLM, LM Studio, …).
 ///
 /// One instance per provider id — `base_url`+`api_key` are immutable on
@@ -305,7 +305,7 @@ impl LlmRegistry {
     }
 
     /// Snapshot of all currently registered provider ids. Order is
-    /// undefined (HashMap iteration). Mostly useful for tests and logging.
+    /// undefined (`HashMap` iteration). Mostly useful for tests and logging.
     pub async fn ids(&self) -> Vec<String> {
         self.entries.read().await.keys().cloned().collect()
     }

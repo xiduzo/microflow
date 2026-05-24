@@ -4,7 +4,7 @@
 //! authoritative list of provider records straight into the shared
 //! [`crate::runtime::services::LlmRegistry`] held on [`crate::AppState`].
 //! Once synced, every live `Llm` component sees the new credentials on its
-//! next `dispatch("trigger")` — no flow_update re-fire required (ADR-0002).
+//! next `dispatch("trigger")` — no `flow_update` re-fire required (ADR-0002).
 
 use crate::runtime::services::{HttpLlmProvider, LlmProvider};
 use crate::AppState;

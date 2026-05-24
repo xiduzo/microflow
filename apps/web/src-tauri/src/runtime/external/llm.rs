@@ -295,11 +295,11 @@ mod tests {
             .iter()
             .any(|e| e.source_handle.as_ref() == "done"));
 
-        let recorded = recorder.recorded();
-        assert_eq!(recorded.len(), 1);
-        assert_eq!(recorded[0].model, "test-model");
-        assert_eq!(recorded[0].prompt, "hello");
-        assert!(recorded[0].system.is_none());
+        let calls = recorder.recorded();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].model, "test-model");
+        assert_eq!(calls[0].prompt, "hello");
+        assert!(calls[0].system.is_none());
     }
 
     #[tokio::test]
@@ -349,9 +349,9 @@ mod tests {
         llm.dispatch("trigger", ComponentValue::Bool(true)).unwrap();
         drain_until_done(&mut rx, Duration::from_secs(2)).await;
 
-        let recorded = recorder.recorded();
-        assert_eq!(recorded.len(), 1);
-        assert_eq!(recorded[0].system.as_deref(), Some("you are terse"));
+        let calls = recorder.recorded();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].system.as_deref(), Some("you are terse"));
     }
 
     #[tokio::test]
@@ -379,8 +379,8 @@ mod tests {
         llm.dispatch("trigger", ComponentValue::Bool(true)).unwrap();
         drain_until_done(&mut rx, Duration::from_secs(2)).await;
 
-        let recorded = recorder.recorded();
-        assert_eq!(recorded.len(), 1);
-        assert_eq!(recorded[0].prompt, "hello world");
+        let calls = recorder.recorded();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].prompt, "hello world");
     }
 }

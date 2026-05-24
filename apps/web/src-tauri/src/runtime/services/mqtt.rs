@@ -111,7 +111,7 @@ pub struct RecordedPublish {
 /// returns `Ok(())` or pops a scripted error from a FIFO queue.
 ///
 /// Mirrors [`super::llm::RecordingLlmProvider`]: tests assert what was
-/// sent (broker_id / topic / payload / retain) and drive components
+/// sent (`broker_id` / topic / payload / retain) and drive components
 /// through both success and failure paths without standing up a broker.
 pub struct RecordingMqttPublisher {
     recorded: Mutex<Vec<RecordedPublish>>,

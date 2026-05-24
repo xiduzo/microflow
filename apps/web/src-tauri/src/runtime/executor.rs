@@ -6,7 +6,7 @@
 //! the router for the `DispatchCall` plan, and invokes each call.
 //!
 //! Routing logic (edge index, fanout, snapshot delivery for aggregating
-//! targets) lives in [`super::router`]. See `CONTEXT.md` § FlowRouter
+//! targets) lives in [`super::router`]. See `CONTEXT.md` § `FlowRouter`
 //! and `docs/adr/0002-flow-router-seam.md`.
 
 use super::base::{BoardHandle, Component, ComponentEvent, ComponentValue};
@@ -37,7 +37,7 @@ struct ComponentMapLookup<'a> {
     components: &'a HashMap<String, Box<dyn Component>>,
 }
 
-impl<'a> ComponentLookup for ComponentMapLookup<'a> {
+impl ComponentLookup for ComponentMapLookup<'_> {
     fn aggregates(&self, id: &str) -> bool {
         self.components.get(id).is_some_and(|c| c.aggregates_inputs())
     }
