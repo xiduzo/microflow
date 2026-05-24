@@ -11,6 +11,7 @@ import {
   ArrowRight,
   PenTool,
 } from "lucide-react";
+import { DownloadButton } from "@/components/download-button";
 
 const features = [
   {
@@ -176,9 +177,10 @@ export default function HomePage() {
           A set of tools to make it easier to start prototyping for interactivity
         </p>
         <div className="relative flex flex-wrap items-center justify-center gap-3">
+          <DownloadButton />
           <Link
             href="/docs"
-            className="inline-flex items-center gap-2 border border-fd-primary bg-fd-primary px-6 py-2.5 text-sm font-medium text-fd-primary-foreground transition-colors hover:bg-fd-primary/90"
+            className="inline-flex items-center gap-2 border border-fd-border px-6 py-2.5 text-sm font-medium text-fd-foreground transition-colors hover:border-fd-primary/50 hover:bg-fd-primary/5"
           >
             Get started
             <ArrowRight className="size-3.5" />
