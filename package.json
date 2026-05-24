@@ -35,7 +35,8 @@
     "db:watch": "turbo -F @microflow/db db:watch",
     "db:stop": "turbo -F @microflow/db db:stop",
     "db:down": "turbo -F @microflow/db db:down",
-    "check": "oxlint && oxfmt --write"
+    "check": "oxlint && oxfmt --write",
+    "icons": "bun scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@microflow/env": "workspace:*",
