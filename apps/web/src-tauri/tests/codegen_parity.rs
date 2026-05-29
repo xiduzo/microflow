@@ -18,7 +18,8 @@
 //! runtime config is deserialized from the *same* Node `data`, any divergence
 //! between emitter and runtime fails the suite and names the diverging Node.
 
-use app_lib::codegen::generate;
+use app_lib::codegen::board::target_by_id;
+use app_lib::codegen::{generate, GenerationOutcome};
 use app_lib::runtime::base::{Component, ComponentValue};
 use app_lib::runtime::types::{FlowEdge, FlowNode, FlowUpdate, Position};
 use app_lib::runtime::{
@@ -242,6 +243,17 @@ fn interpreter_models_cpp_semantics() {
 
 const SRC_VAR: &str = "constant_src_value";
 
+/// Generate a Sketch for the default board target (Uno) and unwrap the source.
+/// The parity Flows here use only Uno-compatible Nodes, so generation always
+/// yields a [`GenerationOutcome::Sketch`].
+fn generate_sketch(flow: &FlowUpdate) -> String {
+    let target = target_by_id("uno").expect("uno is supported");
+    match generate(flow, &target).expect("generation must succeed") {
+        GenerationOutcome::Sketch(s) => s,
+        GenerationOutcome::Problems(p) => panic!("expected a sketch, got problems: {p:?}"),
+    }
+}
+
 fn node(id: &str, kind: &str, data: serde_json::Value) -> FlowNode {
     FlowNode {
         id: id.to_string(),
@@ -271,7 +283,7 @@ fn emitted_output(transform: FlowNode, input: f64) -> f64 {
         nodes: vec![node("src", "Constant", json!({ "value": 0.0 })), transform],
         edges: vec![edge("src", &target_id)],
     };
-    let sketch = generate(&flow).expect("generation must succeed");
+    let sketch = generate_sketch(&flow);
 
     // The transform's output is the only declared `double`/`bool` whose name is
     // not the constant source's.
@@ -439,7 +451,7 @@ fn chained_flow_reproduces_live_behavior() {
         ],
         edges: vec![edge("sensor-1", "calc-1"), edge("calc-1", "cmp-1"), edge("cmp-1", "led-1")],
     };
-    let sketch = generate(&flow).expect("generation must succeed");
+    let sketch = generate_sketch(&flow);
 
     // Structural parity: non-blocking, every chain Node emits real code.
     assert!(!sketch.contains("delay("), "chain must stay non-blocking");
@@ -485,7 +497,7 @@ fn nested_timing_nodes_stay_in_parity() {
         ],
         edges: vec![edge("interval-1", "delay-1")],
     };
-    let sketch = generate(&flow).expect("generation must succeed");
+    let sketch = generate_sketch(&flow);
 
     // No blocking `delay()` — both timers are millis()-based, so the loop never
     // stalls and the two timers run concurrently without drift.

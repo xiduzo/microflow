@@ -70,6 +70,9 @@ export function SketchCodeView({
   const nodes = useFlowNodes(doc);
   const edges = useFlowEdges(doc);
   const meta = useFlowMeta(doc);
+  // The Flow's selected board target. Threaded into every generate request so
+  // the Sketch targets the chosen board; changing it re-generates (Task #29/#43).
+  const { selectedTargetId } = meta;
   const suggestedFilename = deriveSketchFilename(meta.name);
   const [state, setState] = useState<SketchViewState>({
     value: GENERATING_SKETCH_PLACEHOLDER,
@@ -86,7 +89,7 @@ export function SketchCodeView({
   // does not trigger a redundant regeneration.
   useEffect(() => {
     let cancelled = false;
-    void projectSketchResult(invoke, genNodes, genEdges).then((next) => {
+    void projectSketchResult(invoke, genNodes, genEdges, selectedTargetId).then((next) => {
       if (!cancelled) setState(next);
     });
     return () => {
@@ -102,7 +105,7 @@ export function SketchCodeView({
     regeneratorRef.current = createDebouncedRegenerator({
       invoker: invoke,
       onResult: (next) => setState(next),
-      seedSerialized: serializeFlowGraph(genNodes, genEdges),
+      seedSerialized: serializeFlowGraph(genNodes, genEdges, selectedTargetId),
     });
   }
 
@@ -112,8 +115,8 @@ export function SketchCodeView({
   }, []);
 
   useEffect(() => {
-    regeneratorRef.current?.schedule(genNodes, genEdges);
-  }, [genNodes, genEdges]);
+    regeneratorRef.current?.schedule(genNodes, genEdges, selectedTargetId);
+  }, [genNodes, genEdges, selectedTargetId]);
 
   return (
     <Dialog defaultOpen onOpenChange={onClose}>

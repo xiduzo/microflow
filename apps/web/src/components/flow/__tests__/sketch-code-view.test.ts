@@ -40,6 +40,14 @@ describe("buildGenerateSketchCommand", () => {
       flow: { nodes: [], edges: [] },
     });
   });
+
+  test("includes the selected board target id when given", () => {
+    expect(buildGenerateSketchCommand([NODE], [], "esp32")).toEqual({
+      type: "generate_sketch",
+      flow: { nodes: [NODE], edges: [] },
+      targetId: "esp32",
+    });
+  });
 });
 
 describe("projectSketchResult", () => {
@@ -47,7 +55,7 @@ describe("projectSketchResult", () => {
   test("on success the editor value is the generated sketch text", async () => {
     const invoker: SketchInvoker = async () => ({
       success: true,
-      data: "void setup() {}\nvoid loop() {}",
+      data: { sketch: "void setup() {}\nvoid loop() {}" },
     });
 
     const state = await projectSketchResult(invoker, [NODE], []);
@@ -67,7 +75,7 @@ describe("projectSketchResult", () => {
       "}",
       "void loop() {}",
     ].join("\n");
-    const invoker: SketchInvoker = async () => ({ success: true, data: sketch });
+    const invoker: SketchInvoker = async () => ({ success: true, data: { sketch } });
 
     const state = await projectSketchResult(invoker, [NODE], []);
 
@@ -80,13 +88,49 @@ describe("projectSketchResult", () => {
     let received: { nodes: unknown[]; edges: unknown[] } | undefined;
     const invoker: SketchInvoker = async (command) => {
       received = command.flow;
-      return { success: true, data: emptySketch };
+      return { success: true, data: { sketch: emptySketch } };
     };
 
     const state = await projectSketchResult(invoker, [], []);
 
     expect(received).toEqual({ nodes: [], edges: [] });
     expect(state).toEqual({ value: emptySketch, isError: false });
+  });
+
+  // Scenario: Generation refuses an unrunnable Flow — problems surface as text
+  test("validation problems are surfaced as an error block, not a sketch", async () => {
+    const invoker: SketchInvoker = async () => ({
+      success: true,
+      data: {
+        problems: [
+          {
+            nodeId: "mqtt-1",
+            nodeType: "Mqtt",
+            message: "Node mqtt-1 (Mqtt) requires networking, which board target 'Arduino Uno' does not offer",
+          },
+        ],
+      },
+    });
+
+    const state = await projectSketchResult(invoker, [NODE], []);
+
+    expect(state.isError).toBe(true);
+    expect(state.value).toContain("mqtt-1");
+    expect(state.value).toContain("networking");
+    expect(state.value).not.toContain("void setup()");
+  });
+
+  // Scenario: Generated Sketch targets the selected board — targetId is sent
+  test("the selected target id is forwarded in the command", async () => {
+    let received: string | undefined;
+    const invoker: SketchInvoker = async (command) => {
+      received = command.targetId;
+      return { success: true, data: { sketch: "ok" } };
+    };
+
+    await projectSketchResult(invoker, [NODE], [], "esp32");
+
+    expect(received).toBe("esp32");
   });
 
   // Edge case: generation error surfaces as text, panel does not crash
@@ -131,6 +175,14 @@ describe("serializeFlowGraph / hasFlowChanged", () => {
   test("an undefined baseline is always treated as changed", () => {
     expect(hasFlowChanged(serializeFlowGraph([], []), undefined)).toBe(true);
   });
+
+  // Scenario: Switching target re-generates for the new board
+  test("changing only the selected target changes the serialization", () => {
+    const onUno = serializeFlowGraph([NODE], [], "uno");
+    const onEsp32 = serializeFlowGraph([NODE], [], "esp32");
+
+    expect(hasFlowChanged(onEsp32, onUno)).toBe(true);
+  });
 });
 
 /**
@@ -174,7 +226,7 @@ describe("createDebouncedRegenerator", () => {
   test("a graph change triggers regeneration after the debounce window", async () => {
     const { timers, tick } = makeFakeTimers();
     const results: SketchViewState[] = [];
-    const invoker: SketchInvoker = async () => ({ success: true, data: "sketch-v1" });
+    const invoker: SketchInvoker = async () => ({ success: true, data: { sketch: "sketch-v1" } });
 
     const regen = createDebouncedRegenerator({
       invoker,
@@ -198,7 +250,7 @@ describe("createDebouncedRegenerator", () => {
     const seen: Array<{ nodes: number }> = [];
     const invoker: SketchInvoker = async (command) => {
       seen.push({ nodes: command.flow.nodes.length });
-      return { success: true, data: `nodes:${command.flow.nodes.length}` };
+      return { success: true, data: { sketch: `nodes:${command.flow.nodes.length}` } };
     };
     const results: SketchViewState[] = [];
 
@@ -231,7 +283,7 @@ describe("createDebouncedRegenerator", () => {
     const flows: Node[][] = [];
     const invoker: SketchInvoker = async (command) => {
       flows.push(command.flow.nodes as Node[]);
-      return { success: true, data: "ok" };
+      return { success: true, data: { sketch: "ok" } };
     };
 
     const regen = createDebouncedRegenerator({
@@ -255,7 +307,7 @@ describe("createDebouncedRegenerator", () => {
     let calls = 0;
     const invoker: SketchInvoker = async () => {
       calls++;
-      return { success: true, data: "x" };
+      return { success: true, data: { sketch: "x" } };
     };
 
     const regen = createDebouncedRegenerator({
@@ -278,7 +330,7 @@ describe("createDebouncedRegenerator", () => {
     let calls = 0;
     const invoker: SketchInvoker = async () => {
       calls++;
-      return { success: true, data: "x" };
+      return { success: true, data: { sketch: "x" } };
     };
 
     const regen = createDebouncedRegenerator({
@@ -303,7 +355,7 @@ describe("createDebouncedRegenerator", () => {
     const resolvers: Array<(s: string) => void> = [];
     const invoker: SketchInvoker = () =>
       new Promise((resolve) =>
-        resolvers.push((value) => resolve({ success: true, data: value })),
+        resolvers.push((value) => resolve({ success: true, data: { sketch: value } })),
       ) as ReturnType<SketchInvoker>;
 
     const regen = createDebouncedRegenerator({

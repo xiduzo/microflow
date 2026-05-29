@@ -21,6 +21,7 @@
 //! - **Validity:** the output is always syntactically valid Arduino C++ and
 //!   compiles even when the Flow is empty.
 
+pub mod board;
 pub mod control;
 pub mod emit;
 pub mod generator;
@@ -28,44 +29,93 @@ pub mod input;
 pub mod output;
 pub mod placeholder;
 pub mod transformation;
+pub mod validate;
 
 use crate::runtime::types::{FlowNode, FlowUpdate};
+use board::BoardTarget;
 use emit::NodeEmission;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use ts_rs::TS;
+use validate::ValidationProblem;
 
-/// Assemble the Arduino sketch skeleton for the given Flow.
+/// The outcome of generating a Sketch for a selected board target.
 ///
-/// Returns the full `.ino` source as a single `String`. The traversal is
-/// deterministic (Nodes visited in `id` order) and always terminates, so the
-/// same Flow always yields byte-identical output.
+/// Generation either emits a runnable `.ino` source, or — when the Flow cannot
+/// run on the selected target — surfaces the validation problems that prevented
+/// emission. This enforces the invariant that **no unrunnable code is ever
+/// emitted**: when problems exist, no `sketch` is produced.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum GenerationOutcome {
+    /// The Flow is runnable on the target; carries the generated `.ino` source.
+    Sketch(String),
+    /// The Flow cannot run on the target; carries the validation problems
+    /// (each naming a Node and the constraint it violates).
+    Problems(Vec<ValidationProblem>),
+}
+
+/// Generate the Arduino sketch for `flow` targeting `target`.
+///
+/// First validates the Flow against the selected board target (Task #35
+/// result): if any problem exists, returns [`GenerationOutcome::Problems`] and
+/// emits **no** Sketch. Otherwise emits the Sketch, whose pin numbers and
+/// capability usage reflect `target`'s facts.
+///
+/// The traversal is deterministic (Nodes visited in `id` order) and always
+/// terminates, so the same `(flow, target)` always yields byte-identical
+/// output.
 ///
 /// # Errors
 ///
 /// Never returns `Err` today — the signature is `Result` so later tasks (which
 /// may fail to emit a particular Node) can surface a human-readable message to
-/// the frontend without changing the contract.
-pub fn generate(flow: &FlowUpdate) -> Result<String, String> {
+/// the frontend without changing the contract. A Flow that cannot run on the
+/// target is **not** an error: it returns `Ok(GenerationOutcome::Problems(..))`.
+pub fn generate(flow: &FlowUpdate, target: &BoardTarget) -> Result<GenerationOutcome, String> {
+    // Gate emission on validation: never emit unrunnable code.
+    let problems = validate::validate(flow, target);
+    if !problems.is_empty() {
+        log::debug!(
+            "codegen: {} validation problem(s) for target '{}' — emitting no sketch",
+            problems.len(),
+            target.id
+        );
+        return Ok(GenerationOutcome::Problems(problems));
+    }
+
+    Ok(GenerationOutcome::Sketch(emit_sketch(flow, target)))
+}
+
+/// Assemble the Arduino sketch text for an already-validated Flow.
+///
+/// Pin numbers and capability usage reflect `target`'s facts. Separated from
+/// [`generate`] so the validation gate is the single entry point.
+fn emit_sketch(flow: &FlowUpdate, target: &BoardTarget) -> String {
     let order = traversal_order(flow);
     let drivers = driver_expressions(flow);
 
     // Emit each Node in deterministic traversal order, collecting fragments.
+    // The target supplies the board's pin facts so emission is board-correct.
     let emissions: Vec<NodeEmission> =
-        order.iter().map(|node| emit_node(node, &drivers)).collect();
+        order.iter().map(|node| emit_node(node, &drivers, target)).collect();
 
     let emitted_count = emissions.iter().filter(|e| !e.is_empty()).count();
     log::debug!(
-        "codegen: emitted {emitted_count} of {} node(s)",
-        order.len()
+        "codegen: emitted {emitted_count} of {} node(s) for target '{}'",
+        order.len(),
+        target.id
     );
 
     let mut sketch = String::new();
-    sketch.push_str(&header(&order));
+    sketch.push_str(&header(&order, target));
     sketch.push_str(&includes_region(&emissions));
     sketch.push_str(&declarations(&order, &emissions));
     sketch.push_str(&setup_region(&emissions));
     sketch.push_str(&loop_region(&emissions));
 
-    Ok(sketch)
+    sketch
 }
 
 /// Deterministic traversal of the Flow.
@@ -121,11 +171,14 @@ fn visit<'a>(
     }
 }
 
-/// File header comment listing the Nodes the skeleton was built from. Counts
-/// only; per-Node bodies arrive in a later task.
-fn header(order: &[&FlowNode]) -> String {
+/// File header comment naming the board target and the Node count the skeleton
+/// was built from. Naming the target makes the Sketch self-describing about
+/// which board it was generated for.
+fn header(order: &[&FlowNode], target: &BoardTarget) -> String {
     format!(
-        "// Generated by microflow — do not edit by hand.\n// Sketch skeleton for {} node(s).\n\n",
+        "// Generated by microflow — do not edit by hand.\n// Target board: {} ({}).\n// Sketch skeleton for {} node(s).\n\n",
+        target.name,
+        target.id,
         order.len()
     )
 }
@@ -136,8 +189,14 @@ fn header(order: &[&FlowNode]) -> String {
 /// Nodes) fall through to [`placeholder::emit`], which returns a graceful
 /// comment fragment so generation never crashes or blanks the sketch.
 /// `drivers` maps a target Node id to the C++ expression that drives it (from
-/// its wired source), so output Nodes write what their input reads.
-fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission {
+/// its wired source), so output Nodes write what their input reads. `_target`
+/// is the validated board target; pin numbers written by the emitters are the
+/// Node's own pin, which validation has already confirmed exists on the target.
+fn emit_node(
+    node: &FlowNode,
+    drivers: &BTreeMap<&str, String>,
+    _target: &BoardTarget,
+) -> NodeEmission {
     let driver = drivers.get(node.id.as_str()).map(String::as_str);
     match node.node_type.as_deref() {
         Some("Led") => output::led::emit(node, driver),
@@ -313,8 +372,38 @@ previousMillis = currentMillis;\n    \
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::codegen::board::target_by_id;
     use crate::runtime::types::{FlowEdge, Position};
     use serde_json::json;
+
+    /// The default board target used by the existing skeleton tests (Uno).
+    fn default_target() -> BoardTarget {
+        target_by_id("uno").expect("uno is supported")
+    }
+
+    /// Generate a Sketch for the default target, unwrapping the
+    /// [`GenerationOutcome::Sketch`] variant. Panics if validation produced
+    /// problems — these tests use Flows that fit the Uno.
+    fn generate_sketch_text(flow: &FlowUpdate) -> String {
+        sketch_for(flow, &default_target())
+    }
+
+    /// Generate a Sketch for an explicit target, unwrapping the
+    /// [`GenerationOutcome::Sketch`] variant.
+    fn sketch_for(flow: &FlowUpdate, target: &BoardTarget) -> String {
+        match generate(flow, target).expect("generation should succeed") {
+            GenerationOutcome::Sketch(s) => s,
+            GenerationOutcome::Problems(p) => {
+                panic!("expected a sketch, got validation problems: {p:?}")
+            }
+        }
+    }
+
+    /// A networking-capable target (ESP32) — used by placeholder tests that
+    /// include Cloud Nodes, which only validate on a networking board.
+    fn networking_target() -> BoardTarget {
+        target_by_id("esp32").expect("esp32 is supported")
+    }
 
     fn node(id: &str, kind: &str) -> FlowNode {
         FlowNode {
@@ -349,7 +438,7 @@ mod tests {
     fn empty_flow_yields_valid_empty_sketch() {
         let flow = FlowUpdate { nodes: vec![], edges: vec![] };
 
-        let sketch = generate(&flow).expect("empty flow must not raise an error");
+        let sketch = generate_sketch_text(&flow);
 
         // Valid empty sketch: both required sections present.
         assert!(sketch.contains("void setup()"), "missing setup section");
@@ -367,8 +456,8 @@ mod tests {
             edges: vec![edge("btn-1", "led-1"), edge("led-1", "srv-1")],
         };
 
-        let first = generate(&flow).expect("generation should succeed");
-        let second = generate(&flow).expect("generation should succeed");
+        let first = generate_sketch_text(&flow);
+        let second = generate_sketch_text(&flow);
 
         assert_eq!(first, second, "identical flow must yield byte-identical sketch");
     }
@@ -387,8 +476,8 @@ mod tests {
         };
 
         assert_eq!(
-            generate(&forward).unwrap(),
-            generate(&shuffled).unwrap(),
+            generate_sketch_text(&forward),
+            generate_sketch_text(&shuffled),
             "output must depend on graph content, not declaration order"
         );
     }
@@ -404,8 +493,8 @@ mod tests {
 
         // If traversal did not guard with a visited set this would loop forever;
         // the test completing at all proves termination.
-        let first = generate(&flow).expect("cycle must not loop forever");
-        let second = generate(&flow).expect("cycle must not loop forever");
+        let first = generate_sketch_text(&flow);
+        let second = generate_sketch_text(&flow);
 
         assert_eq!(first, second, "cyclic flow must still be deterministic");
         // Every node appears exactly once despite the cycle.
@@ -421,7 +510,7 @@ mod tests {
             edges: vec![edge("a", "b")],
         };
 
-        let sketch = generate(&flow).expect("disconnected node must not break generation");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(sketch.contains("void setup()"));
         assert!(sketch.contains("void loop()"));
@@ -448,7 +537,7 @@ mod tests {
             edges: vec![edge("btn-1", "led-1"), edge("sensor-1", "servo-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Structurally valid sketch.
         assert!(sketch.contains("void setup()"));
@@ -477,7 +566,7 @@ mod tests {
             edges: vec![edge("btn-1", "led-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // The Button reads its input into a state var.
         assert!(sketch.contains("button_btn_1_state = "), "button read into state var");
@@ -497,7 +586,7 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(sketch.contains("#include <Servo.h>"), "missing Servo include");
         assert!(sketch.contains("Servo servo_servo_1"), "missing Servo object decl");
@@ -511,7 +600,7 @@ mod tests {
             nodes: vec![node_data("led-1", "Led", json!({ "pin": 13 }))],
             edges: vec![],
         };
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
         assert!(!sketch.contains("Servo.h"), "no servo include without a servo node");
     }
 
@@ -526,7 +615,7 @@ mod tests {
             ],
             edges: vec![edge("btn-1", "led-1")],
         };
-        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+        assert_eq!(generate_sketch_text(&flow), generate_sketch_text(&flow));
     }
 
     /// Scenario: An unsupported Node becomes a placeholder comment.
@@ -544,7 +633,9 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("cloud node must not crash generation");
+        // Cloud Nodes only validate on a networking board (ESP32); on a bare
+        // board they are surfaced as validation problems instead.
+        let sketch = sketch_for(&flow, &networking_target());
 
         // Placeholder for the Cloud Node, identifying it and the networked need.
         assert!(
@@ -570,7 +661,7 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("unknown node must not crash generation");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(
             sketch.contains("// unsupported Node gizmo_1 (Gizmo)"),
@@ -594,7 +685,8 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("all-unsupported flow must not raise an error");
+        // All Cloud Nodes — runnable only on a networking board (ESP32).
+        let sketch = sketch_for(&flow, &networking_target());
 
         // A structurally valid sketch is still produced.
         assert!(sketch.contains("void setup()"), "missing setup section");
@@ -615,13 +707,100 @@ mod tests {
             edges: vec![],
         };
 
-        let first = generate(&flow).expect("generation should succeed");
-        let second = generate(&flow).expect("generation should succeed");
+        let esp32 = networking_target();
+        let first = sketch_for(&flow, &esp32);
+        let second = sketch_for(&flow, &esp32);
 
         assert_eq!(
             first, second,
             "repeated generation must yield identical placeholder comments"
         );
+    }
+
+    // --- Task #43: wire the selected target into generation ---
+
+    /// Scenario: Generated Sketch targets the selected board.
+    ///
+    /// The emitted Sketch names the selected board target and uses pin numbers
+    /// from the Flow that the target supports.
+    #[test]
+    fn generated_sketch_reflects_the_selected_board_target() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data("led-1", "Led", json!({ "pin": 13 }))],
+            edges: vec![],
+        };
+
+        let esp32 = networking_target();
+        let sketch = sketch_for(&flow, &esp32);
+
+        // The Sketch is self-describing about the selected board.
+        assert!(sketch.contains("Target board: ESP32 (esp32)"), "names the target, got:\n{sketch}");
+        // Pin 13 (which the ESP32 has) is emitted.
+        assert!(sketch.contains("= 13;"), "emits the selected pin");
+    }
+
+    /// Scenario: Switching target re-generates for the new board.
+    ///
+    /// The same Flow generated for two different targets yields two different
+    /// Sketches, each naming its own board.
+    #[test]
+    fn switching_target_regenerates_for_the_new_board() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data("led-1", "Led", json!({ "pin": 13 }))],
+            edges: vec![],
+        };
+
+        let uno_sketch = sketch_for(&flow, &default_target());
+        let esp32_sketch = sketch_for(&flow, &networking_target());
+
+        assert!(uno_sketch.contains("Target board: Arduino Uno (uno)"));
+        assert!(esp32_sketch.contains("Target board: ESP32 (esp32)"));
+        assert_ne!(
+            uno_sketch, esp32_sketch,
+            "switching the target must re-generate a different Sketch"
+        );
+    }
+
+    /// Scenario: Generation refuses an unrunnable Flow.
+    ///
+    /// A Flow that requires a capability the target lacks (an Mqtt Cloud Node on
+    /// the non-networking Uno) emits no Sketch; the validation problem naming the
+    /// Node and the constraint is surfaced instead.
+    #[test]
+    fn generation_refuses_an_unrunnable_flow() {
+        let flow = FlowUpdate {
+            nodes: vec![node("mqtt-1", "Mqtt")],
+            edges: vec![],
+        };
+
+        let outcome =
+            generate(&flow, &default_target()).expect("generation should not error");
+
+        match outcome {
+            GenerationOutcome::Sketch(s) => {
+                panic!("expected validation problems, got a sketch:\n{s}")
+            }
+            GenerationOutcome::Problems(problems) => {
+                assert_eq!(problems.len(), 1, "one problem for the Cloud Node");
+                let p = &problems[0];
+                assert_eq!(p.node_id, "mqtt-1", "names the offending Node");
+                assert!(p.message.contains("mqtt-1"), "message names the Node");
+                assert!(p.message.contains("networking"), "message names the constraint");
+            }
+        }
+    }
+
+    /// With no explicit selection the caller resolves the default target (Uno),
+    /// so an existing core-IO Flow still produces a Sketch.
+    #[test]
+    fn default_target_still_produces_a_sketch() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data("led-1", "Led", json!({ "pin": 13 }))],
+            edges: vec![],
+        };
+
+        let outcome = generate(&flow, &default_target()).expect("generation should succeed");
+        assert!(matches!(outcome, GenerationOutcome::Sketch(_)));
     }
 
     // --- Transformation Nodes (Task #33) ---
@@ -642,7 +821,7 @@ mod tests {
             edges: vec![edge("sensor-1", "calc-1"), edge("calc-1", "led-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(sketch.contains("double calculate_calc_1_value"), "calc output decl");
         assert!(
@@ -671,7 +850,7 @@ mod tests {
             edges: vec![edge("sensor-1", "cmp-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(sketch.contains("bool compare_cmp_1_result"), "compare bool decl");
         assert!(
@@ -693,7 +872,7 @@ mod tests {
             edges: vec![edge("btn-1", "gate-1"), edge("gate-1", "led-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(sketch.contains("bool gate_gate_1_result"), "gate bool decl");
         // nand on a single input inverts it.
@@ -725,7 +904,7 @@ mod tests {
             edges: vec![edge("sensor-1", "rm-1"), edge("rm-1", "sm-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // RangeMap linear remap math with the configured bounds.
         assert!(sketch.contains("double range_map_rm_1_value"), "range map decl");
@@ -751,7 +930,7 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Every transformation Node declares real state; none is a placeholder.
         assert!(sketch.contains("calculate_calc_1_value"));
@@ -778,7 +957,7 @@ mod tests {
             ],
             edges: vec![edge("sensor-1", "rm-1"), edge("rm-1", "sm-1"), edge("sm-1", "led-1")],
         };
-        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+        assert_eq!(generate(&flow, &default_target()).unwrap(), generate(&flow, &default_target()).unwrap());
     }
 
     // --- Function Node translated to C++ (Task #36) ---
@@ -803,7 +982,7 @@ mod tests {
             edges: vec![edge("sensor-1", "fn-1"), edge("fn-1", "led-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(
             sketch.contains("double function_fn_1_value"),
@@ -845,7 +1024,7 @@ mod tests {
             edges: vec![edge("sensor-1", "fn-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(
             sketch.contains("unsupported Function Node fn_1"),
@@ -877,7 +1056,7 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(sketch.contains("function_fn_1_value"), "emits real state");
         assert_eq!(
@@ -901,7 +1080,7 @@ mod tests {
             ],
             edges: vec![edge("sensor-1", "fn-1")],
         };
-        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+        assert_eq!(generate(&flow, &default_target()).unwrap(), generate(&flow, &default_target()).unwrap());
     }
 
     // --- Control Nodes as non-blocking timers (Task #34) ---
@@ -922,7 +1101,7 @@ mod tests {
             edges: vec![edge("btn-1", "delay-1"), edge("delay-1", "led-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Driven by the loop scheduler via an elapsed-millis comparison.
         assert!(
@@ -950,7 +1129,7 @@ mod tests {
             edges: vec![edge("iv-1", "led-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Fires on schedule via the loop scheduler's millis() clock.
         assert!(
@@ -973,7 +1152,7 @@ mod tests {
             edges: vec![edge("btn-1", "ct-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // The count lives in a module-level declaration => persists across loop().
         assert!(
@@ -997,7 +1176,7 @@ mod tests {
             edges: vec![edge("sensor-1", "tg-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Trigger reproduces its threshold/direction bang from the sensor reading.
         assert!(sketch.contains("bool trigger_tg_1_result"), "trigger bool output");
@@ -1027,7 +1206,7 @@ mod tests {
             edges: vec![edge("iv-1", "delay-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Two independent millis-based timers, neither blocking.
         assert!(
@@ -1060,7 +1239,7 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         assert!(sketch.contains("delay_delay_1_value"));
         assert!(sketch.contains("interval_iv_1_value"));
@@ -1099,7 +1278,7 @@ mod tests {
             edges: vec![edge("sw-1", "led-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Each input reads hardware into its variable.
         assert!(sketch.contains("switch_sw_1_state = (digitalRead"), "switch reads");
@@ -1143,7 +1322,7 @@ mod tests {
             ],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // Each output drives from the sensor value.
         assert!(sketch.contains("analogWrite(rgb_rgb_1_red_pin"), "rgb drives channels");
@@ -1170,7 +1349,7 @@ mod tests {
             edges: vec![edge("osc-1", "servo-1")],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        let sketch = generate_sketch_text(&flow);
 
         // The Oscillator samples its waveform off the loop scheduler's millis() clock.
         assert!(
@@ -1220,7 +1399,9 @@ mod tests {
             edges: vec![],
         };
 
-        let sketch = generate(&flow).expect("generation should succeed");
+        // Cloud Nodes only validate on a networking-capable board (ESP32);
+        // on the Uno they would be refused before emission.
+        let sketch = sketch_for(&flow, &networking_target());
 
         // Exactly the four Cloud Nodes are placeholders — nothing else.
         assert_eq!(
@@ -1247,7 +1428,7 @@ mod tests {
             ],
             edges: vec![edge("osc-1", "rgb-1"), edge("sw-1", "st-1")],
         };
-        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+        assert_eq!(generate(&flow, &default_target()).unwrap(), generate(&flow, &default_target()).unwrap());
     }
 
     /// Determinism holds for a control-heavy Flow.
@@ -1263,6 +1444,6 @@ mod tests {
             ],
             edges: vec![edge("iv-1", "delay-1"), edge("iv-1", "ct-1")],
         };
-        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+        assert_eq!(generate(&flow, &default_target()).unwrap(), generate(&flow, &default_target()).unwrap());
     }
 }

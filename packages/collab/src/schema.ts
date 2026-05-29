@@ -9,6 +9,13 @@ export type FlowMeta = {
   description?: string;
   version: number;
   updatedAt: number;
+  /**
+   * The board target this Flow generates a Sketch for, stored as the stable
+   * board-target identifier (e.g. `uno`, `nano`, `esp32`) defined by the
+   * board-target abstraction. Undefined when the Author has never made a
+   * selection, in which case consumers apply a default target.
+   */
+  selectedTargetId?: string;
 };
 
 export type FlowNode = {
@@ -194,6 +201,7 @@ export class FlowDocument {
       description: this.meta.get("description") as string | undefined,
       version: (this.meta.get("version") as number) ?? 1,
       updatedAt: (this.meta.get("updatedAt") as number) ?? Date.now(),
+      selectedTargetId: this.meta.get("selectedTargetId") as string | undefined,
     };
   }
 
