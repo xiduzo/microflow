@@ -24,6 +24,7 @@
 pub mod emit;
 pub mod input;
 pub mod output;
+pub mod placeholder;
 
 use crate::runtime::types::{FlowNode, FlowUpdate};
 use emit::NodeEmission;
@@ -128,7 +129,9 @@ fn header(order: &[&FlowNode]) -> String {
 
 /// Dispatch a single Node to its per-type C++ emitter, mirroring the live
 /// `ComponentRegistry`. Node types outside the supported core hardware-IO set
-/// emit nothing here — graceful placeholders for them are Task 5's concern.
+/// (Cloud Nodes like Mqtt/Figma/Llm/Monitor, unknown types, and typeless
+/// Nodes) fall through to [`placeholder::emit`], which returns a graceful
+/// comment fragment so generation never crashes or blanks the sketch.
 /// `drivers` maps a target Node id to the C++ expression that drives it (from
 /// its wired source), so output Nodes write what their input reads.
 fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission {
@@ -139,7 +142,7 @@ fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission 
         Some("Servo") => output::servo::emit(node, driver),
         Some("Button") => input::button::emit(node),
         Some("Sensor") => input::sensor::emit(node),
-        _ => NodeEmission::default(),
+        _ => placeholder::emit(node),
     }
 }
 
@@ -474,5 +477,100 @@ mod tests {
             edges: vec![edge("btn-1", "led-1")],
         };
         assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+    }
+
+    /// Scenario: An unsupported Node becomes a placeholder comment.
+    ///
+    /// A Cloud Node (Mqtt) alongside a core Led: the Cloud Node gets a clear
+    /// placeholder comment, the Led still emits real code, and generation does
+    /// not crash or blank the sketch.
+    #[test]
+    fn cloud_node_becomes_placeholder_while_core_node_still_emits() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node("mqtt-1", "Mqtt"),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("cloud node must not crash generation");
+
+        // Placeholder for the Cloud Node, identifying it and the networked need.
+        assert!(
+            sketch.contains("// unsupported Node mqtt_1 (Mqtt)"),
+            "missing Mqtt placeholder, got:\n{sketch}"
+        );
+        assert!(sketch.contains("networked target"), "Cloud message missing");
+        // The Led still produces real code.
+        assert!(sketch.contains("pinMode"), "led pin setup missing");
+        assert!(sketch.contains("digitalWrite"), "led write missing");
+        // Sketch is not blanked.
+        assert!(sketch.contains("void setup()") && sketch.contains("void loop()"));
+    }
+
+    /// Scenario: An unknown Node type does not break generation.
+    #[test]
+    fn unknown_node_type_does_not_break_generation() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node("gizmo-1", "Gizmo"),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("unknown node must not crash generation");
+
+        assert!(
+            sketch.contains("// unsupported Node gizmo_1 (Gizmo)"),
+            "missing unknown-type placeholder, got:\n{sketch}"
+        );
+        // The rest of the sketch is still produced.
+        assert!(sketch.contains("digitalWrite"), "led code still produced");
+        assert!(sketch.contains("void loop()"));
+    }
+
+    /// Scenario: A Flow of only unsupported Nodes still yields a valid sketch.
+    #[test]
+    fn all_unsupported_flow_yields_valid_sketch() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node("mqtt-1", "Mqtt"),
+                node("figma-1", "Figma"),
+                node("llm-1", "Llm"),
+                node("monitor-1", "Monitor"),
+            ],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("all-unsupported flow must not raise an error");
+
+        // A structurally valid sketch is still produced.
+        assert!(sketch.contains("void setup()"), "missing setup section");
+        assert!(sketch.contains("void loop()"), "missing loop section");
+        // A placeholder for every unsupported Node.
+        assert_eq!(
+            sketch.matches("// unsupported Node ").count(),
+            4,
+            "expected one placeholder per unsupported node, got:\n{sketch}"
+        );
+    }
+
+    /// Scenario: Placeholder comments are deterministic.
+    #[test]
+    fn placeholder_comments_are_deterministic_at_sketch_level() {
+        let flow = FlowUpdate {
+            nodes: vec![node("mqtt-1", "Mqtt"), node("gizmo-1", "Gizmo")],
+            edges: vec![],
+        };
+
+        let first = generate(&flow).expect("generation should succeed");
+        let second = generate(&flow).expect("generation should succeed");
+
+        assert_eq!(
+            first, second,
+            "repeated generation must yield identical placeholder comments"
+        );
     }
 }
