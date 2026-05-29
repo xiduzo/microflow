@@ -149,6 +149,7 @@ fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission 
         Some("Gate") => transformation::gate::emit(node, driver),
         Some("RangeMap") => transformation::range_map::emit(node, driver),
         Some("Smooth") => transformation::smooth::emit(node, driver),
+        Some("Function") => transformation::function::emit(node, driver),
         Some("Delay") => control::delay::emit(node, driver),
         Some("Interval") => control::interval::emit(node),
         Some("Trigger") => control::trigger::emit(node, driver),
@@ -204,6 +205,7 @@ fn source_expression(node: &FlowNode) -> Option<String> {
         Some("Gate") => Some(transformation::gate::state_var(node)),
         Some("RangeMap") => Some(transformation::range_map::value_var(node)),
         Some("Smooth") => Some(transformation::smooth::value_var(node)),
+        Some("Function") => Some(transformation::function::value_var(node)),
         Some("Delay") => Some(control::delay::value_var(node)),
         Some("Interval") => Some(control::interval::value_var(node)),
         Some("Trigger") => Some(control::trigger::state_var(node)),
@@ -749,6 +751,129 @@ mod tests {
                 node_data("led-1", "Led", json!({ "pin": 13 })),
             ],
             edges: vec![edge("sensor-1", "rm-1"), edge("rm-1", "sm-1"), edge("sm-1", "led-1")],
+        };
+        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+    }
+
+    // --- Function Node translated to C++ (Task #36) ---
+
+    /// Scenario: Supported Function logic is translated.
+    ///
+    /// A Sensor drives a Function Node whose JS uses only the supported
+    /// expression subset; the Sketch must translate it to C++ that reads the
+    /// sensor value and feeds the wired Led — not a placeholder.
+    #[test]
+    fn supported_function_logic_is_translated() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data(
+                    "fn-1",
+                    "Function",
+                    json!({ "code": "const v = input * 2;\nreturn v + 1;" }),
+                ),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![edge("sensor-1", "fn-1"), edge("fn-1", "led-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(
+            sketch.contains("double function_fn_1_value"),
+            "function output decl, got:\n{sketch}"
+        );
+        assert!(
+            sketch.contains("function_fn_1_value = "),
+            "function assigns its translated expression, got:\n{sketch}"
+        );
+        assert!(
+            sketch.contains("sensor_sensor_1_value"),
+            "function reads the sensor input"
+        );
+        // The Led is driven by the Function result, not a placeholder.
+        assert!(sketch.contains("digitalWrite(led_led_1_pin, (function_fn_1_value)"));
+        assert!(
+            !sketch.contains("unsupported Function Node fn_1"),
+            "supported logic must not be marked unsupported, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Scenario: Unsupported Function logic is clearly marked.
+    ///
+    /// A Function Node using a construct outside the subset (a `for` loop) is
+    /// clearly marked in the Sketch and contributes no broken or silently-wrong
+    /// C++ assignment.
+    #[test]
+    fn unsupported_function_logic_is_clearly_marked() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data(
+                    "fn-1",
+                    "Function",
+                    json!({ "code": "let s = 0;\nfor (let i = 0; i < input; i++) { s += i; }\nreturn s;" }),
+                ),
+            ],
+            edges: vec![edge("sensor-1", "fn-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(
+            sketch.contains("unsupported Function Node fn_1"),
+            "unsupported construct must be clearly marked, got:\n{sketch}"
+        );
+        // The output variable still exists at its safe default; no guessed C++.
+        assert!(sketch.contains("double function_fn_1_value = 0.0;"));
+        assert!(
+            !sketch.contains("function_fn_1_value = (double)"),
+            "no broken/silently-wrong assignment is emitted, got:\n{sketch}"
+        );
+        // Generation is not blanked.
+        assert!(sketch.contains("void setup()") && sketch.contains("void loop()"));
+    }
+
+    /// Scenario: Function Node is no longer a placeholder.
+    ///
+    /// A Flow containing a Function Node emits translated logic (its own value
+    /// variable), never the generic unsupported-Node placeholder reserved for
+    /// Nodes with no emitter.
+    #[test]
+    fn function_node_is_no_longer_a_placeholder() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "fn-1",
+                "Function",
+                json!({ "code": "return input;" }),
+            )],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(sketch.contains("function_fn_1_value"), "emits real state");
+        assert_eq!(
+            sketch.matches("// unsupported Node ").count(),
+            0,
+            "Function must not fall through to the no-emitter placeholder, got:\n{sketch}"
+        );
+    }
+
+    /// Determinism holds for a Function-bearing Flow.
+    #[test]
+    fn function_flow_is_deterministic() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data(
+                    "fn-1",
+                    "Function",
+                    json!({ "code": "return input > 500 ? 1 : 0;" }),
+                ),
+            ],
+            edges: vec![edge("sensor-1", "fn-1")],
         };
         assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
     }
