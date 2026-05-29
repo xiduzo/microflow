@@ -265,6 +265,29 @@ pub async fn flow_update(
     Ok(())
 }
 
+/// Generate the Arduino sketch skeleton for a Flow.
+///
+/// Pure translation: no board I/O, no Firmata, no persistence. Delegates to
+/// [`crate::codegen::generate`], which is a deterministic function of the input
+/// Flow (same Flow → byte-identical sketch). Logically emits the domain event
+/// `SketchGenerated`.
+///
+/// # Errors
+///
+/// Returns `Err(String)` with a human-readable message if sketch generation
+/// fails. The skeleton never fails today, but the contract is fallible so later
+/// per-Node emitters can surface failures to the frontend unchanged.
+#[tauri::command]
+pub async fn generate_sketch(flow: FlowUpdate) -> Result<String, String> {
+    log::info!(
+        "=== GENERATE SKETCH COMMAND === {} nodes, {} edges",
+        flow.nodes.len(),
+        flow.edges.len()
+    );
+
+    crate::codegen::generate(&flow)
+}
+
 /// Call a method on a component
 #[tauri::command]
 pub async fn component_call(

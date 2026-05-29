@@ -4,6 +4,7 @@ import { Dock } from "@/components/ui/dock";
 import { Separator } from "@/components/ui/separator";
 import { useReactFlow } from "@xyflow/react";
 import {
+  CodeIcon,
   HardDriveUploadIcon,
   PlusIcon,
   RedoIcon,
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app";
 import { useNavigate } from "@tanstack/react-router";
 import { useFlowImportExport } from "@/hooks/use-flow-import-export";
+import { useSketchCodeViewStore } from "@/stores/sketch-code-view";
 
 export function DockPanel() {
   const { fitView, zoomIn, zoomOut, zoomTo } = useReactFlow();
@@ -27,6 +29,11 @@ export function DockPanel() {
   const navigate = useNavigate();
   const { activeFlowId } = useAppStore();
   const { exportFlow } = useFlowImportExport();
+  const { setOpen: setSketchCodeViewOpen } = useSketchCodeViewStore();
+
+  const handleViewCode = () => {
+    setSketchCodeViewOpen(true);
+  };
 
   const handleZoomIn = (event?: KeyboardEvent | MouseEvent) => {
     event?.stopPropagation();
@@ -98,28 +105,31 @@ export function DockPanel() {
 
   useHotkey("Mod+K", handleAddNode, {
     meta: { name: "Add node", description: "Add node" },
-    preventDefault: true
+    preventDefault: true,
   });
 
   return (
-      <Dock direction="middle">
-        <DockIcon onClick={handleAddNode}>
-          <PlusIcon />
-        </DockIcon>
-        <Separator orientation="vertical" className="h-full" />
-        <DockIcon onClick={handleUndo}>
-          <UndoIcon className={cn(history.canUndo ? "text-primary" : "text-muted-foreground")} />
-        </DockIcon>
-        <DockIcon onClick={handleRedo}>
-          <RedoIcon className={cn(history.canRedo ? "text-primary" : "text-muted-foreground")} />
-        </DockIcon>
-        <Separator orientation="vertical" className="h-full" />
-        <DockIcon onClick={exportFlow}>
-          <HardDriveUploadIcon />
-        </DockIcon>
-        <DockIcon onClick={handleSettings}>
-          <SettingsIcon />
-        </DockIcon>
-      </Dock>
+    <Dock direction="middle">
+      <DockIcon onClick={handleAddNode}>
+        <PlusIcon />
+      </DockIcon>
+      <Separator orientation="vertical" className="h-full" />
+      <DockIcon onClick={handleUndo}>
+        <UndoIcon className={cn(history.canUndo ? "text-primary" : "text-muted-foreground")} />
+      </DockIcon>
+      <DockIcon onClick={handleRedo}>
+        <RedoIcon className={cn(history.canRedo ? "text-primary" : "text-muted-foreground")} />
+      </DockIcon>
+      <Separator orientation="vertical" className="h-full" />
+      <DockIcon onClick={handleViewCode}>
+        <CodeIcon />
+      </DockIcon>
+      <DockIcon onClick={exportFlow}>
+        <HardDriveUploadIcon />
+      </DockIcon>
+      <DockIcon onClick={handleSettings}>
+        <SettingsIcon />
+      </DockIcon>
+    </Dock>
   );
 }

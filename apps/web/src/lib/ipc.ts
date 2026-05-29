@@ -124,7 +124,29 @@ type LlmTestProvider = {
   apiKey: string;
 };
 
-type Command = Flow | MqttConnect | MqttDisconnect | MqttSubscribe | MqttUnsubscribe | MqttPublish | MqttStatus | MqttSyncBrokers | MqttAllStatuses | LlmSyncProviders | LlmTestProvider;
+// Sketch Generation context: translate a Flow into an Arduino sketch. Returns
+// the generated .ino source as a string. No UI consumes this yet (see #23).
+type GenerateSketch = {
+  type: "generate_sketch";
+  flow: {
+    nodes: Node[];
+    edges: Edge[];
+  };
+};
+
+type Command =
+  | Flow
+  | MqttConnect
+  | MqttDisconnect
+  | MqttSubscribe
+  | MqttUnsubscribe
+  | MqttPublish
+  | MqttStatus
+  | MqttSyncBrokers
+  | MqttAllStatuses
+  | LlmSyncProviders
+  | LlmTestProvider
+  | GenerateSketch;
 
 export async function invokeCommand<
   TCommand extends Command,
