@@ -25,6 +25,7 @@ pub mod emit;
 pub mod input;
 pub mod output;
 pub mod placeholder;
+pub mod transformation;
 
 use crate::runtime::types::{FlowNode, FlowUpdate};
 use emit::NodeEmission;
@@ -142,6 +143,11 @@ fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission 
         Some("Servo") => output::servo::emit(node, driver),
         Some("Button") => input::button::emit(node),
         Some("Sensor") => input::sensor::emit(node),
+        Some("Calculate") => transformation::calculate::emit(node, driver),
+        Some("Compare") => transformation::compare::emit(node, driver),
+        Some("Gate") => transformation::gate::emit(node, driver),
+        Some("RangeMap") => transformation::range_map::emit(node, driver),
+        Some("Smooth") => transformation::smooth::emit(node, driver),
         _ => placeholder::emit(node),
     }
 }
@@ -187,6 +193,11 @@ fn source_expression(node: &FlowNode) -> Option<String> {
     match node.node_type.as_deref() {
         Some("Button") => Some(input::button::state_var(node)),
         Some("Sensor") => Some(input::sensor::value_var(node)),
+        Some("Calculate") => Some(transformation::calculate::value_var(node)),
+        Some("Compare") => Some(transformation::compare::state_var(node)),
+        Some("Gate") => Some(transformation::gate::state_var(node)),
+        Some("RangeMap") => Some(transformation::range_map::value_var(node)),
+        Some("Smooth") => Some(transformation::smooth::value_var(node)),
         _ => None,
     }
 }
@@ -572,5 +583,162 @@ mod tests {
             first, second,
             "repeated generation must yield identical placeholder comments"
         );
+    }
+
+    // --- Transformation Nodes (Task #33) ---
+
+    /// Scenario: Calculate Node emits matching arithmetic.
+    ///
+    /// A Sensor drives a Calculate Node configured for `ceil`; the Sketch must
+    /// compute the Node's value from the sensor reading using the same unary
+    /// math the runtime applies, and feed it onward to a wired Led.
+    #[test]
+    fn calculate_node_emits_matching_arithmetic() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data("calc-1", "Calculate", json!({ "function": "ceil" })),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![edge("sensor-1", "calc-1"), edge("calc-1", "led-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(sketch.contains("double calculate_calc_1_value"), "calc output decl");
+        assert!(
+            sketch.contains("calculate_calc_1_value = ceil("),
+            "calc must apply ceil to its input, got:\n{sketch}"
+        );
+        assert!(sketch.contains("sensor_sensor_1_value"), "calc reads the sensor");
+        // The Led is driven by the Calculate result, not a placeholder.
+        assert!(sketch.contains("digitalWrite(led_led_1_pin, (calculate_calc_1_value)"));
+        assert!(!sketch.contains("// unsupported Node calc"), "calc must not be a placeholder");
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Scenario: Compare Node emits matching comparison.
+    #[test]
+    fn compare_node_emits_matching_comparison() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data(
+                    "cmp-1",
+                    "Compare",
+                    json!({ "validator": "number", "subValidator": "greater than", "number": 512.0 }),
+                ),
+            ],
+            edges: vec![edge("sensor-1", "cmp-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(sketch.contains("bool compare_cmp_1_result"), "compare bool decl");
+        assert!(
+            sketch.contains("> 512.0"),
+            "compare must emit the greater-than test, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("// unsupported Node cmp"));
+    }
+
+    /// Scenario: Gate Node emits matching pass-through logic.
+    #[test]
+    fn gate_node_emits_matching_pass_through_logic() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("btn-1", "Button", json!({ "pin": 6 })),
+                node_data("gate-1", "Gate", json!({ "gate": "nand" })),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![edge("btn-1", "gate-1"), edge("gate-1", "led-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(sketch.contains("bool gate_gate_1_result"), "gate bool decl");
+        // nand on a single input inverts it.
+        assert!(
+            sketch.contains("gate_gate_1_result = (!((bool)(button_btn_1_state)))"),
+            "nand gate must invert the button, got:\n{sketch}"
+        );
+        // The Led reads the gate result.
+        assert!(sketch.contains("digitalWrite(led_led_1_pin, (gate_gate_1_result)"));
+    }
+
+    /// Scenario: `RangeMap` and Smooth Nodes preserve their live behavior.
+    #[test]
+    fn range_map_and_smooth_preserve_live_behavior() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data(
+                    "rm-1",
+                    "RangeMap",
+                    json!({ "from": { "min": 0.0, "max": 1023.0 }, "to": { "min": 0.0, "max": 255.0 } }),
+                ),
+                node_data(
+                    "sm-1",
+                    "Smooth",
+                    json!({ "type": "movingAverage", "windowSize": 4 }),
+                ),
+            ],
+            edges: vec![edge("sensor-1", "rm-1"), edge("rm-1", "sm-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // RangeMap linear remap math with the configured bounds.
+        assert!(sketch.contains("double range_map_rm_1_value"), "range map decl");
+        assert!(sketch.contains("1023.0") && sketch.contains("255.0"), "range bounds present");
+        assert!(sketch.contains("round("), "range map rounds like the runtime");
+        // Smooth keeps a persistent rolling window (state survives loop iterations).
+        assert!(sketch.contains("double smooth_sm_1_window[4]"), "moving-average ring buffer");
+        assert!(sketch.contains("smooth_sm_1_value"), "smooth output decl");
+        assert!(!sketch.contains("delay("), "stays non-blocking despite state");
+    }
+
+    /// Scenario: No transformation Node is left as a placeholder.
+    #[test]
+    fn no_transformation_node_left_as_placeholder() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("calc-1", "Calculate", json!({ "function": "add" })),
+                node_data("cmp-1", "Compare", json!({ "validator": "boolean" })),
+                node_data("gate-1", "Gate", json!({ "gate": "and" })),
+                node_data("rm-1", "RangeMap", json!({})),
+                node_data("sm-1", "Smooth", json!({})),
+            ],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Every transformation Node declares real state; none is a placeholder.
+        assert!(sketch.contains("calculate_calc_1_value"));
+        assert!(sketch.contains("compare_cmp_1_result"));
+        assert!(sketch.contains("gate_gate_1_result"));
+        assert!(sketch.contains("range_map_rm_1_value"));
+        assert!(sketch.contains("smooth_sm_1_value"));
+        assert_eq!(
+            sketch.matches("// unsupported Node ").count(),
+            0,
+            "no transformation Node may be a placeholder, got:\n{sketch}"
+        );
+    }
+
+    /// Determinism holds for a transformation-heavy Flow.
+    #[test]
+    fn transformation_flow_is_deterministic() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data("rm-1", "RangeMap", json!({ "to": { "min": 0.0, "max": 5.0 } })),
+                node_data("sm-1", "Smooth", json!({ "type": "smooth", "attenuation": 0.8 })),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![edge("sensor-1", "rm-1"), edge("rm-1", "sm-1"), edge("sm-1", "led-1")],
+        };
+        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
     }
 }

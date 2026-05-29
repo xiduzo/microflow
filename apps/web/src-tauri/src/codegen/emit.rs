@@ -92,6 +92,46 @@ pub fn u16_or_default(node: &FlowNode, key: &str, default: u16) -> u16 {
         .unwrap_or(default)
 }
 
+/// Read an `f64` from a Node's `data`, falling back to `default`. Accepts a
+/// JSON number or a numeric string, mirroring the runtime's lenient config
+/// deserialization.
+#[must_use]
+pub fn f64_or_default(node: &FlowNode, key: &str, default: f64) -> f64 {
+    let Some(value) = node.data.get(key) else {
+        return default;
+    };
+    if let Some(n) = value.as_f64() {
+        return n;
+    }
+    if let Some(s) = value.as_str() {
+        return s.parse().unwrap_or(default);
+    }
+    default
+}
+
+/// Read a string from a Node's `data`, falling back to `default`.
+#[must_use]
+pub fn str_or_default(node: &FlowNode, key: &str, default: &str) -> String {
+    node.data
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or(default)
+        .to_string()
+}
+
+/// Format an `f64` as a C++ `double` literal that round-trips deterministically.
+/// Integer-valued numbers gain a trailing `.0` so the literal is unambiguously
+/// floating point.
+#[must_use]
+pub fn cpp_double(value: f64) -> String {
+    if value.is_finite() && value.fract() == 0.0 && value.abs() < 1e15 {
+        format!("{value:.1}")
+    } else {
+        // `{}` on f64 yields the shortest round-tripping representation.
+        format!("{value}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +179,27 @@ mod tests {
     #[test]
     fn empty_emission_is_empty() {
         assert!(NodeEmission::default().is_empty());
+    }
+
+    #[test]
+    fn f64_reads_number_string_and_default() {
+        assert!((f64_or_default(&node_with(json!({ "n": 2.5 })), "n", 0.0) - 2.5).abs() < f64::EPSILON);
+        assert!((f64_or_default(&node_with(json!({ "n": "3.5" })), "n", 0.0) - 3.5).abs() < f64::EPSILON);
+        assert!((f64_or_default(&node_with(json!({})), "n", 9.0) - 9.0).abs() < f64::EPSILON);
+        assert!((f64_or_default(&node_with(json!({ "n": "xyz" })), "n", 1.0) - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn str_reads_value_and_default() {
+        assert_eq!(str_or_default(&node_with(json!({ "s": "hi" })), "s", "x"), "hi");
+        assert_eq!(str_or_default(&node_with(json!({})), "s", "fallback"), "fallback");
+    }
+
+    #[test]
+    fn cpp_double_formats_integers_and_fractions() {
+        assert_eq!(cpp_double(5.0), "5.0");
+        assert_eq!(cpp_double(0.0), "0.0");
+        assert_eq!(cpp_double(-3.0), "-3.0");
+        assert_eq!(cpp_double(2.5), "2.5");
     }
 }
