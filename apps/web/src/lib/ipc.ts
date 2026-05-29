@@ -8,6 +8,7 @@ import { useEffect } from "react";
 // ./bindings/ during `cargo test`. Always import event-payload types from
 // there so the Rust struct stays the single source of truth.
 import type { BoardState } from "./bindings/BoardState";
+import type { BoardTarget } from "./bindings/BoardTarget";
 import type { BrokerStatus } from "./bindings/BrokerStatus";
 import type { ComponentEvent } from "./bindings/ComponentEvent";
 import type { ConnectionStatus } from "./bindings/ConnectionStatus";
@@ -165,6 +166,20 @@ export async function invokeCommand<
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
+  }
+}
+
+// Sketch Generation context: list the board targets the Author can generate a
+// Sketch for. Backed by `runtime::commands::list_board_targets`, which mirrors
+// the `supported_targets()` registry generation consults. Returns an empty list
+// off-desktop so the editor degrades gracefully (no picker options).
+export async function listBoardTargets(): Promise<BoardTarget[]> {
+  if (!isDesktop()) return [];
+  try {
+    return await invoke<BoardTarget[]>("list_board_targets");
+  } catch (error) {
+    console.error("[listBoardTargets]", error);
+    return [];
   }
 }
 
