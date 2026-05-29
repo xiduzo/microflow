@@ -46,7 +46,7 @@ mod router;
 pub mod serde_utils;
 pub mod services;
 pub mod transformation;
-mod types;
+pub mod types;
 pub mod wiring;
 mod wiring_registry;
 

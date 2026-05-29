@@ -35,6 +35,7 @@
     clippy::manual_let_else
 )]
 
+pub mod codegen;
 mod error;
 mod flasher;
 pub mod hardware;
@@ -285,6 +286,7 @@ pub fn run() {
             flasher::commands::get_supported_boards,
             runtime::commands::flow_update,
             runtime::commands::component_call,
+            runtime::commands::generate_sketch,
             mqtt::commands::mqtt_connect,
             mqtt::commands::mqtt_disconnect,
             mqtt::commands::mqtt_subscribe,
