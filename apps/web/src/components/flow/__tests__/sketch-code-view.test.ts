@@ -386,6 +386,18 @@ describe("buildSketchDownloadRequest", () => {
     expect(buildSketchDownloadRequest(sketch)).toEqual({
       type: "SketchDownloaded",
       sketch,
+      suggestedFilename: "sketch.ino",
+    });
+  });
+
+  // Scenario: the suggested filename is carried through to the write step
+  test("carries a provided suggested filename", () => {
+    const sketch = "void setup() {}\nvoid loop() {}";
+
+    expect(buildSketchDownloadRequest(sketch, "blinker.ino")).toEqual({
+      type: "SketchDownloaded",
+      sketch,
+      suggestedFilename: "blinker.ino",
     });
   });
 
