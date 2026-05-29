@@ -21,6 +21,7 @@
 //! - **Validity:** the output is always syntactically valid Arduino C++ and
 //!   compiles even when the Flow is empty.
 
+pub mod board;
 pub mod emit;
 pub mod input;
 pub mod output;
