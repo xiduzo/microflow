@@ -2,8 +2,13 @@ import { describe, expect, test } from "bun:test";
 import type { Edge, Node } from "@xyflow/react";
 import {
   buildGenerateSketchCommand,
+  createDebouncedRegenerator,
+  hasFlowChanged,
   projectSketchResult,
+  serializeFlowGraph,
+  type RegeneratorTimers,
   type SketchInvoker,
+  type SketchViewState,
 } from "../sketch-code-view.model";
 
 const NODE: Node = {
@@ -101,5 +106,220 @@ describe("projectSketchResult", () => {
     const state = await projectSketchResult(invoker, [], []);
 
     expect(state).toEqual({ value: "", isError: false });
+  });
+});
+
+describe("serializeFlowGraph / hasFlowChanged", () => {
+  test("identical graphs serialize equally and are reported unchanged", () => {
+    const a = serializeFlowGraph([NODE], []);
+    const b = serializeFlowGraph([NODE], []);
+
+    expect(a).toBe(b);
+    expect(hasFlowChanged(b, a)).toBe(false);
+  });
+
+  test("adding a node changes the serialization", () => {
+    const before = serializeFlowGraph([NODE], []);
+    const after = serializeFlowGraph([NODE, { ...NODE, id: "led-2" }], []);
+
+    expect(hasFlowChanged(after, before)).toBe(true);
+  });
+
+  test("an undefined baseline is always treated as changed", () => {
+    expect(hasFlowChanged(serializeFlowGraph([], []), undefined)).toBe(true);
+  });
+});
+
+/**
+ * Manual fake-clock harness: scheduled callbacks fire only when `tick` advances
+ * past their due time. Lets us assert debounce/coalesce behavior deterministically.
+ */
+function makeFakeTimers() {
+  let now = 0;
+  let nextId = 1;
+  const scheduled = new Map<number, { due: number; handler: () => void }>();
+
+  const timers: RegeneratorTimers = {
+    setTimeout: (handler, ms) => {
+      const id = nextId++;
+      scheduled.set(id, { due: now + ms, handler });
+      return id as unknown as ReturnType<typeof setTimeout>;
+    },
+    clearTimeout: (handle) => {
+      scheduled.delete(handle as unknown as number);
+    },
+  };
+
+  function tick(ms: number) {
+    now += ms;
+    const due = Array.from(scheduled.entries()).filter(([, entry]) => entry.due <= now);
+    for (const [id, entry] of due) {
+      scheduled.delete(id);
+      entry.handler();
+    }
+  }
+
+  return { timers, tick };
+}
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const LED2: Node = { id: "led-2", type: "Led", position: { x: 1, y: 1 }, data: { pin: 12 } };
+
+describe("createDebouncedRegenerator", () => {
+  // Scenario: Editing the Flow updates the displayed sketch
+  test("a graph change triggers regeneration after the debounce window", async () => {
+    const { timers, tick } = makeFakeTimers();
+    const results: SketchViewState[] = [];
+    const invoker: SketchInvoker = async () => ({ success: true, data: "sketch-v1" });
+
+    const regen = createDebouncedRegenerator({
+      invoker,
+      onResult: (s) => results.push(s),
+      debounceMs: 400,
+      timers,
+    });
+
+    regen.schedule([NODE], []);
+    expect(results).toHaveLength(0); // nothing before the window elapses
+    tick(400);
+    await flush();
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({ value: "sketch-v1", isError: false });
+  });
+
+  // Scenario: Rapid edits collapse into a single regeneration
+  test("rapid successive edits collapse into one regeneration with the latest graph", async () => {
+    const { timers, tick } = makeFakeTimers();
+    const seen: Array<{ nodes: number }> = [];
+    const invoker: SketchInvoker = async (command) => {
+      seen.push({ nodes: command.flow.nodes.length });
+      return { success: true, data: `nodes:${command.flow.nodes.length}` };
+    };
+    const results: SketchViewState[] = [];
+
+    const regen = createDebouncedRegenerator({
+      invoker,
+      onResult: (s) => results.push(s),
+      debounceMs: 400,
+      timers,
+    });
+
+    // Several edits in quick succession (each within the debounce window).
+    regen.schedule([NODE], []);
+    tick(100);
+    regen.schedule([NODE, LED2], []);
+    tick(100);
+    regen.schedule([NODE, LED2, { ...LED2, id: "led-3" }], []);
+
+    // Author pauses.
+    tick(400);
+    await flush();
+
+    expect(seen).toHaveLength(1); // coalesced into a single generation
+    expect(seen[0]).toEqual({ nodes: 3 }); // reflects the latest Flow
+    expect(results[results.length - 1]?.value).toBe("nodes:3");
+  });
+
+  // Scenario: Adding a Node updates the sketch
+  test("adding a node regenerates including the new node's graph", async () => {
+    const { timers, tick } = makeFakeTimers();
+    const flows: Node[][] = [];
+    const invoker: SketchInvoker = async (command) => {
+      flows.push(command.flow.nodes as Node[]);
+      return { success: true, data: "ok" };
+    };
+
+    const regen = createDebouncedRegenerator({
+      invoker,
+      onResult: () => {},
+      debounceMs: 400,
+      timers,
+      seedSerialized: serializeFlowGraph([NODE], []),
+    });
+
+    regen.schedule([NODE, LED2], []);
+    tick(400);
+    await flush();
+
+    expect(flows).toHaveLength(1);
+    expect(flows[0]?.map((n) => n.id)).toEqual(["led-1", "led-2"]);
+  });
+
+  test("an unchanged graph is not regenerated (skips redundant generation)", async () => {
+    const { timers, tick } = makeFakeTimers();
+    let calls = 0;
+    const invoker: SketchInvoker = async () => {
+      calls++;
+      return { success: true, data: "x" };
+    };
+
+    const regen = createDebouncedRegenerator({
+      invoker,
+      onResult: () => {},
+      debounceMs: 400,
+      timers,
+      seedSerialized: serializeFlowGraph([NODE], []),
+    });
+
+    regen.schedule([NODE], []); // identical to the seed
+    tick(400);
+    await flush();
+
+    expect(calls).toBe(0);
+  });
+
+  test("cancel prevents a pending regeneration from firing", async () => {
+    const { timers, tick } = makeFakeTimers();
+    let calls = 0;
+    const invoker: SketchInvoker = async () => {
+      calls++;
+      return { success: true, data: "x" };
+    };
+
+    const regen = createDebouncedRegenerator({
+      invoker,
+      onResult: () => {},
+      debounceMs: 400,
+      timers,
+    });
+
+    regen.schedule([NODE], []);
+    regen.cancel();
+    tick(400);
+    await flush();
+
+    expect(calls).toBe(0);
+  });
+
+  test("a stale in-flight response is dropped; only the latest result is applied", async () => {
+    const { timers, tick } = makeFakeTimers();
+    const results: SketchViewState[] = [];
+    // First response resolves slowly, second quickly — latest must win.
+    const resolvers: Array<(s: string) => void> = [];
+    const invoker: SketchInvoker = () =>
+      new Promise((resolve) =>
+        resolvers.push((value) => resolve({ success: true, data: value })),
+      ) as ReturnType<SketchInvoker>;
+
+    const regen = createDebouncedRegenerator({
+      invoker,
+      onResult: (s) => results.push(s),
+      debounceMs: 400,
+      timers,
+    });
+
+    regen.schedule([NODE], []);
+    tick(400); // fires request #1
+    regen.schedule([NODE, LED2], []);
+    tick(400); // fires request #2
+
+    // Resolve request #2 (latest) first, then the stale #1.
+    resolvers[1]?.("latest");
+    resolvers[0]?.("stale");
+    await flush();
+
+    expect(results.map((r) => r.value)).toEqual(["latest"]);
   });
 });
