@@ -21,6 +21,7 @@
 //! - **Validity:** the output is always syntactically valid Arduino C++ and
 //!   compiles even when the Flow is empty.
 
+pub mod control;
 pub mod emit;
 pub mod input;
 pub mod output;
@@ -148,6 +149,11 @@ fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission 
         Some("Gate") => transformation::gate::emit(node, driver),
         Some("RangeMap") => transformation::range_map::emit(node, driver),
         Some("Smooth") => transformation::smooth::emit(node, driver),
+        Some("Delay") => control::delay::emit(node, driver),
+        Some("Interval") => control::interval::emit(node),
+        Some("Trigger") => control::trigger::emit(node, driver),
+        Some("Counter") => control::counter::emit(node, driver),
+        Some("Constant") => control::constant::emit(node),
         _ => placeholder::emit(node),
     }
 }
@@ -198,6 +204,11 @@ fn source_expression(node: &FlowNode) -> Option<String> {
         Some("Gate") => Some(transformation::gate::state_var(node)),
         Some("RangeMap") => Some(transformation::range_map::value_var(node)),
         Some("Smooth") => Some(transformation::smooth::value_var(node)),
+        Some("Delay") => Some(control::delay::value_var(node)),
+        Some("Interval") => Some(control::interval::value_var(node)),
+        Some("Trigger") => Some(control::trigger::state_var(node)),
+        Some("Counter") => Some(control::counter::value_var(node)),
+        Some("Constant") => Some(control::constant::value_var(node)),
         _ => None,
     }
 }
@@ -738,6 +749,193 @@ mod tests {
                 node_data("led-1", "Led", json!({ "pin": 13 })),
             ],
             edges: vec![edge("sensor-1", "rm-1"), edge("rm-1", "sm-1"), edge("sm-1", "led-1")],
+        };
+        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
+    }
+
+    // --- Control Nodes as non-blocking timers (Task #34) ---
+
+    /// Scenario: Delay Node emits non-blocking timing.
+    ///
+    /// A Button arms a Delay that drives a Led. The Delay must be driven by the
+    /// loop scheduler with no blocking wait, and the rest of the Flow (the Led
+    /// write) keeps running while the Delay is pending.
+    #[test]
+    fn delay_node_emits_non_blocking_timing() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("btn-1", "Button", json!({ "pin": 6 })),
+                node_data("delay-1", "Delay", json!({ "delay": 1000 })),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![edge("btn-1", "delay-1"), edge("delay-1", "led-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Driven by the loop scheduler via an elapsed-millis comparison.
+        assert!(
+            sketch.contains("millis() - delay_delay_1_armed_at >= 1000UL"),
+            "delay must fire on the loop scheduler, got:\n{sketch}"
+        );
+        // No blocking wait anywhere.
+        assert!(!sketch.contains("delay("), "delay must be non-blocking");
+        // The rest of the Flow keeps running: the Led is driven by the Delay output.
+        assert!(
+            sketch.contains("digitalWrite(led_led_1_pin, (delay_delay_1_value)"),
+            "led must read the delayed value, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("// unsupported Node delay"), "delay must not be a placeholder");
+    }
+
+    /// Scenario: Interval Node fires repeatedly without blocking.
+    #[test]
+    fn interval_node_fires_repeatedly_without_blocking() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("iv-1", "Interval", json!({ "interval": 500 })),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![edge("iv-1", "led-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Fires on schedule via the loop scheduler's millis() clock.
+        assert!(
+            sketch.contains("millis() - interval_iv_1_previous >= 500UL"),
+            "interval must fire on schedule, got:\n{sketch}"
+        );
+        // Without halting other Nodes — no blocking delay.
+        assert!(!sketch.contains("delay("), "interval must not block other nodes");
+        assert!(!sketch.contains("// unsupported Node iv"), "interval must not be a placeholder");
+    }
+
+    /// Scenario: Counter Node retains its count on-device.
+    #[test]
+    fn counter_node_retains_its_count_on_device() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("btn-1", "Button", json!({ "pin": 6 })),
+                node_data("ct-1", "Counter", json!({})),
+            ],
+            edges: vec![edge("btn-1", "ct-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // The count lives in a module-level declaration => persists across loop().
+        assert!(
+            sketch.contains("double counter_ct_1_count = 0.0;"),
+            "counter must keep a persistent running count, got:\n{sketch}"
+        );
+        // It is updated (incremented) inside the scheduled loop body.
+        assert!(sketch.contains("counter_ct_1_count += 1.0"), "counter must increment on signal");
+        assert!(!sketch.contains("// unsupported Node ct"), "counter must not be a placeholder");
+    }
+
+    /// Scenario: Trigger and Constant Nodes match live behavior.
+    #[test]
+    fn trigger_and_constant_nodes_match_live_behavior() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data("tg-1", "Trigger", json!({ "threshold": 5.0, "behaviour": "increasing" })),
+                node_data("const-1", "Constant", json!({ "value": 42.0 })),
+            ],
+            edges: vec![edge("sensor-1", "tg-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Trigger reproduces its threshold/direction bang from the sensor reading.
+        assert!(sketch.contains("bool trigger_tg_1_result"), "trigger bool output");
+        assert!(sketch.contains(">= 5.0"), "trigger applies its threshold");
+        assert!(sketch.contains("trigger_tg_1_diff > 0.0"), "trigger respects increasing direction");
+        // Constant emits its fixed live value.
+        assert!(
+            sketch.contains("double constant_const_1_value = 42.0;"),
+            "constant must emit its fixed value, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("// unsupported Node tg"));
+        assert!(!sketch.contains("// unsupported Node const"));
+    }
+
+    /// Scenario: Nested timing Nodes run concurrently without drift.
+    ///
+    /// An Interval drives a Delay. Both timers must run concurrently on the
+    /// scheduler — each off its own `millis()` comparison — without drift or one
+    /// blocking the other.
+    #[test]
+    fn nested_timing_nodes_run_concurrently_without_drift() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("iv-1", "Interval", json!({ "interval": 200 })),
+                node_data("delay-1", "Delay", json!({ "delay": 1000 })),
+            ],
+            edges: vec![edge("iv-1", "delay-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Two independent millis-based timers, neither blocking.
+        assert!(
+            sketch.contains("millis() - interval_iv_1_previous >= 200UL"),
+            "interval timer present, got:\n{sketch}"
+        );
+        assert!(
+            sketch.contains("millis() - delay_delay_1_armed_at >= 1000UL"),
+            "delay timer present, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("delay("), "concurrent timers must not block");
+        // The Delay is armed from the Interval's output (nested timing wired through).
+        assert!(
+            sketch.contains("(double)(interval_iv_1_value)") || sketch.contains("(interval_iv_1_value)"),
+            "delay must be driven by the interval, got:\n{sketch}"
+        );
+    }
+
+    /// No control Node is left as a placeholder.
+    #[test]
+    fn no_control_node_left_as_placeholder() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("delay-1", "Delay", json!({})),
+                node_data("iv-1", "Interval", json!({})),
+                node_data("tg-1", "Trigger", json!({})),
+                node_data("ct-1", "Counter", json!({})),
+                node_data("const-1", "Constant", json!({})),
+            ],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(sketch.contains("delay_delay_1_value"));
+        assert!(sketch.contains("interval_iv_1_value"));
+        assert!(sketch.contains("trigger_tg_1_result"));
+        assert!(sketch.contains("counter_ct_1_count"));
+        assert!(sketch.contains("constant_const_1_value"));
+        assert_eq!(
+            sketch.matches("// unsupported Node ").count(),
+            0,
+            "no control Node may be a placeholder, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("delay("), "control nodes stay non-blocking");
+    }
+
+    /// Determinism holds for a control-heavy Flow.
+    #[test]
+    fn control_flow_is_deterministic() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("iv-1", "Interval", json!({ "interval": 250 })),
+                node_data("delay-1", "Delay", json!({ "delay": 500 })),
+                node_data("ct-1", "Counter", json!({})),
+                node_data("const-1", "Constant", json!({ "value": 3.0 })),
+                node_data("tg-1", "Trigger", json!({ "threshold": 2.0 })),
+            ],
+            edges: vec![edge("iv-1", "delay-1"), edge("iv-1", "ct-1")],
         };
         assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
     }

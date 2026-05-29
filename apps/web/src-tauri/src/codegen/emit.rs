@@ -92,6 +92,16 @@ pub fn u16_or_default(node: &FlowNode, key: &str, default: u16) -> u16 {
         .unwrap_or(default)
 }
 
+/// Read a `u64` from a Node's `data`, falling back to `default`. Used for
+/// millisecond durations (Delay/Interval) which the runtime stores as `u64`.
+#[must_use]
+pub fn u64_or_default(node: &FlowNode, key: &str, default: u64) -> u64 {
+    node.data
+        .get(key)
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(default)
+}
+
 /// Read an `f64` from a Node's `data`, falling back to `default`. Accepts a
 /// JSON number or a numeric string, mirroring the runtime's lenient config
 /// deserialization.
