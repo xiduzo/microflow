@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -7,7 +7,9 @@ import { useTheme } from "@/providers/theme-provider";
 import { useFlowSession, useFlowNodes, useFlowEdges } from "@/session";
 import { invokeCommand } from "@/lib/ipc";
 import {
+  createDebouncedRegenerator,
   projectSketchResult,
+  serializeFlowGraph,
   type SketchInvoker,
   type SketchResponse,
 } from "./sketch-code-view.model";
@@ -27,8 +29,9 @@ const invoke: SketchInvoker = (command) => invokeCommand(command) as Promise<Ske
 /**
  * Read-only Monaco view of the Arduino sketch generated from the current Flow.
  *
- * Generates once on open (Task #45); live regeneration on graph edits is Task 4.
- * The editor is always read-only — the Author can read and copy but not edit.
+ * Generates once on open (Task #45) and re-generates — debounced — whenever the
+ * Flow graph changes while the view is open (Task #47). The editor is always
+ * read-only — the Author can read and copy but not edit.
  */
 export function SketchCodeView({ onClose }: { onClose: () => void }) {
   const { theme } = useTheme();
@@ -37,22 +40,43 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
   const edges = useFlowEdges(doc);
   const [value, setValue] = useState("// Generating sketch…");
 
+  type GenNode = Parameters<typeof projectSketchResult>[1][number];
+  type GenEdge = Parameters<typeof projectSketchResult>[2][number];
+  const genNodes = nodes as GenNode[];
+  const genEdges = edges as GenEdge[];
+
+  // Generate once on open, seeding the regenerator so an identical first edit
+  // does not trigger a redundant regeneration.
   useEffect(() => {
     let cancelled = false;
-    void projectSketchResult(
-      invoke,
-      nodes as Parameters<typeof projectSketchResult>[1],
-      edges as Parameters<typeof projectSketchResult>[2],
-    ).then((state) => {
+    void projectSketchResult(invoke, genNodes, genEdges).then((state) => {
       if (!cancelled) setValue(state.value);
     });
     return () => {
       cancelled = true;
     };
-    // Generate on open only; the node/edge snapshot is read once (Task 4 adds
-    // debounced live regeneration).
+    // Read the on-open snapshot once; live edits flow through the regenerator below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Debounced live regeneration on Flow graph changes.
+  const regeneratorRef = useRef<ReturnType<typeof createDebouncedRegenerator> | null>(null);
+  if (regeneratorRef.current === null) {
+    regeneratorRef.current = createDebouncedRegenerator({
+      invoker: invoke,
+      onResult: (state) => setValue(state.value),
+      seedSerialized: serializeFlowGraph(genNodes, genEdges),
+    });
+  }
+
+  useEffect(() => {
+    const regenerator = regeneratorRef.current;
+    return () => regenerator?.cancel();
+  }, []);
+
+  useEffect(() => {
+    regeneratorRef.current?.schedule(genNodes, genEdges);
+  }, [genNodes, genEdges]);
 
   return (
     <Dialog defaultOpen onOpenChange={onClose}>
