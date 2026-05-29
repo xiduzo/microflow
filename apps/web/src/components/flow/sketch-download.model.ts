@@ -26,9 +26,7 @@ export function deriveSketchFilename(flowName: string | null | undefined): strin
 }
 
 /** Outcome of a download attempt. */
-export type SketchDownloadOutcome =
-  | { status: "saved"; path?: string }
-  | { status: "cancelled" };
+export type SketchDownloadOutcome = { status: "saved"; path?: string } | { status: "cancelled" };
 
 /** Native save-dialog seam — returns the chosen path, or `null` when cancelled. */
 export type SaveDialog = (options: {
