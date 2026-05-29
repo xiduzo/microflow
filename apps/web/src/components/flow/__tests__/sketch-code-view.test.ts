@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { Edge, Node } from "@xyflow/react";
 import {
   buildGenerateSketchCommand,
+  buildSketchDownloadRequest,
+  canDownloadSketch,
   createDebouncedRegenerator,
+  GENERATING_SKETCH_PLACEHOLDER,
   hasFlowChanged,
   projectSketchResult,
   serializeFlowGraph,
@@ -373,5 +376,101 @@ describe("createDebouncedRegenerator", () => {
     await flush();
 
     expect(results.map((r) => r.value)).toEqual(["latest"]);
+  });
+});
+
+describe("canDownloadSketch", () => {
+  // Scenario: Download control is available on the Code view
+  test("a generated sketch enables download", () => {
+    const state: SketchViewState = {
+      value: "void setup() {}\nvoid loop() {}",
+      isError: false,
+    };
+
+    expect(canDownloadSketch(state)).toBe(true);
+  });
+
+  // Scenario: Download control available for a Flow with unsupported Nodes
+  test("a sketch with unsupported-Node placeholder comments still enables download", () => {
+    const state: SketchViewState = {
+      value: ["// microflow generated sketch", "// Unsupported node: Mqtt", "void loop() {}"].join(
+        "\n",
+      ),
+      isError: false,
+    };
+
+    expect(canDownloadSketch(state)).toBe(true);
+  });
+
+  // Scenario: Download control available for an unnamed Flow
+  test("an unnamed Flow (empty-stub sketch) still enables download", () => {
+    const state: SketchViewState = { value: "void setup() {}\nvoid loop() {}", isError: false };
+
+    // The view state carries no Flow name; download stays enabled regardless.
+    expect(canDownloadSketch(state)).toBe(true);
+  });
+
+  test("the generating placeholder disables download until a sketch exists", () => {
+    const state: SketchViewState = { value: GENERATING_SKETCH_PLACEHOLDER, isError: false };
+
+    expect(canDownloadSketch(state)).toBe(false);
+  });
+
+  test("an empty value disables download (nothing to hand off yet)", () => {
+    expect(canDownloadSketch({ value: "", isError: false })).toBe(false);
+  });
+
+  test("a generation error disables download", () => {
+    const state: SketchViewState = {
+      value: "// Failed to generate sketch:\n// boom",
+      isError: true,
+    };
+
+    expect(canDownloadSketch(state)).toBe(false);
+  });
+});
+
+describe("buildSketchDownloadRequest", () => {
+  // Scenario: Activating Download starts the hand-off
+  test("wraps the displayed sketch in a SketchDownloaded intent", () => {
+    const sketch = "void setup() {}\nvoid loop() {}";
+
+    expect(buildSketchDownloadRequest(sketch)).toEqual({
+      type: "SketchDownloaded",
+      sketch,
+      suggestedFilename: "sketch.ino",
+    });
+  });
+
+  // Scenario: the suggested filename is carried through to the write step
+  test("carries a provided suggested filename", () => {
+    const sketch = "void setup() {}\nvoid loop() {}";
+
+    expect(buildSketchDownloadRequest(sketch, "blinker.ino")).toEqual({
+      type: "SketchDownloaded",
+      sketch,
+      suggestedFilename: "blinker.ino",
+    });
+  });
+
+  // Invariant: the string handed off is byte-for-byte what the view displays
+  test("preserves the sketch string byte-for-byte", () => {
+    const sketch = [
+      "// microflow generated sketch",
+      "void setup() {",
+      "  pinMode(13, OUTPUT);",
+      "}",
+      "void loop() {}",
+      "", // trailing newline preserved
+    ].join("\n");
+
+    expect(buildSketchDownloadRequest(sketch).sketch).toBe(sketch);
+  });
+
+  // Edge case: placeholder-comment sketch is handed off verbatim
+  test("hands off an unsupported-Node placeholder sketch verbatim", () => {
+    const sketch = "// Unsupported node: Mqtt\nvoid loop() {}";
+
+    expect(buildSketchDownloadRequest(sketch).sketch).toBe(sketch);
   });
 });
