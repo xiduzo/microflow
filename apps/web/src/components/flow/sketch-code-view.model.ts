@@ -1,22 +1,48 @@
 import type { Edge, Node } from "@xyflow/react";
+import type { GenerationOutcome } from "@/lib/bindings/GenerationOutcome";
+import type { ValidationProblem } from "@/lib/bindings/ValidationProblem";
 
 /**
- * The `generate_sketch` command payload: the current Flow graph wrapped for the
- * Tauri command (see `apps/web/src/lib/ipc.ts` and Task #45).
+ * The `generate_sketch` command payload: the current Flow graph plus the
+ * selected board target id, wrapped for the Tauri command (see
+ * `apps/web/src/lib/ipc.ts`, Task #43 and Task #45). `targetId` is omitted when
+ * the Flow has no explicit selection, in which case the backend uses the
+ * default board target so existing Flows still generate.
  */
 export type GenerateSketchCommand = {
   type: "generate_sketch";
   flow: { nodes: Node[]; edges: Edge[] };
+  targetId?: string;
 };
 
 /**
  * Response shape returned by `invokeCommand` for `generate_sketch`. The data is
- * the generated `.ino` source as a plain string (or absent on web/no-op).
+ * a {@link GenerationOutcome}: either the generated `.ino` source (`sketch`) or
+ * the validation problems that prevented emission (`problems`). Absent on
+ * web/no-op.
  */
-export type SketchResponse = { success: true; data?: string } | { success: false; error: string };
+export type SketchResponse =
+  | { success: true; data?: GenerationOutcome }
+  | { success: false; error: string };
 
 /** Injectable invoker so the projection is testable without Tauri. */
 export type SketchInvoker = (command: GenerateSketchCommand) => Promise<SketchResponse>;
+
+/** True when an outcome carries a generated sketch (rather than problems). */
+function isSketchOutcome(outcome: GenerationOutcome): outcome is { sketch: string } {
+  return "sketch" in outcome;
+}
+
+/**
+ * Render a list of validation problems as a read-only comment block for the
+ * editor. Each problem names its Node and the constraint it violated, so the
+ * Author sees exactly why no sketch was emitted.
+ */
+function formatProblems(problems: ValidationProblem[]): string {
+  const header = "// Cannot generate a sketch for the selected board:";
+  const lines = problems.map((p) => `// - ${p.message}`);
+  return [header, ...lines].join("\n");
+}
 
 /** View state consumed by the read-only Monaco editor. */
 export type SketchViewState = {
@@ -26,19 +52,31 @@ export type SketchViewState = {
   isError: boolean;
 };
 
-/** Build the `generate_sketch` command from the current Flow graph. */
-export function buildGenerateSketchCommand(nodes: Node[], edges: Edge[]): GenerateSketchCommand {
-  return { type: "generate_sketch", flow: { nodes, edges } };
+/**
+ * Build the `generate_sketch` command from the current Flow graph and the
+ * selected board target. `targetId` is omitted when no board is selected so the
+ * backend falls back to the default target.
+ */
+export function buildGenerateSketchCommand(
+  nodes: Node[],
+  edges: Edge[],
+  targetId?: string,
+): GenerateSketchCommand {
+  const command: GenerateSketchCommand = { type: "generate_sketch", flow: { nodes, edges } };
+  if (targetId !== undefined) command.targetId = targetId;
+  return command;
 }
 
 /**
- * Produce a stable string key for a Flow graph so successive snapshots can be
- * compared cheaply. Two graphs that would generate the same sketch must yield
- * the same key, so we serialize the same `{ nodes, edges }` payload sent to the
- * generator. Used to skip redundant regeneration when the graph is unchanged.
+ * Produce a stable string key for a Flow graph and selected target so
+ * successive snapshots can be compared cheaply. Two inputs that would generate
+ * the same sketch must yield the same key, so we serialize the same
+ * `{ nodes, edges }` payload sent to the generator together with the selected
+ * `targetId`. Including the target means switching the board re-generates even
+ * when the graph is unchanged. Used to skip redundant regeneration otherwise.
  */
-export function serializeFlowGraph(nodes: Node[], edges: Edge[]): string {
-  return JSON.stringify(buildGenerateSketchCommand(nodes, edges).flow);
+export function serializeFlowGraph(nodes: Node[], edges: Edge[], targetId?: string): string {
+  return JSON.stringify({ flow: buildGenerateSketchCommand(nodes, edges).flow, targetId });
 }
 
 /**
@@ -60,14 +98,23 @@ export async function projectSketchResult(
   invoker: SketchInvoker,
   nodes: Node[],
   edges: Edge[],
+  targetId?: string,
 ): Promise<SketchViewState> {
-  const response = await invoker(buildGenerateSketchCommand(nodes, edges));
+  const response = await invoker(buildGenerateSketchCommand(nodes, edges, targetId));
 
-  if (response.success) {
-    return { value: response.data ?? "", isError: false };
+  if (!response.success) {
+    return { value: `// Failed to generate sketch:\n// ${response.error}`, isError: true };
   }
 
-  return { value: `// Failed to generate sketch:\n// ${response.error}`, isError: true };
+  // No outcome (web/no-op) resolves to a stable empty value.
+  if (response.data === undefined) return { value: "", isError: false };
+
+  // A sketch renders verbatim; validation problems render as an error block so
+  // the panel never shows unrunnable code.
+  if (isSketchOutcome(response.data)) {
+    return { value: response.data.sketch, isError: false };
+  }
+  return { value: formatProblems(response.data.problems), isError: true };
 }
 
 /** Default debounce window (ms) — balances responsiveness against churn. */
@@ -90,7 +137,7 @@ export type DebouncedRegenerator = {
    * regeneration that fires after the debounce window elapses with no further
    * calls. Skips work when the graph matches the last one generated.
    */
-  schedule: (nodes: Node[], edges: Edge[]) => void;
+  schedule: (nodes: Node[], edges: Edge[], targetId?: string) => void;
   /** Cancel any pending regeneration and drop in-flight responses (call on unmount). */
   cancel: () => void;
 };
@@ -123,13 +170,13 @@ export function createDebouncedRegenerator(options: {
   let latestRequestId = 0;
   let cancelled = false;
 
-  function run(nodes: Node[], edges: Edge[]): void {
-    const serialized = serializeFlowGraph(nodes, edges);
+  function run(nodes: Node[], edges: Edge[], targetId?: string): void {
+    const serialized = serializeFlowGraph(nodes, edges, targetId);
     if (!hasFlowChanged(serialized, lastSerialized)) return;
     lastSerialized = serialized;
 
     const requestId = ++latestRequestId;
-    void projectSketchResult(options.invoker, nodes, edges).then((state) => {
+    void projectSketchResult(options.invoker, nodes, edges, targetId).then((state) => {
       // Drop stale responses: only the most recent request may update the view.
       if (cancelled || requestId !== latestRequestId) return;
       options.onResult(state);
@@ -137,12 +184,12 @@ export function createDebouncedRegenerator(options: {
   }
 
   return {
-    schedule(nodes, edges) {
+    schedule(nodes, edges, targetId) {
       if (cancelled) return;
       if (pendingHandle !== undefined) timers.clearTimeout(pendingHandle);
       pendingHandle = timers.setTimeout(() => {
         pendingHandle = undefined;
-        run(nodes, edges);
+        run(nodes, edges, targetId);
       }, debounceMs);
     },
     cancel() {
