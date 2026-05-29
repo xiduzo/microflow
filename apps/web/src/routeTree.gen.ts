@@ -21,6 +21,7 @@ import { Route as ConfigurationMqttRouteImport } from './routes/configuration/mq
 import { Route as ConfigurationLlmRouteImport } from './routes/configuration/llm'
 import { Route as FlowFlowIdSettingsRouteImport } from './routes/flow/$flowId/settings'
 import { Route as FlowFlowIdGraphRouteImport } from './routes/flow/$flowId/graph'
+import { Route as FlowFlowIdCodeRouteImport } from './routes/flow/$flowId/code'
 import { Route as FlowFlowIdCircuitRouteImport } from './routes/flow/$flowId/circuit'
 
 const TemplatesRoute = TemplatesRouteImport.update({
@@ -83,6 +84,13 @@ const FlowFlowIdGraphRoute = FlowFlowIdGraphRouteImport.update({
   path: '/graph',
   getParentRoute: () => FlowFlowIdRoute,
 } as any)
+const FlowFlowIdCodeRoute = FlowFlowIdCodeRouteImport.update({
+  id: '/code',
+  path: '/code',
+  getParentRoute: () => FlowFlowIdRoute,
+} as any).lazy(() =>
+  import('./routes/flow/$flowId/code.lazy').then((d) => d.Route),
+)
 const FlowFlowIdCircuitRoute = FlowFlowIdCircuitRouteImport.update({
   id: '/circuit',
   path: '/circuit',
@@ -103,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
   '/flow/': typeof FlowIndexRoute
   '/flow/$flowId/circuit': typeof FlowFlowIdCircuitRoute
+  '/flow/$flowId/code': typeof FlowFlowIdCodeRoute
   '/flow/$flowId/graph': typeof FlowFlowIdGraphRoute
   '/flow/$flowId/settings': typeof FlowFlowIdSettingsRoute
 }
@@ -118,6 +127,7 @@ export interface FileRoutesByTo {
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
   '/flow': typeof FlowIndexRoute
   '/flow/$flowId/circuit': typeof FlowFlowIdCircuitRoute
+  '/flow/$flowId/code': typeof FlowFlowIdCodeRoute
   '/flow/$flowId/graph': typeof FlowFlowIdGraphRoute
   '/flow/$flowId/settings': typeof FlowFlowIdSettingsRoute
 }
@@ -134,6 +144,7 @@ export interface FileRoutesById {
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
   '/flow/': typeof FlowIndexRoute
   '/flow/$flowId/circuit': typeof FlowFlowIdCircuitRoute
+  '/flow/$flowId/code': typeof FlowFlowIdCodeRoute
   '/flow/$flowId/graph': typeof FlowFlowIdGraphRoute
   '/flow/$flowId/settings': typeof FlowFlowIdSettingsRoute
 }
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/flow/$flowId'
     | '/flow/'
     | '/flow/$flowId/circuit'
+    | '/flow/$flowId/code'
     | '/flow/$flowId/graph'
     | '/flow/$flowId/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -166,6 +178,7 @@ export interface FileRouteTypes {
     | '/flow/$flowId'
     | '/flow'
     | '/flow/$flowId/circuit'
+    | '/flow/$flowId/code'
     | '/flow/$flowId/graph'
     | '/flow/$flowId/settings'
   id:
@@ -181,6 +194,7 @@ export interface FileRouteTypes {
     | '/flow/$flowId'
     | '/flow/'
     | '/flow/$flowId/circuit'
+    | '/flow/$flowId/code'
     | '/flow/$flowId/graph'
     | '/flow/$flowId/settings'
   fileRoutesById: FileRoutesById
@@ -284,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FlowFlowIdGraphRouteImport
       parentRoute: typeof FlowFlowIdRoute
     }
+    '/flow/$flowId/code': {
+      id: '/flow/$flowId/code'
+      path: '/code'
+      fullPath: '/flow/$flowId/code'
+      preLoaderRoute: typeof FlowFlowIdCodeRouteImport
+      parentRoute: typeof FlowFlowIdRoute
+    }
     '/flow/$flowId/circuit': {
       id: '/flow/$flowId/circuit'
       path: '/circuit'
@@ -296,12 +317,14 @@ declare module '@tanstack/react-router' {
 
 interface FlowFlowIdRouteChildren {
   FlowFlowIdCircuitRoute: typeof FlowFlowIdCircuitRoute
+  FlowFlowIdCodeRoute: typeof FlowFlowIdCodeRoute
   FlowFlowIdGraphRoute: typeof FlowFlowIdGraphRoute
   FlowFlowIdSettingsRoute: typeof FlowFlowIdSettingsRoute
 }
 
 const FlowFlowIdRouteChildren: FlowFlowIdRouteChildren = {
   FlowFlowIdCircuitRoute: FlowFlowIdCircuitRoute,
+  FlowFlowIdCodeRoute: FlowFlowIdCodeRoute,
   FlowFlowIdGraphRoute: FlowFlowIdGraphRoute,
   FlowFlowIdSettingsRoute: FlowFlowIdSettingsRoute,
 }

@@ -30,9 +30,6 @@ import { useTheme } from "@/providers/theme-provider";
 import { HotkeySheet } from "./sheets/hotkey-sheet";
 import { CollabCursors } from "./collab-cursors";
 import { PressensePanel } from "./panels/pressense-panel";
-import { SketchCodeView } from "./sketch-code-view";
-import { BoardTargetPicker } from "./board-target-picker";
-import { useSketchCodeViewStore } from "@/stores/sketch-code-view";
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
@@ -43,7 +40,6 @@ export function ReactFlowCanvas() {
   const { doc } = useFlowSession();
   const { otherUsers } = useCollabPresence();
   const { updateCursor } = useFlowAwareness();
-  const { open: sketchCodeViewOpen, setOpen: setSketchCodeViewOpen } = useSketchCodeViewStore();
 
   const { nodes, edges, onNodesChange, onEdgesChange } = useReactFlowBridge(doc);
 
@@ -101,7 +97,6 @@ export function ReactFlowCanvas() {
         <NewNodeDialog />
         <HotkeySheet />
         <Panel position="top-right" className="flex items-center gap-2">
-          <BoardTargetPicker />
           <SettingsPanel />
         </Panel>
         <Panel position="bottom-center">
@@ -112,7 +107,6 @@ export function ReactFlowCanvas() {
         </Panel>
       </ReactFlow>
       <CollabCursors users={otherUsers} />
-      {sketchCodeViewOpen && <SketchCodeView onClose={() => setSketchCodeViewOpen(false)} />}
     </div>
   );
 }
