@@ -12,8 +12,15 @@
 //!
 //! - **Pin exists** — a hardware-IO Node (Led, Relay, Servo, Button, Sensor)
 //!   may only use a pin number the board actually has.
+//! - **PWM output** — a Servo drives its pin with `analogWrite` (mirroring
+//!   `runtime/output/servo.rs`), so its pin must be a PWM-capable pin on the
+//!   board.
 //! - **Analog input** — a Sensor reads `analogRead`, so its pin must be an
 //!   analog-input pin on the board.
+//! - **Analog over-subscription** — even when every Sensor's pin is individually
+//!   valid, a Flow that uses more *distinct* analog-input pins than the board
+//!   offers cannot run; the surplus Sensors are flagged so the Author sees the
+//!   aggregate constraint, not just a per-Node one.
 //! - **Networking capability** — a Cloud Node (Mqtt/Figma/Llm/Monitor) requires
 //!   the board to offer [`BoardCapability::Networking`]; a bare board cannot run
 //!   it.
@@ -34,6 +41,23 @@ use ts_rs::TS;
 /// The Cloud Node types — those that cross the hardware boundary and require a
 /// networked board target. Kept in sync with `placeholder::CLOUD_NODE_TYPES`.
 const CLOUD_NODE_TYPES: [&str; 4] = ["Mqtt", "Figma", "Llm", "Monitor"];
+
+/// The default pin an emitter assigns to a pinned Node when its `data` omits
+/// `pin`. Validation must resolve pins exactly as emission does, or the two
+/// drift: a Node validated against pin 0 could then be emitted on its real
+/// default pin. These mirror the `DEFAULT_PIN` constants in each emitter
+/// (`codegen/output/*`, `codegen/input/*`), which in turn mirror the live
+/// runtime defaults.
+fn default_pin_for(node_type: &str) -> u8 {
+    match node_type {
+        "Led" => 13,
+        "Relay" => 10,
+        "Servo" => 3,
+        "Button" => 6,
+        // Sensor and anything else default to A0 / pin 0.
+        _ => 0,
+    }
+}
 
 /// One reason a Flow cannot be generated for the selected board target.
 ///
@@ -63,10 +87,17 @@ pub fn validate(flow: &FlowUpdate, target: &BoardTarget) -> Vec<ValidationProble
     let by_id: BTreeMap<&str, &FlowNode> =
         flow.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
 
-    by_id
+    // Per-Node feasibility (pin exists, PWM, analog index, networking).
+    let mut problems: Vec<ValidationProblem> = by_id
         .values()
         .filter_map(|node| problem_for(node, target))
-        .collect()
+        .collect();
+
+    // Aggregate analog over-subscription: a Flow may use only valid analog
+    // indices yet still demand more *distinct* analog inputs than the board has.
+    // The per-Node pass above cannot see this; this pass does.
+    problems.extend(analog_oversubscription_problems(&by_id, target));
+    problems
 }
 
 /// The single problem a Node raises against `target`, or `None` when it is
@@ -76,7 +107,12 @@ fn problem_for(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProble
     match kind {
         Some(k) if CLOUD_NODE_TYPES.contains(&k) => networking_problem(node, k, target),
         Some("Sensor") => sensor_pin_problem(node, target),
-        Some(k @ ("Led" | "Relay" | "Servo" | "Button")) => digital_pin_problem(node, k, target),
+        // A Servo drives its pin with `analogWrite`, so the pin must both exist
+        // and be PWM-capable; check existence first for the clearer message.
+        Some("Servo") => {
+            digital_pin_problem(node, "Servo", target).or_else(|| pwm_pin_problem(node, target))
+        }
+        Some(k @ ("Led" | "Relay" | "Button")) => digital_pin_problem(node, k, target),
         // Unknown / typeless Nodes emit only a placeholder comment, never
         // runnable code, so they cannot make a Sketch unrunnable.
         _ => None,
@@ -108,7 +144,7 @@ fn digital_pin_problem(
     kind: &str,
     target: &BoardTarget,
 ) -> Option<ValidationProblem> {
-    let pin = pin_or_default(node, 0);
+    let pin = pin_or_default(node, default_pin_for(kind));
     if has_pin(target, pin) {
         return None;
     }
@@ -120,6 +156,68 @@ fn digital_pin_problem(
             node.id, target.name
         ),
     ))
+}
+
+/// A Servo drives its pin with `analogWrite`, so the pin must be PWM-capable on
+/// the board. Called only after [`digital_pin_problem`] has confirmed the pin
+/// exists, so a `None` here means "exists but not PWM".
+fn pwm_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
+    let pin = pin_or_default(node, default_pin_for("Servo"));
+    if target.pwm_pins().contains(&pin) {
+        return None;
+    }
+    Some(problem(
+        node,
+        "Servo",
+        format!(
+            "Node {} (Servo) needs PWM on pin {pin}, but pin {pin} on board target '{}' does not support PWM",
+            node.id, target.name
+        ),
+    ))
+}
+
+/// Aggregate analog-input demand across the whole Flow. Each Sensor consumes one
+/// of the board's analog inputs; a Flow whose Sensors *together* demand more
+/// analog inputs than the board offers cannot run, even when every Sensor's own
+/// index is individually in range. The per-Node [`sensor_pin_problem`] check
+/// cannot see this whole-Flow constraint — this pass does.
+///
+/// Sensors whose index is already out of range are reported by the per-Node
+/// check and excluded here (so they are not double-counted). The first
+/// `analog_count` in-range Sensors (in deterministic Node-`id` order) fit; every
+/// Sensor beyond that capacity is flagged as surplus, naming the Node and the
+/// analog-input constraint.
+fn analog_oversubscription_problems(
+    by_id: &BTreeMap<&str, &FlowNode>,
+    target: &BoardTarget,
+) -> Vec<ValidationProblem> {
+    let analog_count = target.analog_input_pins().len();
+
+    let mut used = 0usize;
+    let mut surplus = Vec::new();
+    for node in by_id.values() {
+        if node.node_type.as_deref() != Some("Sensor") {
+            continue;
+        }
+        let index = pin_or_default(node, 0);
+        // Out-of-range indices are reported by the per-Node analog check; skip
+        // them here so a Sensor never raises two problems.
+        if (index as usize) >= analog_count {
+            continue;
+        }
+        used += 1;
+        if used > analog_count {
+            surplus.push(problem(
+                node,
+                "Sensor",
+                format!(
+                    "Node {} (Sensor) needs an analog input, but board target '{}' offers only {analog_count} and the Flow already uses them all",
+                    node.id, target.name
+                ),
+            ));
+        }
+    }
+    surplus
 }
 
 /// A Sensor reads `analogRead`, so its analog index must map to an analog-input
@@ -230,6 +328,104 @@ mod tests {
         let problems = validate(&f, &uno);
         assert_eq!(problems.len(), 1);
         assert!(problems[0].message.contains("A6"));
+    }
+
+    /// Scenario: A Flow needing more analog inputs than the board has is
+    /// flagged. Seven Sensors (each in range A0-A5) on the Uno's six analog
+    /// inputs over-subscribe; the surplus Sensor is flagged naming the Node and
+    /// the analog-input constraint.
+    #[test]
+    fn flow_over_subscribing_analog_inputs_is_flagged() {
+        let uno = target_by_id("uno").unwrap();
+        // Uno has six analog inputs. Seven Sensors all on A0 (in range) demand
+        // seven analog inputs together — one more than the board offers.
+        let nodes: Vec<FlowNode> = (0..7)
+            .map(|i| node(&format!("sensor-{i}"), "Sensor", json!({ "pin": "A0" })))
+            .collect();
+        let problems = validate(&flow(nodes), &uno);
+        assert_eq!(problems.len(), 1, "exactly the surplus Sensor is flagged");
+        // The seventh Sensor in id order (sensor-6) is the surplus one.
+        assert_eq!(problems[0].node_id, "sensor-6");
+        assert_eq!(problems[0].node_type, "Sensor");
+        assert!(problems[0].message.contains("sensor-6"), "names the Node");
+        assert!(problems[0].message.contains("analog input"), "names the constraint");
+    }
+
+    /// A Flow using exactly as many analog inputs as the board offers fits.
+    #[test]
+    fn flow_using_all_analog_inputs_exactly_is_runnable() {
+        let uno = target_by_id("uno").unwrap();
+        // Six Sensors on the Uno's six analog inputs — exactly at capacity.
+        let nodes: Vec<FlowNode> = (0..6)
+            .map(|i| node(&format!("sensor-{i}"), "Sensor", json!({ "pin": format!("A{i}") })))
+            .collect();
+        assert!(validate(&flow(nodes), &uno).is_empty());
+    }
+
+    /// An out-of-range Sensor raises only the per-Node problem, never also a
+    /// duplicate over-subscription problem.
+    #[test]
+    fn out_of_range_sensor_is_not_double_counted() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![node("s-1", "Sensor", json!({ "pin": "A9" }))]);
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 1, "single problem for the out-of-range Sensor");
+        assert!(problems[0].message.contains("A9"));
+    }
+
+    /// A Servo on a non-PWM pin (that the board nonetheless has) is flagged for
+    /// the PWM constraint, naming the Node and the pin.
+    #[test]
+    fn servo_on_non_pwm_pin_is_flagged() {
+        let uno = target_by_id("uno").unwrap();
+        // Uno pin 7 exists but is not a PWM pin (PWM: 3,5,6,9,10,11).
+        let f = flow(vec![node("srv-1", "Servo", json!({ "pin": 7 }))]);
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 1);
+        assert_eq!(problems[0].node_id, "srv-1");
+        assert!(problems[0].message.contains("PWM"), "names the PWM constraint");
+        assert!(problems[0].message.contains("pin 7"), "names the pin");
+    }
+
+    /// A Servo on a PWM-capable pin is runnable.
+    #[test]
+    fn servo_on_pwm_pin_is_runnable() {
+        let uno = target_by_id("uno").unwrap();
+        // Uno pin 9 is PWM-capable.
+        let f = flow(vec![node("srv-1", "Servo", json!({ "pin": 9 }))]);
+        assert!(validate(&f, &uno).is_empty());
+    }
+
+    /// A Servo on a pin the board lacks is flagged for the missing pin, not PWM
+    /// (existence is checked first for the clearer message).
+    #[test]
+    fn servo_on_absent_pin_reports_missing_pin() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![node("srv-1", "Servo", json!({ "pin": 40 }))]);
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].message.contains("pin 40"));
+        assert!(problems[0].message.contains("does not have"), "missing-pin message");
+    }
+
+    /// Scenario: Switching the board target re-validates the Flow. A Flow that
+    /// validates cleanly on a networking board reports the networking problem
+    /// once re-validated against a non-networking board. `validate` is pure, so
+    /// re-running it with the new target is the re-validation.
+    #[test]
+    fn switching_target_revalidates_flow() {
+        let esp32 = target_by_id("esp32").unwrap();
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![node("mqtt-1", "Mqtt", json!({}))]);
+
+        // Clean on the networking board.
+        assert!(validate(&f, &esp32).is_empty());
+
+        // Re-validated against a board lacking networking, the new constraint
+        // problem is reported — and no stale clean result persists.
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].message.contains("networking"));
     }
 
     /// Problems are returned in deterministic Node-id order.
