@@ -42,6 +42,8 @@ export type SketchDownloadRequest = {
   type: "SketchDownloaded";
   /** The displayed sketch, byte-for-byte. */
   sketch: string;
+  /** Suggested `.ino` filename derived from the Flow name (or `sketch.ino`). */
+  suggestedFilename: string;
 };
 
 /** Handler seam invoked when the Author activates the Download control. */
@@ -63,12 +65,16 @@ export function canDownloadSketch(state: SketchViewState): boolean {
 }
 
 /**
- * Build the `SketchDownloaded` intent from the displayed sketch. The sketch is
- * carried through unchanged so the file written downstream matches the Code
- * view byte-for-byte.
+ * Build the `SketchDownloaded` intent from the displayed sketch and a suggested
+ * filename. The sketch is carried through unchanged so the file written
+ * downstream matches the Code view byte-for-byte. The filename defaults to
+ * `sketch.ino` so a download can always proceed even before a Flow name exists.
  */
-export function buildSketchDownloadRequest(sketch: string): SketchDownloadRequest {
-  return { type: "SketchDownloaded", sketch };
+export function buildSketchDownloadRequest(
+  sketch: string,
+  suggestedFilename = "sketch.ino",
+): SketchDownloadRequest {
+  return { type: "SketchDownloaded", sketch, suggestedFilename };
 }
 
 /** Build the `generate_sketch` command from the current Flow graph. */

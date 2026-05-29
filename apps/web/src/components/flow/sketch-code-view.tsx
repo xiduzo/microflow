@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/providers/theme-provider";
-import { useFlowSession, useFlowNodes, useFlowEdges } from "@/session";
+import { useFlowSession, useFlowNodes, useFlowEdges, useFlowMeta } from "@/session";
 import { invokeCommand } from "@/lib/ipc";
 import {
   buildSketchDownloadRequest,
@@ -26,6 +26,8 @@ import {
   type SketchResponse,
   type SketchViewState,
 } from "./sketch-code-view.model";
+import { deriveSketchFilename } from "./sketch-download.model";
+import { downloadSketch } from "./sketch-download";
 
 // Use local bundle + workers instead of CDN (required for offline Tauri).
 // Mirrors the Function code editor setup; the read-only view only needs the
@@ -47,15 +49,18 @@ const invoke: SketchInvoker = (command) => invokeCommand(command) as Promise<Ske
  * read-only — the Author can read and copy but not edit.
  */
 /**
- * No-op download handler. The real disk write / save dialog lands in sibling
- * Task #31; until then the control still emits the `SketchDownloaded` intent so
- * the trigger is wired and testable in isolation.
+ * Default download handler (Task #31): persists the sketch to a `.ino` file via
+ * the native save dialog on desktop, or an in-browser download on the web. The
+ * platform seams live in `sketch-download.ts`; callers may inject a handler to
+ * override (e.g. tests).
  */
-const noopDownload: SketchDownloadHandler = () => {};
+const defaultDownload: SketchDownloadHandler = (request) => {
+  void downloadSketch(request);
+};
 
 export function SketchCodeView({
   onClose,
-  onDownload = noopDownload,
+  onDownload = defaultDownload,
 }: {
   onClose: () => void;
   onDownload?: SketchDownloadHandler;
@@ -64,6 +69,8 @@ export function SketchCodeView({
   const { doc } = useFlowSession();
   const nodes = useFlowNodes(doc);
   const edges = useFlowEdges(doc);
+  const meta = useFlowMeta(doc);
+  const suggestedFilename = deriveSketchFilename(meta.name);
   const [state, setState] = useState<SketchViewState>({
     value: GENERATING_SKETCH_PLACEHOLDER,
     isError: false,
@@ -138,7 +145,7 @@ export function SketchCodeView({
           <Button
             type="button"
             disabled={!canDownloadSketch(state)}
-            onClick={() => onDownload(buildSketchDownloadRequest(value))}
+            onClick={() => onDownload(buildSketchDownloadRequest(value, suggestedFilename))}
             aria-label="Download sketch"
           >
             <Download aria-hidden="true" />
