@@ -21,7 +21,12 @@
 //! - **Validity:** the output is always syntactically valid Arduino C++ and
 //!   compiles even when the Flow is empty.
 
+pub mod emit;
+pub mod input;
+pub mod output;
+
 use crate::runtime::types::{FlowNode, FlowUpdate};
+use emit::NodeEmission;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Assemble the Arduino sketch skeleton for the given Flow.
@@ -37,12 +42,24 @@ use std::collections::{BTreeMap, BTreeSet};
 /// the frontend without changing the contract.
 pub fn generate(flow: &FlowUpdate) -> Result<String, String> {
     let order = traversal_order(flow);
+    let drivers = driver_expressions(flow);
+
+    // Emit each Node in deterministic traversal order, collecting fragments.
+    let emissions: Vec<NodeEmission> =
+        order.iter().map(|node| emit_node(node, &drivers)).collect();
+
+    let emitted_count = emissions.iter().filter(|e| !e.is_empty()).count();
+    log::debug!(
+        "codegen: emitted {emitted_count} of {} node(s)",
+        order.len()
+    );
 
     let mut sketch = String::new();
     sketch.push_str(&header(&order));
-    sketch.push_str(&declarations(&order));
-    sketch.push_str(SETUP);
-    sketch.push_str(LOOP);
+    sketch.push_str(&includes_region(&emissions));
+    sketch.push_str(&declarations(&order, &emissions));
+    sketch.push_str(&setup_region(&emissions));
+    sketch.push_str(&loop_region(&emissions));
 
     Ok(sketch)
 }
@@ -109,32 +126,136 @@ fn header(order: &[&FlowNode]) -> String {
     )
 }
 
-/// Declarations region. For the skeleton each Node contributes a stable comment
-/// slot (in traversal order) that later emitters replace with real declarations.
-fn declarations(order: &[&FlowNode]) -> String {
-    let mut out = String::from("// --- Declarations ---\n");
-    for node in order {
-        let kind = node.node_type.as_deref().unwrap_or("unknown");
-        out.push_str(&format!("// node {} ({})\n", node.id, kind));
+/// Dispatch a single Node to its per-type C++ emitter, mirroring the live
+/// `ComponentRegistry`. Node types outside the supported core hardware-IO set
+/// emit nothing here — graceful placeholders for them are Task 5's concern.
+/// `drivers` maps a target Node id to the C++ expression that drives it (from
+/// its wired source), so output Nodes write what their input reads.
+fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission {
+    let driver = drivers.get(node.id.as_str()).map(String::as_str);
+    match node.node_type.as_deref() {
+        Some("Led") => output::led::emit(node, driver),
+        Some("Relay") => output::relay::emit(node, driver),
+        Some("Servo") => output::servo::emit(node, driver),
+        Some("Button") => input::button::emit(node),
+        Some("Sensor") => input::sensor::emit(node),
+        _ => NodeEmission::default(),
+    }
+}
+
+/// Build the map from a target Node id to the C++ expression that drives it.
+///
+/// An output Node (Led/Relay/Servo) wired from an input Node (Button/Sensor)
+/// reads that input's state/value variable. When a target has multiple incoming
+/// edges, the source with the smallest id wins, keeping the result
+/// deterministic. Edges from sources that expose no readable expression are
+/// ignored.
+fn driver_expressions(flow: &FlowUpdate) -> BTreeMap<&str, String> {
+    let by_id: BTreeMap<&str, &FlowNode> =
+        flow.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
+
+    // For determinism, choose the smallest source id per target.
+    let mut chosen: BTreeMap<&str, &str> = BTreeMap::new();
+    for edge in &flow.edges {
+        let target = edge.target.as_str();
+        let source = edge.source.as_str();
+        chosen
+            .entry(target)
+            .and_modify(|s| {
+                if source < *s {
+                    *s = source;
+                }
+            })
+            .or_insert(source);
+    }
+
+    chosen
+        .into_iter()
+        .filter_map(|(target, source)| {
+            let src_node = by_id.get(source)?;
+            source_expression(src_node).map(|expr| (target, expr))
+        })
+        .collect()
+}
+
+/// The C++ expression a source Node exposes for downstream Nodes to read, or
+/// `None` if the Node type produces no readable value.
+fn source_expression(node: &FlowNode) -> Option<String> {
+    match node.node_type.as_deref() {
+        Some("Button") => Some(input::button::state_var(node)),
+        Some("Sensor") => Some(input::sensor::value_var(node)),
+        _ => None,
+    }
+}
+
+/// Deduplicated `#include` block, sorted for determinism.
+fn includes_region(emissions: &[NodeEmission]) -> String {
+    let includes: BTreeSet<&str> = emissions
+        .iter()
+        .flat_map(|e| e.includes.iter().map(String::as_str))
+        .collect();
+    if includes.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from("// --- Includes ---\n");
+    for inc in includes {
+        out.push_str(inc);
+        out.push('\n');
     }
     out.push('\n');
     out
 }
 
-/// Empty-but-valid `setup()`. Per-Node init is hung off this in a later task.
-const SETUP: &str = "void setup() {\n  // --- Setup ---\n}\n\n";
+/// Declarations region. Each Node gets a labelled comment slot followed by its
+/// real declarations (in traversal order) so output is stable and readable.
+fn declarations(order: &[&FlowNode], emissions: &[NodeEmission]) -> String {
+    let mut out = String::from("// --- Declarations ---\n");
+    for (node, emission) in order.iter().zip(emissions) {
+        let kind = node.node_type.as_deref().unwrap_or("unknown");
+        out.push_str(&format!("// node {} ({})\n", node.id, kind));
+        for line in &emission.declarations {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    out.push('\n');
+    out
+}
+
+/// `setup()` with each Node's init statements stitched in (traversal order).
+fn setup_region(emissions: &[NodeEmission]) -> String {
+    let mut out = String::from("void setup() {\n  // --- Setup ---\n");
+    for line in emissions.iter().flat_map(|e| &e.setup) {
+        out.push_str("  ");
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.push_str("}\n\n");
+    out
+}
 
 /// Non-blocking, `millis()`-based scheduler `loop()`. It compares `millis()`
-/// against a per-tick deadline instead of calling blocking `delay()`, giving
-/// timing Nodes added later a deterministic, host-free model.
-const LOOP: &str = "void loop() {\n  \
+/// against a per-tick deadline instead of calling blocking `delay()`, giving a
+/// deterministic, host-free model. Per-Node read/write logic runs inside the
+/// scheduled-task block in traversal order.
+fn loop_region(emissions: &[NodeEmission]) -> String {
+    let mut out = String::from(
+        "void loop() {\n  \
 static unsigned long previousMillis = 0;\n  \
 const unsigned long interval = 1; // ms; non-blocking scheduler tick\n  \
 unsigned long currentMillis = millis();\n  \
 if (currentMillis - previousMillis >= interval) {\n    \
 previousMillis = currentMillis;\n    \
-// --- Scheduled tasks ---\n  \
-}\n}\n";
+// --- Scheduled tasks ---\n",
+    );
+    for line in emissions.iter().flat_map(|e| &e.loop_body) {
+        out.push_str("    ");
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.push_str("  }\n}\n");
+    out
+}
 
 #[cfg(test)]
 mod tests {
@@ -147,6 +268,15 @@ mod tests {
             id: id.to_string(),
             node_type: Some(kind.to_string()),
             data: json!({}),
+            position: Position { x: 0.0, y: 0.0 },
+        }
+    }
+
+    fn node_data(id: &str, kind: &str, data: serde_json::Value) -> FlowNode {
+        FlowNode {
+            id: id.to_string(),
+            node_type: Some(kind.to_string()),
+            data,
             position: Position { x: 0.0, y: 0.0 },
         }
     }
@@ -246,5 +376,103 @@ mod tests {
         // the id-ordered seed loop).
         assert!(sketch.contains("// node lonely (Sensor)"), "disconnected node missing");
         assert_eq!(sketch.matches("// node ").count(), 3, "all nodes emitted once");
+    }
+
+    /// Scenario: A core hardware-IO Flow produces a compilable sketch.
+    ///
+    /// A Flow using all five supported Node types must emit pin setup and
+    /// read/write logic for each, inside a structurally valid sketch.
+    #[test]
+    fn core_hardware_io_flow_emits_setup_and_io_for_each_node() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+                node_data("btn-1", "Button", json!({ "pin": 6 })),
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data("servo-1", "Servo", json!({ "pin": 9 })),
+                node_data("relay-1", "Relay", json!({ "pin": 10 })),
+            ],
+            edges: vec![edge("btn-1", "led-1"), edge("sensor-1", "servo-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Structurally valid sketch.
+        assert!(sketch.contains("void setup()"));
+        assert!(sketch.contains("void loop()"));
+        assert!(!sketch.contains("delay("), "must stay non-blocking");
+
+        // Pin setup for each Node.
+        assert!(sketch.contains("pinMode") && sketch.contains("OUTPUT"), "led/relay OUTPUT setup");
+        assert!(sketch.contains("INPUT"), "button INPUT setup");
+        // Read/write logic present.
+        assert!(sketch.contains("digitalWrite"), "led/relay write");
+        assert!(sketch.contains("digitalRead"), "button read");
+        assert!(sketch.contains("analogRead"), "sensor read");
+        assert!(sketch.contains(".attach("), "servo attach");
+        assert!(sketch.contains("#include <Servo.h>"), "servo include");
+    }
+
+    /// Scenario: A Button drives a Led through an edge.
+    #[test]
+    fn button_drives_led_through_an_edge() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+                node_data("btn-1", "Button", json!({ "pin": 6 })),
+            ],
+            edges: vec![edge("btn-1", "led-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // The Button reads its input into a state var.
+        assert!(sketch.contains("button_btn_1_state = "), "button read into state var");
+        assert!(sketch.contains("digitalRead"), "button digitalRead");
+        // The Led writes that state.
+        assert!(
+            sketch.contains("digitalWrite(led_led_1_pin, (button_btn_1_state)"),
+            "led must be driven by the button state, got:\n{sketch}"
+        );
+    }
+
+    /// Scenario: A Servo Node pulls in its supporting library.
+    #[test]
+    fn servo_node_pulls_in_its_library() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data("servo-1", "Servo", json!({ "pin": 9 }))],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        assert!(sketch.contains("#include <Servo.h>"), "missing Servo include");
+        assert!(sketch.contains("Servo servo_servo_1"), "missing Servo object decl");
+        assert!(sketch.contains(".attach(servo_servo_1_pin)"), "missing attach to pin");
+    }
+
+    /// The Servo include appears only when a Servo Node is present.
+    #[test]
+    fn no_servo_include_without_a_servo_node() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data("led-1", "Led", json!({ "pin": 13 }))],
+            edges: vec![],
+        };
+        let sketch = generate(&flow).expect("generation should succeed");
+        assert!(!sketch.contains("Servo.h"), "no servo include without a servo node");
+    }
+
+    /// Scenario: Each supported Node type emits deterministic code — full Flow.
+    #[test]
+    fn full_flow_emits_deterministically() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+                node_data("btn-1", "Button", json!({ "pin": 6, "isPullup": true })),
+                node_data("servo-1", "Servo", json!({ "pin": 9 })),
+            ],
+            edges: vec![edge("btn-1", "led-1")],
+        };
+        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
     }
 }
