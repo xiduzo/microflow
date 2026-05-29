@@ -26,6 +26,51 @@ export type SketchViewState = {
   isError: boolean;
 };
 
+/**
+ * Placeholder text shown in the editor before the first sketch arrives. The
+ * Download control treats this as "nothing to hand off yet" (see
+ * `canDownloadSketch`).
+ */
+export const GENERATING_SKETCH_PLACEHOLDER = "// Generating sketch…";
+
+/**
+ * The `SketchDownloaded` intent — emitted when the Author activates the Download
+ * control. It carries the exact sketch string the Code view currently displays.
+ * The downstream write task (#31) consumes this to perform the disk write.
+ */
+export type SketchDownloadRequest = {
+  type: "SketchDownloaded";
+  /** The displayed sketch, byte-for-byte. */
+  sketch: string;
+};
+
+/** Handler seam invoked when the Author activates the Download control. */
+export type SketchDownloadHandler = (request: SketchDownloadRequest) => void;
+
+/**
+ * Whether the Download control should be enabled for the given view state.
+ *
+ * Enabled whenever a real sketch is displayed — including sketches that contain
+ * placeholder comments for unsupported / Cloud Nodes and sketches generated for
+ * an unnamed Flow. Disabled only when there is nothing meaningful to hand off:
+ * the not-yet-generated placeholder, an empty value, or a generation error.
+ */
+export function canDownloadSketch(state: SketchViewState): boolean {
+  if (state.isError) return false;
+  if (state.value === "") return false;
+  if (state.value === GENERATING_SKETCH_PLACEHOLDER) return false;
+  return true;
+}
+
+/**
+ * Build the `SketchDownloaded` intent from the displayed sketch. The sketch is
+ * carried through unchanged so the file written downstream matches the Code
+ * view byte-for-byte.
+ */
+export function buildSketchDownloadRequest(sketch: string): SketchDownloadRequest {
+  return { type: "SketchDownloaded", sketch };
+}
+
 /** Build the `generate_sketch` command from the current Flow graph. */
 export function buildGenerateSketchCommand(nodes: Node[], edges: Edge[]): GenerateSketchCommand {
   return { type: "generate_sketch", flow: { nodes, edges } };
