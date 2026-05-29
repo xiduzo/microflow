@@ -1,5 +1,5 @@
 //! Transformation-Node C++ emitters (Calculate, Compare, Gate, `RangeMap`,
-//! Smooth) — the codegen mirror of `runtime/transformation`.
+//! Smooth, Function) — the codegen mirror of `runtime/transformation`.
 //!
 //! Each transformation Node is both a consumer and a producer in the generated
 //! value-passing model: it reads the C++ expression of its wired source (its
@@ -16,6 +16,7 @@
 
 pub mod calculate;
 pub mod compare;
+pub mod function;
 pub mod gate;
 pub mod range_map;
 pub mod smooth;
