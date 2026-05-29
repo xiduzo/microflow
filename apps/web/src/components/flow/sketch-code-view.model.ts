@@ -13,9 +13,7 @@ export type GenerateSketchCommand = {
  * Response shape returned by `invokeCommand` for `generate_sketch`. The data is
  * the generated `.ino` source as a plain string (or absent on web/no-op).
  */
-export type SketchResponse =
-  | { success: true; data?: string }
-  | { success: false; error: string };
+export type SketchResponse = { success: true; data?: string } | { success: false; error: string };
 
 /** Injectable invoker so the projection is testable without Tauri. */
 export type SketchInvoker = (command: GenerateSketchCommand) => Promise<SketchResponse>;
@@ -29,10 +27,7 @@ export type SketchViewState = {
 };
 
 /** Build the `generate_sketch` command from the current Flow graph. */
-export function buildGenerateSketchCommand(
-  nodes: Node[],
-  edges: Edge[],
-): GenerateSketchCommand {
+export function buildGenerateSketchCommand(nodes: Node[], edges: Edge[]): GenerateSketchCommand {
   return { type: "generate_sketch", flow: { nodes, edges } };
 }
 
