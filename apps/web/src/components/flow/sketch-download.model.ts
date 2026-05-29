@@ -3,26 +3,44 @@ import type { SketchDownloadRequest } from "./sketch-code-view.model";
 /** Default `.ino` filename used when the Flow has no usable name. */
 export const DEFAULT_SKETCH_FILENAME = "sketch.ino";
 
+/** Extension (with dot) every derived filename ends in. */
+const SKETCH_EXTENSION = ".ino";
+
+/**
+ * Max length of a single filename component on common filesystems
+ * (ext4, APFS, NTFS all cap a name at 255). The derived `<base>.ino`
+ * is kept at or below this so the name is valid everywhere.
+ */
+const MAX_FILENAME_LENGTH = 255;
+
 /**
  * Derive a safe `.ino` filename from a Flow name.
  *
  * The Flow name is sanitised to filesystem-friendly characters: anything that
  * is not a letter, digit, dash, underscore, or dot is collapsed to an
- * underscore, leading/trailing separators are trimmed, and a `.ino` extension
- * is ensured. When the name is missing or sanitises to nothing, the default
- * (`sketch.ino`) is used so the dialog is always pre-filled.
+ * underscore, leading/trailing separators are trimmed, the result is truncated
+ * to stay within filesystem limits, and a `.ino` extension is ensured. When the
+ * name is missing or sanitises to nothing, the default (`sketch.ino`) is used so
+ * the dialog is always pre-filled.
  */
 export function deriveSketchFilename(flowName: string | null | undefined): string {
   if (flowName == null) return DEFAULT_SKETCH_FILENAME;
 
-  const base = flowName
+  let base = flowName
     .trim()
     .replace(/\.ino$/i, "")
     .replace(/[^A-Za-z0-9._-]+/g, "_")
     .replace(/^[._-]+|[._-]+$/g, "");
 
   if (base === "") return DEFAULT_SKETCH_FILENAME;
-  return `${base}.ino`;
+
+  const maxBaseLength = MAX_FILENAME_LENGTH - SKETCH_EXTENSION.length;
+  if (base.length > maxBaseLength) {
+    base = base.slice(0, maxBaseLength).replace(/[._-]+$/g, "");
+    if (base === "") return DEFAULT_SKETCH_FILENAME;
+  }
+
+  return `${base}${SKETCH_EXTENSION}`;
 }
 
 /** Outcome of a download attempt. */
