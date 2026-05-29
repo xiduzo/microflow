@@ -2,17 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Download } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useTheme } from "@/providers/theme-provider";
-import { useFlowSession, useFlowNodes, useFlowEdges } from "@/session";
+import { useFlowSession, useFlowNodes, useFlowEdges, useFlowMeta } from "@/session";
 import { invokeCommand } from "@/lib/ipc";
 import {
+  buildSketchDownloadRequest,
+  canDownloadSketch,
   createDebouncedRegenerator,
+  GENERATING_SKETCH_PLACEHOLDER,
   projectSketchResult,
   serializeFlowGraph,
+  type SketchDownloadHandler,
   type SketchInvoker,
   type SketchResponse,
+  type SketchViewState,
 } from "./sketch-code-view.model";
+import { deriveSketchFilename } from "./sketch-download.model";
+import { downloadSketch } from "./sketch-download";
 
 // Use local bundle + workers instead of CDN (required for offline Tauri).
 // Mirrors the Function code editor setup; the read-only view only needs the
@@ -33,12 +48,34 @@ const invoke: SketchInvoker = (command) => invokeCommand(command) as Promise<Ske
  * Flow graph changes while the view is open (Task #47). The editor is always
  * read-only — the Author can read and copy but not edit.
  */
-export function SketchCodeView({ onClose }: { onClose: () => void }) {
+/**
+ * Default download handler (Task #31): persists the sketch to a `.ino` file via
+ * the native save dialog on desktop, or an in-browser download on the web. The
+ * platform seams live in `sketch-download.ts`; callers may inject a handler to
+ * override (e.g. tests).
+ */
+const defaultDownload: SketchDownloadHandler = (request) => {
+  void downloadSketch(request);
+};
+
+export function SketchCodeView({
+  onClose,
+  onDownload = defaultDownload,
+}: {
+  onClose: () => void;
+  onDownload?: SketchDownloadHandler;
+}) {
   const { theme } = useTheme();
   const { doc } = useFlowSession();
   const nodes = useFlowNodes(doc);
   const edges = useFlowEdges(doc);
-  const [value, setValue] = useState("// Generating sketch…");
+  const meta = useFlowMeta(doc);
+  const suggestedFilename = deriveSketchFilename(meta.name);
+  const [state, setState] = useState<SketchViewState>({
+    value: GENERATING_SKETCH_PLACEHOLDER,
+    isError: false,
+  });
+  const { value } = state;
 
   type GenNode = Parameters<typeof projectSketchResult>[1][number];
   type GenEdge = Parameters<typeof projectSketchResult>[2][number];
@@ -49,8 +86,8 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
   // does not trigger a redundant regeneration.
   useEffect(() => {
     let cancelled = false;
-    void projectSketchResult(invoke, genNodes, genEdges).then((state) => {
-      if (!cancelled) setValue(state.value);
+    void projectSketchResult(invoke, genNodes, genEdges).then((next) => {
+      if (!cancelled) setState(next);
     });
     return () => {
       cancelled = true;
@@ -64,7 +101,7 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
   if (regeneratorRef.current === null) {
     regeneratorRef.current = createDebouncedRegenerator({
       invoker: invoke,
-      onResult: (state) => setValue(state.value),
+      onResult: (next) => setState(next),
       seedSerialized: serializeFlowGraph(genNodes, genEdges),
     });
   }
@@ -104,6 +141,17 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
             }}
           />
         </div>
+        <DialogFooter className="px-6 py-4 shrink-0">
+          <Button
+            type="button"
+            disabled={!canDownloadSketch(state)}
+            onClick={() => onDownload(buildSketchDownloadRequest(value, suggestedFilename))}
+            aria-label="Download sketch"
+          >
+            <Download aria-hidden="true" />
+            Download sketch
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
