@@ -327,6 +327,7 @@ fn default_board_target() -> BoardTarget {
 /// `supported_targets()` registry consulted by generation, keeping one source
 /// of truth for the supported list.
 #[tauri::command]
+#[must_use]
 pub fn list_board_targets() -> Vec<BoardTarget> {
     crate::codegen::board::supported_targets()
 }
