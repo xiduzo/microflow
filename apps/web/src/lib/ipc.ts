@@ -124,14 +124,17 @@ type LlmTestProvider = {
   apiKey: string;
 };
 
-// Sketch Generation context: translate a Flow into an Arduino sketch. Returns
-// the generated .ino source as a string. No UI consumes this yet (see #23).
+// Sketch Generation context: translate a Flow into an Arduino sketch for the
+// selected board target. Returns a `GenerationOutcome` — either the generated
+// `.ino` source or the validation problems that prevented emission. `targetId`
+// is optional; the backend uses the default board target when it is omitted.
 type GenerateSketch = {
   type: "generate_sketch";
   flow: {
     nodes: Node[];
     edges: Edge[];
   };
+  targetId?: string;
 };
 
 type Command =
