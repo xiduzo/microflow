@@ -4,7 +4,7 @@ import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTheme } from "@/providers/theme-provider";
-import { useFlowSession, useFlowNodes, useFlowEdges } from "@/session";
+import { useFlowSession, useFlowNodes, useFlowEdges, useFlowMeta } from "@/session";
 import { invokeCommand } from "@/lib/ipc";
 import {
   createDebouncedRegenerator,
@@ -38,6 +38,9 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
   const { doc } = useFlowSession();
   const nodes = useFlowNodes(doc);
   const edges = useFlowEdges(doc);
+  // The Flow's selected board target. Threaded into every generate request so
+  // the Sketch targets the chosen board; changing it re-generates (Task #29/#43).
+  const { selectedTargetId } = useFlowMeta(doc);
   const [value, setValue] = useState("// Generating sketch…");
 
   type GenNode = Parameters<typeof projectSketchResult>[1][number];
@@ -49,7 +52,7 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
   // does not trigger a redundant regeneration.
   useEffect(() => {
     let cancelled = false;
-    void projectSketchResult(invoke, genNodes, genEdges).then((state) => {
+    void projectSketchResult(invoke, genNodes, genEdges, selectedTargetId).then((state) => {
       if (!cancelled) setValue(state.value);
     });
     return () => {
@@ -65,7 +68,7 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
     regeneratorRef.current = createDebouncedRegenerator({
       invoker: invoke,
       onResult: (state) => setValue(state.value),
-      seedSerialized: serializeFlowGraph(genNodes, genEdges),
+      seedSerialized: serializeFlowGraph(genNodes, genEdges, selectedTargetId),
     });
   }
 
@@ -75,8 +78,8 @@ export function SketchCodeView({ onClose }: { onClose: () => void }) {
   }, []);
 
   useEffect(() => {
-    regeneratorRef.current?.schedule(genNodes, genEdges);
-  }, [genNodes, genEdges]);
+    regeneratorRef.current?.schedule(genNodes, genEdges, selectedTargetId);
+  }, [genNodes, genEdges, selectedTargetId]);
 
   return (
     <Dialog defaultOpen onOpenChange={onClose}>

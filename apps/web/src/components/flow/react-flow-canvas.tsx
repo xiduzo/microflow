@@ -31,6 +31,7 @@ import { HotkeySheet } from "./sheets/hotkey-sheet";
 import { CollabCursors } from "./collab-cursors";
 import { PressensePanel } from "./panels/pressense-panel";
 import { SketchCodeView } from "./sketch-code-view";
+import { BoardTargetPicker } from "./board-target-picker";
 import { useSketchCodeViewStore } from "@/stores/sketch-code-view";
 
 const uid = () => Math.random().toString(36).substring(2, 9);
@@ -99,7 +100,8 @@ export function ReactFlowCanvas() {
         <Background gap={260} size={2} />
         <NewNodeDialog />
         <HotkeySheet />
-        <Panel position="top-right">
+        <Panel position="top-right" className="flex items-center gap-2">
+          <BoardTargetPicker />
           <SettingsPanel />
         </Panel>
         <Panel position="bottom-center">

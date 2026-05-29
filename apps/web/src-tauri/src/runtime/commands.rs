@@ -321,6 +321,16 @@ fn default_board_target() -> BoardTarget {
     })
 }
 
+/// List the supported board targets so the editor can present a picker. The
+/// frontend reads the stable id + human-readable name from each target; the
+/// full pin/capability facts ride along for callers that need them. Mirrors the
+/// `supported_targets()` registry consulted by generation, keeping one source
+/// of truth for the supported list.
+#[tauri::command]
+pub fn list_board_targets() -> Vec<BoardTarget> {
+    crate::codegen::board::supported_targets()
+}
+
 /// Call a method on a component
 #[tauri::command]
 pub async fn component_call(
