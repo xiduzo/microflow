@@ -57,6 +57,47 @@ describe("deriveSketchFilename", () => {
     expect(deriveSketchFilename("***")).toBe(DEFAULT_SKETCH_FILENAME);
     expect(deriveSketchFilename("   ")).toBe(DEFAULT_SKETCH_FILENAME);
   });
+
+  // Scenario: Filename derives from the Flow name
+  test("derives the filename from a plain Flow name and ends in .ino", () => {
+    const filename = deriveSketchFilename("Blink LED");
+    expect(filename).toBe("Blink_LED.ino");
+    expect(filename.endsWith(".ino")).toBe(true);
+  });
+
+  // Scenario: Unsafe characters in the Flow name are sanitised
+  test("sanitises filesystem-unsafe characters and ends in .ino", () => {
+    const filename = deriveSketchFilename('a/b\\c:d*e?f"g<h>i|j');
+    expect(filename).toBe("a_b_c_d_e_f_g_h_i_j.ino");
+    expect(/[/\\:*?"<>|]/.test(filename)).toBe(false);
+    expect(filename.endsWith(".ino")).toBe(true);
+  });
+
+  // Scenario: Unnamed Flow falls back to a default filename
+  test("falls back to sketch.ino for an unnamed Flow", () => {
+    expect(deriveSketchFilename("")).toBe("sketch.ino");
+    expect(deriveSketchFilename(undefined)).toBe("sketch.ino");
+  });
+
+  // Scenario: Name sanitising to nothing falls back to the default
+  test("falls back to sketch.ino when only unsafe characters remain", () => {
+    expect(deriveSketchFilename("/\\:*?")).toBe("sketch.ino");
+  });
+
+  // Edge case: very long names are kept within filesystem limits
+  test("truncates very long names so the filename fits filesystem limits", () => {
+    const filename = deriveSketchFilename("a".repeat(1000));
+    expect(filename.length).toBeLessThanOrEqual(255);
+    expect(filename.endsWith(".ino")).toBe(true);
+    expect(filename).toBe(`${"a".repeat(251)}.ino`);
+  });
+
+  test("does not leave a trailing separator after truncation", () => {
+    // 252 chars: 251 'a' then a separator at the cut boundary.
+    const filename = deriveSketchFilename(`${"a".repeat(251)}_extra`);
+    expect(filename.endsWith("_.ino")).toBe(false);
+    expect(filename).toBe(`${"a".repeat(251)}.ino`);
+  });
 });
 
 describe("downloadSketch (desktop)", () => {
