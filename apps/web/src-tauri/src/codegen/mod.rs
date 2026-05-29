@@ -23,6 +23,7 @@
 
 pub mod control;
 pub mod emit;
+pub mod generator;
 pub mod input;
 pub mod output;
 pub mod placeholder;
@@ -142,8 +143,25 @@ fn emit_node(node: &FlowNode, drivers: &BTreeMap<&str, String>) -> NodeEmission 
         Some("Led") => output::led::emit(node, driver),
         Some("Relay") => output::relay::emit(node, driver),
         Some("Servo") => output::servo::emit(node, driver),
+        Some("Rgb") => output::rgb::emit(node, driver),
+        Some("Piezo") => output::piezo::emit(node, driver),
+        Some("Pixel") => output::pixel::emit(node, driver),
+        Some("Matrix") => output::matrix::emit(node, driver),
+        Some("Stepper") => output::stepper::emit(node, driver),
+        // Vibration shares the live Led implementation (digital on/off output).
+        Some("Vibration") => output::led::emit(node, driver),
         Some("Button") => input::button::emit(node),
-        Some("Sensor") => input::sensor::emit(node),
+        // Force, HallEffect, Ldr, Potentiometer, and Tilt are all analog inputs
+        // backed by the live Sensor implementation, so they share its emitter.
+        Some("Sensor" | "Force" | "HallEffect" | "Ldr" | "Potentiometer" | "Tilt") => {
+            input::sensor::emit(node)
+        }
+        Some("Switch") => input::switch::emit(node),
+        Some("Motion") => input::motion::emit(node),
+        Some("Proximity") => input::proximity::emit(node),
+        Some("Hotkey") => input::hotkey::emit(node),
+        Some("I2cDevice") => input::i2c_device::emit(node),
+        Some("Oscillator") => generator::oscillator::emit(node),
         Some("Calculate") => transformation::calculate::emit(node, driver),
         Some("Compare") => transformation::compare::emit(node, driver),
         Some("Gate") => transformation::gate::emit(node, driver),
@@ -199,7 +217,15 @@ fn driver_expressions(flow: &FlowUpdate) -> BTreeMap<&str, String> {
 fn source_expression(node: &FlowNode) -> Option<String> {
     match node.node_type.as_deref() {
         Some("Button") => Some(input::button::state_var(node)),
-        Some("Sensor") => Some(input::sensor::value_var(node)),
+        Some("Sensor" | "Force" | "HallEffect" | "Ldr" | "Potentiometer" | "Tilt") => {
+            Some(input::sensor::value_var(node))
+        }
+        Some("Switch") => Some(input::switch::state_var(node)),
+        Some("Motion") => Some(input::motion::state_var(node)),
+        Some("Proximity") => Some(input::proximity::value_var(node)),
+        Some("Hotkey") => Some(input::hotkey::state_var(node)),
+        Some("I2cDevice") => Some(input::i2c_device::value_var(node)),
+        Some("Oscillator") => Some(generator::oscillator::value_var(node)),
         Some("Calculate") => Some(transformation::calculate::value_var(node)),
         Some("Compare") => Some(transformation::compare::state_var(node)),
         Some("Gate") => Some(transformation::gate::state_var(node)),
@@ -1047,6 +1073,181 @@ mod tests {
             "no control Node may be a placeholder, got:\n{sketch}"
         );
         assert!(!sketch.contains("delay("), "control nodes stay non-blocking");
+    }
+
+    // --- Remaining input/output/generator Nodes (Task #37) ---
+
+    /// Scenario: Remaining input Nodes feed values into the Flow.
+    ///
+    /// A Flow uses every remaining non-Cloud input Node (Switch, Motion,
+    /// Proximity, Hotkey, `I2cDevice` plus the Sensor-backed aliases). Each must
+    /// read its hardware into a state/value variable that downstream Nodes can
+    /// consume, exactly as the live runtime forwards its reading.
+    #[test]
+    fn remaining_input_nodes_feed_values_into_the_flow() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sw-1", "Switch", json!({ "pin": 2 })),
+                node_data("mo-1", "Motion", json!({ "pin": 8 })),
+                node_data("px-1", "Proximity", json!({ "pin": "A1" })),
+                node_data("hk-1", "Hotkey", json!({ "accelerator": "a" })),
+                node_data("i2c-1", "I2cDevice", json!({ "address": 64, "read_length": 2 })),
+                node_data("pot-1", "Potentiometer", json!({ "pin": "A2" })),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+            ],
+            // Switch drives the Led, so its read flows into the rest of the Flow.
+            edges: vec![edge("sw-1", "led-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Each input reads hardware into its variable.
+        assert!(sketch.contains("switch_sw_1_state = (digitalRead"), "switch reads");
+        assert!(sketch.contains("motion_mo_1_state = (digitalRead"), "motion reads");
+        assert!(sketch.contains("proximity_px_1_value = analogRead"), "proximity reads");
+        assert!(sketch.contains("bool hotkey_hk_1_state"), "hotkey declares state");
+        assert!(sketch.contains("i2c_i2c_1_value = "), "i2c reads");
+        assert!(sketch.contains("sensor_pot_1_value = analogRead"), "potentiometer is a Sensor");
+        // The Switch reading feeds the Led (value flows into the Flow).
+        assert!(
+            sketch.contains("digitalWrite(led_led_1_pin, (switch_sw_1_state)"),
+            "switch value must drive the led, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Scenario: Remaining output Nodes drive their hardware.
+    ///
+    /// A Sensor drives each remaining non-Cloud output Node (Rgb, Piezo, Pixel,
+    /// Matrix, Stepper, and the Led-backed Vibration). Each must emit real drive
+    /// logic from the incoming value, pulling in any required library.
+    #[test]
+    fn remaining_output_nodes_drive_their_hardware() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data("rgb-1", "Rgb", json!({})),
+                node_data("pz-1", "Piezo", json!({})),
+                node_data("px-1", "Pixel", json!({ "length": 8 })),
+                node_data("mx-1", "Matrix", json!({})),
+                node_data("st-1", "Stepper", json!({})),
+                node_data("vb-1", "Vibration", json!({ "pin": 5 })),
+            ],
+            edges: vec![
+                edge("sensor-1", "rgb-1"),
+                edge("sensor-1", "pz-1"),
+                edge("sensor-1", "px-1"),
+                edge("sensor-1", "mx-1"),
+                edge("sensor-1", "st-1"),
+                edge("sensor-1", "vb-1"),
+            ],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Each output drives from the sensor value.
+        assert!(sketch.contains("analogWrite(rgb_rgb_1_red_pin"), "rgb drives channels");
+        assert!(sketch.contains("tone(piezo_pz_1_pin"), "piezo sounds");
+        assert!(sketch.contains("pixel_px_1.setPixelColor"), "pixel fills");
+        assert!(sketch.contains("matrix_mx_1.setRow"), "matrix lights");
+        assert!(sketch.contains("stepper_st_1.moveTo"), "stepper targets value");
+        assert!(sketch.contains("digitalWrite(led_vb_1_pin"), "vibration is an Led output");
+        // Library-backed Nodes pull in their includes.
+        assert!(sketch.contains("#include <Adafruit_NeoPixel.h>"), "pixel include");
+        assert!(sketch.contains("#include <LedControl.h>"), "matrix include");
+        assert!(sketch.contains("#include <AccelStepper.h>"), "stepper include");
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Scenario: The generator Node produces its signal non-blocking.
+    #[test]
+    fn generator_node_produces_signal_non_blocking() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("osc-1", "Oscillator", json!({ "waveform": "sinus", "period": 1000 })),
+                node_data("servo-1", "Servo", json!({ "pin": 9 })),
+            ],
+            edges: vec![edge("osc-1", "servo-1")],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // The Oscillator samples its waveform off the loop scheduler's millis() clock.
+        assert!(
+            sketch.contains("millis() - oscillator_osc_1_start"),
+            "oscillator must sample against the scheduler clock, got:\n{sketch}"
+        );
+        assert!(sketch.contains("oscillator_osc_1_value = "), "oscillator output");
+        // No blocking wait anywhere.
+        assert!(!sketch.contains("delay("), "oscillator must be non-blocking");
+        // The signal flows onward to the wired Servo.
+        assert!(
+            sketch.contains("(oscillator_osc_1_value)"),
+            "oscillator must drive the servo, got:\n{sketch}"
+        );
+        assert!(!sketch.contains("// unsupported Node osc"), "oscillator must not be a placeholder");
+    }
+
+    /// Scenario: No remaining non-Cloud Node is a placeholder, while Cloud Nodes
+    /// still fall through to placeholders (Feature #27 territory).
+    #[test]
+    fn no_remaining_non_cloud_node_is_a_placeholder() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sw-1", "Switch", json!({})),
+                node_data("mo-1", "Motion", json!({})),
+                node_data("px-in", "Proximity", json!({})),
+                node_data("hk-1", "Hotkey", json!({})),
+                node_data("i2c-1", "I2cDevice", json!({})),
+                node_data("force-1", "Force", json!({})),
+                node_data("hall-1", "HallEffect", json!({})),
+                node_data("ldr-1", "Ldr", json!({})),
+                node_data("pot-1", "Potentiometer", json!({})),
+                node_data("tilt-1", "Tilt", json!({})),
+                node_data("rgb-1", "Rgb", json!({})),
+                node_data("pz-1", "Piezo", json!({})),
+                node_data("px-out", "Pixel", json!({})),
+                node_data("mx-1", "Matrix", json!({})),
+                node_data("st-1", "Stepper", json!({})),
+                node_data("vb-1", "Vibration", json!({})),
+                node_data("osc-1", "Oscillator", json!({})),
+                // Cloud Nodes remain placeholders (handled by Feature #27).
+                node("mqtt-1", "Mqtt"),
+                node("figma-1", "Figma"),
+                node("llm-1", "Llm"),
+                node("monitor-1", "Monitor"),
+            ],
+            edges: vec![],
+        };
+
+        let sketch = generate(&flow).expect("generation should succeed");
+
+        // Exactly the four Cloud Nodes are placeholders — nothing else.
+        assert_eq!(
+            sketch.matches("// unsupported Node ").count(),
+            4,
+            "only the four Cloud Nodes may be placeholders, got:\n{sketch}"
+        );
+        // Spot-check that representative remaining Nodes emit real artefacts.
+        assert!(sketch.contains("switch_sw_1_state"));
+        assert!(sketch.contains("oscillator_osc_1_value"));
+        assert!(sketch.contains("Adafruit_NeoPixel"));
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Determinism holds for a Flow mixing the remaining Node types.
+    #[test]
+    fn remaining_nodes_flow_is_deterministic() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("osc-1", "Oscillator", json!({ "waveform": "square", "period": 500 })),
+                node_data("sw-1", "Switch", json!({ "pin": 2 })),
+                node_data("rgb-1", "Rgb", json!({})),
+                node_data("st-1", "Stepper", json!({})),
+            ],
+            edges: vec![edge("osc-1", "rgb-1"), edge("sw-1", "st-1")],
+        };
+        assert_eq!(generate(&flow).unwrap(), generate(&flow).unwrap());
     }
 
     /// Determinism holds for a control-heavy Flow.
