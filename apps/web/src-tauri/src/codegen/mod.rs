@@ -816,6 +816,92 @@ mod tests {
         assert!(sketch.contains("void setup()") && sketch.contains("void loop()"));
     }
 
+    /// Scenario: Cloud Node on a non-networked target is blocked — end to end
+    /// through `generate`. For **every** Cloud Node type, a Flow on the Uno
+    /// returns [`GenerationOutcome::Problems`] (naming the Node and the missing
+    /// networking capability) and emits **no** Sketch.
+    #[test]
+    fn every_cloud_node_type_blocks_generation_on_non_networked_target() {
+        let uno = default_target();
+        for kind in ["Mqtt", "Figma", "Llm", "Monitor"] {
+            let id = format!("{}-1", kind.to_lowercase());
+            let flow = FlowUpdate { nodes: vec![node(&id, kind)], edges: vec![] };
+            match generate(&flow, &uno).expect("generation never errors") {
+                GenerationOutcome::Problems(problems) => {
+                    assert_eq!(problems.len(), 1, "{kind} raises one gate problem");
+                    assert_eq!(problems[0].node_id, id, "{kind} names the Node");
+                    assert!(
+                        problems[0].message.contains("networking"),
+                        "{kind} names the missing capability: {}",
+                        problems[0].message
+                    );
+                }
+                GenerationOutcome::Sketch(s) => {
+                    panic!("{kind} on the Uno must emit no Sketch, got:\n{s}")
+                }
+            }
+        }
+    }
+
+    /// Scenario: Cloud Node on a WiFi-capable target is allowed — end to end
+    /// through `generate`. For **every** Cloud Node type, a Flow on the ESP32
+    /// emits a real [`GenerationOutcome::Sketch`].
+    #[test]
+    fn every_cloud_node_type_generates_a_sketch_on_networking_target() {
+        let esp32 = networking_target();
+        for kind in ["Mqtt", "Figma", "Llm", "Monitor"] {
+            let id = format!("{}-1", kind.to_lowercase());
+            let flow = FlowUpdate { nodes: vec![node(&id, kind)], edges: vec![] };
+            match generate(&flow, &esp32).expect("generation never errors") {
+                GenerationOutcome::Sketch(sketch) => {
+                    assert!(
+                        sketch.contains("void setup()") && sketch.contains("void loop()"),
+                        "{kind} sketch must be structurally valid:\n{sketch}"
+                    );
+                }
+                GenerationOutcome::Problems(p) => {
+                    panic!("{kind} on the ESP32 must emit a Sketch, got problems: {p:?}")
+                }
+            }
+        }
+    }
+
+    /// Edge case: multiple Cloud Nodes on a non-networked target — `generate`
+    /// surfaces **all** offending Nodes (one problem each) and emits no Sketch.
+    #[test]
+    fn multiple_cloud_nodes_all_block_generation_on_non_networked_target() {
+        let uno = default_target();
+        let flow = FlowUpdate {
+            nodes: vec![
+                node("a-mqtt", "Mqtt"),
+                node("b-figma", "Figma"),
+                node("c-llm", "Llm"),
+                node("d-monitor", "Monitor"),
+            ],
+            edges: vec![],
+        };
+        match generate(&flow, &uno).expect("generation never errors") {
+            GenerationOutcome::Problems(problems) => {
+                let ids: Vec<&str> = problems.iter().map(|p| p.node_id.as_str()).collect();
+                assert_eq!(ids, ["a-mqtt", "b-figma", "c-llm", "d-monitor"]);
+            }
+            GenerationOutcome::Sketch(s) => panic!("expected problems, got sketch:\n{s}"),
+        }
+    }
+
+    /// Scenario: A non-Cloud Flow is unaffected by the gate — end to end. A
+    /// core-only Flow on the non-networked Uno still emits a Sketch.
+    #[test]
+    fn non_cloud_flow_generates_on_non_networked_target() {
+        let uno = default_target();
+        let flow = FlowUpdate {
+            nodes: vec![node_data("led-1", "Led", json!({ "pin": 13 }))],
+            edges: vec![],
+        };
+        let sketch = sketch_for(&flow, &uno);
+        assert!(sketch.contains("digitalWrite"), "core Flow emits real code");
+    }
+
     /// Scenario: An unknown Node type does not break generation.
     #[test]
     fn unknown_node_type_does_not_break_generation() {

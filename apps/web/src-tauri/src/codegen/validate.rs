@@ -451,4 +451,87 @@ mod tests {
         let f = flow(vec![node("g-1", "Gizmo", json!({})), typeless]);
         assert!(validate(&f, &uno).is_empty());
     }
+
+    /// Scenario: Cloud Node on a non-networked target is blocked — for **every**
+    /// Cloud Node type, not just Mqtt. Each type, placed alone on the Uno (no
+    /// networking), raises exactly one problem naming the Node and the missing
+    /// networking capability.
+    #[test]
+    fn every_cloud_node_type_is_gated_on_non_networked_target() {
+        let uno = target_by_id("uno").unwrap();
+        for kind in CLOUD_NODE_TYPES {
+            let id = format!("{}-1", kind.to_lowercase());
+            let f = flow(vec![node(&id, kind, json!({}))]);
+            let problems = validate(&f, &uno);
+            assert_eq!(problems.len(), 1, "{kind} should raise one problem on the Uno");
+            assert_eq!(problems[0].node_id, id, "{kind} problem names the Node id");
+            assert_eq!(problems[0].node_type, kind, "{kind} problem carries the type");
+            assert!(
+                problems[0].message.contains(&id),
+                "{kind} message names the Node: {}",
+                problems[0].message
+            );
+            assert!(
+                problems[0].message.contains("networking"),
+                "{kind} message names the missing capability: {}",
+                problems[0].message
+            );
+            assert!(
+                problems[0].message.contains(&uno.name),
+                "{kind} message names the offending target: {}",
+                problems[0].message
+            );
+        }
+    }
+
+    /// Scenario: Cloud Node on a WiFi-capable target is allowed — for **every**
+    /// Cloud Node type. Each type, placed alone on the ESP32 (networking), is
+    /// runnable: no problem is raised.
+    #[test]
+    fn every_cloud_node_type_is_allowed_on_networking_target() {
+        let esp32 = target_by_id("esp32").unwrap();
+        for kind in CLOUD_NODE_TYPES {
+            let id = format!("{}-1", kind.to_lowercase());
+            let f = flow(vec![node(&id, kind, json!({}))]);
+            assert!(
+                validate(&f, &esp32).is_empty(),
+                "{kind} should be runnable on the networking ESP32"
+            );
+        }
+    }
+
+    /// Edge case: multiple Cloud Nodes (of mixed types) on a non-networked
+    /// target are **all** flagged — the Author sees every offending Node, not
+    /// just the first. One problem per Cloud Node, each naming its own Node, in
+    /// deterministic id order.
+    #[test]
+    fn multiple_cloud_nodes_all_flagged_on_non_networked_target() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![
+            node("a-mqtt", "Mqtt", json!({})),
+            node("b-figma", "Figma", json!({})),
+            node("c-llm", "Llm", json!({})),
+            node("d-monitor", "Monitor", json!({})),
+        ]);
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 4, "every Cloud Node is flagged");
+        let ids: Vec<&str> = problems.iter().map(|p| p.node_id.as_str()).collect();
+        assert_eq!(ids, ["a-mqtt", "b-figma", "c-llm", "d-monitor"], "ordered by id");
+        for p in &problems {
+            assert!(p.message.contains("networking"), "each names the capability");
+        }
+    }
+
+    /// Scenario: A non-Cloud Flow is unaffected by the gate. A Flow with no
+    /// Cloud Nodes that otherwise fits the Uno reports no problems — the
+    /// networking gate never fires for core-only Flows.
+    #[test]
+    fn non_cloud_flow_is_unaffected_by_the_gate() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![
+            node("led-1", "Led", json!({ "pin": 13 })),
+            node("btn-1", "Button", json!({ "pin": 6 })),
+        ]);
+        assert!(validate(&f, &uno).is_empty());
+    }
 }
