@@ -11,37 +11,36 @@
  * Secret fields are masked by the [`fmt::Debug`] impl and must never be logged
  * in clear text.
  */
-export type Credentials = {
-  /**
-   * `WiFi` network name (SSID) the device joins on boot.
-   */
-  wifiSsid: string;
-  /**
-   * `WiFi` password (secret — masked in `Debug`, never logged).
-   */
-  wifiPassword: string;
-  /**
-   * MQTT broker host, e.g. `broker.example.com`.
-   */
-  brokerHost: string;
-  /**
-   * MQTT broker port (defaults to 1883 in the emitted Sketch when 0).
-   */
-  brokerPort: number;
-  /**
-   * MQTT broker username (optional auth).
-   */
-  brokerUsername: string;
-  /**
-   * MQTT broker password (secret — masked in `Debug`, never logged).
-   */
-  brokerPassword: string;
-  /**
-   * LLM HTTP endpoint URL.
-   */
-  llmEndpoint: string;
-  /**
-   * LLM API key (secret — masked in `Debug`, never logged).
-   */
-  llmApiKey: string;
-};
+export type Credentials = { 
+/**
+ * `WiFi` network name (SSID) the device joins on boot.
+ */
+wifiSsid: string, 
+/**
+ * `WiFi` password (secret — masked in `Debug`, never logged).
+ */
+wifiPassword: string, 
+/**
+ * MQTT broker host, e.g. `broker.example.com`.
+ */
+brokerHost: string, 
+/**
+ * MQTT broker port (defaults to 1883 in the emitted Sketch when 0).
+ */
+brokerPort: number, 
+/**
+ * MQTT broker username (optional auth).
+ */
+brokerUsername: string, 
+/**
+ * MQTT broker password (secret — masked in `Debug`, never logged).
+ */
+brokerPassword: string, 
+/**
+ * LLM HTTP endpoint URL.
+ */
+llmEndpoint: string, 
+/**
+ * LLM API key (secret — masked in `Debug`, never logged).
+ */
+llmApiKey: string, };

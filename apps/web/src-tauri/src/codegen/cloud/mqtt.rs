@@ -2,14 +2,17 @@
 //!
 //! The live Mqtt component publishes to / subscribes from a broker through a
 //! host-driven adapter. On a networked target (ESP32) there is no host, so the
-//! generated sketch must do it itself: bring up `WiFi`, connect to the broker,
-//! and — depending on the Node's `direction` — publish on `trigger` or
-//! subscribe and surface inbound messages. This mirrors the live semantics so
-//! standalone behaviour matches live mode.
+//! generated sketch must do it itself: connect to the broker over the `WiFi`
+//! link the shared credentials preamble already brought up, and — depending on the
+//! Node's `direction` — publish on `trigger` or subscribe and surface inbound
+//! messages. This mirrors the live semantics so standalone behaviour matches
+//! live mode.
 //!
 //! The emission uses the ubiquitous Arduino MQTT stack: `WiFi.h` (ESP32 core)
-//! plus `PubSubClient`. `WiFi` bring-up and reconnect live in shared helpers so
-//! later Cloud Nodes (Figma/Llm/Monitor) can reuse the same bootstrap.
+//! plus `PubSubClient`. The `WiFi` bring-up itself (mode + `WiFi.begin` +
+//! connect-wait) is owned centrally by
+//! [`crate::codegen::credentials::wifi_preamble`]; this emitter only waits for
+//! `WL_CONNECTED` and owns the broker connection.
 //!
 //! ## Config (`node.data`)
 //!
@@ -20,7 +23,8 @@
 //! - `topic` — topic to publish on / subscribe to.
 //! - `direction` — `"publish"` or `"subscribe"` (default `"subscribe"`,
 //!   matching `MqttConfig::default`).
-//! - credentials: `wifiSsid`, `wifiPassword`, `brokerUsername`,
+//! - credentials: `wifiSsid` (only gates the missing-credentials warning; the
+//!   `WiFi` join itself lives in the shared preamble), `brokerUsername`,
 //!   `brokerPassword`. When `wifiSsid`/`broker` are absent the sketch emits a
 //!   clearly-marked credential placeholder and a `#warning` rather than
 //!   silently failing to connect.
@@ -97,23 +101,20 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let broker = first_non_empty(node, &["broker", "brokerId"], "");
     let port = u16_or_default(node, "port", DEFAULT_PORT);
     let wifi_ssid = first_non_empty(node, &["wifiSsid"], "");
-    let wifi_password = first_non_empty(node, &["wifiPassword"], "");
     let broker_user = first_non_empty(node, &["brokerUsername"], "");
     let broker_pass = first_non_empty(node, &["brokerPassword"], "");
 
     // A Node is missing its essential connection details if it has no WiFi SSID
     // or no broker host. We still emit a connecting sketch, but with a loud
     // placeholder + #warning so the Author is told rather than silently failing.
+    // The WiFi credentials themselves live in the shared credentials preamble;
+    // the Node-level SSID only gates whether this Node believes it can connect.
     let credentials_missing = wifi_ssid.is_empty() || broker.is_empty();
 
-    let ssid_lit = cpp_string(if wifi_ssid.is_empty() { PLACEHOLDER } else { &wifi_ssid });
-    let wifi_pass_lit = cpp_string(if wifi_password.is_empty() { PLACEHOLDER } else { &wifi_password });
     let broker_lit = cpp_string(if broker.is_empty() { PLACEHOLDER } else { &broker });
     let topic_lit = cpp_string(&topic);
 
     // Per-Node config names — token-scoped so multiple Mqtt Nodes coexist.
-    let ssid_var = format!("mqtt_{token}_wifi_ssid");
-    let wifi_pass_var = format!("mqtt_{token}_wifi_password");
     let broker_var = format!("mqtt_{token}_broker");
     let port_var = format!("mqtt_{token}_port");
     let topic_var = format!("mqtt_{token}_topic");
@@ -122,8 +123,6 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let mqtt_client = format!("mqtt_{token}_client");
 
     let mut declarations = vec![
-        format!("const char* {ssid_var} = {ssid_lit};"),
-        format!("const char* {wifi_pass_var} = {wifi_pass_lit};"),
         format!("const char* {broker_var} = {broker_lit};"),
         format!("const uint16_t {port_var} = {port};"),
         format!("const char* {topic_var} = {topic_lit};"),
@@ -153,16 +152,17 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
         )
     };
 
-    // The (re)connect routine: ensure WiFi is up, then the broker. Mirrors the
+    // The (re)connect routine: wait for WiFi (brought up by the shared
+    // credentials preamble in setup()), then connect the broker. Mirrors the
     // live component maintaining its connection; here it runs in loop() with no
-    // host event loop. It is *non-blocking* — it kicks off `WiFi.begin` and
-    // attempts the broker connect once per call, returning immediately so the
-    // sketch's `millis()`-based scheduler keeps ticking (no blocking `delay`).
+    // host event loop. It is *non-blocking* — it attempts the broker connect
+    // once per call, returning immediately so the sketch's `millis()`-based
+    // scheduler keeps ticking (no blocking `delay`). It never calls
+    // `WiFi.begin` itself — the preamble already initiated the join.
     // Subscribe Nodes (re)subscribe on every (re)connect.
     let mut ensure_fn = vec![
         format!("void mqtt_{token}_ensure_connected() {{"),
         "  if (WiFi.status() != WL_CONNECTED) {".to_string(),
-        format!("    WiFi.begin({ssid_var}, {wifi_pass_var});"),
         "    return; // WiFi not up yet; retry on the next loop tick".to_string(),
         "  }".to_string(),
         format!("  if (!{mqtt_client}.connected()) {{"),
@@ -201,8 +201,9 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
         declarations.push(line);
     }
 
+    // WiFi bring-up (mode + begin + connect-wait) is owned by the shared
+    // credentials preamble; here we only point the client at the broker.
     let mut setup = vec![
-        "WiFi.mode(WIFI_STA);".to_string(),
         format!("{mqtt_client}.setServer({broker_var}, {port_var});"),
     ];
     if !is_publish {
@@ -286,9 +287,11 @@ mod tests {
         );
     }
 
-    /// Scenario: connects to the network and the broker on boot.
+    /// Scenario: connects to the broker on boot, waiting on the shared `WiFi`
+    /// connection brought up by the credentials preamble — it does not duplicate
+    /// the `WiFi` bring-up itself.
     #[test]
-    fn connects_to_network_and_broker_on_boot() {
+    fn connects_to_broker_on_boot_over_shared_wifi() {
         let e = emit(
             &mqtt(
                 "m-1",
@@ -298,10 +301,12 @@ mod tests {
         );
         let setup = joined(&e.setup);
         let decls = joined(&e.declarations);
-        assert!(setup.contains("WiFi.mode(WIFI_STA)"), "boots WiFi in setup");
         assert!(setup.contains("ensure_connected()"), "connects on boot");
-        assert!(decls.contains("WiFi.begin(mqtt_m_1_wifi_ssid"), "uses WiFi.begin with creds");
-        assert!(decls.contains("setServer(mqtt_m_1_broker"), "points at the broker host/port");
+        assert!(setup.contains("setServer(mqtt_m_1_broker"), "points at the broker host/port");
+        // Waits for the shared WiFi connection but never brings it up itself.
+        assert!(decls.contains("WiFi.status() != WL_CONNECTED"), "waits for shared WiFi");
+        assert!(!decls.contains("WiFi.begin"), "does not duplicate WiFi bring-up");
+        assert!(!setup.contains("WiFi.mode"), "does not duplicate WiFi mode");
     }
 
     /// Scenario: a subscribe Node subscribes on its configured topic and
@@ -365,8 +370,9 @@ mod tests {
             Some("v"),
         );
         let decls = joined(&e.declarations);
-        assert!(decls.contains("\"home-net\""), "embeds the supplied SSID");
-        assert!(decls.contains("\"s3cret\""), "embeds the supplied WiFi password");
+        // WiFi SSID/password live in the shared credentials preamble, not here.
+        assert!(!decls.contains("\"home-net\""), "WiFi SSID belongs to the preamble");
+        assert!(!decls.contains("\"s3cret\""), "WiFi password belongs to the preamble");
         assert!(decls.contains("\"broker.example.com\""), "embeds the broker host");
         assert!(decls.contains("8883"), "embeds the supplied port");
         assert!(decls.contains("connect(mqtt_m_1_client_id, \"user\", \"pass\")"), "uses broker auth");

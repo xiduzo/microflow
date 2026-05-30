@@ -215,8 +215,13 @@ fn cpp_string(value: &str) -> String {
 /// When returned, the preamble carries:
 /// - an `#include <WiFi.h>` line,
 /// - SSID/password declarations holding the Author's credentials,
-/// - `setup()` statements that call `WiFi.begin(ssid, pass)` and **wait** for a
-///   connection, so the device is online before the rest of `setup()` runs.
+/// - `setup()` statements that set `WiFi.mode(WIFI_STA)`, call
+///   `WiFi.begin(ssid, pass)` and **wait** for a connection, so the device is
+///   online before the rest of `setup()` runs.
+///
+/// This is the **sole** source of `WiFi` bring-up in a generated Sketch: Cloud
+/// emitters (Mqtt/Figma/Monitor/Llm) assume `WiFi` is already connecting and
+/// only do their protocol-specific work.
 ///
 /// The password is embedded as a string literal in the Sketch (its destination)
 /// but is never logged.
@@ -238,6 +243,7 @@ pub fn wifi_preamble(
         ],
         setup: vec![
             "// --- WiFi connect (Cloud Nodes) ---".to_string(),
+            "WiFi.mode(WIFI_STA);".to_string(),
             "WiFi.begin(wifi_ssid, wifi_password);".to_string(),
             // Cooperative connect-wait: `yield()` services the WiFi/RTOS stack
             // without a blocking `delay()`, keeping the Sketch free of blocking

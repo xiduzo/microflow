@@ -5,14 +5,13 @@
  * and a human-readable reason. Surfaced to the Author so they know *which*
  * credential to supply rather than getting a silently non-connecting Sketch.
  */
-export type MissingCredential = {
-  /**
-   * The credentials field that is required but empty (e.g. `wifiSsid`). Names
-   * the JSON field of [`Credentials`] so the surface can highlight it.
-   */
-  field: string;
-  /**
-   * Human-readable reason the credential is required for this Flow.
-   */
-  reason: string;
-};
+export type MissingCredential = { 
+/**
+ * The credentials field that is required but empty (e.g. `wifiSsid`). Names
+ * the JSON field of [`Credentials`] so the surface can highlight it.
+ */
+field: string, 
+/**
+ * Human-readable reason the credential is required for this Flow.
+ */
+reason: string, };

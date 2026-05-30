@@ -7,9 +7,9 @@
 //! a non-networking board, so an emitter in this module may assume the target
 //! offers [`crate::codegen::board::BoardCapability::Networking`].
 //!
-//! `Mqtt` (Task #38), `Figma` and `Monitor` (Task #42) have on-device emitters.
-//! The remaining Cloud Node (`Llm`) still falls through to
-//! [`crate::codegen::placeholder`] until its own task lands.
+//! `Mqtt` (Task #38), `Figma` and `Monitor` (Task #42) and `Llm` (Task #44) all
+//! have on-device emitters. Every Cloud Node now emits real on-device code; none
+//! fall through to [`crate::codegen::placeholder`].
 //!
 //! `Figma` and `Monitor` both bridge over the **same network transport the Mqtt
 //! Node uses** — `WiFi` + an MQTT client (`PubSubClient`). The shared
@@ -18,6 +18,7 @@
 //! [`crate::codegen::credentials`] rather than re-emitted here.
 
 pub mod figma;
+pub mod llm;
 pub mod monitor;
 pub mod mqtt;
 pub mod transport;
