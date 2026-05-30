@@ -271,11 +271,13 @@ fn emit_node(
         Some("Trigger") => control::trigger::emit(node, driver),
         Some("Counter") => control::counter::emit(node, driver),
         Some("Constant") => control::constant::emit(node),
-        // Mqtt is the one Cloud Node with an on-device emitter (Task #38). It
-        // only reaches here on a networking target — validation refuses it
-        // otherwise. The other Cloud Nodes (Figma/Llm/Monitor) still fall
-        // through to the placeholder below.
+        // Cloud Nodes with an on-device emitter only reach here on a networking
+        // target — validation refuses them otherwise. Mqtt (Task #38), Figma and
+        // Monitor (Task #42) bridge over the network transport; the remaining
+        // Cloud Node (Llm) still falls through to the placeholder below.
         Some("Mqtt") => cloud::mqtt::emit(node, driver),
+        Some("Figma") => cloud::figma::emit(node, driver),
+        Some("Monitor") => cloud::monitor::emit(node, driver),
         _ => placeholder::emit(node),
     }
 }
@@ -343,6 +345,9 @@ fn source_expression(node: &FlowNode) -> Option<String> {
         // A subscribe Mqtt Node surfaces its latest inbound message as a value;
         // a publish Mqtt Node exposes none (returns `None`).
         Some("Mqtt") => cloud::mqtt::value_var(node),
+        // A Figma Node surfaces the latest inbound variable value downstream.
+        // Monitor is a display-only sink and exposes no readable value.
+        Some("Figma") => cloud::figma::value_var(node),
         _ => None,
     }
 }
@@ -773,14 +778,14 @@ mod tests {
 
     /// Scenario: An unsupported Node becomes a placeholder comment.
     ///
-    /// A Cloud Node (Figma — still without an on-device emitter) alongside a
+    /// A Cloud Node (Llm — still without an on-device emitter) alongside a
     /// core Led: the Cloud Node gets a clear placeholder comment, the Led still
     /// emits real code, and generation does not crash or blank the sketch.
     #[test]
     fn cloud_node_becomes_placeholder_while_core_node_still_emits() {
         let flow = FlowUpdate {
             nodes: vec![
-                node("figma-1", "Figma"),
+                node("llm-1", "Llm"),
                 node_data("led-1", "Led", json!({ "pin": 13 })),
             ],
             edges: vec![],
@@ -792,8 +797,8 @@ mod tests {
 
         // Placeholder for the Cloud Node, identifying it and the networked need.
         assert!(
-            sketch.contains("// unsupported Node figma_1 (Figma)"),
-            "missing Figma placeholder, got:\n{sketch}"
+            sketch.contains("// unsupported Node llm_1 (Llm)"),
+            "missing Llm placeholder, got:\n{sketch}"
         );
         assert!(sketch.contains("networked target"), "Cloud message missing");
         // The Led still produces real code.
@@ -827,20 +832,16 @@ mod tests {
 
     /// Scenario: A Flow of only unsupported Nodes still yields a valid sketch.
     ///
-    /// Mqtt now has an on-device emitter (Task #38), so the remaining
-    /// still-unsupported Cloud Nodes are Figma/Llm/Monitor.
+    /// Mqtt (Task #38), Figma and Monitor (Task #42) now have on-device
+    /// emitters, so the only still-unsupported Cloud Node is Llm.
     #[test]
     fn all_unsupported_flow_yields_valid_sketch() {
         let flow = FlowUpdate {
-            nodes: vec![
-                node("figma-1", "Figma"),
-                node("llm-1", "Llm"),
-                node("monitor-1", "Monitor"),
-            ],
+            nodes: vec![node("llm-1", "Llm"), node("gizmo-1", "Gizmo")],
             edges: vec![],
         };
 
-        // All Cloud Nodes — runnable only on a networking board (ESP32).
+        // Llm is a Cloud Node — runnable only on a networking board (ESP32).
         let sketch = sketch_for(&flow, &networking_target());
 
         // A structurally valid sketch is still produced.
@@ -849,7 +850,7 @@ mod tests {
         // A placeholder for every unsupported Node.
         assert_eq!(
             sketch.matches("// unsupported Node ").count(),
-            3,
+            2,
             "expected one placeholder per unsupported node, got:\n{sketch}"
         );
     }
@@ -1645,9 +1646,9 @@ mod tests {
         assert!(!sketch.contains("// unsupported Node osc"), "oscillator must not be a placeholder");
     }
 
-    /// Scenario: No remaining non-Cloud Node is a placeholder. Mqtt now emits
-    /// real on-device code (Task #38); the remaining Cloud Nodes (Figma/Llm/
-    /// Monitor) still fall through to placeholders (Feature #27 territory).
+    /// Scenario: No remaining non-Cloud Node is a placeholder. Mqtt (Task #38),
+    /// Figma and Monitor (Task #42) now emit real on-device code; only the Llm
+    /// Cloud Node still falls through to a placeholder (Feature #27 territory).
     #[test]
     fn no_remaining_non_cloud_node_is_a_placeholder() {
         let flow = FlowUpdate {
@@ -1669,12 +1670,12 @@ mod tests {
                 node_data("st-1", "Stepper", json!({})),
                 node_data("vb-1", "Vibration", json!({})),
                 node_data("osc-1", "Oscillator", json!({})),
-                // Mqtt now emits real on-device code (Task #38).
+                // Mqtt, Figma and Monitor now emit real on-device code.
                 node_data("mqtt-1", "Mqtt", json!({ "broker": "b", "topic": "t", "wifiSsid": "net" })),
-                // The remaining Cloud Nodes still fall through (Feature #27).
-                node("figma-1", "Figma"),
+                node_data("figma-1", "Figma", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
+                node_data("monitor-1", "Monitor", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })),
+                // Only the Llm Cloud Node still falls through (Feature #27).
                 node("llm-1", "Llm"),
-                node("monitor-1", "Monitor"),
             ],
             edges: vec![],
         };
@@ -1683,15 +1684,19 @@ mod tests {
         // on the Uno they would be refused before emission.
         let sketch = sketch_for(&flow, &networking_target());
 
-        // Exactly the three still-unsupported Cloud Nodes are placeholders.
+        // Only the Llm Cloud Node is still a placeholder.
         assert_eq!(
             sketch.matches("// unsupported Node ").count(),
-            3,
-            "only the three remaining Cloud Nodes may be placeholders, got:\n{sketch}"
+            1,
+            "only the Llm Cloud Node may be a placeholder, got:\n{sketch}"
         );
-        // Mqtt is no longer a placeholder; it emits a real MQTT client.
+        // Mqtt/Figma/Monitor are no longer placeholders; they emit real clients.
         assert!(!sketch.contains("// unsupported Node mqtt_1"), "Mqtt must emit real code");
+        assert!(!sketch.contains("// unsupported Node figma_1"), "Figma must emit real code");
+        assert!(!sketch.contains("// unsupported Node monitor_1"), "Monitor must emit real code");
         assert!(sketch.contains("PubSubClient mqtt_mqtt_1_client"), "Mqtt client declared");
+        assert!(sketch.contains("PubSubClient figma_figma_1_client"), "Figma client declared");
+        assert!(sketch.contains("PubSubClient monitor_monitor_1_client"), "Monitor client declared");
         // Spot-check that representative remaining Nodes emit real artefacts.
         assert!(sketch.contains("switch_sw_1_state"));
         assert!(sketch.contains("oscillator_osc_1_value"));
