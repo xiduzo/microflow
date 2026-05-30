@@ -22,6 +22,7 @@
 //!   compiles even when the Flow is empty.
 
 pub mod board;
+pub mod cloud;
 pub mod control;
 pub mod emit;
 pub mod generator;
@@ -232,6 +233,11 @@ fn emit_node(
         Some("Trigger") => control::trigger::emit(node, driver),
         Some("Counter") => control::counter::emit(node, driver),
         Some("Constant") => control::constant::emit(node),
+        // Mqtt is the one Cloud Node with an on-device emitter (Task #38). It
+        // only reaches here on a networking target — validation refuses it
+        // otherwise. The other Cloud Nodes (Figma/Llm/Monitor) still fall
+        // through to the placeholder below.
+        Some("Mqtt") => cloud::mqtt::emit(node, driver),
         _ => placeholder::emit(node),
     }
 }
@@ -296,6 +302,9 @@ fn source_expression(node: &FlowNode) -> Option<String> {
         Some("Trigger") => Some(control::trigger::state_var(node)),
         Some("Counter") => Some(control::counter::value_var(node)),
         Some("Constant") => Some(control::constant::value_var(node)),
+        // A subscribe Mqtt Node surfaces its latest inbound message as a value;
+        // a publish Mqtt Node exposes none (returns `None`).
+        Some("Mqtt") => cloud::mqtt::value_var(node),
         _ => None,
     }
 }
@@ -620,14 +629,14 @@ mod tests {
 
     /// Scenario: An unsupported Node becomes a placeholder comment.
     ///
-    /// A Cloud Node (Mqtt) alongside a core Led: the Cloud Node gets a clear
-    /// placeholder comment, the Led still emits real code, and generation does
-    /// not crash or blank the sketch.
+    /// A Cloud Node (Figma — still without an on-device emitter) alongside a
+    /// core Led: the Cloud Node gets a clear placeholder comment, the Led still
+    /// emits real code, and generation does not crash or blank the sketch.
     #[test]
     fn cloud_node_becomes_placeholder_while_core_node_still_emits() {
         let flow = FlowUpdate {
             nodes: vec![
-                node("mqtt-1", "Mqtt"),
+                node("figma-1", "Figma"),
                 node_data("led-1", "Led", json!({ "pin": 13 })),
             ],
             edges: vec![],
@@ -639,8 +648,8 @@ mod tests {
 
         // Placeholder for the Cloud Node, identifying it and the networked need.
         assert!(
-            sketch.contains("// unsupported Node mqtt_1 (Mqtt)"),
-            "missing Mqtt placeholder, got:\n{sketch}"
+            sketch.contains("// unsupported Node figma_1 (Figma)"),
+            "missing Figma placeholder, got:\n{sketch}"
         );
         assert!(sketch.contains("networked target"), "Cloud message missing");
         // The Led still produces real code.
@@ -673,11 +682,13 @@ mod tests {
     }
 
     /// Scenario: A Flow of only unsupported Nodes still yields a valid sketch.
+    ///
+    /// Mqtt now has an on-device emitter (Task #38), so the remaining
+    /// still-unsupported Cloud Nodes are Figma/Llm/Monitor.
     #[test]
     fn all_unsupported_flow_yields_valid_sketch() {
         let flow = FlowUpdate {
             nodes: vec![
-                node("mqtt-1", "Mqtt"),
                 node("figma-1", "Figma"),
                 node("llm-1", "Llm"),
                 node("monitor-1", "Monitor"),
@@ -694,7 +705,7 @@ mod tests {
         // A placeholder for every unsupported Node.
         assert_eq!(
             sketch.matches("// unsupported Node ").count(),
-            4,
+            3,
             "expected one placeholder per unsupported node, got:\n{sketch}"
         );
     }
@@ -703,7 +714,7 @@ mod tests {
     #[test]
     fn placeholder_comments_are_deterministic_at_sketch_level() {
         let flow = FlowUpdate {
-            nodes: vec![node("mqtt-1", "Mqtt"), node("gizmo-1", "Gizmo")],
+            nodes: vec![node("figma-1", "Figma"), node("gizmo-1", "Gizmo")],
             edges: vec![],
         };
 
@@ -715,6 +726,129 @@ mod tests {
             first, second,
             "repeated generation must yield identical placeholder comments"
         );
+    }
+
+    // --- Task #38: emit the Mqtt Node for a networked target ---
+
+    /// Scenario: Mqtt Node emits working code on a WiFi-capable target.
+    ///
+    /// A Flow with an Mqtt Cloud Node generated for the ESP32 connects to the
+    /// network and broker on boot and publishes/subscribes on its topic — not a
+    /// placeholder.
+    #[test]
+    fn mqtt_node_emits_working_code_on_a_wifi_capable_target() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "mqtt-1",
+                "Mqtt",
+                json!({ "broker": "broker.example.com", "port": 1883, "topic": "microflow/sensor", "direction": "subscribe", "wifiSsid": "net" }),
+            )],
+            edges: vec![],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        // Not a placeholder.
+        assert!(!sketch.contains("// unsupported Node mqtt_1"), "Mqtt must emit real code, got:\n{sketch}");
+        // WiFi + MQTT client libraries pulled in.
+        assert!(sketch.contains("#include <WiFi.h>"), "missing WiFi include");
+        assert!(sketch.contains("#include <PubSubClient.h>"), "missing MQTT client include");
+        // Connects to network and broker on boot.
+        assert!(sketch.contains("WiFi.mode(WIFI_STA)"), "boots WiFi in setup");
+        assert!(sketch.contains("mqtt_mqtt_1_ensure_connected()"), "connects on boot + loop");
+        assert!(sketch.contains("setServer(mqtt_mqtt_1_broker"), "points at the broker");
+        // Subscribes on the configured topic.
+        assert!(sketch.contains("subscribe(mqtt_mqtt_1_topic)"), "subscribes to its topic");
+        // Maintains the connection in loop() without a host event loop.
+        assert!(sketch.contains("mqtt_mqtt_1_client.loop()"), "pumps client in loop");
+        // Stays non-blocking (no blocking delay).
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Scenario: a publish Mqtt Node publishes its wired input on its topic.
+    #[test]
+    fn mqtt_publish_node_publishes_its_wired_input() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data(
+                    "mqtt-1",
+                    "Mqtt",
+                    json!({ "broker": "b", "topic": "microflow/out", "direction": "publish", "wifiSsid": "net" }),
+                ),
+            ],
+            edges: vec![edge("sensor-1", "mqtt-1")],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        assert!(sketch.contains("publish(mqtt_mqtt_1_topic"), "publishes on its topic");
+        assert!(sketch.contains("sensor_sensor_1_value"), "publishes the wired sensor value");
+    }
+
+    /// Scenario: Generated Mqtt sketch reflects supplied credentials.
+    #[test]
+    fn generated_mqtt_sketch_reflects_supplied_credentials() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "mqtt-1",
+                "Mqtt",
+                json!({
+                    "broker": "broker.example.com",
+                    "port": 8883,
+                    "topic": "microflow/sensor",
+                    "wifiSsid": "home-net",
+                    "wifiPassword": "s3cret",
+                    "brokerUsername": "user",
+                    "brokerPassword": "pass",
+                    "direction": "publish"
+                }),
+            )],
+            edges: vec![],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        assert!(sketch.contains("\"home-net\""), "uses the supplied SSID");
+        assert!(sketch.contains("\"s3cret\""), "uses the supplied WiFi password");
+        assert!(sketch.contains("\"broker.example.com\""), "uses the supplied broker host");
+        assert!(sketch.contains("8883"), "uses the supplied port");
+        assert!(sketch.contains("\"user\", \"pass\""), "uses the broker auth credentials");
+        assert!(!sketch.contains("REPLACE_ME"), "no placeholder when creds supplied");
+    }
+
+    /// Scenario: Missing credentials produce a safe placeholder + warning.
+    #[test]
+    fn missing_mqtt_credentials_produce_a_safe_placeholder() {
+        let flow = FlowUpdate {
+            // No wifiSsid and no broker host supplied.
+            nodes: vec![node_data("mqtt-1", "Mqtt", json!({ "topic": "microflow/sensor", "direction": "publish" }))],
+            edges: vec![],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        // A loud, compile-time warning rather than silent failure.
+        assert!(sketch.contains("#warning"), "warns the Author");
+        // A clearly-marked placeholder rather than an empty connection value.
+        assert!(sketch.contains("REPLACE_ME"), "emits a credential placeholder");
+        // It still emits connecting code (does not silently fail to connect).
+        assert!(sketch.contains("WiFi.mode(WIFI_STA)"), "still attempts to connect");
+    }
+
+    /// Mqtt emission is deterministic at the sketch level.
+    #[test]
+    fn mqtt_sketch_is_deterministic() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "mqtt-1",
+                "Mqtt",
+                json!({ "broker": "b", "topic": "t", "wifiSsid": "net", "direction": "publish" }),
+            )],
+            edges: vec![],
+        };
+        let esp32 = networking_target();
+        assert_eq!(sketch_for(&flow, &esp32), sketch_for(&flow, &esp32));
     }
 
     // --- Task #43: wire the selected target into generation ---
@@ -1367,8 +1501,9 @@ mod tests {
         assert!(!sketch.contains("// unsupported Node osc"), "oscillator must not be a placeholder");
     }
 
-    /// Scenario: No remaining non-Cloud Node is a placeholder, while Cloud Nodes
-    /// still fall through to placeholders (Feature #27 territory).
+    /// Scenario: No remaining non-Cloud Node is a placeholder. Mqtt now emits
+    /// real on-device code (Task #38); the remaining Cloud Nodes (Figma/Llm/
+    /// Monitor) still fall through to placeholders (Feature #27 territory).
     #[test]
     fn no_remaining_non_cloud_node_is_a_placeholder() {
         let flow = FlowUpdate {
@@ -1390,8 +1525,9 @@ mod tests {
                 node_data("st-1", "Stepper", json!({})),
                 node_data("vb-1", "Vibration", json!({})),
                 node_data("osc-1", "Oscillator", json!({})),
-                // Cloud Nodes remain placeholders (handled by Feature #27).
-                node("mqtt-1", "Mqtt"),
+                // Mqtt now emits real on-device code (Task #38).
+                node_data("mqtt-1", "Mqtt", json!({ "broker": "b", "topic": "t", "wifiSsid": "net" })),
+                // The remaining Cloud Nodes still fall through (Feature #27).
                 node("figma-1", "Figma"),
                 node("llm-1", "Llm"),
                 node("monitor-1", "Monitor"),
@@ -1403,12 +1539,15 @@ mod tests {
         // on the Uno they would be refused before emission.
         let sketch = sketch_for(&flow, &networking_target());
 
-        // Exactly the four Cloud Nodes are placeholders — nothing else.
+        // Exactly the three still-unsupported Cloud Nodes are placeholders.
         assert_eq!(
             sketch.matches("// unsupported Node ").count(),
-            4,
-            "only the four Cloud Nodes may be placeholders, got:\n{sketch}"
+            3,
+            "only the three remaining Cloud Nodes may be placeholders, got:\n{sketch}"
         );
+        // Mqtt is no longer a placeholder; it emits a real MQTT client.
+        assert!(!sketch.contains("// unsupported Node mqtt_1"), "Mqtt must emit real code");
+        assert!(sketch.contains("PubSubClient mqtt_mqtt_1_client"), "Mqtt client declared");
         // Spot-check that representative remaining Nodes emit real artefacts.
         assert!(sketch.contains("switch_sw_1_state"));
         assert!(sketch.contains("oscillator_osc_1_value"));
