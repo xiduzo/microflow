@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Credentials } from "@/lib/bindings/Credentials";
 import type { MissingCredential } from "@/lib/bindings/MissingCredential";
-import { checkCredentials } from "@/lib/ipc";
+import { checkCredentials } from "@/lib/codegen";
 import { useFlowSession, useFlowMeta } from "@/session";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

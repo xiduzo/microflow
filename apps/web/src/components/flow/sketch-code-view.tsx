@@ -6,7 +6,7 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/providers/theme-provider";
 import { useFlowSession, useFlowNodes, useFlowEdges, useFlowMeta } from "@/session";
-import { invokeCommand } from "@/lib/ipc";
+import { sketchInvoker } from "@/lib/codegen";
 import {
   buildSketchDownloadRequest,
   canDownloadSketch,
@@ -15,8 +15,6 @@ import {
   projectSketchResult,
   serializeFlowGraph,
   type SketchDownloadHandler,
-  type SketchInvoker,
-  type SketchResponse,
   type SketchViewState,
 } from "./sketch-code-view.model";
 import { deriveSketchFilename } from "./sketch-download.model";
@@ -32,7 +30,9 @@ import { downloadSketch } from "./sketch-download";
 };
 loader.config({ monaco });
 
-const invoke: SketchInvoker = (command) => invokeCommand(command) as Promise<SketchResponse>;
+// Platform-dispatching invoker: Tauri IPC on desktop, the same Rust generator
+// compiled to WebAssembly in the browser (see @/lib/codegen).
+const invoke = sketchInvoker;
 
 /**
  * Default download handler (Task #31): persists the sketch to a `.ino` file via
