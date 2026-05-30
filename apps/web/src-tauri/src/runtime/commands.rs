@@ -7,6 +7,7 @@ use super::services::{HttpLlmProvider, LlmProvider, RuntimeServices};
 use super::wiring::SubscriberWiring;
 use super::FlowUpdate;
 use crate::codegen::board::{target_by_id, BoardTarget};
+use crate::codegen::credentials::{Credentials, MissingCredential};
 use crate::codegen::GenerationOutcome;
 use crate::AppState;
 use crate::mqtt::broker::BrokerConfig;
@@ -291,6 +292,7 @@ pub async fn flow_update(
 pub async fn generate_sketch(
     flow: FlowUpdate,
     target_id: Option<String>,
+    credentials: Option<Credentials>,
 ) -> Result<GenerationOutcome, String> {
     // Resolve the selected target, defaulting to the Uno when none is given or
     // the id is unknown, so existing Flows still produce a Sketch.
@@ -299,14 +301,39 @@ pub async fn generate_sketch(
         .and_then(target_by_id)
         .unwrap_or_else(default_board_target);
 
+    // Never log secret values — the `Credentials` Debug impl masks secrets, so
+    // only log whether credentials were supplied at all.
     log::info!(
-        "=== GENERATE SKETCH COMMAND === {} nodes, {} edges, target '{}'",
+        "=== GENERATE SKETCH COMMAND === {} nodes, {} edges, target '{}', credentials: {}",
         flow.nodes.len(),
         flow.edges.len(),
-        target.id
+        target.id,
+        if credentials.is_some() { "provided" } else { "none" }
     );
 
-    crate::codegen::generate(&flow, &target)
+    crate::codegen::generate_with_credentials(&flow, &target, credentials.as_ref())
+}
+
+/// Report which required network credentials are missing for `flow` on the
+/// selected board target, so the editor can warn the Author *before* generating
+/// a Sketch that would silently fail to connect.
+///
+/// Mirrors [`generate_sketch`]'s target resolution. Returns an empty list when
+/// no credential is required (no Cloud Nodes, or a non-networking target).
+/// Logically supports the `CredentialsProvided` domain event by validating the
+/// Author's input. Secret values are never logged.
+#[tauri::command]
+#[must_use]
+pub fn check_credentials(
+    flow: FlowUpdate,
+    target_id: Option<String>,
+    credentials: Option<Credentials>,
+) -> Vec<MissingCredential> {
+    let target = target_id
+        .as_deref()
+        .and_then(target_by_id)
+        .unwrap_or_else(default_board_target);
+    credentials.unwrap_or_default().missing_for(&flow, &target)
 }
 
 /// The default board target (`uno`) used when a Flow has no explicit selection.

@@ -23,6 +23,7 @@
 
 pub mod board;
 pub mod control;
+pub mod credentials;
 pub mod emit;
 pub mod generator;
 pub mod input;
@@ -33,6 +34,7 @@ pub mod validate;
 
 use crate::runtime::types::{FlowNode, FlowUpdate};
 use board::BoardTarget;
+use credentials::Credentials;
 use emit::NodeEmission;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -74,6 +76,32 @@ pub enum GenerationOutcome {
 /// the frontend without changing the contract. A Flow that cannot run on the
 /// target is **not** an error: it returns `Ok(GenerationOutcome::Problems(..))`.
 pub fn generate(flow: &FlowUpdate, target: &BoardTarget) -> Result<GenerationOutcome, String> {
+    generate_with_credentials(flow, target, None)
+}
+
+/// Generate the Arduino sketch for `flow` targeting `target`, threading the
+/// Author-supplied network `credentials` into a Cloud-capable Sketch.
+///
+/// Identical to [`generate`] except that, when the Flow has Cloud Nodes on a
+/// networking-capable target, the `WiFi` connect preamble embeds these
+/// credentials so the device connects on boot. `None` is equivalent to empty
+/// credentials — the preamble is still emitted (so the structure is stable),
+/// with empty SSID/password slots the Author can fill. Non-networked Sketches
+/// are unaffected.
+///
+/// Secrets in `credentials` are never logged (the [`Credentials`] `Debug` impl
+/// masks them); the password is embedded only in the emitted Sketch, its
+/// intended destination.
+///
+/// # Errors
+///
+/// Mirrors [`generate`]: never returns `Err` today; a Flow that cannot run on
+/// the target is `Ok(GenerationOutcome::Problems(..))`, not an error.
+pub fn generate_with_credentials(
+    flow: &FlowUpdate,
+    target: &BoardTarget,
+    credentials: Option<&Credentials>,
+) -> Result<GenerationOutcome, String> {
     // Gate emission on validation: never emit unrunnable code.
     let problems = validate::validate(flow, target);
     if !problems.is_empty() {
@@ -85,14 +113,18 @@ pub fn generate(flow: &FlowUpdate, target: &BoardTarget) -> Result<GenerationOut
         return Ok(GenerationOutcome::Problems(problems));
     }
 
-    Ok(GenerationOutcome::Sketch(emit_sketch(flow, target)))
+    Ok(GenerationOutcome::Sketch(emit_sketch(flow, target, credentials)))
 }
 
 /// Assemble the Arduino sketch text for an already-validated Flow.
 ///
 /// Pin numbers and capability usage reflect `target`'s facts. Separated from
 /// [`generate`] so the validation gate is the single entry point.
-fn emit_sketch(flow: &FlowUpdate, target: &BoardTarget) -> String {
+fn emit_sketch(
+    flow: &FlowUpdate,
+    target: &BoardTarget,
+    credentials: Option<&Credentials>,
+) -> String {
     let order = traversal_order(flow);
     let drivers = driver_expressions(flow);
 
@@ -100,6 +132,12 @@ fn emit_sketch(flow: &FlowUpdate, target: &BoardTarget) -> String {
     // The target supplies the board's pin facts so emission is board-correct.
     let emissions: Vec<NodeEmission> =
         order.iter().map(|node| emit_node(node, &drivers, target)).collect();
+
+    // Cloud-capable Sketches (Cloud Nodes on a networking target) connect to
+    // WiFi on boot. The preamble is gated on Networking capability + cloud-node
+    // presence, so non-networked Sketches are byte-for-byte unchanged. The
+    // dispatch match is untouched — the preamble is a separate region concern.
+    let preamble = credentials::wifi_preamble(flow, target, credentials);
 
     let emitted_count = emissions.iter().filter(|e| !e.is_empty()).count();
     log::debug!(
@@ -110,9 +148,9 @@ fn emit_sketch(flow: &FlowUpdate, target: &BoardTarget) -> String {
 
     let mut sketch = String::new();
     sketch.push_str(&header(&order, target));
-    sketch.push_str(&includes_region(&emissions));
-    sketch.push_str(&declarations(&order, &emissions));
-    sketch.push_str(&setup_region(&emissions));
+    sketch.push_str(&includes_region(&emissions, preamble.as_ref()));
+    sketch.push_str(&declarations(&order, &emissions, preamble.as_ref()));
+    sketch.push_str(&setup_region(&emissions, preamble.as_ref()));
     sketch.push_str(&loop_region(&emissions));
 
     sketch
@@ -300,12 +338,19 @@ fn source_expression(node: &FlowNode) -> Option<String> {
     }
 }
 
-/// Deduplicated `#include` block, sorted for determinism.
-fn includes_region(emissions: &[NodeEmission]) -> String {
-    let includes: BTreeSet<&str> = emissions
+/// Deduplicated `#include` block, sorted for determinism. The optional `WiFi`
+/// preamble (Cloud-capable Sketch) contributes its client-library include.
+fn includes_region(
+    emissions: &[NodeEmission],
+    preamble: Option<&credentials::WifiPreamble>,
+) -> String {
+    let mut includes: BTreeSet<&str> = emissions
         .iter()
         .flat_map(|e| e.includes.iter().map(String::as_str))
         .collect();
+    if let Some(p) = preamble {
+        includes.insert(p.include.as_str());
+    }
     if includes.is_empty() {
         return String::new();
     }
@@ -320,8 +365,20 @@ fn includes_region(emissions: &[NodeEmission]) -> String {
 
 /// Declarations region. Each Node gets a labelled comment slot followed by its
 /// real declarations (in traversal order) so output is stable and readable.
-fn declarations(order: &[&FlowNode], emissions: &[NodeEmission]) -> String {
+fn declarations(
+    order: &[&FlowNode],
+    emissions: &[NodeEmission],
+    preamble: Option<&credentials::WifiPreamble>,
+) -> String {
     let mut out = String::from("// --- Declarations ---\n");
+    // WiFi credential declarations lead the region for a Cloud-capable Sketch.
+    if let Some(p) = preamble {
+        out.push_str("// WiFi credentials (Cloud Nodes)\n");
+        for line in &p.declarations {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
     for (node, emission) in order.iter().zip(emissions) {
         let kind = node.node_type.as_deref().unwrap_or("unknown");
         out.push_str(&format!("// node {} ({})\n", node.id, kind));
@@ -335,8 +392,20 @@ fn declarations(order: &[&FlowNode], emissions: &[NodeEmission]) -> String {
 }
 
 /// `setup()` with each Node's init statements stitched in (traversal order).
-fn setup_region(emissions: &[NodeEmission]) -> String {
+/// The optional `WiFi` preamble runs first so the device is online before any
+/// Cloud Node's own `setup()` work.
+fn setup_region(
+    emissions: &[NodeEmission],
+    preamble: Option<&credentials::WifiPreamble>,
+) -> String {
     let mut out = String::from("void setup() {\n  // --- Setup ---\n");
+    if let Some(p) = preamble {
+        for line in &p.setup {
+            out.push_str("  ");
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
     for line in emissions.iter().flat_map(|e| &e.setup) {
         out.push_str("  ");
         out.push_str(line);
@@ -431,6 +500,81 @@ mod tests {
             source_handle: "out".to_string(),
             target_handle: "in".to_string(),
         }
+    }
+
+    /// Generate a Sketch for an explicit target with credentials, unwrapping
+    /// the [`GenerationOutcome::Sketch`] variant.
+    fn sketch_with_creds(
+        flow: &FlowUpdate,
+        target: &BoardTarget,
+        creds: &credentials::Credentials,
+    ) -> String {
+        match generate_with_credentials(flow, target, Some(creds))
+            .expect("generation should succeed")
+        {
+            GenerationOutcome::Sketch(s) => s,
+            GenerationOutcome::Problems(p) => {
+                panic!("expected a sketch, got validation problems: {p:?}")
+            }
+        }
+    }
+
+    /// Scenario: Author provides credentials used by the generated sketch.
+    /// Given a Cloud Node on the `WiFi`-capable ESP32 and supplied credentials,
+    /// the generated Sketch joins `WiFi` on boot using those exact credentials.
+    #[test]
+    fn cloud_sketch_connects_to_wifi_on_boot_with_supplied_credentials() {
+        let flow = FlowUpdate { nodes: vec![node("mqtt-1", "Mqtt")], edges: vec![] };
+        let creds = credentials::Credentials {
+            wifi_ssid: "studio-net".to_string(),
+            wifi_password: "s3cret-pass".to_string(),
+            broker_host: "broker.example.com".to_string(),
+            broker_port: 1883,
+            ..credentials::Credentials::default()
+        };
+
+        let sketch = sketch_with_creds(&flow, &networking_target(), &creds);
+
+        assert!(sketch.contains("#include <WiFi.h>"), "WiFi include missing:\n{sketch}");
+        assert!(sketch.contains("\"studio-net\""), "SSID not embedded:\n{sketch}");
+        assert!(sketch.contains("\"s3cret-pass\""), "password not embedded in sketch");
+        assert!(
+            sketch.contains("WiFi.begin(wifi_ssid, wifi_password);"),
+            "no WiFi.begin in setup:\n{sketch}"
+        );
+        assert!(sketch.contains("WL_CONNECTED"), "no connect-wait:\n{sketch}");
+        // The connect-wait runs inside setup(), before loop().
+        let setup_idx = sketch.find("void setup()").expect("setup present");
+        let loop_idx = sketch.find("void loop()").expect("loop present");
+        let begin_idx = sketch.find("WiFi.begin").expect("begin present");
+        assert!(setup_idx < begin_idx && begin_idx < loop_idx, "WiFi.begin must be in setup()");
+    }
+
+    /// A core-only Flow on a networking target emits no `WiFi` preamble — the
+    /// credential surface is additive and never touches non-Cloud Sketches.
+    #[test]
+    fn core_only_sketch_has_no_wifi_preamble() {
+        let flow = FlowUpdate { nodes: vec![node_data("led-1", "Led", json!({"pin": 13}))], edges: vec![] };
+        let creds = credentials::Credentials {
+            wifi_ssid: "net".to_string(),
+            wifi_password: "pw".to_string(),
+            ..credentials::Credentials::default()
+        };
+        let sketch = sketch_with_creds(&flow, &networking_target(), &creds);
+        assert!(!sketch.contains("WiFi.begin"), "core-only sketch must not connect WiFi");
+        assert!(!sketch.contains("<WiFi.h>"), "no WiFi include for core-only sketch");
+    }
+
+    /// `generate` (no credentials) on a Cloud Flow still emits a stable `WiFi`
+    /// preamble with empty credential slots — the structure is present for the
+    /// Author to fill, and no secret is fabricated.
+    #[test]
+    fn cloud_sketch_without_credentials_emits_empty_slots() {
+        let flow = FlowUpdate { nodes: vec![node("mqtt-1", "Mqtt")], edges: vec![] };
+        let sketch = sketch_for(&flow, &networking_target());
+        assert!(sketch.contains("#include <WiFi.h>"));
+        assert!(sketch.contains("const char* wifi_ssid = \"\";"), "empty ssid slot:\n{sketch}");
+        assert!(sketch.contains("WiFi.begin(wifi_ssid, wifi_password);"));
     }
 
     /// Scenario: Empty Flow yields a valid empty sketch.

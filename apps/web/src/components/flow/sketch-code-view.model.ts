@@ -1,4 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
+import type { Credentials } from "@/lib/bindings/Credentials";
 import type { GenerationOutcome } from "@/lib/bindings/GenerationOutcome";
 import type { ValidationProblem } from "@/lib/bindings/ValidationProblem";
 
@@ -13,6 +14,12 @@ export type GenerateSketchCommand = {
   type: "generate_sketch";
   flow: { nodes: Node[]; edges: Edge[] };
   targetId?: string;
+  /**
+   * Author-supplied network credentials a Cloud-capable Sketch uses to connect
+   * on boot (Task #46). Omitted for non-Cloud Flows; secrets are session-only
+   * and never persisted in the Flow.
+   */
+  credentials?: Credentials;
 };
 
 /**
@@ -112,9 +119,11 @@ export function buildGenerateSketchCommand(
   nodes: Node[],
   edges: Edge[],
   targetId?: string,
+  credentials?: Credentials,
 ): GenerateSketchCommand {
   const command: GenerateSketchCommand = { type: "generate_sketch", flow: { nodes, edges } };
   if (targetId !== undefined) command.targetId = targetId;
+  if (credentials !== undefined) command.credentials = credentials;
   return command;
 }
 
