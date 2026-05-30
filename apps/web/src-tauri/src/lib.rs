@@ -288,6 +288,7 @@ pub fn run() {
             runtime::commands::flow_update,
             runtime::commands::component_call,
             runtime::commands::generate_sketch,
+            runtime::commands::check_credentials,
             runtime::commands::list_board_targets,
             mqtt::commands::mqtt_connect,
             mqtt::commands::mqtt_disconnect,

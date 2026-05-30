@@ -10,18 +10,22 @@ import { useEffect } from "react";
 import type { BoardState } from "./bindings/BoardState";
 import type { BoardTarget } from "./bindings/BoardTarget";
 import type { BrokerStatus } from "./bindings/BrokerStatus";
+import type { Credentials } from "./bindings/Credentials";
 import type { ComponentEvent } from "./bindings/ComponentEvent";
 import type { ConnectionStatus } from "./bindings/ConnectionStatus";
 import type { MqttMessage } from "./bindings/MqttMessage";
 import type { PinInfo } from "./bindings/PinInfo";
 import type { SerialPortEvent } from "./bindings/SerialPortEvent";
 import type { SerialPortInfo } from "./bindings/SerialPortInfo";
+import type { MissingCredential } from "./bindings/MissingCredential";
 
 export type {
   BoardState,
   BrokerStatus,
   ComponentEvent,
   ConnectionStatus,
+  Credentials,
+  MissingCredential,
   MqttMessage,
   PinInfo,
   SerialPortEvent,
@@ -129,6 +133,9 @@ type LlmTestProvider = {
 // selected board target. Returns a `GenerationOutcome` — either the generated
 // `.ino` source or the validation problems that prevented emission. `targetId`
 // is optional; the backend uses the default board target when it is omitted.
+// `credentials` carries the Author-supplied network credentials a Cloud-capable
+// Sketch uses to connect on boot; secret fields are masked in the UI and never
+// persisted in the Flow. Omitted for non-Cloud Flows.
 type GenerateSketch = {
   type: "generate_sketch";
   flow: {
@@ -136,6 +143,7 @@ type GenerateSketch = {
     edges: Edge[];
   };
   targetId?: string;
+  credentials?: Credentials;
 };
 
 type Command =
@@ -179,6 +187,29 @@ export async function listBoardTargets(): Promise<BoardTarget[]> {
     return await invoke<BoardTarget[]>("list_board_targets");
   } catch (error) {
     console.error("[listBoardTargets]", error);
+    return [];
+  }
+}
+
+// Sketch Generation context: report which required network credentials are
+// missing for a Flow on the selected board target, so the editor can warn the
+// Author before generating a Sketch that would silently fail to connect.
+// Returns an empty list when no credential is required (no Cloud Nodes, or a
+// non-networking target) or off-desktop. Secret values are never logged.
+export async function checkCredentials(
+  flow: { nodes: Node[]; edges: Edge[] },
+  targetId?: string,
+  credentials?: Credentials,
+): Promise<MissingCredential[]> {
+  if (!isDesktop()) return [];
+  try {
+    return await invoke<MissingCredential[]>("check_credentials", {
+      flow,
+      targetId,
+      credentials,
+    });
+  } catch (error) {
+    console.error("[checkCredentials]", error);
     return [];
   }
 }
