@@ -22,7 +22,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/web/src-tauri -> target
+          workspaces: . -> target
 
       - name: Install Linux dependencies
         run: |
@@ -34,9 +34,10 @@ jobs:
             patchelf \
             libudev-dev
 
+      # Whole workspace: app_lib plus the extracted microflow-core and
+      # microflow-codegen-wasm crates (the browser code generator).
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings -W clippy::pedantic
-        working-directory: apps/web/src-tauri
+        run: cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic
 
   test:
     name: Test
@@ -51,7 +52,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/web/src-tauri -> target
+          workspaces: . -> target
 
       - name: Install Linux dependencies
         run: |
@@ -64,5 +65,4 @@ jobs:
             libudev-dev
 
       - name: Test
-        run: cargo test --lib --tests
-        working-directory: apps/web/src-tauri
+        run: cargo test --workspace --lib --tests

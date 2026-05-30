@@ -121,7 +121,7 @@ mod tests {
         }
     }
 
-    /// AudioPlayer is browser-only: it gets a tailored message saying so,
+    /// `AudioPlayer` is browser-only: it gets a tailored message saying so,
     /// distinct from the generic and Cloud messages.
     #[test]
     fn audio_player_emits_browser_only_placeholder() {

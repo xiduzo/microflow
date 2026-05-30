@@ -16,6 +16,11 @@
 //! per-generation, never persisted, and the password is embedded only in the
 //! emitted Sketch (its intended destination).
 
+// The `#[wasm_bindgen]` entry points must take `Option<String>` by value — the
+// JS↔wasm ABI does not support borrowed `Option<&str>` arguments — even though
+// we only borrow them internally. Allow the pedantic lint that flags this.
+#![allow(clippy::needless_pass_by_value)]
+
 use microflow_core::codegen::{
     board::{supported_targets, target_by_id, BoardTarget},
     credentials::Credentials,
@@ -49,9 +54,8 @@ fn default_board_target() -> BoardTarget {
 
 /// Resolve `target_id` to a [`BoardTarget`], defaulting to the Uno when none is
 /// given or the id is unknown — identical resolution to the desktop command.
-fn resolve_target(target_id: Option<String>) -> BoardTarget {
+fn resolve_target(target_id: Option<&str>) -> BoardTarget {
     target_id
-        .as_deref()
         .and_then(target_by_id)
         .unwrap_or_else(default_board_target)
 }
@@ -93,7 +97,7 @@ pub fn generate_sketch(
         None => None,
     };
 
-    let target = resolve_target(target_id);
+    let target = resolve_target(target_id.as_deref());
 
     let outcome = generate_with_credentials(&flow, &target, credentials.as_ref())
         .map_err(|e| JsError::new(&e))?;
@@ -128,7 +132,7 @@ pub fn check_credentials(
         None => Credentials::default(),
     };
 
-    let target = resolve_target(target_id);
+    let target = resolve_target(target_id.as_deref());
     let missing = credentials.missing_for(&flow, &target);
 
     serde_json::to_string(&missing)

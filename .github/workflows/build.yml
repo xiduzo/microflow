@@ -42,12 +42,19 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          # wasm32 target so `bun run build` can compile microflow-codegen-wasm
+          # (the browser code generator) before `vite build`.
+          targets: ${{ matrix.target }}, wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: latest
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/web/src-tauri -> target
+          workspaces: . -> target
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
