@@ -293,13 +293,13 @@ mod tests {
     fn full_creds() -> Credentials {
         Credentials {
             wifi_ssid: "my-network".to_string(),
-            wifi_password: "hunter2".to_string(),
+            wifi_password: "hunter2".to_string(), // ggignore
             broker_host: "broker.example.com".to_string(),
             broker_port: 1883,
             broker_username: "user".to_string(),
-            broker_password: "brokerpass".to_string(),
+            broker_password: "brokerpass".to_string(), // ggignore
             llm_endpoint: "https://api.example.com/v1".to_string(),
-            llm_api_key: "sk-secret".to_string(),
+            llm_api_key: "sk-secret".to_string(), // ggignore
         }
     }
 
@@ -422,7 +422,7 @@ mod tests {
     fn missing_reasons_carry_no_secret_values() {
         let f = flow(vec![node("mqtt-1", "Mqtt")]);
         let creds =
-            Credentials { wifi_password: "topsecret".to_string(), ..Credentials::default() };
+            Credentials { wifi_password: "topsecret".to_string(), ..Credentials::default() }; // ggignore
         for m in creds.missing_for(&f, &esp32()) {
             assert!(!m.reason.contains("topsecret"));
         }
