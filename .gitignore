@@ -8,6 +8,14 @@ dist
 build
 *.tsbuildinfo
 
+# Rust / Cargo workspace build dir (workspace target is at the repo root)
+/target
+
+# `ring` (transitive, via rustls) emits perlasm temp files into the build CWD
+# when the workspace is built from the repo root.
+/*.s
+/*.s.tmp
+
 # Environment variables
 .env
 .env*.local

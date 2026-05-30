@@ -35,7 +35,11 @@
     clippy::manual_let_else
 )]
 
-pub mod codegen;
+// Codegen and the Flow read-model now live in the platform-independent
+// `microflow-core` crate (so they can also compile to WebAssembly for the web
+// app). Re-export `codegen` here so existing `app_lib::codegen::…` /
+// `crate::codegen::…` paths — including the integration tests — keep working.
+pub use microflow_core::codegen;
 mod error;
 mod flasher;
 pub mod hardware;

@@ -1,0 +1,6 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/web/src-tauri",
+    "crates/microflow-core",
+]
