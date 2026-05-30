@@ -7,8 +7,9 @@
 //! a non-networking board, so an emitter in this module may assume the target
 //! offers [`crate::codegen::board::BoardCapability::Networking`].
 //!
-//! Only the `Mqtt` Node has an on-device emitter today (Task #38). The other
-//! Cloud Nodes still fall through to [`crate::codegen::placeholder`] until their
-//! own tasks land.
+//! The `Mqtt` (Task #38) and `Llm` (Task #44) Nodes have on-device emitters
+//! today. The remaining Cloud Nodes (Figma/Monitor) still fall through to
+//! [`crate::codegen::placeholder`] until their own tasks land.
 
+pub mod llm;
 pub mod mqtt;
