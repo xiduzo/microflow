@@ -2,7 +2,7 @@
 
 /**
  * Payload of the `mqtt-message` Tauri event. Frontend deserializes this with
- * snake_case field names; do not hand-roll JSON for this event elsewhere.
+ * `snake_case` field names; do not hand-roll JSON for this event elsewhere.
  */
 export type MqttMessage = { broker_id: string, topic: string, payload: string, 
 /**

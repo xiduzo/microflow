@@ -22,7 +22,9 @@
 //!   compiles even when the Flow is empty.
 
 pub mod board;
+pub mod cloud;
 pub mod control;
+pub mod credentials;
 pub mod emit;
 pub mod generator;
 pub mod input;
@@ -33,6 +35,7 @@ pub mod validate;
 
 use crate::runtime::types::{FlowNode, FlowUpdate};
 use board::BoardTarget;
+use credentials::Credentials;
 use emit::NodeEmission;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -74,6 +77,32 @@ pub enum GenerationOutcome {
 /// the frontend without changing the contract. A Flow that cannot run on the
 /// target is **not** an error: it returns `Ok(GenerationOutcome::Problems(..))`.
 pub fn generate(flow: &FlowUpdate, target: &BoardTarget) -> Result<GenerationOutcome, String> {
+    generate_with_credentials(flow, target, None)
+}
+
+/// Generate the Arduino sketch for `flow` targeting `target`, threading the
+/// Author-supplied network `credentials` into a Cloud-capable Sketch.
+///
+/// Identical to [`generate`] except that, when the Flow has Cloud Nodes on a
+/// networking-capable target, the `WiFi` connect preamble embeds these
+/// credentials so the device connects on boot. `None` is equivalent to empty
+/// credentials — the preamble is still emitted (so the structure is stable),
+/// with empty SSID/password slots the Author can fill. Non-networked Sketches
+/// are unaffected.
+///
+/// Secrets in `credentials` are never logged (the [`Credentials`] `Debug` impl
+/// masks them); the password is embedded only in the emitted Sketch, its
+/// intended destination.
+///
+/// # Errors
+///
+/// Mirrors [`generate`]: never returns `Err` today; a Flow that cannot run on
+/// the target is `Ok(GenerationOutcome::Problems(..))`, not an error.
+pub fn generate_with_credentials(
+    flow: &FlowUpdate,
+    target: &BoardTarget,
+    credentials: Option<&Credentials>,
+) -> Result<GenerationOutcome, String> {
     // Gate emission on validation: never emit unrunnable code.
     let problems = validate::validate(flow, target);
     if !problems.is_empty() {
@@ -85,14 +114,18 @@ pub fn generate(flow: &FlowUpdate, target: &BoardTarget) -> Result<GenerationOut
         return Ok(GenerationOutcome::Problems(problems));
     }
 
-    Ok(GenerationOutcome::Sketch(emit_sketch(flow, target)))
+    Ok(GenerationOutcome::Sketch(emit_sketch(flow, target, credentials)))
 }
 
 /// Assemble the Arduino sketch text for an already-validated Flow.
 ///
 /// Pin numbers and capability usage reflect `target`'s facts. Separated from
 /// [`generate`] so the validation gate is the single entry point.
-fn emit_sketch(flow: &FlowUpdate, target: &BoardTarget) -> String {
+fn emit_sketch(
+    flow: &FlowUpdate,
+    target: &BoardTarget,
+    credentials: Option<&Credentials>,
+) -> String {
     let order = traversal_order(flow);
     let drivers = driver_expressions(flow);
 
@@ -100,6 +133,12 @@ fn emit_sketch(flow: &FlowUpdate, target: &BoardTarget) -> String {
     // The target supplies the board's pin facts so emission is board-correct.
     let emissions: Vec<NodeEmission> =
         order.iter().map(|node| emit_node(node, &drivers, target)).collect();
+
+    // Cloud-capable Sketches (Cloud Nodes on a networking target) connect to
+    // WiFi on boot. The preamble is gated on Networking capability + cloud-node
+    // presence, so non-networked Sketches are byte-for-byte unchanged. The
+    // dispatch match is untouched — the preamble is a separate region concern.
+    let preamble = credentials::wifi_preamble(flow, target, credentials);
 
     let emitted_count = emissions.iter().filter(|e| !e.is_empty()).count();
     log::debug!(
@@ -110,9 +149,9 @@ fn emit_sketch(flow: &FlowUpdate, target: &BoardTarget) -> String {
 
     let mut sketch = String::new();
     sketch.push_str(&header(&order, target));
-    sketch.push_str(&includes_region(&emissions));
-    sketch.push_str(&declarations(&order, &emissions));
-    sketch.push_str(&setup_region(&emissions));
+    sketch.push_str(&includes_region(&emissions, preamble.as_ref()));
+    sketch.push_str(&declarations(&order, &emissions, preamble.as_ref()));
+    sketch.push_str(&setup_region(&emissions, preamble.as_ref()));
     sketch.push_str(&loop_region(&emissions));
 
     sketch
@@ -232,6 +271,16 @@ fn emit_node(
         Some("Trigger") => control::trigger::emit(node, driver),
         Some("Counter") => control::counter::emit(node, driver),
         Some("Constant") => control::constant::emit(node),
+        // Cloud Nodes with an on-device emitter only reach here on a networking
+        // target — validation refuses them otherwise. Mqtt (Task #38), Figma and
+        // Monitor (Task #42) bridge over the network transport; Llm (Task #44)
+        // issues HTTP requests over the same shared WiFi connection.
+        Some("Mqtt") => cloud::mqtt::emit(node, driver),
+        Some("Figma") => cloud::figma::emit(node, driver),
+        Some("Monitor") => cloud::monitor::emit(node, driver),
+        // The Llm Node's `driver` is its `trigger` input — when it fires, the
+        // sketch issues the LLM request over the shared WiFi connection.
+        Some("Llm") => cloud::llm::emit(node, driver),
         _ => placeholder::emit(node),
     }
 }
@@ -296,16 +345,31 @@ fn source_expression(node: &FlowNode) -> Option<String> {
         Some("Trigger") => Some(control::trigger::state_var(node)),
         Some("Counter") => Some(control::counter::value_var(node)),
         Some("Constant") => Some(control::constant::value_var(node)),
+        // A subscribe Mqtt Node surfaces its latest inbound message as a value;
+        // a publish Mqtt Node exposes none (returns `None`).
+        Some("Mqtt") => cloud::mqtt::value_var(node),
+        // A Figma Node surfaces the latest inbound variable value downstream.
+        // Monitor is a display-only sink and exposes no readable value.
+        Some("Figma") => cloud::figma::value_var(node),
+        // An Llm Node surfaces its latest response text downstream.
+        Some("Llm") => cloud::llm::value_var(node),
         _ => None,
     }
 }
 
-/// Deduplicated `#include` block, sorted for determinism.
-fn includes_region(emissions: &[NodeEmission]) -> String {
-    let includes: BTreeSet<&str> = emissions
+/// Deduplicated `#include` block, sorted for determinism. The optional `WiFi`
+/// preamble (Cloud-capable Sketch) contributes its client-library include.
+fn includes_region(
+    emissions: &[NodeEmission],
+    preamble: Option<&credentials::WifiPreamble>,
+) -> String {
+    let mut includes: BTreeSet<&str> = emissions
         .iter()
         .flat_map(|e| e.includes.iter().map(String::as_str))
         .collect();
+    if let Some(p) = preamble {
+        includes.insert(p.include.as_str());
+    }
     if includes.is_empty() {
         return String::new();
     }
@@ -320,8 +384,20 @@ fn includes_region(emissions: &[NodeEmission]) -> String {
 
 /// Declarations region. Each Node gets a labelled comment slot followed by its
 /// real declarations (in traversal order) so output is stable and readable.
-fn declarations(order: &[&FlowNode], emissions: &[NodeEmission]) -> String {
+fn declarations(
+    order: &[&FlowNode],
+    emissions: &[NodeEmission],
+    preamble: Option<&credentials::WifiPreamble>,
+) -> String {
     let mut out = String::from("// --- Declarations ---\n");
+    // WiFi credential declarations lead the region for a Cloud-capable Sketch.
+    if let Some(p) = preamble {
+        out.push_str("// WiFi credentials (Cloud Nodes)\n");
+        for line in &p.declarations {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
     for (node, emission) in order.iter().zip(emissions) {
         let kind = node.node_type.as_deref().unwrap_or("unknown");
         out.push_str(&format!("// node {} ({})\n", node.id, kind));
@@ -335,8 +411,20 @@ fn declarations(order: &[&FlowNode], emissions: &[NodeEmission]) -> String {
 }
 
 /// `setup()` with each Node's init statements stitched in (traversal order).
-fn setup_region(emissions: &[NodeEmission]) -> String {
+/// The optional `WiFi` preamble runs first so the device is online before any
+/// Cloud Node's own `setup()` work.
+fn setup_region(
+    emissions: &[NodeEmission],
+    preamble: Option<&credentials::WifiPreamble>,
+) -> String {
     let mut out = String::from("void setup() {\n  // --- Setup ---\n");
+    if let Some(p) = preamble {
+        for line in &p.setup {
+            out.push_str("  ");
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
     for line in emissions.iter().flat_map(|e| &e.setup) {
         out.push_str("  ");
         out.push_str(line);
@@ -431,6 +519,81 @@ mod tests {
             source_handle: "out".to_string(),
             target_handle: "in".to_string(),
         }
+    }
+
+    /// Generate a Sketch for an explicit target with credentials, unwrapping
+    /// the [`GenerationOutcome::Sketch`] variant.
+    fn sketch_with_creds(
+        flow: &FlowUpdate,
+        target: &BoardTarget,
+        creds: &credentials::Credentials,
+    ) -> String {
+        match generate_with_credentials(flow, target, Some(creds))
+            .expect("generation should succeed")
+        {
+            GenerationOutcome::Sketch(s) => s,
+            GenerationOutcome::Problems(p) => {
+                panic!("expected a sketch, got validation problems: {p:?}")
+            }
+        }
+    }
+
+    /// Scenario: Author provides credentials used by the generated sketch.
+    /// Given a Cloud Node on the `WiFi`-capable ESP32 and supplied credentials,
+    /// the generated Sketch joins `WiFi` on boot using those exact credentials.
+    #[test]
+    fn cloud_sketch_connects_to_wifi_on_boot_with_supplied_credentials() {
+        let flow = FlowUpdate { nodes: vec![node("mqtt-1", "Mqtt")], edges: vec![] };
+        let creds = credentials::Credentials {
+            wifi_ssid: "studio-net".to_string(),
+            wifi_password: "s3cret-pass".to_string(),
+            broker_host: "broker.example.com".to_string(),
+            broker_port: 1883,
+            ..credentials::Credentials::default()
+        };
+
+        let sketch = sketch_with_creds(&flow, &networking_target(), &creds);
+
+        assert!(sketch.contains("#include <WiFi.h>"), "WiFi include missing:\n{sketch}");
+        assert!(sketch.contains("\"studio-net\""), "SSID not embedded:\n{sketch}");
+        assert!(sketch.contains("\"s3cret-pass\""), "password not embedded in sketch");
+        assert!(
+            sketch.contains("WiFi.begin(wifi_ssid, wifi_password);"),
+            "no WiFi.begin in setup:\n{sketch}"
+        );
+        assert!(sketch.contains("WL_CONNECTED"), "no connect-wait:\n{sketch}");
+        // The connect-wait runs inside setup(), before loop().
+        let setup_idx = sketch.find("void setup()").expect("setup present");
+        let loop_idx = sketch.find("void loop()").expect("loop present");
+        let begin_idx = sketch.find("WiFi.begin").expect("begin present");
+        assert!(setup_idx < begin_idx && begin_idx < loop_idx, "WiFi.begin must be in setup()");
+    }
+
+    /// A core-only Flow on a networking target emits no `WiFi` preamble — the
+    /// credential surface is additive and never touches non-Cloud Sketches.
+    #[test]
+    fn core_only_sketch_has_no_wifi_preamble() {
+        let flow = FlowUpdate { nodes: vec![node_data("led-1", "Led", json!({"pin": 13}))], edges: vec![] };
+        let creds = credentials::Credentials {
+            wifi_ssid: "net".to_string(),
+            wifi_password: "pw".to_string(),
+            ..credentials::Credentials::default()
+        };
+        let sketch = sketch_with_creds(&flow, &networking_target(), &creds);
+        assert!(!sketch.contains("WiFi.begin"), "core-only sketch must not connect WiFi");
+        assert!(!sketch.contains("<WiFi.h>"), "no WiFi include for core-only sketch");
+    }
+
+    /// `generate` (no credentials) on a Cloud Flow still emits a stable `WiFi`
+    /// preamble with empty credential slots — the structure is present for the
+    /// Author to fill, and no secret is fabricated.
+    #[test]
+    fn cloud_sketch_without_credentials_emits_empty_slots() {
+        let flow = FlowUpdate { nodes: vec![node("mqtt-1", "Mqtt")], edges: vec![] };
+        let sketch = sketch_for(&flow, &networking_target());
+        assert!(sketch.contains("#include <WiFi.h>"));
+        assert!(sketch.contains("const char* wifi_ssid = \"\";"), "empty ssid slot:\n{sketch}");
+        assert!(sketch.contains("WiFi.begin(wifi_ssid, wifi_password);"));
     }
 
     /// Scenario: Empty Flow yields a valid empty sketch.
@@ -618,16 +781,20 @@ mod tests {
         assert_eq!(generate_sketch_text(&flow), generate_sketch_text(&flow));
     }
 
-    /// Scenario: An unsupported Node becomes a placeholder comment.
+    /// Scenario: A Cloud Node emits real code alongside a core Node.
     ///
-    /// A Cloud Node (Mqtt) alongside a core Led: the Cloud Node gets a clear
-    /// placeholder comment, the Led still emits real code, and generation does
-    /// not crash or blank the sketch.
+    /// A Cloud Node (Llm — now with an on-device emitter) alongside a core Led:
+    /// the Cloud Node emits real networked code (no placeholder), the Led still
+    /// emits real code, and generation does not crash or blank the sketch.
     #[test]
-    fn cloud_node_becomes_placeholder_while_core_node_still_emits() {
+    fn cloud_node_emits_real_code_while_core_node_still_emits() {
         let flow = FlowUpdate {
             nodes: vec![
-                node("mqtt-1", "Mqtt"),
+                node_data(
+                    "llm-1",
+                    "Llm",
+                    json!({ "endpoint": "https://e", "model": "m", "prompt": "p", "wifiSsid": "net", "llmApiKey": "k" }), // ggignore
+                ),
                 node_data("led-1", "Led", json!({ "pin": 13 })),
             ],
             edges: vec![],
@@ -637,17 +804,102 @@ mod tests {
         // board they are surfaced as validation problems instead.
         let sketch = sketch_for(&flow, &networking_target());
 
-        // Placeholder for the Cloud Node, identifying it and the networked need.
+        // The Cloud Node is no longer a placeholder — it emits real code.
         assert!(
-            sketch.contains("// unsupported Node mqtt_1 (Mqtt)"),
-            "missing Mqtt placeholder, got:\n{sketch}"
+            !sketch.contains("// unsupported Node llm_1"),
+            "Llm must emit real code, got:\n{sketch}"
         );
-        assert!(sketch.contains("networked target"), "Cloud message missing");
         // The Led still produces real code.
         assert!(sketch.contains("pinMode"), "led pin setup missing");
         assert!(sketch.contains("digitalWrite"), "led write missing");
         // Sketch is not blanked.
         assert!(sketch.contains("void setup()") && sketch.contains("void loop()"));
+    }
+
+    /// Scenario: Cloud Node on a non-networked target is blocked — end to end
+    /// through `generate`. For **every** Cloud Node type, a Flow on the Uno
+    /// returns [`GenerationOutcome::Problems`] (naming the Node and the missing
+    /// networking capability) and emits **no** Sketch.
+    #[test]
+    fn every_cloud_node_type_blocks_generation_on_non_networked_target() {
+        let uno = default_target();
+        for kind in ["Mqtt", "Figma", "Llm", "Monitor"] {
+            let id = format!("{}-1", kind.to_lowercase());
+            let flow = FlowUpdate { nodes: vec![node(&id, kind)], edges: vec![] };
+            match generate(&flow, &uno).expect("generation never errors") {
+                GenerationOutcome::Problems(problems) => {
+                    assert_eq!(problems.len(), 1, "{kind} raises one gate problem");
+                    assert_eq!(problems[0].node_id, id, "{kind} names the Node");
+                    assert!(
+                        problems[0].message.contains("networking"),
+                        "{kind} names the missing capability: {}",
+                        problems[0].message
+                    );
+                }
+                GenerationOutcome::Sketch(s) => {
+                    panic!("{kind} on the Uno must emit no Sketch, got:\n{s}")
+                }
+            }
+        }
+    }
+
+    /// Scenario: Cloud Node on a WiFi-capable target is allowed — end to end
+    /// through `generate`. For **every** Cloud Node type, a Flow on the ESP32
+    /// emits a real [`GenerationOutcome::Sketch`].
+    #[test]
+    fn every_cloud_node_type_generates_a_sketch_on_networking_target() {
+        let esp32 = networking_target();
+        for kind in ["Mqtt", "Figma", "Llm", "Monitor"] {
+            let id = format!("{}-1", kind.to_lowercase());
+            let flow = FlowUpdate { nodes: vec![node(&id, kind)], edges: vec![] };
+            match generate(&flow, &esp32).expect("generation never errors") {
+                GenerationOutcome::Sketch(sketch) => {
+                    assert!(
+                        sketch.contains("void setup()") && sketch.contains("void loop()"),
+                        "{kind} sketch must be structurally valid:\n{sketch}"
+                    );
+                }
+                GenerationOutcome::Problems(p) => {
+                    panic!("{kind} on the ESP32 must emit a Sketch, got problems: {p:?}")
+                }
+            }
+        }
+    }
+
+    /// Edge case: multiple Cloud Nodes on a non-networked target — `generate`
+    /// surfaces **all** offending Nodes (one problem each) and emits no Sketch.
+    #[test]
+    fn multiple_cloud_nodes_all_block_generation_on_non_networked_target() {
+        let uno = default_target();
+        let flow = FlowUpdate {
+            nodes: vec![
+                node("a-mqtt", "Mqtt"),
+                node("b-figma", "Figma"),
+                node("c-llm", "Llm"),
+                node("d-monitor", "Monitor"),
+            ],
+            edges: vec![],
+        };
+        match generate(&flow, &uno).expect("generation never errors") {
+            GenerationOutcome::Problems(problems) => {
+                let ids: Vec<&str> = problems.iter().map(|p| p.node_id.as_str()).collect();
+                assert_eq!(ids, ["a-mqtt", "b-figma", "c-llm", "d-monitor"]);
+            }
+            GenerationOutcome::Sketch(s) => panic!("expected problems, got sketch:\n{s}"),
+        }
+    }
+
+    /// Scenario: A non-Cloud Flow is unaffected by the gate — end to end. A
+    /// core-only Flow on the non-networked Uno still emits a Sketch.
+    #[test]
+    fn non_cloud_flow_generates_on_non_networked_target() {
+        let uno = default_target();
+        let flow = FlowUpdate {
+            nodes: vec![node_data("led-1", "Led", json!({ "pin": 13 }))],
+            edges: vec![],
+        };
+        let sketch = sketch_for(&flow, &uno);
+        assert!(sketch.contains("digitalWrite"), "core Flow emits real code");
     }
 
     /// Scenario: An unknown Node type does not break generation.
@@ -673,19 +925,18 @@ mod tests {
     }
 
     /// Scenario: A Flow of only unsupported Nodes still yields a valid sketch.
+    ///
+    /// All four Cloud Nodes (Mqtt #38, Figma/Monitor #42, Llm #44) now have
+    /// on-device emitters, so the only still-unsupported Node type is a truly
+    /// unknown Node (Gizmo).
     #[test]
     fn all_unsupported_flow_yields_valid_sketch() {
         let flow = FlowUpdate {
-            nodes: vec![
-                node("mqtt-1", "Mqtt"),
-                node("figma-1", "Figma"),
-                node("llm-1", "Llm"),
-                node("monitor-1", "Monitor"),
-            ],
+            nodes: vec![node("gizmo-1", "Gizmo"), node("gizmo-2", "Gizmo")],
             edges: vec![],
         };
 
-        // All Cloud Nodes — runnable only on a networking board (ESP32).
+        // Generated for a networking board (ESP32) for parity with cloud tests.
         let sketch = sketch_for(&flow, &networking_target());
 
         // A structurally valid sketch is still produced.
@@ -694,7 +945,7 @@ mod tests {
         // A placeholder for every unsupported Node.
         assert_eq!(
             sketch.matches("// unsupported Node ").count(),
-            4,
+            2,
             "expected one placeholder per unsupported node, got:\n{sketch}"
         );
     }
@@ -703,7 +954,7 @@ mod tests {
     #[test]
     fn placeholder_comments_are_deterministic_at_sketch_level() {
         let flow = FlowUpdate {
-            nodes: vec![node("mqtt-1", "Mqtt"), node("gizmo-1", "Gizmo")],
+            nodes: vec![node("figma-1", "Figma"), node("gizmo-1", "Gizmo")],
             edges: vec![],
         };
 
@@ -715,6 +966,287 @@ mod tests {
             first, second,
             "repeated generation must yield identical placeholder comments"
         );
+    }
+
+    // --- Task #38: emit the Mqtt Node for a networked target ---
+
+    /// Scenario: Mqtt Node emits working code on a WiFi-capable target.
+    ///
+    /// A Flow with an Mqtt Cloud Node generated for the ESP32 connects to the
+    /// network and broker on boot and publishes/subscribes on its topic — not a
+    /// placeholder.
+    #[test]
+    fn mqtt_node_emits_working_code_on_a_wifi_capable_target() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "mqtt-1",
+                "Mqtt",
+                json!({ "broker": "broker.example.com", "port": 1883, "topic": "microflow/sensor", "direction": "subscribe", "wifiSsid": "net" }),
+            )],
+            edges: vec![],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        // Not a placeholder.
+        assert!(!sketch.contains("// unsupported Node mqtt_1"), "Mqtt must emit real code, got:\n{sketch}");
+        // WiFi + MQTT client libraries pulled in.
+        assert!(sketch.contains("#include <WiFi.h>"), "missing WiFi include");
+        assert!(sketch.contains("#include <PubSubClient.h>"), "missing MQTT client include");
+        // Connects to network and broker on boot.
+        assert!(sketch.contains("WiFi.mode(WIFI_STA)"), "boots WiFi in setup");
+        assert!(sketch.contains("mqtt_mqtt_1_ensure_connected()"), "connects on boot + loop");
+        assert!(sketch.contains("setServer(mqtt_mqtt_1_broker"), "points at the broker");
+        // Subscribes on the configured topic.
+        assert!(sketch.contains("subscribe(mqtt_mqtt_1_topic)"), "subscribes to its topic");
+        // Maintains the connection in loop() without a host event loop.
+        assert!(sketch.contains("mqtt_mqtt_1_client.loop()"), "pumps client in loop");
+        // Stays non-blocking (no blocking delay).
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Scenario: a publish Mqtt Node publishes its wired input on its topic.
+    #[test]
+    fn mqtt_publish_node_publishes_its_wired_input() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node_data(
+                    "mqtt-1",
+                    "Mqtt",
+                    json!({ "broker": "b", "topic": "microflow/out", "direction": "publish", "wifiSsid": "net" }),
+                ),
+            ],
+            edges: vec![edge("sensor-1", "mqtt-1")],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        assert!(sketch.contains("publish(mqtt_mqtt_1_topic"), "publishes on its topic");
+        assert!(sketch.contains("sensor_sensor_1_value"), "publishes the wired sensor value");
+    }
+
+    /// Scenario: Generated Mqtt sketch reflects supplied credentials.
+    ///
+    /// `WiFi` credentials come from the global credentials surface (emitted once
+    /// by the shared preamble); broker host/port/auth come from the Node's config.
+    #[test]
+    fn generated_mqtt_sketch_reflects_supplied_credentials() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "mqtt-1",
+                "Mqtt",
+                json!({
+                    "broker": "broker.example.com",
+                    "port": 8883,
+                    "topic": "microflow/sensor",
+                    "wifiSsid": "home-net",
+                    "brokerUsername": "user",
+                    "brokerPassword": "pass",
+                    "direction": "publish"
+                }),
+            )],
+            edges: vec![],
+        };
+
+        let creds = credentials::Credentials {
+            wifi_ssid: "home-net".to_string(),
+            wifi_password: "s3cret".to_string(), // ggignore
+            ..credentials::Credentials::default()
+        };
+        let sketch = sketch_with_creds(&flow, &networking_target(), &creds);
+
+        // WiFi creds are emitted once by the shared preamble.
+        assert!(sketch.contains("\"home-net\""), "uses the supplied SSID");
+        assert!(sketch.contains("\"s3cret\""), "uses the supplied WiFi password");
+        // Broker config comes from the Node.
+        assert!(sketch.contains("\"broker.example.com\""), "uses the supplied broker host");
+        assert!(sketch.contains("8883"), "uses the supplied port");
+        assert!(sketch.contains("\"user\", \"pass\""), "uses the broker auth credentials");
+        assert!(!sketch.contains("REPLACE_ME"), "no placeholder when creds supplied");
+    }
+
+    /// Scenario: Missing credentials produce a safe placeholder + warning.
+    #[test]
+    fn missing_mqtt_credentials_produce_a_safe_placeholder() {
+        let flow = FlowUpdate {
+            // No wifiSsid and no broker host supplied.
+            nodes: vec![node_data("mqtt-1", "Mqtt", json!({ "topic": "microflow/sensor", "direction": "publish" }))],
+            edges: vec![],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        // A loud, compile-time warning rather than silent failure.
+        assert!(sketch.contains("#warning"), "warns the Author");
+        // A clearly-marked placeholder rather than an empty connection value.
+        assert!(sketch.contains("REPLACE_ME"), "emits a credential placeholder");
+        // It still emits connecting code (does not silently fail to connect).
+        assert!(sketch.contains("WiFi.mode(WIFI_STA)"), "still attempts to connect");
+    }
+
+    /// Mqtt emission is deterministic at the sketch level.
+    #[test]
+    fn mqtt_sketch_is_deterministic() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "mqtt-1",
+                "Mqtt",
+                json!({ "broker": "b", "topic": "t", "wifiSsid": "net", "direction": "publish" }),
+            )],
+            edges: vec![],
+        };
+        let esp32 = networking_target();
+        assert_eq!(sketch_for(&flow, &esp32), sketch_for(&flow, &esp32));
+    }
+
+    // --- Task #44: emit the Llm Node for a networked target ---
+
+    /// Scenario: Llm Node emits working code on a WiFi-capable target.
+    ///
+    /// A Flow with an Llm Cloud Node generated for the ESP32 connects to the
+    /// network on boot (shared preamble) and issues the LLM request over the
+    /// network, surfacing the response — not a placeholder.
+    #[test]
+    fn llm_node_emits_working_code_on_a_wifi_capable_target() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "llm-1",
+                "Llm",
+                json!({
+                    "endpoint": "https://api.example.com",
+                    "model": "test-model",
+                    "prompt": "Hello",
+                    "wifiSsid": "net",
+                    "llmApiKey": "dummy-key" // ggignore
+                }),
+            )],
+            edges: vec![],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        // Not a placeholder.
+        assert!(!sketch.contains("// unsupported Node llm_1"), "Llm must emit real code, got:\n{sketch}");
+        // HTTP/TLS/JSON client libraries pulled in.
+        assert!(sketch.contains("#include <HTTPClient.h>"), "missing HTTPClient include");
+        assert!(sketch.contains("#include <WiFiClientSecure.h>"), "missing TLS client include");
+        // Connects to the network on boot via the shared WiFi preamble.
+        assert!(sketch.contains("WiFi.begin(wifi_ssid, wifi_password)"), "connects via shared preamble");
+        // Issues the request over the network to the LLM endpoint.
+        assert!(sketch.contains("/v1/chat/completions"), "issues the LLM request");
+        assert!(sketch.contains("http.POST"), "POSTs the request");
+        // Surfaces the response to downstream Nodes.
+        assert!(sketch.contains("llm_llm_1_value ="), "buffers the response value");
+        // Stays non-blocking (no blocking delay).
+        assert!(!sketch.contains("delay("), "stays non-blocking");
+    }
+
+    /// Scenario: an Llm Node's response drives a downstream wired Node.
+    #[test]
+    fn llm_response_drives_a_downstream_node() {
+        // Wire a Button trigger into the Llm Node so the request is edge-fired.
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("button-1", "Button", json!({ "pin": 2 })),
+                node_data(
+                    "llm-1",
+                    "Llm",
+                    json!({
+                        "endpoint": "https://api.example.com",
+                        "model": "m",
+                        "prompt": "p",
+                        "wifiSsid": "net",
+                        "llmApiKey": "dummy-key" // ggignore
+                    }),
+                ),
+            ],
+            edges: vec![edge("button-1", "llm-1")],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        assert!(sketch.contains("button_button_1_state"), "fires on the wired Button trigger");
+        assert!(sketch.contains("llm_llm_1_request()"), "issues the request when triggered");
+    }
+
+    /// Scenario: Generated Llm sketch reflects supplied credentials.
+    ///
+    /// The endpoint/model/prompt/API key carried on the Node are embedded, and
+    /// the `WiFi` SSID supplied through the credentials surface flows into the
+    /// shared connect preamble.
+    #[test]
+    fn generated_llm_sketch_reflects_supplied_credentials() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "llm-1",
+                "Llm",
+                json!({
+                    "endpoint": "https://api.example.com",
+                    "model": "gpt-test",
+                    "prompt": "Translate this",
+                    "wifiSsid": "home-net",
+                    "llmApiKey": "secret-token" // ggignore
+                }),
+            )],
+            edges: vec![],
+        };
+
+        let creds = crate::codegen::credentials::Credentials {
+            wifi_ssid: "home-net".to_string(),
+            wifi_password: "wifi-pass".to_string(), // ggignore
+            llm_endpoint: "https://api.example.com".to_string(),
+            llm_api_key: "secret-token".to_string(), // ggignore
+            ..Default::default()
+        };
+        let sketch = match generate_with_credentials(&flow, &networking_target(), Some(&creds))
+            .expect("generation should succeed")
+        {
+            GenerationOutcome::Sketch(s) => s,
+            GenerationOutcome::Problems(p) => panic!("expected a sketch, got: {p:?}"),
+        };
+
+        assert!(sketch.contains("\"https://api.example.com\""), "uses the supplied endpoint");
+        assert!(sketch.contains("\"gpt-test\""), "uses the supplied model");
+        assert!(sketch.contains("\"secret-token\""), "authenticates with the supplied API key");
+        assert!(sketch.contains("Bearer"), "uses a Bearer token");
+        // The WiFi SSID supplied via the credentials surface reaches the preamble.
+        assert!(sketch.contains("\"home-net\""), "uses the supplied WiFi SSID");
+        assert!(!sketch.contains("REPLACE_ME"), "no placeholder when creds supplied");
+    }
+
+    /// Scenario: Missing credentials produce a safe placeholder.
+    #[test]
+    fn missing_llm_credentials_produce_a_safe_placeholder() {
+        let flow = FlowUpdate {
+            // No endpoint, WiFi SSID, or API key supplied.
+            nodes: vec![node_data("llm-1", "Llm", json!({ "model": "m", "prompt": "p" }))],
+            edges: vec![],
+        };
+
+        let sketch = sketch_for(&flow, &networking_target());
+
+        // A loud, compile-time warning rather than silent failure.
+        assert!(sketch.contains("#warning"), "warns the Author");
+        // A clearly-marked placeholder rather than an empty connection value.
+        assert!(sketch.contains("REPLACE_ME"), "emits a credential placeholder");
+        // It still emits requesting code (does not silently do nothing).
+        assert!(sketch.contains("http.POST"), "still attempts the request");
+    }
+
+    /// Llm emission is deterministic at the sketch level.
+    #[test]
+    fn llm_sketch_is_deterministic() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data(
+                "llm-1",
+                "Llm",
+                json!({ "endpoint": "https://e", "model": "m", "prompt": "p", "wifiSsid": "net", "llmApiKey": "k" }), // ggignore
+            )],
+            edges: vec![],
+        };
+        let esp32 = networking_target();
+        assert_eq!(sketch_for(&flow, &esp32), sketch_for(&flow, &esp32));
     }
 
     // --- Task #43: wire the selected target into generation ---
@@ -1367,8 +1899,9 @@ mod tests {
         assert!(!sketch.contains("// unsupported Node osc"), "oscillator must not be a placeholder");
     }
 
-    /// Scenario: No remaining non-Cloud Node is a placeholder, while Cloud Nodes
-    /// still fall through to placeholders (Feature #27 territory).
+    /// Scenario: No remaining non-Cloud Node is a placeholder. Mqtt (Task #38),
+    /// Figma and Monitor (Task #42) now emit real on-device code; only the Llm
+    /// Cloud Node still falls through to a placeholder (Feature #27 territory).
     #[test]
     fn no_remaining_non_cloud_node_is_a_placeholder() {
         let flow = FlowUpdate {
@@ -1390,11 +1923,15 @@ mod tests {
                 node_data("st-1", "Stepper", json!({})),
                 node_data("vb-1", "Vibration", json!({})),
                 node_data("osc-1", "Oscillator", json!({})),
-                // Cloud Nodes remain placeholders (handled by Feature #27).
-                node("mqtt-1", "Mqtt"),
-                node("figma-1", "Figma"),
-                node("llm-1", "Llm"),
-                node("monitor-1", "Monitor"),
+                // All four Cloud Nodes now emit real on-device code.
+                node_data("mqtt-1", "Mqtt", json!({ "broker": "b", "topic": "t", "wifiSsid": "net" })),
+                node_data("figma-1", "Figma", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
+                node_data("monitor-1", "Monitor", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })),
+                node_data(
+                    "llm-1",
+                    "Llm",
+                    json!({ "endpoint": "https://e", "model": "m", "prompt": "p", "wifiSsid": "net", "llmApiKey": "k" }), // ggignore
+                ),
             ],
             edges: vec![],
         };
@@ -1403,12 +1940,20 @@ mod tests {
         // on the Uno they would be refused before emission.
         let sketch = sketch_for(&flow, &networking_target());
 
-        // Exactly the four Cloud Nodes are placeholders — nothing else.
+        // No Cloud Node is a placeholder any more — all four emit real code.
         assert_eq!(
             sketch.matches("// unsupported Node ").count(),
-            4,
-            "only the four Cloud Nodes may be placeholders, got:\n{sketch}"
+            0,
+            "all Cloud Nodes must emit real code, got:\n{sketch}"
         );
+        // Mqtt/Figma/Monitor/Llm are no longer placeholders; they emit real code.
+        assert!(!sketch.contains("// unsupported Node mqtt_1"), "Mqtt must emit real code");
+        assert!(!sketch.contains("// unsupported Node figma_1"), "Figma must emit real code");
+        assert!(!sketch.contains("// unsupported Node monitor_1"), "Monitor must emit real code");
+        assert!(!sketch.contains("// unsupported Node llm_1"), "Llm must emit real code");
+        assert!(sketch.contains("PubSubClient mqtt_mqtt_1_client"), "Mqtt client declared");
+        assert!(sketch.contains("PubSubClient figma_figma_1_client"), "Figma client declared");
+        assert!(sketch.contains("PubSubClient monitor_monitor_1_client"), "Monitor client declared");
         // Spot-check that representative remaining Nodes emit real artefacts.
         assert!(sketch.contains("switch_sw_1_state"));
         assert!(sketch.contains("oscillator_osc_1_value"));
