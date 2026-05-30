@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   BookIcon,
   CircuitBoardIcon,
+  CodeIcon,
   LibraryBigIcon,
   BotIcon,
   RadioTowerIcon,
@@ -80,6 +81,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     title: "Show circuit",
                     icon: CircuitBoardIcon,
                     url: `/flow/${activeFlow.id}/circuit`,
+                    badge: "beta",
+                  },
+                  {
+                    title: "Show code",
+                    icon: CodeIcon,
+                    url: `/flow/${activeFlow.id}/code`,
                     badge: "beta",
                   },
                 ],

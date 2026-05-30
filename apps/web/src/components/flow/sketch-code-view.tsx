@@ -3,13 +3,6 @@ import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { Download } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/providers/theme-provider";
 import { useFlowSession, useFlowNodes, useFlowEdges, useFlowMeta } from "@/session";
@@ -42,13 +35,6 @@ loader.config({ monaco });
 const invoke: SketchInvoker = (command) => invokeCommand(command) as Promise<SketchResponse>;
 
 /**
- * Read-only Monaco view of the Arduino sketch generated from the current Flow.
- *
- * Generates once on open (Task #45) and re-generates — debounced — whenever the
- * Flow graph changes while the view is open (Task #47). The editor is always
- * read-only — the Author can read and copy but not edit.
- */
-/**
  * Default download handler (Task #31): persists the sketch to a `.ino` file via
  * the native save dialog on desktop, or an in-browser download on the web. The
  * platform seams live in `sketch-download.ts`; callers may inject a handler to
@@ -58,11 +44,16 @@ const defaultDownload: SketchDownloadHandler = (request) => {
   void downloadSketch(request);
 };
 
+/**
+ * Read-only Monaco view of the Arduino sketch generated from the current Flow,
+ * rendered as a full-height panel for the `/flow/$flowId/code` route (mirrors
+ * the circuit view). Generates once on mount and re-generates — debounced —
+ * whenever the Flow graph or the selected board target changes. The editor is
+ * always read-only: the Author can read and copy but not edit.
+ */
 export function SketchCodeView({
-  onClose,
   onDownload = defaultDownload,
 }: {
-  onClose: () => void;
   onDownload?: SketchDownloadHandler;
 }) {
   const { theme } = useTheme();
@@ -119,43 +110,38 @@ export function SketchCodeView({
   }, [genNodes, genEdges, selectedTargetId]);
 
   return (
-    <Dialog defaultOpen onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
-        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
-          <DialogTitle>Generated sketch</DialogTitle>
-        </DialogHeader>
-        <div className="flex-1 h-[60vh] border-y">
-          <Editor
-            height="100%"
-            language="cpp"
-            value={value}
-            theme={theme === "dark" ? "vs-dark" : "light"}
-            options={{
-              readOnly: true,
-              domReadOnly: true,
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineNumbers: "on",
-              tabSize: 2,
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              wordWrap: "on",
-              padding: { top: 12, bottom: 12 },
-            }}
-          />
-        </div>
-        <DialogFooter className="px-6 py-4 shrink-0">
-          <Button
-            type="button"
-            disabled={!canDownloadSketch(state)}
-            onClick={() => onDownload(buildSketchDownloadRequest(value, suggestedFilename))}
-            aria-label="Download sketch"
-          >
-            <Download aria-hidden="true" />
-            Download sketch
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="flex flex-col w-full h-full">
+      <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border bg-background">
+        <Editor
+          height="100%"
+          language="cpp"
+          value={value}
+          theme={theme === "dark" ? "vs-dark" : "light"}
+          options={{
+            readOnly: true,
+            domReadOnly: true,
+            minimap: { enabled: false },
+            fontSize: 13,
+            lineNumbers: "on",
+            tabSize: 2,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            wordWrap: "on",
+            padding: { top: 12, bottom: 12 },
+          }}
+        />
+      </div>
+      <div className="flex justify-end pt-4 shrink-0">
+        <Button
+          type="button"
+          disabled={!canDownloadSketch(state)}
+          onClick={() => onDownload(buildSketchDownloadRequest(value, suggestedFilename))}
+          aria-label="Download sketch"
+        >
+          <Download aria-hidden="true" />
+          Download sketch
+        </Button>
+      </div>
+    </div>
   );
 }

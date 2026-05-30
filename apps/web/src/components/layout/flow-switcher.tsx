@@ -70,7 +70,7 @@ export function FlowSwitcher(props: FlowSwitcherProps) {
 
     const route = matches[matches.length - 1].routeId;
 
-    if (route === "/flow/$flowId/graph" || route === "/flow/$flowId/circuit" || route === "/flow/$flowId/settings") {
+    if (route === "/flow/$flowId/graph" || route === "/flow/$flowId/circuit" || route === "/flow/$flowId/code" || route === "/flow/$flowId/settings") {
       navigate({
         from: route,
         params: (prev) => ({ ...prev, flowId: flow.id }),
