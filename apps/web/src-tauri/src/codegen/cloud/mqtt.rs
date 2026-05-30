@@ -292,7 +292,7 @@ mod tests {
         let e = emit(
             &mqtt(
                 "m-1",
-                json!({ "broker": "broker.example.com", "port": 1883, "topic": "t", "wifiSsid": "net", "wifiPassword": "pw" }),
+                json!({ "broker": "broker.example.com", "port": 1883, "topic": "t", "wifiSsid": "net", "wifiPassword": "pw" }), // ggignore
             ),
             None,
         );
@@ -356,9 +356,9 @@ mod tests {
                     "port": 8883,
                     "topic": "microflow/sensor",
                     "wifiSsid": "home-net",
-                    "wifiPassword": "s3cret",
+                    "wifiPassword": "s3cret", // ggignore
                     "brokerUsername": "user",
-                    "brokerPassword": "pass",
+                    "brokerPassword": "pass", // ggignore
                     "direction": "publish"
                 }),
             ),
