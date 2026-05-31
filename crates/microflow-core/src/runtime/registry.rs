@@ -53,25 +53,51 @@ impl ComponentRegistry {
         self.entries.insert(name, make_factory::<B>(name));
     }
 
-    /// Register every phase-1 (non-cloud) catalog entry. Expanded as the
-    /// workflow fan-out lands the remaining node ports.
+    /// Register every phase-1 (non-cloud) catalog entry. Several catalog entry
+    /// names share one impl (aliases). `Constant`, `Oscillator`, `RangeMap`,
+    /// `Smooth`, and `Function` (js) are registered once their ports land.
     fn register_all(&mut self) {
-        use crate::runtime::{input, output, transformation};
+        use crate::runtime::{control, input, output, transformation};
+
+        // input
+        self.register::<input::button::Button>("Button");
+        self.register::<input::hotkey::Hotkey>("Hotkey");
+        self.register::<input::i2c_device::I2cDevice>("I2cDevice");
+        self.register::<input::motion::Motion>("Motion");
+        self.register::<input::proximity::Proximity>("Proximity");
+        self.register::<input::switch::Switch>("Switch");
+        // Sensor backs several catalog entries.
+        self.register::<input::sensor::Sensor>("Sensor");
+        self.register::<input::sensor::Sensor>("Force");
+        self.register::<input::sensor::Sensor>("HallEffect");
+        self.register::<input::sensor::Sensor>("Ldr");
+        self.register::<input::sensor::Sensor>("Potentiometer");
+        self.register::<input::sensor::Sensor>("Tilt");
 
         // output
-        self.register::<output::Led>("Led");
-        self.register::<output::Led>("Vibration");
+        self.register::<output::led::Led>("Led");
+        self.register::<output::led::Led>("Vibration");
+        self.register::<output::matrix::Matrix>("Matrix");
+        self.register::<output::monitor::Monitor>("Monitor");
+        self.register::<output::piezo::Piezo>("Piezo");
+        self.register::<output::pixel::Pixel>("Pixel");
+        self.register::<output::relay::Relay>("Relay");
+        self.register::<output::rgb::Rgb>("Rgb");
+        self.register::<output::servo::Servo>("Servo");
+        self.register::<output::stepper::Stepper>("Stepper");
 
-        // input — Sensor backs several catalog entries.
-        self.register::<input::Sensor>("Sensor");
-        self.register::<input::Sensor>("Force");
-        self.register::<input::Sensor>("HallEffect");
-        self.register::<input::Sensor>("Ldr");
-        self.register::<input::Sensor>("Potentiometer");
-        self.register::<input::Sensor>("Tilt");
+        // control
+        self.register::<control::counter::Counter>("Counter");
+        self.register::<control::delay::Delay>("Delay");
+        self.register::<control::trigger::Trigger>("Trigger");
+
+        // generator
+        self.register::<crate::runtime::generator::interval::Interval>("Interval");
 
         // transformation
-        self.register::<transformation::Gate>("Gate");
+        self.register::<transformation::calculate::Calculate>("Calculate");
+        self.register::<transformation::compare::Compare>("Compare");
+        self.register::<transformation::gate::Gate>("Gate");
     }
 }
 

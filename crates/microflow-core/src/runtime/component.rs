@@ -70,6 +70,16 @@ pub trait Component {
         Ok(())
     }
 
+    /// Called once by `update_flow` right after this component is built (after
+    /// `HardwareComponent::initialize`, before edges are live but within the
+    /// same turn, so emitted events drain against the new graph). The sans-IO
+    /// replacement for the desktop's "auto-start on `set_event_sender`": a
+    /// `Constant` emits its value here; an auto-start `Interval` schedules its
+    /// first wakeup here. Default no-op.
+    fn on_start(&mut self, _ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
     /// Unique identifier for this component instance.
     fn id(&self) -> &str {
         &self.base().id

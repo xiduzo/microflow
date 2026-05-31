@@ -24,8 +24,9 @@ pub mod serde_utils;
 pub mod value;
 pub mod wiring;
 
-// Component node categories. Populated incrementally by the node fan-out;
-// `cloud` (external/) lands behind the feature gate.
+// Component node categories. `cloud` (external/) lands behind the feature gate.
+pub mod control;
+pub mod generator;
 pub mod input;
 pub mod output;
 pub mod transformation;
@@ -245,6 +246,9 @@ impl FlowRuntime {
                     if let Err(e) = hw.initialize(&mut ctx) {
                         log::warn!("initialize {id} failed: {e}");
                     }
+                }
+                if let Err(e) = component.on_start(&mut ctx) {
+                    log::warn!("on_start {id} failed: {e}");
                 }
             }
         }
