@@ -5,4 +5,5 @@ members = [
     "crates/microflow-core",
     "crates/microflow-codegen-wasm",
     "crates/microflow-firmata-wasm",
+    "crates/microflow-runtime-wasm",
 ]

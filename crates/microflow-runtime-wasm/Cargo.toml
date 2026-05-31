@@ -1,0 +1,24 @@
+[package]
+name = "microflow-runtime-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77.2"
+description = "WebAssembly wrapper exposing microflow-core's sans-IO flow runtime to the browser (Web Serial transport + timers live in JS)"
+license = "GPL-3.0"
+repository = "https://github.com/xiduzo/microflow"
+
+[lib]
+# cdylib is required for `wasm-pack build`; rlib keeps the crate usable as a
+# normal Rust dependency (e.g. for `cargo test`/clippy on the host).
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# `runtime` only — NOT `cloud` (no mqtt/llm/figma network nodes in the browser
+# build) and NOT `js` (boa is desktop-only until its wasm size is vetted).
+microflow-core = { path = "../microflow-core", default-features = false, features = ["runtime"] }
+wasm-bindgen = "0.2"
+serde_json = "1.0"
+
+# Surface Rust panics as readable console errors; wasm32-only so host builds stay lean.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1"
