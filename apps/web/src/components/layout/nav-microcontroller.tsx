@@ -58,7 +58,9 @@ export function NavMicrocontroller() {
   }
 
   // Desktop auto-detects the board in Rust — the status button is informational.
-  // In the browser it is interactive: click to connect / disconnect.
+  // In the browser it is interactive: click to authorise / connect / disconnect.
+  // Connect now folds in flashing automatically (probe → flash-if-missing →
+  // connect), so there is no separate Flash button.
   const interactive =
     !desktop && (boardState === "disconnected" || boardState === "error" || boardState === "connected");
 
@@ -84,17 +86,6 @@ export function NavMicrocontroller() {
             <span>{message}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        {!desktop && (
-          <SidebarMenuItem title="Flash StandardFirmata onto a board over Web Serial">
-            <SidebarMenuButton
-              disabled={boardState === "connecting" || boardState === "flashing"}
-              onClick={() => void webSerial.flash()}
-            >
-              <FileCodeIcon />
-              <span>Flash firmware</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        )}
       </SidebarMenu>
     </SidebarGroup>
   );

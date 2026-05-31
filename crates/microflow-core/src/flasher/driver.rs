@@ -17,8 +17,14 @@
 use serde::Serialize;
 
 /// One action the executor must perform on the serial transport.
+///
+/// `rename_all` camelCases the variant tags (`reset`, `setBaud`, …); the
+/// separate `rename_all_fields` is essential — it camelCases the *fields inside*
+/// the struct variants (`delay_ms` → `delayMs`, `read_len` → `readLen`, …). Without
+/// it those multi-word fields serialize `snake_case` and arrive `undefined` in the
+/// JS executor (which reads `delayMs`/`readLen`/`timeoutMs`/`waitMs`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum FlashStep {
     /// Set the DTR/RTS control lines, then hold for `delay_ms` (board reset).
     Reset { dtr: bool, rts: bool, delay_ms: u32 },
@@ -57,4 +63,35 @@ pub trait FlashDriver {
     /// [`FlashStep::Transact`], or an empty slice for steps that read nothing —
     /// and get the next step.
     fn advance(&mut self, input: &[u8]) -> FlashStep;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The JS executor reads camelCase fields. Variant-level `rename_all` does
+    /// not touch struct-variant fields, so multi-word fields must be camelCased
+    /// by `rename_all_fields`; otherwise they serialize `snake_case` and the
+    /// executor sees `undefined` (no reset delay, instant empty reads — sync
+    /// fails with "0 bytes"). Guards against a silent regression of that bug.
+    #[test]
+    fn steps_serialize_camelcase_fields_for_the_js_executor() {
+        let reset =
+            serde_json::to_string(&FlashStep::Reset { dtr: true, rts: false, delay_ms: 250 }).unwrap();
+        assert!(reset.contains("\"kind\":\"reset\""), "tag: {reset}");
+        assert!(reset.contains("\"delayMs\":250"), "delayMs: {reset}");
+
+        let transact = serde_json::to_string(&FlashStep::Transact {
+            write: vec![0x30, 0x20],
+            read_len: 2,
+            timeout_ms: 500,
+        })
+        .unwrap();
+        assert!(transact.contains("\"readLen\":2"), "readLen: {transact}");
+        assert!(transact.contains("\"timeoutMs\":500"), "timeoutMs: {transact}");
+
+        let reacquire =
+            serde_json::to_string(&FlashStep::ReacquirePort { wait_ms: 1000, baud: 57600 }).unwrap();
+        assert!(reacquire.contains("\"waitMs\":1000"), "waitMs: {reacquire}");
+    }
 }
