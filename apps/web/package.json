@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "bun run build:wasm && vite dev",
     "build": "bun run build:wasm && vite build",
     "build:wasm": "bun run build:wasm:codegen && bun run build:wasm:firmata",
     "build:wasm:codegen": "wasm-pack build ../../crates/microflow-codegen-wasm --target web --out-dir ../../apps/web/src/lib/codegen/generated",
