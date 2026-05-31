@@ -129,6 +129,35 @@ impl FlowRuntime {
         self.now_ms = ms;
     }
 
+    /// Seed the codec's pin table from the connection handshake's discovered
+    /// capabilities (`[{ "pin", "analogChannel" }]`, the `FirmataSession.pinsJson`
+    /// shape). The browser's detection session consumes the capability response
+    /// before the runtime attaches, so without this the runtime's pin table is
+    /// empty and inbound digital/analog messages have nowhere to land. Only the
+    /// pin count + analog flag matter to the runtime (change detection + analog
+    /// channel math); modes are not used.
+    ///
+    /// # Errors
+    /// Returns the parse error if `pins_json` is not the expected array shape.
+    pub fn seed_pins(&mut self, pins_json: &str) -> Result<(), serde_json::Error> {
+        #[derive(serde::Deserialize)]
+        struct PinInfo {
+            pin: usize,
+            #[serde(rename = "analogChannel")]
+            analog_channel: i32,
+        }
+        let infos: Vec<PinInfo> = serde_json::from_str(pins_json)?;
+        let len = infos.iter().map(|p| p.pin + 1).max().unwrap_or(0);
+        let mut pins = vec![crate::firmata::Pin::default(); len];
+        for info in infos {
+            if let Some(pin) = pins.get_mut(info.pin) {
+                pin.analog = info.analog_channel >= 0;
+            }
+        }
+        self.client.pins = pins;
+        Ok(())
+    }
+
     // --- Host entry points (each returns the turn's Effects) -----------------
 
     /// Rebuild the flow from an update: bump the sequence (so leftover events

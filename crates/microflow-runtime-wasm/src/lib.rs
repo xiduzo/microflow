@@ -36,6 +36,19 @@ impl FlowRuntime {
         Self { inner: CoreRuntime::new() }
     }
 
+    /// Seed the pin table from the connection's `FirmataSession.pinsJson()` so
+    /// inbound digital/analog messages decode (the detection session consumed
+    /// the capability response before this runtime attached). Call once on attach.
+    ///
+    /// # Errors
+    /// `JsError` if `pins_json` is not the expected `PinInfo[]` shape.
+    #[wasm_bindgen(js_name = setPins)]
+    pub fn set_pins(&mut self, pins_json: &str) -> Result<(), JsError> {
+        self.inner
+            .seed_pins(pins_json)
+            .map_err(|e| JsError::new(&format!("invalid pins json: {e}")))
+    }
+
     /// Apply a flow graph (nodes + edges as JSON). Returns the setup `Effects`
     /// (reporting-enable bytes, pin modes, any on-start emissions).
     ///
