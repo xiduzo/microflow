@@ -3002,9 +3002,12 @@ dependencies = [
 name = "microflow-core"
 version = "0.1.0"
 dependencies = [
+ "boa_engine",
  "log",
+ "rustc-hash 1.1.0",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "ts-rs",
 ]
 

@@ -10,8 +10,30 @@ repository = "https://github.com/xiduzo/microflow"
 [lib]
 name = "microflow_core"
 
+[features]
+default = []
+# The live flow runtime (executor, router, component nodes) shared by the
+# desktop bin and — via `microflow-runtime-wasm` — the browser. Off by default
+# so codegen-only consumers (e.g. `microflow-codegen-wasm`) stay lean and the
+# heavy runtime deps aren't pulled.
+runtime = ["dep:rustc-hash", "dep:thiserror"]
+# Cloud nodes (mqtt / llm / figma) inside the runtime. Network-backed, so
+# excluded from the browser wasm build. Implies `runtime`.
+cloud = ["runtime"]
+# The `function` node's embedded JS engine (boa_engine). Heavy (a full JS VM);
+# opt-in and excluded from the wasm build until its size is vetted. Implies
+# `runtime`.
+js = ["runtime", "dep:boa_engine"]
+
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+# `rc` enables serializing the `Arc<str>` fields on `ComponentEvent` (the
+# desktop gets this via feature unification; the standalone wasm build needs it
+# stated here).
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 ts-rs = "10"
 log = "0.4"
+# Runtime-only deps, pulled in by the `runtime` / `js` features above.
+rustc-hash = { version = "1", optional = true }
+thiserror = { version = "1", optional = true }
+boa_engine = { version = "0.20", optional = true }

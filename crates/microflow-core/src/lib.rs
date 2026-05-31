@@ -34,3 +34,9 @@ pub mod codegen;
 pub mod firmata;
 pub mod flasher;
 pub mod flow;
+
+/// The live flow runtime (executor, router, component nodes). Gated behind the
+/// `runtime` feature so codegen-only consumers stay lean; the desktop bin and
+/// the browser `microflow-runtime-wasm` crate enable it.
+#[cfg(feature = "runtime")]
+pub mod runtime;
