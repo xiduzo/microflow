@@ -31,4 +31,5 @@
 )]
 
 pub mod codegen;
+pub mod firmata;
 pub mod flow;
