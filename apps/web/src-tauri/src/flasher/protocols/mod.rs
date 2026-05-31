@@ -8,10 +8,6 @@ pub use avr109::Avr109Flasher;
 pub use stk500v1::Stk500v1Flasher;
 pub use stk500v2::Stk500v2Flasher;
 
-/// Supported flashing protocols
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Protocol {
-    Stk500v1,
-    Stk500v2,
-    Avr109,
-}
+// Defined in microflow-core (shared with the browser); re-exported so existing
+// `super::protocols::Protocol` paths keep working.
+pub use microflow_core::flasher::Protocol;

@@ -32,4 +32,5 @@
 
 pub mod codegen;
 pub mod firmata;
+pub mod flasher;
 pub mod flow;

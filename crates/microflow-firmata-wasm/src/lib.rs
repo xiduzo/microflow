@@ -28,6 +28,7 @@
 )]
 
 use microflow_core::firmata::{FirmataClient, Message};
+use microflow_core::flasher::{hex, BoardConfig};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
@@ -312,6 +313,31 @@ impl Default for FirmataSession {
     }
 }
 
+// --- Flashing helpers (pure, shared with the desktop flasher) --------------
+//
+// The bootloader I/O *orchestration* (reset timing, sync loops, programming)
+// is not here — it is timing-critical and, for AVR109, involves USB
+// re-enumeration that Web Serial models differently. These expose the pure
+// pieces a browser flasher needs regardless of which protocol drives it.
+
+/// Parse an Intel HEX string (compiled sketch / `StandardFirmata`) into the raw
+/// flash image bytes, gaps filled with `0xFF`.
+///
+/// # Errors
+/// Returns a `JsError` if a HEX data record is malformed.
+#[wasm_bindgen(js_name = parseHex)]
+pub fn parse_hex(hex_content: &str) -> Result<Vec<u8>, JsError> {
+    hex::parse(hex_content).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Detect the Arduino board type from a USB vendor/product id, returning the
+/// lowercase board id (e.g. `"uno"`, `"nano"`) or `null` if unrecognised.
+#[wasm_bindgen(js_name = detectBoardFromUsb)]
+#[must_use]
+pub fn detect_board_from_usb(vid: u16, pid: u16) -> Option<String> {
+    BoardConfig::detect_from_usb(vid, pid).map(|b| b.as_str().to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -373,6 +399,20 @@ mod tests {
         let json = s.pins_json().expect("pins json");
         assert!(json.contains("\"supportedModes\""), "got: {json}");
         assert!(json.contains("\"analogChannel\""), "got: {json}");
+    }
+
+    #[test]
+    fn parse_hex_returns_flash_bytes() {
+        let data = parse_hex(":100000000C9461000C9489000C9489000C94890014").expect("valid hex");
+        assert_eq!(data.len(), 16);
+        assert_eq!(data[0], 0x0C);
+    }
+
+    #[test]
+    fn detect_board_from_usb_maps_known_ids() {
+        assert_eq!(detect_board_from_usb(0x1a86, 0x7523).as_deref(), Some("nano"));
+        assert_eq!(detect_board_from_usb(0x2341, 0x0043).as_deref(), Some("uno"));
+        assert_eq!(detect_board_from_usb(0x0000, 0xFFFF), None);
     }
 
     #[test]

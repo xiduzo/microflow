@@ -1,44 +1,12 @@
-//! Shared types for the flasher module
+//! Shared types for the flasher module.
+//!
+//! [`BoardType`] is defined in `microflow-core` (shared with the browser) and
+//! re-exported here. The frontend-facing result/progress types stay desktop-
+//! local since they describe the Tauri command/event payloads.
 
 use serde::{Deserialize, Serialize};
 
-/// Supported board types
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum BoardType {
-    Uno,
-    Nano,
-    NanoNew,
-    Mega,
-    Leonardo,
-    Micro,
-}
-
-impl BoardType {
-    /// Get all supported board types
-    pub fn all() -> Vec<Self> {
-        vec![
-            Self::Uno,
-            Self::Nano,
-            Self::NanoNew,
-            Self::Mega,
-            Self::Leonardo,
-            Self::Micro,
-        ]
-    }
-
-    /// Get board type as lowercase string
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Uno => "uno",
-            Self::Nano => "nano",
-            Self::NanoNew => "nanoNew",
-            Self::Mega => "mega",
-            Self::Leonardo => "leonardo",
-            Self::Micro => "micro",
-        }
-    }
-}
+pub use microflow_core::flasher::BoardType;
 
 /// Flash operation result
 #[derive(Debug, Clone, Serialize, Deserialize)]
