@@ -95,6 +95,8 @@ pub struct FlowRuntime {
     pin_listeners: HashMap<u8, Vec<Arc<str>>>,
     /// I2C address → listening component ids.
     i2c_listeners: HashMap<u8, Vec<Arc<str>>>,
+    /// Hotkey accelerator (lowercased) → listening component ids.
+    key_listeners: HashMap<String, Vec<Arc<str>>>,
     /// Monotonic id source for wakeups handed to the host.
     next_wakeup_id: WakeupId,
     /// Outstanding wakeups keyed by `(node_id, method)` so a re-schedule or
@@ -119,6 +121,7 @@ impl FlowRuntime {
             active_pins: HashSet::new(),
             pin_listeners: HashMap::new(),
             i2c_listeners: HashMap::new(),
+            key_listeners: HashMap::new(),
             next_wakeup_id: 1,
             outstanding: HashMap::new(),
         }
@@ -214,6 +217,7 @@ impl FlowRuntime {
         // 4. Recompute the wiring tables from every active component.
         let mut pin_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
         let mut i2c_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
+        let mut key_listeners: HashMap<String, Vec<Arc<str>>> = HashMap::new();
         let mut report: HashMap<u8, bool> = HashMap::new();
         for (id, component) in &self.components {
             for wiring in component.listener_wiring() {
@@ -229,8 +233,11 @@ impl FlowRuntime {
                     ListenerWiring::I2cAddress { address } => {
                         i2c_listeners.entry(address).or_default().push(Arc::from(id.as_str()));
                     }
-                    // Hotkeys are delivered by the host (keyboard), not the board.
-                    ListenerWiring::HotKey { .. } => {}
+                    // Hotkeys are delivered by the host (keyboard) via
+                    // `dispatch_key_event`, not the board.
+                    ListenerWiring::HotKey { accelerator } => {
+                        key_listeners.entry(accelerator).or_default().push(Arc::from(id.as_str()));
+                    }
                 }
             }
         }
@@ -263,6 +270,7 @@ impl FlowRuntime {
         self.pin_values.retain(|pin, _| report.contains_key(pin));
         self.pin_listeners = pin_listeners;
         self.i2c_listeners = i2c_listeners;
+        self.key_listeners = key_listeners;
         self.report_set = report;
 
         // 6. Initialize newly-built hardware (pin modes + initial output state).
@@ -368,6 +376,52 @@ impl FlowRuntime {
     /// stale-gating directly).
     pub fn set_sequence(&mut self, sequence: u64) {
         self.current_sequence = sequence;
+    }
+
+    /// Register an externally-built component factory (host-provided nodes — the
+    /// desktop injects its cloud nodes this way, keeping their async/network
+    /// impls and dependencies out of core). See
+    /// [`ComponentRegistry::register_factory`].
+    pub fn register_node(&mut self, name: &str, factory: registry::Factory) {
+        self.registry.register_factory(name, factory);
+    }
+
+    /// Deliver an inbound external message (MQTT / Figma broker payload) to a
+    /// subscribe component by id; it updates + emits, then the cascade drains.
+    pub fn deliver_message(&mut self, component_id: &str, topic: &str, payload: &[u8]) -> Effects {
+        if let Some(component) = self.components.get_mut(component_id) {
+            component.receive_raw_message(topic, payload);
+        }
+        self.finish(Vec::new(), ScheduleRequests::default())
+    }
+
+    /// Deliver a hotkey press to every component listening on `accelerator`
+    /// (matched lowercased), then drain the cascade.
+    pub fn dispatch_key_event(&mut self, accelerator: &str) -> Effects {
+        let ids = self
+            .key_listeners
+            .get(&accelerator.to_lowercase())
+            .cloned()
+            .unwrap_or_default();
+        let mut out = Vec::new();
+        let mut reqs = ScheduleRequests::default();
+        for id in ids {
+            self.dispatch_to(id.as_ref(), "key_event", ComponentValue::Bool(true), &mut out, &mut reqs);
+        }
+        self.finish(out, reqs)
+    }
+
+    /// Every active component's subscriber wiring paired with its id — the host
+    /// uses this to (un)subscribe brokers as the flow changes.
+    #[must_use]
+    pub fn collect_subscriber_wirings(&self) -> Vec<(String, SubscriberWiring)> {
+        let mut out = Vec::new();
+        for (id, component) in &self.components {
+            for wiring in component.subscriber_wiring() {
+                out.push((id.clone(), wiring));
+            }
+        }
+        out
     }
 
     // --- Inbound decode ------------------------------------------------------

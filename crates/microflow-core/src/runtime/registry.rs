@@ -14,11 +14,17 @@ use std::collections::HashMap;
 
 /// Builds a component from its id + node `data`. Deserialization failure surfaces
 /// as [`RuntimeError::ConfigDeserialize`] — no silent `Default` fallback.
-type Factory = Box<dyn Fn(String, &serde_json::Value) -> Result<Box<dyn Component>, RuntimeError>>;
+pub type Factory = Box<dyn Fn(String, &serde_json::Value) -> Result<Box<dyn Component>, RuntimeError>>;
 
 /// Maps catalog instance names to component factories.
+///
+/// The built-in (phase-1, non-cloud) nodes are registered in [`register_all`].
+/// A host may inject further nodes via [`register_factory`] — the desktop uses
+/// this for the cloud nodes (mqtt/llm/figma), whose async/network impls stay in
+/// the desktop crate (closures capture the live services) so core pulls no
+/// tokio/reqwest/mqtt dependencies.
 pub struct ComponentRegistry {
-    entries: HashMap<&'static str, Factory>,
+    entries: HashMap<String, Factory>,
 }
 
 impl ComponentRegistry {
@@ -50,7 +56,15 @@ impl ComponentRegistry {
     }
 
     fn register<B: ComponentBuilder>(&mut self, name: &'static str) {
-        self.entries.insert(name, make_factory::<B>(name));
+        self.entries.insert(name.to_string(), make_factory::<B>(name));
+    }
+
+    /// Inject an externally-built component factory under `name`. Used by a host
+    /// to add nodes core doesn't ship (e.g. the desktop's cloud nodes, whose
+    /// closures capture the live MQTT/LLM services). Overrides any existing
+    /// entry of the same name.
+    pub fn register_factory(&mut self, name: &str, factory: Factory) {
+        self.entries.insert(name.to_string(), factory);
     }
 
     /// Register every phase-1 (non-cloud) catalog entry. Several catalog entry
