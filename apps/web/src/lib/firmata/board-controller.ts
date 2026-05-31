@@ -27,9 +27,14 @@ import {
   type BoardConnection,
   type WebSerialPort,
 } from "./web-serial";
+import { FlowReactor } from "./flow-reactor";
 
 /** The single active browser board connection (the desktop owns its own). */
 let active: BoardConnection | null = null;
+/** The wasm flow-runtime host for the active connection. */
+let reactor: FlowReactor | null = null;
+/** Latest core `FlowUpdate` JSON (`{nodes, edges}`), applied when a board attaches. */
+let latestFlowJson: string | null = null;
 let started = false;
 // Serialise every port operation so connect / auto-reconnect / plug events never
 // race to open the same port.
@@ -50,9 +55,21 @@ function setBoard(state: BoardState): void {
 }
 
 async function teardownActive(): Promise<void> {
+  reactor?.dispose();
+  reactor = null;
   const connection = active;
   active = null;
   await connection?.disconnect();
+}
+
+/**
+ * Push the latest flow graph to the runtime. Called by `WasmFlowUpdateSender`
+ * on every graph change; stored so a board connecting later starts on the
+ * current flow. `coreFlowJson` is the core `FlowUpdate` shape (`{nodes, edges}`).
+ */
+export function pushFlowUpdate(coreFlowJson: string): void {
+  latestFlowJson = coreFlowJson;
+  reactor?.applyFlow(coreFlowJson);
 }
 
 /** Build the bring-up callbacks, wiring board state + a single flashing toast. */
@@ -67,8 +84,9 @@ function makeBringUp() {
         if (flashToast === undefined) flashToast = toast.loading("Flashing StandardFirmata…");
       }
     },
-    onPinChange: () => {
-      // Live pin values will drive the flow once the browser runtime exists.
+    onBytes: (bytes: Uint8Array) => {
+      // Raw inbound bytes drive the wasm flow runtime (it owns its own decode).
+      reactor?.feedBytes(bytes);
     },
     onProgress: (done: number, total: number) => {
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -80,6 +98,8 @@ function makeBringUp() {
       // event fires), so rescanning granted ports re-detects it, mirroring the
       // desktop poll's implicit-disconnect handling.
       if (active) {
+        reactor?.dispose();
+        reactor = null;
         active = null;
         setBoard({ state: "disconnected" });
         void run(reconnectGranted);
@@ -102,6 +122,17 @@ async function bringUp(
   const { options, settle } = makeBringUp();
   try {
     active = await bringUpBoard(port, options, { autoFlash: flags.autoFlash });
+    // Stand up the wasm flow runtime for this connection and apply the current
+    // flow. A reactor failure (e.g. wasm load) must not fail the connection —
+    // the board is still up; the flow just won't run.
+    reactor?.dispose();
+    try {
+      reactor = await FlowReactor.attach(active);
+      if (latestFlowJson) reactor.applyFlow(latestFlowJson);
+    } catch (reactorError) {
+      console.error("[board-controller] flow reactor attach failed:", reactorError);
+      reactor = null;
+    }
     settle(true);
   } catch (error) {
     settle(false);

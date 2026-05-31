@@ -102,6 +102,13 @@ type ConnectOptions = {
   onProgress?: FlashProgress;
   /** The board's read loop ended unexpectedly (reset / unplug mid-session). */
   onClosed?: () => void;
+  /**
+   * Raw inbound bytes, handed straight to the flow runtime once a board is
+   * connected. The runtime owns its own codec (single source of truth with the
+   * desktop), so it decodes these itself rather than reusing the detection
+   * session's `feed` above.
+   */
+  onBytes?: (bytes: Uint8Array) => void;
 };
 
 /**
@@ -256,6 +263,8 @@ async function tryConnectAtBaud(
           for (const change of result.pinChanges) {
             options.onPinChange?.(change.pin, change.value, change.isAnalog);
           }
+          // Hand the raw chunk to the flow runtime (it owns its own decode).
+          options.onBytes?.(value);
         }
       }
     } catch {

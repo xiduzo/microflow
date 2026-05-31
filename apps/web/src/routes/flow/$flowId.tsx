@@ -33,10 +33,9 @@ function FlowEventListeners() {
   const session = useFlowSession();
   useComponentEvents();
   useHotkeyEvents();
-  if (isDesktop()) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useFlowUpdateDispatcher(session);
-  }
+  // Dispatch the live flow to the runtime — Tauri IPC on desktop, the in-browser
+  // wasm runtime on web; the dispatcher picks the sender by platform.
+  useFlowUpdateDispatcher(session);
   return null;
 }
 

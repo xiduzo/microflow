@@ -10,6 +10,8 @@ import {
   type HostSnapshot,
 } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
+import { WasmFlowUpdateSender } from "./wasm-flow-update-sender";
+import { isDesktop } from "@/lib/platform";
 import type { FlowSession } from "./flow-session";
 
 const DEBOUNCE_MS = 500;
@@ -51,7 +53,9 @@ export function useFlowUpdateDispatcher(session: FlowSession): void {
       new FlowUpdateDispatcher(
         session,
         readHostSnapshot,
-        new TauriFlowUpdateSender(),
+        // Desktop drives the native runtime over Tauri IPC; the browser drives
+        // the in-browser wasm runtime via the board-controller.
+        isDesktop() ? new TauriFlowUpdateSender() : new WasmFlowUpdateSender(),
         new DebounceScheduler(DEBOUNCE_MS),
         NODE_REGISTRY,
       ),
