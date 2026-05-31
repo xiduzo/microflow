@@ -222,3 +222,16 @@ impl ComponentBase {
         }
     }
 }
+
+/// Catalog factory contract used by the registry. Phase-1 core drops the
+/// desktop's `Deps`/`FromServices` projection (no cloud services in the browser
+/// build): a component is built from its deserialized config alone. Cloud nodes,
+/// when they land behind the `cloud` feature, will carry their own service
+/// handles.
+pub trait ComponentBuilder: Component + Sized + 'static {
+    /// The deserialized configuration shape declared by this component.
+    type Config: serde::de::DeserializeOwned;
+
+    /// Construct the component from its config.
+    fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError>;
+}

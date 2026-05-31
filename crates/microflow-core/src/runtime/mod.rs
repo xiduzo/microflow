@@ -18,14 +18,23 @@ pub mod component;
 pub mod context;
 pub mod error;
 pub mod pin_mode;
+pub mod registry;
 pub mod router;
+pub mod serde_utils;
 pub mod value;
 pub mod wiring;
 
+// Component node categories. Populated incrementally by the node fan-out;
+// `cloud` (external/) lands behind the feature gate.
+pub mod input;
+pub mod output;
+pub mod transformation;
+
 pub use board::{BoardWriter, BufferBoardWriter};
-pub use component::{Component, ComponentBase, EventSink, HardwareComponent};
+pub use component::{Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent};
 pub use context::{Effects, RuntimeContext, ScheduleRequests, Wakeup, WakeupId};
 pub use error::{HardwareError, RuntimeError};
+pub use registry::ComponentRegistry;
 pub use router::{ComponentLookup, DispatchCall, EdgeTarget, FlowRouter};
 pub use value::{ComponentEvent, ComponentValue, PinConfig};
 pub use wiring::{ListenerWiring, SubscriberWiring};
@@ -34,7 +43,7 @@ pub use wiring::{ListenerWiring, SubscriberWiring};
 pub use error::MqttError;
 
 use crate::firmata::FirmataClient;
-use crate::flow::{FlowEdge, FlowUpdate};
+use crate::flow::{FlowEdge, FlowNode, FlowUpdate};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -61,8 +70,15 @@ pub struct FlowRuntime {
     client: FirmataClient,
     /// Edge fanout planner.
     router: FlowRouter,
+    /// Catalog factory: builds components from instance name + node data.
+    registry: ComponentRegistry,
     /// Live component instances keyed by node id.
     components: HashMap<String, Box<dyn Component>>,
+    /// Last-seen node `data` JSON per id, for the incremental update diff.
+    node_data: HashMap<String, serde_json::Value>,
+    /// Pins currently reporting, with their analog/digital kind. The
+    /// reconciliation target diffed on each `update_flow`.
+    report_set: HashMap<u8, bool>,
     /// Shared emit queue every component pushes into; drained per turn.
     sink: EventSink,
     /// Flow version, bumped on every `update_flow`; stamps inbound events so
@@ -91,7 +107,10 @@ impl FlowRuntime {
         Self {
             client: FirmataClient::new(),
             router: FlowRouter::new(),
+            registry: ComponentRegistry::new(),
             components: HashMap::new(),
+            node_data: HashMap::new(),
+            report_set: HashMap::new(),
             sink: EventSink::default(),
             current_sequence: 0,
             now_ms: 0.0,
@@ -111,14 +130,128 @@ impl FlowRuntime {
 
     // --- Host entry points (each returns the turn's Effects) -----------------
 
-    /// Rebuild the flow from an update. Stage 2 sets edges and bumps the
-    /// sequence (so stale-gating has a moving version); Stage 3 adds the
-    /// incremental node diff, component build/destroy, wiring install, and
-    /// reporting reconciliation (which will contribute `outbound_bytes`).
+    /// Rebuild the flow from an update: bump the sequence (so leftover events
+    /// gate out as stale), incrementally diff nodes by id + `data`, build/destroy
+    /// components, reconcile Firmata reporting from the new wiring (emitting
+    /// enable/disable bytes), initialize newly-built hardware (pin modes), and
+    /// rebuild edges. Returns the setup `Effects`.
     pub fn update_flow(&mut self, update: FlowUpdate) -> Effects {
+        let FlowUpdate { nodes, edges } = update;
         self.current_sequence += 1;
-        self.router.set_edges(update.edges);
-        Effects::default()
+        let mut out = Vec::new();
+        let mut reqs = ScheduleRequests::default();
+
+        // 1. Diff: removed = present but gone; to_add = new or data-changed.
+        let new_ids: HashSet<&str> = nodes.iter().map(|n| n.id.as_str()).collect();
+        let mut removed: Vec<String> = self
+            .components
+            .keys()
+            .filter(|id| !new_ids.contains(id.as_str()))
+            .cloned()
+            .collect();
+        let mut to_add: Vec<&FlowNode> = Vec::new();
+        for node in &nodes {
+            let unchanged = self.node_data.get(&node.id).is_some_and(|d| d == &node.data);
+            if !unchanged {
+                if self.components.contains_key(&node.id) {
+                    removed.push(node.id.clone());
+                }
+                to_add.push(node);
+            }
+        }
+
+        // 2. Destroy removed / replaced.
+        for id in &removed {
+            self.remove_component(id);
+            self.node_data.remove(id);
+        }
+
+        // 3. Build added / replaced.
+        for node in &to_add {
+            let instance = node_instance(node);
+            match self.registry.create(&node.id, instance, &node.data) {
+                Ok(component) => {
+                    self.add_component(&node.id, component);
+                    self.node_data.insert(node.id.clone(), node.data.clone());
+                }
+                Err(RuntimeError::ComponentNotFound(_)) => {
+                    log::warn!("skipping unknown component {} ({instance})", node.id);
+                }
+                Err(e) => log::warn!("failed to build component {}: {e}", node.id),
+            }
+        }
+
+        // 4. Recompute the wiring tables from every active component.
+        let mut pin_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
+        let mut i2c_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
+        let mut report: HashMap<u8, bool> = HashMap::new();
+        for (id, component) in &self.components {
+            for wiring in component.listener_wiring() {
+                match wiring {
+                    ListenerWiring::DigitalPin { pin } => {
+                        pin_listeners.entry(pin).or_default().push(Arc::from(id.as_str()));
+                        report.insert(pin, false);
+                    }
+                    ListenerWiring::AnalogPin { pin, .. } => {
+                        pin_listeners.entry(pin).or_default().push(Arc::from(id.as_str()));
+                        report.insert(pin, true);
+                    }
+                    ListenerWiring::I2cAddress { address } => {
+                        i2c_listeners.entry(address).or_default().push(Arc::from(id.as_str()));
+                    }
+                    // Hotkeys are delivered by the host (keyboard), not the board.
+                    ListenerWiring::HotKey { .. } => {}
+                }
+            }
+        }
+
+        // 5. Reconcile reporting against the wire: enable newly-needed pins,
+        //    disable vanished ones. Bytes accumulate into `out`.
+        {
+            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
+            for (&pin, &is_analog) in &report {
+                if !self.report_set.contains_key(&pin) {
+                    let _ = if is_analog {
+                        writer.enable_analog_reporting(pin)
+                    } else {
+                        writer.enable_digital_reporting(pin)
+                    };
+                }
+            }
+            for (&pin, &is_analog) in &self.report_set {
+                if !report.contains_key(&pin) {
+                    let _ = if is_analog {
+                        writer.disable_analog_reporting(pin)
+                    } else {
+                        writer.disable_digital_reporting(pin)
+                    };
+                }
+            }
+        }
+
+        self.active_pins = report.keys().copied().collect();
+        self.pin_values.retain(|pin, _| report.contains_key(pin));
+        self.pin_listeners = pin_listeners;
+        self.i2c_listeners = i2c_listeners;
+        self.report_set = report;
+
+        // 6. Initialize newly-built hardware (pin modes + initial output state).
+        let added_ids: Vec<String> = to_add.iter().map(|n| n.id.clone()).collect();
+        for id in &added_ids {
+            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
+            let mut ctx = RuntimeContext::new(&mut writer, self.now_ms, id.as_str(), &mut reqs);
+            if let Some(component) = self.components.get_mut(id) {
+                if let Some(hw) = component.as_hardware_mut() {
+                    if let Err(e) = hw.initialize(&mut ctx) {
+                        log::warn!("initialize {id} failed: {e}");
+                    }
+                }
+            }
+        }
+
+        // 7. Rebuild edges, then drain any init-time emissions.
+        self.router.set_edges(edges);
+        self.finish(out, reqs)
     }
 
     /// Feed raw inbound serial bytes: decode via the codec, diff the pin table,
@@ -418,6 +551,16 @@ impl Default for FlowRuntime {
     }
 }
 
+/// The catalog instance name for a node: `data.instance` if present, else the
+/// node's `type`, else empty (unknown — skipped by the registry).
+fn node_instance(node: &FlowNode) -> &str {
+    node.data
+        .get("instance")
+        .and_then(serde_json::Value::as_str)
+        .or(node.node_type.as_deref())
+        .unwrap_or("")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -591,6 +734,76 @@ mod tests {
         assert!(effects.outbound_bytes.is_empty(), "stale event must not reach the led");
     }
 
+    fn node(id: &str, instance: &str, data: serde_json::Value) -> FlowNode {
+        crate::flow::FlowNode {
+            id: id.to_string(),
+            node_type: Some(instance.to_string()),
+            data,
+            position: crate::flow::Position { x: 0.0, y: 0.0 },
+        }
+    }
+
+    #[test]
+    fn update_flow_wires_real_nodes_and_cascades() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        rt.seed_digital_pins(20);
+        rt.mark_pin_analog(2);
+
+        // Sensor(pin 2, analog) -> Gate(and) -> Led(pin 13). Gate "true" lights it.
+        let update = FlowUpdate {
+            nodes: vec![
+                node("sensor", "Sensor", json!({ "instance": "Sensor", "pin": "2", "type": "analog", "threshold": 1 })),
+                node("gate", "Gate", json!({ "instance": "Gate", "gate": "and" })),
+                node("led", "Led", json!({ "instance": "Led", "pin": 13 })),
+            ],
+            edges: vec![
+                edge("sensor", "value", "gate", "value"),
+                edge("gate", "true", "led", "true"),
+            ],
+        };
+
+        // Setup must enable analog reporting for pin 2 and init the led (pin mode).
+        let setup = rt.update_flow(update);
+        let enable_analog = FirmataClient::new().encode_report_analog(0, true);
+        assert!(
+            contains(&setup.outbound_bytes, &enable_analog),
+            "update_flow should enable analog reporting for the sensor pin"
+        );
+
+        // Drive a sensor reading; the gate passes and the led turns on.
+        rt.sink.borrow_mut().push_back(ComponentEvent {
+            source: Arc::from("sensor"),
+            source_handle: Arc::from("_pin_change"),
+            value: ComponentValue::Number(500.0),
+            edge_id: None,
+            sequence: rt.current_sequence,
+        });
+        let effects = rt.finish(Vec::new(), ScheduleRequests::default());
+
+        let led_on = FirmataClient::new().encode_digital_write(13, true);
+        assert!(contains(&effects.outbound_bytes, &led_on), "sensor>0 should light the led via the gate");
+    }
+
+    #[test]
+    fn update_flow_diff_keeps_unchanged_nodes() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        rt.seed_digital_pins(20);
+        let led = node("led", "Led", json!({ "instance": "Led", "pin": 13 }));
+        let mk = || FlowUpdate { nodes: vec![led.clone()], edges: vec![] };
+
+        rt.update_flow(mk());
+        // Re-applying the identical flow rebuilds nothing — no setup bytes the
+        // second time (the led isn't re-initialized).
+        let second = rt.update_flow(mk());
+        assert!(second.outbound_bytes.is_empty(), "unchanged node must not re-initialize");
+    }
+
+    fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+        !needle.is_empty() && haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
     impl FlowRuntime {
         /// Test helper: give the codec `n` plain digital pins so inbound digital
         /// messages have a pin table to land in.
@@ -598,6 +811,13 @@ mod tests {
             self.client.pins = (0..n)
                 .map(|_| crate::firmata::Pin { analog: false, value: 0, ..Default::default() })
                 .collect();
+        }
+
+        /// Test helper: mark a seeded pin as analog so analog reporting encodes.
+        fn mark_pin_analog(&mut self, pin: usize) {
+            if let Some(p) = self.client.pins.get_mut(pin) {
+                p.analog = true;
+            }
         }
     }
 }
