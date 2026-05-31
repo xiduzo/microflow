@@ -38,6 +38,10 @@ mod builders;
 /// `external/`); see Stage 4.
 pub mod cloud;
 pub mod commands;
+/// Actor-thread host scaffolding for the shared `core::FlowRuntime` re-host
+/// (Stage 4): the `ActorMsg` contract, the cloud-node registration seam, and the
+/// `CloudEmitter`→actor bridge. The actor loop + transport land at the finale.
+pub mod host;
 pub mod component;
 pub mod control;
 mod executor;
