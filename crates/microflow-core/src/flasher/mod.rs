@@ -12,7 +12,14 @@
 //! The desktop `flasher` module re-exports these types so it keeps a single
 //! definition; the browser parses hex and detects boards through the same code.
 
+pub mod avr109;
+pub mod driver;
+pub mod firmware;
 pub mod hex;
+pub mod stk500v1;
+pub mod stk500v2;
+
+pub use driver::{FlashDriver, FlashStep};
 
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +55,20 @@ impl BoardType {
             Self::Leonardo,
             Self::Micro,
         ]
+    }
+
+    /// Parse a board type from its lowercase id (the inverse of [`as_str`](Self::as_str)).
+    #[must_use]
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "uno" => Some(Self::Uno),
+            "nano" => Some(Self::Nano),
+            "nanoNew" => Some(Self::NanoNew),
+            "mega" => Some(Self::Mega),
+            "leonardo" => Some(Self::Leonardo),
+            "micro" => Some(Self::Micro),
+            _ => None,
+        }
     }
 
     /// Get board type as lowercase string.
@@ -275,6 +296,18 @@ impl BoardConfig {
 
         // Fall back to PID-only detection for other VIDs
         Self::detect_from_pid(pid)
+    }
+}
+
+/// Build the bootloader driver for a board, given the raw flash image to write.
+/// Selects the protocol from the board's [`BoardConfig`].
+#[must_use]
+pub fn new_driver(board_type: BoardType, flash: Vec<u8>) -> Box<dyn FlashDriver> {
+    let config = BoardConfig::find(board_type);
+    match config.protocol {
+        Protocol::Stk500v1 => Box::new(stk500v1::Stk500v1Driver::new(flash, &config)),
+        Protocol::Stk500v2 => Box::new(stk500v2::Stk500v2Driver::new(flash, &config)),
+        Protocol::Avr109 => Box::new(avr109::Avr109Driver::new(flash, &config)),
     }
 }
 

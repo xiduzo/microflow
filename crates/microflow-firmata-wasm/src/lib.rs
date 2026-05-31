@@ -28,7 +28,8 @@
 )]
 
 use microflow_core::firmata::{FirmataClient, Message};
-use microflow_core::flasher::{hex, BoardConfig};
+use microflow_core::flasher::firmware::standard_firmata_hex;
+use microflow_core::flasher::{hex, new_driver, BoardConfig, BoardType, FlashDriver, FlashStep};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
@@ -338,6 +339,60 @@ pub fn detect_board_from_usb(vid: u16, pid: u16) -> Option<String> {
     BoardConfig::detect_from_usb(vid, pid).map(|b| b.as_str().to_string())
 }
 
+/// The embedded `StandardFirmata` hex for a board id (e.g. `"nano"`), or `null`
+/// if the id is unknown.
+#[wasm_bindgen(js_name = standardFirmataHex)]
+#[must_use]
+pub fn standard_firmata_hex_for(board_id: &str) -> Option<String> {
+    BoardType::from_id(board_id).map(|b| standard_firmata_hex(b).to_string())
+}
+
+/// A bootloader flashing session for one board. Drives the shared sans-IO
+/// [`FlashDriver`] (stk500v1 / stk500v2 / avr109, picked from the board type):
+/// `start()` then `advance(bytesRead)` each return a JSON `FlashStep` telling
+/// the JS executor what to do next (reset / write / read N / reacquire port /
+/// progress / done / error). The browser owns the Web Serial transport.
+#[wasm_bindgen]
+pub struct FlashSession {
+    driver: Box<dyn FlashDriver>,
+}
+
+#[wasm_bindgen]
+impl FlashSession {
+    /// Create a session for `board_id` (e.g. `"nano"`) that programs `flash`
+    /// (the raw image from [`parse_hex`]).
+    ///
+    /// # Errors
+    /// Returns a `JsError` if `board_id` is not a known board.
+    #[wasm_bindgen(constructor)]
+    pub fn new(board_id: &str, flash: &[u8]) -> Result<FlashSession, JsError> {
+        let board = BoardType::from_id(board_id)
+            .ok_or_else(|| JsError::new(&format!("unknown board id: {board_id}")))?;
+        Ok(Self { driver: new_driver(board, flash.to_vec()) })
+    }
+
+    /// The first step (always a reset). Call once before `advance`.
+    ///
+    /// # Errors
+    /// Returns a `JsError` only if the step fails to serialize.
+    pub fn start(&mut self) -> Result<String, JsError> {
+        step_json(&self.driver.start())
+    }
+
+    /// Provide the bytes read for the previous step (empty for non-read steps)
+    /// and get the next step, as JSON.
+    ///
+    /// # Errors
+    /// Returns a `JsError` only if the step fails to serialize.
+    pub fn advance(&mut self, input: &[u8]) -> Result<String, JsError> {
+        step_json(&self.driver.advance(input))
+    }
+}
+
+fn step_json(step: &FlashStep) -> Result<String, JsError> {
+    serde_json::to_string(step).map_err(|e| JsError::new(&format!("failed to serialize step: {e}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -413,6 +468,24 @@ mod tests {
         assert_eq!(detect_board_from_usb(0x1a86, 0x7523).as_deref(), Some("nano"));
         assert_eq!(detect_board_from_usb(0x2341, 0x0043).as_deref(), Some("uno"));
         assert_eq!(detect_board_from_usb(0x0000, 0xFFFF), None);
+    }
+
+    #[test]
+    fn flash_session_starts_with_a_reset_step() {
+        let mut s = FlashSession::new("nano", &[0u8; 8]).expect("nano session");
+        let json = s.start().expect("start");
+        assert!(json.contains("\"kind\":\"reset\""), "got: {json}");
+    }
+
+    // The unknown-board path returns a JsError, which cannot be constructed on
+    // a non-wasm host (it panics: "cannot call wasm-bindgen imported functions
+    // on non-wasm targets"), so it is only exercisable in the browser.
+
+    #[test]
+    fn standard_firmata_hex_available_for_known_boards() {
+        assert!(standard_firmata_hex_for("nano").is_some());
+        assert!(standard_firmata_hex_for("mega").is_some());
+        assert!(standard_firmata_hex_for("bogus").is_none());
     }
 
     #[test]
