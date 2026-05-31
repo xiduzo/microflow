@@ -1,10 +1,17 @@
 import { useCallback } from "react";
+import { toast } from "sonner";
 import { useBoardStore } from "@/stores/board";
 import {
   connectBoard,
+  flashStandardFirmata,
   isWebSerialSupported,
   type BoardConnection,
 } from "@/lib/firmata/web-serial";
+
+/** True for errors that mean "the user dismissed the browser port picker". */
+function isPickerDismissed(message: string): boolean {
+  return /no port selected|cancelled|dismiss/i.test(message);
+}
 
 // One active browser board connection at a time (the desktop app manages its
 // own connection in Rust). Kept at module scope so connect/disconnect from any
@@ -48,5 +55,35 @@ export function useWebSerialBoard() {
     setBoard({ state: "disconnected" });
   }, [setBoard]);
 
-  return { supported: isWebSerialSupported(), connect, disconnect };
+  const flash = useCallback(async () => {
+    // Free the port if we are currently connected for Firmata.
+    if (activeConnection) {
+      const connection = activeConnection;
+      activeConnection = null;
+      await connection.disconnect();
+    }
+    setBoard({ state: "flashing", port: "", board: "" });
+    const toastId = toast.loading("Flashing StandardFirmata…");
+    try {
+      const board = await flashStandardFirmata({
+        onProgress: (done, total) => {
+          const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+          toast.loading(`Flashing StandardFirmata… ${pct}%`, { id: toastId });
+        },
+      });
+      toast.success(`Flashed StandardFirmata to ${board}. Click Connect board.`, { id: toastId });
+      setBoard({ state: "disconnected" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isPickerDismissed(message)) {
+        toast.dismiss(toastId);
+        setBoard({ state: "disconnected" });
+      } else {
+        toast.error(`Flashing failed: ${message}`, { id: toastId });
+        setBoard({ state: "error", error: message });
+      }
+    }
+  }, [setBoard]);
+
+  return { supported: isWebSerialSupported(), connect, disconnect, flash };
 }

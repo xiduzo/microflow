@@ -347,6 +347,15 @@ pub fn standard_firmata_hex_for(board_id: &str) -> Option<String> {
     BoardType::from_id(board_id).map(|b| standard_firmata_hex(b).to_string())
 }
 
+/// The serial baud rate to open the port at for flashing this board, or `null`
+/// if the id is unknown. (AVR109 boards re-open at 1200 for the reset touch via
+/// a `setBaud` step regardless.)
+#[wasm_bindgen(js_name = flashBaud)]
+#[must_use]
+pub fn flash_baud(board_id: &str) -> Option<u32> {
+    BoardType::from_id(board_id).map(|b| BoardConfig::find(b).baud_rate)
+}
+
 /// A bootloader flashing session for one board. Drives the shared sans-IO
 /// [`FlashDriver`] (stk500v1 / stk500v2 / avr109, picked from the board type):
 /// `start()` then `advance(bytesRead)` each return a JSON `FlashStep` telling

@@ -14,7 +14,18 @@
 
 import type { BoardState } from "@/lib/bindings/BoardState";
 import type { PinInfo } from "@/lib/bindings/PinInfo";
-import { createSession, detectBoardFromUsb, type FeedResult, type FirmataSession } from "./wasm";
+import {
+  createFlashSession,
+  createSession,
+  detectBoardFromUsb,
+  flashBaud,
+  parseHex,
+  standardFirmataHex,
+  type FeedResult,
+  type FirmataSession,
+  type FlashSession,
+  type FlashStep,
+} from "./wasm";
 
 // --- Minimal Web Serial typings (the TS DOM lib does not ship them) ---------
 
@@ -242,4 +253,198 @@ export async function detectBoard(port: WebSerialPort): Promise<string | undefin
     return undefined;
   }
   return detectBoardFromUsb(info.usbVendorId, info.usbProductId);
+}
+
+// --- Flashing ---------------------------------------------------------------
+
+export type FlashProgress = (done: number, total: number) => void;
+
+/** Concatenate two byte arrays. */
+function concat(a: Uint8Array<ArrayBufferLike>, b: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBufferLike> {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a);
+  out.set(b, a.length);
+  return out;
+}
+
+/**
+ * Flash StandardFirmata onto a board over Web Serial. Prompts for a port,
+ * identifies the board from its USB id, picks the embedded firmware + bootloader
+ * protocol, and runs the shared sans-IO driver. Resolves with the flashed board
+ * id, or rejects with a readable error. Must be called from a user gesture.
+ */
+export async function flashStandardFirmata(opts: {
+  onProgress?: FlashProgress;
+}): Promise<string> {
+  const serial = getSerial();
+  if (!serial) {
+    throw new Error("Web Serial is not supported in this browser");
+  }
+  const port = await serial.requestPort();
+  const board = await detectBoard(port);
+  if (!board) {
+    throw new Error(
+      "Couldn't identify the board from its USB id — browser flashing needs a recognised Arduino (Uno, Nano, Mega, Leonardo, or Micro).",
+    );
+  }
+  const hex = await standardFirmataHex(board);
+  if (!hex) {
+    throw new Error(`No StandardFirmata image is bundled for '${board}'.`);
+  }
+  const flash = await parseHex(hex);
+  const session = await createFlashSession(board, flash);
+  const baud = (await flashBaud(board)) ?? 57600;
+  await runFlash(serial, port, baud, session, opts.onProgress);
+  return board;
+}
+
+/** Drive a `FlashSession` step machine against the Web Serial port. */
+async function runFlash(
+  serial: WebSerial,
+  initialPort: WebSerialPort,
+  baud: number,
+  session: FlashSession,
+  onProgress?: FlashProgress,
+): Promise<void> {
+  let port = initialPort;
+  let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
+  let readerDone: Promise<void> = Promise.resolve();
+
+  const startIo = async () => {
+    reader = port.readable!.getReader();
+    writer = port.writable!.getWriter();
+    readerDone = (async () => {
+      try {
+        for (;;) {
+          const { value, done } = await reader!.read();
+          if (done) break;
+          if (value && value.length > 0) buffer = concat(buffer, value);
+        }
+      } catch {
+        /* port closed */
+      }
+    })();
+  };
+
+  const stopIo = async () => {
+    try {
+      await reader?.cancel();
+    } catch {
+      /* already cancelled */
+    }
+    await readerDone;
+    try {
+      reader?.releaseLock();
+    } catch {
+      /* not locked */
+    }
+    try {
+      await writer?.close();
+    } catch {
+      /* already closed */
+    }
+    reader = null;
+    writer = null;
+  };
+
+  const reopen = async (b: number) => {
+    await stopIo();
+    try {
+      await port.close();
+    } catch {
+      /* already closed */
+    }
+    await port.open({ baudRate: b, bufferSize: 1024 });
+    buffer = new Uint8Array(0);
+    await startIo();
+  };
+
+  const readExact = async (n: number, timeoutMs: number): Promise<Uint8Array> => {
+    if (n === 0) return new Uint8Array(0);
+    const deadline = Date.now() + timeoutMs;
+    while (buffer.length < n && Date.now() < deadline) {
+      await sleep(10);
+    }
+    const take = Math.min(n, buffer.length);
+    const out = buffer.slice(0, take);
+    buffer = buffer.slice(take);
+    return out;
+  };
+
+  await port.open({ baudRate: baud, bufferSize: 1024 });
+  await startIo();
+  try {
+    let step = JSON.parse(session.start()) as FlashStep;
+    let guard = 0;
+    for (;;) {
+      if (++guard > 1_000_000) throw new Error("Flash driver did not terminate");
+      if (step.kind === "done") break;
+      if (step.kind === "error") throw new Error(step.message);
+
+      let input: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+      switch (step.kind) {
+        case "setBaud":
+          await reopen(step.baud);
+          break;
+        case "reset":
+          try {
+            await port.setSignals({ dataTerminalReady: step.dtr, requestToSend: step.rts });
+          } catch {
+            /* signals unsupported */
+          }
+          await sleep(step.delayMs);
+          break;
+        case "flushInput":
+          buffer = new Uint8Array(0);
+          break;
+        case "delay":
+          await sleep(step.ms);
+          break;
+        case "progress":
+          onProgress?.(step.done, step.total);
+          break;
+        case "transact":
+          if (step.write.length > 0) await writer!.write(Uint8Array.from(step.write));
+          input = await readExact(step.readLen, step.timeoutMs);
+          break;
+        case "reacquirePort": {
+          await stopIo();
+          try {
+            await port.close();
+          } catch {
+            /* already closed */
+          }
+          await sleep(step.waitMs);
+          port = await reacquirePort(serial);
+          await port.open({ baudRate: step.baud, bufferSize: 1024 });
+          buffer = new Uint8Array(0);
+          await startIo();
+          break;
+        }
+      }
+      step = JSON.parse(session.advance(input)) as FlashStep;
+    }
+  } finally {
+    await stopIo();
+    try {
+      await port.close();
+    } catch {
+      /* already closed */
+    }
+  }
+}
+
+/**
+ * Re-acquire the bootloader port after an AVR109 1200-baud touch. The bootloader
+ * re-enumerates as a new USB device; prefer an already-granted port, else prompt
+ * (which needs a user gesture and may fail mid-flash on some setups).
+ */
+async function reacquirePort(serial: WebSerial): Promise<WebSerialPort> {
+  const ports = await serial.getPorts();
+  if (ports.length > 0) {
+    return ports[ports.length - 1];
+  }
+  return serial.requestPort();
 }

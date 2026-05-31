@@ -10,14 +10,50 @@
 
 import init, {
   FirmataSession,
+  FlashSession,
   parseHex as wasmParseHex,
   detectBoardFromUsb as wasmDetectBoardFromUsb,
+  standardFirmataHex as wasmStandardFirmataHex,
+  flashBaud as wasmFlashBaud,
 } from "./generated/microflow_firmata_wasm.js";
 // `?url` asks Vite to emit the wasm as a hashed asset and hand us its URL, so it
 // loads correctly in dev and after a production build with no extra Vite plugin.
 import wasmUrl from "./generated/microflow_firmata_wasm_bg.wasm?url";
 
-export { FirmataSession };
+export { FirmataSession, FlashSession };
+
+/** Create a flashing session for a board id + raw flash image. */
+export async function createFlashSession(
+  boardId: string,
+  flash: Uint8Array,
+): Promise<FlashSession> {
+  await ensureFirmataReady();
+  return new FlashSession(boardId, flash);
+}
+
+/** The embedded StandardFirmata hex for a board id, or undefined. */
+export async function standardFirmataHex(boardId: string): Promise<string | undefined> {
+  await ensureFirmataReady();
+  return wasmStandardFirmataHex(boardId);
+}
+
+/** The baud rate to open the port at when flashing a board id. */
+export async function flashBaud(boardId: string): Promise<number | undefined> {
+  await ensureFirmataReady();
+  return wasmFlashBaud(boardId);
+}
+
+/** A `FlashStep` emitted by a `FlashSession` (parsed from its JSON). */
+export type FlashStep =
+  | { kind: "reset"; dtr: boolean; rts: boolean; delayMs: number }
+  | { kind: "setBaud"; baud: number }
+  | { kind: "flushInput" }
+  | { kind: "transact"; write: number[]; readLen: number; timeoutMs: number }
+  | { kind: "delay"; ms: number }
+  | { kind: "reacquirePort"; waitMs: number; baud: number }
+  | { kind: "progress"; done: number; total: number }
+  | { kind: "done" }
+  | { kind: "error"; message: string };
 
 /** Lazily instantiate the wasm module exactly once; concurrent callers share it. */
 let initPromise: Promise<unknown> | null = null;

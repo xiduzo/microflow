@@ -84,6 +84,17 @@ export function NavMicrocontroller() {
             <span>{message}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        {!desktop && (
+          <SidebarMenuItem title="Flash StandardFirmata onto a board over Web Serial">
+            <SidebarMenuButton
+              disabled={boardState === "connecting" || boardState === "flashing"}
+              onClick={() => void webSerial.flash()}
+            >
+              <FileCodeIcon />
+              <span>Flash firmware</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
       </SidebarMenu>
     </SidebarGroup>
   );
