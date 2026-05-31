@@ -92,12 +92,18 @@ impl ComponentRegistry {
         self.register::<control::trigger::Trigger>("Trigger");
 
         // generator
+        self.register::<crate::runtime::generator::constant::Constant>("Constant");
         self.register::<crate::runtime::generator::interval::Interval>("Interval");
+        self.register::<crate::runtime::generator::oscillator::Oscillator>("Oscillator");
 
         // transformation
         self.register::<transformation::calculate::Calculate>("Calculate");
         self.register::<transformation::compare::Compare>("Compare");
         self.register::<transformation::gate::Gate>("Gate");
+        self.register::<transformation::range_map::RangeMap>("RangeMap");
+        self.register::<transformation::smooth::Smooth>("Smooth");
+        #[cfg(feature = "js")]
+        self.register::<transformation::function::Function>("Function");
     }
 }
 

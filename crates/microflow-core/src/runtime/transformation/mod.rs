@@ -2,5 +2,8 @@
 
 pub mod calculate;
 pub mod compare;
+#[cfg(feature = "js")]
+pub mod function;
 pub mod gate;
-// function (boa/js), range_map, smooth: ported in a follow-up pass.
+pub mod range_map;
+pub mod smooth;
