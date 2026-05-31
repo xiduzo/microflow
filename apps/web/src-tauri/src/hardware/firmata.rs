@@ -5,8 +5,8 @@
 
 use super::port_monitor::PortMonitor;
 use super::types::{BoardState, PinInfo};
-use crate::runtime::{BoardHandle, SerialPortWrapper};
-use firmata_rs::{Board, Firmata};
+use crate::runtime::BoardHandle;
+use microflow_core::firmata::FirmataClient;
 use std::io::{Read, Write};
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,12 +38,12 @@ pub fn detect_and_connect(port_name: &str, board_handle: &Arc<BoardHandle>) -> O
         "Quick probe found Firmata at {baud_rate} baud, doing full detection"
     );
 
-    // Full detection with firmata-rs - returns the board connection
-    let (info, board) = full_detect_with_board(port_name, baud_rate)?;
+    // Full detection - returns the open port + seeded protocol client
+    let (info, port, client) = full_detect_with_board(port_name, baud_rate)?;
 
-    // Hand the firmata board to the BoardHandle, which builds the connection
+    // Hand the port + client to the BoardHandle, which builds the connection
     // with shared pin/cache/callback state and starts the reader thread.
-    board_handle.connect_board(board, port_name.to_string());
+    board_handle.connect_board(client, port, port_name.to_string());
     
     log::info!("Board connected and stored in BoardHandle");
 
@@ -155,69 +155,89 @@ fn has_firmata_markers(buf: &[u8]) -> bool {
     false
 }
 
-/// Full Firmata detection with capability query - returns the Board instance
-fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInfo, Board<SerialPortWrapper>)> {
+/// Read whatever bytes are available and feed them to the codec. Returns the
+/// byte count; a read timeout surfaces as the underlying `TimedOut` error so
+/// callers can distinguish "no data yet (boot)" from a real I/O failure.
+fn pump_into(port: &mut Box<dyn serialport::SerialPort>, client: &mut FirmataClient) -> std::io::Result<usize> {
+    let mut buf = [0u8; 256];
+    let n = port.read(&mut buf)?;
+    client.feed(&buf[..n]);
+    Ok(n)
+}
+
+/// True for a read that returned "no data within the timeout" — normal while
+/// the Arduino is still booting after a DTR reset, not a failure.
+fn is_no_data(e: &std::io::Error) -> bool {
+    matches!(e.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock)
+}
+
+/// Full Firmata detection with capability query - returns the open port and the
+/// seeded protocol client (pin table + firmware filled in).
+fn full_detect_with_board(
+    port_name: &str,
+    baud_rate: u32,
+) -> Option<(FirmataInfo, Box<dyn serialport::SerialPort>, FirmataClient)> {
     log::info!("Full Firmata detection on {port_name} at {baud_rate} baud");
 
-    let port = serialport::new(port_name, baud_rate)
+    let mut port = serialport::new(port_name, baud_rate)
         .timeout(Duration::from_millis(PORT_TIMEOUT_MS))
         .open()
         .ok()?;
 
-    let wrapper = SerialPortWrapper::new(port);
-    let mut board = Board::new(Box::new(wrapper)).ok()?;
+    let mut client = FirmataClient::new();
 
     // Query firmware
-    board.query_firmware().ok()?;
+    port.write_all(&client.encode_query_firmware()).ok()?;
+    port.flush().ok()?;
 
     // Read firmware response — treat timeouts as "no data yet" and keep retrying.
-    // Only abort on real I/O errors (e.g., port disappeared) to avoid false negatives
-    // when the Arduino is still booting after a DTR reset.
+    // Only abort on real I/O errors (e.g., port disappeared) to avoid false
+    // negatives when the Arduino is still booting after a DTR reset.
     for _ in 0..FIRMWARE_READ_ITERATIONS {
-        match board.read_and_decode() {
-            Ok(_) if !board.firmware_name.is_empty() => break,
+        match pump_into(&mut port, &mut client) {
+            Ok(_) if !client.firmware_name.is_empty() => break,
+            Ok(_) => {}
+            Err(e) if is_no_data(&e) => continue,
             Err(e) => {
-                let err_str = format!("{e}");
-                if err_str.contains("timed out") || err_str.contains("timeout") {
-                    continue; // Normal during boot — try again
-                }
-                log::warn!("Firmata firmware read error: {err_str}");
+                log::warn!("Firmata firmware read error: {e}");
                 return None; // Real I/O error — port gone or device error
             }
-            _ => {}
         }
     }
 
-    if board.firmware_name.is_empty() {
+    if client.firmware_name.is_empty() {
         return None;
     }
 
     log::info!(
         "✓ Firmata: {} v{} on {}",
-        board.firmware_name,
-        board.firmware_version,
+        client.firmware_name,
+        client.firmware_version,
         port_name
     );
 
-    // Query capabilities
-    let _ = board.query_capabilities();
-    let _ = board.query_analog_mapping();
+    // Query capabilities + analog mapping
+    let _ = port.write_all(&client.encode_query_capabilities());
+    let _ = port.flush();
+    let _ = port.write_all(&client.encode_query_analog_mapping());
+    let _ = port.flush();
 
     for _ in 0..CAPABILITY_READ_ITERATIONS {
-        match board.read_and_decode() {
+        match pump_into(&mut port, &mut client) {
             Ok(_) => {}
-            Err(e) => {
-                let err_str = format!("{e}");
-                if err_str.contains("timed out") || err_str.contains("timeout") {
-                    continue; // Timeout is normal — keep draining
-                }
-                break; // Real I/O error — stop early
-            }
+            Err(e) if is_no_data(&e) => continue,
+            Err(_) => break, // Real I/O error — stop early
         }
     }
 
-    let pins = board
-        .pins()
+    // Enable digital reporting for ports 0 and 1, matching what
+    // `firmata-rs::Board::new` did on construction.
+    let _ = port.write_all(&client.encode_report_digital(0, true));
+    let _ = port.write_all(&client.encode_report_digital(1, true));
+    let _ = port.flush();
+
+    let pins = client
+        .pins
         .iter()
         .enumerate()
         .map(|(index, pin)| PinInfo {
@@ -227,13 +247,13 @@ fn full_detect_with_board(port_name: &str, baud_rate: u32) -> Option<(FirmataInf
         })
         .collect();
 
-    log::info!("Found {} pins", board.pins().len());
+    log::info!("Found {} pins", client.pins.len());
 
     let info = FirmataInfo {
-        firmware_name: board.firmware_name.clone(),
-        firmware_version: board.firmware_version.clone(),
+        firmware_name: client.firmware_name.clone(),
+        firmware_version: client.firmware_version.clone(),
         pins,
     };
 
-    Some((info, board))
+    Some((info, port, client))
 }

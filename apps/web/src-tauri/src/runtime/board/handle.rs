@@ -7,8 +7,9 @@
 
 use super::connection::{
     BoardConnection, I2cReplyCallback, I2cReplyCallbackSlot, PinChangeCallback,
-    PinChangeCallbackSlot, SerialPortWrapper,
+    PinChangeCallbackSlot,
 };
+use microflow_core::firmata::FirmataClient;
 use super::io_loop;
 use super::protocol::BoardCommand;
 use super::receipt::{CommandReceipt, PinSnapshot};
@@ -69,14 +70,18 @@ impl BoardHandle {
     }
 
     /// Connect a board: build the `BoardConnection` with shared state and start
-    /// the reader thread that takes exclusive ownership of it.
+    /// the reader thread that takes exclusive ownership of it. `client` carries
+    /// the pin table / firmware gathered during detection; `port` is the open
+    /// serial transport.
     pub fn connect_board(
         self: &Arc<Self>,
-        board: firmata_rs::Board<SerialPortWrapper>,
+        client: FirmataClient,
+        port: Box<dyn serialport::SerialPort>,
         port_name: String,
     ) {
         let connection = BoardConnection::new(
-            board,
+            client,
+            port,
             port_name,
             Arc::clone(&self.pin_values),
             Arc::clone(&self.active_pins),

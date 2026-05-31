@@ -1,17 +1,16 @@
 //! Single-thread engine that owns `BoardConnection` exclusively. Drains the
-//! `BoardCommand` channel between Firmata reads, mutates the connection, then
-//! reads one Firmata message and emits pin-change / I2C-reply events.
+//! `BoardCommand` channel between serial reads, mutates the connection, then
+//! reads available bytes (decoded by the sans-IO codec) and emits pin-change /
+//! I2C-reply events.
 //!
-//! The channel is the synchronization primitive — `firmata-rs` requires
-//! `&mut self` for every op including reads, so a shared `Mutex<BoardConnection>`
-//! would starve writers behind blocking reads. This loop is the only place
-//! `&mut BoardConnection` exists.
+//! The channel is the synchronization primitive — every op takes `&mut self`
+//! on the connection (the codec caches pin state, and the port read borrows
+//! mutably), so a shared `Mutex<BoardConnection>` would starve writers behind
+//! blocking reads. This loop is the only place `&mut BoardConnection` exists.
 
 use super::connection::BoardConnection;
 use super::protocol::BoardCommand;
 use super::BoardHandle;
-use firmata_rs::Firmata;
-use std::io::Write;
 use std::sync::Arc;
 use std::sync::mpsc;
 
@@ -40,28 +39,23 @@ fn run(mut conn: BoardConnection, cmd_rx: mpsc::Receiver<BoardCommand>, handle: 
             break;
         }
 
-        // 3. Read one Firmata message
-        match conn.board.read_and_decode() {
-            Ok(_) => {
+        // 3. Read available bytes and decode. The codec buffers partial
+        // messages and re-syncs past stray bytes internally, so the only
+        // failure here is a real I/O error (port gone) — fatal to the loop.
+        // Unhandled/unknown sysex frames are dropped silently by the codec
+        // (formerly firmata-rs parse errors logged and ignored here).
+        match conn.pump() {
+            Ok(true) => {
                 conn.detect_and_emit_changes();
                 conn.drain_i2c_replies();
             }
+            Ok(false) => {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
             Err(e) => {
-                let err_str = format!("{e}");
-                if err_str.contains("timed out") || err_str.contains("timeout") {
-                    std::thread::sleep(std::time::Duration::from_millis(1));
-                } else if err_str.contains("I/O error") {
-                    log::warn!("Firmata reader: I/O error: {err_str}");
-                    handle.connected.store(false, std::sync::atomic::Ordering::Release);
-                    break;
-                } else {
-                    // Protocol-level parse errors from firmata-rs:
-                    // - "Unknown SysEx code: N" — unhandled SysEx (AccelStepper, string data, etc.)
-                    // - "Message was too short." — truncated/unexpected SysEx payload
-                    // - "Received a bad byte: N" — framing glitch after skipped SysEx
-                    // These are non-fatal; the stream re-syncs on the next message boundary.
-                    log::debug!("Firmata reader: skipping parse error: {err_str}");
-                }
+                log::warn!("Firmata reader: I/O error: {e}");
+                handle.connected.store(false, std::sync::atomic::Ordering::Release);
+                break;
             }
         }
     }
@@ -79,18 +73,6 @@ fn drain_commands(
     cmd_rx: &mpsc::Receiver<BoardCommand>,
     handle: &Arc<BoardHandle>,
 ) -> DrainOutcome {
-    use crate::error::HardwareError;
-
-    // Map firmata-rs's connection-write outcome (no return value) to a Result.
-    let i2c_stop_reading = |conn: &mut BoardConnection, address: i32| -> Result<(), HardwareError> {
-        let mode_byte = 0b11 << 3;
-        conn.board
-            .connection
-            .write_all(&[0xF0, 0x76, address as u8, mode_byte, 0xF7])
-            .and_then(|()| conn.board.connection.flush())
-            .map_err(|e| HardwareError::FirmataCommunication(e.to_string()))
-    };
-
     loop {
         match cmd_rx.try_recv() {
             Ok(BoardCommand::Stop) => {
@@ -137,28 +119,16 @@ fn drain_commands(
                 let _ = reply.send(conn.sysex_write(command, &data));
             }
             Ok(BoardCommand::I2cConfig { delay, reply }) => {
-                let outcome = conn
-                    .board
-                    .i2c_config(delay)
-                    .map_err(|e| HardwareError::FirmataCommunication(format!("{e:?}")));
-                let _ = reply.send(outcome);
+                let _ = reply.send(conn.i2c_config(delay));
             }
             Ok(BoardCommand::I2cRead { address, size, reply }) => {
-                let outcome = conn
-                    .board
-                    .i2c_read(address, size)
-                    .map_err(|e| HardwareError::FirmataCommunication(format!("{e:?}")));
-                let _ = reply.send(outcome);
+                let _ = reply.send(conn.i2c_read(address, size));
             }
             Ok(BoardCommand::I2cWrite { address, data, reply }) => {
-                let outcome = conn
-                    .board
-                    .i2c_write(address, &data)
-                    .map_err(|e| HardwareError::FirmataCommunication(format!("{e:?}")));
-                let _ = reply.send(outcome);
+                let _ = reply.send(conn.i2c_write(address, &data));
             }
             Ok(BoardCommand::I2cStopReading { address, reply }) => {
-                let _ = reply.send(i2c_stop_reading(conn, address));
+                let _ = reply.send(conn.i2c_stop_reading(address));
             }
             Err(mpsc::TryRecvError::Empty) => return DrainOutcome::Continue,
             Err(mpsc::TryRecvError::Disconnected) => {

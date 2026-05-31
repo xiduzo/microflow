@@ -1,6 +1,6 @@
 //! Re-export shim. Definitions moved to:
 //! - `component.rs` — Component trait, `ComponentValue`, `ComponentEvent`, `ComponentBase`, `PinConfig`.
-//! - `board.rs` — `BoardHandle`, `BoardConnection`, `BoardCommand`, `SerialPortWrapper`,
+//! - `board.rs` — `BoardHandle`, `BoardConnection`, `BoardCommand`,
 //!   `PinChangeEvent`, `I2cReplyEvent`, callback type aliases.
 //! - `pin_mode.rs` — Firmata pin mode constants.
 //! - `serde_utils.rs` — pin/string deserializers.

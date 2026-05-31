@@ -1,15 +1,19 @@
-//! Private `firmata-rs` wrapper held by the **Board IO Loop**.
+//! Private board connection held by the **Board IO Loop**.
 //!
-//! Owns the open serial port and forwards Firmata reads into the shared
-//! pin-value cache, active-pin set, and callback slots that **`BoardHandle`**
-//! also clones — so `ClearPinCache`, `RegisterActivePin`,
-//! `SetPinChangeCallback`, and `SetI2cReplyCallback` no longer flow through
-//! the command channel.
+//! Owns the open serial port plus a [`microflow_core::firmata::FirmataClient`]
+//! (the platform-independent sans-IO protocol codec, shared verbatim with the
+//! browser build). The port is the only transport: outgoing ops are encoded by
+//! the client and written here; incoming bytes are read here and fed to the
+//! client, which updates the cached pin table / I2C buffer.
+//!
+//! Forwards Firmata reads into the shared pin-value cache, active-pin set, and
+//! callback slots that **`BoardHandle`** also clones — so `ClearPinCache`,
+//! `RegisterActivePin`, `SetPinChangeCallback`, and `SetI2cReplyCallback` no
+//! longer flow through the command channel.
 
 use crate::error::HardwareError;
 use dashmap::DashMap;
-use firmata_rs::Firmata;
-use std::fmt::Debug;
+use microflow_core::firmata::FirmataClient;
 use std::io::{Read, Write};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -20,42 +24,6 @@ fn fw_err(ctx: &str, e: impl std::fmt::Display) -> HardwareError {
     HardwareError::FirmataCommunication(format!("{ctx}: {e}"))
 }
 
-/// Serial port wrapper for firmata-rs
-pub struct SerialPortWrapper {
-    port: Box<dyn serialport::SerialPort>,
-}
-
-impl SerialPortWrapper {
-    #[must_use]
-    pub fn new(port: Box<dyn serialport::SerialPort>) -> Self {
-        Self { port }
-    }
-}
-
-impl Read for SerialPortWrapper {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.port.read(buf)
-    }
-}
-
-impl Write for SerialPortWrapper {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.port.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.port.flush()
-    }
-}
-
-impl Debug for SerialPortWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SerialPortWrapper")
-            .field("port", &self.port.name())
-            .finish()
-    }
-}
-
 /// Pin change event emitted when a pin value changes
 #[derive(Debug, Clone)]
 pub struct PinChangeEvent {
@@ -64,7 +32,7 @@ pub struct PinChangeEvent {
     pub is_analog: bool,
 }
 
-/// I2C reply event emitted when an I2C device responds
+/// An I2C reply event emitted when an I2C device responds
 #[derive(Debug, Clone)]
 pub struct I2cReplyEvent {
     pub address: u8,
@@ -85,9 +53,12 @@ pub(super) type PinChangeCallbackSlot = Arc<RwLock<Option<Arc<PinChangeCallback>
 /// Slot holding the optional I2C reply callback.
 pub(super) type I2cReplyCallbackSlot = Arc<RwLock<Option<Arc<I2cReplyCallback>>>>;
 
-/// Wrapper around the firmata-rs Board
+/// Wrapper around the serial port + sans-IO Firmata client.
 pub struct BoardConnection {
-    pub board: firmata_rs::Board<SerialPortWrapper>,
+    /// Protocol codec — encodes outgoing ops, decodes incoming bytes. No I/O.
+    client: FirmataClient,
+    /// The open serial transport. The only place bytes cross the wire.
+    port: Box<dyn serialport::SerialPort>,
     pub port_name: String,
     /// Track previous pin values for change detection. Shared with `BoardHandle`.
     /// Each entry pairs the observed value with the `Instant` at which the IO
@@ -106,9 +77,11 @@ pub struct BoardConnection {
 impl BoardConnection {
     /// Construct a connection bound to a `BoardHandle`'s shared state.
     /// Only callable from within the `board` module — `BoardHandle::connect_board`
-    /// is the public entry point.
+    /// is the public entry point. `client` carries the pin table / firmware info
+    /// gathered during detection; `port` is the already-open transport.
     pub(super) fn new(
-        board: firmata_rs::Board<SerialPortWrapper>,
+        client: FirmataClient,
+        port: Box<dyn serialport::SerialPort>,
         port_name: String,
         pin_values: Arc<DashMap<u8, (u16, Instant)>>,
         active_pins: Arc<DashMap<u8, ()>>,
@@ -116,7 +89,8 @@ impl BoardConnection {
         i2c_reply_cb: I2cReplyCallbackSlot,
     ) -> Self {
         Self {
-            board,
+            client,
+            port,
             port_name,
             pin_values,
             active_pins,
@@ -125,22 +99,49 @@ impl BoardConnection {
         }
     }
 
+    /// Write encoded bytes to the port and flush. The single egress point.
+    fn write_bytes(&mut self, bytes: &[u8], ctx: &str) -> Result<(), HardwareError> {
+        self.port.write_all(bytes).map_err(|e| fw_err(ctx, e))?;
+        self.port.flush().map_err(|e| fw_err(ctx, e))
+    }
+
+    /// Read whatever bytes are available and feed them to the codec. Returns
+    /// `Ok(true)` if any bytes were read (state may have changed), `Ok(false)`
+    /// on a read timeout / no data, and `Err` only on a real I/O failure (port
+    /// gone) so the reader loop can tear the connection down.
+    pub(super) fn pump(&mut self) -> Result<bool, HardwareError> {
+        let mut buf = [0u8; 256];
+        match self.port.read(&mut buf) {
+            Ok(0) => Ok(false),
+            Ok(n) => {
+                self.client.feed(&buf[..n]);
+                Ok(true)
+            }
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) =>
+            {
+                Ok(false)
+            }
+            Err(e) => Err(fw_err("Read error", e)),
+        }
+    }
+
     pub fn set_pin_mode(&mut self, pin: u8, mode: u8) -> Result<(), HardwareError> {
-        self.board
-            .set_pin_mode(i32::from(pin), mode)
-            .map_err(|e| fw_err("Failed to set pin mode", e))
+        let bytes = self.client.encode_set_pin_mode(pin, mode);
+        self.write_bytes(&bytes, "Failed to set pin mode")
     }
 
     pub fn digital_write(&mut self, pin: u8, value: bool) -> Result<(), HardwareError> {
-        self.board
-            .digital_write(i32::from(pin), i32::from(value))
-            .map_err(|e| fw_err("Failed to digital write", e))
+        let bytes = self.client.encode_digital_write(pin, value);
+        self.write_bytes(&bytes, "Failed to digital write")
     }
 
     pub fn analog_write(&mut self, pin: u8, value: u16) -> Result<(), HardwareError> {
-        self.board
-            .analog_write(i32::from(pin), i32::from(value))
-            .map_err(|e| fw_err("Failed to analog write", e))
+        let bytes = self.client.encode_analog_write(pin, value);
+        self.write_bytes(&bytes, "Failed to analog write")
     }
 
     /// Shift out a byte MSB-first, toggling `data_pin` and `clock_pin`.
@@ -149,16 +150,13 @@ impl BoardConnection {
     pub fn shift_out(&mut self, data_pin: u8, clock_pin: u8, value: u8) -> Result<(), HardwareError> {
         for i in 0..8 {
             // Match J5 board.shiftOut exactly: CLK low → set data → CLK high
-            self.board
-                .digital_write(i32::from(clock_pin), 0)
-                .map_err(|e| fw_err("Failed to clock low", e))?;
-            let bit = i32::from((value >> (7 - i)) & 1);
-            self.board
-                .digital_write(i32::from(data_pin), bit)
-                .map_err(|e| fw_err("Failed to shift data", e))?;
-            self.board
-                .digital_write(i32::from(clock_pin), 1)
-                .map_err(|e| fw_err("Failed to clock high", e))?;
+            let bytes = self.client.encode_digital_write(clock_pin, false);
+            self.write_bytes(&bytes, "Failed to clock low")?;
+            let bit = (value >> (7 - i)) & 1 != 0;
+            let bytes = self.client.encode_digital_write(data_pin, bit);
+            self.write_bytes(&bytes, "Failed to shift data")?;
+            let bytes = self.client.encode_digital_write(clock_pin, true);
+            self.write_bytes(&bytes, "Failed to clock high")?;
         }
         Ok(())
     }
@@ -169,14 +167,15 @@ impl BoardConnection {
     pub fn tone(&mut self, pin: u8, half_period_us: u32, duration_ms: u32, cancel: &std::sync::atomic::AtomicBool) -> Result<(), HardwareError> {
         let half_period = std::time::Duration::from_micros(u64::from(half_period_us));
         let deadline = std::time::Instant::now() + std::time::Duration::from_millis(u64::from(duration_ms));
-        let mut value = 1;
+        let mut value = true;
 
         while std::time::Instant::now() < deadline {
             if cancel.load(std::sync::atomic::Ordering::Acquire) {
                 break;
             }
-            let _ = self.board.digital_write(i32::from(pin), value);
-            value = i32::from(value != 1);
+            let bytes = self.client.encode_digital_write(pin, value);
+            let _ = self.write_bytes(&bytes, "tone");
+            value = !value;
             // Spin-sleep for accurate sub-millisecond timing
             let target = std::time::Instant::now() + half_period;
             if half_period > std::time::Duration::from_millis(1) {
@@ -191,45 +190,32 @@ impl BoardConnection {
         }
 
         // Ensure pin is low when done
-        let _ = self.board.digital_write(i32::from(pin), 0);
+        let bytes = self.client.encode_digital_write(pin, false);
+        let _ = self.write_bytes(&bytes, "tone off");
         Ok(())
     }
 
     /// Stop tone — drive pin low.
     pub fn no_tone(&mut self, pin: u8) -> Result<(), HardwareError> {
-        self.board
-            .digital_write(i32::from(pin), 0)
-            .map_err(|e| fw_err("Failed to stop tone", e))
+        let bytes = self.client.encode_digital_write(pin, false);
+        self.write_bytes(&bytes, "Failed to stop tone")
     }
 
     /// Send a raw sysex message: `START_SYSEX` (0xF0) + command + data + `END_SYSEX` (0xF7).
     /// Data bytes must already be 7-bit encoded per the Firmata protocol.
     pub fn sysex_write(&mut self, command: u8, data: &[u8]) -> Result<(), HardwareError> {
-        let mut buf = Vec::with_capacity(data.len() + 3);
-        buf.push(0xF0); // START_SYSEX
-        buf.push(command);
-        buf.extend_from_slice(data);
-        buf.push(0xF7); // END_SYSEX
-        self.board
-            .connection
-            .write_all(&buf)
-            .map_err(|e| fw_err("Failed to write sysex", e))?;
-        self.board
-            .connection
-            .flush()
-            .map_err(|e| fw_err("Failed to flush sysex", e))
+        let bytes = self.client.encode_sysex(command, data);
+        self.write_bytes(&bytes, "Failed to write sysex")
     }
 
     pub fn digital_read(&mut self, pin: u8) -> Result<bool, HardwareError> {
         let port = pin / 8;
-        self.board
-            .report_digital(i32::from(port), 1)
-            .map_err(|e| fw_err("Failed to enable digital reporting", e))?;
-        self.board
-            .read_and_decode()
-            .map_err(|e| fw_err("Failed to read", e))?;
-        let pins = self.board.pins();
-        pins.get(pin as usize)
+        let bytes = self.client.encode_report_digital(port, true);
+        self.write_bytes(&bytes, "Failed to enable digital reporting")?;
+        self.pump()?;
+        self.client
+            .pins
+            .get(pin as usize)
             .map(|p| p.value > 0)
             .ok_or_else(|| fw_err("Pin not found", pin))
     }
@@ -238,61 +224,57 @@ impl BoardConnection {
     /// `pin` is the digital pin number (e.g., 14 for A0 on Arduino Uno)
     ///
     /// Note: This assumes `report_analog` has already been enabled for this pin
-    /// and `read_and_decode` has been called to update pin values.
+    /// and the reader loop has pumped recent values into the cache.
     pub fn analog_read(&mut self, pin: u8) -> Result<u16, HardwareError> {
-        let pins = self.board.pins();
-
-        pins.get(pin as usize)
+        self.client
+            .pins
+            .get(pin as usize)
             .map(|p| p.value as u16)
             .ok_or_else(|| fw_err("Analog pin not found", pin))
+    }
+
+    /// Count of analog pins strictly before `pin` — the Firmata analog channel
+    /// number, matching `firmata-rs`'s `report_analog` indexing.
+    fn analog_channel_for(&self, pin: u8) -> u8 {
+        self.client
+            .pins
+            .iter()
+            .take(pin as usize)
+            .filter(|p| p.analog)
+            .count() as u8
     }
 
     /// Enable analog reporting for a pin
     /// Call this once during initialization, not on every read
     pub fn enable_analog_reporting(&mut self, pin: u8) -> Result<(), HardwareError> {
-        let pins = self.board.pins();
-
-        let pin_info = pins
+        let is_analog = self
+            .client
+            .pins
             .get(pin as usize)
-            .ok_or_else(|| fw_err("Pin not found", pin))?;
+            .ok_or_else(|| fw_err("Pin not found", pin))?
+            .analog;
 
-        if !pin_info.analog {
+        if !is_analog {
             return Err(HardwareError::UnsupportedPinMode {
                 pin,
                 mode: crate::runtime::pin_mode::ANALOG,
             });
         }
 
-        let analog_channel = pins
-            .iter()
-            .take(pin as usize)
-            .filter(|p| p.analog)
-            .count() as i32;
-
+        let analog_channel = self.analog_channel_for(pin);
         log::info!("Enabling analog reporting: pin={pin}, analog_channel={analog_channel}");
 
-        self.board
-            .report_analog(analog_channel, 1)
-            .map_err(|e| fw_err("Failed to enable analog reporting", e))
+        let bytes = self.client.encode_report_analog(analog_channel, true);
+        self.write_bytes(&bytes, "Failed to enable analog reporting")
     }
 
     /// Process all pending messages from the board and emit change events
     /// Note: With the dedicated reader thread, this is mainly used as a fallback
     pub fn read_all(&mut self) -> Result<(), HardwareError> {
-        match self.board.read_and_decode() {
-            Ok(_) => {
-                self.detect_and_emit_changes();
-                Ok(())
-            }
-            Err(e) => {
-                let err_str = format!("{e}");
-                if err_str.contains("timed out") || err_str.contains("timeout") {
-                    Ok(())
-                } else {
-                    Err(fw_err("Read error", e))
-                }
-            }
+        if self.pump()? {
+            self.detect_and_emit_changes();
         }
+        Ok(())
     }
 
     /// Detect pin value changes and emit events immediately.
@@ -307,7 +289,7 @@ impl BoardConnection {
         };
         drop(cb_guard);
 
-        let pins = self.board.pins();
+        let pins = &self.client.pins;
         let mut changes = Vec::new();
 
         // Fast path: only check pins with listeners.
@@ -358,12 +340,12 @@ impl BoardConnection {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(callback) = cb_guard.as_ref().cloned() else {
             // Still drain to prevent unbounded growth
-            self.board.i2c_data().clear();
+            self.client.i2c_data.clear();
             return;
         };
         drop(cb_guard);
 
-        let replies: Vec<_> = self.board.i2c_data().drain(..).collect();
+        let replies: Vec<_> = self.client.i2c_data.drain(..).collect();
         for reply in replies {
             callback(I2cReplyEvent {
                 address: reply.address as u8,
@@ -375,37 +357,31 @@ impl BoardConnection {
 
     pub fn set_reporting(&mut self, pin: u8, enabled: bool) -> Result<(), HardwareError> {
         let port = pin / 8;
-        self.board
-            .report_digital(i32::from(port), i32::from(enabled))
-            .map_err(|e| fw_err("Failed to set reporting", e))
+        let bytes = self.client.encode_report_digital(port, enabled);
+        self.write_bytes(&bytes, "Failed to set reporting")
     }
 
     /// Disable analog reporting for a pin.
     /// Call this during component cleanup to stop receiving updates.
     pub fn disable_analog_reporting(&mut self, pin: u8) -> Result<(), HardwareError> {
-        let pins = self.board.pins();
-
-        let pin_info = pins
+        let is_analog = self
+            .client
+            .pins
             .get(pin as usize)
-            .ok_or_else(|| fw_err("Pin not found", pin))?;
+            .ok_or_else(|| fw_err("Pin not found", pin))?
+            .analog;
 
-        if !pin_info.analog {
+        if !is_analog {
             return Ok(());
         }
 
-        let analog_channel = pins
-            .iter()
-            .take(pin as usize)
-            .filter(|p| p.analog)
-            .count() as i32;
-
+        let analog_channel = self.analog_channel_for(pin);
         log::info!("Disabling analog reporting: pin={pin}, analog_channel={analog_channel}");
 
         self.pin_values.remove(&pin);
 
-        self.board
-            .report_analog(analog_channel, 0)
-            .map_err(|e| fw_err("Failed to disable analog reporting", e))
+        let bytes = self.client.encode_report_analog(analog_channel, false);
+        self.write_bytes(&bytes, "Failed to disable analog reporting")
     }
 
     /// Disable digital reporting for a pin's port.
@@ -417,9 +393,8 @@ impl BoardConnection {
 
         self.pin_values.remove(&pin);
 
-        self.board
-            .report_digital(i32::from(port), 0)
-            .map_err(|e| fw_err("Failed to disable digital reporting", e))
+        let bytes = self.client.encode_report_digital(port, false);
+        self.write_bytes(&bytes, "Failed to disable digital reporting")
     }
 
     /// Disable all reporting and clear state. Called inside the reader thread — no sleep needed.
@@ -427,11 +402,33 @@ impl BoardConnection {
         log::info!("Resetting all pin reporting");
         self.pin_values.clear();
         for channel in 0..16 {
-            let _ = self.board.report_analog(channel, 0);
+            let bytes = self.client.encode_report_analog(channel, false);
+            let _ = self.write_bytes(&bytes, "reset analog reporting");
         }
         for port in 0..13 {
-            let _ = self.board.report_digital(port, 0);
+            let bytes = self.client.encode_report_digital(port, false);
+            let _ = self.write_bytes(&bytes, "reset digital reporting");
         }
         Ok(())
+    }
+
+    pub fn i2c_config(&mut self, delay: i32) -> Result<(), HardwareError> {
+        let bytes = self.client.encode_i2c_config(delay);
+        self.write_bytes(&bytes, "Failed to configure I2C")
+    }
+
+    pub fn i2c_read(&mut self, address: i32, size: i32) -> Result<(), HardwareError> {
+        let bytes = self.client.encode_i2c_read(address, size);
+        self.write_bytes(&bytes, "Failed to I2C read")
+    }
+
+    pub fn i2c_write(&mut self, address: i32, data: &[u8]) -> Result<(), HardwareError> {
+        let bytes = self.client.encode_i2c_write(address, data);
+        self.write_bytes(&bytes, "Failed to I2C write")
+    }
+
+    pub fn i2c_stop_reading(&mut self, address: i32) -> Result<(), HardwareError> {
+        let bytes = self.client.encode_i2c_stop_reading(address);
+        self.write_bytes(&bytes, "Failed to stop I2C reading")
     }
 }

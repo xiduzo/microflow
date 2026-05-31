@@ -50,7 +50,7 @@ pub mod types;
 pub mod wiring;
 mod wiring_registry;
 
-pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue, SerialPortWrapper};
+pub use base::{BoardConnection, BoardHandle, Component, ComponentEvent, ComponentValue};
 pub use services::RuntimeServices;
 pub use wiring::{ListenerWiring, SubscriberWiring};
 pub use executor::FlowExecutor;

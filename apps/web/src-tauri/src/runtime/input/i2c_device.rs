@@ -6,7 +6,7 @@
 //! ## Lifecycle
 //! 1. `initialize()` — Sends `I2C_CONFIG`, then writes the register address and
 //!    starts a continuous read for the configured number of bytes.
-//! 2. Reader thread drains `I2CReply` from `firmata_rs` and routes them here
+//! 2. Reader thread drains `I2cReply` from the Firmata codec and routes them here
 //!    via the typed `HardwareComponent::on_i2c_reply` callback (see `CONTEXT.md`
 //!    § Hardware Callback).
 //! 3. `destroy()` — Sends I2C stop reading command.
