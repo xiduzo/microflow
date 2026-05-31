@@ -4,9 +4,10 @@
 //! sit in Tauri `State` (needs `Send + Sync`) or behind `Arc<TokioMutex>` the way
 //! the desktop's own runtime does. The re-host confines it to a single **actor
 //! thread** that also owns the serial port; everything else talks to it over a
-//! `Send` `mpsc::Sender<ActorMsg>` kept in `AppState`. The `!Send` runtime is
-//! built *inside* the thread, so nothing unsendable ever crosses the spawn
-//! boundary — only `Send` handles (services, the Tokio handle, the channel) do.
+//! `Send + Sync` `UnboundedSender<ActorMsg>` kept in `AppState`. The `!Send`
+//! runtime is built *inside* the thread, so nothing unsendable ever crosses the
+//! spawn boundary — only `Send` handles (services, the Tokio handle, the channel)
+//! do.
 //!
 //! Each message maps to one core entry point whose returned [`Effects`] the actor
 //! applies: write `outbound_bytes` to the port, `emit("component-event", …)` per
@@ -28,11 +29,12 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 use tokio::runtime::Handle;
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
 
 /// The serial read timeout the actor sets once it owns the port. Short so the
@@ -51,10 +53,10 @@ pub enum ActorMsg {
     },
     /// The board disconnected: drop the port, keep the flow state.
     Disconnect,
-    /// A flow update (`flow_update` command) — core `FlowUpdate` JSON. Replies
-    /// with the active subscriber wirings so the command can (un)subscribe MQTT.
+    /// A flow update (`flow_update` command). Replies with the active subscriber
+    /// wirings so the command can (un)subscribe MQTT.
     FlowUpdate {
-        flow: serde_json::Value,
+        flow: FlowUpdate,
         reply: oneshot::Sender<Vec<(String, SubscriberWiring)>>,
     },
     /// An external component call (`component_call` command).
@@ -92,12 +94,12 @@ pub enum ActorMsg {
 /// [`CloudEmitter`] that forwards a cloud node's async result to the actor as an
 /// [`ActorMsg::Inject`], so it re-enters the `!Send` runtime on the owner thread.
 pub struct ChannelEmitter {
-    tx: Sender<ActorMsg>,
+    tx: UnboundedSender<ActorMsg>,
 }
 
 impl ChannelEmitter {
     #[must_use]
-    pub fn new(tx: Sender<ActorMsg>) -> Self {
+    pub fn new(tx: UnboundedSender<ActorMsg>) -> Self {
         Self { tx }
     }
 }
@@ -193,39 +195,62 @@ pub fn register_cloud_nodes(
     }
 }
 
-/// Spawn the actor thread. Returns the `Send` sender the app uses to drive the
-/// runtime, plus a connected flag the hardware monitor reads (it derives
-/// implicit-disconnect detection from board liveness, so the actor clears it on a
-/// serial read error). The `!Send` `FlowRuntime` is constructed inside the thread.
-#[must_use]
-pub fn spawn_actor(
+/// Spawn the actor thread. The caller owns the channel (so the `Send + Sync`
+/// sender can live on `AppState` + the hardware `BoardLink`) and the `connected`
+/// flag the hardware monitor reads (the actor clears it on a serial read error,
+/// driving implicit-disconnect detection). The `!Send` `FlowRuntime` is built
+/// inside the thread, so nothing unsendable crosses the spawn boundary.
+pub fn run_actor(
+    rx: UnboundedReceiver<ActorMsg>,
+    self_tx: UnboundedSender<ActorMsg>,
+    connected: Arc<AtomicBool>,
     app: AppHandle,
     rt_handle: Handle,
     mqtt_publisher: Arc<dyn MqttPublisher>,
     llm_registry: Arc<LlmRegistry>,
-) -> (Sender<ActorMsg>, Arc<AtomicBool>) {
-    let (tx, rx) = std::sync::mpsc::channel::<ActorMsg>();
-    let connected = Arc::new(AtomicBool::new(false));
-    let self_tx = tx.clone();
-    let connected_actor = Arc::clone(&connected);
-
+) {
     std::thread::Builder::new()
         .name("microflow-runtime".into())
         .spawn(move || {
-            let actor = Actor::new(
-                app,
-                rt_handle,
-                mqtt_publisher,
-                llm_registry,
-                self_tx,
-                connected_actor,
-            );
+            let actor = Actor::new(app, rt_handle, mqtt_publisher, llm_registry, self_tx, connected);
             actor.run(rx);
             log::info!("[actor] runtime thread stopped");
         })
         .expect("spawn microflow-runtime thread");
+}
 
-    (tx, connected)
+/// The hardware monitor + detection's seam to the runtime actor, replacing the
+/// old `Arc<BoardHandle>`. `connect_board` / `disconnect` send `ActorMsg`s; the
+/// `connected` flag is shared with the actor (which also clears it on a serial
+/// error) so the monitor's implicit-disconnect detection still fires.
+#[derive(Clone)]
+pub struct BoardLink {
+    actor: UnboundedSender<ActorMsg>,
+    connected: Arc<AtomicBool>,
+}
+
+impl BoardLink {
+    #[must_use]
+    pub fn new(actor: UnboundedSender<ActorMsg>, connected: Arc<AtomicBool>) -> Self {
+        Self { actor, connected }
+    }
+
+    /// Hand the freshly-detected board (open port + `pins_json`) to the actor.
+    pub fn connect_board(&self, port: Box<dyn serialport::SerialPort>, pins_json: String) {
+        self.connected.store(true, Ordering::Release);
+        let _ = self.actor.send(ActorMsg::Connect { port, pins_json });
+    }
+
+    /// Tell the actor the board went away.
+    pub fn disconnect(&self) {
+        self.connected.store(false, Ordering::Release);
+        let _ = self.actor.send(ActorMsg::Disconnect);
+    }
+
+    #[must_use]
+    pub fn is_connected(&self) -> bool {
+        self.connected.load(Ordering::Acquire)
+    }
 }
 
 /// Owns the `!Send` `FlowRuntime` + the serial port; lives entirely on one thread.
@@ -233,11 +258,11 @@ struct Actor {
     rt: FlowRuntime,
     /// Open serial port while a board is connected; `None` otherwise.
     port: Option<Box<dyn serialport::SerialPort>>,
-    /// Last flow JSON, re-applied on (re)connect for clean board init.
-    last_flow: Option<serde_json::Value>,
+    /// Last flow, re-applied on (re)connect for clean board init.
+    last_flow: Option<FlowUpdate>,
     app: AppHandle,
     rt_handle: Handle,
-    self_tx: Sender<ActorMsg>,
+    self_tx: UnboundedSender<ActorMsg>,
     mqtt_publisher: Arc<dyn MqttPublisher>,
     llm_registry: Arc<LlmRegistry>,
     connected: Arc<AtomicBool>,
@@ -254,7 +279,7 @@ impl Actor {
         rt_handle: Handle,
         mqtt_publisher: Arc<dyn MqttPublisher>,
         llm_registry: Arc<LlmRegistry>,
-        self_tx: Sender<ActorMsg>,
+        self_tx: UnboundedSender<ActorMsg>,
         connected: Arc<AtomicBool>,
     ) -> Self {
         let mut actor = Self {
@@ -292,7 +317,7 @@ impl Actor {
         self.rt.set_now(self.start.elapsed().as_secs_f64() * 1000.0);
     }
 
-    fn run(mut self, rx: Receiver<ActorMsg>) {
+    fn run(mut self, mut rx: UnboundedReceiver<ActorMsg>) {
         loop {
             // Drain every queued message first.
             loop {
@@ -312,13 +337,13 @@ impl Actor {
             if self.port.is_some() {
                 self.pump_port();
             } else {
-                match rx.recv() {
-                    Ok(msg) => {
+                match rx.blocking_recv() {
+                    Some(msg) => {
                         if !self.handle(msg) {
                             return;
                         }
                     }
-                    Err(_) => return,
+                    None => return,
                 }
             }
         }
@@ -328,6 +353,12 @@ impl Actor {
     fn handle(&mut self, msg: ActorMsg) -> bool {
         match msg {
             ActorMsg::Connect { port, pins_json } => {
+                // Abort timers from the previous runtime instance — the rebuild
+                // below mints fresh wakeup ids, so stale timers would double-fire
+                // (e.g. an interval ticking twice as fast after a replug).
+                for (_, handle) in self.timers.drain() {
+                    handle.abort();
+                }
                 // Fresh runtime → clean pin-mode/reporting init on the new board.
                 self.rt = self.build_runtime();
                 if let Err(e) = self.rt.seed_pins(&pins_json) {
@@ -340,14 +371,9 @@ impl Actor {
                 log::info!("[actor] board connected");
 
                 if let Some(flow) = self.last_flow.clone() {
-                    match serde_json::from_value::<FlowUpdate>(flow) {
-                        Ok(update) => {
-                            self.set_now();
-                            let effects = self.rt.update_flow(update);
-                            self.apply(effects);
-                        }
-                        Err(e) => log::error!("[actor] re-apply flow on connect failed: {e}"),
-                    }
+                    self.set_now();
+                    let effects = self.rt.update_flow(flow);
+                    self.apply(effects);
                 }
             }
             ActorMsg::Disconnect => {
@@ -357,19 +383,10 @@ impl Actor {
             }
             ActorMsg::FlowUpdate { flow, reply } => {
                 self.last_flow = Some(flow.clone());
-                let wirings = match serde_json::from_value::<FlowUpdate>(flow) {
-                    Ok(update) => {
-                        self.set_now();
-                        let effects = self.rt.update_flow(update);
-                        self.apply(effects);
-                        self.rt.collect_subscriber_wirings()
-                    }
-                    Err(e) => {
-                        log::error!("[actor] flow_update parse failed: {e}");
-                        Vec::new()
-                    }
-                };
-                let _ = reply.send(wirings);
+                self.set_now();
+                let effects = self.rt.update_flow(flow);
+                self.apply(effects);
+                let _ = reply.send(self.rt.collect_subscriber_wirings());
             }
             ActorMsg::Call { id, method, value } => {
                 self.set_now();
@@ -510,11 +527,11 @@ mod tests {
 
     #[test]
     fn channel_emitter_forwards_inject() {
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let emitter = ChannelEmitter::new(tx);
         emitter.emit(Arc::from("node-1"), "value", ComponentValue::Number(7.0));
 
-        match rx.recv().expect("a message") {
+        match rx.try_recv().expect("a message") {
             ActorMsg::Inject { source, handle, value } => {
                 assert_eq!(source.as_ref(), "node-1");
                 assert_eq!(handle, "value");

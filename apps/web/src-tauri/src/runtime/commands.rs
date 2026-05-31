@@ -2,15 +2,15 @@
 //!
 //! `flow_update` and `component_call` commands
 
-use super::base::ComponentValue;
-use super::services::{HttpLlmProvider, LlmProvider, RuntimeServices};
-use super::wiring::SubscriberWiring;
+use super::host::ActorMsg;
+use super::services::{HttpLlmProvider, LlmProvider};
 use super::FlowUpdate;
 use crate::codegen::board::{target_by_id, BoardTarget};
 use crate::codegen::credentials::{Credentials, MissingCredential};
 use crate::codegen::GenerationOutcome;
 use crate::AppState;
 use crate::mqtt::broker::BrokerConfig;
+use microflow_core::runtime::{ComponentValue, SubscriberWiring};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tauri::Emitter;
@@ -94,37 +94,20 @@ pub async fn flow_update(
         state.llm_registry.sync(entries).await;
     }
 
-    // RuntimeServices for component factories. The registry's factory
-    // closure projects each impl's typed `Deps` out of this bundle via
-    // `FromServices`, so components that need nothing pay nothing and
-    // components that need an `LlmRegistry` / `MqttPublisher` receive
-    // exactly the shared `Arc` they declared.
-    let services = RuntimeServices::new(
-        Arc::clone(&state.llm_registry),
-        Arc::clone(&state.mqtt_publisher),
-    );
-
-    // Apply the flow first so components are constructed and can describe their wiring.
-    let board_connected = *state.board_connected.read().unwrap_or_else(std::sync::PoisonError::into_inner);
-    log::info!("Applying flow update to runtime (board_connected={board_connected})");
-
+    // Hand the flow to the runtime actor, which builds the components and (when a
+    // board is connected) emits the pin-mode/reporting init. It replies with each
+    // subscribe component's wiring so we can (un)subscribe MQTT below. The actor
+    // re-applies this flow on every (re)connect and owns the "pending flow"
+    // state, so there is no board-connected branch here.
     let component_wirings: Vec<(String, SubscriberWiring)> = {
-        let mut runtime = state.flow_runtime.lock().await;
-        runtime.update_flow(flow.clone(), &services)?;
-
-        if board_connected {
-            if let Err(e) = runtime.initialize_hardware() {
-                log::warn!("Failed to initialize hardware after flow update: {e}");
-            }
-            // Pin-change and I2C-reply callbacks are installed once at
-            // FlowRuntime::new(); they observe live wiring updates via the
-            // shared `WiringRegistry` indices. Nothing to reinstall here.
-        } else {
-            log::info!("Board not connected — storing pending flow for hardware init on connect");
-            *state.pending_flow.write().unwrap_or_else(std::sync::PoisonError::into_inner) = Some((flow, services.clone()));
-        }
-
-        runtime.collect_subscriber_wirings()
+        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+        state
+            .actor
+            .send(ActorMsg::FlowUpdate { flow, reply: reply_tx })
+            .map_err(|_| "runtime actor is gone".to_string())?;
+        reply_rx
+            .await
+            .map_err(|_| "runtime actor dropped the flow_update reply".to_string())?
     };
 
     // Derive the new set of Figma unique_ids from any `microflow/{uid}/...` topics
@@ -178,14 +161,15 @@ pub async fn flow_update(
         let callback: Arc<dyn Fn(crate::mqtt::broker::MqttMessage) + Send + Sync> = match wiring {
             SubscriberWiring::Plain { .. } => {
                 let component_id = component_id.clone();
-                let flow_runtime = Arc::clone(&state.flow_runtime);
+                let actor = state.actor.clone();
                 let app_handle = app.clone();
                 Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
                     log::info!("[MQTT] Received message on topic {} for component {}", msg.topic, component_id);
-                    match flow_runtime.try_lock() {
-                        Ok(mut runtime) => runtime.route_mqtt_message(&component_id, &msg.payload),
-                        Err(_) => log::debug!("[MQTT] Flow runtime lock held, dropping message for {component_id}"),
-                    }
+                    let _ = actor.send(ActorMsg::Deliver {
+                        id: component_id.clone(),
+                        topic: msg.topic.clone(),
+                        payload: msg.payload.clone(),
+                    });
                     let _ = app_handle.emit(
                         "mqtt-message",
                         &crate::mqtt::commands::MqttMessage {
@@ -199,14 +183,15 @@ pub async fn flow_update(
             }
             SubscriberWiring::TopicAware { .. } => {
                 let component_id = component_id.clone();
-                let flow_runtime = Arc::clone(&state.flow_runtime);
+                let actor = state.actor.clone();
                 let app_handle = app.clone();
                 Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
                     log::info!("[Figma] Message on {} for component {}", msg.topic, component_id);
-                    match flow_runtime.try_lock() {
-                        Ok(mut runtime) => runtime.route_figma_message(&component_id, &msg.topic, &msg.payload),
-                        Err(_) => log::debug!("[Figma] Runtime lock held, dropping message for {component_id}"),
-                    }
+                    let _ = actor.send(ActorMsg::Deliver {
+                        id: component_id.clone(),
+                        topic: msg.topic.clone(),
+                        payload: msg.payload.clone(),
+                    });
                     let _ = app_handle.emit(
                         "mqtt-message",
                         &crate::mqtt::commands::MqttMessage {
@@ -376,6 +361,8 @@ pub async fn component_call(
 
     log::info!("Component call: {component_id}.{method}({value:?})");
 
-    let mut runtime = state.flow_runtime.lock().await;
-    Ok(runtime.call_component(&component_id, &method, value)?)
+    state
+        .actor
+        .send(ActorMsg::Call { id: component_id, method, value })
+        .map_err(|_| "runtime actor is gone".to_string())
 }

@@ -5,10 +5,9 @@
 
 use super::port_monitor::PortMonitor;
 use super::types::{BoardState, PinInfo};
-use crate::runtime::BoardHandle;
+use crate::runtime::host::BoardLink;
 use microflow_core::firmata::FirmataClient;
 use std::io::{Read, Write};
-use std::sync::Arc;
 use std::time::Duration;
 
 // Firmata protocol constants
@@ -29,7 +28,7 @@ const CAPABILITY_READ_ITERATIONS: usize = 10;
 
 /// Detect Firmata on a port and connect directly to the provided `BoardHandle`.
 /// Returns `BoardState` if successful, and the board connection is stored in the handle.
-pub fn detect_and_connect(port_name: &str, board_handle: &Arc<BoardHandle>) -> Option<BoardState> {
+pub fn detect_and_connect(port_name: &str, board: &BoardLink) -> Option<BoardState> {
     if PortMonitor::should_skip_firmata_test(port_name) {
         return None;
     }
@@ -43,14 +42,21 @@ pub fn detect_and_connect(port_name: &str, board_handle: &Arc<BoardHandle>) -> O
         "Quick probe found Firmata at {baud_rate} baud, doing full detection"
     );
 
-    // Full detection - returns the open port + seeded protocol client
-    let (info, port, client) = full_detect_with_board(port_name, baud_rate)?;
+    // Full detection - returns the open port + the detection-time protocol
+    // client. The client is used only here to extract the pin table; the actor's
+    // runtime owns its own codec and is seeded from `pins_json`.
+    let (info, port, _client) = full_detect_with_board(port_name, baud_rate)?;
 
-    // Hand the port + client to the BoardHandle, which builds the connection
-    // with shared pin/cache/callback state and starts the reader thread.
-    board_handle.connect_board(client, port, port_name.to_string());
-    
-    log::info!("Board connected and stored in BoardHandle");
+    // `PinInfo` serialises as `[{ pin, supportedModes, analogChannel }]`; the
+    // runtime's `seed_pins` reads `pin` + `analogChannel` and ignores the rest,
+    // so this is exactly the pin table it needs.
+    let pins_json = serde_json::to_string(&info.pins).unwrap_or_else(|_| "[]".to_string());
+
+    // Hand the open port + pin table to the runtime actor, which seeds its codec
+    // and (re)applies the active flow against the fresh board.
+    board.connect_board(port, pins_json);
+
+    log::info!("Board connected; handed to runtime actor");
 
     Some(BoardState::Connected {
         port: port_name.to_string(),
