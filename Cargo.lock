@@ -3009,6 +3009,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "microflow-firmata-wasm"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "microflow-core",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"

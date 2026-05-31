@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite dev",
     "build": "bun run build:wasm && vite build",
-    "build:wasm": "wasm-pack build ../../crates/microflow-codegen-wasm --target web --out-dir ../../apps/web/src/lib/codegen/generated",
+    "build:wasm": "bun run build:wasm:codegen && bun run build:wasm:firmata",
+    "build:wasm:codegen": "wasm-pack build ../../crates/microflow-codegen-wasm --target web --out-dir ../../apps/web/src/lib/codegen/generated",
+    "build:wasm:firmata": "wasm-pack build ../../crates/microflow-firmata-wasm --target web --out-dir ../../apps/web/src/lib/firmata/generated",
     "serve": "vite preview",
     "start": "vite",
     "check-types": "tsc --noEmit",

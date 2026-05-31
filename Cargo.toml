@@ -4,4 +4,5 @@ members = [
     "apps/web/src-tauri",
     "crates/microflow-core",
     "crates/microflow-codegen-wasm",
+    "crates/microflow-firmata-wasm",
 ]
