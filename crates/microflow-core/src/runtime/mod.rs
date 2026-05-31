@@ -395,6 +395,29 @@ impl FlowRuntime {
         self.finish(Vec::new(), ScheduleRequests::default())
     }
 
+    /// Fold an asynchronous cloud-node result back into the runtime as if the
+    /// node had emitted `value` on `source_handle`. Cloud nodes do network I/O on
+    /// a spawned task whose result cannot touch the `!Send` emit queue directly;
+    /// the host receives `(source, handle, value)` over the node's `CloudEmitter`
+    /// and calls this on the runtime's owner thread. Stamped `sequence: 0`
+    /// (component logic, never stale), exactly like a synchronous emit — the
+    /// event is surfaced to the UI and the downstream cascade drains.
+    pub fn inject_event(
+        &mut self,
+        source: &str,
+        source_handle: &str,
+        value: ComponentValue,
+    ) -> Effects {
+        self.sink.borrow_mut().push_back(ComponentEvent {
+            source: Arc::from(source),
+            source_handle: Arc::from(source_handle),
+            value,
+            edge_id: None,
+            sequence: 0,
+        });
+        self.finish(Vec::new(), ScheduleRequests::default())
+    }
+
     /// Deliver a hotkey press to every component listening on `accelerator`
     /// (matched lowercased), then drain the cascade.
     pub fn dispatch_key_event(&mut self, accelerator: &str) -> Effects {
@@ -751,6 +774,25 @@ mod tests {
         assert_eq!(effects.outbound_bytes, expected, "led should have been driven high");
         // The src `value` event is surfaced to the UI; `_`-events are not.
         assert!(effects.component_events.iter().any(|e| e.source.as_ref() == "src"
+            && e.source_handle.as_ref() == "value"
+            && e.value == ComponentValue::Bool(true)));
+    }
+
+    #[test]
+    fn inject_event_routes_like_an_emit() {
+        // An async cloud result (the `CloudEmitter` → host → `inject_event` path)
+        // must route to downstream edges and surface to the UI just like a
+        // synchronous emit from the node.
+        let mut rt = FlowRuntime::new();
+        rt.add_component("llm", Box::new(Passthrough { base: base("llm") }));
+        rt.add_component("led", Box::new(TestLed { base: base("led"), pin: 13 }));
+        rt.set_edges(vec![edge("llm", "value", "led", "value")]);
+
+        let effects = rt.inject_event("llm", "value", ComponentValue::Bool(true));
+
+        let expected = FirmataClient::new().encode_digital_write(13, true);
+        assert_eq!(effects.outbound_bytes, expected, "downstream led should be driven high");
+        assert!(effects.component_events.iter().any(|e| e.source.as_ref() == "llm"
             && e.source_handle.as_ref() == "value"
             && e.value == ComponentValue::Bool(true)));
     }
