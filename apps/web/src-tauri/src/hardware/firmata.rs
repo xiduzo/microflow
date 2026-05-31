@@ -19,7 +19,12 @@ const REPORT_FIRMWARE: u8 = 0x79;
 
 // Timing constants
 const PORT_TIMEOUT_MS: u64 = 100;
-const FIRMWARE_READ_ITERATIONS: usize = 5;
+/// Firmware-detection window: iterations × `PORT_TIMEOUT_MS` ≈ how long we wait
+/// for the board to boot and answer (≈6s, matching `firmata-rs`'s old backoff).
+const FIRMWARE_DETECT_ITERATIONS: usize = 60;
+/// Re-send the firmware query every N iterations (≈ once per second) in case
+/// the first query landed while the board was still resetting.
+const FIRMWARE_REQUERY_EVERY: usize = 10;
 const CAPABILITY_READ_ITERATIONS: usize = 10;
 
 /// Detect Firmata on a port and connect directly to the provided `BoardHandle`.
@@ -186,14 +191,19 @@ fn full_detect_with_board(
 
     let mut client = FirmataClient::new();
 
-    // Query firmware
-    port.write_all(&client.encode_query_firmware()).ok()?;
-    port.flush().ok()?;
-
-    // Read firmware response — treat timeouts as "no data yet" and keep retrying.
-    // Only abort on real I/O errors (e.g., port disappeared) to avoid false
-    // negatives when the Arduino is still booting after a DTR reset.
-    for _ in 0..FIRMWARE_READ_ITERATIONS {
+    // Wait for the firmware report, re-querying periodically. Opening the port
+    // often resets the board (DTR), so StandardFirmata can take ~2s to boot
+    // before it answers — `firmata-rs::Board::new` papered over this with an
+    // exponential backoff up to ~5s, so we must be just as patient or detection
+    // races the boot and silently fails. Re-send the query roughly once a
+    // second across the window; each `pump_into` blocks up to PORT_TIMEOUT_MS.
+    for attempt in 0..FIRMWARE_DETECT_ITERATIONS {
+        if attempt % FIRMWARE_REQUERY_EVERY == 0 {
+            if port.write_all(&client.encode_query_firmware()).is_err() {
+                return None;
+            }
+            let _ = port.flush();
+        }
         match pump_into(&mut port, &mut client) {
             Ok(_) if !client.firmware_name.is_empty() => break,
             Ok(_) => {}
