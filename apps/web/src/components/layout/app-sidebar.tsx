@@ -53,7 +53,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return flows.find((f) => f.id === activeFlowId) ?? LOCAL_FLOW;
   }, [flows, activeFlowId]);
 
-
   return (
     <>
       <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -61,7 +60,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <FlowSwitcher
             flows={flows}
             user={user}
-            activeFlowDescription={activeFlow.id !== "local" ? "Stored in the cloud" : "Stored on this device"}
+            activeFlowDescription={
+              activeFlow.id !== "local"
+                ? "Stored in the cloud"
+                : "Stored on this device"
+            }
           />
         </SidebarHeader>
         <SidebarContent>
@@ -81,7 +84,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     title: "Show circuit",
                     icon: CircuitBoardIcon,
                     url: `/flow/${activeFlow.id}/circuit`,
-                    badge: "beta",
                   },
                   {
                     title: "Show code",
@@ -118,23 +120,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               },
               ...(isDesktop()
                 ? [
-                  {
-                    title: "Configuration",
-                    routes: [
-                      {
-                        title: "MQTT",
-                        url: "/configuration/mqtt",
-                        icon: RadioTowerIcon,
-                      },
-                      {
-                        title: "LLM",
-                        url: "/configuration/llm",
-                        icon: BotIcon,
-                      },
-                    ],
-                  },
-                ]
-                : [])
+                    {
+                      title: "Configuration",
+                      routes: [
+                        {
+                          title: "MQTT",
+                          url: "/configuration/mqtt",
+                          icon: RadioTowerIcon,
+                        },
+                        {
+                          title: "LLM",
+                          url: "/configuration/llm",
+                          icon: BotIcon,
+                        },
+                      ],
+                    },
+                  ]
+                : []),
             ]}
           />
           <NavSecondary className="mt-auto" />
