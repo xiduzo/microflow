@@ -32,6 +32,11 @@
 pub mod base;
 pub mod board;
 mod builders;
+/// Cloud nodes (`Mqtt`/`Llm`/`Figma`) re-homed onto the `microflow-core`
+/// `Component` trait, ahead of the desktop re-host onto `core::FlowRuntime`.
+/// Built but not yet wired into the live desktop runtime (which still uses
+/// `external/`); see Stage 4.
+pub mod cloud;
 pub mod commands;
 pub mod component;
 pub mod control;
