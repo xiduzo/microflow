@@ -77,14 +77,19 @@ impl Button {
 
     fn process_state(&mut self, pressed: bool, ctx: &mut RuntimeContext) {
         if pressed != self.is_pressed {
-            // Debounce: ignore state changes that arrive within DEBOUNCE_MS of the
-            // last one.
+            let now = ctx.now_ms();
+            // Quiet-period debounce: require DEBOUNCE_MS of no edges before
+            // accepting a new one. Resetting the window on *every* edge (not just
+            // accepted ones) is the fix vs. a pure lockout, which would let a long
+            // mechanical bounce slip a toggle through every DEBOUNCE_MS — observed
+            // as the contact "toggling on/off a lot before settling" on release.
             if let Some(last) = self.last_change_ms {
-                if ctx.now_ms() - last < DEBOUNCE_MS {
+                if now - last < DEBOUNCE_MS {
+                    self.last_change_ms = Some(now);
                     return;
                 }
             }
-            self.last_change_ms = Some(ctx.now_ms());
+            self.last_change_ms = Some(now);
             self.is_pressed = pressed;
             self.hold_emitted = false;
             self.base.set_value(ComponentValue::Bool(pressed));
@@ -185,5 +190,58 @@ impl ComponentBuilder for Button {
     type Config = ButtonConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::firmata::FirmataClient;
+    use crate::runtime::{BufferBoardWriter, EventSink, ScheduleRequests};
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+
+    /// Deliver one pin reading at host-clock time `now_ms`.
+    fn feed(btn: &mut Button, value: bool, now_ms: f64) {
+        let mut client = FirmataClient::new();
+        let mut out = Vec::new();
+        let mut writer = BufferBoardWriter::new(&mut client, &mut out);
+        let mut reqs = ScheduleRequests::default();
+        let mut ctx = RuntimeContext::new(&mut writer, now_ms, "btn", &mut reqs);
+        btn.on_pin_change(ComponentValue::Bool(value), &mut ctx).unwrap();
+    }
+
+    fn drained_handles(sink: &EventSink) -> Vec<String> {
+        sink.borrow_mut()
+            .drain(..)
+            .map(|e| e.source_handle.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn quiet_period_debounce_suppresses_a_long_release_bounce() {
+        let mut btn = Button::new("btn".into(), ButtonConfig::default());
+        let sink: EventSink = Rc::new(RefCell::new(VecDeque::new()));
+        btn.set_sink(sink.clone());
+
+        // Clean press at t=0.
+        feed(&mut btn, true, 0.0);
+        assert!(btn.is_pressed);
+        assert!(drained_handles(&sink).contains(&"true".to_string()));
+
+        // Release bounces: alternating edges 5ms apart for 40ms — longer than the
+        // 20ms window. A pure lockout would accept a flip at ~t=25 (a visible
+        // toggle); the quiet-period reset must suppress them all.
+        for (i, &v) in [false, true, false, true, false, true, false, true].iter().enumerate() {
+            feed(&mut btn, v, 5.0 * (i as f64 + 1.0));
+        }
+        assert!(btn.is_pressed, "bounce within the (resetting) window must not toggle state");
+        assert!(drained_handles(&sink).is_empty(), "bounce must not emit");
+
+        // Settled release after 20ms+ of quiet.
+        feed(&mut btn, false, 65.0);
+        assert!(!btn.is_pressed);
+        assert!(drained_handles(&sink).contains(&"false".to_string()));
     }
 }
