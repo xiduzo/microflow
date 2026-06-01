@@ -146,6 +146,23 @@ fn digital_message_updates_only_input_pins() {
 }
 
 #[test]
+fn digital_message_updates_pullup_pins() {
+    // A simple button is wired with the internal pull-up (MODE_PULLUP); its value
+    // must update from a digital port report just like bare MODE_INPUT, or the
+    // button node never sees a change and looks dead. Regression for the decode
+    // that only accepted MODE_INPUT.
+    let mut c = FirmataClient::new();
+    c.pins = vec![Pin::default(); 8];
+    c.pins[2].mode = MODE_PULLUP;
+    c.pins[3].mode = MODE_OUTPUT; // output must still be ignored.
+    // port 0, value 0b0000_1100 -> bits for pins 2 and 3 high.
+    let msgs = c.feed(&[DIGITAL_MESSAGE, 0b0000_1100, 0]);
+    assert_eq!(msgs, vec![Message::Digital]);
+    assert_eq!(c.pins[2].value, 1, "PULLUP input pin must update from a digital report");
+    assert_eq!(c.pins[3].value, 0, "OUTPUT pin must not be clobbered by a digital report");
+}
+
+#[test]
 fn report_firmware_sets_name_and_version() {
     let mut c = FirmataClient::new();
     let frame = [START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', b'F', END_SYSEX];

@@ -331,8 +331,14 @@ impl FirmataClient {
                 let value = i32::from(self.rx[1]) | (i32::from(self.rx[2]) << 7);
                 for i in 0..8 {
                     let pin = (8 * port) + i;
+                    // Update input pins from the port report; skip OUTPUT/PWM/etc
+                    // so a digital-write echo can't clobber the host's cached
+                    // output state. A pull-up button reports in MODE_PULLUP — the
+                    // common, correct wiring for a simple button — so it must be
+                    // accepted here too, not just bare MODE_INPUT, or its value
+                    // never updates and the node looks dead.
                     if (self.pins.len() as i32) > pin
-                        && self.pins[pin as usize].mode == MODE_INPUT
+                        && matches!(self.pins[pin as usize].mode, MODE_INPUT | MODE_PULLUP)
                     {
                         self.pins[pin as usize].value = (value >> (i & 0x07)) & 0x01;
                     }
