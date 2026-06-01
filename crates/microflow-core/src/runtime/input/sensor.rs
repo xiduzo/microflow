@@ -11,6 +11,11 @@ use crate::runtime::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Firmata pin number of analog channel 0 on an ATmega328 board (Uno/Nano):
+/// `A0 == pin 14`. The codec's analog decode hard-codes the same base
+/// (`pin = channel + 14`), so the two must agree.
+const ANALOG_PIN_BASE: u8 = 14;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SensorType {
@@ -53,12 +58,20 @@ impl Default for SensorConfig {
 }
 
 impl SensorConfig {
-    /// Pin number for analog operations. Handles both legacy "A0" format and the
-    /// current numeric format (e.g. "14" for A0 on an Uno).
+    /// Pin number for analog operations. Handles both the `"A0"` channel format
+    /// and the numeric pin format (e.g. `"14"` for A0 on an Uno).
+    ///
+    /// `"A0"` names analog *channel* 0, which is Firmata *pin* 14 on an
+    /// ATmega328 board — matching the codec's analog decode (`pin = channel +
+    /// 14`) and [`BufferBoardWriter::analog_channel_for`]. Returning the bare
+    /// channel (0) here was a bug: reporting, pin-mode, and change-detection all
+    /// then targeted the wrong pin, so the sensor never updated. The frontend
+    /// leaves `data.pin` at its `"A0"` default until the pin is re-picked, so
+    /// this path is the common one.
     #[must_use]
     pub fn analog_pin(&self) -> u8 {
         if self.pin.starts_with('A') || self.pin.starts_with('a') {
-            self.pin[1..].parse().unwrap_or(0)
+            ANALOG_PIN_BASE.saturating_add(self.pin[1..].parse::<u8>().unwrap_or(0))
         } else {
             self.pin.parse().unwrap_or(0)
         }
@@ -151,5 +164,27 @@ impl ComponentBuilder for Sensor {
     type Config = SensorConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cfg(pin: &str) -> SensorConfig {
+        SensorConfig { pin: pin.to_string(), ..SensorConfig::default() }
+    }
+
+    #[test]
+    fn analog_pin_maps_channel_format_to_firmata_pin() {
+        // "A0" is channel 0 -> Firmata pin 14 (not the bare channel 0).
+        assert_eq!(cfg("A0").analog_pin(), 14);
+        assert_eq!(cfg("A1").analog_pin(), 15);
+        assert_eq!(cfg("a2").analog_pin(), 16);
+        // Numeric format is the pin number directly.
+        assert_eq!(cfg("14").analog_pin(), 14);
+        assert_eq!(cfg("20").analog_pin(), 20);
+        // The default config (pin "A0") must resolve to pin 14, not 0.
+        assert_eq!(SensorConfig::default().analog_pin(), 14);
     }
 }
