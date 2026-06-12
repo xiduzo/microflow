@@ -248,11 +248,20 @@ impl FlowRuntime {
             let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
             for (&pin, &is_analog) in &report {
                 if !self.report_set.contains_key(&pin) {
-                    let _ = if is_analog {
+                    let enabled = if is_analog {
                         writer.enable_analog_reporting(pin)
                     } else {
                         writer.enable_digital_reporting(pin)
                     };
+                    // A failure here (pin table not seeded / pin not analog)
+                    // means the board will never stream this pin — surface it,
+                    // a silent drop here cost a full debugging session.
+                    if let Err(e) = enabled {
+                        log::warn!(
+                            "enable {} reporting failed for pin {pin}: {e}",
+                            if is_analog { "analog" } else { "digital" }
+                        );
+                    }
                 }
             }
             for (&pin, &is_analog) in &self.report_set {
@@ -912,6 +921,70 @@ mod tests {
 
         let led_on = FirmataClient::new().encode_digital_write(13, true);
         assert!(contains(&effects.outbound_bytes, &led_on), "sensor>0 should light the led via the gate");
+    }
+
+    /// The full hardware-faithful analog loop on an Uno-shaped board: seed the
+    /// exact pin-table JSON the desktop detection / web session hand over
+    /// (`analogChannel >= 0` marks A0..A5 = pins 14..19), apply a flow holding a
+    /// Sensor on `"A0"`, and assert both wire directions — REPORT_ANALOG must
+    /// target channel 0 (not pin/channel 14), and a raw `0xE0` frame must
+    /// surface as the sensor's value event.
+    #[test]
+    fn uno_sensor_on_a0_end_to_end_over_the_wire() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+
+        let pins: Vec<serde_json::Value> = (0i64..20)
+            .map(|p| {
+                json!({
+                    "pin": p,
+                    "supportedModes": [],
+                    "analogChannel": if p >= 14 { p } else { -1 },
+                })
+            })
+            .collect();
+        rt.seed_pins(&serde_json::to_string(&pins).unwrap()).unwrap();
+
+        let update = FlowUpdate {
+            nodes: vec![node(
+                "pot",
+                "Sensor",
+                json!({ "instance": "Sensor", "pin": "A0", "type": "analog", "threshold": 1 }),
+            )],
+            edges: vec![],
+        };
+        let setup = rt.update_flow(update);
+
+        let mode_analog = FirmataClient::new().encode_set_pin_mode(14, pin_mode::ANALOG);
+        assert!(
+            contains(&setup.outbound_bytes, &mode_analog),
+            "setup must set pin 14 (A0) to ANALOG mode, got: {:02X?}",
+            setup.outbound_bytes
+        );
+        let report_a0 = FirmataClient::new().encode_report_analog(0, true);
+        assert!(
+            contains(&setup.outbound_bytes, &report_a0),
+            "setup must enable REPORT_ANALOG on channel 0, got: {:02X?}",
+            setup.outbound_bytes
+        );
+        let wrong_channel = FirmataClient::new().encode_report_analog(14, true);
+        assert!(
+            !contains(&setup.outbound_bytes, &wrong_channel),
+            "REPORT_ANALOG must target the channel (0), never the pin (14)"
+        );
+
+        // Inbound: a real ANALOG_MESSAGE frame, channel 0 carrying 612.
+        let value = 612u16;
+        let frame = [0xE0, (value & 0x7F) as u8, (value >> 7) as u8];
+        let effects = rt.feed_bytes(&frame);
+        assert!(
+            effects
+                .component_events
+                .iter()
+                .any(|e| &*e.source == "pot" && e.value == ComponentValue::Number(f64::from(value))),
+            "analog frame must surface as the sensor's value event, got: {:?}",
+            effects.component_events
+        );
     }
 
     #[test]
