@@ -24,6 +24,10 @@
       "cache": false,
       "persistent": true
     },
+    "desktop:dev": {
+      "cache": false,
+      "persistent": true
+    },
     "db:push": {
       "cache": false
     },
