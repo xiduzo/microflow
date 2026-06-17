@@ -30,6 +30,9 @@ jobs:
             args: ''
 
     runs-on: ${{ matrix.platform }}
+    # Guard: a stuck Apple notarization (`notarytool --wait` blocks indefinitely)
+    # otherwise hangs the job to GitHub's 6h default. Fail fast + re-runnable.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
