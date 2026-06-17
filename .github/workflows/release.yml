@@ -118,12 +118,21 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          # wasm32 target so Tauri's beforeBuildCommand (`bun run build`) can
+          # compile the microflow-*-wasm crates before `vite build`.
+          targets: ${{ matrix.target }}, wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          # Pin a modern wasm-pack — the action's `latest` is a stale v0.9.1
+          # whose wasm-opt can't parse current wasm-bindgen output.
+          version: 'v0.13.1'
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/web/src-tauri -> target
+          workspaces: . -> target
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
