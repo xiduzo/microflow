@@ -242,36 +242,52 @@ impl FlowRuntime {
             }
         }
 
-        // 5. Reconcile reporting against the wire: enable newly-needed pins,
-        //    disable vanished ones. Bytes accumulate into `out`.
+        // 5. Reconcile reporting against the wire. Analog reporting is keyed per
+        //    channel (one per analog pin); digital reporting is per 8-pin PORT —
+        //    `REPORT_DIGITAL(port)` covers pins `port*8 ..= port*8 + 7`. Digital
+        //    must therefore be reconciled at PORT granularity: a port stays
+        //    enabled while *any* listened pin maps to it. Reconciling digital per
+        //    pin disabled the whole port when one sibling pin vanished, silently
+        //    killing the other inputs on it (observed as a button going dead after
+        //    its pin was moved within port 0). Bytes accumulate into `out`.
         {
             let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
+
+            // Analog: independent per channel — enable newly-needed, disable gone.
             for (&pin, &is_analog) in &report {
-                if !self.report_set.contains_key(&pin) {
-                    let enabled = if is_analog {
-                        writer.enable_analog_reporting(pin)
-                    } else {
-                        writer.enable_digital_reporting(pin)
-                    };
-                    // A failure here (pin table not seeded / pin not analog)
-                    // means the board will never stream this pin — surface it,
-                    // a silent drop here cost a full debugging session.
-                    if let Err(e) = enabled {
-                        log::warn!(
-                            "enable {} reporting failed for pin {pin}: {e}",
-                            if is_analog { "analog" } else { "digital" }
-                        );
+                if is_analog && !self.report_set.contains_key(&pin) {
+                    // A failure here (pin not flagged analog in the seeded table)
+                    // means the board will never stream this pin — surface it; a
+                    // silent drop here cost a full debugging session.
+                    if let Err(e) = writer.enable_analog_reporting(pin) {
+                        log::warn!("enable analog reporting failed for pin {pin}: {e}");
                     }
                 }
             }
             for (&pin, &is_analog) in &self.report_set {
-                if !report.contains_key(&pin) {
-                    let _ = if is_analog {
-                        writer.disable_analog_reporting(pin)
-                    } else {
-                        writer.disable_digital_reporting(pin)
-                    };
+                if is_analog && !report.contains_key(&pin) {
+                    let _ = writer.disable_analog_reporting(pin);
                 }
+            }
+
+            // Digital: per port — a port is needed while any digital pin maps to it.
+            let digital_ports = |set: &HashMap<u8, bool>| -> HashSet<u8> {
+                set.iter()
+                    .filter(|(_, &is_analog)| !is_analog)
+                    .map(|(&pin, _)| pin / 8)
+                    .collect()
+            };
+            let needed_ports = digital_ports(&report);
+            let prev_ports = digital_ports(&self.report_set);
+            for &port in needed_ports.difference(&prev_ports) {
+                // `enable_digital_reporting` keys off `pin / 8`; the port's first
+                // pin (`port * 8`) selects exactly that port.
+                if let Err(e) = writer.enable_digital_reporting(port * 8) {
+                    log::warn!("enable digital reporting failed for port {port}: {e}");
+                }
+            }
+            for &port in prev_ports.difference(&needed_ports) {
+                let _ = writer.disable_digital_reporting(port * 8);
             }
         }
 
@@ -1000,6 +1016,40 @@ mod tests {
         // second time (the led isn't re-initialized).
         let second = rt.update_flow(mk());
         assert!(second.outbound_bytes.is_empty(), "unchanged node must not re-initialize");
+    }
+
+    /// Regression: digital reporting is per 8-pin PORT, so removing one input
+    /// must not disable a port a sibling input still needs. Two buttons on port 0
+    /// (pins 2 + 3); dropping pin 3 must NOT emit `REPORT_DIGITAL(port 0, off)`,
+    /// or the pin-2 button goes dead — the live "button on pin 2/3 does nothing"
+    /// regression after a pin was moved within the same port.
+    #[test]
+    fn digital_reporting_is_reconciled_per_port_not_per_pin() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        rt.seed_digital_pins(20);
+
+        let btn = |id: &str, pin: i64| node(id, "Button", json!({ "instance": "Button", "pin": pin }));
+
+        // Two buttons sharing port 0.
+        rt.update_flow(FlowUpdate { nodes: vec![btn("b2", 2), btn("b3", 3)], edges: vec![] });
+
+        // Drop the pin-3 button; pin 2 still listens on port 0.
+        let after_drop = rt.update_flow(FlowUpdate { nodes: vec![btn("b2", 2)], edges: vec![] });
+        let disable_port0 = FirmataClient::new().encode_report_digital(0, false);
+        assert!(
+            !contains(&after_drop.outbound_bytes, &disable_port0),
+            "removing a sibling pin must not disable a port another pin still needs, got: {:02X?}",
+            after_drop.outbound_bytes
+        );
+
+        // Sanity: once the last pin on the port goes away, the port IS disabled.
+        let after_clear = rt.update_flow(FlowUpdate { nodes: vec![], edges: vec![] });
+        assert!(
+            contains(&after_clear.outbound_bytes, &disable_port0),
+            "the port must be disabled once no pin needs it, got: {:02X?}",
+            after_clear.outbound_bytes
+        );
     }
 
     fn contains(haystack: &[u8], needle: &[u8]) -> bool {
