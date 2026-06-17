@@ -10,6 +10,7 @@
     "build:wasm:codegen": "wasm-pack build ../../crates/microflow-codegen-wasm --target web --out-dir ../../apps/web/src/lib/codegen/generated",
     "build:wasm:firmata": "wasm-pack build ../../crates/microflow-firmata-wasm --target web --out-dir ../../apps/web/src/lib/firmata/generated",
     "build:wasm:runtime": "wasm-pack build ../../crates/microflow-runtime-wasm --target web --out-dir ../../apps/web/src/lib/runtime/generated",
+    "build:app": "vite build",
     "serve": "vite preview",
     "start": "vite",
     "check-types": "tsc --noEmit",

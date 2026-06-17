@@ -1,26 +1,25 @@
 # ---- Stage 1: compile the Rust -> WASM crates ----
 # microflow-core is compiled to wasm three ways (codegen / firmata / runtime) and
-# emitted into apps/web/src/lib/*/generated, which the Vite app imports. This stage
-# needs the full Cargo workspace (wasm-pack resolves every workspace member, incl.
-# apps/web/src-tauri) and runs the project's own `build:wasm` scripts so they stay
-# the single source of truth for what gets built and where.
+# emitted into apps/web/src/lib/*/generated, which the Vite app imports. wasm-pack
+# resolves the whole Cargo workspace, so the full repo is copied in. The wasm-pack
+# invocations mirror the project's build:wasm scripts exactly (same CWD + relative
+# paths) so --out-dir resolves identically to a local build. No bun here — its
+# installer needs unzip (absent from rust:1); wasm-pack is called directly.
 FROM rust:1 AS wasm
 WORKDIR /app
 
-# wasm toolchain — kept above the source COPY so it stays layer-cached across commits
+# wasm toolchain — above the source COPY so it stays layer-cached across commits
 RUN rustup target add wasm32-unknown-unknown \
  && cargo install wasm-pack --locked
-
-# bun, only to drive the project's build:wasm script chain
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
 
 # whole workspace: wasm-pack loads every member manifest during resolution
 COPY . .
 
 # emits apps/web/src/lib/{codegen,firmata,runtime}/generated
 WORKDIR /app/apps/web
-RUN bun run build:wasm
+RUN wasm-pack build ../../crates/microflow-codegen-wasm --target web --out-dir ../../apps/web/src/lib/codegen/generated \
+ && wasm-pack build ../../crates/microflow-firmata-wasm --target web --out-dir ../../apps/web/src/lib/firmata/generated \
+ && wasm-pack build ../../crates/microflow-runtime-wasm --target web --out-dir ../../apps/web/src/lib/runtime/generated
 
 # ---- Stage 2: install JS deps, bundle the Vite app, serve ----
 FROM oven/bun:1 AS web
@@ -39,10 +38,10 @@ COPY --from=wasm /app/apps/web/src/lib/codegen/generated  ./apps/web/src/lib/cod
 COPY --from=wasm /app/apps/web/src/lib/firmata/generated  ./apps/web/src/lib/firmata/generated
 COPY --from=wasm /app/apps/web/src/lib/runtime/generated  ./apps/web/src/lib/runtime/generated
 
-# Bundle only — wasm is already built above, so do NOT re-run build:wasm here.
-# `--bun` runs vite under the bun runtime (no node in this image).
+# wasm already built above — run only the Vite bundle. `build:app` (= vite build)
+# via `bun run` is the proven pattern that runs vite under the bun runtime.
 WORKDIR /app/apps/web
-RUN bunx --bun vite build
+RUN bun run build:app
 
 ENV NODE_ENV=production
 EXPOSE 3001
