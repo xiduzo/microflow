@@ -11,7 +11,7 @@ use crate::runtime::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Firmata pin number of analog channel 0 on an ATmega328 board (Uno/Nano):
+/// Firmata pin number of analog channel 0 on an `ATmega328` board (Uno/Nano):
 /// `A0 == pin 14`. The codec's analog decode hard-codes the same base
 /// (`pin = channel + 14`), so the two must agree.
 const ANALOG_PIN_BASE: u8 = 14;
@@ -62,7 +62,7 @@ impl SensorConfig {
     /// and the numeric pin format (e.g. `"14"` for A0 on an Uno).
     ///
     /// `"A0"` names analog *channel* 0, which is Firmata *pin* 14 on an
-    /// ATmega328 board — matching the codec's analog decode (`pin = channel +
+    /// `ATmega328` board — matching the codec's analog decode (`pin = channel +
     /// 14`) and [`BufferBoardWriter::analog_channel_for`]. Returning the bare
     /// channel (0) here was a bug: reporting, pin-mode, and change-detection all
     /// then targeted the wrong pin, so the sensor never updated. The frontend
