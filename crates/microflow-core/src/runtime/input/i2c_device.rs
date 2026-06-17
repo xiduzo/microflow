@@ -221,8 +221,10 @@ impl HardwareComponent for I2cDevice {
                 .collect();
 
             let converted = self.convert_bytes(&raw);
+            // `set_value` already emits "value" on change; a second explicit
+            // emit would re-fire on every poll (even when unchanged) now that
+            // the emit layer no longer value-dedupes.
             self.base.set_value(converted);
-            self.base.emit("value");
 
             // Schedule next read after processing
             self.request_read(ctx)?;

@@ -3,6 +3,7 @@
 //! Components that read data from hardware: buttons, sensors, motion detectors, etc.
 
 mod button;
+mod debounce;
 mod hotkey;
 mod i2c_device;
 mod motion;

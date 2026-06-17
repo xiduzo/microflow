@@ -4,11 +4,12 @@
 //! Supports Normally-Open (NO) and Normally-Closed (NC) wiring.
 //! Reference: <https://johnny-five.io/examples/switch/>
 //!
-//! Note vs. the desktop original: the `board: Option<Arc<BoardHandle>>` field is
-//! dropped (the board arrives per-dispatch via `RuntimeContext`), digital
-//! reporting is no longer enabled here (the runtime reconciles reporting
-//! centrally from `listener_wiring`), and the `Instant`-based debounce now reads
-//! the host clock via `ctx.now_ms()`.
+//! Debounce mirrors [`super::button`]: digital pins report only on *change*, so
+//! a level seen while the line is still bouncing is *deferred* (via a
+//! `_debounce` wakeup) and accepted once the line has held quiet — never
+//! dropped. The old naive lockout dropped the final edge, desyncing `is_closed`
+//! from the pin forever (a flipped switch that "stops responding"). The raw pin
+//! level is translated to the logical closed/open level before debouncing.
 
 use crate::runtime::{
     pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
@@ -16,8 +17,10 @@ use crate::runtime::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Debounce window: ignore state changes within this many milliseconds of the last.
-const DEBOUNCE_MS: f64 = 20.0;
+/// Quiet window a line must hold before a deferred level is accepted. Must
+/// exceed one 50Hz mains period (20ms) — see [`super::button`] for the full
+/// rationale (a window at the mains period razor-edges on a floating pin).
+const DEBOUNCE_MS: f64 = 50.0;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SwitchType {
@@ -51,8 +54,10 @@ pub struct Switch {
     base: ComponentBase,
     config: SwitchConfig,
     is_closed: bool,
-    /// Timestamp (host clock, ms) of the last state change, used for debouncing.
-    last_change_ms: Option<f64>,
+    /// Host-clock timestamp (ms) of the last raw edge seen on the pin.
+    last_edge_ms: Option<f64>,
+    /// Latest logical level seen while the line was bouncing, awaiting a quiet line.
+    pending: Option<bool>,
 }
 
 impl Switch {
@@ -62,7 +67,8 @@ impl Switch {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,
             is_closed: false,
-            last_change_ms: None,
+            last_edge_ms: None,
+            pending: None,
         }
     }
 
@@ -78,27 +84,36 @@ impl Switch {
 
     fn process_state(&mut self, pin_high: bool, ctx: &mut RuntimeContext) {
         let closed = self.is_logically_closed(pin_high);
+        let now = ctx.now_ms();
+        let quiet = self.last_edge_ms.map_or(true, |last| now - last >= DEBOUNCE_MS);
+        self.last_edge_ms = Some(now);
 
-        if closed != self.is_closed {
-            // Debounce: ignore changes within DEBOUNCE_MS of the last one.
-            let now = ctx.now_ms();
-            if let Some(last) = self.last_change_ms {
-                if now - last < DEBOUNCE_MS {
-                    return;
-                }
+        if quiet {
+            // Clean edge after a quiet line: accept immediately.
+            self.pending = None;
+            ctx.cancel_wakeup("_debounce");
+            if closed != self.is_closed {
+                self.apply_state(closed);
             }
-            self.last_change_ms = Some(now);
-            self.is_closed = closed;
-            self.base.set_value(ComponentValue::Bool(closed));
+        } else {
+            // Line is bouncing (or humming): remember the level and settle it once
+            // the line has held quiet for DEBOUNCE_MS. The deferred accept is
+            // load-bearing — digital reports only arrive on *change*, so a dropped
+            // final edge would desync `is_closed` from the real pin level forever.
+            self.pending = Some(closed);
+            ctx.schedule_wakeup("_debounce", DEBOUNCE_MS as u64);
+        }
+    }
 
-            // Emit on every state change
-            self.base.emit("event");
-
-            if closed {
-                self.base.emit("true");
-            } else {
-                self.base.emit("false");
-            }
+    /// Commit an accepted state change: value + edge emits.
+    fn apply_state(&mut self, closed: bool) {
+        self.is_closed = closed;
+        self.base.set_value(ComponentValue::Bool(closed));
+        self.base.emit("event");
+        if closed {
+            self.base.emit("true");
+        } else {
+            self.base.emit("false");
         }
     }
 }
@@ -137,6 +152,34 @@ impl Component for Switch {
             _ => Err(RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
     }
+
+    fn dispatch_internal(
+        &mut self,
+        method: &str,
+        _value: ComponentValue,
+        ctx: &mut RuntimeContext,
+    ) -> Result<(), RuntimeError> {
+        match method {
+            // Debounce timer fired: if the line has held quiet for a full window,
+            // settle on the last logical level seen; otherwise it is still
+            // bouncing — try again one window later.
+            "debounce" => {
+                let Some(pending) = self.pending else { return Ok(()) };
+                let now = ctx.now_ms();
+                let quiet = self.last_edge_ms.map_or(true, |last| now - last >= DEBOUNCE_MS);
+                if quiet {
+                    self.pending = None;
+                    if pending != self.is_closed {
+                        self.apply_state(pending);
+                    }
+                } else {
+                    ctx.schedule_wakeup("_debounce", DEBOUNCE_MS as u64);
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 impl HardwareComponent for Switch {
@@ -161,5 +204,78 @@ impl ComponentBuilder for Switch {
     type Config = SwitchConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::firmata::FirmataClient;
+    use crate::runtime::{BufferBoardWriter, EventSink, ScheduleRequests};
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+
+    /// Deliver one raw pin reading (`pin_high`) at host-clock time `now_ms`.
+    fn feed(sw: &mut Switch, pin_high: bool, now_ms: f64) {
+        let mut client = FirmataClient::new();
+        let mut out = Vec::new();
+        let mut writer = BufferBoardWriter::new(&mut client, &mut out);
+        let mut reqs = ScheduleRequests::default();
+        let mut ctx = RuntimeContext::new(&mut writer, now_ms, "sw", &mut reqs);
+        sw.on_pin_change(ComponentValue::Bool(pin_high), &mut ctx).unwrap();
+    }
+
+    /// Fire the `_debounce` wakeup at host-clock time `now_ms`.
+    fn wake_debounce(sw: &mut Switch, now_ms: f64) {
+        let mut client = FirmataClient::new();
+        let mut out = Vec::new();
+        let mut writer = BufferBoardWriter::new(&mut client, &mut out);
+        let mut reqs = ScheduleRequests::default();
+        let mut ctx = RuntimeContext::new(&mut writer, now_ms, "sw", &mut reqs);
+        sw.dispatch_internal("debounce", ComponentValue::default(), &mut ctx).unwrap();
+    }
+
+    fn drained_handles(sink: &EventSink) -> Vec<String> {
+        sink.borrow_mut().drain(..).map(|e| e.source_handle.to_string()).collect()
+    }
+
+    /// The regression behind "the switch flips once, then stops responding":
+    /// a digital report only arrives on change, so an edge dropped inside the
+    /// debounce window desyncs `is_closed` from the pin forever unless the
+    /// deferred level is settled by the wakeup. (NO wiring: pin LOW = closed.)
+    #[test]
+    fn edge_inside_the_window_settles_instead_of_desyncing() {
+        let mut sw = Switch::new("sw".into(), SwitchConfig::default());
+        let sink: EventSink = Rc::new(RefCell::new(VecDeque::new()));
+        sw.set_sink(sink.clone());
+
+        feed(&mut sw, false, 0.0); // pin LOW → closed: accepted immediately
+        assert!(sw.is_closed);
+        assert!(drained_handles(&sink).contains(&"true".to_string()));
+
+        feed(&mut sw, true, 5.0); // pin HIGH → open, inside the window: deferred
+        assert!(sw.is_closed, "edge inside the window is deferred, not applied");
+
+        // No further reports ever arrive. The armed wakeup must resync.
+        wake_debounce(&mut sw, 60.0);
+        assert!(!sw.is_closed, "deferred edge must settle once the line is quiet");
+        assert!(drained_handles(&sink).contains(&"false".to_string()));
+    }
+
+    /// A clean toggle slower than the window passes straight through, emitting a
+    /// fresh edge every time (no value-dedup swallowing repeats).
+    #[test]
+    fn clean_toggles_emit_every_edge() {
+        let mut sw = Switch::new("sw".into(), SwitchConfig::default());
+        let sink: EventSink = Rc::new(RefCell::new(VecDeque::new()));
+        sw.set_sink(sink.clone());
+
+        feed(&mut sw, false, 0.0); // closed
+        feed(&mut sw, true, 100.0); // open
+        feed(&mut sw, false, 200.0); // closed again
+        let handles = drained_handles(&sink);
+        assert_eq!(handles.iter().filter(|h| h.as_str() == "true").count(), 2);
+        assert_eq!(handles.iter().filter(|h| h.as_str() == "false").count(), 1);
     }
 }

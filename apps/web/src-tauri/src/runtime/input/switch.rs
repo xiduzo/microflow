@@ -3,15 +3,20 @@
 //! A latching on/off toggle switch (as opposed to a momentary Button).
 //! Supports Normally-Open (NO) and Normally-Closed (NC) wiring.
 //! Reference: <https://johnny-five.io/examples/switch/>
+//!
+//! Debounce is delegated to the shared [`super::debounce::Debouncer`]
+//! (deferred-settle, never drops an edge — see `debounce.rs`). The raw pin
+//! level is translated to the logical closed/open level *before* being fed in,
+//! so the worker debounces the logical state. No hold pulse (latching switch).
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
-    HardwareComponent,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue, HardwareComponent,
 };
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+
+use super::debounce::Debouncer;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SwitchType {
@@ -43,9 +48,7 @@ pub struct Switch {
     base: ComponentBase,
     config: SwitchConfig,
     board: Option<Arc<BoardHandle>>,
-    is_closed: bool,
-    /// Timestamp of the last state change, used for debouncing
-    last_change: Option<Instant>,
+    debounce: Option<Debouncer>,
 }
 
 impl Switch {
@@ -55,8 +58,7 @@ impl Switch {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,
             board: None,
-            is_closed: false,
-            last_change: None,
+            debounce: None,
         }
     }
 
@@ -70,30 +72,14 @@ impl Switch {
         }
     }
 
-    fn process_state(&mut self, pin_high: bool) {
-        let closed = self.is_logically_closed(pin_high);
-        log::info!("Switch {} process_state: pin_high={}, closed={}, was_closed={}, type={:?}",
-            self.base.id, pin_high, closed, self.is_closed, self.config.switch_type);
-
-        if closed != self.is_closed {
-            // Debounce: ignore changes within 20ms of the last one
-            if let Some(last) = self.last_change {
-                if last.elapsed() < Duration::from_millis(20) {
-                    return;
-                }
-            }
-            self.last_change = Some(Instant::now());
-            self.is_closed = closed;
-            self.base.set_value(ComponentValue::Bool(closed));
-
-            // Emit on every state change
-            self.base.emit("event");
-
-            if closed {
-                self.base.emit("true");
-            } else {
-                self.base.emit("false");
-            }
+    /// Spawn the debounce worker on first use (needs the event sender wired).
+    fn ensure_debouncer(&mut self) {
+        if self.debounce.is_some() {
+            return;
+        }
+        if let Some(sender) = self.base.event_sender.clone() {
+            // No hold for a latching switch.
+            self.debounce = Some(Debouncer::spawn(sender, self.base.id.clone(), None));
         }
     }
 }
@@ -119,6 +105,8 @@ impl Component for Switch {
     }
 
     fn destroy(&mut self) {
+        // Dropping the debouncer stops and joins its worker.
+        self.debounce = None;
         if let Some(board) = &self.board {
             log::info!("Switch {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
             board.disable_digital_reporting(self.config.pin).ignore();
@@ -137,11 +125,12 @@ impl HardwareComponent for Switch {
     }
 
     fn on_pin_change(&mut self, value: ComponentValue) -> Result<(), crate::error::RuntimeError> {
-        log::info!("Switch {} pin_change with value: {:?}", self.base.id, value);
         if let Some(pin_high) = value.as_bool() {
-            self.process_state(pin_high);
-        } else {
-            log::warn!("Switch {} pin_change: could not extract bool from {:?}", self.base.id, value);
+            let closed = self.is_logically_closed(pin_high);
+            self.ensure_debouncer();
+            if let Some(debounce) = &self.debounce {
+                debounce.feed(closed);
+            }
         }
         Ok(())
     }

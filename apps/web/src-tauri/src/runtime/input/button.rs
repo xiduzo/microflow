@@ -1,14 +1,19 @@
 //! Button Component - Input
+//!
+//! A momentary push button. Debounce is delegated to the shared
+//! [`super::debounce::Debouncer`] (deferred-settle, never drops an edge); the
+//! Button only adds its `hold` pulse, configured via `holdtime`. See
+//! `debounce.rs` for why dropping edges desyncs a digital-on-change input.
 
 use crate::runtime::base::{
-    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue,
-    HardwareComponent,
+    pin_mode, serde_utils, BoardHandle, Component, ComponentBase, ComponentValue, HardwareComponent,
 };
 use crate::runtime::wiring::ListenerWiring;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use super::debounce::Debouncer;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,63 +43,34 @@ pub struct Button {
     base: ComponentBase,
     config: ButtonConfig,
     board: Option<Arc<BoardHandle>>,
-    is_pressed: bool,
-    press_start: Option<Instant>,
-    hold_emitted: bool,
-    polling_active: Arc<AtomicBool>,
-    poll_handle: Option<tokio::task::JoinHandle<()>>,
-    /// Timestamp of the last state change, used for debouncing
-    last_change: Option<Instant>,
+    debounce: Option<Debouncer>,
 }
 
 impl Button {
-    #[must_use] 
+    #[must_use]
     pub fn new(id: String, config: ButtonConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
-            config, board: None, is_pressed: false, press_start: None,
-            hold_emitted: false, polling_active: Arc::new(AtomicBool::new(false)), poll_handle: None,
-            last_change: None,
+            config,
+            board: None,
+            debounce: None,
         }
     }
 
-    fn process_state(&mut self, pressed: bool) {
-        if pressed != self.is_pressed {
-            // Debounce: ignore state changes that arrive within XXXms of the last one.
-            // Most mechanical switches settle within 5ms;
-            // keeping latency imperceptible for real-time flows.
-            if let Some(last) = self.last_change {
-                if last.elapsed() < Duration::from_millis(20) {
-                    return;
-                }
-            }
-            self.last_change = Some(Instant::now());
-            self.is_pressed = pressed;
-            self.base.set_value(ComponentValue::Bool(pressed));
-            if pressed {
-                self.press_start = Some(Instant::now());
-                self.hold_emitted = false;
-                self.base.emit("event");
-                self.base.emit("true");
-            } else {
-                self.press_start = None;
-                self.hold_emitted = false;
-                self.base.emit("event");
-                self.base.emit("false");
-            }
-        } else if pressed && !self.hold_emitted {
-            if let Some(start) = self.press_start {
-                if start.elapsed() >= Duration::from_millis(self.config.holdtime) {
-                    self.hold_emitted = true;
-                    self.base.emit("hold");
-                }
-            }
+    /// Spawn the debounce worker on first use. Needs the event sender wired, so
+    /// it is created lazily from `on_pin_change` (by which point the registry
+    /// has set the sender) rather than in `new`.
+    fn ensure_debouncer(&mut self) {
+        if self.debounce.is_some() {
+            return;
         }
-    }
-
-    fn stop_polling(&mut self) {
-        self.polling_active.store(false, Ordering::Relaxed);
-        if let Some(handle) = self.poll_handle.take() { handle.abort(); }
+        if let Some(sender) = self.base.event_sender.clone() {
+            self.debounce = Some(Debouncer::spawn(
+                sender,
+                self.base.id.clone(),
+                Some(Duration::from_millis(self.config.holdtime)),
+            ));
+        }
     }
 }
 
@@ -119,7 +95,8 @@ impl Component for Button {
     }
 
     fn destroy(&mut self) {
-        self.stop_polling();
+        // Dropping the debouncer stops and joins its worker.
+        self.debounce = None;
         if let Some(board) = &self.board {
             log::info!("Button {} destroy: disabling digital reporting for pin {}", self.base.id, self.config.pin);
             board.disable_digital_reporting(self.config.pin).ignore();
@@ -134,13 +111,15 @@ impl HardwareComponent for Button {
         board.set_pin_mode(self.config.pin, mode).ignore();
         board.enable_digital_reporting(self.config.pin).ignore();
         self.board = Some(board);
-        self.polling_active.store(true, Ordering::Relaxed);
         Ok(())
     }
 
     fn on_pin_change(&mut self, value: ComponentValue) -> Result<(), crate::error::RuntimeError> {
         if let Some(pressed) = value.as_bool() {
-            self.process_state(pressed);
+            self.ensure_debouncer();
+            if let Some(debounce) = &self.debounce {
+                debounce.feed(pressed);
+            }
         }
         Ok(())
     }

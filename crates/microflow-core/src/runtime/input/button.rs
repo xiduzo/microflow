@@ -345,8 +345,9 @@ mod tests {
         wake_debounce(&mut btn, 435.0);
         assert!(!btn.is_pressed, "line must settle at its resting level once the hum stops");
 
-        // A solid press on the now-quiet line registers immediately. (The "true"
-        // handle dedups per-value, so assert on the alternating "event" handle.)
+        // A solid press on the now-quiet line registers immediately. ("true"
+        // fires only on this final press and "false" only on the settle, so
+        // assert on the "event" handle, which fires on every edge.)
         feed(&mut btn, true, 500.0);
         assert!(btn.is_pressed, "clean press after the hum must register");
         let handles = drained_handles(&sink);

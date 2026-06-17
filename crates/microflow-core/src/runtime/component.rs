@@ -17,7 +17,7 @@ use crate::runtime::value::{ComponentEvent, ComponentValue};
 use crate::runtime::wiring::{ListenerWiring, SubscriberWiring};
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -166,8 +166,6 @@ pub struct ComponentBase {
     pub value: ComponentValue,
     /// The shared emit queue. `None` until the registry calls `set_sink`.
     pub sink: Option<EventSink>,
-    /// Last emitted value per handle, used for deduplication.
-    last_emitted: HashMap<Arc<str>, ComponentValue>,
 }
 
 impl ComponentBase {
@@ -177,7 +175,6 @@ impl ComponentBase {
             id: Arc::from(id),
             value: initial_value,
             sink: None,
-            last_emitted: HashMap::new(),
         }
     }
 
@@ -189,34 +186,22 @@ impl ComponentBase {
         }
     }
 
-    /// Emit an event with the current value, only if it differs from the last
-    /// emitted value on this handle.
+    /// Emit an event carrying the component's current value on `handle`.
+    ///
+    /// Always fires. Edge handles like `true`/`false`/`hold`/`event` are
+    /// momentary triggers whose value is constant per handle, so value-deduping
+    /// here would let them fire once and then silently swallow every later edge
+    /// (the "button true/false stops working after the first press" bug).
+    /// State-level dedup belongs to [`Self::set_value`], which only emits
+    /// `"value"` when the value actually changes.
     pub fn emit(&mut self, handle: &str) {
-        if self.is_duplicate(handle, &self.value.clone()) {
-            return;
-        }
         self.send(handle, Cow::Borrowed(&self.value));
     }
 
-    /// Emit an event with a custom value, only if it differs from the last
-    /// emitted value on this handle.
+    /// Emit an event carrying a custom `value` on `handle`. Always fires; see
+    /// [`Self::emit`] for why edge handles must not be value-deduped.
     pub fn emit_with_value(&mut self, handle: &str, value: Cow<'_, ComponentValue>) {
-        if self.is_duplicate(handle, value.as_ref()) {
-            return;
-        }
         self.send(handle, value);
-    }
-
-    /// Check if the value for this handle is the same as the last emitted value.
-    /// Updates the stored value if different.
-    fn is_duplicate(&mut self, handle: &str, value: &ComponentValue) -> bool {
-        if let Some(last) = self.last_emitted.get(handle) {
-            if last == value {
-                return true;
-            }
-        }
-        self.last_emitted.insert(Arc::from(handle), value.clone());
-        false
     }
 
     /// Push the event onto the shared emit queue. The executor drains it.
