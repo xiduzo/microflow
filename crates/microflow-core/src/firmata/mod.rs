@@ -398,6 +398,20 @@ impl FirmataClient {
                     }
                     // Guard the resolution byte against a truncated frame.
                     let resolution = buf.get(i + 1).copied().unwrap_or(0);
+                    // A pin that advertises the ANALOG mode *is* an analog input.
+                    // Derive `.analog` from the capability here instead of relying
+                    // solely on the separate ANALOG_MAPPING_RESPONSE: that response
+                    // trails a large capability dump and is easily missed during
+                    // detection, leaving every pin `.analog = false` —
+                    // `enable_analog_reporting` then refuses every analog pin and
+                    // the UI can't label A0..An. The analog *channel* is derived by
+                    // counting analog pins (`BufferBoardWriter::analog_channel_for`),
+                    // never from the mapping's channel byte, so the capability mode
+                    // alone is enough. (The mapping handler still runs when present;
+                    // it only sets the same flag.)
+                    if buf[i] == MODE_ANALOG {
+                        self.pins[pin].analog = true;
+                    }
                     self.pins[pin].modes.push(Mode { mode: buf[i], resolution });
                     i += 2;
                 }

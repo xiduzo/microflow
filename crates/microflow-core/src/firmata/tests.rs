@@ -119,6 +119,29 @@ fn analog_mapping_response_flags_analog_pins() {
 }
 
 #[test]
+fn capability_response_flags_analog_pins_without_analog_mapping() {
+    // The ANALOG_MAPPING_RESPONSE trails a large capability dump and is easily
+    // missed during detection (observed: a Nano whose pins all came back
+    // `analogChannel: -1`). A pin advertising the ANALOG mode must therefore be
+    // flagged analog from the capability alone, or analog reporting is refused
+    // for every analog pin and the UI can't label A0..An. Regression for a dead
+    // potentiometer + missing analog pin labels.
+    let mut c = FirmataClient::new();
+    // pin0: INPUT/OUTPUT (digital only). pin1: ANALOG-capable. No mapping sent.
+    let frame = [
+        START_SYSEX,
+        CAPABILITY_RESPONSE,
+        MODE_INPUT, 1, MODE_OUTPUT, 1, 127,
+        MODE_ANALOG, 10, 127,
+        END_SYSEX,
+    ];
+    let msgs = c.feed(&frame);
+    assert_eq!(msgs, vec![Message::CapabilityResponse]);
+    assert!(!c.pins[0].analog, "a digital-only pin must not be flagged analog");
+    assert!(c.pins[1].analog, "a pin advertising ANALOG mode must be flagged analog");
+}
+
+#[test]
 fn analog_message_updates_pin_14_offset() {
     let mut c = FirmataClient::new();
     c.pins = vec![Pin::default(); 20];

@@ -364,6 +364,12 @@ impl Actor {
                 if let Err(e) = self.rt.seed_pins(&pins_json) {
                     log::warn!("[actor] seed_pins failed: {e}");
                 }
+                // Diagnostic (Bug B): the seeded table decides which pins the
+                // runtime will accept analog reporting for (a pin needs
+                // `analogChannel >= 0`). Logging the raw JSON distinguishes
+                // "analog mapping never parsed" (no pin analog) from "A0 is not
+                // pin 14 on this board" (some other pin carries the analog flag).
+                log::info!("[actor] seeded pins_json: {pins_json}");
                 let mut port = port;
                 let _ = port.set_timeout(Duration::from_millis(READ_TIMEOUT_MS));
                 self.port = Some(port);
