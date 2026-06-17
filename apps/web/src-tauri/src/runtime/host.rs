@@ -577,10 +577,10 @@ mod tests {
 
         rt.dispatch("fig", "true", ComponentValue::Bool(true));
 
-        let published = wait_for_publishes(&publisher, 1, Duration::from_secs(1)).await;
-        assert_eq!(published.len(), 1);
-        assert_eq!(published[0].topic, "microflow/uid-1/app/variable/1-2/set");
-        assert_eq!(published[0].payload, b"true");
+        let delivered = wait_for_publishes(&publisher, 1, Duration::from_secs(1)).await;
+        assert_eq!(delivered.len(), 1);
+        assert_eq!(delivered[0].topic, "microflow/uid-1/app/variable/1-2/set");
+        assert_eq!(delivered[0].payload, b"true");
     }
 
     #[test]

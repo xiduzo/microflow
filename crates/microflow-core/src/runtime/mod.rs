@@ -942,7 +942,7 @@ mod tests {
     /// The full hardware-faithful analog loop on an Uno-shaped board: seed the
     /// exact pin-table JSON the desktop detection / web session hand over
     /// (`analogChannel >= 0` marks A0..A5 = pins 14..19), apply a flow holding a
-    /// Sensor on `"A0"`, and assert both wire directions — REPORT_ANALOG must
+    /// Sensor on `"A0"`, and assert both wire directions — `REPORT_ANALOG` must
     /// target channel 0 (not pin/channel 14), and a raw `0xE0` frame must
     /// surface as the sensor's value event.
     #[test]
