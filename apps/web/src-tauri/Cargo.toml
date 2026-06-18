@@ -19,7 +19,7 @@ tauri-build = { version = "2.5.3", features = [] }
 serde_json = "1"
 
 [dependencies]
-microflow-core = { path = "../../../crates/microflow-core", features = ["runtime"] }
+microflow-core = { path = "../../../crates/microflow-core", features = ["runtime", "js"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
@@ -39,7 +39,6 @@ rustc-hash = "1"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 thiserror = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-boa_engine = "0.20"
 dashmap = "6"
 async-trait = "0.1"
 # TypeScript bindings for shared frontend payloads. `#[derive(TS)]` plus
@@ -50,8 +49,3 @@ ts-rs = "10"
 
 [dev-dependencies]
 proptest = "1"
-criterion = { version = "0.5", features = ["html_reports"] }
-
-[[bench]]
-name = "event_routing"
-harness = false

@@ -4,12 +4,12 @@
 
 use super::host::ActorMsg;
 use super::services::{HttpLlmProvider, LlmProvider};
-use super::FlowUpdate;
 use crate::codegen::board::{target_by_id, BoardTarget};
 use crate::codegen::credentials::{Credentials, MissingCredential};
 use crate::codegen::GenerationOutcome;
 use crate::AppState;
 use crate::mqtt::broker::BrokerConfig;
+use microflow_core::flow::FlowUpdate;
 use microflow_core::runtime::{ComponentValue, SubscriberWiring};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

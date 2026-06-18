@@ -2,16 +2,19 @@
 //!
 //! These are the wire-compatible shapes the browser reactor and the desktop
 //! frontend both consume. The serde representation here is the single source of
-//! truth for the `ComponentValue` / `ComponentEvent` JSON; the desktop crate's
-//! `ts-rs` bindings (generated from its mirror types until Stage 4) describe the
-//! same shape, so the bytes match on both platforms.
+//! truth for the `ComponentValue` / `ComponentEvent` JSON, and the `ts-rs`
+//! `#[ts(export)]` bindings below are generated straight from these types into
+//! `apps/web/src/lib/bindings/` (via `TS_RS_EXPORT_DIR`), so the bytes match on
+//! both platforms with no desktop-side mirror to drift out of sync.
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use ts_rs::TS;
 
 /// Value that a component can hold.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(untagged)]
+#[ts(export)]
 pub enum ComponentValue {
     Bool(bool),
     Number(f64),
@@ -94,14 +97,18 @@ impl ComponentValue {
 /// `Serialize`-only: the frontend consumes these (via the desktop
 /// `component-event` Tauri event, or the browser reactor's `Effects`), never
 /// sends them back. `Arc<str>` fields stay cheap to clone during fanout.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct ComponentEvent {
+    #[ts(type = "string")]
     pub source: Arc<str>,
+    #[ts(type = "string")]
     pub source_handle: Arc<str>,
     pub value: ComponentValue,
     pub edge_id: Option<String>,
     /// Flow version when the event was created (stale-gating).
+    #[ts(type = "number")]
     pub sequence: u64,
 }
 

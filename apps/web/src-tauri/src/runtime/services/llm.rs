@@ -184,8 +184,8 @@ impl LlmProvider for HttpLlmProvider {
 /// Test [`LlmProvider`] that records every inbound request and returns
 /// scripted outcomes from a FIFO queue.
 ///
-/// Mirrors the [`crate::runtime::board::TestIoLoop`] pattern: tests assert
-/// what was sent and drive the component through both success and failure
+/// Mirrors the recording-test-double pattern: tests assert what was sent and
+/// drive the component through both success and failure
 /// paths without standing up an LLM endpoint. The second adapter beside
 /// [`HttpLlmProvider`] is what makes [`LlmProvider`] a real seam.
 ///

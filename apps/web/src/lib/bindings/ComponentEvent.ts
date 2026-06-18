@@ -4,9 +4,12 @@ import type { ComponentValue } from "./ComponentValue";
 /**
  * Event emitted by a component.
  *
- * `Serialize`-only: the frontend consumes these via the `component-event`
- * Tauri event, never sends them back. Dropping `Deserialize` lets us keep
- * `Arc<str>` fields without a custom deserializer (which `ts-rs` cannot
- * parse and would otherwise warn about on every build).
+ * `Serialize`-only: the frontend consumes these (via the desktop
+ * `component-event` Tauri event, or the browser reactor's `Effects`), never
+ * sends them back. `Arc<str>` fields stay cheap to clone during fanout.
  */
-export type ComponentEvent = { source: string, sourceHandle: string, value: ComponentValue, edgeId: string | null, sequence: number, };
+export type ComponentEvent = { source: string, sourceHandle: string, value: ComponentValue, edgeId: string | null, 
+/**
+ * Flow version when the event was created (stale-gating).
+ */
+sequence: number, };
