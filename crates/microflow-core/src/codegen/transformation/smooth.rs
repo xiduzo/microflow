@@ -2,8 +2,10 @@
 //!
 //! The live Smooth Node holds state across evaluations:
 //! - `smooth` (default) — exponential smoothing:
-//!   `result = attenuation * value + (1 - attenuation) * previous`,
-//!   seeded from the Node's running value.
+//!   `result = (1 - attenuation) * value + attenuation * previous`,
+//!   seeded from the Node's running value. `attenuation` is the share of the
+//!   previous running value retained each step, so a high attenuation
+//!   (default 0.995) damps the signal heavily.
 //! - `movingAverage` — the mean of the last `windowSize` inputs (a rolling
 //!   window that drops the oldest sample once full).
 //!
@@ -47,8 +49,13 @@ fn exponential(node: &FlowNode, var: &str, driver: Option<&str>) -> NodeEmission
     };
 
     if let Some(expr) = driver {
+        // Seed the running value with the first sample so the output starts at
+        // the signal instead of ramping up from 0.0 ("slow to wake").
+        let seeded = format!("{var}_seeded");
+        e.declarations.push(format!("bool {seeded} = false;"));
         e.loop_body.push(format!(
-            "{var} = {attenuation} * (double)({expr}) + (1.0 - {attenuation}) * {var};"
+            "if (!{seeded}) {{ {var} = (double)({expr}); {seeded} = true; }} \
+             else {{ {var} = (1.0 - {attenuation}) * (double)({expr}) + {attenuation} * {var}; }}"
         ));
     }
     e
