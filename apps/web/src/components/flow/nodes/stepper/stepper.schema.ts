@@ -29,6 +29,7 @@ export const defaults = {
   tags: ["action", "value"],
   label: "Stepper",
   icon: "CogIcon",
+  beta: true,
   description:
     "Control a stepper motor with precise positioning via a driver board (A4988, DRV8825, etc.)",
 };

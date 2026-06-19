@@ -14,6 +14,7 @@ import { OctagonAlertIcon, CableIcon } from "lucide-react";
 import { usePins } from "@/stores/board";
 import { Pin, pinDisplayValue } from "@/components/hardware/pin";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { Badge } from "@/components/ui/badge";
 
 // Re-exports so existing callers (`from "../_base/_base"`) keep working transparently.
 // Hook implementations live in their own modules to keep the layout file focused.
@@ -34,6 +35,14 @@ function NodeHeader(props: { error?: string }) {
         </CardTitle>
         <NodeDescription />
       </section>
+      {data.beta === true && (
+        <Badge
+          variant="outline"
+          className="shrink-0 border-amber-500/40 text-amber-600 dark:text-amber-500"
+        >
+          beta
+        </Badge>
+      )}
       {props.error && (
         <CardAction>
           <Tooltip>

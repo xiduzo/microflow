@@ -25,6 +25,7 @@ import {
   CornerDownLeftIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
 import { EmptyState } from "@/components/states/empty-state";
@@ -196,6 +197,14 @@ export function NewNodeDialog() {
                         <ItemContent>
                           <ItemTitle>
                             <HighlightedText text={defaults.label ?? ""} query={filter} />
+                            {defaults.beta === true && (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-500/40 text-amber-600 dark:text-amber-500"
+                              >
+                                beta
+                              </Badge>
+                            )}
                           </ItemTitle>
                           <ItemDescription>
                             <HighlightedText text={defaults.description ?? ""} query={filter} />

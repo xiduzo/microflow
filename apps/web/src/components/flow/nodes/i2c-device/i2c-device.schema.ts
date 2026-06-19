@@ -21,6 +21,7 @@ export const defaults = {
   group: "sense",
   tags: ["i2c", "sensor", "hardware"],
   label: "I2C Device",
+  beta: true,
   description: "Read raw bytes from a custom I2C peripheral by address and register",
   icon: "CpuIcon",
 };
