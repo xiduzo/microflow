@@ -12,43 +12,16 @@
 //! level is translated to the logical closed/open level before debouncing.
 
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    ListenerWiring, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
+
+pub use crate::config::switch::{SwitchConfig, SwitchType};
 
 /// Quiet window a line must hold before a deferred level is accepted. Must
 /// exceed one 50Hz mains period (20ms) — see [`super::button`] for the full
 /// rationale (a window at the mains period razor-edges on a floating pin).
 const DEBOUNCE_MS: f64 = 50.0;
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
-pub enum SwitchType {
-    /// Normally Open — circuit is open when not actuated
-    #[default]
-    NO,
-    /// Normally Closed — circuit is closed when not actuated
-    NC,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SwitchConfig {
-    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
-    #[serde(default, rename = "type")]
-    pub switch_type: SwitchType,
-}
-
-fn default_pin() -> u8 {
-    2
-}
-
-impl Default for SwitchConfig {
-    fn default() -> Self {
-        Self { pin: default_pin(), switch_type: SwitchType::default() }
-    }
-}
 
 pub struct Switch {
     base: ComponentBase,

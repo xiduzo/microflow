@@ -7,11 +7,9 @@
 //! `INPUT_PULLUP` the raw read is active-low; the runtime treats a press as a
 //! logical true, so the emitted state inverts the pull-up read to match.
 
-use crate::codegen::emit::{bool_flag, pin_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::button::ButtonConfig;
 use crate::flow::FlowNode;
-
-/// Default pin matches `runtime/input/button.rs::default_pin` (6).
-const DEFAULT_PIN: u8 = 6;
 
 /// The C++ `bool` variable name holding this Button's current pressed state.
 /// Downstream emitters reference it as their driver expression.
@@ -23,10 +21,11 @@ pub fn state_var(node: &FlowNode) -> String {
 /// Emit C++ for a Button Node.
 #[must_use]
 pub fn emit(node: &FlowNode) -> NodeEmission {
-    let pin = pin_or_default(node, DEFAULT_PIN);
+    let config: ButtonConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
     let pin_var = format!("button_{}_pin", node.id_token());
     let state = state_var(node);
-    let pullup = bool_flag(node, "isPullup");
+    let pullup = config.is_pullup;
 
     let mode = if pullup { "INPUT_PULLUP" } else { "INPUT" };
     // With INPUT_PULLUP a pressed button reads LOW, so invert to a logical

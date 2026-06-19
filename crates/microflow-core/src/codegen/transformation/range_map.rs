@@ -16,6 +16,7 @@
 //! We emit the same arithmetic into a `double` variable downstream Nodes read.
 
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::config::range_map::RangeMapConfig;
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this `RangeMap` Node's mapped output.
@@ -24,30 +25,21 @@ pub fn value_var(node: &FlowNode) -> String {
     format!("range_map_{}_value", node.id_token())
 }
 
-/// Read a numeric field from a nested range object (`from`/`to`) in the Node's
-/// `data`, falling back to `default`.
-fn range_field(node: &FlowNode, range: &str, key: &str, default: f64) -> f64 {
-    node.data
-        .get(range)
-        .and_then(|r| r.get(key))
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(default)
-}
-
 /// Emit C++ for a `RangeMap` Node. `driver` is the wired numeric input, or
 /// `None` when nothing is connected (the runtime leaves the value at `0.0`).
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let var = value_var(node);
     // Mirror `Range` defaults: from 0..1023, to 0..1023.
-    let in_min = cpp_double(range_field(node, "from", "min", 0.0));
-    let in_max = cpp_double(range_field(node, "from", "max", 1023.0));
-    let out_min = cpp_double(range_field(node, "to", "min", 0.0));
-    let out_max = cpp_double(range_field(node, "to", "max", 1023.0));
+    let config: RangeMapConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let in_min = cpp_double(config.from.min);
+    let in_max = cpp_double(config.from.max);
+    let out_min = cpp_double(config.to.min);
+    let out_max = cpp_double(config.to.max);
 
     // Precision factor: one decimal place when the output span is small, else
     // whole numbers — matching the runtime's `distance <= 10.0` rule.
-    let distance = (range_field(node, "to", "max", 1023.0) - range_field(node, "to", "min", 0.0)).abs();
+    let distance = (config.to.max - config.to.min).abs();
     let factor = if distance <= 10.0 { "10.0" } else { "1.0" };
 
     let mut e = NodeEmission {

@@ -13,7 +13,8 @@
 //! The generated Sketch stores the boolean outcome in a `bool` variable that
 //! downstream Nodes read, reproducing the live comparison for the wired input.
 
-use crate::codegen::emit::{cpp_double, f64_or_default, str_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::config::compare::{CompareConfig, CompareValidator};
 use crate::flow::FlowNode;
 
 /// The C++ `bool` variable holding this Compare Node's latest outcome.
@@ -24,48 +25,37 @@ pub fn state_var(node: &FlowNode) -> String {
 
 /// Build the C++ boolean expression for the configured comparison applied to
 /// the driver expression `v`.
-fn compare_expr(node: &FlowNode, v: &str) -> String {
-    let validator = str_or_default(node, "validator", "boolean");
-    let sub = str_or_default(node, "subValidator", "true");
-    match validator.as_str() {
-        "number" => {
-            let n = cpp_double(f64_or_default(node, "number", 0.0));
-            match sub.as_str() {
+fn compare_expr(config: &CompareConfig, v: &str) -> String {
+    let sub = config.sub_validator.as_str();
+    match config.validator {
+        CompareValidator::Number => {
+            let n = cpp_double(config.number);
+            match sub {
                 "greater than" => format!("((double)({v}) > {n})"),
                 "less than" => format!("((double)({v}) < {n})"),
                 _ => format!("((double)({v}) == {n})"),
             }
         }
-        "oddeven" => {
+        CompareValidator::OddEven => {
             // Round to nearest integer first, matching `as i64` after `round()`.
             let rounded = format!("((long)round((double)({v})))");
-            match sub.as_str() {
+            match sub {
                 "odd" => format!("(({rounded} % 2) != 0)"),
                 _ => format!("(({rounded} % 2) == 0)"),
             }
         }
-        "range" => {
-            let min = cpp_double(f64_or_default_nested(node, "min", 0.0));
-            let max = cpp_double(f64_or_default_nested(node, "max", 100.0));
-            match sub.as_str() {
+        CompareValidator::Range => {
+            let min = cpp_double(config.range.min);
+            let max = cpp_double(config.range.max);
+            match sub {
                 "outside" => format!("((double)({v}) < {min} || (double)({v}) > {max})"),
                 _ => format!("((double)({v}) > {min} && (double)({v}) < {max})"),
             }
         }
-        "text" => "false".to_string(),
+        CompareValidator::Text => "false".to_string(),
         // `boolean` (default): truthiness of the input.
         _ => format!("((bool)({v}))"),
     }
-}
-
-/// Read a numeric field from the nested `range` config object, falling back to
-/// `default` (mirrors `RangeConfig` defaults: `min` 0, `max` 100).
-fn f64_or_default_nested(node: &FlowNode, key: &str, default: f64) -> f64 {
-    node.data
-        .get("range")
-        .and_then(|r| r.get(key))
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(default)
 }
 
 /// Emit C++ for a Compare Node. `driver` is the wired input expression, or
@@ -73,6 +63,7 @@ fn f64_or_default_nested(node: &FlowNode, key: &str, default: f64) -> f64 {
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let var = state_var(node);
+    let config: CompareConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 
     let mut e = NodeEmission {
         declarations: vec![format!("bool {var} = false;")],
@@ -80,7 +71,7 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     };
 
     if let Some(expr) = driver {
-        let computed = compare_expr(node, expr);
+        let computed = compare_expr(&config, expr);
         e.loop_body.push(format!("{var} = {computed};"));
     }
     e

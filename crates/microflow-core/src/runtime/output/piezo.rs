@@ -11,48 +11,12 @@
 //! for its own duration. `stop` cancels the outstanding `_note`.
 
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, RuntimeContext, RuntimeError,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum PiezoType {
-    #[default]
-    Buzz,
-    Song,
-}
-
-pub type Note = (Option<String>, f64);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PiezoConfig {
-    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
-    #[serde(default)]
-    pub r#type: PiezoType,
-    #[serde(default = "default_duration")]
-    pub duration: u32,
-    #[serde(default = "default_frequency")]
-    pub frequency: u32,
-    #[serde(default)]
-    pub song: Vec<Note>,
-    #[serde(default = "default_tempo")]
-    pub tempo: u32,
-}
-
-fn default_pin() -> u8 { 11 }
-fn default_duration() -> u32 { 500 }
-fn default_frequency() -> u32 { 440 }
-fn default_tempo() -> u32 { 113 }
-
-impl Default for PiezoConfig {
-    fn default() -> Self {
-        Self { pin: default_pin(), r#type: PiezoType::default(), duration: default_duration(), frequency: default_frequency(), song: Vec::new(), tempo: default_tempo() }
-    }
-}
+pub use crate::config::piezo::{Note, PiezoConfig, PiezoType};
 
 /// Get note frequencies (standard piano frequencies in Hz)
 fn note_frequencies() -> HashMap<&'static str, u16> {

@@ -25,7 +25,7 @@ The single source of truth for every flow component the UI exposes and the runti
 The catalog drives both registries:
 
 - `apps/web/scripts/codegen-node-registry.ts` reads `entries` → writes `apps/web/src/components/flow/nodes/_REGISTRY.ts` and `_base/_base.types.ts`. Run via `bun run codegen` in `apps/web`.
-- `apps/web/src-tauri/build.rs` reads `entries` + `impls` → writes `$OUT_DIR/register_all_body.rs`, included from `apps/web/src-tauri/src/runtime/registry.rs` inside `ComponentRegistry::register_all`. Run automatically by cargo on JSON change.
+- `apps/web/src-tauri/build.rs` still reads `entries` + `impls` → writes `$OUT_DIR/register_all_body.rs`, but **nothing includes it anymore**. After the re-host the `ComponentRegistry` lives in `crates/microflow-core/src/runtime/registry.rs` and hand-registers nodes in `register_all`; the generated file — and the `ports()`-vs-catalog drift assertion it carried — is dead build output pending cleanup ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)).
 
 ## Component Registry
 
@@ -41,17 +41,17 @@ A Rust module path under `runtime/`. Determines `use super::<category>::{<Impl>,
 
 ## Component (Rust trait)
 
-In `apps/web/src-tauri/src/runtime/component.rs`. The interface every impl satisfies. Decision and migration captured in `docs/adr/0001-component-trait-flow-separation.md` (see also `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3). Three distinct flows enter the trait, each with its own method:
+In `crates/microflow-core/src/runtime/component.rs`. The interface every impl satisfies. Decision and migration captured in `docs/adr/0001-component-trait-flow-separation.md` (see also `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3). Three distinct flows enter the trait, each with its own method:
 
 - **Port** — edge inputs. Delivered via `dispatch(&str, ComponentValue)`. Each impl declares its accepted Port set via `fn ports() -> &'static [&'static str] where Self: Sized`.
 - **Internal Event** — self-routed methods. Delivered via `dispatch_internal(&str, ComponentValue)`.
 - **Hardware Callback** — board-reader-driven events. Delivered via `HardwareComponent::on_pin_change` / `on_i2c_reply`.
 
-The shared underscore-prefix routing in `runtime/executor.rs::process_event` dispatches to the right method based on the reserved handle name; everything else is a Port.
+The shared underscore-prefix routing in `runtime/mod.rs::process_event` dispatches to the right method based on the reserved handle name; everything else is a Port.
 
 ## Port
 
-A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::dispatch`. Each impl declares its closed Port set via `fn ports() -> &'static [&'static str]`. The set is mirrored to `node-components.json impls[].ports[]` and asserted equal at registry construction by `ComponentRegistry::register` / `register_hardware`; a drift panics at startup with a quoted diff. The frontend codegen (`apps/web/scripts/codegen-node-registry.ts`) emits `COMPONENT_PORTS` (a typed const object) and `PortOf<T>` (a literal-union helper) into `_base/_base.types.ts`, so ReactFlow target handles are type-checked against the same source of truth. Empty array for components with no edge inputs (e.g. `Constant`).
+A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::dispatch`. Each impl declares its closed Port set via `fn ports() -> &'static [&'static str]`. The set is mirrored to `node-components.json impls[].ports[]`, which drives the frontend codegen below. ⚠ The Rust-side assertion that once panicked on a `ports()`-vs-catalog drift was **dropped** when the runtime moved to `microflow-core` (core hand-registers nodes; the desktop `build.rs` codegen is now dead build output) — restoring a Rust↔catalog port guard is tracked in [ADR-0006](docs/adr/0006-rehost-runtime-on-core.md). The frontend codegen (`apps/web/scripts/codegen-node-registry.ts`) emits `COMPONENT_PORTS` (a typed const object) and `PortOf<T>` (a literal-union helper) into `_base/_base.types.ts`, so ReactFlow target handles are type-checked against the same source of truth. Empty array for components with no edge inputs (e.g. `Constant`).
 
 Examples: `Led` accepts `"true"/"false"/"toggle"/"value"`; `Stepper` accepts `"value"/"to"/"stop"/"zero"/"enable"`; `Button` accepts `"read"` (and receives the digital-pin Hardware Callback separately via `on_pin_change`).
 
@@ -59,11 +59,11 @@ Distinct from **Internal Event** names (never on edges, self-routed only) and **
 
 ## Internal Event
 
-Self-routed method delivered when a **Component (Rust trait)** emits a `ComponentEvent` whose `source_handle` starts with `_` and is not a reserved **Hardware Callback** name. The executor (`runtime/executor.rs::process_event`) strips the leading `_` and calls `Component::dispatch_internal` on the source component. Used by components that schedule their own state transitions (e.g. `Piezo` `auto_stop` after a song-playback thread finishes). Never observable as a **Port** — edges cannot target an internal-event name.
+Self-routed method delivered when a **Component (Rust trait)** emits a `ComponentEvent` whose `source_handle` starts with `_` and is not a reserved **Hardware Callback** name. The executor (`runtime/mod.rs::process_event`) strips the leading `_` and calls `Component::dispatch_internal` on the source component. Used by components that schedule their own state transitions (e.g. `Piezo` `auto_stop` after a song-playback thread finishes). Never observable as a **Port** — edges cannot target an internal-event name.
 
 ## Hardware Callback
 
-Board-reader-driven event delivered to a **HardwareComponent** in response to Firmata wire activity. Two live kinds today, routed by `runtime/executor.rs::process_event` to typed methods on `HardwareComponent`:
+Board-reader-driven event delivered to a **HardwareComponent** in response to Firmata wire activity. Two live kinds today, routed by `runtime/mod.rs::process_event` to typed methods on `HardwareComponent`:
 
 - `_pin_change` (from the **Board IO Loop**'s `PinChangeCallback`) → `on_pin_change(value)`. `value` is `Bool` for digital pins, `Number(u16)` for analog.
 - `_i2c_reply` (from `I2cReplyCallback`) → `on_i2c_reply(value)`. `value` is `Array` of byte values.
@@ -72,54 +72,43 @@ Emission of these reserved handles is the runtime's responsibility (in `FlowRunt
 
 ## FlowRouter
 
-The seam that turns one outgoing `ComponentEvent` into the list of `DispatchCall`s the executor invokes. Lives in `apps/web/src-tauri/src/runtime/router.rs`. Owns the (source, source_handle) → target index (`EdgeMap` backed by `FxHasher` over both strings with a 0-byte separator) and the per-target delivery decision; nothing else in `FlowExecutor` knows the edge layout.
+The seam that turns one outgoing `ComponentEvent` into the list of `DispatchCall`s the executor invokes. Lives in `crates/microflow-core/src/runtime/router.rs`. Owns the (source, source_handle) → target index (`EdgeMap` backed by `FxHasher` over both strings with a 0-byte separator) and the per-target delivery decision; nothing else in `FlowExecutor` knows the edge layout.
 
 Two delivery shapes today, chosen per target via `ComponentLookup::aggregates(target_id)`:
 
 - **Direct** — pass `event.value` (cloned once) through to one target. The default for non-aggregating targets.
-- **Snapshot** — collect every source feeding the same `(target_id, target_handle)` via `ComponentLookup::value_of(source)` and wrap as `ComponentValue::Array`. Chosen for targets that return `Component::aggregates_inputs() == true` (today `Calculate`, `Gate`). The just-emitted source must already have been `set_value`'d by the executor's echo step, or snapshot reads a stale value for it — see `runtime/executor.rs::process_event`.
+- **Snapshot** — collect every source feeding the same `(target_id, target_handle)` via `ComponentLookup::value_of(source)` and wrap as `ComponentValue::Array`. Chosen for targets that return `Component::aggregates_inputs() == true` (today `Calculate`, `Gate`). The just-emitted source must already have been `set_value`'d by the executor's echo step, or snapshot reads a stale value for it — see `runtime/mod.rs::process_event`.
 
 `ComponentLookup` is a 2-method trait (`aggregates`, `value_of`) the executor satisfies with a thin `ComponentMapLookup` adapter over its `HashMap<String, Box<dyn Component>>`. The router has no opinion about how components are stored; router tests pass a `HashMap<String, (bool, ComponentValue)>` mock and never instantiate real Components.
 
 Internal Events and Hardware Callbacks never reach `FlowRouter` — source == target by construction, dispatched straight from `executor::process_event`. Stale-sequence gating also happens upstream of `route()`. Decision and migration captured in `docs/adr/0002-flow-router-seam.md`.
 
-## BoardHandle
+## Sans-IO Runtime
 
-Public flow-runtime seam to the connected Firmata board. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Hardware **Component** impls receive `Arc<BoardHandle>` via `Component::initialize` and call typed methods (`set_pin_mode`, `digital_write`, `analog_write`, `enable_analog_reporting`, …) returning a [`CommandReceipt`](#commandreceipt). Each typed method allocates a oneshot reply, enqueues a `BoardCommand` on the **Board IO Loop**'s channel, and returns the receipt — never blocks on the serial port. Hot-path Component callers call `.ignore()` to make fire-and-forget intent explicit; Tauri callers `.into_future().await` for the wire result; tests use `.wait()` or `BoardHandle::test_pair()` with a [`TestIoLoop`](#testioloop). Read-side: `pin_snapshot(pin) -> Option<PinSnapshot>` returns a point-in-time view of the cached pin value; live reads still flow through the `on_pin_change` callback path established by [ADR-0001](docs/adr/0001-component-trait-flow-separation.md). Five non-seam methods (`set_pin_change_callback`, `set_i2c_reply_callback`, `clear_pin_cache`, `register_active_pin`, `unregister_active_pin`) write directly to shared state and still return `Result<(), RuntimeError>`.
+The Live Flow Runtime is **sans-IO**: a node never touches the serial port, a clock, or a timer. The engine lives in `crates/microflow-core/src/runtime/` (gated behind the `runtime` cargo feature) and is driven by a **Runtime Host** per platform. Decision and migration captured in [ADR-0006](docs/adr/0006-rehost-runtime-on-core.md). During one `dispatch` / `on_pin_change` / `wake`, a **Component** is handed a [`RuntimeContext`](#runtimecontext); when the turn drains, the runtime returns one [`Effects`](#effects) record the host applies. Replaces the desktop `BoardHandle` + **Board IO Loop** + `CommandReceipt` stack described by ADR-0001/0002 — all deleted in the re-host.
 
-## Board IO Loop
+## RuntimeContext
 
-Single-thread engine that owns the **BoardConnection** exclusively. Lives in `apps/web/src-tauri/src/runtime/board/io_loop.rs`. Drains a `mpsc::Receiver<BoardCommand>` between Firmata reads: pull all pending commands → mutate connection → read one Firmata message → emit pin-change / I2C-reply events → repeat. The channel is the synchronization primitive — `firmata-rs` requires `&mut self` for every op including reads, so a shared `Mutex<BoardConnection>` would starve writers behind blocking reads. This loop is the only place `&mut BoardConnection` exists.
+The per-dispatch capability context. Lives in `crates/microflow-core/src/runtime/context.rs`. Exposes exactly three host capabilities to a node for the duration of one call: a [`BoardWriter`](#boardwriter) (`ctx.board()` — encodes Firmata bytes into the turn's outbound buffer), the host clock (`ctx.now_ms()`), and the wakeup scheduler (`ctx.schedule_wakeup(method, delay_ms)` / `ctx.cancel_wakeup(method)`). The node id is implicit, so scheduling targets the caller. A node cannot block, sleep, or read a wire — those are the host's job, recorded as [`Effects`](#effects).
 
-## BoardConnection
+## Effects
 
-Private `firmata-rs` wrapper held by the **Board IO Loop**. Lives in `apps/web/src-tauri/src/runtime/board/connection.rs`. Owns the open serial port. Pin-value cache and active-pin set are `Arc<DashMap>` fields shared read-only with **BoardHandle**; pin-change / I2C-reply callbacks are closure-captured at IO-loop spawn. Never escapes the loop's thread.
+The side-effect record the host executes after one runtime turn. Lives in `crates/microflow-core/src/runtime/context.rs`. `Effects { outbound_bytes: Vec<u8>, component_events: Vec<ComponentEvent>, wakeups: Vec<Wakeup>, cancellations: Vec<WakeupId> }`. Every `FlowRuntime` entry point (`update_flow`, `feed_bytes`, `wake`, `dispatch`, `deliver_message`, `inject_event`, `dispatch_key_event`) returns one `Effects`. The **Runtime Host** writes `outbound_bytes` to the port, dispatches `component_events` to its UI stores, arms each [`Wakeup`](#wakeup) as a timer, and clears `cancellations`. Nothing crosses the wire until the host applies the effects — which is what makes the runtime testable without hardware or a host (feed input, assert on the returned `Effects`).
 
-## BoardCommand
+## BoardWriter
 
-Internal protocol between **BoardHandle** and the **Board IO Loop**. Enum carrying Firmata wire ops (`SetPinMode`, `DigitalWrite`, `AnalogWrite`, `ShiftOut`, `Tone`, `Sysex`, `Enable/DisableAnalog/DigitalReporting`, `ResetAllReporting`, the I2C ops) plus `Stop`. Every wire-op variant carries `reply: oneshot::Sender<Result<(), HardwareError>>`; the IO loop fills the reply after running the underlying `BoardConnection` call, and `BoardHandle` wraps the matching `Receiver` in a [`CommandReceipt`](#commandreceipt). Constructed only by `BoardHandle` typed methods — production callers never see it. Re-exported from `board::mod` so the **TestIoLoop** can pattern-match in integration tests.
+The sans-IO Firmata write surface used by hardware **Component**s. A trait in `crates/microflow-core/src/runtime/board.rs` with typed methods (`set_pin_mode`, `digital_write`, `analog_write`, `enable_analog_reporting`, `shift_out`, `tone`, `sysex`, the I2C ops, …), each encoding one or a few Firmata messages — none block or do I/O. The production adapter `BufferBoardWriter` encodes into the turn's outbound `Vec<u8>` via the shared `FirmataClient` codec; it is built fresh per turn, borrowing the runtime's codec (for the pin table) and the buffer. One-to-one with the deleted desktop `BoardConnection` encode bodies, minus all I/O. Tests assert on `Effects.outbound_bytes` directly — the old `Arc<BoardHandle>` / `BoardCommand` / `CommandReceipt` / `TestIoLoop` / `MockBoardHandle` stack is gone.
 
-## CommandReceipt
+## Wakeup
 
-Outcome handle returned by every **BoardHandle** write method. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Wraps a `oneshot::Receiver<Result<(), HardwareError>>` that the **Board IO Loop** resolves after it runs the underlying **BoardConnection** call. Three consume methods: `wait()` (sync, blocks — used inside `Component::call_method`), `into_future()` (async — `.await` from Tauri commands), `ignore()` (drops the receipt, making fire-and-forget intent visible at the call site). `try_now(&mut self)` is a non-blocking peek.
+A future self-callback a timer node asked for, replacing `std::thread::sleep`. Lives in `crates/microflow-core/src/runtime/context.rs`. `Wakeup { id: WakeupId, node_id, method, delay_ms }`. A node calls `ctx.schedule_wakeup(method, delay_ms)`; the runtime resolves the request against its outstanding-wakeup table and surfaces it as `Effects.wakeups` (with `Effects.cancellations: Vec<WakeupId>` for cancelled ones). The **Runtime Host** owns the actual timer and calls `FlowRuntime::wake(node_id, method)` when it fires, which routes `dispatch_internal(method, …)` back to the node. Used by `Interval`, `Delay`, `Piezo` song playback, and other timer nodes.
 
-Resolves to `HardwareError::Disconnected` if the IO loop shut down before the command was processed, to the underlying `HardwareError` variant if `BoardConnection`'s call failed, or to `Ok(())` after a successful wire write.
+## Runtime Host
 
-The receipt makes the **BoardCommand** channel into a real seam: tests pair a real **BoardHandle** with a **TestIoLoop** that records each command and scripts the outcome, replacing the parallel `MockBoardHandle` that previously asserted at the call site instead of at the wire.
+The platform adapter that drives a `core::FlowRuntime` and applies its [`Effects`](#effects). Two real adapters make the `Effects` a real seam ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)):
 
-## PinSnapshot
-
-Point-in-time read of a pin's cached value, returned by `BoardHandle::pin_snapshot(pin) -> Option<PinSnapshot>`. Lives in `apps/web/src-tauri/src/runtime/board/handle.rs`. Replaces the bare `pin_value(pin) -> Option<u16>` getter, which silently returned stale data after the board disconnected.
-
-Carries `value: u16`, `captured_at: Instant` (last time **BoardConnection** observed this pin), and `board_connected: bool` (connection state at read time, not at capture time). Tauri commands serving the UI can distinguish "fresh, board live" from "last known, board gone" without consulting a separate `is_connected()` method.
-
-Live reads (edge components reacting to pin changes) still flow through the `on_pin_change` callback path established by [ADR-0001](docs/adr/0001-component-trait-flow-separation.md). `PinSnapshot` is for snapshot queries only, not subscriptions.
-
-## TestIoLoop
-
-Test-mode replacement for the **Board IO Loop**. Lives in `apps/web/src-tauri/src/runtime/board/test_io_loop.rs`. Constructed via `BoardHandle::test_pair() -> (Arc<BoardHandle>, TestIoLoop)`. Drains the same `BoardCommand` channel as the production IO loop but, instead of running a `BoardConnection`, records each command in a `pending` vec and lets the test script the outcome: `take_next() -> Option<BoardCommand>` for pattern-matching, `complete_next(outcome)` to script a single reply, `complete_all_ok()` to bulk-resolve.
-
-`TestIoLoop` is the second adapter at the `BoardCommand` seam — the production IO loop is the first — which is what makes the seam a real seam rather than a hypothetical one. Tests assert what was sent over the wire (`BoardCommand::DigitalWrite { pin: 13, value: true, .. }`) and drive **Component**s through both success and failure paths without hardware. The standalone `MockBoardHandle` in `tests/common/mock_board.rs` is a HashMap-with-flag scaffold, never substituted for `BoardHandle`; it is unrelated to this seam.
+- **Desktop** — `apps/web/src-tauri/src/runtime/host.rs`. A `!Send` `FlowRuntime` lives inside a dedicated actor thread (`run_actor`) that owns the serial port and a Tokio handle (timers, cloud I/O). Only `Send` handles cross the spawn boundary; cloud-node results (LLM / MQTT / Figma) re-enter the runtime via `inject_event` through a `ChannelEmitter`. The desktop's previous duplicate runtime was deleted in the re-host.
+- **Browser** — `apps/web/src/lib/firmata/flow-reactor.ts`. A `setTimeout` / Web-Serial loop driving the `microflow-runtime-wasm` engine: writes `outbound_bytes` to the port, fans `component_events` to the Zustand stores, maps `wakeups` to `setTimeout` and `cancellations` to `clearTimeout`. A shallow pass-through — all depth lives behind the wasm seam in Rust.
 
 ## Wiring
 

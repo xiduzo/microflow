@@ -3,7 +3,15 @@ import { Handle as BaseHandle } from "../../handle";
 const Handle = BaseHandle<"Smooth">;
 import { IconWithValue } from "../../icon-with-value";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { dataSchema, defaults, type Data, type MovingAverage, type SmoothAverage } from "./smooth.schema";
+import {
+  dataSchema,
+  defaults,
+  movingAverageDefaults,
+  smoothDefaults,
+  type Data,
+  type MovingAverage,
+  type SmoothAverage,
+} from "./smooth.schema";
 import { EraserIcon, HighlighterIcon } from "lucide-react";
 
 export function Smooth(props: Props) {
@@ -37,13 +45,13 @@ function Settings() {
       options: { smooth: "smooth", "moving average": "movingAverage" },
     },
     windowSize: {
-      value: (data as MovingAverage).windowSize ?? 25,
+      value: (data as MovingAverage).windowSize ?? movingAverageDefaults.windowSize,
       min: 1,
       step: 1,
       render: (get) => get("type") === "movingAverage",
     },
     attenuation: {
-      value: (data as SmoothAverage).attenuation ?? 0.995,
+      value: (data as SmoothAverage).attenuation ?? smoothDefaults.attenuation,
       min: 0.0,
       max: 1.0,
       step: 0.001,

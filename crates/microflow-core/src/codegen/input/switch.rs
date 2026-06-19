@@ -6,11 +6,9 @@
 //! inverted, so the emitted state inverts the raw read to match the runtime's
 //! `SwitchType`. Downstream Nodes read the resulting `bool` state variable.
 
-use crate::codegen::emit::{pin_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::switch::{SwitchConfig, SwitchType};
 use crate::flow::FlowNode;
-
-/// Default pin matches `runtime/input/switch.rs::default_pin` (2).
-const DEFAULT_PIN: u8 = 2;
 
 /// The C++ `bool` variable name holding this Switch's current on/off state.
 #[must_use]
@@ -18,21 +16,14 @@ pub fn state_var(node: &FlowNode) -> String {
     format!("switch_{}_state", node.id_token())
 }
 
-/// True when the Node's `data.type` selects a Normally-Closed switch.
-fn is_normally_closed(node: &FlowNode) -> bool {
-    node.data
-        .get("type")
-        .and_then(serde_json::Value::as_str)
-        .is_some_and(|t| t.eq_ignore_ascii_case("NC"))
-}
-
 /// Emit C++ for a Switch Node.
 #[must_use]
 pub fn emit(node: &FlowNode) -> NodeEmission {
-    let pin = pin_or_default(node, DEFAULT_PIN);
+    let config: SwitchConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
     let pin_var = format!("switch_{}_pin", node.id_token());
     let state = state_var(node);
-    let nc = is_normally_closed(node);
+    let nc = config.switch_type == SwitchType::NC;
 
     // NO: actuated reads HIGH. NC: the contact is inverted, so actuated reads
     // LOW — mirror the runtime by inverting the comparison.

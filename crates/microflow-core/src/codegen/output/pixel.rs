@@ -9,24 +9,13 @@
 //! (mirroring the runtime's off-on-init), and — when wired from an upstream
 //! brightness value — fills the whole strip with that grayscale level each loop.
 
-use crate::codegen::emit::{pin_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::pixel::PixelConfig;
 use crate::flow::FlowNode;
 
-/// Default pin matches `runtime/output/pixel.rs::default_pin` (6).
-const DEFAULT_PIN: u8 = 6;
-/// Default length matches `runtime/output/pixel.rs::default_length` (32).
-const DEFAULT_LENGTH: u16 = 32;
-
 /// Map the configured colour-order string to the `NeoPixel` type flag.
-fn neo_color_flag(node: &FlowNode) -> &'static str {
-    let order = node
-        .data
-        .get("color_order")
-        .or_else(|| node.data.get("colorOrder"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("GRB")
-        .to_ascii_uppercase();
-    match order.as_str() {
+fn neo_color_flag(color_order: &str) -> &'static str {
+    match color_order.to_ascii_uppercase().as_str() {
         "RGB" => "NEO_RGB + NEO_KHZ800",
         "BRG" => "NEO_BRG + NEO_KHZ800",
         // GRB is the WS2812 default and the runtime default.
@@ -40,9 +29,10 @@ fn neo_color_flag(node: &FlowNode) -> &'static str {
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let token = node.id_token();
     let obj = format!("pixel_{token}");
-    let pin = pin_or_default(node, DEFAULT_PIN);
-    let length = u16_or_default(node, "length", DEFAULT_LENGTH).max(1);
-    let flag = neo_color_flag(node);
+    let config: PixelConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
+    let length = config.length.max(1);
+    let flag = neo_color_flag(&config.color_order);
     let i = format!("pixel_{token}_i");
 
     let mut e = NodeEmission {

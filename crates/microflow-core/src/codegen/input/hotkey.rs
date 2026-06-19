@@ -9,7 +9,8 @@
 //! signal — and records, as a comment, that the trigger is host-only and never
 //! fires on-device.
 
-use crate::codegen::emit::{str_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::hotkey::HotkeyConfig;
 use crate::flow::FlowNode;
 
 /// The C++ `bool` variable name holding this Hotkey's pressed state.
@@ -23,8 +24,9 @@ pub fn state_var(node: &FlowNode) -> String {
 /// keyboard exists on the board.
 #[must_use]
 pub fn emit(node: &FlowNode) -> NodeEmission {
+    let config: HotkeyConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let state = state_var(node);
-    let accelerator = str_or_default(node, "accelerator", "x");
+    let accelerator = config.accelerator;
 
     NodeEmission {
         declarations: vec![

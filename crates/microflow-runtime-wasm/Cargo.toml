@@ -27,3 +27,12 @@ console_error_panic_hook = "0.1"
 # wasm32-unknown-unknown it needs the `js` feature to source entropy from the
 # browser's Web Crypto. Stated here so feature unification enables it on boa's copy.
 getrandom = { version = "0.2", features = ["js"] }
+# Browser observability for the shared core runtime, wasm32-only so host builds
+# stay lean. `tracing-web` (maintained) renders core's `tracing` flow events (the
+# `flow_tick` span + drain traces) to the devtools console and composes into a
+# `Registry`, so a future UI-inspector fan-out Layer slots in beside it. The `log`
+# bridge routes the crate's existing `log::` records into the same sink — the
+# browser otherwise has no `log` subscriber at all, so they'd vanish.
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry", "std"] }
+tracing-web = "0.1"
+tracing-log = "0.2"

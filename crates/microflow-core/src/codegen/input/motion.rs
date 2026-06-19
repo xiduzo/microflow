@@ -6,11 +6,9 @@
 //! downstream Nodes read — a HIGH read means motion, matching the runtime which
 //! emits `true` on a detected pin-high.
 
-use crate::codegen::emit::{pin_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::motion::MotionConfig;
 use crate::flow::FlowNode;
-
-/// Default pin matches `runtime/input/motion.rs::default_pin` (8).
-const DEFAULT_PIN: u8 = 8;
 
 /// The C++ `bool` variable name holding this Motion sensor's detected state.
 #[must_use]
@@ -21,7 +19,8 @@ pub fn state_var(node: &FlowNode) -> String {
 /// Emit C++ for a Motion Node.
 #[must_use]
 pub fn emit(node: &FlowNode) -> NodeEmission {
-    let pin = pin_or_default(node, DEFAULT_PIN);
+    let config: MotionConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
     let pin_var = format!("motion_{}_pin", node.id_token());
     let state = state_var(node);
 

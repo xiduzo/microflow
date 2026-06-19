@@ -9,8 +9,7 @@
 // events into the very same UI stores the desktop path feeds. So the canvas
 // (node values + edge signals) renders identically on both platforms.
 
-import { useNodeDataStore } from "@/stores/node-data";
-import { useSignalStore } from "@/stores/signal";
+import { applyComponentEvent } from "@/lib/event-ingest";
 import { createFlowRuntime, type Effects, type FlowRuntime } from "@/lib/runtime/wasm";
 import type { BoardConnection } from "./web-serial";
 
@@ -113,21 +112,8 @@ export class FlowReactor {
       this.timers.set(wakeup.id, handle);
     }
 
-    if (fx.componentEvents.length > 0) {
-      const updateNodeData = useNodeDataStore.getState().update;
-      const addSignal = useSignalStore.getState().addSignal;
-      for (const event of fx.componentEvents) {
-        if (event.sourceHandle === "value" || event.sourceHandle === "event") {
-          updateNodeData(event.source, event.value);
-        } else if (event.sourceHandle === "thinking") {
-          updateNodeData(`${event.source}:thinking`, event.value);
-        }
-        for (const edge of this.edges) {
-          if (edge.id && edge.source === event.source && edge.sourceHandle === event.sourceHandle) {
-            addSignal(edge.id);
-          }
-        }
-      }
+    for (const event of fx.componentEvents) {
+      applyComponentEvent(event, this.edges);
     }
   }
 }

@@ -10,20 +10,9 @@
 //! steps at most once per call and returns immediately, so motion is fully
 //! non-blocking and other Nodes keep ticking.
 
-use crate::codegen::emit::{f64_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::config::stepper::StepperConfig;
 use crate::flow::FlowNode;
-
-/// Pin defaults match `runtime/output/stepper.rs` (step=2, dir=3).
-const DEFAULT_STEP_PIN: u8 = 2;
-const DEFAULT_DIR_PIN: u8 = 3;
-
-fn pin(node: &FlowNode, key: &str, default: u8) -> u8 {
-    node.data
-        .get(key)
-        .and_then(serde_json::Value::as_u64)
-        .and_then(|n| u8::try_from(n).ok())
-        .unwrap_or(default)
-}
 
 /// Emit C++ for a Stepper Node. `driver` is an optional target-position
 /// expression (absolute step count); `None` leaves the motor parked at zero.
@@ -31,13 +20,13 @@ fn pin(node: &FlowNode, key: &str, default: u8) -> u8 {
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let token = node.id_token();
     let obj = format!("stepper_{token}");
-    let step_pin = pin(node, "step_pin", DEFAULT_STEP_PIN);
-    let dir_pin = pin(node, "dir_pin", DEFAULT_DIR_PIN);
-    // Runtime stores speed/acceleration as floats; default to library-sane values.
-    let speed = f64_or_default(node, "speed", 1000.0);
-    let acceleration = f64_or_default(node, "acceleration", 500.0);
-    let speed = crate::codegen::emit::cpp_double(speed);
-    let acceleration = crate::codegen::emit::cpp_double(acceleration);
+    let config: StepperConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let step_pin = config.step_pin;
+    let dir_pin = config.dir_pin;
+    // Runtime stores speed/acceleration as floats; widen to the f64 the C++
+    // literal formatter expects.
+    let speed = cpp_double(f64::from(config.speed));
+    let acceleration = cpp_double(f64::from(config.acceleration));
 
     let mut e = NodeEmission {
         includes: vec!["#include <AccelStepper.h>".to_string()],

@@ -4,6 +4,13 @@
 - **Date:** 2026-05-16
 - **Deciders:** sander
 
+> **⚠ Relocated (2026-06 · [ADR-0006](0006-rehost-runtime-on-core.md)):** this ADR
+> predates the re-host of the Live Flow Runtime onto `microflow-core`. The decision
+> below still holds, but every `apps/web/src-tauri/src/runtime/…` path named here now
+> lives under `crates/microflow-core/src/runtime/…`, and the engine is sans-IO
+> (`executor.rs` folded into `runtime/mod.rs`; hardware callbacks arrive via
+> `feed_bytes` → `on_pin_change`). See ADR-0006.
+
 ## Context
 
 The `Component` trait (`apps/web/src-tauri/src/runtime/component.rs`) has a single

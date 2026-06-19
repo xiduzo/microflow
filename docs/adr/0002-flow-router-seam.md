@@ -4,6 +4,12 @@
 - **Date:** 2026-05-17
 - **Deciders:** sander
 
+> **⚠ Relocated (2026-06 · [ADR-0006](0006-rehost-runtime-on-core.md)):** this ADR
+> predates the re-host of the Live Flow Runtime onto `microflow-core`. The FlowRouter
+> seam still holds, but `apps/web/src-tauri/src/runtime/router.rs` now lives at
+> `crates/microflow-core/src/runtime/router.rs`, and `FlowExecutor` / `executor.rs`
+> are folded into `crates/microflow-core/src/runtime/mod.rs` (`FlowRuntime`). See ADR-0006.
+
 ## Context
 
 `FlowExecutor` (`apps/web/src-tauri/src/runtime/executor.rs`) interleaved four

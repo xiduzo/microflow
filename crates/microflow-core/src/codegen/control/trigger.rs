@@ -11,7 +11,8 @@
 //! persists across iterations so the baseline survives, and the output `bool` is
 //! read by downstream Nodes.
 
-use crate::codegen::emit::{bool_flag, cpp_double, f64_or_default, str_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::config::trigger::{TriggerBehaviour, TriggerConfig};
 use crate::flow::FlowNode;
 
 /// The C++ `bool` variable holding this Trigger Node's latest bang state.
@@ -28,9 +29,8 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let var = state_var(node);
     let baseline = format!("trigger_{token}_baseline");
     let seeded = format!("trigger_{token}_seeded");
-    let threshold = cpp_double(f64_or_default(node, "threshold", 5.0));
-    let behaviour = str_or_default(node, "behaviour", "decreasing");
-    let relative = bool_flag(node, "relative");
+    let config: TriggerConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let threshold = cpp_double(config.threshold);
 
     let mut e = NodeEmission {
         declarations: vec![format!("bool {var} = false;")],
@@ -49,13 +49,12 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
             .push(format!("double trigger_{token}_diff = trigger_{token}_now - {baseline};"));
 
         // Direction check mirrors `value_changes_in_correct_direction`.
-        let direction = if behaviour == "increasing" {
-            format!("trigger_{token}_diff > 0.0")
-        } else {
-            format!("trigger_{token}_diff <= 0.0")
+        let direction = match config.behaviour {
+            TriggerBehaviour::Increasing => format!("trigger_{token}_diff > 0.0"),
+            TriggerBehaviour::Decreasing => format!("trigger_{token}_diff <= 0.0"),
         };
         // Magnitude check mirrors relative vs absolute threshold.
-        let magnitude = if relative {
+        let magnitude = if config.relative {
             format!("(fabs(trigger_{token}_diff / {baseline}) * 100.0) >= {threshold}")
         } else {
             format!("fabs(trigger_{token}_diff) >= {threshold}")

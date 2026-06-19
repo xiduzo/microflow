@@ -33,6 +33,12 @@ pub mod placeholder;
 pub mod transformation;
 pub mod validate;
 
+/// Interpret↔emit parity guards (test-only). Pins each operation variant / port
+/// to an exhaustive emit-vs-passthrough classification so runtime↔codegen drift
+/// fails CI instead of shipping silently.
+#[cfg(test)]
+mod parity;
+
 use crate::flow::{FlowNode, FlowUpdate};
 use board::BoardTarget;
 use credentials::Credentials;

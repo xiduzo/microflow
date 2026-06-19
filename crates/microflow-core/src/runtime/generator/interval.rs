@@ -10,31 +10,13 @@
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+// `IntervalConfig` moved to the ungated `config::interval` module so the codegen
+// emitter shares the exact same fields + defaults (single source of truth — see
+// `crate::config`). Re-exported so this module's impls are unchanged.
+pub use crate::config::interval::IntervalConfig;
 
 const MIN_INTERVAL_MS: u64 = 16;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IntervalConfig {
-    #[serde(default = "default_interval")]
-    pub interval: u64,
-    #[serde(default = "default_auto_start", rename = "autoStart")]
-    pub auto_start: bool,
-}
-
-fn default_interval() -> u64 {
-    1000
-}
-fn default_auto_start() -> bool {
-    true
-}
-
-impl Default for IntervalConfig {
-    fn default() -> Self {
-        Self { interval: default_interval(), auto_start: default_auto_start() }
-    }
-}
 
 pub struct Interval {
     base: ComponentBase,

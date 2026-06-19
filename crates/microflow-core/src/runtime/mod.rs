@@ -20,7 +20,6 @@ pub mod error;
 pub mod pin_mode;
 pub mod registry;
 pub mod router;
-pub mod serde_utils;
 pub mod value;
 pub mod wiring;
 
@@ -31,6 +30,10 @@ pub mod input;
 pub mod output;
 pub mod transformation;
 
+// Pin string-or-number serde helpers moved to the ungated `config::serde_utils`
+// (so shared configs can use them without the `runtime` feature); re-exported
+// here so existing `crate::runtime::serde_utils` references keep resolving.
+pub use crate::config::serde_utils;
 pub use board::{BoardWriter, BufferBoardWriter};
 pub use component::{Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent};
 pub use context::{Effects, RuntimeContext, ScheduleRequests, Wakeup, WakeupId};
@@ -102,6 +105,12 @@ pub struct FlowRuntime {
     /// Outstanding wakeups keyed by `(node_id, method)` so a re-schedule or
     /// cancel can target the right host timer.
     outstanding: HashMap<(String, String), WakeupId>,
+    /// Dispatch errors seen during the current turn, rolled into the `flow tick`
+    /// wide event and reset to 0 at the end of every `finish`.
+    tick_errors: u32,
+    /// Monotonic per-turn id, stamped on every `flow tick` event and its nested
+    /// per-event traces so a turn's records correlate in a flat log/sink.
+    run_seq: u64,
 }
 
 impl FlowRuntime {
@@ -124,6 +133,8 @@ impl FlowRuntime {
             key_listeners: HashMap::new(),
             next_wakeup_id: 1,
             outstanding: HashMap::new(),
+            tick_errors: 0,
+            run_seq: 0,
         }
     }
 
@@ -317,7 +328,7 @@ impl FlowRuntime {
 
         // 7. Rebuild edges, then drain any init-time emissions.
         self.router.set_edges(edges);
-        self.finish(out, reqs)
+        self.finish("update_flow", out, reqs)
     }
 
     /// Feed raw inbound serial bytes: decode via the codec, diff the pin table,
@@ -326,7 +337,7 @@ impl FlowRuntime {
         self.client.feed(bytes);
         self.detect_pin_changes();
         self.drain_i2c_replies();
-        self.finish(Vec::new(), ScheduleRequests::default())
+        self.finish("feed_bytes", Vec::new(), ScheduleRequests::default())
     }
 
     /// A host timer fired: deliver `method` to `node_id` as an internal event
@@ -348,7 +359,7 @@ impl FlowRuntime {
         let mut out = Vec::new();
         let mut reqs = ScheduleRequests::default();
         self.process_event(event, &mut out, &mut reqs);
-        self.finish(out, reqs)
+        self.finish("wake", out, reqs)
     }
 
     /// Inject an external call at a component's input (the `component_call`
@@ -357,7 +368,7 @@ impl FlowRuntime {
         let mut out = Vec::new();
         let mut reqs = ScheduleRequests::default();
         self.dispatch_to(id, method, value, &mut out, &mut reqs);
-        self.finish(out, reqs)
+        self.finish("dispatch", out, reqs)
     }
 
     // --- Graph mutation helpers (used by the Stage-3 registry + by tests) ----
@@ -417,7 +428,7 @@ impl FlowRuntime {
         if let Some(component) = self.components.get_mut(component_id) {
             component.receive_raw_message(topic, payload);
         }
-        self.finish(Vec::new(), ScheduleRequests::default())
+        self.finish("deliver", Vec::new(), ScheduleRequests::default())
     }
 
     /// Fold an asynchronous cloud-node result back into the runtime as if the
@@ -440,7 +451,7 @@ impl FlowRuntime {
             edge_id: None,
             sequence: 0,
         });
-        self.finish(Vec::new(), ScheduleRequests::default())
+        self.finish("inject", Vec::new(), ScheduleRequests::default())
     }
 
     /// Deliver a hotkey press to every component listening on `accelerator`
@@ -456,7 +467,7 @@ impl FlowRuntime {
         for id in ids {
             self.dispatch_to(id.as_ref(), "key_event", ComponentValue::Bool(true), &mut out, &mut reqs);
         }
-        self.finish(out, reqs)
+        self.finish("key", out, reqs)
     }
 
     /// Every active component's subscriber wiring paired with its id — the host
@@ -559,12 +570,33 @@ impl FlowRuntime {
 
     /// Drain the emit queue to completion, accumulating side effects, then
     /// resolve the turn's scheduling requests into concrete wakeups.
-    fn finish(&mut self, mut out: Vec<u8>, mut reqs: ScheduleRequests) -> Effects {
+    fn finish(&mut self, stimulus: &'static str, mut out: Vec<u8>, mut reqs: ScheduleRequests) -> Effects {
+        // One `flow_tick` span per turn; the per-event `trace!`s below nest under
+        // it, and the host subscriber (desktop fmt / browser `tracing-web`) times
+        // the drain. No clock lives here — `now_ms` is host-fed and `Instant` is
+        // absent on wasm — so duration is left to the subscriber's timestamps.
+        self.run_seq += 1;
+        let run_id = self.run_seq;
+        let span = tracing::debug_span!("flow_tick", run_id, stimulus, seq = self.current_sequence);
+        let _enter = span.enter();
         let mut events = Vec::new();
+        let mut drained = 0u32;
         loop {
             // Pop in its own scope so a component is free to push during dispatch.
             let next = self.sink.borrow_mut().pop_front();
             let Some(event) = next else { break };
+            drained += 1;
+            // Highest-cardinality flow signal: which node emitted on which handle,
+            // and whether it's UI-visible or internal plumbing. TRACE so it's
+            // opt-in and silent by default.
+            tracing::trace!(
+                run_id,
+                source = %event.source,
+                handle = %event.source_handle,
+                seq = event.sequence,
+                internal = event.source_handle.starts_with('_'),
+                "drain",
+            );
             // Internal/hardware events (`_`-prefixed) are runtime plumbing the
             // UI never renders — keep them out of `component_events`.
             if !event.source_handle.starts_with('_') {
@@ -573,6 +605,30 @@ impl FlowRuntime {
             self.process_event(event, &mut out, &mut reqs);
         }
         let (wakeups, cancellations) = self.resolve_schedule(reqs);
+        // One wide event per turn that *did something* — drained an event, wrote
+        // bytes, (re)armed a timer, or hit a dispatch error. Truly-idle turns
+        // (pin scans with no change) stay silent to bound volume. The single line
+        // is self-explaining: what triggered the turn, what it produced, what failed.
+        let errors = self.tick_errors;
+        self.tick_errors = 0;
+        let produced = drained > 0
+            || !out.is_empty()
+            || !wakeups.is_empty()
+            || !cancellations.is_empty()
+            || errors > 0;
+        if produced {
+            tracing::debug!(
+                run_id,
+                stimulus,
+                drained,
+                component_events = events.len(),
+                outbound_bytes = out.len(),
+                wakeups = wakeups.len(),
+                cancellations = cancellations.len(),
+                errors,
+                "flow tick",
+            );
+        }
         Effects { outbound_bytes: out, component_events: events, wakeups, cancellations }
     }
 
@@ -584,6 +640,14 @@ impl FlowRuntime {
         // never stale). Only drop events carrying a non-zero sequence older than
         // the current flow version (leftover board events from an old flow).
         if event.sequence > 0 && event.sequence < self.current_sequence {
+            tracing::trace!(
+                run_id = self.run_seq,
+                source = %event.source,
+                handle = %event.source_handle,
+                seq = event.sequence,
+                current = self.current_sequence,
+                "stale event dropped",
+            );
             return;
         }
 
@@ -605,6 +669,13 @@ impl FlowRuntime {
             let lookup = ComponentMapLookup { components: &self.components };
             self.router.route(&event, &lookup)
         };
+        tracing::trace!(
+            run_id = self.run_seq,
+            source = %event.source,
+            handle = %event.source_handle,
+            targets = plan.len(),
+            "routed",
+        );
         for call in plan {
             self.dispatch_to(call.target_id.as_ref(), call.target_handle.as_ref(), call.args, out, reqs);
         }
@@ -620,12 +691,20 @@ impl FlowRuntime {
         out: &mut Vec<u8>,
         reqs: &mut ScheduleRequests,
     ) {
+        let mut errored = None;
         if let Some(component) = self.components.get_mut(id) {
             let mut writer = BufferBoardWriter::new(&mut self.client, out);
             let mut ctx = RuntimeContext::new(&mut writer, self.now_ms, id, reqs);
             if let Err(e) = component.dispatch(method, value, &mut ctx) {
-                log::warn!("dispatch {id}.{method} failed: {e}");
+                errored = Some(e);
             }
+        }
+        // Counted into the turn's `flow tick` wide event and emitted on the tracing
+        // pipeline so it nests under the `flow_tick` span — the browser has no
+        // `log` subscriber, so the old `log::warn!` here was invisible there.
+        if let Some(e) = errored {
+            tracing::warn!(node = id, method, error = %e, "dispatch failed");
+            self.tick_errors += 1;
         }
     }
 
@@ -638,6 +717,7 @@ impl FlowRuntime {
     ) {
         let id = Arc::clone(&event.source);
         let handle = Arc::clone(&event.source_handle);
+        let mut errored = None;
         if let Some(component) = self.components.get_mut(id.as_ref()) {
             let mut writer = BufferBoardWriter::new(&mut self.client, out);
             let mut ctx = RuntimeContext::new(&mut writer, self.now_ms, id.as_ref(), reqs);
@@ -651,8 +731,12 @@ impl FlowRuntime {
                 other => component.dispatch_internal(&other[1..], event.value.clone(), &mut ctx),
             };
             if let Err(e) = result {
-                log::warn!("internal {id}.{handle} failed: {e}");
+                errored = Some(e);
             }
+        }
+        if let Some(e) = errored {
+            tracing::warn!(node = %id, handle = %handle, error = %e, "internal dispatch failed");
+            self.tick_errors += 1;
         }
     }
 
@@ -804,6 +888,24 @@ mod tests {
     }
 
     #[test]
+    #[tracing_test::traced_test]
+    fn flow_turn_emits_the_flow_tick_wide_event() {
+        // The `flow tick` wide event must fire for any turn that does work, so a
+        // future refactor can't silently drop the runtime's telemetry (cf. the
+        // emit-handle silent-routing class). Mirrors the cascade test above.
+        let mut rt = FlowRuntime::new();
+        rt.add_component("src", Box::new(Passthrough { base: base("src") }));
+        rt.add_component("led", Box::new(TestLed { base: base("led"), pin: 13 }));
+        rt.set_edges(vec![edge("src", "value", "led", "value")]);
+
+        rt.dispatch("src", "value", ComponentValue::Bool(true));
+
+        // The wide event fired, stamped with the stimulus that triggered the turn.
+        assert!(logs_contain("flow tick"));
+        assert!(logs_contain("dispatch"));
+    }
+
+    #[test]
     fn inject_event_routes_like_an_emit() {
         // An async cloud result (the `CloudEmitter` → host → `inject_event` path)
         // must route to downstream edges and surface to the UI just like a
@@ -884,7 +986,7 @@ mod tests {
             edge_id: None,
             sequence: 3,
         });
-        let effects = rt.finish(Vec::new(), ScheduleRequests::default());
+        let effects = rt.finish("test", Vec::new(), ScheduleRequests::default());
         assert!(effects.outbound_bytes.is_empty(), "stale event must not reach the led");
     }
 
@@ -933,7 +1035,7 @@ mod tests {
             edge_id: None,
             sequence: rt.current_sequence,
         });
-        let effects = rt.finish(Vec::new(), ScheduleRequests::default());
+        let effects = rt.finish("test", Vec::new(), ScheduleRequests::default());
 
         let led_on = FirmataClient::new().encode_digital_write(13, true);
         assert!(contains(&effects.outbound_bytes, &led_on), "sensor>0 should light the led via the gate");

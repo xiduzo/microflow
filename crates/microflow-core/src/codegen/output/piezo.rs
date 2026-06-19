@@ -8,15 +8,9 @@
 //! configured frequency for the configured duration, falling silent otherwise.
 //! No blocking `delay()` is used: `tone(...)` returns immediately.
 
-use crate::codegen::emit::{pin_or_default, u64_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::piezo::PiezoConfig;
 use crate::flow::FlowNode;
-
-/// Default pin matches `runtime/output/piezo.rs::default_pin` (11).
-const DEFAULT_PIN: u8 = 11;
-/// Default frequency matches `runtime/output/piezo.rs::default_frequency` (440 Hz).
-const DEFAULT_FREQUENCY: u64 = 440;
-/// Default duration matches `runtime/output/piezo.rs::default_duration` (500 ms).
-const DEFAULT_DURATION: u64 = 500;
 
 /// Emit C++ for a Piezo Node. `driver` is an optional boolean trigger: while
 /// true the buzzer sounds, otherwise it is silenced.
@@ -24,9 +18,10 @@ const DEFAULT_DURATION: u64 = 500;
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let token = node.id_token();
     let pin_var = format!("piezo_{token}_pin");
-    let pin = pin_or_default(node, DEFAULT_PIN);
-    let frequency = u64_or_default(node, "frequency", DEFAULT_FREQUENCY);
-    let duration = u64_or_default(node, "duration", DEFAULT_DURATION);
+    let config: PiezoConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
+    let frequency = config.frequency;
+    let duration = config.duration;
 
     let mut e = NodeEmission {
         declarations: vec![format!("const uint8_t {pin_var} = {pin};")],

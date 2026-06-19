@@ -6,9 +6,10 @@
 
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent, RuntimeContext,
-    RuntimeError, serde_utils,
+    RuntimeError,
 };
-use serde::{Deserialize, Serialize};
+
+pub use crate::config::pixel::PixelConfig;
 
 // Firmata sysex command for pixel operations (matches ws2812.h)
 const PIXEL_COMMAND: u8 = 0x51;
@@ -24,39 +25,6 @@ const PIXEL_SHIFT: u8 = 0x05;
 const PIXEL_COLOUR_GRB: u8 = 0x0;
 const PIXEL_COLOUR_RGB: u8 = 0x1;
 const PIXEL_COLOUR_BRG: u8 = 0x2;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PixelConfig {
-    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
-    #[serde(default = "default_length")]
-    pub length: u16,
-    #[serde(default = "default_color_order")]
-    pub color_order: String,
-    #[serde(default)]
-    pub presets: Vec<Vec<String>>,
-}
-
-fn default_pin() -> u8 {
-    6
-}
-fn default_length() -> u16 {
-    32
-}
-fn default_color_order() -> String {
-    "GRB".to_string()
-}
-
-impl Default for PixelConfig {
-    fn default() -> Self {
-        Self {
-            pin: default_pin(),
-            length: default_length(),
-            color_order: default_color_order(),
-            presets: Vec::new(),
-        }
-    }
-}
 
 pub struct Pixel {
     base: ComponentBase,

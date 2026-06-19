@@ -3,50 +3,13 @@
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::time::Instant;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TriggerConfig {
-    #[serde(default)]
-    pub relative: bool,
-    #[serde(default = "default_behaviour")]
-    pub behaviour: TriggerBehaviour,
-    #[serde(default = "default_threshold")]
-    pub threshold: f64,
-    #[serde(default = "default_within")]
-    pub within: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum TriggerBehaviour {
-    Increasing,
-    #[default]
-    Decreasing,
-}
-
-fn default_behaviour() -> TriggerBehaviour {
-    TriggerBehaviour::Decreasing
-}
-fn default_threshold() -> f64 {
-    5.0
-}
-fn default_within() -> u64 {
-    250
-}
-
-impl Default for TriggerConfig {
-    fn default() -> Self {
-        Self {
-            relative: false,
-            behaviour: default_behaviour(),
-            threshold: default_threshold(),
-            within: default_within(),
-        }
-    }
-}
+// `TriggerConfig` + `TriggerBehaviour` moved to the ungated `config::trigger`
+// module so the codegen emitter shares the exact same fields + defaults (single
+// source of truth — see `crate::config`). Re-exported so this module's impls are
+// unchanged.
+pub use crate::config::trigger::{TriggerBehaviour, TriggerConfig};
 
 struct ValueWithTimestamp {
     value: f64,

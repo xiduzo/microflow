@@ -3,30 +3,8 @@
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum CalculateFunction {
-    #[default]
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    Max,
-    Min,
-    Pow,
-    Ceil,
-    Floor,
-    Round,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct CalculateConfig {
-    #[serde(default)]
-    pub function: CalculateFunction,
-}
+pub use crate::config::calculate::{CalculateConfig, CalculateFunction};
 
 pub struct Calculate {
     base: ComponentBase,

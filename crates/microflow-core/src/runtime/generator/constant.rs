@@ -3,23 +3,10 @@
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConstantConfig {
-    #[serde(default = "default_value")]
-    pub value: f64,
-}
-
-fn default_value() -> f64 {
-    1337.0
-}
-
-impl Default for ConstantConfig {
-    fn default() -> Self {
-        Self { value: default_value() }
-    }
-}
+// `ConstantConfig` moved to the ungated `config::constant` module so the codegen
+// emitter shares the exact same field + default (single source of truth — see
+// `crate::config`). Re-exported so this module's impls are unchanged.
+pub use crate::config::constant::ConstantConfig;
 
 pub struct Constant {
     base: ComponentBase,

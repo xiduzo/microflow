@@ -18,7 +18,39 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(start)]
 pub fn init() {
     #[cfg(target_arch = "wasm32")]
-    console_error_panic_hook::set_once();
+    {
+        use tracing_subscriber::filter::LevelFilter;
+        use tracing_subscriber::fmt::format::DefaultFields;
+        use tracing_subscriber::prelude::*;
+        use tracing_web::{performance_layer, MakeWebConsoleWriter};
+
+        console_error_panic_hook::set_once();
+
+        // Bridge the crate's existing `log::` records into tracing — the browser
+        // has no `log` subscriber otherwise, so build/dispatch warnings would vanish.
+        let _ = tracing_log::LogTracer::init();
+
+        // Render core's `tracing` events (the `flow_tick` span + drain traces) to
+        // the devtools console. DEBUG in dev surfaces each flow tick; release stays
+        // quiet at WARN. The per-event TRACE drain is opt-in — raise the level. No
+        // timestamps (wasm has no `Instant`); the performance layer records
+        // User-Timing spans instead, viewable in the browser profiler.
+        let level = if cfg!(debug_assertions) {
+            LevelFilter::DEBUG
+        } else {
+            LevelFilter::WARN
+        };
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            .with_ansi(false)
+            .without_time()
+            .with_writer(MakeWebConsoleWriter::new());
+        let perf_layer = performance_layer().with_details_from_fields(DefaultFields::new());
+        tracing_subscriber::registry()
+            .with(level)
+            .with(fmt_layer)
+            .with(perf_layer)
+            .init();
+    }
 }
 
 /// A live flow runtime for one board connection. The browser drives it; the

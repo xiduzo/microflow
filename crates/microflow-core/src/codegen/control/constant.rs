@@ -6,7 +6,8 @@
 //! work — there is no timing or state to update. Downstream Nodes read the
 //! output variable directly.
 
-use crate::codegen::emit::{cpp_double, f64_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::config::constant::ConstantConfig;
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Constant Node's fixed value.
@@ -22,7 +23,8 @@ pub fn value_var(node: &FlowNode) -> String {
 #[must_use]
 pub fn emit(node: &FlowNode) -> NodeEmission {
     let var = value_var(node);
-    let value = cpp_double(f64_or_default(node, "value", 1337.0));
+    let config: ConstantConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let value = cpp_double(config.value);
 
     NodeEmission {
         declarations: vec![format!("double {var} = {value};")],

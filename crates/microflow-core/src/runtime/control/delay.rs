@@ -10,25 +10,10 @@
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DelayConfig {
-    #[serde(default = "default_delay")]
-    pub delay: u64,
-    #[serde(default, rename = "forgetPrevious")]
-    pub forget_previous: bool,
-}
-
-fn default_delay() -> u64 {
-    1000
-}
-
-impl Default for DelayConfig {
-    fn default() -> Self {
-        Self { delay: default_delay(), forget_previous: false }
-    }
-}
+// `DelayConfig` moved to the ungated `config::delay` module so the codegen
+// emitter shares the exact same fields + defaults (single source of truth — see
+// `crate::config`). Re-exported so this module's impls are unchanged.
+pub use crate::config::delay::DelayConfig;
 
 pub struct Delay {
     base: ComponentBase,

@@ -3,25 +3,8 @@
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum GateType {
-    #[default]
-    And,
-    Nand,
-    Or,
-    Xor,
-    Nor,
-    Xnor,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct GateConfig {
-    #[serde(default)]
-    pub gate: GateType,
-}
+pub use crate::config::gate::{GateConfig, GateType};
 
 pub struct Gate {
     base: ComponentBase,

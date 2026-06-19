@@ -8,40 +8,20 @@
 //! object are only present because a Servo Node exists (the assembler
 //! de-duplicates the include).
 
-use crate::codegen::emit::{pin_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::servo::ServoConfig;
 use crate::flow::FlowNode;
-
-/// Default pin matches `runtime/output/servo.rs::default_pin` (3).
-const DEFAULT_PIN: u8 = 3;
-/// Range defaults match `runtime/output/servo.rs` (0..=180).
-const DEFAULT_MIN: u16 = 0;
-const DEFAULT_MAX: u16 = 180;
-
-/// Read the servo's `[min, max]` range from `data.range`, with runtime defaults.
-fn range(node: &FlowNode) -> (u16, u16) {
-    let range = node.data.get("range");
-    let read = |key: &str, default: u16| {
-        range
-            .and_then(|r| r.get(key))
-            .and_then(serde_json::Value::as_u64)
-            .and_then(|n| u16::try_from(n).ok())
-            .unwrap_or(default)
-    };
-    // Fall back to top-level keys too, then defaults.
-    let min = read("min", u16_or_default(node, "min", DEFAULT_MIN));
-    let max = read("max", u16_or_default(node, "max", DEFAULT_MAX));
-    (min, max)
-}
 
 /// Emit C++ for a Servo Node. `driver` is the C++ integer angle expression to
 /// write each loop, or `None` for an unconnected Servo which holds its center.
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
-    let pin = pin_or_default(node, DEFAULT_PIN);
+    let config: ServoConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
     let token = node.id_token();
     let obj = format!("servo_{token}");
     let pin_var = format!("servo_{token}_pin");
-    let (min, max) = range(node);
+    let (min, max) = (config.range.min, config.range.max);
     let center = (min + max) / 2;
 
     let mut e = NodeEmission {

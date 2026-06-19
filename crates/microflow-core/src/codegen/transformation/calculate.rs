@@ -13,7 +13,8 @@
 //! math. We emit the matching single-input C++ so the Sketch reproduces what
 //! the Flow Author observes when one signal drives the Node.
 
-use crate::codegen::emit::{str_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::calculate::{CalculateConfig, CalculateFunction};
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Calculate Node's latest result.
@@ -25,12 +26,12 @@ pub fn value_var(node: &FlowNode) -> String {
 /// Build the C++ expression for the configured function applied to a single
 /// input value `v` (the driver expression). Mirrors the runtime's single-input
 /// fold semantics.
-fn function_expr(function: &str, v: &str) -> String {
+fn function_expr(function: CalculateFunction, v: &str) -> String {
     match function {
         // Unary math functions.
-        "ceil" => format!("ceil({v})"),
-        "floor" => format!("floor({v})"),
-        "round" => format!("round({v})"),
+        CalculateFunction::Ceil => format!("ceil({v})"),
+        CalculateFunction::Floor => format!("floor({v})"),
+        CalculateFunction::Round => format!("round({v})"),
         // Multi-input folds collapse to the first input when only one is wired.
         // `add`/`subtract`/`multiply`/`divide`/`modulo`/`max`/`min`/`pow` all
         // yield the input value itself for a single input.
@@ -44,7 +45,7 @@ fn function_expr(function: &str, v: &str) -> String {
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let var = value_var(node);
-    let function = str_or_default(node, "function", "add");
+    let config: CalculateConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 
     let mut e = NodeEmission {
         declarations: vec![format!("double {var} = 0.0;")],
@@ -52,7 +53,7 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     };
 
     if let Some(expr) = driver {
-        let computed = function_expr(&function, &format!("(double)({expr})"));
+        let computed = function_expr(config.function, &format!("(double)({expr})"));
         e.loop_body.push(format!("{var} = {computed};"));
     }
     e

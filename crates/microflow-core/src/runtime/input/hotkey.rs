@@ -8,26 +8,8 @@ use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, ListenerWiring, RuntimeContext,
     RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HotkeyConfig {
-    #[serde(default = "default_accelerator")]
-    pub accelerator: String,
-}
-
-fn default_accelerator() -> String {
-    "x".to_string()
-}
-
-impl Default for HotkeyConfig {
-    fn default() -> Self {
-        Self {
-            accelerator: default_accelerator(),
-        }
-    }
-}
+pub use crate::config::hotkey::HotkeyConfig;
 
 pub struct Hotkey {
     base: ComponentBase,

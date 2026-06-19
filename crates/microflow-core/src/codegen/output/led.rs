@@ -6,18 +6,17 @@
 //! `digitalWrite` in `loop()` that reflects the wired source's state, matching
 //! the runtime's default-off behavior.
 
-use crate::codegen::emit::{pin_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::led::LedConfig;
 use crate::flow::FlowNode;
-
-/// Default pin matches `runtime/output/led.rs::default_pin` (13).
-const DEFAULT_PIN: u8 = 13;
 
 /// Emit C++ for a Led Node. `driver` is the C++ boolean expression that drives
 /// the Led's state (from a wired input), or `None` for an unconnected Led which
 /// stays in its initialized-off state.
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
-    let pin = pin_or_default(node, DEFAULT_PIN);
+    let config: LedConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
     let var = format!("led_{}_pin", node.id_token());
 
     let mut e = NodeEmission {

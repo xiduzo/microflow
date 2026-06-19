@@ -11,7 +11,8 @@
 //! ing the runtime's `start.elapsed()` value, so downstream Nodes see the same
 //! signal they do in live mode.
 
-use crate::codegen::emit::{u64_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::interval::IntervalConfig;
 use crate::flow::FlowNode;
 
 /// Runtime clamps the interval to at least this many milliseconds.
@@ -33,7 +34,8 @@ pub fn emit(node: &FlowNode) -> NodeEmission {
     let var = value_var(node);
     let previous = format!("interval_{token}_previous");
     let start = format!("interval_{token}_start");
-    let interval_ms = u64_or_default(node, "interval", 1000).max(MIN_INTERVAL_MS);
+    let config: IntervalConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let interval_ms = config.interval.max(MIN_INTERVAL_MS);
 
     NodeEmission {
         declarations: vec![

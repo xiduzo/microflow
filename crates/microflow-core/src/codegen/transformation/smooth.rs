@@ -16,7 +16,8 @@
 //! its fill count, reproducing the same rolling mean on-device. The output
 //! `double` is read by downstream Nodes.
 
-use crate::codegen::emit::{cpp_double, f64_or_default, str_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::config::smooth::{SmoothConfig, SmoothType};
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Smooth Node's latest output.
@@ -27,21 +28,24 @@ pub fn value_var(node: &FlowNode) -> String {
 
 /// Emit C++ for a Smooth Node. `driver` is the wired numeric input, or `None`
 /// when nothing is connected (the runtime leaves the value at `0.0`).
+///
+/// Deserializes the shared [`SmoothConfig`] from `node.data`, so the fields and
+/// defaults are exactly the ones the live runtime uses — no re-typed literals.
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let token = node.id_token();
     let var = value_var(node);
-    let smooth_type = str_or_default(node, "type", "smooth");
+    let config: SmoothConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 
-    if smooth_type == "movingAverage" {
-        return moving_average(node, &token, &var, driver);
+    match config.smooth_type {
+        SmoothType::MovingAverage => moving_average(&token, &var, config.window_size, driver),
+        SmoothType::Smooth => exponential(&var, config.attenuation, driver),
     }
-    exponential(node, &var, driver)
 }
 
 /// Exponential smoothing: a single persistent running value.
-fn exponential(node: &FlowNode, var: &str, driver: Option<&str>) -> NodeEmission {
-    let attenuation = cpp_double(f64_or_default(node, "attenuation", 0.995));
+fn exponential(var: &str, attenuation: f64, driver: Option<&str>) -> NodeEmission {
+    let attenuation = cpp_double(attenuation);
 
     let mut e = NodeEmission {
         declarations: vec![format!("double {var} = 0.0;")],
@@ -62,10 +66,10 @@ fn exponential(node: &FlowNode, var: &str, driver: Option<&str>) -> NodeEmission
 }
 
 /// Moving average over a fixed-size ring buffer plus fill count.
-fn moving_average(node: &FlowNode, token: &str, var: &str, driver: Option<&str>) -> NodeEmission {
-    // `windowSize` defaults to 25 in the runtime; guard against 0 to avoid a
-    // zero-length buffer / divide-by-zero in the emitted C++.
-    let window = u16_or_default(node, "windowSize", 25).max(1);
+fn moving_average(token: &str, var: &str, window_size: usize, driver: Option<&str>) -> NodeEmission {
+    // Guard against a 0 window to avoid a zero-length buffer / divide-by-zero in
+    // the emitted C++ (the runtime default is 25, applied during deserialization).
+    let window = window_size.max(1);
     let buf = format!("smooth_{token}_window");
     let idx = format!("smooth_{token}_index");
     let count = format!("smooth_{token}_count");

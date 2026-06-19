@@ -6,34 +6,11 @@
 //! runtime's `update_flow` reconciles reporting centrally from `listener_wiring`.
 
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    ListenerWiring, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MotionConfig {
-    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
-    #[serde(default = "default_controller")]
-    pub controller: String,
-}
-
-fn default_pin() -> u8 {
-    8
-}
-fn default_controller() -> String {
-    "HCSR501".to_string()
-}
-
-impl Default for MotionConfig {
-    fn default() -> Self {
-        Self {
-            pin: default_pin(),
-            controller: default_controller(),
-        }
-    }
-}
+pub use crate::config::motion::MotionConfig;
 
 pub struct Motion {
     base: ComponentBase,

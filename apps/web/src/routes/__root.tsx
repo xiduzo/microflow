@@ -25,6 +25,8 @@ import { useUpdater } from "@/hooks/use-updater";
 import { useFigmaUniqueId, useFigmaStore } from "@/stores/figma";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { MicroflowDevtools } from "@/components/devtools/microflow-devtools";
+import { useBackendLogs } from "@/hooks/use-backend-logs";
 import ReactConfetti from "react-confetti";
 import { useFirstArduinoConnection } from "@/hooks/use-first-arduino-connection";
 import { useAppStore } from "@/stores/app";
@@ -96,6 +98,7 @@ function RootComponent() {
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-right" />
       <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
+      <MicroflowDevtools />
     </>
   );
 }
@@ -105,6 +108,7 @@ function Board() {
   useMqttSync();
   useLlmSync();
   useUpdater();
+  useBackendLogs();
 
   // Keep the figma store's uniqueId in sync with the auth session
   const uniqueId = useFigmaUniqueId();

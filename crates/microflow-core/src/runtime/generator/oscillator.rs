@@ -7,61 +7,15 @@
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+// `OscillatorConfig` + `Waveform` moved to the ungated `config::oscillator`
+// module so the codegen emitter shares the exact same fields + defaults (single
+// source of truth — see `crate::config`). Re-exported so this module's impls and
+// waveform helpers are unchanged.
+pub use crate::config::oscillator::{OscillatorConfig, Waveform};
 
 /// ~60 FPS refresh.
 const REFRESH_MS: u64 = 1000 / 60;
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum Waveform {
-    #[default]
-    Sinus,
-    Square,
-    Sawtooth,
-    Triangle,
-    Random,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OscillatorConfig {
-    #[serde(default)]
-    pub waveform: Waveform,
-    #[serde(default = "default_period")]
-    pub period: f64,
-    #[serde(default = "default_amplitude")]
-    pub amplitude: f64,
-    #[serde(default)]
-    pub phase: f64,
-    #[serde(default)]
-    pub shift: f64,
-    #[serde(default = "default_auto_start", rename = "autoStart")]
-    pub auto_start: bool,
-}
-
-fn default_period() -> f64 {
-    1000.0
-}
-fn default_amplitude() -> f64 {
-    1.0
-}
-fn default_auto_start() -> bool {
-    true
-}
-
-impl Default for OscillatorConfig {
-    fn default() -> Self {
-        Self {
-            waveform: Waveform::default(),
-            period: default_period(),
-            amplitude: default_amplitude(),
-            phase: 0.0,
-            shift: 0.0,
-            auto_start: default_auto_start(),
-        }
-    }
-}
 
 pub struct Oscillator {
     base: ComponentBase,

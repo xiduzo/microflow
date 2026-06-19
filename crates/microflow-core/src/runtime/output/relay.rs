@@ -1,35 +1,11 @@
 //! Relay Component — Output. Template port for the workflow node fan-out.
 
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, RuntimeContext, RuntimeError,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-pub enum RelayType {
-    #[default]
-    NO,
-    NC,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RelayConfig {
-    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
-    #[serde(default)]
-    pub r#type: RelayType,
-}
-
-fn default_pin() -> u8 {
-    10
-}
-
-impl Default for RelayConfig {
-    fn default() -> Self {
-        Self { pin: default_pin(), r#type: RelayType::default() }
-    }
-}
+pub use crate::config::relay::{RelayConfig, RelayType};
 
 pub struct Relay {
     base: ComponentBase,

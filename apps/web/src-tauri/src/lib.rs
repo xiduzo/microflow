@@ -92,6 +92,21 @@ pub fn run() {
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
+    // Flow-runtime tracing. microflow-core emits a `flow_tick` span + drain
+    // traces as `tracing` events; this fmt subscriber renders them to stdout
+    // (visible under `tauri dev`). Honors `RUST_LOG`, else quiet deps with flow
+    // ticks at debug.
+    let trace_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn,microflow_core=debug"));
+    // `set_global_default`, NOT `.init()`: `.init()` also installs a `log`→tracing
+    // bridge (LogTracer) that claims the global `log` logger, which makes
+    // `tauri-plugin-log` panic with "attempted to set a logger after the logging
+    // system was already initialized". Setting only the tracing dispatcher keeps
+    // the two independent — `tauri-plugin-log` owns `log::`, this owns `tracing::`.
+    let _ = tracing::subscriber::set_global_default(
+        tracing_subscriber::fmt().with_env_filter(trace_filter).finish(),
+    );
+
     let hardware_service = Arc::new(Mutex::new(HardwareService::new()));
 
     let mqtt_manager = MqttManager::new();
@@ -134,6 +149,13 @@ pub fn run() {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
+                        // Forward `log::` records (hardware, MQTT, LLM, …) to the
+                        // webview via the `log://log` event so the in-app Microflow
+                        // devtools shows the whole backend's activity, not just flow
+                        // events. `.target` appends — stdout/log-dir stay intact.
+                        .target(tauri_plugin_log::Target::new(
+                            tauri_plugin_log::TargetKind::Webview,
+                        ))
                         .build(),
                 )?;
             }

@@ -6,7 +6,7 @@
 //! - **Subscribe** (`direction = "subscribe"`): describes its interest via
 //!   [`subscriber_wiring`](Component::subscriber_wiring); the host routes broker
 //!   payloads back via [`receive_raw_message`](Component::receive_raw_message),
-//!   which emits "message" downstream.
+//!   which emits on "value" downstream (matching the node's source handle).
 //!
 //! [`Component`]: microflow_core::runtime::Component
 
@@ -171,7 +171,7 @@ impl Component for Mqtt {
 
     /// Subscribe-node delivery: the broker payload arrives here (topic ignored
     /// for `Plain` wiring). Parse it to the narrowest [`ComponentValue`] and emit
-    /// "message".
+    /// on "value" (the subscribe node's source handle in the editor).
     fn receive_raw_message(&mut self, _topic: &str, payload: &[u8]) {
         let value = String::from_utf8_lossy(payload).to_string();
 
@@ -187,7 +187,7 @@ impl Component for Mqtt {
 
         self.base.value = component_value.clone();
         self.base
-            .emit_with_value("message", Cow::Owned(component_value));
+            .emit_with_value("value", Cow::Owned(component_value));
     }
 
     fn destroy(&mut self) {
@@ -304,7 +304,7 @@ mod tests {
 
         let events = drain(&s);
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].source_handle.as_ref(), "message");
+        assert_eq!(events[0].source_handle.as_ref(), "value");
         assert_eq!(events[0].value, ComponentValue::Number(42.0));
     }
 

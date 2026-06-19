@@ -46,6 +46,10 @@ async-trait = "0.1"
 # the corresponding `.ts` file. Frontend imports the generated types so the
 # Rust struct is the single source of truth for event payload shape.
 ts-rs = "10"
+# Flow-runtime tracing: render microflow-core's `flow_tick` events to stdout
+# (visible under `tauri dev`). Separate pipeline from `tauri-plugin-log`.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 proptest = "1"

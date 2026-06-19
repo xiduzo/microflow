@@ -4,6 +4,15 @@
 - **Date:** 2026-05-17
 - **Deciders:** sander
 
+> **⚠ Relocated (2026-06 · [ADR-0006](0006-rehost-runtime-on-core.md)):** this ADR
+> predates the re-host of the Live Flow Runtime onto `microflow-core`. The
+> per-capability service-trait decision still holds, but the runtime moved to
+> `crates/microflow-core/src/runtime/…`; the cloud nodes + their service adapters now
+> live in `apps/web/src-tauri/src/runtime/cloud/` and `…/services/` (the old
+> `external/` module was renamed `cloud/`, `builders.rs` is gone, `RuntimeContext`
+> is now the sans-IO per-turn context — a different type from the old service bundle).
+> See ADR-0006.
+
 ## Context
 
 External components — components in `runtime/external/` that talk to MQTT brokers,

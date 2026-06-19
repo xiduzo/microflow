@@ -31,6 +31,7 @@
 )]
 
 pub mod codegen;
+pub mod config;
 pub mod firmata;
 pub mod flasher;
 pub mod flow;

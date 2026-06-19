@@ -6,29 +6,20 @@
 //! emits the OUTPUT setup and, when driven, a `digitalWrite` that honours the
 //! relay type so emitted behavior matches the runtime.
 
-use crate::codegen::emit::{pin_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::relay::{RelayConfig, RelayType};
 use crate::flow::FlowNode;
-
-/// Default pin matches `runtime/output/relay.rs::default_pin` (10).
-const DEFAULT_PIN: u8 = 10;
-
-/// True when the Node's `data.type` selects a Normally-Closed relay.
-fn is_normally_closed(node: &FlowNode) -> bool {
-    node.data
-        .get("type")
-        .and_then(serde_json::Value::as_str)
-        .is_some_and(|t| t.eq_ignore_ascii_case("NC"))
-}
 
 /// Emit C++ for a Relay Node. `driver` is the C++ boolean expression for the
 /// desired open/closed state (true = open), or `None` for an unconnected relay
 /// which stays in its initialized-closed state.
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
-    let pin = pin_or_default(node, DEFAULT_PIN);
+    let config: RelayConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let pin = config.pin;
     let var = format!("relay_{}_pin", node.id_token());
     // NO: open => HIGH; NC: open => LOW. Closing is the inverse.
-    let nc = is_normally_closed(node);
+    let nc = config.r#type == RelayType::NC;
 
     let mut e = NodeEmission {
         declarations: vec![format!("const uint8_t {var} = {pin};")],

@@ -1,5 +1,11 @@
 //! Serde visitors used by component configs to accept either a string or a
 //! number for pin fields. Ported verbatim from the desktop runtime.
+//!
+//! Lives under `config` (ungated) rather than `runtime` (gated) so the shared
+//! per-Node config structs — consumed by both the runtime and the codegen
+//! emitters — can reference these `deserialize_with` helpers without pulling the
+//! `runtime` feature into the lean codegen build. Re-exported as
+//! `crate::runtime::serde_utils` for the node files that still live there.
 
 use serde::de::{self, Visitor};
 

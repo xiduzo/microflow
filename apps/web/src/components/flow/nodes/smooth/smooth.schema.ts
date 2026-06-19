@@ -24,6 +24,13 @@ export type SmoothAverage = z.infer<typeof smoothAverageSchema>;
 export type MovingAverage = z.infer<typeof movingAverageSchema>;
 export type Data = z.infer<typeof dataSchema>;
 
+// Per-variant defaults, parsed once from the schema so node-UI control fallbacks
+// don't re-hardcode the literals. This is the single frontend source for these
+// values (the Rust runtime/codegen share their own copy via `config::smooth`;
+// unifying the two sides is the deferred config-generator work).
+export const smoothDefaults = smoothAverageSchema.parse({ type: "smooth" });
+export const movingAverageDefaults = movingAverageSchema.parse({ type: "movingAverage" });
+
 export const defaults = {
   ...dataSchema.parse(undefined),
   group: "shape",

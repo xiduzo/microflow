@@ -10,10 +10,9 @@
 //! release cancels it.
 
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    ListenerWiring, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 
 /// Quiet window a line must hold before a deferred level is accepted. Must
 /// exceed one 50Hz mains period (20ms): a floating pin picks up hum as
@@ -23,39 +22,7 @@ use serde::{Deserialize, Serialize};
 /// immediately, so real press latency stays imperceptible.
 const DEBOUNCE_MS: f64 = 50.0;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ButtonConfig {
-    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
-    #[serde(default)]
-    pub is_pullup: bool,
-    #[serde(default)]
-    pub is_pulldown: bool,
-    #[serde(default = "default_holdtime")]
-    pub holdtime: u64,
-    #[serde(default)]
-    pub invert: bool,
-}
-
-fn default_pin() -> u8 {
-    6
-}
-fn default_holdtime() -> u64 {
-    500
-}
-
-impl Default for ButtonConfig {
-    fn default() -> Self {
-        Self {
-            pin: default_pin(),
-            is_pullup: false,
-            is_pulldown: false,
-            holdtime: default_holdtime(),
-            invert: false,
-        }
-    }
-}
+pub use crate::config::button::ButtonConfig;
 
 pub struct Button {
     base: ComponentBase,

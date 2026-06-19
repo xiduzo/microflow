@@ -14,7 +14,8 @@
 //! wins), which is the same observable result as the runtime cancelling the
 //! prior thread.
 
-use crate::codegen::emit::{u64_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::delay::DelayConfig;
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Delay Node's most recently emitted
@@ -34,7 +35,8 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let armed = format!("delay_{token}_armed_at");
     let stored = format!("delay_{token}_stored");
     let prev = format!("delay_{token}_prev");
-    let delay_ms = u64_or_default(node, "delay", 1000);
+    let config: DelayConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let delay_ms = config.delay;
 
     let mut e = NodeEmission {
         declarations: vec![format!("double {var} = 0.0;")],

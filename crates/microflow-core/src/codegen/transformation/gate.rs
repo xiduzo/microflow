@@ -10,7 +10,8 @@
 //! single-input pass-through / inverting logic into a `bool` variable that
 //! downstream Nodes read, reproducing the live gate for the wired signal.
 
-use crate::codegen::emit::{str_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::config::gate::{GateConfig, GateType};
 use crate::flow::FlowNode;
 
 /// The C++ `bool` variable holding this Gate Node's latest outcome.
@@ -21,10 +22,10 @@ pub fn state_var(node: &FlowNode) -> String {
 
 /// Build the single-input C++ boolean expression for the configured gate over
 /// the driver expression `v`.
-fn gate_expr(gate: &str, v: &str) -> String {
+fn gate_expr(gate: GateType, v: &str) -> String {
     match gate {
         // Inverting gates for a single input.
-        "nand" | "nor" | "xnor" => format!("(!((bool)({v})))"),
+        GateType::Nand | GateType::Nor | GateType::Xnor => format!("(!((bool)({v})))"),
         // Pass-through gates for a single input (and / or / xor).
         _ => format!("((bool)({v}))"),
     }
@@ -36,7 +37,7 @@ fn gate_expr(gate: &str, v: &str) -> String {
 #[must_use]
 pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let var = state_var(node);
-    let gate = str_or_default(node, "gate", "and");
+    let config: GateConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 
     let mut e = NodeEmission {
         declarations: vec![format!("bool {var} = false;")],
@@ -44,7 +45,7 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     };
 
     if let Some(expr) = driver {
-        let computed = gate_expr(&gate, expr);
+        let computed = gate_expr(config.gate, expr);
         e.loop_body.push(format!("{var} = {computed};"));
     }
     e
