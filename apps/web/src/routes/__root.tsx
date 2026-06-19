@@ -86,7 +86,7 @@ function RootComponent() {
             <AppSidebar />
             <SidebarInset>
               <TooltipProvider>
-                <div className="h-full w-full absolute inset-0">
+                <div className="h-full w-full absolute inset-0 overflow-y-auto rounded-3xl">
                   <Outlet />
                 </div>
               </TooltipProvider>

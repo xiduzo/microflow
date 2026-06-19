@@ -92,7 +92,7 @@ export function MicroflowDevtools() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         {visible.length === 0 ? (
           <div className="text-muted-foreground flex h-full items-center justify-center p-8 text-center text-sm">
             {entries.length === 0 ? "No activity yet." : "Nothing matches the filter."}

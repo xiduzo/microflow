@@ -26,7 +26,7 @@ type Props = {
     description?: string | null;
     color?: string | null;
   };
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 };
 
