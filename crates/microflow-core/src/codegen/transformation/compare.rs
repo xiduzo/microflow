@@ -54,7 +54,7 @@ fn compare_expr(config: &CompareConfig, v: &str) -> String {
         }
         CompareValidator::Text => "false".to_string(),
         // `boolean` (default): truthiness of the input.
-        _ => format!("((bool)({v}))"),
+        CompareValidator::Boolean => format!("((bool)({v}))"),
     }
 }
 
