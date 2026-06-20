@@ -109,8 +109,7 @@ pub async fn flow_update(
     // Auto-connect any brokers that are provided. Skip brokers already up with
     // unchanged config: otherwise every node edit logged a misleading
     // "Auto-connecting / Successfully connected" pair around an idempotent
-    // connect() that just short-circuited on "already connected". Only a
-    // missing connection or a changed config does — and logs — real work.
+    // connect() that just short-circuited on "already connected".
     if let Some(broker_configs) = &brokers {
         for broker in broker_configs {
             let config = BrokerConfig {
@@ -120,10 +119,25 @@ pub async fn flow_update(
                 password: broker.password.clone(),
             };
 
-            if state.mqtt_manager.is_connected(&broker.id).await
-                && !state.mqtt_manager.config_changed(&broker.id, &config).await
-            {
+            let connected = state.mqtt_manager.is_connected(&broker.id).await;
+            let config_changed = state.mqtt_manager.config_changed(&broker.id, &config).await;
+
+            // Already up with the same config — nothing to do.
+            if connected && !config_changed {
                 continue;
+            }
+
+            // Config changed while connected: connect() short-circuits on
+            // "already connected" and would never apply the new url/creds, so
+            // tear the connection down first. disconnect() also drops the
+            // broker-side subscriptions, so forget this broker's tracked subs —
+            // the reconciliation below then re-subscribes them on the fresh
+            // connection instead of treating them as still-live and skipping.
+            if connected && config_changed {
+                log::info!("[MQTT] Broker {} config changed; reconnecting", broker.name);
+                let _ = state.mqtt_manager.disconnect(&broker.id).await;
+                let mut subs = state.figma_subscriptions.lock().await;
+                subs.retain(|s| s.broker_id != broker.id);
             }
 
             log::info!("[MQTT] Auto-connecting broker: {} ({})", broker.name, broker.id);
