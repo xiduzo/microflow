@@ -7,9 +7,11 @@ import {
   buildFlowUpdate,
   gatherBrokers,
   gatherProviders,
+  runtimeRelevantKey,
   type HostSnapshot,
   type NodeAdapterRegistry,
 } from "../flow-update-dispatcher";
+import type { FlowUpdate } from "../flow-update-sender";
 import { RecordingFlowUpdateSender } from "../flow-update-sender";
 import type { FlowSession } from "../flow-session";
 
@@ -114,6 +116,45 @@ describe("buildFlowUpdate", () => {
     doc.addNode(mkNode("plain", { data: { value: 42 } }));
     const update = buildFlowUpdate(doc, emptySnapshot(), EMPTY_REGISTRY);
     expect(update.nodes[0]!.data).toEqual({ value: 42 });
+  });
+});
+
+describe("runtimeRelevantKey", () => {
+  const base = (): FlowUpdate => ({
+    nodes: [mkNode("n1", { data: { value: 1 } })],
+    edges: [{ id: "e1", source: "n1", target: "n2", sourceHandle: "value", targetHandle: "in" }],
+    brokers: [],
+    providers: [],
+  });
+
+  test("ignores node position (visual-only field)", () => {
+    const a = base();
+    const b = base();
+    b.nodes[0]!.position = { x: 999, y: -42 };
+    expect(runtimeRelevantKey(a)).toBe(runtimeRelevantKey(b));
+  });
+
+  test("reflects node data changes", () => {
+    const a = base();
+    const b = base();
+    b.nodes[0]!.data = { value: 2 };
+    expect(runtimeRelevantKey(a)).not.toBe(runtimeRelevantKey(b));
+  });
+
+  test("reflects edge changes", () => {
+    const a = base();
+    const b = base();
+    b.edges = [
+      ...b.edges,
+      { id: "e2", source: "n2", target: "n3", sourceHandle: "value", targetHandle: "in" },
+    ];
+    expect(runtimeRelevantKey(a)).not.toBe(runtimeRelevantKey(b));
+  });
+
+  test("stable under node reordering", () => {
+    const a = { ...base(), nodes: [mkNode("n1"), mkNode("n2")], edges: [] };
+    const b = { ...base(), nodes: [mkNode("n2"), mkNode("n1")], edges: [] };
+    expect(runtimeRelevantKey(a)).toBe(runtimeRelevantKey(b));
   });
 });
 
@@ -379,6 +420,61 @@ describe("FlowUpdateDispatcher", () => {
     await Promise.resolve();
     expect(sender.sent).toHaveLength(1);
     expect(sender.sent[0]!.nodes.map((n) => n.id)).toEqual(["remote-n"]);
+
+    dispatcher.destroy();
+  });
+
+  test("position-only change does not re-dispatch (no runtime delta)", async () => {
+    const doc = FlowDocument.createEmpty();
+    doc.addNode(mkNode("n1"));
+    const sender = new RecordingFlowUpdateSender();
+    const scheduler = new ManualDispatchScheduler();
+    const dispatcher = new FlowUpdateDispatcher(
+      makeSession(doc),
+      emptySnapshot,
+      sender,
+      scheduler,
+      EMPTY_REGISTRY,
+    );
+
+    scheduler.flush(); // initial dispatch (n1)
+    await Promise.resolve();
+    sender.sent.length = 0;
+
+    doc.updateNodePosition("n1", { x: 123, y: 456 });
+    expect(scheduler.hasPending).toBe(true);
+    scheduler.flush();
+    await Promise.resolve();
+    expect(sender.sent).toHaveLength(0);
+
+    // A real data change still dispatches.
+    doc.updateNodeData("n1", { value: 7 });
+    scheduler.flush();
+    await Promise.resolve();
+    expect(sender.sent).toHaveLength(1);
+
+    dispatcher.destroy();
+  });
+
+  test("dispatchNow forces a send even with no runtime delta", async () => {
+    const doc = FlowDocument.createEmpty();
+    doc.addNode(mkNode("n1"));
+    const sender = new RecordingFlowUpdateSender();
+    const scheduler = new ManualDispatchScheduler();
+    const dispatcher = new FlowUpdateDispatcher(
+      makeSession(doc),
+      emptySnapshot,
+      sender,
+      scheduler,
+      EMPTY_REGISTRY,
+    );
+
+    scheduler.flush(); // initial
+    await Promise.resolve();
+    sender.sent.length = 0;
+
+    await dispatcher.dispatchNow();
+    expect(sender.sent).toHaveLength(1);
 
     dispatcher.destroy();
   });

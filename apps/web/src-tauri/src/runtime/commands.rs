@@ -10,8 +10,9 @@ use crate::codegen::GenerationOutcome;
 use crate::AppState;
 use crate::mqtt::broker::BrokerConfig;
 use microflow_core::flow::FlowUpdate;
+use crate::SubKind;
 use microflow_core::runtime::{ComponentValue, SubscriberWiring};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::Emitter;
 
@@ -39,6 +40,54 @@ fn microflow_uid(topic: &str) -> Option<&str> {
     let mut parts = topic.split('/');
     if parts.next()? != "microflow" { return None; }
     parts.next().filter(|s| !s.is_empty())
+}
+
+/// The `SubKind` a wiring resolves to (records which callback shape owns the
+/// broker's single per-topic callback).
+fn sub_kind(wiring: &SubscriberWiring) -> SubKind {
+    match wiring {
+        SubscriberWiring::Plain { .. } => SubKind::Plain,
+        SubscriberWiring::TopicAware { .. } => SubKind::TopicAware,
+        SubscriberWiring::DisplayEcho { .. } => SubKind::DisplayEcho,
+    }
+}
+
+/// Map the live/desired subscription set to `uid -> broker_id` over its
+/// `microflow/{uid}` topics. Generic over the map value so it serves both the
+/// `FigmaSubscription` (live) and `DesiredSub` (desired) maps.
+fn uid_brokers<V>(set: &HashMap<(String, String), V>) -> HashMap<String, String> {
+    let mut out: HashMap<String, String> = HashMap::new();
+    for (broker_id, topic) in set.keys() {
+        if let Some(uid) = microflow_uid(topic) {
+            out.entry(uid.to_string()).or_insert_with(|| broker_id.clone());
+        }
+    }
+    out
+}
+
+/// One desired subscription, before it is reconciled against the live set.
+#[derive(Clone)]
+struct DesiredSub {
+    component_id: String,
+    kind: SubKind,
+}
+
+impl DesiredSub {
+    /// Deterministic winner when several components resolve to the same
+    /// `(broker, topic)` — the broker keeps a single callback per topic.
+    /// Routing kinds (`Plain`/`TopicAware`) win over `DisplayEcho` so a
+    /// display-only echo never shadows component delivery; ties break on the
+    /// lower component id. Being deterministic (not dependent on component
+    /// `HashMap` iteration order) is what keeps the desired set stable across
+    /// `flow_update`s, so an unchanged flow reconciles to *zero* broker traffic.
+    fn beats(&self, other: &DesiredSub) -> bool {
+        let echo = |k: SubKind| matches!(k, SubKind::DisplayEcho);
+        match (echo(self.kind), echo(other.kind)) {
+            (false, true) => true,
+            (true, false) => false,
+            _ => self.component_id < other.component_id,
+        }
+    }
 }
 
 /// Update the flow with new nodes and edges
@@ -110,63 +159,92 @@ pub async fn flow_update(
             .map_err(|_| "runtime actor dropped the flow_update reply".to_string())?
     };
 
-    // Derive the new set of Figma unique_ids from any `microflow/{uid}/...` topics
-    // appearing in the wirings (Plain, TopicAware, or DisplayEcho).
-    let new_unique_ids: HashMap<String, String> = component_wirings.iter()
-        .filter_map(|(_, w)| {
-            microflow_uid(w.topic()).map(|uid| (uid.to_string(), w.broker_id().to_string()))
-        })
-        .collect();
+    // Desired subscription set, one entry per (broker_id, topic). The broker
+    // keeps a single callback per topic, so when several components resolve to
+    // the same topic we pick a deterministic winner (see DesiredSub::beats),
+    // which also subsumes the old DisplayEcho dedup.
+    let mut desired: HashMap<(String, String), DesiredSub> = HashMap::new();
+    for (component_id, wiring) in &component_wirings {
+        let key = (wiring.broker_id().to_string(), wiring.topic().to_string());
+        let cand = DesiredSub { component_id: component_id.clone(), kind: sub_kind(wiring) };
+        desired
+            .entry(key)
+            .and_modify(|cur| {
+                if cand.beats(cur) {
+                    *cur = cand.clone();
+                }
+            })
+            .or_insert(cand);
+    }
 
-    // Cleanup previous subscriptions: publish disconnect for vanished uids, then unsubscribe.
-    {
-        let mut old_subs = state.figma_subscriptions.lock().await;
+    // Snapshot the live subscriptions, then release the lock for the network I/O
+    // below (re-locked at the end to commit) — matching the original's
+    // lock-only-around-state discipline.
+    let live: HashMap<(String, String), crate::FigmaSubscription> = {
+        let subs = state.figma_subscriptions.lock().await;
+        subs.iter()
+            .map(|s| ((s.broker_id.clone(), s.topic.clone()), s.clone()))
+            .collect()
+    };
 
-        let mut old_unique_ids: HashMap<String, String> = HashMap::new();
-        for sub in old_subs.iter() {
-            if let Some(uid) = microflow_uid(&sub.topic) {
-                old_unique_ids.entry(uid.to_string()).or_insert_with(|| sub.broker_id.clone());
-            }
-        }
+    // Diff desired against live and touch only the delta. Moving a node leaves
+    // the wiring identical, so every (un)subscribe below is skipped; adding or
+    // removing a node (un)subscribes just its own topic(s).
+    let old_uids = uid_brokers(&live);
+    let new_uids = uid_brokers(&desired);
 
-        for (uid, broker_id) in &old_unique_ids {
-            if !new_unique_ids.contains_key(uid) {
-                let status_topic = format!("microflow/{uid}/app/status");
-                let _ = state.mqtt_manager.publish(broker_id, &status_topic, b"disconnected", true).await;
-                log::info!("[Figma] Published disconnected status for {uid}");
-            }
-        }
-
-        for sub in old_subs.drain(..) {
-            log::info!("[Figma] Unsubscribing old topic: {} on broker {}", sub.topic, sub.broker_id);
-            if let Err(e) = state.mqtt_manager.unsubscribe(&sub.broker_id, &sub.topic).await {
-                log::warn!("[Figma] Failed to unsubscribe {}: {}", sub.topic, e);
-            }
+    // Vanished Figma uids: publish a retained `disconnected` status.
+    for (uid, broker_id) in &old_uids {
+        if !new_uids.contains_key(uid) {
+            let status_topic = format!("microflow/{uid}/app/status");
+            let _ = state.mqtt_manager.publish(broker_id, &status_topic, b"disconnected", true).await;
+            log::info!("[Figma] Published disconnected status for {uid}");
         }
     }
 
-    // Subscribe new wirings, deduping DisplayEcho on (broker_id, topic).
-    let mut new_subs: Vec<crate::FigmaSubscription> = Vec::new();
-    let mut display_echo_seen: HashSet<(String, String)> = HashSet::new();
+    // Removed topics (in live, gone from desired): unsubscribe.
+    for (key, sub) in &live {
+        if desired.contains_key(key) {
+            continue;
+        }
+        log::info!("[Figma] Unsubscribing old topic: {} on broker {}", sub.topic, sub.broker_id);
+        if let Err(e) = state.mqtt_manager.unsubscribe(&sub.broker_id, &sub.topic).await {
+            log::warn!("[Figma] Failed to unsubscribe {}: {}", sub.topic, e);
+        }
+    }
 
-    for (component_id, wiring) in &component_wirings {
-        let broker_id = wiring.broker_id().to_string();
-        let topic = wiring.topic().to_string();
+    // New or owner/kind-changed topics: (re)subscribe. Unchanged topics keep
+    // their existing broker callback untouched. The committed set carries over
+    // unchanged entries plus the ones we (re)subscribed; a topic whose broker is
+    // offline is intentionally *not* committed, so a later connected
+    // `flow_update` retries it.
+    let mut next_live: Vec<crate::FigmaSubscription> = Vec::with_capacity(desired.len());
+    for ((broker_id, topic), d) in &desired {
+        if let Some(existing) = live.get(&(broker_id.clone(), topic.clone())) {
+            if existing.component_id == d.component_id && existing.kind == d.kind {
+                next_live.push(existing.clone());
+                continue;
+            }
+        }
 
-        if !state.mqtt_manager.is_connected(&broker_id).await {
-            log::warn!("[MQTT] Broker {broker_id} not connected, skipping subscription for {component_id}");
+        if !state.mqtt_manager.is_connected(broker_id).await {
+            log::warn!(
+                "[MQTT] Broker {broker_id} not connected, skipping subscription for {}",
+                d.component_id
+            );
             continue;
         }
 
-        let callback: Arc<dyn Fn(crate::mqtt::broker::MqttMessage) + Send + Sync> = match wiring {
-            SubscriberWiring::Plain { .. } => {
-                let component_id = component_id.clone();
+        let component_id = d.component_id.clone();
+        let callback: Arc<dyn Fn(crate::mqtt::broker::MqttMessage) + Send + Sync> = match d.kind {
+            SubKind::Plain | SubKind::TopicAware => {
                 let actor = state.actor.clone();
                 let app_handle = app.clone();
+                let cid = component_id.clone();
                 Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
-                    log::info!("[MQTT] Received message on topic {} for component {}", msg.topic, component_id);
+                    log::info!("[MQTT] Received message on topic {} for component {}", msg.topic, cid);
                     let _ = actor.send(ActorMsg::Deliver {
-                        id: component_id.clone(),
+                        id: cid.clone(),
                         topic: msg.topic.clone(),
                         payload: msg.payload.clone(),
                     });
@@ -176,38 +254,12 @@ pub async fn flow_update(
                             broker_id: String::new(),
                             topic: msg.topic,
                             payload: String::from_utf8_lossy(&msg.payload).to_string(),
-                            component_id: Some(component_id.clone()),
+                            component_id: Some(cid.clone()),
                         },
                     );
                 })
             }
-            SubscriberWiring::TopicAware { .. } => {
-                let component_id = component_id.clone();
-                let actor = state.actor.clone();
-                let app_handle = app.clone();
-                Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
-                    log::info!("[Figma] Message on {} for component {}", msg.topic, component_id);
-                    let _ = actor.send(ActorMsg::Deliver {
-                        id: component_id.clone(),
-                        topic: msg.topic.clone(),
-                        payload: msg.payload.clone(),
-                    });
-                    let _ = app_handle.emit(
-                        "mqtt-message",
-                        &crate::mqtt::commands::MqttMessage {
-                            broker_id: String::new(),
-                            topic: msg.topic,
-                            payload: String::from_utf8_lossy(&msg.payload).to_string(),
-                            component_id: Some(component_id.clone()),
-                        },
-                    );
-                })
-            }
-            SubscriberWiring::DisplayEcho { .. } => {
-                if !display_echo_seen.insert((broker_id.clone(), topic.clone())) {
-                    // Already subscribed (different component requested same display topic).
-                    continue;
-                }
+            SubKind::DisplayEcho => {
                 let app_handle = app.clone();
                 Arc::new(move |msg: crate::mqtt::broker::MqttMessage| {
                     let _ = app_handle.emit(
@@ -223,15 +275,21 @@ pub async fn flow_update(
             }
         };
 
-        if let Err(e) = state.mqtt_manager.subscribe(&broker_id, &topic, callback).await {
+        if let Err(e) = state.mqtt_manager.subscribe(broker_id, topic, callback).await {
             log::error!("[MQTT] Failed to subscribe component {component_id} to {topic}: {e}");
         }
-        new_subs.push(crate::FigmaSubscription { broker_id, topic });
+        next_live.push(crate::FigmaSubscription {
+            broker_id: broker_id.clone(),
+            topic: topic.clone(),
+            component_id,
+            kind: d.kind,
+        });
     }
 
-    // Publish status=connected and request initial variable values, once per unique_id.
-    for (uid, broker_id) in &new_unique_ids {
-        if !state.mqtt_manager.is_connected(broker_id).await {
+    // Newly-appeared Figma uids only: announce connected + request initial
+    // variable values (retained), once per uid — not on every node move.
+    for (uid, broker_id) in &new_uids {
+        if old_uids.contains_key(uid) || !state.mqtt_manager.is_connected(broker_id).await {
             continue;
         }
         let status_topic = format!("microflow/{uid}/app/status");
@@ -244,10 +302,10 @@ pub async fn flow_update(
         }
     }
 
-    // Store new subscriptions for cleanup on next flow_update
+    // Commit the reconciled live set for the next flow_update to diff against.
     {
         let mut subs = state.figma_subscriptions.lock().await;
-        *subs = new_subs;
+        *subs = next_live;
     }
 
     Ok(())

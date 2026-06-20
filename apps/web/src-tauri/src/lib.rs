@@ -58,11 +58,29 @@ use std::sync::{Arc, Mutex};
 use tauri::Listener;
 use tokio::sync::Mutex as TokioMutex;
 
-/// Tracks active Figma MQTT subscriptions so they can be cleaned up on flow switch
+/// Which callback shape a subscription drives. Stored alongside the live
+/// subscription so `flow_update` can tell when a topic's *owner* changed (and
+/// must be re-subscribed) versus left untouched — the broker holds one callback
+/// per topic, so the owner is part of a subscription's identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubKind {
+    /// Payload-only delivery routed to a component.
+    Plain,
+    /// (topic, payload) delivery routed to a component (Figma).
+    TopicAware,
+    /// Payload echoed to the frontend only — no per-component routing.
+    DisplayEcho,
+}
+
+/// One active Figma/MQTT subscription. Identity is `(broker_id, topic)`; the
+/// `component_id`/`kind` record which wiring currently owns the broker's single
+/// per-topic callback, so `flow_update` can diff and only touch what changed.
 #[derive(Debug, Clone)]
 pub struct FigmaSubscription {
     pub broker_id: String,
     pub topic: String,
+    pub component_id: String,
+    pub kind: SubKind,
 }
 
 /// Shared application state
