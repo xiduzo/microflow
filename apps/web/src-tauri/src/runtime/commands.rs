@@ -106,11 +106,13 @@ pub async fn flow_update(
         brokers.as_ref().map_or(0, std::vec::Vec::len)
     );
 
-    // Auto-connect any brokers that are provided
+    // Auto-connect any brokers that are provided. Skip brokers already up with
+    // unchanged config: otherwise every node edit logged a misleading
+    // "Auto-connecting / Successfully connected" pair around an idempotent
+    // connect() that just short-circuited on "already connected". Only a
+    // missing connection or a changed config does — and logs — real work.
     if let Some(broker_configs) = &brokers {
         for broker in broker_configs {
-            log::info!("[MQTT] Auto-connecting broker: {} ({})", broker.name, broker.id);
-
             let config = BrokerConfig {
                 id: broker.id.clone(),
                 url: broker.url.clone(),
@@ -118,6 +120,13 @@ pub async fn flow_update(
                 password: broker.password.clone(),
             };
 
+            if state.mqtt_manager.is_connected(&broker.id).await
+                && !state.mqtt_manager.config_changed(&broker.id, &config).await
+            {
+                continue;
+            }
+
+            log::info!("[MQTT] Auto-connecting broker: {} ({})", broker.name, broker.id);
             if let Err(e) = state.mqtt_manager.connect(config).await {
                 log::error!("[MQTT] Failed to auto-connect broker {}: {}", broker.name, e);
             } else {
