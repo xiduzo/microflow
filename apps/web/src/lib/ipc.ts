@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type Event } from "@tauri-apps/api/event";
 import { type Node, type Edge } from "@xyflow/react";
 import { isDesktop } from "./platform";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 // Generated bindings: ts-rs writes one file per #[derive(TS)] type into
 // ./bindings/ during `cargo test`. Always import event-payload types from
@@ -221,13 +221,20 @@ export type BrokerStatusPayload = BrokerStatus;
 export type ComponentEventPayload = ComponentEvent;
 
 export function useListen<T>(event: { type: string; handler: (event: Event<T>) => void }) {
+  // Keep the latest handler in a ref so callers can pass a fresh inline object
+  // every render without tearing down and re-creating the Tauri listener. A
+  // re-subscribe loop drops events that arrive during the unlisten/relisten
+  // gap (e.g. the transient `connecting` board-state burst).
+  const handlerRef = useRef(event.handler);
+  handlerRef.current = event.handler;
+
+  const { type } = event;
   useEffect(() => {
     if (!isDesktop()) return;
-    const { type, handler } = event;
-    const listener = listen<T>(type, handler);
+    const listener = listen<T>(type, (e) => handlerRef.current(e));
 
     return () => {
       listener.then((unlisten) => unlisten()).catch((error) => console.error(error));
     };
-  }, [event]);
+  }, [type]);
 }
