@@ -41,6 +41,21 @@ pub trait Component {
         &[]
     }
 
+    /// Declared **Emit** names — the closed set of edge-output handles
+    /// (`source_handle`) this impl may emit on. The symmetric counterpart of
+    /// [`ports`](Component::ports). Mirrored to `node-components.json
+    /// impls[].emits[]` and asserted equal by the Catalog Parity Guard
+    /// (ADR-0007). Includes [`ComponentBase::VALUE_HANDLE`] for any impl that
+    /// emits via [`ComponentBase::set_value`]. Excludes `_`-prefixed Internal
+    /// Event / wakeup names. Default empty.
+    #[must_use]
+    fn emits() -> &'static [&'static str]
+    where
+        Self: Sized,
+    {
+        &[]
+    }
+
     /// Reference to the shared [`ComponentBase`].
     fn base(&self) -> &ComponentBase;
 
@@ -169,6 +184,12 @@ pub struct ComponentBase {
 }
 
 impl ComponentBase {
+    /// The implicit **Emit** handle fired by [`set_value`](Self::set_value) when
+    /// the value changes. Centralized here so every value-emitting node lists the
+    /// same constant in its `Component::emits()` rather than a bare `"value"`
+    /// literal. See CONTEXT.md § Emit and ADR-0007.
+    pub const VALUE_HANDLE: &'static str = "value";
+
     #[must_use]
     pub fn new(id: String, initial_value: ComponentValue) -> Self {
         Self {
@@ -178,11 +199,12 @@ impl ComponentBase {
         }
     }
 
-    /// Set the value and automatically emit a "value" event if it changed.
+    /// Set the value and automatically emit a [`VALUE_HANDLE`](Self::VALUE_HANDLE)
+    /// event if it changed.
     pub fn set_value(&mut self, value: ComponentValue) {
         if self.value != value {
             self.value = value;
-            self.emit("value");
+            self.emit(Self::VALUE_HANDLE);
         }
     }
 

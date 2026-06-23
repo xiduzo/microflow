@@ -23,6 +23,8 @@ pub struct Trigger {
 }
 
 impl Trigger {
+    const E_BANG: &'static str = "bang";
+
     #[must_use]
     pub fn new(id: String, config: TriggerConfig) -> Self {
         Self {
@@ -48,7 +50,7 @@ impl Trigger {
         let should_bang = self.check_difference(value_num);
         if should_bang {
             self.base
-                .emit_with_value("bang", Cow::Owned(ComponentValue::Number(value_num)));
+                .emit_with_value(Self::E_BANG, Cow::Owned(ComponentValue::Number(value_num)));
         }
     }
 
@@ -90,6 +92,10 @@ impl Trigger {
 impl Component for Trigger {
     fn ports() -> &'static [&'static str] {
         &["value"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_BANG, ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {

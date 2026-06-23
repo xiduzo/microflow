@@ -18,19 +18,26 @@ pub type Factory = Box<dyn Fn(String, &serde_json::Value) -> Result<Box<dyn Comp
 
 /// Maps catalog instance names to component factories.
 ///
-/// The built-in (phase-1, non-cloud) nodes are registered in [`register_all`].
-/// A host may inject further nodes via [`register_factory`] — the desktop uses
-/// this for the cloud nodes (mqtt/llm/figma), whose async/network impls stay in
-/// the desktop crate (closures capture the live services) so core pulls no
-/// tokio/reqwest/mqtt dependencies.
+/// Every node is registered in [`register_all`] — including the sans-IO cloud
+/// nodes (mqtt/llm/figma), gated by the `cloud` feature — so both hosts get the
+/// same set from one place. ADR-0009 made cloud sans-IO (a `dispatch` records a
+/// `CloudRequest` the host's `EffectsSink::perform_cloud` performs), which
+/// dissolved the old host-injected factory closures: a cloud node now needs no
+/// build-time service injection and pulls no tokio/reqwest/mqtt deps, so it
+/// registers exactly like a built-in.
 pub struct ComponentRegistry {
     entries: HashMap<String, Factory>,
+    /// Declared `(ports, emits)` per registration name, captured at
+    /// registration so the Catalog Parity Guard (ADR-0007) can assert Rust ≡
+    /// `node-components.json` without re-listing every type. Populated by
+    /// [`register`](Self::register) for every node, cloud included.
+    declared: HashMap<String, (&'static [&'static str], &'static [&'static str])>,
 }
 
 impl ComponentRegistry {
     #[must_use]
     pub fn new() -> Self {
-        let mut registry = Self { entries: HashMap::new() };
+        let mut registry = Self { entries: HashMap::new(), declared: HashMap::new() };
         registry.register_all();
         registry
     }
@@ -57,19 +64,20 @@ impl ComponentRegistry {
 
     fn register<B: ComponentBuilder>(&mut self, name: &'static str) {
         self.entries.insert(name.to_string(), make_factory::<B>(name));
+        self.declared.insert(name.to_string(), (B::ports(), B::emits()));
     }
 
-    /// Inject an externally-built component factory under `name`. Used by a host
-    /// to add nodes core doesn't ship (e.g. the desktop's cloud nodes, whose
-    /// closures capture the live MQTT/LLM services). Overrides any existing
-    /// entry of the same name.
-    pub fn register_factory(&mut self, name: &str, factory: Factory) {
-        self.entries.insert(name.to_string(), factory);
+    /// Declared `(ports, emits)` per registration name (incl. alias entry names),
+    /// captured at registration. Consumed by the Catalog Parity Guard (ADR-0007).
+    /// Excludes host-injected cloud nodes (registered via [`register_factory`]).
+    #[must_use]
+    pub fn declared(&self) -> &HashMap<String, (&'static [&'static str], &'static [&'static str])> {
+        &self.declared
     }
 
-    /// Register every phase-1 (non-cloud) catalog entry. Several catalog entry
-    /// names share one impl (aliases). `Constant`, `Oscillator`, `RangeMap`,
-    /// `Smooth`, and `Function` (js) are registered once their ports land.
+    /// Register every catalog entry. Several catalog entry names share one impl
+    /// (aliases like `Vibration` → `Led`). `Function` (js) and the cloud nodes
+    /// (mqtt/llm/figma) are feature-gated.
     fn register_all(&mut self) {
         use crate::runtime::{control, input, output, transformation};
 
@@ -118,6 +126,16 @@ impl ComponentRegistry {
         self.register::<transformation::smooth::Smooth>("Smooth");
         #[cfg(feature = "js")]
         self.register::<transformation::function::Function>("Function");
+
+        // cloud (sans-IO; the host's `EffectsSink::perform_cloud` does the I/O).
+        // Gated so codegen-only consumers stay lean; both hosts enable `cloud`.
+        #[cfg(feature = "cloud")]
+        {
+            use crate::runtime::cloud;
+            self.register::<cloud::mqtt::Mqtt>("Mqtt");
+            self.register::<cloud::llm::Llm>("Llm");
+            self.register::<cloud::figma::Figma>("Figma");
+        }
     }
 }
 

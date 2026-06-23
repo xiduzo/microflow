@@ -53,6 +53,10 @@ impl Component for Relay {
         &["true", "false", "toggle"]
     }
 
+    fn emits() -> &'static [&'static str] {
+        &[ComponentBase::VALUE_HANDLE]
+    }
+
     fn base(&self) -> &ComponentBase {
         &self.base
     }

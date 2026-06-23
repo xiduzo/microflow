@@ -156,6 +156,13 @@
       "requiresHardware": true,
       "ports": [
         "read"
+      ],
+      "emits": [
+        "event",
+        "true",
+        "false",
+        "hold",
+        "value"
       ]
     },
     {
@@ -163,6 +170,9 @@
       "category": "transformation",
       "requiresHardware": false,
       "ports": [
+        "value"
+      ],
+      "emits": [
         "value"
       ]
     },
@@ -172,13 +182,21 @@
       "requiresHardware": false,
       "ports": [
         "value"
+      ],
+      "emits": [
+        "true",
+        "false",
+        "value"
       ]
     },
     {
       "name": "Constant",
       "category": "generator",
       "requiresHardware": false,
-      "ports": []
+      "ports": [],
+      "emits": [
+        "value"
+      ]
     },
     {
       "name": "Counter",
@@ -189,6 +207,9 @@
         "decrement",
         "reset",
         "set"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -197,6 +218,9 @@
       "requiresHardware": false,
       "ports": [
         "trigger"
+      ],
+      "emits": [
+        "event"
       ]
     },
     {
@@ -216,6 +240,10 @@
         "green",
         "blue",
         "opacity"
+      ],
+      "emits": [
+        "change",
+        "value"
       ]
     },
     {
@@ -224,6 +252,9 @@
       "requiresHardware": false,
       "ports": [
         "trigger"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -231,6 +262,11 @@
       "category": "transformation",
       "requiresHardware": false,
       "ports": [
+        "value"
+      ],
+      "emits": [
+        "true",
+        "false",
         "value"
       ]
     },
@@ -241,6 +277,12 @@
       "usesHostAdapter": true,
       "ports": [
         "key_event"
+      ],
+      "emits": [
+        "event",
+        "true",
+        "false",
+        "value"
       ]
     },
     {
@@ -250,6 +292,9 @@
       "ports": [
         "write",
         "trigger"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -259,6 +304,9 @@
       "ports": [
         "start",
         "stop"
+      ],
+      "emits": [
+        "event"
       ]
     },
     {
@@ -270,6 +318,9 @@
         "false",
         "toggle",
         "value"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -279,6 +330,12 @@
       "usesRuntimeContext": true,
       "ports": [
         "trigger"
+      ],
+      "emits": [
+        "thinking",
+        "value",
+        "done",
+        "error"
       ]
     },
     {
@@ -289,6 +346,9 @@
         "value",
         "reset",
         "reinitialize"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -296,6 +356,9 @@
       "category": "output",
       "requiresHardware": false,
       "ports": [
+        "value"
+      ],
+      "emits": [
         "value"
       ]
     },
@@ -305,6 +368,12 @@
       "requiresHardware": true,
       "ports": [
         "read"
+      ],
+      "emits": [
+        "event",
+        "true",
+        "false",
+        "value"
       ]
     },
     {
@@ -314,6 +383,9 @@
       "usesHostAdapter": true,
       "ports": [
         "trigger"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -324,6 +396,9 @@
         "start",
         "stop",
         "reset"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -333,6 +408,9 @@
       "ports": [
         "trigger",
         "stop"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -344,6 +422,10 @@
         "color",
         "set",
         "reset"
+      ],
+      "emits": [
+        "event",
+        "value"
       ]
     },
     {
@@ -352,6 +434,9 @@
       "requiresHardware": true,
       "ports": [
         "read"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -359,6 +444,10 @@
       "category": "transformation",
       "requiresHardware": false,
       "ports": [
+        "value"
+      ],
+      "emits": [
+        "to",
         "value"
       ]
     },
@@ -370,6 +459,9 @@
         "true",
         "false",
         "toggle"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -382,6 +474,9 @@
         "blue",
         "alpha",
         "off"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -390,6 +485,9 @@
       "requiresHardware": true,
       "ports": [
         "read"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -402,6 +500,9 @@
         "value",
         "rotate",
         "stop"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -409,6 +510,9 @@
       "category": "transformation",
       "requiresHardware": false,
       "ports": [
+        "value"
+      ],
+      "emits": [
         "value"
       ]
     },
@@ -422,6 +526,9 @@
         "stop",
         "zero",
         "enable"
+      ],
+      "emits": [
+        "value"
       ]
     },
     {
@@ -430,6 +537,12 @@
       "requiresHardware": true,
       "ports": [
         "read"
+      ],
+      "emits": [
+        "event",
+        "true",
+        "false",
+        "value"
       ]
     },
     {
@@ -437,6 +550,10 @@
       "category": "control",
       "requiresHardware": false,
       "ports": [
+        "value"
+      ],
+      "emits": [
+        "bang",
         "value"
       ]
     }

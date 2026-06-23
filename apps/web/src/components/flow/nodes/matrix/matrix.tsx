@@ -50,7 +50,7 @@ export function Matrix(props: Props) {
         offset={-0.5}
       />
       <Handle type="target" position="left" id="reset" handleType="command" offset={0.5} />
-      <Handle type="source" position="right" id="event" handleType="event" />
+      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }

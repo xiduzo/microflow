@@ -34,6 +34,8 @@ pub struct Pixel {
 }
 
 impl Pixel {
+    const E_EVENT: &'static str = "event";
+
     #[must_use]
     pub fn new(id: String, config: PixelConfig) -> Self {
         let len = config.length as usize;
@@ -194,6 +196,10 @@ impl Component for Pixel {
         &["value", "color", "set", "reset"]
     }
 
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_EVENT, ComponentBase::VALUE_HANDLE]
+    }
+
     fn base(&self) -> &ComponentBase {
         &self.base
     }
@@ -225,7 +231,7 @@ impl Component for Pixel {
                     index.min(self.config.presets.len() - 1)
                 };
                 self.apply_preset(ctx, clamped)?;
-                self.base.emit("event");
+                self.base.emit(Self::E_EVENT);
                 Ok(())
             }
             "color" => {
@@ -263,7 +269,7 @@ impl Component for Pixel {
                         }
                     }
                 }
-                self.base.emit("event");
+                self.base.emit(Self::E_EVENT);
                 Ok(())
             }
             "set" => {
@@ -283,12 +289,12 @@ impl Component for Pixel {
                     }
                 }
                 self.update_value();
-                self.base.emit("event");
+                self.base.emit(Self::E_EVENT);
                 Ok(())
             }
             "reset" => {
                 self.off(ctx)?;
-                self.base.emit("event");
+                self.base.emit(Self::E_EVENT);
                 Ok(())
             }
             _ => Err(RuntimeError::ComponentError(format!("Pixel: unknown method '{method}'"))),

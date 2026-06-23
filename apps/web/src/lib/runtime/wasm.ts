@@ -47,10 +47,25 @@ export type Wakeup = {
   delayMs: number;
 };
 
+/** An outbound cloud call the host must perform (matches the Rust `CloudRequest`
+ *  serde shape: `kind`-tagged, `source` is the issuing node id). The result, if
+ *  any, re-enters the runtime via its inject path. */
+export type CloudRequest = { source: string } & (
+  | { kind: "mqttPublish"; brokerId: string; topic: string; payload: number[]; retain: boolean }
+  | {
+      kind: "llmGenerate";
+      providerId: string;
+      model: string;
+      system: string | null;
+      prompt: string;
+    }
+);
+
 /** The side effects of one runtime turn (matches the Rust `Effects` serde shape). */
 export type Effects = {
   outboundBytes: number[];
   componentEvents: ComponentEvent[];
   wakeups: Wakeup[];
   cancellations: number[];
+  cloudRequests: CloudRequest[];
 };

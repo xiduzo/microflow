@@ -26,6 +26,10 @@ impl Component for Constant {
         &[]
     }
 
+    fn emits() -> &'static [&'static str] {
+        &[ComponentBase::VALUE_HANDLE]
+    }
+
     fn base(&self) -> &ComponentBase {
         &self.base
     }
@@ -48,7 +52,7 @@ impl Component for Constant {
     /// Emit the constant value once the node is built, so downstream nodes get
     /// it without any edge input. (The desktop relied on `set_event_sender`.)
     fn on_start(&mut self, _ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        self.base.emit("value");
+        self.base.emit(ComponentBase::VALUE_HANDLE);
         Ok(())
     }
 }

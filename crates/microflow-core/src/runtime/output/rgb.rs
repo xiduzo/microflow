@@ -134,6 +134,10 @@ impl Component for Rgb {
         &["red", "green", "blue", "alpha", "off"]
     }
 
+    fn emits() -> &'static [&'static str] {
+        &[ComponentBase::VALUE_HANDLE]
+    }
+
     fn base(&self) -> &ComponentBase {
         &self.base
     }

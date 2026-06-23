@@ -1,77 +1,34 @@
 //! MQTT cloud node on core's [`Component`] trait.
 //!
-//! - **Publish** (`direction = "publish"`): `dispatch("trigger")` spawns the
-//!   async [`MqttPublisher::publish`] onto the captured Tokio handle and returns
-//!   immediately — the sans-IO turn never blocks on the broker.
+//! - **Publish** (`direction = "publish"`): `dispatch("trigger")` records a
+//!   [`CloudRequestKind::MqttPublish`] for the host's `EffectsSink::perform_cloud`
+//!   to perform — the sans-IO turn never touches the broker (ADR-0009).
 //! - **Subscribe** (`direction = "subscribe"`): describes its interest via
 //!   [`subscriber_wiring`](Component::subscriber_wiring); the host routes broker
 //!   payloads back via [`receive_raw_message`](Component::receive_raw_message),
 //!   which emits on "value" downstream (matching the node's source handle).
 //!
-//! [`Component`]: microflow_core::runtime::Component
+//! [`Component`]: crate::runtime::Component
 
-use crate::runtime::services::MqttPublisher;
-use microflow_core::runtime::{
-    Component, ComponentBase, ComponentValue, RuntimeContext, RuntimeError, SubscriberWiring,
+use crate::runtime::{
+    CloudRequestKind, Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext,
+    RuntimeError, SubscriberWiring,
 };
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::sync::Arc;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MqttConfig {
-    #[serde(default)]
-    pub broker_id: String,
-    #[serde(default)]
-    pub direction: String,
-    #[serde(default)]
-    pub topic: String,
-    #[serde(default = "default_qos")]
-    pub qos: String,
-    #[serde(default)]
-    pub retain: bool,
-}
-
-fn default_qos() -> String {
-    "1".to_string()
-}
-
-impl Default for MqttConfig {
-    fn default() -> Self {
-        Self {
-            broker_id: String::new(),
-            direction: "subscribe".to_string(),
-            topic: String::new(),
-            qos: "1".to_string(),
-            retain: false,
-        }
-    }
-}
+pub use crate::config::mqtt::MqttConfig;
 
 pub struct Mqtt {
     base: ComponentBase,
     config: MqttConfig,
-    /// Shared MQTT publish handle. Used only by `direction = "publish"` nodes.
-    publisher: Arc<dyn MqttPublisher>,
-    /// Tokio handle injected by the host so `dispatch` (sync) can spawn the
-    /// async `publish` call. `None` disables publishing (logged).
-    rt_handle: Option<tokio::runtime::Handle>,
 }
 
 impl Mqtt {
     #[must_use]
-    pub fn new(
-        id: String,
-        config: MqttConfig,
-        publisher: Arc<dyn MqttPublisher>,
-        rt_handle: Option<tokio::runtime::Handle>,
-    ) -> Self {
+    pub fn new(id: String, config: MqttConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,
-            publisher,
-            rt_handle,
         }
     }
 
@@ -92,9 +49,22 @@ impl Mqtt {
     }
 }
 
+impl ComponentBuilder for Mqtt {
+    type Config = MqttConfig;
+
+    fn build(id: String, config: MqttConfig) -> Result<Self, RuntimeError> {
+        Ok(Self::new(id, config))
+    }
+}
+
 impl Component for Mqtt {
     fn ports() -> &'static [&'static str] {
         &["trigger"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        // Subscribe-side delivery emits the parsed payload on "value".
+        &[ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {
@@ -124,7 +94,7 @@ impl Component for Mqtt {
         &mut self,
         method: &str,
         args: ComponentValue,
-        _ctx: &mut RuntimeContext,
+        ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
         match method {
             "trigger" => {
@@ -136,29 +106,13 @@ impl Component for Mqtt {
 
                 self.base.value = args.clone();
 
-                let payload = Self::encode_payload(&args);
-                let publisher = Arc::clone(&self.publisher);
-                let broker_id = self.config.broker_id.clone();
-                let topic = self.config.topic.clone();
-                let retain = self.config.retain;
-                let component_id = Arc::clone(&self.base.id);
-
-                let Some(handle) = &self.rt_handle else {
-                    log::error!(
-                        "[MQTT] {component_id} no Tokio runtime available, cannot spawn publish"
-                    );
-                    return Ok(());
-                };
-
-                handle.spawn(async move {
-                    log::info!(
-                        "[MQTT] {component_id} publish → broker={broker_id} topic={topic} retain={retain}"
-                    );
-                    if let Err(e) = publisher.publish(&broker_id, &topic, &payload, retain).await {
-                        log::error!(
-                            "[MQTT] {component_id} publish failed (broker={broker_id} topic={topic}): {e}"
-                        );
-                    }
+                // Sans-IO: record the publish for the host to perform; the node
+                // never spawns or touches the broker (ADR-0009).
+                ctx.request_cloud(CloudRequestKind::MqttPublish {
+                    broker_id: self.config.broker_id.clone(),
+                    topic: self.config.topic.clone(),
+                    payload: Self::encode_payload(&args),
+                    retain: self.config.retain,
                 });
 
                 Ok(())
@@ -187,7 +141,7 @@ impl Component for Mqtt {
 
         self.base.value = component_value.clone();
         self.base
-            .emit_with_value("value", Cow::Owned(component_value));
+            .emit_with_value(ComponentBase::VALUE_HANDLE, Cow::Owned(component_value));
     }
 
     fn destroy(&mut self) {
@@ -198,13 +152,11 @@ impl Component for Mqtt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::cloud::test_support::with_test_ctx;
-    use crate::runtime::services::{RecordedPublish, RecordingMqttPublisher};
-    use microflow_core::runtime::{ComponentEvent, EventSink};
+    use crate::runtime::cloud::test_support::{recorded_cloud_requests, with_test_ctx};
+    use crate::runtime::{ComponentEvent, EventSink};
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    use std::time::Duration;
 
     fn sink() -> EventSink {
         Rc::new(RefCell::new(VecDeque::new()))
@@ -214,24 +166,8 @@ mod tests {
         sink.borrow_mut().drain(..).collect()
     }
 
-    async fn wait_for_publishes(
-        recorder: &RecordingMqttPublisher,
-        min: usize,
-        timeout: Duration,
-    ) -> Vec<RecordedPublish> {
-        let deadline = tokio::time::Instant::now() + timeout;
-        loop {
-            let snap = recorder.recorded();
-            if snap.len() >= min || tokio::time::Instant::now() >= deadline {
-                return snap;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }
-
-    #[tokio::test]
-    async fn publish_node_dispatches_to_publisher() {
-        let recorder = Arc::new(RecordingMqttPublisher::new());
+    #[test]
+    fn publish_node_records_publish_request() {
         let config = MqttConfig {
             direction: "publish".into(),
             broker_id: "broker-1".into(),
@@ -239,51 +175,54 @@ mod tests {
             retain: true,
             ..MqttConfig::default()
         };
+        let mut node = Mqtt::new("node-1".into(), config);
 
-        let mut node = Mqtt::new(
-            "node-1".into(),
-            config,
-            recorder.clone() as Arc<dyn MqttPublisher>,
-            Some(tokio::runtime::Handle::current()),
-        );
-
-        with_test_ctx("node-1", |ctx| {
+        let mut reqs = recorded_cloud_requests("node-1", |ctx| {
             node.dispatch("trigger", ComponentValue::Number(42.0), ctx)
                 .expect("dispatch ok");
         });
 
-        let published = wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
-        assert_eq!(published.len(), 1);
-        assert_eq!(published[0].broker_id, "broker-1");
-        assert_eq!(published[0].topic, "sensors/light");
-        assert_eq!(published[0].payload, b"42");
-        assert!(published[0].retain);
+        assert_eq!(reqs.len(), 1);
+        match reqs.remove(0) {
+            CloudRequestKind::MqttPublish { broker_id, topic, payload, retain } => {
+                assert_eq!(broker_id, "broker-1");
+                assert_eq!(topic, "sensors/light");
+                assert_eq!(payload, b"42");
+                assert!(retain);
+            }
+            other @ CloudRequestKind::LlmGenerate { .. } => panic!("expected MqttPublish, got {other:?}"),
+        }
     }
 
-    #[tokio::test]
-    async fn subscribe_node_rejects_trigger_without_publishing() {
-        let recorder = Arc::new(RecordingMqttPublisher::new());
+    #[test]
+    fn subscribe_node_rejects_trigger() {
         let config = MqttConfig {
             direction: "subscribe".into(),
             broker_id: "broker-1".into(),
             topic: "sensors/light".into(),
             ..MqttConfig::default()
         };
-
-        let mut node = Mqtt::new(
-            "node-1".into(),
-            config,
-            recorder.clone() as Arc<dyn MqttPublisher>,
-            Some(tokio::runtime::Handle::current()),
-        );
+        let mut node = Mqtt::new("node-1".into(), config);
 
         let err = with_test_ctx("node-1", |ctx| {
             node.dispatch("trigger", ComponentValue::Bool(true), ctx)
                 .expect_err("subscribe should refuse trigger")
         });
         assert!(err.to_string().contains("subscribe"));
-        tokio::time::sleep(Duration::from_millis(20)).await;
-        assert!(recorder.recorded().is_empty());
+    }
+
+    #[test]
+    fn subscribe_node_records_no_request() {
+        let config = MqttConfig {
+            direction: "subscribe".into(),
+            ..MqttConfig::default()
+        };
+        let mut node = Mqtt::new("node-1".into(), config);
+
+        let reqs = recorded_cloud_requests("node-1", |ctx| {
+            let _ = node.dispatch("trigger", ComponentValue::Bool(true), ctx);
+        });
+        assert!(reqs.is_empty(), "a rejected subscribe trigger must record no cloud request");
     }
 
     #[test]
@@ -294,8 +233,6 @@ mod tests {
                 direction: "subscribe".into(),
                 ..MqttConfig::default()
             },
-            Arc::new(RecordingMqttPublisher::new()) as Arc<dyn MqttPublisher>,
-            None,
         );
         let s = sink();
         node.set_sink(s.clone());

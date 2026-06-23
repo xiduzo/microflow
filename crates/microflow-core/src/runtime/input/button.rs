@@ -36,6 +36,11 @@ pub struct Button {
 }
 
 impl Button {
+    const E_EVENT: &'static str = "event";
+    const E_TRUE: &'static str = "true";
+    const E_FALSE: &'static str = "false";
+    const E_HOLD: &'static str = "hold";
+
     #[must_use]
     pub fn new(id: String, config: ButtonConfig) -> Self {
         Self {
@@ -80,13 +85,13 @@ impl Button {
         if pressed {
             // Arm the hold wakeup; fires once after `holdtime` ms if still held.
             ctx.schedule_wakeup("_hold", self.config.holdtime);
-            self.base.emit("event");
-            self.base.emit("true");
+            self.base.emit(Self::E_EVENT);
+            self.base.emit(Self::E_TRUE);
         } else {
             // Released before (or after) hold — cancel any pending hold wakeup.
             ctx.cancel_wakeup("_hold");
-            self.base.emit("event");
-            self.base.emit("false");
+            self.base.emit(Self::E_EVENT);
+            self.base.emit(Self::E_FALSE);
         }
     }
 }
@@ -94,6 +99,16 @@ impl Button {
 impl Component for Button {
     fn ports() -> &'static [&'static str] {
         &["read"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[
+            Self::E_EVENT,
+            Self::E_TRUE,
+            Self::E_FALSE,
+            Self::E_HOLD,
+            ComponentBase::VALUE_HANDLE,
+        ]
     }
 
     fn base(&self) -> &ComponentBase {
@@ -137,7 +152,7 @@ impl Component for Button {
             "hold" => {
                 if self.is_pressed && !self.hold_emitted {
                     self.hold_emitted = true;
-                    self.base.emit("hold");
+                    self.base.emit(Self::E_HOLD);
                 }
                 Ok(())
             }

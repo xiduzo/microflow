@@ -11,7 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
-import type { ComponentType, PortOf } from "./nodes/_base/_base.types";
+import type { ComponentType, EmitOf, PortOf } from "./nodes/_base/_base.types";
 
 const HANDLE_SIZE = 18;
 const HANDLE_TRANSLATE_OFFSET = HANDLE_SIZE * 0.9;
@@ -175,16 +175,25 @@ type TargetProps<T extends ComponentType> = CommonProps & {
 };
 
 /**
- * Source (output) handle — emits flow edges. `id` is the emit-handle name
- * the component calls `ComponentBase::emit(handle)` with. This namespace
- * is not yet catalogued; for now `id` is free-form `string`.
+ * Source (output) handle — emits flow edges. `id` must be a declared **Emit**
+ * of the parent Component (the handle it passes to `ComponentBase::emit`). When
+ * `<Handle>` is used without binding the generic, `T` defaults to the union of
+ * every catalogued Component, so `id` must at minimum match _some_ Emit in the
+ * catalog — typos against the aggregate emit set fail at compile time. Bind the
+ * generic explicitly (`<Handle<"Button"> ...>`) for per-Component tightening
+ * that catches cross-Component emit confusion too.
+ *
+ * Mirrors `Component::emits()` in the Rust runtime. See `CONTEXT.md` § Emit and
+ * ADR-0007.
  */
-type SourceProps = CommonProps & {
+type SourceProps<T extends ComponentType> = CommonProps & {
   type: "source";
-  id?: string;
+  id: EmitOf<T>;
 };
 
-export type HandleProps_<T extends ComponentType = ComponentType> = TargetProps<T> | SourceProps;
+export type HandleProps_<T extends ComponentType = ComponentType> =
+  | TargetProps<T>
+  | SourceProps<T>;
 type Props<T extends ComponentType = ComponentType> = HandleProps_<T>;
 
 const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {

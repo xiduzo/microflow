@@ -23,12 +23,18 @@ pub mod router;
 pub mod value;
 pub mod wiring;
 
-// Component node categories. `cloud` (external/) lands behind the feature gate.
+// Component node categories. `cloud` (external/) is behind the feature gate —
+// its nodes are sans-IO (they emit `CloudRequest`s the host performs), so the
+// gate keeps them out of codegen-only consumers, not out of any host: both the
+// desktop bin and the browser wasm build enable `cloud` (ADR-0009).
 pub mod control;
 pub mod generator;
 pub mod input;
 pub mod output;
 pub mod transformation;
+
+#[cfg(feature = "cloud")]
+pub mod cloud;
 
 // Pin string-or-number serde helpers moved to the ungated `config::serde_utils`
 // (so shared configs can use them without the `runtime` feature); re-exported
@@ -36,7 +42,10 @@ pub mod transformation;
 pub use crate::config::serde_utils;
 pub use board::{BoardWriter, BufferBoardWriter};
 pub use component::{Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent};
-pub use context::{Effects, RuntimeContext, ScheduleRequests, Wakeup, WakeupId};
+pub use context::{
+    CloudRequest, CloudRequestKind, Effects, EffectsSink, RuntimeContext, ScheduleRequests, Wakeup,
+    WakeupId,
+};
 pub use error::{HardwareError, RuntimeError};
 pub use registry::ComponentRegistry;
 pub use router::{ComponentLookup, DispatchCall, EdgeTarget, FlowRouter};
@@ -414,14 +423,6 @@ impl FlowRuntime {
         self.current_sequence = sequence;
     }
 
-    /// Register an externally-built component factory (host-provided nodes — the
-    /// desktop injects its cloud nodes this way, keeping their async/network
-    /// impls and dependencies out of core). See
-    /// [`ComponentRegistry::register_factory`].
-    pub fn register_node(&mut self, name: &str, factory: registry::Factory) {
-        self.registry.register_factory(name, factory);
-    }
-
     /// Deliver an inbound external message (MQTT / Figma broker payload) to a
     /// subscribe component by id; it updates + emits, then the cascade drains.
     pub fn deliver_message(&mut self, component_id: &str, topic: &str, payload: &[u8]) -> Effects {
@@ -604,17 +605,27 @@ impl FlowRuntime {
             }
             self.process_event(event, &mut out, &mut reqs);
         }
+        // Cloud requests a node asked for this turn (ADR-0009), resolved into the
+        // host-facing `Effects` shape. `source` (node id) is the correlation key
+        // for any result that re-enters via `inject_event`.
+        let cloud_requests: Vec<CloudRequest> = reqs
+            .cloud_requests
+            .drain(..)
+            .map(|(source, kind)| CloudRequest { source: Arc::from(source.as_str()), kind })
+            .collect();
         let (wakeups, cancellations) = self.resolve_schedule(reqs);
         // One wide event per turn that *did something* — drained an event, wrote
-        // bytes, (re)armed a timer, or hit a dispatch error. Truly-idle turns
-        // (pin scans with no change) stay silent to bound volume. The single line
-        // is self-explaining: what triggered the turn, what it produced, what failed.
+        // bytes, (re)armed a timer, issued a cloud call, or hit a dispatch error.
+        // Truly-idle turns (pin scans with no change) stay silent to bound volume.
+        // The single line is self-explaining: what triggered the turn, what it
+        // produced, what failed.
         let errors = self.tick_errors;
         self.tick_errors = 0;
         let produced = drained > 0
             || !out.is_empty()
             || !wakeups.is_empty()
             || !cancellations.is_empty()
+            || !cloud_requests.is_empty()
             || errors > 0;
         if produced {
             tracing::debug!(
@@ -629,7 +640,7 @@ impl FlowRuntime {
                 "flow tick",
             );
         }
-        Effects { outbound_bytes: out, component_events: events, wakeups, cancellations }
+        Effects { outbound_bytes: out, component_events: events, wakeups, cancellations, cloud_requests }
     }
 
     /// Gate stale events, branch internal/hardware callbacks, echo `set_value`

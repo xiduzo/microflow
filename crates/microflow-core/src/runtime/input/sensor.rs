@@ -108,6 +108,10 @@ impl Component for Sensor {
         &["read"]
     }
 
+    fn emits() -> &'static [&'static str] {
+        &[ComponentBase::VALUE_HANDLE]
+    }
+
     fn base(&self) -> &ComponentBase {
         &self.base
     }

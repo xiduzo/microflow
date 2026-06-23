@@ -19,7 +19,7 @@ tauri-build = { version = "2.5.3", features = [] }
 serde_json = "1"
 
 [dependencies]
-microflow-core = { path = "../../../crates/microflow-core", features = ["runtime", "js"] }
+microflow-core = { path = "../../../crates/microflow-core", features = ["runtime", "js", "cloud"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"

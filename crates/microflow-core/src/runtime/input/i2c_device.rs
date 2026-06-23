@@ -131,6 +131,10 @@ impl Component for I2cDevice {
         &["write", "trigger"]
     }
 
+    fn emits() -> &'static [&'static str] {
+        &[ComponentBase::VALUE_HANDLE]
+    }
+
     fn base(&self) -> &ComponentBase {
         &self.base
     }
@@ -173,7 +177,7 @@ impl Component for I2cDevice {
                     _ => {}
                 }
                 ctx.board().i2c_write(i32::from(self.config.address), &data)?;
-                self.base.emit("value");
+                self.base.emit(ComponentBase::VALUE_HANDLE);
                 Ok(())
             }
             "trigger" => {

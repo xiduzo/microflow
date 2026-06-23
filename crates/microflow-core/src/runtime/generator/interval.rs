@@ -27,6 +27,8 @@ pub struct Interval {
 }
 
 impl Interval {
+    const E_EVENT: &'static str = "event";
+
     #[must_use]
     pub fn new(id: String, config: IntervalConfig) -> Self {
         Self {
@@ -63,7 +65,7 @@ impl Interval {
             None => return,
         };
         self.base
-            .emit_with_value("event", Cow::Owned(ComponentValue::Number(elapsed)));
+            .emit_with_value(Self::E_EVENT, Cow::Owned(ComponentValue::Number(elapsed)));
         ctx.schedule_wakeup("_tick", self.period_ms());
     }
 }
@@ -71,6 +73,12 @@ impl Interval {
 impl Component for Interval {
     fn ports() -> &'static [&'static str] {
         &["start", "stop"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        // Interval emits elapsed-ms on "event" via emit_with_value (no set_value),
+        // so it never emits the implicit "value".
+        &[Self::E_EVENT]
     }
 
     fn base(&self) -> &ComponentBase {

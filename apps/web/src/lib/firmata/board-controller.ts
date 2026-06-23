@@ -17,6 +17,9 @@
 import { toast } from "sonner";
 import type { BoardState } from "@/lib/bindings/BoardState";
 import { useBoardStore } from "@/stores/board";
+import { useFigmaStore } from "@/stores/figma";
+import { useLlmProviderStore } from "@/stores/llm-provider";
+import { useMqttBrokerStore } from "@/stores/mqtt-broker";
 import {
   bringUpBoard,
   detectBoard,
@@ -27,7 +30,29 @@ import {
   type BoardConnection,
   type WebSerialPort,
 } from "./web-serial";
-import { FlowReactor } from "./flow-reactor";
+import { FlowReactor, type CloudDeps } from "./flow-reactor";
+
+/** Cloud lookups the reactor needs to perform cloud requests (ADR-0009). Read
+ *  live from the provider store via `getState()` (this module is not a React
+ *  component) so credential edits apply to the next request without re-attaching.
+ *  Direct-by-default per D4: the user's own key in the user's own browser. */
+const cloudDeps: CloudDeps = {
+  resolveLlmProvider: (id) => {
+    const provider = useLlmProviderStore.getState().getProvider(id);
+    return provider ? { baseUrl: provider.baseUrl, apiKey: provider.apiKey } : undefined;
+  },
+  resolveBroker: (id) => {
+    const broker = useMqttBrokerStore.getState().getBroker(id);
+    return broker
+      ? { id: broker.id, url: broker.url, username: broker.username, password: broker.password }
+      : undefined;
+  },
+  // Feed inbound Figma display topics (variables list / plugin status) into the
+  // figma store — the browser counterpart of the desktop "mqtt-message" event.
+  onMqttMessage: (topic, payload) => {
+    useFigmaStore.getState().ingestMqttMessage(topic, new TextDecoder().decode(payload));
+  },
+};
 
 /** The single active browser board connection (the desktop owns its own). */
 let active: BoardConnection | null = null;
@@ -127,7 +152,7 @@ async function bringUp(
     // the board is still up; the flow just won't run.
     reactor?.dispose();
     try {
-      reactor = await FlowReactor.attach(active);
+      reactor = await FlowReactor.attach(active, cloudDeps);
       if (latestFlowJson) reactor.applyFlow(latestFlowJson);
     } catch (reactorError) {
       console.error("[board-controller] flow reactor attach failed:", reactorError);

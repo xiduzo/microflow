@@ -62,6 +62,11 @@ impl Component for Led {
         &["true", "false", "toggle", "value"]
     }
 
+    fn emits() -> &'static [&'static str] {
+        // Only the implicit value emit (turn_on/off/toggle/brightness → set_value).
+        &[ComponentBase::VALUE_HANDLE]
+    }
+
     fn base(&self) -> &ComponentBase {
         &self.base
     }

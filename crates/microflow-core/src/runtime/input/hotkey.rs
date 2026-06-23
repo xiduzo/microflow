@@ -17,6 +17,10 @@ pub struct Hotkey {
 }
 
 impl Hotkey {
+    const E_EVENT: &'static str = "event";
+    const E_TRUE: &'static str = "true";
+    const E_FALSE: &'static str = "false";
+
     #[must_use]
     pub fn new(id: String, config: HotkeyConfig) -> Self {
         Self {
@@ -35,6 +39,15 @@ impl Hotkey {
 impl Component for Hotkey {
     fn ports() -> &'static [&'static str] {
         &["key_event"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[
+            Self::E_EVENT,
+            Self::E_TRUE,
+            Self::E_FALSE,
+            ComponentBase::VALUE_HANDLE,
+        ]
     }
 
     fn base(&self) -> &ComponentBase {
@@ -63,11 +76,11 @@ impl Component for Hotkey {
             "key_event" => {
                 let pressed = args.is_truthy();
                 self.base.set_value(ComponentValue::Bool(pressed));
-                self.base.emit("event");
+                self.base.emit(Self::E_EVENT);
                 if pressed {
-                    self.base.emit("true");
+                    self.base.emit(Self::E_TRUE);
                 } else {
-                    self.base.emit("false");
+                    self.base.emit(Self::E_FALSE);
                 }
                 Ok(())
             }

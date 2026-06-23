@@ -60,7 +60,7 @@ impl Oscillator {
         }
         let elapsed = ctx.now_ms() - self.start_ms;
         let value = calculate_waveform(&self.config, elapsed);
-        self.base.emit_with_value("value", Cow::Owned(ComponentValue::Number(value)));
+        self.base.emit_with_value(ComponentBase::VALUE_HANDLE, Cow::Owned(ComponentValue::Number(value)));
         ctx.schedule_wakeup("_tick", REFRESH_MS);
     }
 }
@@ -143,6 +143,10 @@ fn random(config: &OscillatorConfig, timestamp: f64) -> f64 {
 impl Component for Oscillator {
     fn ports() -> &'static [&'static str] {
         &["start", "stop", "reset"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {

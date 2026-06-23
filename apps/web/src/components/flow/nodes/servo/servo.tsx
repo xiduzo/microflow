@@ -27,7 +27,7 @@ export function Servo(props: Props) {
           <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
         </>
       )}
-      <Handle type="source" position="right" id="event" handleType="event" />
+      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }
