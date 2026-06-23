@@ -18,7 +18,7 @@ export function Rgb(props: Props) {
       <Handle type="target" position="left" id="green" handleType="value" hint="0-255" offset={-0.5} />
       <Handle type="target" position="left" id="blue" handleType="value" hint="0-255" offset={0.5} />
       <Handle type="target" position="left" id="alpha" handleType="value" hint="0-100" offset={1.5} />
-      <Handle type="source" position="right" id="event" handleType="event" />
+      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }

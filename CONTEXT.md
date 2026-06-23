@@ -51,11 +51,19 @@ The shared underscore-prefix routing in `runtime/mod.rs::process_event` dispatch
 
 ## Port
 
-A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::dispatch`. Each impl declares its closed Port set via `fn ports() -> &'static [&'static str]`. The set is mirrored to `node-components.json impls[].ports[]`, which drives the frontend codegen below. ⚠ The Rust-side assertion that once panicked on a `ports()`-vs-catalog drift was **dropped** when the runtime moved to `microflow-core` (core hand-registers nodes; the desktop `build.rs` codegen is now dead build output) — restoring a Rust↔catalog port guard is tracked in [ADR-0006](docs/adr/0006-rehost-runtime-on-core.md). The frontend codegen (`apps/web/scripts/codegen-node-registry.ts`) emits `COMPONENT_PORTS` (a typed const object) and `PortOf<T>` (a literal-union helper) into `_base/_base.types.ts`, so ReactFlow target handles are type-checked against the same source of truth. Empty array for components with no edge inputs (e.g. `Constant`).
+A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::dispatch`. Each impl declares its closed Port set via `fn ports() -> &'static [&'static str]`. The set is mirrored to `node-components.json impls[].ports[]`, which drives the frontend codegen below. The Rust↔catalog drift assertion `build.rs` once generated was **dropped** in the re-host ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)); it is restored — for ports **and** Emits, both directions — as the live **Catalog Parity Guard** ([ADR-0007](docs/adr/0007-node-wire-interface-emit-contract.md)), and the dead `build.rs` port codegen is slated for deletion. The frontend codegen (`apps/web/scripts/codegen-node-registry.ts`) emits `COMPONENT_PORTS` (a typed const object) and `PortOf<T>` (a literal-union helper) into `_base/_base.types.ts`, so ReactFlow target handles are type-checked against the same source of truth. Empty array for components with no edge inputs (e.g. `Constant`).
 
 Examples: `Led` accepts `"true"/"false"/"toggle"/"value"`; `Stepper` accepts `"value"/"to"/"stop"/"zero"/"enable"`; `Button` accepts `"read"` (and receives the digital-pin Hardware Callback separately via `on_pin_change`).
 
-Distinct from **Internal Event** names (never on edges, self-routed only) and **Hardware Callback** names (never on edges, runtime-delivered only).
+Distinct from **Emit** names (edge *outputs*), **Internal Event** names (never on edges, self-routed only), and **Hardware Callback** names (never on edges, runtime-delivered only).
+
+## Emit
+
+A named edge-**output** slot on a **Component (Rust trait)** — the `source_handle` a component emits on, delivered to the **FlowRouter** for fanout. The symmetric counterpart of **Port**. Each impl declares its closed Emit set via `fn emits() -> &'static [&'static str]`, mirrored to `node-components.json impls[].emits[]` and to the frontend as `COMPONENT_EMITS` / `EmitOf<T>` (so React source `<Handle id=…>` ids are type-checked against the same source of truth). Decision in [ADR-0007](docs/adr/0007-node-wire-interface-emit-contract.md).
+
+Emit handles are compile-checked on the Rust side: each impl declares its handles as associated `const`s (e.g. `Button::E_EVENT`) referenced at every emit site **and** in `emits()`; a mistyped emit does not compile. The implicit `"value"` emit — fired by `ComponentBase::set_value` whenever the value changes — is centralized as `ComponentBase::VALUE_HANDLE` and listed in `emits()` by every value-emitting node. Examples: `Button` emits `"event"/"true"/"false"/"hold"/"value"`; `Compare`/`Gate` emit `"true"/"false"/"value"`; `Llm` emits `"thinking"/"value"/"done"/"error"`; value-only sinks emit just `"value"`.
+
+Excludes `_`-prefixed **Internal Event** / wakeup names (e.g. `_hold`, `_tick`) — those are self-routed and never appear on an edge. The **Catalog Parity Guard** (`apps/web/src-tauri/tests/catalog_parity.rs`) asserts `emits()` ≡ catalog `emits[]` for every impl.
 
 ## Internal Event
 
@@ -93,7 +101,11 @@ The per-dispatch capability context. Lives in `crates/microflow-core/src/runtime
 
 ## Effects
 
-The side-effect record the host executes after one runtime turn. Lives in `crates/microflow-core/src/runtime/context.rs`. `Effects { outbound_bytes: Vec<u8>, component_events: Vec<ComponentEvent>, wakeups: Vec<Wakeup>, cancellations: Vec<WakeupId> }`. Every `FlowRuntime` entry point (`update_flow`, `feed_bytes`, `wake`, `dispatch`, `deliver_message`, `inject_event`, `dispatch_key_event`) returns one `Effects`. The **Runtime Host** writes `outbound_bytes` to the port, dispatches `component_events` to its UI stores, arms each [`Wakeup`](#wakeup) as a timer, and clears `cancellations`. Nothing crosses the wire until the host applies the effects — which is what makes the runtime testable without hardware or a host (feed input, assert on the returned `Effects`).
+The side-effect record the host executes after one runtime turn. Lives in `crates/microflow-core/src/runtime/context.rs`. `Effects { outbound_bytes: Vec<u8>, component_events: Vec<ComponentEvent>, wakeups: Vec<Wakeup>, cancellations: Vec<WakeupId> }`. Every `FlowRuntime` entry point (`update_flow`, `feed_bytes`, `wake`, `dispatch`, `deliver_message`, `inject_event`, `dispatch_key_event`) returns one `Effects`. The **Runtime Host** writes `outbound_bytes` to the port, dispatches `component_events` to its UI stores, arms each [`Wakeup`](#wakeup) as a timer, and clears `cancellations`. Nothing crosses the wire until the host applies the effects — which is what makes the runtime testable without hardware or a host (feed input, assert on the returned `Effects`). *How* a host applies the four fields — their order — is not the host's choice: it is fixed by [`Effects::apply`](#effectssink) ([ADR-0008](docs/adr/0008-effects-apply-policy.md)).
+
+## EffectsSink
+
+The typed per-field hook surface a [Runtime Host](#runtime-host) implements to apply one turn's [`Effects`](#effects); the **apply policy** that drives it lives in core, once. `Effects::apply(&self, sink: &mut impl EffectsSink)` (`crates/microflow-core/src/runtime/context.rs`) iterates the fields in the **canonical order** — `outbound_bytes → cancellations → wakeups → cloud_requests → component_events` — calling one hook each: `write_bytes`, `cancel_wakeup`, `arm_wakeup`, `perform_cloud`, `dispatch_event`. Bytes first (wire latency); cancel-before-arm (so a cancel + re-arm of the same logical timer in one turn is safe); cloud calls launched before UI events leave; UI events last (they leave the runtime and do not feed back this turn). Decided in [ADR-0008](docs/adr/0008-effects-apply-policy.md) after the two hosts' inline apply loops had already drifted in order. The platform *primitives* behind each hook stay per-host (desktop: serial flush + Tauri `emit` + Tokio timer; browser: `connection.write` + store ingest + `setTimeout`). The desktop `Actor` calls `Effects::apply` directly; the browser reactor cannot reach into Rust, so it mirrors the same shape in `apps/web/src/lib/firmata/effects-sink.ts` (`applyEffects` + an `EffectsSink` interface `FlowReactor` implements), held in lockstep by a conformance test on both sides (`context::apply_tests` / `__tests__/effects-sink.test.ts`). Adding an `Effects` field adds a hook here — a compile error in every sink until handled (exactly how ADR-0009's `cloud_requests` field forced `perform_cloud`, for [`CloudRequest`](#cloudrequest)s, into the order).
 
 ## BoardWriter
 
@@ -125,25 +137,64 @@ Distinct from the **Component Catalog**: catalog is metadata for _registration_ 
 
 ## Runtime Services
 
-Typed bundle of every external service the runtime can hand to a component, threaded through component construction. Lives in `runtime/services/mod.rs` as `RuntimeServices`. One field per **Capability Trait** / **Service Registry**:
+> ⚠ **Reconciled (2026-06 · post-re-host).** ADR-0002 Phase 4 designed a
+> `RuntimeServices` bundle + `ComponentBuilder::Deps: FromServices` threaded
+> through construction. The re-host ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md))
+> **superseded that mechanism** to keep `tokio`/`reqwest`/`rumqttc` out of
+> `microflow-core`. It does not exist in the current code; the description below
+> is the actual state.
 
-- `llm_registry: Arc<LlmRegistry>`
-- `mqtt_publisher: Arc<dyn MqttPublisher>`
-- _(future kinds — HTTP, OSC, WebSocket — accrete as new fields with no churn in unrelated components)_
+The **Capability Trait**s and **Service Registry**s (`LlmRegistry`,
+`MqttPublisher`, `LlmProvider`, …) live in the **desktop** crate
+(`apps/web/src-tauri/src/runtime/services/`), not in core — core stays
+dependency-light. They are **not** threaded through a `RuntimeServices` bundle or
+a `Deps` associated type. Core's `ComponentBuilder` is `{ type Config; fn
+build(id, config) }` (`runtime/component.rs:226`) — no services. As of
+[ADR-0009](docs/adr/0009-cloud-sans-io-capability.md) the cloud nodes no longer
+capture services either: they are sans-IO and emit [`CloudRequest`](#cloudrequest)s
+the host performs (see **Cloud Node Registration** below). The live
+`MqttPublisher` / `LlmRegistry` now live on the desktop host's **CloudPerformer**
+(behind the [`EffectsSink`](#effectssink) `perform_cloud` hook), not on the nodes.
 
-Built once at application startup (`AppState::run`) and reused across every `flow_update`. `Clone` so it can be carried alongside a pending `FlowUpdate` on `AppState::pending_flow` and replayed on board-connect without losing live registries.
+## CloudRequest
 
-Replaces the former `RuntimeContext` struct: same role, more honest name. The corresponding ADR is [ADR-0002](docs/adr/0002-per-capability-service-traits.md).
+An outbound cloud call a node asks the host to perform, recorded as the
+[`Effects`](#effects) field `cloud_requests` (the sans-IO replacement for the old
+in-component `tokio::spawn`). Lives in `crates/microflow-core/src/runtime/context.rs`.
+`CloudRequest { source: Arc<str>, kind: CloudRequestKind }`; `CloudRequestKind` is
+`MqttPublish { broker_id, topic, payload, retain }` (fire-and-forget) or
+`LlmGenerate { provider_id, model, system, prompt }` (result re-enters). A cloud
+node's `dispatch` calls `ctx.request_cloud(kind)` instead of touching the network;
+the host's [`EffectsSink`](#effectssink) `perform_cloud` hook performs it, and any
+result re-enters via `FlowRuntime::inject_event` keyed on `source`. The node thus
+holds no Tokio/`reqwest`/`rumqttc` and is unit-tested by asserting the recorded
+request (`cloud::test_support::recorded_cloud_requests`). Decided in
+[ADR-0009](docs/adr/0009-cloud-sans-io-capability.md); on the desktop the I/O is
+performed by the **CloudPerformer** (a deep module on the actor holding the live
+services + the latest-wins LLM task table). Phase 3 added the browser performer:
+`FlowReactor.performCloud` does `LlmGenerate` directly via `fetch` (mirroring the
+desktop `HttpLlmProvider`, with latest-wins `AbortController` cancellation) and
+re-enters the result through the wasm `injectEvent` binding. `MqttPublish`
+(MQTT + Figma) publishes over WSS via `mqtt.js`; inbound subscribe routing comes
+back through the wasm `deliverMessage` binding, reconciled from
+`subscriberWirings()` on each `applyFlow` (mirroring the desktop `flow_update`).
 
-## Component Deps
+## Cloud Node Registration
 
-The associated `type Deps: FromServices` on the `ComponentBuilder` trait — each impl's typed record of the slice of **Runtime Services** it needs to construct.
-
-- Components that need nothing declare `type Deps = ();` (the default-friendliest shape — `FromServices for ()` returns unit). 29 of the 32 Catalog impls do this.
-- `Llm` declares `type Deps = Arc<LlmRegistry>`.
-- `Mqtt` and `Figma` declare `type Deps = Arc<dyn MqttPublisher>`.
-
-The component registry's `Factory` closure (`runtime/registry.rs::make_factory`) projects `<B::Deps as FromServices>::from_services(services)` at build time and hands the slice to `B::build`. Adding a new external kind = add a field to `RuntimeServices` + a `FromServices` impl for the new `Arc<..>` — zero touches in the 29 unaffected builders.
+Cloud nodes are no longer special-cased. Because they are sans-IO (ADR-0009),
+the `Mqtt`/`Llm`/`Figma` nodes live in `microflow-core`
+(`runtime/cloud/{mqtt,llm,figma}.rs` behind the `cloud` feature; their POD configs
+in `config/{mqtt,llm,figma}.rs`, ungated) and register in
+`registry.rs::register_all` via the same typed `register::<B>(name)` every
+built-in uses — landing in `declared()`, so the **Catalog Parity Guard** reads
+them uniformly. Both the desktop bin and the browser wasm build enable `cloud`,
+so each gets the cloud nodes from this one place; the desktop's hand-written
+factory closures and the `register_factory` / `register_node` / `register_cloud`
+helpers are **deleted** (the host-injection machinery collapsed once cloud went
+sans-IO). All that stays per-host is the [`EffectsSink`](#effectssink)
+`perform_cloud`: the desktop **CloudPerformer** (`rumqttc`/`reqwest`) and the
+browser `FlowReactor` (LLM via `fetch`; MQTT/Figma over WSS via `mqtt.js`, with a
+per-broker connection manager in `lib/firmata/cloud/`).
 
 ## Capability Trait
 

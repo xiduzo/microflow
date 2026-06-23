@@ -21,6 +21,8 @@ pub struct Delay {
 }
 
 impl Delay {
+    const E_EVENT: &'static str = "event";
+
     #[must_use]
     pub fn new(id: String, config: DelayConfig) -> Self {
         Self {
@@ -45,6 +47,12 @@ impl Delay {
 impl Component for Delay {
     fn ports() -> &'static [&'static str] {
         &["trigger"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        // Delay stores its input with a raw `base.value =` write (no set_value),
+        // so it never emits the implicit "value" — only the delayed "event".
+        &[Self::E_EVENT]
     }
 
     fn base(&self) -> &ComponentBase {
@@ -81,7 +89,7 @@ impl Component for Delay {
         match method {
             // Delay elapsed: emit the stored value on the "event" handle.
             "tick" => {
-                self.base.emit("event");
+                self.base.emit(Self::E_EVENT);
                 Ok(())
             }
             _ => Ok(()),

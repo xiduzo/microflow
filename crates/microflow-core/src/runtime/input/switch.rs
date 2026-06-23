@@ -34,6 +34,10 @@ pub struct Switch {
 }
 
 impl Switch {
+    const E_EVENT: &'static str = "event";
+    const E_TRUE: &'static str = "true";
+    const E_FALSE: &'static str = "false";
+
     #[must_use]
     pub fn new(id: String, config: SwitchConfig) -> Self {
         Self {
@@ -82,11 +86,11 @@ impl Switch {
     fn apply_state(&mut self, closed: bool) {
         self.is_closed = closed;
         self.base.set_value(ComponentValue::Bool(closed));
-        self.base.emit("event");
+        self.base.emit(Self::E_EVENT);
         if closed {
-            self.base.emit("true");
+            self.base.emit(Self::E_TRUE);
         } else {
-            self.base.emit("false");
+            self.base.emit(Self::E_FALSE);
         }
     }
 }
@@ -94,6 +98,10 @@ impl Switch {
 impl Component for Switch {
     fn ports() -> &'static [&'static str] {
         &["read"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_EVENT, Self::E_TRUE, Self::E_FALSE, ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {

@@ -58,20 +58,6 @@ export function Stepper(props: Props) {
         hint="reset position"
         offset={1.5}
       />
-      <Handle
-        type="source"
-        position="right"
-        id="position"
-        handleType="value"
-        offset={-0.5}
-      />
-      <Handle
-        type="source"
-        position="right"
-        id="complete"
-        handleType="event"
-        offset={0.5}
-      />
     </NodeContainer>
   );
 }

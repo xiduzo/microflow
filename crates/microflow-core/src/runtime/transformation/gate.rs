@@ -12,6 +12,9 @@ pub struct Gate {
 }
 
 impl Gate {
+    const E_TRUE: &'static str = "true";
+    const E_FALSE: &'static str = "false";
+
     #[must_use]
     pub fn new(id: String, config: GateConfig) -> Self {
         Self {
@@ -23,7 +26,7 @@ impl Gate {
     fn check(&mut self, inputs: &[bool]) {
         let result = self.passes_gate(inputs);
         self.base.set_value(ComponentValue::Bool(result));
-        self.base.emit(if result { "true" } else { "false" });
+        self.base.emit(if result { Self::E_TRUE } else { Self::E_FALSE });
     }
 
     fn passes_gate(&self, inputs: &[bool]) -> bool {
@@ -43,6 +46,10 @@ impl Gate {
 impl Component for Gate {
     fn ports() -> &'static [&'static str] {
         &["value"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_TRUE, Self::E_FALSE, ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {

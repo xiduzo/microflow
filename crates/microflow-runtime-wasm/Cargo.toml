@@ -13,9 +13,11 @@ repository = "https://github.com/xiduzo/microflow"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# `runtime` + `js` (the `Function` node's embedded JS engine, boa) — but NOT
-# `cloud` (no mqtt/llm/figma network nodes in the browser build).
-microflow-core = { path = "../microflow-core", default-features = false, features = ["runtime", "js"] }
+# `runtime` + `js` (the `Function` node's embedded JS engine, boa) + `cloud`.
+# ADR-0009 made the mqtt/llm/figma nodes sans-IO — they emit `CloudRequest`s the
+# browser host performs (LLM via `fetch`, MQTT/Figma via WSS) — so they carry no
+# native deps and now belong in the wasm build, not just the desktop one.
+microflow-core = { path = "../microflow-core", default-features = false, features = ["runtime", "js", "cloud"] }
 wasm-bindgen = "0.2"
 serde_json = "1.0"
 

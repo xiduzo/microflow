@@ -20,6 +20,10 @@ pub struct Motion {
 }
 
 impl Motion {
+    const E_EVENT: &'static str = "event";
+    const E_TRUE: &'static str = "true";
+    const E_FALSE: &'static str = "false";
+
     #[must_use]
     pub fn new(id: String, config: MotionConfig) -> Self {
         Self {
@@ -37,8 +41,8 @@ impl Motion {
         if detected != self.motion_detected {
             self.motion_detected = detected;
             self.base.set_value(ComponentValue::Bool(detected));
-            self.base.emit("event");
-            self.base.emit(if detected { "true" } else { "false" });
+            self.base.emit(Self::E_EVENT);
+            self.base.emit(if detected { Self::E_TRUE } else { Self::E_FALSE });
         }
     }
 }
@@ -46,6 +50,10 @@ impl Motion {
 impl Component for Motion {
     fn ports() -> &'static [&'static str] {
         &["read"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_EVENT, Self::E_TRUE, Self::E_FALSE, ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {

@@ -13,6 +13,8 @@ pub struct RangeMap {
 }
 
 impl RangeMap {
+    const E_TO: &'static str = "to";
+
     #[must_use]
     pub fn new(id: String, config: RangeMapConfig) -> Self {
         Self {
@@ -48,13 +50,17 @@ impl RangeMap {
             ComponentValue::Number(input_num),
             ComponentValue::Number(normalized),
         ]));
-        self.base.emit_with_value("to", Cow::Owned(ComponentValue::Number(normalized)));
+        self.base.emit_with_value(Self::E_TO, Cow::Owned(ComponentValue::Number(normalized)));
     }
 }
 
 impl Component for RangeMap {
     fn ports() -> &'static [&'static str] {
         &["value"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_TO, ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {

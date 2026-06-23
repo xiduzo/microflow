@@ -3,77 +3,33 @@
 //! Bridges Figma design variables into the flow via MQTT: subscribes to the
 //! plugin's variable topics (delivered back via
 //! [`receive_raw_message`](Component::receive_raw_message)) and, on `dispatch`,
-//! computes a payload, emits "value"/"change" downstream, and spawns a
-//! fire-and-forget publish back to Figma.
+//! computes a payload, emits "value"/"change" downstream, and records a
+//! [`CloudRequestKind::MqttPublish`] back to Figma for the host to perform
+//! (sans-IO — the node never touches the broker, ADR-0009).
 //!
-//! [`Component`]: microflow_core::runtime::Component
+//! [`Component`]: crate::runtime::Component
 
-use crate::runtime::services::MqttPublisher;
-use microflow_core::runtime::{
-    Component, ComponentBase, ComponentValue, RuntimeContext, RuntimeError, SubscriberWiring,
+use crate::runtime::{
+    CloudRequestKind, Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext,
+    RuntimeError, SubscriberWiring,
 };
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::sync::Arc;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FigmaConfig {
-    #[serde(default)]
-    pub broker_id: String,
-    #[serde(default)]
-    pub unique_id: String,
-    #[serde(default)]
-    pub variable_id: String,
-    #[serde(default = "default_resolved_type")]
-    pub resolved_type: String,
-    #[serde(default = "default_debounce_time")]
-    pub debounce_time: u64,
-}
-
-fn default_resolved_type() -> String {
-    "STRING".to_string()
-}
-
-fn default_debounce_time() -> u64 {
-    100
-}
-
-impl Default for FigmaConfig {
-    fn default() -> Self {
-        Self {
-            broker_id: String::new(),
-            unique_id: String::new(),
-            variable_id: String::new(),
-            resolved_type: "STRING".to_string(),
-            debounce_time: 100,
-        }
-    }
-}
+pub use crate::config::figma::FigmaConfig;
 
 pub struct Figma {
     base: ComponentBase,
     config: FigmaConfig,
-    /// Shared MQTT publish handle. Cloned into each spawned publish task.
-    publisher: Arc<dyn MqttPublisher>,
-    /// Tokio handle injected by the host so `dispatch` (sync) can spawn the
-    /// async publish call.
-    rt_handle: Option<tokio::runtime::Handle>,
 }
 
 impl Figma {
+    const E_CHANGE: &'static str = "change";
+
     #[must_use]
-    pub fn new(
-        id: String,
-        config: FigmaConfig,
-        publisher: Arc<dyn MqttPublisher>,
-        rt_handle: Option<tokio::runtime::Handle>,
-    ) -> Self {
+    pub fn new(id: String, config: FigmaConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,
-            publisher,
-            rt_handle,
         }
     }
 
@@ -188,37 +144,30 @@ impl Figma {
         }
     }
 
-    /// Push a JSON payload back into Figma over the configured broker, spawning
-    /// the async publish onto the captured Tokio handle.
-    fn publish(&self, payload: String) {
-        let publisher = Arc::clone(&self.publisher);
-        let broker_id = self.config.broker_id.clone();
-        let topic = self.set_topic();
-        let component_id = Arc::clone(&self.base.id);
-
-        let Some(handle) = &self.rt_handle else {
-            log::error!("[Figma] {component_id} no Tokio runtime available, cannot spawn publish");
-            return;
-        };
-
-        handle.spawn(async move {
-            log::debug!("[Figma] {component_id} publish → broker={broker_id} topic={topic}");
-            if let Err(e) = publisher
-                .publish(&broker_id, &topic, payload.as_bytes(), false)
-                .await
-            {
-                log::error!(
-                    "[Figma] {component_id} publish failed (broker={broker_id} topic={topic}): {e}"
-                );
-            }
+    /// Record a publish of `payload` back into Figma over the configured broker
+    /// (sans-IO — the host's `perform_cloud` performs it).
+    fn publish(&self, payload: String, ctx: &mut RuntimeContext) {
+        ctx.request_cloud(CloudRequestKind::MqttPublish {
+            broker_id: self.config.broker_id.clone(),
+            topic: self.set_topic(),
+            payload: payload.into_bytes(),
+            retain: false,
         });
     }
 
     /// Emit a value on both "value" (node display) and "change" (downstream).
     fn emit_value(&mut self, value: ComponentValue) {
         self.base.value = value.clone();
-        self.base.emit_with_value("value", Cow::Owned(value.clone()));
-        self.base.emit_with_value("change", Cow::Owned(value));
+        self.base.emit_with_value(ComponentBase::VALUE_HANDLE, Cow::Owned(value.clone()));
+        self.base.emit_with_value(Self::E_CHANGE, Cow::Owned(value));
+    }
+}
+
+impl ComponentBuilder for Figma {
+    type Config = FigmaConfig;
+
+    fn build(id: String, config: FigmaConfig) -> Result<Self, RuntimeError> {
+        Ok(Self::new(id, config))
     }
 }
 
@@ -228,6 +177,10 @@ impl Component for Figma {
             "true", "false", "toggle", "set", "increment", "decrement", "reset", "red", "green",
             "blue", "opacity",
         ]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_CHANGE, ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {
@@ -279,7 +232,7 @@ impl Component for Figma {
         &mut self,
         method: &str,
         args: ComponentValue,
-        _ctx: &mut RuntimeContext,
+        ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
         let payload = match method {
             // ---- BOOLEAN ----
@@ -335,7 +288,7 @@ impl Component for Figma {
         let new_value = self.parse_payload(payload.as_bytes());
         self.emit_value(new_value);
 
-        self.publish(payload);
+        self.publish(payload, ctx);
         Ok(())
     }
 
@@ -352,24 +305,7 @@ impl Component for Figma {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::cloud::test_support::with_test_ctx;
-    use crate::runtime::services::{RecordedPublish, RecordingMqttPublisher};
-    use std::time::Duration;
-
-    async fn wait_for_publishes(
-        recorder: &RecordingMqttPublisher,
-        min: usize,
-        timeout: Duration,
-    ) -> Vec<RecordedPublish> {
-        let deadline = tokio::time::Instant::now() + timeout;
-        loop {
-            let snap = recorder.recorded();
-            if snap.len() >= min || tokio::time::Instant::now() >= deadline {
-                return snap;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    }
+    use crate::runtime::cloud::test_support::recorded_cloud_requests;
 
     fn config() -> FigmaConfig {
         FigmaConfig {
@@ -381,75 +317,70 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn dispatch_true_publishes_true_payload_to_set_topic() {
-        let recorder = Arc::new(RecordingMqttPublisher::new());
-        let mut figma = Figma::new(
-            "node-1".into(),
-            config(),
-            recorder.clone() as Arc<dyn MqttPublisher>,
-            Some(tokio::runtime::Handle::current()),
-        );
+    /// Unwrap the single recorded request as an MQTT publish, or panic.
+    fn publish_of(kind: CloudRequestKind) -> (String, String, Vec<u8>, bool) {
+        match kind {
+            CloudRequestKind::MqttPublish { broker_id, topic, payload, retain } => {
+                (broker_id, topic, payload, retain)
+            }
+            other @ CloudRequestKind::LlmGenerate { .. } => panic!("expected MqttPublish, got {other:?}"),
+        }
+    }
 
-        with_test_ctx("node-1", |ctx| {
+    #[test]
+    fn dispatch_true_records_true_publish_to_set_topic() {
+        let mut figma = Figma::new("node-1".into(), config());
+
+        let mut reqs = recorded_cloud_requests("node-1", |ctx| {
             figma
                 .dispatch("true", ComponentValue::Bool(true), ctx)
                 .expect("dispatch ok");
         });
 
-        let published = wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
-        assert_eq!(published.len(), 1);
-        assert_eq!(published[0].broker_id, "broker-1");
-        assert_eq!(published[0].topic, "microflow/uid-1/app/variable/1-2/set");
-        assert_eq!(published[0].payload, b"true");
-        assert!(!published[0].retain);
+        assert_eq!(reqs.len(), 1);
+        let (broker_id, topic, payload, retain) = publish_of(reqs.remove(0));
+        assert_eq!(broker_id, "broker-1");
+        assert_eq!(topic, "microflow/uid-1/app/variable/1-2/set");
+        assert_eq!(payload, b"true");
+        assert!(!retain);
     }
 
-    #[tokio::test]
-    async fn dispatch_increment_publishes_summed_payload() {
+    #[test]
+    fn dispatch_increment_records_summed_payload() {
         let mut c = config();
         c.resolved_type = "FLOAT".into();
-        let recorder = Arc::new(RecordingMqttPublisher::new());
-        let mut figma = Figma::new(
-            "node-1".into(),
-            c,
-            recorder.clone() as Arc<dyn MqttPublisher>,
-            Some(tokio::runtime::Handle::current()),
-        );
+        let mut figma = Figma::new("node-1".into(), c);
 
-        with_test_ctx("node-1", |ctx| {
+        let mut first = recorded_cloud_requests("node-1", |ctx| {
             figma
                 .dispatch("set", ComponentValue::Number(5.0), ctx)
                 .expect("set ok");
         });
-        wait_for_publishes(&recorder, 1, Duration::from_secs(1)).await;
+        assert_eq!(first.len(), 1);
+        let _ = publish_of(first.remove(0));
 
-        with_test_ctx("node-1", |ctx| {
+        let mut second = recorded_cloud_requests("node-1", |ctx| {
             figma
                 .dispatch("increment", ComponentValue::Number(3.0), ctx)
                 .expect("increment ok");
         });
-        let published = wait_for_publishes(&recorder, 2, Duration::from_secs(1)).await;
-        assert_eq!(published.len(), 2);
-        assert_eq!(published[1].payload, b"8");
+        assert_eq!(second.len(), 1);
+        let (_, _, payload, _) = publish_of(second.remove(0));
+        assert_eq!(payload, b"8");
     }
 
-    #[tokio::test]
-    async fn dispatch_unknown_method_does_not_publish() {
-        let recorder = Arc::new(RecordingMqttPublisher::new());
-        let mut figma = Figma::new(
-            "node-1".into(),
-            config(),
-            recorder.clone() as Arc<dyn MqttPublisher>,
-            Some(tokio::runtime::Handle::current()),
-        );
-        let err = with_test_ctx("node-1", |ctx| {
-            figma
+    #[test]
+    fn dispatch_unknown_method_records_no_request() {
+        let mut figma = Figma::new("node-1".into(), config());
+
+        let mut errored = false;
+        let reqs = recorded_cloud_requests("node-1", |ctx| {
+            errored = figma
                 .dispatch("definitely-not-a-method", ComponentValue::Bool(true), ctx)
-                .expect_err("should fail")
+                .is_err();
         });
-        assert!(err.to_string().contains("Unknown method"));
-        tokio::time::sleep(Duration::from_millis(20)).await;
-        assert!(recorder.recorded().is_empty());
+
+        assert!(errored, "unknown method should error");
+        assert!(reqs.is_empty(), "a failed dispatch must record no cloud request");
     }
 }

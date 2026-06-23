@@ -59,8 +59,6 @@ function FigmaHandles(props: { variableId?: string; id: string }) {
           <Handle type="target" position={Position.Left} id="true" offset={-1} />
           <Handle type="target" position={Position.Left} id="toggle" />
           <Handle type="target" position={Position.Left} id="false" offset={1} />
-          <Handle type="source" position={Position.Right} id="true" offset={-1} />
-          <Handle type="source" position={Position.Right} id="false" offset={1} />
         </>
       )}
       {variable?.resolvedType === "COLOR" && (

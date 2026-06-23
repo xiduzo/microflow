@@ -239,6 +239,8 @@ impl Stepper {
 impl Component for Stepper {
     fn ports() -> &'static [&'static str] { &["value", "to", "stop", "zero", "enable"] }
 
+    fn emits() -> &'static [&'static str] { &[ComponentBase::VALUE_HANDLE] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Stepper" }

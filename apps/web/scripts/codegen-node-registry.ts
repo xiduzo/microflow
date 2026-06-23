@@ -33,12 +33,34 @@ const entryPorts = (e: { impl: string; name: string }): readonly string[] => {
   return ports;
 };
 
+// Map impl name -> declared Emit set (edge outputs / source handles). Variants
+// inherit their parent impl's emits. Mirrors impls[].emits[] and the Rust impl's
+// Component::emits(). See CONTEXT.md § Emit.
+const implEmits = new Map<string, readonly string[]>(
+  impls.map((i) => [
+    i.name,
+    Object.freeze(((i as Record<string, unknown>).emits as string[] | undefined) ?? []),
+  ]),
+);
+const entryEmits = (e: { impl: string; name: string }): readonly string[] => {
+  const emits = implEmits.get(e.impl);
+  if (!emits) throw new Error(`Entry ${e.name} references unknown impl ${e.impl}`);
+  return emits;
+};
+
 // _base/_base.types.ts
 const typeNames = entries.map((e) => `  "${e.name}"`).join(",\n");
 const portsObjectLines = entries
   .map((e) => {
     const ports = entryPorts(e);
     const literal = ports.length === 0 ? "[]" : `[${ports.map((p) => `"${p}"`).join(", ")}]`;
+    return `  ${e.name}: ${literal} as const,`;
+  })
+  .join("\n");
+const emitsObjectLines = entries
+  .map((e) => {
+    const emits = entryEmits(e);
+    const literal = emits.length === 0 ? "[]" : `[${emits.map((p) => `"${p}"`).join(", ")}]`;
     return `  ${e.name}: ${literal} as const,`;
   })
   .join("\n");
@@ -73,6 +95,27 @@ ${portsObjectLines}
  */
 export type PortOf<T extends ComponentType> = T extends ComponentType
   ? (typeof COMPONENT_PORTS)[T][number]
+  : never;
+
+/**
+ * Declared **Emit** set per Component (catalog-driven). Mirrors
+ * \`impls[].emits[]\` in \`node-components.json\` and the Rust impl's
+ * \`Component::emits()\`. The Catalog Parity Guard
+ * (\`src-tauri/tests/catalog_parity.rs\`) asserts equality; this is the single
+ * source of truth for what source handles a ReactFlow edge may originate from.
+ * See CONTEXT.md § Emit.
+ */
+export const COMPONENT_EMITS = {
+${emitsObjectLines}
+} as const satisfies Record<ComponentType, readonly string[]>;
+
+/**
+ * Valid \`source_handle\` literal-union for a given Component instance type.
+ * Distributive conditional ensures the result is the union of emit literals
+ * across all members of \`T\` when \`T\` is itself a union of ComponentTypes.
+ */
+export type EmitOf<T extends ComponentType> = T extends ComponentType
+  ? (typeof COMPONENT_EMITS)[T][number]
   : never;
 `;
 writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);

@@ -192,6 +192,8 @@ impl Piezo {
 impl Component for Piezo {
     fn ports() -> &'static [&'static str] { &["trigger", "stop"] }
 
+    fn emits() -> &'static [&'static str] { &[ComponentBase::VALUE_HANDLE] }
+
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
     fn component_type(&self) -> &'static str { "Piezo" }

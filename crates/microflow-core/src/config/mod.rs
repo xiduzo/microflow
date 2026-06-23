@@ -49,3 +49,9 @@ pub mod compare;
 pub mod gate;
 pub mod range_map;
 pub mod smooth;
+
+// cloud (sans-IO nodes; POD config kept ungated like the rest so codegen can
+// reach it too — the network I/O is the host's, not the config's)
+pub mod figma;
+pub mod llm;
+pub mod mqtt;

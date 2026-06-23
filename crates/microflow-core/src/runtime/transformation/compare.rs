@@ -12,6 +12,9 @@ pub struct Compare {
 }
 
 impl Compare {
+    const E_TRUE: &'static str = "true";
+    const E_FALSE: &'static str = "false";
+
     #[must_use]
     pub fn new(id: String, config: CompareConfig) -> Self {
         Self {
@@ -23,7 +26,7 @@ impl Compare {
     pub fn check(&mut self, input: &ComponentValue) {
         let result = self.validate(input);
         self.base.set_value(ComponentValue::Bool(result));
-        self.base.emit(if result { "true" } else { "false" });
+        self.base.emit(if result { Self::E_TRUE } else { Self::E_FALSE });
     }
 
     fn validate(&self, input: &ComponentValue) -> bool {
@@ -72,6 +75,10 @@ impl Compare {
 impl Component for Compare {
     fn ports() -> &'static [&'static str] {
         &["value"]
+    }
+
+    fn emits() -> &'static [&'static str] {
+        &[Self::E_TRUE, Self::E_FALSE, ComponentBase::VALUE_HANDLE]
     }
 
     fn base(&self) -> &ComponentBase {
