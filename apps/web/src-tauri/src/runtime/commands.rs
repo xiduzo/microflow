@@ -87,7 +87,7 @@ pub async fn flow_update(
     // instead of `?`-propagating it, ALWAYS apply the flow, and only then surface
     // the infrastructure outcome as the command result. Both steps are idempotent,
     // so a reported infra failure is safe to retry.
-    let infrastructure = ensure_infrastructure(&brokers, providers, &state).await;
+    let infrastructure = ensure_infrastructure(brokers.as_deref(), providers, &state).await;
     apply_flow(&app, flow, &state).await?;
     infrastructure
 }
@@ -101,7 +101,7 @@ pub async fn flow_update(
 /// logged and tolerated (the loop continues), matching the previous inline
 /// behaviour.
 async fn ensure_infrastructure(
-    brokers: &Option<Vec<FrontendBrokerConfig>>,
+    brokers: Option<&[FrontendBrokerConfig]>,
     providers: Option<Vec<FrontendProviderConfig>>,
     state: &tauri::State<'_, AppState>,
 ) -> Result<(), String> {
