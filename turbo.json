@@ -3,7 +3,7 @@
   "ui": "tui",
   "tasks": {
     "codegen": {
-      "inputs": ["node-components.json"],
+      "inputs": ["node-components.json", "wire-interface.generated.json"],
       "outputs": [
         "src/components/flow/nodes/_base/_base.types.ts",
         "src/components/flow/nodes/_REGISTRY.ts"
