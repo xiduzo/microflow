@@ -1,4 +1,5 @@
 import manifest from "../node-components.json";
+import wireInterface from "../wire-interface.generated.json";
 import { writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -19,34 +20,26 @@ const usesHostAdapter = new Map<string, boolean>(
 );
 const entryUsesAdapter = (e: { impl: string }) => usesHostAdapter.get(e.impl) ?? false;
 
-// Map impl name -> declared Port set. Variants (e.g. Potentiometer over
-// Sensor) inherit their parent impl's ports. See CONTEXT.md § Port.
-const implPorts = new Map<string, readonly string[]>(
-  impls.map((i) => [
-    i.name,
-    Object.freeze(((i as Record<string, unknown>).ports as string[] | undefined) ?? []),
-  ]),
-);
-const entryPorts = (e: { impl: string; name: string }): readonly string[] => {
-  const ports = implPorts.get(e.impl);
-  if (!ports) throw new Error(`Entry ${e.name} references unknown impl ${e.impl}`);
-  return ports;
+// Per-entry Port / Emit sets, GENERATED from the Rust impls' ports()/emits()
+// into wire-interface.generated.json — the single source of truth for the wire
+// interface (see src-tauri/tests/catalog_parity.rs). Keyed by entry name, so
+// variants (e.g. Potentiometer over Sensor) already carry their parent impl's
+// interface; there is no hand-authored impls[].ports/emits mirror to drift.
+// See CONTEXT.md § Port / § Emit.
+type WireInterface = Record<string, { ports: readonly string[]; emits: readonly string[] }>;
+const wire = wireInterface as WireInterface;
+const wireOf = (e: { name: string }) => {
+  const w = wire[e.name];
+  if (!w) {
+    throw new Error(
+      `Entry ${e.name} is missing from wire-interface.generated.json — regenerate it: ` +
+        `BLESS_WIRE_INTERFACE=1 cargo test --manifest-path src-tauri/Cargo.toml --test catalog_parity`,
+    );
+  }
+  return w;
 };
-
-// Map impl name -> declared Emit set (edge outputs / source handles). Variants
-// inherit their parent impl's emits. Mirrors impls[].emits[] and the Rust impl's
-// Component::emits(). See CONTEXT.md § Emit.
-const implEmits = new Map<string, readonly string[]>(
-  impls.map((i) => [
-    i.name,
-    Object.freeze(((i as Record<string, unknown>).emits as string[] | undefined) ?? []),
-  ]),
-);
-const entryEmits = (e: { impl: string; name: string }): readonly string[] => {
-  const emits = implEmits.get(e.impl);
-  if (!emits) throw new Error(`Entry ${e.name} references unknown impl ${e.impl}`);
-  return emits;
-};
+const entryPorts = (e: { name: string }): readonly string[] => wireOf(e).ports;
+const entryEmits = (e: { name: string }): readonly string[] => wireOf(e).emits;
 
 // _base/_base.types.ts
 const typeNames = entries.map((e) => `  "${e.name}"`).join(",\n");
@@ -64,7 +57,8 @@ const emitsObjectLines = entries
     return `  ${e.name}: ${literal} as const,`;
   })
   .join("\n");
-const baseTypesContent = `// GENERATED — edit node-components.json, then run \`bun run codegen\`
+const baseTypesContent = `// GENERATED — do not edit. Sources: node-components.json (entries/metadata) +
+// wire-interface.generated.json (ports/emits, from Rust). Run \`bun run codegen\`.
 
 export const COMPONENT_TYPES = [
 ${typeNames},
@@ -77,11 +71,10 @@ export function isComponentType(value: string): value is ComponentType {
 }
 
 /**
- * Declared **Port** set per Component (catalog-driven). Mirrors
- * \`impls[].ports[]\` in \`node-components.json\` and the Rust impl's
- * \`Component::ports()\` const. The Rust registry asserts equality at
- * construction; this object is the single source of truth for what target
- * handles a ReactFlow edge may carry. Empty array for components with no
+ * Declared **Port** set per Component. GENERATED from the Rust impl's
+ * \`Component::ports()\` via \`wire-interface.generated.json\` — the single
+ * source of truth (see \`src-tauri/tests/catalog_parity.rs\`). Type-checks the
+ * target handles a ReactFlow edge may carry. Empty array for components with no
  * edge inputs (e.g. \`Constant\`). See CONTEXT.md § Port.
  */
 export const COMPONENT_PORTS = {
@@ -98,12 +91,11 @@ export type PortOf<T extends ComponentType> = T extends ComponentType
   : never;
 
 /**
- * Declared **Emit** set per Component (catalog-driven). Mirrors
- * \`impls[].emits[]\` in \`node-components.json\` and the Rust impl's
- * \`Component::emits()\`. The Catalog Parity Guard
- * (\`src-tauri/tests/catalog_parity.rs\`) asserts equality; this is the single
- * source of truth for what source handles a ReactFlow edge may originate from.
- * See CONTEXT.md § Emit.
+ * Declared **Emit** set per Component. GENERATED from the Rust impl's
+ * \`Component::emits()\` via \`wire-interface.generated.json\` — the single
+ * source of truth, kept current by the Catalog Parity Guard
+ * (\`src-tauri/tests/catalog_parity.rs\`). Type-checks the source handles a
+ * ReactFlow edge may originate from. See CONTEXT.md § Emit.
  */
 export const COMPONENT_EMITS = {
 ${emitsObjectLines}
@@ -122,7 +114,7 @@ writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
 
 // _REGISTRY.ts
 const lines: string[] = [
-  "// GENERATED — edit node-components.json, then run `bun run codegen`",
+  "// GENERATED — do not edit. Source: node-components.json. Run `bun run codegen`.",
   'import type { NodeTypes } from "@xyflow/react";',
   'import type { ComponentType } from "./_base/_base.types";',
   'import type { NodeHostAdapter } from "./_base/host-adapter";',

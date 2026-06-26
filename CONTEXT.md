@@ -18,14 +18,15 @@ The single source of truth for every flow component the UI exposes and the runti
 | `impls[].name`             | Rust            | The Rust struct name (also derives `<Name>Config`).                                                    |
 | `impls[].category`         | Rust            | Module path under `runtime/`: `input`, `output`, `control`, `transformation`, `generator`, `external`. |
 | `impls[].requiresHardware` | Rust            | If true, registry calls `Component::initialize(board)` when board connected.                           |
-| `impls[].ports`            | Rust + UI       | The declared **Port** set this impl accepts on `dispatch`. Asserted equal to `<Impl>::ports()` at registry construction; consumed by frontend codegen to emit `COMPONENT_PORTS` and `PortOf<T>`. See § Port. |
+| `<Impl>::ports()` / `emits()` | Rust (source)   | The declared **Port** / **Emit** sets — the single source of truth. **No longer catalog fields**: generated from the Rust consts into `wire-interface.generated.json`, thence `COMPONENT_PORTS`/`COMPONENT_EMITS` + `PortOf<T>`/`EmitOf<T>`. See § Port / § Emit / § Generation. |
 
 ### Generation
 
-The catalog drives both registries:
+The catalog drives the frontend; the **wire interface flows the other way**, from Rust:
 
-- `apps/web/scripts/codegen-node-registry.ts` reads `entries` → writes `apps/web/src/components/flow/nodes/_REGISTRY.ts` and `_base/_base.types.ts`. Run via `bun run codegen` in `apps/web`.
-- `apps/web/src-tauri/build.rs` still reads `entries` + `impls` → writes `$OUT_DIR/register_all_body.rs`, but **nothing includes it anymore**. After the re-host the `ComponentRegistry` lives in `crates/microflow-core/src/runtime/registry.rs` and hand-registers nodes in `register_all`; the generated file — and the `ports()`-vs-catalog drift assertion it carried — is dead build output pending cleanup ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)).
+- `apps/web/scripts/codegen-node-registry.ts` reads `entries` (+ `impls[].usesHostAdapter`) from the catalog **and** the Port/Emit sets from `apps/web/wire-interface.generated.json`, then writes `apps/web/src/components/flow/nodes/_REGISTRY.ts` and `_base/_base.types.ts`. Run via `bun run codegen` in `apps/web`.
+- `apps/web/wire-interface.generated.json` is generated **from Rust** `<Impl>::ports()`/`emits()` by the **Catalog Parity Guard** (`apps/web/src-tauri/tests/catalog_parity.rs`) when run with `BLESS_WIRE_INTERFACE=1`; otherwise the same guard asserts the committed file is current, so a stale mirror fails CI rather than shipping wrong handle types. `bun run catalog:sync` (in `apps/web`) blesses + re-codegens in one step. Port/Emit thus have **one** source — the compile-checked Rust consts — and no hand-authored catalog mirror to drift.
+- `apps/web/src-tauri/build.rs` no longer generates anything (it is just `tauri_build::build()`). The old `register_all_body.rs` codegen and its port-drift assertion were dropped in the re-host ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)); the `ComponentRegistry` now hand-registers nodes in `register_all` (`crates/microflow-core/src/runtime/registry.rs`).
 
 ## Component Registry
 
@@ -51,7 +52,7 @@ The shared underscore-prefix routing in `runtime/mod.rs::process_event` dispatch
 
 ## Port
 
-A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::dispatch`. Each impl declares its closed Port set via `fn ports() -> &'static [&'static str]`. The set is mirrored to `node-components.json impls[].ports[]`, which drives the frontend codegen below. The Rust↔catalog drift assertion `build.rs` once generated was **dropped** in the re-host ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)); it is restored — for ports **and** Emits, both directions — as the live **Catalog Parity Guard** ([ADR-0007](docs/adr/0007-node-wire-interface-emit-contract.md)), and the dead `build.rs` port codegen is slated for deletion. The frontend codegen (`apps/web/scripts/codegen-node-registry.ts`) emits `COMPONENT_PORTS` (a typed const object) and `PortOf<T>` (a literal-union helper) into `_base/_base.types.ts`, so ReactFlow target handles are type-checked against the same source of truth. Empty array for components with no edge inputs (e.g. `Constant`).
+A named edge-input slot on a **Component (Rust trait)**, delivered as `target_handle` from a flow edge into `Component::dispatch`. Each impl declares its closed Port set via `fn ports() -> &'static [&'static str]`. The set is the **single source of truth** for the wire interface: the live **Catalog Parity Guard** ([ADR-0007](docs/adr/0007-node-wire-interface-emit-contract.md)) generates it — ports **and** Emits — from the Rust consts into `wire-interface.generated.json` (the successor to the `build.rs` port codegen dropped in the re-host, [ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)). The frontend codegen (`apps/web/scripts/codegen-node-registry.ts`) reads that file to emit `COMPONENT_PORTS` (a typed const object) and `PortOf<T>` (a literal-union helper) into `_base/_base.types.ts`, so ReactFlow target handles are type-checked against the same Rust source. Empty array for components with no edge inputs (e.g. `Constant`).
 
 Examples: `Led` accepts `"true"/"false"/"toggle"/"value"`; `Stepper` accepts `"value"/"to"/"stop"/"zero"/"enable"`; `Button` accepts `"read"` (and receives the digital-pin Hardware Callback separately via `on_pin_change`).
 
@@ -59,11 +60,11 @@ Distinct from **Emit** names (edge *outputs*), **Internal Event** names (never o
 
 ## Emit
 
-A named edge-**output** slot on a **Component (Rust trait)** — the `source_handle` a component emits on, delivered to the **FlowRouter** for fanout. The symmetric counterpart of **Port**. Each impl declares its closed Emit set via `fn emits() -> &'static [&'static str]`, mirrored to `node-components.json impls[].emits[]` and to the frontend as `COMPONENT_EMITS` / `EmitOf<T>` (so React source `<Handle id=…>` ids are type-checked against the same source of truth). Decision in [ADR-0007](docs/adr/0007-node-wire-interface-emit-contract.md).
+A named edge-**output** slot on a **Component (Rust trait)** — the `source_handle` a component emits on, delivered to the **FlowRouter** for fanout. The symmetric counterpart of **Port**. Each impl declares its closed Emit set via `fn emits() -> &'static [&'static str]` — the single source — generated from Rust into `wire-interface.generated.json` and thence to the frontend as `COMPONENT_EMITS` / `EmitOf<T>` (so React source `<Handle id=…>` ids are type-checked against the same Rust source). Decision in [ADR-0007](docs/adr/0007-node-wire-interface-emit-contract.md).
 
 Emit handles are compile-checked on the Rust side: each impl declares its handles as associated `const`s (e.g. `Button::E_EVENT`) referenced at every emit site **and** in `emits()`; a mistyped emit does not compile. The implicit `"value"` emit — fired by `ComponentBase::set_value` whenever the value changes — is centralized as `ComponentBase::VALUE_HANDLE` and listed in `emits()` by every value-emitting node. Examples: `Button` emits `"event"/"true"/"false"/"hold"/"value"`; `Compare`/`Gate` emit `"true"/"false"/"value"`; `Llm` emits `"thinking"/"value"/"done"/"error"`; value-only sinks emit just `"value"`.
 
-Excludes `_`-prefixed **Internal Event** / wakeup names (e.g. `_hold`, `_tick`) — those are self-routed and never appear on an edge. The **Catalog Parity Guard** (`apps/web/src-tauri/tests/catalog_parity.rs`) asserts `emits()` ≡ catalog `emits[]` for every impl.
+Excludes `_`-prefixed **Internal Event** / wakeup names (e.g. `_hold`, `_tick`) — those are self-routed and never appear on an edge. The **Catalog Parity Guard** (`apps/web/src-tauri/tests/catalog_parity.rs`) generates `emits()` into `wire-interface.generated.json` and asserts the committed file is current.
 
 ## Internal Event
 
@@ -76,7 +77,7 @@ Board-reader-driven event delivered to a **HardwareComponent** in response to Fi
 - `_pin_change` (from the **Board IO Loop**'s `PinChangeCallback`) → `on_pin_change(value)`. `value` is `Bool` for digital pins, `Number(u16)` for analog.
 - `_i2c_reply` (from `I2cReplyCallback`) → `on_i2c_reply(value)`. `value` is `Array` of byte values.
 
-Emission of these reserved handles is the runtime's responsibility (in `FlowRuntime::install_pin_change_callback` / `install_i2c_reply_callback`); no flow edge may emit them. A third reserved name `"stepper_reply"` is referenced in `Stepper::call_method` and the module docstring but has no current emission path — forward-looking placeholder pending stepper sysex wiring.
+Emission of these reserved handles is the runtime's responsibility (in `FlowRuntime::install_pin_change_callback` / `install_i2c_reply_callback`); no flow edge may emit them. The two handle names plus the `_` prefix are centralized as consts in `runtime/mod.rs`'s `reserved_handles` module — referenced at each emit and `dispatch_internal_event` match site rather than written as bare string literals. A third reserved name `"stepper_reply"` is referenced in `Stepper::call_method` and the module docstring but has no current emission path — a forward-looking placeholder pending stepper sysex wiring, intentionally left out of `reserved_handles` until it routes anywhere.
 
 ## FlowRouter
 

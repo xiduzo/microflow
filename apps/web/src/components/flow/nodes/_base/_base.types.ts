@@ -1,4 +1,5 @@
-// GENERATED — edit node-components.json, then run `bun run codegen`
+// GENERATED — do not edit. Sources: node-components.json (entries/metadata) +
+// wire-interface.generated.json (ports/emits, from Rust). Run `bun run codegen`.
 
 export const COMPONENT_TYPES = [
   "Button",
@@ -47,11 +48,10 @@ export function isComponentType(value: string): value is ComponentType {
 }
 
 /**
- * Declared **Port** set per Component (catalog-driven). Mirrors
- * `impls[].ports[]` in `node-components.json` and the Rust impl's
- * `Component::ports()` const. The Rust registry asserts equality at
- * construction; this object is the single source of truth for what target
- * handles a ReactFlow edge may carry. Empty array for components with no
+ * Declared **Port** set per Component. GENERATED from the Rust impl's
+ * `Component::ports()` via `wire-interface.generated.json` — the single
+ * source of truth (see `src-tauri/tests/catalog_parity.rs`). Type-checks the
+ * target handles a ReactFlow edge may carry. Empty array for components with no
  * edge inputs (e.g. `Constant`). See CONTEXT.md § Port.
  */
 export const COMPONENT_PORTS = {
@@ -104,12 +104,11 @@ export type PortOf<T extends ComponentType> = T extends ComponentType
   : never;
 
 /**
- * Declared **Emit** set per Component (catalog-driven). Mirrors
- * `impls[].emits[]` in `node-components.json` and the Rust impl's
- * `Component::emits()`. The Catalog Parity Guard
- * (`src-tauri/tests/catalog_parity.rs`) asserts equality; this is the single
- * source of truth for what source handles a ReactFlow edge may originate from.
- * See CONTEXT.md § Emit.
+ * Declared **Emit** set per Component. GENERATED from the Rust impl's
+ * `Component::emits()` via `wire-interface.generated.json` — the single
+ * source of truth, kept current by the Catalog Parity Guard
+ * (`src-tauri/tests/catalog_parity.rs`). Type-checks the source handles a
+ * ReactFlow edge may originate from. See CONTEXT.md § Emit.
  */
 export const COMPONENT_EMITS = {
   Button: ["event", "true", "false", "hold", "value"] as const,

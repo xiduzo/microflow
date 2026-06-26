@@ -1,93 +1,92 @@
-//! Catalog Parity Guard (ADR-0007).
+//! Catalog Parity Guard (ADR-0007) + wire-interface generator.
 //!
-//! Asserts every node's Rust wire interface equals its declaration in
-//! `apps/web/node-components.json`, in **both** directions:
-//!   - `impls[].ports` ≡ `<Type>::ports()`
-//!   - `impls[].emits` ≡ `<Type>::emits()`
-//!   - the set of registered names ≡ `entries[].name` (every entry buildable,
-//!     no orphan registrations).
+//! Each node's Rust `ports()`/`emits()` consts are the **single source of
+//! truth** for its wire interface. This test keeps the frontend in lockstep by
+//! *generating* — not hand-mirroring — the catalog's wire data:
 //!
-//! This is the live replacement for the `build.rs` port-drift assertion that
-//! silently stopped running in the re-host (ADR-0006). It lives in the desktop
-//! crate because that is the one place that enables every core feature at once
-//! (`js`, so `Function` is present, and `cloud`, so `Mqtt`/`Llm`/`Figma` are).
+//!   - With `BLESS_WIRE_INTERFACE=1` it (re)writes
+//!     `apps/web/wire-interface.generated.json` from
+//!     `ComponentRegistry::declared()`. The frontend codegen
+//!     (`scripts/codegen-node-registry.ts`) reads that file to emit
+//!     `COMPONENT_PORTS` / `COMPONENT_EMITS`, so the TS literal-unions derive
+//!     from Rust *by construction* — there is no hand-authored
+//!     `impls[].ports/emits` mirror left to drift. (This is the live successor
+//!     to the `build.rs` port-drift codegen dropped in the re-host, ADR-0006.)
+//!   - Without the env var it asserts the committed sidecar is current, so a
+//!     stale file fails CI instead of silently shipping wrong handle types.
+//!   - It always asserts every catalog `entries[].name` is a registered
+//!     (buildable) node — no orphan entries, no orphan registrations.
 //!
 //! A build script cannot introspect Rust trait impls, so this runs as a normal
-//! test: every node — core, aliases like `Vibration`/`Force`, and the sans-IO
-//! cloud nodes — comes from `ComponentRegistry::declared()`, recorded at
-//! registration in core's `register_all`.
+//! test. This crate is the one place that enables every core feature at once
+//! (`js`, so `Function` is present; `cloud`, so `Mqtt`/`Llm`/`Figma` are), so
+//! `declared()` here is the complete node set — aliases (`Vibration`/`Force`/…)
+//! included.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use microflow_core::runtime::ComponentRegistry;
-use serde_json::Value;
+use serde_json::{json, Value};
 
-fn catalog() -> Value {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../node-components.json");
+const MANIFEST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../node-components.json");
+const SIDECAR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../wire-interface.generated.json");
+
+fn read_json(path: &str) -> Value {
     let raw = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
-    serde_json::from_str(&raw).expect("node-components.json is valid JSON")
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("{path} is valid JSON: {e}"))
 }
 
-fn set(items: &[&str]) -> BTreeSet<String> {
-    items.iter().map(|s| (*s).to_string()).collect()
-}
-
-fn json_set(v: &Value) -> BTreeSet<String> {
-    v.as_array()
-        .expect("ports/emits must be an array")
-        .iter()
-        .map(|x| x.as_str().expect("each handle must be a string").to_string())
-        .collect()
+/// `{ entryName: { "ports": [...], "emits": [...] } }`, sorted by name, built
+/// from the Rust impls' declared wire interface. Keyed by registration name, so
+/// alias entries (`Force`/`Vibration`/…) carry their parent impl's interface —
+/// matching what the codegen looks up per `entries[].name`. Handle order is the
+/// Rust declaration order from `ports()`/`emits()`.
+fn wire_interface_from_rust() -> Value {
+    let registry = ComponentRegistry::new();
+    let mut by_name: BTreeMap<String, Value> = BTreeMap::new();
+    for (name, (ports, emits)) in registry.declared() {
+        by_name.insert(name.clone(), json!({ "ports": ports, "emits": emits }));
+    }
+    serde_json::to_value(by_name).expect("wire interface serializes")
 }
 
 #[test]
-fn catalog_matches_rust_ports_and_emits() {
-    let cat = catalog();
+fn wire_interface_sidecar_matches_rust() {
+    let expected = wire_interface_from_rust();
 
-    // Rust-declared (ports, emits) by registration name. Core's `register_all`
-    // records every node — including the sans-IO cloud nodes (`Mqtt`/`Llm`/
-    // `Figma`) under the `cloud` feature this crate enables — so the guard reads
-    // them all uniformly from `declared()`.
-    let registry = ComponentRegistry::new();
-    let mut declared: HashMap<String, (BTreeSet<String>, BTreeSet<String>)> = HashMap::new();
-    for (name, handles) in registry.declared() {
-        declared.insert(name.clone(), (set(handles.0), set(handles.1)));
+    if std::env::var_os("BLESS_WIRE_INTERFACE").is_some() {
+        let pretty = serde_json::to_string_pretty(&expected).expect("serialize wire interface");
+        std::fs::write(SIDECAR, format!("{pretty}\n"))
+            .unwrap_or_else(|e| panic!("write {SIDECAR}: {e}"));
+        eprintln!("blessed {SIDECAR}");
+        return;
     }
 
-    // (1) Forward parity: every catalog impl matches its Rust declaration.
-    for im in cat["impls"].as_array().expect("impls must be an array") {
-        let name = im["name"].as_str().expect("impl.name").to_string();
-        let (rust_ports, rust_emits) = declared
-            .get(&name)
-            .unwrap_or_else(|| panic!("catalog impl `{name}` is not registered in Rust"));
+    let on_disk = read_json(SIDECAR);
+    assert_eq!(
+        on_disk, expected,
+        "wire-interface.generated.json is stale.\n  \
+         Regenerate from Rust: \
+         `BLESS_WIRE_INTERFACE=1 cargo test --manifest-path apps/web/src-tauri/Cargo.toml --test catalog_parity`\n  \
+         then `bun run codegen` in apps/web.",
+    );
+}
 
-        assert_eq!(
-            &json_set(&im["ports"]),
-            rust_ports,
-            "PORT drift for `{name}` (catalog impls[].ports != Rust ports())"
-        );
-
-        let emits = im
-            .get("emits")
-            .unwrap_or_else(|| panic!("catalog impl `{name}` is missing the `emits` array"));
-        assert_eq!(
-            &json_set(emits),
-            rust_emits,
-            "EMIT drift for `{name}` (catalog impls[].emits != Rust emits())"
-        );
-    }
-
-    // (2) No-orphan / buildability: registered names ≡ catalog entry names.
+#[test]
+fn every_catalog_entry_is_buildable() {
+    let cat = read_json(MANIFEST);
     let entry_names: BTreeSet<String> = cat["entries"]
         .as_array()
         .expect("entries must be an array")
         .iter()
         .map(|e| e["name"].as_str().expect("entry.name").to_string())
         .collect();
-    let registered: BTreeSet<String> = declared.keys().cloned().collect();
+
+    let registry = ComponentRegistry::new();
+    let registered: BTreeSet<String> = registry.declared().keys().cloned().collect();
+
     assert_eq!(
-        registered,
-        entry_names,
+        registered, entry_names,
         "registered names != catalog entries[].name\n  only in Rust: {:?}\n  only in catalog: {:?}",
         registered.difference(&entry_names).collect::<Vec<_>>(),
         entry_names.difference(&registered).collect::<Vec<_>>(),

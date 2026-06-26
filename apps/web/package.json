@@ -17,7 +17,8 @@
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "sh -c 'set -a && . ./.env && set +a && tauri build'",
-    "codegen": "bun run scripts/codegen-node-registry.ts"
+    "codegen": "bun run scripts/codegen-node-registry.ts",
+    "catalog:sync": "BLESS_WIRE_INTERFACE=1 cargo test --manifest-path src-tauri/Cargo.toml --test catalog_parity && bun run codegen"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

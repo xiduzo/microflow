@@ -1,4 +1,4 @@
-// GENERATED — edit node-components.json, then run `bun run codegen`
+// GENERATED — do not edit. Source: node-components.json. Run `bun run codegen`.
 import type { NodeTypes } from "@xyflow/react";
 import type { ComponentType } from "./_base/_base.types";
 import type { NodeHostAdapter } from "./_base/host-adapter";

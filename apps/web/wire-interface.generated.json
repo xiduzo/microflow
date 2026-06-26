@@ -1,0 +1,363 @@
+{
+  "Button": {
+    "emits": [
+      "event",
+      "true",
+      "false",
+      "hold",
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Calculate": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "value"
+    ]
+  },
+  "Compare": {
+    "emits": [
+      "true",
+      "false",
+      "value"
+    ],
+    "ports": [
+      "value"
+    ]
+  },
+  "Constant": {
+    "emits": [
+      "value"
+    ],
+    "ports": []
+  },
+  "Counter": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "increment",
+      "decrement",
+      "reset",
+      "set"
+    ]
+  },
+  "Delay": {
+    "emits": [
+      "event"
+    ],
+    "ports": [
+      "trigger"
+    ]
+  },
+  "Figma": {
+    "emits": [
+      "change",
+      "value"
+    ],
+    "ports": [
+      "true",
+      "false",
+      "toggle",
+      "set",
+      "increment",
+      "decrement",
+      "reset",
+      "red",
+      "green",
+      "blue",
+      "opacity"
+    ]
+  },
+  "Force": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Function": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "trigger"
+    ]
+  },
+  "Gate": {
+    "emits": [
+      "true",
+      "false",
+      "value"
+    ],
+    "ports": [
+      "value"
+    ]
+  },
+  "HallEffect": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Hotkey": {
+    "emits": [
+      "event",
+      "true",
+      "false",
+      "value"
+    ],
+    "ports": [
+      "key_event"
+    ]
+  },
+  "I2cDevice": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "write",
+      "trigger"
+    ]
+  },
+  "Interval": {
+    "emits": [
+      "event"
+    ],
+    "ports": [
+      "start",
+      "stop"
+    ]
+  },
+  "Ldr": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Led": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "true",
+      "false",
+      "toggle",
+      "value"
+    ]
+  },
+  "Llm": {
+    "emits": [
+      "thinking",
+      "value",
+      "done",
+      "error"
+    ],
+    "ports": [
+      "trigger"
+    ]
+  },
+  "Matrix": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "value",
+      "reset",
+      "reinitialize"
+    ]
+  },
+  "Monitor": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "value"
+    ]
+  },
+  "Motion": {
+    "emits": [
+      "event",
+      "true",
+      "false",
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Mqtt": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "trigger"
+    ]
+  },
+  "Oscillator": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "start",
+      "stop",
+      "reset"
+    ]
+  },
+  "Piezo": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "trigger",
+      "stop"
+    ]
+  },
+  "Pixel": {
+    "emits": [
+      "event",
+      "value"
+    ],
+    "ports": [
+      "value",
+      "color",
+      "set",
+      "reset"
+    ]
+  },
+  "Potentiometer": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Proximity": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "RangeMap": {
+    "emits": [
+      "to",
+      "value"
+    ],
+    "ports": [
+      "value"
+    ]
+  },
+  "Relay": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "true",
+      "false",
+      "toggle"
+    ]
+  },
+  "Rgb": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "red",
+      "green",
+      "blue",
+      "alpha",
+      "off"
+    ]
+  },
+  "Sensor": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Servo": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "min",
+      "max",
+      "value",
+      "rotate",
+      "stop"
+    ]
+  },
+  "Smooth": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "value"
+    ]
+  },
+  "Stepper": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "value",
+      "to",
+      "stop",
+      "zero",
+      "enable"
+    ]
+  },
+  "Switch": {
+    "emits": [
+      "event",
+      "true",
+      "false",
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Tilt": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "read"
+    ]
+  },
+  "Trigger": {
+    "emits": [
+      "bang",
+      "value"
+    ],
+    "ports": [
+      "value"
+    ]
+  },
+  "Vibration": {
+    "emits": [
+      "value"
+    ],
+    "ports": [
+      "true",
+      "false",
+      "toggle",
+      "value"
+    ]
+  }
+}
