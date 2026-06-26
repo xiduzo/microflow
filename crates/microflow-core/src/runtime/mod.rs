@@ -62,6 +62,30 @@ use crate::flow::{FlowEdge, FlowNode, FlowUpdate};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+/// Reserved runtime handle names — the `source_handle`s the executor treats as
+/// plumbing rather than edge **Port**s. All are [`INTERNAL_PREFIX`]-prefixed
+/// (see `CONTEXT.md` § Internal Event / Hardware Callback), so
+/// [`FlowRuntime::process_event`] can branch them off the Port path in one
+/// check; the two hardware-callback names additionally route to typed
+/// [`HardwareComponent`] methods rather than the generic `dispatch_internal`
+/// catch-all. Naming them here keeps the reserved set discoverable in one place
+/// instead of as bare string literals at each emit and match site.
+///
+/// A third hardware handle, `"stepper_reply"`, is reserved for stepper sysex
+/// replies but has **no emission path yet** (see [`output::stepper`] and
+/// `CONTEXT.md` § Hardware Callback); it is intentionally not named as a const
+/// here until that wiring lands, so an unused const can't masquerade as a live
+/// route.
+mod reserved_handles {
+    /// Marks a `source_handle` as runtime plumbing (Internal Event or Hardware
+    /// Callback), never an edge Port. Stripped before `dispatch_internal`.
+    pub(crate) const INTERNAL_PREFIX: char = '_';
+    /// Board digital/analog pin change → [`super::HardwareComponent::on_pin_change`].
+    pub(crate) const PIN_CHANGE: &str = "_pin_change";
+    /// Board I2C reply → [`super::HardwareComponent::on_i2c_reply`].
+    pub(crate) const I2C_REPLY: &str = "_i2c_reply";
+}
+
 /// Adapter that lets [`FlowRouter`] read the runtime's component map without
 /// seeing its shape. Lives for the scope of one `route` call.
 struct ComponentMapLookup<'a> {
@@ -534,7 +558,7 @@ impl FlowRuntime {
             for component_id in listeners {
                 self.sink.borrow_mut().push_back(ComponentEvent {
                     source: Arc::clone(component_id),
-                    source_handle: Arc::from("_pin_change"),
+                    source_handle: Arc::from(reserved_handles::PIN_CHANGE),
                     value: value.clone(),
                     edge_id: None,
                     sequence: self.current_sequence,
@@ -560,7 +584,7 @@ impl FlowRuntime {
             for component_id in listeners {
                 self.sink.borrow_mut().push_back(ComponentEvent {
                     source: Arc::clone(component_id),
-                    source_handle: Arc::from("_i2c_reply"),
+                    source_handle: Arc::from(reserved_handles::I2C_REPLY),
                     value: ComponentValue::Array(data.clone()),
                     edge_id: None,
                     sequence: self.current_sequence,
@@ -597,12 +621,12 @@ impl FlowRuntime {
                 source = %event.source,
                 handle = %event.source_handle,
                 seq = event.sequence,
-                internal = event.source_handle.starts_with('_'),
+                internal = event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX),
                 "drain",
             );
             // Internal/hardware events (`_`-prefixed) are runtime plumbing the
             // UI never renders — keep them out of `component_events`.
-            if !event.source_handle.starts_with('_') {
+            if !event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX) {
                 events.push(event.clone());
             }
             self.process_event(event, &mut out, &mut reqs);
@@ -667,7 +691,7 @@ impl FlowRuntime {
         // Internal-event branch (underscore-prefixed handle): hardware callbacks
         // (`_pin_change`/`_i2c_reply`) → typed methods, other `_method` →
         // `dispatch_internal`. Never flows through the router (source == target).
-        if event.source_handle.starts_with('_') {
+        if event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX) {
             self.dispatch_internal_event(&event, out, reqs);
             return;
         }
@@ -735,10 +759,10 @@ impl FlowRuntime {
             let mut writer = BufferBoardWriter::new(&mut self.client, out);
             let mut ctx = RuntimeContext::new(&mut writer, self.now_ms, id.as_ref(), reqs);
             let result = match handle.as_ref() {
-                "_pin_change" => component
+                reserved_handles::PIN_CHANGE => component
                     .as_hardware_mut()
                     .map_or(Ok(()), |hw| hw.on_pin_change(event.value.clone(), &mut ctx)),
-                "_i2c_reply" => component
+                reserved_handles::I2C_REPLY => component
                     .as_hardware_mut()
                     .map_or(Ok(()), |hw| hw.on_i2c_reply(event.value.clone(), &mut ctx)),
                 other => component.dispatch_internal(&other[1..], event.value.clone(), &mut ctx),
@@ -994,7 +1018,7 @@ mod tests {
         // A leftover board event from flow version 3 (< current 5) must be gated.
         rt.sink.borrow_mut().push_back(ComponentEvent {
             source: Arc::from("sw"),
-            source_handle: Arc::from("_pin_change"),
+            source_handle: Arc::from(reserved_handles::PIN_CHANGE),
             value: ComponentValue::Bool(true),
             edge_id: None,
             sequence: 3,
@@ -1043,7 +1067,7 @@ mod tests {
         // Drive a sensor reading; the gate passes and the led turns on.
         rt.sink.borrow_mut().push_back(ComponentEvent {
             source: Arc::from("sensor"),
-            source_handle: Arc::from("_pin_change"),
+            source_handle: Arc::from(reserved_handles::PIN_CHANGE),
             value: ComponentValue::Number(500.0),
             edge_id: None,
             sequence: rt.current_sequence,
