@@ -11,7 +11,7 @@ use crate::AppState;
 use crate::mqtt::broker::BrokerConfig;
 use microflow_core::flow::FlowUpdate;
 use crate::SubKind;
-use microflow_core::runtime::{ComponentValue, SubscriberWiring};
+use microflow_core::runtime::{reconcile_desired, ComponentValue, DesiredSub, SubscriberWiring};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::Emitter;
@@ -42,19 +42,11 @@ fn microflow_uid(topic: &str) -> Option<&str> {
     parts.next().filter(|s| !s.is_empty())
 }
 
-/// The `SubKind` a wiring resolves to (records which callback shape owns the
-/// broker's single per-topic callback).
-fn sub_kind(wiring: &SubscriberWiring) -> SubKind {
-    match wiring {
-        SubscriberWiring::Plain { .. } => SubKind::Plain,
-        SubscriberWiring::TopicAware { .. } => SubKind::TopicAware,
-        SubscriberWiring::DisplayEcho { .. } => SubKind::DisplayEcho,
-    }
-}
-
 /// Map the live/desired subscription set to `uid -> broker_id` over its
 /// `microflow/{uid}` topics. Generic over the map value so it serves both the
-/// `FigmaSubscription` (live) and `DesiredSub` (desired) maps.
+/// `FigmaSubscription` (live) and core [`DesiredSub`] (desired) maps. Host-side:
+/// it drives the Figma connect/disconnect lifecycle against this host's own
+/// broker pool, so it stays here rather than in the shared reconcile policy.
 fn uid_brokers<V>(set: &HashMap<(String, String), V>) -> HashMap<String, String> {
     let mut out: HashMap<String, String> = HashMap::new();
     for (broker_id, topic) in set.keys() {
@@ -63,31 +55,6 @@ fn uid_brokers<V>(set: &HashMap<(String, String), V>) -> HashMap<String, String>
         }
     }
     out
-}
-
-/// One desired subscription, before it is reconciled against the live set.
-#[derive(Clone)]
-struct DesiredSub {
-    component_id: String,
-    kind: SubKind,
-}
-
-impl DesiredSub {
-    /// Deterministic winner when several components resolve to the same
-    /// `(broker, topic)` — the broker keeps a single callback per topic.
-    /// Routing kinds (`Plain`/`TopicAware`) win over `DisplayEcho` so a
-    /// display-only echo never shadows component delivery; ties break on the
-    /// lower component id. Being deterministic (not dependent on component
-    /// `HashMap` iteration order) is what keeps the desired set stable across
-    /// `flow_update`s, so an unchanged flow reconciles to *zero* broker traffic.
-    fn beats(&self, other: &DesiredSub) -> bool {
-        let echo = |k: SubKind| matches!(k, SubKind::DisplayEcho);
-        match (echo(self.kind), echo(other.kind)) {
-            (false, true) => true,
-            (true, false) => false,
-            _ => self.component_id < other.component_id,
-        }
-    }
 }
 
 /// Update the flow with new nodes and edges
@@ -182,23 +149,14 @@ pub async fn flow_update(
             .map_err(|_| "runtime actor dropped the flow_update reply".to_string())?
     };
 
-    // Desired subscription set, one entry per (broker_id, topic). The broker
-    // keeps a single callback per topic, so when several components resolve to
-    // the same topic we pick a deterministic winner (see DesiredSub::beats),
-    // which also subsumes the old DisplayEcho dedup.
-    let mut desired: HashMap<(String, String), DesiredSub> = HashMap::new();
-    for (component_id, wiring) in &component_wirings {
-        let key = (wiring.broker_id().to_string(), wiring.topic().to_string());
-        let cand = DesiredSub { component_id: component_id.clone(), kind: sub_kind(wiring) };
-        desired
-            .entry(key)
-            .and_modify(|cur| {
-                if cand.beats(cur) {
-                    *cur = cand.clone();
-                }
-            })
-            .or_insert(cand);
-    }
+    // Desired subscription set, one entry per (broker_id, topic). The collapse +
+    // deterministic winner-selection is core policy (`reconcile_desired`), shared
+    // with the browser host so both pick the same owner per topic; here we key it
+    // by (broker, topic) for the diff against the live set below.
+    let desired: HashMap<(String, String), DesiredSub> = reconcile_desired(&component_wirings)
+        .into_iter()
+        .map(|d| ((d.broker_id.clone(), d.topic.clone()), d))
+        .collect();
 
     // Snapshot the live subscriptions, then release the lock for the network I/O
     // below (re-locked at the end to commit) — matching the original's
@@ -244,7 +202,7 @@ pub async fn flow_update(
     let mut next_live: Vec<crate::FigmaSubscription> = Vec::with_capacity(desired.len());
     for ((broker_id, topic), d) in &desired {
         if let Some(existing) = live.get(&(broker_id.clone(), topic.clone())) {
-            if existing.component_id == d.component_id && existing.kind == d.kind {
+            if existing.component_id == d.node_id && existing.kind == d.kind {
                 next_live.push(existing.clone());
                 continue;
             }
@@ -253,12 +211,12 @@ pub async fn flow_update(
         if !state.mqtt_manager.is_connected(broker_id).await {
             log::warn!(
                 "[MQTT] Broker {broker_id} not connected, skipping subscription for {}",
-                d.component_id
+                d.node_id
             );
             continue;
         }
 
-        let component_id = d.component_id.clone();
+        let component_id = d.node_id.clone();
         let callback: Arc<dyn Fn(crate::mqtt::broker::MqttMessage) + Send + Sync> = match d.kind {
             SubKind::Plain | SubKind::TopicAware => {
                 let actor = state.actor.clone();

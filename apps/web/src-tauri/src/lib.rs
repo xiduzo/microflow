@@ -62,15 +62,12 @@ use tokio::sync::Mutex as TokioMutex;
 /// subscription so `flow_update` can tell when a topic's *owner* changed (and
 /// must be re-subscribed) versus left untouched — the broker holds one callback
 /// per topic, so the owner is part of a subscription's identity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SubKind {
-    /// Payload-only delivery routed to a component.
-    Plain,
-    /// (topic, payload) delivery routed to a component (Figma).
-    TopicAware,
-    /// Payload echoed to the frontend only — no per-component routing.
-    DisplayEcho,
-}
+///
+/// Re-exported from core: the subscription winner-selection policy that consumes
+/// this kind ([`microflow_core::runtime::reconcile_desired`]) is the single
+/// source shared with the browser host via the wasm `reconcileSubscriptions()`
+/// binding, so both hosts pick the same owner per topic.
+pub use microflow_core::runtime::SubKind;
 
 /// One active Figma/MQTT subscription. Identity is `(broker_id, topic)`; the
 /// `component_id`/`kind` record which wiring currently owns the broker's single

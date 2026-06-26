@@ -20,6 +20,7 @@ pub mod error;
 pub mod pin_mode;
 pub mod registry;
 pub mod router;
+pub mod subscriptions;
 pub mod value;
 pub mod wiring;
 
@@ -49,6 +50,7 @@ pub use context::{
 pub use error::{HardwareError, RuntimeError};
 pub use registry::ComponentRegistry;
 pub use router::{ComponentLookup, DispatchCall, EdgeTarget, FlowRouter};
+pub use subscriptions::{reconcile_desired, DesiredSub, SubKind};
 pub use value::{ComponentEvent, ComponentValue, PinConfig};
 pub use wiring::{ListenerWiring, SubscriberWiring};
 

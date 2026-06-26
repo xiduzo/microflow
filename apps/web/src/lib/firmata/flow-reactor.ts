@@ -9,16 +9,16 @@
 // events into the very same UI stores the desktop path feeds. So the canvas
 // (node values + edge signals) renders identically on both platforms.
 
+import type { EmitOf } from "@/components/flow/nodes/_base/_base.types";
 import { applyComponentEvent } from "@/lib/event-ingest";
 import { createFlowRuntime, type Effects, type FlowRuntime } from "@/lib/runtime/wasm";
 import { performLlmGenerate, type LlmProviderConn } from "./cloud/llm-client";
 import { BrokerConnections, type BrokerConn } from "./cloud/mqtt-client";
 import {
   diffSubscriptions,
-  reconcileDesired,
+  subKey,
   uidBrokers,
   type ActiveSub,
-  type SubscriberWiring,
 } from "./cloud/mqtt-subscriptions";
 import {
   applyEffects,
@@ -55,15 +55,18 @@ export type CloudDeps = {
   onMqttMessage?: (topic: string, payload: Uint8Array, nodeId?: string) => void;
 };
 
-// The `Llm` node's output handles. ADR-0007 contract: these MUST equal the
-// catalog `emits` for `Llm` (`thinking`/`value`/`done`/`error`), which the
-// Catalog Parity Guard pins to the Rust `Llm::emits()` / `Llm::E_*` consts. The
-// browser host injects results on exactly these handles, mirroring the desktop
-// `CloudPerformer`.
-const LLM_THINKING = "thinking";
-const LLM_VALUE = "value";
-const LLM_DONE = "done";
-const LLM_ERROR = "error";
+// The `Llm` node's output handles, typed against the catalog's `Llm` emits
+// (ADR-0007). `EmitOf<"Llm">` is the literal union the codegen derives from
+// node-components.json — the SAME source the Catalog Parity Guard pins the Rust
+// `Llm::emits()` / `Llm::E_*` consts to. Annotating each const with it means a
+// renamed/removed handle in the catalog makes these assignments fail to compile,
+// closing the gap where the browser hard-coded a string the desktop sourced from
+// a Rust const. The browser host injects results on exactly these handles,
+// mirroring the desktop `CloudPerformer`.
+const LLM_THINKING: EmitOf<"Llm"> = "thinking";
+const LLM_VALUE: EmitOf<"Llm"> = "value";
+const LLM_DONE: EmitOf<"Llm"> = "done";
+const LLM_ERROR: EmitOf<"Llm"> = "error";
 
 const now = (): number =>
   typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -252,15 +255,19 @@ export class FlowReactor implements EffectsSink {
    *  Called after every `applyFlow`. */
   private reconcileSubscriptions(): void {
     if (!this.runtime || this.disposed) return;
-    let wirings: SubscriberWiring[];
+    // The collapse + winner-selection is core policy (`reconcile_desired`); the
+    // wasm binding hands back an already-reconciled desired set, one per topic.
+    let reconciled: ActiveSub[];
     try {
-      wirings = JSON.parse(this.runtime.subscriberWirings()) as SubscriberWiring[];
+      reconciled = JSON.parse(this.runtime.reconcileSubscriptions()) as ActiveSub[];
     } catch (error) {
-      console.error("[flow-reactor] bad subscriberWirings json:", error);
+      console.error("[flow-reactor] bad reconcileSubscriptions json:", error);
       return;
     }
 
-    const desired = reconcileDesired(wirings);
+    const desired = new Map<string, ActiveSub>(
+      reconciled.map((sub) => [subKey(sub.brokerId, sub.topic), sub] as const),
+    );
     const { subscribe, unsubscribe } = diffSubscriptions(desired, this.liveSubs);
 
     this.figmaLifecycle(uidBrokers(this.liveSubs.values()), uidBrokers(desired.values()));
