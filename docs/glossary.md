@@ -131,3 +131,10 @@ The ADRs under `docs/adr/` are the source of record for the runtime/sync seams a
 - [ADR-0003](adr/0003-flow-session-seam.md) — `FlowSession` seam, per-mode `SyncAdapter`, grace-period `SessionRegistry`.
 - [ADR-0004](adr/0004-react-flow-bridge.md) — `ReactFlowBridge` class extraction with named invariants.
 - [ADR-0005](adr/0005-flow-update-dispatcher.md) — `FlowUpdateDispatcher` with injected `Sender`, `Scheduler`, `NodeAdapterRegistry`.
+- [ADR-0006](adr/0006-rehost-runtime-on-core.md) — Re-host the Live Flow Runtime on `microflow-core` via a sans-IO `Effects` seam.
+- [ADR-0007](adr/0007-node-wire-interface-emit-contract.md) — Bidirectional node wire-interface contract: typed Emits + live catalog-parity guard.
+- [ADR-0008](adr/0008-effects-apply-policy.md) — `Effects` apply-policy: canonical order behind a typed `EffectsSink`.
+- [ADR-0009](adr/0009-cloud-sans-io-capability.md) — Cloud as a sans-IO capability: cloud I/O becomes an `Effect`, performed per-host.
+- [ADR-0010](adr/0010-subscription-diff-stays-per-host.md) — Subscription diff stays per-host; only winner-selection is core policy.
+- [ADR-0011](adr/0011-figma-announce-protocol-in-core.md) — Figma announce protocol is core policy; uid extraction stays per-host.
+- [ADR-0012](adr/0012-component-trait-plumbing-stays-explicit.md) — Component trait plumbing stays explicit (no derive macro); records the deferral + trigger.

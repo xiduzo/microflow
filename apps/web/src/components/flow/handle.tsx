@@ -196,6 +196,16 @@ export type HandleProps_<T extends ComponentType = ComponentType> =
   | SourceProps<T>;
 type Props<T extends ComponentType = ComponentType> = HandleProps_<T>;
 
+/**
+ * Per-handle presentational props a node supplies via `<NodeHandles>` — the
+ * bits the generated wire-interface contract (COMPONENT_PORTS / COMPONENT_EMITS)
+ * can't know: `offset`, `title`, `hint`, `handleType`, `isConnectable`,
+ * `position`, … `type` and `id` are intentionally excluded — those are driven
+ * by the contract. Everything is optional, so a contract handle with no
+ * override still renders with the `NodeHandles` defaults.
+ */
+export type HandleOverride = Partial<CommonProps>;
+
 const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {
   variants: {
     position: {

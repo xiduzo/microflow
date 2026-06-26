@@ -1,7 +1,5 @@
 import { dataSchema, defaults, type Data } from "./delay.schema";
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Delay">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { IconWithValue } from "../../icon-with-value";
 import { SnailIcon } from "lucide-react";
@@ -11,8 +9,11 @@ export function Delay(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="trigger" handleType="command" />
-      <Handle type="source" position="right" id="event" handleType="event" />
+      <NodeHandles
+        instance="Delay"
+        portOverrides={{ trigger: { handleType: "command" } }}
+        emitOverrides={{ event: { handleType: "event" } }}
+      />
     </NodeContainer>
   );
 }

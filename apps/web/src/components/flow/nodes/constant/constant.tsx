@@ -1,7 +1,5 @@
 import { dataSchema, defaults, type Data } from "./constant.schema";
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Constant">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 
 const numberFormat = new Intl.NumberFormat();
@@ -11,7 +9,7 @@ export function Constant(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles instance="Constant" emitOverrides={{ value: { handleType: "value" } }} />
     </NodeContainer>
   );
 }

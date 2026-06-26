@@ -1,7 +1,5 @@
 import { dataSchema, defaults, type Data, type Value } from "./interval.schema";
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Interval">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { MIN_INTERVAL_IN_MS } from "./interval.constants";
@@ -13,9 +11,14 @@ export function Interval(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="start" handleType="command" offset={-0.5} />
-      <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
-      <Handle type="source" position="right" id="event" handleType="event" />
+      <NodeHandles
+        instance="Interval"
+        portOverrides={{
+          start: { handleType: "command", offset: -0.5 },
+          stop: { handleType: "command", offset: 0.5 },
+        }}
+        emitOverrides={{ event: { handleType: "event" } }}
+      />
     </NodeContainer>
   );
 }

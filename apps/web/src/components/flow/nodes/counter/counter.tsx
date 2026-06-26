@@ -1,9 +1,7 @@
 import { NodeContainer, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, defaults, type Data, type Value } from "./counter.schema";
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Counter">;
+import { NodeHandles } from "../_base/node-handles";
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -12,11 +10,16 @@ export function Counter(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="increment" title="+" handleType="command" offset={-1.5} />
-      <Handle type="target" position="left" id="set" handleType="command" offset={-0.5} />
-      <Handle type="target" position="left" id="decrement" title="-" handleType="command" offset={0.5} />
-      <Handle type="target" position="left" id="reset" handleType="command" offset={1.5} />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles
+        instance="Counter"
+        portOverrides={{
+          increment: { title: "+", handleType: "command", offset: -1.5 },
+          set: { handleType: "command", offset: -0.5 },
+          decrement: { title: "-", handleType: "command", offset: 0.5 },
+          reset: { handleType: "command", offset: 1.5 },
+        }}
+        emitOverrides={{ value: { handleType: "value" } }}
+      />
     </NodeContainer>
   );
 }

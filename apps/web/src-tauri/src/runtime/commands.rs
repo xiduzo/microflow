@@ -11,8 +11,10 @@ use crate::AppState;
 use crate::mqtt::broker::BrokerConfig;
 use microflow_core::flow::FlowUpdate;
 use crate::SubKind;
-use microflow_core::runtime::{reconcile_desired, ComponentValue, DesiredSub, SubscriberWiring};
-use std::collections::HashMap;
+use microflow_core::runtime::{
+    figma_announce_actions, reconcile_desired, ComponentValue, DesiredSub, SubscriberWiring,
+};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tauri::Emitter;
 
@@ -44,11 +46,13 @@ fn microflow_uid(topic: &str) -> Option<&str> {
 
 /// Map the live/desired subscription set to `uid -> broker_id` over its
 /// `microflow/{uid}` topics. Generic over the map value so it serves both the
-/// `FigmaSubscription` (live) and core [`DesiredSub`] (desired) maps. Host-side:
-/// it drives the Figma connect/disconnect lifecycle against this host's own
-/// broker pool, so it stays here rather than in the shared reconcile policy.
-fn uid_brokers<V>(set: &HashMap<(String, String), V>) -> HashMap<String, String> {
-    let mut out: HashMap<String, String> = HashMap::new();
+/// `FigmaSubscription` (live) and core [`DesiredSub`] (desired) maps. The uid
+/// *extraction* stays host-side (trivial parsing of this host's own subscription
+/// set, like the desired→live set-diff); the connect/disconnect *protocol* it
+/// feeds lives in core ([`figma_announce_actions`]). `BTreeMap` so the keys land
+/// in the deterministic order core expects.
+fn uid_brokers<V>(set: &HashMap<(String, String), V>) -> BTreeMap<String, String> {
+    let mut out: BTreeMap<String, String> = BTreeMap::new();
     for (broker_id, topic) in set.keys() {
         if let Some(uid) = microflow_uid(topic) {
             out.entry(uid.to_string()).or_insert_with(|| broker_id.clone());
@@ -73,11 +77,39 @@ pub async fn flow_update(
         brokers.as_ref().map_or(0, std::vec::Vec::len)
     );
 
+    // Ordering — keep the runtime reflecting the latest flow; report infra
+    // separately. `apply_flow`'s subscription reconcile diffs the desired set
+    // against *live* brokers (its `is_connected` checks decide what to
+    // (un)subscribe and which subs to commit), so infrastructure has to be up
+    // *before* it runs; we therefore cannot defer `ensure_infrastructure` until
+    // after `apply_flow` without changing reconcile semantics. To still guarantee
+    // that an infrastructure error never strands the flow, we capture its result
+    // instead of `?`-propagating it, ALWAYS apply the flow, and only then surface
+    // the infrastructure outcome as the command result. Both steps are idempotent,
+    // so a reported infra failure is safe to retry.
+    let infrastructure = ensure_infrastructure(&brokers, providers, &state).await;
+    apply_flow(&app, flow, &state).await?;
+    infrastructure
+}
+
+/// Bring the flow's external infrastructure up to date: auto-connect/refresh the
+/// provided MQTT brokers and sync LLM provider credentials into the shared
+/// registry. Orthogonal to the flow itself — idempotent and safe to retry. Split
+/// out of [`flow_update`] so an infrastructure failure can be surfaced to the
+/// caller without ever unwinding the applied flow (see the ordering note in
+/// `flow_update`). Fallible by contract; today a per-broker connect failure is
+/// logged and tolerated (the loop continues), matching the previous inline
+/// behaviour.
+async fn ensure_infrastructure(
+    brokers: &Option<Vec<FrontendBrokerConfig>>,
+    providers: Option<Vec<FrontendProviderConfig>>,
+    state: &tauri::State<'_, AppState>,
+) -> Result<(), String> {
     // Auto-connect any brokers that are provided. Skip brokers already up with
     // unchanged config: otherwise every node edit logged a misleading
     // "Auto-connecting / Successfully connected" pair around an idempotent
     // connect() that just short-circuited on "already connected".
-    if let Some(broker_configs) = &brokers {
+    if let Some(broker_configs) = brokers {
         for broker in broker_configs {
             let config = BrokerConfig {
                 id: broker.id.clone(),
@@ -133,6 +165,21 @@ pub async fn flow_update(
         state.llm_registry.sync(entries).await;
     }
 
+    Ok(())
+}
+
+/// Apply `flow` to the runtime and reconcile its MQTT/Figma subscriptions. Hands
+/// the flow to the runtime actor (which owns the "pending flow" and re-applies it
+/// on every (re)connect), then diffs the desired subscriber set against the live
+/// one and (un)subscribes only the delta, finishing with the Figma connect/
+/// disconnect status + variable-request publishes driven by that reconciled set.
+/// This is the deep half of [`flow_update`]; the reconcile semantics are
+/// unchanged by the split.
+async fn apply_flow(
+    app: &tauri::AppHandle,
+    flow: FlowUpdate,
+    state: &tauri::State<'_, AppState>,
+) -> Result<(), String> {
     // Hand the flow to the runtime actor, which builds the components and (when a
     // board is connected) emits the pin-mode/reporting init. It replies with each
     // subscribe component's wiring so we can (un)subscribe MQTT below. The actor
@@ -173,15 +220,6 @@ pub async fn flow_update(
     // removing a node (un)subscribes just its own topic(s).
     let old_uids = uid_brokers(&live);
     let new_uids = uid_brokers(&desired);
-
-    // Vanished Figma uids: publish a retained `disconnected` status.
-    for (uid, broker_id) in &old_uids {
-        if !new_uids.contains_key(uid) {
-            let status_topic = format!("microflow/{uid}/app/status");
-            let _ = state.mqtt_manager.publish(broker_id, &status_topic, b"disconnected", true).await;
-            log::info!("[Figma] Published disconnected status for {uid}");
-        }
-    }
 
     // Removed topics (in live, gone from desired): unsubscribe.
     for (key, sub) in &live {
@@ -267,19 +305,24 @@ pub async fn flow_update(
         });
     }
 
-    // Newly-appeared Figma uids only: announce connected + request initial
-    // variable values (retained), once per uid — not on every node move.
-    for (uid, broker_id) in &new_uids {
-        if old_uids.contains_key(uid) || !state.mqtt_manager.is_connected(broker_id).await {
+    // Figma plugin handshake: a vanished uid announces `disconnected`, a newly
+    // appeared one announces `connected` + requests its current variables. That
+    // protocol — topics, payloads, retain — lives in core
+    // ([`figma_announce_actions`]), shared with the browser host so both announce
+    // identically; here we only perform the publishes, gated on a live broker like
+    // every publish above. Runs *after* the (un)subscribe diff so a new uid's
+    // variable request can't outrun the subscription that catches the reply — the
+    // browser host orders its `figmaLifecycle` the same way.
+    for action in figma_announce_actions(&old_uids, &new_uids) {
+        if !state.mqtt_manager.is_connected(&action.broker_id).await {
             continue;
         }
-        let status_topic = format!("microflow/{uid}/app/status");
-        if let Err(e) = state.mqtt_manager.publish(broker_id, &status_topic, b"connected", true).await {
-            log::error!("[Figma] Failed to publish app/status: {e}");
-        }
-        let request_topic = format!("microflow/{uid}/app/variables/request");
-        if let Err(e) = state.mqtt_manager.publish(broker_id, &request_topic, b"", false).await {
-            log::error!("[Figma] Failed to publish variables/request: {e}");
+        if let Err(e) = state
+            .mqtt_manager
+            .publish(&action.broker_id, &action.topic, action.payload.as_bytes(), action.retain)
+            .await
+        {
+            log::error!("[Figma] publish to {} failed: {e}", action.topic);
         }
     }
 
