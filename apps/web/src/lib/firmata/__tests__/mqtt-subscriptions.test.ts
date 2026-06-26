@@ -1,51 +1,24 @@
-// Reconcile-logic conformance for the browser MQTT host (ADR-0009 Phase 3),
-// mirroring the desktop `flow_update` dedup/diff (commands.rs).
+// Host-local subscription diffing for the browser MQTT host (ADR-0009 Phase 3).
+//
+// The collapse + winner-selection policy (`reconcileDesired`/`beats`) moved to
+// core (`microflow-core` `subscriptions.rs` tests) — both hosts share it via the
+// wasm `reconcileSubscriptions()` binding. What remains here is the host-local
+// diff against this host's live set + the Figma uid lifecycle keys.
 
 import { describe, expect, test } from "bun:test";
 import {
-  beats,
   diffSubscriptions,
-  reconcileDesired,
   subKey,
   uidBrokers,
   type ActiveSub,
   type SubKind,
-  type SubscriberWiring,
 } from "../cloud/mqtt-subscriptions";
 
-const wiring = (nodeId: string, kind: SubKind, brokerId: string, topic: string): SubscriberWiring => ({
-  nodeId,
-  kind,
-  brokerId,
-  topic,
-});
 const active = (nodeId: string, kind: SubKind, brokerId: string, topic: string): ActiveSub => ({
   nodeId,
   kind,
   brokerId,
   topic,
-});
-
-describe("reconcileDesired", () => {
-  test("a routing kind wins over displayEcho on the same (broker, topic)", () => {
-    const desired = reconcileDesired([
-      wiring("zEcho", "displayEcho", "b", "t"),
-      wiring("aRoute", "topicAware", "b", "t"),
-    ]);
-    expect(desired.size).toBe(1);
-    expect(desired.get(subKey("b", "t"))?.nodeId).toBe("aRoute");
-    expect(desired.get(subKey("b", "t"))?.kind).toBe("topicAware");
-  });
-
-  test("ties break on the lower node id", () => {
-    const desired = reconcileDesired([wiring("n2", "plain", "b", "t"), wiring("n1", "plain", "b", "t")]);
-    expect(desired.get(subKey("b", "t"))?.nodeId).toBe("n1");
-  });
-
-  test("distinct topics are each kept", () => {
-    const desired = reconcileDesired([wiring("n1", "plain", "b", "t1"), wiring("n1", "plain", "b", "t2")]);
-    expect(desired.size).toBe(2);
-  });
 });
 
 describe("diffSubscriptions", () => {
@@ -80,11 +53,4 @@ describe("uidBrokers", () => {
     expect(map.get("u1")).toBe("b1");
     expect(map.size).toBe(1);
   });
-});
-
-test("beats: routing beats echo, else lower id wins", () => {
-  const route = active("z", "plain", "b", "t");
-  const echo = active("a", "displayEcho", "b", "t");
-  expect(beats(route, echo)).toBe(true);
-  expect(beats(echo, route)).toBe(false);
 });

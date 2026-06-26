@@ -16,7 +16,7 @@
 //! Every entry point returns the turn's `Effects` as JSON, ready to `JSON.parse`.
 
 use microflow_core::flow::FlowUpdate;
-use microflow_core::runtime::{ComponentValue, Effects, FlowRuntime as CoreRuntime, SubscriberWiring};
+use microflow_core::runtime::{reconcile_desired, ComponentValue, Effects, FlowRuntime as CoreRuntime};
 use wasm_bindgen::prelude::*;
 
 /// Install a panic hook so a Rust panic surfaces as a readable `console.error`.
@@ -157,36 +157,22 @@ impl FlowRuntime {
         effects_json(&self.inner.inject_event(source, handle, value))
     }
 
-    /// The active subscribe components' broker wirings, as a JSON array of
-    /// `{ nodeId, kind, brokerId, topic }` (`kind` ∈ `plain`/`topicAware`/
-    /// `displayEcho`). The browser host reconciles these into WSS subscriptions
-    /// and routes inbound payloads back via [`deliver_message`](FlowRuntime::deliver_message)
+    /// The active subscribe nodes' broker wirings, **reconciled** to one desired
+    /// subscription per `(broker_id, topic)` — the deterministic winner-selection
+    /// policy lives in core ([`reconcile_desired`]), shared with the desktop host
+    /// so both pick the same owner per topic. Returns a JSON array of
+    /// `{ brokerId, topic, nodeId, kind }` (`kind` ∈ `plain`/`topicAware`/
+    /// `displayEcho`). The browser host diffs this against its live set, (un)subscribes
+    /// WSS, and routes inbound payloads back via [`deliver_message`](FlowRuntime::deliver_message)
     /// (the analog of the desktop `flow_update` reply + MQTT manager).
     ///
     /// # Errors
-    /// `JsError` only if the wiring list fails to serialize.
-    #[wasm_bindgen(js_name = subscriberWirings)]
-    pub fn subscriber_wirings(&self) -> Result<String, JsError> {
-        let arr: Vec<serde_json::Value> = self
-            .inner
-            .collect_subscriber_wirings()
-            .iter()
-            .map(|(node_id, wiring)| {
-                let kind = match wiring {
-                    SubscriberWiring::Plain { .. } => "plain",
-                    SubscriberWiring::TopicAware { .. } => "topicAware",
-                    SubscriberWiring::DisplayEcho { .. } => "displayEcho",
-                };
-                serde_json::json!({
-                    "nodeId": node_id,
-                    "kind": kind,
-                    "brokerId": wiring.broker_id(),
-                    "topic": wiring.topic(),
-                })
-            })
-            .collect();
-        serde_json::to_string(&arr)
-            .map_err(|e| JsError::new(&format!("failed to serialize wirings: {e}")))
+    /// `JsError` only if the reconciled list fails to serialize.
+    #[wasm_bindgen(js_name = reconcileSubscriptions)]
+    pub fn reconcile_subscriptions(&self) -> Result<String, JsError> {
+        let desired = reconcile_desired(&self.inner.collect_subscriber_wirings());
+        serde_json::to_string(&desired)
+            .map_err(|e| JsError::new(&format!("failed to serialize subscriptions: {e}")))
     }
 
     /// Deliver an inbound broker payload (MQTT / Figma) to subscribe component
@@ -284,9 +270,9 @@ mod tests {
     }
 
     #[test]
-    fn subscriber_wirings_reports_subscribe_topics() {
+    fn reconcile_subscriptions_reports_desired_topics() {
         // An Mqtt subscribe node advertises a `plain` wiring the browser host
-        // turns into a WSS subscription.
+        // turns into a WSS subscription — core reconciles it to one desired sub.
         let mut rt = FlowRuntime::new();
         let flow = r#"{
             "nodes": [
@@ -295,7 +281,7 @@ mod tests {
             "edges": []
         }"#;
         rt.update_flow(flow, 0.0).expect("update ok");
-        let json = rt.subscriber_wirings().expect("wirings ok");
+        let json = rt.reconcile_subscriptions().expect("subscriptions ok");
         assert!(json.contains("\"kind\":\"plain\""), "got: {json}");
         assert!(json.contains("sensors/x"), "got: {json}");
         assert!(json.contains("\"nodeId\":\"m\""), "got: {json}");

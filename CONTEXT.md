@@ -105,7 +105,7 @@ The side-effect record the host executes after one runtime turn. Lives in `crate
 
 ## EffectsSink
 
-The typed per-field hook surface a [Runtime Host](#runtime-host) implements to apply one turn's [`Effects`](#effects); the **apply policy** that drives it lives in core, once. `Effects::apply(&self, sink: &mut impl EffectsSink)` (`crates/microflow-core/src/runtime/context.rs`) iterates the fields in the **canonical order** — `outbound_bytes → cancellations → wakeups → cloud_requests → component_events` — calling one hook each: `write_bytes`, `cancel_wakeup`, `arm_wakeup`, `perform_cloud`, `dispatch_event`. Bytes first (wire latency); cancel-before-arm (so a cancel + re-arm of the same logical timer in one turn is safe); cloud calls launched before UI events leave; UI events last (they leave the runtime and do not feed back this turn). Decided in [ADR-0008](docs/adr/0008-effects-apply-policy.md) after the two hosts' inline apply loops had already drifted in order. The platform *primitives* behind each hook stay per-host (desktop: serial flush + Tauri `emit` + Tokio timer; browser: `connection.write` + store ingest + `setTimeout`). The desktop `Actor` calls `Effects::apply` directly; the browser reactor cannot reach into Rust, so it mirrors the same shape in `apps/web/src/lib/firmata/effects-sink.ts` (`applyEffects` + an `EffectsSink` interface `FlowReactor` implements), held in lockstep by a conformance test on both sides (`context::apply_tests` / `__tests__/effects-sink.test.ts`). Adding an `Effects` field adds a hook here — a compile error in every sink until handled (exactly how ADR-0009's `cloud_requests` field forced `perform_cloud`, for [`CloudRequest`](#cloudrequest)s, into the order).
+The typed per-field hook surface a [Runtime Host](#runtime-host) implements to apply one turn's [`Effects`](#effects); the **apply policy** that drives it lives in core, once. `Effects::apply(&self, sink: &mut impl EffectsSink)` (`crates/microflow-core/src/runtime/context.rs`) iterates the fields in the **canonical order** — `outbound_bytes → cancellations → wakeups → cloud_requests → component_events` — calling one hook each: `write_bytes`, `cancel_wakeup`, `arm_wakeup`, `perform_cloud`, `dispatch_event`. Bytes first (wire latency); cancel-before-arm (so a cancel + re-arm of the same logical timer in one turn is safe); cloud calls launched before UI events leave; UI events last (they leave the runtime and do not feed back this turn). Decided in [ADR-0008](docs/adr/0008-effects-apply-policy.md) after the two hosts' inline apply loops had already drifted in order. The platform *primitives* behind each hook stay per-host (desktop: serial flush + Tauri `emit` + Tokio timer; browser: `connection.write` + store ingest + `setTimeout`). The desktop `Actor` calls `Effects::apply` directly; the browser reactor cannot reach into Rust, so it mirrors the same shape in `apps/web/src/lib/firmata/effects-sink.ts` (`applyEffects` + an `EffectsSink` interface `FlowReactor` implements). The mirror is held **structurally**, not by a test alone: `applyEffects` drives an `EFFECT_HANDLERS` map and an `APPLY_ORDER` tuple, both typed exhaustive over `keyof Effects`, so a new `Effects` field is a TypeScript compile error (unhandled / unordered) on the browser side just as it is a missing trait method on every Rust sink — the conformance test (`context::apply_tests` / `__tests__/effects-sink.test.ts`) now asserts the runtime *order*, no longer carrying the coverage guarantee alone. Adding an `Effects` field thus forces a hook in core's trait **and** in the browser handlers (exactly how ADR-0009's `cloud_requests` field forced `perform_cloud`, for [`CloudRequest`](#cloudrequest)s, into the order).
 
 ## BoardWriter
 
@@ -176,8 +176,14 @@ services + the latest-wins LLM task table). Phase 3 added the browser performer:
 desktop `HttpLlmProvider`, with latest-wins `AbortController` cancellation) and
 re-enters the result through the wasm `injectEvent` binding. `MqttPublish`
 (MQTT + Figma) publishes over WSS via `mqtt.js`; inbound subscribe routing comes
-back through the wasm `deliverMessage` binding, reconciled from
-`subscriberWirings()` on each `applyFlow` (mirroring the desktop `flow_update`).
+back through the wasm `deliverMessage` binding. The desired subscription set is
+reconciled by core's **`reconcile_desired`** (the shared winner-selection policy:
+collapse to one sub per `(broker, topic)`, routing kinds beat display-echo, ties
+break on the lower node id — `crates/microflow-core/src/runtime/subscriptions.rs`)
+via the wasm `reconcileSubscriptions()` binding on each `applyFlow`; each host then
+diffs that set against its own live subscriptions and owns its broker I/O. The
+same `reconcile_desired` feeds the desktop `flow_update`, so both hosts pick the
+identical owner per topic instead of mirroring the policy in two languages.
 
 ## Cloud Node Registration
 
