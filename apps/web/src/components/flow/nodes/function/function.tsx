@@ -1,7 +1,6 @@
 import { dataSchema, defaults, type Data, type Value } from "./function.schema";
 import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Function">;
+import { NodeHandles } from "../_base/node-handles";
 import {
   NodeContainer,
   useDeleteHandles,
@@ -26,8 +25,11 @@ export function Function(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="trigger" handleType="command" />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles
+        instance="Function"
+        portOverrides={{ trigger: { handleType: "command" } }}
+        emitOverrides={{ value: { handleType: "value" } }}
+      />
       <DynamicHandles />
     </NodeContainer>
   );

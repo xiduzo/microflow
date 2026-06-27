@@ -1,6 +1,4 @@
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Smooth">;
+import { NodeHandles } from "../_base/node-handles";
 import { IconWithValue } from "../../icon-with-value";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import {
@@ -19,8 +17,11 @@ export function Smooth(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="value" handleType="value" />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles
+        instance="Smooth"
+        portOverrides={{ value: { handleType: "value" } }}
+        emitOverrides={{ value: { handleType: "value" } }}
+      />
     </NodeContainer>
   );
 }

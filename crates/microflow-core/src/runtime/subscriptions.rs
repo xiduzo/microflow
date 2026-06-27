@@ -16,7 +16,7 @@
 
 use crate::runtime::wiring::SubscriberWiring;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Which callback shape a subscription drives — the routing identity a broker's
 /// single per-topic callback carries. Serializes to the `plain`/`topicAware`/
@@ -109,6 +109,71 @@ pub fn reconcile_desired(wirings: &[(String, SubscriberWiring)]) -> Vec<DesiredS
     out
 }
 
+/// One Figma plugin-handshake publish a host must make over MQTT when the set of
+/// live Figma plugin uids changes. The handshake **protocol** — topic shape,
+/// payloads, retain flags — lives here once; the host owns only the publish I/O.
+/// Previously this lived in two languages (browser `flow-reactor.ts`
+/// `figmaLifecycle`, desktop `flow_update` tail), kept in lockstep by a comment.
+/// Serializes to `{ brokerId, topic, payload, retain }` for the browser host
+/// (via the wasm `figmaAnnounceActions` binding); the desktop host consumes the
+/// struct directly. See [`figma_announce_actions`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FigmaPublish {
+    pub broker_id: String,
+    pub topic: String,
+    pub payload: String,
+    pub retain: bool,
+}
+
+/// The Figma plugin-handshake publishes when the live plugin-uid set moves from
+/// `prev` to `next` (each a `uid -> broker_id` map the host extracts from its
+/// reconciled subscriptions). A uid that vanished announces `disconnected`; a uid
+/// that appeared announces `connected` (retained) **and** requests its current
+/// variable values. Pure policy over the uid delta — the symmetric counterpart of
+/// [`reconcile_desired`] for the Figma side — so both hosts emit byte-identical
+/// publishes from one source instead of mirroring the protocol. Disconnects come
+/// first, then appearances; `BTreeMap` ordering makes the result deterministic
+/// (and so testable).
+#[must_use]
+pub fn figma_announce_actions(
+    prev: &BTreeMap<String, String>,
+    next: &BTreeMap<String, String>,
+) -> Vec<FigmaPublish> {
+    let status_topic = |uid: &str| format!("microflow/{uid}/app/status");
+    let mut out = Vec::new();
+    // Vanished uids → disconnected (retained).
+    for (uid, broker) in prev {
+        if !next.contains_key(uid) {
+            out.push(FigmaPublish {
+                broker_id: broker.clone(),
+                topic: status_topic(uid),
+                payload: "disconnected".to_string(),
+                retain: true,
+            });
+        }
+    }
+    // Newly appeared uids → connected (retained) + a variable-values request.
+    for (uid, broker) in next {
+        if prev.contains_key(uid) {
+            continue;
+        }
+        out.push(FigmaPublish {
+            broker_id: broker.clone(),
+            topic: status_topic(uid),
+            payload: "connected".to_string(),
+            retain: true,
+        });
+        out.push(FigmaPublish {
+            broker_id: broker.clone(),
+            topic: format!("microflow/{uid}/app/variables/request"),
+            payload: String::new(),
+            retain: false,
+        });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,5 +249,62 @@ mod tests {
         assert!(json.contains("\"brokerId\":\"b\""), "{json}");
         assert!(json.contains("\"nodeId\":\"n1\""), "{json}");
         assert!(json.contains("\"kind\":\"topicAware\""), "{json}");
+    }
+
+    fn uids(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs.iter().map(|(u, b)| ((*u).to_string(), (*b).to_string())).collect()
+    }
+
+    #[test]
+    fn appeared_uid_announces_connected_and_requests_variables() {
+        let actions = figma_announce_actions(&uids(&[]), &uids(&[("u1", "b")]));
+        assert_eq!(
+            actions,
+            vec![
+                FigmaPublish {
+                    broker_id: "b".into(),
+                    topic: "microflow/u1/app/status".into(),
+                    payload: "connected".into(),
+                    retain: true,
+                },
+                FigmaPublish {
+                    broker_id: "b".into(),
+                    topic: "microflow/u1/app/variables/request".into(),
+                    payload: String::new(),
+                    retain: false,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn vanished_uid_announces_disconnected_retained() {
+        let actions = figma_announce_actions(&uids(&[("u1", "b")]), &uids(&[]));
+        assert_eq!(
+            actions,
+            vec![FigmaPublish {
+                broker_id: "b".into(),
+                topic: "microflow/u1/app/status".into(),
+                payload: "disconnected".into(),
+                retain: true,
+            }]
+        );
+    }
+
+    #[test]
+    fn unchanged_uid_set_announces_nothing() {
+        let set = uids(&[("u1", "b"), ("u2", "b2")]);
+        assert!(figma_announce_actions(&set, &set).is_empty());
+    }
+
+    #[test]
+    fn disconnects_precede_connects_in_one_delta() {
+        // A flip (u1 leaves, u2 joins) emits the disconnect before the connect so
+        // a broker re-keying the same logical slot settles in the right order.
+        let actions = figma_announce_actions(&uids(&[("u1", "b")]), &uids(&[("u2", "b")]));
+        assert_eq!(actions[0].payload, "disconnected");
+        assert_eq!(actions[0].topic, "microflow/u1/app/status");
+        assert_eq!(actions[1].payload, "connected");
+        assert_eq!(actions[2].topic, "microflow/u2/app/variables/request");
     }
 }

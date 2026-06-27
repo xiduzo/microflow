@@ -50,7 +50,9 @@ pub use context::{
 pub use error::{HardwareError, RuntimeError};
 pub use registry::ComponentRegistry;
 pub use router::{ComponentLookup, DispatchCall, EdgeTarget, FlowRouter};
-pub use subscriptions::{reconcile_desired, DesiredSub, SubKind};
+pub use subscriptions::{
+    figma_announce_actions, reconcile_desired, DesiredSub, FigmaPublish, SubKind,
+};
 pub use value::{ComponentEvent, ComponentValue, PinConfig};
 pub use wiring::{ListenerWiring, SubscriberWiring};
 

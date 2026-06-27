@@ -1,8 +1,6 @@
 import { type Data, dataSchema, defaults } from "./calculate.schema";
 import { NodeContainer, useNodeData, useNodeControls, type BaseNode } from "../_base/_base";
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Calculate">;
+import { NodeHandles } from "../_base/node-handles";
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,
@@ -24,8 +22,11 @@ export function Calculate(props: Props) {
       <Value />
       <Settings />
 
-      <Handle type="target" position="left" id="value" handleType="value" />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles
+        instance="Calculate"
+        portOverrides={{ value: { handleType: "value" } }}
+        emitOverrides={{ value: { handleType: "value" } }}
+      />
     </NodeContainer>
   );
 }

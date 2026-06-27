@@ -1,9 +1,7 @@
 import { isPmwPin, pinsToOptions } from "@/components/hardware/pin";
 import { MODES, usePins } from "@/stores/board";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Led">;
+import { NodeHandles } from "../_base/node-handles";
 import { dataSchema, defaults, type Data, type Value } from "./led.schema";
 import { useNodeValue } from "@/stores/node-data";
 import { LightbulbIcon, LightbulbOffIcon, VibrateIcon } from "lucide-react";
@@ -17,20 +15,22 @@ export function Led(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="true" handleType="command" offset={-1.5} />
-      <Handle type="target" position="left" id="toggle" handleType="command" offset={-0.5} />
-      <Handle
-        type="target"
-        position="left"
-        id="value"
-        handleType="value"
-        title={props.data.subType === "vibration" ? "intensity" : "brightness"}
-        offset={0.5}
-        hint={`${isPmw ? "0-255" : "requires a ~ pin"}`}
-        isConnectable={!!isPmw}
+      <NodeHandles
+        instance="Led"
+        portOverrides={{
+          true: { handleType: "command", offset: -1.5 },
+          toggle: { handleType: "command", offset: -0.5 },
+          value: {
+            handleType: "value",
+            title: props.data.subType === "vibration" ? "intensity" : "brightness",
+            offset: 0.5,
+            hint: `${isPmw ? "0-255" : "requires a ~ pin"}`,
+            isConnectable: !!isPmw,
+          },
+          false: { handleType: "command", offset: 1.5 },
+        }}
+        emitOverrides={{ value: { handleType: "value" } }}
       />
-      <Handle type="target" position="left" id="false" handleType="command" offset={1.5} />
-      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }

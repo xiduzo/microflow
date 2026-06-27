@@ -66,6 +66,8 @@ Emit handles are compile-checked on the Rust side: each impl declares its handle
 
 Excludes `_`-prefixed **Internal Event** / wakeup names (e.g. `_hold`, `_tick`) — those are self-routed and never appear on an edge. The **Catalog Parity Guard** (`apps/web/src-tauri/tests/catalog_parity.rs`) generates `emits()` into `wire-interface.generated.json` and asserts the committed file is current.
 
+**`emits()` is a superset of the UI's source handles, by design.** It is the closed set of handles a component _may_ emit on — the runtime contract — while the editor surfaces a curated subset as connectable [NodeHandles](#nodehandles). The implicit `value` emit (fired by `ComponentBase::set_value`, so honestly declared by every node that tracks state for `value()` reads / aggregation) is given a source handle only where `value` is a meaningful output (e.g. sensors like `Proximity`, `Rgb`) and omitted where a node's real outputs are semantic (`Button` → `event`/`true`/`false`/`hold`; `Gate` → `true`/`false`). An un-surfaced emit simply has no edge to fan out to — harmless, **not** drift. The `NodeHandles` completeness test guards the direction that _does_ matter: every **rendered** handle must be a declared **Port**/**Emit**, so a renamed Rust handle can never silently outlive its UI.
+
 ## Internal Event
 
 Self-routed method delivered when a **Component (Rust trait)** emits a `ComponentEvent` whose `source_handle` starts with `_` and is not a reserved **Hardware Callback** name. The executor (`runtime/mod.rs::process_event`) strips the leading `_` and calls `Component::dispatch_internal` on the source component. Used by components that schedule their own state transitions (e.g. `Piezo` `auto_stop` after a song-playback thread finishes). Never observable as a **Port** — edges cannot target an internal-event name.
@@ -121,7 +123,26 @@ A future self-callback a timer node asked for, replacing `std::thread::sleep`. L
 The platform adapter that drives a `core::FlowRuntime` and applies its [`Effects`](#effects). Two real adapters make the `Effects` a real seam ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)):
 
 - **Desktop** — `apps/web/src-tauri/src/runtime/host.rs`. A `!Send` `FlowRuntime` lives inside a dedicated actor thread (`run_actor`) that owns the serial port and a Tokio handle (timers, cloud I/O). Only `Send` handles cross the spawn boundary; cloud-node results (LLM / MQTT / Figma) re-enter the runtime via `inject_event` through a `ChannelEmitter`. The desktop's previous duplicate runtime was deleted in the re-host.
-- **Browser** — `apps/web/src/lib/firmata/flow-reactor.ts`. A `setTimeout` / Web-Serial loop driving the `microflow-runtime-wasm` engine: writes `outbound_bytes` to the port, fans `component_events` to the Zustand stores, maps `wakeups` to `setTimeout` and `cancellations` to `clearTimeout`. A shallow pass-through — all depth lives behind the wasm seam in Rust.
+- **Browser** — `apps/web/src/lib/firmata/flow-reactor.ts`. A `setTimeout` / Web-Serial loop driving the `microflow-runtime-wasm` engine: writes `outbound_bytes` to the port, fans `component_events` to the Zustand stores, maps `wakeups` to `setTimeout` and `cancellations` to `clearTimeout`. The serial/timer/effects-apply half is a shallow pass-through (depth lives behind the wasm seam in Rust); the **cloud** half is now its own [Browser CloudPerformer](#browser-cloudperformer).
+
+## Browser CloudPerformer
+
+The cloud half of the browser host, lifted out of the `FlowReactor` god-object
+into `apps/web/src/lib/firmata/cloud/cloud-performer.ts` — the host-free twin of
+the desktop **CloudPerformer** ([ADR-0009](docs/adr/0009-cloud-sans-io-capability.md)).
+It performs a turn's cloud `Effects` (`perform(request)`: `llmGenerate` →
+latest-wins `fetch` with an `AbortController` table; `mqttPublish` → WSS) and
+reconciles subscriptions (incl. the [Figma Announce Policy](#figma-announce-policy)).
+Like its desktop twin it is **host-free**: it never touches the wasm runtime, the
+board connection, or a Zustand store. The two re-entry points back into the
+runtime (an LLM result, an inbound broker message) and the Figma announce policy
+arrive as **injected callbacks** (`ResultInjector` / `InboundDeliver` /
+`FigmaAnnounce`), the browser analog of the desktop actor's `ActorMsg::Inject` /
+`ActorMsg::Deliver`. Its broker pool sits behind an injectable **`MqttClientFactory`**
+(`cloud/mqtt-client.ts`) — production wraps `mqtt.js`, a stub stands in for tests
+— making the seam real (two adapters) and the whole cloud path unit-testable with
+no broker, no runtime (`cloud/__tests__/cloud-performer.test.ts`). `FlowReactor`
+keeps only the serial loop + [`EffectsSink`](#effectssink) apply.
 
 ## Wiring
 
@@ -185,6 +206,31 @@ via the wasm `reconcileSubscriptions()` binding on each `applyFlow`; each host t
 diffs that set against its own live subscriptions and owns its broker I/O. The
 same `reconcile_desired` feeds the desktop `flow_update`, so both hosts pick the
 identical owner per topic instead of mirroring the policy in two languages.
+
+## Figma Announce Policy
+
+The Figma-side counterpart of **`reconcile_desired`**: the plugin-handshake
+**protocol** shared by both **Runtime Host**s, hoisted into core's
+**`figma_announce_actions`** (`crates/microflow-core/src/runtime/subscriptions.rs`).
+When the set of live Figma plugin uids changes, a vanished uid must publish
+`microflow/{uid}/app/status = "disconnected"` (retained) and a newly appeared uid
+must publish `"connected"` (retained) **and** request its current variable values
+(`microflow/{uid}/app/variables/request`). That topic shape + payloads + retain
+flags are *policy*, not I/O — so they live once. `figma_announce_actions(prev,
+next)` takes two `uid → broker_id` maps (each host extracts the uids from its own
+reconciled subscriptions — trivial parsing that stays per-host, like the
+subscription set-diff, [ADR-0010](docs/adr/0010-subscription-diff-stays-per-host.md))
+and returns `Vec<FigmaPublish> { broker_id, topic, payload, retain }`. Each host
+just performs the publishes: the desktop **CloudPerformer** calls the core fn
+directly; the browser `FlowReactor`/**CloudPerformer** calls it through the wasm
+`figmaAnnounceActions(prevJson, nextJson)` binding. Replaces the duplicated
+connect/disconnect tail that previously lived in both `flow-reactor.ts`
+`figmaLifecycle` and the desktop `flow_update` (kept in lockstep by a "mirrors the
+desktop tail" comment). Distinct from [ADR-0010](docs/adr/0010-subscription-diff-stays-per-host.md):
+that kept the *desired→live set-diff* per-host (it runs on host-local **live**
+state); this runs on the **desired** uid set core already owns, so the protocol —
+not just the winner — is shared. Decided in
+[ADR-0011](docs/adr/0011-figma-announce-protocol-in-core.md).
 
 ## Cloud Node Registration
 
@@ -254,6 +300,24 @@ Frontend mirror of **Wiring**. Each node component module may export an `adapter
 - `accelerator(node)` — keyboard accelerator this node listens to; registered with `useHotkeys`.
 
 The catalog `impls[].usesHostAdapter` flag drives codegen: when `true`, `_REGISTRY.ts` imports the entry's `adapter` export. The frontend registry exposes `adapter` on every entry (undefined when no adapter is needed), so consumers walk it without pattern-matching `data.instance`.
+
+## NodeHandles
+
+The frontend primitive that **renders** a node's edge handles from the generated
+wire interface instead of each node hand-declaring them. Lives at
+`apps/web/src/components/flow/nodes/_base/node-handles.tsx`. `<NodeHandles
+instance="Led" portOverrides={…} emitOverrides={…} />` emits one **target**
+`Handle` for every id in `COMPONENT_PORTS[instance]` and one **source** `Handle`
+for every id in `COMPONENT_EMITS[instance]` — the typed arrays the codegen derives
+from Rust `ports()`/`emits()` ([ADR-0007](docs/adr/0007-node-wire-interface-emit-contract.md)).
+The override maps are typed `Partial<Record<PortOf<T>|EmitOf<T>, HandleOverride>>`,
+so a removed/renamed **Port**/**Emit** is a compile error at the node's call site,
+and a port with no handle can no longer drift in silently (an exhaustive test
+asserts every declared id renders). Per-node files keep only the presentational
+deltas the contract can't know (offset, title, hint, conditional `isConnectable`).
+This makes the ADR-0007 arrays *load-bearing at render*, not merely id-checked.
+Nodes with dynamic/conditional handle sets (e.g. `Mqtt` by `direction`, `Function`'s
+open ports via `DynamicHandles`) opt out and keep bespoke `Handle`s.
 
 ## FlowSession
 

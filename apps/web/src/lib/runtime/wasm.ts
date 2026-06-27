@@ -8,7 +8,10 @@
 // (Web Serial read/write) and timers (`setTimeout` for wakeups) live in JS —
 // see ../firmata/flow-reactor.ts — because WASM cannot block on Promises.
 
-import init, { FlowRuntime } from "./generated/microflow_runtime_wasm.js";
+import init, {
+  FlowRuntime,
+  figmaAnnounceActions as figmaAnnounceActionsRaw,
+} from "./generated/microflow_runtime_wasm.js";
 // `?url` asks Vite to emit the wasm as a hashed asset and hand us its URL.
 import wasmUrl from "./generated/microflow_runtime_wasm_bg.wasm?url";
 import type { ComponentValue } from "@/lib/bindings/ComponentValue";
@@ -28,6 +31,30 @@ export function ensureRuntimeReady(): Promise<unknown> {
 export async function createFlowRuntime(): Promise<FlowRuntime> {
   await ensureRuntimeReady();
   return new FlowRuntime();
+}
+
+/** One Figma plugin-handshake publish a host must make (the Rust `FigmaPublish`
+ *  serde shape). */
+export type FigmaPublish = {
+  brokerId: string;
+  topic: string;
+  payload: string;
+  retain: boolean;
+};
+
+/** The Figma connect/disconnect publishes for a change in the live plugin-uid
+ *  set (`prev`/`next` are `uid -> brokerId` maps). The handshake *protocol* —
+ *  topics, payloads, retain — lives in core (`figma_announce_actions`), shared
+ *  with the desktop host so both announce identically; this is the thin typed
+ *  wrapper over the wasm binding. Requires the wasm module to be initialised
+ *  (`ensureRuntimeReady` / `createFlowRuntime`), as every reconcile is. */
+export function figmaAnnounceActions(
+  prev: Record<string, string>,
+  next: Record<string, string>,
+): FigmaPublish[] {
+  return JSON.parse(
+    figmaAnnounceActionsRaw(JSON.stringify(prev), JSON.stringify(next)),
+  ) as FigmaPublish[];
 }
 
 /** One emitted component event (matches the Rust `ComponentEvent` serde shape). */

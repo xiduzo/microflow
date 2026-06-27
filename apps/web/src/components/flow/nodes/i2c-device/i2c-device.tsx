@@ -3,12 +3,7 @@
  * it still requires a lot of testing before exposing it to users
  */
 
-import { Handle as BaseHandle } from "../../handle";
-
-// Bind Handle to this node's ComponentType so `id` on target handles is
-// constrained to `PortOf<"I2cDevice">` (the catalog-declared **Port** set).
-// See CONTEXT.md § Port.
-const Handle = BaseHandle<"I2cDevice">;
+import { NodeHandles } from "../_base/node-handles";
 import {
   NodeContainer,
   useNodeControls,
@@ -25,23 +20,14 @@ export function I2cDevice(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle
-        type="target"
-        position="left"
-        id="write"
-        handleType="value"
-        hint="write bytes"
-        offset={-0.5}
+      <NodeHandles
+        instance="I2cDevice"
+        portOverrides={{
+          write: { handleType: "value", hint: "write bytes", offset: -0.5 },
+          trigger: { handleType: "command", hint: "one-shot read", offset: 0.5 },
+        }}
+        emitOverrides={{ value: { handleType: "value" } }}
       />
-      <Handle
-        type="target"
-        position="left"
-        id="trigger"
-        handleType="command"
-        hint="one-shot read"
-        offset={0.5}
-      />
-      <Handle type="source" position="right" id="value" handleType="value" />
     </NodeContainer>
   );
 }

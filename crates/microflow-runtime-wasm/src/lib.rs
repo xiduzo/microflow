@@ -16,7 +16,10 @@
 //! Every entry point returns the turn's `Effects` as JSON, ready to `JSON.parse`.
 
 use microflow_core::flow::FlowUpdate;
-use microflow_core::runtime::{reconcile_desired, ComponentValue, Effects, FlowRuntime as CoreRuntime};
+use microflow_core::runtime::{
+    figma_announce_actions, reconcile_desired, ComponentValue, Effects, FlowRuntime as CoreRuntime,
+};
+use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
 
 /// Install a panic hook so a Rust panic surfaces as a readable `console.error`.
@@ -201,6 +204,27 @@ impl Default for FlowRuntime {
     }
 }
 
+/// Compute the Figma plugin-handshake publishes when the live plugin-uid set
+/// changes from `prev` to `next` (each a JSON `{ [uid]: brokerId }` object the
+/// host derives from its reconciled subscriptions). Returns a JSON array of
+/// `{ brokerId, topic, payload, retain }` the browser host publishes over WSS.
+/// The handshake *protocol* lives in core ([`figma_announce_actions`]), shared
+/// with the desktop host so both announce identically; the browser owns only the
+/// publish I/O — the Figma-side analog of [`FlowRuntime::reconcileSubscriptions`].
+///
+/// # Errors
+/// `JsError` if either argument is not a `{ string: string }` JSON object, or the
+/// result fails to serialize.
+#[wasm_bindgen(js_name = figmaAnnounceActions)]
+pub fn figma_announce_actions_js(prev_json: &str, next_json: &str) -> Result<String, JsError> {
+    let prev: BTreeMap<String, String> = serde_json::from_str(prev_json)
+        .map_err(|e| JsError::new(&format!("invalid prev uids: {e}")))?;
+    let next: BTreeMap<String, String> = serde_json::from_str(next_json)
+        .map_err(|e| JsError::new(&format!("invalid next uids: {e}")))?;
+    serde_json::to_string(&figma_announce_actions(&prev, &next))
+        .map_err(|e| JsError::new(&format!("failed to serialize figma actions: {e}")))
+}
+
 fn effects_json(effects: &Effects) -> Result<String, JsError> {
     serde_json::to_string(effects)
         .map_err(|e| JsError::new(&format!("failed to serialize effects: {e}")))
@@ -301,5 +325,17 @@ mod tests {
         let json = rt.deliver_message("m", "t", b"42", 1.0).expect("deliver ok");
         assert!(json.contains("\"componentEvents\""), "got: {json}");
         assert!(json.contains("42"), "delivered value should surface: {json}");
+    }
+
+    #[test]
+    fn figma_announce_actions_js_emits_connect_publishes_for_new_uid() {
+        // A uid appearing in `next` (but not `prev`) yields a retained `connected`
+        // + a variable-values request — the protocol owned by core, surfaced to
+        // the browser host as JSON publishes.
+        let json = figma_announce_actions_js("{}", r#"{"u1":"b"}"#).expect("actions ok");
+        assert!(json.contains("microflow/u1/app/status"), "got: {json}");
+        assert!(json.contains("\"payload\":\"connected\""), "got: {json}");
+        assert!(json.contains("microflow/u1/app/variables/request"), "got: {json}");
+        assert!(json.contains("\"brokerId\":\"b\""), "got: {json}");
     }
 }

@@ -1,7 +1,5 @@
 import { useMemo } from "react";
-import { Handle as BaseHandle } from "../../handle";
-
-const Handle = BaseHandle<"Oscillator">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import {
   AudioWaveformIcon,
@@ -19,10 +17,15 @@ export function Oscillator(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="start" handleType="command" offset={-1} />
-      <Handle type="target" position="left" id="reset" handleType="command" />
-      <Handle type="target" position="left" id="stop" handleType="command" offset={1} />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles
+        instance="Oscillator"
+        portOverrides={{
+          start: { handleType: "command", offset: -1 },
+          reset: { handleType: "command" },
+          stop: { handleType: "command", offset: 1 },
+        }}
+        emitOverrides={{ value: { handleType: "value" } }}
+      />
     </NodeContainer>
   );
 }
