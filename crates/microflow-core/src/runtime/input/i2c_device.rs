@@ -87,13 +87,6 @@ impl Default for I2cDeviceConfig {
     }
 }
 
-/// Normalise a device id to lowercase-alphanumeric. Older flows persisted the
-/// leva *label* ("TCS34725") rather than the preset id ("tcs34725") before the
-/// options-orientation fix; normalising lets `device_init_writes` match either.
-fn normalize_device(device: &str) -> String {
-    device.chars().filter(char::is_ascii_alphanumeric).flat_map(char::to_lowercase).collect()
-}
-
 pub struct I2cDevice {
     base: ComponentBase,
     config: I2cDeviceConfig,
@@ -139,54 +132,24 @@ impl I2cDevice {
         }
     }
 
-    /// One-time I2C writes a known device needs before it produces data, keyed
-    /// off the `device` preset id so `custom` and every other sensor are left
-    /// untouched. Each entry is the raw payload `[register, value, …]` sent once
-    /// in `initialize()`.
+    /// One-time I2C writes this device needs before it produces data. Thin wrapper
+    /// over the ungated [`crate::config::i2c_device::device_init_writes`] table so
+    /// the live runtime and the generated sketch stay byte-identical — sent once in
+    /// `initialize()`.
     fn device_init_writes(&self) -> &'static [&'static [u8]] {
-        match normalize_device(&self.config.device).as_str() {
-            // TCS34725 colour sensor: ENABLE register (0x00 | command-bit 0x80)
-            // = PON | AEN (0x03), which powers the ADC. Without it every colour
-            // register reads 0.
-            "tcs34725" => &[&[0x80, 0x03]],
-            // SHT21/HTU21: write the user register (0xE6) to drop measurement
-            // resolution to 11-bit. 0x83 = resolution bits D7|D0 set, with the
-            // power-on default's reserved bit1 (0x02) preserved. The faster
-            // ~11ms conversion fits the I2C read-delay so the no-hold read (0xF3/
-            // 0xF5) lands after it — full 14-bit (85ms) would exceed the 65ms cap.
-            "sht21temp" | "sht21humidity" => &[&[0xE6, 0x83]],
-            _ => &[],
-        }
+        crate::config::i2c_device::device_init_writes(&self.config.device)
     }
 
-    /// The register actually streamed, with a safety override: an SHT2x/HTU21
-    /// node whose persisted `register` is a **hold-master** trigger (0xE3 temp /
-    /// 0xE5 humidity) is remapped to its **no-hold** equivalent (0xF3 / 0xF5).
-    ///
-    /// Hold-master clock-stretches through the conversion, which on a classic AVR
-    /// (no `Wire` timeout) HANGS the shared I2C bus and takes every other device
-    /// down with it — it must never reach the board. Presets now store 0xF3/0xF5,
-    /// but a flow saved before that change keeps the old value in its Yjs doc
-    /// (leva doesn't rewrite a stored field when the preset definition changes),
-    /// so we can't rely on the persisted register alone. Remapping here (and in
-    /// the codegen twin) makes those stale docs safe without a migration, while
-    /// leaving every non-SHT device's register untouched for custom use.
-    ///
-    /// Keyed on the device id OR the SHT2x/HTU21 bus address (0x40): a hold-master
-    /// trigger sent to 0x40 is always an SHT2x and always unsafe, so this also
-    /// protects a node left on `Custom` but pointed at 0x40 with a stale 0xE3/0xE5.
+    /// The register actually streamed, with the hold-master → no-hold safety
+    /// override. Thin wrapper over the shared
+    /// [`crate::config::i2c_device::effective_register`] (see there for why a stale
+    /// hold-master 0xE3/0xE5 must be remapped before it can hang the AVR bus).
     fn effective_register(&self) -> u8 {
-        let is_sht2x =
-            normalize_device(&self.config.device).starts_with("sht21") || self.config.address == 0x40;
-        if is_sht2x {
-            match self.config.register {
-                0xE3 => 0xF3,
-                0xE5 => 0xF5,
-                other => other,
-            }
-        } else {
-            self.config.register
-        }
+        crate::config::i2c_device::effective_register(
+            &self.config.device,
+            self.config.address,
+            self.config.register,
+        )
     }
 
     /// Send a one-shot I2C read: write register address, then read N bytes.
@@ -247,7 +210,7 @@ impl Component for I2cDevice {
     /// Other devices read immediately. Reconciled to the MAX across components —
     /// it is a single global setting.
     fn i2c_read_delay_us(&self) -> Option<u32> {
-        normalize_device(&self.config.device).starts_with("sht21").then_some(16_000)
+        crate::config::i2c_device::is_no_hold_sht2x(&self.config.device).then_some(16_000)
     }
 
     /// The continuous read this node streams. Armed centrally by the runtime
@@ -393,13 +356,10 @@ mod tests {
         I2cDevice::new("d-1".to_string(), config)
     }
 
-    #[test]
-    fn normalizes_stale_device_label_to_preset_id() {
-        // Pre-fix flows persisted the leva label; it must map to the preset id.
-        assert_eq!(normalize_device("TCS34725"), "tcs34725");
-        assert_eq!(normalize_device("tcs34725"), "tcs34725");
-        assert_eq!(normalize_device("custom"), "custom");
-    }
+    // Device-preset knowledge (normalisation, the full init-writes table, the
+    // hold-master remap) is unit-tested authoritatively in `crate::config::i2c_device`.
+    // The tests here cover the *runtime* wiring: that the wrappers thread the
+    // config through, and the runtime-specific read-delay / autoread behaviour.
 
     #[test]
     fn tcs34725_enable_write_fires_for_label_or_id() {
@@ -415,6 +375,16 @@ mod tests {
     #[test]
     fn custom_device_emits_no_init_writes() {
         assert!(device("custom").device_init_writes().is_empty());
+    }
+
+    #[test]
+    fn advanced_devices_init_through_the_wrapper() {
+        // Spot-check the wrapper threads the config `device` into the shared table:
+        // the newly-supported sensors must each arm their power-on/config write.
+        assert_eq!(device("mpu6050").device_init_writes(), &[&[0x6Bu8, 0x00][..]]);
+        assert_eq!(device("bmp280_pressure").device_init_writes().len(), 2);
+        assert!(!device("ads1115").device_init_writes().is_empty());
+        assert!(device("vl53l0x").device_init_writes().is_empty(), "vl53l0x stays uninitialised");
     }
 
     #[test]

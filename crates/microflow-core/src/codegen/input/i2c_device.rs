@@ -134,48 +134,38 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     }
 }
 
-/// One-time I2C writes a known device needs before it produces data, keyed off
-/// the `device` preset id. Mirrors `runtime/input/i2c_device.rs::device_init_writes`.
+/// The `device` preset id from the Node, or `""` when absent (→ no init).
+fn device_id(node: &FlowNode) -> &str {
+    node.data.get("device").and_then(serde_json::Value::as_str).unwrap_or("")
+}
+
+/// One-time I2C writes a known device needs before it produces data. Delegates to
+/// the ungated [`crate::config::i2c_device::device_init_writes`] table so the
+/// generated sketch's `setup()` stays byte-identical to the live runtime's
+/// `initialize()` — one source, no hand-mirroring drift.
 fn device_init_writes(node: &FlowNode) -> &'static [&'static [u8]] {
-    match node.data.get("device").and_then(serde_json::Value::as_str) {
-        // TCS34725: ENABLE (0x00 | command-bit 0x80) = PON | AEN, powers the ADC.
-        Some("tcs34725") => &[&[0x80, 0x03]],
-        // SHT21/HTU21: user register (0xE6) → 11-bit resolution (0x83), so the
-        // no-hold conversion is ~11ms and fits the read-delay. Mirrors the runtime.
-        Some("sht21_temp") | Some("sht21_humidity") => &[&[0xE6, 0x83]],
-        _ => &[],
-    }
+    crate::config::i2c_device::device_init_writes(device_id(node))
 }
 
 /// The register actually read, with the hold-master → no-hold safety override.
-/// Mirrors `runtime/input/i2c_device.rs::effective_register`: an SHT2x/HTU21 node
-/// whose persisted register is a hold-master trigger (0xE3/0xE5) is remapped to
-/// its no-hold equivalent (0xF3/0xF5), since hold-master clock-stretches and
-/// hangs the AVR I2C bus. Stale docs (saved before the no-hold preset change)
-/// keep the old value, so the runtime and the generated sketch must both correct
-/// it. Non-SHT devices are untouched.
+/// Delegates to the shared [`crate::config::i2c_device::effective_register`] (see
+/// there for why a stale hold-master 0xE3/0xE5 must be remapped before it hangs
+/// the AVR bus). Sharing it also gives codegen the runtime's stale-label
+/// normalisation, which the old hand-mirrored copy lacked.
 fn effective_register(node: &FlowNode) -> u8 {
     let register = u8_field(node, "register", 0);
-    match node.data.get("device").and_then(serde_json::Value::as_str) {
-        Some("sht21_temp") | Some("sht21_humidity") => match register {
-            0xE3 => 0xF3,
-            0xE5 => 0xF5,
-            other => other,
-        },
-        _ => register,
-    }
+    let addr = u8_field(node, "address", DEFAULT_ADDRESS);
+    crate::config::i2c_device::effective_register(device_id(node), addr, register)
 }
 
 /// Delay (ms) inserted between the register write and the read for no-hold
-/// sensors that NACK until their conversion completes. Mirrors the runtime's
-/// `i2c_read_delay_us` hint; the generated sketch uses a plain `delay()` (not
-/// Firmata's 7-bit-capped I2C_CONFIG), so 30ms is safe and leaves more margin
-/// over the 15ms worst-case 11-bit conversion. Zero ⇒ repeated-start immediate read.
+/// sensors that NACK until their conversion completes. The *classification* is
+/// shared ([`crate::config::i2c_device::is_no_hold_sht2x`]); the magnitude is
+/// codegen's own — the generated sketch uses a plain `delay()` (not Firmata's
+/// 7-bit-capped I2C_CONFIG), so 30ms is safe and leaves more margin over the 15ms
+/// worst-case 11-bit conversion. Zero ⇒ repeated-start immediate read.
 fn read_delay_ms(node: &FlowNode) -> u32 {
-    match node.data.get("device").and_then(serde_json::Value::as_str) {
-        Some("sht21_temp") | Some("sht21_humidity") => 30,
-        _ => 0,
-    }
+    if crate::config::i2c_device::is_no_hold_sht2x(device_id(node)) { 30 } else { 0 }
 }
 
 #[cfg(test)]
@@ -229,6 +219,33 @@ mod tests {
         let e = emit(&i2c("d-1", json!({ "device": "custom" })), None);
         // Only Wire.begin() — no extra transmissions for generic devices.
         assert_eq!(e.setup, vec!["Wire.begin();".to_string()]);
+    }
+
+    #[test]
+    fn i2c_mpu6050_wakes_from_sleep_in_setup() {
+        let e = emit(&i2c("d-1", json!({ "device": "mpu6050", "address": 0x68 })), None);
+        // PWR_MGMT_1 (0x6B = 107) = 0x00 clears the SLEEP bit in setup().
+        assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)107)")), "must write PWR_MGMT_1");
+        assert!(e.setup.iter().any(|s| s.contains("(uint8_t)104")), "must address the MPU6050");
+    }
+
+    #[test]
+    fn i2c_bmp280_configures_without_a_humidity_write() {
+        let e = emit(&i2c("d-1", json!({ "device": "bmp280_pressure", "address": 0x76 })), None);
+        // ctrl_meas (0xF4 = 244) + config (0xF5 = 245); NO ctrl_hum (0xF2 = 242).
+        assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)244)")), "must write ctrl_meas");
+        assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)245)")), "must write config");
+        assert!(!e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)242)")), "BMP280 has no ctrl_hum");
+    }
+
+    #[test]
+    fn i2c_stale_device_label_still_initialises_in_sketch() {
+        // Regression: codegen used to match the raw `device` id, so a stale leva
+        // label ("MPU6050") skipped the init in the generated sketch while the
+        // runtime (which normalised) still emitted it. Routing both through the
+        // shared normalised table removes that divergence.
+        let e = emit(&i2c("d-1", json!({ "device": "MPU6050", "address": 0x68 })), None);
+        assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)107)")), "stale label must still wake");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 ---
 title: I2C Device
-description: Read from and write to I2C sensors like SHT21, TCS34725, BME280, MPU6050, BH1750, and other I2C peripherals.
+description: Read from and write to I2C sensors like SHT21, TCS34725, BME280, BMP280, MPU6050, BH1750, and other I2C peripherals.
 ---
 
 The I2C Device node lets you communicate with sensors and peripherals over the I2C (Inter-Integrated Circuit) bus. I2C uses just two wires — SDA (data) and SCL (clock) — and supports many devices on the same pair of wires, each identified by a unique address.
@@ -42,7 +42,7 @@ The read interval is a single global Firmata setting, so **every** I2C node on t
 
 When you add an I2C node, Microflow arms a **continuous read** on the board: the firmware re-reads the register every interval and pushes the bytes back on its own. You do not poll — the **Value** output just updates.
 
-Devices that need waking up or configuring first (the colour sensor's ADC, the humidity sensor's resolution) are set up automatically for the presets that need it. For a **Custom** device that needs configuration, send the setup bytes to the **Write** handle once.
+Devices that need waking up or configuring first — clearing the accelerometer's sleep bit, powering on the colour sensor's ADC, putting the pressure sensor into continuous mode — are set up automatically for the presets that need it. The one exception is the **VL53L0X**, whose start-up is too involved for this to cover (see its entry below). For a **Custom** device that needs configuration, send the setup bytes to the **Write** handle once.
 
 ## Device presets
 
@@ -53,6 +53,8 @@ Devices that need waking up or configuring first (the colour sensor's ADC, the h
 | BH1750 | 0x23 | 0x10 | 2 | Unsigned int | Light level → lux |
 | BME280 (temp) | 0x76 | 0xFA | 3 | Unsigned int | Raw temperature ADC |
 | BME280 (humidity) | 0x76 | 0xFD | 2 | Unsigned int | Raw humidity ADC |
+| BMP280 (temp) | 0x76 | 0xFA | 3 | Unsigned int | Raw temperature ADC |
+| BMP280 (pressure) | 0x76 | 0xF7 | 3 | Unsigned int | Raw pressure ADC |
 | SHT21 / HTU21 (temp) | 0x40 | 0xF3 | 2 | Unsigned int | Raw 16-bit → °C |
 | SHT21 / HTU21 (humidity) | 0x40 | 0xF5 | 2 | Unsigned int | Raw 16-bit → %RH |
 | MPU6050 | 0x68 | 0x3B | 6 | Raw bytes | Accel X/Y/Z |
@@ -94,7 +96,7 @@ The [Device reference](#device-reference) below has a ready-made snippet for eve
 What each preset sensor measures, the data it produces, and a [Function node](/docs/microflow-studio/nodes/shape/function) snippet to convert it. In every snippet the incoming reading is `input` and the converted value is `return`ed.
 
 <Callout type="info" title="Ready vs. Advanced">
-Sensors marked **Ready** stream usable data as soon as you add the node. Sensors marked **Advanced** need a configuration **Write** (and sometimes per-chip calibration) before the raw read means anything — the preset gives you the correct address and register, but not a finished value.
+Sensors marked **Ready** stream usable data as soon as you add the node — Microflow runs any wake-up or configuration write the sensor needs automatically. You still convert the raw number to units downstream. Sensors marked **Advanced** need extra care the preset can't give you: the **VL53L0X** needs an external init sequence before it ranges at all, and the **BME280 / BMP280** stream only raw, uncompensated ADC counts that need per-chip calibration to become real units.
 </Callout>
 
 ### SHT21 / HTU21 — temperature & humidity
@@ -178,23 +180,23 @@ The VL53L0X requires a long start-up sequence before it produces valid ranges. M
 
 ### ADS1115 — 16-bit ADC
 
-**Address 0x48 · Advanced.** A 4-channel analog-to-digital converter for reading analog signals over I2C.
+**Address 0x48 · Ready.** A 4-channel analog-to-digital converter for reading analog signals over I2C. Microflow configures it on startup for continuous conversions on single-ended channel **AIN0** at a **±4.096V** range, so the conversion register streams on its own.
 
 **Data produced:** Signed int — a 16-bit conversion count, −32768 to 32767.
 
 ```ts
-// ADS1115 -> volts (gain = ±2.048V)
+// ADS1115 -> volts (default range ±4.096V)
 if (typeof input !== "number") return 0;
-return (input * 2.048) / 32768;
+return (input * 4.096) / 32768;
 ```
 
-<Callout type="warn" title="Needs a config Write">
-Reading the conversion register alone returns the power-on default until you configure the ADC. Send a setup word to the config register (0x01) via the node's **Write** input to choose the channel, gain, and continuous mode. Adjust the `2.048` above to match the gain you pick.
+<Callout type="info" title="Changing channel or gain">
+The preset reads AIN0 at ±4.096V. To read a different channel or range, add a **Custom** node at 0x48 and send your own 16-bit config word to the config register (0x01) via the **Write** input, then adjust the `4.096` above to match the gain you pick. The [datasheet](https://www.ti.com/lit/ds/symlink/ads1115.pdf) config-register table lists the MUX and PGA bits.
 </Callout>
 
 ### MPU6050 — accelerometer & gyroscope
 
-**Address 0x68 · Advanced.** A 6-axis motion sensor. The preset reads the 6 accelerometer bytes starting at 0x3B.
+**Address 0x68 · Ready.** A 6-axis motion sensor. The preset reads the 6 accelerometer bytes starting at 0x3B. The MPU6050 boots asleep, so Microflow clears its sleep bit automatically — the accelerometer axes stream on their own.
 
 **Data produced:** Raw bytes, 6 of them — three 16-bit **signed, big-endian** axes: X, Y, Z.
 
@@ -209,18 +211,38 @@ const scale = 16384; // LSB per g at ±2g
 return { x: s16(0, 1) / scale, y: s16(2, 3) / scale, z: s16(4, 5) / scale };
 ```
 
-<Callout type="warn" title="Needs a wake-up Write">
-The MPU6050 boots asleep. Send `[0x6B, 0x00]` to the **Write** input once to clear the sleep bit, otherwise every read is zero. For the gyroscope, point a Custom node at register 0x43.
+<Callout type="info" title="Reading the gyroscope">
+The preset streams the accelerometer (register 0x3B). For the gyroscope, add a **Custom** node at address 0x68, register 0x43, 6 bytes — the same wake-up is already done, so it streams too.
 </Callout>
 
-### BME280 — temperature, humidity, pressure
+### BME280 — temperature & humidity
 
-**Address 0x76 · Advanced.** An environmental sensor. Microflow has three presets (temp 0xFA, humidity 0xFD, pressure 0xF7).
+**Address 0x76 · Advanced.** An environmental sensor. Two presets — temperature (0xFA) and humidity (0xFD). Microflow wakes the sensor into continuous (normal) mode automatically, so both stream on their own. For barometric pressure, use the **BMP280 (pressure)** preset below — the pressure register (0xF7) is the same on both chips.
 
-**Data produced:** Unsigned int — the **raw, uncompensated** ADC reading, not a temperature or pressure.
+**Data produced:** Unsigned int — the **raw, uncompensated** ADC reading, not a temperature or humidity.
 
 <Callout type="warn" title="Raw ADC only">
-The BME280 needs a configuration Write to leave sleep mode, and turning its raw ADC counts into °C / %RH / hPa requires each chip's factory calibration coefficients and the datasheet compensation formulas — more than a single Function node can do from one register. Treat these presets as advanced/raw. If you only need "hotter/colder" or "more/less humid", feed the raw value straight into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Smooth](/docs/microflow-studio/nodes/shape/smooth) node without converting.
+Turning the BME280's raw ADC counts into °C / %RH / hPa requires each chip's factory calibration coefficients and the datasheet compensation formulas — more than a single Function node can do from one register. Treat these presets as raw. If you only need "hotter/colder" or "more/less humid", feed the raw value straight into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Smooth](/docs/microflow-studio/nodes/shape/smooth) node without converting.
+</Callout>
+
+### BMP280 — temperature & pressure
+
+**Address 0x76 · Advanced.** The temperature-and-pressure sensor on the common purple breakout — the BME280's humidity-less sibling. Two presets: temperature (0xFA) and pressure (0xF7). Microflow wakes it into continuous (normal) mode automatically, so both stream on their own.
+
+<Callout type="info" title="Address 0x76 or 0x77">
+The presets use **0x76**. Some BMP280 breakouts tie the address-select (SDO) pin high, which puts the chip at **0x77** — if the node reads nothing, set its **Address** to 0x77 and try again.
+</Callout>
+
+**Data produced:** Unsigned int — the **raw, uncompensated** reading. Each preset reads 3 bytes; the measurement is the top 20 bits, so drop the low 4:
+
+```ts
+// BMP280 raw temperature or pressure -> 20-bit ADC count
+if (typeof input !== "number") return 0;
+return input >> 4; // the 3-byte read is 24 bits; the low 4 are unused
+```
+
+<Callout type="warn" title="Raw ADC only">
+Like the BME280, the BMP280's raw counts need the chip's factory calibration coefficients and Bosch's compensation formulas to become real °C / hPa — more than a single Function node can do. Use the raw value directly with [Compare](/docs/microflow-studio/nodes/decide/compare) / [Smooth](/docs/microflow-studio/nodes/shape/smooth) for relative "warmer / higher-pressure" logic.
 </Callout>
 
 ### Custom devices

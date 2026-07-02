@@ -437,16 +437,38 @@ When a preset is selected, address/register/readLength/output are auto-populated
 
 Presets auto-fill the address, register, read length, and output format for popular I2C devices. The user can always override these values.
 
-| Device | Address | Register | Read Length | Output | Description |
-|--------|---------|----------|-------------|--------|-------------|
-| Custom | — | — | — | — | Manual configuration |
-| ADS1115 | 0x48 | 0x00 | 2 | signed_int | 16-bit ADC |
-| BH1750 | 0x23 | 0x10 | 2 | unsigned_int | Light sensor (lux) |
-| BME280 (temp) | 0x76 | 0xFA | 3 | unsigned_int | Temperature |
-| BME280 (humidity) | 0x76 | 0xFD | 2 | unsigned_int | Humidity |
-| BME280 (pressure) | 0x76 | 0xF7 | 3 | unsigned_int | Pressure |
-| MPU6050 (accel) | 0x68 | 0x3B | 6 | raw | Accelerometer XYZ |
-| VL53L0X | 0x29 | 0x14 | 2 | unsigned_int | Distance (mm) |
+The **Startup init** column is what the runtime writes once, before the first read, so the sensor actually produces live data (see [Startup sequences](#startup-sequences) below). Presets marked with a plain init are fully handled; **VL53L0X** is the one exception that needs an external driver.
+
+| Device | Address | Register | Read Length | Output | Startup init | Description |
+|--------|---------|----------|-------------|--------|--------------|-------------|
+| Custom | 0x48 | 0x00 | 2 | unsigned_int | none | Manual configuration |
+| ADS1115 | 0x48 | 0x00 | 2 | signed_int | config → continuous (AIN0, ±4.096V) | 16-bit ADC |
+| BH1750 | 0x23 | 0x10 | 2 | unsigned_int | power-on | Light sensor (lux) |
+| BME280 (temp) | 0x76 | 0xFA | 3 | unsigned_int | wake → normal mode | Temperature (raw ADC) |
+| BME280 (humidity) | 0x76 | 0xFD | 2 | unsigned_int | wake → normal mode | Humidity (raw ADC) |
+| BMP280 (temp) | 0x76 | 0xFA | 3 | unsigned_int | wake → normal mode | Temperature (raw ADC) |
+| BMP280 (pressure) | 0x76 | 0xF7 | 3 | unsigned_int | wake → normal mode | Pressure (raw ADC) |
+| SHT21/HTU21 (temp) | 0x40 | 0xF3 | 2 | unsigned_int | 11-bit res + read-delay | Temperature (raw 16-bit) |
+| SHT21/HTU21 (humidity) | 0x40 | 0xF5 | 2 | unsigned_int | 11-bit res + read-delay | Humidity (raw 16-bit) |
+| MPU6050 | 0x68 | 0x3B | 6 | raw | wake from sleep | Accelerometer/Gyro XYZ |
+| TCS34725 | 0x29 | 0xB4 | 8 | raw | enable ADC | RGB colour (raw C,R,G,B) |
+| VL53L0X | 0x29 | 0x14 | 2 | unsigned_int | ⚠️ needs external init | Distance (mm) |
+
+### Startup sequences
+
+Many I2C sensors power up in a dormant state — asleep, in single-shot mode, or at a reset value — and return a constant (usually `0`) until they are configured. The runtime writes a small, per-device **startup sequence** once in `initialize()` before arming the continuous read, so the very first reply already carries live data. These live in one place — `crates/microflow-core/src/config/i2c_device.rs::device_init_writes` — and are shared by both the live runtime and the Arduino codegen so an exported sketch behaves identically.
+
+| Device | What the startup write does |
+|--------|-----------------------------|
+| MPU6050 | Clears the `SLEEP` bit (`PWR_MGMT_1` 0x6B = 0x00); asleep it reads 0 on every axis. |
+| BME280 / BMP280 | Leaves SLEEP → NORMAL mode. BME280 also sets humidity oversampling (`ctrl_hum`); BMP280 has no humidity register, so that write is omitted. |
+| ADS1115 | Writes the config register to **continuous** mode (default is single-shot, which never refreshes the conversion register). Defaults to single-ended AIN0 at ±4.096V — other channels/ranges need a `Custom` node. |
+| BH1750 | Sends `Power On` (0x01) so it is awake before the continuous-measurement command. |
+| SHT21 / HTU21 | Drops to 11-bit resolution and adds a read-delay so the no-hold measurement lands after conversion (also remaps a stale hold-master register to the no-hold one, which would otherwise hang the AVR bus). |
+| TCS34725 | Sets `PON \| AEN` to power the colour ADC; without it every colour channel reads 0. |
+| **VL53L0X** | **Not handled.** Ranging needs ST's full stateful init (tuning blob + reference-SPAD/temperature calibration + start-measurement), which can't be expressed as a static list of register writes. The preset reads the range register, but the sensor must be brought up by an external/dedicated driver. |
+
+> **Raw ADC note (BME280 / BMP280):** the preset reads the raw, *uncompensated* ADC registers. Converting them to real °C / %RH / hPa needs the per-chip factory calibration and Bosch's compensation formulas, applied downstream — the startup sequence only makes the registers responsive, not calibrated.
 
 ---
 
@@ -474,7 +496,7 @@ Presets auto-fill the address, register, read length, and output format for popu
 
 7. **No I2C bus scanning** — Firmata doesn't support I2C bus scanning. The user must know the device address. Presets help with this.
 
-8. **Initialization order** — Some I2C devices require specific initialization sequences (write config registers before reading). The current design handles this with a write-then-read pattern in `initialize()`, but complex multi-step init sequences may need a more sophisticated approach in the future.
+8. **Initialization order** — Some I2C devices require a specific startup sequence (write config registers before reading). This is handled by the per-device `device_init_writes` table (see [Startup sequences](#startup-sequences)): the runtime replays it once in `initialize()` before arming the read, and the same table drives the Arduino codegen. The model is a flat list of `[register, value…]` writes with **no inter-write delay**, so a device whose bring-up needs timed, stateful, or read-modify-write steps — notably the **VL53L0X**, which wants ST's tuning-blob + calibration sequence — cannot be expressed here and needs a dedicated driver instead.
 
 ---
 

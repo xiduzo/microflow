@@ -31,7 +31,9 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 2,
     output: "signed_int",
     freq: 100,
-    description: "16-bit ADC",
+    // Runtime writes the config register to continuous mode on startup. The
+    // default is single-ended AIN0 at ±4.096V; other channels/ranges need Custom.
+    description: "16-bit ADC (AIN0 ±4.096V — auto-configured)",
   },
   bh1750: {
     label: "BH1750",
@@ -59,7 +61,29 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 2,
     output: "unsigned_int",
     freq: 100,
-    description: "Humidity sensor",
+    description: "Humidity (raw ADC — compensate downstream)",
+  },
+  bmp280_temp: {
+    label: "BMP280 (temp)",
+    // BMP280 = the humidity-less BME280 (temp + pressure only). Same 0x76 default
+    // address (0x77 if SDO is tied high) and the same ctrl_meas/config startup —
+    // the runtime wakes it to NORMAL mode. 0xFA = temp_msb, 3 bytes = raw 20-bit.
+    address: 0x76,
+    register: 0xfa,
+    readLength: 3,
+    output: "unsigned_int",
+    freq: 100,
+    description: "Temperature (raw ADC — compensate downstream)",
+  },
+  bmp280_pressure: {
+    label: "BMP280 (pressure)",
+    address: 0x76,
+    // 0xF7 = press_msb, 3 bytes = raw 20-bit pressure ADC.
+    register: 0xf7,
+    readLength: 3,
+    output: "unsigned_int",
+    freq: 100,
+    description: "Pressure (raw ADC — compensate downstream)",
   },
   sht21_temp: {
     label: "SHT21/HTU21 (temp)",
@@ -93,7 +117,8 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 6,
     output: "raw",
     freq: 20,
-    description: "Accelerometer/Gyro XYZ",
+    // Runtime clears the SLEEP bit (PWR_MGMT_1) on startup, else all axes read 0.
+    description: "Accelerometer/Gyro XYZ (auto-woken)",
   },
   vl53l0x: {
     label: "VL53L0X",
@@ -102,7 +127,10 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 2,
     output: "unsigned_int",
     freq: 60,
-    description: "Distance sensor (mm)",
+    // NOTE: unlike the others, the VL53L0X can't be brought up by a static write
+    // list — ranging needs ST's full driver init. This preset reads the range
+    // register but the sensor must be initialised externally. See docs/I2C_SUPPORT.md.
+    description: "Distance (mm — needs external init, see docs)",
   },
   tcs34725: {
     label: "TCS34725",
