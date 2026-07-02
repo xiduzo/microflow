@@ -22,6 +22,13 @@ pub fn value_var(node: &FlowNode) -> String {
     format!("i2c_{}_value", node.id_token())
 }
 
+/// Whether the device streams every loop (`true`, default) or reads only when
+/// its `trigger` input fires (`false`). Mirrors the runtime config's `autoread`
+/// (default on) — an absent key keeps a pre-`autoread` doc streaming.
+fn autoread(node: &FlowNode) -> bool {
+    node.data.get("autoread").and_then(serde_json::Value::as_bool).unwrap_or(true)
+}
+
 fn u8_field(node: &FlowNode, key: &str, default: u8) -> u8 {
     node.data
         .get(key)
@@ -38,9 +45,12 @@ fn is_signed(node: &FlowNode) -> bool {
         .is_some_and(|t| t.eq_ignore_ascii_case("signed_int") || t.eq_ignore_ascii_case("signedint"))
 }
 
-/// Emit C++ for an `I2cDevice` Node.
+/// Emit C++ for an `I2cDevice` Node. `driver` is the optional upstream trigger
+/// expression: when `autoread` is off the read fires on its rising edge (the
+/// generated twin of the runtime's `trigger` handle), otherwise it is ignored
+/// because the device streams every loop.
 #[must_use]
-pub fn emit(node: &FlowNode) -> NodeEmission {
+pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let token = node.id_token();
     let value = value_var(node);
     let addr = u8_field(node, "address", DEFAULT_ADDRESS);
@@ -80,6 +90,30 @@ pub fn emit(node: &FlowNode) -> NodeEmission {
     loop_body.push("}".to_string());
     loop_body.push(format!("{value} = {acc};"));
 
+    // `autoread` off ⇒ trigger-only: read on the driver's rising edge (mirrors the
+    // runtime `trigger` handle), not every loop. With no upstream trigger wired the
+    // device never reads — the value stays at its 0 default, matching the runtime,
+    // where no continuous read is armed and nothing calls `request_read`.
+    let mut declarations = vec![format!("long {value} = 0;")];
+    if !autoread(node) {
+        loop_body = match driver {
+            Some(expr) => {
+                let prev = format!("i2c_{token}_prev");
+                let trig = format!("i2c_{token}_trig");
+                declarations.push(format!("bool {prev} = false;"));
+                let mut gated = vec![
+                    format!("bool {trig} = (bool)({expr});"),
+                    format!("if ({trig} && !{prev}) {{"),
+                ];
+                gated.extend(loop_body.into_iter().map(|l| format!("  {l}")));
+                gated.push("}".to_string());
+                gated.push(format!("{prev} = {trig};"));
+                gated
+            }
+            None => Vec::new(),
+        };
+    }
+
     // Power on / configure known devices once in setup(), mirroring the runtime's
     // `device_init_writes`. Keyed off the `device` preset id so generic/custom
     // devices emit nothing extra.
@@ -94,7 +128,7 @@ pub fn emit(node: &FlowNode) -> NodeEmission {
 
     NodeEmission {
         includes: vec!["#include <Wire.h>".to_string()],
-        declarations: vec![format!("long {value} = 0;")],
+        declarations,
         setup,
         loop_body,
     }
@@ -161,7 +195,7 @@ mod tests {
 
     #[test]
     fn i2c_includes_wire_and_begins_bus() {
-        let e = emit(&i2c("d-1", json!({})));
+        let e = emit(&i2c("d-1", json!({})), None);
         assert!(e.includes.iter().any(|i| i.contains("Wire.h")));
         assert!(e.setup.iter().any(|s| s.contains("Wire.begin()")));
     }
@@ -169,7 +203,7 @@ mod tests {
     #[test]
     fn i2c_reads_configured_length_and_address() {
         // camelCase `readLength` — the key the web actually sends.
-        let e = emit(&i2c("d-1", json!({ "address": 0x40, "readLength": 3 })));
+        let e = emit(&i2c("d-1", json!({ "address": 0x40, "readLength": 3 })), None);
         assert!(e.loop_body.iter().any(|l| l.contains("requestFrom") && l.contains("64")));
         assert!(e.loop_body.iter().any(|l| l.contains("< 3 &&")));
     }
@@ -178,13 +212,13 @@ mod tests {
     fn i2c_snake_case_read_length_is_ignored() {
         // Guard the rename: the old snake_case key must NOT be honored, else the
         // runtime (camelCase) and codegen would disagree on byte count.
-        let e = emit(&i2c("d-1", json!({ "read_length": 8 })));
+        let e = emit(&i2c("d-1", json!({ "read_length": 8 })), None);
         assert!(e.loop_body.iter().any(|l| l.contains("< 2 &&")), "must fall back to default 2");
     }
 
     #[test]
     fn i2c_tcs34725_enables_adc_in_setup() {
-        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })));
+        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })), None);
         // ENABLE register 0x80 = 128, value 3 written once in setup().
         assert!(e.setup.iter().any(|s| s.contains("128")), "must write ENABLE register");
         assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)3)")));
@@ -192,17 +226,20 @@ mod tests {
 
     #[test]
     fn i2c_custom_device_emits_no_init_writes() {
-        let e = emit(&i2c("d-1", json!({ "device": "custom" })));
+        let e = emit(&i2c("d-1", json!({ "device": "custom" })), None);
         // Only Wire.begin() — no extra transmissions for generic devices.
         assert_eq!(e.setup, vec!["Wire.begin();".to_string()]);
     }
 
     #[test]
     fn i2c_sht21_uses_stop_and_delay_and_sets_resolution() {
-        let e = emit(&i2c(
-            "d-1",
-            json!({ "device": "sht21_temp", "address": 0x40, "register": 0xF3, "readLength": 2 }),
-        ));
+        let e = emit(
+            &i2c(
+                "d-1",
+                json!({ "device": "sht21_temp", "address": 0x40, "register": 0xF3, "readLength": 2 }),
+            ),
+            None,
+        );
         // No-hold: STOP after the command write, then a delay before the read.
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(true)")));
         assert!(e.loop_body.iter().any(|l| l.starts_with("delay(")), "must delay before read");
@@ -216,33 +253,66 @@ mod tests {
         // A doc saved before the no-hold preset change still carries 0xE3 (=227);
         // the sketch must write the no-hold 0xF3 (=243) instead, never the
         // bus-hanging hold-master register.
-        let e = emit(&i2c("d-1", json!({ "device": "sht21_temp", "register": 0xE3 })));
+        let e = emit(&i2c("d-1", json!({ "device": "sht21_temp", "register": 0xE3 })), None);
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.write((uint8_t)243)")), "must remap to 0xF3");
         assert!(!e.loop_body.iter().any(|l| l.contains("Wire.write((uint8_t)227)")), "must not emit 0xE3");
     }
 
     #[test]
     fn i2c_non_sht_keeps_repeated_start_without_delay() {
-        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })));
+        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })), None);
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(false)")));
         assert!(!e.loop_body.iter().any(|l| l.starts_with("delay(")), "non-no-hold must not delay");
     }
 
     #[test]
     fn i2c_sign_extends_for_signed_format() {
-        let e = emit(&i2c("d-1", json!({ "output": "signed_int" })));
+        let e = emit(&i2c("d-1", json!({ "output": "signed_int" })), None);
         assert!(e.loop_body.iter().any(|l| l.contains("0x80")), "signed must sign-extend");
     }
 
     #[test]
     fn i2c_unsigned_does_not_sign_extend() {
-        let e = emit(&i2c("d-1", json!({ "output": "unsigned_int" })));
+        let e = emit(&i2c("d-1", json!({ "output": "unsigned_int" })), None);
         assert!(!e.loop_body.iter().any(|l| l.contains("0x80")));
+    }
+
+    #[test]
+    fn i2c_autoread_default_reads_every_loop_ignoring_driver() {
+        // Absent `autoread` ⇒ streaming: the read runs unconditionally every loop,
+        // even with a driver wired (matches the runtime, which streams on the
+        // sampling interval and treats `trigger` as an extra manual read).
+        let e = emit(&i2c("d-1", json!({})), Some("btn_state"));
+        assert!(e.loop_body.iter().any(|l| l.contains("requestFrom")), "must read");
+        assert!(!e.loop_body.iter().any(|l| l.contains("btn_state")), "streaming ignores driver");
+        assert!(!e.declarations.iter().any(|d| d.contains("_prev")), "no edge state when streaming");
+    }
+
+    #[test]
+    fn i2c_autoread_off_reads_only_on_trigger_rising_edge() {
+        // autoread off + driver wired ⇒ the read is gated behind the driver's
+        // rising edge (the generated twin of the runtime `trigger` handle).
+        let e = emit(&i2c("d-1", json!({ "autoread": false })), Some("btn_state"));
+        assert!(e.declarations.iter().any(|d| d.contains("i2c_d_1_prev")), "tracks previous edge");
+        assert!(
+            e.loop_body.iter().any(|l| l.contains("i2c_d_1_trig") && l.contains("!i2c_d_1_prev")),
+            "reads only on rising edge",
+        );
+        assert!(e.loop_body.iter().any(|l| l.contains("requestFrom")), "still performs the read");
+    }
+
+    #[test]
+    fn i2c_autoread_off_without_trigger_never_reads() {
+        // autoread off + no driver ⇒ no read at all (value stays 0), mirroring the
+        // runtime where nothing is armed and no trigger source exists.
+        let e = emit(&i2c("d-1", json!({ "autoread": false })), None);
+        assert!(!e.loop_body.iter().any(|l| l.contains("requestFrom")), "must not read");
+        assert_eq!(e.declarations, vec!["long i2c_d_1_value = 0;".to_string()]);
     }
 
     #[test]
     fn i2c_emits_deterministically() {
         let n = i2c("d-1", json!({ "address": 0x48, "read_length": 2 }));
-        assert_eq!(emit(&n), emit(&n));
+        assert_eq!(emit(&n, None), emit(&n, None));
     }
 }

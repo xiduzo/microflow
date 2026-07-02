@@ -95,6 +95,13 @@ function Settings() {
       step: 1,
       label: "address (dec)",
     },
+    // On (default): the board streams reads on its sampling interval. Off: the
+    // bus stays quiet until the `trigger` handle fires a one-shot read — see
+    // `autoread` in runtime/input/i2c_device.rs.
+    autoread: {
+      value: data.autoread,
+      label: "auto-read",
+    },
     config: folder(
       {
         register: {
@@ -125,6 +132,9 @@ function Settings() {
           max: 5000,
           step: 10,
           label: "stream interval (ms)",
+          // Only the streaming path uses the sampling interval; when reads are
+          // trigger-driven there is nothing to pace.
+          disabled: !data.autoread,
         },
       },
       { collapsed: true },
