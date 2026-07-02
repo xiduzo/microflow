@@ -1,0 +1,51 @@
+---
+title: NFC Reader
+description: Read an NFC/RFID card UID over I2C with a PN532 module.
+---
+
+The NFC Reader node reads the unique ID (UID) of an NFC or RFID card using a
+PN532 module over the I2C bus. Tap a card, tag, or key fob to the reader and the
+node emits its UID — use it to trigger actions, unlock flows, or identify who's
+present.
+
+It works with common PN532 boards such as the Aideepen V3. On the board, set the
+DIP switches to **I2C** mode (not SPI or HSU).
+
+## Outputs
+
+- **Value** — the card's UID as an uppercase hex string, e.g. `04A2B1C3`. It fires
+  **when the UID changes**, so holding a card still won't spam events, and tapping
+  the same card again stays quiet. Different cards have different UID lengths
+  (4 bytes for Mifare Classic, 7 for NTAG/Ultralight) — the node reports the full
+  UID either way.
+
+To react to a *specific* card, compare the UID against a known value downstream;
+to react to *any* card, wire the value straight into an action.
+
+## Settings
+
+- **Address** — the 7-bit I2C address of the module. The default **0x24 (36)** is
+  correct for a PN532 with its switches set to I2C.
+- **Poll interval (ms)** — how often the reader scans for a card while idle
+  (default 300 ms). Lower is more responsive but busier on the bus.
+
+## How reading works
+
+Unlike a temperature or light sensor, the PN532 isn't a simple "read this
+register" device — it's a little NFC controller you talk to with commands. The
+node handles that conversation for you: it configures the module, asks it to look
+for a card, waits for the answer, reads the UID, and repeats. All of that happens
+automatically once the node is on the canvas; there are no inputs to wire.
+
+<Callout type="warn" title="Experimental — test on your hardware first">
+The live NFC driver has not yet been verified on a physical board. NFC modules can
+briefly hold the I2C clock line, and on some Arduino boards that can stall the
+whole bus — the same issue some I2C temperature sensors have. If you run other I2C
+devices in the same flow, test the combination before depending on it. Standalone
+Arduino export does not include this node yet.
+</Callout>
+
+## Related
+
+- [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) — for register-mapped
+  I2C sensors (temperature, light, motion, colour).

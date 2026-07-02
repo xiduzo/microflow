@@ -5,6 +5,7 @@ import { Mqtt } from "./mqtt/mqtt";
 import { Oscillator } from "./oscillator/oscillator";
 import { Piezo } from "./piezo/piezo";
 import { Pixel } from "./pixel/pixel";
+import { Pn532 } from "./pn532/pn532";
 import { Proximity } from "./proximity/proximity";
 import { Rgb } from "./rgb/rgb";
 import { RangeMap } from "./range-map/range-map";
@@ -76,6 +77,7 @@ export const NODE_TYPES = {
   Oscillator: Oscillator,
   Piezo: Piezo,
   Pixel: Pixel,
+  Pn532: Pn532,
   Potentiometer: Potentiometer,
   Proximity: Proximity,
   RangeMap: RangeMap,

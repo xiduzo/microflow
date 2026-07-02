@@ -86,6 +86,7 @@ impl ComponentRegistry {
         self.register::<input::hotkey::Hotkey>("Hotkey");
         self.register::<input::i2c_device::I2cDevice>("I2cDevice");
         self.register::<input::motion::Motion>("Motion");
+        self.register::<input::pn532::Pn532>("Pn532");
         self.register::<input::proximity::Proximity>("Proximity");
         self.register::<input::switch::Switch>("Switch");
         // Sensor backs several catalog entries.
