@@ -206,7 +206,7 @@ impl Component for I2cDevice {
     /// No-hold SHT2x/HTU21 measurements NACK until the conversion completes, so
     /// the board must pause between the register write and the read. At 11-bit
     /// (`device_init_writes` → user reg 0x83) the worst-case conversion is RH 15ms
-    /// / T 11ms, so 16ms covers both. Firmata's I2C_CONFIG delay is two **7-bit**
+    /// / T 11ms, so 16ms covers both. Firmata's `I2C_CONFIG` delay is two **7-bit**
     /// sysex bytes → it caps at 16383 µs (≈16.4ms); 16000 sits just under that.
     /// (The 11/11-bit pair is the only one whose *both* conversions fit the cap —
     /// the next-coarser RH step pairs with 12-bit T at 22ms, over the limit.)
@@ -219,7 +219,7 @@ impl Component for I2cDevice {
     /// The continuous read this node streams. Armed centrally by the runtime
     /// (stop-all-then-start-all in `update_flow`), never per-node — see
     /// [`I2cContinuousRead`]. Uses the no-hold-safe `effective_register` so a
-    /// stale hold-master SHT2x register can't reach the bus.
+    /// stale hold-master `SHT2x` register can't reach the bus.
     ///
     /// Returns `None` when `autoread` is off: the node then reads only on demand
     /// via the `trigger` handle (`dispatch` → `request_read`), so nothing is armed

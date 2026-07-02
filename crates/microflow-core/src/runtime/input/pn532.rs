@@ -32,23 +32,23 @@ pub use crate::config::pn532::Pn532Config;
 
 // --- Protocol constants ----------------------------------------------------
 
-/// SAMConfiguration payload (`TFI + PD`): normal mode, timeout `0x14`, use IRQ.
+/// `SAMConfiguration` payload (`TFI + PD`): normal mode, timeout `0x14`, use IRQ.
 /// Puts the SAM in normal mode so the reader is usable after power-on.
 const SAM_CONFIGURATION: &[u8] = &[0xD4, 0x14, 0x01, 0x14, 0x01];
 
-/// InListPassiveTarget payload (`TFI + PD`): detect 1 target (`MaxTg=01`) at
+/// `InListPassiveTarget` payload (`TFI + PD`): detect 1 target (`MaxTg=01`) at
 /// 106 kbps ISO14443 type A (`BrTy=00`).
 const IN_LIST_PASSIVE_TARGET: &[u8] = &[0xD4, 0x4A, 0x01, 0x00];
 
 /// TFI byte for a PN532 → host frame. The host → PN532 direction is `0xD4`.
 const TFI_FROM_PN532: u8 = 0xD5;
-/// Response code for InListPassiveTarget (`command + 1`).
+/// Response code for `InListPassiveTarget` (`command + 1`).
 const RESP_IN_LIST: u8 = 0x4B;
 
-/// Bytes to read when consuming the SAMConfiguration ACK: status byte + the
+/// Bytes to read when consuming the `SAMConfiguration` ACK: status byte + the
 /// 6-byte ACK frame (`00 00 FF 00 FF 00`).
 const ACK_READ_LEN: i32 = 7;
-/// Bytes to read when polling for the InListPassiveTarget response: status byte
+/// Bytes to read when polling for the `InListPassiveTarget` response: status byte
 /// + up to a 23-byte response (enough for a 7-byte NTAG/Ultralight UID).
 const RESP_READ_LEN: i32 = 24;
 
@@ -56,7 +56,7 @@ const RESP_READ_LEN: i32 = 24;
 /// bus and module have settled.
 const BOOT_DELAY_MS: u64 = 50;
 /// Gap between writing a command and reading its reply — the PN532 ACKs within
-/// ~1 ms; this gives StandardFirmata's async write→reply room to sequence.
+/// ~1 ms; this gives `StandardFirmata`'s async write→reply room to sequence.
 const SETTLE_MS: u64 = 5;
 /// Gap between successive response-poll reads (and the read watchdog): short, so
 /// the device is never asked to stretch the clock while we wait.
@@ -69,17 +69,17 @@ const MAX_READ_ATTEMPTS: u8 = 8;
 /// the *next* stimulus (tick or reply) should do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum St {
-    /// Fresh (or restarting): the next tick writes SAMConfiguration.
+    /// Fresh (or restarting): the next tick writes `SAMConfiguration`.
     Start,
     /// SAM frame written; the next tick issues the ACK read.
     SamSettle,
     /// ACK read issued; the next reply (skip-validated) starts polling.
     SamRead,
-    /// Between poll cycles: the next tick writes a fresh InListPassiveTarget.
+    /// Between poll cycles: the next tick writes a fresh `InListPassiveTarget`.
     /// Detection is one-shot, so every cycle must re-issue the command — not just
     /// re-read, or a card is only ever detected once.
     PollIdle,
-    /// InListPassiveTarget written; the next tick issues the response read.
+    /// `InListPassiveTarget` written; the next tick issues the response read.
     PollSettle,
     /// Response read issued; the next reply is parsed for a UID.
     PollRead,
@@ -142,7 +142,7 @@ impl Pn532 {
             St::Start | St::SamRead => self.send_sam(ctx),
             St::SamSettle => self.read(ctx, ACK_READ_LEN, St::SamRead),
             // Idle → (re)issue the detection command; a PollRead tick is the
-            // watchdog after a lost reply — both re-write InListPassiveTarget.
+            // watchdog after a lost reply — both re-write `InListPassiveTarget`.
             St::PollIdle | St::PollRead => self.send_poll(ctx),
             St::PollSettle => self.read(ctx, RESP_READ_LEN, St::PollRead),
         }
@@ -196,7 +196,7 @@ impl Pn532 {
         }
     }
 
-    /// Arm the next InListPassiveTarget cycle after the configured poll interval.
+    /// Arm the next `InListPassiveTarget` cycle after the configured poll interval.
     /// Lands in `PollIdle` so the tick *re-issues* the command (one-shot
     /// detection); parking in `PollSettle` would only re-read a spent buffer and
     /// the reader would detect a card exactly once.
@@ -336,9 +336,9 @@ enum Reply {
     Ack,
     /// Negative acknowledgement (`00 00 FF FF 00 00`).
     Nack,
-    /// A valid InListPassiveTarget response with a card: the UID bytes.
+    /// A valid `InListPassiveTarget` response with a card: the UID bytes.
     Card(Vec<u8>),
-    /// A valid InListPassiveTarget response reporting no target in the field.
+    /// A valid `InListPassiveTarget` response reporting no target in the field.
     NoCard,
     /// Framing/checksum error, or a response we don't handle.
     Malformed,
@@ -362,7 +362,7 @@ fn parse_reply(read: &[u8]) -> Reply {
     parse_in_list_response(frame)
 }
 
-/// Parse a normal information frame carrying an InListPassiveTarget response,
+/// Parse a normal information frame carrying an `InListPassiveTarget` response,
 /// verifying the length and data checksums before trusting the UID.
 fn parse_in_list_response(frame: &[u8]) -> Reply {
     // Locate the `00 FF` start-of-packet, tolerating leading padding bytes.
@@ -438,12 +438,12 @@ mod tests {
         assert_eq!(
             build_frame(SAM_CONFIGURATION),
             vec![0x00, 0x00, 0xFF, 0x05, 0xFB, 0xD4, 0x14, 0x01, 0x14, 0x01, 0x02, 0x00],
-            "SAMConfiguration frame",
+            "`SAMConfiguration` frame",
         );
         assert_eq!(
             build_frame(IN_LIST_PASSIVE_TARGET),
             vec![0x00, 0x00, 0xFF, 0x04, 0xFC, 0xD4, 0x4A, 0x01, 0x00, 0xE1, 0x00],
-            "InListPassiveTarget frame",
+            "`InListPassiveTarget` frame",
         );
     }
 
@@ -582,17 +582,17 @@ mod tests {
         // on_start arms the first tick.
         h.turn(&mut n, |n, ctx| n.on_start(ctx).unwrap());
 
-        // tick#1: writes SAMConfiguration.
+        // tick#1: writes `SAMConfiguration`.
         let out = h.tick(&mut n);
-        assert!(contains(&out, &sam), "first tick must write SAMConfiguration, got {out:02X?}");
+        assert!(contains(&out, &sam), "first tick must write `SAMConfiguration`, got {out:02X?}");
 
         // tick#2: issues the ACK read (no command write).
         let out = h.tick(&mut n);
         assert!(!contains(&out, &sam) && !contains(&out, &poll), "second tick only reads");
 
-        // ACK reply → writes InListPassiveTarget.
+        // ACK reply → writes `InListPassiveTarget`.
         let out = h.reply(&mut n, &[0x01, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00]);
-        assert!(contains(&out, &poll), "SAM reply must write InListPassiveTarget, got {out:02X?}");
+        assert!(contains(&out, &poll), "SAM reply must write `InListPassiveTarget`, got {out:02X?}");
 
         // tick: issues the response read.
         h.tick(&mut n);
@@ -627,7 +627,7 @@ mod tests {
     #[test]
     fn polls_again_for_a_new_card_after_reading_one() {
         // Regression: after the first card the reader must re-issue
-        // InListPassiveTarget every cycle (detection is one-shot). Parking in a
+        // `InListPassiveTarget` every cycle (detection is one-shot). Parking in a
         // read-only state made it detect a card exactly once and go deaf.
         let mut h = Harness::new();
         let mut n = Pn532::new("nfc".into(), Pn532Config::default());
@@ -640,10 +640,10 @@ mod tests {
         h.reply(&mut n, &in_list_response(&[0x04, 0xA2, 0xB1, 0xC3]));
         assert_eq!(n.state, St::PollIdle);
 
-        // The next poll tick must RE-WRITE InListPassiveTarget (the bug: it read
+        // The next poll tick must RE-WRITE `InListPassiveTarget` (the bug: it read
         // a spent buffer instead), then read and surface a *different* card.
         let out = h.tick(&mut n);
-        assert!(contains(&out, &poll), "next cycle must re-issue InListPassiveTarget, got {out:02X?}");
+        assert!(contains(&out, &poll), "next cycle must re-issue `InListPassiveTarget`, got {out:02X?}");
         assert_eq!(n.state, St::PollSettle);
 
         h.tick(&mut n); // PollSettle → issue the response read
