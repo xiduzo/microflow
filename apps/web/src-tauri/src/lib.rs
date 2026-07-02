@@ -207,8 +207,8 @@ pub fn run() {
                 .start_monitoring(app.handle().clone(), board_link, observer);
 
             // Hotkeys: the webview emits "key_event" { key, pressed }; Rust owns
-            // hotkey→component routing. Forward key-down to the actor, which
-            // dispatches to the registered Hotkey components.
+            // hotkey→component routing. Forward both key-down and key-up to the
+            // actor, which dispatches to the registered Hotkey components.
             let actor_keys = actor_tx.clone();
             app.handle().listen("key_event", move |event| {
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(event.payload()) {
@@ -221,11 +221,11 @@ pub fn run() {
                         .get("pressed")
                         .and_then(serde_json::Value::as_bool)
                         .unwrap_or(false);
-                    if key.is_empty() || !pressed {
+                    if key.is_empty() {
                         return;
                     }
-                    log::info!("[HOTKEY] key_event: {key}");
-                    let _ = actor_keys.send(host::ActorMsg::Key { accelerator: key });
+                    log::info!("[HOTKEY] key_event: {key} pressed={pressed}");
+                    let _ = actor_keys.send(host::ActorMsg::Key { accelerator: key, pressed });
                 }
             });
 

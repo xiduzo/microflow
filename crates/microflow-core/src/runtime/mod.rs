@@ -483,9 +483,10 @@ impl FlowRuntime {
         self.finish("inject", Vec::new(), ScheduleRequests::default())
     }
 
-    /// Deliver a hotkey press to every component listening on `accelerator`
-    /// (matched lowercased), then drain the cascade.
-    pub fn dispatch_key_event(&mut self, accelerator: &str) -> Effects {
+    /// Deliver a hotkey press (`pressed = true`) or release (`pressed = false`)
+    /// to every component listening on `accelerator` (matched lowercased), then
+    /// drain the cascade.
+    pub fn dispatch_key_event(&mut self, accelerator: &str, pressed: bool) -> Effects {
         let ids = self
             .key_listeners
             .get(&accelerator.to_lowercase())
@@ -494,7 +495,7 @@ impl FlowRuntime {
         let mut out = Vec::new();
         let mut reqs = ScheduleRequests::default();
         for id in ids {
-            self.dispatch_to(id.as_ref(), "key_event", ComponentValue::Bool(true), &mut out, &mut reqs);
+            self.dispatch_to(id.as_ref(), "key_event", ComponentValue::Bool(pressed), &mut out, &mut reqs);
         }
         self.finish("key", out, reqs)
     }

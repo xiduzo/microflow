@@ -64,8 +64,9 @@ pub enum ActorMsg {
         method: String,
         value: ComponentValue,
     },
-    /// A hotkey press (`key_event`), matched against registered hotkey listeners.
-    Key { accelerator: String },
+    /// A hotkey press/release (`key_event`), matched against registered hotkey
+    /// listeners. `pressed` distinguishes key-down (`true`) from key-up (`false`).
+    Key { accelerator: String, pressed: bool },
     /// An inbound MQTT / Figma broker payload routed to a subscribe component.
     Deliver {
         id: String,
@@ -288,9 +289,9 @@ impl Actor {
                 let effects = self.rt.dispatch(&id, &method, value);
                 self.apply(effects);
             }
-            ActorMsg::Key { accelerator } => {
+            ActorMsg::Key { accelerator, pressed } => {
                 self.set_now();
-                let effects = self.rt.dispatch_key_event(&accelerator);
+                let effects = self.rt.dispatch_key_event(&accelerator, pressed);
                 self.apply(effects);
             }
             ActorMsg::Deliver { id, topic, payload } => {
