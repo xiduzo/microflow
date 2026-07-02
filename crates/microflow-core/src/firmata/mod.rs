@@ -44,7 +44,13 @@ pub const I2C_REPLY: u8 = 0x77;
 pub const I2C_CONFIG: u8 = 0x78;
 pub const I2C_MODE_WRITE: u8 = 0x00;
 pub const I2C_MODE_READ: u8 = 0x01;
+/// I2C read-continuously mode (bits `0b10`): the board auto-reads and streams
+/// `I2C_REPLY` frames every `samplingInterval` ms until `STOP_READING`.
+pub const I2C_MODE_READ_CONTINUOUS: u8 = 0x02;
 pub const REPORT_FIRMWARE: u8 = 0x79;
+/// `SAMPLING_INTERVAL` sysex: sets the period (ms) of the board's main report
+/// loop — both analog reporting and continuous I2C reads stream at this rate.
+pub const SAMPLING_INTERVAL: u8 = 0x7A;
 pub const PROTOCOL_VERSION: u8 = 0xF9;
 pub const SYSEX_REALTIME: u8 = 0x7F;
 pub const START_SYSEX: u8 = 0xF0;
@@ -111,6 +117,10 @@ pub enum Message {
     CapabilityResponse,
     ReportFirmware,
     I2cReply,
+    /// A `STRING_DATA` sysex — `StandardFirmata`'s `Firmata.sendString`, used for
+    /// human-readable diagnostics (notably I2C failures like
+    /// "I2C: Too few bytes received"). Decoded text lands in `strings`.
+    StringData,
 }
 
 // --- The client -------------------------------------------------------------
@@ -122,6 +132,9 @@ pub enum Message {
 pub struct FirmataClient {
     pub pins: Vec<Pin>,
     pub i2c_data: Vec<I2cReply>,
+    /// Decoded `STRING_DATA` diagnostics from the board (e.g. I2C errors).
+    /// Callers drain + surface these; the codec only accumulates.
+    pub strings: Vec<String>,
     pub protocol_version: String,
     pub firmware_name: String,
     pub firmware_version: String,
@@ -201,14 +214,22 @@ impl FirmataClient {
         vec![REPORT_ANALOG | analog_channel, u8::from(enabled)]
     }
 
-    /// `[F0, I2C_CONFIG, delay_lsb, delay_msb, F7]`.
+    /// `[F0, I2C_CONFIG, delay_lsb, delay_msb, F7]` — the read-delay (µs) the
+    /// board waits between a register write and the read-back.
+    ///
+    /// Sysex data is **7-bit**: the firmware reassembles `argv[0] + (argv[1] << 7)`
+    /// (StandardFirmata `case I2C_CONFIG`), so the value is split low-7 / next-7,
+    /// NOT low-8 / high-8 like a plain `u16`. That also caps the delay at
+    /// `127 + (127 << 7) = 16383` µs (≈16.4ms) — anything larger silently wraps,
+    /// and a high byte ≥ 0x80 would set a status bit mid-sysex and corrupt the
+    /// frame. Callers must keep `delay <= 16383`.
     #[must_use]
     pub fn encode_i2c_config(&self, delay: i32) -> Vec<u8> {
         vec![
             START_SYSEX,
             I2C_CONFIG,
-            (delay & 0xFF) as u8,
-            ((delay >> 8) & 0xFF) as u8,
+            delay as u8 & SYSEX_REALTIME,
+            (delay >> 7) as u8 & SYSEX_REALTIME,
             END_SYSEX,
         ]
     }
@@ -239,10 +260,49 @@ impl FirmataClient {
         buf
     }
 
+    /// Start a continuous I2C read: the board re-writes `register` then reads
+    /// `size` bytes every `samplingInterval` ms and streams each as `I2C_REPLY`,
+    /// with no further requests from us. The register is sent inline (the
+    /// firmware's `argc == 6` path) so the device's address pointer is reset
+    /// before every read — required for auto-increment sensors like the TCS34725.
+    ///
+    /// Sends a STOP between the register write and the read (no repeated-start).
+    /// A repeated-start would let a hold-master sensor (SHT21/HTU21) clock-stretch
+    /// through its conversion inside the read, which on a classic AVR with no Wire
+    /// timeout HANGS the shared bus — taking every other I2C device down with it.
+    /// Those sensors must be read in *no-hold* mode (NACK-until-ready) instead.
+    #[must_use]
+    pub fn encode_i2c_read_continuous(&self, address: i32, register: i32, size: i32) -> Vec<u8> {
+        vec![
+            START_SYSEX,
+            I2C_REQUEST,
+            address as u8,
+            I2C_MODE_READ_CONTINUOUS << 3,
+            register as u8 & SYSEX_REALTIME,
+            (register >> 7) as u8 & SYSEX_REALTIME,
+            size as u8 & SYSEX_REALTIME,
+            (size >> 7) as u8 & SYSEX_REALTIME,
+            END_SYSEX,
+        ]
+    }
+
     /// Stop continuous I2C reading for `address` (mode bits `0b11`).
     #[must_use]
     pub fn encode_i2c_stop_reading(&self, address: i32) -> Vec<u8> {
         vec![START_SYSEX, I2C_REQUEST, address as u8, 0b11 << 3, END_SYSEX]
+    }
+
+    /// `[F0, SAMPLING_INTERVAL, ms_lsb, ms_msb, F7]` — sets the board report-loop
+    /// period. Governs the streaming rate of continuous I2C reads (and analog).
+    #[must_use]
+    pub fn encode_sampling_interval(&self, interval_ms: i32) -> Vec<u8> {
+        vec![
+            START_SYSEX,
+            SAMPLING_INTERVAL,
+            interval_ms as u8 & SYSEX_REALTIME,
+            (interval_ms >> 7) as u8 & SYSEX_REALTIME,
+            END_SYSEX,
+        ]
     }
 
     /// Raw sysex: `[F0, command, data.., F7]`. Data must already be 7-bit.
@@ -451,6 +511,26 @@ impl FirmataClient {
                 }
                 self.i2c_data.push(reply);
                 Step::Parsed(Message::I2cReply)
+            }
+            STRING_DATA => {
+                // `Firmata.sendString` payload: ASCII chars as 7-bit (lsb, msb)
+                // pairs between the command byte and END_SYSEX. Recombine each
+                // pair; skip embedded NULs. This is the board's own diagnostic
+                // channel — e.g. "I2C: Too few bytes received" when a device
+                // never ACKs, which otherwise vanished silently.
+                let body = &buf[2..buf.len() - 1];
+                let mut s = String::new();
+                let mut i = 0;
+                while i < body.len() {
+                    let hi = body.get(i + 1).copied().unwrap_or(0);
+                    let ch = body[i] | (hi << 7);
+                    if ch != 0 {
+                        s.push(ch as char);
+                    }
+                    i += 2;
+                }
+                self.strings.push(s);
+                Step::Parsed(Message::StringData)
             }
             _ => Step::Skipped,
         }

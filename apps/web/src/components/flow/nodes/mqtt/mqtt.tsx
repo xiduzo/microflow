@@ -79,7 +79,9 @@ function Settings() {
       topic: { value: data.topic },
       qos: {
         value: data.qos,
-        options: { "0": "At most once (0)", "1": "At least once (1)", "2": "Exactly once (2)" },
+        // Leva options are { [label]: value }; value side must be the "0"|"1"|"2"
+        // the schema/runtime expect, not the human label.
+        options: { "At most once (0)": "0", "At least once (1)": "1", "Exactly once (2)": "2" },
         label: "QoS",
       },
       ...(data.direction === "publish" && {

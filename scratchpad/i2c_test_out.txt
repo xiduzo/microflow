@@ -1,0 +1,17 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (target/debug/deps/microflow_core-b1088675a8ddca4c)
+
+running 10 tests
+test codegen::input::i2c_device::tests::i2c_includes_wire_and_begins_bus ... ok
+test codegen::input::i2c_device::tests::i2c_custom_device_emits_no_init_writes ... ok
+test codegen::input::i2c_device::tests::i2c_reads_configured_length_and_address ... ok
+test codegen::input::i2c_device::tests::i2c_sign_extends_for_signed_format ... ok
+test codegen::input::i2c_device::tests::i2c_snake_case_read_length_is_ignored ... ok
+test codegen::input::i2c_device::tests::i2c_emits_deterministically ... ok
+test codegen::input::i2c_device::tests::i2c_tcs34725_enables_adc_in_setup ... ok
+test firmata::tests::i2c_frames_match_spec ... ok
+test codegen::input::i2c_device::tests::i2c_unsigned_does_not_sign_extend ... ok
+test firmata::tests::i2c_reply_decodes_address_register_and_data ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 367 filtered out; finished in 0.00s
+

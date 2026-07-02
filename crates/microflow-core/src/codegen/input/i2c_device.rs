@@ -44,23 +44,34 @@ pub fn emit(node: &FlowNode) -> NodeEmission {
     let token = node.id_token();
     let value = value_var(node);
     let addr = u8_field(node, "address", DEFAULT_ADDRESS);
-    let register = u8_field(node, "register", 0);
-    let read_length = u8_field(node, "read_length", DEFAULT_READ_LENGTH).max(1);
+    let register = effective_register(node);
+    // Web sends camelCase keys; mirrors the runtime config's `rename_all`.
+    let read_length = u8_field(node, "readLength", DEFAULT_READ_LENGTH).max(1);
     let signed = is_signed(node);
 
     let acc = format!("i2c_{token}_acc");
     let i = format!("i2c_{token}_i");
     let b = format!("i2c_{token}_b");
 
+    // No-hold sensors (SHT2x/HTU21) NACK until their conversion completes, so the
+    // command write must end with a STOP and be followed by a delay before the
+    // read. Other devices keep the repeated-start (no STOP, no delay) read.
+    let delay_ms = read_delay_ms(node);
+    let stop_tx = if delay_ms > 0 { "true" } else { "false" };
     let mut loop_body = vec![
         format!("Wire.beginTransmission((uint8_t){addr});"),
         format!("Wire.write((uint8_t){register});"),
-        "Wire.endTransmission(false);".to_string(),
+        format!("Wire.endTransmission({stop_tx});"),
+    ];
+    if delay_ms > 0 {
+        loop_body.push(format!("delay({delay_ms});"));
+    }
+    loop_body.extend([
         format!("Wire.requestFrom((uint8_t){addr}, (uint8_t){read_length});"),
         format!("long {acc} = 0;"),
         format!("for (uint8_t {i} = 0; {i} < {read_length} && Wire.available(); {i}++) {{"),
         format!("  uint8_t {b} = Wire.read();"),
-    ];
+    ]);
     if signed {
         // Sign-extend from the most-significant byte, big-endian, like the runtime.
         loop_body.push(format!("  if ({i} == 0 && ({b} & 0x80)) {{ {acc} = -1; }}"));
@@ -69,11 +80,67 @@ pub fn emit(node: &FlowNode) -> NodeEmission {
     loop_body.push("}".to_string());
     loop_body.push(format!("{value} = {acc};"));
 
+    // Power on / configure known devices once in setup(), mirroring the runtime's
+    // `device_init_writes`. Keyed off the `device` preset id so generic/custom
+    // devices emit nothing extra.
+    let mut setup = vec!["Wire.begin();".to_string()];
+    for &payload in device_init_writes(node) {
+        setup.push(format!("Wire.beginTransmission((uint8_t){addr});"));
+        for &byte in payload {
+            setup.push(format!("Wire.write((uint8_t){byte});"));
+        }
+        setup.push("Wire.endTransmission();".to_string());
+    }
+
     NodeEmission {
         includes: vec!["#include <Wire.h>".to_string()],
         declarations: vec![format!("long {value} = 0;")],
-        setup: vec!["Wire.begin();".to_string()],
+        setup,
         loop_body,
+    }
+}
+
+/// One-time I2C writes a known device needs before it produces data, keyed off
+/// the `device` preset id. Mirrors `runtime/input/i2c_device.rs::device_init_writes`.
+fn device_init_writes(node: &FlowNode) -> &'static [&'static [u8]] {
+    match node.data.get("device").and_then(serde_json::Value::as_str) {
+        // TCS34725: ENABLE (0x00 | command-bit 0x80) = PON | AEN, powers the ADC.
+        Some("tcs34725") => &[&[0x80, 0x03]],
+        // SHT21/HTU21: user register (0xE6) → 11-bit resolution (0x83), so the
+        // no-hold conversion is ~11ms and fits the read-delay. Mirrors the runtime.
+        Some("sht21_temp") | Some("sht21_humidity") => &[&[0xE6, 0x83]],
+        _ => &[],
+    }
+}
+
+/// The register actually read, with the hold-master → no-hold safety override.
+/// Mirrors `runtime/input/i2c_device.rs::effective_register`: an SHT2x/HTU21 node
+/// whose persisted register is a hold-master trigger (0xE3/0xE5) is remapped to
+/// its no-hold equivalent (0xF3/0xF5), since hold-master clock-stretches and
+/// hangs the AVR I2C bus. Stale docs (saved before the no-hold preset change)
+/// keep the old value, so the runtime and the generated sketch must both correct
+/// it. Non-SHT devices are untouched.
+fn effective_register(node: &FlowNode) -> u8 {
+    let register = u8_field(node, "register", 0);
+    match node.data.get("device").and_then(serde_json::Value::as_str) {
+        Some("sht21_temp") | Some("sht21_humidity") => match register {
+            0xE3 => 0xF3,
+            0xE5 => 0xF5,
+            other => other,
+        },
+        _ => register,
+    }
+}
+
+/// Delay (ms) inserted between the register write and the read for no-hold
+/// sensors that NACK until their conversion completes. Mirrors the runtime's
+/// `i2c_read_delay_us` hint; the generated sketch uses a plain `delay()` (not
+/// Firmata's 7-bit-capped I2C_CONFIG), so 30ms is safe and leaves more margin
+/// over the 15ms worst-case 11-bit conversion. Zero ⇒ repeated-start immediate read.
+fn read_delay_ms(node: &FlowNode) -> u32 {
+    match node.data.get("device").and_then(serde_json::Value::as_str) {
+        Some("sht21_temp") | Some("sht21_humidity") => 30,
+        _ => 0,
     }
 }
 
@@ -101,9 +168,64 @@ mod tests {
 
     #[test]
     fn i2c_reads_configured_length_and_address() {
-        let e = emit(&i2c("d-1", json!({ "address": 0x40, "read_length": 3 })));
+        // camelCase `readLength` — the key the web actually sends.
+        let e = emit(&i2c("d-1", json!({ "address": 0x40, "readLength": 3 })));
         assert!(e.loop_body.iter().any(|l| l.contains("requestFrom") && l.contains("64")));
         assert!(e.loop_body.iter().any(|l| l.contains("< 3 &&")));
+    }
+
+    #[test]
+    fn i2c_snake_case_read_length_is_ignored() {
+        // Guard the rename: the old snake_case key must NOT be honored, else the
+        // runtime (camelCase) and codegen would disagree on byte count.
+        let e = emit(&i2c("d-1", json!({ "read_length": 8 })));
+        assert!(e.loop_body.iter().any(|l| l.contains("< 2 &&")), "must fall back to default 2");
+    }
+
+    #[test]
+    fn i2c_tcs34725_enables_adc_in_setup() {
+        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })));
+        // ENABLE register 0x80 = 128, value 3 written once in setup().
+        assert!(e.setup.iter().any(|s| s.contains("128")), "must write ENABLE register");
+        assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)3)")));
+    }
+
+    #[test]
+    fn i2c_custom_device_emits_no_init_writes() {
+        let e = emit(&i2c("d-1", json!({ "device": "custom" })));
+        // Only Wire.begin() — no extra transmissions for generic devices.
+        assert_eq!(e.setup, vec!["Wire.begin();".to_string()]);
+    }
+
+    #[test]
+    fn i2c_sht21_uses_stop_and_delay_and_sets_resolution() {
+        let e = emit(&i2c(
+            "d-1",
+            json!({ "device": "sht21_temp", "address": 0x40, "register": 0xF3, "readLength": 2 }),
+        ));
+        // No-hold: STOP after the command write, then a delay before the read.
+        assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(true)")));
+        assert!(e.loop_body.iter().any(|l| l.starts_with("delay(")), "must delay before read");
+        // Resolution write to the user register (0xE6 = 230, 0x83 = 131) in setup.
+        assert!(e.setup.iter().any(|s| s.contains("230")), "must write user register");
+        assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)131)")));
+    }
+
+    #[test]
+    fn i2c_sht21_stale_hold_master_register_is_remapped() {
+        // A doc saved before the no-hold preset change still carries 0xE3 (=227);
+        // the sketch must write the no-hold 0xF3 (=243) instead, never the
+        // bus-hanging hold-master register.
+        let e = emit(&i2c("d-1", json!({ "device": "sht21_temp", "register": 0xE3 })));
+        assert!(e.loop_body.iter().any(|l| l.contains("Wire.write((uint8_t)243)")), "must remap to 0xF3");
+        assert!(!e.loop_body.iter().any(|l| l.contains("Wire.write((uint8_t)227)")), "must not emit 0xE3");
+    }
+
+    #[test]
+    fn i2c_non_sht_keeps_repeated_start_without_delay() {
+        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })));
+        assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(false)")));
+        assert!(!e.loop_body.iter().any(|l| l.starts_with("delay(")), "non-no-hold must not delay");
     }
 
     #[test]

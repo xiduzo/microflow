@@ -49,6 +49,13 @@ fn i2c_frames_match_spec() {
         c.encode_i2c_config(0),
         vec![START_SYSEX, I2C_CONFIG, 0, 0, END_SYSEX]
     );
+    // 7-bit split (firmware decodes argv[0] + (argv[1] << 7)), NOT an 8-bit u16
+    // split. 16000 -> low7 = 16000 & 0x7F = 0, next7 = 16000 >> 7 = 125. An 8-bit
+    // split would (wrongly) emit [128, 62] and the board would read 8064 µs.
+    assert_eq!(
+        c.encode_i2c_config(16000),
+        vec![START_SYSEX, I2C_CONFIG, 0, 125, END_SYSEX]
+    );
     assert_eq!(
         c.encode_i2c_read(0x08, 6),
         vec![START_SYSEX, I2C_REQUEST, 0x08, I2C_MODE_READ << 3, 6, 0, END_SYSEX]
@@ -61,6 +68,27 @@ fn i2c_frames_match_spec() {
     assert_eq!(
         c.encode_i2c_stop_reading(0x08),
         vec![START_SYSEX, I2C_REQUEST, 0x08, 0b11 << 3, END_SYSEX]
+    );
+    // Continuous read of register 0xB4 (=180 → lsb 52, msb 1), 8 bytes, with the
+    // register sent inline (firmware `argc == 6` path) so it's re-applied each cycle.
+    // STOP between write and read (no repeated-start — see encode_i2c_read_continuous).
+    assert_eq!(
+        c.encode_i2c_read_continuous(0x29, 0xB4, 8),
+        vec![START_SYSEX, I2C_REQUEST, 0x29, I2C_MODE_READ_CONTINUOUS << 3, 52, 1, 8, 0, END_SYSEX]
+    );
+}
+
+#[test]
+fn sampling_interval_frame_matches_spec() {
+    let c = FirmataClient::new();
+    // 100ms -> lsb 100, msb 0; 200ms -> lsb 72 (200 & 0x7F), msb 1.
+    assert_eq!(
+        c.encode_sampling_interval(100),
+        vec![START_SYSEX, SAMPLING_INTERVAL, 100, 0, END_SYSEX]
+    );
+    assert_eq!(
+        c.encode_sampling_interval(200),
+        vec![START_SYSEX, SAMPLING_INTERVAL, 72, 1, END_SYSEX]
     );
 }
 
@@ -212,6 +240,16 @@ fn i2c_reply_decodes_address_register_and_data() {
     assert_eq!(c.i2c_data[0].address, 0x08);
     assert_eq!(c.i2c_data[0].register, 0x00);
     assert_eq!(c.i2c_data[0].data, vec![0x42, 0x13]);
+}
+
+#[test]
+fn string_data_decodes_ascii_diagnostics() {
+    let mut c = FirmataClient::new();
+    // "Hi" as Firmata 7-bit (lsb, msb) pairs — the shape of an I2C error string.
+    let frame = [START_SYSEX, STRING_DATA, b'H', 0, b'i', 0, END_SYSEX];
+    let msgs = c.feed(&frame);
+    assert_eq!(msgs, vec![Message::StringData]);
+    assert_eq!(c.strings, vec!["Hi".to_string()]);
 }
 
 // --- Framing ----------------------------------------------------------------

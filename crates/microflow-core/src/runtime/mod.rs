@@ -42,7 +42,9 @@ pub mod cloud;
 // here so existing `crate::runtime::serde_utils` references keep resolving.
 pub use crate::config::serde_utils;
 pub use board::{BoardWriter, BufferBoardWriter};
-pub use component::{Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent};
+pub use component::{
+    Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent, I2cContinuousRead,
+};
 pub use context::{
     CloudRequest, CloudRequestKind, Effects, EffectsSink, RuntimeContext, ScheduleRequests, Wakeup,
     WakeupId,
@@ -148,6 +150,9 @@ pub struct FlowRuntime {
     /// Monotonic per-turn id, stamped on every `flow tick` event and its nested
     /// per-event traces so a turn's records correlate in a flat log/sink.
     run_seq: u64,
+    /// Last `STRING_DATA` diagnostic logged, to dedupe a per-poll failure
+    /// (e.g. a non-ACKing I2C device) into a single line until it changes.
+    last_firmata_string: Option<String>,
 }
 
 impl FlowRuntime {
@@ -172,6 +177,7 @@ impl FlowRuntime {
             outstanding: HashMap::new(),
             tick_errors: 0,
             run_seq: 0,
+            last_firmata_string: None,
         }
     }
 
@@ -267,6 +273,10 @@ impl FlowRuntime {
         let mut i2c_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
         let mut key_listeners: HashMap<String, Vec<Arc<str>>> = HashMap::new();
         let mut report: HashMap<u8, bool> = HashMap::new();
+        // The single global sampling interval / I2C read-delay are reconciled to
+        // the MAX hint across components (both are board-wide Firmata settings).
+        let mut max_interval: Option<u32> = None;
+        let mut max_i2c_delay: Option<u32> = None;
         for (id, component) in &self.components {
             for wiring in component.listener_wiring() {
                 match wiring {
@@ -287,6 +297,13 @@ impl FlowRuntime {
                         key_listeners.entry(accelerator).or_default().push(Arc::from(id.as_str()));
                     }
                 }
+            }
+            // Slowest sensor sets the pace — take the max across all components.
+            if let Some(ms) = component.sampling_interval_hint() {
+                max_interval = max_interval.max(Some(ms));
+            }
+            if let Some(us) = component.i2c_read_delay_us() {
+                max_i2c_delay = max_i2c_delay.max(Some(us));
             }
         }
 
@@ -339,9 +356,38 @@ impl FlowRuntime {
             }
         }
 
+        // Enable the I2C bus + set the global read-delay ONCE, before the per-node
+        // continuous reads issue in step 6. Delay = MAX hint (no-hold sensors like
+        // the SHT2x need the read to land after their conversion); 0 otherwise.
+        // Done here, not per-node, so the last node can't zero another's delay.
+        if !i2c_listeners.is_empty() {
+            let delay = i32::try_from(max_i2c_delay.unwrap_or(0)).unwrap_or(i32::MAX);
+            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
+            if let Err(e) = writer.i2c_config(delay) {
+                log::warn!("i2c_config (read-delay {delay}us) failed: {e}");
+            }
+        }
+
+        // Reconcile the board's single global sampling interval to the slowest
+        // sensor's required rate. Sent on every update_flow (cheap 5-byte sysex,
+        // and the runtime is rebuilt fresh on each board (re)connect, so this is
+        // also how the rate is restored after a replug). No I2C/streaming node ⇒
+        // no hint ⇒ leave the firmware default untouched.
+        if let Some(ms) = max_interval {
+            let ms = i32::try_from(ms).unwrap_or(i32::MAX);
+            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
+            if let Err(e) = writer.sampling_interval(ms) {
+                log::warn!("set sampling interval {ms}ms failed: {e}");
+            }
+        }
+
         self.active_pins = report.keys().copied().collect();
         self.pin_values.retain(|pin, _| report.contains_key(pin));
         self.pin_listeners = pin_listeners;
+        // Snapshot per-address continuous-query counts BEFORE overwriting, so the
+        // central arming step (6b) can drain the board's existing queries exactly.
+        let prev_i2c_counts: HashMap<u8, usize> =
+            self.i2c_listeners.iter().map(|(&addr, ids)| (addr, ids.len())).collect();
         self.i2c_listeners = i2c_listeners;
         self.key_listeners = key_listeners;
         self.report_set = report;
@@ -363,6 +409,41 @@ impl FlowRuntime {
             }
         }
 
+        // 6b. Arm every I2C continuous read centrally: STOP all existing queries,
+        // then START the full desired set. This must NOT happen per-node in
+        // `initialize`: StandardFirmata's `I2C_STOP_READING` clears the lone
+        // remaining query regardless of address (firmware `case I2C_STOP_READING`:
+        // `if (queryIndex <= 0) queryIndex = -1`), so a per-node stop+start drops a
+        // sibling device the instant a second sensor registers on the shared bus.
+        // Drain-all-then-arm-all rebuilds the exact query set — no cross-device
+        // clobber, and no duplicates on re-init. Replayed every update_flow (also
+        // restores arming after a replug rebuilds the runtime).
+        let i2c_reads: Vec<I2cContinuousRead> =
+            self.components.values().filter_map(|c| c.i2c_continuous_read()).collect();
+        if !i2c_reads.is_empty() || !prev_i2c_counts.is_empty() {
+            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
+            // Stop each address exactly as many times as it previously had queries
+            // — enough to drain it, never more (an extra stop clears an innocent
+            // sibling's lone query). The trailing arm-all repairs any accidental
+            // clear, so the board always ends equal to the desired set.
+            for (&addr, &count) in &prev_i2c_counts {
+                for _ in 0..count {
+                    if let Err(e) = writer.i2c_stop_reading(i32::from(addr)) {
+                        log::warn!("i2c_stop_reading 0x{addr:02X} failed: {e}");
+                    }
+                }
+            }
+            for r in &i2c_reads {
+                if let Err(e) = writer.i2c_read_continuous(
+                    i32::from(r.address),
+                    i32::from(r.register),
+                    i32::from(r.length),
+                ) {
+                    log::warn!("i2c_read_continuous 0x{:02X} failed: {e}", r.address);
+                }
+            }
+        }
+
         // 7. Rebuild edges, then drain any init-time emissions.
         self.router.set_edges(edges);
         self.finish("update_flow", out, reqs)
@@ -374,7 +455,21 @@ impl FlowRuntime {
         self.client.feed(bytes);
         self.detect_pin_changes();
         self.drain_i2c_replies();
+        self.drain_firmata_strings();
         self.finish("feed_bytes", Vec::new(), ScheduleRequests::default())
+    }
+
+    /// Surface the board's `STRING_DATA` diagnostics (e.g. "I2C: Too few bytes
+    /// received" when a device never ACKs). These were silently dropped before;
+    /// logging them turns an invisible bus failure into an actionable line.
+    /// Deduped against the last message so a per-poll failure doesn't spam.
+    fn drain_firmata_strings(&mut self) {
+        for s in self.client.strings.drain(..) {
+            if self.last_firmata_string.as_deref() != Some(s.as_str()) {
+                log::warn!("firmata board says: {s}");
+                self.last_firmata_string = Some(s);
+            }
+        }
     }
 
     /// A host timer fired: deliver `method` to `node_id` as an internal event
@@ -1078,6 +1173,55 @@ mod tests {
 
         let led_on = FirmataClient::new().encode_digital_write(13, true);
         assert!(contains(&effects.outbound_bytes, &led_on), "sensor>0 should light the led via the gate");
+    }
+
+    /// Regression: adding a second I2C device must NOT drop the first. Each node
+    /// used to arm its own continuous read in `initialize` behind a preceding
+    /// `stop_reading`, but StandardFirmata clears the lone remaining query
+    /// regardless of address — so the second node's stop wiped the first and only
+    /// the latest sensor streamed. Arming is now centralized (drain-all then
+    /// arm-all per `update_flow`); both reads must be present after the second flow.
+    #[test]
+    fn adding_second_i2c_device_keeps_the_first_armed() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        rt.seed_digital_pins(20);
+
+        let sht = node(
+            "sht",
+            "I2cDevice",
+            json!({ "device": "custom", "address": 64, "register": 0, "readLength": 2 }),
+        );
+        let tcs = node(
+            "tcs",
+            "I2cDevice",
+            json!({ "device": "custom", "address": 41, "register": 180, "readLength": 8 }),
+        );
+
+        // First flow: only the SHT (0x40) is armed.
+        let first = rt.update_flow(FlowUpdate { nodes: vec![sht.clone()], edges: vec![] });
+        let client = FirmataClient::new();
+        let read_sht = client.encode_i2c_read_continuous(0x40, 0x00, 2);
+        assert!(
+            contains(&first.outbound_bytes, &read_sht),
+            "first flow must arm the SHT continuous read, got: {:02X?}",
+            first.outbound_bytes
+        );
+
+        // Second flow ADDS the TCS (0x29). Both reads must now be armed — the SHT
+        // must be RE-ARMED, not silently dropped by the TCS's stop.
+        let second = rt.update_flow(FlowUpdate { nodes: vec![sht, tcs], edges: vec![] });
+        let read_tcs = client.encode_i2c_read_continuous(0x29, 0xB4, 8);
+        assert!(
+            contains(&second.outbound_bytes, &read_tcs),
+            "second flow must arm the TCS continuous read, got: {:02X?}",
+            second.outbound_bytes
+        );
+        assert!(
+            contains(&second.outbound_bytes, &read_sht),
+            "second flow must RE-ARM the SHT — the bug dropped it when the TCS registered; got: {:02X?}",
+            second.outbound_bytes
+        );
     }
 
     /// The full hardware-faithful analog loop on an Uno-shaped board: seed the

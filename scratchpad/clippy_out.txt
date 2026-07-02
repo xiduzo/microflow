@@ -1,0 +1,2 @@
+    Checking microflow-core v0.1.0 (/Users/sander/personal/microflow-t-stack/crates/microflow-core)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.75s

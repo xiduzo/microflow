@@ -12,7 +12,11 @@ import {
 } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { dataSchema, type Data, type Value } from "./i2c-device.schema";
-import { I2C_PRESETS, I2C_DEVICE_OPTIONS, I2C_OUTPUT_OPTIONS } from "./i2c-device.constants";
+import {
+  I2C_PRESETS,
+  I2C_DEVICE_OPTIONS,
+  I2C_OUTPUT_OPTIONS,
+} from "./i2c-device.constants";
 import { folder } from "leva";
 
 export function I2cDevice(props: Props) {
@@ -24,7 +28,11 @@ export function I2cDevice(props: Props) {
         instance="I2cDevice"
         portOverrides={{
           write: { handleType: "value", hint: "write bytes", offset: -0.5 },
-          trigger: { handleType: "command", hint: "one-shot read", offset: 0.5 },
+          trigger: {
+            handleType: "command",
+            hint: "one-shot read",
+            offset: 0.5,
+          },
         }}
         emitOverrides={{ value: { handleType: "value" } }}
       />
@@ -54,7 +62,11 @@ function Settings() {
       value: data.device,
       options: I2C_DEVICE_OPTIONS,
       label: "device preset",
-      onChange: (value: string, _path: string, context: { initial: boolean }) => {
+      onChange: (
+        value: string,
+        _path: string,
+        context: { initial: boolean },
+      ) => {
         if (context.initial) return;
         const preset = I2C_PRESETS[value];
         if (preset && value !== "custom") {
@@ -64,12 +76,14 @@ function Settings() {
             register: preset.register,
             readLength: preset.readLength,
             output: preset.output,
+            freq: preset.freq,
           });
           set({
             address: preset.address,
             register: preset.register,
             readLength: preset.readLength,
             output: preset.output,
+            freq: preset.freq,
           });
         }
       },
@@ -77,7 +91,7 @@ function Settings() {
     address: {
       value: data.address,
       min: 0,
-      max: 127,
+      max: 255,
       step: 1,
       label: "address (dec)",
     },
@@ -101,6 +115,16 @@ function Settings() {
           value: data.output,
           options: I2C_OUTPUT_OPTIONS,
           label: "output format",
+        },
+        // The runtime maps this to the board's Firmata sampling interval, which
+        // is the rate at which it streams continuous I2C reads back (no polling);
+        // see `initialize` in runtime/input/i2c_device.rs. Global to the board.
+        freq: {
+          value: data.freq,
+          min: 20,
+          max: 5000,
+          step: 10,
+          label: "stream interval (ms)",
         },
       },
       { collapsed: true },

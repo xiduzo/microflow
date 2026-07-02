@@ -25,6 +25,19 @@ use std::sync::Arc;
 /// completion each turn. Single-threaded, so `Rc<RefCell<…>>` not `Arc<Mutex>`.
 pub type EventSink = Rc<RefCell<VecDeque<ComponentEvent>>>;
 
+/// A single I2C continuous-read the board should stream: `(address, register,
+/// length)`. Every hardware component that streams over I2C reports one via
+/// [`Component::i2c_continuous_read`]; the runtime arms them all centrally in
+/// `update_flow` (stop-all-then-start-all) rather than per-node, because
+/// StandardFirmata's `I2C_STOP_READING` clears the lone remaining query
+/// regardless of address — so a per-node stop+start would drop a sibling device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct I2cContinuousRead {
+    pub address: u8,
+    pub register: u8,
+    pub length: u8,
+}
+
 /// Trait that all flow components implement.
 ///
 /// Lifecycle: `build` (concrete fn) → `set_sink` (wire the emit queue) →
@@ -142,6 +155,32 @@ pub trait Component {
     /// Async subscriptions this component requests against an MQTT broker.
     fn subscriber_wiring(&self) -> Vec<SubscriberWiring> {
         Vec::new()
+    }
+
+    /// Desired board sampling interval in ms, if this component streams at a
+    /// specific rate (I2C continuous reads). The sampling interval is a single
+    /// GLOBAL Firmata setting shared by every continuous read and analog report,
+    /// so the runtime reconciles it to the **MAX** of all components' hints —
+    /// the slowest sensor sets the pace so a faster one can't out-run another
+    /// device's conversion time and read stale/zero data. `None` = no preference.
+    fn sampling_interval_hint(&self) -> Option<u32> {
+        None
+    }
+
+    /// Desired I2C read-delay in **microseconds** — the gap the board waits
+    /// between writing a device's register and reading it back. Like the
+    /// sampling interval this is a single GLOBAL Firmata setting, so the runtime
+    /// uses the MAX across all components. No-hold sensors (SHT2x/HTU21) need it
+    /// so the read lands after their conversion completes (they NACK until then);
+    /// most devices want `None` (0) and read immediately.
+    fn i2c_read_delay_us(&self) -> Option<u32> {
+        None
+    }
+
+    /// The I2C continuous read this component streams, if any — armed centrally
+    /// by the runtime (see [`I2cContinuousRead`]). `None` = not an I2C streamer.
+    fn i2c_continuous_read(&self) -> Option<I2cContinuousRead> {
+        None
     }
 }
 

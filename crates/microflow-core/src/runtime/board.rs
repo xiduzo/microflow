@@ -28,8 +28,15 @@ pub trait BoardWriter {
     fn sysex(&mut self, command: u8, data: &[u8]) -> Result<(), RuntimeError>;
     fn i2c_config(&mut self, delay: i32) -> Result<(), RuntimeError>;
     fn i2c_read(&mut self, address: i32, size: i32) -> Result<(), RuntimeError>;
+    fn i2c_read_continuous(
+        &mut self,
+        address: i32,
+        register: i32,
+        size: i32,
+    ) -> Result<(), RuntimeError>;
     fn i2c_write(&mut self, address: i32, data: &[u8]) -> Result<(), RuntimeError>;
     fn i2c_stop_reading(&mut self, address: i32) -> Result<(), RuntimeError>;
+    fn sampling_interval(&mut self, interval_ms: i32) -> Result<(), RuntimeError>;
 }
 
 /// [`BoardWriter`] that encodes into a byte buffer via a borrowed
@@ -165,6 +172,17 @@ impl BoardWriter for BufferBoardWriter<'_> {
         Ok(())
     }
 
+    fn i2c_read_continuous(
+        &mut self,
+        address: i32,
+        register: i32,
+        size: i32,
+    ) -> Result<(), RuntimeError> {
+        self.out
+            .extend_from_slice(&self.client.encode_i2c_read_continuous(address, register, size));
+        Ok(())
+    }
+
     fn i2c_write(&mut self, address: i32, data: &[u8]) -> Result<(), RuntimeError> {
         self.out.extend_from_slice(&self.client.encode_i2c_write(address, data));
         Ok(())
@@ -172,6 +190,12 @@ impl BoardWriter for BufferBoardWriter<'_> {
 
     fn i2c_stop_reading(&mut self, address: i32) -> Result<(), RuntimeError> {
         self.out.extend_from_slice(&self.client.encode_i2c_stop_reading(address));
+        Ok(())
+    }
+
+    fn sampling_interval(&mut self, interval_ms: i32) -> Result<(), RuntimeError> {
+        self.out
+            .extend_from_slice(&self.client.encode_sampling_interval(interval_ms));
         Ok(())
     }
 }
