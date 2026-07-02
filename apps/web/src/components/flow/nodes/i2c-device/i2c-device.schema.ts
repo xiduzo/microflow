@@ -12,6 +12,9 @@ export const dataSchema = baseDataSchema.extend({
   freq: z.number().min(10).default(100),
   device: z.string().default("custom"),
   output: z.enum(["raw", "unsigned_int", "signed_int"]).default("unsigned_int"),
+  // Stream continuously on the board's sampling interval (default) vs. read only
+  // when the `trigger` handle fires. Mirrors the runtime config's `autoread`.
+  autoread: z.boolean().default(true),
 });
 
 export type Data = z.infer<typeof dataSchema>;

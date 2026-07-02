@@ -49,6 +49,12 @@ pub struct I2cDeviceConfig {
     pub device: String,
     #[serde(default)]
     pub output: OutputFormat,
+    /// Stream on the board's sampling interval (`true`, default) vs. read only
+    /// when the `trigger` command handle fires (`false`). When off, no continuous
+    /// read is armed — `i2c_continuous_read` returns `None` — so the bus stays
+    /// quiet until a one-shot `trigger` requests a read.
+    #[serde(default = "default_autoread")]
+    pub autoread: bool,
 }
 
 fn default_address() -> u8 {
@@ -63,6 +69,9 @@ fn default_freq() -> u32 {
 fn default_device() -> String {
     "custom".to_string()
 }
+fn default_autoread() -> bool {
+    true
+}
 
 impl Default for I2cDeviceConfig {
     fn default() -> Self {
@@ -73,6 +82,7 @@ impl Default for I2cDeviceConfig {
             freq: default_freq(),
             device: default_device(),
             output: OutputFormat::default(),
+            autoread: default_autoread(),
         }
     }
 }
@@ -244,7 +254,14 @@ impl Component for I2cDevice {
     /// (stop-all-then-start-all in `update_flow`), never per-node — see
     /// [`I2cContinuousRead`]. Uses the no-hold-safe `effective_register` so a
     /// stale hold-master SHT2x register can't reach the bus.
+    ///
+    /// Returns `None` when `autoread` is off: the node then reads only on demand
+    /// via the `trigger` handle (`dispatch` → `request_read`), so nothing is armed
+    /// and the bus stays quiet until triggered.
     fn i2c_continuous_read(&self) -> Option<I2cContinuousRead> {
+        if !self.config.autoread {
+            return None;
+        }
         Some(I2cContinuousRead {
             address: self.config.address,
             register: self.effective_register(),
@@ -461,6 +478,34 @@ mod tests {
         for id in ["custom", "tcs34725", "bme280_temp"] {
             assert_eq!(device(id).i2c_read_delay_us(), None, "device {id} must not delay reads");
         }
+    }
+
+    #[test]
+    fn autoread_defaults_on_and_arms_a_continuous_read() {
+        // Default (and flows saved before `autoread` existed, via serde default)
+        // stream: a continuous read is armed for the central runtime to fire.
+        let dev = device("custom");
+        assert!(dev.config.autoread, "autoread must default to on");
+        let read = dev.i2c_continuous_read().expect("autoread on must arm a continuous read");
+        assert_eq!(read.address, dev.config.address);
+        assert_eq!(read.length, dev.config.read_length);
+    }
+
+    #[test]
+    fn autoread_off_arms_no_continuous_read() {
+        // With autoread off the node is trigger-only: nothing is armed, so the
+        // runtime's central stop-all-then-start-all leaves this address quiet.
+        let config = I2cDeviceConfig { autoread: false, ..Default::default() };
+        let dev = I2cDevice::new("d-1".to_string(), config);
+        assert!(dev.i2c_continuous_read().is_none(), "autoread off must not stream");
+    }
+
+    #[test]
+    fn autoread_absent_key_defaults_to_streaming() {
+        // A pre-`autoread` doc omits the key entirely; serde's default must keep
+        // it streaming so existing flows don't silently go quiet after upgrade.
+        let cfg: I2cDeviceConfig = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(cfg.autoread);
     }
 
     #[test]

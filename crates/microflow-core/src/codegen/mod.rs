@@ -264,7 +264,7 @@ fn emit_node(
         Some("Motion") => input::motion::emit(node),
         Some("Proximity") => input::proximity::emit(node),
         Some("Hotkey") => input::hotkey::emit(node),
-        Some("I2cDevice") => input::i2c_device::emit(node),
+        Some("I2cDevice") => input::i2c_device::emit(node, driver),
         Some("Oscillator") => generator::oscillator::emit(node),
         Some("Calculate") => transformation::calculate::emit(node, driver),
         Some("Compare") => transformation::compare::emit(node, driver),

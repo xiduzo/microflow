@@ -1,45 +1,240 @@
 ---
 title: I2C Device
-description: Read from and write to I2C sensors like BME280, MPU6050, BH1750, and other I2C peripherals.
+description: Read from and write to I2C sensors like SHT21, TCS34725, BME280, MPU6050, BH1750, and other I2C peripherals.
 ---
 
-<Callout type="warn" title="Work in progress">
-The I2C Device node is not yet supported in Microflow. The node and its documentation describe planned functionality that is still under development. It is not available for use in flows at this time.
-</Callout>
+The I2C Device node lets you communicate with sensors and peripherals over the I2C (Inter-Integrated Circuit) bus. I2C uses just two wires — SDA (data) and SCL (clock) — and supports many devices on the same pair of wires, each identified by a unique address.
 
-The I2C Device node lets you communicate with sensors and peripherals over the I2C (Inter-Integrated Communication) bus. I2C uses just two wires (SDA and SCL) and supports multiple devices on the same bus, each identified by a unique address.
-
-This node is intended for devices that don't have a dedicated node in Microflow, such as temperature/humidity sensors (BME280), accelerometers (MPU6050), light sensors (BH1750), ADCs (ADS1115), and distance sensors (VL53L0X).
+Use it for sensors that don't have a dedicated node in Microflow: temperature/humidity sensors, colour sensors, accelerometers, light sensors, ADCs, and distance sensors. Pick a [device preset](#device-presets) to auto-fill the settings, or choose **Custom** and enter the address and register by hand.
 
 ## Inputs
 
-- **Write** — send bytes to the device at the configured address and register
+- **Write** — send bytes to the device at the configured address and register. Accepts a single number or an array of numbers
 - **Trigger** — perform a one-shot read from the device
+
+Most sensors don't need either input: once the node is on the canvas it **streams** on its own (see [How reading works](#how-reading-works)). Use **Write** only to configure a device that needs it, and **Trigger** only for read-on-demand.
 
 ## Outputs
 
-- **Value** — the data read from the device, formatted according to the output setting (raw bytes, unsigned int, or signed int)
+- **Value** — the data read from the device, formatted according to the **Output format** setting:
+  - **Raw bytes** → an array of numbers, one per byte (e.g. `[0, 44, 1, 8]`)
+  - **Unsigned int** → the bytes combined big-endian into one positive number
+  - **Signed int** → the bytes combined big-endian as a two's-complement number (can be negative)
+
+A raw sensor value is rarely the final number you want. See [Transforming values](#transforming-values) to turn it into °C, %, lux, or millimetres.
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Device preset** — choose a known device (ADS1115, BH1750, BME280, MPU6050, VL53L0X) to auto-fill address, register, and read length, or select "Custom" for manual configuration
-- **Address** — the 7-bit I2C address of the device (0–127, decimal)
-- **Register** — the register address to read from (0–255, decimal)
-- **Read bytes** — number of bytes to read from the device (1–32)
-- **Output format** — how to interpret the raw bytes: "Raw bytes" (array of numbers), "Unsigned int", or "Signed int"
+- **Device preset** — choose a known sensor to auto-fill address, register, read length, and output format, or **Custom** for manual setup. The auto-filled values stay editable
+- **Address** — the 7-bit I2C address of the device (0–127)
+- **Register** — the register (command) the read points at (0–255)
+- **Read bytes** — how many bytes to read back (1–32)
+- **Output format** — how to interpret the bytes: Raw bytes, Unsigned int, or Signed int
+- **Interval** — how often to read, in milliseconds. Each sensor has a floor set by its conversion time; reading faster than that returns stale or zero values
+
+<Callout type="warn" title="Interval is shared by the whole board">
+The read interval is a single global Firmata setting, so **every** I2C node on the board runs at the *slowest* configured interval. If one sensor needs 180 ms and another 20 ms, both run at 180 ms. The presets already pick a safe floor per sensor.
+</Callout>
+
+## How reading works
+
+When you add an I2C node, Microflow arms a **continuous read** on the board: the firmware re-reads the register every interval and pushes the bytes back on its own. You do not poll — the **Value** output just updates.
+
+Devices that need waking up or configuring first (the colour sensor's ADC, the humidity sensor's resolution) are set up automatically for the presets that need it. For a **Custom** device that needs configuration, send the setup bytes to the **Write** handle once.
 
 ## Device presets
 
-| Preset | Address | Register | Read bytes | Output | Description |
+| Preset | Address | Register | Read bytes | Output | Produces |
 | --- | --- | --- | --- | --- | --- |
-| ADS1115 | 0x48 | 0x00 | 2 | Signed int | 16-bit ADC |
-| BH1750 | 0x23 | 0x10 | 2 | Unsigned int | Light sensor (lux) |
-| BME280 (temp) | 0x76 | 0xFA | 3 | Unsigned int | Temperature sensor |
-| BME280 (humidity) | 0x76 | 0xFD | 2 | Unsigned int | Humidity sensor |
-| MPU6050 | 0x68 | 0x3B | 6 | Raw bytes | Accelerometer/Gyro XYZ |
-| VL53L0X | 0x29 | 0x14 | 2 | Unsigned int | Distance sensor (mm) |
+| Custom | 0x48 | 0x00 | 2 | Unsigned int | Manual configuration |
+| ADS1115 | 0x48 | 0x00 | 2 | Signed int | 16-bit ADC count |
+| BH1750 | 0x23 | 0x10 | 2 | Unsigned int | Light level → lux |
+| BME280 (temp) | 0x76 | 0xFA | 3 | Unsigned int | Raw temperature ADC |
+| BME280 (humidity) | 0x76 | 0xFD | 2 | Unsigned int | Raw humidity ADC |
+| SHT21 / HTU21 (temp) | 0x40 | 0xF3 | 2 | Unsigned int | Raw 16-bit → °C |
+| SHT21 / HTU21 (humidity) | 0x40 | 0xF5 | 2 | Unsigned int | Raw 16-bit → %RH |
+| MPU6050 | 0x68 | 0x3B | 6 | Raw bytes | Accel X/Y/Z |
+| VL53L0X | 0x29 | 0x14 | 2 | Unsigned int | Distance (mm) |
+| TCS34725 | 0x29 | 0xB4 | 8 | Raw bytes | Colour C/R/G/B |
+
+Per-sensor details — what each one measures and the exact formula to convert it — are in the [Device reference](#device-reference) below.
+
+## Transforming values
+
+The node hands you a raw number or byte array. To get a usable value, wire the **Value** output into a [Shape node](/docs/microflow-studio/nodes/shape):
+
+- [**Function**](/docs/microflow-studio/nodes/shape/function) — write a formula in JavaScript. Best for datasheet conversions and for parsing raw byte arrays. The incoming value is `input`; `return` the result
+- [**Map**](/docs/microflow-studio/nodes/shape/map) — rescale a number from one range to another (e.g. an ADC's 0–65535 to 0–100)
+- [**Calculate**](/docs/microflow-studio/nodes/shape/calculate) — a single add/subtract/multiply/divide step
+- [**Smooth**](/docs/microflow-studio/nodes/shape/smooth) — average recent readings to steady a noisy signal
+
+Example — an **SHT21 (temp)** node outputs a raw 16-bit number. Wire it into a **Function** node to get degrees Celsius:
+
+```ts
+// SHT21/HTU21 raw temperature -> °C
+if (typeof input !== "number") return 0;
+const raw = input & ~0x0003; // clear the 2 status bits
+return -46.85 + (175.72 * raw) / 65536;
+```
+
+For raw-byte sensors, `input` is the byte array — index into it inside a **Function** node:
+
+```ts
+// TCS34725 first 2 bytes = Clear channel, low byte first
+if (!Array.isArray(input)) return 0;
+return input[0] + input[1] * 256;
+```
+
+The [Device reference](#device-reference) below has a ready-made snippet for every preset.
+
+## Device reference
+
+What each preset sensor measures, the data it produces, and a [Function node](/docs/microflow-studio/nodes/shape/function) snippet to convert it. In every snippet the incoming reading is `input` and the converted value is `return`ed.
+
+<Callout type="info" title="Ready vs. Advanced">
+Sensors marked **Ready** stream usable data as soon as you add the node. Sensors marked **Advanced** need a configuration **Write** (and sometimes per-chip calibration) before the raw read means anything — the preset gives you the correct address and register, but not a finished value.
+</Callout>
+
+### SHT21 / HTU21 — temperature & humidity
+
+**Address 0x40 · Ready.** A common humidity + temperature sensor. Two presets: temperature (register 0xF3) and humidity (register 0xF5). Microflow sets the sensor to 11-bit resolution and waits for the conversion automatically, so each preset just streams a raw 16-bit number.
+
+**Data produced:** Unsigned int, 0–65535. The lowest two bits are status flags, not measurement — clear them before converting.
+
+Temperature → °C:
+
+```ts
+// SHT21/HTU21 temperature
+if (typeof input !== "number") return 0;
+const raw = input & ~0x0003;
+return -46.85 + (175.72 * raw) / 65536;
+```
+
+Humidity → %RH:
+
+```ts
+// SHT21/HTU21 relative humidity
+if (typeof input !== "number") return 0;
+const raw = input & ~0x0003;
+return -6 + (125 * raw) / 65536;
+```
+
+Temperature and humidity are separate presets at the same address — add both nodes to read both. They share the bus fine.
+
+### TCS34725 — RGB colour sensor
+
+**Address 0x29 · Ready.** Measures clear, red, green, and blue light. Microflow powers on its ADC automatically.
+
+**Data produced:** Raw bytes, 8 of them — four 16-bit channels in order **C, R, G, B**, each **low byte first** (little-endian).
+
+Parse the channels:
+
+```ts
+// TCS34725 -> { c, r, g, b }
+if (!Array.isArray(input) || input.length < 8) return 0;
+const u16 = (lo, hi) => input[lo] + input[hi] * 256;
+return { c: u16(0, 1), r: u16(2, 3), g: u16(4, 5), b: u16(6, 7) };
+```
+
+Normalise one channel to 0–255 relative to the clear channel (useful for driving an RGB node):
+
+```ts
+// TCS34725 red as 0-255
+if (!Array.isArray(input) || input.length < 8) return 0;
+const c = input[0] + input[1] * 256;
+const r = input[2] + input[3] * 256;
+return c === 0 ? 0 : Math.round((r / c) * 255);
+```
+
+### BH1750 — ambient light
+
+**Address 0x23 · Ready.** A digital lux meter. The preset's register (0x10) is the "continuous high-resolution" command, so the sensor starts measuring on its own.
+
+**Data produced:** Unsigned int, a raw 16-bit count.
+
+```ts
+// BH1750 -> lux
+if (typeof input !== "number") return 0;
+return input / 1.2;
+```
+
+### VL53L0X — time-of-flight distance
+
+**Address 0x29 · Advanced.** A laser distance sensor. The preset reads the range result register (0x14) and reports millimetres directly.
+
+**Data produced:** Unsigned int — distance in millimetres.
+
+```ts
+// VL53L0X -> centimetres
+if (typeof input !== "number") return 0;
+return input / 10;
+```
+
+<Callout type="warn" title="Needs initialisation">
+The VL53L0X requires a long start-up sequence before it produces valid ranges. Microflow does not run that sequence yet, so use this preset only if your board or a prior sketch has already initialised the sensor. Readings of 0 or 8190 mean "not ranging".
+</Callout>
+
+### ADS1115 — 16-bit ADC
+
+**Address 0x48 · Advanced.** A 4-channel analog-to-digital converter for reading analog signals over I2C.
+
+**Data produced:** Signed int — a 16-bit conversion count, −32768 to 32767.
+
+```ts
+// ADS1115 -> volts (gain = ±2.048V)
+if (typeof input !== "number") return 0;
+return (input * 2.048) / 32768;
+```
+
+<Callout type="warn" title="Needs a config Write">
+Reading the conversion register alone returns the power-on default until you configure the ADC. Send a setup word to the config register (0x01) via the node's **Write** input to choose the channel, gain, and continuous mode. Adjust the `2.048` above to match the gain you pick.
+</Callout>
+
+### MPU6050 — accelerometer & gyroscope
+
+**Address 0x68 · Advanced.** A 6-axis motion sensor. The preset reads the 6 accelerometer bytes starting at 0x3B.
+
+**Data produced:** Raw bytes, 6 of them — three 16-bit **signed, big-endian** axes: X, Y, Z.
+
+```ts
+// MPU6050 accelerometer -> { x, y, z } in g
+if (!Array.isArray(input) || input.length < 6) return 0;
+const s16 = (hi, lo) => {
+  const v = (input[hi] << 8) | input[lo];
+  return v >= 0x8000 ? v - 0x10000 : v;
+};
+const scale = 16384; // LSB per g at ±2g
+return { x: s16(0, 1) / scale, y: s16(2, 3) / scale, z: s16(4, 5) / scale };
+```
+
+<Callout type="warn" title="Needs a wake-up Write">
+The MPU6050 boots asleep. Send `[0x6B, 0x00]` to the **Write** input once to clear the sleep bit, otherwise every read is zero. For the gyroscope, point a Custom node at register 0x43.
+</Callout>
+
+### BME280 — temperature, humidity, pressure
+
+**Address 0x76 · Advanced.** An environmental sensor. Microflow has three presets (temp 0xFA, humidity 0xFD, pressure 0xF7).
+
+**Data produced:** Unsigned int — the **raw, uncompensated** ADC reading, not a temperature or pressure.
+
+<Callout type="warn" title="Raw ADC only">
+The BME280 needs a configuration Write to leave sleep mode, and turning its raw ADC counts into °C / %RH / hPa requires each chip's factory calibration coefficients and the datasheet compensation formulas — more than a single Function node can do from one register. Treat these presets as advanced/raw. If you only need "hotter/colder" or "more/less humid", feed the raw value straight into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Smooth](/docs/microflow-studio/nodes/shape/smooth) node without converting.
+</Callout>
+
+### Custom devices
+
+**Address & register: yours.** Choose **Custom** to talk to any I2C chip. Set the address, register, read length, and output format from the datasheet.
+
+- Find the register that holds the measurement and how many bytes it is.
+- If the value is one number, pick **Unsigned int** or **Signed int** and convert with a [Function](/docs/microflow-studio/nodes/shape/function) node.
+- If it's several fields, pick **Raw bytes** and parse the array in a Function node (see the MPU6050 and TCS34725 snippets for big-endian vs. little-endian).
+- If the chip needs configuring first, send the setup bytes to the **Write** input once.
+
+<Callout type="warn" title="Avoid clock-stretching commands on AVR boards">
+On classic AVR boards (Uno/Nano/Mega) a "hold master" command that stretches the clock during conversion can freeze the whole bus. Prefer a "no-hold" command and set the node's **Interval** long enough for the conversion to finish.
+</Callout>
 
 ## Wiring
 
@@ -52,12 +247,16 @@ I2C uses two shared signal lines plus power:
 | VCC | Sensor VCC | Arduino 3.3V or 5V (check your sensor's voltage) |
 | GND | Sensor GND | Arduino GND |
 
+<Callout type="warn" title="SDA and SCL are not interchangeable">
+Swapping the SDA and SCL wires is the most common reason a sensor returns no data. Double-check them against the labels on your board and breakout before assuming the sensor is broken.
+</Callout>
+
 <Callout type="info" title="Multiple devices on one bus">
-You can connect multiple I2C devices to the same SDA/SCL lines as long as each device has a unique address. Some devices have address pins that let you change the default address to avoid conflicts.
+Connect as many I2C devices as you like to the same SDA/SCL lines, as long as each has a unique address. Two sensors that share an address (e.g. VL53L0X and TCS34725 both at 0x29) can't run at the same time unless one has an address-select pin. Microflow keeps every device on the bus streaming when you add or remove another.
 </Callout>
 
 <Callout type="info" title="Pull-up resistors">
-I2C requires pull-up resistors on SDA and SCL (typically 4.7kΩ to 10kΩ). Most breakout boards include these already. If you are using a bare chip, you may need to add them yourself.
+I2C needs pull-up resistors on SDA and SCL (typically 4.7 kΩ to 10 kΩ). Most breakout boards include these already. A bare chip may need them added.
 </Callout>
 
 ## Resources
