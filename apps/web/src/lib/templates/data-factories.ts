@@ -1,6 +1,6 @@
 // Node data factories with required fields
 
-export const buttonData = (pin = 6) => ({
+export const buttonData = (pin = 2) => ({
   instance: "Button" as const,
   pin,
   isPullup: true,
@@ -17,7 +17,7 @@ export const buttonData = (pin = 6) => ({
 export const ledData = (pin = 13) => ({
   instance: "Led" as const,
   pin,
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action"] as const,
   label: "LED",
   icon: "LightbulbIcon" as const,
@@ -68,7 +68,7 @@ export const monitorData = (type: "graph" | "raw" = "graph") => ({
   instance: "Monitor" as const,
   type,
   fps: 60,
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action"] as const,
   label: "Monitor",
   icon: "MonitorIcon" as const,
@@ -94,7 +94,7 @@ export const servoData = (pin = 9) => ({
   pin,
   range: { min: 0, max: 180 },
   type: "standard" as const,
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action", "value"] as const,
   label: "Servo",
   icon: "RotateCwIcon" as const,
@@ -200,7 +200,7 @@ export const rgbData = (pins = { red: 9, green: 10, blue: 11 }) => ({
   instance: "Rgb" as const,
   pins,
   isAnode: false,
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action"] as const,
   label: "RGB LED",
   icon: "PaletteIcon" as const,
@@ -211,7 +211,7 @@ export const relayData = (pin = 10, type: "NO" | "NC" = "NO") => ({
   instance: "Relay" as const,
   pin,
   type,
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action"] as const,
   label: "Relay",
   icon: "ZapIcon" as const,
@@ -267,10 +267,10 @@ export const motionData = (pin = 7) => ({
   description: "Detect when something moves nearby",
 });
 
-export const delayData = (delay = 500) => ({
+export const delayData = (delay = 500, forgetPrevious = false) => ({
   instance: "Delay" as const,
   delay,
-  forgetPrevious: false,
+  forgetPrevious,
   group: "decide" as const,
   tags: ["trigger", "time-based", "stateful"] as const,
   label: "Delay",
@@ -284,7 +284,7 @@ export const piezoData = (pin = 8) => ({
   type: "buzz" as const,
   duration: 500,
   frequency: 440,
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action"] as const,
   label: "Piezo",
   icon: "BellIcon" as const,
@@ -307,7 +307,7 @@ export const mqttPublishData = (topic: string) => ({
   topic,
   qos: "1" as const,
   retain: false,
-  group: "act" as const,
+  group: "sense" as const,
   tags: ["action", "external"] as const,
   label: "MQTT",
   icon: "RadioTowerIcon" as const,
@@ -328,6 +328,26 @@ export const mqttSubscribeData = (topic: string) => ({
   description: "Subscribe to MQTT messages",
 });
 
+export const stepperData = (mode: "driver" | "four_wire" = "driver") => ({
+  instance: "Stepper" as const,
+  interface: mode,
+  stepPin: 2,
+  dirPin: 3,
+  motorPin1: 4,
+  motorPin2: 5,
+  motorPin3: 6,
+  motorPin4: 7,
+  stepsPerRev: 200,
+  speed: 200,
+  acceleration: 100,
+  deviceNum: 0,
+  group: "express" as const,
+  tags: ["action", "value"] as const,
+  label: "Stepper",
+  icon: "CogIcon" as const,
+  description: "Control a stepper motor with precise positioning",
+});
+
 export const matrixData = (pins = { data: 2, clock: 3, cs: 4 }) => ({
   instance: "Matrix" as const,
   pins,
@@ -338,7 +358,7 @@ export const matrixData = (pins = { data: 2, clock: 3, cs: 4 }) => ({
   ],
   dims: "8x8",
   devices: 1,
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action"] as const,
   label: "Matrix",
   icon: "GridIcon" as const,
@@ -359,7 +379,7 @@ export const pixelData = (pin = 11, length = 8) => ({
     ["#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF", "#0000FF"],
     ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3", "#FFFFFF"],
   ],
-  group: "act" as const,
+  group: "express" as const,
   tags: ["action"] as const,
   label: "Pixel Strip",
   icon: "SparklesIcon" as const,

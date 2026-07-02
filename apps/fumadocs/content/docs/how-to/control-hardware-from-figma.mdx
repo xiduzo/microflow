@@ -37,6 +37,10 @@ In your flow, add an [MQTT (Sense)](/docs/microflow-studio/nodes/sense/mqtt) nod
 
 Connect the MQTT node's output to your Express node — for example, MQTT → LED.
 
+<Callout type="info" title="Template available">
+  Studio ships this pattern as the **Figma to LED** template — an MQTT (Sense) node on `figma/led_brightness` driving an LED's brightness.
+</Callout>
+
 ### 3. Run the prototype
 
 In Figma, run the prototype. Tap the interaction that changes the variable. The MQTT node in Studio receives the new value and forwards it to the LED — physically toggling it.

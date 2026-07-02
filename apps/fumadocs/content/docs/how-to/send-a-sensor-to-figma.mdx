@@ -35,6 +35,10 @@ In your flow, add an [MQTT (Express)](/docs/microflow-studio/nodes/express/figma
 
 Set the node's **topic** to `figma/<variable-name>`, e.g. `figma/light_level`. The Hardware Bridge listens on the `figma/` prefix and uses the suffix as the variable name.
 
+<Callout type="info" title="Template available">
+  Studio ships this pattern as the **Sensor to Figma** template — a potentiometer publishing on `figma/pot_value`.
+</Callout>
+
 ### 3. Run
 
 The Bridge should report **Connected**. Studio's connection panel should show the board **Running**. Touch the sensor — the Figma layer should update live.

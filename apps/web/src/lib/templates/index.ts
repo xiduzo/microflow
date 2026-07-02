@@ -23,7 +23,10 @@ import {
   delayData,
   piezoData,
   counterData,
+  constantData,
   mqttPublishData,
+  mqttSubscribeData,
+  stepperData,
   matrixData,
   pixelData,
 } from "./data-factories";
@@ -54,7 +57,7 @@ const buttonLed: Template = {
   difficulty: "beginner",
   categories: ["Basic"],
   nodes: [
-    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData(6) },
+    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
     { id: "led-1", type: "Led", position: { x: 280, y: 0 }, data: ledData(13) },
   ],
   edges: [
@@ -101,7 +104,7 @@ const doorbell: Template = {
   difficulty: "beginner",
   categories: ["Digital"],
   nodes: [
-    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData(6) },
+    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
     { id: "piezo-1", type: "Piezo", position: { x: 280, y: 0 }, data: piezoData(8) },
   ],
   edges: [
@@ -169,7 +172,7 @@ const lightMonitor: Template = {
   categories: ["Analog"],
   nodes: [
     { id: "ldr-1", type: "Ldr", position: { x: 0, y: 0 }, data: ldrData("A0") },
-    { id: "smooth-1", type: "Smooth", position: { x: 280, y: 0 }, data: smoothData("smooth", 0.9) },
+    { id: "smooth-1", type: "Smooth", position: { x: 280, y: 0 }, data: smoothData("movingAverage", 10) },
     { id: "monitor-1", type: "Monitor", position: { x: 560, y: 0 }, data: monitorData("graph") },
   ],
   edges: [
@@ -223,7 +226,7 @@ const mqttButton: Template = {
   difficulty: "intermediate",
   categories: ["Communication"],
   nodes: [
-    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData(6) },
+    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
     { id: "mqtt-1", type: "Mqtt", position: { x: 280, y: 0 }, data: mqttPublishData("home/button") },
   ],
   edges: [
@@ -270,16 +273,16 @@ const pixelStrip: Template = {
 const thresholdAlert: Template = {
   id: "threshold-alert",
   name: "Threshold Alert",
-  description: "Light up an LED when an analog sensor value exceeds a set threshold",
+  description: "Light up an LED when a potentiometer reading crosses the 512 threshold",
   difficulty: "intermediate",
   categories: ["Control structures"],
   nodes: [
-    { id: "sensor-1", type: "Sensor", position: { x: 0, y: 0 }, data: sensorData("A0") },
+    { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
     { id: "compare-1", type: "Compare", position: { x: 280, y: 0 }, data: compareNumberData("greater than", 512) },
-    { id: "led-1", type: "Led", position: { x: 560, y: 0 }, data: ledData(13) },
+    { id: "led-1", type: "Led", position: { x: 560, y: 0 }, data: ledData(9) },
   ],
   edges: [
-    { id: "e1", source: "sensor-1", target: "compare-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e1", source: "pot-1", target: "compare-1", sourceHandle: "value", targetHandle: "value" },
     { id: "e2", source: "compare-1", target: "led-1", sourceHandle: "true", targetHandle: "true" },
     { id: "e3", source: "compare-1", target: "led-1", sourceHandle: "false", targetHandle: "false" },
   ],
@@ -292,8 +295,8 @@ const andGate: Template = {
   difficulty: "intermediate",
   categories: ["Control structures"],
   nodes: [
-    { id: "button-1", type: "Button", position: { x: 0, y: -80 }, data: { ...buttonData(6), label: "Button A" } },
-    { id: "button-2", type: "Button", position: { x: 0, y: 80 }, data: { ...buttonData(7), label: "Button B" } },
+    { id: "button-1", type: "Button", position: { x: 0, y: -80 }, data: { ...buttonData(2), label: "Button A" } },
+    { id: "button-2", type: "Button", position: { x: 0, y: 80 }, data: { ...buttonData(3), label: "Button B" } },
     { id: "gate-1", type: "Gate", position: { x: 280, y: 0 }, data: gateData("and") },
     { id: "led-1", type: "Led", position: { x: 560, y: 0 }, data: ledData(13) },
   ],
@@ -312,7 +315,7 @@ const clickCounter: Template = {
   difficulty: "beginner",
   categories: ["Control structures"],
   nodes: [
-    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData(6) },
+    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
     { id: "counter-1", type: "Counter", position: { x: 280, y: 0 }, data: counterData() },
     { id: "monitor-1", type: "Monitor", position: { x: 560, y: 0 }, data: monitorData("raw") },
   ],
@@ -354,7 +357,130 @@ const edgeTrigger: Template = {
   ],
   edges: [
     { id: "e1", source: "sensor-1", target: "trigger-1", sourceHandle: "value", targetHandle: "value" },
-    { id: "e2", source: "trigger-1", target: "piezo-1", sourceHandle: "event", targetHandle: "trigger" },
+    { id: "e2", source: "trigger-1", target: "piezo-1", sourceHandle: "bang", targetHandle: "trigger" },
+  ],
+};
+
+// ===== LEARN-PATH TEMPLATES (mirror the docs tutorials) =====
+
+const potentiometerFade: Template = {
+  id: "fade-with-potentiometer",
+  name: "Potentiometer Fade",
+  description: "Twist a knob to fade an LED — maps the full 0-1023 analog range to 0-255 brightness",
+  difficulty: "beginner",
+  categories: ["Analog"],
+  nodes: [
+    { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 280, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
+    { id: "led-1", type: "Led", position: { x: 560, y: 0 }, data: ledData(9) },
+  ],
+  edges: [
+    { id: "e1", source: "pot-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e2", source: "rangemap-1", target: "led-1", sourceHandle: "to", targetHandle: "value" },
+  ],
+};
+
+const smoothSensor: Template = {
+  id: "smooth-a-sensor",
+  name: "Smooth a Noisy Sensor",
+  description: "Compare raw and smoothed potentiometer readings side by side, then fade an LED with the clean signal",
+  difficulty: "beginner",
+  categories: ["Analog"],
+  nodes: [
+    { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
+    { id: "monitor-raw", type: "Monitor", position: { x: 280, y: -160 }, data: { ...monitorData("graph"), label: "Raw" } },
+    { id: "smooth-1", type: "Smooth", position: { x: 280, y: 0 }, data: smoothData("movingAverage", 10) },
+    { id: "monitor-smooth", type: "Monitor", position: { x: 560, y: -160 }, data: { ...monitorData("graph"), label: "Smoothed" } },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 560, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
+    { id: "led-1", type: "Led", position: { x: 840, y: 0 }, data: ledData(9) },
+  ],
+  edges: [
+    { id: "e1", source: "pot-1", target: "monitor-raw", sourceHandle: "value", targetHandle: "value" },
+    { id: "e2", source: "pot-1", target: "smooth-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e3", source: "smooth-1", target: "monitor-smooth", sourceHandle: "value", targetHandle: "value" },
+    { id: "e4", source: "smooth-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e5", source: "rangemap-1", target: "led-1", sourceHandle: "to", targetHandle: "value" },
+  ],
+};
+
+const sensorToFigma: Template = {
+  id: "link-to-figma",
+  name: "Sensor to Figma",
+  description: "Publish a potentiometer reading on the figma/pot_value topic for the Figma Hardware Bridge",
+  difficulty: "intermediate",
+  categories: ["Communication"],
+  nodes: [
+    { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
+    { id: "mqtt-1", type: "Mqtt", position: { x: 280, y: 0 }, data: mqttPublishData("figma/pot_value") },
+  ],
+  edges: [
+    { id: "e1", source: "pot-1", target: "mqtt-1", sourceHandle: "value", targetHandle: "trigger" },
+  ],
+};
+
+const figmaToLed: Template = {
+  id: "figma-to-led",
+  name: "Figma to LED",
+  description: "Subscribe to a Figma Hardware Bridge variable over MQTT and drive an LED's brightness with it",
+  difficulty: "intermediate",
+  categories: ["Communication"],
+  nodes: [
+    { id: "mqtt-1", type: "Mqtt", position: { x: 0, y: 0 }, data: mqttSubscribeData("figma/led_brightness") },
+    { id: "led-1", type: "Led", position: { x: 280, y: 0 }, data: ledData(9) },
+  ],
+  edges: [
+    { id: "e1", source: "mqtt-1", target: "led-1", sourceHandle: "value", targetHandle: "value" },
+  ],
+};
+
+const debouncedButton: Template = {
+  id: "debounce-button",
+  name: "Debounced Button",
+  description: "Filter out contact bounce with a 30 ms debounced delay so one press counts exactly once",
+  difficulty: "beginner",
+  categories: ["Digital"],
+  nodes: [
+    { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
+    { id: "delay-1", type: "Delay", position: { x: 280, y: 0 }, data: delayData(30, true) },
+    { id: "counter-1", type: "Counter", position: { x: 560, y: 0 }, data: counterData() },
+    { id: "monitor-1", type: "Monitor", position: { x: 840, y: 0 }, data: monitorData("raw") },
+  ],
+  edges: [
+    { id: "e1", source: "button-1", target: "delay-1", sourceHandle: "event", targetHandle: "trigger" },
+    { id: "e2", source: "delay-1", target: "counter-1", sourceHandle: "event", targetHandle: "increment" },
+    { id: "e3", source: "counter-1", target: "monitor-1", sourceHandle: "value", targetHandle: "value" },
+  ],
+};
+
+const noHardware: Template = {
+  id: "no-hardware",
+  name: "No-Hardware Playground",
+  description: "Stand in for a sensor with a Constant node so a flow can be built and tested without a board",
+  difficulty: "beginner",
+  categories: ["Basic"],
+  nodes: [
+    { id: "constant-1", type: "Constant", position: { x: 0, y: 0 }, data: { ...constantData(512), label: "Fake Sensor" } },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 280, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
+    { id: "monitor-1", type: "Monitor", position: { x: 560, y: 0 }, data: monitorData("graph") },
+  ],
+  edges: [
+    { id: "e1", source: "constant-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e2", source: "rangemap-1", target: "monitor-1", sourceHandle: "to", targetHandle: "value" },
+  ],
+};
+
+const stepperPosition: Template = {
+  id: "stepper-h-bridge",
+  name: "Stepper Position",
+  description: "Move a 4-wire stepper through an H-bridge to a target position set by a constant",
+  difficulty: "advanced",
+  categories: ["Analog"],
+  nodes: [
+    { id: "constant-1", type: "Constant", position: { x: 0, y: 0 }, data: { ...constantData(200), label: "Target Steps" } },
+    { id: "stepper-1", type: "Stepper", position: { x: 280, y: 0 }, data: stepperData("four_wire") },
+  ],
+  edges: [
+    { id: "e1", source: "constant-1", target: "stepper-1", sourceHandle: "value", targetHandle: "to" },
   ],
 };
 
@@ -368,7 +494,7 @@ const smartHomeHub: Template = {
   categories: ["Digital", "Control structures"],
   nodes: [
     { id: "motion-1", type: "Motion", position: { x: 0, y: -80 }, data: motionData(7) },
-    { id: "button-1", type: "Button", position: { x: 0, y: 80 }, data: buttonData(6) },
+    { id: "button-1", type: "Button", position: { x: 0, y: 80 }, data: buttonData() },
     { id: "gate-1", type: "Gate", position: { x: 280, y: 0 }, data: gateData("or") },
     { id: "led-1", type: "Led", position: { x: 560, y: -80 }, data: { ...ledData(13), label: "Room Light" } },
     { id: "relay-1", type: "Relay", position: { x: 560, y: 80 }, data: { ...relayData(10), label: "Main Switch" } },
@@ -392,7 +518,7 @@ const weatherStation: Template = {
   nodes: [
     { id: "ldr-1", type: "Ldr", position: { x: 0, y: -80 }, data: { ...ldrData("A0"), label: "Light Sensor" } },
     { id: "sensor-1", type: "Sensor", position: { x: 0, y: 80 }, data: { ...sensorData("A1"), label: "Temp Sensor" } },
-    { id: "smooth-1", type: "Smooth", position: { x: 280, y: -80 }, data: smoothData("smooth", 0.95) },
+    { id: "smooth-1", type: "Smooth", position: { x: 280, y: -80 }, data: smoothData("movingAverage", 10) },
     { id: "monitor-1", type: "Monitor", position: { x: 560, y: -80 }, data: { ...monitorData("graph"), label: "Light Level" } },
     { id: "monitor-2", type: "Monitor", position: { x: 560, y: 80 }, data: { ...monitorData("graph"), label: "Temperature" } },
   ],
@@ -432,18 +558,25 @@ export const TEMPLATES: Template[] = [
   blink,
   buttonLed,
   waveMonitor,
+  noHardware,
   // Digital
   switchLed,
   doorbell,
+  debouncedButton,
   motionAlarm,
   motionRelay,
   // Analog
+  potentiometerFade,
+  smoothSensor,
   knobServo,
   lightMonitor,
   servoSweep,
   rgbMoodLamp,
+  stepperPosition,
   // Communication
   mqttButton,
+  sensorToFigma,
+  figmaToLed,
   matrixCounter,
   pixelStrip,
   // Control structures
