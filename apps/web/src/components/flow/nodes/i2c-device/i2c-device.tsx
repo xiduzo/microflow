@@ -99,7 +99,9 @@ function Settings() {
     // bus stays quiet until the `trigger` handle fires a one-shot read — see
     // `autoread` in runtime/input/i2c_device.rs.
     autoread: {
-      value: data.autoread,
+      // Pre-`autoread` docs omit the key; coerce to the streaming default so leva
+      // can infer the boolean control (a raw `undefined` makes it drop silently).
+      value: data.autoread ?? true,
       label: "auto-read",
     },
     config: folder(
@@ -133,8 +135,8 @@ function Settings() {
           step: 10,
           label: "stream interval (ms)",
           // Only the streaming path uses the sampling interval; when reads are
-          // trigger-driven there is nothing to pace.
-          disabled: !data.autoread,
+          // trigger-driven there is nothing to pace. Default (absent key) = on.
+          disabled: !(data.autoread ?? true),
         },
       },
       { collapsed: true },
