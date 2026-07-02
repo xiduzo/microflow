@@ -1196,7 +1196,7 @@ mod tests {
 
     /// Regression: adding a second I2C device must NOT drop the first. Each node
     /// used to arm its own continuous read in `initialize` behind a preceding
-    /// `stop_reading`, but StandardFirmata clears the lone remaining query
+    /// `stop_reading`, but `StandardFirmata` clears the lone remaining query
     /// regardless of address — so the second node's stop wiped the first and only
     /// the latest sensor streamed. Arming is now centralized (drain-all then
     /// arm-all per `update_flow`); both reads must be present after the second flow.

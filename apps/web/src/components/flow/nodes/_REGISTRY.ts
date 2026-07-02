@@ -54,6 +54,8 @@ import { Piezo } from "./piezo/piezo";
 import { defaults as PiezoDefaults } from "./piezo/piezo.schema";
 import { Pixel } from "./pixel/pixel";
 import { defaults as PixelDefaults } from "./pixel/pixel.schema";
+import { Pn532 } from "./pn532/pn532";
+import { defaults as Pn532Defaults } from "./pn532/pn532.schema";
 import { Potentiometer } from "./potentiometer/potentiometer";
 import { defaults as PotentiometerDefaults } from "./potentiometer/potentiometer.schema";
 import { Proximity } from "./proximity/proximity";
@@ -121,6 +123,7 @@ export const NODE_REGISTRY = {
   Oscillator: { component: Oscillator, defaults: OscillatorDefaults as NodeDefaults, adapter: undefined },
   Piezo: { component: Piezo, defaults: PiezoDefaults as NodeDefaults, adapter: undefined },
   Pixel: { component: Pixel, defaults: PixelDefaults as NodeDefaults, adapter: undefined },
+  Pn532: { component: Pn532, defaults: Pn532Defaults as NodeDefaults, adapter: undefined },
   Potentiometer: { component: Potentiometer, defaults: PotentiometerDefaults as NodeDefaults, adapter: undefined },
   Proximity: { component: Proximity, defaults: ProximityDefaults as NodeDefaults, adapter: undefined },
   RangeMap: { component: RangeMap, defaults: RangeMapDefaults as NodeDefaults, adapter: undefined },
@@ -162,6 +165,7 @@ export const NODE_TYPES = {
   Oscillator,
   Piezo,
   Pixel,
+  Pn532,
   Potentiometer,
   Proximity,
   RangeMap,

@@ -218,7 +218,7 @@ impl FirmataClient {
     /// board waits between a register write and the read-back.
     ///
     /// Sysex data is **7-bit**: the firmware reassembles `argv[0] + (argv[1] << 7)`
-    /// (StandardFirmata `case I2C_CONFIG`), so the value is split low-7 / next-7,
+    /// (`StandardFirmata` `case I2C_CONFIG`), so the value is split low-7 / next-7,
     /// NOT low-8 / high-8 like a plain `u16`. That also caps the delay at
     /// `127 + (127 << 7) = 16383` µs (≈16.4ms) — anything larger silently wraps,
     /// and a high byte ≥ 0x80 would set a status bit mid-sysex and corrupt the

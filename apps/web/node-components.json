@@ -97,6 +97,10 @@
       "impl": "Pixel"
     },
     {
+      "name": "Pn532",
+      "impl": "Pn532"
+    },
+    {
       "name": "Potentiometer",
       "impl": "Sensor"
     },
@@ -257,6 +261,11 @@
     {
       "name": "Pixel",
       "category": "output",
+      "requiresHardware": true
+    },
+    {
+      "name": "Pn532",
+      "category": "input",
       "requiresHardware": true
     },
     {

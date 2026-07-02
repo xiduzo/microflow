@@ -234,6 +234,12 @@
       "reset"
     ]
   },
+  "Pn532": {
+    "emits": [
+      "value"
+    ],
+    "ports": []
+  },
   "Potentiometer": {
     "emits": [
       "value"

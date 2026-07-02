@@ -29,7 +29,7 @@ pub type EventSink = Rc<RefCell<VecDeque<ComponentEvent>>>;
 /// length)`. Every hardware component that streams over I2C reports one via
 /// [`Component::i2c_continuous_read`]; the runtime arms them all centrally in
 /// `update_flow` (stop-all-then-start-all) rather than per-node, because
-/// StandardFirmata's `I2C_STOP_READING` clears the lone remaining query
+/// `StandardFirmata`'s `I2C_STOP_READING` clears the lone remaining query
 /// regardless of address — so a per-node stop+start would drop a sibling device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct I2cContinuousRead {

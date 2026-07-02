@@ -97,8 +97,8 @@ pub fn device_init_writes(device: &str) -> &'static [&'static [u8]] {
 /// it — it must never reach the board. Presets now store 0xF3/0xF5, but a flow
 /// saved before that change keeps the old value in its Yjs doc (leva doesn't
 /// rewrite a stored field when the preset definition changes), so the persisted
-/// register alone can't be trusted. Keyed on the device id OR the SHT2x bus address
-/// (0x40): a hold-master trigger sent to 0x40 is always an SHT2x and always unsafe,
+/// register alone can't be trusted. Keyed on the device id OR the `SHT2x` bus address
+/// (0x40): a hold-master trigger sent to 0x40 is always an `SHT2x` and always unsafe,
 /// so this also protects a node left on `custom` but pointed at 0x40 with a stale
 /// 0xE3/0xE5. Every non-SHT device's register is returned untouched.
 #[must_use]
@@ -118,7 +118,7 @@ pub fn effective_register(device: &str, address: u8, register: u8) -> u8 {
 /// Whether this device is a no-hold SHT2x/HTU21 measurement that NACKs until its
 /// conversion completes, so the host must pause between the register write and the
 /// read. The delay *magnitude* differs by target (the runtime is capped by
-/// Firmata's 7-bit I2C_CONFIG sysex; the generated sketch uses a plain `delay()`),
+/// Firmata's 7-bit `I2C_CONFIG` sysex; the generated sketch uses a plain `delay()`),
 /// so each side owns its own value — only this classification is shared.
 #[must_use]
 pub fn is_no_hold_sht2x(device: &str) -> bool {

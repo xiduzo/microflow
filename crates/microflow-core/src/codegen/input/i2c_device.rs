@@ -162,7 +162,7 @@ fn effective_register(node: &FlowNode) -> u8 {
 /// sensors that NACK until their conversion completes. The *classification* is
 /// shared ([`crate::config::i2c_device::is_no_hold_sht2x`]); the magnitude is
 /// codegen's own — the generated sketch uses a plain `delay()` (not Firmata's
-/// 7-bit-capped I2C_CONFIG), so 30ms is safe and leaves more margin over the 15ms
+/// 7-bit-capped `I2C_CONFIG`), so 30ms is safe and leaves more margin over the 15ms
 /// worst-case 11-bit conversion. Zero ⇒ repeated-start immediate read.
 fn read_delay_ms(node: &FlowNode) -> u32 {
     if crate::config::i2c_device::is_no_hold_sht2x(device_id(node)) { 30 } else { 0 }
