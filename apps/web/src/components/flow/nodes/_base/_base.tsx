@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
-import { OctagonAlertIcon, CableIcon } from "lucide-react";
+import { OctagonAlertIcon, TriangleAlertIcon, CableIcon } from "lucide-react";
 import { usePins } from "@/stores/board";
 import { Pin, pinDisplayValue } from "@/components/hardware/pin";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 export { useNodeControls, type Controls } from "./use-node-controls";
 export { useDeleteHandles } from "./use-delete-handles";
 
-function NodeHeader(props: { error?: string }) {
+function NodeHeader(props: { error?: string; warning?: string }) {
   const data = useNodeData();
 
   return (
@@ -43,7 +43,8 @@ function NodeHeader(props: { error?: string }) {
           beta
         </Badge>
       )}
-      {props.error && (
+      {/* An error (red) outranks a warning (amber) — only one status icon shows. */}
+      {props.error ? (
         <CardAction>
           <Tooltip>
             <TooltipTrigger className="cursor-help">
@@ -52,7 +53,18 @@ function NodeHeader(props: { error?: string }) {
             <TooltipContent className="text-red-500">{props.error}</TooltipContent>
           </Tooltip>
         </CardAction>
-      )}
+      ) : props.warning ? (
+        <CardAction>
+          <Tooltip>
+            <TooltipTrigger className="cursor-help">
+              <TriangleAlertIcon className="text-amber-500" />
+            </TooltipTrigger>
+            <TooltipContent className="text-amber-600 dark:text-amber-500">
+              {props.warning}
+            </TooltipContent>
+          </Tooltip>
+        </CardAction>
+      ) : null}
     </CardHeader>
   );
 }
@@ -126,7 +138,8 @@ export const useNodeData = <T extends Record<string, any>>() => {
 };
 
 export function NodeContainer(
-  props: PropsWithChildren & BaseNode & { error?: string } & { className?: string },
+  props: PropsWithChildren &
+    BaseNode & { error?: string; warning?: string } & { className?: string },
 ) {
   return (
     <NodeContainerContext.Provider value={props}>
@@ -136,9 +149,11 @@ export function NodeContainer(
           draggable: props.draggable,
           selected: props.selected,
           hasError: !!props.error,
+          // Error's red ring outranks the amber warning ring when both are set.
+          hasWarning: !!props.warning && !props.error,
         })}
       >
-        <NodeHeader error={props.error} />
+        <NodeHeader error={props.error} warning={props.warning} />
         <CardContent className="min-h-32 flex justify-center items-center">
           {props.children}
         </CardContent>
@@ -159,12 +174,14 @@ const node = cva(
     variants: {
       draggable: { true: "active:cursor-grabbing", false: "" },
       hasError: { true: "bg-red-500/5 dark:bg-red-500/20 ring-4 ring-red-500/80", false: "" },
+      hasWarning: { true: "bg-amber-500/5 dark:bg-amber-500/15 ring-4 ring-amber-500/70", false: "" },
       selected: { true: "ring-4 ring-orange-500/80 dark:bg-orange-500/5 bg-orange-500/10", false: "" },
     },
     defaultVariants: {
       selected: false,
       draggable: false,
       hasError: false,
+      hasWarning: false,
     },
   },
 );

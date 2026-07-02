@@ -442,7 +442,6 @@ The **Startup init** column is what the runtime writes once, before the first re
 | Device | Address | Register | Read Length | Output | Startup init | Description |
 |--------|---------|----------|-------------|--------|--------------|-------------|
 | Custom | 0x48 | 0x00 | 2 | unsigned_int | none | Manual configuration |
-| ADS1115 | 0x48 | 0x00 | 2 | signed_int | config → continuous (AIN0, ±4.096V) | 16-bit ADC |
 | BH1750 | 0x23 | 0x10 | 2 | unsigned_int | power-on | Light sensor (lux) |
 | BME280 (temp) | 0x76 | 0xFA | 3 | unsigned_int | wake → normal mode | Temperature (raw ADC) |
 | BME280 (humidity) | 0x76 | 0xFD | 2 | unsigned_int | wake → normal mode | Humidity (raw ADC) |
@@ -450,7 +449,8 @@ The **Startup init** column is what the runtime writes once, before the first re
 | BMP280 (pressure) | 0x76 | 0xF7 | 3 | unsigned_int | wake → normal mode | Pressure (raw ADC) |
 | SHT21/HTU21 (temp) | 0x40 | 0xF3 | 2 | unsigned_int | 11-bit res + read-delay | Temperature (raw 16-bit) |
 | SHT21/HTU21 (humidity) | 0x40 | 0xF5 | 2 | unsigned_int | 11-bit res + read-delay | Humidity (raw 16-bit) |
-| MPU6050 | 0x68 | 0x3B | 6 | raw | wake from sleep | Accelerometer/Gyro XYZ |
+| MPU6050 (accel) | 0x68 | 0x3B | 6 | raw | wake from sleep | Accelerometer XYZ |
+| MPU6050 (gyro) | 0x68 | 0x43 | 6 | raw | wake from sleep | Gyroscope XYZ |
 | TCS34725 | 0x29 | 0xB4 | 8 | raw | enable ADC | RGB colour (raw C,R,G,B) |
 | VL53L0X | 0x29 | 0x14 | 2 | unsigned_int | ⚠️ needs external init | Distance (mm) |
 
@@ -462,7 +462,6 @@ Many I2C sensors power up in a dormant state — asleep, in single-shot mode, or
 |--------|-----------------------------|
 | MPU6050 | Clears the `SLEEP` bit (`PWR_MGMT_1` 0x6B = 0x00); asleep it reads 0 on every axis. |
 | BME280 / BMP280 | Leaves SLEEP → NORMAL mode. BME280 also sets humidity oversampling (`ctrl_hum`); BMP280 has no humidity register, so that write is omitted. |
-| ADS1115 | Writes the config register to **continuous** mode (default is single-shot, which never refreshes the conversion register). Defaults to single-ended AIN0 at ±4.096V — other channels/ranges need a `Custom` node. |
 | BH1750 | Sends `Power On` (0x01) so it is awake before the continuous-measurement command. |
 | SHT21 / HTU21 | Drops to 11-bit resolution and adds a read-delay so the no-hold measurement lands after conversion (also remaps a stale hold-master register to the no-hold one, which would otherwise hang the AVR bus). |
 | TCS34725 | Sets `PON \| AEN` to power the colour ADC; without it every colour channel reads 0. |
@@ -492,7 +491,7 @@ Many I2C sensors power up in a dormant state — asleep, in single-shot mode, or
 
 5. **Reader thread ownership** — The `BoardConnection` is exclusively owned by the reader thread. I2C reads/writes must go through `BoardCommand` channel, and replies come back through the event channel. There's no synchronous request/response path.
 
-6. **Address collision** — Multiple `I2cDevice` nodes with the same address will both receive all replies for that address. This is by design (some devices have multiple registers worth reading), but the user should be aware.
+6. **Same-address nodes** — Multiple `I2cDevice` nodes may share an address (one chip, several registers — an MPU6050 accel 0x3B + gyro 0x43, an SHT2x temp 0xF3 + humidity 0xF5). Replies are demuxed by register in `drain_i2c_replies`, so each node receives only the register it streams; if a reply's register matches no listener on that address it falls back to every node there (so an unexpected register still delivers). Two *different* physical chips forced to one address remain a bus-level conflict no software routing can fix — that needs an address-select pin.
 
 7. **No I2C bus scanning** — Firmata doesn't support I2C bus scanning. The user must know the device address. Presets help with this.
 

@@ -10,8 +10,11 @@ pub enum ListenerWiring {
     DigitalPin { pin: u8 },
     /// Analog pin reporting. Component receives `on_pin_change` when value drift >= threshold.
     AnalogPin { pin: u8, threshold: u16 },
-    /// I2C device by 7-bit address. Component receives `on_i2c_reply`.
-    I2cAddress { address: u8 },
+    /// I2C device by 7-bit address + the register it streams. Component receives
+    /// `on_i2c_reply` for replies whose register matches, so two nodes on one
+    /// address reading different registers (e.g. an MPU6050 accel 0x3B + gyro
+    /// 0x43) each get only their own bytes instead of both.
+    I2cAddress { address: u8, register: u8 },
     /// Keyboard hotkey. Stored lowercased to match dispatch lookup.
     HotKey { accelerator: String },
 }

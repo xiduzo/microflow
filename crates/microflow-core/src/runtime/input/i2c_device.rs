@@ -188,7 +188,10 @@ impl Component for I2cDevice {
     }
 
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
-        vec![ListenerWiring::I2cAddress { address: self.config.address }]
+        vec![ListenerWiring::I2cAddress {
+            address: self.config.address,
+            register: self.effective_register(),
+        }]
     }
 
     /// Stream rate for this device. The runtime reconciles it against every
@@ -381,9 +384,9 @@ mod tests {
     fn advanced_devices_init_through_the_wrapper() {
         // Spot-check the wrapper threads the config `device` into the shared table:
         // the newly-supported sensors must each arm their power-on/config write.
-        assert_eq!(device("mpu6050").device_init_writes(), &[&[0x6Bu8, 0x00][..]]);
+        assert_eq!(device("mpu6050_accel").device_init_writes(), &[&[0x6Bu8, 0x00][..]]);
+        assert_eq!(device("mpu6050_gyro").device_init_writes(), &[&[0x6Bu8, 0x00][..]]);
         assert_eq!(device("bmp280_pressure").device_init_writes().len(), 2);
-        assert!(!device("ads1115").device_init_writes().is_empty());
         assert!(device("vl53l0x").device_init_writes().is_empty(), "vl53l0x stays uninitialised");
     }
 

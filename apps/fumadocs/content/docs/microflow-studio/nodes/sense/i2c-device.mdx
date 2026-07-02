@@ -49,7 +49,6 @@ Devices that need waking up or configuring first — clearing the accelerometer'
 | Preset | Address | Register | Read bytes | Output | Produces |
 | --- | --- | --- | --- | --- | --- |
 | Custom | 0x48 | 0x00 | 2 | Unsigned int | Manual configuration |
-| ADS1115 | 0x48 | 0x00 | 2 | Signed int | 16-bit ADC count |
 | BH1750 | 0x23 | 0x10 | 2 | Unsigned int | Light level → lux |
 | BME280 (temp) | 0x76 | 0xFA | 3 | Unsigned int | Raw temperature ADC |
 | BME280 (humidity) | 0x76 | 0xFD | 2 | Unsigned int | Raw humidity ADC |
@@ -57,7 +56,8 @@ Devices that need waking up or configuring first — clearing the accelerometer'
 | BMP280 (pressure) | 0x76 | 0xF7 | 3 | Unsigned int | Raw pressure ADC |
 | SHT21 / HTU21 (temp) | 0x40 | 0xF3 | 2 | Unsigned int | Raw 16-bit → °C |
 | SHT21 / HTU21 (humidity) | 0x40 | 0xF5 | 2 | Unsigned int | Raw 16-bit → %RH |
-| MPU6050 | 0x68 | 0x3B | 6 | Raw bytes | Accel X/Y/Z |
+| MPU6050 (accel) | 0x68 | 0x3B | 6 | Raw bytes | Accelerometer X/Y/Z |
+| MPU6050 (gyro) | 0x68 | 0x43 | 6 | Raw bytes | Gyroscope X/Y/Z |
 | VL53L0X | 0x29 | 0x14 | 2 | Unsigned int | Distance (mm) |
 | TCS34725 | 0x29 | 0xB4 | 8 | Raw bytes | Colour C/R/G/B |
 
@@ -123,7 +123,7 @@ const raw = input & ~0x0003;
 return -6 + (125 * raw) / 65536;
 ```
 
-Temperature and humidity are separate presets at the same address — add both nodes to read both. They share the bus fine.
+Temperature and humidity are separate presets at the same address (0x40) on different registers — add both nodes to read both. Microflow routes each reply by register, so the two streams stay separate.
 
 ### TCS34725 — RGB colour sensor
 
@@ -178,27 +178,13 @@ return input / 10;
 The VL53L0X requires a long start-up sequence before it produces valid ranges. Microflow does not run that sequence yet, so use this preset only if your board or a prior sketch has already initialised the sensor. Readings of 0 or 8190 mean "not ranging".
 </Callout>
 
-### ADS1115 — 16-bit ADC
-
-**Address 0x48 · Ready.** A 4-channel analog-to-digital converter for reading analog signals over I2C. Microflow configures it on startup for continuous conversions on single-ended channel **AIN0** at a **±4.096V** range, so the conversion register streams on its own.
-
-**Data produced:** Signed int — a 16-bit conversion count, −32768 to 32767.
-
-```ts
-// ADS1115 -> volts (default range ±4.096V)
-if (typeof input !== "number") return 0;
-return (input * 4.096) / 32768;
-```
-
-<Callout type="info" title="Changing channel or gain">
-The preset reads AIN0 at ±4.096V. To read a different channel or range, add a **Custom** node at 0x48 and send your own 16-bit config word to the config register (0x01) via the **Write** input, then adjust the `4.096` above to match the gain you pick. The [datasheet](https://www.ti.com/lit/ds/symlink/ads1115.pdf) config-register table lists the MUX and PGA bits.
-</Callout>
-
 ### MPU6050 — accelerometer & gyroscope
 
-**Address 0x68 · Ready.** A 6-axis motion sensor. The preset reads the 6 accelerometer bytes starting at 0x3B. The MPU6050 boots asleep, so Microflow clears its sleep bit automatically — the accelerometer axes stream on their own.
+**Address 0x68 · Ready.** A 6-axis motion sensor with two presets — **accel** (register 0x3B) and **gyro** (register 0x43). The MPU6050 boots asleep, so Microflow clears its sleep bit automatically; both presets then stream on their own. Add both nodes to read motion and rotation together — they're the same chip at 0x68, and Microflow keeps their streams separate by register.
 
-**Data produced:** Raw bytes, 6 of them — three 16-bit **signed, big-endian** axes: X, Y, Z.
+**Data produced (both):** Raw bytes, 6 of them — three 16-bit **signed, big-endian** axes: X, Y, Z.
+
+Accelerometer → g:
 
 ```ts
 // MPU6050 accelerometer -> { x, y, z } in g
@@ -207,13 +193,22 @@ const s16 = (hi, lo) => {
   const v = (input[hi] << 8) | input[lo];
   return v >= 0x8000 ? v - 0x10000 : v;
 };
-const scale = 16384; // LSB per g at ±2g
+const scale = 16384; // LSB per g at ±2g (power-on default range)
 return { x: s16(0, 1) / scale, y: s16(2, 3) / scale, z: s16(4, 5) / scale };
 ```
 
-<Callout type="info" title="Reading the gyroscope">
-The preset streams the accelerometer (register 0x3B). For the gyroscope, add a **Custom** node at address 0x68, register 0x43, 6 bytes — the same wake-up is already done, so it streams too.
-</Callout>
+Gyroscope → degrees/second:
+
+```ts
+// MPU6050 gyroscope -> { x, y, z } in °/s
+if (!Array.isArray(input) || input.length < 6) return 0;
+const s16 = (hi, lo) => {
+  const v = (input[hi] << 8) | input[lo];
+  return v >= 0x8000 ? v - 0x10000 : v;
+};
+const scale = 131; // LSB per °/s at ±250 °/s (power-on default range)
+return { x: s16(0, 1) / scale, y: s16(2, 3) / scale, z: s16(4, 5) / scale };
+```
 
 ### BME280 — temperature & humidity
 
@@ -274,7 +269,7 @@ Swapping the SDA and SCL wires is the most common reason a sensor returns no dat
 </Callout>
 
 <Callout type="info" title="Multiple devices on one bus">
-Connect as many I2C devices as you like to the same SDA/SCL lines, as long as each has a unique address. Two sensors that share an address (e.g. VL53L0X and TCS34725 both at 0x29) can't run at the same time unless one has an address-select pin. Microflow keeps every device on the bus streaming when you add or remove another.
+Connect as many I2C devices as you like to the same SDA/SCL lines. **One chip, two readings** is fine — a MPU6050 accel + gyro, or an SHT21 temp + humidity, are two nodes at the same address on different registers, and Microflow keeps their streams separate (it routes each reply by register). **Two different chips at the same address** (e.g. a VL53L0X and a TCS34725 both hard-wired to 0x29) is a hardware conflict they can't resolve on the bus — give one an address-select pin. Microflow keeps every device streaming when you add or remove another.
 </Callout>
 
 <Callout type="info" title="Pull-up resistors">

@@ -3,6 +3,7 @@
  * it still requires a lot of testing before exposing it to users
  */
 
+import { useMemo } from "react";
 import { NodeHandles } from "../_base/node-handles";
 import {
   NodeContainer,
@@ -11,6 +12,7 @@ import {
   type BaseNode,
 } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
+import { useFlowNodes, useFlowSession } from "@/session";
 import { dataSchema, type Data, type Value } from "./i2c-device.schema";
 import {
   I2C_PRESETS,
@@ -19,9 +21,37 @@ import {
 } from "./i2c-device.constants";
 import { folder } from "leva";
 
+/**
+ * Warn when another I2C node shares this node's address. It's a bus of shared
+ * SDA/SCL lines, so two nodes on one address are fine when they're the same
+ * physical chip on different registers (an MPU6050 accel + gyro, an SHT2x temp +
+ * humidity — replies demux by register in the runtime), but a real conflict when
+ * they're different chips. We can't tell those apart from the flow, so this is an
+ * advisory amber badge, not a hard error.
+ */
+function useSharedAddressWarning(id: string, address: number): string | undefined {
+  const { doc } = useFlowSession();
+  const nodes = useFlowNodes(doc);
+
+  return useMemo(() => {
+    const others = nodes.filter(
+      (node) =>
+        node.id !== id &&
+        node.data?.instance === "I2cDevice" &&
+        node.data?.address === address,
+    );
+    if (others.length === 0) return undefined;
+
+    const hex = `0x${address.toString(16).toUpperCase().padStart(2, "0")}`;
+    return `${others.length + 1} nodes share I2C address ${hex}. That's fine if they're the same sensor on different registers (e.g. MPU6050 accel + gyro), but a conflict if they're different chips — give one an address-select pin.`;
+  }, [nodes, id, address]);
+}
+
 export function I2cDevice(props: Props) {
+  const warning = useSharedAddressWarning(props.id, props.data.address);
+
   return (
-    <NodeContainer {...props}>
+    <NodeContainer {...props} warning={warning}>
       <Value />
       <Settings />
       <NodeHandles

@@ -24,17 +24,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     freq: 100,
     description: "Manual I2C configuration",
   },
-  ads1115: {
-    label: "ADS1115",
-    address: 0x48,
-    register: 0x00,
-    readLength: 2,
-    output: "signed_int",
-    freq: 100,
-    // Runtime writes the config register to continuous mode on startup. The
-    // default is single-ended AIN0 at ±4.096V; other channels/ranges need Custom.
-    description: "16-bit ADC (AIN0 ±4.096V — auto-configured)",
-  },
   bh1750: {
     label: "BH1750",
     address: 0x23,
@@ -110,15 +99,26 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     freq: 120,
     description: "Humidity (11-bit, raw 16-bit — scale downstream)",
   },
-  mpu6050: {
-    label: "MPU6050",
+  mpu6050_accel: {
+    label: "MPU6050 (accel)",
     address: 0x68,
-    register: 0x3b,
+    register: 0x3b, // ACCEL_XOUT_H — 6 bytes = accel X/Y/Z
     readLength: 6,
     output: "raw",
     freq: 20,
     // Runtime clears the SLEEP bit (PWR_MGMT_1) on startup, else all axes read 0.
-    description: "Accelerometer/Gyro XYZ (auto-woken)",
+    // Accel + gyro are the same chip at 0x68; the reply demux (by register) keeps
+    // the two nodes' streams separate — see runtime/mod.rs::drain_i2c_replies.
+    description: "Accelerometer XYZ (auto-woken)",
+  },
+  mpu6050_gyro: {
+    label: "MPU6050 (gyro)",
+    address: 0x68,
+    register: 0x43, // GYRO_XOUT_H — 6 bytes = gyro X/Y/Z
+    readLength: 6,
+    output: "raw",
+    freq: 20,
+    description: "Gyroscope XYZ (auto-woken)",
   },
   vl53l0x: {
     label: "VL53L0X",

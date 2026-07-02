@@ -51,7 +51,7 @@ The catalog (`apps/web/node-components.json`, 37 entries) groups Nodes into beha
 - **Flow Author** — The maker (designer, engineer, hobbyist) who builds a Flow and wants it to run on their board.
 - **Cloud Node** — A Node needing off-device networking: **Mqtt** (publish/subscribe to a broker topic), **Figma** (bridge a Figma design variable in/out over a broker), **Llm** (POST a prompt to an OpenAI-compatible endpoint), **Monitor** (publish received values to a monitor topic). Live, the host proxies the network; generated, the board does its own networking and the Node only runs on a networking-capable Board Target.
 - **Function Node** — A Node that runs user-authored JavaScript in a sandbox; the seed of the planned **Plugin** system. `docs/FUNCTION_NODE.md`
-- **I2cDevice** — A single generic Node that talks to any I2C peripheral by address + register, with optional **Device Presets** (ADS1115, BME280, MPU6050, …). `docs/I2C_SUPPORT.md`
+- **I2cDevice** — A single generic Node that talks to any I2C peripheral by address + register, with optional **Device Presets** (BME280, BMP280, MPU6050, SHT21, …). `docs/I2C_SUPPORT.md`
 
 ## Live Flow Runtime — Execution
 

@@ -48,11 +48,13 @@ pub fn device_init_writes(device: &str) -> &'static [&'static [u8]] {
         // conversion fits the I2C read-delay so the no-hold read (0xF3/0xF5) lands
         // after it — full 14-bit (85ms) would exceed the delay cap.
         "sht21temp" | "sht21humidity" => &[&[0xE6, 0x83]],
-        // MPU6050 accel/gyro: powers up ASLEEP (PWR_MGMT_1 0x6B has the SLEEP bit
-        // set), so every ACCEL_*/GYRO_* register reads 0. Writing 0x6B = 0x00
-        // clears SLEEP and selects the internal 8MHz clock. The power-on default
-        // ranges (±2g / ±250°/s) are fine for the raw 0x3B burst read.
-        "mpu6050" => &[&[0x6B, 0x00]],
+        // MPU6050 accel (0x3B) / gyro (0x43): one chip at 0x68, two presets
+        // (`mpu6050_accel` / `mpu6050_gyro`) plus any legacy `mpu6050` id. It
+        // powers up ASLEEP (PWR_MGMT_1 0x6B has the SLEEP bit set), so every
+        // ACCEL_*/GYRO_* register reads 0. Writing 0x6B = 0x00 clears SLEEP and
+        // selects the internal 8MHz clock — the same wake serves both presets. The
+        // power-on default ranges (±2g / ±250°/s) are fine for the raw burst reads.
+        d if d.starts_with("mpu6050") => &[&[0x6B, 0x00]],
         // BME280 temp/humidity (one chip, two presets): powers up in SLEEP, so the
         // data registers stay pinned at their reset value. Bring it to NORMAL mode.
         // ctrl_hum (0xF2) MUST be written BEFORE ctrl_meas (0xF4) or the humidity
@@ -70,15 +72,6 @@ pub fn device_init_writes(device: &str) -> &'static [&'static [u8]] {
         // config as the BME280; the 0xFA (temp) / 0xF7 (press) reads are likewise
         // raw uncompensated 20-bit ADC counts, compensated downstream.
         "bmp280temp" | "bmp280pressure" => &[&[0xF4, 0x27], &[0xF5, 0xA0]],
-        // ADS1115 ADC: powers up in SINGLE-SHOT mode (config MODE bit set), so the
-        // conversion register (0x00) never refreshes on its own. Write the config
-        // register (0x01) with MODE = 0 for continuous conversions the stream can
-        // poll. 0xC283 = OS start | MUX AIN0/GND (100) | PGA ±4.096V (001) | MODE
-        // continuous (0) | DR 128 SPS (100) | comparator disabled (..11).
-        // Single-ended AIN0 at ±4.096V is the general-purpose default; a different
-        // input channel or range needs a `custom` node whose `write` handle sets
-        // the config register itself.
-        "ads1115" => &[&[0x01, 0xC2, 0x83]],
         // BH1750 ambient-light sensor: opcode-driven, no registers. After power-up
         // it sits in POWER-DOWN; send POWER-ON (0x01) so it is awake before the
         // continuous H-res mode command (0x10, the preset's "register") that the
@@ -170,9 +163,11 @@ mod tests {
     }
 
     #[test]
-    fn mpu6050_wakes_from_sleep() {
-        // Boots asleep (PWR_MGMT_1 0x6B SLEEP set); 0x6B = 0x00 clears SLEEP.
-        for id in ["mpu6050", "MPU6050"] {
+    fn mpu6050_wakes_from_sleep_for_both_presets() {
+        // Boots asleep (PWR_MGMT_1 0x6B SLEEP set); 0x6B = 0x00 clears SLEEP. Accel
+        // and gyro are the same chip, so both presets (and any legacy `mpu6050` id,
+        // and a stale label) get the wake write.
+        for id in ["mpu6050_accel", "mpu6050_gyro", "mpu6050", "MPU6050 (accel)"] {
             assert_eq!(device_init_writes(id), &[&[0x6Bu8, 0x00][..]], "device {id}");
         }
     }
@@ -207,16 +202,6 @@ mod tests {
             );
             assert_eq!(writes[0][1] & 0b11, 0b11, "device {id}: mode must be NORMAL");
         }
-    }
-
-    #[test]
-    fn ads1115_config_selects_continuous_mode() {
-        // Boots single-shot; config register (0x01) MODE bit (bit 8 = bit 0 of the
-        // high data byte) must be 0 for the conversion register to keep refreshing.
-        let writes = device_init_writes("ads1115");
-        assert_eq!(writes.len(), 1);
-        assert_eq!(writes[0][0], 0x01, "must target the config register");
-        assert_eq!(writes[0][1] & 0x01, 0x00, "MODE bit must be 0 (continuous)");
     }
 
     #[test]

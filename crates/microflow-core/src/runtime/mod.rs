@@ -136,7 +136,7 @@ pub struct FlowRuntime {
     /// Pin → listening component ids (the inbound `_pin_change` routing table).
     pin_listeners: HashMap<u8, Vec<Arc<str>>>,
     /// I2C address → listening component ids.
-    i2c_listeners: HashMap<u8, Vec<Arc<str>>>,
+    i2c_listeners: HashMap<u8, Vec<(u8, Arc<str>)>>,
     /// Hotkey accelerator (lowercased) → listening component ids.
     key_listeners: HashMap<String, Vec<Arc<str>>>,
     /// Monotonic id source for wakeups handed to the host.
@@ -270,7 +270,7 @@ impl FlowRuntime {
 
         // 4. Recompute the wiring tables from every active component.
         let mut pin_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
-        let mut i2c_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
+        let mut i2c_listeners: HashMap<u8, Vec<(u8, Arc<str>)>> = HashMap::new();
         let mut key_listeners: HashMap<String, Vec<Arc<str>>> = HashMap::new();
         let mut report: HashMap<u8, bool> = HashMap::new();
         // The single global sampling interval / I2C read-delay are reconciled to
@@ -288,8 +288,11 @@ impl FlowRuntime {
                         pin_listeners.entry(pin).or_default().push(Arc::from(id.as_str()));
                         report.insert(pin, true);
                     }
-                    ListenerWiring::I2cAddress { address } => {
-                        i2c_listeners.entry(address).or_default().push(Arc::from(id.as_str()));
+                    ListenerWiring::I2cAddress { address, register } => {
+                        i2c_listeners
+                            .entry(address)
+                            .or_default()
+                            .push((register, Arc::from(id.as_str())));
                     }
                     // Hotkeys are delivered by the host (keyboard) via
                     // `dispatch_key_event`, not the board.
@@ -532,12 +535,13 @@ impl FlowRuntime {
             .push(Arc::from(component_id));
     }
 
-    /// Register a component as a listener for an I2C address's replies.
-    pub fn register_i2c_listener(&mut self, address: u8, component_id: &str) {
+    /// Register a component as a listener for an I2C address's replies on a
+    /// specific `register` (replies are demuxed by register in `drain_i2c_replies`).
+    pub fn register_i2c_listener(&mut self, address: u8, register: u8, component_id: &str) {
         self.i2c_listeners
             .entry(address)
             .or_default()
-            .push(Arc::from(component_id));
+            .push((register, Arc::from(component_id)));
     }
 
     /// Set the current flow sequence (used by the desktop host + tests to drive
@@ -673,13 +677,27 @@ impl FlowRuntime {
         let replies: Vec<_> = self.client.i2c_data.drain(..).collect();
         for reply in replies {
             let address = reply.address as u8;
+            let register = reply.register as u8;
             let Some(listeners) = self.i2c_listeners.get(&address) else { continue };
             let data: Vec<ComponentValue> = reply
                 .data
                 .iter()
                 .map(|&b| ComponentValue::Number(f64::from(b)))
                 .collect();
-            for component_id in listeners {
+            // Demux by register: the reply frame carries the register the board
+            // re-wrote for this continuous read, so a node only receives replies
+            // for the register it streams — two nodes on one address reading
+            // different registers (MPU6050 accel 0x3B + gyro 0x43, SHT2x temp 0xF3
+            // + humidity 0xF5) no longer clobber each other's value. Fallback: if
+            // NO listener on this address matches the register, deliver to all of
+            // them, so a device whose reply register is unexpected still updates
+            // rather than going silent (never narrower than the old address-only
+            // routing).
+            let register_matched = listeners.iter().any(|(reg, _)| *reg == register);
+            for (reg, component_id) in listeners {
+                if register_matched && *reg != register {
+                    continue;
+                }
                 self.sink.borrow_mut().push_back(ComponentEvent {
                     source: Arc::clone(component_id),
                     source_handle: Arc::from(reserved_handles::I2C_REPLY),
@@ -1222,6 +1240,65 @@ mod tests {
             contains(&second.outbound_bytes, &read_sht),
             "second flow must RE-ARM the SHT — the bug dropped it when the TCS registered; got: {:02X?}",
             second.outbound_bytes
+        );
+    }
+
+    #[test]
+    fn same_address_replies_demux_by_register() {
+        use crate::firmata::{END_SYSEX, I2C_REPLY, START_SYSEX};
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        rt.seed_digital_pins(20);
+
+        // MPU6050 accel + gyro: one chip at 0x68, two nodes on different registers
+        // (0x3B / 0x43). Raw output so each reply surfaces as a distinctive array.
+        let accel = node(
+            "accel",
+            "I2cDevice",
+            json!({ "device": "mpu6050_accel", "address": 0x68, "register": 0x3B, "readLength": 6, "output": "raw" }),
+        );
+        let gyro = node(
+            "gyro",
+            "I2cDevice",
+            json!({ "device": "mpu6050_gyro", "address": 0x68, "register": 0x43, "readLength": 6, "output": "raw" }),
+        );
+        rt.update_flow(FlowUpdate { nodes: vec![accel, gyro], edges: vec![] });
+
+        // Build a board I2C_REPLY sysex frame (7-bit lsb/msb pairs) for one register.
+        let reply = |reg: u8, data: [u8; 6]| {
+            let mut f = vec![START_SYSEX, I2C_REPLY, 0x68, 0, reg & 0x7F, reg >> 7];
+            for b in data {
+                f.push(b & 0x7F);
+                f.push(b >> 7);
+            }
+            f.push(END_SYSEX);
+            f
+        };
+
+        // A reply for register 0x3B must reach ONLY the accel node. Before the
+        // register demux, the address-only routing handed every 0x68 reply to both
+        // nodes, so the gyro node's value flipped to accel data every cycle.
+        let accel_reply = rt.feed_bytes(&reply(0x3B, [1, 2, 3, 4, 5, 6]));
+        assert!(
+            accel_reply.component_events.iter().any(|e| &*e.source == "accel"),
+            "accel node must receive its own 0x3B reply, got: {:?}",
+            accel_reply.component_events
+        );
+        assert!(
+            !accel_reply.component_events.iter().any(|e| &*e.source == "gyro"),
+            "gyro node must NOT receive the accel (0x3B) reply",
+        );
+
+        // Mirror: a 0x43 reply reaches only the gyro node.
+        let gyro_reply = rt.feed_bytes(&reply(0x43, [7, 8, 9, 10, 11, 12]));
+        assert!(
+            gyro_reply.component_events.iter().any(|e| &*e.source == "gyro"),
+            "gyro node must receive its own 0x43 reply, got: {:?}",
+            gyro_reply.component_events
+        );
+        assert!(
+            !gyro_reply.component_events.iter().any(|e| &*e.source == "accel"),
+            "accel node must NOT receive the gyro (0x43) reply",
         );
     }
 
