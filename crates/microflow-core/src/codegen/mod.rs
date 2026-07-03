@@ -364,23 +364,20 @@ fn wire_inputs(flow: &FlowUpdate) -> Wiring<'_> {
             ));
             continue;
         };
-        match output_expression(source_node, source_handle) {
-            Some(expr) => {
-                wiring
-                    .inputs
-                    .entry(target)
-                    .or_default()
-                    .add(target_handle, expr);
-            }
-            None => {
-                let kind = source_node.node_type.as_deref().unwrap_or("unknown");
-                wiring.notes.entry(target).or_default().push(format!(
-                    "// note: input '{}' from node '{}' ({kind}) output '{}' has no on-device value — edge ignored",
-                    emit::cpp_comment_text(target_handle),
-                    emit::cpp_comment_text(source),
-                    emit::cpp_comment_text(source_handle),
-                ));
-            }
+        if let Some(expr) = output_expression(source_node, source_handle) {
+            wiring
+                .inputs
+                .entry(target)
+                .or_default()
+                .add(target_handle, expr);
+        } else {
+            let kind = source_node.node_type.as_deref().unwrap_or("unknown");
+            wiring.notes.entry(target).or_default().push(format!(
+                "// note: input '{}' from node '{}' ({kind}) output '{}' has no on-device value — edge ignored",
+                emit::cpp_comment_text(target_handle),
+                emit::cpp_comment_text(source),
+                emit::cpp_comment_text(source_handle),
+            ));
         }
     }
     wiring
@@ -639,7 +636,7 @@ mod tests {
     }
 
     /// An edge with explicit source/target handles, matching the real Flow
-    /// wire contract (source handle ∈ emits(), target handle ∈ ports()).
+    /// wire contract (source handle ∈ `emits()`, target handle ∈ `ports()`).
     fn edge_h(source: &str, source_handle: &str, target: &str, target_handle: &str) -> FlowEdge {
         FlowEdge {
             id: None,
@@ -880,7 +877,7 @@ mod tests {
     }
 
     /// Scenario: a Button's `value` into a Led's `value` is PWM brightness —
-    /// the runtime's brightness dispatch (Bool ⇒ as_u8 ⇒ 0/1), not a digital
+    /// the runtime's brightness dispatch (Bool ⇒ `as_u8` ⇒ 0/1), not a digital
     /// level write.
     #[test]
     fn button_value_into_led_value_is_brightness() {

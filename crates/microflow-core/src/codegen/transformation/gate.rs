@@ -114,10 +114,10 @@ mod tests {
     #[test]
     fn xor_xnor_compare_against_one() {
         let inputs = wired(&[CppExpr::boolean("a"), CppExpr::boolean("b"), CppExpr::boolean("c")]);
-        let xor = emit(&gate("g-1", json!({ "gate": "xor" })), &inputs);
-        assert!(xor.loop_body.iter().any(|l| l.contains("== 1")));
-        let xnor = emit(&gate("g-1", json!({ "gate": "xnor" })), &inputs);
-        assert!(xnor.loop_body.iter().any(|l| l.contains("!= 1")));
+        let one_hot = emit(&gate("g-1", json!({ "gate": "xor" })), &inputs);
+        assert!(one_hot.loop_body.iter().any(|l| l.contains("== 1")));
+        let not_one_hot = emit(&gate("g-1", json!({ "gate": "xnor" })), &inputs);
+        assert!(not_one_hot.loop_body.iter().any(|l| l.contains("!= 1")));
     }
 
     #[test]
