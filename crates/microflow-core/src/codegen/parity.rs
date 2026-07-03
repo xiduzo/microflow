@@ -2,20 +2,22 @@
 //!
 //! The live runtime (`runtime/`) and the codegen emitters (`codegen/`) are two
 //! implementations of the same Node semantics. The config single-source work
-//! (see `crate::config`) makes them share a Node's fields + defaults, but the
-//! *behavior* is still written twice — and codegen's single-driver value model
-//! deliberately cannot reproduce some multi-input runtime behaviors.
+//! (see `crate::config`) makes them share a Node's fields + defaults, and the
+//! handle-aware wiring model (`codegen/wire.rs`) gives codegen the same
+//! port/emit routing the runtime router uses — but the *behavior* is still
+//! written twice.
 //!
-//! These tests pin every operation variant (and Counter's ports) to an explicit,
-//! EXHAUSTIVE classification: a newly added operation or port won't compile until
-//! it is categorized here, forcing a conscious "emit it, or record the
-//! single-driver limitation" decision. They are the CI replacement for the prose
+//! These tests pin every operation variant (and Counter's ports) to an
+//! explicit, EXHAUSTIVE classification: a newly added operation or port won't
+//! compile until it is categorized here, forcing a conscious "emit it, or
+//! record the limitation" decision. They are the CI replacement for the prose
 //! docstrings that previously kept the two sides in sync by hand — the kind of
-//! hand-sync that let the Smooth attenuation invert silently (commit `e1e1eb9`)
-//! and that leaves Calculate's folds / Counter's extra ports unemittable today.
+//! hand-sync that let the Smooth attenuation invert silently (commit
+//! `e1e1eb9`).
 
 #[cfg(test)]
 mod tests {
+    use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
     use crate::flow::{FlowNode, Position};
     use serde_json::json;
 
@@ -28,31 +30,36 @@ mod tests {
         }
     }
 
-    /// How a codegen emitter treats one operation variant under the single-driver
-    /// model: it either emits operation-specific C++, or collapses to the
-    /// single-input form (the runtime's fold/aggregate reduced to one input).
-    enum Emit {
-        /// Emits C++ containing this distinctive token.
-        Distinct(&'static str),
-        /// Single-input passthrough (no operation-specific C++).
-        Passthrough,
+    /// Two numeric sources wired into one port — the shape that exercises a
+    /// fold's multi-input path.
+    fn two_inputs(port: &str) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        inputs.add(port, SourceExpr::level(CppExpr::number("a")));
+        inputs.add(port, SourceExpr::level(CppExpr::number("b")));
+        inputs
     }
 
     // ---- Calculate: 11 arithmetic functions ------------------------------
 
-    /// EXHAUSTIVE over `CalculateFunction`. Add a variant → this won't compile
-    /// until you classify it. `ceil`/`floor`/`round` are unary math the Sketch
-    /// applies to one input; the eight folds reduce to their single input
-    /// (documented in `codegen/transformation/calculate.rs`).
-    fn calculate_kind(f: crate::config::calculate::CalculateFunction) -> Emit {
+    /// EXHAUSTIVE over `CalculateFunction`: the C++ token each variant's fold
+    /// must contain when two inputs are wired. Add a variant → this won't
+    /// compile until you name its emitted token.
+    fn calculate_token(f: crate::config::calculate::CalculateFunction) -> &'static str {
         use crate::config::calculate::CalculateFunction::{
             Add, Ceil, Divide, Floor, Max, Min, Modulo, Multiply, Pow, Round, Subtract,
         };
         match f {
-            Ceil => Emit::Distinct("ceil"),
-            Floor => Emit::Distinct("floor"),
-            Round => Emit::Distinct("round"),
-            Add | Subtract | Multiply | Divide | Modulo | Max | Min | Pow => Emit::Passthrough,
+            Add => " + ",
+            Subtract => " - ",
+            Multiply => " * ",
+            Divide => ") / ",
+            Modulo => "fmod(",
+            Max => "fmax(",
+            Min => "fmin(",
+            Pow => "pow(",
+            Ceil => "ceil(",
+            Floor => "floor(",
+            Round => "round(",
         }
     }
 
@@ -77,35 +84,31 @@ mod tests {
         for (wire, variant) in all {
             let e = crate::codegen::transformation::calculate::emit(
                 &node("Calculate", json!({ "function": wire })),
-                Some("drv"),
+                &two_inputs("value"),
             );
             let body = e.loop_body.join("\n");
-            match calculate_kind(variant) {
-                Emit::Distinct(tok) => {
-                    assert!(body.contains(tok), "Calculate `{wire}` must emit `{tok}`, got: {body}");
-                }
-                Emit::Passthrough => {
-                    for unary in ["ceil", "floor", "round"] {
-                        assert!(
-                            !body.contains(unary),
-                            "Calculate `{wire}` must pass its single input through, but emitted `{unary}`: {body}"
-                        );
-                    }
-                    assert!(body.contains("drv"), "Calculate `{wire}` must reference the driver: {body}");
-                }
-            }
+            let token = calculate_token(variant);
+            assert!(
+                body.contains(token),
+                "Calculate `{wire}` must emit its fold (`{token}`), got: {body}"
+            );
+            assert!(body.contains("(a)"), "Calculate `{wire}` must read its inputs: {body}");
         }
     }
 
     // ---- Gate: 6 boolean gates -------------------------------------------
 
-    /// EXHAUSTIVE over `GateType`. Inverting gates negate the single input;
-    /// pass-through gates forward it (`and`/`or`/`xor` all equal the lone input).
-    fn gate_kind(g: crate::config::gate::GateType) -> Emit {
+    /// EXHAUSTIVE over `GateType`: the truthy-count comparison each gate emits
+    /// over two wired inputs, transcribing the runtime's `passes_gate`.
+    fn gate_comparison(g: crate::config::gate::GateType) -> &'static str {
         use crate::config::gate::GateType::{And, Nand, Nor, Or, Xnor, Xor};
         match g {
-            Nand | Nor | Xnor => Emit::Distinct("!((bool)"),
-            And | Or | Xor => Emit::Passthrough,
+            And => "== 2",
+            Nand => "!= 2",
+            Or => "> 0",
+            Nor => "== 0",
+            Xor => "== 1",
+            Xnor => "!= 1",
         }
     }
 
@@ -123,52 +126,55 @@ mod tests {
         for (wire, variant) in all {
             let e = crate::codegen::transformation::gate::emit(
                 &node("Gate", json!({ "gate": wire })),
-                Some("drv"),
+                &two_inputs("value"),
             );
             let body = e.loop_body.join("\n");
-            match gate_kind(variant) {
-                Emit::Distinct(tok) => {
-                    assert!(body.contains(tok), "Gate `{wire}` must invert (`{tok}`), got: {body}");
-                }
-                Emit::Passthrough => assert!(
-                    body.contains("(bool)(drv)") && !body.contains("!((bool)"),
-                    "Gate `{wire}` must pass its single input through, got: {body}"
-                ),
-            }
+            assert!(
+                body.contains("true_count"),
+                "Gate `{wire}` must count truthy inputs, got: {body}"
+            );
+            let cmp = gate_comparison(variant);
+            assert!(
+                body.contains(cmp),
+                "Gate `{wire}` must compare the count (`{cmp}`), got: {body}"
+            );
         }
     }
 
-    // ---- Counter: 4 ports, single-driver model emits only `increment` ----
+    // ---- Counter: 4 ports, all bound by the handle-aware wiring ----------
 
-    /// Runtime `Counter` accepts four ports; the codegen single-driver model can
-    /// only pulse one. The other three are intentionally UNREACHABLE on-device
-    /// (generated C++ has no multi-port input binding). Gated on `runtime`
-    /// because `Component::ports()` lives there. A new/renamed port hits the
-    /// `other =>` arm and fails until classified.
+    /// Runtime `Counter` accepts four ports; the handle-aware wiring model
+    /// emits all of them. Gated on `runtime` because `Component::ports()`
+    /// lives there. A new/renamed port hits the `other =>` arm and fails
+    /// until classified.
     #[cfg(feature = "runtime")]
     #[test]
     fn counter_ports_classified_for_codegen() {
         use crate::runtime::{control::counter::Counter, Component};
 
-        let mut emittable = vec![];
-        for &port in Counter::ports() {
-            match port {
-                "increment" => emittable.push(port), // the driver pulse (rising edge)
-                "decrement" | "reset" | "set" => {}  // unreachable: single-driver model
-                other => panic!(
-                    "Counter port `{other}` is unclassified for codegen parity — emit it in \
-                     codegen/control/counter.rs, or record it as a single-driver limitation \
-                     in codegen/parity.rs."
-                ),
-            }
-        }
-        assert_eq!(emittable, ["increment"], "Counter's only codegen-emittable port is `increment`");
+        // (port, the C++ action its binding must emit).
+        let expected_action = |port: &str| match port {
+            "increment" => "+= 1.0",
+            "decrement" => "-= 1.0",
+            "reset" => "= 0.0",
+            "set" => "counter_p_count = ",
+            other => panic!(
+                "Counter port `{other}` is unclassified for codegen parity — bind it in \
+                 codegen/control/counter.rs and name its emitted action here."
+            ),
+        };
 
-        // And the emitter actually produces that increment.
-        let e = crate::codegen::control::counter::emit(&node("Counter", json!({})), Some("drv"));
-        assert!(
-            e.loop_body.join("\n").contains("+= 1.0"),
-            "Counter codegen must emit the rising-edge increment"
-        );
+        for &port in Counter::ports() {
+            let mut inputs = NodeInputs::default();
+            let expr = if port == "set" { CppExpr::number("v") } else { CppExpr::boolean("v") };
+            inputs.add(port, SourceExpr::level(expr));
+            let e = crate::codegen::control::counter::emit(&node("Counter", json!({})), &inputs);
+            let body = e.loop_body.join("\n");
+            let action = expected_action(port);
+            assert!(
+                body.contains(action),
+                "Counter port `{port}` must emit `{action}`, got: {body}"
+            );
+        }
     }
 }

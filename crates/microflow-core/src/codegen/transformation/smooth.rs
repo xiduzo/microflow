@@ -17,6 +17,7 @@
 //! `double` is read by downstream Nodes.
 
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::config::smooth::{SmoothConfig, SmoothType};
 use crate::flow::FlowNode;
 
@@ -26,21 +27,30 @@ pub fn value_var(node: &FlowNode) -> String {
     format!("smooth_{}_value", node.id_token())
 }
 
-/// Emit C++ for a Smooth Node. `driver` is the wired numeric input, or `None`
-/// when nothing is connected (the runtime leaves the value at `0.0`).
+/// Emit C++ for a Smooth Node from its `value` port. With nothing connected
+/// the value stays at `0.0` (the runtime never smooths without a signal).
+/// Smooth does not aggregate: extra sources are noted and the first drives.
 ///
 /// Deserializes the shared [`SmoothConfig`] from `node.data`, so the fields and
 /// defaults are exactly the ones the live runtime uses — no re-typed literals.
 #[must_use]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let var = value_var(node);
     let config: SmoothConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 
-    match config.smooth_type {
-        SmoothType::MovingAverage => moving_average(&token, &var, config.window_size, driver),
-        SmoothType::Smooth => exponential(&var, config.attenuation, driver),
+    let sources = inputs.on("value");
+    let driver = sources.first().map(|s| s.value.as_double());
+    let mut e = match config.smooth_type {
+        SmoothType::MovingAverage => {
+            moving_average(&token, &var, config.window_size, driver.as_deref())
+        }
+        SmoothType::Smooth => exponential(&var, config.attenuation, driver.as_deref()),
+    };
+    if let Some(note) = extra_sources_note("value", sources) {
+        e.declarations.push(note);
     }
+    e
 }
 
 /// Exponential smoothing: a single persistent running value.
@@ -58,8 +68,8 @@ fn exponential(var: &str, attenuation: f64, driver: Option<&str>) -> NodeEmissio
         let seeded = format!("{var}_seeded");
         e.declarations.push(format!("bool {seeded} = false;"));
         e.loop_body.push(format!(
-            "if (!{seeded}) {{ {var} = (double)({expr}); {seeded} = true; }} \
-             else {{ {var} = (1.0 - {attenuation}) * (double)({expr}) + {attenuation} * {var}; }}"
+            "if (!{seeded}) {{ {var} = {expr}; {seeded} = true; }} \
+             else {{ {var} = (1.0 - {attenuation}) * {expr} + {attenuation} * {var}; }}"
         ));
     }
     e
@@ -85,7 +95,7 @@ fn moving_average(token: &str, var: &str, window_size: usize, driver: Option<&st
     };
 
     if let Some(expr) = driver {
-        e.loop_body.push(format!("{buf}[{idx}] = (double)({expr});"));
+        e.loop_body.push(format!("{buf}[{idx}] = {expr};"));
         e.loop_body.push(format!("{idx} = ({idx} + 1) % {window};"));
         e.loop_body
             .push(format!("if ({count} < {window}) {{ {count}++; }}"));
@@ -101,6 +111,7 @@ fn moving_average(token: &str, var: &str, window_size: usize, driver: Option<&st
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::codegen::wire::{CppExpr, SourceExpr};
     use crate::flow::Position;
     use serde_json::json;
 
@@ -113,9 +124,18 @@ mod tests {
         }
     }
 
+    fn value_input(expr: CppExpr) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        inputs.add("value", SourceExpr::level(expr));
+        inputs
+    }
+
     #[test]
     fn exponential_persists_running_value() {
-        let e = emit(&smooth("s-1", json!({ "type": "smooth", "attenuation": 0.9 })), Some("v"));
+        let e = emit(
+            &smooth("s-1", json!({ "type": "smooth", "attenuation": 0.9 })),
+            &value_input(CppExpr::number("v")),
+        );
         // Decl is a single persistent double; loop updates it from itself.
         assert!(e.declarations.iter().any(|d| d.contains("smooth_s_1_value")));
         assert!(e.loop_body.iter().any(|l| l.contains("0.9") && l.contains("smooth_s_1_value")));
@@ -125,7 +145,7 @@ mod tests {
     fn moving_average_uses_ring_buffer() {
         let e = emit(
             &smooth("s-1", json!({ "type": "movingAverage", "windowSize": 5 })),
-            Some("v"),
+            &value_input(CppExpr::number("v")),
         );
         assert!(e.declarations.iter().any(|d| d.contains("smooth_s_1_window[5]")));
         assert!(e.loop_body.iter().any(|l| l.contains("% 5")));
@@ -136,20 +156,20 @@ mod tests {
     fn moving_average_guards_zero_window() {
         let e = emit(
             &smooth("s-1", json!({ "type": "movingAverage", "windowSize": 0 })),
-            Some("v"),
+            &value_input(CppExpr::number("v")),
         );
         assert!(e.declarations.iter().any(|d| d.contains("smooth_s_1_window[1]")));
     }
 
     #[test]
     fn default_type_is_exponential() {
-        let e = emit(&smooth("s-1", json!({})), Some("v"));
+        let e = emit(&smooth("s-1", json!({})), &value_input(CppExpr::number("v")));
         assert!(e.loop_body.iter().any(|l| l.contains("0.995")));
     }
 
     #[test]
-    fn no_driver_emits_no_loop_body() {
-        let e = emit(&smooth("s-1", json!({})), None);
+    fn no_input_emits_no_loop_body() {
+        let e = emit(&smooth("s-1", json!({})), &NodeInputs::default());
         assert!(e.loop_body.is_empty());
         assert!(e.declarations.iter().any(|d| d.contains("= 0.0;")));
     }
@@ -157,6 +177,7 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = smooth("s-1", json!({ "type": "movingAverage", "windowSize": 3 }));
-        assert_eq!(emit(&n, Some("v")), emit(&n, Some("v")));
+        let inputs = value_input(CppExpr::number("v"));
+        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
     }
 }

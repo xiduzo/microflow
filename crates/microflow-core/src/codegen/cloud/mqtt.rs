@@ -33,6 +33,7 @@
 //! input yields byte-identical output (determinism invariant).
 
 use crate::codegen::emit::{str_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
 
 /// Default broker port — standard unencrypted MQTT.
@@ -84,12 +85,14 @@ fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
 
 /// Emit C++ for an Mqtt Cloud Node on a networked target.
 ///
-/// `driver` is the C++ expression a publish Node sends each time its input
-/// fires (the payload). A subscribe Node ignores it. The target is assumed to
-/// offer networking — validation refuses the Node otherwise.
+/// A publish Node sends one message per pulse arriving on its `trigger` port
+/// (the firing source's value is the payload), the on-device twin of one
+/// dispatch == one publish. A subscribe Node ignores trigger wiring. The
+/// target is assumed to offer networking — validation refuses the Node
+/// otherwise.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let direction = {
         let d = str_or_default(node, "direction", DEFAULT_DIRECTION);
@@ -212,22 +215,29 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     setup.push(format!("mqtt_{token}_ensure_connected();"));
 
     // loop(): keep the connection alive (reconnect on drop), pump the client,
-    // and — for publish Nodes — send the driven payload when its input fires.
+    // and — for publish Nodes — send one message per pulse on the `trigger`
+    // port, the firing source's value as the payload.
     let mut loop_body = vec![
         format!("mqtt_{token}_ensure_connected();"),
         format!("{mqtt_client}.loop();"),
     ];
     if is_publish {
-        if let Some(expr) = driver {
-            loop_body.push(format!("if ({mqtt_client}.connected()) {{"));
-            loop_body.push(format!(
-                "  {mqtt_client}.publish({topic_var}, String({expr}).c_str());"
-            ));
-            loop_body.push("}".to_string());
-        } else {
+        let sources = inputs.on("trigger");
+        let binding = bind_pulses(&format!("mqtt_{token}_trigger"), sources);
+        declarations.extend(binding.declarations.iter().cloned());
+        loop_body.extend(binding.loop_lines.iter().cloned());
+        if binding.fired.is_empty() {
             loop_body.push(format!(
                 "// publish Node {token} has no wired input — nothing to publish"
             ));
+        }
+        for (fired, source) in binding.fired.iter().zip(sources) {
+            loop_body.push(format!("if ({fired} && {mqtt_client}.connected()) {{"));
+            loop_body.push(format!(
+                "  {mqtt_client}.publish({topic_var}, ({}).c_str());",
+                source.value.as_string()
+            ));
+            loop_body.push("}".to_string());
         }
     }
 
@@ -239,18 +249,20 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     }
 }
 
-/// The C++ expression downstream Nodes read for a subscribe Mqtt Node: the
-/// latest inbound message as a numeric value (`toFloat`). Publish Nodes expose
-/// no readable value. Mirrors the live component surfacing the message as its
-/// value.
+/// What downstream Nodes read from a subscribe Mqtt Node: the latest inbound
+/// message parsed as a number (`toFloat`), mirroring the live component's
+/// numeric payload parse — the common case for sensor data over MQTT. Publish
+/// Nodes expose no readable value.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> Option<String> {
+pub fn output(node: &FlowNode) -> Option<SourceExpr> {
     let direction = str_or_default(node, "direction", DEFAULT_DIRECTION);
     if direction == "publish" {
         return None;
     }
     let token = node.id_token();
-    Some(format!("mqtt_{token}_value.toFloat()"))
+    Some(SourceExpr::level(CppExpr::number(format!(
+        "mqtt_{token}_value.toFloat()"
+    ))))
 }
 
 #[cfg(test)]
@@ -272,13 +284,20 @@ mod tests {
         lines.join("\n")
     }
 
+    /// A single numeric source wired into the `trigger` port.
+    fn trigger_input(expr: &str) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        inputs.add("trigger", SourceExpr::level(CppExpr::number(expr)));
+        inputs
+    }
+
     /// Scenario: Mqtt Node emits working code on a `WiFi`-capable target — it
     /// pulls in the `WiFi` + MQTT client libraries.
     #[test]
     fn mqtt_pulls_in_wifi_and_mqtt_client_libraries() {
         let e = emit(
             &mqtt("m-1", json!({ "broker": "broker.example.com", "topic": "t", "wifiSsid": "net" })),
-            None,
+            &NodeInputs::default(),
         );
         assert!(e.includes.iter().any(|i| i.contains("WiFi.h")), "missing WiFi include");
         assert!(
@@ -297,7 +316,7 @@ mod tests {
                 "m-1",
                 json!({ "broker": "broker.example.com", "port": 1883, "topic": "t", "wifiSsid": "net", "wifiPassword": "pw" }), // ggignore
             ),
-            None,
+            &NodeInputs::default(),
         );
         let setup = joined(&e.setup);
         let decls = joined(&e.declarations);
@@ -317,34 +336,41 @@ mod tests {
             "m-1",
             json!({ "broker": "b", "topic": "microflow/sensor", "wifiSsid": "net", "direction": "subscribe" }),
         );
-        let e = emit(&n, None);
+        let e = emit(&n, &NodeInputs::default());
         let decls = joined(&e.declarations);
         assert!(decls.contains("subscribe(mqtt_m_1_topic)"), "subscribes to its topic");
         assert!(decls.contains("setCallback") || joined(&e.setup).contains("setCallback"));
         assert!(decls.contains("mqtt_m_1_value"), "buffers the inbound message");
-        assert_eq!(value_var(&n).as_deref(), Some("mqtt_m_1_value.toFloat()"));
+        assert_eq!(
+            output(&n).map(|s| s.value.code),
+            Some("mqtt_m_1_value.toFloat()".to_string())
+        );
     }
 
-    /// Scenario: a publish Node publishes its driven payload on its topic.
+    /// Scenario: a publish Node publishes one message per trigger pulse.
     #[test]
-    fn publish_node_publishes_driven_payload() {
+    fn publish_node_publishes_per_trigger_pulse() {
         let n = mqtt(
             "m-1",
             json!({ "broker": "b", "topic": "microflow/sensor", "wifiSsid": "net", "direction": "publish" }),
         );
-        let e = emit(&n, Some("sensor_s_1_value"));
+        let e = emit(&n, &trigger_input("sensor_s_1_value"));
         let body = joined(&e.loop_body);
         assert!(body.contains("publish(mqtt_m_1_topic"), "publishes on its topic");
-        assert!(body.contains("sensor_s_1_value"), "publishes the driven payload");
+        assert!(body.contains("sensor_s_1_value"), "publishes the triggering payload");
+        assert!(
+            body.contains("!= mqtt_m_1_trigger_prev0"),
+            "publishes once per new sample, not every tick: {body}"
+        );
         // Publish Nodes expose no readable value.
-        assert_eq!(value_var(&n), None);
+        assert!(output(&n).is_none());
     }
 
     /// Scenario: the loop maintains the connection (reconnect on drop) without
     /// a host event loop.
     #[test]
     fn loop_maintains_connection_and_pumps_client() {
-        let e = emit(&mqtt("m-1", json!({ "broker": "b", "topic": "t", "wifiSsid": "net" })), None);
+        let e = emit(&mqtt("m-1", json!({ "broker": "b", "topic": "t", "wifiSsid": "net" })), &NodeInputs::default());
         let body = joined(&e.loop_body);
         assert!(body.contains("ensure_connected()"), "reconnects in loop");
         assert!(body.contains("mqtt_m_1_client.loop()"), "pumps the MQTT client");
@@ -367,7 +393,7 @@ mod tests {
                     "direction": "publish"
                 }),
             ),
-            Some("v"),
+            &trigger_input("v"),
         );
         let decls = joined(&e.declarations);
         // WiFi SSID/password live in the shared credentials preamble, not here.
@@ -383,7 +409,7 @@ mod tests {
     /// Scenario: Missing credentials produce a safe placeholder + a warning.
     #[test]
     fn missing_credentials_produce_safe_placeholder_and_warning() {
-        let e = emit(&mqtt("m-1", json!({ "topic": "microflow/sensor", "direction": "publish" })), Some("v"));
+        let e = emit(&mqtt("m-1", json!({ "topic": "microflow/sensor", "direction": "publish" })), &trigger_input("v"));
         let decls = joined(&e.declarations);
         assert!(decls.contains("REPLACE_ME"), "emits a credential placeholder");
         assert!(decls.contains("#warning"), "warns the Author at compile time");
@@ -395,15 +421,15 @@ mod tests {
     #[test]
     fn direction_defaults_to_subscribe() {
         let n = mqtt("m-1", json!({ "broker": "b", "topic": "t", "wifiSsid": "net" }));
-        let e = emit(&n, None);
+        let e = emit(&n, &NodeInputs::default());
         assert!(joined(&e.declarations).contains("subscribe(mqtt_m_1_topic)"), "defaults to subscribe");
-        assert!(value_var(&n).is_some(), "subscribe Node exposes a value");
+        assert!(output(&n).is_some(), "subscribe Node exposes a value");
     }
 
     /// Topic strings with a quote are escaped so generation stays valid.
     #[test]
     fn topic_is_escaped() {
-        let e = emit(&mqtt("m-1", json!({ "broker": "b", "topic": "a\"b", "wifiSsid": "net" })), None);
+        let e = emit(&mqtt("m-1", json!({ "broker": "b", "topic": "a\"b", "wifiSsid": "net" })), &NodeInputs::default());
         assert!(joined(&e.declarations).contains("\"a\\\"b\""), "escapes the quote in the topic");
     }
 
@@ -411,6 +437,6 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = mqtt("m-1", json!({ "broker": "b", "topic": "t", "wifiSsid": "net", "direction": "publish" }));
-        assert_eq!(emit(&n, Some("v")), emit(&n, Some("v")));
+        assert_eq!(emit(&n, &trigger_input("v")), emit(&n, &trigger_input("v")));
     }
 }

@@ -35,6 +35,7 @@
 //! input yields byte-identical output (determinism invariant).
 
 use crate::codegen::emit::{str_or_default, NodeEmission, NodeToken};
+use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
 
 /// Sentinel emitted in place of a missing credential so the sketch never
@@ -86,13 +87,13 @@ fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
 
 /// Emit C++ for an Llm Cloud Node on a networked target.
 ///
-/// `driver` is the C++ expression that fires the request: when it transitions
-/// truthy (its `trigger` input), the sketch renders + sends the prompt once.
-/// With no wired input the request fires once after boot. The target is
-/// assumed to offer networking — validation refuses the Node otherwise.
+/// A pulse on the `trigger` port fires the request (one request per firing
+/// source, mirroring one dispatch == one generate). With no wired input the
+/// request fires once after boot. The target is assumed to offer networking —
+/// validation refuses the Node otherwise.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
 
     let endpoint = first_non_empty(node, &["endpoint", "baseUrl"], "");
@@ -198,25 +199,21 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
         declarations.push(line);
     }
 
-    // loop(): fire the request when the wired input fires (rising edge). With no
-    // wired input, fire once after boot. The `sent` latch makes the request
-    // edge-triggered rather than spamming every tick.
-    declarations.push(format!("bool {sent_var} = false;"));
-
+    // loop(): fire one request per pulse on the `trigger` port. With no wired
+    // input, fire once after boot (the `sent` latch).
     let setup = vec![format!("// Llm Node {token}: request issued from loop() once connected")];
 
     let mut loop_body = Vec::new();
-    if let Some(expr) = driver {
-        // Edge-triggered: fire on the rising edge of the wired trigger.
-        loop_body.push(format!("if (({expr}) && !{sent_var}) {{"));
-        loop_body.push(format!("  {sent_var} = true;"));
+    let binding = bind_pulses(&format!("llm_{token}_trigger"), inputs.on("trigger"));
+    declarations.extend(binding.declarations.iter().cloned());
+    loop_body.extend(binding.loop_lines.iter().cloned());
+    if let Some(any) = binding.any_fired() {
+        loop_body.push(format!("if ({any}) {{"));
         loop_body.push(format!("  {request_fn}();"));
-        loop_body.push("}".to_string());
-        loop_body.push(format!("if (!({expr})) {{"));
-        loop_body.push(format!("  {sent_var} = false; // re-arm for the next trigger"));
         loop_body.push("}".to_string());
     } else {
         // No wired input: fire once after boot.
+        declarations.push(format!("bool {sent_var} = false;"));
         loop_body.push(format!("if (!{sent_var}) {{"));
         loop_body.push(format!("  {sent_var} = true;"));
         loop_body.push(format!("  {request_fn}();"));
@@ -231,13 +228,14 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     }
 }
 
-/// The C++ expression downstream Nodes read for an Llm Node: the latest
-/// assistant text as a C-string. Mirrors the live component surfacing
-/// `response.text` as its value.
+/// What downstream Nodes read from an Llm Node: the latest assistant text as
+/// an Arduino `String`. Mirrors the live component surfacing `response.text`
+/// as its value; the typed coercions turn it into whatever the consuming port
+/// needs.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> Option<String> {
+pub fn output(node: &FlowNode) -> Option<SourceExpr> {
     let token = node.id_token();
-    Some(format!("llm_{token}_value.c_str()"))
+    Some(SourceExpr::level(CppExpr::text(format!("llm_{token}_value"))))
 }
 
 #[cfg(test)]
@@ -259,6 +257,13 @@ mod tests {
         lines.join("\n")
     }
 
+    /// A single boolean source wired into the `trigger` port.
+    fn trigger_input(expr: &str) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        inputs.add("trigger", SourceExpr::level(CppExpr::boolean(expr)));
+        inputs
+    }
+
     fn full(id: &str) -> FlowNode {
         llm(
             id,
@@ -276,7 +281,7 @@ mod tests {
     /// in the HTTP/TLS/JSON client libraries.
     #[test]
     fn llm_pulls_in_http_tls_and_json_libraries() {
-        let e = emit(&full("l-1"), None);
+        let e = emit(&full("l-1"), &NodeInputs::default());
         assert!(e.includes.iter().any(|i| i.contains("HTTPClient.h")), "missing HTTPClient include");
         assert!(
             e.includes.iter().any(|i| i.contains("WiFiClientSecure.h")),
@@ -290,7 +295,7 @@ mod tests {
     #[test]
     fn issues_request_to_endpoint_and_surfaces_response() {
         let n = full("l-1");
-        let e = emit(&n, None);
+        let e = emit(&n, &NodeInputs::default());
         let decls = joined(&e.declarations);
         assert!(decls.contains("/v1/chat/completions"), "targets the chat-completions path");
         assert!(decls.contains("http.POST(requestBody)"), "POSTs the request body");
@@ -299,13 +304,13 @@ mod tests {
             "parses the assistant content"
         );
         assert!(decls.contains("llm_l_1_value ="), "buffers the response value");
-        assert_eq!(value_var(&n).as_deref(), Some("llm_l_1_value.c_str()"));
+        assert_eq!(output(&n).map(|s| s.value.code), Some("llm_l_1_value".to_string()));
     }
 
     /// Scenario: does not duplicate `WiFi` setup — relies on the shared preamble.
     #[test]
     fn does_not_duplicate_wifi_setup() {
-        let e = emit(&full("l-1"), None);
+        let e = emit(&full("l-1"), &NodeInputs::default());
         let all = format!("{}\n{}\n{}", joined(&e.declarations), joined(&e.setup), joined(&e.loop_body));
         assert!(!all.contains("WiFi.begin"), "must not bring up WiFi itself");
         // It still guards on the connection the preamble establishes.
@@ -315,17 +320,20 @@ mod tests {
     /// Scenario: a wired trigger fires the request edge-triggered.
     #[test]
     fn wired_trigger_fires_request_on_rising_edge() {
-        let e = emit(&full("l-1"), Some("button_b_1_state"));
+        let e = emit(&full("l-1"), &trigger_input("button_b_1_state"));
         let body = joined(&e.loop_body);
         assert!(body.contains("button_b_1_state"), "uses the wired trigger expression");
         assert!(body.contains("llm_l_1_request()"), "issues the request");
-        assert!(body.contains("llm_l_1_sent"), "latches so it is edge-triggered");
+        assert!(
+            body.contains("!= llm_l_1_trigger_prev0"),
+            "fires once per source change, not every truthy tick: {body}"
+        );
     }
 
     /// With no wired input the request fires once after boot.
     #[test]
     fn fires_once_when_no_wired_input() {
-        let e = emit(&full("l-1"), None);
+        let e = emit(&full("l-1"), &NodeInputs::default());
         let body = joined(&e.loop_body);
         assert!(body.contains("if (!llm_l_1_sent)"), "fires once via the sent latch");
         assert!(body.contains("llm_l_1_request()"), "issues the request");
@@ -346,7 +354,7 @@ mod tests {
                     "llmApiKey": "secret-token" // ggignore
                 }),
             ),
-            None,
+            &NodeInputs::default(),
         );
         let decls = joined(&e.declarations);
         assert!(decls.contains("\"https://api.example.com\""), "embeds the supplied endpoint");
@@ -362,7 +370,7 @@ mod tests {
     /// Scenario: Missing credentials produce a safe placeholder + a warning.
     #[test]
     fn missing_credentials_produce_safe_placeholder_and_warning() {
-        let e = emit(&llm("l-1", json!({ "model": "m", "prompt": "p" })), None);
+        let e = emit(&llm("l-1", json!({ "model": "m", "prompt": "p" })), &NodeInputs::default());
         let decls = joined(&e.declarations);
         assert!(decls.contains("REPLACE_ME"), "emits a credential placeholder");
         assert!(decls.contains("#warning"), "warns the Author at compile time");
@@ -378,7 +386,7 @@ mod tests {
                 "l-1",
                 json!({ "endpoint": "https://api.example.com", "model": "m", "prompt": "p", "wifiSsid": "net" }),
             ),
-            None,
+            &NodeInputs::default(),
         );
         let decls = joined(&e.declarations);
         assert!(decls.contains("#warning"), "warns when the API key is absent");
@@ -393,7 +401,7 @@ mod tests {
                 "l-1",
                 json!({ "endpoint": "https://e", "prompt": "a\"b", "wifiSsid": "net", "llmApiKey": "k" }), // ggignore
             ),
-            None,
+            &NodeInputs::default(),
         );
         assert!(joined(&e.declarations).contains("\"a\\\"b\""), "escapes the quote in the prompt");
     }
@@ -402,6 +410,6 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = full("l-1");
-        assert_eq!(emit(&n, Some("v")), emit(&n, Some("v")));
+        assert_eq!(emit(&n, &trigger_input("v")), emit(&n, &trigger_input("v")));
     }
 }

@@ -157,6 +157,18 @@ Two kinds:
 
 Distinct from the **Component Catalog**: catalog is metadata for _registration_ (what UI shows, how to construct); Wiring is per-impl _behavior_ applied after construction.
 
+## Sketch Wiring
+
+The static twin of the **FlowRouter** inside Sketch Generation (`crates/microflow-core/src/codegen/wire.rs`, [ADR-0013](docs/adr/0013-handle-aware-sketch-wiring.md)). Every edge is resolved by its real handles: `output_expression(node, source_handle)` (in `codegen/mod.rs`) maps each **Emit** to a typed C++ expression, and a **`NodeInputs`** groups the resolved sources per **Port** (`target_handle`) for the target's emitter. Emitters bind their actual ports — `emit(node, &NodeInputs)` — instead of receiving one anonymous driver expression.
+
+Three shapes matter:
+
+- **`CppExpr`** — a typed expression (`Bool | Double | Str`). Consumers coerce via `as_bool`/`as_double(_or)`/`as_u8_or`/`as_string`, transcriptions of `ComponentValue`'s conversions, so a `String` source into a numeric port compiles to the runtime's fallback rather than invalid C++.
+- **`SourceExpr`** — one emit handle's exposure: the value expression plus either an explicit `fired` flag (event handles: Delay/Interval `event`, Trigger `bang` — true only on the emitting loop iteration) or a `Detector` (`Change` for `value`-style handles, which the runtime emits on every update; `RisingEdge` for `true`/`false` state handles).
+- **`bind_pulses`** — the shared edge/change-detector primitive pulse ports consume firings through (one action per source firing; a sustained level counts once).
+
+`loop()` fragments concatenate in **dataflow (topological) order** — producers run before consumers within a tick; cycles append in id order. Aggregating Nodes (Calculate, Gate) fold over *all* wired sources, mirroring snapshot delivery. Edges the sketch cannot honor (missing source, valueless source handle, unmodelled port, surplus sources on a single-source port) surface as `// note:` comments in the sketch; node ids whose sanitized C++ tokens collide are refused by validation before emission. The `codegen/parity.rs` guards pin every Calculate/Gate variant and Counter port to its emitted C++.
+
 ## Runtime Services
 
 > ⚠ **Reconciled (2026-06 · post-re-host).** ADR-0002 Phase 4 designed a
