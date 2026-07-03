@@ -90,6 +90,18 @@ impl ComponentValue {
     pub fn as_u8(&self) -> Option<u8> {
         self.as_number().map(|v| v.clamp(0.0, 255.0) as u8)
     }
+
+    /// Bytes of an `Array` of numbers — how the board's `I2C_REPLY` frames are
+    /// carried through the flow. Non-`Array` values and non-numeric elements are
+    /// dropped. Centralizes the `Array → Vec<u8>` unmarshal every I2C driver's
+    /// `on_i2c_reply` used to repeat verbatim.
+    #[must_use]
+    pub fn as_byte_vec(&self) -> Vec<u8> {
+        match self {
+            ComponentValue::Array(items) => items.iter().filter_map(ComponentValue::as_u8).collect(),
+            _ => Vec::new(),
+        }
+    }
 }
 
 /// Event emitted by a component.

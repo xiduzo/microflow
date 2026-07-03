@@ -11,9 +11,34 @@ use crate::firmata::FirmataClient;
 use crate::runtime::error::{HardwareError, RuntimeError};
 use crate::runtime::pin_mode;
 
+/// The I2C subset of the board write surface — the six Firmata operations an
+/// I2C device driver needs: bus config, one-shot and continuous reads, writes,
+/// stop-reading, and the sampling interval that clocks continuous reads. Carved
+/// out of [`BoardWriter`] as its supertrait so an I2C driver — and a test fake —
+/// depends on just these six, not the ~14 pin/servo/tone methods it never calls.
+/// Drivers reach it via [`RuntimeContext::i2c`](crate::runtime::RuntimeContext::i2c).
+pub trait I2cBus {
+    fn i2c_config(&mut self, delay: i32) -> Result<(), RuntimeError>;
+    fn i2c_read(&mut self, address: i32, size: i32) -> Result<(), RuntimeError>;
+    fn i2c_read_continuous(
+        &mut self,
+        address: i32,
+        register: i32,
+        size: i32,
+    ) -> Result<(), RuntimeError>;
+    fn i2c_write(&mut self, address: i32, data: &[u8]) -> Result<(), RuntimeError>;
+    fn i2c_stop_reading(&mut self, address: i32) -> Result<(), RuntimeError>;
+    /// The board's global sampling interval (ms): a single Firmata setting that
+    /// clocks every continuous I2C read (and analog report), so it lives with the
+    /// I2C surface that depends on it.
+    fn sampling_interval(&mut self, interval_ms: i32) -> Result<(), RuntimeError>;
+}
+
 /// Typed Firmata write surface used by hardware component nodes. Every method
-/// encodes one (or a few) Firmata message(s); nothing blocks or does I/O.
-pub trait BoardWriter {
+/// encodes one (or a few) Firmata message(s); nothing blocks or does I/O. The
+/// I2C operations live in the [`I2cBus`] supertrait, so an I2C driver can depend
+/// on that narrower surface while everything else takes the full `BoardWriter`.
+pub trait BoardWriter: I2cBus {
     fn set_pin_mode(&mut self, pin: u8, mode: u8) -> Result<(), RuntimeError>;
     fn digital_write(&mut self, pin: u8, value: bool) -> Result<(), RuntimeError>;
     fn analog_write(&mut self, pin: u8, value: u16) -> Result<(), RuntimeError>;
@@ -26,17 +51,6 @@ pub trait BoardWriter {
     fn tone(&mut self, pin: u8, half_period_us: u32, duration_ms: u32) -> Result<(), RuntimeError>;
     fn no_tone(&mut self, pin: u8) -> Result<(), RuntimeError>;
     fn sysex(&mut self, command: u8, data: &[u8]) -> Result<(), RuntimeError>;
-    fn i2c_config(&mut self, delay: i32) -> Result<(), RuntimeError>;
-    fn i2c_read(&mut self, address: i32, size: i32) -> Result<(), RuntimeError>;
-    fn i2c_read_continuous(
-        &mut self,
-        address: i32,
-        register: i32,
-        size: i32,
-    ) -> Result<(), RuntimeError>;
-    fn i2c_write(&mut self, address: i32, data: &[u8]) -> Result<(), RuntimeError>;
-    fn i2c_stop_reading(&mut self, address: i32) -> Result<(), RuntimeError>;
-    fn sampling_interval(&mut self, interval_ms: i32) -> Result<(), RuntimeError>;
 }
 
 /// [`BoardWriter`] that encodes into a byte buffer via a borrowed
@@ -161,7 +175,9 @@ impl BoardWriter for BufferBoardWriter<'_> {
         self.out.extend_from_slice(&self.client.encode_sysex(command, data));
         Ok(())
     }
+}
 
+impl I2cBus for BufferBoardWriter<'_> {
     fn i2c_config(&mut self, delay: i32) -> Result<(), RuntimeError> {
         self.out.extend_from_slice(&self.client.encode_i2c_config(delay));
         Ok(())

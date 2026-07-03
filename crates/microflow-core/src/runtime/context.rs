@@ -8,7 +8,7 @@
 //! turn drains, the runtime folds everything into one [`Effects`] the host
 //! executes: write the bytes, dispatch the events to the UI, arm/cancel timers.
 
-use crate::runtime::board::BoardWriter;
+use crate::runtime::board::{BoardWriter, I2cBus};
 use crate::runtime::value::ComponentEvent;
 use serde::Serialize;
 use std::sync::Arc;
@@ -182,6 +182,14 @@ impl<'a> RuntimeContext<'a> {
     /// The sans-IO board writer. Calls encode Firmata bytes into the turn's
     /// outbound buffer; nothing crosses the wire until the host applies `Effects`.
     pub fn board(&mut self) -> &mut dyn BoardWriter {
+        self.board
+    }
+
+    /// The I2C subset of the board writer — a narrower handle than
+    /// [`board`](Self::board) for I2C device drivers, exposing only the six bus
+    /// operations ([`I2cBus`]). Upcast from the same underlying writer, so encoded
+    /// bytes still land in this turn's outbound buffer.
+    pub fn i2c(&mut self) -> &mut dyn I2cBus {
         self.board
     }
 

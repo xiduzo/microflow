@@ -17,6 +17,96 @@
 //! a flat list), so a device whose init needs timed steps — notably the VL53L0X,
 //! which wants ST's stateful tuning-blob + calibration sequence — is left with an
 //! empty list and documented as needing a dedicated driver.
+//!
+//! ## Config struct
+//! [`I2cDeviceConfig`] and [`OutputFormat`] live here too (ungated) so codegen
+//! can deserialize the SAME struct the runtime builds from, instead of
+//! re-parsing the node JSON field-by-field with its own duplicated defaults —
+//! which drifted (see `codegen/input/i2c_device.rs`).
+
+use serde::{Deserialize, Serialize};
+
+/// How the raw I2C reply bytes are decoded into a value. Shared by the live
+/// runtime (`runtime/input/i2c_device.rs`, folds to a `ComponentValue`) and the
+/// sketch emitter (`codegen/input/i2c_device.rs`, folds to a C++ `long`), so the
+/// byte→number decode agrees whether a flow runs live or is exported.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputFormat {
+    // The `alias`es accept the human labels older flows persisted as the field
+    // value (before the leva options-orientation fix), so a stale `"Raw bytes"`
+    // still decodes to `Raw` instead of erroring the whole config back to default.
+    #[serde(alias = "Raw bytes")]
+    Raw,
+    #[default]
+    #[serde(alias = "Unsigned int")]
+    UnsignedInt,
+    #[serde(alias = "Signed int")]
+    SignedInt,
+}
+
+/// Deserialized configuration for the generic `I2cDevice` node. Ungated (no
+/// `runtime` feature) so both the interpreter and the emitter read one struct.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+// The web sends camelCase keys (e.g. `readLength`); without this the multi-word
+// fields silently fell back to their defaults (read_length stuck at 2 — the UI
+// byte count was ignored). Single-word fields are unaffected.
+#[serde(rename_all = "camelCase")]
+pub struct I2cDeviceConfig {
+    #[serde(default = "default_address")]
+    pub address: u8,
+    #[serde(default)]
+    pub register: u8,
+    #[serde(default = "default_read_length")]
+    pub read_length: u8,
+    /// Board sampling-interval **period in milliseconds** for this device's
+    /// continuous read — NOT a frequency, despite the name older flows persist.
+    /// Reconciled to the MAX across all I2C nodes
+    /// (`Component::sampling_interval_hint`). The web still writes the key `freq`,
+    /// so the wire name is kept via `serde(rename)` for doc compatibility.
+    #[serde(rename = "freq", default = "default_sample_interval_ms")]
+    pub sample_interval_ms: u32,
+    #[serde(default = "default_device")]
+    pub device: String,
+    #[serde(default)]
+    pub output: OutputFormat,
+    /// Stream on the board's sampling interval (`true`, default) vs. read only
+    /// when the `trigger` command handle fires (`false`). When off, no continuous
+    /// read is armed — `i2c_continuous_read` returns `None` — so the bus stays
+    /// quiet until a one-shot `trigger` requests a read.
+    #[serde(default = "default_autoread")]
+    pub autoread: bool,
+}
+
+fn default_address() -> u8 {
+    0x48
+}
+fn default_read_length() -> u8 {
+    2
+}
+fn default_sample_interval_ms() -> u32 {
+    100
+}
+fn default_device() -> String {
+    "custom".to_string()
+}
+fn default_autoread() -> bool {
+    true
+}
+
+impl Default for I2cDeviceConfig {
+    fn default() -> Self {
+        Self {
+            address: default_address(),
+            register: 0,
+            read_length: default_read_length(),
+            sample_interval_ms: default_sample_interval_ms(),
+            device: default_device(),
+            output: OutputFormat::default(),
+            autoread: default_autoread(),
+        }
+    }
+}
 
 /// Normalise a device id to lowercase-alphanumeric. Older flows persisted the
 /// leva *label* ("TCS34725") rather than the preset id ("tcs34725") before the

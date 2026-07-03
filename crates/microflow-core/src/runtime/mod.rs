@@ -41,7 +41,7 @@ pub mod cloud;
 // (so shared configs can use them without the `runtime` feature); re-exported
 // here so existing `crate::runtime::serde_utils` references keep resolving.
 pub use crate::config::serde_utils;
-pub use board::{BoardWriter, BufferBoardWriter};
+pub use board::{BoardWriter, BufferBoardWriter, I2cBus};
 pub use component::{
     Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent, I2cContinuousRead,
 };
@@ -878,9 +878,15 @@ impl FlowRuntime {
                 reserved_handles::PIN_CHANGE => component
                     .as_hardware_mut()
                     .map_or(Ok(()), |hw| hw.on_pin_change(event.value.clone(), &mut ctx)),
-                reserved_handles::I2C_REPLY => component
-                    .as_hardware_mut()
-                    .map_or(Ok(()), |hw| hw.on_i2c_reply(event.value.clone(), &mut ctx)),
+                reserved_handles::I2C_REPLY => {
+                    // Unmarshal the `Array` transport to raw bytes ONCE here so
+                    // every I2C driver's `on_i2c_reply` receives a slice rather
+                    // than re-unwrapping `ComponentValue` itself (the old clone).
+                    let bytes = event.value.as_byte_vec();
+                    component
+                        .as_hardware_mut()
+                        .map_or(Ok(()), |hw| hw.on_i2c_reply(&bytes, &mut ctx))
+                }
                 other => component.dispatch_internal(&other[1..], event.value.clone(), &mut ctx),
             };
             if let Err(e) = result {

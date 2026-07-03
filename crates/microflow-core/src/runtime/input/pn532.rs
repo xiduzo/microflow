@@ -111,7 +111,7 @@ impl Pn532 {
     /// Write a command frame, then arm a tick to read its reply after a settle.
     fn send(&mut self, ctx: &mut RuntimeContext, payload: &[u8], next: St) -> Result<(), RuntimeError> {
         let frame = build_frame(payload);
-        ctx.board().i2c_write(self.address(), &frame)?;
+        ctx.i2c().i2c_write(self.address(), &frame)?;
         self.state = next;
         ctx.schedule_wakeup("_tick", SETTLE_MS);
         Ok(())
@@ -120,7 +120,7 @@ impl Pn532 {
     /// Issue a one-shot read of `len` bytes, then arm a watchdog tick: if the
     /// reply is lost, the watchdog fires in `next` and retries.
     fn read(&mut self, ctx: &mut RuntimeContext, len: i32, next: St) -> Result<(), RuntimeError> {
-        ctx.board().i2c_read(self.address(), len)?;
+        ctx.i2c().i2c_read(self.address(), len)?;
         self.state = next;
         ctx.schedule_wakeup("_tick", READ_GAP_MS);
         Ok(())
@@ -282,18 +282,10 @@ impl HardwareComponent for Pn532 {
         Ok(())
     }
 
-    fn on_i2c_reply(
-        &mut self,
-        value: ComponentValue,
-        ctx: &mut RuntimeContext,
-    ) -> Result<(), RuntimeError> {
-        if let ComponentValue::Array(bytes) = &value {
-            let raw: Vec<u8> = bytes
-                .iter()
-                .filter_map(|v| v.as_number().map(|n| n as u8))
-                .collect();
-            self.reply(&raw, ctx)?;
-        }
+    fn on_i2c_reply(&mut self, bytes: &[u8], ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        // The runtime already unmarshaled the reply to raw bytes at the dispatch
+        // site, so feed the frame state machine directly.
+        self.reply(bytes, ctx)?;
         Ok(())
     }
 }
@@ -545,8 +537,7 @@ mod tests {
         }
 
         fn reply(&mut self, node: &mut Pn532, bytes: &[u8]) -> Vec<u8> {
-            let arr = ComponentValue::Array(bytes.iter().map(|&b| ComponentValue::Number(f64::from(b))).collect());
-            self.turn(node, |n, ctx| n.on_i2c_reply(arr, ctx).unwrap())
+            self.turn(node, |n, ctx| n.on_i2c_reply(bytes, ctx).unwrap())
         }
 
         fn emitted_value(&self) -> Option<ComponentValue> {
