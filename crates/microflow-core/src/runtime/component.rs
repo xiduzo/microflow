@@ -203,13 +203,11 @@ pub trait HardwareComponent: Component {
         Ok(())
     }
 
-    /// I²C-reply Hardware Callback for a registered `I2cAddress`. `value` is an
-    /// `Array` of byte values.
-    fn on_i2c_reply(
-        &mut self,
-        _value: ComponentValue,
-        _ctx: &mut RuntimeContext,
-    ) -> Result<(), RuntimeError> {
+    /// I²C-reply Hardware Callback for a registered `I2cAddress`. `bytes` are the
+    /// raw reply bytes: the runtime unmarshals the `Array` transport once at the
+    /// dispatch site ([`ComponentValue::as_byte_vec`]) so every driver decodes
+    /// straight from the slice instead of re-unwrapping `ComponentValue` itself.
+    fn on_i2c_reply(&mut self, _bytes: &[u8], _ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
         Ok(())
     }
 }

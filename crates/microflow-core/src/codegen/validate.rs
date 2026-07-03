@@ -32,7 +32,7 @@
 //! clock, no IO, deterministic ordering (Nodes in `id` order).
 
 use crate::codegen::board::{BoardCapability, BoardTarget};
-use crate::codegen::emit::pin_or_default;
+use crate::codegen::emit::{pin_or_default, NodeToken};
 use crate::flow::{FlowNode, FlowUpdate};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -97,6 +97,42 @@ pub fn validate(flow: &FlowUpdate, target: &BoardTarget) -> Vec<ValidationProble
     // indices yet still demand more *distinct* analog inputs than the board has.
     // The per-Node pass above cannot see this; this pass does.
     problems.extend(analog_oversubscription_problems(&by_id, target));
+
+    // Identifier collisions: emission derives every C++ symbol from the Node
+    // id's sanitized token, so two ids that sanitize identically would emit
+    // duplicate globals — an uncompilable Sketch. Refuse before emission.
+    problems.extend(token_collision_problems(&by_id));
+    problems
+}
+
+/// Flag every Node whose sanitized identifier token (`led-1` → `led_1`)
+/// collides with another Node's. Emission namespaces all C++ symbols by that
+/// token, so a collision means duplicate global definitions.
+fn token_collision_problems(by_id: &BTreeMap<&str, &FlowNode>) -> Vec<ValidationProblem> {
+    let mut by_token: BTreeMap<String, Vec<&FlowNode>> = BTreeMap::new();
+    for node in by_id.values() {
+        by_token.entry(node.id_token()).or_default().push(node);
+    }
+
+    let mut problems = Vec::new();
+    for (token, nodes) in by_token {
+        if nodes.len() < 2 {
+            continue;
+        }
+        let ids: Vec<&str> = nodes.iter().map(|n| n.id.as_str()).collect();
+        for node in nodes {
+            let kind = node.node_type.as_deref().unwrap_or("unknown");
+            problems.push(problem(
+                node,
+                kind,
+                format!(
+                    "Node {} ({kind}) shares the generated identifier '{token}' with {} — rename the node ids so they differ by more than punctuation",
+                    node.id,
+                    ids.iter().filter(|id| **id != node.id).copied().collect::<Vec<_>>().join(", "),
+                ),
+            ));
+        }
+    }
     problems
 }
 
@@ -440,6 +476,33 @@ mod tests {
         assert_eq!(problems.len(), 2);
         assert_eq!(problems[0].node_id, "a-mqtt");
         assert_eq!(problems[1].node_id, "z-mqtt");
+    }
+
+    /// Two Node ids that sanitize to the same C++ token are refused — the
+    /// emitted globals would collide and the Sketch would not compile.
+    #[test]
+    fn colliding_identifier_tokens_are_flagged() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![
+            node("led-1", "Led", json!({ "pin": 13 })),
+            node("led_1", "Led", json!({ "pin": 12 })),
+        ]);
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 2, "both colliding Nodes are flagged");
+        for p in &problems {
+            assert!(p.message.contains("led_1"), "names the shared token: {}", p.message);
+        }
+    }
+
+    /// Distinct tokens raise no collision problem.
+    #[test]
+    fn distinct_identifier_tokens_are_not_flagged() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![
+            node("led-1", "Led", json!({ "pin": 13 })),
+            node("led-2", "Led", json!({ "pin": 12 })),
+        ]);
+        assert!(validate(&f, &uno).is_empty());
     }
 
     /// Unknown / typeless Nodes never make a Flow unrunnable.

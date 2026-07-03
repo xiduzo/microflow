@@ -14,78 +14,7 @@ use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
     I2cContinuousRead, ListenerWiring, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum OutputFormat {
-    // The `alias`es accept the human labels older flows persisted as the field
-    // value (before the leva options-orientation fix), so a stale `"Raw bytes"`
-    // still decodes to `Raw` instead of erroring the whole config back to default.
-    #[serde(alias = "Raw bytes")]
-    Raw,
-    #[default]
-    #[serde(alias = "Unsigned int")]
-    UnsignedInt,
-    #[serde(alias = "Signed int")]
-    SignedInt,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-// The web sends camelCase keys (e.g. `readLength`); without this the multi-word
-// fields silently fell back to their defaults (read_length stuck at 2 — the UI
-// byte count was ignored). Single-word fields are unaffected.
-#[serde(rename_all = "camelCase")]
-pub struct I2cDeviceConfig {
-    #[serde(default = "default_address")]
-    pub address: u8,
-    #[serde(default)]
-    pub register: u8,
-    #[serde(default = "default_read_length")]
-    pub read_length: u8,
-    #[serde(default = "default_freq")]
-    pub freq: u32,
-    #[serde(default = "default_device")]
-    pub device: String,
-    #[serde(default)]
-    pub output: OutputFormat,
-    /// Stream on the board's sampling interval (`true`, default) vs. read only
-    /// when the `trigger` command handle fires (`false`). When off, no continuous
-    /// read is armed — `i2c_continuous_read` returns `None` — so the bus stays
-    /// quiet until a one-shot `trigger` requests a read.
-    #[serde(default = "default_autoread")]
-    pub autoread: bool,
-}
-
-fn default_address() -> u8 {
-    0x48
-}
-fn default_read_length() -> u8 {
-    2
-}
-fn default_freq() -> u32 {
-    100
-}
-fn default_device() -> String {
-    "custom".to_string()
-}
-fn default_autoread() -> bool {
-    true
-}
-
-impl Default for I2cDeviceConfig {
-    fn default() -> Self {
-        Self {
-            address: default_address(),
-            register: 0,
-            read_length: default_read_length(),
-            freq: default_freq(),
-            device: default_device(),
-            output: OutputFormat::default(),
-            autoread: default_autoread(),
-        }
-    }
-}
+use crate::config::i2c_device::{I2cDeviceConfig, OutputFormat};
 
 pub struct I2cDevice {
     base: ComponentBase,
@@ -100,35 +29,6 @@ impl I2cDevice {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             initialized: false,
-        }
-    }
-
-    /// Convert raw I2C reply bytes to a `ComponentValue` based on the output format.
-    fn convert_bytes(&self, data: &[u8]) -> ComponentValue {
-        match self.config.output {
-            OutputFormat::Raw => ComponentValue::Array(
-                data.iter().map(|&b| ComponentValue::Number(f64::from(b))).collect(),
-            ),
-            OutputFormat::UnsignedInt => {
-                // Big-endian unsigned integer from up to 4 bytes
-                let mut value: u32 = 0;
-                for &byte in data.iter().take(4) {
-                    value = (value << 8) | u32::from(byte);
-                }
-                ComponentValue::Number(f64::from(value))
-            }
-            OutputFormat::SignedInt => {
-                // Big-endian signed integer (two's complement) from up to 4 bytes
-                let len = data.len().min(4);
-                if len == 0 {
-                    return ComponentValue::Number(0.0);
-                }
-                let mut value: i32 = if data[0] & 0x80 != 0 { -1 } else { 0 };
-                for &byte in data.iter().take(len) {
-                    value = (value << 8) | i32::from(byte);
-                }
-                ComponentValue::Number(f64::from(value))
-            }
         }
     }
 
@@ -159,12 +59,44 @@ impl I2cDevice {
         // hang the bus (see `effective_register`).
         let register = self.effective_register();
         if register != 0 {
-            ctx.board().i2c_write(i32::from(self.config.address), &[register])?;
+            ctx.i2c().i2c_write(i32::from(self.config.address), &[register])?;
         }
         // Request a read
-        ctx.board()
+        ctx.i2c()
             .i2c_read(i32::from(self.config.address), i32::from(self.config.read_length))?;
         Ok(())
+    }
+}
+
+/// Decode raw I2C reply bytes into a `ComponentValue` per the output format.
+/// A pure function (no `self`) so the big-endian unsigned/signed folding is
+/// unit-testable in isolation — the decode the runtime applies live, mirrored
+/// as C++ by `codegen/input/i2c_device.rs`.
+fn convert_bytes(output: OutputFormat, data: &[u8]) -> ComponentValue {
+    match output {
+        OutputFormat::Raw => ComponentValue::Array(
+            data.iter().map(|&b| ComponentValue::Number(f64::from(b))).collect(),
+        ),
+        OutputFormat::UnsignedInt => {
+            // Big-endian unsigned integer from up to 4 bytes
+            let mut value: u32 = 0;
+            for &byte in data.iter().take(4) {
+                value = (value << 8) | u32::from(byte);
+            }
+            ComponentValue::Number(f64::from(value))
+        }
+        OutputFormat::SignedInt => {
+            // Big-endian signed integer (two's complement) from up to 4 bytes
+            let len = data.len().min(4);
+            if len == 0 {
+                return ComponentValue::Number(0.0);
+            }
+            let mut value: i32 = if data[0] & 0x80 != 0 { -1 } else { 0 };
+            for &byte in data.iter().take(len) {
+                value = (value << 8) | i32::from(byte);
+            }
+            ComponentValue::Number(f64::from(value))
+        }
     }
 }
 
@@ -200,7 +132,7 @@ impl Component for I2cDevice {
     /// per-node in `initialize` instead let the last-initialized I2C node win,
     /// out-pacing a slower sensor's conversion (it read before data was ready).
     fn sampling_interval_hint(&self) -> Option<u32> {
-        Some(self.config.freq)
+        Some(self.config.sample_interval_ms)
     }
 
     /// No-hold SHT2x/HTU21 measurements NACK until the conversion completes, so
@@ -262,7 +194,7 @@ impl Component for I2cDevice {
                     }
                     _ => {}
                 }
-                ctx.board().i2c_write(i32::from(self.config.address), &data)?;
+                ctx.i2c().i2c_write(i32::from(self.config.address), &data)?;
                 self.base.emit(ComponentBase::VALUE_HANDLE);
                 Ok(())
             }
@@ -298,7 +230,7 @@ impl HardwareComponent for I2cDevice {
         // SHT2x resolution register) before the first read, so the very first
         // reply already carries live data.
         for &payload in self.device_init_writes() {
-            ctx.board().i2c_write(i32::from(self.config.address), payload)?;
+            ctx.i2c().i2c_write(i32::from(self.config.address), payload)?;
         }
 
         // The board's report-loop period (which clocks continuous I2C reads) is
@@ -317,28 +249,17 @@ impl HardwareComponent for I2cDevice {
         Ok(())
     }
 
-    fn on_i2c_reply(
-        &mut self,
-        value: ComponentValue,
-        _ctx: &mut RuntimeContext,
-    ) -> Result<(), RuntimeError> {
-        // value is an Array of byte values from the I2C-reply Hardware Callback.
-        if let ComponentValue::Array(bytes) = &value {
-            let raw: Vec<u8> = bytes
-                .iter()
-                .filter_map(|v| v.as_number().map(|n| n as u8))
-                .collect();
-
-            let converted = self.convert_bytes(&raw);
-            // `set_value` already emits "value" on change; a second explicit
-            // emit would re-fire on every poll (even when unchanged) now that
-            // the emit layer no longer value-dedupes.
-            self.base.set_value(converted);
-
-            // No re-request here: the board streams these replies on its own
-            // (continuous read armed in `initialize`), so each reply is purely a
-            // value update.
-        }
+    fn on_i2c_reply(&mut self, bytes: &[u8], _ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        // The runtime unmarshals the I2C-reply Hardware Callback to raw bytes
+        // once at the dispatch site (`ComponentValue::as_byte_vec`), so decode
+        // straight from the slice — no per-node re-unwrap.
+        let converted = convert_bytes(self.config.output, bytes);
+        // `set_value` already emits "value" on change; a second explicit emit
+        // would re-fire on every poll (even when unchanged) now that the emit
+        // layer no longer value-dedupes.
+        self.base.set_value(converted);
+        // No re-request here: the board streams these replies on its own
+        // (continuous read armed in `initialize`), so each reply is a value update.
         Ok(())
     }
 }
@@ -509,6 +430,56 @@ mod tests {
         assert_eq!(cfg.address, 0x29);
         assert_eq!(cfg.read_length, 8);
         assert_eq!(cfg.output, OutputFormat::Raw);
-        assert_eq!(cfg.freq, 50);
+        assert_eq!(cfg.sample_interval_ms, 50);
+    }
+
+    // --- convert_bytes: the numeric decode, now a pure fn tested in isolation ---
+
+    #[test]
+    fn convert_bytes_raw_preserves_every_byte() {
+        assert_eq!(
+            convert_bytes(OutputFormat::Raw, &[0x01, 0xFF, 0x00]),
+            ComponentValue::Array(vec![
+                ComponentValue::Number(1.0),
+                ComponentValue::Number(255.0),
+                ComponentValue::Number(0.0),
+            ]),
+        );
+    }
+
+    #[test]
+    fn convert_bytes_unsigned_is_big_endian() {
+        // 0x0102 = 258 across two bytes, MSB first.
+        assert_eq!(
+            convert_bytes(OutputFormat::UnsignedInt, &[0x01, 0x02]),
+            ComponentValue::Number(258.0),
+        );
+        // High bit set stays positive when unsigned.
+        assert_eq!(
+            convert_bytes(OutputFormat::UnsignedInt, &[0xFF, 0xFF]),
+            ComponentValue::Number(65535.0),
+        );
+    }
+
+    #[test]
+    fn convert_bytes_signed_sign_extends_from_msb() {
+        // 0xFFFF as signed 16-bit is -1; the fold sign-extends from the MSB.
+        assert_eq!(convert_bytes(OutputFormat::SignedInt, &[0xFF, 0xFF]), ComponentValue::Number(-1.0));
+        // A clear high byte stays positive.
+        assert_eq!(convert_bytes(OutputFormat::SignedInt, &[0x00, 0x2A]), ComponentValue::Number(42.0));
+    }
+
+    #[test]
+    fn convert_bytes_signed_empty_is_zero() {
+        assert_eq!(convert_bytes(OutputFormat::SignedInt, &[]), ComponentValue::Number(0.0));
+    }
+
+    #[test]
+    fn convert_bytes_folds_at_most_four_bytes() {
+        // Only the first 4 bytes fold in; trailing bytes are ignored (u32 cap).
+        assert_eq!(
+            convert_bytes(OutputFormat::UnsignedInt, &[0x01, 0x02, 0x03, 0x04, 0x05]),
+            ComponentValue::Number(f64::from(0x0102_0304_u32)),
+        );
     }
 }

@@ -32,6 +32,7 @@
 
 use crate::codegen::cloud::transport::{cpp_string, Subscription, Transport, DEFAULT_PORT};
 use crate::codegen::emit::{str_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
 
 /// A single config value read from `data`, first non-empty key winning.
@@ -53,10 +54,16 @@ fn short_var_id(variable_id: &str) -> String {
 
 /// Emit C++ for a Figma Cloud Node on a networked target.
 ///
-/// `driver` is the C++ expression that, each time it changes, is published back
-/// to Figma (the new variable value). When unwired, the Node is subscribe-only.
+/// The `set` port publishes each new sample of its first wired source back to
+/// Figma on the set topic (the on-device twin of the live set dispatch). The
+/// runtime's other mutation ports (`true`/`false`/`toggle`, the numeric
+/// `increment`/`decrement`/`reset`, and the color channels) manipulate typed
+/// Figma variables the generated sketch does not model; wiring them emits an
+/// explicit note. When unwired, the Node is subscribe-only.
 #[must_use]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+    let driver_source = inputs.first("set");
+    let driver = driver_source.map(|s| s.value.as_string());
     let token = node.id_token();
     let prefix = format!("figma_{token}");
 
@@ -82,7 +89,7 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let set_topic_var = format!("{prefix}_set_topic");
     let value_var = format!("{prefix}_value");
     let callback = format!("{prefix}_on_message");
-    let last_var = driver.map(|_| format!("{prefix}_last_published"));
+    let last_var = driver.as_ref().map(|_| format!("{prefix}_last_published"));
 
     let subscriptions = vec![
         Subscription { topic_var: plugin_topic_var.clone() },
@@ -122,14 +129,33 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     extra_decls.push("  }".to_string());
     extra_decls.push("}".to_string());
 
+    // Extra sources on `set` and the unmodelled mutation ports are surfaced as
+    // notes rather than silently dropped.
+    if inputs.on("set").len() > 1 {
+        extra_decls.push(format!(
+            "// note: {} additional source(s) wired into 'set' are ignored — generated code follows the first source only",
+            inputs.on("set").len() - 1
+        ));
+    }
+    for port in [
+        "true", "false", "toggle", "increment", "decrement", "reset", "red", "green", "blue",
+        "opacity",
+    ] {
+        if !inputs.on(port).is_empty() {
+            extra_decls.push(format!(
+                "// note: input '{port}' mutates a typed Figma variable codegen does not model — edge ignored"
+            ));
+        }
+    }
+
     // loop() tail: when driven, publish the new value back to Figma on the set
     // topic — but only when it changed, mirroring the live debounced dispatch
     // (no host event loop here, so de-dupe on value change instead of time).
     let mut loop_tail = Vec::new();
-    if let (Some(expr), Some(last)) = (driver, &last_var) {
+    if let (Some(expr), Some(last)) = (&driver, &last_var) {
         let mqtt_client = transport.mqtt_client();
         loop_tail.push(format!("if ({mqtt_client}.connected()) {{"));
-        loop_tail.push(format!("  String {prefix}_next = String({expr});"));
+        loop_tail.push(format!("  String {prefix}_next = {expr};"));
         loop_tail.push(format!("  if ({prefix}_next != {last}) {{"));
         loop_tail.push(format!("    {mqtt_client}.publish({set_topic_var}, {prefix}_next.c_str());"));
         loop_tail.push(format!("    {last} = {prefix}_next;"));
@@ -144,13 +170,15 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     transport.emission(extra_decls, loop_tail)
 }
 
-/// The C++ expression downstream Nodes read for a Figma Node: the latest inbound
-/// variable value as a number (`toFloat`), mirroring the live component
-/// surfacing the arrived value.
+/// What downstream Nodes read from a Figma Node: the latest inbound variable
+/// value parsed as a number (`toFloat`), mirroring the live component's parse
+/// of FLOAT variables — the common case for hardware-driving design tokens.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> Option<String> {
+pub fn output(node: &FlowNode) -> Option<SourceExpr> {
     let token = node.id_token();
-    Some(format!("figma_{token}_value.toFloat()"))
+    Some(SourceExpr::level(CppExpr::number(format!(
+        "figma_{token}_value.toFloat()"
+    ))))
 }
 
 #[cfg(test)]
@@ -172,13 +200,20 @@ mod tests {
         lines.join("\n")
     }
 
+    /// A single numeric source wired into the `set` port.
+    fn set_input(expr: &str) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        inputs.add("set", SourceExpr::level(CppExpr::number(expr)));
+        inputs
+    }
+
     /// Scenario: Figma Node emits working code on a `WiFi`-capable target — pulls
     /// in the `WiFi` + MQTT client libraries (the network transport).
     #[test]
     fn figma_pulls_in_wifi_and_mqtt_client_libraries() {
         let e = emit(
             &figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
-            None,
+            &NodeInputs::default(),
         );
         assert!(e.includes.iter().any(|i| i.contains("WiFi.h")), "missing WiFi include");
         assert!(e.includes.iter().any(|i| i.contains("PubSubClient.h")), "missing MQTT client include");
@@ -193,7 +228,7 @@ mod tests {
                 "f-1",
                 json!({ "broker": "broker.example.com", "uniqueId": "abc", "variableId": "VariableID:123:456", "wifiSsid": "net" }),
             ),
-            None,
+            &NodeInputs::default(),
         );
         let decls = joined(&e.declarations);
         let setup = joined(&e.setup);
@@ -210,20 +245,23 @@ mod tests {
     #[test]
     fn surfaces_inbound_variable_value() {
         let n = figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" }));
-        let e = emit(&n, None);
+        let e = emit(&n, &NodeInputs::default());
         let decls = joined(&e.declarations);
         assert!(decls.contains("figma_f_1_value"), "buffers the inbound value");
         assert!(decls.contains("setCallback") || joined(&e.setup).contains("setCallback"));
-        assert_eq!(value_var(&n).as_deref(), Some("figma_f_1_value.toFloat()"));
+        assert_eq!(
+            output(&n).map(|s| s.value.code),
+            Some("figma_f_1_value.toFloat()".to_string())
+        );
     }
 
-    /// A driven Figma Node publishes the new value back to Figma on the set
-    /// topic — over the same network transport.
+    /// A Figma Node with a wired `set` port publishes the new value back to
+    /// Figma on the set topic — over the same network transport.
     #[test]
-    fn driven_node_publishes_value_back_to_figma() {
+    fn set_port_publishes_value_back_to_figma() {
         let e = emit(
             &figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
-            Some("sensor_s_1_value"),
+            &set_input("sensor_s_1_value"),
         );
         let body = joined(&e.loop_body);
         let decls = joined(&e.declarations);
@@ -232,10 +270,25 @@ mod tests {
         assert!(body.contains("sensor_s_1_value"), "publishes the driven value");
     }
 
+    /// Unmodelled mutation ports are noted instead of silently dropped.
+    #[test]
+    fn unmodelled_mutation_ports_are_noted() {
+        let mut inputs = NodeInputs::default();
+        inputs.add("toggle", SourceExpr::level(CppExpr::boolean("btn")));
+        let e = emit(
+            &figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
+            &inputs,
+        );
+        assert!(
+            joined(&e.declarations).contains("input 'toggle' mutates a typed Figma variable"),
+            "wired toggle is noted"
+        );
+    }
+
     /// Scenario: the loop maintains the connection (reconnect on drop).
     #[test]
     fn loop_maintains_connection_and_pumps_client() {
-        let e = emit(&figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })), None);
+        let e = emit(&figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })), &NodeInputs::default());
         let body = joined(&e.loop_body);
         assert!(body.contains("ensure_connected()"), "reconnects in loop");
         assert!(body.contains("figma_f_1_client.loop()"), "pumps the MQTT client");
@@ -244,7 +297,7 @@ mod tests {
     /// Scenario: Missing credentials produce a safe placeholder + a warning.
     #[test]
     fn missing_credentials_produce_safe_placeholder_and_warning() {
-        let e = emit(&figma("f-1", json!({ "uniqueId": "u", "variableId": "VariableID:1:2" })), Some("v"));
+        let e = emit(&figma("f-1", json!({ "uniqueId": "u", "variableId": "VariableID:1:2" })), &set_input("v"));
         let decls = joined(&e.declarations);
         assert!(decls.contains("REPLACE_ME"), "emits a credential placeholder");
         assert!(decls.contains("#warning"), "warns the Author at compile time");
@@ -255,13 +308,13 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" }));
-        assert_eq!(emit(&n, Some("v")), emit(&n, Some("v")));
+        assert_eq!(emit(&n, &set_input("v")), emit(&n, &set_input("v")));
     }
 
     /// Topic strings are escaped so generation stays valid.
     #[test]
     fn topics_are_escaped() {
-        let e = emit(&figma("f-1", json!({ "broker": "b", "uniqueId": "a\"b", "variableId": "VariableID:1:2", "wifiSsid": "net" })), None);
+        let e = emit(&figma("f-1", json!({ "broker": "b", "uniqueId": "a\"b", "variableId": "VariableID:1:2", "wifiSsid": "net" })), &NodeInputs::default());
         assert!(joined(&e.declarations).contains("a\\\"b"), "escapes the quote in the topic");
     }
 }

@@ -167,6 +167,18 @@ impl FirmataSession {
         self.client.encode_i2c_read(address, size)
     }
 
+    /// Start a continuous (streaming) I2C read: the board re-writes `register`
+    /// and pushes an `I2C_REPLY` every sampling interval on its own. Pairs with
+    /// [`Self::encode_sampling_interval`] (the stream rate) and
+    /// [`Self::encode_i2c_stop_reading`]. The desktop `BoardWriter` has all six
+    /// I2C encoders; this shim was missing this one and the sampling interval, so
+    /// browser-side streaming was reachable only through the core runtime.
+    #[wasm_bindgen(js_name = encodeI2cReadContinuous)]
+    #[must_use]
+    pub fn encode_i2c_read_continuous(&self, address: i32, register: i32, size: i32) -> Vec<u8> {
+        self.client.encode_i2c_read_continuous(address, register, size)
+    }
+
     #[wasm_bindgen(js_name = encodeI2cWrite)]
     #[must_use]
     pub fn encode_i2c_write(&self, address: i32, data: &[u8]) -> Vec<u8> {
@@ -177,6 +189,15 @@ impl FirmataSession {
     #[must_use]
     pub fn encode_i2c_stop_reading(&self, address: i32) -> Vec<u8> {
         self.client.encode_i2c_stop_reading(address)
+    }
+
+    /// Set the board's global sampling interval (ms) — the report-loop period
+    /// that clocks continuous I2C reads (and analog reporting). A single global
+    /// Firmata setting; the runtime reconciles it to the slowest sensor's rate.
+    #[wasm_bindgen(js_name = encodeSamplingInterval)]
+    #[must_use]
+    pub fn encode_sampling_interval(&self, interval_ms: i32) -> Vec<u8> {
+        self.client.encode_sampling_interval(interval_ms)
     }
 
     #[wasm_bindgen(js_name = encodeSysex)]

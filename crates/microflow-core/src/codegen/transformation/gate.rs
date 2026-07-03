@@ -1,16 +1,17 @@
 //! Gate emitter — mirrors `runtime/transformation/gate.rs`.
 //!
-//! The live Gate Node counts the truthy inputs and applies a boolean gate
-//! (`and`, `nand`, `or`, `xor`, `nor`, `xnor`) over `true_count` vs `total`.
+//! The live Gate Node receives a snapshot of *all* inputs wired into its
+//! `value` port (it `aggregates_inputs`), counts the truthy ones, and applies
+//! the configured boolean gate over `true_count` vs `total`:
+//! `and` ⇢ `true_count == total`, `nand` ⇢ `!=  total`, `or` ⇢ `> 0`,
+//! `nor` ⇢ `== 0`, `xor` ⇢ `== 1`, `xnor` ⇢ `!= 1`.
 //!
-//! The generated value model feeds a single boolean driver into the Node
-//! (`total == 1`), so the gates collapse to: `and`/`or`/`xor` pass the input
-//! through (`true_count == total`, `> 0`, and `== 1` all equal the single
-//! input), while `nand`/`nor`/`xnor` invert it. We emit the matching
-//! single-input pass-through / inverting logic into a `bool` variable that
-//! downstream Nodes read, reproducing the live gate for the wired signal.
+//! The generated C++ reproduces exactly that: a truthy count over every wired
+//! source expression compared per the gate, stored into a `bool` variable that
+//! downstream Nodes read.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::codegen::wire::NodeInputs;
 use crate::config::gate::{GateConfig, GateType};
 use crate::flow::FlowNode;
 
@@ -20,22 +21,25 @@ pub fn state_var(node: &FlowNode) -> String {
     format!("gate_{}_result", node.id_token())
 }
 
-/// Build the single-input C++ boolean expression for the configured gate over
-/// the driver expression `v`.
-fn gate_expr(gate: GateType, v: &str) -> String {
+/// The comparison of the truthy count `tc` against `total` for the configured
+/// gate — a direct transcription of the runtime's `passes_gate`.
+fn gate_comparison(gate: GateType, tc: &str, total: usize) -> String {
     match gate {
-        // Inverting gates for a single input.
-        GateType::Nand | GateType::Nor | GateType::Xnor => format!("(!((bool)({v})))"),
-        // Pass-through gates for a single input (and / or / xor).
-        _ => format!("((bool)({v}))"),
+        GateType::And => format!("({tc} == {total})"),
+        GateType::Nand => format!("({tc} != {total})"),
+        GateType::Or => format!("({tc} > 0)"),
+        GateType::Nor => format!("({tc} == 0)"),
+        GateType::Xor => format!("({tc} == 1)"),
+        GateType::Xnor => format!("({tc} != 1)"),
     }
 }
 
-/// Emit C++ for a Gate Node. `driver` is the wired boolean input, or `None`
-/// when nothing is connected (the runtime leaves the result at `false` because
-/// `check` is skipped for an empty input set).
+/// Emit C++ for a Gate Node over everything wired into its `value` port. With
+/// nothing connected the result stays `false` (the runtime skips `check` for
+/// an empty input set).
 #[must_use]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+    let token = node.id_token();
     let var = state_var(node);
     let config: GateConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 
@@ -44,16 +48,29 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
         ..NodeEmission::default()
     };
 
-    if let Some(expr) = driver {
-        let computed = gate_expr(config.gate, expr);
-        e.loop_body.push(format!("{var} = {computed};"));
+    let sources = inputs.on("value");
+    if sources.is_empty() {
+        return e;
     }
+
+    let count_terms: Vec<String> = sources
+        .iter()
+        .map(|s| format!("({} ? 1 : 0)", s.value.as_bool()))
+        .collect();
+    let tc = format!("gate_{token}_true_count");
+    e.loop_body
+        .push(format!("int {tc} = {};", count_terms.join(" + ")));
+    e.loop_body.push(format!(
+        "{var} = {};",
+        gate_comparison(config.gate, &tc, sources.len())
+    ));
     e
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::codegen::wire::{CppExpr, SourceExpr};
     use crate::flow::Position;
     use serde_json::json;
 
@@ -66,31 +83,64 @@ mod tests {
         }
     }
 
-    #[test]
-    fn and_or_xor_pass_through() {
-        for g in ["and", "or", "xor"] {
-            let e = emit(&gate("g-1", json!({ "gate": g })), Some("x"));
-            assert!(
-                e.loop_body.iter().any(|l| l.contains("(bool)(x)") && !l.contains("!(")),
-                "gate {g} should pass through"
-            );
+    fn wired(exprs: &[CppExpr]) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        for e in exprs {
+            inputs.add("value", SourceExpr::level(e.clone()));
         }
+        inputs
     }
 
     #[test]
-    fn nand_nor_xnor_invert() {
-        for g in ["nand", "nor", "xnor"] {
-            let e = emit(&gate("g-1", json!({ "gate": g })), Some("x"));
-            assert!(
-                e.loop_body.iter().any(|l| l.contains("!((bool)(x))")),
-                "gate {g} should invert"
-            );
-        }
+    fn and_requires_every_input_truthy() {
+        let e = emit(
+            &gate("g-1", json!({ "gate": "and" })),
+            &wired(&[CppExpr::boolean("a"), CppExpr::boolean("b")]),
+        );
+        let body = e.loop_body.join("\n");
+        assert!(body.contains("((a) ? 1 : 0) + ((b) ? 1 : 0)"), "got: {body}");
+        assert!(body.contains("== 2"), "and compares count to total: {body}");
     }
 
     #[test]
-    fn no_driver_leaves_false() {
-        let e = emit(&gate("g-1", json!({ "gate": "and" })), None);
+    fn or_nor_compare_against_zero() {
+        let inputs = wired(&[CppExpr::boolean("a"), CppExpr::boolean("b")]);
+        let or = emit(&gate("g-1", json!({ "gate": "or" })), &inputs);
+        assert!(or.loop_body.iter().any(|l| l.contains("> 0")));
+        let nor = emit(&gate("g-1", json!({ "gate": "nor" })), &inputs);
+        assert!(nor.loop_body.iter().any(|l| l.contains("== 0")));
+    }
+
+    #[test]
+    fn xor_xnor_compare_against_one() {
+        let inputs = wired(&[CppExpr::boolean("a"), CppExpr::boolean("b"), CppExpr::boolean("c")]);
+        let one_hot = emit(&gate("g-1", json!({ "gate": "xor" })), &inputs);
+        assert!(one_hot.loop_body.iter().any(|l| l.contains("== 1")));
+        let not_one_hot = emit(&gate("g-1", json!({ "gate": "xnor" })), &inputs);
+        assert!(not_one_hot.loop_body.iter().any(|l| l.contains("!= 1")));
+    }
+
+    #[test]
+    fn nand_inverts_the_all_truthy_test() {
+        let e = emit(
+            &gate("g-1", json!({ "gate": "nand" })),
+            &wired(&[CppExpr::boolean("x")]),
+        );
+        assert!(e.loop_body.iter().any(|l| l.contains("!= 1")), "single-input nand is a NOT");
+    }
+
+    #[test]
+    fn numeric_sources_use_truthiness() {
+        let e = emit(
+            &gate("g-1", json!({ "gate": "and" })),
+            &wired(&[CppExpr::number("sensor_v")]),
+        );
+        assert!(e.loop_body.iter().any(|l| l.contains("(sensor_v) != 0.0")));
+    }
+
+    #[test]
+    fn no_input_leaves_false() {
+        let e = emit(&gate("g-1", json!({ "gate": "and" })), &NodeInputs::default());
         assert!(e.loop_body.is_empty());
         assert!(e.declarations.iter().any(|d| d.contains("= false;")));
     }
@@ -98,6 +148,7 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = gate("g-1", json!({ "gate": "nand" }));
-        assert_eq!(emit(&n, Some("x")), emit(&n, Some("x")));
+        let inputs = wired(&[CppExpr::boolean("x")]);
+        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
     }
 }

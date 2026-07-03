@@ -129,6 +129,39 @@ pub fn str_or_default(node: &FlowNode, key: &str, default: &str) -> String {
         .to_string()
 }
 
+/// Escape `s` into a double-quoted C++ string literal. User-authored config
+/// (topics, prompts, credentials, labels) flows into the Sketch through this,
+/// so a quote, backslash, or newline in the value cannot break out of the
+/// literal and corrupt — or inject code into — the generated file.
+#[must_use]
+pub fn cpp_string_literal(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            // Other control characters as 3-digit octal (self-terminating,
+            // unlike \x which greedily consumes following hex digits).
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\{:03o}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// Sanitize `s` for use inside a single-line `//` comment: line breaks and
+/// other control characters collapse to spaces so the comment cannot spill
+/// onto a new (uncommented) line.
+#[must_use]
+pub fn cpp_comment_text(s: &str) -> String {
+    s.chars().map(|c| if c.is_control() { ' ' } else { c }).collect()
+}
+
 /// Format an `f64` as a C++ `double` literal that round-trips deterministically.
 /// Integer-valued numbers gain a trailing `.0` so the literal is unambiguously
 /// floating point.

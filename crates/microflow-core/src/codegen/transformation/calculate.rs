@@ -1,19 +1,22 @@
 //! Calculate emitter — mirrors `runtime/transformation/calculate.rs`.
 //!
-//! The live Calculate Node aggregates its inputs and applies an arithmetic
-//! function (`add`, `subtract`, `multiply`, `divide`, `modulo`, `max`, `min`,
-//! `pow`, `ceil`, `floor`, `round`), storing the result as its `Number` value.
+//! The live Calculate Node aggregates *all* inputs wired into its `value` port
+//! (the router delivers a snapshot `Array` because Calculate
+//! `aggregates_inputs`) and folds them with the configured arithmetic function,
+//! storing the result as its `Number` value. Non-numeric inputs (`String`
+//! sources) carry no number and are filtered out, exactly as
+//! `ComponentValue::as_number` returns `None` for them.
 //!
-//! The generated value-passing model feeds a single driver expression into each
-//! transformation Node (the wired source with the smallest id). With a single
-//! input the runtime's fold semantics reduce to: `subtract`/`divide`/`modulo`
-//! return `inputs[0]` unchanged (the fold body is skipped), `add`/`max`/`min`
-//! return the value itself, `multiply` returns the value, `pow` returns the
-//! value (fewer than two inputs), and `ceil`/`floor`/`round` apply their unary
-//! math. We emit the matching single-input C++ so the Sketch reproduces what
-//! the Flow Author observes when one signal drives the Node.
+//! The generated C++ reproduces the same folds over the wired source
+//! expressions: `add` sums, `subtract`/`divide`/`modulo` fold left from the
+//! first input (skipping zero divisors, like the runtime), `multiply` takes the
+//! product, `max`/`min` nest `fmax`/`fmin`, `pow` raises the first input to the
+//! second, and `ceil`/`floor`/`round` apply their unary math to the first
+//! input. With no numeric input wired the value stays at its `0.0` initial
+//! state (the runtime returns early on an empty input set).
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::codegen::wire::{CppType, NodeInputs};
 use crate::config::calculate::{CalculateConfig, CalculateFunction};
 use crate::flow::FlowNode;
 
@@ -23,27 +26,48 @@ pub fn value_var(node: &FlowNode) -> String {
     format!("calculate_{}_value", node.id_token())
 }
 
-/// Build the C++ expression for the configured function applied to a single
-/// input value `v` (the driver expression). Mirrors the runtime's single-input
-/// fold semantics.
-fn function_expr(function: CalculateFunction, v: &str) -> String {
+/// Build the C++ fold expression for the configured function over the numeric
+/// input expressions, mirroring the runtime's `check` fold semantics.
+fn fold_expr(function: CalculateFunction, inputs: &[String]) -> String {
+    let first = &inputs[0];
     match function {
-        // Unary math functions.
-        CalculateFunction::Ceil => format!("ceil({v})"),
-        CalculateFunction::Floor => format!("floor({v})"),
-        CalculateFunction::Round => format!("round({v})"),
-        // Multi-input folds collapse to the first input when only one is wired.
-        // `add`/`subtract`/`multiply`/`divide`/`modulo`/`max`/`min`/`pow` all
-        // yield the input value itself for a single input.
-        _ => format!("({v})"),
+        CalculateFunction::Add => format!("({})", inputs.join(" + ")),
+        CalculateFunction::Subtract => format!("({})", inputs.join(" - ")),
+        CalculateFunction::Multiply => format!("({})", inputs.join(" * ")),
+        // The runtime skips zero divisors (`acc` unchanged); the nested ternary
+        // reproduces that guard per divisor.
+        CalculateFunction::Divide => inputs[1..].iter().fold(first.clone(), |acc, v| {
+            format!("(({v} == 0.0) ? ({acc}) : (({acc}) / {v}))")
+        }),
+        CalculateFunction::Modulo => inputs[1..].iter().fold(first.clone(), |acc, v| {
+            format!("(({v} == 0.0) ? ({acc}) : fmod({acc}, {v}))")
+        }),
+        CalculateFunction::Max => nest("fmax", inputs),
+        CalculateFunction::Min => nest("fmin", inputs),
+        CalculateFunction::Pow => {
+            if inputs.len() >= 2 {
+                format!("pow({first}, {})", inputs[1])
+            } else {
+                format!("({first})")
+            }
+        }
+        // Unary math applies to the first input, like the runtime's inputs[0].
+        CalculateFunction::Ceil => format!("ceil({first})"),
+        CalculateFunction::Floor => format!("floor({first})"),
+        CalculateFunction::Round => format!("round({first})"),
     }
 }
 
-/// Emit C++ for a Calculate Node. `driver` is the C++ numeric expression that
-/// feeds the Node, or `None` when nothing is wired in (the runtime leaves the
-/// value at its `0.0` initial state).
+/// Nest a two-argument fold (`fmax`/`fmin`) over all inputs.
+fn nest(f: &str, inputs: &[String]) -> String {
+    inputs[1..]
+        .iter()
+        .fold(inputs[0].clone(), |acc, v| format!("{f}({acc}, {v})"))
+}
+
+/// Emit C++ for a Calculate Node over everything wired into its `value` port.
 #[must_use]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let var = value_var(node);
     let config: CalculateConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 
@@ -52,8 +76,17 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
         ..NodeEmission::default()
     };
 
-    if let Some(expr) = driver {
-        let computed = function_expr(config.function, &format!("(double)({expr})"));
+    // String sources carry no number and are dropped, like the runtime's
+    // `filter_map(as_number)`.
+    let numeric: Vec<String> = inputs
+        .on("value")
+        .iter()
+        .filter(|s| s.value.ty != CppType::Str)
+        .map(|s| s.value.as_double())
+        .collect();
+
+    if !numeric.is_empty() {
+        let computed = fold_expr(config.function, &numeric);
         e.loop_body.push(format!("{var} = {computed};"));
     }
     e
@@ -62,6 +95,7 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::codegen::wire::{CppExpr, SourceExpr};
     use crate::flow::Position;
     use serde_json::json;
 
@@ -74,39 +108,119 @@ mod tests {
         }
     }
 
+    fn wired(exprs: &[CppExpr]) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        for e in exprs {
+            inputs.add("value", SourceExpr::level(e.clone()));
+        }
+        inputs
+    }
+
     #[test]
     fn declares_output_variable() {
-        let e = emit(&calc("c-1", json!({ "function": "add" })), None);
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &NodeInputs::default());
         assert!(e.declarations.iter().any(|d| d.contains("calculate_c_1_value")));
     }
 
     #[test]
-    fn add_passes_single_input_through() {
-        let e = emit(&calc("c-1", json!({ "function": "add" })), Some("sensor_s_1_value"));
-        assert!(e.loop_body.iter().any(|l| l.contains("sensor_s_1_value")));
-        assert!(!e.loop_body.iter().any(|l| l.contains("ceil")));
+    fn add_sums_all_wired_inputs() {
+        let e = emit(
+            &calc("c-1", json!({ "function": "add" })),
+            &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
+        );
+        let body = e.loop_body.join("\n");
+        assert!(body.contains("((double)(a)) + ((double)(b))"), "got: {body}");
     }
 
     #[test]
-    fn ceil_floor_round_emit_unary_math() {
+    fn subtract_folds_left_from_first_input() {
+        let e = emit(
+            &calc("c-1", json!({ "function": "subtract" })),
+            &wired(&[CppExpr::number("a"), CppExpr::number("b"), CppExpr::number("c")]),
+        );
+        let body = e.loop_body.join("\n");
+        assert!(body.contains("- ((double)(b))") && body.contains("- ((double)(c))"), "got: {body}");
+    }
+
+    #[test]
+    fn divide_guards_zero_divisors_like_the_runtime() {
+        let e = emit(
+            &calc("c-1", json!({ "function": "divide" })),
+            &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
+        );
+        let body = e.loop_body.join("\n");
+        assert!(body.contains("== 0.0) ?"), "zero divisor keeps the accumulator: {body}");
+        assert!(body.contains("/ ((double)(b))"), "got: {body}");
+    }
+
+    #[test]
+    fn modulo_uses_fmod_with_zero_guard() {
+        let e = emit(
+            &calc("c-1", json!({ "function": "modulo" })),
+            &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
+        );
+        assert!(e.loop_body.iter().any(|l| l.contains("fmod")));
+    }
+
+    #[test]
+    fn max_min_nest_fmax_fmin() {
+        let inputs = wired(&[CppExpr::number("a"), CppExpr::number("b"), CppExpr::number("c")]);
+        let max = emit(&calc("c-1", json!({ "function": "max" })), &inputs);
+        assert!(max.loop_body.iter().any(|l| l.contains("fmax(fmax(")));
+        let min = emit(&calc("c-1", json!({ "function": "min" })), &inputs);
+        assert!(min.loop_body.iter().any(|l| l.contains("fmin(fmin(")));
+    }
+
+    #[test]
+    fn pow_uses_first_two_inputs_or_passes_single_through() {
+        let two = emit(
+            &calc("c-1", json!({ "function": "pow" })),
+            &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
+        );
+        assert!(two.loop_body.iter().any(|l| l.contains("pow(")));
+        let one = emit(&calc("c-1", json!({ "function": "pow" })), &wired(&[CppExpr::number("a")]));
+        assert!(!one.loop_body.iter().any(|l| l.contains("pow(")), "single input passes through");
+    }
+
+    #[test]
+    fn ceil_floor_round_emit_unary_math_on_first_input() {
         for func in ["ceil", "floor", "round"] {
-            let e = emit(&calc("c-1", json!({ "function": func })), Some("x"));
-            assert!(
-                e.loop_body.iter().any(|l| l.contains(func)),
-                "expected {func} call"
+            let e = emit(
+                &calc("c-1", json!({ "function": func })),
+                &wired(&[CppExpr::number("x"), CppExpr::number("y")]),
             );
+            let body = e.loop_body.join("\n");
+            assert!(body.contains(func), "expected {func} call");
+            assert!(!body.contains("(y)"), "unary math ignores extra inputs: {body}");
         }
     }
 
     #[test]
-    fn no_driver_emits_no_loop_body() {
-        let e = emit(&calc("c-1", json!({ "function": "add" })), None);
+    fn string_sources_are_filtered_out_like_the_runtime() {
+        let mut inputs = NodeInputs::default();
+        inputs.add("value", SourceExpr::level(CppExpr::text("msg")));
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &inputs);
+        assert!(e.loop_body.is_empty(), "a string-only input set never computes");
+    }
+
+    #[test]
+    fn bool_sources_coerce_to_numbers() {
+        let mut inputs = NodeInputs::default();
+        inputs.add("value", SourceExpr::level(CppExpr::boolean("flag")));
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &inputs);
+        assert!(e.loop_body.iter().any(|l| l.contains("(flag) ? 1.0 : 0.0")));
+    }
+
+    #[test]
+    fn no_input_emits_no_loop_body() {
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &NodeInputs::default());
         assert!(e.loop_body.is_empty());
     }
 
     #[test]
     fn emits_deterministically() {
         let n = calc("c-1", json!({ "function": "multiply" }));
-        assert_eq!(emit(&n, Some("x")), emit(&n, Some("x")));
+        let inputs = wired(&[CppExpr::number("x"), CppExpr::number("y")]);
+        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
     }
 }

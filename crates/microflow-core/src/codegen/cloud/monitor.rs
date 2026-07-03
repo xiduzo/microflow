@@ -31,6 +31,7 @@
 
 use crate::codegen::cloud::transport::{cpp_string, Transport, DEFAULT_PORT};
 use crate::codegen::emit::{str_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::flow::FlowNode;
 
 /// A single config value read from `data`, first non-empty key winning.
@@ -46,11 +47,13 @@ fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
 
 /// Emit C++ for a Monitor Cloud Node on a networked target.
 ///
-/// `driver` is the C++ expression for the value flowing into the Monitor; each
+/// The first source wired into the `value` port is the displayed value; each
 /// time it changes the Sketch publishes it on the monitor topic. An unwired
 /// Monitor has nothing to display, so it only maintains its connection.
 #[must_use]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+    let sources = inputs.on("value");
+    let driver = sources.first().map(|s| s.value.as_string());
     let token = node.id_token();
     let prefix = format!("monitor_{token}");
 
@@ -65,7 +68,7 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     let credentials_missing = wifi_ssid.is_empty() || broker.is_empty();
 
     let topic_var = format!("{prefix}_topic");
-    let last_var = driver.map(|_| format!("{prefix}_last_published"));
+    let last_var = driver.as_ref().map(|_| format!("{prefix}_last_published"));
 
     // Monitor is publish-only — it never subscribes.
     let transport = Transport {
@@ -81,6 +84,9 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     };
 
     let mut extra_decls = vec![format!("const char* {topic_var} = {};", cpp_string(&topic))];
+    if let Some(note) = extra_sources_note("value", sources) {
+        extra_decls.push(note);
+    }
     if let Some(last) = &last_var {
         extra_decls.push(format!("String {last};"));
     }
@@ -88,10 +94,10 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
     // loop() tail: publish each received value on change (mirrors the live sink
     // surfacing the latest value; de-dupe on change since there is no host loop).
     let mut loop_tail = Vec::new();
-    if let (Some(expr), Some(last)) = (driver, &last_var) {
+    if let (Some(expr), Some(last)) = (&driver, &last_var) {
         let mqtt_client = transport.mqtt_client();
         loop_tail.push(format!("if ({mqtt_client}.connected()) {{"));
-        loop_tail.push(format!("  String {prefix}_next = String({expr});"));
+        loop_tail.push(format!("  String {prefix}_next = {expr};"));
         loop_tail.push(format!("  if ({prefix}_next != {last}) {{"));
         loop_tail.push(format!("    {mqtt_client}.publish({topic_var}, {prefix}_next.c_str());"));
         loop_tail.push(format!("    {last} = {prefix}_next;"));
@@ -125,11 +131,19 @@ mod tests {
         lines.join("\n")
     }
 
+    /// A single numeric source wired into the `value` port.
+    fn value_input(expr: &str) -> NodeInputs {
+        use crate::codegen::wire::{CppExpr, SourceExpr};
+        let mut inputs = NodeInputs::default();
+        inputs.add("value", SourceExpr::level(CppExpr::number(expr)));
+        inputs
+    }
+
     /// Scenario: Monitor Node emits working code on a `WiFi`-capable target —
     /// pulls in the `WiFi` + MQTT client libraries (the network transport).
     #[test]
     fn monitor_pulls_in_wifi_and_mqtt_client_libraries() {
-        let e = emit(&monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })), Some("v"));
+        let e = emit(&monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })), &value_input("v"));
         assert!(e.includes.iter().any(|i| i.contains("WiFi.h")), "missing WiFi include");
         assert!(e.includes.iter().any(|i| i.contains("PubSubClient.h")), "missing MQTT client include");
     }
@@ -140,7 +154,7 @@ mod tests {
     fn connects_and_publishes_received_values_over_transport() {
         let e = emit(
             &monitor("mon-1", json!({ "broker": "broker.example.com", "uniqueId": "abc", "wifiSsid": "net" })),
-            Some("sensor_s_1_value"),
+            &value_input("sensor_s_1_value"),
         );
         let decls = joined(&e.declarations);
         let setup = joined(&e.setup);
@@ -155,7 +169,7 @@ mod tests {
     /// Scenario: the loop maintains the connection (reconnect on drop).
     #[test]
     fn loop_maintains_connection_and_pumps_client() {
-        let e = emit(&monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })), Some("v"));
+        let e = emit(&monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })), &value_input("v"));
         let body = joined(&e.loop_body);
         assert!(body.contains("ensure_connected()"), "reconnects in loop");
         assert!(body.contains("monitor_mon_1_client.loop()"), "pumps the MQTT client");
@@ -164,7 +178,7 @@ mod tests {
     /// An unwired Monitor still connects but has nothing to publish.
     #[test]
     fn unwired_monitor_has_nothing_to_publish() {
-        let e = emit(&monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })), None);
+        let e = emit(&monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" })), &NodeInputs::default());
         let body = joined(&e.loop_body);
         assert!(body.contains("nothing to display"), "no publish without a wired input");
         assert!(!body.contains("publish(monitor_mon_1_topic"), "does not publish when unwired");
@@ -173,7 +187,7 @@ mod tests {
     /// Scenario: Missing credentials produce a safe placeholder + a warning.
     #[test]
     fn missing_credentials_produce_safe_placeholder_and_warning() {
-        let e = emit(&monitor("mon-1", json!({ "uniqueId": "u" })), Some("v"));
+        let e = emit(&monitor("mon-1", json!({ "uniqueId": "u" })), &value_input("v"));
         let decls = joined(&e.declarations);
         assert!(decls.contains("REPLACE_ME"), "emits a credential placeholder");
         assert!(decls.contains("#warning"), "warns the Author at compile time");
@@ -184,6 +198,6 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" }));
-        assert_eq!(emit(&n, Some("v")), emit(&n, Some("v")));
+        assert_eq!(emit(&n, &value_input("v")), emit(&n, &value_input("v")));
     }
 }

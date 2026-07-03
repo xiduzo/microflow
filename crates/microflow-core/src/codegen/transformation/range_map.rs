@@ -16,6 +16,7 @@
 //! We emit the same arithmetic into a `double` variable downstream Nodes read.
 
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::config::range_map::RangeMapConfig;
 use crate::flow::FlowNode;
 
@@ -25,10 +26,13 @@ pub fn value_var(node: &FlowNode) -> String {
     format!("range_map_{}_value", node.id_token())
 }
 
-/// Emit C++ for a `RangeMap` Node. `driver` is the wired numeric input, or
-/// `None` when nothing is connected (the runtime leaves the value at `0.0`).
+/// Emit C++ for a `RangeMap` Node from its `value` port. With nothing
+/// connected the value stays at `0.0` (the runtime never maps without a
+/// signal). `RangeMap` does not aggregate: extra sources are noted and the
+/// first drives the map. String sources are parsed like the runtime's
+/// `String(s) => s.parse().unwrap_or(0.0)` arm.
 #[must_use]
-pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let var = value_var(node);
     // Mirror `Range` defaults: from 0..1023, to 0..1023.
     let config: RangeMapConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
@@ -47,9 +51,14 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
         ..NodeEmission::default()
     };
 
-    if let Some(expr) = driver {
+    let sources = inputs.on("value");
+    if let Some(note) = extra_sources_note("value", sources) {
+        e.declarations.push(note);
+    }
+    if let Some(source) = sources.first() {
+        let input = source.value.as_double_parsing();
         let mapped = format!(
-            "(((double)({expr}) - {in_min}) * ({out_max} - {out_min}) / ({in_max} - {in_min}) + {out_min})"
+            "(({input} - {in_min}) * ({out_max} - {out_min}) / ({in_max} - {in_min}) + {out_min})"
         );
         e.loop_body
             .push(format!("{var} = round(({mapped}) * {factor}) / {factor};"));
@@ -60,6 +69,7 @@ pub fn emit(node: &FlowNode, driver: Option<&str>) -> NodeEmission {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::codegen::wire::{CppExpr, SourceExpr};
     use crate::flow::Position;
     use serde_json::json;
 
@@ -72,9 +82,15 @@ mod tests {
         }
     }
 
+    fn value_input(expr: CppExpr) -> NodeInputs {
+        let mut inputs = NodeInputs::default();
+        inputs.add("value", SourceExpr::level(expr));
+        inputs
+    }
+
     #[test]
     fn declares_output_variable() {
-        let e = emit(&rm("r-1", json!({})), None);
+        let e = emit(&rm("r-1", json!({})), &NodeInputs::default());
         assert!(e.declarations.iter().any(|d| d.contains("range_map_r_1_value")));
     }
 
@@ -82,7 +98,7 @@ mod tests {
     fn emits_linear_remap_math() {
         let e = emit(
             &rm("r-1", json!({ "from": { "min": 0.0, "max": 1023.0 }, "to": { "min": 0.0, "max": 255.0 } })),
-            Some("sensor_s_1_value"),
+            &value_input(CppExpr::number("sensor_s_1_value")),
         );
         let body = e.loop_body.join("\n");
         assert!(body.contains("sensor_s_1_value"));
@@ -95,7 +111,7 @@ mod tests {
     fn small_output_span_uses_decimal_precision() {
         let e = emit(
             &rm("r-1", json!({ "from": { "min": 0.0, "max": 100.0 }, "to": { "min": 0.0, "max": 5.0 } })),
-            Some("v"),
+            &value_input(CppExpr::number("v")),
         );
         assert!(e.loop_body.iter().any(|l| l.contains("* 10.0") && l.contains("/ 10.0")));
     }
@@ -104,20 +120,36 @@ mod tests {
     fn large_output_span_uses_whole_numbers() {
         let e = emit(
             &rm("r-1", json!({ "from": { "min": 0.0, "max": 100.0 }, "to": { "min": 0.0, "max": 255.0 } })),
-            Some("v"),
+            &value_input(CppExpr::number("v")),
         );
         assert!(e.loop_body.iter().any(|l| l.contains("* 1.0") && l.contains("/ 1.0")));
     }
 
     #[test]
-    fn no_driver_emits_no_loop_body() {
-        let e = emit(&rm("r-1", json!({})), None);
+    fn string_sources_parse_like_the_runtime() {
+        let e = emit(&rm("r-1", json!({})), &value_input(CppExpr::text("msg")));
+        assert!(e.loop_body.iter().any(|l| l.contains(".toFloat()")));
+    }
+
+    #[test]
+    fn extra_sources_are_noted() {
+        let mut inputs = NodeInputs::default();
+        inputs.add("value", SourceExpr::level(CppExpr::number("a")));
+        inputs.add("value", SourceExpr::level(CppExpr::number("b")));
+        let e = emit(&rm("r-1", json!({})), &inputs);
+        assert!(e.declarations.iter().any(|d| d.contains("// note:")));
+    }
+
+    #[test]
+    fn no_input_emits_no_loop_body() {
+        let e = emit(&rm("r-1", json!({})), &NodeInputs::default());
         assert!(e.loop_body.is_empty());
     }
 
     #[test]
     fn emits_deterministically() {
         let n = rm("r-1", json!({ "to": { "min": 0.0, "max": 255.0 } }));
-        assert_eq!(emit(&n, Some("v")), emit(&n, Some("v")));
+        let inputs = value_input(CppExpr::number("v"));
+        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
     }
 }
