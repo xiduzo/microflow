@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { useMqttBrokerStore, type MqttBrokerConfig, type ConnectionStatus } from "@/stores/mqtt-broker";
+import { track } from "@/lib/analytics";
 import { useBrokerStatus } from "@/hooks/use-mqtt-sync";
 import { Button } from "@/components/ui/button";
 import {
@@ -183,6 +184,10 @@ function AddBrokerDialog() {
         username: value.username || undefined,
         password: value.password || undefined,
         isDefault: false,
+      });
+      track("mqtt_broker_added", {
+        scheme: value.url.split("://")[0] || "unknown",
+        auth: Boolean(value.username),
       });
       toast.success("Broker added");
       setOpen(false);

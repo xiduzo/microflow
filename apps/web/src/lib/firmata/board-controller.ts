@@ -15,6 +15,7 @@
 // Everything here drives the shared wasm codec/flasher via ./web-serial.
 
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 import type { BoardState } from "@/lib/bindings/BoardState";
 import { useBoardStore } from "@/stores/board";
 import { useFigmaStore } from "@/stores/figma";
@@ -145,6 +146,22 @@ async function bringUp(
 ): Promise<void> {
   setBoard({ state: "connecting" });
   const { options, settle } = makeBringUp();
+  // Capture flash/board facts as they stream through onState so the analytics
+  // event can say *which* board connected and whether it needed a flash.
+  const startedAt = performance.now();
+  const meta = { flashed: false, board: "unknown" };
+  const onState = options.onState;
+  options.onState = (state: BoardState) => {
+    if (state.state === "flashing") meta.flashed = true;
+    if ("board" in state && typeof state.board === "string") meta.board = state.board;
+    onState(state);
+  };
+  const trackData = () => ({
+    via: flags.explicit ? "gesture" : "auto",
+    board: meta.board,
+    flashed: meta.flashed,
+    seconds: Math.round((performance.now() - startedAt) / 1000),
+  });
   try {
     active = await bringUpBoard(port, options, { autoFlash: flags.autoFlash });
     // Stand up the wasm flow runtime for this connection and apply the current
@@ -159,10 +176,12 @@ async function bringUp(
       reactor = null;
     }
     settle(true);
+    track("board_connected", trackData());
   } catch (error) {
     settle(false);
     active = null;
     const message = error instanceof Error ? error.message : String(error);
+    track("board_connect_failed", { ...trackData(), error: message.slice(0, 80) });
     if (flags.explicit) {
       setBoard({ state: "error", error: message });
       toast.error(message);
@@ -209,6 +228,7 @@ export function connect(): Promise<void> {
 }
 
 export function disconnect(): Promise<void> {
+  track("board_disconnected", { via: "gesture" });
   return run(async () => {
     await teardownActive();
     setBoard({ state: "disconnected" });

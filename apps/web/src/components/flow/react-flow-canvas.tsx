@@ -30,11 +30,12 @@ import { useTheme } from "@/providers/theme-provider";
 import { HotkeySheet } from "./sheets/hotkey-sheet";
 import { CollabCursors } from "./collab-cursors";
 import { PressensePanel } from "./panels/pressense-panel";
+import { track } from "@/lib/analytics";
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
 export function ReactFlowCanvas() {
-  const { fitView } = useReactFlow();
+  const { fitView, getNodes } = useReactFlow();
   const { theme } = useTheme();
 
   const { doc } = useFlowSession();
@@ -54,8 +55,13 @@ export function ReactFlowCanvas() {
         type: "animated",
       };
       doc.addEdge(newEdge);
+      const byId = new Map(getNodes().map((n) => [n.id, n.type]));
+      track("edge_connected", {
+        source: byId.get(newEdge.source) ?? "unknown",
+        target: byId.get(newEdge.target) ?? "unknown",
+      });
     },
-    [doc],
+    [doc, getNodes],
   );
 
   useHelperHotkeys(nodes);

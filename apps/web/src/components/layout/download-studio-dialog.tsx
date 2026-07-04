@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 
 const GITHUB_REPO = "xiduzo/microflow";
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
@@ -171,7 +172,13 @@ export function DownloadStudioDialog({
           </Button>
           <Button
             disabled={loading}
-            onClick={() => window.open(downloadUrl, "_blank")}
+            onClick={() => {
+              track("desktop_download_clicked", {
+                platform: selected,
+                detected: selected === detectedPlatform,
+              });
+              window.open(downloadUrl, "_blank");
+            }}
           >
             {loading ? (
               <LoaderIcon className="size-4 animate-spin" />
