@@ -204,7 +204,7 @@ We go with **Option A** because:
 ### New Files
 
 ```
-apps/web/src-tauri/src/runtime/
+crates/microflow-core/src/runtime/
 ├── input/
 │   ├── mod.rs              # Add: mod i2c_device; pub use ...
 │   └── i2c_device.rs       # NEW: I2cDevice component
@@ -415,12 +415,12 @@ When a preset is selected, address/register/readLength/output are auto-populated
 
 | File | Change |
 |------|--------|
-| `apps/web/src/components/flow/nodes/_base/_base.types.ts` | Add `"I2cDevice"` to `COMPONENT_TYPES` array |
-| `apps/web/src/components/flow/nodes/_TYPES.ts` | Import and add `I2cDevice` to `NODE_TYPES` |
-| `apps/web/src-tauri/src/runtime/base.rs` | Add `I2cConfig`, `I2cRead`, `I2cWrite`, `I2cStopReading` to `BoardCommand` enum; add `I2C` to `pin_mode` module; handle new commands in reader thread |
-| `apps/web/src-tauri/src/runtime/input/mod.rs` | Add `mod i2c_device; pub use i2c_device::{I2cDevice, I2cDeviceConfig};` |
-| `apps/web/src-tauri/src/runtime/registry.rs` | Register `"I2cDevice"` as hardware component |
-| `apps/web/src-tauri/src/runtime/mod.rs` | Add `i2c_listeners` map, `register_i2c_listener()`, install I2C reply callback, handle `"I2cDevice"` in `register_component_pin_listener()` |
+| `apps/web/node-components.json` | Add the `I2cDevice` catalog entry; `bun run catalog:sync` regenerates `COMPONENT_TYPES` / `NODE_TYPES` (both are generated from the catalog + the Rust wire interface, not hand-edited) |
+| `crates/microflow-core/src/runtime/board.rs` | Add the I2C ops (`i2c_config` / `i2c_read` / `i2c_read_continuous` / `i2c_write` / `i2c_stop_reading` / `sampling_interval`) to the `I2cBus` / `BoardWriter` trait + `BufferBoardWriter` impl — encoded as Firmata bytes via the `FirmataClient` codec (sans-IO; no reader thread) |
+| `crates/microflow-core/src/runtime/input/mod.rs` | Add `mod i2c_device; pub use i2c_device::I2cDevice;` |
+| `crates/microflow-core/src/runtime/registry.rs` | Register `"I2cDevice"` as a hardware component |
+| `crates/microflow-core/src/runtime/wiring.rs` | `ListenerWiring::I2cAddress { address, register }` so a node registers its bus listener |
+| `crates/microflow-core/src/runtime/mod.rs` | Central I2C reply demux by register (`drain_i2c_replies`) + continuous-read arming; deliver replies via the typed `on_i2c_reply` callback |
 
 ### Files to Create
 
@@ -428,8 +428,10 @@ When a preset is selected, address/register/readLength/output are auto-populated
 |------|---------|
 | `apps/web/src/components/flow/nodes/i2c-device/i2c-device.schema.ts` | Zod schema for node data |
 | `apps/web/src/components/flow/nodes/i2c-device/i2c-device.tsx` | React component |
-| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.constants.ts` | Device presets |
-| `apps/web/src-tauri/src/runtime/input/i2c_device.rs` | Rust component |
+| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.constants.ts` | Device presets (UI defaults) |
+| `crates/microflow-core/src/config/i2c_device.rs` | Shared config + preset knowledge (`I2cDeviceConfig`, `device_init_writes`, `effective_register`) — ungated, used by both runtime and codegen |
+| `crates/microflow-core/src/runtime/input/i2c_device.rs` | Rust runtime component |
+| `crates/microflow-core/src/codegen/input/i2c_device.rs` | Arduino sketch emitter |
 
 ---
 

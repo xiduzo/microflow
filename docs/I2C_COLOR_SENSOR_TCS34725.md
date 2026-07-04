@@ -85,23 +85,17 @@ It has no mechanism to send **setup writes** before the first read. For the TCS3
 
 ---
 
-## Proposed Changes
+## Startup Writes
 
-### Approach: Add `initWrites` to I2cDeviceConfig
+The TCS34725's ADC is powered off until its `ENABLE` register is written, so it needs a one-time **startup sequence** before the first read. Startup sequences live in **Rust**, in the ungated `crates/microflow-core/src/config/i2c_device.rs::device_init_writes` table, keyed by the device preset id — one source shared by the live runtime (`initialize()`) and the Arduino codegen (`setup()`), so an exported sketch behaves identically. The generic `I2cDevice` node stays configuration-only; per-device init is datasheet knowledge that sits with the other Rust-side device facts (`effective_register`, `is_no_hold_sht2x`).
 
-Extend the I2C device config with an optional array of `(register, data)` pairs that are sent during `initialize()`, before the first read. This is a generic enhancement that benefits any I2C device requiring startup configuration (not just the TCS34725).
+The TCS34725 arm is a single `ENABLE` write — `0x80 = PON | AEN` — which powers the oscillator and the RGBC ADC:
 
-```
-initWrites: [
-  { register: 0x80, data: [0x01] },   // PON: power on internal oscillator
-  { delay: 3 },                         // Wait 3ms for oscillator
-  { register: 0x80, data: [0x03] },   // PON + AEN: enable RGBC ADC
-  { register: 0x81, data: [0xD5] },   // ATIME: 101ms integration time
-  { register: 0x8F, data: [0x01] },   // CONTROL: 4x gain
-]
+```rust
+"tcs34725" => &[&[0x80, 0x03]],
 ```
 
-This keeps the I2C node generic while allowing presets to bundle device-specific init sequences.
+Power-on defaults cover integration time and gain; the TS preset carries no init fields (only the address/register/readLength/output/freq defaults the UI fills in).
 
 ---
 
@@ -269,68 +263,38 @@ For the TCS34725 with `Le16Channels`, 8 bytes become `[clear, red, green, blue]`
 
 ### New Preset in `i2c-device.constants.ts`
 
+The preset carries only the UI defaults — no init data (that is Rust-side, above):
+
 ```typescript
-// Add to I2cPreset type:
 export type I2cPreset = {
   label: string;
   address: number;
   register: number;
   readLength: number;
-  output: "raw" | "unsigned_int" | "signed_int" | "le16_channels";
-  description: string;
-  initWrites?: Array<{ register: number; data: number[] }>;
-  initDelayMs?: number;
+  output: "raw" | "unsigned_int" | "signed_int";
+  freq: number;
 };
 
 // Add to I2C_PRESETS:
 tcs34725: {
-  label: "TCS34725 (RGBC)",
+  label: "TCS34725",
   address: 0x29,
-  register: 0x94,       // CDATAL with command bit
-  readLength: 8,         // C, R, G, B × 2 bytes each
-  output: "le16_channels",
-  description: "RGB color sensor with IR filter",
-  initWrites: [
-    { register: 0x80, data: [0x01] },  // PON
-    { register: 0x80, data: [0x03] },  // PON + AEN
-    { register: 0x81, data: [0xD5] },  // ATIME: 101ms
-    { register: 0x8F, data: [0x01] },  // CONTROL: 4x gain
-  ],
-  initDelayMs: 105,
+  // 0xA0 | 0x14: command bit + auto-increment from CDATAL, so 8 bytes
+  // stream out as C,R,G,B (each low-byte-first). Parse little-endian pairs.
+  register: 0xb4,
+  readLength: 8,        // C, R, G, B × 2 bytes each
+  output: "raw",        // downstream splits the 8 bytes into C,R,G,B
+  freq: 120,
 },
 ```
 
-### Schema Extension
+### Schema
 
-Add `initWrites` and `initDelayMs` as optional fields in `i2c-device.schema.ts`:
+No schema change is needed for the TCS34725: `i2c-device.schema.ts` already covers `address` / `register` / `readLength` / `output` / `freq` / `device` / `autoread`, and the startup writes live in Rust (above), not in the node's data.
 
-```typescript
-export const dataSchema = baseDataSchema.extend({
-  // ... existing fields ...
-  initWrites: z.array(z.object({
-    register: z.number(),
-    data: z.array(z.number()),
-  })).default([]),
-  initDelayMs: z.number().default(0),
-});
-```
+### Output Format
 
-### Output Format Extension
-
-Add `"le16_channels"` to the output enum in both the schema and the output options:
-
-```typescript
-output: z.enum(["raw", "unsigned_int", "signed_int", "le16_channels"]).default("unsigned_int"),
-```
-
-```typescript
-export const I2C_OUTPUT_OPTIONS = {
-  raw: "Raw bytes",
-  unsigned_int: "Unsigned int",
-  signed_int: "Signed int",
-  le16_channels: "LE 16-bit channels",
-} as const;
-```
+The TCS34725 uses the existing `"raw"` output: the node emits the 8 bytes as an array and downstream nodes split them into the C, R, G, B little-endian 16-bit channels. No new `OutputFormat` variant is needed — it stays `Raw` / `UnsignedInt` / `SignedInt` (`crates/microflow-core/src/config/i2c_device.rs`).
 
 ---
 
@@ -373,28 +337,14 @@ See [I2C_SUPPORT.md — Limitations & Constraints](./I2C_SUPPORT.md#limitations-
 
 ---
 
-## Implementation Checklist
+## How It Works (as built)
 
-### Phase 1: Backend — Init Writes Enhancement
+Supporting the TCS34725 needed no new config fields or output formats — the generic `I2cDevice` node already reads N bytes from a register, and startup writes are a Rust table:
 
-- [ ] Add `I2cInitWrite` struct to `i2c_device.rs`
-- [ ] Add `init_writes: Vec<I2cInitWrite>` and `init_delay_ms: u32` to `I2cDeviceConfig`
-- [ ] Update `initialize()` to send init writes before first read
-- [ ] Add `Le16Channels` variant to `OutputFormat` enum
-- [ ] Implement `Le16Channels` conversion in `convert_bytes()`: parse pairs of little-endian bytes into 16-bit unsigned values
+- **Rust** (`crates/microflow-core/src/config/i2c_device.rs`) — one `device_init_writes` arm, `"tcs34725" => &[&[0x80, 0x03]]` (`ENABLE` = PON | AEN), shared by the runtime's `initialize()` and the codegen `setup()`, and unit-tested in the same file.
+- **TS** (`i2c-device.constants.ts`) — one `I2C_PRESETS` row (`address 0x29`, `register 0xb4`, `readLength 8`, `output "raw"`, `freq 120`).
 
-### Phase 2: Frontend — Preset & Schema
-
-- [ ] Extend `I2cPreset` type with optional `initWrites` and `initDelayMs`
-- [ ] Add `tcs34725` preset to `I2C_PRESETS`
-- [ ] Add `"le16_channels"` to output enum in schema and constants
-- [ ] Update preset `onChange` handler to also set `initWrites` and `initDelayMs`
-- [ ] Add `initWrites` and `initDelayMs` to Zod schema with defaults
-
-### Phase 3: Testing
-
-- [ ] Verify init writes are sent in order during initialize
-- [ ] Verify TCS34725 returns non-zero RGBC values after init
+The 8 raw bytes stream out as C, R, G, B (little-endian pairs); downstream nodes split them. Verify by wiring a TCS34725 and confirming non-zero RGBC after the `ENABLE` write.
 - [ ] Verify `le16_channels` output correctly parses `[CL, CH, RL, RH, GL, GH, BL, BH]` into `[C, R, G, B]`
 - [ ] Test with real CJMCU-34725 board
 - [ ] Verify VL53L0X preset still works (same address, no init writes)

@@ -11,7 +11,6 @@ export type I2cPreset = {
   // NOTE: the sampling interval is GLOBAL to the board, so with multiple I2C
   // nodes the last one to initialize wins — pick the slowest sensor's value.
   freq: number;
-  description: string;
 };
 
 export const I2C_PRESETS: Record<string, I2cPreset> = {
@@ -22,7 +21,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 2,
     output: "unsigned_int",
     freq: 100,
-    description: "Manual I2C configuration",
   },
   bh1750: {
     label: "BH1750",
@@ -32,7 +30,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     output: "unsigned_int",
     // H-resolution mode needs ~120ms per measurement.
     freq: 180,
-    description: "Light sensor (lux)",
   },
   bme280_temp: {
     label: "BME280 (temp)",
@@ -41,7 +38,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 3,
     output: "unsigned_int",
     freq: 100,
-    description: "Temperature sensor",
   },
   bme280_humidity: {
     label: "BME280 (humidity)",
@@ -50,7 +46,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 2,
     output: "unsigned_int",
     freq: 100,
-    description: "Humidity (raw ADC — compensate downstream)",
   },
   bmp280_temp: {
     label: "BMP280 (temp)",
@@ -62,7 +57,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 3,
     output: "unsigned_int",
     freq: 100,
-    description: "Temperature (raw ADC — compensate downstream)",
   },
   bmp280_pressure: {
     label: "BMP280 (pressure)",
@@ -72,7 +66,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 3,
     output: "unsigned_int",
     freq: 100,
-    description: "Pressure (raw ADC — compensate downstream)",
   },
   sht21_temp: {
     label: "SHT21/HTU21 (temp)",
@@ -87,7 +80,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 2,
     output: "unsigned_int",
     freq: 120,
-    description: "Temperature (11-bit, raw 16-bit — scale downstream)",
   },
   sht21_humidity: {
     label: "SHT21/HTU21 (humidity)",
@@ -97,7 +89,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 2,
     output: "unsigned_int",
     freq: 120,
-    description: "Humidity (11-bit, raw 16-bit — scale downstream)",
   },
   mpu6050_accel: {
     label: "MPU6050 (accel)",
@@ -109,7 +100,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     // Runtime clears the SLEEP bit (PWR_MGMT_1) on startup, else all axes read 0.
     // Accel + gyro are the same chip at 0x68; the reply demux (by register) keeps
     // the two nodes' streams separate — see runtime/mod.rs::drain_i2c_replies.
-    description: "Accelerometer XYZ (auto-woken)",
   },
   mpu6050_gyro: {
     label: "MPU6050 (gyro)",
@@ -118,7 +108,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     readLength: 6,
     output: "raw",
     freq: 20,
-    description: "Gyroscope XYZ (auto-woken)",
   },
   vl53l0x: {
     label: "VL53L0X",
@@ -130,7 +119,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     // NOTE: unlike the others, the VL53L0X can't be brought up by a static write
     // list — ranging needs ST's full driver init. This preset reads the range
     // register but the sensor must be initialised externally. See docs/I2C_SUPPORT.md.
-    description: "Distance (mm — needs external init, see docs)",
   },
   tcs34725: {
     label: "TCS34725",
@@ -142,7 +130,6 @@ export const I2C_PRESETS: Record<string, I2cPreset> = {
     output: "raw",
     // 8-byte reads are flaky below ~100ms over the serial link; give headroom.
     freq: 120,
-    description: "RGB color sensor (raw C,R,G,B — needs ENABLE write)",
   },
 } as const;
 
