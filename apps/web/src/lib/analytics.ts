@@ -20,6 +20,26 @@ function isTauri(): boolean {
   );
 }
 
+type TrackData = Record<string, string | number | boolean>;
+
+declare global {
+  interface Window {
+    umami?: { track: (event: string, data?: TrackData) => void };
+  }
+}
+
+// Fire a custom event. No-ops when the umami script is absent (dev builds,
+// ad-blockers). Event data must stay low-cardinality: types, ids and counts —
+// never flow content, node config values or credentials.
+export function track(event: string, data?: TrackData): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.umami?.track(event, data);
+  } catch {
+    // analytics must never break the app
+  }
+}
+
 export function loadAnalytics(): void {
   if (!import.meta.env.PROD) return;
   if (typeof document === "undefined") return;

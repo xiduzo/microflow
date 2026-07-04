@@ -19,6 +19,7 @@ import {
 } from "./sketch-code-view.model";
 import { deriveSketchFilename } from "./sketch-download.model";
 import { downloadSketch } from "./sketch-download";
+import { track } from "@/lib/analytics";
 
 // Use local bundle + workers instead of CDN (required for offline Tauri).
 // Mirrors the Function code editor setup; the read-only view only needs the
@@ -81,7 +82,13 @@ export function SketchCodeView({
   useEffect(() => {
     let cancelled = false;
     void projectSketchResult(invoke, genNodes, genEdges, selectedTargetId).then((next) => {
-      if (!cancelled) setState(next);
+      if (cancelled) return;
+      setState(next);
+      track("code_view_opened", {
+        nodes: genNodes.length,
+        edges: genEdges.length,
+        ok: !next.isError,
+      });
     });
     return () => {
       cancelled = true;
@@ -135,7 +142,13 @@ export function SketchCodeView({
         <Button
           type="button"
           disabled={!canDownloadSketch(state)}
-          onClick={() => onDownload(buildSketchDownloadRequest(value, suggestedFilename))}
+          onClick={() => {
+            track("sketch_downloaded", {
+              nodes: genNodes.length,
+              edges: genEdges.length,
+            });
+            onDownload(buildSketchDownloadRequest(value, suggestedFilename));
+          }}
           aria-label="Download sketch"
         >
           <Download aria-hidden="true" />

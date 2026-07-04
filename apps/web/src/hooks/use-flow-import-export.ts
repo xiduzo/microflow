@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { useFlowSession } from "@/session";
+import { track } from "@/lib/analytics";
 import type { FlowData, FlowMeta } from "@microflow/collab";
 
 export type FlowExportData = {
@@ -47,7 +48,12 @@ export function useFlowImportExport() {
 
   const exportFlow = useCallback(() => {
     try {
-      exportFlowData(doc.getMeta(), doc.getFlowData());
+      const data = doc.getFlowData();
+      exportFlowData(doc.getMeta(), data);
+      track("flow_exported", {
+        nodes: data.nodes.length,
+        edges: data.edges.length,
+      });
       toast.success("Flow exported");
     } catch (error) {
       console.error("[FLOW-EXPORT] Error:", error);
@@ -82,6 +88,11 @@ export function useFlowImportExport() {
             });
           }
 
+          track("flow_imported", {
+            via: "editor",
+            nodes: importData.data.nodes.length,
+            edges: importData.data.edges.length,
+          });
           toast.success(`Flow imported`, {
             description: `${importData.data.nodes.length} nodes, ${importData.data.edges.length} edges`,
           });
@@ -135,6 +146,11 @@ export function useOverviewImport() {
           }
 
           await onParsed(importData);
+          track("flow_imported", {
+            via: "overview",
+            nodes: importData.data.nodes.length,
+            edges: importData.data.edges.length,
+          });
         } catch (error) {
           console.error("[FLOW-IMPORT] Error:", error);
           toast.error("Failed to import flow", {

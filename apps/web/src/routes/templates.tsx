@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TEMPLATES, type Template } from "@/lib/templates";
+import { track } from "@/lib/analytics";
 import { EmptyState } from "@/components/states/empty-state";
 import { useNavigate } from "@tanstack/react-router";
 import { FlowCard, FlowThumbnail } from "@/components/home/flow-card";
@@ -71,6 +72,11 @@ function TemplatesPage() {
 
   const handleImport = async (template: Template) => {
     await setTemplate(template);
+    track("template_loaded", {
+      template: template.id,
+      nodes: template.nodes.length,
+      featured: FEATURED_IDS.includes(template.id),
+    });
     navigate({ to: "/flow/$flowId/graph", params: { flowId: "local" } });
   };
 

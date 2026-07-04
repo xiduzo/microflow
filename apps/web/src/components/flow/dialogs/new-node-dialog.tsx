@@ -7,6 +7,7 @@ import { useFlowSession } from "@/session";
 import { useNewNodeStore } from "@/stores/new-node";
 import { groupIndicator } from "../nodes/_base/_base";
 import { uid } from "@/lib/uid";
+import { track } from "@/lib/analytics";
 import {
   Command,
   CommandDialog,
@@ -45,7 +46,7 @@ export function NewNodeDialog() {
   useDraggableNewNode();
 
   const { open, setOpen, setNodeToAdd } = useNewNodeStore();
-  const { flowToScreenPosition, getZoom } = useReactFlow();
+  const { flowToScreenPosition, getZoom, getNodes } = useReactFlow();
   const { doc } = useFlowSession();
   const addNode = useCallback((node: FlowNode) => doc.addNode(node), [doc]);
   const [filter, setFilter] = useState("");
@@ -81,6 +82,11 @@ export function NewNodeDialog() {
       };
 
       addNode(item);
+      track("node_added", {
+        type,
+        nodes: getNodes().length + 1,
+        searched: filter.trim().length > 0,
+      });
       setNodeToAdd(item.id);
       setFilter("");
       setOpen(false);

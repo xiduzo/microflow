@@ -4,6 +4,7 @@ import { Loader2, Share2, UserPlus, X, Copy, Check, Search, Mail } from "lucide-
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
+import { track } from "@/lib/analytics";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
         queryKey: trpc.flow.get.queryKey({ id: flowId }),
       });
       form.reset();
+      track("flow_shared", { via: "collaborator" });
       toast.success("Collaborator added");
     },
     onError: (error) => {
@@ -69,6 +71,7 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
     const url = `${window.location.origin}/${flowId}/flow`;
     const copied = await copy(url);
     if (copied) {
+      track("flow_shared", { via: "link" });
       toast.success("Link copied to clipboard");
       setTimeout(() => {
         copy("");

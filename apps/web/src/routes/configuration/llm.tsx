@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { useLlmProviderStore, type LlmProviderConfig } from "@/stores/llm-provider";
+import { track } from "@/lib/analytics";
 import { useProviderStatus } from "@/hooks/use-llm-sync";
 import { invokeCommand } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
@@ -18,6 +19,16 @@ import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { EmptyState } from "@/components/states/empty-state";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
+
+// Coarse provider family from the base URL — keeps analytics low-cardinality
+// (never the URL itself, which can identify a user's private endpoint).
+function providerFamily(baseUrl: string): string {
+  const url = baseUrl.toLowerCase();
+  if (url.includes("localhost:11434") || url.includes("ollama")) return "ollama";
+  if (url.includes("openrouter.ai")) return "openrouter";
+  if (url.includes("api.openai.com")) return "openai";
+  return "other";
+}
 
 export const Route = createFileRoute("/configuration/llm")({
   component: LlmConfigPage,
@@ -83,6 +94,10 @@ function ProviderCard({ provider }: { provider: LlmProviderConfig }) {
       type: "llm_test_provider",
       baseUrl: provider.baseUrl,
       apiKey: provider.apiKey,
+    });
+    track("llm_provider_tested", {
+      family: providerFamily(provider.baseUrl),
+      ok: result.success,
     });
     if (result.success) {
       setStatus(provider.id, "ok");
@@ -186,7 +201,15 @@ function AddProviderDialog() {
         </DialogHeader>
         <ProviderForm
           defaults={{ name: "", baseUrl: "", apiKey: "" }}
-          onSubmit={(v) => { addProvider({ ...v, isDefault: false }); toast.success("Provider added"); setOpen(false); }}
+          onSubmit={(v) => {
+            addProvider({ ...v, isDefault: false });
+            track("llm_provider_added", {
+              family: providerFamily(v.baseUrl),
+              keyed: Boolean(v.apiKey),
+            });
+            toast.success("Provider added");
+            setOpen(false);
+          }}
           onCancel={() => setOpen(false)}
           submitLabel="Add Provider"
         />

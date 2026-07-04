@@ -21,6 +21,7 @@ import { useForm } from "@tanstack/react-form";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 
 type Props = {
   trigger?: React.ReactElement;
@@ -47,6 +48,7 @@ export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onO
 
   const createMutation = useMutation(trpc.flow.create.mutationOptions({
     onSuccess: (result) => {
+      track("flow_created");
       toast.success("Flow created", {
         description: `${result.name} has been created`,
       });
