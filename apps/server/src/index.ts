@@ -25,6 +25,9 @@ const allowedOrigins = [
   ...env.CORS_ORIGINS,
   "tauri://localhost",
   "https://tauri.localhost",
+  // Tauri v2 on Windows serves the app from http://tauri.localhost by default
+  // (app.windows.useHttpsScheme is false), unlike macOS/Linux (tauri://localhost)
+  "http://tauri.localhost",
   ...(env.NODE_ENV === "development" ? ["http://localhost:3001"] : []),
 ];
 
