@@ -160,20 +160,23 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        // Forward `log::` records (hardware, MQTT, LLM, …) to the
-                        // webview via the `log://log` event so the in-app Microflow
-                        // devtools shows the whole backend's activity, not just flow
-                        // events. `.target` appends — stdout/log-dir stay intact.
-                        .target(tauri_plugin_log::Target::new(
-                            tauri_plugin_log::TargetKind::Webview,
-                        ))
-                        .build(),
-                )?;
-            }
+            // Registered in every build: the default targets (stdout + OS log
+            // dir) are the only place flash/board failures can be diagnosed in
+            // production (Windows: %LOCALAPPDATA%\tech.microflow\logs, macOS:
+            // ~/Library/Logs/tech.microflow).
+            let log_builder = tauri_plugin_log::Builder::default().level(log::LevelFilter::Info);
+            let log_builder = if cfg!(debug_assertions) {
+                // Forward `log::` records (hardware, MQTT, LLM, …) to the
+                // webview via the `log://log` event so the in-app Microflow
+                // devtools shows the whole backend's activity, not just flow
+                // events. `.target` appends — stdout/log-dir stay intact.
+                log_builder.target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Webview,
+                ))
+            } else {
+                log_builder
+            };
+            app.handle().plugin(log_builder.build())?;
 
             // Tauri's own Tokio runtime handle — where the MQTT/LLM tasks live,
             // so the actor's cloud-node spawns + wakeup timers share it. Cheap,
