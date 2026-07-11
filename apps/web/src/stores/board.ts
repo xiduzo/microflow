@@ -59,6 +59,9 @@ export const useBoardPort = () =>
 
 export const useBoardState = () => useBoardStore(useShallow(({ board }) => board.state));
 
+export const useBoardError = () =>
+  useBoardStore(useShallow(({ board }) => (board.state === "error" ? board.error : null)));
+
 export const useBoard = () => useBoardStore(useShallow(({ board }) => board));
 
 export enum MODES {

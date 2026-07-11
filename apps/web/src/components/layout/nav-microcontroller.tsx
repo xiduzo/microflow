@@ -9,14 +9,16 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { isDesktop } from "@/lib/platform";
 import { cva } from "class-variance-authority";
-import { useBoardPort, useBoardState } from "@/stores/board";
+import { useBoardError, useBoardPort, useBoardState } from "@/stores/board";
 import { useWebSerialBoard } from "@/hooks/use-web-serial-board";
 import { useMemo } from "react";
 
 export function NavMicrocontroller() {
   const boardState = useBoardState();
+  const boardError = useBoardError();
   const port = useBoardPort();
   const webSerial = useWebSerialBoard();
   const desktop = isDesktop();
@@ -73,18 +75,32 @@ export function NavMicrocontroller() {
     }
   };
 
+  const button = (
+    <SidebarMenuButton
+      disabled={!interactive}
+      onClick={interactive ? onClick : undefined}
+      className={buttonVariants({ state: boardState })}
+    >
+      <Icon />
+      <span>{message}</span>
+    </SidebarMenuButton>
+  );
+
   return (
     <SidebarGroup>
       <SidebarMenu>
-        <SidebarMenuItem title={message}>
-          <SidebarMenuButton
-            disabled={!interactive}
-            onClick={interactive ? onClick : undefined}
-            className={buttonVariants({ state: boardState })}
-          >
-            <Icon />
-            <span>{message}</span>
-          </SidebarMenuButton>
+        <SidebarMenuItem title={boardError ?? message}>
+          {boardError ? (
+            // Trigger lives on a wrapper span: the button is disabled on
+            // desktop, and disabled elements don't emit the hover events the
+            // tooltip needs.
+            <Tooltip>
+              <TooltipTrigger render={<span className="block" />}>{button}</TooltipTrigger>
+              <TooltipContent side="right">{boardError}</TooltipContent>
+            </Tooltip>
+          ) : (
+            button
+          )}
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
