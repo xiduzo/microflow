@@ -25,6 +25,8 @@ export const auth = betterAuth({
     // Tauri app origins
     "tauri://localhost",
     "https://tauri.localhost",
+    // Tauri v2 on Windows uses http://tauri.localhost (useHttpsScheme defaults to false)
+    "http://tauri.localhost",
     ...(isDev ? ["http://localhost:3001"] : []),
   ],
   advanced: {
