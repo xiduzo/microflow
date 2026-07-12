@@ -19,10 +19,23 @@ Some Arduino-compatible boards — especially cheap clones — use a USB-to-seri
 | --- | --- | --- |
 | ATmega16U2 | Genuine Arduino Uno R3 | Bundled with the Arduino IDE |
 | FTDI FT232 | Older Arduino Nanos | [FTDI VCP drivers](https://ftdichip.com/drivers/vcp-drivers/) |
-| CH340 / CH341 | Most Nano clones, generic Uno clones | [CH340 driver](https://www.wch.cn/downloads/CH341SER_EXE.html) |
+| CH340 / CH341 | Most Nano clones, generic Uno clones | [CH340 driver (SparkFun)](https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all) |
 | CP210x | NodeMCU, some ESP boards | [Silicon Labs CP210x VCP](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
 
 When you do not know which chip your board uses, install the **CH340** driver first — it is the most common on clones.
+
+## CH340 clones and the "device not functioning" error (Windows)
+
+The newest WCH CH340 driver (version 4.0) rejects clone CH340 chips, which is what most cheap Nanos use. The board still appears in *Device Manager* as *USB-SERIAL CH340 (COM3)*, but Microflow cannot open the port and Windows reports **"A device attached to the system is not functioning"** (error 31). The same board works on macOS, because the macOS driver has no such check.
+
+The fix is to use an **older CH340 driver (version 3.4)**, which opens the port normally:
+
+1. *Device Manager → Ports (COM & LPT)* → right-click **USB-SERIAL CH340** → **Uninstall device**, and tick **"Attempt to remove the driver for this device"**.
+2. Unplug the board.
+3. Install the CH340 driver from [SparkFun's guide](https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all), which hosts version 3.4.
+4. Plug the board back in and confirm *Device Manager* shows driver version 3.4.x with no warning icon.
+
+If Windows Update silently reinstalls version 4.0, keep the board unplugged while installing 3.4, and pause Windows Update during the swap.
 
 ## Steps
 

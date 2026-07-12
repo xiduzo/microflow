@@ -28,6 +28,7 @@ Some boards (especially clones) need a driver before the operating system will s
   - **macOS** — *System Information → USB*.
   - **Linux** — `ls /dev/tty*` before and after plugging in.
 - If the board does not appear, install the right driver. See [Install board drivers](/docs/how-to/install-board-drivers).
+- **Windows, CH340 clone:** if the board *does* appear as *USB-SERIAL CH340 (COM3)* but Microflow still fails with "device not functioning" (and it works fine on macOS), the newest CH340 driver (version 4.0) is rejecting the clone chip. Downgrade to CH340 driver version 3.4 — see [CH340 clones and the "device not functioning" error](/docs/how-to/install-board-drivers#ch340-clones-and-the-device-not-functioning-error-windows).
 
 ## 4. Another program is using the serial port
 
