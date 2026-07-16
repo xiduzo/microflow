@@ -161,6 +161,32 @@ function SupportPage() {
           </Card>
         </section>
 
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            No budget? Leaving a review is a free way to help Microflow grow.
+          </p>
+          <a
+            href="https://www.producthunt.com/products/microflow/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-microflow"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img
+              src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1268428&theme=light"
+              alt="Microflow - Microcontrollers made simple. | Product Hunt"
+              width={250}
+              height={54}
+              className="dark:hidden"
+            />
+            <img
+              src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1268428&theme=dark"
+              alt="Microflow - Microcontrollers made simple. | Product Hunt"
+              width={250}
+              height={54}
+              className="hidden dark:block"
+            />
+          </a>
+        </div>
+
         <section className="border-t pt-12 grow">
           {total > 0 ? (
             <>
