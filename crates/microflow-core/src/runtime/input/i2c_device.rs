@@ -11,7 +11,7 @@
 //!    § Hardware Callback).
 
 use crate::runtime::{
-    Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    BoardWiring, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
     I2cContinuousRead, ListenerWiring, RuntimeContext, RuntimeError,
 };
 use crate::config::i2c_device::{I2cDeviceConfig, OutputFormat};
@@ -126,45 +126,36 @@ impl Component for I2cDevice {
         }]
     }
 
-    /// Stream rate for this device. The runtime reconciles it against every
-    /// other component's hint and sets the board's single global sampling
-    /// interval to the MAX — see `Component::sampling_interval_hint`. Setting it
-    /// per-node in `initialize` instead let the last-initialized I2C node win,
-    /// out-pacing a slower sensor's conversion (it read before data was ready).
-    fn sampling_interval_hint(&self) -> Option<u32> {
-        Some(self.config.sample_interval_ms)
-    }
-
-    /// No-hold SHT2x/HTU21 measurements NACK until the conversion completes, so
-    /// the board must pause between the register write and the read. At 11-bit
-    /// (`device_init_writes` → user reg 0x83) the worst-case conversion is RH 15ms
-    /// / T 11ms, so 16ms covers both. Firmata's `I2C_CONFIG` delay is two **7-bit**
-    /// sysex bytes → it caps at 16383 µs (≈16.4ms); 16000 sits just under that.
-    /// (The 11/11-bit pair is the only one whose *both* conversions fit the cap —
-    /// the next-coarser RH step pairs with 12-bit T at 22ms, over the limit.)
-    /// Other devices read immediately. Reconciled to the MAX across components —
-    /// it is a single global setting.
-    fn i2c_read_delay_us(&self) -> Option<u32> {
-        crate::config::i2c_device::is_no_hold_sht2x(&self.config.device).then_some(16_000)
-    }
-
-    /// The continuous read this node streams. Armed centrally by the runtime
-    /// (stop-all-then-start-all in `update_flow`), never per-node — see
-    /// [`I2cContinuousRead`]. Uses the no-hold-safe `effective_register` so a
-    /// stale hold-master `SHT2x` register can't reach the bus.
-    ///
-    /// Returns `None` when `autoread` is off: the node then reads only on demand
-    /// via the `trigger` handle (`dispatch` → `request_read`), so nothing is armed
-    /// and the bus stays quiet until triggered.
-    fn i2c_continuous_read(&self) -> Option<I2cContinuousRead> {
-        if !self.config.autoread {
-            return None;
+    /// Board-wide reconcile votes for this device — all reconciled centrally by
+    /// the runtime ([`reconcile::plan_board`](crate::runtime::reconcile::plan_board)),
+    /// never applied per-node (per-node let the last-initialized I2C node win and
+    /// zero another's required setting):
+    /// - **`sampling_interval_ms`** — this device's stream rate. Reconciled to the
+    ///   MAX across nodes (the board's single global interval), so a fast node
+    ///   can't out-pace a slower sensor's conversion and read stale/zero data.
+    /// - **`i2c_read_delay_us`** — no-hold SHT2x/HTU21 NACK until the conversion
+    ///   completes, so the board must pause between the register write and the
+    ///   read. At 11-bit (`device_init_writes` → user reg 0x83) the worst case is
+    ///   RH 15ms / T 11ms, so 16ms covers both. Firmata's `I2C_CONFIG` delay is two
+    ///   **7-bit** sysex bytes → it caps at 16383 µs (≈16.4ms); 16000 sits just
+    ///   under. (The 11/11-bit pair is the only one whose *both* conversions fit
+    ///   the cap.) Other devices read immediately. Reconciled to the MAX.
+    /// - **`i2c_continuous_read`** — the read this node streams (via the
+    ///   no-hold-safe `effective_register` so a stale hold-master `SHT2x` register
+    ///   can't reach the bus). `None` when `autoread` is off: the node then reads
+    ///   only on demand via the `trigger` handle (`dispatch` → `request_read`), so
+    ///   nothing is armed and the bus stays quiet until triggered.
+    fn board_wiring(&self) -> BoardWiring {
+        BoardWiring {
+            sampling_interval_ms: Some(self.config.sample_interval_ms),
+            i2c_read_delay_us: crate::config::i2c_device::is_no_hold_sht2x(&self.config.device)
+                .then_some(16_000),
+            i2c_continuous_read: self.config.autoread.then(|| I2cContinuousRead {
+                address: self.config.address,
+                register: self.effective_register(),
+                length: self.config.read_length,
+            }),
         }
-        Some(I2cContinuousRead {
-            address: self.config.address,
-            register: self.effective_register(),
-            length: self.config.read_length,
-        })
     }
 
     fn as_hardware_mut(&mut self) -> Option<&mut dyn HardwareComponent> {
@@ -323,9 +314,10 @@ mod tests {
                 vec![vec![0xE6u8, 0x83]],
                 "device {id} must drop resolution via the user register",
             );
-            assert_eq!(dev.i2c_read_delay_us(), Some(16_000), "device {id} needs a read-delay");
+            let delay = dev.board_wiring().i2c_read_delay_us;
+            assert_eq!(delay, Some(16_000), "device {id} needs a read-delay");
             // Must stay within Firmata's 7-bit I2C_CONFIG cap (16383 µs).
-            assert!(dev.i2c_read_delay_us().unwrap() <= 16_383, "delay exceeds the sysex cap");
+            assert!(delay.unwrap() <= 16_383, "delay exceeds the sysex cap");
         }
     }
 
@@ -370,7 +362,11 @@ mod tests {
         // A read-delay is global; only no-hold sensors should raise it. Everything
         // else reads immediately (the TCS/BME/etc. would just be slowed for free).
         for id in ["custom", "tcs34725", "bme280_temp"] {
-            assert_eq!(device(id).i2c_read_delay_us(), None, "device {id} must not delay reads");
+            assert_eq!(
+                device(id).board_wiring().i2c_read_delay_us,
+                None,
+                "device {id} must not delay reads"
+            );
         }
     }
 
@@ -380,7 +376,10 @@ mod tests {
         // stream: a continuous read is armed for the central runtime to fire.
         let dev = device("custom");
         assert!(dev.config.autoread, "autoread must default to on");
-        let read = dev.i2c_continuous_read().expect("autoread on must arm a continuous read");
+        let read = dev
+            .board_wiring()
+            .i2c_continuous_read
+            .expect("autoread on must arm a continuous read");
         assert_eq!(read.address, dev.config.address);
         assert_eq!(read.length, dev.config.read_length);
     }
@@ -391,7 +390,10 @@ mod tests {
         // runtime's central stop-all-then-start-all leaves this address quiet.
         let config = I2cDeviceConfig { autoread: false, ..Default::default() };
         let dev = I2cDevice::new("d-1".to_string(), config);
-        assert!(dev.i2c_continuous_read().is_none(), "autoread off must not stream");
+        assert!(
+            dev.board_wiring().i2c_continuous_read.is_none(),
+            "autoread off must not stream"
+        );
     }
 
     #[test]

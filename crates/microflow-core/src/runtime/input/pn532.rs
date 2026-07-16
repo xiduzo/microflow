@@ -232,6 +232,15 @@ impl Component for Pn532 {
     /// matches them (and the runtime's register-mismatch fallback delivers even
     /// if the echoed register is unexpected). Registering also makes the runtime
     /// enable the I2C bus (`i2c_config`) centrally.
+    ///
+    /// Deliberately the *only* I2C wiring this node contributes: unlike the
+    /// register-mapped [`I2cDevice`](super::i2c_device), the PN532 is a
+    /// command/response controller with no register to stream, so it does **not**
+    /// override [`board_wiring`](Component::board_wiring) — no continuous read is
+    /// armed, no sampling-interval / read-delay vote is cast. It drives its own
+    /// reads through the `_tick`/`on_i2c_reply` state machine instead. This
+    /// second, divergent I2C shape is intentional; a shared "I2C reader" seam
+    /// would be premature with only two impls (one adapter = hypothetical seam).
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
         vec![ListenerWiring::I2cAddress { address: self.config.address, register: 0 }]
     }

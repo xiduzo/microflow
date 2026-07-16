@@ -150,12 +150,19 @@ Per-impl description of how a constructed **Component** attaches to its executio
 
 Replaces the instance-name `match` blocks formerly in `runtime/mod.rs::register_component_pin_listener` and `runtime/commands.rs::extract_*`. Wiring is **descriptive, not active** — components return data, runtime acts. Lets a component's wiring be tested as a value, no `&mut self`, no sinks.
 
-Two kinds:
+Three kinds:
 
 - **Listener Wiring** — sync, in-process. Pin (digital, or analog with threshold), I2C address, hotkey accelerator. Returned from `Component::listener_wiring()` as `Vec<ListenerWiring>`.
+- **Board Wiring** — board-wide reconcile votes (sampling interval, I2C read-delay, one continuous read). Returned from `Component::board_wiring()` as a `BoardWiring`; consumed by the **Board Reconcile Planner**.
 - **Subscriber Wiring** — async, broker-dependent. MQTT topic + handler kind. Returned from `ExternalSubscriber::subscriber_wiring()` (only impl'd by components that need brokers, e.g. `Mqtt`, `Figma`).
 
 Distinct from the **Component Catalog**: catalog is metadata for _registration_ (what UI shows, how to construct); Wiring is per-impl _behavior_ applied after construction.
+
+## Board Reconcile Planner
+
+The outbound-setup twin of the **FlowRouter**: where the router plans one inbound event's fanout, the planner plans one `update_flow`'s board setup. Lives in `crates/microflow-core/src/runtime/reconcile.rs`. `plan_board(prev_report, prev_i2c_counts, desired: &DesiredBoard) -> BoardPlan` is a **pure function** — it takes the previous board state and the gathered **Board Wiring** (a `DesiredBoard`), and returns the ordered board operations to emit as a value. Every protocol quirk that used to be inlined in `update_flow` lives here: the analog-per-channel / digital-per-8-pin-PORT reporting diff, the MAX-vote reconcile of the single global sampling interval + I2C read-delay, and the `StandardFirmata` stop-count drain (each address is stopped *exactly* its prior query count, because `I2C_STOP_READING` clears the lone remaining query regardless of address — an extra stop would drop a sibling).
+
+`BoardPlan` is split into two phases `update_flow` applies around per-node `HardwareComponent::initialize`, so a device's power-on writes land between them: **setup** (reporting reconcile, I2C bus config, sampling interval) before init, **arm** (drain existing continuous reads, then start the desired set) after. The planner is tested as a value — feed prev-state + desired, assert the `BoardPlan` — with no board and no runtime (`reconcile::tests`). `update_flow` keeps only: gather listener/board wiring → `plan_board` → encode the plan.
 
 ## Sketch Wiring
 
