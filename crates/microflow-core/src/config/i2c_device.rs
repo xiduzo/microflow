@@ -26,10 +26,23 @@
 
 use serde::{Deserialize, Serialize};
 
-/// How the raw I2C reply bytes are decoded into a value. Shared by the live
-/// runtime (`runtime/input/i2c_device.rs`, folds to a `ComponentValue`) and the
-/// sketch emitter (`codegen/input/i2c_device.rs`, folds to a C++ `long`), so the
-/// byte→number decode agrees whether a flow runs live or is exported.
+/// How the raw I2C reply bytes are decoded into a value.
+///
+/// # Decode contract (the single authority both interpreters transcribe)
+/// This enum is the shared spec for a decode that necessarily exists twice — once
+/// as a Rust fold in the live runtime (`runtime/input/i2c_device.rs::convert_bytes`,
+/// producing a `ComponentValue`) and once as a C++ fold the sketch emitter writes
+/// (`codegen/input/i2c_device.rs`, producing a `long`). The two languages cannot
+/// share executable code, so they share this contract instead — keep both folds
+/// matching it:
+/// - **`Raw`** — every byte preserved, in order (runtime: an array; sketch: n/a).
+/// - **`UnsignedInt`** — big-endian, at most the first **4** bytes folded (`u32`).
+/// - **`SignedInt`** — big-endian, at most **4** bytes, two's-complement
+///   **sign-extended from the most-significant byte** (bit 7 of `data[0]`).
+///
+/// A change to any bullet above is a change both folds must make together; the
+/// mirrored `convert_bytes` tests and the codegen `i2c_sign_extends_*` tests guard
+/// that they stay in lockstep.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputFormat {
@@ -48,62 +61,43 @@ pub enum OutputFormat {
 /// Deserialized configuration for the generic `I2cDevice` node. Ungated (no
 /// `runtime` feature) so both the interpreter and the emitter read one struct.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-// The web sends camelCase keys (e.g. `readLength`); without this the multi-word
-// fields silently fell back to their defaults (read_length stuck at 2 — the UI
-// byte count was ignored). Single-word fields are unaffected.
-#[serde(rename_all = "camelCase")]
+// The web sends camelCase keys (e.g. `readLength`); without `rename_all` the
+// multi-word fields silently fell back to their defaults (read_length stuck at 2 —
+// the UI byte count was ignored). Container-level `default` fills EVERY missing
+// field from `Self::default()` below — the single source of field defaults — so a
+// partial doc (or `{}`, or a pre-`autoread` flow) deserializes to exactly the
+// `Default` values, with no per-field `default = "fn"` copies to keep in sync.
+#[serde(rename_all = "camelCase", default)]
 pub struct I2cDeviceConfig {
-    #[serde(default = "default_address")]
     pub address: u8,
-    #[serde(default)]
     pub register: u8,
-    #[serde(default = "default_read_length")]
     pub read_length: u8,
     /// Board sampling-interval **period in milliseconds** for this device's
     /// continuous read — NOT a frequency, despite the name older flows persist.
-    /// Reconciled to the MAX across all I2C nodes
-    /// (`Component::sampling_interval_hint`). The web still writes the key `freq`,
-    /// so the wire name is kept via `serde(rename)` for doc compatibility.
-    #[serde(rename = "freq", default = "default_sample_interval_ms")]
+    /// Reconciled to the MAX across all I2C nodes via `Component::board_wiring`.
+    /// The web still writes the key `freq`, so the wire name is kept via
+    /// `serde(rename)` for doc compatibility.
+    #[serde(rename = "freq")]
     pub sample_interval_ms: u32,
-    #[serde(default = "default_device")]
     pub device: String,
-    #[serde(default)]
     pub output: OutputFormat,
     /// Stream on the board's sampling interval (`true`, default) vs. read only
     /// when the `trigger` command handle fires (`false`). When off, no continuous
-    /// read is armed — `i2c_continuous_read` returns `None` — so the bus stays
-    /// quiet until a one-shot `trigger` requests a read.
-    #[serde(default = "default_autoread")]
+    /// read is armed — `board_wiring().i2c_continuous_read` is `None` — so the bus
+    /// stays quiet until a one-shot `trigger` requests a read.
     pub autoread: bool,
-}
-
-fn default_address() -> u8 {
-    0x48
-}
-fn default_read_length() -> u8 {
-    2
-}
-fn default_sample_interval_ms() -> u32 {
-    100
-}
-fn default_device() -> String {
-    "custom".to_string()
-}
-fn default_autoread() -> bool {
-    true
 }
 
 impl Default for I2cDeviceConfig {
     fn default() -> Self {
         Self {
-            address: default_address(),
+            address: 0x48,
             register: 0,
-            read_length: default_read_length(),
-            sample_interval_ms: default_sample_interval_ms(),
-            device: default_device(),
+            read_length: 2,
+            sample_interval_ms: 100,
+            device: "custom".to_string(),
             output: OutputFormat::default(),
-            autoread: default_autoread(),
+            autoread: true,
         }
     }
 }
