@@ -1,5 +1,7 @@
 # Microflow
 
+<a href="https://www.producthunt.com/products/microflow?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-microflow" target="_blank" rel="noopener noreferrer"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1195056&theme=light&t=1784200634583" alt="Microflow - Microcontrollers made simple. | Product Hunt" width="250" height="54" /></a>
+
 **A visual tool for building interactive prototypes connected to real hardware.**
 
 Microflow lets designers and creators build interactive experiences by connecting digital interfaces to physical microcontrollers — no code required. Drag components onto a canvas, wire them together, and your prototype comes to life.
