@@ -4,9 +4,22 @@ import type { ValidationProblem } from "./ValidationProblem";
 /**
  * The outcome of generating a Sketch for a selected board target.
  *
- * Generation either emits a runnable `.ino` source, or — when the Flow cannot
- * run on the selected target — surfaces the validation problems that prevented
- * emission. This enforces the invariant that **no unrunnable code is ever
- * emitted**: when problems exist, no `sketch` is produced.
+ * Generation always emits the `.ino` source unless a problem of
+ * [`validate::ProblemSeverity::Error`] severity exists — those mean the
+ * emitted C++ itself would not compile (e.g. two Node ids sanitizing to the
+ * same identifier). Board-fit conflicts (missing pin, missing networking, …)
+ * are [`validate::ProblemSeverity::Warning`]s: the Sketch is still emitted and
+ * the warnings ride alongside it, so the Author decides whether they apply to
+ * their actual hardware.
  */
-export type GenerationOutcome = { "sketch": string } | { "problems": Array<ValidationProblem> };
+export type GenerationOutcome = { 
+/**
+ * The generated `.ino` source; `None` only when `problems` contains at
+ * least one error-severity problem.
+ */
+sketch: string | null, 
+/**
+ * The validation problems (each naming a Node, the constraint it
+ * violates, and its severity). Empty when the Flow fits the target.
+ */
+problems: Array<ValidationProblem>, };

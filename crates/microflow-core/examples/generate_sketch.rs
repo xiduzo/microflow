@@ -5,7 +5,7 @@
 //! cargo run -p microflow-core --example generate_sketch > /tmp/sketch/sketch.ino
 //! ```
 
-use microflow_core::codegen::{board, generate, GenerationOutcome};
+use microflow_core::codegen::{board, generate};
 use microflow_core::flow::FlowUpdate;
 
 fn main() {
@@ -41,14 +41,14 @@ fn main() {
     .expect("flow json parses");
 
     let target = board::target_by_id("uno").expect("uno target");
-    match generate(&flow, &target).expect("generation never errors") {
-        GenerationOutcome::Sketch(sketch) => print!("{sketch}"),
-        GenerationOutcome::Problems(problems) => {
-            eprintln!("flow is not runnable on {}:", target.name);
-            for p in problems {
-                eprintln!("  - {}", p.message);
-            }
-            std::process::exit(1);
-        }
+    let outcome = generate(&flow, &target).expect("generation never errors");
+    for p in &outcome.problems {
+        eprintln!("  - {}", p.message);
+    }
+    if let Some(sketch) = outcome.sketch {
+        print!("{sketch}");
+    } else {
+        eprintln!("flow cannot be emitted for {}:", target.name);
+        std::process::exit(1);
     }
 }

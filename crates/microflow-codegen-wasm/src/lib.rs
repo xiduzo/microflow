@@ -70,16 +70,17 @@ fn resolve_target(target_id: Option<&str>) -> BoardTarget {
 ///   Flow needs no network credentials.
 ///
 /// Returns the serialized [`microflow_core::codegen::GenerationOutcome`] as a
-/// JSON string (the `sketch` variant with the `.ino` source, or the `problems`
-/// variant listing why the Flow cannot run on the target). Validation runs first,
-/// so unrunnable code is never emitted — same contract as the desktop path.
+/// JSON string: the `.ino` source in `sketch` plus any validation `problems`.
+/// Warnings (board-fit conflicts) ride alongside the Sketch; only
+/// error-severity problems (uncompilable C++, e.g. colliding Node identifiers)
+/// suppress it (`sketch: null`) — same contract as the desktop path.
 ///
 /// # Errors
 ///
 /// Returns a `JsError` (rejected promise / thrown value on the JS side) only when
 /// an input JSON string fails to deserialize, or when the underlying generator
-/// returns an error. A Flow that cannot run on the target is **not** an error —
-/// it comes back as the `problems` variant inside the returned JSON.
+/// returns an error. A Flow that conflicts with the target is **not** an error —
+/// its problems come back inside the returned JSON.
 #[wasm_bindgen]
 pub fn generate_sketch(
     flow_json: &str,
@@ -106,12 +107,16 @@ pub fn generate_sketch(
         .map_err(|e| JsError::new(&format!("failed to serialize outcome: {e}")))
 }
 
-/// Report which required network credentials are missing for a Flow on the
-/// selected target — the browser equivalent of the desktop `check_credentials`
-/// command — so the editor can warn the Author *before* generating.
+/// Report which required network credentials are missing for a Flow — the
+/// browser equivalent of the desktop `check_credentials` command — so the
+/// editor can warn the Author *before* generating.
 ///
 /// Returns the serialized `Vec<MissingCredential>` as a JSON string (empty array
-/// when nothing is required: no Cloud Nodes, or a non-networking target).
+/// when nothing is required, i.e. the Flow has no Cloud Nodes). The check is
+/// independent of the board target: a Cloud Flow on a non-networking target
+/// still emits its network code (with a validation warning), so its credential
+/// needs are the same. The `target_id` argument is kept so the JS boundary is
+/// unchanged.
 ///
 /// # Errors
 ///
@@ -120,7 +125,7 @@ pub fn generate_sketch(
 #[wasm_bindgen]
 pub fn check_credentials(
     flow_json: &str,
-    target_id: Option<String>,
+    _target_id: Option<String>,
     credentials_json: Option<String>,
 ) -> Result<String, JsError> {
     let flow: FlowUpdate = serde_json::from_str(flow_json)
@@ -132,8 +137,7 @@ pub fn check_credentials(
         None => Credentials::default(),
     };
 
-    let target = resolve_target(target_id.as_deref());
-    let missing = credentials.missing_for(&flow, &target);
+    let missing = credentials.missing_for(&flow);
 
     serde_json::to_string(&missing)
         .map_err(|e| JsError::new(&format!("failed to serialize missing credentials: {e}")))

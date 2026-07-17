@@ -18,6 +18,15 @@ pub fn state_var(node: &FlowNode) -> String {
     format!("button_{}_state", node.id_token())
 }
 
+/// The pin this Button is emitted on — the same resolution `emit` uses,
+/// exposed so validation can never drift from emission.
+#[must_use]
+pub fn pin(node: &FlowNode) -> u8 {
+    serde_json::from_value::<ButtonConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pin
+}
+
 /// Emit C++ for a Button Node.
 #[must_use]
 pub fn emit(node: &FlowNode) -> NodeEmission {

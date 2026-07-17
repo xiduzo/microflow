@@ -6,15 +6,26 @@
 //! `0..=180` write with a `|speed| < 0.05` dead-zone at 90), `min` / `max`
 //! jump to the range bounds, `rotate` is the continuous-speed input, and
 //! `stop` centers a continuous servo (90 = no rotation). The generated sketch
-//! uses the Arduino `Servo` library: it `#include <Servo.h>`, declares a
-//! `Servo` object, `attach`es it in `setup()`, writes the center position, and
-//! binds each wired port — `value`/`rotate` as level writes, `min`/`max`/`stop`
-//! as pulses.
+//! uses the Servo library matching the target's core (`Servo.h` on AVR,
+//! `ESP32Servo.h` on the ESP32 core — the AVR library does not build there):
+//! it declares a `Servo` object, `attach`es it in `setup()`, writes the center
+//! position, and binds each wired port — `value`/`rotate` as level writes,
+//! `min`/`max`/`stop` as pulses.
 
+use crate::codegen::board::{BoardTarget, CoreFamily};
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
 use crate::config::servo::{ServoConfig, ServoType};
 use crate::flow::FlowNode;
+
+/// The pin this Servo is emitted on — the same resolution `emit` uses, exposed
+/// so validation can never drift from emission.
+#[must_use]
+pub fn pin(node: &FlowNode) -> u8 {
+    serde_json::from_value::<ServoConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pin
+}
 
 /// The continuous-servo write for a `-1..=1` speed expression `v`: 90 inside
 /// the dead-zone, else `(v + 1) * 90` clamped to `0..=180` — a transcription
@@ -25,7 +36,7 @@ fn rotate_expr(v: &str) -> String {
 
 /// Emit C++ for a Servo Node. An unwired Servo holds its center.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub fn emit(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> NodeEmission {
     let config: ServoConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let pin = config.pin;
     let token = node.id_token();
@@ -35,8 +46,15 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let center = (min + max) / 2;
     let continuous = config.r#type == ServoType::Continuous;
 
+    // The AVR Servo library does not build on the ESP32 core, which ships the
+    // API-compatible ESP32Servo instead.
+    let include = match target.core {
+        CoreFamily::Avr => "#include <Servo.h>",
+        CoreFamily::Esp32 => "#include <ESP32Servo.h>",
+    };
+
     let mut e = NodeEmission {
-        includes: vec!["#include <Servo.h>".to_string()],
+        includes: vec![include.to_string()],
         declarations: vec![
             format!("const uint8_t {pin_var} = {pin};"),
             format!("Servo {obj};"),
@@ -121,10 +139,14 @@ mod tests {
         inputs
     }
 
+    fn uno() -> BoardTarget {
+        crate::codegen::board::target_by_id("uno").expect("uno is supported")
+    }
+
     /// Scenario: A Servo Node pulls in its supporting library.
     #[test]
     fn servo_includes_library_and_declares_object() {
-        let e = emit(&servo("srv-1", json!({ "pin": 9 })), &NodeInputs::default());
+        let e = emit(&servo("srv-1", json!({ "pin": 9 })), &NodeInputs::default(), &uno());
         assert!(e.includes.iter().any(|i| i.contains("Servo.h")), "missing Servo.h include");
         assert!(e.declarations.iter().any(|d| d.contains("Servo servo_srv_1")), "missing Servo object");
     }
@@ -132,7 +154,7 @@ mod tests {
     /// Scenario: A Servo Node pulls in its supporting library — attaches to pin.
     #[test]
     fn servo_attaches_to_its_pin() {
-        let e = emit(&servo("srv-1", json!({ "pin": 9 })), &NodeInputs::default());
+        let e = emit(&servo("srv-1", json!({ "pin": 9 })), &NodeInputs::default(), &uno());
         assert!(e.declarations.iter().any(|d| d.contains("= 9;")));
         assert!(e.setup.iter().any(|s| s.contains(".attach(")), "missing attach call");
     }
@@ -142,6 +164,7 @@ mod tests {
         let e = emit(
             &servo("srv-1", json!({ "pin": 9, "range": { "min": 0, "max": 180 } })),
             &NodeInputs::default(),
+            &uno(),
         );
         assert!(e.setup.iter().any(|s| s.contains(".write(90)")), "should center to 90");
     }
@@ -151,6 +174,7 @@ mod tests {
         let e = emit(
             &servo("srv-1", json!({ "range": { "min": 10, "max": 170 } })),
             &on("value", CppExpr::number("v")),
+            &uno(),
         );
         let body = e.loop_body.join("\n");
         assert!(body.contains("constrain(") && body.contains("10") && body.contains("170"), "{body}");
@@ -161,6 +185,7 @@ mod tests {
         let e = emit(
             &servo("srv-1", json!({ "type": "continuous" })),
             &on("value", CppExpr::number("speed")),
+            &uno(),
         );
         let body = e.loop_body.join("\n");
         assert!(body.contains("fabs(") && body.contains("? 90 :"), "dead-zone at 90: {body}");
@@ -172,7 +197,7 @@ mod tests {
         let mut inputs = NodeInputs::default();
         inputs.add("min", SourceExpr::level(CppExpr::boolean("a")));
         inputs.add("max", SourceExpr::level(CppExpr::boolean("b")));
-        let e = emit(&servo("srv-1", json!({ "range": { "min": 20, "max": 160 } })), &inputs);
+        let e = emit(&servo("srv-1", json!({ "range": { "min": 20, "max": 160 } })), &inputs, &uno());
         let body = e.loop_body.join("\n");
         assert!(body.contains(".write(20)"), "min jump: {body}");
         assert!(body.contains(".write(160)"), "max jump: {body}");
@@ -180,14 +205,31 @@ mod tests {
 
     #[test]
     fn rotate_on_standard_servo_is_noted_not_emitted() {
-        let e = emit(&servo("srv-1", json!({})), &on("rotate", CppExpr::number("v")));
+        let e = emit(&servo("srv-1", json!({})), &on("rotate", CppExpr::number("v")), &uno());
         assert!(e.loop_body.is_empty(), "standard servo rejects rotate");
         assert!(e.declarations.iter().any(|d| d.contains("continuous")));
+    }
+
+    /// The AVR Servo library does not build on the ESP32 core; the ESP32
+    /// target pulls in the API-compatible `ESP32Servo` library instead.
+    #[test]
+    fn servo_on_esp32_includes_esp32servo() {
+        let esp32 = crate::codegen::board::target_by_id("esp32").expect("esp32 is supported");
+        let e = emit(&servo("srv-1", json!({ "pin": 25 })), &NodeInputs::default(), &esp32);
+        assert!(
+            e.includes.iter().any(|i| i.contains("ESP32Servo.h")),
+            "expected ESP32Servo include, got: {:?}",
+            e.includes
+        );
+        assert!(!e.includes.iter().any(|i| i == "#include <Servo.h>"), "no AVR Servo include");
     }
 
     #[test]
     fn servo_emits_deterministically() {
         let n = servo("srv-1", json!({ "pin": 9 }));
-        assert_eq!(emit(&n, &NodeInputs::default()), emit(&n, &NodeInputs::default()));
+        assert_eq!(
+            emit(&n, &NodeInputs::default(), &uno()),
+            emit(&n, &NodeInputs::default(), &uno())
+        );
     }
 }

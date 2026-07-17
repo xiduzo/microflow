@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { Download } from "lucide-react";
+import { CircleX, Download, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BoardTargetPicker } from "./board-target-picker";
 import { useTheme } from "@/providers/theme-provider";
 import { useFlowSession, useFlowNodes, useFlowEdges, useFlowMeta } from "@/session";
 import { sketchInvoker } from "@/lib/codegen";
@@ -117,7 +118,46 @@ export function SketchCodeView({
   }, [genNodes, genEdges, selectedTargetId]);
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="flex flex-col w-full h-full gap-4">
+      <div className="flex items-center justify-between shrink-0">
+        <h1 className="flex items-center gap-2 text-lg font-medium">
+          Generated sketch
+          {state.isError && (
+            <CircleX
+              aria-label="Sketch generation failed — see the editor for details"
+              className="size-5 text-destructive"
+            >
+              <title>Sketch generation failed — see the editor for details</title>
+            </CircleX>
+          )}
+          {!state.isError && state.hasWarnings && (
+            <TriangleAlert
+              aria-label="Board warnings — see the comments at the top of the sketch"
+              className="size-5 text-amber-500"
+            >
+              <title>Board warnings — see the comments at the top of the sketch</title>
+            </TriangleAlert>
+          )}
+        </h1>
+        <div className="flex items-center gap-2">
+          <BoardTargetPicker />
+          <Button
+            type="button"
+            disabled={!canDownloadSketch(state)}
+            onClick={() => {
+              track("sketch_downloaded", {
+                nodes: genNodes.length,
+                edges: genEdges.length,
+              });
+              onDownload(buildSketchDownloadRequest(value, suggestedFilename));
+            }}
+            aria-label="Download sketch"
+          >
+            <Download aria-hidden="true" />
+            Download sketch
+          </Button>
+        </div>
+      </div>
       <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border bg-background">
         <Editor
           height="100%"
@@ -137,23 +177,6 @@ export function SketchCodeView({
             padding: { top: 12, bottom: 12 },
           }}
         />
-      </div>
-      <div className="flex justify-end pt-4 shrink-0">
-        <Button
-          type="button"
-          disabled={!canDownloadSketch(state)}
-          onClick={() => {
-            track("sketch_downloaded", {
-              nodes: genNodes.length,
-              edges: genEdges.length,
-            });
-            onDownload(buildSketchDownloadRequest(value, suggestedFilename));
-          }}
-          aria-label="Download sketch"
-        >
-          <Download aria-hidden="true" />
-          Download sketch
-        </Button>
       </div>
     </div>
   );

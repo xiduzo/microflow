@@ -52,27 +52,30 @@ use wire::{CppExpr, NodeInputs, SourceExpr};
 
 /// The outcome of generating a Sketch for a selected board target.
 ///
-/// Generation either emits a runnable `.ino` source, or — when the Flow cannot
-/// run on the selected target — surfaces the validation problems that prevented
-/// emission. This enforces the invariant that **no unrunnable code is ever
-/// emitted**: when problems exist, no `sketch` is produced.
+/// Generation always emits the `.ino` source unless a problem of
+/// [`validate::ProblemSeverity::Error`] severity exists — those mean the
+/// emitted C++ itself would not compile (e.g. two Node ids sanitizing to the
+/// same identifier). Board-fit conflicts (missing pin, missing networking, …)
+/// are [`validate::ProblemSeverity::Warning`]s: the Sketch is still emitted and
+/// the warnings ride alongside it, so the Author decides whether they apply to
+/// their actual hardware.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
-pub enum GenerationOutcome {
-    /// The Flow is runnable on the target; carries the generated `.ino` source.
-    Sketch(String),
-    /// The Flow cannot run on the target; carries the validation problems
-    /// (each naming a Node and the constraint it violates).
-    Problems(Vec<ValidationProblem>),
+pub struct GenerationOutcome {
+    /// The generated `.ino` source; `None` only when `problems` contains at
+    /// least one error-severity problem.
+    pub sketch: Option<String>,
+    /// The validation problems (each naming a Node, the constraint it
+    /// violates, and its severity). Empty when the Flow fits the target.
+    pub problems: Vec<ValidationProblem>,
 }
 
 /// Generate the Arduino sketch for `flow` targeting `target`.
 ///
-/// First validates the Flow against the selected board target (Task #35
-/// result): if any problem exists, returns [`GenerationOutcome::Problems`] and
-/// emits **no** Sketch. Otherwise emits the Sketch, whose pin numbers and
-/// capability usage reflect `target`'s facts.
+/// First validates the Flow against the selected board target: error-severity
+/// problems (uncompilable C++) suppress the Sketch; warning-severity problems
+/// (board-fit conflicts) are returned alongside the emitted Sketch.
 ///
 /// The traversal is deterministic (Nodes visited in `id` order) and always
 /// terminates, so the same `(flow, target)` always yields byte-identical
@@ -82,8 +85,8 @@ pub enum GenerationOutcome {
 ///
 /// Never returns `Err` today — the signature is `Result` so later tasks (which
 /// may fail to emit a particular Node) can surface a human-readable message to
-/// the frontend without changing the contract. A Flow that cannot run on the
-/// target is **not** an error: it returns `Ok(GenerationOutcome::Problems(..))`.
+/// the frontend without changing the contract. A Flow that conflicts with the
+/// target is **not** an error: the problems ride in the returned outcome.
 pub fn generate(flow: &FlowUpdate, target: &BoardTarget) -> Result<GenerationOutcome, String> {
     generate_with_credentials(flow, target, None)
 }
@@ -104,25 +107,32 @@ pub fn generate(flow: &FlowUpdate, target: &BoardTarget) -> Result<GenerationOut
 ///
 /// # Errors
 ///
-/// Mirrors [`generate`]: never returns `Err` today; a Flow that cannot run on
-/// the target is `Ok(GenerationOutcome::Problems(..))`, not an error.
+/// Mirrors [`generate`]: never returns `Err` today; a Flow that conflicts with
+/// the target reports its problems in the returned outcome, not as an error.
 pub fn generate_with_credentials(
     flow: &FlowUpdate,
     target: &BoardTarget,
     credentials: Option<&Credentials>,
 ) -> Result<GenerationOutcome, String> {
-    // Gate emission on validation: never emit unrunnable code.
+    // Errors mean the emitted C++ itself would not compile — only they gate
+    // emission. Warnings (board-fit conflicts) ride alongside the Sketch.
     let problems = validate::validate(flow, target);
-    if !problems.is_empty() {
+    let has_errors = problems
+        .iter()
+        .any(|p| p.severity == validate::ProblemSeverity::Error);
+    if has_errors {
         log::debug!(
-            "codegen: {} validation problem(s) for target '{}' — emitting no sketch",
+            "codegen: {} validation problem(s) for target '{}', including errors — emitting no sketch",
             problems.len(),
             target.id
         );
-        return Ok(GenerationOutcome::Problems(problems));
+        return Ok(GenerationOutcome { sketch: None, problems });
     }
 
-    Ok(GenerationOutcome::Sketch(emit_sketch(flow, target, credentials)))
+    Ok(GenerationOutcome {
+        sketch: Some(emit_sketch(flow, target, credentials)),
+        problems,
+    })
 }
 
 /// Assemble the Arduino sketch text for an already-validated Flow.
@@ -159,11 +169,12 @@ fn emit_sketch(
     // of introducing id-dependent one-tick delays.
     let loop_permutation = loop_order(flow, &order);
 
-    // Cloud-capable Sketches (Cloud Nodes on a networking target) connect to
-    // WiFi on boot. The preamble is gated on Networking capability + cloud-node
-    // presence, so non-networked Sketches are byte-for-byte unchanged. The
-    // dispatch match is untouched — the preamble is a separate region concern.
-    let preamble = credentials::wifi_preamble(flow, target, credentials);
+    // Cloud-capable Sketches (Flows with Cloud Nodes) connect to WiFi on boot.
+    // The preamble follows cloud-node presence — not the board — so the network
+    // code is always complete; a non-networking target surfaces the mismatch as
+    // a validation warning instead. Non-Cloud Sketches are byte-for-byte
+    // unchanged.
+    let preamble = credentials::wifi_preamble(flow, credentials);
 
     let emitted_count = emissions.iter().filter(|e| !e.is_empty()).count();
     log::debug!(
@@ -248,7 +259,8 @@ fn loop_order(flow: &FlowUpdate, order: &[&FlowNode]) -> Vec<usize> {
 /// which board it was generated for.
 fn header(order: &[&FlowNode], target: &BoardTarget) -> String {
     format!(
-        "// Generated by microflow — do not edit by hand.\n// Target board: {} ({}).\n// Sketch skeleton for {} node(s).\n\n",
+        "// Generated by microflow v{}.\n// Target board: {} ({}).\n// Sketch skeleton for {} node(s).\n\n",
+        env!("CARGO_PKG_VERSION"),
         target.name,
         target.id,
         order.len()
@@ -262,14 +274,14 @@ fn header(order: &[&FlowNode], target: &BoardTarget) -> String {
 /// blanks the sketch. `inputs` carries every wired input grouped by the edge's
 /// real `target_handle` (port), resolved to typed source expressions — the
 /// static twin of the runtime router's `(source, source_handle)` →
-/// `(target, target_handle)` dispatch. `_target` is the validated board
-/// target; pin numbers written by the emitters are the Node's own pin, which
-/// validation has already confirmed exists on the target.
-fn emit_node(node: &FlowNode, inputs: &NodeInputs, _target: &BoardTarget) -> NodeEmission {
+/// `(target, target_handle)` dispatch. `target` supplies the board facts the
+/// few board-sensitive emitters need (the Servo library differs per core; the
+/// analog `A{n}` macros resolve to per-board pin numbers).
+fn emit_node(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> NodeEmission {
     match node.node_type.as_deref() {
         Some("Led") => output::led::emit(node, inputs),
         Some("Relay") => output::relay::emit(node, inputs),
-        Some("Servo") => output::servo::emit(node, inputs),
+        Some("Servo") => output::servo::emit(node, inputs, target),
         Some("Rgb") => output::rgb::emit(node, inputs),
         Some("Piezo") => output::piezo::emit(node, inputs),
         Some("Pixel") => output::pixel::emit(node, inputs),
@@ -279,9 +291,11 @@ fn emit_node(node: &FlowNode, inputs: &NodeInputs, _target: &BoardTarget) -> Nod
         Some("Vibration") => output::led::emit(node, inputs),
         Some("Button") => input::button::emit(node),
         // Force, HallEffect, Ldr, Potentiometer, and Tilt are all analog inputs
-        // backed by the live Sensor implementation, so they share its emitter.
+        // backed by the live Sensor implementation, so they share its emitter
+        // (the list is mirrored by `input::sensor::ANALOG_SENSOR_TYPES`, which
+        // validation consumes).
         Some("Sensor" | "Force" | "HallEffect" | "Ldr" | "Potentiometer" | "Tilt") => {
-            input::sensor::emit(node)
+            input::sensor::emit(node, target)
         }
         Some("Switch") => input::switch::emit(node),
         Some("Motion") => input::motion::emit(node),
@@ -300,8 +314,9 @@ fn emit_node(node: &FlowNode, inputs: &NodeInputs, _target: &BoardTarget) -> Nod
         Some("Trigger") => control::trigger::emit(node, inputs),
         Some("Counter") => control::counter::emit(node, inputs),
         Some("Constant") => control::constant::emit(node),
-        // Cloud Nodes with an on-device emitter only reach here on a networking
-        // target — validation refuses them otherwise. Mqtt (Task #38), Figma and
+        // Cloud Nodes emit their networked code on every target — a board
+        // without networking gets a validation warning (the code assumes an
+        // ESP32-class core), not a blocked Sketch. Mqtt (Task #38), Figma and
         // Monitor (Task #42) bridge over the network transport; Llm (Task #44)
         // issues HTTP requests over the same shared WiFi connection.
         Some("Mqtt") => cloud::mqtt::emit(node, inputs),
@@ -491,7 +506,9 @@ fn includes_region(
     if includes.is_empty() {
         return String::new();
     }
-    let mut out = String::from("// --- Includes ---\n");
+    let mut out = String::from(
+        "// --- Includes ---\n// Libraries not bundled with your board's core must be installed first:\n// Arduino IDE > Sketch > Include Library > Manage Libraries…\n",
+    );
     for inc in includes {
         out.push_str(inc);
         out.push('\n');
@@ -595,15 +612,13 @@ mod tests {
         sketch_for(flow, &default_target())
     }
 
-    /// Generate a Sketch for an explicit target, unwrapping the
-    /// [`GenerationOutcome::Sketch`] variant.
+    /// Generate a Sketch for an explicit target, unwrapping the outcome's
+    /// `sketch` (panicking with the problems when emission was blocked).
     fn sketch_for(flow: &FlowUpdate, target: &BoardTarget) -> String {
-        match generate(flow, target).expect("generation should succeed") {
-            GenerationOutcome::Sketch(s) => s,
-            GenerationOutcome::Problems(p) => {
-                panic!("expected a sketch, got validation problems: {p:?}")
-            }
-        }
+        let outcome = generate(flow, target).expect("generation should succeed");
+        outcome.sketch.unwrap_or_else(|| {
+            panic!("expected a sketch, got validation problems: {:?}", outcome.problems)
+        })
     }
 
     /// A networking-capable target (ESP32) — used by placeholder tests that
@@ -648,20 +663,17 @@ mod tests {
     }
 
     /// Generate a Sketch for an explicit target with credentials, unwrapping
-    /// the [`GenerationOutcome::Sketch`] variant.
+    /// the outcome's `sketch`.
     fn sketch_with_creds(
         flow: &FlowUpdate,
         target: &BoardTarget,
         creds: &credentials::Credentials,
     ) -> String {
-        match generate_with_credentials(flow, target, Some(creds))
-            .expect("generation should succeed")
-        {
-            GenerationOutcome::Sketch(s) => s,
-            GenerationOutcome::Problems(p) => {
-                panic!("expected a sketch, got validation problems: {p:?}")
-            }
-        }
+        let outcome = generate_with_credentials(flow, target, Some(creds))
+            .expect("generation should succeed");
+        outcome.sketch.unwrap_or_else(|| {
+            panic!("expected a sketch, got validation problems: {:?}", outcome.problems)
+        })
     }
 
     /// Scenario: Author provides credentials used by the generated sketch.
@@ -974,60 +986,71 @@ mod tests {
         assert!(sketch.contains("void setup()") && sketch.contains("void loop()"));
     }
 
-    /// Scenario: Cloud Node on a non-networked target is blocked — end to end
-    /// through `generate`. For **every** Cloud Node type, a Flow on the Uno
-    /// returns [`GenerationOutcome::Problems`] (naming the Node and the missing
-    /// networking capability) and emits **no** Sketch.
+    /// Scenario: Cloud Node on a non-networked target warns but still emits —
+    /// end to end through `generate`. For **every** Cloud Node type, a Flow on
+    /// the Uno returns a Sketch (the network code, which assumes an ESP32-class
+    /// board) alongside a warning naming the Node and the missing networking
+    /// capability.
     #[test]
-    fn every_cloud_node_type_blocks_generation_on_non_networked_target() {
+    fn every_cloud_node_type_warns_but_generates_on_non_networked_target() {
         let uno = default_target();
         for kind in ["Mqtt", "Figma", "Llm", "Monitor"] {
             let id = format!("{}-1", kind.to_lowercase());
             let flow = FlowUpdate { nodes: vec![node(&id, kind)], edges: vec![] };
-            match generate(&flow, &uno).expect("generation never errors") {
-                GenerationOutcome::Problems(problems) => {
-                    assert_eq!(problems.len(), 1, "{kind} raises one gate problem");
-                    assert_eq!(problems[0].node_id, id, "{kind} names the Node");
-                    assert!(
-                        problems[0].message.contains("networking"),
-                        "{kind} names the missing capability: {}",
-                        problems[0].message
-                    );
-                }
-                GenerationOutcome::Sketch(s) => {
-                    panic!("{kind} on the Uno must emit no Sketch, got:\n{s}")
-                }
-            }
+            let outcome = generate(&flow, &uno).expect("generation never errors");
+            let sketch = outcome.sketch.as_deref().unwrap_or_else(|| {
+                panic!("{kind} on the Uno must still emit a Sketch: {:?}", outcome.problems)
+            });
+            assert!(
+                sketch.contains("void setup()") && sketch.contains("void loop()"),
+                "{kind} sketch must be structurally valid:\n{sketch}"
+            );
+            assert_eq!(outcome.problems.len(), 1, "{kind} raises one warning");
+            let problem = &outcome.problems[0];
+            assert_eq!(problem.node_id, id, "{kind} names the Node");
+            assert_eq!(
+                problem.severity,
+                validate::ProblemSeverity::Warning,
+                "{kind} raises a warning, not an error"
+            );
+            assert!(
+                problem.message.contains("networking"),
+                "{kind} names the missing capability: {}",
+                problem.message
+            );
         }
     }
 
-    /// Scenario: Cloud Node on a WiFi-capable target is allowed — end to end
+    /// Scenario: Cloud Node on a WiFi-capable target fits cleanly — end to end
     /// through `generate`. For **every** Cloud Node type, a Flow on the ESP32
-    /// emits a real [`GenerationOutcome::Sketch`].
+    /// emits a Sketch with no problems.
     #[test]
     fn every_cloud_node_type_generates_a_sketch_on_networking_target() {
         let esp32 = networking_target();
         for kind in ["Mqtt", "Figma", "Llm", "Monitor"] {
             let id = format!("{}-1", kind.to_lowercase());
             let flow = FlowUpdate { nodes: vec![node(&id, kind)], edges: vec![] };
-            match generate(&flow, &esp32).expect("generation never errors") {
-                GenerationOutcome::Sketch(sketch) => {
-                    assert!(
-                        sketch.contains("void setup()") && sketch.contains("void loop()"),
-                        "{kind} sketch must be structurally valid:\n{sketch}"
-                    );
-                }
-                GenerationOutcome::Problems(p) => {
-                    panic!("{kind} on the ESP32 must emit a Sketch, got problems: {p:?}")
-                }
-            }
+            let outcome = generate(&flow, &esp32).expect("generation never errors");
+            let sketch = outcome
+                .sketch
+                .as_deref()
+                .unwrap_or_else(|| panic!("{kind} on the ESP32 must emit a Sketch"));
+            assert!(
+                sketch.contains("void setup()") && sketch.contains("void loop()"),
+                "{kind} sketch must be structurally valid:\n{sketch}"
+            );
+            assert!(
+                outcome.problems.is_empty(),
+                "{kind} fits the ESP32 with no problems: {:?}",
+                outcome.problems
+            );
         }
     }
 
     /// Edge case: multiple Cloud Nodes on a non-networked target — `generate`
-    /// surfaces **all** offending Nodes (one problem each) and emits no Sketch.
+    /// surfaces **all** offending Nodes (one warning each) alongside the Sketch.
     #[test]
-    fn multiple_cloud_nodes_all_block_generation_on_non_networked_target() {
+    fn multiple_cloud_nodes_all_warn_on_non_networked_target() {
         let uno = default_target();
         let flow = FlowUpdate {
             nodes: vec![
@@ -1038,13 +1061,10 @@ mod tests {
             ],
             edges: vec![],
         };
-        match generate(&flow, &uno).expect("generation never errors") {
-            GenerationOutcome::Problems(problems) => {
-                let ids: Vec<&str> = problems.iter().map(|p| p.node_id.as_str()).collect();
-                assert_eq!(ids, ["a-mqtt", "b-figma", "c-llm", "d-monitor"]);
-            }
-            GenerationOutcome::Sketch(s) => panic!("expected problems, got sketch:\n{s}"),
-        }
+        let outcome = generate(&flow, &uno).expect("generation never errors");
+        assert!(outcome.sketch.is_some(), "warnings never block emission");
+        let ids: Vec<&str> = outcome.problems.iter().map(|p| p.node_id.as_str()).collect();
+        assert_eq!(ids, ["a-mqtt", "b-figma", "c-llm", "d-monitor"]);
     }
 
     /// Scenario: A non-Cloud Flow is unaffected by the gate — end to end. A
@@ -1358,12 +1378,7 @@ mod tests {
             llm_api_key: "secret-token".to_string(), // ggignore
             ..Default::default()
         };
-        let sketch = match generate_with_credentials(&flow, &networking_target(), Some(&creds))
-            .expect("generation should succeed")
-        {
-            GenerationOutcome::Sketch(s) => s,
-            GenerationOutcome::Problems(p) => panic!("expected a sketch, got: {p:?}"),
-        };
+        let sketch = sketch_with_creds(&flow, &networking_target(), &creds);
 
         assert!(sketch.contains("\"https://api.example.com\""), "uses the supplied endpoint");
         assert!(sketch.contains("\"gpt-test\""), "uses the supplied model");
@@ -1455,10 +1470,10 @@ mod tests {
     /// Scenario: Generation refuses an unrunnable Flow.
     ///
     /// A Flow that requires a capability the target lacks (an Mqtt Cloud Node on
-    /// the non-networking Uno) emits no Sketch; the validation problem naming the
-    /// Node and the constraint is surfaced instead.
+    /// the non-networking Uno) still emits a Sketch; the validation warning
+    /// naming the Node and the constraint rides alongside it.
     #[test]
-    fn generation_refuses_an_unrunnable_flow() {
+    fn generation_warns_on_a_board_mismatched_flow() {
         let flow = FlowUpdate {
             nodes: vec![node("mqtt-1", "Mqtt")],
             edges: vec![],
@@ -1467,18 +1482,13 @@ mod tests {
         let outcome =
             generate(&flow, &default_target()).expect("generation should not error");
 
-        match outcome {
-            GenerationOutcome::Sketch(s) => {
-                panic!("expected validation problems, got a sketch:\n{s}")
-            }
-            GenerationOutcome::Problems(problems) => {
-                assert_eq!(problems.len(), 1, "one problem for the Cloud Node");
-                let p = &problems[0];
-                assert_eq!(p.node_id, "mqtt-1", "names the offending Node");
-                assert!(p.message.contains("mqtt-1"), "message names the Node");
-                assert!(p.message.contains("networking"), "message names the constraint");
-            }
-        }
+        assert!(outcome.sketch.is_some(), "warnings never block emission");
+        assert_eq!(outcome.problems.len(), 1, "one warning for the Cloud Node");
+        let p = &outcome.problems[0];
+        assert_eq!(p.node_id, "mqtt-1", "names the offending Node");
+        assert_eq!(p.severity, validate::ProblemSeverity::Warning);
+        assert!(p.message.contains("mqtt-1"), "message names the Node");
+        assert!(p.message.contains("networking"), "message names the constraint");
     }
 
     /// With no explicit selection the caller resolves the default target (Uno),
@@ -1491,7 +1501,7 @@ mod tests {
         };
 
         let outcome = generate(&flow, &default_target()).expect("generation should succeed");
-        assert!(matches!(outcome, GenerationOutcome::Sketch(_)));
+        assert!(outcome.sketch.is_some());
     }
 
     // --- Transformation Nodes (Task #33) ---
@@ -2254,12 +2264,13 @@ mod tests {
             ],
             edges: vec![],
         };
-        match generate(&flow, &default_target()).expect("generation never errors") {
-            GenerationOutcome::Problems(problems) => {
-                assert_eq!(problems.len(), 2, "both colliding nodes flagged");
-            }
-            GenerationOutcome::Sketch(s) => panic!("expected problems, got sketch:\n{s}"),
-        }
+        let outcome = generate(&flow, &default_target()).expect("generation never errors");
+        assert!(outcome.sketch.is_none(), "colliding identifiers must block emission");
+        assert_eq!(outcome.problems.len(), 2, "both colliding nodes flagged");
+        assert!(
+            outcome.problems.iter().all(|p| p.severity == validate::ProblemSeverity::Error),
+            "identifier collisions are errors"
+        );
     }
 
     /// Determinism holds for a control-heavy Flow.

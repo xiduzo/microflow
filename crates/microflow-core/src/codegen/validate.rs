@@ -1,69 +1,73 @@
 //! Validate a Flow against a selected [`BoardTarget`] before emission.
 //!
-//! Generation must **never emit unrunnable code**: this module is the single
-//! place that decides whether a Flow can run on the selected board. It consumes
-//! the Task #28 board-target model (pin map + capabilities) and reports a list
-//! of [`ValidationProblem`]s; an empty list means the Flow is runnable on that
-//! target and emission may proceed.
+//! This module is the single place that judges how a Flow fits the selected
+//! board. It consumes the board-target model (pin map + capabilities) and
+//! reports a list of [`ValidationProblem`]s, each carrying a
+//! [`ProblemSeverity`]:
 //!
-//! The checks are intentionally board-fact-driven — every decision is resolved
-//! against the target's pin map and capability set rather than a hardcoded
-//! default board:
+//! - [`ProblemSeverity::Error`] — the emitted C++ itself would not compile
+//!   (today: two Node ids sanitizing to the same identifier token). Errors
+//!   block emission.
+//! - [`ProblemSeverity::Warning`] — the Sketch compiles, but the Flow does not
+//!   fit the selected board's facts (missing pin, missing PWM, missing
+//!   networking, …). Warnings never block emission — the board pin maps are
+//!   representative, not exhaustive, so a hard gate would refuse Flows that
+//!   run fine on the Author's actual board.
 //!
-//! - **Pin exists** — a hardware-IO Node (Led, Relay, Servo, Button, Sensor)
-//!   may only use a pin number the board actually has.
-//! - **PWM output** — a Servo drives its pin with `analogWrite` (mirroring
-//!   `runtime/output/servo.rs`), so its pin must be a PWM-capable pin on the
-//!   board.
-//! - **Analog input** — a Sensor reads `analogRead`, so its pin must be an
-//!   analog-input pin on the board.
-//! - **Analog over-subscription** — even when every Sensor's pin is individually
-//!   valid, a Flow that uses more *distinct* analog-input pins than the board
-//!   offers cannot run; the surplus Sensors are flagged so the Author sees the
-//!   aggregate constraint, not just a per-Node one.
-//! - **Networking capability** — a Cloud Node (Mqtt/Figma/Llm/Monitor) requires
-//!   the board to offer [`BoardCapability::Networking`]; a bare board cannot run
-//!   it.
+//! The board-fit checks are intentionally board-fact-driven — every decision is
+//! resolved against the target's pin map and capability set rather than a
+//! hardcoded default board:
+//!
+//! - **Pin exists** — a hardware-IO Node (Led, Relay, Servo, Button, Vibration)
+//!   should use a pin number the board actually has.
+//! - **PWM output** — a Servo drives its pin with PWM, so its pin should be
+//!   PWM-capable on the board; likewise a Led/Vibration whose `value` port is
+//!   wired drives brightness via `analogWrite`, which silently degrades to
+//!   on/off on a non-PWM pin.
+//! - **Analog input** — an analog-sensor Node reads `analogRead`, so its
+//!   analog index must map to an analog input the board offers.
+//! - **Analog over-subscription** — even when every analog index is
+//!   individually valid, a Flow that uses more *distinct* analog inputs than
+//!   the board offers cannot run; the surplus Nodes are flagged so the Author
+//!   sees the aggregate constraint, not just a per-Node one.
+//! - **Networking capability** — a Cloud Node (Mqtt/Figma/Llm/Monitor) needs
+//!   the board to offer [`BoardCapability::Networking`]; the generated network
+//!   code assumes an ESP32-class board.
 //!
 //! Each problem names the offending Node and the constraint it violates, so the
-//! viewer can surface an actionable message (Feature #26 acceptance criteria).
+//! viewer can surface an actionable message.
 //!
 //! Like the rest of codegen this is a pure function of `(flow, target)`: no
 //! clock, no IO, deterministic ordering (Nodes in `id` order).
 
 use crate::codegen::board::{BoardCapability, BoardTarget};
-use crate::codegen::emit::{pin_or_default, NodeToken};
+use crate::codegen::emit::NodeToken;
+use crate::codegen::placeholder::CLOUD_NODE_TYPES;
+use crate::codegen::{input, output};
 use crate::flow::{FlowNode, FlowUpdate};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use ts_rs::TS;
 
-/// The Cloud Node types — those that cross the hardware boundary and require a
-/// networked board target. Kept in sync with `placeholder::CLOUD_NODE_TYPES`.
-const CLOUD_NODE_TYPES: [&str; 4] = ["Mqtt", "Figma", "Llm", "Monitor"];
-
-/// The default pin an emitter assigns to a pinned Node when its `data` omits
-/// `pin`. Validation must resolve pins exactly as emission does, or the two
-/// drift: a Node validated against pin 0 could then be emitted on its real
-/// default pin. These mirror the `DEFAULT_PIN` constants in each emitter
-/// (`codegen/output/*`, `codegen/input/*`), which in turn mirror the live
-/// runtime defaults.
-fn default_pin_for(node_type: &str) -> u8 {
-    match node_type {
-        "Led" => 13,
-        "Relay" => 10,
-        "Servo" => 3,
-        "Button" => 6,
-        // Sensor and anything else default to A0 / pin 0.
-        _ => 0,
-    }
+/// How severe a [`ValidationProblem`] is: whether it blocks emission.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum ProblemSeverity {
+    /// The emitted C++ would not compile — no Sketch is produced.
+    Error,
+    /// The Flow does not fit the selected board's facts, but the Sketch is
+    /// still emitted — the Author decides whether the warning applies to their
+    /// actual hardware.
+    Warning,
 }
 
-/// One reason a Flow cannot be generated for the selected board target.
+/// One way a Flow conflicts with the selected board target (or with emission
+/// itself — see [`ProblemSeverity`]).
 ///
 /// Carries the offending Node's id and type plus a human-readable `message`
 /// naming the Node and the constraint, so the frontend can present an
-/// actionable validation error instead of unrunnable code.
+/// actionable message alongside (or, for errors, instead of) the Sketch.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
@@ -74,24 +78,31 @@ pub struct ValidationProblem {
     pub node_type: String,
     /// Human-readable description naming the Node and the constraint.
     pub message: String,
+    /// Whether this problem blocks emission.
+    pub severity: ProblemSeverity,
 }
 
-/// Validate `flow` against `target`, returning every problem that would make
-/// generation emit code the board cannot run. An empty vector means the Flow is
-/// runnable on `target`.
+/// Validate `flow` against `target`, returning every problem — warnings for
+/// board-fit conflicts, errors for constraints that would make the emitted C++
+/// itself uncompilable. An empty vector means the Flow fits `target` cleanly.
 ///
-/// Problems are returned in deterministic Node-`id` order.
+/// Problems are returned in deterministic Node-`id` order per pass.
 #[must_use]
 pub fn validate(flow: &FlowUpdate, target: &BoardTarget) -> Vec<ValidationProblem> {
     // Visit Nodes in id order so the problem list is deterministic.
     let by_id: BTreeMap<&str, &FlowNode> =
         flow.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
 
-    // Per-Node feasibility (pin exists, PWM, analog index, networking).
+    // Per-Node board fit (pin exists, PWM, analog index, networking).
     let mut problems: Vec<ValidationProblem> = by_id
         .values()
         .filter_map(|node| problem_for(node, target))
         .collect();
+
+    // A Led/Vibration whose `value` port is wired drives PWM brightness; on a
+    // non-PWM pin `analogWrite` silently degrades to digital on/off. The
+    // per-Node pass cannot see the wiring; this pass does.
+    problems.extend(led_brightness_pwm_problems(flow, &by_id, target));
 
     // Aggregate analog over-subscription: a Flow may use only valid analog
     // indices yet still demand more *distinct* analog inputs than the board has.
@@ -100,7 +111,7 @@ pub fn validate(flow: &FlowUpdate, target: &BoardTarget) -> Vec<ValidationProble
 
     // Identifier collisions: emission derives every C++ symbol from the Node
     // id's sanitized token, so two ids that sanitize identically would emit
-    // duplicate globals — an uncompilable Sketch. Refuse before emission.
+    // duplicate globals — an uncompilable Sketch. The one hard error.
     problems.extend(token_collision_problems(&by_id));
     problems
 }
@@ -125,6 +136,7 @@ fn token_collision_problems(by_id: &BTreeMap<&str, &FlowNode>) -> Vec<Validation
             problems.push(problem(
                 node,
                 kind,
+                ProblemSeverity::Error,
                 format!(
                     "Node {} ({kind}) shares the generated identifier '{token}' with {} — rename the node ids so they differ by more than punctuation",
                     node.id,
@@ -136,26 +148,43 @@ fn token_collision_problems(by_id: &BTreeMap<&str, &FlowNode>) -> Vec<Validation
     problems
 }
 
-/// The single problem a Node raises against `target`, or `None` when it is
-/// runnable. A Node raises at most one problem (the first constraint it fails).
+/// The pin a Node will be emitted on — resolved by the Node's own emitter, so
+/// validation and emission can never drift apart.
+fn emitted_pin(node: &FlowNode, kind: &str) -> u8 {
+    match kind {
+        "Led" | "Vibration" => output::led::pin(node),
+        "Relay" => output::relay::pin(node),
+        "Servo" => output::servo::pin(node),
+        "Button" => input::button::pin(node),
+        _ => 0,
+    }
+}
+
+/// The single problem a Node raises against `target`, or `None` when it fits.
+/// A Node raises at most one problem here (the first constraint it fails).
 fn problem_for(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
     let kind = node.node_type.as_deref();
     match kind {
         Some(k) if CLOUD_NODE_TYPES.contains(&k) => networking_problem(node, k, target),
-        Some("Sensor") => sensor_pin_problem(node, target),
-        // A Servo drives its pin with `analogWrite`, so the pin must both exist
-        // and be PWM-capable; check existence first for the clearer message.
+        Some(k) if input::sensor::ANALOG_SENSOR_TYPES.contains(&k) => {
+            sensor_pin_problem(node, k, target)
+        }
+        // A Servo drives its pin with PWM, so the pin must both exist and be
+        // PWM-capable; check existence first for the clearer message.
         Some("Servo") => {
             digital_pin_problem(node, "Servo", target).or_else(|| pwm_pin_problem(node, target))
         }
-        Some(k @ ("Led" | "Relay" | "Button")) => digital_pin_problem(node, k, target),
+        Some(k @ ("Led" | "Relay" | "Button" | "Vibration")) => {
+            digital_pin_problem(node, k, target)
+        }
         // Unknown / typeless Nodes emit only a placeholder comment, never
         // runnable code, so they cannot make a Sketch unrunnable.
         _ => None,
     }
 }
 
-/// A Cloud Node needs the board to offer networking.
+/// A Cloud Node needs the board to offer networking — the emitted network code
+/// assumes an ESP32-class board and will not compile on a bare AVR core.
 fn networking_problem(
     node: &FlowNode,
     kind: &str,
@@ -167,44 +196,47 @@ fn networking_problem(
     Some(problem(
         node,
         kind,
+        ProblemSeverity::Warning,
         format!(
-            "Node {} ({kind}) requires networking, which board target '{}' does not offer",
+            "Node {} ({kind}) requires networking, which board target '{}' does not offer — the generated network code assumes an ESP32-class board",
             node.id, target.name
         ),
     ))
 }
 
-/// A hardware-IO Node's pin must exist in the board's pin map.
+/// A hardware-IO Node's pin should exist in the board's pin map.
 fn digital_pin_problem(
     node: &FlowNode,
     kind: &str,
     target: &BoardTarget,
 ) -> Option<ValidationProblem> {
-    let pin = pin_or_default(node, default_pin_for(kind));
+    let pin = emitted_pin(node, kind);
     if has_pin(target, pin) {
         return None;
     }
     Some(problem(
         node,
         kind,
+        ProblemSeverity::Warning,
         format!(
-            "Node {} ({kind}) uses pin {pin}, which board target '{}' does not have",
+            "Node {} ({kind}) uses pin {pin}, which is not a usable GPIO on board target '{}' (absent or reserved — e.g. ESP32 GPIO 6-11 drive the onboard flash)",
             node.id, target.name
         ),
     ))
 }
 
-/// A Servo drives its pin with `analogWrite`, so the pin must be PWM-capable on
-/// the board. Called only after [`digital_pin_problem`] has confirmed the pin
+/// A Servo drives its pin with PWM, so the pin should be PWM-capable on the
+/// board. Called only after [`digital_pin_problem`] has confirmed the pin
 /// exists, so a `None` here means "exists but not PWM".
 fn pwm_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
-    let pin = pin_or_default(node, default_pin_for("Servo"));
+    let pin = emitted_pin(node, "Servo");
     if target.pwm_pins().contains(&pin) {
         return None;
     }
     Some(problem(
         node,
         "Servo",
+        ProblemSeverity::Warning,
         format!(
             "Node {} (Servo) needs PWM on pin {pin}, but pin {pin} on board target '{}' does not support PWM",
             node.id, target.name
@@ -212,16 +244,59 @@ fn pwm_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationPr
     ))
 }
 
-/// Aggregate analog-input demand across the whole Flow. Each Sensor consumes one
-/// of the board's analog inputs; a Flow whose Sensors *together* demand more
-/// analog inputs than the board offers cannot run, even when every Sensor's own
-/// index is individually in range. The per-Node [`sensor_pin_problem`] check
-/// cannot see this whole-Flow constraint — this pass does.
+/// A Led/Vibration Node whose `value` port is wired drives PWM brightness via
+/// `analogWrite`; on a non-PWM pin the Arduino core silently degrades that to
+/// digital on/off at the 128 threshold. Flag it so the Author moves the Node to
+/// a PWM pin (or wires the digital `true`/`false` ports instead).
+fn led_brightness_pwm_problems(
+    flow: &FlowUpdate,
+    by_id: &BTreeMap<&str, &FlowNode>,
+    target: &BoardTarget,
+) -> Vec<ValidationProblem> {
+    by_id
+        .values()
+        .filter_map(|node| {
+            let kind = node.node_type.as_deref()?;
+            if !matches!(kind, "Led" | "Vibration") {
+                return None;
+            }
+            let brightness_wired = flow
+                .edges
+                .iter()
+                .any(|e| e.target == node.id && e.target_handle == "value");
+            if !brightness_wired {
+                return None;
+            }
+            let pin = emitted_pin(node, kind);
+            // Only meaningful for pins the board has; a missing pin is already
+            // flagged by the per-Node pass.
+            if !has_pin(target, pin) || target.pwm_pins().contains(&pin) {
+                return None;
+            }
+            Some(problem(
+                node,
+                kind,
+                ProblemSeverity::Warning,
+                format!(
+                    "Node {} ({kind}) drives brightness on pin {pin}, which is not PWM-capable on board target '{}' — the output degrades to on/off",
+                    node.id, target.name
+                ),
+            ))
+        })
+        .collect()
+}
+
+/// Aggregate analog-input demand across the whole Flow. Each analog-sensor Node
+/// consumes one of the board's analog inputs; a Flow whose sensors *together*
+/// demand more analog inputs than the board offers cannot run, even when every
+/// sensor's own index is individually in range. The per-Node
+/// [`sensor_pin_problem`] check cannot see this whole-Flow constraint — this
+/// pass does.
 ///
 /// Sensors whose index is already out of range are reported by the per-Node
 /// check and excluded here (so they are not double-counted). The first
-/// `analog_count` in-range Sensors (in deterministic Node-`id` order) fit; every
-/// Sensor beyond that capacity is flagged as surplus, naming the Node and the
+/// `analog_count` in-range sensors (in deterministic Node-`id` order) fit; every
+/// sensor beyond that capacity is flagged as surplus, naming the Node and the
 /// analog-input constraint.
 fn analog_oversubscription_problems(
     by_id: &BTreeMap<&str, &FlowNode>,
@@ -232,12 +307,15 @@ fn analog_oversubscription_problems(
     let mut used = 0usize;
     let mut surplus = Vec::new();
     for node in by_id.values() {
-        if node.node_type.as_deref() != Some("Sensor") {
+        let Some(kind) = node.node_type.as_deref() else {
+            continue;
+        };
+        if !input::sensor::ANALOG_SENSOR_TYPES.contains(&kind) {
             continue;
         }
-        let index = pin_or_default(node, 0);
+        let index = input::sensor::analog_index(node);
         // Out-of-range indices are reported by the per-Node analog check; skip
-        // them here so a Sensor never raises two problems.
+        // them here so a sensor never raises two problems.
         if (index as usize) >= analog_count {
             continue;
         }
@@ -245,9 +323,10 @@ fn analog_oversubscription_problems(
         if used > analog_count {
             surplus.push(problem(
                 node,
-                "Sensor",
+                kind,
+                ProblemSeverity::Warning,
                 format!(
-                    "Node {} (Sensor) needs an analog input, but board target '{}' offers only {analog_count} and the Flow already uses them all",
+                    "Node {} ({kind}) needs an analog input, but board target '{}' offers only {analog_count} and the Flow already uses them all",
                     node.id, target.name
                 ),
             ));
@@ -256,21 +335,26 @@ fn analog_oversubscription_problems(
     surplus
 }
 
-/// A Sensor reads `analogRead`, so its analog index must map to an analog-input
-/// pin the board offers. The Sensor stores an analog index (`A0` => 0); the
-/// board exposes analog inputs by pin number, so the requirement is that the
-/// board has at least `index + 1` analog inputs.
-fn sensor_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
-    let index = pin_or_default(node, 0);
+/// An analog-sensor Node reads `analogRead`, so its analog index must map to an
+/// analog-input pin the board offers. The Node stores an analog index
+/// (`A0` => 0); the board exposes analog inputs by pin number, so the
+/// requirement is that the board has at least `index + 1` analog inputs.
+fn sensor_pin_problem(
+    node: &FlowNode,
+    kind: &str,
+    target: &BoardTarget,
+) -> Option<ValidationProblem> {
+    let index = input::sensor::analog_index(node);
     let analog_count = target.analog_input_pins().len();
     if (index as usize) < analog_count {
         return None;
     }
     Some(problem(
         node,
-        "Sensor",
+        kind,
+        ProblemSeverity::Warning,
         format!(
-            "Node {} (Sensor) reads analog input A{index}, but board target '{}' has only {analog_count} analog input(s)",
+            "Node {} ({kind}) reads analog input A{index}, but board target '{}' has only {analog_count} analog input(s)",
             node.id, target.name
         ),
     ))
@@ -282,11 +366,17 @@ fn has_pin(target: &BoardTarget, number: u8) -> bool {
 }
 
 /// Construct a [`ValidationProblem`] for `node`.
-fn problem(node: &FlowNode, kind: &str, message: String) -> ValidationProblem {
+fn problem(
+    node: &FlowNode,
+    kind: &str,
+    severity: ProblemSeverity,
+    message: String,
+) -> ValidationProblem {
     ValidationProblem {
         node_id: node.id.clone(),
         node_type: kind.to_string(),
         message,
+        severity,
     }
 }
 
@@ -441,7 +531,7 @@ mod tests {
         let problems = validate(&f, &uno);
         assert_eq!(problems.len(), 1);
         assert!(problems[0].message.contains("pin 40"));
-        assert!(problems[0].message.contains("does not have"), "missing-pin message");
+        assert!(problems[0].message.contains("not a usable GPIO"), "missing-pin message");
     }
 
     /// Scenario: Switching the board target re-validates the Flow. A Flow that
@@ -476,6 +566,79 @@ mod tests {
         assert_eq!(problems.len(), 2);
         assert_eq!(problems[0].node_id, "a-mqtt");
         assert_eq!(problems[1].node_id, "z-mqtt");
+    }
+
+    /// Board-fit problems are warnings; only identifier collisions (which make
+    /// the C++ itself uncompilable) are errors.
+    #[test]
+    fn board_fit_problems_are_warnings_and_collisions_are_errors() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![
+            // Board-fit conflicts: missing networking, absent pin.
+            node("mqtt-1", "Mqtt", json!({})),
+            node("led-1", "Led", json!({ "pin": 40 })),
+            // Identifier collision: uncompilable C++.
+            node("x-1", "Led", json!({ "pin": 13 })),
+            node("x_1", "Led", json!({ "pin": 12 })),
+        ]);
+        let problems = validate(&f, &uno);
+        for p in &problems {
+            let expected = if p.message.contains("identifier") {
+                ProblemSeverity::Error
+            } else {
+                ProblemSeverity::Warning
+            };
+            assert_eq!(p.severity, expected, "wrong severity for: {}", p.message);
+        }
+        assert!(problems.iter().any(|p| p.severity == ProblemSeverity::Error));
+        assert!(problems.iter().any(|p| p.severity == ProblemSeverity::Warning));
+    }
+
+    /// A Led whose `value` port is wired drives PWM brightness; on a non-PWM
+    /// pin that degrades to on/off, which is flagged as a warning.
+    #[test]
+    fn led_brightness_on_non_pwm_pin_is_flagged() {
+        let uno = target_by_id("uno").unwrap();
+        // Uno pin 13 exists but is not PWM-capable.
+        let f = FlowUpdate {
+            nodes: vec![
+                node("led-1", "Led", json!({ "pin": 13 })),
+                node("pot-1", "Potentiometer", json!({ "pin": "A0" })),
+            ],
+            edges: vec![crate::flow::FlowEdge {
+                id: None,
+                source: "pot-1".to_string(),
+                target: "led-1".to_string(),
+                source_handle: "value".to_string(),
+                target_handle: "value".to_string(),
+            }],
+        };
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 1, "exactly the brightness warning: {problems:?}");
+        assert_eq!(problems[0].node_id, "led-1");
+        assert_eq!(problems[0].severity, ProblemSeverity::Warning);
+        assert!(problems[0].message.contains("brightness"), "names the constraint");
+    }
+
+    /// The same Led with only digital ports wired (or nothing wired) raises no
+    /// brightness warning — digital writes work on every pin.
+    #[test]
+    fn unwired_led_on_non_pwm_pin_is_not_flagged() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![node("led-1", "Led", json!({ "pin": 13 }))]);
+        assert!(validate(&f, &uno).is_empty());
+    }
+
+    /// The analog checks cover the whole analog-sensor family, not just the
+    /// generic Sensor — the family shares the Sensor emitter.
+    #[test]
+    fn analog_family_members_are_checked_like_sensors() {
+        let uno = target_by_id("uno").unwrap();
+        let f = flow(vec![node("pot-1", "Potentiometer", json!({ "pin": "A9" }))]);
+        let problems = validate(&f, &uno);
+        assert_eq!(problems.len(), 1);
+        assert_eq!(problems[0].node_type, "Potentiometer");
+        assert!(problems[0].message.contains("A9"));
     }
 
     /// Two Node ids that sanitize to the same C++ token are refused — the

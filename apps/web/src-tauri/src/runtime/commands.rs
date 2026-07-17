@@ -337,13 +337,13 @@ async fn apply_flow(
 
 /// Generate the Arduino sketch for a Flow, targeting a selected board.
 ///
-/// Resolves `target_id` (the Flow's selected board target, Task #29) to the
-/// Task #28 [`BoardTarget`] model; an absent or unknown id falls back to the
-/// default target (`uno`) so existing Flows still generate. Validation runs
-/// first (Task #35): when the Flow cannot run on the selected target, the
-/// returned [`GenerationOutcome`] carries the validation problems and **no**
-/// Sketch — never unrunnable code. Otherwise it carries the `.ino` source whose
-/// pin numbers and capability usage reflect the selected board.
+/// Resolves `target_id` (the Flow's selected board target) to the
+/// [`BoardTarget`] model; an absent or unknown id falls back to the default
+/// target (`uno`) so existing Flows still generate. Validation runs first: the
+/// returned [`GenerationOutcome`] carries the `.ino` source plus any validation
+/// problems. Board-fit conflicts are warnings and never block the Sketch; only
+/// error-severity problems (uncompilable C++, e.g. colliding Node identifiers)
+/// suppress it.
 ///
 /// Pure translation: no board I/O, no Firmata, no persistence. Logically emits
 /// the domain event `SketchGenerated`.
@@ -353,8 +353,8 @@ async fn apply_flow(
 /// Returns `Err(String)` with a human-readable message if sketch generation
 /// fails. The skeleton never fails today, but the contract is fallible so later
 /// per-Node emitters can surface failures to the frontend unchanged. A Flow that
-/// cannot run on the target is **not** an error — it returns
-/// `Ok(GenerationOutcome::Problems(..))`.
+/// conflicts with the target is **not** an error — the problems ride in the
+/// returned outcome.
 #[tauri::command]
 pub async fn generate_sketch(
     flow: FlowUpdate,
@@ -381,26 +381,24 @@ pub async fn generate_sketch(
     crate::codegen::generate_with_credentials(&flow, &target, credentials.as_ref())
 }
 
-/// Report which required network credentials are missing for `flow` on the
-/// selected board target, so the editor can warn the Author *before* generating
-/// a Sketch that would silently fail to connect.
+/// Report which required network credentials are missing for `flow`, so the
+/// editor can warn the Author *before* generating a Sketch that would silently
+/// fail to connect.
 ///
-/// Mirrors [`generate_sketch`]'s target resolution. Returns an empty list when
-/// no credential is required (no Cloud Nodes, or a non-networking target).
-/// Logically supports the `CredentialsProvided` domain event by validating the
-/// Author's input. Secret values are never logged.
+/// Returns an empty list when no credential is required (no Cloud Nodes). The
+/// check is independent of the board target — a Cloud Flow on a non-networking
+/// target still emits its network code (with a validation warning), so its
+/// credential needs are the same; `target_id` is kept so the IPC boundary is
+/// unchanged. Logically supports the `CredentialsProvided` domain event by
+/// validating the Author's input. Secret values are never logged.
 #[tauri::command]
 #[must_use]
 pub fn check_credentials(
     flow: FlowUpdate,
-    target_id: Option<String>,
+    #[allow(unused_variables)] target_id: Option<String>,
     credentials: Option<Credentials>,
 ) -> Vec<MissingCredential> {
-    let target = target_id
-        .as_deref()
-        .and_then(target_by_id)
-        .unwrap_or_else(default_board_target);
-    credentials.unwrap_or_default().missing_for(&flow, &target)
+    credentials.unwrap_or_default().missing_for(&flow)
 }
 
 /// The default board target (`uno`) used when a Flow has no explicit selection.

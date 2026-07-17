@@ -35,6 +35,20 @@ pub enum BoardCapability {
     Networking,
 }
 
+/// The Arduino core family a board compiles against. Some libraries differ per
+/// core (the AVR `Servo.h` does not build on the ESP32 core, which uses
+/// `ESP32Servo.h` instead), so emitters that pull in such a library consult
+/// this fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum CoreFamily {
+    /// The classic AVR core (Uno, Nano).
+    Avr,
+    /// The Espressif ESP32 Arduino core.
+    Esp32,
+}
+
 /// One logical pin in a board's pin map.
 ///
 /// `number` is how the pin is addressed in the generated Sketch (the value an
@@ -70,6 +84,8 @@ pub struct BoardTarget {
     pub timers: Vec<String>,
     /// Capabilities this board offers.
     pub capabilities: Vec<BoardCapability>,
+    /// The Arduino core family the board compiles against.
+    pub core: CoreFamily,
 }
 
 impl BoardTarget {
@@ -106,6 +122,7 @@ fn uno() -> BoardTarget {
         pins: atmega328p_pins(),
         timers: vec!["Timer0".to_string(), "Timer1".to_string(), "Timer2".to_string()],
         capabilities: vec![],
+        core: CoreFamily::Avr,
     }
 }
 
@@ -117,6 +134,7 @@ fn nano() -> BoardTarget {
         pins: atmega328p_pins(),
         timers: vec!["Timer0".to_string(), "Timer1".to_string(), "Timer2".to_string()],
         capabilities: vec![],
+        core: CoreFamily::Avr,
     }
 }
 
@@ -175,6 +193,7 @@ fn esp32() -> BoardTarget {
             "Timer3".to_string(),
         ],
         capabilities: vec![BoardCapability::Networking],
+        core: CoreFamily::Esp32,
     }
 }
 

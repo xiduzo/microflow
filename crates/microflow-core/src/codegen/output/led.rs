@@ -14,12 +14,20 @@ use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
 use crate::config::led::LedConfig;
 use crate::flow::FlowNode;
 
+/// The pin this Led is emitted on — the same resolution `emit` uses, exposed
+/// so validation can never drift from emission.
+#[must_use]
+pub fn pin(node: &FlowNode) -> u8 {
+    serde_json::from_value::<LedConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pin
+}
+
 /// Emit C++ for a Led Node (also backs the Vibration Node, a digital output
 /// sharing the live Led implementation). Unwired Leds stay initialized-off.
 #[must_use]
 pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
-    let config: LedConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
-    let pin = config.pin;
+    let pin = pin(node);
     let token = node.id_token();
     let var = format!("led_{token}_pin");
     let on = format!("led_{token}_on");

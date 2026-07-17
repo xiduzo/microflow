@@ -63,6 +63,9 @@ jobs:
           # Update Cargo.toml
           sed -i "s/^version = \".*\"/version = \"$VERSION\"/" apps/web/src-tauri/Cargo.toml
 
+          # Update microflow-core (its version is stamped into generated sketches)
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" crates/microflow-core/Cargo.toml
+
       - name: Commit and push version bump
         id: commit
         run: |

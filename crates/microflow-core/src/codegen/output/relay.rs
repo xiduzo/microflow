@@ -13,6 +13,15 @@ use crate::codegen::wire::{bind_pulses, NodeInputs};
 use crate::config::relay::{RelayConfig, RelayType};
 use crate::flow::FlowNode;
 
+/// The pin this Relay is emitted on — the same resolution `emit` uses, exposed
+/// so validation can never drift from emission.
+#[must_use]
+pub fn pin(node: &FlowNode) -> u8 {
+    serde_json::from_value::<RelayConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pin
+}
+
 /// Emit C++ for a Relay Node. An unwired relay stays initialized-closed.
 #[must_use]
 pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {

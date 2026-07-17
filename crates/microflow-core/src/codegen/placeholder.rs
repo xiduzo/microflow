@@ -25,8 +25,9 @@ use crate::flow::FlowNode;
 
 /// The Cloud Node types — those in the `external` category of
 /// `apps/web/node-components.json`. They communicate with networked services
-/// and cannot run on a standalone board, so they get a clearer message.
-const CLOUD_NODE_TYPES: [&str; 4] = ["Mqtt", "Figma", "Llm", "Monitor"];
+/// and cannot run on a standalone board, so they get a clearer message. The
+/// single definition — `validate` and `credentials` consume this one.
+pub(crate) const CLOUD_NODE_TYPES: [&str; 4] = ["Mqtt", "Figma", "Llm", "Monitor"];
 
 /// Browser-only Nodes — UI features with no Arduino hardware equivalent. They
 /// are routed here on purpose (see [`crate::codegen::emit_node`]) so the skip is

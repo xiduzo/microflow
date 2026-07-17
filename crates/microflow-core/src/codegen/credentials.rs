@@ -1,7 +1,7 @@
 //! Network credentials for Cloud-capable Sketch generation.
 //!
-//! A Cloud-capable Sketch (one containing Cloud Nodes — Mqtt/Figma/Llm/Monitor
-//! — on a networking-capable board target) must connect to the network on boot.
+//! A Cloud-capable Sketch (one containing Cloud Nodes — Mqtt/Figma/Llm/Monitor)
+//! must connect to the network on boot.
 //! That requires runtime credentials the Flow Author supplies: at minimum a
 //! `WiFi` SSID/password, and — depending on which Cloud Nodes are present — a
 //! broker host/port/auth and an LLM endpoint/API key.
@@ -22,25 +22,21 @@
 //! ## Determinism
 //!
 //! Like the rest of codegen, every function here is a pure function of its
-//! inputs: identical `(flow, target, credentials)` yields byte-identical text.
+//! inputs: identical `(flow, credentials)` yields byte-identical text.
 
-use crate::codegen::board::{BoardCapability, BoardTarget};
+use crate::codegen::placeholder::CLOUD_NODE_TYPES;
 use crate::flow::FlowUpdate;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use ts_rs::TS;
-
-/// The Cloud Node types that require networking and runtime credentials. Kept
-/// in sync with `placeholder::CLOUD_NODE_TYPES` and `validate::CLOUD_NODE_TYPES`.
-const CLOUD_NODE_TYPES: [&str; 4] = ["Mqtt", "Figma", "Llm", "Monitor"];
 
 /// True when `node_type` names a Cloud (networked) Node.
 fn is_cloud_node(node_type: &str) -> bool {
     CLOUD_NODE_TYPES.contains(&node_type)
 }
 
-/// True when `flow` contains at least one Cloud Node — the condition (together
-/// with a networking-capable target) under which a Sketch needs `WiFi` credentials.
+/// True when `flow` contains at least one Cloud Node — the condition under
+/// which a Sketch needs `WiFi` credentials.
 #[must_use]
 pub fn has_cloud_node(flow: &FlowUpdate) -> bool {
     flow.nodes
@@ -99,21 +95,23 @@ pub struct Credentials {
 }
 
 impl Credentials {
-    /// The required-but-empty credentials for `flow` on `target`.
+    /// The required-but-empty credentials for `flow`.
     ///
     /// Returns an empty vec when no credential is needed — i.e. the Flow has no
-    /// Cloud Nodes, or the target is not networking-capable (a Cloud Node there
-    /// is a validation problem handled upstream, not a missing credential).
-    /// Otherwise:
+    /// Cloud Nodes. Otherwise:
     /// - any Cloud Node requires `wifiSsid` and `wifiPassword`;
     /// - an Mqtt Node additionally requires `brokerHost`;
     /// - an Llm Node additionally requires `llmEndpoint` and `llmApiKey`.
     ///
+    /// The check is independent of the board target: a Cloud Flow on a
+    /// non-networking target still emits its network code (with a validation
+    /// warning), so its credential needs are the same.
+    ///
     /// Naming the missing field lets the surface warn the Author specifically
     /// rather than producing a silently non-connecting Sketch.
     #[must_use]
-    pub fn missing_for(&self, flow: &FlowUpdate, target: &BoardTarget) -> Vec<MissingCredential> {
-        if !target.offers(BoardCapability::Networking) || !has_cloud_node(flow) {
+    pub fn missing_for(&self, flow: &FlowUpdate) -> Vec<MissingCredential> {
+        if !has_cloud_node(flow) {
             return Vec::new();
         }
 
@@ -209,8 +207,10 @@ fn cpp_string(value: &str) -> String {
 /// The on-boot `WiFi` connect preamble for a Cloud-capable Sketch.
 ///
 /// Returns `None` when the Sketch needs no networking — the Flow has no Cloud
-/// Node, or the target is not networking-capable — so non-networked Sketches are
-/// byte-for-byte unchanged (additive, backward-compatible).
+/// Node — so non-networked Sketches are byte-for-byte unchanged (additive,
+/// backward-compatible). The preamble follows the *Flow*, not the board: a
+/// Cloud Flow on a non-networking target still emits complete network code
+/// (validation surfaces the board mismatch as a warning).
 ///
 /// When returned, the preamble carries:
 /// - an `#include <WiFi.h>` line,
@@ -228,10 +228,9 @@ fn cpp_string(value: &str) -> String {
 #[must_use]
 pub fn wifi_preamble(
     flow: &FlowUpdate,
-    target: &BoardTarget,
     credentials: Option<&Credentials>,
 ) -> Option<WifiPreamble> {
-    if !target.offers(BoardCapability::Networking) || !has_cloud_node(flow) {
+    if !has_cloud_node(flow) {
         return None;
     }
     let creds = credentials.cloned().unwrap_or_default();
@@ -271,7 +270,6 @@ pub struct WifiPreamble {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::codegen::board::target_by_id;
     use crate::flow::{FlowEdge, FlowNode, Position};
     use serde_json::json;
 
@@ -286,14 +284,6 @@ mod tests {
 
     fn flow(nodes: Vec<FlowNode>) -> FlowUpdate {
         FlowUpdate { nodes, edges: Vec::<FlowEdge>::new() }
-    }
-
-    fn esp32() -> BoardTarget {
-        target_by_id("esp32").expect("esp32 is supported")
-    }
-
-    fn uno() -> BoardTarget {
-        target_by_id("uno").expect("uno is supported")
     }
 
     fn full_creds() -> Credentials {
@@ -318,7 +308,7 @@ mod tests {
         let f = flow(vec![node("mqtt-1", "Mqtt")]);
         let creds = full_creds();
         let preamble =
-            wifi_preamble(&f, &esp32(), Some(&creds)).expect("cloud node on esp32 needs WiFi");
+            wifi_preamble(&f, Some(&creds)).expect("cloud node needs WiFi");
 
         assert_eq!(preamble.include, "#include <WiFi.h>");
         assert!(
@@ -335,12 +325,13 @@ mod tests {
         assert!(setup.contains("WL_CONNECTED"), "connect-wait present");
     }
 
-    /// A non-networking target never gets a `WiFi` preamble, even with Cloud Nodes
-    /// (those are a validation problem upstream, not a credential concern here).
+    /// The preamble follows the Flow, not the board: a Cloud Flow still gets
+    /// its `WiFi` preamble on a non-networking target (validation warns about
+    /// the board mismatch separately), so the emitted network code is complete.
     #[test]
-    fn no_preamble_on_non_networking_target() {
+    fn preamble_is_emitted_regardless_of_target() {
         let f = flow(vec![node("mqtt-1", "Mqtt")]);
-        assert!(wifi_preamble(&f, &uno(), Some(&full_creds())).is_none());
+        assert!(wifi_preamble(&f, Some(&full_creds())).is_some());
     }
 
     /// A networking target with no Cloud Node needs no `WiFi` preamble, keeping
@@ -348,7 +339,7 @@ mod tests {
     #[test]
     fn no_preamble_without_cloud_node() {
         let f = flow(vec![node("led-1", "Led")]);
-        assert!(wifi_preamble(&f, &esp32(), Some(&full_creds())).is_none());
+        assert!(wifi_preamble(&f, Some(&full_creds())).is_none());
     }
 
     /// Scenario: Missing credentials warn the Author.
@@ -357,7 +348,7 @@ mod tests {
     #[test]
     fn missing_credentials_are_reported_per_field() {
         let f = flow(vec![node("mqtt-1", "Mqtt"), node("llm-1", "Llm")]);
-        let missing = Credentials::default().missing_for(&f, &esp32());
+        let missing = Credentials::default().missing_for(&f);
         let fields: Vec<&str> = missing.iter().map(|m| m.field.as_str()).collect();
 
         assert!(fields.contains(&"wifiSsid"));
@@ -371,7 +362,7 @@ mod tests {
     #[test]
     fn complete_credentials_have_no_missing() {
         let f = flow(vec![node("mqtt-1", "Mqtt"), node("llm-1", "Llm")]);
-        assert!(full_creds().missing_for(&f, &esp32()).is_empty());
+        assert!(full_creds().missing_for(&f).is_empty());
     }
 
     /// Partial credentials: only the missing fields are named, not the supplied
@@ -381,7 +372,7 @@ mod tests {
         let f = flow(vec![node("mqtt-1", "Mqtt")]);
         let creds = Credentials { wifi_ssid: "net".to_string(), ..Credentials::default() };
         let fields: Vec<String> =
-            creds.missing_for(&f, &esp32()).into_iter().map(|m| m.field).collect();
+            creds.missing_for(&f).into_iter().map(|m| m.field).collect();
         assert!(!fields.contains(&"wifiSsid".to_string()), "ssid was supplied");
         assert!(fields.contains(&"wifiPassword".to_string()));
         assert!(fields.contains(&"brokerHost".to_string()));
@@ -391,7 +382,7 @@ mod tests {
     #[test]
     fn no_cloud_node_has_no_missing_credentials() {
         let f = flow(vec![node("led-1", "Led")]);
-        assert!(Credentials::default().missing_for(&f, &esp32()).is_empty());
+        assert!(Credentials::default().missing_for(&f).is_empty());
     }
 
     /// Invariant: the `Debug` impl never reveals secret values.
@@ -416,7 +407,7 @@ mod tests {
             wifi_password: "p".to_string(),
             ..Credentials::default()
         };
-        let preamble = wifi_preamble(&f, &esp32(), Some(&creds)).expect("needs WiFi");
+        let preamble = wifi_preamble(&f, Some(&creds)).expect("needs WiFi");
         let ssid_decl =
             preamble.declarations.iter().find(|d| d.contains("ssid")).expect("ssid decl");
         assert!(ssid_decl.contains("\\\""), "quote escaped: {ssid_decl}");
@@ -429,7 +420,7 @@ mod tests {
         let f = flow(vec![node("mqtt-1", "Mqtt")]);
         let creds =
             Credentials { wifi_password: "topsecret".to_string(), ..Credentials::default() }; // ggignore
-        for m in creds.missing_for(&f, &esp32()) {
+        for m in creds.missing_for(&f) {
             assert!(!m.reason.contains("topsecret"));
         }
     }
