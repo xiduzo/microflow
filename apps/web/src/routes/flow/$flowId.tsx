@@ -22,6 +22,7 @@ import { env } from "@microflow/env/web";
 import { ErrorState } from "@/components/states/error-state";
 import { LoadingState } from "@/components/states/loading-state";
 import { isDesktop } from "@/lib/platform";
+import { toast } from "sonner";
 import type { Node } from "@xyflow/react";
 
 /**
@@ -134,6 +135,24 @@ function CloudFlowLayout() {
       useCircuitStore.getState().reset();
     };
   }, [flowId, setActiveFlowId]);
+
+  // On the web, offer to open the flow in the desktop app. Once per flow per
+  // session so it doesn't nag. The desktop build never hits this branch.
+  useEffect(() => {
+    if (isDesktop()) return;
+    const key = `open-in-app:${flowId}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    toast("Open this flow in Microflow Studio?", {
+      duration: 10000,
+      action: {
+        label: "Open app",
+        onClick: () => {
+          window.location.href = `microflow://flow/${flowId}`;
+        },
+      },
+    });
+  }, [flowId]);
 
   const { data: profile } = useQuery({
     ...trpc.profile.get.queryOptions(),

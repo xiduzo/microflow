@@ -22,6 +22,7 @@ import { useBoardEvents } from "@/stores/board";
 import { useMqttSync } from "@/hooks/use-mqtt-sync";
 import { useLlmSync } from "@/hooks/use-llm-sync";
 import { useUpdater } from "@/hooks/use-updater";
+import { useDeepLink } from "@/hooks/use-deep-link";
 import { useFigmaUniqueId, useFigmaStore } from "@/stores/figma";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -109,6 +110,7 @@ function Board() {
   useLlmSync();
   useUpdater();
   useBackendLogs();
+  useDeepLink();
 
   // Keep the figma store's uniqueId in sync with the auth session
   const uniqueId = useFigmaUniqueId();

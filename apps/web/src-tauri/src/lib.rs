@@ -153,13 +153,37 @@ pub fn run() {
         figma_subscriptions: Arc::new(TokioMutex::new(Vec::new())),
     };
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // Single-instance MUST be the first plugin registered. With the `deep-link`
+    // feature it forwards `microflow://` URLs to the already-running instance on
+    // Windows/Linux; we also focus the existing window.
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+            }
+        }));
+    }
+
+    builder
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
+            // Register the microflow:// scheme at runtime so deep links work in
+            // dev builds on Windows/Linux (macOS uses the bundled Info.plist).
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
+
             // Registered in every build: the default targets (stdout + OS log
             // dir) are the only place flash/board failures can be diagnosed in
             // production (Windows: %LOCALAPPDATA%\tech.microflow\logs, macOS:

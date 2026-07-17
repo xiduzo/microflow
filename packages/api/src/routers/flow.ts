@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { eq, and, like, ne, inArray } from "drizzle-orm";
 import { db } from "@microflow/db";
-import { flow, flowCollaborator } from "@microflow/db/schema/flow";
+import { flow, flowCollaborator, flowInvite } from "@microflow/db/schema/flow";
 import { user } from "@microflow/db/schema/auth";
 import { userSettings } from "@microflow/db/schema/user-settings";
 import { protectedProcedure, router } from "../index";
 import { FlowDocument } from "@microflow/collab/server";
+import { sendEmail } from "@microflow/auth/email";
+import { env } from "@microflow/env/server";
 
 // ============================================================================
 // Constants
@@ -448,8 +450,38 @@ export const flowRouter = router({
         where: eq(user.email, input.email),
       });
 
+      const webUrl = env.WEB_URL ?? env.CORS_ORIGINS[0];
+      const inviter = ctx.session.user.name || ctx.session.user.email;
+
+      // No account yet: record a pending invite (accepted on sign-up by the
+      // better-auth user.create hook) and email them a sign-up link.
       if (!targetUser) {
-        throw new Error("User not found");
+        await db
+          .insert(flowInvite)
+          .values({
+            id: uid(),
+            flowId: input.flowId,
+            email: input.email,
+            role: input.role,
+            invitedBy: ctx.session.user.id,
+          })
+          .onConflictDoUpdate({
+            target: [flowInvite.flowId, flowInvite.email],
+            set: { role: input.role, invitedBy: ctx.session.user.id },
+          });
+
+        const signupUrl = `${webUrl}/login?redirect=${encodeURIComponent(`/flow/${input.flowId}`)}`;
+        try {
+          await sendEmail({
+            to: input.email,
+            subject: `${inviter} invited you to a flow on Microflow`,
+            html: `<p>${inviter} invited you to collaborate on "${flowRecord.name}" as a <strong>${input.role}</strong>.</p><p><a href="${signupUrl}">Sign up to open it</a> — you'll get access automatically.</p>`,
+          });
+        } catch (error) {
+          console.error("[flow.addCollaboratorByEmail] invite email failed:", error);
+        }
+
+        return { success: true, invited: true };
       }
 
       if (targetUser.id === ctx.session.user.id) {
@@ -475,6 +507,19 @@ export const flowRouter = router({
         userId: targetUser.id,
         role: input.role,
       });
+
+      // Notify the new collaborator. Don't fail the mutation if email fails —
+      // the access grant already succeeded.
+      const flowUrl = `${webUrl}/flow/${input.flowId}`;
+      try {
+        await sendEmail({
+          to: targetUser.email,
+          subject: `${inviter} shared a flow with you on Microflow`,
+          html: `<p>${inviter} added you as a <strong>${input.role}</strong> on "${flowRecord.name}".</p><p><a href="${flowUrl}">Open the flow</a></p>`,
+        });
+      } catch (error) {
+        console.error("[flow.addCollaboratorByEmail] email failed:", error);
+      }
 
       return { success: true, userId: targetUser.id };
     }),
