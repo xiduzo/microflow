@@ -17,6 +17,9 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     RESEND_API_KEY: z.string().min(1),
     EMAIL_FROM: z.string().min(1),
+    // Public web app origin, used to build links in outgoing emails
+    // (e.g. flow share links). Optional; falls back to the first CORS origin.
+    WEB_URL: z.url().optional(),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

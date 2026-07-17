@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
 import { track } from "@/lib/analytics";
+import { isDesktop } from "@/lib/platform";
+import { env } from "@microflow/env/web";
 import {
   Dialog,
   DialogContent,
@@ -37,13 +39,17 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
   const [copiedText, copy] = useCopyToClipboard()
 
   const addCollaboratorMutation = useMutation(trpc.flow.addCollaboratorByEmail.mutationOptions({
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({
         queryKey: trpc.flow.get.queryKey({ id: flowId }),
       });
       form.reset();
       track("flow_shared", { via: "collaborator" });
-      toast.success("Collaborator added");
+      toast.success(
+        "invited" in data && data.invited
+          ? "Invitation sent — they'll get access when they sign up"
+          : "Collaborator added",
+      );
     },
     onError: (error) => {
       toast.error(error.message);
@@ -67,9 +73,14 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  // Always share the public web link. In the desktop build
+  // window.location.origin is tauri://localhost, so prefer VITE_WEB_URL there.
+  const webOrigin =
+    (isDesktop() ? env.VITE_WEB_URL : undefined) ?? window.location.origin;
+  const shareUrl = `${webOrigin}/flow/${flowId}`;
+
   const handleCopyLink = async () => {
-    const url = `${window.location.origin}/${flowId}/flow`;
-    const copied = await copy(url);
+    const copied = await copy(shareUrl);
     if (copied) {
       track("flow_shared", { via: "link" });
       toast.success("Link copied to clipboard");
@@ -107,7 +118,7 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
 
         <div className="space-y-4">
           <InputGroup>
-            <InputGroupInput value={`${window.location.origin}/${flowId}/flow`} readOnly />
+            <InputGroupInput value={shareUrl} readOnly />
             <InputGroupAddon align="inline-end" onClick={handleCopyLink}>
               {copiedText ? <Check /> : <Copy />}
             </InputGroupAddon>

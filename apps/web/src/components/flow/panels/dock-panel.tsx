@@ -117,9 +117,11 @@ export function DockPanel() {
       <DockIcon onClick={exportFlow}>
         <HardDriveUploadIcon />
       </DockIcon>
-      <DockIcon onClick={handleSettings}>
-        <SettingsIcon />
-      </DockIcon>
+      {activeFlowId !== "local" && (
+        <DockIcon onClick={handleSettings}>
+          <SettingsIcon />
+        </DockIcon>
+      )}
     </Dock>
   );
 }

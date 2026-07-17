@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   index,
+  uniqueIndex,
   customType,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
@@ -62,6 +63,33 @@ export const flowCollaborator = pgTable(
   (table) => [
     index("flow_collaborator_flowId_idx").on(table.flowId),
     index("flow_collaborator_userId_idx").on(table.userId),
+  ]
+);
+
+/**
+ * Pending share invitation for an email that has no Microflow account yet.
+ * Converted into a `flowCollaborator` when that email signs up (see the
+ * better-auth `user.create.after` hook in @microflow/auth).
+ */
+export const flowInvite = pgTable(
+  "flow_invite",
+  {
+    id: text("id").primaryKey(),
+    flowId: text("flow_id")
+      .notNull()
+      .references(() => flow.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role", { enum: ["viewer", "editor"] })
+      .notNull()
+      .default("viewer"),
+    invitedBy: text("invited_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("flow_invite_flowId_email_idx").on(table.flowId, table.email),
+    index("flow_invite_email_idx").on(table.email),
   ]
 );
 
