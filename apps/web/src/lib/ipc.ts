@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 // ./bindings/ during `cargo test`. Always import event-payload types from
 // there so the Rust struct stays the single source of truth.
 import type { BoardState } from "./bindings/BoardState";
+import type { FlowUpdate } from "./bindings/FlowUpdate";
 import type { BoardTarget } from "./bindings/BoardTarget";
 import type { BrokerStatus } from "./bindings/BrokerStatus";
 import type { Credentials } from "./bindings/Credentials";
@@ -56,10 +57,10 @@ type BrokerConfig = {
 
 type Flow = {
   type: "flow_update";
-  flow: {
-    nodes: Node[];
-    edges: Edge[];
-  };
+  // The core `microflow_core::flow::FlowUpdate` shape (ts-rs binding) — the
+  // Rust command deserialises exactly this, so the sender must not pass raw
+  // React Flow nodes/edges (core requires non-optional edge handles).
+  flow: FlowUpdate;
   brokers?: BrokerConfig[];
   providers?: ProviderConfig[];
 };

@@ -1,4 +1,4 @@
-import type { FlowEdge, FlowNode } from "@microflow/collab";
+import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 
 export type DispatchedBroker = {
   id: string;
@@ -15,10 +15,14 @@ export type DispatchedProvider = {
   api_key: string;
 };
 
-/** Payload accepted by the Tauri `flow_update` command. */
-export type FlowUpdate = {
-  nodes: FlowNode[];
-  edges: FlowEdge[];
+/**
+ * Payload sent to either runtime host. `nodes`/`edges` are the core
+ * `microflow_core::flow::FlowUpdate` shape (ts-rs binding) — normalised once in
+ * `buildFlowUpdate`, so neither sender re-maps the flow. `brokers`/`providers`
+ * are desktop-only infra config; the browser resolves cloud config live from
+ * its stores (`CloudDeps`).
+ */
+export type FlowUpdate = CoreFlowUpdate & {
   brokers: DispatchedBroker[];
   providers: DispatchedProvider[];
 };

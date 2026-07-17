@@ -17,6 +17,7 @@
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import type { BoardState } from "@/lib/bindings/BoardState";
+import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 import { useBoardStore } from "@/stores/board";
 import { useFigmaStore } from "@/stores/figma";
 import { useLlmProviderStore } from "@/stores/llm-provider";
@@ -59,8 +60,8 @@ const cloudDeps: CloudDeps = {
 let active: BoardConnection | null = null;
 /** The wasm flow-runtime host for the active connection. */
 let reactor: FlowReactor | null = null;
-/** Latest core `FlowUpdate` JSON (`{nodes, edges}`), applied when a board attaches. */
-let latestFlowJson: string | null = null;
+/** Latest core `FlowUpdate`, applied when a board attaches. */
+let latestFlow: CoreFlowUpdate | null = null;
 let started = false;
 // Serialise every port operation so connect / auto-reconnect / plug events never
 // race to open the same port.
@@ -91,11 +92,11 @@ async function teardownActive(): Promise<void> {
 /**
  * Push the latest flow graph to the runtime. Called by `WasmFlowUpdateSender`
  * on every graph change; stored so a board connecting later starts on the
- * current flow. `coreFlowJson` is the core `FlowUpdate` shape (`{nodes, edges}`).
+ * current flow.
  */
-export function pushFlowUpdate(coreFlowJson: string): void {
-  latestFlowJson = coreFlowJson;
-  reactor?.applyFlow(coreFlowJson);
+export function pushFlowUpdate(flow: CoreFlowUpdate): void {
+  latestFlow = flow;
+  reactor?.applyFlow(flow);
 }
 
 /** Build the bring-up callbacks, wiring board state + a single flashing toast. */
@@ -170,7 +171,7 @@ async function bringUp(
     reactor?.dispose();
     try {
       reactor = await FlowReactor.attach(active, cloudDeps);
-      if (latestFlowJson) reactor.applyFlow(latestFlowJson);
+      if (latestFlow) reactor.applyFlow(latestFlow);
     } catch (reactorError) {
       console.error("[board-controller] flow reactor attach failed:", reactorError);
       reactor = null;

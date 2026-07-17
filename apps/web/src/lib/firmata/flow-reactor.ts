@@ -15,6 +15,8 @@
 // reconcile to the performer, and wires the two runtime re-entry points (an LLM
 // result, an inbound broker message) as callbacks the performer calls back into.
 
+import type { FlowEdge } from "@/lib/bindings/FlowEdge";
+import type { FlowUpdate as FlowUpdateShape } from "@/lib/bindings/FlowUpdate";
 import { applyComponentEvent } from "@/lib/event-ingest";
 import {
   createFlowRuntime,
@@ -37,15 +39,6 @@ import type { BoardConnection } from "./web-serial";
 // type now lives with the performer that consumes it.
 export type { CloudDeps };
 
-/** Edges as carried in the core `FlowUpdate` JSON (Rust camelCase). */
-type CoreEdge = {
-  id?: string | null;
-  source: string;
-  target: string;
-  sourceHandle: string;
-  targetHandle: string;
-};
-
 const now = (): number =>
   typeof performance !== "undefined" ? performance.now() : Date.now();
 
@@ -61,7 +54,10 @@ export class FlowReactor implements EffectsSink {
   /** The cloud half (LLM/MQTT/Figma), lifted out of this class (ADR-0009). The
    *  reactor supplies the two runtime re-entry seams the performer needs. */
   private readonly cloudPerformer: CloudPerformer;
-  private edges: CoreEdge[] = [];
+  /** Edges of the flow the runtime is executing — kept from the last
+   *  {@link applyFlow} so `dispatchEvent` routes component events onto exactly
+   *  the wires the runtime fired them across. */
+  private edges: FlowEdge[] = [];
   private disposed = false;
 
   private constructor(
@@ -104,15 +100,12 @@ export class FlowReactor implements EffectsSink {
     return reactor;
   }
 
-  /** Apply a flow graph. `flowJson` is the core `FlowUpdate` shape (`{nodes, edges}`). */
-  applyFlow(flowJson: string): void {
+  /** Apply a flow graph (the core `FlowUpdate` shape, serialised here — the
+   *  one place the flow crosses into wasm). */
+  applyFlow(flow: FlowUpdateShape): void {
     if (!this.runtime || this.disposed) return;
-    try {
-      this.edges = (JSON.parse(flowJson) as { edges?: CoreEdge[] }).edges ?? [];
-    } catch {
-      this.edges = [];
-    }
-    this.apply(this.runtime.updateFlow(flowJson, now()));
+    this.edges = flow.edges;
+    this.apply(this.runtime.updateFlow(JSON.stringify(flow), now()));
     this.reconcile();
   }
 

@@ -4,29 +4,39 @@
 //! desktop `app_lib` crate) and the code generator ([`crate::codegen`]). They
 //! are plain serde structs with no platform dependencies, so this crate
 //! compiles unchanged for both native and `wasm32` targets.
+//!
+//! The `#[ts(export)]` bindings are the frontend's wire types: both hosts'
+//! senders (`TauriFlowUpdateSender`, `WasmFlowUpdateSender`) carry exactly
+//! this shape, built once in `buildFlowUpdate`.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// Position in the flow editor
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
 }
 
 /// A node in the flow graph
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct FlowNode {
     pub id: String,
     #[serde(rename = "type")]
+    #[ts(rename = "type")]
     pub node_type: Option<String>,
+    #[ts(type = "Record<string, unknown>")]
     pub data: serde_json::Value,
     pub position: Position,
 }
 
 /// An edge connecting two nodes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct FlowEdge {
     pub id: Option<String>,
     pub source: String,
@@ -36,7 +46,8 @@ pub struct FlowEdge {
 }
 
 /// Flow update message from frontend
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct FlowUpdate {
     pub nodes: Vec<FlowNode>,
     pub edges: Vec<FlowEdge>,
