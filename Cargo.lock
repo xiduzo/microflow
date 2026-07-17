@@ -2803,7 +2803,7 @@ dependencies = [
 
 [[package]]
 name = "microflow"
-version = "0.10.3"
+version = "0.10.4"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2847,7 +2847,7 @@ dependencies = [
 
 [[package]]
 name = "microflow-core"
-version = "0.10.3"
+version = "0.10.4"
 dependencies = [
  "boa_engine",
  "log",
