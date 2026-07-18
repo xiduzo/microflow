@@ -217,12 +217,20 @@ impl Actor {
 
     fn run(mut self, mut rx: UnboundedReceiver<ActorMsg>) {
         loop {
-            // Drain every queued message first.
+            // Drain queued messages — but read the serial port after EACH one so a
+            // relentless outbound wake loop can never starve inbound reads. A 60fps
+            // oscillator arms a `_tick` every ~16ms; if we drained the WHOLE queue
+            // before reading (as this once did) and processing a wake takes longer
+            // than that period, the queue never empties, `pump_port` never runs,
+            // and every input (buttons, I2C, NFC) goes silent while outbound floods.
             loop {
                 match rx.try_recv() {
                     Ok(msg) => {
                         if !self.handle(msg) {
                             return;
+                        }
+                        if self.port.is_some() {
+                            self.pump_port();
                         }
                     }
                     Err(TryRecvError::Empty) => break,
@@ -230,8 +238,8 @@ impl Actor {
                 }
             }
 
-            // Connected: interleave a short serial read with message draining.
-            // Disconnected: block until the next message (no busy spin).
+            // Idle: keep reading while connected; block for the next message when
+            // disconnected (no busy spin).
             if self.port.is_some() {
                 self.pump_port();
             } else {
@@ -375,7 +383,12 @@ impl Actor {
 impl EffectsSink for Actor {
     fn write_bytes(&mut self, bytes: &[u8]) {
         if let Some(port) = self.port.as_mut() {
-            if let Err(e) = port.write_all(bytes).and_then(|()| port.flush()) {
+            // No `flush()`: on macOS it blocks (`tcdrain`) until the bytes finish
+            // transmitting, so flushing every outbound batch made a 60fps
+            // oscillator's write take longer than its tick period and starve the
+            // serial read (see `run`). `write_all` hands the bytes to the OS in
+            // order; the kernel transmits them — synchronous drain isn't needed.
+            if let Err(e) = port.write_all(bytes) {
                 log::warn!("[actor] serial write error: {e}; dropping board");
                 self.port = None;
                 self.connected.store(false, Ordering::Release);
