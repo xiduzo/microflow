@@ -225,6 +225,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         declarations,
         setup,
         loop_body,
+        ..NodeEmission::default()
     }
 }
 

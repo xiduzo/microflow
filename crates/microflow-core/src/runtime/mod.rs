@@ -582,6 +582,30 @@ impl FlowRuntime {
         out
     }
 
+    /// Every active MIDI listener: `(node id, device-name filter)`. Unlike MQTT
+    /// there is no one-owner-per-topic reconcile — the host opens the union of
+    /// matching devices and routes every message to every matching listener via
+    /// [`deliver_message`](Self::deliver_message) (`topic` = the host port name,
+    /// `payload` = the raw `[status, data1, data2]`). Sorted by node id so an
+    /// unchanged flow yields an identical list (zero host churn).
+    #[must_use]
+    pub fn collect_midi_listeners(&self) -> Vec<crate::runtime::subscriptions::MidiListener> {
+        let mut out: Vec<_> = self
+            .components
+            .iter()
+            .filter_map(|(id, component)| {
+                component.midi_wiring().map(|device_name| {
+                    crate::runtime::subscriptions::MidiListener {
+                        node_id: id.clone(),
+                        device_name,
+                    }
+                })
+            })
+            .collect();
+        out.sort_by(|a, b| a.node_id.cmp(&b.node_id));
+        out
+    }
+
     // --- Inbound decode ------------------------------------------------------
 
     /// Diff the codec's pin table against the last-seen values and push a

@@ -73,6 +73,10 @@
       "impl": "Matrix"
     },
     {
+      "name": "Midi",
+      "impl": "Midi"
+    },
+    {
       "name": "Monitor",
       "impl": "Monitor"
     },
@@ -231,6 +235,11 @@
       "name": "Matrix",
       "category": "output",
       "requiresHardware": true
+    },
+    {
+      "name": "Midi",
+      "category": "external",
+      "requiresHardware": false
     },
     {
       "name": "Monitor",

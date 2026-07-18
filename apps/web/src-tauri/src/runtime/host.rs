@@ -73,6 +73,10 @@ pub enum ActorMsg {
         topic: String,
         payload: Vec<u8>,
     },
+    /// A raw MIDI message from an open `midir` input. The actor fans it out to
+    /// every `Midi` in-node whose device filter matches `port_name` (via
+    /// `FlowRuntime::deliver_message`, mirroring the browser host).
+    MidiMessage { port_name: String, bytes: Vec<u8> },
     /// An async cloud-node result re-entering the runtime (the `CloudEmitter`
     /// path) — folded in via `FlowRuntime::inject_event`.
     Inject {
@@ -168,6 +172,9 @@ struct Actor {
     /// Performs cloud `Effects` (ADR-0009): holds the MQTT/LLM services and the
     /// in-flight LLM task table. `EffectsSink::perform_cloud` delegates here.
     cloud: CloudPerformer,
+    /// Open `midir` connections; inputs reconciled per flow update, outputs
+    /// opened lazily per `MidiSend`. Thread-confined like the runtime.
+    midi: crate::runtime::midi::MidiManager,
 }
 
 impl Actor {
@@ -199,6 +206,7 @@ impl Actor {
             start: Instant::now(),
             timers: HashMap::new(),
             cloud,
+            midi: crate::runtime::midi::MidiManager::new(),
         }
     }
 
@@ -283,6 +291,8 @@ impl Actor {
                 let effects = self.rt.update_flow(flow);
                 self.apply(effects);
                 let _ = reply.send(self.rt.collect_subscriber_wirings());
+                let listeners = self.rt.collect_midi_listeners();
+                self.midi.reconcile(&listeners, &self.self_tx);
             }
             ActorMsg::Call { id, method, value } => {
                 self.set_now();
@@ -298,6 +308,19 @@ impl Actor {
                 self.set_now();
                 let effects = self.rt.deliver_message(&id, &topic, &payload);
                 self.apply(effects);
+            }
+            ActorMsg::MidiMessage { port_name, bytes } => {
+                // Fan out against the runtime's own listener list (always fresh)
+                // — every matching in-node receives the raw message; parsing
+                // lives in core's `Midi::receive_raw_message`.
+                self.set_now();
+                let listeners = self.rt.collect_midi_listeners();
+                for listener in listeners {
+                    if crate::runtime::midi::device_matches(&port_name, &listener.device_name) {
+                        let effects = self.rt.deliver_message(&listener.node_id, &port_name, &bytes);
+                        self.apply(effects);
+                    }
+                }
             }
             ActorMsg::Inject { source, handle, value } => {
                 self.set_now();
@@ -385,6 +408,12 @@ impl EffectsSink for Actor {
     /// task table. The ordering (cloud before UI events) is fixed by
     /// `Effects::apply`; this just supplies the primitive.
     fn perform_cloud(&mut self, request: &CloudRequest) {
+        // MIDI is host-peripheral I/O on the actor's own `midir` connections,
+        // not an async network call — handled here, not by the `CloudPerformer`.
+        if let CloudRequestKind::MidiSend { device_name, bytes } = &request.kind {
+            self.midi.send(device_name, bytes);
+            return;
+        }
         self.cloud.perform(request);
     }
 
@@ -493,6 +522,11 @@ impl CloudPerformer {
                     }
                 });
                 self.llm_tasks.insert(Arc::clone(&request.source), join.abort_handle());
+            }
+            // Intercepted by `Actor::perform_cloud` (the actor owns the `midir`
+            // connections); a request reaching here has no performer.
+            CloudRequestKind::MidiSend { .. } => {
+                log::warn!("[cloud] MidiSend reached the CloudPerformer — handled by the actor");
             }
         }
     }
@@ -679,7 +713,9 @@ mod tests {
                 assert_eq!(topic, "microflow/uid-1/app/variable/1-2/set");
                 assert_eq!(payload, b"true");
             }
-            other @ CloudRequestKind::LlmGenerate { .. } => panic!("expected MqttPublish, got {other:?}"),
+            other @ (CloudRequestKind::LlmGenerate { .. } | CloudRequestKind::MidiSend { .. }) => {
+                panic!("expected MqttPublish, got {other:?}")
+            }
         }
     }
 
@@ -702,5 +738,42 @@ mod tests {
             ],
             edges: Vec::<FlowEdge>::new(),
         });
+    }
+
+    #[test]
+    fn midi_flow_reports_listener_sends_and_receives() {
+        // End-to-end through the runtime the actor drives: an in-node surfaces
+        // as a listener, an out-node's `send` records a MidiSend, and a
+        // delivered raw message emits on the in-node's handles.
+        let mut rt = FlowRuntime::new();
+        rt.update_flow(FlowUpdate {
+            nodes: vec![
+                node("m-in", "Midi", serde_json::json!({ "direction": "in", "deviceName": "pad" })),
+                node(
+                    "m-out",
+                    "Midi",
+                    serde_json::json!({ "direction": "out", "mode": "cc", "control": 7 }),
+                ),
+            ],
+            edges: Vec::<FlowEdge>::new(),
+        });
+
+        let listeners = rt.collect_midi_listeners();
+        assert_eq!(listeners.len(), 1, "only the in-node listens");
+        assert_eq!(listeners[0].node_id, "m-in");
+        assert_eq!(listeners[0].device_name, "pad");
+
+        let effects = rt.dispatch("m-out", "send", ComponentValue::Number(64.0));
+        assert_eq!(effects.cloud_requests.len(), 1);
+        match &effects.cloud_requests[0].kind {
+            CloudRequestKind::MidiSend { bytes, .. } => assert_eq!(bytes, &vec![0xB0, 7, 64]),
+            other => panic!("expected MidiSend, got {other:?}"),
+        }
+
+        // A note-on for the in-node (default note mode) emits its handles.
+        let effects = rt.deliver_message("m-in", "Launchpad", &[0x90, 60, 100]);
+        let handles: Vec<&str> =
+            effects.component_events.iter().map(|e| e.source_handle.as_ref()).collect();
+        assert_eq!(handles, vec!["note", "velocity", "on"]);
     }
 }

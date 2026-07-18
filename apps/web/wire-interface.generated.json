@@ -176,6 +176,18 @@
       "reinitialize"
     ]
   },
+  "Midi": {
+    "emits": [
+      "value",
+      "note",
+      "velocity",
+      "on",
+      "off"
+    ],
+    "ports": [
+      "send"
+    ]
+  },
   "Monitor": {
     "emits": [
       "value"

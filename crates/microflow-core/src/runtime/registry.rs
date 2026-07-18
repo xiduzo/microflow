@@ -136,6 +136,7 @@ impl ComponentRegistry {
             self.register::<cloud::mqtt::Mqtt>("Mqtt");
             self.register::<cloud::llm::Llm>("Llm");
             self.register::<cloud::figma::Figma>("Figma");
+            self.register::<cloud::midi::Midi>("Midi");
         }
     }
 }

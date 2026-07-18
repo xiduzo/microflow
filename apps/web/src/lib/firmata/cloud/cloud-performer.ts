@@ -122,6 +122,12 @@ export class CloudPerformer {
       void this.runLlm(request);
       return;
     }
+    // Intercepted by the reactor's MidiPerformer before delegation (host
+    // peripheral, not a network call) — mirrors the desktop actor.
+    if (request.kind === "midiSend") {
+      console.warn("[cloud-performer] midiSend reached the CloudPerformer — handled by the reactor");
+      return;
+    }
     this.publishMqtt(request.brokerId, request.topic, request.payload, request.retain);
   }
 

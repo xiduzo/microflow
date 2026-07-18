@@ -86,7 +86,16 @@ export type CloudRequest = { source: string } & (
       system: string | null;
       prompt: string;
     }
+  | { kind: "midiSend"; deviceName: string; bytes: number[] }
 );
+
+/** One MIDI in-node's device interest (matches the Rust `MidiListener` serde
+ *  shape, as returned by `runtime.midiListeners()`). `deviceName` is a
+ *  case-insensitive substring filter on the host port name; "" = every device. */
+export type MidiListener = {
+  nodeId: string;
+  deviceName: string;
+};
 
 /** The side effects of one runtime turn (matches the Rust `Effects` serde shape). */
 export type Effects = {

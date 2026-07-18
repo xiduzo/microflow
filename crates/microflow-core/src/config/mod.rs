@@ -56,4 +56,5 @@ pub mod smooth;
 // reach it too — the network I/O is the host's, not the config's)
 pub mod figma;
 pub mod llm;
+pub mod midi;
 pub mod mqtt;

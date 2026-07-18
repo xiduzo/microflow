@@ -19,6 +19,10 @@
 
 pub mod figma;
 pub mod llm;
+// `Midi` lives here as a host-peripheral node alongside the networked cloud
+// nodes, but unlike them it needs NO networking on-device — it speaks serial
+// MIDI over the board's hardware UART (MIDI.h), so it runs on every board.
+pub mod midi;
 pub mod monitor;
 pub mod mqtt;
 pub mod transport;

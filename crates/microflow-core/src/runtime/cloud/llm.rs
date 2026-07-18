@@ -158,7 +158,9 @@ mod tests {
             CloudRequestKind::LlmGenerate { provider_id, model, system, prompt } => {
                 (provider_id, model, system, prompt)
             }
-            other @ CloudRequestKind::MqttPublish { .. } => panic!("expected LlmGenerate, got {other:?}"),
+            other @ (CloudRequestKind::MqttPublish { .. } | CloudRequestKind::MidiSend { .. }) => {
+                panic!("expected LlmGenerate, got {other:?}")
+            }
         }
     }
 

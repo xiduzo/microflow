@@ -26,6 +26,8 @@ import {
 } from "@/lib/runtime/wasm";
 import { CloudPerformer, type CloudDeps } from "./cloud/cloud-performer";
 import type { ActiveSub } from "./cloud/mqtt-subscriptions";
+import { MidiPerformer } from "./midi/midi-performer";
+import type { MidiListener } from "@/lib/runtime/wasm";
 import {
   applyEffects,
   type CloudRequest,
@@ -54,6 +56,9 @@ export class FlowReactor implements EffectsSink {
   /** The cloud half (LLM/MQTT/Figma), lifted out of this class (ADR-0009). The
    *  reactor supplies the two runtime re-entry seams the performer needs. */
   private readonly cloudPerformer: CloudPerformer;
+  /** The MIDI half (Web MIDI): the browser twin of the desktop `MidiManager`.
+   *  Inbound messages re-enter via the same `deliverMessage` path MQTT uses. */
+  private readonly midiPerformer: MidiPerformer;
   /** Edges of the flow the runtime is executing — kept from the last
    *  {@link applyFlow} so `dispatchEvent` routes component events onto exactly
    *  the wires the runtime fired them across. */
@@ -82,6 +87,10 @@ export class FlowReactor implements EffectsSink {
       // binding, so the browser announces identically to the desktop host.
       figmaAnnounceActions,
     );
+    this.midiPerformer = new MidiPerformer((nodeId, portName, bytes) => {
+      if (!this.runtime || this.disposed) return;
+      this.apply(this.runtime.deliverMessage(nodeId, portName, bytes, now()));
+    });
   }
 
   /** Instantiate the wasm runtime and seed its pin table from the detection
@@ -122,6 +131,7 @@ export class FlowReactor implements EffectsSink {
     for (const handle of this.timers.values()) clearTimeout(handle);
     this.timers.clear();
     this.cloudPerformer.dispose();
+    this.midiPerformer.dispose();
     this.runtime = null;
   }
 
@@ -155,6 +165,14 @@ export class FlowReactor implements EffectsSink {
       return;
     }
     this.cloudPerformer.reconcile(reconciled);
+    let midiListeners: MidiListener[];
+    try {
+      midiListeners = JSON.parse(this.runtime.midiListeners()) as MidiListener[];
+    } catch (error) {
+      console.error("[flow-reactor] bad midiListeners json:", error);
+      return;
+    }
+    this.midiPerformer.reconcile(midiListeners);
   }
 
   // --- EffectsSink: the browser platform primitives (ADR-0008) ---------------
@@ -187,6 +205,12 @@ export class FlowReactor implements EffectsSink {
    *  task table. The ordering (cloud before UI events) is fixed by
    *  {@link applyEffects}; this just supplies the primitive. */
   performCloud(request: CloudRequest): void {
+    // MIDI is host-peripheral I/O, not a network call — the MidiPerformer owns
+    // it (mirrors the desktop actor intercepting `MidiSend` before delegating).
+    if (request.kind === "midiSend") {
+      this.midiPerformer.send(request.deviceName, request.bytes);
+      return;
+    }
     this.cloudPerformer.perform(request);
   }
 

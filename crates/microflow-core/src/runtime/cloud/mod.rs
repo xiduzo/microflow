@@ -15,6 +15,7 @@
 
 pub mod figma;
 pub mod llm;
+pub mod midi;
 pub mod mqtt;
 
 #[cfg(test)]

@@ -221,6 +221,7 @@ impl Transport<'_> {
             declarations: self.declarations(extra_decls),
             setup: self.setup(),
             loop_body,
+            ..NodeEmission::default()
         }
     }
 }

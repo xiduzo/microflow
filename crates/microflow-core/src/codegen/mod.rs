@@ -323,6 +323,11 @@ fn emit_node(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> Node
         Some("Figma") => cloud::figma::emit(node, inputs),
         Some("Monitor") => cloud::monitor::emit(node, inputs),
         Some("Llm") => cloud::llm::emit(node, inputs),
+        // Midi bridges the board's serial MIDI jack (MIDI.h); the host's Web
+        // MIDI / midir I/O becomes MIDI.read()/sendNoteOn on-device. Several
+        // Midi nodes share one MIDI instance + read-pump via the assembler's
+        // shared-block regions.
+        Some("Midi") => cloud::midi::emit(node, inputs),
         // AudioPlayer is a browser-only playback Node — it plays audio in the
         // web UI and has no Arduino hardware equivalent. We route it explicitly
         // (rather than letting it fall through) so the skip is intentional and
@@ -486,6 +491,9 @@ fn output_expression(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
         Some("Mqtt") if handle == "value" => cloud::mqtt::output(node),
         Some("Figma") if handle == "value" || handle == "change" => cloud::figma::output(node),
         Some("Llm") if handle == "value" => cloud::llm::output(node),
+        // An in-direction Midi Node surfaces note/velocity/on/off/value; the
+        // emitter maps each handle (out-direction exposes none).
+        Some("Midi") => cloud::midi::output(node, handle),
         _ => None,
     }
 }
@@ -533,6 +541,16 @@ fn declarations(
             out.push('\n');
         }
     }
+    // Cross-node shared blocks (deduplicated) precede per-node declarations so
+    // every node can reference them.
+    let shared = emit::dedupe_shared(emissions.iter().flat_map(|e| &e.shared_declarations));
+    if !shared.is_empty() {
+        out.push_str("// shared across nodes (deduplicated)\n");
+        for block in shared {
+            out.push_str(block);
+            out.push('\n');
+        }
+    }
     for (node, emission) in order.iter().zip(emissions) {
         let kind = node.node_type.as_deref().unwrap_or("unknown");
         out.push_str(&format!("// node {} ({})\n", node.id, kind));
@@ -555,6 +573,13 @@ fn setup_region(
     let mut out = String::from("void setup() {\n  // --- Setup ---\n");
     if let Some(p) = preamble {
         for line in &p.setup {
+            out.push_str("  ");
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    for block in emit::dedupe_shared(emissions.iter().flat_map(|e| &e.shared_setup)) {
+        for line in block.lines() {
             out.push_str("  ");
             out.push_str(line);
             out.push('\n');
@@ -584,6 +609,14 @@ if (currentMillis - previousMillis >= interval) {\n    \
 previousMillis = currentMillis;\n    \
 // --- Scheduled tasks ---\n",
     );
+    // Shared pumps run once, before every node body that reads their state.
+    for block in emit::dedupe_shared(emissions.iter().flat_map(|e| &e.shared_loop)) {
+        for line in block.lines() {
+            out.push_str("    ");
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
     for line in permutation.iter().flat_map(|&i| &emissions[i].loop_body) {
         out.push_str("    ");
         out.push_str(line);
@@ -643,6 +676,29 @@ mod tests {
             data,
             position: Position { x: 0.0, y: 0.0 },
         }
+    }
+
+    /// Two Midi nodes must share ONE `MIDI` instance, one `MIDI.begin`, and one
+    /// `midi_pump()` per tick — the assembler deduplicates their shared blocks
+    /// so the sketch declares/pumps once, not per node.
+    #[test]
+    fn multiple_midi_nodes_share_one_instance_and_pump() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("m-in", "Midi", json!({ "direction": "in", "mode": "cc", "control": 1 })),
+                node_data("m-out", "Midi", json!({ "direction": "out", "mode": "note" })),
+            ],
+            edges: vec![],
+        };
+        let sketch = generate_sketch_text(&flow);
+        assert_eq!(
+            sketch.matches("MIDI_CREATE_DEFAULT_INSTANCE();").count(),
+            1,
+            "one shared MIDI instance for both nodes:\n{sketch}"
+        );
+        assert_eq!(sketch.matches("MIDI.begin(").count(), 1, "one MIDI.begin:\n{sketch}");
+        assert_eq!(sketch.matches("midi_pump();").count(), 1, "one read-pump per tick:\n{sketch}");
+        assert_eq!(sketch.matches("#include <MIDI.h>").count(), 1, "one include:\n{sketch}");
     }
 
     /// An edge over the default `value` handles — the most common wiring.

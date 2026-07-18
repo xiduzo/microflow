@@ -66,6 +66,10 @@ pub enum CloudRequestKind {
         system: Option<String>,
         prompt: String,
     },
+    /// Fire-and-forget raw MIDI message (the `MidiOut` node) to every host MIDI
+    /// output whose port name contains `device_name` ("" = all). Nothing
+    /// re-enters the runtime.
+    MidiSend { device_name: String, bytes: Vec<u8> },
 }
 
 /// Everything the host must do after one runtime turn. Bytes go to the serial

@@ -41,6 +41,8 @@ import { Llm } from "./llm/llm";
 import { defaults as LlmDefaults } from "./llm/llm.schema";
 import { Matrix } from "./matrix/matrix";
 import { defaults as MatrixDefaults } from "./matrix/matrix.schema";
+import { Midi } from "./midi/midi";
+import { defaults as MidiDefaults } from "./midi/midi.schema";
 import { Monitor } from "./monitor/monitor";
 import { defaults as MonitorDefaults } from "./monitor/monitor.schema";
 import { Motion } from "./motion/motion";
@@ -117,6 +119,7 @@ export const NODE_REGISTRY = {
   Led: { component: Led, defaults: LedDefaults as NodeDefaults, adapter: undefined },
   Llm: { component: Llm, defaults: LlmDefaults as NodeDefaults, adapter: undefined },
   Matrix: { component: Matrix, defaults: MatrixDefaults as NodeDefaults, adapter: undefined },
+  Midi: { component: Midi, defaults: MidiDefaults as NodeDefaults, adapter: undefined },
   Monitor: { component: Monitor, defaults: MonitorDefaults as NodeDefaults, adapter: undefined },
   Motion: { component: Motion, defaults: MotionDefaults as NodeDefaults, adapter: undefined },
   Mqtt: { component: Mqtt, defaults: MqttDefaults as NodeDefaults, adapter: MqttAdapter },
@@ -159,6 +162,7 @@ export const NODE_TYPES = {
   Led,
   Llm,
   Matrix,
+  Midi,
   Monitor,
   Motion,
   Mqtt,
