@@ -33,8 +33,10 @@ import {
   type CloudRequest,
   type ComponentEvent,
   type EffectsSink,
+  type NodeDiagnostic,
   type Wakeup,
 } from "./effects-sink";
+import { useNodeDiagnosticsStore } from "@/stores/node-diagnostics";
 import type { BoardConnection } from "./web-serial";
 
 // Re-exported so the board controller keeps importing `CloudDeps` from here; the
@@ -216,5 +218,9 @@ export class FlowReactor implements EffectsSink {
 
   dispatchEvent(event: ComponentEvent): void {
     applyComponentEvent(event, this.edges);
+  }
+
+  reportDiagnostic(diagnostic: NodeDiagnostic): void {
+    useNodeDiagnosticsStore.getState().apply(diagnostic);
   }
 }

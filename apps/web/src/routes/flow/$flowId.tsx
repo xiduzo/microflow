@@ -12,6 +12,7 @@ import {
 } from "@/session";
 import { usePins, type Pin } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
+import { useNodeDiagnostics } from "@/hooks/use-node-diagnostics";
 import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
@@ -33,6 +34,7 @@ import type { Node } from "@xyflow/react";
 function FlowEventListeners() {
   const session = useFlowSession();
   useComponentEvents();
+  useNodeDiagnostics();
   useHotkeyEvents();
   // Dispatch the live flow to the runtime — Tauri IPC on desktop, the in-browser
   // wasm runtime on web; the dispatcher picks the sender by platform.
