@@ -24,4 +24,5 @@
 
 pub mod commands;
 pub mod host;
+pub mod midi;
 pub mod services;
