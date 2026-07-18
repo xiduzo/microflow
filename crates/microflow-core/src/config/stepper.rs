@@ -12,7 +12,11 @@ pub enum StepperInterface {
     FourWire,
 }
 
+// The web stores camelCase keys (`stepPin`, `motorPin1`, …); without
+// `rename_all` every multi-word field silently fell back to its default —
+// masked only because the web defaults coincide with the Rust ones.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StepperConfig {
     // Driver mode pins (step/dir)
     #[serde(default = "default_step_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]

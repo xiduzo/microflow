@@ -6,14 +6,15 @@
 //! target), `stop`, `zero` (reset the current position to 0), and `enable`
 //! (energize/de-energize the outputs, truthy ⇢ enabled). The generated sketch
 //! uses the Arduino `AccelStepper` library directly with the matching port
-//! semantics: `value` issues `move(steps)` on each new sample, `to` targets
+//! semantics: the constructor mirrors the runtime's `CMD_CONFIG` interface +
+//! pins, `value` issues `move(steps)` on each new sample, `to` targets
 //! `moveTo(position)`, and `run()` is called every loop — it steps at most
 //! once per call and returns immediately, so motion is fully non-blocking and
 //! other Nodes keep ticking.
 
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
-use crate::config::stepper::StepperConfig;
+use crate::config::stepper::{StepperConfig, StepperInterface};
 use crate::flow::FlowNode;
 
 /// Emit C++ for a Stepper Node. Unwired, the motor parks at zero.
@@ -22,24 +23,45 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let obj = format!("stepper_{token}");
     let config: StepperConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
-    let step_pin = config.step_pin;
-    let dir_pin = config.dir_pin;
     // Runtime stores speed/acceleration as floats; widen to the f64 the C++
     // literal formatter expects.
     let speed = cpp_double(f64::from(config.speed));
     let acceleration = cpp_double(f64::from(config.acceleration));
 
+    // The constructor per interface, with the same pins (and order) the
+    // runtime's Firmata `CMD_CONFIG` sends: driver = step/dir, two-wire =
+    // motor pins 1–2, four-wire = motor pins 1–4. Whole-step only — the
+    // runtime never sets Firmata's half-step bits, so `FULL2WIRE`/`FULL4WIRE`,
+    // never the `HALF*` variants.
+    let constructor = match config.interface {
+        StepperInterface::Driver => format!(
+            "AccelStepper {obj}(AccelStepper::DRIVER, {}, {});",
+            config.step_pin, config.dir_pin
+        ),
+        StepperInterface::TwoWire => format!(
+            "AccelStepper {obj}(AccelStepper::FULL2WIRE, {}, {});",
+            config.motor_pin1, config.motor_pin2
+        ),
+        StepperInterface::FourWire => format!(
+            "AccelStepper {obj}(AccelStepper::FULL4WIRE, {}, {}, {}, {});",
+            config.motor_pin1, config.motor_pin2, config.motor_pin3, config.motor_pin4
+        ),
+    };
+
     let mut e = NodeEmission {
         includes: vec!["#include <AccelStepper.h>".to_string()],
-        declarations: vec![format!(
-            "AccelStepper {obj}(AccelStepper::DRIVER, {step_pin}, {dir_pin});"
-        )],
+        declarations: vec![constructor],
         setup: vec![
             format!("{obj}.setMaxSpeed({speed});"),
             format!("{obj}.setAcceleration({acceleration});"),
         ],
         ..NodeEmission::default()
     };
+    // The runtime appends the enable pin to CMD_CONFIG when configured;
+    // AccelStepper's twin is setEnablePin (driven by the `enable` port below).
+    if let Some(enable_pin) = config.enable_pin {
+        e.setup.push(format!("{obj}.setEnablePin({enable_pin});"));
+    }
 
     // value: one relative move per new sample; zero steps are skipped.
     let value_sources = inputs.on("value");
@@ -134,6 +156,41 @@ mod tests {
         let e = emit(&stepper("st-1", json!({})), &NodeInputs::default());
         assert!(e.includes.iter().any(|i| i.contains("AccelStepper.h")));
         assert!(e.declarations.iter().any(|d| d.contains("AccelStepper stepper_st_1(AccelStepper::DRIVER, 2, 3)")));
+    }
+
+    #[test]
+    fn two_wire_interface_uses_full2wire_and_motor_pins() {
+        let e = emit(
+            &stepper("st-1", json!({ "interface": "two_wire", "motorPin1": 4, "motorPin2": 5 })),
+            &NodeInputs::default(),
+        );
+        assert!(e
+            .declarations
+            .iter()
+            .any(|d| d.contains("AccelStepper stepper_st_1(AccelStepper::FULL2WIRE, 4, 5)")));
+    }
+
+    #[test]
+    fn four_wire_interface_uses_full4wire_and_motor_pins_in_order() {
+        let e = emit(
+            &stepper(
+                "st-1",
+                json!({ "interface": "four_wire", "motorPin1": 4, "motorPin2": 5, "motorPin3": 6, "motorPin4": 7 }),
+            ),
+            &NodeInputs::default(),
+        );
+        assert!(e
+            .declarations
+            .iter()
+            .any(|d| d.contains("AccelStepper stepper_st_1(AccelStepper::FULL4WIRE, 4, 5, 6, 7)")));
+    }
+
+    #[test]
+    fn configured_enable_pin_is_set_in_setup() {
+        let e = emit(&stepper("st-1", json!({ "enablePin": 8 })), &NodeInputs::default());
+        assert!(e.setup.iter().any(|s| s.contains(".setEnablePin(8)")));
+        let e = emit(&stepper("st-1", json!({})), &NodeInputs::default());
+        assert!(!e.setup.iter().any(|s| s.contains("setEnablePin")), "no enable pin by default");
     }
 
     #[test]

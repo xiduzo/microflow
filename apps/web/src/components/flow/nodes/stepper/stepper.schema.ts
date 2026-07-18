@@ -25,7 +25,11 @@ export type Data = z.infer<typeof dataSchema>;
 
 export const defaults = {
   ...dataSchema.parse({}),
-  group: "express",
+  // Hidden from the node picker: the runtime speaks AccelStepper sysex (0x62),
+  // but the firmware we flash is plain StandardFirmata, which ignores it — the
+  // motor never moves. Restore group: "express" once we bundle a firmware with
+  // AccelStepper (ConfigurableFirmata) and decode its 0x62 position replies.
+  group: "internal",
   tags: ["action", "value"],
   label: "Stepper",
   icon: "CogIcon",
