@@ -12,6 +12,7 @@ import {
   type BaseNode,
 } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
+import { useNodeDiagnostic } from "@/stores/node-diagnostics";
 import { useFlowNodes, useFlowSession } from "@/session";
 import { dataSchema, type Data, type Value } from "./i2c-device.schema";
 import {
@@ -48,10 +49,15 @@ function useSharedAddressWarning(id: string, address: number): string | undefine
 }
 
 export function I2cDevice(props: Props) {
-  const warning = useSharedAddressWarning(props.id, props.data.address);
+  const addressWarning = useSharedAddressWarning(props.id, props.data.address);
+  // A runtime fault (e.g. the device never ACKs a read) outranks the advisory
+  // shared-address warning: show the red error badge when the runtime raises one.
+  const diagnostic = useNodeDiagnostic();
+  const error = diagnostic?.level === "error" ? diagnostic.message : undefined;
+  const warning = diagnostic?.level === "warning" ? diagnostic.message : addressWarning;
 
   return (
-    <NodeContainer {...props} warning={warning}>
+    <NodeContainer {...props} error={error} warning={warning}>
       <Value />
       <Settings />
       <NodeHandles

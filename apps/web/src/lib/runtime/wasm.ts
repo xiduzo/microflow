@@ -97,6 +97,14 @@ export type MidiListener = {
   deviceName: string;
 };
 
+/** A node's runtime health signal, shown on its UI badge (matches the Rust
+ *  `NodeDiagnostic` serde shape). `message: null` clears the node's diagnostic. */
+export type NodeDiagnostic = {
+  node: string;
+  level: "warning" | "error";
+  message: string | null;
+};
+
 /** The side effects of one runtime turn (matches the Rust `Effects` serde shape). */
 export type Effects = {
   outboundBytes: number[];
@@ -104,4 +112,5 @@ export type Effects = {
   wakeups: Wakeup[];
   cancellations: number[];
   cloudRequests: CloudRequest[];
+  nodeDiagnostics: NodeDiagnostic[];
 };

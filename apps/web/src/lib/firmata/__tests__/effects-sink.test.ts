@@ -4,6 +4,7 @@ import {
   type CloudRequest,
   type ComponentEvent,
   type EffectsSink,
+  type NodeDiagnostic,
   type Wakeup,
 } from "../effects-sink";
 import type { Effects } from "@/lib/runtime/wasm";
@@ -31,6 +32,9 @@ class Recorder implements EffectsSink {
   dispatchEvent(event: ComponentEvent): void {
     this.calls.push(`event:${event.sourceHandle}`);
   }
+  reportDiagnostic(diagnostic: NodeDiagnostic): void {
+    this.calls.push(`diag:${diagnostic.node}`);
+  }
 }
 
 function event(sourceHandle: string): ComponentEvent {
@@ -54,12 +58,20 @@ describe("applyEffects (ADR-0008 canonical order)", () => {
           prompt: "hi",
         },
       ],
+      nodeDiagnostics: [{ node: "i2c", level: "error", message: "no ACK" }],
     };
 
     const rec = new Recorder();
     applyEffects(fx, rec);
 
-    expect(rec.calls).toEqual(["write:3", "cancel:7", "arm:9", "cloud:llm", "event:value"]);
+    expect(rec.calls).toEqual([
+      "write:3",
+      "cancel:7",
+      "arm:9",
+      "cloud:llm",
+      "event:value",
+      "diag:i2c",
+    ]);
   });
 
   test("skips writeBytes when there are no outbound bytes", () => {
@@ -69,6 +81,7 @@ describe("applyEffects (ADR-0008 canonical order)", () => {
       wakeups: [],
       cancellations: [],
       cloudRequests: [],
+      nodeDiagnostics: [],
     };
 
     const rec = new Recorder();
