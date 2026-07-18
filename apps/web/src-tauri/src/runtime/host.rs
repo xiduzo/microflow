@@ -23,7 +23,7 @@ use microflow_core::runtime::cloud;
 use microflow_core::flow::FlowUpdate;
 use microflow_core::runtime::{
     CloudRequest, CloudRequestKind, ComponentBase, ComponentEvent, ComponentValue, Effects,
-    EffectsSink, FlowRuntime, SubscriberWiring, Wakeup, WakeupId,
+    EffectsSink, FlowRuntime, NodeDiagnostic, SubscriberWiring, Wakeup, WakeupId,
 };
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
@@ -432,6 +432,10 @@ impl EffectsSink for Actor {
 
     fn dispatch_event(&mut self, event: &ComponentEvent) {
         let _ = self.app.emit("component-event", event);
+    }
+
+    fn report_diagnostic(&mut self, diagnostic: &NodeDiagnostic) {
+        let _ = self.app.emit("node-diagnostic", diagnostic);
     }
 }
 

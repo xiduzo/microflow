@@ -72,9 +72,35 @@ pub enum CloudRequestKind {
     MidiSend { device_name: String, bytes: Vec<u8> },
 }
 
+/// Severity of a [`NodeDiagnostic`], mapped 1:1 onto the UI's existing per-node
+/// `error` (red) / `warning` (amber) badge on `NodeContainer`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DiagnosticLevel {
+    Warning,
+    Error,
+}
+
+/// A runtime health signal a node raises about *itself* — surfaced on the node
+/// in the UI (not routed across edges like a [`ComponentEvent`]). A hardware
+/// node uses this to report a fault it can only see at runtime, e.g. an I2C
+/// device whose reads never ACK ("too few bytes"). `message: None` clears any
+/// prior diagnostic on that node (recovery). Nodes should raise these only on a
+/// state *transition* so a per-poll failure doesn't spam the channel.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeDiagnostic {
+    /// The node the diagnostic is about (and displayed on).
+    pub node: String,
+    pub level: DiagnosticLevel,
+    /// The message to show; `None` clears the node's diagnostic.
+    pub message: Option<String>,
+}
+
 /// Everything the host must do after one runtime turn. Bytes go to the serial
 /// port, events to the UI stores, wakeups to host timers, cancellations clear
-/// timers that are no longer wanted, cloud requests go to the network.
+/// timers that are no longer wanted, cloud requests go to the network, node
+/// diagnostics go to the node's badge in the UI.
 #[derive(Debug, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Effects {
@@ -83,6 +109,7 @@ pub struct Effects {
     pub wakeups: Vec<Wakeup>,
     pub cancellations: Vec<WakeupId>,
     pub cloud_requests: Vec<CloudRequest>,
+    pub node_diagnostics: Vec<NodeDiagnostic>,
 }
 
 /// The per-field hook surface a **Runtime Host** implements to apply one turn's
@@ -111,12 +138,15 @@ pub trait EffectsSink {
     /// Deliver a component event to the UI (desktop Tauri `emit`, browser store
     /// ingest). These leave the runtime and do not feed back this turn.
     fn dispatch_event(&mut self, event: &ComponentEvent);
+    /// Surface a node's runtime health on its UI badge (desktop Tauri `emit`,
+    /// browser store write). `message: None` clears the node's diagnostic.
+    fn report_diagnostic(&mut self, diagnostic: &NodeDiagnostic);
 }
 
 impl Effects {
     /// Apply this turn's effects to `sink` in the **canonical order** (ADR-0008,
     /// extended by ADR-0009): `outbound_bytes → cancellations → wakeups →
-    /// cloud_requests → component_events`.
+    /// cloud_requests → component_events → node_diagnostics`.
     ///
     /// - Bytes first: lowest wire latency for the turn's hardware writes.
     /// - Cancel before arm: a cancel + re-arm of the same logical timer in one
@@ -145,6 +175,9 @@ impl Effects {
         for event in &self.component_events {
             sink.dispatch_event(event);
         }
+        for diagnostic in &self.node_diagnostics {
+            sink.report_diagnostic(diagnostic);
+        }
     }
 }
 
@@ -161,6 +194,9 @@ pub struct ScheduleRequests {
     /// this turn (ADR-0009). Resolved into [`Effects::cloud_requests`] when the
     /// turn drains.
     pub cloud_requests: Vec<(String, CloudRequestKind)>,
+    /// Runtime health signals nodes raised about themselves this turn. Resolved
+    /// into [`Effects::node_diagnostics`] when the turn drains.
+    pub diagnostics: Vec<NodeDiagnostic>,
 }
 
 /// Capabilities handed to a component for the duration of one dispatch call:
@@ -228,6 +264,27 @@ impl<'a> RuntimeContext<'a> {
             .cloud_requests
             .push((self.node_id.to_string(), kind));
     }
+
+    /// Raise a runtime diagnostic on this node (shown on its UI badge). Use for a
+    /// fault the node can only detect at runtime — e.g. an I2C read that never
+    /// ACKs. Raise on a state *transition* only, so a per-poll failure doesn't
+    /// spam. Clear with [`clear_diagnostic`](Self::clear_diagnostic) on recovery.
+    pub fn report_diagnostic(&mut self, level: DiagnosticLevel, message: impl Into<String>) {
+        self.requests.diagnostics.push(NodeDiagnostic {
+            node: self.node_id.to_string(),
+            level,
+            message: Some(message.into()),
+        });
+    }
+
+    /// Clear any diagnostic previously shown on this node (recovery).
+    pub fn clear_diagnostic(&mut self) {
+        self.requests.diagnostics.push(NodeDiagnostic {
+            node: self.node_id.to_string(),
+            level: DiagnosticLevel::Error,
+            message: None,
+        });
+    }
 }
 
 #[cfg(test)]
@@ -246,6 +303,7 @@ mod apply_tests {
         Arm(WakeupId),
         Cloud(String),
         Event(String),
+        Diagnostic(String),
     }
 
     #[derive(Default)]
@@ -268,6 +326,9 @@ mod apply_tests {
         }
         fn dispatch_event(&mut self, event: &ComponentEvent) {
             self.calls.push(Call::Event(event.source_handle.to_string()));
+        }
+        fn report_diagnostic(&mut self, diagnostic: &NodeDiagnostic) {
+            self.calls.push(Call::Diagnostic(diagnostic.node.clone()));
         }
     }
 
@@ -306,6 +367,11 @@ mod apply_tests {
                     prompt: "hi".to_string(),
                 },
             }],
+            node_diagnostics: vec![NodeDiagnostic {
+                node: "i2c".to_string(),
+                level: DiagnosticLevel::Error,
+                message: Some("no ACK".to_string()),
+            }],
         };
 
         let mut rec = Recorder::default();
@@ -319,6 +385,7 @@ mod apply_tests {
                 Call::Arm(9),
                 Call::Cloud("llm".to_string()),
                 Call::Event("value".to_string()),
+                Call::Diagnostic("i2c".to_string()),
             ],
             "effects must apply in the canonical order with no double-fire"
         );
