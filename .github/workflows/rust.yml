@@ -32,7 +32,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libudev-dev
+            libudev-dev \
+            libasound2-dev
 
       # Whole workspace: app_lib plus the extracted microflow-core and
       # microflow-codegen-wasm crates (the browser code generator).
@@ -62,7 +63,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libudev-dev
+            libudev-dev \
+            libasound2-dev
 
       - name: Test
         run: cargo test --workspace --lib --tests
