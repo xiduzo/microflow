@@ -151,6 +151,7 @@ fn hash01(n: f64) -> f64 {
 /// Bounded random walk in [0, shift+amplitude): linear interpolation between a
 /// random lattice value per period — the output drifts to a new random target
 /// every `period` ms instead of jumping every sample like `Random`.
+#[allow(clippy::many_single_char_names)] // t/i/f/a/b are the conventional noise-lattice names
 fn random_walk(config: &OscillatorConfig, timestamp: f64) -> f64 {
     let t = (timestamp + config.phase) / config.period;
     let i = t.floor();
@@ -161,6 +162,7 @@ fn random_walk(config: &OscillatorConfig, timestamp: f64) -> f64 {
 }
 
 /// Smoothstep-faded value noise in [0, 1) with `period` as the wavelength.
+#[allow(clippy::many_single_char_names)] // t/i/f/u/a/b are the conventional noise-lattice names
 fn value_noise(t: f64) -> f64 {
     let i = t.floor();
     let f = t - i;

@@ -195,19 +195,16 @@ impl Midi {
         if let Some(note) = self.sounding.take() {
             self.send_bytes(ctx, vec![self.status(NOTE_OFF), note, 0]);
         }
-        match self.steps.get(self.cursor).copied() {
-            Some(step) => {
-                self.cursor += 1;
-                if let Some(note) = step.note {
-                    self.send_bytes(ctx, vec![self.status(NOTE_ON), note, step.velocity]);
-                    self.sounding = Some(note);
-                }
-                ctx.schedule_wakeup("_note", step.duration_ms);
+        if let Some(step) = self.steps.get(self.cursor).copied() {
+            self.cursor += 1;
+            if let Some(note) = step.note {
+                self.send_bytes(ctx, vec![self.status(NOTE_ON), note, step.velocity]);
+                self.sounding = Some(note);
             }
-            None => {
-                self.is_playing = false;
-                self.base.set_value(ComponentValue::Number(0.0));
-            }
+            ctx.schedule_wakeup("_note", step.duration_ms);
+        } else {
+            self.is_playing = false;
+            self.base.set_value(ComponentValue::Number(0.0));
         }
         Ok(())
     }

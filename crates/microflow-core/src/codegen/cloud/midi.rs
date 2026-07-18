@@ -3,7 +3,7 @@
 //! The live Midi node speaks to host MIDI ports (Web MIDI / `midir`). On-device
 //! there is no host: the generated sketch speaks **serial MIDI** (the DIN-5 jack
 //! / MIDI shield convention, 31250 baud on the board's primary hardware serial)
-//! via the ubiquitous FortySevenEffects Arduino MIDI Library (`MIDI.h`),
+//! via the ubiquitous `FortySevenEffects` Arduino MIDI Library (`MIDI.h`),
 //! `MIDI_CREATE_DEFAULT_INSTANCE()`. The node's `deviceName` filter is
 //! meaningless here — the jack IS the device — and validation warns that the
 //! hardware UART is claimed.
