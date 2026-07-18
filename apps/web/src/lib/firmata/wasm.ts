@@ -9,6 +9,7 @@
 // ./web-serial.ts, because WASM cannot block on the Web Serial Promises.
 
 import init, {
+  BringUpMachine,
   FirmataSession,
   FlashSession,
   parseHex as wasmParseHex,
@@ -20,7 +21,44 @@ import init, {
 // loads correctly in dev and after a production build with no extra Vite plugin.
 import wasmUrl from "./generated/microflow_firmata_wasm_bg.wasm?url";
 
-export { FirmataSession, FlashSession };
+export { BringUpMachine, FirmataSession, FlashSession };
+
+// --- Bring-up policy (microflow_core::bringup, shared with the desktop) -----
+
+/** An event fed into the shared bring-up state machine. */
+export type BringUpEvent =
+  | { type: "portReady"; board: string | null; autoFlash: boolean; explicit: boolean }
+  | { type: "probeOk" }
+  | { type: "probeFailed" }
+  | { type: "flashProgress"; done: number; total: number }
+  | { type: "flashOk" }
+  | { type: "flashFailed"; detail: string }
+  | { type: "connectionLost" }
+  | { type: "portGone" }
+  | { type: "disconnectRequested" };
+
+/** A UI-facing bring-up phase; the adapter maps it onto `BoardState`. */
+export type BringUpPhase =
+  | { kind: "disconnected" }
+  | { kind: "connecting" }
+  | { kind: "flashing"; board: string }
+  | { kind: "connected" }
+  | { kind: "error"; detail: string };
+
+/** An action the machine tells the host to perform, in order. */
+export type BringUpAction =
+  | { type: "probe"; afterFlash: boolean }
+  | { type: "flash"; board: string }
+  | { type: "closePort" }
+  | { type: "scheduleRetry" }
+  | { type: "notify"; phase: BringUpPhase }
+  | { type: "notifyFlashProgress"; percent: number };
+
+/** Create the shared bring-up state machine (the policy lives in Rust). */
+export async function createBringUp(): Promise<BringUpMachine> {
+  await ensureFirmataReady();
+  return new BringUpMachine();
+}
 
 /** Create a flashing session for a board id + raw flash image. */
 export async function createFlashSession(

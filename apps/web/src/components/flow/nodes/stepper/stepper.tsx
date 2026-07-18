@@ -159,7 +159,8 @@ type Props = BaseNode<Data>;
 Stepper.defaultProps = {
   data: {
     ...dataSchema.parse({}),
-    group: "express",
+    // Keep in sync with stepper.schema.ts — hidden until firmware supports AccelStepper.
+    group: "internal",
     tags: ["action", "value"],
     label: "Stepper",
     icon: "CogIcon",

@@ -2,11 +2,13 @@ import { useMemo } from "react";
 import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import {
+  ActivityIcon,
   AudioWaveformIcon,
   DicesIcon,
   SquareIcon,
   TriangleIcon,
   TriangleRightIcon,
+  WavesIcon,
   type LucideIcon,
 } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
@@ -45,6 +47,10 @@ function Value() {
         return SquareIcon;
       case "random":
         return DicesIcon;
+      case "randomwalk":
+        return ActivityIcon;
+      case "perlin":
+        return WavesIcon;
       default:
         return AudioWaveformIcon;
     }
@@ -58,7 +64,7 @@ function Settings() {
   const { render } = useNodeControls({
     waveform: {
       value: data.waveform,
-      options: ["sinus", "triangle", "sawtooth", "square", "random"],
+      options: ["sinus", "triangle", "sawtooth", "square", "random", "randomwalk", "perlin"],
     },
     period: {
       value: data.period,

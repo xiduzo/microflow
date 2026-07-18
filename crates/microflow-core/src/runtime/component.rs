@@ -144,6 +144,17 @@ pub trait Component {
         Vec::new()
     }
 
+    /// The MIDI-input interest this component declares: `Some(device filter)`
+    /// (a case-insensitive substring of the host port name, "" = every device)
+    /// for a MIDI listener, `None` for everything else. Unlike
+    /// [`subscriber_wiring`](Component::subscriber_wiring) there is no
+    /// one-owner-per-topic reconcile — every listener whose filter matches a
+    /// device receives every message from it (via
+    /// [`receive_raw_message`](Component::receive_raw_message)).
+    fn midi_wiring(&self) -> Option<String> {
+        None
+    }
+
     /// Board-wide reconcile votes this component contributes — the desired
     /// sampling interval, I2C read-delay, and continuous read, each targeting a
     /// single global Firmata setting the runtime reconciles across all components

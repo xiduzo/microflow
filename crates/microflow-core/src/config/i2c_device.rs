@@ -28,21 +28,14 @@ use serde::{Deserialize, Serialize};
 
 /// How the raw I2C reply bytes are decoded into a value.
 ///
-/// # Decode contract (the single authority both interpreters transcribe)
-/// This enum is the shared spec for a decode that necessarily exists twice — once
-/// as a Rust fold in the live runtime (`runtime/input/i2c_device.rs::convert_bytes`,
-/// producing a `ComponentValue`) and once as a C++ fold the sketch emitter writes
+/// # Decode contract (the single authority both interpreters consume)
+/// Each variant maps to one [`ByteDecode`] descriptor via [`OutputFormat::decode`].
+/// The live runtime *interprets* the descriptor over received bytes
+/// (`runtime/input/i2c_device.rs` → [`fold_bytes`], producing a `ComponentValue`)
+/// and the sketch emitter *transcribes* it to a C++ fold
 /// (`codegen/input/i2c_device.rs`, producing a `long`). The two languages cannot
-/// share executable code, so they share this contract instead — keep both folds
-/// matching it:
-/// - **`Raw`** — every byte preserved, in order (runtime: an array; sketch: n/a).
-/// - **`UnsignedInt`** — big-endian, at most the first **4** bytes folded (`u32`).
-/// - **`SignedInt`** — big-endian, at most **4** bytes, two's-complement
-///   **sign-extended from the most-significant byte** (bit 7 of `data[0]`).
-///
-/// A change to any bullet above is a change both folds must make together; the
-/// mirrored `convert_bytes` tests and the codegen `i2c_sign_extends_*` tests guard
-/// that they stay in lockstep.
+/// share executable code, so the arithmetic/branching lives here ONCE and the
+/// `codegen/parity.rs` `I2cDevice` case pins the emitted C++ to the descriptor.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputFormat {
@@ -56,6 +49,62 @@ pub enum OutputFormat {
     UnsignedInt,
     #[serde(alias = "Signed int")]
     SignedInt,
+}
+
+/// The decode an [`OutputFormat`] applies to the raw reply bytes — the shared
+/// descriptor both consumers derive from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByteDecode {
+    /// Every byte preserved, in order. The runtime yields an array; the sketch
+    /// has no byte-array value model and folds like `Fold { sign_extend: false }`
+    /// — the closest single-value approximation, recorded in `codegen/parity.rs`.
+    Raw,
+    /// Big-endian shift-or of at most [`OutputFormat::FOLD_BYTE_CAP`] bytes into
+    /// a 32-bit value; trailing bytes are read off the bus but ignored.
+    /// `sign_extend` seeds the accumulator two's-complement from bit 7 of the
+    /// FIRST (most-significant) byte.
+    Fold { sign_extend: bool },
+}
+
+impl OutputFormat {
+    /// At most this many reply bytes fold into the value — the 32-bit
+    /// accumulator width, on BOTH targets (runtime `u32`/`i32`, sketch `long`).
+    pub const FOLD_BYTE_CAP: usize = 4;
+
+    /// The decode descriptor this format performs.
+    #[must_use]
+    pub fn decode(self) -> ByteDecode {
+        match self {
+            Self::Raw => ByteDecode::Raw,
+            Self::UnsignedInt => ByteDecode::Fold { sign_extend: false },
+            Self::SignedInt => ByteDecode::Fold { sign_extend: true },
+        }
+    }
+}
+
+/// Interpret a [`ByteDecode::Fold`] over received bytes — the runtime's live
+/// decode, and the reference the emitted C++ fold transcribes: big-endian
+/// shift-or of the first [`OutputFormat::FOLD_BYTE_CAP`] bytes, optionally
+/// sign-extended from bit 7 of the first byte. Empty input decodes to 0.
+#[must_use]
+pub fn fold_bytes(sign_extend: bool, data: &[u8]) -> f64 {
+    let data = &data[..data.len().min(OutputFormat::FOLD_BYTE_CAP)];
+    if sign_extend {
+        let mut value: i32 = match data.first() {
+            Some(&msb) if msb & 0x80 != 0 => -1,
+            _ => 0,
+        };
+        for &byte in data {
+            value = (value << 8) | i32::from(byte);
+        }
+        f64::from(value)
+    } else {
+        let mut value: u32 = 0;
+        for &byte in data {
+            value = (value << 8) | u32::from(byte);
+        }
+        f64::from(value)
+    }
 }
 
 /// Deserialized configuration for the generic `I2cDevice` node. Ungated (no
@@ -212,6 +261,28 @@ pub fn is_no_hold_sht2x(device: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[allow(clippy::float_cmp)] // every folded value is an exact integer in f64
+    fn fold_bytes_is_big_endian_capped_and_sign_extends() {
+        // Big-endian: MSB first (0x0102 = 258).
+        assert_eq!(fold_bytes(false, &[0x01, 0x02]), 258.0);
+        // High bit set stays positive unsigned, sign-extends signed.
+        assert_eq!(fold_bytes(false, &[0xFF, 0xFF]), 65535.0);
+        assert_eq!(fold_bytes(true, &[0xFF, 0xFF]), -1.0);
+        assert_eq!(fold_bytes(true, &[0x00, 0x2A]), 42.0);
+        // Empty decodes to 0, signed or not.
+        assert_eq!(fold_bytes(true, &[]), 0.0);
+        // Only the FIRST `FOLD_BYTE_CAP` bytes fold; trailing bytes are ignored.
+        assert_eq!(fold_bytes(false, &[1, 2, 3, 4, 5]), f64::from(0x0102_0304_u32));
+    }
+
+    #[test]
+    fn every_format_maps_to_its_decode_descriptor() {
+        assert_eq!(OutputFormat::Raw.decode(), ByteDecode::Raw);
+        assert_eq!(OutputFormat::UnsignedInt.decode(), ByteDecode::Fold { sign_extend: false });
+        assert_eq!(OutputFormat::SignedInt.decode(), ByteDecode::Fold { sign_extend: true });
+    }
 
     #[test]
     fn normalizes_stale_device_label_to_preset_id() {

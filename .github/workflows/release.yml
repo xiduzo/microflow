@@ -149,7 +149,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libudev-dev
+            libudev-dev \
+            libasound2-dev
 
       - name: Install dependencies
         run: bun install

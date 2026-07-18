@@ -30,8 +30,9 @@ pub use events::{BoardStateObserver, EventEmitter};
 pub use port_monitor::{PortMonitor, SerialPortInfo};
 pub use types::BoardState;
 
-use crate::flasher::{BoardConfig, Flasher};
+use crate::flasher::{BoardConfig, BoardType, Flasher};
 use crate::runtime::host::BoardLink;
+use microflow_core::bringup::{Action as BringUpAction, BringUp, Event as BringUpEvent, Phase};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -125,12 +126,25 @@ impl Drop for HardwareService {
 // Monitor Loop - Background orchestration
 // ============================================================================
 
-/// Encapsulates the monitoring loop and board lifecycle management
+/// Encapsulates the monitoring loop and board lifecycle management.
+///
+/// The bring-up *policy* (probe → flash-if-missing → connect → reconnect and
+/// the `BoardState` transitions) lives in [`microflow_core::bringup`], shared
+/// with the browser host; this loop is the desktop adapter that performs its
+/// actions with real serial/flasher I/O.
 struct HardwareMonitorLoop {
     events: EventEmitter,
     monitoring: Arc<AtomicBool>,
     board: BoardLink,
     known_devices: HashMap<String, SerialPortInfo>,
+    bringup: BringUp,
+    /// Port name of the current bring-up attempt / live connection.
+    attempt_port: Option<String>,
+    /// Recognised board type of the current attempt (flash target).
+    attempt_board: Option<BoardType>,
+    /// Full `Connected` payload from the latest successful probe, published
+    /// when the machine says `Phase::Connected`.
+    last_connected: Option<BoardState>,
 }
 
 impl HardwareMonitorLoop {
@@ -145,6 +159,10 @@ impl HardwareMonitorLoop {
             monitoring,
             board,
             known_devices: HashMap::new(),
+            bringup: BringUp::new(),
+            attempt_port: None,
+            attempt_board: None,
+            last_connected: None,
         }
     }
 
@@ -197,8 +215,9 @@ impl HardwareMonitorLoop {
             for id in stale {
                 if let Some(port) = self.known_devices.remove(&id) {
                     log::info!("Board on {} lost connection without USB disconnect, re-detecting", port.port_name);
-                    self.board.disconnect();
-                    self.events.board_disconnected();
+                    // ScheduleRetry is a no-op here: this poll loop *is* the
+                    // retry (the port re-enters `handle_port_connected` next tick).
+                    self.drive(BringUpEvent::ConnectionLost);
                 }
             }
         }
@@ -245,114 +264,120 @@ impl HardwareMonitorLoop {
             return;
         }
 
-        // Check if this is a known board type before processing
-        let is_known_board = port
+        let board_type = port
             .usb_ids()
-            .and_then(|(vid, pid)| BoardConfig::detect_from_usb(vid, pid))
-            .is_some();
+            .and_then(|(vid, pid)| BoardConfig::detect_from_usb(vid, pid));
 
-        // Only process USB ports for board detection
-        let board_state = if port.is_usb() {
-            self.process_usb_port(&port)
-        } else {
+        // Only USB ports are bring-up candidates; and while a board is live the
+        // machine ignores new ports (it must not steal the connection).
+        if port.is_usb() && !self.bringup.is_connected() {
+            log::info!("Bring-up candidate on {} (board: {board_type:?})", port.port_name);
+            self.attempt_port = Some(port.port_name.clone());
+            self.attempt_board = board_type;
+            self.drive(BringUpEvent::PortReady {
+                board: board_type.map(|b| b.as_str().to_string()),
+                // The desktop always flashes recognised boards with no Firmata,
+                // and surfaces their failures (a recognised board that won't
+                // connect is worth an error; a random serial device is not).
+                auto_flash: board_type.is_some(),
+                explicit: board_type.is_some(),
+            });
+        } else if !port.is_usb() {
             log::debug!("Skipping non-USB port: {}", port.port_name);
-            None
-        };
+        }
 
-        port.has_firmata = Some(board_state.is_some());
-        self.known_devices.insert(device_id.clone(), port.clone());
+        port.has_firmata = Some(self.bringup.is_connected());
+        self.known_devices.insert(device_id, port.clone());
 
-        // Emit events
         log::info!(
             "Port connected: {} (Firmata: {})",
             port.port_name,
             port.has_firmata.unwrap_or(false)
         );
         self.events.port_connected(&port);
-
-        match board_state {
-            Some(state) => self.events.board_state(&state),
-            // Only emit error for known boards that failed - unknown USB devices
-            // without Firmata are just ignored (no board_disconnected spam)
-            None if is_known_board => self.events.no_firmata_error(&port.port_name),
-            None => {} // Don't emit board_disconnected for unknown devices
-        }
     }
 
-    fn handle_port_disconnected(&self, port: &SerialPortInfo) {
+    fn handle_port_disconnected(&mut self, port: &SerialPortInfo) {
         log::info!("Port disconnected: {}", port.port_name);
         self.events.port_disconnected(port);
 
         if port.has_firmata == Some(true) {
-            // Disconnect the shared board handle
-            self.board.disconnect();
-            self.events.board_disconnected();
+            self.drive(BringUpEvent::PortGone);
         }
     }
 
-    /// Process a USB port: detect board, flash if needed, detect Firmata
-    fn process_usb_port(&self, port: &SerialPortInfo) -> Option<BoardState> {
-        // Try to identify board by USB IDs
-        let board_type = port
-            .usb_ids()
-            .and_then(|(vid, pid)| BoardConfig::detect_from_usb(vid, pid));
-
-        if let Some(bt) = board_type {
-            log::info!("Detected {:?} on {} by USB IDs", bt, port.port_name);
-            return self.handle_known_board(port, bt);
+    /// Feed one event into the shared bring-up machine and perform the actions
+    /// it returns. Actions that resolve synchronously (probe, flash) feed their
+    /// result straight back in, so one `PortReady` drives the whole bring-up.
+    fn drive(&mut self, event: BringUpEvent) {
+        for action in self.bringup.handle(event) {
+            self.perform(action);
         }
-
-        // Unknown USB device - just try Firmata detection
-        log::info!("Unknown USB device on {}, trying Firmata", port.port_name);
-        self.events.board_connecting();
-        firmata::detect_and_connect(&port.port_name, &self.board)
     }
 
-    /// Handle a known Arduino board type
-    fn handle_known_board(
-        &self,
-        port: &SerialPortInfo,
-        board_type: crate::flasher::BoardType,
-    ) -> Option<BoardState> {
-        // First check if Firmata is already running
-        self.events.board_connecting();
-        if let Some(state) = firmata::detect_and_connect(&port.port_name, &self.board) {
-            log::info!("Firmata already running on {board_type:?}");
-            return Some(state);
-        }
-
-        // No Firmata - flash StandardFirmata
-        log::info!("No Firmata on {board_type:?}, flashing...");
-        self.flash_and_detect(port, board_type)
-    }
-
-    /// Flash `StandardFirmata` and detect
-    fn flash_and_detect(
-        &self,
-        port: &SerialPortInfo,
-        board_type: crate::flasher::BoardType,
-    ) -> Option<BoardState> {
-        self.events.board_flashing(&port.port_name, board_type.as_str());
-
-        // Small delay for port readiness
-        thread::sleep(Duration::from_millis(500));
-
-        match Flasher::flash_standard_firmata(&port.port_name, board_type) {
-            Ok(result) => {
-                log::info!("Flash successful: {}", result.message);
-
-                // Wait for board reset
-                thread::sleep(Duration::from_millis(2500));
-
-                // Detect Firmata and connect
-                self.events.board_connecting();
-                firmata::detect_and_connect(&port.port_name, &self.board)
+    fn perform(&mut self, action: BringUpAction) {
+        let port_name = self.attempt_port.clone().unwrap_or_default();
+        match action {
+            BringUpAction::Probe { after_flash } => {
+                if after_flash {
+                    // Wait for the board to reboot into the fresh sketch.
+                    thread::sleep(Duration::from_millis(2500));
+                }
+                match firmata::detect_and_connect(&port_name, &self.board) {
+                    Some(state) => {
+                        self.last_connected = Some(state);
+                        self.drive(BringUpEvent::ProbeOk);
+                    }
+                    None => self.drive(BringUpEvent::ProbeFailed),
+                }
             }
-            Err(e) => {
-                log::error!("Flash failed: {e}");
-                self.events.board_error(&format!("Flash failed: {e}"));
-                None
+            BringUpAction::Flash { board } => {
+                // Small delay for port readiness after the failed probe.
+                thread::sleep(Duration::from_millis(500));
+                let board_type = self
+                    .attempt_board
+                    .or_else(|| BoardType::from_id(&board));
+                let result = match board_type {
+                    Some(bt) => Flasher::flash_standard_firmata(&port_name, bt)
+                        .map_err(|e| e.to_string()),
+                    None => Err(format!("unknown board type '{board}'")),
+                };
+                match result {
+                    Ok(result) => {
+                        log::info!("Flash successful: {}", result.message);
+                        self.drive(BringUpEvent::FlashOk);
+                    }
+                    Err(detail) => {
+                        log::error!("Flash failed: {detail}");
+                        self.drive(BringUpEvent::FlashFailed { detail });
+                    }
+                }
             }
+            BringUpAction::ClosePort => self.board.disconnect(),
+            // The 250ms poll loop is the desktop's retry mechanism already.
+            BringUpAction::ScheduleRetry => {}
+            // The desktop flasher reports no incremental progress today.
+            BringUpAction::NotifyFlashProgress { .. } => {}
+            BringUpAction::Notify { phase } => self.publish(&phase),
+        }
+    }
+
+    /// Map a machine [`Phase`] onto the `board-state` event, filling host-side
+    /// payloads (probe result, port name). `Error.detail` passes through
+    /// verbatim — the UI shows it in full (commit `7c8f7e2`).
+    fn publish(&self, phase: &Phase) {
+        match phase {
+            Phase::Connecting => self.events.board_connecting(),
+            Phase::Flashing { board } => {
+                let port = self.attempt_port.as_deref().unwrap_or_default();
+                self.events.board_flashing(port, board);
+            }
+            Phase::Connected => match &self.last_connected {
+                Some(state) => self.events.board_state(state),
+                None => self.events.board_error("probe succeeded but produced no board state"),
+            },
+            Phase::Disconnected => self.events.board_disconnected(),
+            Phase::Error { detail } => self.events.board_error(detail),
         }
     }
 }

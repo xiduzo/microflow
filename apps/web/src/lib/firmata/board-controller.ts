@@ -1,18 +1,18 @@
-// Browser board orchestration — the web counterpart to the desktop hardware
-// monitor (`apps/web/src-tauri/src/hardware/mod.rs`). The desktop polls serial
-// ports in a background thread and, for any recognised board, probes Firmata →
-// flashes StandardFirmata if missing → connects, all with zero clicks. The
-// browser cannot poll arbitrary ports (Web Serial requires a user gesture +
-// picker to *authorise* a device), but once a device is granted it behaves much
-// like the desktop:
+// Browser board bring-up adapter — the web counterpart to the desktop hardware
+// monitor (`apps/web/src-tauri/src/hardware/mod.rs`). The bring-up POLICY —
+// probe → flash StandardFirmata if missing → connect → auto-reconnect, plus the
+// disconnected→connecting→flashing→connected→error transitions — lives once in
+// the shared sans-IO `microflow_core::bringup` state machine (via the firmata
+// wasm crate); both hosts drive the same machine. This module only:
 //
-//   • on load            → `getPorts()` reconnects a granted board (no picker)
-//   • on plug-in         → the `connect` event reconnects it
-//   • on unplug / reset  → tear down and go disconnected
-//   • connect (gesture)  → probe → flash-if-missing → connect, one action
+//   • feeds Web Serial happenings in as machine events (plug/unplug, gesture,
+//     probe/flash results), and
+//   • performs the actions the machine returns (serial probe, flash via the
+//     shared codec, Zustand store updates, toasts).
 //
-// So the only irreducible manual step is the first-time authorise per device.
-// Everything here drives the shared wasm codec/flasher via ./web-serial.
+// Web Serial cannot poll arbitrary ports (a user gesture + picker authorises a
+// device), so the only irreducible manual step is the first-time authorise per
+// device; granted boards auto-reconnect on load / plug-in / reset like desktop.
 
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
@@ -23,15 +23,27 @@ import { useFigmaStore } from "@/stores/figma";
 import { useLlmProviderStore } from "@/stores/llm-provider";
 import { useMqttBrokerStore } from "@/stores/mqtt-broker";
 import {
-  bringUpBoard,
+  connectedState,
   detectBoard,
+  flashPort,
   isWebSerialSupported,
   listGrantedPorts,
   onSerialConnectivity,
+  portLabel,
+  probeAfterFlash,
+  probeFirmata,
   requestBoardPort,
   type BoardConnection,
+  type ProbeHooks,
   type WebSerialPort,
 } from "./web-serial";
+import {
+  createBringUp,
+  type BringUpAction,
+  type BringUpEvent,
+  type BringUpMachine,
+  type BringUpPhase,
+} from "./wasm";
 import { FlowReactor, type CloudDeps } from "./flow-reactor";
 
 /** Cloud lookups the reactor needs to perform cloud requests (ADR-0009). Read
@@ -56,12 +68,15 @@ const cloudDeps: CloudDeps = {
   },
 };
 
-/** The single active browser board connection (the desktop owns its own). */
+/** The single active browser board connection — the adapter's I/O handle; every
+ *  DECISION about it comes from the shared bring-up machine. */
 let active: BoardConnection | null = null;
 /** The wasm flow-runtime host for the active connection. */
 let reactor: FlowReactor | null = null;
 /** Latest core `FlowUpdate`, applied when a board attaches. */
 let latestFlow: CoreFlowUpdate | null = null;
+/** The shared bring-up policy machine (lazy: wasm loads on first use). */
+let machinePromise: Promise<BringUpMachine> | null = null;
 let started = false;
 // Serialise every port operation so connect / auto-reconnect / plug events never
 // race to open the same port.
@@ -81,14 +96,6 @@ function setBoard(state: BoardState): void {
   useBoardStore.getState().setBoard(state);
 }
 
-async function teardownActive(): Promise<void> {
-  reactor?.dispose();
-  reactor = null;
-  const connection = active;
-  active = null;
-  await connection?.disconnect();
-}
-
 /**
  * Push the latest flow graph to the runtime. Called by `WasmFlowUpdateSender`
  * on every graph change; stored so a board connecting later starts on the
@@ -99,98 +106,197 @@ export function pushFlowUpdate(flow: CoreFlowUpdate): void {
   reactor?.applyFlow(flow);
 }
 
-/** Build the bring-up callbacks, wiring board state + a single flashing toast. */
-function makeBringUp() {
-  let flashToast: string | number | undefined;
-  let flashedBoard: string | undefined;
-  const options = {
-    onState: (state: BoardState) => {
-      setBoard(state);
-      if (state.state === "flashing") {
-        flashedBoard = state.board;
-        if (flashToast === undefined) flashToast = toast.loading("Flashing StandardFirmata…");
-      }
-    },
-    onBytes: (bytes: Uint8Array) => {
-      // Raw inbound bytes drive the wasm flow runtime (it owns its own decode).
-      reactor?.feedBytes(bytes);
-    },
-    onProgress: (done: number, total: number) => {
-      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-      flashToast = toast.loading(`Flashing StandardFirmata… ${pct}%`, { id: flashToast });
-    },
-    onClosed: () => {
-      // The board reset or was unplugged mid-session — drop to disconnected,
-      // then try to recover. A reset keeps the USB device present (no `connect`
-      // event fires), so rescanning granted ports re-detects it, mirroring the
-      // desktop poll's implicit-disconnect handling.
-      if (active) {
-        reactor?.dispose();
-        reactor = null;
-        active = null;
-        setBoard({ state: "disconnected" });
-        void run(reconnectGranted);
-      }
-    },
+// --- Machine adapter --------------------------------------------------------
+
+/** Host-side bookkeeping for the bring-up attempt in flight (toast ids,
+ *  analytics facts) — presentation only; the machine owns the decisions. */
+type Attempt = {
+  port: WebSerialPort;
+  explicit: boolean;
+  startedAt: number;
+  board: string;
+  flashed: boolean;
+  flashToast?: string | number;
+};
+let attempt: Attempt | null = null;
+
+function trackData(a: Attempt) {
+  return {
+    via: a.explicit ? "gesture" : "auto",
+    board: a.board,
+    flashed: a.flashed,
+    seconds: Math.round((performance.now() - a.startedAt) / 1000),
   };
-  const settle = (ok: boolean) => {
-    if (flashToast === undefined) return;
-    if (ok) toast.success(`Flashed StandardFirmata to ${flashedBoard ?? "board"}.`, { id: flashToast });
-    else toast.dismiss(flashToast);
-  };
-  return { options, settle };
 }
 
+/** Feed one event into the shared machine and perform the returned actions. */
+async function dispatch(event: BringUpEvent): Promise<void> {
+  machinePromise ??= createBringUp();
+  const machine = await machinePromise;
+  const actions = JSON.parse(machine.handle(JSON.stringify(event))) as BringUpAction[];
+  for (const action of actions) {
+    await perform(action);
+  }
+}
+
+/** The probe hooks: raw bytes feed the flow runtime; an unexpected read-loop
+ *  end while connected re-enters the machine as `connectionLost`. */
+function probeHooks(): ProbeHooks {
+  return {
+    onBytes: (bytes) => reactor?.feedBytes(bytes),
+    onClosed: () => void run(() => dispatch({ type: "connectionLost" })),
+  };
+}
+
+async function perform(action: BringUpAction): Promise<void> {
+  switch (action.type) {
+    case "probe": {
+      const a = attempt;
+      if (!a) return;
+      const probe = action.afterFlash ? probeAfterFlash : probeFirmata;
+      const connection = await probe(a.port, probeHooks()).catch(() => null);
+      if (connection) {
+        active = connection;
+        await dispatch({ type: "probeOk" });
+      } else {
+        await dispatch({ type: "probeFailed" });
+      }
+      break;
+    }
+    case "flash": {
+      const a = attempt;
+      if (!a) return;
+      try {
+        await flashPort(a.port, {
+          onProgress: (done, total) => void dispatch({ type: "flashProgress", done, total }),
+        });
+        await dispatch({ type: "flashOk" });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        await dispatch({ type: "flashFailed", detail });
+      }
+      break;
+    }
+    case "closePort": {
+      reactor?.dispose();
+      reactor = null;
+      const connection = active;
+      active = null;
+      await connection?.disconnect();
+      break;
+    }
+    case "scheduleRetry":
+      // A reset keeps the USB device present (no `connect` event fires), so
+      // rescanning granted ports re-detects it — the browser's retry primitive.
+      void run(reconnectGranted);
+      break;
+    case "notifyFlashProgress": {
+      if (attempt?.flashToast !== undefined) {
+        attempt.flashToast = toast.loading(`Flashing StandardFirmata… ${action.percent}%`, {
+          id: attempt.flashToast,
+        });
+      }
+      break;
+    }
+    case "notify":
+      await applyPhase(action.phase);
+      break;
+  }
+}
+
+/** Map a machine phase onto the board store + toasts (presentation only). */
+async function applyPhase(phase: BringUpPhase): Promise<void> {
+  const a = attempt;
+  switch (phase.kind) {
+    case "connecting":
+      setBoard({ state: "connecting" });
+      break;
+    case "flashing": {
+      if (a) {
+        a.flashed = true;
+        a.board = phase.board;
+        a.flashToast ??= toast.loading("Flashing StandardFirmata…");
+      }
+      setBoard({
+        state: "flashing",
+        port: a ? portLabel(a.port.getInfo()) : "Serial port",
+        board: phase.board,
+      });
+      break;
+    }
+    case "connected": {
+      if (active) setBoard(connectedState(active.port, active.session));
+      if (a?.flashToast !== undefined) {
+        toast.success(`Flashed StandardFirmata to ${a.board}.`, { id: a.flashToast });
+        a.flashToast = undefined;
+      }
+      // Stand up the wasm flow runtime for this connection and apply the
+      // current flow. A reactor failure (e.g. wasm load) must not fail the
+      // connection — the board is still up; the flow just won't run.
+      reactor?.dispose();
+      reactor = null;
+      if (active) {
+        try {
+          reactor = await FlowReactor.attach(active, cloudDeps);
+          if (latestFlow) reactor.applyFlow(latestFlow);
+        } catch (reactorError) {
+          console.error("[board-controller] flow reactor attach failed:", reactorError);
+          reactor = null;
+        }
+      }
+      if (a) {
+        track("board_connected", trackData(a));
+        attempt = null;
+      }
+      break;
+    }
+    case "disconnected":
+      if (a?.flashToast !== undefined) {
+        toast.dismiss(a.flashToast);
+        a.flashToast = undefined;
+      }
+      if (a) {
+        // A bring-up attempt ended quietly (background probe miss).
+        track("board_connect_failed", { ...trackData(a), error: "no firmata" });
+        attempt = null;
+      }
+      setBoard({ state: "disconnected" });
+      break;
+    case "error":
+      if (a?.flashToast !== undefined) {
+        toast.dismiss(a.flashToast);
+        a.flashToast = undefined;
+      }
+      if (a) {
+        track("board_connect_failed", { ...trackData(a), error: phase.detail.slice(0, 80) });
+        attempt = null;
+      }
+      // Full detail reaches the store + toast (do not collapse it — 7c8f7e2).
+      setBoard({ state: "error", error: phase.detail });
+      toast.error(phase.detail);
+      break;
+  }
+}
+
+/** Start a bring-up attempt for `port`; the machine takes it from here. */
 async function bringUp(
   port: WebSerialPort,
   flags: { autoFlash: boolean; explicit: boolean },
 ): Promise<void> {
-  setBoard({ state: "connecting" });
-  const { options, settle } = makeBringUp();
-  // Capture flash/board facts as they stream through onState so the analytics
-  // event can say *which* board connected and whether it needed a flash.
-  const startedAt = performance.now();
-  const meta = { flashed: false, board: "unknown" };
-  const onState = options.onState;
-  options.onState = (state: BoardState) => {
-    if (state.state === "flashing") meta.flashed = true;
-    if ("board" in state && typeof state.board === "string") meta.board = state.board;
-    onState(state);
+  const board = await detectBoard(port).catch(() => undefined);
+  attempt = {
+    port,
+    explicit: flags.explicit,
+    startedAt: performance.now(),
+    board: board ?? "unknown",
+    flashed: false,
   };
-  const trackData = () => ({
-    via: flags.explicit ? "gesture" : "auto",
-    board: meta.board,
-    flashed: meta.flashed,
-    seconds: Math.round((performance.now() - startedAt) / 1000),
+  await dispatch({
+    type: "portReady",
+    board: board ?? null,
+    autoFlash: flags.autoFlash,
+    explicit: flags.explicit,
   });
-  try {
-    active = await bringUpBoard(port, options, { autoFlash: flags.autoFlash });
-    // Stand up the wasm flow runtime for this connection and apply the current
-    // flow. A reactor failure (e.g. wasm load) must not fail the connection —
-    // the board is still up; the flow just won't run.
-    reactor?.dispose();
-    try {
-      reactor = await FlowReactor.attach(active, cloudDeps);
-      if (latestFlow) reactor.applyFlow(latestFlow);
-    } catch (reactorError) {
-      console.error("[board-controller] flow reactor attach failed:", reactorError);
-      reactor = null;
-    }
-    settle(true);
-    track("board_connected", trackData());
-  } catch (error) {
-    settle(false);
-    active = null;
-    const message = error instanceof Error ? error.message : String(error);
-    track("board_connect_failed", { ...trackData(), error: message.slice(0, 80) });
-    if (flags.explicit) {
-      setBoard({ state: "error", error: message });
-      toast.error(message);
-    } else {
-      // Background path (auto-reconnect / plug-in): stay quietly disconnected.
-      setBoard({ state: "disconnected" });
-    }
-  }
 }
 
 /** Cheap pre-check so auto paths don't handshake unrelated granted serial devices. */
@@ -203,9 +309,9 @@ async function looksLikeBoard(port: WebSerialPort): Promise<boolean> {
 }
 
 /**
- * Connect from a user gesture: pick a port, then probe → flash-if-missing →
- * connect. `requestPort` must fire synchronously inside the gesture, so it runs
- * *before* the serialised task — only the bring-up is queued.
+ * Connect from a user gesture: pick a port, then let the machine run probe →
+ * flash-if-missing → connect. `requestPort` must fire synchronously inside the
+ * gesture, so it runs *before* the serialised task — only the bring-up is queued.
  */
 export function connect(): Promise<void> {
   if (!isWebSerialSupported()) return Promise.resolve();
@@ -230,17 +336,9 @@ export function connect(): Promise<void> {
 
 export function disconnect(): Promise<void> {
   track("board_disconnected", { via: "gesture" });
-  return run(async () => {
-    await teardownActive();
-    setBoard({ state: "disconnected" });
-  });
+  return run(() => dispatch({ type: "disconnectRequested" }));
 }
 
-/**
- * Start the background orchestration once: reconnect any already-granted board
- * on load, and watch for plug/unplug of granted devices. Idempotent; a no-op
- * outside Chromium.
- */
 /**
  * Reconnect a granted board — recognised boards only, so we never hang
  * handshaking an unrelated serial device the user once authorised. Shared by the
@@ -255,6 +353,11 @@ async function reconnectGranted(): Promise<void> {
   }
 }
 
+/**
+ * Start the background orchestration once: reconnect any already-granted board
+ * on load, and watch for plug/unplug of granted devices. Idempotent; a no-op
+ * outside Chromium.
+ */
 export function start(): void {
   if (started || !isWebSerialSupported()) return;
   started = true;
@@ -273,8 +376,7 @@ export function start(): void {
     onDisconnect: (port) =>
       void run(async () => {
         if (active && active.port === port) {
-          await teardownActive();
-          setBoard({ state: "disconnected" });
+          await dispatch({ type: "portGone" });
         }
       }),
   });

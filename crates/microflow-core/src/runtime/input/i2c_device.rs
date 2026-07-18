@@ -14,7 +14,7 @@ use crate::runtime::{
     BoardWiring, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
     I2cContinuousRead, ListenerWiring, RuntimeContext, RuntimeError,
 };
-use crate::config::i2c_device::{I2cDeviceConfig, OutputFormat};
+use crate::config::i2c_device::{fold_bytes, ByteDecode, I2cDeviceConfig, OutputFormat};
 
 pub struct I2cDevice {
     base: ComponentBase,
@@ -68,35 +68,18 @@ impl I2cDevice {
     }
 }
 
-/// Decode raw I2C reply bytes into a `ComponentValue` per the output format.
-/// A pure function (no `self`) so the big-endian unsigned/signed folding is
-/// unit-testable in isolation — the decode the runtime applies live, mirrored
-/// as C++ by `codegen/input/i2c_device.rs`.
+/// Decode raw I2C reply bytes into a `ComponentValue` by INTERPRETING the
+/// shared decode descriptor ([`OutputFormat::decode`] → [`fold_bytes`]). The
+/// arithmetic lives once in `config::i2c_device`; the sketch emitter
+/// (`codegen/input/i2c_device.rs`) transcribes the same descriptor to C++, and
+/// `codegen/parity.rs` pins the two. Only the `Raw` array shape is runtime-own
+/// (`ComponentValue` doesn't exist on-device).
 fn convert_bytes(output: OutputFormat, data: &[u8]) -> ComponentValue {
-    match output {
-        OutputFormat::Raw => ComponentValue::Array(
+    match output.decode() {
+        ByteDecode::Raw => ComponentValue::Array(
             data.iter().map(|&b| ComponentValue::Number(f64::from(b))).collect(),
         ),
-        OutputFormat::UnsignedInt => {
-            // Big-endian unsigned integer from up to 4 bytes
-            let mut value: u32 = 0;
-            for &byte in data.iter().take(4) {
-                value = (value << 8) | u32::from(byte);
-            }
-            ComponentValue::Number(f64::from(value))
-        }
-        OutputFormat::SignedInt => {
-            // Big-endian signed integer (two's complement) from up to 4 bytes
-            let len = data.len().min(4);
-            if len == 0 {
-                return ComponentValue::Number(0.0);
-            }
-            let mut value: i32 = if data[0] & 0x80 != 0 { -1 } else { 0 };
-            for &byte in data.iter().take(len) {
-                value = (value << 8) | i32::from(byte);
-            }
-            ComponentValue::Number(f64::from(value))
-        }
+        ByteDecode::Fold { sign_extend } => ComponentValue::Number(fold_bytes(sign_extend, data)),
     }
 }
 
@@ -435,7 +418,8 @@ mod tests {
         assert_eq!(cfg.sample_interval_ms, 50);
     }
 
-    // --- convert_bytes: the numeric decode, now a pure fn tested in isolation ---
+    // --- convert_bytes: the descriptor interpretation, pinned end-to-end here
+    // (the fold arithmetic itself is unit-tested in `config::i2c_device`) ---
 
     #[test]
     fn convert_bytes_raw_preserves_every_byte() {

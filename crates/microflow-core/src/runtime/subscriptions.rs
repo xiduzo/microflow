@@ -109,6 +109,20 @@ pub fn reconcile_desired(wirings: &[(String, SubscriberWiring)]) -> Vec<DesiredS
     out
 }
 
+/// One MIDI listener a host must feed: route every message from ports whose
+/// name contains `device_name` (case-insensitive; "" = every port) to `node_id`
+/// via `deliver_message`. No reconcile/winner-selection on purpose — several
+/// nodes listening to one device ALL receive its messages (unlike a broker
+/// topic, which keeps exactly one callback). Serializes to the
+/// `{ nodeId, deviceName }` shape the browser host consumes via the wasm
+/// `midiListeners()` binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MidiListener {
+    pub node_id: String,
+    pub device_name: String,
+}
+
 /// One Figma plugin-handshake publish a host must make over MQTT when the set of
 /// live Figma plugin uids changes. The handshake **protocol** — topic shape,
 /// payloads, retain flags — lives here once; the host owns only the publish I/O.

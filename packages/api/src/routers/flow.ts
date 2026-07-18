@@ -5,6 +5,12 @@ import { flow, flowCollaborator, flowInvite } from "@microflow/db/schema/flow";
 import { user } from "@microflow/db/schema/auth";
 import { userSettings } from "@microflow/db/schema/user-settings";
 import { protectedProcedure, router } from "../index";
+import {
+  assertFlowRole,
+  requireFlowAccess,
+  resolveFlowRole,
+  type FlowRole,
+} from "./flow-access";
 import { FlowDocument } from "@microflow/collab/server";
 import { sendEmail } from "@microflow/auth/email";
 import { env } from "@microflow/env/server";
@@ -137,15 +143,16 @@ export const flowRouter = router({
         throw new Error("Flow not found");
       }
 
-      // Check access
-      const isOwner = flowRecord.ownerId === userId;
-      const isCollaborator = flowRecord.collaborators.some(
-        ({ user }) => user.id === userId
+      const role = assertFlowRole(
+        resolveFlowRole(
+          flowRecord,
+          userId,
+          flowRecord.collaborators.find((c) => c.user.id === userId)?.role as
+            | FlowRole
+            | undefined
+        ),
+        "viewer"
       );
-
-      if (!isOwner && !isCollaborator) {
-        throw new Error("Access denied");
-      }
 
       // Fetch collabColor and collabIcon for owner and all collaborators
       const userIds = [
@@ -195,10 +202,8 @@ export const flowRouter = router({
         nodes,
         edges,
         ydocBase64,
-        isOwner,
-        role: isOwner
-          ? "owner"
-          : flowRecord.collaborators.find((c) => c.user.id === userId)?.role,
+        isOwner: role === "owner",
+        role,
       };
     }),
 
@@ -293,13 +298,7 @@ export const flowRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const flowRecord = await db.query.flow.findFirst({
-        where: eq(flow.id, input.id),
-      });
-
-      if (!flowRecord || flowRecord.ownerId !== ctx.session.user.id) {
-        throw new Error("Flow not found or access denied");
-      }
+      await requireFlowAccess(input.id, ctx.session.user.id, "owner");
 
       const updatedFlow = await db
         .update(flow)
@@ -320,13 +319,11 @@ export const flowRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const flowRecord = await db.query.flow.findFirst({
-        where: eq(flow.id, input.id),
-      });
-
-      if (!flowRecord || flowRecord.ownerId !== ctx.session.user.id) {
-        throw new Error("Flow not found or access denied");
-      }
+      const { flow: flowRecord } = await requireFlowAccess(
+        input.id,
+        ctx.session.user.id,
+        "owner"
+      );
 
       await db.delete(flow).where(eq(flow.id, input.id));
 
@@ -345,17 +342,7 @@ export const flowRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const flowRecord = await db.query.flow.findFirst({
-        where: eq(flow.id, input.flowId),
-      });
-
-      if(!flowRecord) {
-        throw new Error("Flow not found");
-      }
-
-      if (flowRecord.ownerId !== ctx.session.user.id) {
-        throw new Error("Access denied");
-      }
+      await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
 
       const id = uid();
       await db.insert(flowCollaborator).values({
@@ -379,17 +366,7 @@ export const flowRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const flowRecord = await db.query.flow.findFirst({
-        where: eq(flow.id, input.flowId),
-      });
-
-      if(!flowRecord) {
-        throw new Error("Flow not found");
-      }
-
-      if (flowRecord.ownerId !== ctx.session.user.id) {
-        throw new Error("Access denied");
-      }
+      await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
 
       await db
         .delete(flowCollaborator)
@@ -437,13 +414,11 @@ export const flowRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const flowRecord = await db.query.flow.findFirst({
-        where: eq(flow.id, input.flowId),
-      });
-
-      if (!flowRecord || flowRecord.ownerId !== ctx.session.user.id) {
-        throw new Error("Flow not found or access denied");
-      }
+      const { flow: flowRecord } = await requireFlowAccess(
+        input.flowId,
+        ctx.session.user.id,
+        "owner"
+      );
 
       // Find user by email
       const targetUser = await db.query.user.findFirst({
@@ -529,17 +504,7 @@ export const flowRouter = router({
     updateCollaboratorRole: protectedProcedure
       .input(z.object({ flowId: z.string(), userId: z.string(), role: z.enum(["viewer", "editor"]).default("viewer") }))
       .mutation(async ({ ctx, input }) => {
-        const flowRecord = await db.query.flow.findFirst({
-          where: eq(flow.id, input.flowId),
-        });
-
-        if(!flowRecord) {
-          throw new Error("Flow not found");
-        }
-
-        if(flowRecord.ownerId !== ctx.session.user.id) {
-          throw new Error("Access denied");
-        }
+        await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
 
         const collaborator = await db.query.flowCollaborator.findFirst({
           where: and(eq(flowCollaborator.flowId, input.flowId), eq(flowCollaborator.userId, input.userId)),

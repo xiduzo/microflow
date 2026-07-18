@@ -178,6 +178,22 @@ impl FlowRuntime {
             .map_err(|e| JsError::new(&format!("failed to serialize subscriptions: {e}")))
     }
 
+    /// The active `MidiIn` nodes' device interests: a JSON array of
+    /// `{ nodeId, deviceName }` (`deviceName` = case-insensitive substring
+    /// filter, "" = every device). No reconcile — every listener whose filter
+    /// matches a port receives its messages; the browser host opens matching
+    /// Web MIDI inputs and routes each raw `[status, data1, data2]` back via
+    /// [`deliver_message`](FlowRuntime::deliver_message) with the port name as
+    /// `topic`.
+    ///
+    /// # Errors
+    /// `JsError` only if the listener list fails to serialize.
+    #[wasm_bindgen(js_name = midiListeners)]
+    pub fn midi_listeners(&self) -> Result<String, JsError> {
+        serde_json::to_string(&self.inner.collect_midi_listeners())
+            .map_err(|e| JsError::new(&format!("failed to serialize midi listeners: {e}")))
+    }
+
     /// Deliver an inbound broker payload (MQTT / Figma) to subscribe component
     /// `id`, then return the cascade `Effects`. Mirrors the desktop
     /// `ActorMsg::Deliver` path; the browser host calls this from its WSS message

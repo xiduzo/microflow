@@ -27,6 +27,7 @@
     clippy::cast_possible_wrap
 )]
 
+use microflow_core::bringup::{Action as BringUpAction, BringUp, Event as BringUpEvent};
 use microflow_core::firmata::{FirmataClient, Message};
 use microflow_core::flasher::firmware::standard_firmata_hex;
 use microflow_core::flasher::{hex, new_driver, BoardConfig, BoardType, FlashDriver, FlashStep};
@@ -423,6 +424,53 @@ fn step_json(step: &FlashStep) -> Result<String, JsError> {
     serde_json::to_string(step).map_err(|e| JsError::new(&format!("failed to serialize step: {e}")))
 }
 
+// --- Bring-up policy (shared with the desktop hardware monitor) --------------
+
+/// The sans-IO board bring-up state machine ([`microflow_core::bringup`]): the
+/// probe → flash-if-missing → connect → auto-reconnect policy the desktop
+/// hardware monitor runs natively. Feed it a JSON `BringUpEvent`; perform the
+/// returned JSON `BringUpAction[]`. The browser owns all I/O and UI.
+#[wasm_bindgen]
+pub struct BringUpMachine {
+    inner: BringUp,
+}
+
+#[wasm_bindgen]
+impl BringUpMachine {
+    #[wasm_bindgen(constructor)]
+    #[must_use]
+    pub fn new() -> Self {
+        Self { inner: BringUp::new() }
+    }
+
+    /// True once a probe succeeded and nothing has torn the connection down.
+    #[wasm_bindgen(js_name = isConnected)]
+    #[must_use]
+    pub fn is_connected(&self) -> bool {
+        self.inner.is_connected()
+    }
+
+    /// Advance the machine with one JSON `BringUpEvent`; returns the JSON
+    /// `BringUpAction[]` the caller must perform, in order.
+    ///
+    /// # Errors
+    /// Returns a `JsError` if the event JSON is malformed or the actions fail
+    /// to serialize.
+    pub fn handle(&mut self, event_json: &str) -> Result<String, JsError> {
+        let event: BringUpEvent = serde_json::from_str(event_json)
+            .map_err(|e| JsError::new(&format!("invalid bring-up event: {e}")))?;
+        let actions: Vec<BringUpAction> = self.inner.handle(event);
+        serde_json::to_string(&actions)
+            .map_err(|e| JsError::new(&format!("failed to serialize actions: {e}")))
+    }
+}
+
+impl Default for BringUpMachine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,6 +558,19 @@ mod tests {
     // The unknown-board path returns a JsError, which cannot be constructed on
     // a non-wasm host (it panics: "cannot call wasm-bindgen imported functions
     // on non-wasm targets"), so it is only exercisable in the browser.
+
+    #[test]
+    fn bring_up_machine_round_trips_json() {
+        let mut m = BringUpMachine::new();
+        let actions = m
+            .handle(r#"{"type":"portReady","board":"nano","autoFlash":true,"explicit":true}"#)
+            .expect("handle ok");
+        assert!(actions.contains(r#"{"type":"notify","phase":{"kind":"connecting"}}"#), "got: {actions}");
+        assert!(actions.contains(r#"{"type":"probe","afterFlash":false}"#), "got: {actions}");
+        let actions = m.handle(r#"{"type":"probeOk"}"#).expect("handle ok");
+        assert!(actions.contains(r#""kind":"connected""#), "got: {actions}");
+        assert!(m.is_connected());
+    }
 
     #[test]
     fn standard_firmata_hex_available_for_known_boards() {

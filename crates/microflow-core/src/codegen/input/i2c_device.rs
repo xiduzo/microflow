@@ -10,7 +10,7 @@
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, NodeInputs};
-use crate::config::i2c_device::{I2cDeviceConfig, OutputFormat};
+use crate::config::i2c_device::{ByteDecode, I2cDeviceConfig, OutputFormat};
 use crate::flow::FlowNode;
 
 /// The C++ `long` variable name holding this device's latest decoded reading.
@@ -37,7 +37,12 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let addr = config.address;
     let register = effective_register(&config);
     let read_length = config.read_length.max(1);
-    let signed = config.output == OutputFormat::SignedInt;
+    // The shared decode descriptor this emitter TRANSCRIBES (the runtime
+    // interprets the same one via `fold_bytes`). Raw has no on-device
+    // byte-array value model, so it folds like unsigned — recorded in
+    // `codegen/parity.rs`.
+    let sign_extend =
+        matches!(config.output.decode(), ByteDecode::Fold { sign_extend: true });
 
     let acc = format!("i2c_{token}_acc");
     let i = format!("i2c_{token}_i");
@@ -62,11 +67,24 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         format!("for (uint8_t {i} = 0; {i} < {read_length} && Wire.available(); {i}++) {{"),
         format!("  uint8_t {b} = Wire.read();"),
     ]);
-    if signed {
-        // Sign-extend from the most-significant byte, big-endian, like the runtime.
-        loop_body.push(format!("  if ({i} == 0 && ({b} & 0x80)) {{ {acc} = -1; }}"));
+    // The fold transcribed from the descriptor: big-endian shift-or, optionally
+    // sign-extended from bit 7 of the first byte, capped at `FOLD_BYTE_CAP`
+    // bytes. A longer read still drains the Wire buffer, but only the FIRST cap
+    // bytes fold in — exactly `fold_bytes`' `take(4)`. (The old uncapped fold
+    // kept the LAST 4 bytes of a long read; the runtime keeps the first 4.)
+    let mut fold = Vec::new();
+    if sign_extend {
+        fold.push(format!("if ({i} == 0 && ({b} & 0x80)) {{ {acc} = -1; }}"));
     }
-    loop_body.push(format!("  {acc} = ({acc} << 8) | (long){b};"));
+    fold.push(format!("{acc} = ({acc} << 8) | (long){b};"));
+    if usize::from(read_length) > OutputFormat::FOLD_BYTE_CAP {
+        let cap = OutputFormat::FOLD_BYTE_CAP;
+        fold = std::iter::once(format!("if ({i} < {cap}) {{"))
+            .chain(fold.into_iter().map(|l| format!("  {l}")))
+            .chain(std::iter::once("}".to_string()))
+            .collect();
+    }
+    loop_body.extend(fold.into_iter().map(|l| format!("  {l}")));
     loop_body.push("}".to_string());
     loop_body.push(format!("{value} = {acc};"));
 
@@ -114,6 +132,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         declarations,
         setup,
         loop_body,
+        ..NodeEmission::default()
     }
 }
 
@@ -262,6 +281,18 @@ mod tests {
     fn i2c_sign_extends_for_signed_format() {
         let e = emit(&i2c("d-1", json!({ "output": "signed_int" })), &NodeInputs::default());
         assert!(e.loop_body.iter().any(|l| l.contains("0x80")), "signed must sign-extend");
+    }
+
+    #[test]
+    fn i2c_folds_at_most_four_bytes_like_the_runtime() {
+        // Drift fix: the old fold folded ALL bytes, so a >4-byte read kept the
+        // LAST 4 bytes in the 32-bit `long` while the runtime keeps the FIRST 4
+        // (`fold_bytes`). The emitted fold must be guarded at the shared cap.
+        let e = emit(&i2c("d-1", json!({ "readLength": 6 })), &NodeInputs::default());
+        assert!(e.loop_body.iter().any(|l| l.contains("< 4) {")), "long reads must cap the fold");
+        // Reads within the cap need no guard — the loop bound already limits them.
+        let e = emit(&i2c("d-1", json!({ "readLength": 4 })), &NodeInputs::default());
+        assert!(!e.loop_body.iter().any(|l| l.contains("< 4) {")), "no guard within the cap");
     }
 
     #[test]

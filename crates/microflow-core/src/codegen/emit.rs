@@ -26,6 +26,20 @@ pub struct NodeEmission {
     pub setup: Vec<String>,
     /// Statements emitted inside `loop()` (read/write logic).
     pub loop_body: Vec<String>,
+    /// Multi-line declaration **blocks shared across nodes of one kind** (e.g.
+    /// the single `MIDI` instance + rx state several Midi Nodes read). Each
+    /// element is one whole block; the assembler de-duplicates by exact block
+    /// equality (first-seen order) and emits them once, before the per-node
+    /// declarations. Unlike `includes` the blocks are NOT sorted, so a block
+    /// may span multiple dependent lines.
+    pub shared_declarations: Vec<String>,
+    /// Shared `setup()` blocks, de-duplicated like [`shared_declarations`](Self::shared_declarations)
+    /// and emitted before the per-node setup statements.
+    pub shared_setup: Vec<String>,
+    /// Shared `loop()` blocks, de-duplicated and emitted at the top of the
+    /// scheduled-task region — before every node body — so a shared pump (e.g.
+    /// one `MIDI.read()` per tick) runs exactly once, ahead of its readers.
+    pub shared_loop: Vec<String>,
 }
 
 impl NodeEmission {
@@ -36,7 +50,23 @@ impl NodeEmission {
             && self.declarations.is_empty()
             && self.setup.is_empty()
             && self.loop_body.is_empty()
+            && self.shared_declarations.is_empty()
+            && self.shared_setup.is_empty()
+            && self.shared_loop.is_empty()
     }
+}
+
+/// De-duplicate shared blocks by exact equality, preserving first-seen order.
+/// The assembler applies this per shared region across all emissions.
+#[must_use]
+pub fn dedupe_shared<'a>(blocks: impl Iterator<Item = &'a String>) -> Vec<&'a str> {
+    let mut out: Vec<&str> = Vec::new();
+    for block in blocks {
+        if !out.contains(&block.as_str()) {
+            out.push(block);
+        }
+    }
+    out
 }
 
 /// Extension methods for turning Flow read-model types into C++-safe tokens.

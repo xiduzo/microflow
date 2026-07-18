@@ -60,3 +60,7 @@ export const useLlmProviderStore = create<LlmProviderStore>()(
     { name: "microflow-llm-providers", partialize: (s) => ({ providers: s.providers }) }
   )
 );
+
+export function useProviderStatus(providerId: string) {
+  return useLlmProviderStore((s) => s.statuses[providerId] ?? "idle");
+}

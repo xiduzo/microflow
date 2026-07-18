@@ -572,7 +572,8 @@ export const TEMPLATES: Template[] = [
   lightMonitor,
   servoSweep,
   rgbMoodLamp,
-  stepperPosition,
+  // stepperPosition — hidden with the Stepper node (see stepper.schema.ts:
+  // flashed StandardFirmata has no AccelStepper support, so the motor never moves)
   // Communication
   mqttButton,
   sensorToFigma,

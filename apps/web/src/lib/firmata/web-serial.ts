@@ -93,13 +93,9 @@ export type BoardConnection = {
   port: WebSerialPort;
 };
 
-type ConnectOptions = {
-  /** Called whenever the board's connection state changes. */
-  onState: (state: BoardState) => void;
+export type ProbeHooks = {
   /** Called for each pin value change the board reports. */
   onPinChange?: PinChangeHandler;
-  /** Flash progress (done..total) while auto-flashing during bring-up. */
-  onProgress?: FlashProgress;
   /** The board's read loop ended unexpectedly (reset / unplug mid-session). */
   onClosed?: () => void;
   /**
@@ -110,16 +106,6 @@ type ConnectOptions = {
    */
   onBytes?: (bytes: Uint8Array) => void;
 };
-
-/**
- * Prompt for a serial port and bring the board fully online. Must be called from
- * a user gesture (the browser shows its port picker). Auto-flashes StandardFirmata
- * if the board has none, mirroring the desktop orchestrator.
- */
-export async function connectBoard(options: ConnectOptions): Promise<BoardConnection> {
-  const port = await requestBoardPort();
-  return bringUpBoard(port, options, { autoFlash: true, onProgress: options.onProgress });
-}
 
 /** Obtain a port via the browser picker. Must run inside a user gesture. */
 export async function requestBoardPort(): Promise<WebSerialPort> {
@@ -136,64 +122,42 @@ export async function listGrantedPorts(): Promise<WebSerialPort[]> {
   return serial.getPorts();
 }
 
-/** Run the firmware/capability handshake at each supported baud (fresh session). */
-async function tryHandshake(
+/**
+ * Firmata probe: run the firmware/capability handshake at each supported baud
+ * (fresh session). Returns the live connection, or null if no Firmata answered
+ * (the probe tears its own I/O down). The bring-up *policy* — when to probe,
+ * flash, retry, or give up — lives in the shared `microflow_core::bringup`
+ * machine; this is just the transport primitive its `probe` action runs.
+ */
+export async function probeFirmata(
   port: WebSerialPort,
-  options: ConnectOptions,
+  hooks: ProbeHooks,
 ): Promise<BoardConnection | null> {
   const session = await createSession();
   for (const baud of BAUD_RATES) {
-    const connection = await tryConnectAtBaud(port, baud, session, options);
+    const connection = await tryConnectAtBaud(port, baud, session, hooks);
     if (connection) return connection;
   }
   return null;
 }
 
 /**
- * Bring a board online on an already-obtained port, mirroring the desktop
- * orchestrator (`hardware::process_usb_port`): probe Firmata; if absent and the
- * board is recognised, flash StandardFirmata on the same port and reconnect.
- *
- * `autoFlash` gates the flashing branch — background paths pass `false` so a
- * transient probe miss never reflashes; the explicit user connect passes `true`.
+ * Post-flash probe (`probe { afterFlash: true }`): wait for the board to reboot
+ * into the freshly-flashed sketch, then handshake. The original handle returns
+ * in application mode; if the board re-enumerated (AVR109 boards come back as a
+ * new USB device, which Web Serial models as a different granted port), fall
+ * back to scanning granted ports newest-first — a platform serial quirk, so it
+ * stays host-side.
  */
-export async function bringUpBoard(
+export async function probeAfterFlash(
   port: WebSerialPort,
-  options: ConnectOptions,
-  opts: { autoFlash?: boolean; onProgress?: FlashProgress } = {},
-): Promise<BoardConnection> {
-  // 1. Steady state: the board already speaks Firmata — just connect.
-  const existing = await tryHandshake(port, options);
-  if (existing) return existing;
-
-  // 2. No Firmata. Identify the board; only recognised boards can be flashed.
-  const board = await detectBoard(port);
-  if (!board) {
-    throw new Error("No Firmata firmware responded and the board could not be identified.");
-  }
-  if (!opts.autoFlash) {
-    throw new Error(`No Firmata on ${board}.`);
-  }
-
-  // 3. Flash StandardFirmata on the same granted port (no second picker).
-  options.onState({ state: "flashing", port: portLabel(port.getInfo()), board });
-  await flashPort(port, { onProgress: opts.onProgress ?? options.onProgress });
-
-  // 4. The board reboots into the freshly-flashed sketch. Give it a moment, then
-  //    handshake again — the original handle returns in application mode; if it
-  //    re-enumerated (AVR109), fall back to the newest granted port.
+  hooks: ProbeHooks,
+): Promise<BoardConnection | null> {
   await sleep(POST_FLASH_RESET_MS);
-  const direct = await tryHandshake(port, options).catch(() => null);
-  const reconnected = direct ?? (await reconnectAfterFlash(options));
-  if (reconnected) return reconnected;
-  throw new Error(`Flashed ${board}, but it did not come back up with Firmata.`);
-}
-
-/** After a flash that re-enumerated the device, find it among granted ports. */
-async function reconnectAfterFlash(options: ConnectOptions): Promise<BoardConnection | null> {
-  const ports = await listGrantedPorts();
-  for (const port of ports.slice().reverse()) {
-    const connection = await tryHandshake(port, options).catch(() => null);
+  const direct = await probeFirmata(port, hooks).catch(() => null);
+  if (direct) return direct;
+  for (const granted of (await listGrantedPorts()).slice().reverse()) {
+    const connection = await probeFirmata(granted, hooks).catch(() => null);
     if (connection) return connection;
   }
   return null;
@@ -230,7 +194,7 @@ async function tryConnectAtBaud(
   port: WebSerialPort,
   baud: number,
   session: FirmataSession,
-  options: ConnectOptions,
+  options: ProbeHooks,
 ): Promise<BoardConnection | null> {
   await port.open({ baudRate: baud, bufferSize: 1024 });
 
@@ -325,8 +289,6 @@ async function tryConnectAtBaud(
     await sleep(100);
   }
 
-  options.onState(connectedState(port, session));
-
   return { write, session, disconnect: teardown, port };
 }
 
@@ -336,7 +298,7 @@ function pinCount(session: FirmataSession): number {
 }
 
 /** Build the `connected` BoardState from the session + the port's USB ids. */
-function connectedState(port: WebSerialPort, session: FirmataSession): BoardState {
+export function connectedState(port: WebSerialPort, session: FirmataSession): BoardState {
   const pins = JSON.parse(session.pinsJson()) as PinInfo[];
   return {
     state: "connected",
@@ -348,7 +310,7 @@ function connectedState(port: WebSerialPort, session: FirmataSession): BoardStat
 }
 
 /** A human-ish label for the port (Web Serial exposes no device path). */
-function portLabel(info: WebSerialPortInfo): string {
+export function portLabel(info: WebSerialPortInfo): string {
   if (info.usbVendorId !== undefined && info.usbProductId !== undefined) {
     const vid = info.usbVendorId.toString(16).padStart(4, "0");
     const pid = info.usbProductId.toString(16).padStart(4, "0");
@@ -376,19 +338,6 @@ function concat(a: Uint8Array<ArrayBufferLike>, b: Uint8Array<ArrayBufferLike>):
   out.set(a);
   out.set(b, a.length);
   return out;
-}
-
-/**
- * Flash StandardFirmata onto a board over Web Serial. Prompts for a port,
- * identifies the board from its USB id, picks the embedded firmware + bootloader
- * protocol, and runs the shared sans-IO driver. Resolves with the flashed board
- * id, or rejects with a readable error. Must be called from a user gesture.
- */
-export async function flashStandardFirmata(opts: {
-  onProgress?: FlashProgress;
-}): Promise<string> {
-  const port = await requestBoardPort();
-  return flashPort(port, opts);
 }
 
 /**

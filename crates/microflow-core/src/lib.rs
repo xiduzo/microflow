@@ -30,6 +30,7 @@
     clippy::manual_let_else
 )]
 
+pub mod bringup;
 pub mod codegen;
 pub mod config;
 pub mod firmata;

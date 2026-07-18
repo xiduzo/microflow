@@ -165,6 +165,10 @@ fn emitted_pin(node: &FlowNode, kind: &str) -> u8 {
 fn problem_for(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
     let kind = node.node_type.as_deref();
     match kind {
+        // Midi is a cloud-family node but needs NO networking on-device (serial
+        // MIDI over the UART), so it is checked before the networking gate — it
+        // warns instead that it claims the board's primary hardware serial.
+        Some("Midi") => midi_serial_problem(node, target),
         Some(k) if CLOUD_NODE_TYPES.contains(&k) => networking_problem(node, k, target),
         Some(k) if input::sensor::ANALOG_SENSOR_TYPES.contains(&k) => {
             sensor_pin_problem(node, k, target)
@@ -200,6 +204,22 @@ fn networking_problem(
         format!(
             "Node {} ({kind}) requires networking, which board target '{}' does not offer — the generated network code assumes an ESP32-class board",
             node.id, target.name
+        ),
+    ))
+}
+
+/// A Midi Node's serial-MIDI emitter claims the board's primary hardware UART
+/// (`MIDI_CREATE_DEFAULT_INSTANCE()` binds `Serial` at 31250 baud), so the
+/// Serial Monitor / USB serial is unavailable while flashed. A warning, never a
+/// block: the Author may be using a MIDI shield or a board with a spare UART.
+fn midi_serial_problem(node: &FlowNode, _target: &BoardTarget) -> Option<ValidationProblem> {
+    Some(problem(
+        node,
+        "Midi",
+        ProblemSeverity::Warning,
+        format!(
+            "Node {} (Midi) uses serial MIDI on the board's primary hardware serial (31250 baud) — the USB Serial Monitor is unavailable while running, and a DIN-5 MIDI jack or shield is required",
+            node.id
         ),
     ))
 }

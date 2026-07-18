@@ -402,3 +402,15 @@ Bidirectional reconciler between a `FlowDocument` (Y.Doc CRDT) and the [ReactFlo
 - **`scheduleFlush` / `flush`** — RAF-batched structural writes. Multiple `applyNodeChanges` / `applyEdgeChanges` calls in one frame coalesce into one `transact("local")` and therefore one `UndoManager` entry. `flush()` is public so tests and callers needing a write barrier (e.g. before navigation) can force the flush synchronously.
 
 Each invariant is independently unit-testable (28 vitest cases in `__tests__/react-flow-bridge.test.ts`, including a convergence-via-`RecordingSyncAdapter` headline test that proves CRDT replay end-to-end without a React renderer). Drag-during positions are **not** sent over the doc today — the right channel for ephemeral peer state is Yjs awareness, not the doc, and a future enhancement will broadcast `draggingNode: { id, position }` via `RemoteSyncAdapter.updateCursor`-style awareness so live collaborators see smooth drag motion without polluting undo history.
+
+## Board Bring-Up
+
+Sans-IO state machine owning the board bring-up policy: probe → flash StandardFirmata if missing → connect → auto-reconnect, and the `disconnected → connecting → flashing → connected → error` phase transitions. Lives in `crates/microflow-core/src/bringup.rs` (value-tested transition table); events in (`PortReady`, `ProbeOk`/`ProbeFailed`, `FlashOk`/`FlashFailed`, `ConnectionLost`, `PortGone`, `DisconnectRequested`) → `Phase` + host actions out (`Probe`, `Flash`, `ClosePort`, `ScheduleRetry`, `Notify`), mirroring the [Effects](#effects)/[EffectsSink](#effectssink) discipline. Both [Runtime Hosts](#runtime-host) are adapters: the browser drives it through `BringUpMachine` in `microflow-firmata-wasm` from `apps/web/src/lib/firmata/board-controller.ts`; the desktop drives it from `src-tauri/src/hardware/mod.rs`. Hosts own I/O and timing only (serial ops, flash transport, boot/settle sleeps, toasts keyed off `Notify` phases); the decisions live in the machine.
+
+## Flow Role
+
+The access level a user has on a cloud flow: **Owner** (the `flow.ownerId` user — full control including delete, sharing, and role changes), **Editor** (a `flowCollaborator` row with `role: "editor"` — may edit the document), or **Viewer** (`role: "viewer"` — read-only). Ranked `viewer < editor < owner`. The type and the pure resolution/enforcement helpers (`resolveFlowRole`, `assertFlowRole`) live in `packages/api/src/routers/flow-role.ts`; the access matrix is table-tested in `flow-access.test.ts`.
+
+## Flow Access seam
+
+`requireFlowAccess(flowId, userId, minRole)` in `packages/api/src/routers/flow-access.ts` — the single choke point where tRPC flow procedures resolve a [Flow Role](#flow-role) and enforce a minimum. Fetches the flow row, resolves owner-or-collaborator role via `resolveFlowRole`, throws `"Flow not found"` / `"Access denied"`, and returns `{ flow, role }` so procedures never re-implement the check. `flow.get` keeps its richer eager-loaded query but routes role resolution through the same pure helpers, so the two access notions cannot drift.

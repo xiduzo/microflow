@@ -1,4 +1,4 @@
-import { authClient } from "@/lib/auth-client";
+import { getSession, getCustomerState } from "@/lib/auth-client";
 import { useAppStore } from "@/stores/app";
 import { useCircuitStore } from "@/stores/circuit-store";
 import {
@@ -68,10 +68,10 @@ function CircuitBuildListener() {
 export const Route = createFileRoute("/flow/$flowId")({
   component: RouteComponent,
   beforeLoad: async ({ params }) => {
-    const session = await authClient.getSession();
+    const session = await getSession();
 
     if (params.flowId === "local") {
-      const { data: customerState } = await authClient.customer.state();
+      const { data: customerState } = await getCustomerState();
       return { session, customerState };
     }
 
@@ -82,7 +82,7 @@ export const Route = createFileRoute("/flow/$flowId")({
       });
     }
 
-    const { data: customerState } = await authClient.customer.state();
+    const { data: customerState } = await getCustomerState();
     return { session, customerState };
   },
 });

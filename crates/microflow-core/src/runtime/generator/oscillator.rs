@@ -72,6 +72,8 @@ fn calculate_waveform(config: &OscillatorConfig, timestamp: f64) -> f64 {
         Waveform::Sawtooth => sawtooth(config, timestamp),
         Waveform::Triangle => triangle(config, timestamp),
         Waveform::Random => random(config, timestamp),
+        Waveform::RandomWalk => random_walk(config, timestamp),
+        Waveform::Perlin => perlin(config, timestamp),
     }
 }
 
@@ -136,8 +138,46 @@ fn triangle(config: &OscillatorConfig, timestamp: f64) -> f64 {
 /// Pseudo-random in [0, shift+amplitude). Sin-hash of the timestamp instead of
 /// the `rand` crate, so the core stays free of `getrandom` (wasm-clean).
 fn random(config: &OscillatorConfig, timestamp: f64) -> f64 {
-    let r = ((timestamp * 12.9898).sin() * 43758.5453).fract().abs();
+    let r = hash01(timestamp);
     (config.shift + config.amplitude) * r
+}
+
+/// Deterministic hash of `n` into [0, 1). Same sin-hash as `random`, applied to
+/// lattice indices so both hosts and the generated sketch share one sequence.
+fn hash01(n: f64) -> f64 {
+    ((n * 12.9898).sin() * 43758.5453).fract().abs()
+}
+
+/// Bounded random walk in [0, shift+amplitude): linear interpolation between a
+/// random lattice value per period — the output drifts to a new random target
+/// every `period` ms instead of jumping every sample like `Random`.
+#[allow(clippy::many_single_char_names)] // t/i/f/a/b are the conventional noise-lattice names
+fn random_walk(config: &OscillatorConfig, timestamp: f64) -> f64 {
+    let t = (timestamp + config.phase) / config.period;
+    let i = t.floor();
+    let f = t - i;
+    let a = hash01(i);
+    let b = hash01(i + 1.0);
+    (config.shift + config.amplitude) * (a + (b - a) * f)
+}
+
+/// Smoothstep-faded value noise in [0, 1) with `period` as the wavelength.
+#[allow(clippy::many_single_char_names)] // t/i/f/u/a/b are the conventional noise-lattice names
+fn value_noise(t: f64) -> f64 {
+    let i = t.floor();
+    let f = t - i;
+    let u = f * f * (3.0 - 2.0 * f);
+    let a = hash01(i);
+    let b = hash01(i + 1.0);
+    a + (b - a) * u
+}
+
+/// Perlin-style noise in [0, shift+amplitude): two octaves of value noise for
+/// an organic drift smoother than `RandomWalk` (no corners at period bounds).
+fn perlin(config: &OscillatorConfig, timestamp: f64) -> f64 {
+    let t = (timestamp + config.phase) / config.period;
+    let n = value_noise(t) * (2.0 / 3.0) + value_noise(t * 2.0 + 57.0) * (1.0 / 3.0);
+    (config.shift + config.amplitude) * n
 }
 
 impl Component for Oscillator {

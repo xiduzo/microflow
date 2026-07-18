@@ -1,4 +1,5 @@
 import { Matrix } from "./matrix/matrix";
+import { Midi } from "./midi/midi";
 import { Monitor } from "./monitor/monitor";
 import { Motion } from "./motion/motion";
 import { Mqtt } from "./mqtt/mqtt";
@@ -71,6 +72,7 @@ export const NODE_TYPES = {
   Led: Led,
   Llm: Llm,
   Matrix: Matrix,
+  Midi: Midi,
   Monitor: Monitor,
   Motion: Motion,
   Mqtt: Mqtt,
