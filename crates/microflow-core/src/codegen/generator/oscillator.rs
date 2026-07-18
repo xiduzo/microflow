@@ -51,6 +51,19 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let mut sample_lines = vec![
         format!("double {t} = (double)(millis() - {start}) + {phase};"),
     ];
+    // Per-node C++ helper functions (hash01/value-noise) for the noise
+    // waveforms. hash01 mirrors the runtime's sin-hash exactly, so the device
+    // signal matches live mode sample-for-sample (unlike `Random`, which uses
+    // the Arduino `random()` and only matches in distribution).
+    let hash = format!("oscillator_{token}_hash01");
+    let vnoise = format!("oscillator_{token}_vnoise");
+    let hash_fn = format!(
+        "double {hash}(double n) {{ double v = sin(n * 12.9898) * 43758.5453; return fabs(v - trunc(v)); }}"
+    );
+    let vnoise_fn = format!(
+        "double {vnoise}(double t) {{ double i = floor(t); double f = t - i; double u = f * f * (3.0 - 2.0 * f); double a = {hash}(i); double b = {hash}(i + 1.0); return a + (b - a) * u; }}"
+    );
+    let mut helper_decls: Vec<String> = Vec::new();
     let loop_body = &mut sample_lines;
     let sample = match config.waveform {
         Waveform::Square => {
@@ -73,6 +86,25 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
             // Runtime: (shift + amplitude) * rand in [0,1).
             format!("{value} = ({shift} + {amplitude}) * ((double)random(0, 10000) / 10000.0);")
         }
+        Waveform::RandomWalk => {
+            // Runtime `random_walk`: lerp between per-period lattice hashes.
+            helper_decls.push(hash_fn.clone());
+            loop_body.push(format!("double tt = {t} / {period};"));
+            loop_body.push("double i0 = floor(tt);".to_string());
+            loop_body.push("double f = tt - i0;".to_string());
+            loop_body.push(format!("double a = {hash}(i0);"));
+            loop_body.push(format!("double b = {hash}(i0 + 1.0);"));
+            format!("{value} = ({shift} + {amplitude}) * (a + (b - a) * f);")
+        }
+        Waveform::Perlin => {
+            // Runtime `perlin`: two octaves of smoothstep value noise.
+            helper_decls.push(hash_fn.clone());
+            helper_decls.push(vnoise_fn.clone());
+            loop_body.push(format!("double tt = {t} / {period};"));
+            format!(
+                "{value} = ({shift} + {amplitude}) * ({vnoise}(tt) * (2.0 / 3.0) + {vnoise}(tt * 2.0 + 57.0) * (1.0 / 3.0));"
+            )
+        }
         // Sinus is the runtime default.
         Waveform::Sinus => format!(
             "{value} = {amplitude} * sin({t} * (2.0 * PI / {period})) + {shift};"
@@ -80,12 +112,15 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     };
     loop_body.push(sample);
 
+    let mut declarations = vec![
+        format!("unsigned long {start} = 0;"),
+        format!("double {value} = 0.0;"),
+        format!("bool {running} = {};", config.auto_start),
+    ];
+    // hash01 precedes vnoise (vnoise calls it; no forward declarations emitted).
+    declarations.extend(helper_decls);
     let mut e = NodeEmission {
-        declarations: vec![
-            format!("unsigned long {start} = 0;"),
-            format!("double {value} = 0.0;"),
-            format!("bool {running} = {};", config.auto_start),
-        ],
+        declarations,
         setup: vec![format!("{start} = millis();")],
         ..NodeEmission::default()
     };

@@ -11,6 +11,10 @@ pub enum Waveform {
     Sawtooth,
     Triangle,
     Random,
+    /// Bounded random walk: linear drift to a new random target each period.
+    RandomWalk,
+    /// Smooth organic noise: two octaves of smoothstep-faded value noise.
+    Perlin,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
