@@ -20,6 +20,7 @@ use tokio::sync::mpsc::UnboundedSender;
 const CLIENT: &str = "microflow";
 
 /// Case-insensitive substring match; an empty filter matches every port.
+#[must_use]
 pub fn device_matches(port_name: &str, filter: &str) -> bool {
     filter.is_empty() || port_name.to_lowercase().contains(&filter.to_lowercase())
 }
