@@ -493,17 +493,24 @@ impl FirmataClient {
             }
             I2C_REPLY => {
                 let len = buf.len();
-                if len < 8 {
+                // Minimum is `F0 77 addrLSB addrMSB regLSB regMSB END_SYSEX` (7
+                // bytes, zero data): a device that never ACKs a read makes the
+                // board stream exactly this empty reply alongside its "I2C: Too
+                // few bytes received" string. Parse it (`data = []`) instead of
+                // dropping it, so the target node sees a short read and can
+                // surface the fault. The old `len < 8` guard silently discarded
+                // every empty reply, hiding the NACK entirely.
+                if len < 7 {
                     return Step::Skipped;
                 }
                 let mut reply = I2cReply {
                     address: i32::from(buf[2]) | (i32::from(buf[3]) << 7),
                     register: i32::from(buf[4]) | (i32::from(buf[5]) << 7),
-                    data: vec![buf[6] | (buf[7] << 7)],
+                    data: Vec::new(),
                 };
-                let mut i = 8;
-                while i < len - 1 {
-                    if buf[i] == END_SYSEX || i + 2 > len {
+                let mut i = 6;
+                while i + 1 < len {
+                    if buf[i] == END_SYSEX {
                         break;
                     }
                     reply.data.push(buf[i] | (buf[i + 1] << 7));
