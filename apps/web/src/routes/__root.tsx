@@ -19,8 +19,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { useBoardEvents } from "@/stores/board";
-import { useMqttSync } from "@/hooks/use-mqtt-sync";
-import { useLlmSync } from "@/hooks/use-llm-sync";
+import { useCloudCapabilitySync } from "@/session/cloud-capabilities";
 import { useUpdater } from "@/hooks/use-updater";
 import { useDeepLink } from "@/hooks/use-deep-link";
 import { useFigmaUniqueId, useFigmaStore } from "@/stores/figma";
@@ -106,8 +105,7 @@ function RootComponent() {
 
 function Board() {
   useBoardEvents();
-  useMqttSync();
-  useLlmSync();
+  useCloudCapabilitySync();
   useUpdater();
   useBackendLogs();
   useDeepLink();

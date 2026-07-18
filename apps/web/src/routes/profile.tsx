@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
-import { authClient } from "@/lib/auth-client";
+import { getSession } from "@/lib/auth-client";
 import {
   Card,
   CardAction,
@@ -45,7 +45,7 @@ const COLLAB_ICONS: IconName[] = [
 
 export const Route = createFileRoute("/profile")({
   beforeLoad: async () => {
-    const session = await authClient.getSession();
+    const session = await getSession();
     if (!session.data?.user) {
       throw redirect({ to: "/login" });
     }

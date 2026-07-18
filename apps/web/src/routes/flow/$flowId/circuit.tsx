@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth-client";
+import { getSession } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/flow/$flowId/circuit")({
     beforeLoad: async ({ params }) => {
-        const session = await authClient.getSession();
+        const session = await getSession();
 
         if (params.flowId === "local") {
             return { session };
