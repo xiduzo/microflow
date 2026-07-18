@@ -11,8 +11,8 @@
 //!    § Hardware Callback).
 
 use crate::runtime::{
-    BoardWiring, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
-    I2cContinuousRead, ListenerWiring, RuntimeContext, RuntimeError,
+    BoardWiring, Component, ComponentBase, ComponentBuilder, ComponentValue, DiagnosticLevel,
+    HardwareComponent, I2cContinuousRead, ListenerWiring, RuntimeContext, RuntimeError,
 };
 use crate::config::i2c_device::{fold_bytes, ByteDecode, I2cDeviceConfig, OutputFormat};
 
@@ -20,6 +20,9 @@ pub struct I2cDevice {
     base: ComponentBase,
     config: I2cDeviceConfig,
     initialized: bool,
+    /// Whether the node is currently showing a short-read fault, so a diagnostic
+    /// is raised/cleared only on a transition (not every 100ms poll).
+    faulted: bool,
 }
 
 impl I2cDevice {
@@ -29,6 +32,7 @@ impl I2cDevice {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             initialized: false,
+            faulted: false,
         }
     }
 
@@ -223,7 +227,31 @@ impl HardwareComponent for I2cDevice {
         Ok(())
     }
 
-    fn on_i2c_reply(&mut self, bytes: &[u8], _ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+    fn on_i2c_reply(&mut self, bytes: &[u8], ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        // A reply shorter than the requested read length means the device didn't
+        // return its data — an unACKed read (the board's "I2C: Too few bytes
+        // received"). Surface it on the node and keep the last good value rather
+        // than overwriting it with a truncated/empty decode. Raise/clear only on
+        // a transition so a per-poll fault doesn't spam the diagnostic channel.
+        let expected = usize::from(self.config.read_length);
+        if bytes.len() < expected {
+            if !self.faulted {
+                self.faulted = true;
+                ctx.report_diagnostic(
+                    DiagnosticLevel::Error,
+                    format!(
+                        "No response from 0x{:02X}: got {} of {expected} bytes. Check wiring (SDA/SCL/power), the address, and pull-ups.",
+                        self.config.address,
+                        bytes.len(),
+                    ),
+                );
+            }
+            return Ok(());
+        }
+        if self.faulted {
+            self.faulted = false;
+            ctx.clear_diagnostic();
+        }
         // The runtime unmarshals the I2C-reply Hardware Callback to raw bytes
         // once at the dispatch site (`ComponentValue::as_byte_vec`), so decode
         // straight from the slice — no per-node re-unwrap.

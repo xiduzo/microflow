@@ -17,6 +17,8 @@ export type { CloudRequest };
 export type Wakeup = Effects["wakeups"][number];
 /** One emitted component event, as carried in the `Effects` serde shape. */
 export type ComponentEvent = Effects["componentEvents"][number];
+/** One node health signal, as carried in the `Effects` serde shape. */
+export type NodeDiagnostic = Effects["nodeDiagnostics"][number];
 
 /**
  * The platform primitives an effects application drives — the TypeScript shape
@@ -32,6 +34,7 @@ export interface EffectsSink {
   armWakeup(wakeup: Wakeup): void;
   performCloud(request: CloudRequest): void;
   dispatchEvent(event: ComponentEvent): void;
+  reportDiagnostic(diagnostic: NodeDiagnostic): void;
 }
 
 /**
@@ -58,14 +61,17 @@ const EFFECT_HANDLERS: { [K in keyof Effects]: (fx: Effects, sink: EffectsSink) 
   componentEvents: (fx, sink) => {
     for (const event of fx.componentEvents) sink.dispatchEvent(event);
   },
+  nodeDiagnostics: (fx, sink) => {
+    for (const diagnostic of fx.nodeDiagnostics) sink.reportDiagnostic(diagnostic);
+  },
 };
 
 /**
  * The **canonical order** (ADR-0008, extended by ADR-0009) the fields apply in:
- * `outboundBytes → cancellations → wakeups → cloudRequests → componentEvents`.
- * Bytes first (wire latency), cancel-before-arm (so a cancel + re-arm of one
- * logical timer in a turn is safe), cloud launched before UI events leave, UI
- * events last (they leave the runtime and do not feed back this turn).
+ * `outboundBytes → cancellations → wakeups → cloudRequests → componentEvents →
+ * nodeDiagnostics`. Bytes first (wire latency), cancel-before-arm (so a cancel +
+ * re-arm of one logical timer in a turn is safe), cloud launched before UI events
+ * leave, UI events last (they leave the runtime and do not feed back this turn).
  *
  * `satisfies` pins every entry to a real field; {@link AssertOrderIsExhaustive}
  * below pins the *reverse* — a new field absent from this tuple fails to compile,
@@ -77,6 +83,7 @@ const APPLY_ORDER = [
   "wakeups",
   "cloudRequests",
   "componentEvents",
+  "nodeDiagnostics",
 ] as const satisfies readonly (keyof Effects)[];
 
 /** Errors unless {@link APPLY_ORDER} lists every key of `Effects` (the wrap in a

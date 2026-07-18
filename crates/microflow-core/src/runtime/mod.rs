@@ -48,8 +48,8 @@ pub use component::{
 };
 pub use reconcile::{plan_board, BoardPlan, DesiredBoard};
 pub use context::{
-    CloudRequest, CloudRequestKind, Effects, EffectsSink, RuntimeContext, ScheduleRequests, Wakeup,
-    WakeupId,
+    CloudRequest, CloudRequestKind, DiagnosticLevel, Effects, EffectsSink, NodeDiagnostic,
+    RuntimeContext, ScheduleRequests, Wakeup, WakeupId,
 };
 pub use error::{HardwareError, RuntimeError};
 pub use registry::ComponentRegistry;
@@ -749,6 +749,7 @@ impl FlowRuntime {
             .drain(..)
             .map(|(source, kind)| CloudRequest { source: Arc::from(source.as_str()), kind })
             .collect();
+        let node_diagnostics = std::mem::take(&mut reqs.diagnostics);
         let (wakeups, cancellations) = self.resolve_schedule(reqs);
         // One wide event per turn that *did something* — drained an event, wrote
         // bytes, (re)armed a timer, issued a cloud call, or hit a dispatch error.
@@ -762,6 +763,7 @@ impl FlowRuntime {
             || !wakeups.is_empty()
             || !cancellations.is_empty()
             || !cloud_requests.is_empty()
+            || !node_diagnostics.is_empty()
             || errors > 0;
         if produced {
             tracing::debug!(
@@ -776,7 +778,14 @@ impl FlowRuntime {
                 "flow tick",
             );
         }
-        Effects { outbound_bytes: out, component_events: events, wakeups, cancellations, cloud_requests }
+        Effects {
+            outbound_bytes: out,
+            component_events: events,
+            wakeups,
+            cancellations,
+            cloud_requests,
+            node_diagnostics,
+        }
     }
 
     /// Gate stale events, branch internal/hardware callbacks, echo `set_value`
@@ -1300,6 +1309,60 @@ mod tests {
             !gyro_reply.component_events.iter().any(|e| &*e.source == "accel"),
             "accel node must NOT receive the gyro (0x43) reply",
         );
+    }
+
+    #[test]
+    fn short_i2c_reply_raises_then_clears_node_diagnostic() {
+        use crate::firmata::{END_SYSEX, I2C_REPLY, START_SYSEX};
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        rt.seed_digital_pins(20);
+
+        // A TCS-shaped node: reads 8 bytes from reg 0xB4 at 0x29.
+        let dev = node(
+            "tcs",
+            "I2cDevice",
+            json!({ "device": "tcs34725", "address": 0x29, "register": 0xB4, "readLength": 8, "output": "raw" }),
+        );
+        rt.update_flow(FlowUpdate { nodes: vec![dev], edges: vec![] });
+
+        let reply = |data: &[u8]| {
+            // reg 0xB4 = 0x34 | (0x01 << 7)
+            let mut f = vec![START_SYSEX, I2C_REPLY, 0x29, 0, 0x34, 0x01];
+            for &b in data {
+                f.push(b & 0x7F);
+                f.push(b >> 7);
+            }
+            f.push(END_SYSEX);
+            f
+        };
+
+        // A full 8-byte reply: value updates, no diagnostic.
+        let ok = rt.feed_bytes(&reply(&[1, 2, 3, 4, 5, 6, 7, 8]));
+        assert!(ok.node_diagnostics.is_empty(), "healthy read must not diagnose");
+        assert!(ok.component_events.iter().any(|e| &*e.source == "tcs"));
+
+        // An EMPTY reply (the board's NACK: `F0 77 29 00 34 01 F7`) must raise an
+        // error diagnostic on the node and NOT emit a (garbage) value event.
+        let nack = rt.feed_bytes(&reply(&[]));
+        assert_eq!(nack.node_diagnostics.len(), 1, "NACK must diagnose once");
+        let d = &nack.node_diagnostics[0];
+        assert_eq!(&d.node, "tcs");
+        assert!(matches!(d.level, DiagnosticLevel::Error));
+        assert!(d.message.is_some(), "raise carries a message");
+        assert!(
+            !nack.component_events.iter().any(|e| &*e.source == "tcs"),
+            "a short read must keep the last good value, not emit"
+        );
+
+        // A second NACK must NOT re-diagnose (transition-only, no spam).
+        let nack2 = rt.feed_bytes(&reply(&[]));
+        assert!(nack2.node_diagnostics.is_empty(), "repeat NACK must not spam");
+
+        // Recovery: a full reply clears the diagnostic (message None).
+        let recovered = rt.feed_bytes(&reply(&[8, 7, 6, 5, 4, 3, 2, 1]));
+        assert_eq!(recovered.node_diagnostics.len(), 1, "recovery clears once");
+        assert!(recovered.node_diagnostics[0].message.is_none(), "clear has no message");
     }
 
     /// The full hardware-faithful analog loop on an Uno-shaped board: seed the
