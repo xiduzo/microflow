@@ -85,11 +85,6 @@ impl EventEmitter {
         });
     }
 
-    /// Emit error for port without Firmata
-    pub fn no_firmata_error(&self, port_name: &str) {
-        self.board_error(&format!("No Firmata detected on {port_name}"));
-    }
-
     // ========================================================================
     // Port Events
     // ========================================================================
