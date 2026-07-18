@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import { Debouncer } from "@tanstack/react-pacer";
 import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
-import { useMqttBrokerStore } from "@/stores/mqtt-broker";
-import { useFigmaStore } from "@/stores/figma";
-import { useLlmProviderStore } from "@/stores/llm-provider";
+import { readHostSnapshot } from "./cloud-capabilities";
 import {
   FlowUpdateDispatcher,
   type DispatchScheduler,
-  type HostSnapshot,
 } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
 import { WasmFlowUpdateSender } from "./wasm-flow-update-sender";
@@ -31,14 +28,6 @@ class DebounceScheduler implements DispatchScheduler {
     // react-pacer's Debouncer doesn't expose an external cancel hook; the
     // dispatcher's `destroyed` flag in `dispatchNow` is the fail-safe.
   }
-}
-
-function readHostSnapshot(): HostSnapshot {
-  return {
-    brokers: useMqttBrokerStore.getState().brokers,
-    providers: useLlmProviderStore.getState().providers,
-    figma: { uniqueId: useFigmaStore.getState().uniqueId },
-  };
 }
 
 /**

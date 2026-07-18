@@ -14,9 +14,8 @@ import {
   CircleIcon,
 } from "lucide-react";
 
-import { useMqttBrokerStore, type MqttBrokerConfig, type ConnectionStatus } from "@/stores/mqtt-broker";
+import { useMqttBrokerStore, useBrokerStatus, type MqttBrokerConfig, type ConnectionStatus } from "@/stores/mqtt-broker";
 import { track } from "@/lib/analytics";
-import { useBrokerStatus } from "@/hooks/use-mqtt-sync";
 import { Button } from "@/components/ui/button";
 import {
   Card,

@@ -7,9 +7,8 @@ import {
   CircleIcon, CheckCircleIcon, XCircleIcon, Loader2Icon, BotIcon,
 } from "lucide-react";
 
-import { useLlmProviderStore, type LlmProviderConfig } from "@/stores/llm-provider";
+import { useLlmProviderStore, useProviderStatus, type LlmProviderConfig } from "@/stores/llm-provider";
 import { track } from "@/lib/analytics";
-import { useProviderStatus } from "@/hooks/use-llm-sync";
 import { invokeCommand } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { Button } from "@/components/ui/button";

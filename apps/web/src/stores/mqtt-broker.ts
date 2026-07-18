@@ -100,3 +100,10 @@ export const useMqttBrokerStore = create<MqttBrokerStore>()(
     }
   )
 );
+
+/**
+ * Get the connection status for a specific broker
+ */
+export function useBrokerStatus(brokerId: string): ConnectionStatus {
+  return useMqttBrokerStore((s) => s.statuses[brokerId] ?? "disconnected");
+}
