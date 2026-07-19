@@ -66,12 +66,23 @@ jobs:
           # Update microflow-core (its version is stamped into generated sketches)
           sed -i "s/^version = \".*\"/version = \"$VERSION\"/" crates/microflow-core/Cargo.toml
 
+          # Keep Cargo.lock in step with the two bumped manifests. Done with awk
+          # rather than `cargo update` so the job stays offline and toolchain-free:
+          # in the lock, `version` is always the line right after `name`.
+          for PKG in microflow microflow-core; do
+            awk -v pkg="$PKG" -v ver="$VERSION" '
+              $0 == "name = \"" pkg "\"" { print; getline; print "version = \"" ver "\""; next }
+              { print }
+            ' Cargo.lock > Cargo.lock.tmp && mv Cargo.lock.tmp Cargo.lock
+          done
+
       - name: Commit and push version bump
         id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/web/src-tauri/tauri.conf.json apps/web/src-tauri/Cargo.toml
+          git add apps/web/src-tauri/tauri.conf.json apps/web/src-tauri/Cargo.toml \
+                  crates/microflow-core/Cargo.toml Cargo.lock
 
           # Only commit if there are actual changes
           if git diff --cached --quiet; then
