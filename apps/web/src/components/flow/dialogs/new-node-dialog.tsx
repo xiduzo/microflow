@@ -8,6 +8,7 @@ import { useNewNodeStore } from "@/stores/new-node";
 import { groupIndicator } from "../nodes/_base/_base";
 import { uid } from "@/lib/uid";
 import { track } from "@/lib/analytics";
+import { docsUrl } from "@/lib/docs";
 import {
   Command,
   CommandDialog,
@@ -170,7 +171,7 @@ export function NewNodeDialog() {
               icon={SearchIcon}
             >
               <a
-                href="https://docs.microflow.tech/microflow-studio/nodes"
+                href={docsUrl("/microflow-studio/nodes")}
                 target="_blank"
               >
                 <Button variant="link">Visit the documentation</Button>

@@ -15,8 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { isDesktop } from "@/lib/platform";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { DOCS_URL, openExternal } from "@/lib/docs";
 
 type LinkItem = {
   title: string;
@@ -35,7 +34,7 @@ const LINKS: LinkItem[] = [
   },
   {
     title: "Documentation",
-    url: "https://docs.microflow.tech",
+    url: DOCS_URL,
     icon: BookMarkedIcon,
   },
   {
@@ -56,11 +55,7 @@ export function NavSecondary(
       navigate({ to: item.url });
       return;
     }
-    if (isDesktop()) {
-      openUrl(item.url);
-      return;
-    }
-    window.open(item.url, "_blank");
+    openExternal(item.url);
   };
 
   return (

@@ -52,7 +52,35 @@ If everything else is ruled out, the board may be physically faulty.
 - Open the Arduino IDE. Try the **Bare Minimum** example: *File → Examples → 01.Basics → BareMinimum*. Upload it. If even that fails with errors like "avrdude: stk500_recv()", the board has a bootloader issue and needs hardware-level recovery.
 - Try a known-working board on the same computer. If it works, the original board is the problem.
 
-## 7. Unsupported board
+## 7. You are running Microflow in a browser (Web Serial)
+
+Microflow Studio can talk to your board in two ways: through **Web Serial** when you open the app in a Chromium-based browser, or through native USB when you use the **desktop app**. They behave differently, and a lot of "the board just won't connect" reports in the browser are actually Web Serial limitations rather than hardware faults.
+
+### What Web Serial cannot do
+
+- **Firefox and Safari** do not implement Web Serial at all. The sidebar will tell you to switch browsers or install the desktop app — there is no workaround inside those browsers.
+- **The browser never auto-detects a board.** You have to click *Connect board* and pick the port from the browser's native chooser every session. Studio cannot remember the port across reloads on most platforms.
+- **The browser cannot install USB drivers.** If your OS does not see the board as a serial device (see [USB drivers](#3-usb-drivers)), no browser can fix that.
+- **The browser cannot flash a board that has no bootloader.** Web Serial can re-flash StandardFirmata on top of an existing bootloader, but a bricked board still needs the desktop app or the Arduino IDE.
+- **Permission is per-origin, per-device.** If you previously granted access on `localhost` and are now on `app.microflow.tech` (or vice versa), you will be asked to authorise the board again.
+- **Only one tab can hold the port.** If you have Microflow open in two tabs, the second one will fail to connect. Close the other tab first.
+- **Chrome flags can disable it.** If Web Serial has been turned off in `chrome://flags` or by an enterprise policy, Studio will report the browser as unsupported.
+
+### When the desktop app solves it
+
+The desktop app (Tauri) talks to the serial port through the operating system directly and sidesteps most of the above. Prefer the desktop app when:
+
+- You are on Firefox or Safari and cannot switch browsers.
+- The board flashes fine from the Arduino IDE but not from the browser.
+- You want the board to reconnect automatically after unplugging/re-plugging or reloading.
+- You need to flash a board where the bootloader is intact but Web Serial refuses the write (some CH340 clones behave this way).
+- You are on a corporate machine where Chrome policies block Web Serial.
+
+The desktop app cannot fix a bad cable, a broken bootloader, or a missing OS-level driver — for those, keep working through the checks above.
+
+Download the desktop app from the [Microflow releases page](https://github.com/xiduzo/microflow-t-stack/releases). Your flows are stored in the cloud (or locally, depending on your setup), so switching between browser and desktop does not lose any work.
+
+## 8. Unsupported board
 
 Microflow officially supports Arduino Uno, Mega, Leonardo, Micro, Nano, and Yun. Other boards may work but are not guaranteed. Boards based on ESP32, RP2040, Teensy, and similar typically need a different firmware path that Microflow does not handle today.
 

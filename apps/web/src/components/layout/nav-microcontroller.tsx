@@ -1,4 +1,5 @@
 import {
+  CircleHelpIcon,
   FileCodeIcon,
   LoaderPinwheelIcon,
   MicrochipIcon,
@@ -8,13 +9,40 @@ import {
   UsbIcon,
   type LucideIcon,
 } from "lucide-react";
-import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
+import {
+  SidebarGroup,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "../ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { isDesktop } from "@/lib/platform";
 import { cva } from "class-variance-authority";
 import { useBoardError, useBoardPort, useBoardState } from "@/stores/board";
 import { useWebSerialBoard } from "@/hooks/use-web-serial-board";
 import { useMemo } from "react";
+import { openDocs } from "@/lib/docs";
+
+function TroubleshootingAction({
+  tooltip = "Troubleshoot: board not detected",
+}: { tooltip?: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <SidebarMenuAction
+            aria-label={tooltip}
+            onClick={() => openDocs("/docs/troubleshooting/board-not-detected")}
+          >
+            <CircleHelpIcon />
+          </SidebarMenuAction>
+        }
+      />
+      <TooltipContent side="right">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function NavMicrocontroller() {
   const boardState = useBoardState();
@@ -53,6 +81,7 @@ export function NavMicrocontroller() {
               <UsbIcon />
               <span>Use Chrome/Edge or the desktop app</span>
             </SidebarMenuButton>
+            <TroubleshootingAction tooltip="Why can't I connect?" />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroup>
@@ -86,6 +115,8 @@ export function NavMicrocontroller() {
     </SidebarMenuButton>
   );
 
+  const showTroubleshootingAction = boardState === "disconnected" || boardState === "error";
+
   return (
     <SidebarGroup>
       <SidebarMenu>
@@ -101,6 +132,7 @@ export function NavMicrocontroller() {
           ) : (
             button
           )}
+          {showTroubleshootingAction && <TroubleshootingAction />}
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
