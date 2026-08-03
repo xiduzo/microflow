@@ -57,9 +57,16 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
     if let Some(source) = sources.first() {
         let input = source.value.as_double_parsing();
-        let mapped = format!(
-            "(({input} - {in_min}) * ({out_max} - {out_min}) / ({in_max} - {in_min}) + {out_min})"
-        );
+        // A zero-width `from` range (min == max) divides by zero in C++
+        // (inf/nan). The range is fixed at codegen time, so collapse it to the
+        // low output bound instead of emitting the division.
+        let mapped = if (config.from.max - config.from.min).abs() < f64::EPSILON {
+            out_min.clone()
+        } else {
+            format!(
+                "(({input} - {in_min}) * ({out_max} - {out_min}) / ({in_max} - {in_min}) + {out_min})"
+            )
+        };
         e.loop_body
             .push(format!("{var} = round(({mapped}) * {factor}) / {factor};"));
     }
@@ -105,6 +112,20 @@ mod tests {
         assert!(body.contains("1023.0"));
         assert!(body.contains("255.0"));
         assert!(body.contains("round("));
+    }
+
+    #[test]
+    fn zero_width_from_range_collapses_to_output_min_without_dividing() {
+        let e = emit(
+            &rm("r-1", json!({ "from": { "min": 5.0, "max": 5.0 }, "to": { "min": 0.0, "max": 255.0 } })),
+            &value_input(CppExpr::number("sensor_s_1_value")),
+        );
+        let body = e.loop_body.join("\n");
+        // A zero-width `from` range maps to the low output bound instead of
+        // dividing by the zero span (which would emit inf/nan C++).
+        assert!(body.contains("0.0"));
+        assert!(!body.contains("sensor_s_1_value"));
+        assert!(!body.contains("(5.0 - 5.0)"));
     }
 
     #[test]
