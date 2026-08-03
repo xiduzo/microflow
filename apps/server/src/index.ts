@@ -2,6 +2,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@microflow/api/context";
 import { appRouter } from "@microflow/api/routers/index";
 import { getPublicSupportersCached } from "@microflow/api/routers/supporters";
+import { requireFlowAccess } from "@microflow/api/routers/flow-access";
 import { auth } from "@microflow/auth";
 import { env } from "@microflow/env/server";
 import { createYjsHandler } from "@microflow/collab/server";
@@ -89,9 +90,27 @@ app.get(
           return;
         }
 
-        // Attach flowId and userId to the websocket
-        (ws.raw as unknown as { flowId: string; userId: string }).flowId = flowId;
-        (ws.raw as unknown as { flowId: string; userId: string }).userId = session.user.id;
+        // Authenticated is not authorized: check this user against THIS flow,
+        // through the same owner/collaborator model the tRPC procedures use.
+        // Viewers may connect, but read-only.
+        let canWrite: boolean;
+        try {
+          const { role } = await requireFlowAccess(flowId, session.user.id, "viewer");
+          canWrite = role !== "viewer";
+        } catch {
+          ws.close(1008, "Forbidden");
+          return;
+        }
+
+        // Attach flowId, userId and the access decision to the websocket
+        const data = ws.raw as unknown as {
+          flowId: string;
+          userId: string;
+          canWrite: boolean;
+        };
+        data.flowId = flowId;
+        data.userId = session.user.id;
+        data.canWrite = canWrite;
 
         handler.onOpen(event, ws as any);
       },
