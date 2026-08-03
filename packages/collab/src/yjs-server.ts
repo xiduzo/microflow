@@ -31,6 +31,8 @@ export type Connection = {
 type ConnectionInfo = {
   awarenessClientIds: Set<number>; // Track all awareness client IDs from this connection
   userId: string;
+  /** Viewers join read-only: their inbound doc writes are dropped. */
+  canWrite: boolean;
 };
 
 type Room = {
@@ -58,16 +60,23 @@ export class YjsServer {
   // Connection Handling
   // --------------------------------------------------------------------------
 
+  /**
+   * Attach a connection to a room. The caller is responsible for having
+   * authorized `userId` on `flowId` first — `canWrite` is required (not
+   * defaulted) so no caller can grant write access by omission.
+   */
   async handleConnection(
     flowId: string,
     connection: Connection,
     userId: string,
+    canWrite: boolean,
   ): Promise<() => void> {
     const room = await this.getOrCreateRoom(flowId);
 
     room.connections.set(connection, {
       awarenessClientIds: new Set(),
       userId,
+      canWrite,
     });
     console.log(`[YJS] Room ${flowId}: ${room.connections.size} connection(s)`);
 
@@ -125,6 +134,16 @@ export class YjsServer {
     connection: Connection,
     decoder: decoding.Decoder,
   ): void {
+    // Read-only connections may only ask for our state (step 1). Step 2 and
+    // update messages both write into the doc, so drop them. An unknown
+    // connection has no ConnectionInfo and is treated as read-only.
+    if (
+      !room.connections.get(connection)?.canWrite &&
+      decoding.peekVarUint(decoder) !== syncProtocol.messageYjsSyncStep1
+    ) {
+      return;
+    }
+
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
 

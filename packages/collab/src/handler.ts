@@ -14,6 +14,8 @@ const yjsServer = new YjsServer();
 type WebSocketData = {
   flowId: string;
   userId: string;
+  /** Set by the endpoint after authorizing the user on this flow. */
+  canWrite: boolean;
   cleanup?: () => void;
 };
 
@@ -24,10 +26,11 @@ type WebSocketData = {
 export function createYjsHandler() {
   return {
     onOpen: async (_event: Event, ws: WSContext<WebSocketData>) => {
-      const { flowId, userId } = ws.raw as unknown as WebSocketData;
+      const { flowId, userId, canWrite } = ws.raw as unknown as WebSocketData;
 
-      if (!flowId || !userId) {
-        ws.close(1008, "Missing flowId or userId");
+      if (!flowId || !userId || typeof canWrite !== "boolean") {
+        // Fail closed: the endpoint sets all three only after authorizing.
+        ws.close(1008, "Missing flowId, userId or access decision");
         return;
       }
 
@@ -47,6 +50,7 @@ export function createYjsHandler() {
             close: () => ws.close(),
           },
           userId,
+          canWrite,
         );
 
         // Store cleanup function for later
