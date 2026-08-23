@@ -1,8 +1,7 @@
 import { db } from "@microflow/db";
 import * as schema from "@microflow/db/schema/auth";
-import { flowInvite, flowCollaborator } from "@microflow/db/schema/flow";
+import { acceptInvites } from "@microflow/db/flow-invitation";
 import { env } from "@microflow/env/server";
-import { eq } from "drizzle-orm";
 import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -37,19 +36,7 @@ export const auth = betterAuth({
         // When an invited email finally signs up, convert any pending flow
         // invites into real collaborator rows so they get access on first login.
         after: async (user) => {
-          const invites = await db.query.flowInvite.findMany({
-            where: eq(flowInvite.email, user.email),
-          });
-          if (invites.length === 0) return;
-          for (const invite of invites) {
-            await db.insert(flowCollaborator).values({
-              id: crypto.randomUUID(),
-              flowId: invite.flowId,
-              userId: user.id,
-              role: invite.role,
-            });
-          }
-          await db.delete(flowInvite).where(eq(flowInvite.email, user.email));
+          await acceptInvites(user.email, user.id);
         },
       },
     },

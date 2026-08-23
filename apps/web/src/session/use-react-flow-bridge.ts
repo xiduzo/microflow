@@ -11,8 +11,8 @@ import { ReactFlowBridge } from "./react-flow-bridge";
  * `doc` is expected to be invariant across the hook's lifetime — held by
  * the surrounding `FlowSession`, which never swaps its underlying doc.
  */
-export function useReactFlowBridge(doc: FlowDocument) {
-  const [bridge] = useState(() => new ReactFlowBridge(doc));
+export function useReactFlowBridge(doc: FlowDocument, options: { readOnly?: boolean } = {}) {
+  const [bridge] = useState(() => new ReactFlowBridge(doc, options));
 
   useEffect(() => () => bridge.destroy(), [bridge]);
 

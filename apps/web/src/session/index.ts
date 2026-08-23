@@ -1,4 +1,9 @@
-export type { FlowSession, FlowMode, CreateCloudSessionOptions } from "./flow-session";
+export type {
+  FlowSession,
+  FlowMode,
+  FlowRole,
+  CreateCloudSessionOptions,
+} from "./flow-session";
 export type {
   SyncAdapter,
   RemoteSyncAdapter,

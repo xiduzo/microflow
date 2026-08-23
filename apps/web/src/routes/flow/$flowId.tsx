@@ -8,6 +8,7 @@ import {
   useFlowUpdateDispatcher,
   useFlowNodes,
   useLocalSession,
+  type FlowRole,
   type FlowSession,
 } from "@/session";
 import { usePins, type Pin } from "@/stores/board";
@@ -203,6 +204,7 @@ function CloudFlowLayout() {
       authToken={authToken}
       initialData={initialData}
       meta={{ name: flow.name }}
+      role={flow.role}
     />
   );
 }
@@ -218,6 +220,7 @@ function CloudFlowSessionMount(props: {
   authToken?: string;
   initialData?: Uint8Array;
   meta?: { name?: string; description?: string };
+  role?: FlowRole;
 }) {
   const session = useCloudSession(props);
   return <FlowProviderShell session={session} />;

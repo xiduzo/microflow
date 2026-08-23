@@ -38,14 +38,15 @@ export function ReactFlowCanvas() {
   const { fitView, getNodes } = useReactFlow();
   const { theme } = useTheme();
 
-  const { doc } = useFlowSession();
+  const { doc, readOnly, role } = useFlowSession();
   const { otherUsers } = useCollabPresence();
   const { updateCursor } = useFlowAwareness();
 
-  const { nodes, edges, onNodesChange, onEdgesChange } = useReactFlowBridge(doc);
+  const { nodes, edges, onNodesChange, onEdgesChange } = useReactFlowBridge(doc, { readOnly });
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (readOnly) return;
       const newEdge: FlowEdge = {
         id: uid(),
         source: connection.source!,
@@ -61,7 +62,7 @@ export function ReactFlowCanvas() {
         target: byId.get(newEdge.target) ?? "unknown",
       });
     },
-    [doc, getNodes],
+    [doc, getNodes, readOnly],
   );
 
   useHelperHotkeys(nodes);
@@ -94,6 +95,11 @@ export function ReactFlowCanvas() {
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         fitView
+        // A Viewer may pan, zoom and select, but not change the document.
+        nodesDraggable={!readOnly}
+        nodesConnectable={!readOnly}
+        edgesReconnectable={!readOnly}
+        deleteKeyCode={readOnly ? null : undefined}
         selectNodesOnDrag={false}
         fitViewOptions={{ padding: 0.15 }}
         className="rounded-3xl relative"
@@ -108,7 +114,12 @@ export function ReactFlowCanvas() {
         <Panel position="bottom-center">
           <DockPanel />
         </Panel>
-        <Panel position="top-left">
+        <Panel position="top-left" className="flex items-center gap-2">
+          {role === "viewer" && (
+            <span className="rounded-full border bg-background/80 px-3 py-1 text-xs font-medium backdrop-blur">
+              View only
+            </span>
+          )}
           <PressensePanel users={otherUsers} />
         </Panel>
       </ReactFlow>
