@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, like, ne, inArray } from "drizzle-orm";
 import { db } from "@microflow/db";
-import { flow, flowCollaborator, flowInvite } from "@microflow/db/schema/flow";
+import { flow, flowCollaborator } from "@microflow/db/schema/flow";
 import { user } from "@microflow/db/schema/auth";
 import { userSettings } from "@microflow/db/schema/user-settings";
 import { protectedProcedure, router } from "../index";
@@ -11,9 +11,14 @@ import {
   resolveFlowRole,
   type FlowRole,
 } from "./flow-access";
-import { FlowDocument } from "@microflow/collab/server";
-import { sendEmail } from "@microflow/auth/email";
-import { env } from "@microflow/env/server";
+import { FlowDocument, yjsServer } from "@microflow/collab/server";
+import {
+  grantAccess,
+  inviteByEmail,
+  listPendingInvites,
+  revokeInvite,
+} from "@microflow/db/flow-invitation";
+import { resendInviteMailer } from "./invite-mailer";
 
 // ============================================================================
 // Constants
@@ -46,6 +51,18 @@ export const FLOW_COLORS = [
 
 const uid = () =>
   Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+
+/**
+ * Push an access change onto any live Yjs connection the user holds.
+ *
+ * A socket resolves its Flow Role once, at connect time; without this a
+ * removed collaborator keeps writing until they reconnect. Same-process only
+ * — the tRPC router and the `/yjs/:flowId` endpoint are both mounted by
+ * `apps/server`, so they share the `yjsServer` singleton.
+ */
+function syncLiveAccess(flowId: string, userId: string, role: FlowRole | null) {
+  yjsServer.setAccess(flowId, userId, role === null ? "none" : role === "viewer" ? "read" : "write");
+}
 
 function decodeFlowData(ydoc: Buffer | null) {
   if (!ydoc) return { nodes: [], edges: [] };
@@ -327,6 +344,9 @@ export const flowRouter = router({
 
       await db.delete(flow).where(eq(flow.id, input.id));
 
+      // Discard the live room rather than let it flush back to a deleted row.
+      yjsServer.dropRoom(input.id);
+
       return flowRecord;
     }),
 
@@ -344,13 +364,8 @@ export const flowRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
 
-      const id = uid();
-      await db.insert(flowCollaborator).values({
-        id,
-        flowId: input.flowId,
-        userId: input.userId,
-        role: input.role,
-      });
+      await grantAccess(input.flowId, input.userId, input.role);
+      syncLiveAccess(input.flowId, input.userId, input.role);
 
       return { success: true };
     }),
@@ -376,6 +391,8 @@ export const flowRouter = router({
             eq(flowCollaborator.userId, input.userId)
           )
         )
+
+      syncLiveAccess(input.flowId, input.userId, null);
 
       return { success: true };
     }),
@@ -420,83 +437,43 @@ export const flowRouter = router({
         "owner"
       );
 
-      // Find user by email
-      const targetUser = await db.query.user.findFirst({
-        where: eq(user.email, input.email),
-      });
-
-      const webUrl = env.WEB_URL ?? env.CORS_ORIGINS[0];
-      const inviter = ctx.session.user.name || ctx.session.user.email;
-
-      // No account yet: record a pending invite (accepted on sign-up by the
-      // better-auth user.create hook) and email them a sign-up link.
-      if (!targetUser) {
-        await db
-          .insert(flowInvite)
-          .values({
-            id: uid(),
-            flowId: input.flowId,
-            email: input.email,
-            role: input.role,
-            invitedBy: ctx.session.user.id,
-          })
-          .onConflictDoUpdate({
-            target: [flowInvite.flowId, flowInvite.email],
-            set: { role: input.role, invitedBy: ctx.session.user.id },
-          });
-
-        const signupUrl = `${webUrl}/login?redirect=${encodeURIComponent(`/flow/${input.flowId}`)}`;
-        try {
-          await sendEmail({
-            to: input.email,
-            subject: `${inviter} invited you to a flow on Microflow`,
-            html: `<p>${inviter} invited you to collaborate on "${flowRecord.name}" as a <strong>${input.role}</strong>.</p><p><a href="${signupUrl}">Sign up to open it</a> — you'll get access automatically.</p>`,
-          });
-        } catch (error) {
-          console.error("[flow.addCollaboratorByEmail] invite email failed:", error);
-        }
-
-        return { success: true, invited: true };
-      }
-
-      if (targetUser.id === ctx.session.user.id) {
-        throw new Error("Cannot add yourself as a collaborator");
-      }
-
-      // Check if already a collaborator
-      const existing = await db.query.flowCollaborator.findFirst({
-        where: and(
-          eq(flowCollaborator.flowId, input.flowId),
-          eq(flowCollaborator.userId, targetUser.id)
-        ),
-      });
-
-      if (existing) {
-        throw new Error("User is already a collaborator");
-      }
-
-      const id = uid();
-      await db.insert(flowCollaborator).values({
-        id,
+      const result = await inviteByEmail({
         flowId: input.flowId,
-        userId: targetUser.id,
+        flowName: flowRecord.name,
+        email: input.email,
         role: input.role,
+        invitedBy: {
+          id: ctx.session.user.id,
+          name: ctx.session.user.name || ctx.session.user.email,
+        },
+        mailer: resendInviteMailer,
       });
 
-      // Notify the new collaborator. Don't fail the mutation if email fails —
-      // the access grant already succeeded.
-      const flowUrl = `${webUrl}/flow/${input.flowId}`;
-      try {
-        await sendEmail({
-          to: targetUser.email,
-          subject: `${inviter} shared a flow with you on Microflow`,
-          html: `<p>${inviter} added you as a <strong>${input.role}</strong> on "${flowRecord.name}".</p><p><a href="${flowUrl}">Open the flow</a></p>`,
-        });
-      } catch (error) {
-        console.error("[flow.addCollaboratorByEmail] email failed:", error);
+      if (result.kind === "granted") {
+        return { success: true, userId: result.userId };
       }
+      return { success: true, invited: true };
+    }),
 
-      return { success: true, userId: targetUser.id };
+  /**
+   * Invites for this flow that have no account behind them yet
+   */
+  pendingInvites: protectedProcedure
+    .input(z.object({ flowId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
+      return listPendingInvites(input.flowId);
+    }),
+
+  /**
+   * Withdraw a pending invite
+   */
+  revokeInvite: protectedProcedure
+    .input(z.object({ flowId: z.string(), email: z.string().email() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
+      await revokeInvite(input.flowId, input.email);
+      return { success: true };
     }),
     /**
      * Update a collaborator's role
@@ -515,6 +492,8 @@ export const flowRouter = router({
         }
 
         await db.update(flowCollaborator).set({ role: input.role }).where(eq(flowCollaborator.id, collaborator.id));
+
+        syncLiveAccess(input.flowId, input.userId, input.role);
 
         return { success: true };
       }),

@@ -63,6 +63,12 @@ export const flowCollaborator = pgTable(
   (table) => [
     index("flow_collaborator_flowId_idx").on(table.flowId),
     index("flow_collaborator_userId_idx").on(table.userId),
+    // One grant per user per flow — lets every grant path upsert instead of
+    // check-then-insert. See `flow-invitation.ts`.
+    uniqueIndex("flow_collaborator_flowId_userId_idx").on(
+      table.flowId,
+      table.userId
+    ),
   ]
 );
 
