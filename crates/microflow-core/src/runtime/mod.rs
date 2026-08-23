@@ -668,7 +668,7 @@ impl FlowRuntime {
         if self.client.i2c_data.is_empty() {
             return;
         }
-        let replies: Vec<_> = self.client.i2c_data.drain(..).collect();
+        let replies = std::mem::take(&mut self.client.i2c_data);
         for reply in replies {
             let address = reply.address as u8;
             let register = reply.register as u8;
