@@ -98,7 +98,16 @@ export class ReactFlowBridge {
   private isFlushingToDoc = false;
   private destroyed = false;
 
-  constructor(doc: FlowDocument) {
+  /**
+   * When true, structural changes update the React snapshot but never reach
+   * the Y.Doc. The backstop behind the canvas's own read-only props: a
+   * Viewer's writes are dropped by the Yjs room, so accepting them locally
+   * would diverge the two documents in silence.
+   */
+  readonly readOnly: boolean;
+
+  constructor(doc: FlowDocument, options: { readOnly?: boolean } = {}) {
+    this.readOnly = options.readOnly ?? false;
     this.doc = doc;
     this.currentSnapshot = { nodes: doc.getNodes(), edges: doc.getEdges() };
     this.unobserveNodes = doc.onNodesChange(this.handleYjsNodesChange);
@@ -125,6 +134,7 @@ export class ReactFlowBridge {
     if (this.destroyed) return;
     const next = applyNodeChanges(changes, this.currentSnapshot.nodes) as FlowNode[];
     this.setSnapshot({ ...this.currentSnapshot, nodes: next });
+    if (this.readOnly) return;
     if (changes.some((c) => ReactFlowBridge.classifyNodeChange(c) === "structural")) {
       this.hasPendingNodeWrite = true;
       this.scheduleFlush();
@@ -135,6 +145,7 @@ export class ReactFlowBridge {
     if (this.destroyed) return;
     const next = applyEdgeChanges(changes, this.currentSnapshot.edges) as FlowEdge[];
     this.setSnapshot({ ...this.currentSnapshot, edges: next });
+    if (this.readOnly) return;
     if (changes.some((c) => ReactFlowBridge.classifyEdgeChange(c) === "structural")) {
       this.hasPendingEdgeWrite = true;
       this.scheduleFlush();

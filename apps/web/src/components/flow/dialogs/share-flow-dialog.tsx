@@ -43,6 +43,9 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
       queryClient.invalidateQueries({
         queryKey: trpc.flow.get.queryKey({ id: flowId }),
       });
+      queryClient.invalidateQueries({
+        queryKey: trpc.flow.pendingInvites.queryKey({ flowId }),
+      });
       form.reset();
       track("flow_shared", { via: "collaborator" });
       toast.success(
@@ -117,12 +120,19 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
-          <InputGroup>
-            <InputGroupInput value={shareUrl} readOnly />
-            <InputGroupAddon align="inline-end" onClick={handleCopyLink}>
-              {copiedText ? <Check /> : <Copy />}
-            </InputGroupAddon>
-          </InputGroup>
+          <div className="space-y-1.5">
+            <InputGroup>
+              <InputGroupInput value={shareUrl} readOnly />
+              <InputGroupAddon align="inline-end" onClick={handleCopyLink}>
+                {copiedText ? <Check /> : <Copy />}
+              </InputGroupAddon>
+            </InputGroup>
+            {/* There is no link-scoped Flow Role: the link opens the flow for
+                people who already have access, it does not grant any. */}
+            <p className="text-xs text-muted-foreground">
+              Link for people you've already added — it doesn't grant access on its own.
+            </p>
+          </div>
           {/* Add collaborator form */}
           <form className="space-y-3" onSubmit={e => {
             e.preventDefault();

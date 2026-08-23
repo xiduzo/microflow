@@ -34,7 +34,7 @@ import {
     TableBody,
     TableCaption,
 } from "@/components/ui/table";
-import { EllipsisVerticalIcon, ShieldUserIcon, TrashIcon } from "lucide-react";
+import { EllipsisVerticalIcon, MailIcon, ShieldUserIcon, TrashIcon } from "lucide-react";
 import { ShareFlowDialog } from "@/components/flow/dialogs/share-flow-dialog";
 import { DeleteFlowDialog } from "@/components/flow/dialogs/delete-flow-dialog";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -126,6 +126,21 @@ function FlowCollaboratorsCard(props: {
         },
     }))
 
+    // Invites for addresses with no account yet — they become collaborators
+    // on sign-up, and are invisible until then without this.
+    const { data: pendingInvites = [] } = useQuery(
+        trpc.flow.pendingInvites.queryOptions({ flowId: props.flowId }),
+    );
+
+    const revokeInviteMutation = useMutation(trpc.flow.revokeInvite.mutationOptions({
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: trpc.flow.pendingInvites.queryKey({ flowId: props.flowId }),
+            });
+            toast.success("Invite withdrawn");
+        },
+    }))
+
     return (
         <Card>
             <CardHeader>
@@ -199,6 +214,26 @@ function FlowCollaboratorsCard(props: {
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {pendingInvites.map((invite) => (
+                            <TableRow key={invite.id} className="text-muted-foreground">
+                                <TableCell>
+                                    <div className="w-5 h-5 rounded-full border border-dashed flex items-center justify-center">
+                                        <MailIcon className="size-3" />
+                                    </div>
+                                </TableCell>
+                                <TableCell className="italic">Invited</TableCell>
+                                <TableCell>{invite.email}</TableCell>
+                                <TableCell>{invite.role}</TableCell>
+                                <TableCell className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => revokeInviteMutation.mutate({ flowId: props.flowId, email: invite.email })}
+                                    >
+                                        <TrashIcon />
+                                    </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
