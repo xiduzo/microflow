@@ -33,7 +33,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  localStorage.clear();
+  // Remove the global, don't just empty it: bun shares one process across test
+  // files, so leaving it installed would let a later file pass only because
+  // this one ran first.
+  delete (globalThis as { localStorage?: Storage }).localStorage;
 });
 
 describe("LocalStorageSyncAdapter", () => {
