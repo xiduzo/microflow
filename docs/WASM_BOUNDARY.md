@@ -75,6 +75,21 @@ Not behind this seam: `session.pinsJson`, `FlashSession`, and `machine.handle` r
 inside probe and flash paths where a throw already means "this probe failed",
 which the bring-up machine handles.
 
+## The inbound stream
+
+`pumpReader` in `lib/firmata/web-serial.ts` fans each inbound chunk, unfiltered and
+in order, to two wasm instances: the **detection codec** (`FirmataSession`) and the
+flow runtime. Both wrap the same `microflow_core::firmata::FirmataClient` — one
+codec answering two questions at two lifetimes, not two competing parsers. The
+detection codec answers the handshake and must exist before any runtime does; the
+runtime decodes for flow execution. Consistency comes from the identical stream,
+not from synchronisation between them. See [ADR-0018](adr/0018-two-firmata-decoders.md)
+for what would have to change for merging them to be worthwhile.
+
+The detection codec's per-chunk report is **not** decoded on the JS side once a
+flow is running — nothing consumes it, so the chunk costs one `session.feed` and no
+`JSON.parse`.
+
 ## Guards
 
 - `effects-sink.ts` is exhaustive over `keyof Effects` in two directions — a field

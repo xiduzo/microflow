@@ -21,7 +21,6 @@ import {
   flashBaud,
   parseHex,
   standardFirmataHex,
-  type FeedResult,
   type FirmataSession,
   type FlashSession,
   type FlashStep,
@@ -80,8 +79,6 @@ export function isWebSerialSupported(): boolean {
   return getSerial() !== undefined;
 }
 
-export type PinChangeHandler = (pin: number, value: number, isAnalog: boolean) => void;
-
 export type BoardConnection = {
   /** Write raw Firmata bytes to the board (from a session encoder). */
   write: (bytes: Uint8Array) => Promise<void>;
@@ -94,15 +91,13 @@ export type BoardConnection = {
 };
 
 export type ProbeHooks = {
-  /** Called for each pin value change the board reports. */
-  onPinChange?: PinChangeHandler;
   /** The board's read loop ended unexpectedly (reset / unplug mid-session). */
   onClosed?: () => void;
   /**
    * Raw inbound bytes, handed straight to the flow runtime once a board is
-   * connected. The runtime owns its own codec (single source of truth with the
-   * desktop), so it decodes these itself rather than reusing the detection
-   * session's `feed` above.
+   * connected. The runtime owns its own codec — the same `microflow-core`
+   * decoder the desktop runs — so it decodes the chunk itself rather than
+   * reusing the detection session's `feed` (ADR-0018).
    */
   onBytes?: (bytes: Uint8Array) => void;
 };
@@ -281,7 +276,9 @@ async function tryConnectAtBaud(
 
 /**
  * Drain one reader into the detection codec and the probe hooks until it ends,
- * then fire `onClosed` exactly once.
+ * then fire `onClosed` exactly once. Every chunk goes to both, in that order and
+ * without filtering — that identical stream is what keeps the detection codec's
+ * pin table and the flow runtime's from drifting apart (ADR-0018).
  *
  * The only thing here that can mean *the port is gone* is `reader.read()`
  * rejecting. Everything else in the loop is computation over a chunk that
@@ -302,15 +299,18 @@ export async function pumpReader(
       if (done) break;
       if (!value || value.length === 0) continue;
       try {
-        const result = JSON.parse(session.feed(value)) as FeedResult;
-        for (const change of result.pinChanges) {
-          hooks.onPinChange?.(change.pin, change.value, change.isAnalog);
-        }
+        // Advance the detection codec's own state — this is what makes
+        // `firmwareName()` and `pinsJson()` answer during the handshake, and
+        // keeps them truthful afterwards for `connectedState`. Its per-chunk
+        // `FeedResult` report has no consumer in the browser: pin observations
+        // reach the UI as the flow runtime's component events (ADR-0018).
+        session.feed(value);
       } catch (error) {
         console.warn("[web-serial] detection codec rejected a chunk:", error);
       }
       try {
-        // Hand the raw chunk to the flow runtime (it owns its own decode).
+        // The same chunk, undecoded, to the flow runtime — it owns the pin table
+        // the flow runs on and decodes with its own copy of the core codec.
         hooks.onBytes?.(value);
       } catch (error) {
         console.error("[web-serial] inbound-bytes handler threw:", error);
