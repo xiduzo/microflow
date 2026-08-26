@@ -5,6 +5,7 @@ import { LocalStorageSyncAdapter } from "../local-storage-sync-adapter";
 const KEY = "microflow-local-flow";
 
 class MemoryStorage implements Storage {
+  writes = 0;
   private store = new Map<string, string>();
   get length(): number {
     return this.store.size;
@@ -22,6 +23,7 @@ class MemoryStorage implements Storage {
     this.store.delete(key);
   }
   setItem(key: string, value: string): void {
+    this.writes++;
     this.store.set(key, value);
   }
 }
@@ -82,6 +84,34 @@ describe("LocalStorageSyncAdapter", () => {
     doc.addNode({ id: "n2", type: "Led", position: { x: 0, y: 0 }, data: {} });
 
     expect(localStorage.getItem(KEY)).toBe(stored);
+  });
+
+  test("a burst of changes coalesces into one write", () => {
+    const storage = localStorage as MemoryStorage;
+    const doc = FlowDocument.createEmpty();
+    const adapter = new LocalStorageSyncAdapter(doc);
+
+    storage.writes = 0;
+    for (let i = 0; i < 50; i++) {
+      doc.addNode({ id: `n${i}`, type: "Led", position: { x: i, y: i }, data: {} });
+    }
+
+    // Leading edge only: the rest of the burst falls inside the write window.
+    expect(storage.writes).toBe(1);
+    adapter.destroy();
+  });
+
+  test("destroy flushes the tail of a burst synchronously", () => {
+    const doc = FlowDocument.createEmpty();
+    const adapter = new LocalStorageSyncAdapter(doc);
+
+    doc.addNode({ id: "first", type: "Led", position: { x: 0, y: 0 }, data: {} });
+    doc.addNode({ id: "last", type: "Led", position: { x: 1, y: 1 }, data: {} });
+
+    adapter.destroy();
+
+    const stored = JSON.parse(localStorage.getItem(KEY)!) as { nodes: { id: string }[] };
+    expect(stored.nodes.map((n) => n.id).sort()).toEqual(["first", "last"]);
   });
 
   test("destroy is idempotent", () => {

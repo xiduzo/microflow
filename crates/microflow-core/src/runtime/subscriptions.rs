@@ -17,12 +17,14 @@
 use crate::runtime::wiring::SubscriberWiring;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
+use ts_rs::TS;
 
 /// Which callback shape a subscription drives — the routing identity a broker's
 /// single per-topic callback carries. Serializes to the `plain`/`topicAware`/
 /// `displayEcho` strings both hosts use on the wire.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub enum SubKind {
     /// Payload-only delivery routed to a node.
     Plain,
@@ -54,8 +56,9 @@ impl SubKind {
 /// must be re-subscribed) versus left untouched. Serializes to the
 /// `{ brokerId, topic, nodeId, kind }` shape the browser host consumes via the
 /// wasm `reconcileSubscriptions()` binding.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct DesiredSub {
     pub broker_id: String,
     pub topic: String,
@@ -116,8 +119,9 @@ pub fn reconcile_desired(wirings: &[(String, SubscriberWiring)]) -> Vec<DesiredS
 /// topic, which keeps exactly one callback). Serializes to the
 /// `{ nodeId, deviceName }` shape the browser host consumes via the wasm
 /// `midiListeners()` binding.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct MidiListener {
     pub node_id: String,
     pub device_name: String,
@@ -131,8 +135,9 @@ pub struct MidiListener {
 /// Serializes to `{ brokerId, topic, payload, retain }` for the browser host
 /// (via the wasm `figmaAnnounceActions` binding); the desktop host consumes the
 /// struct directly. See [`figma_announce_actions`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct FigmaPublish {
     pub broker_id: String,
     pub topic: String,

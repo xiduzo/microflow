@@ -7,3 +7,22 @@ members = [
     "crates/microflow-firmata-wasm",
     "crates/microflow-runtime-wasm",
 ]
+
+# Browser wasm modules only — selected with `wasm-pack --profile wasm-release`
+# from `apps/web/package.json`. Deliberately *not* `[profile.release]`: the
+# native desktop (Tauri) build shares that profile across a four-target CI
+# matrix, and `lto = true` + `codegen-units = 1` roughly doubles its link time
+# for no user-visible gain, where the wasm modules are downloaded per session.
+#
+# `opt-level = "s"` rather than `"z"`: `"z"` is 20 % smaller but ~23 % slower
+# through boa on the Function node's per-tick path, and the flow engine runs at
+# ~60 Hz. `strip = "debuginfo"` rather than `true`: `strip = true` also drops the
+# `target_features` custom section, after which `wasm-opt` cannot tell the module
+# is allowed bulk-memory ops and refuses to optimise it at all.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"

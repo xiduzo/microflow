@@ -397,6 +397,36 @@ The pure compositional helpers, each independently testable:
 
 Mounted by the desktop layout only — the `useFlowUpdateDispatcher(session)` hook is `isDesktop`-gated at the route, never inside the dispatcher itself, so platform concerns don't leak into the dispatch layer. Construction fires an immediate dispatch so the runtime gets the current flow on mount (matches the legacy `setupDocSync` behaviour). Because the observer fires on every Y.Doc mutation regardless of origin, remote collaborator edits arriving via `WebSocketSyncAdapter` also dispatch to the local runtime, keeping the native runtime in sync with whatever the user sees on screen.
 
+## Flow Structure
+
+The **Flow** minus how it looks: node id / type / config `data`, plus edge
+endpoints (`source`, `sourceHandle`, `target`, `targetHandle`), both sorted.
+Visual fields — `position`, `selected`, `dragging`, dimensions — are stripped.
+Lives in `packages/collab/src/schema.ts` as `projectFlowStructure(nodes, edges)`
+returning a `FlowStructure` of `StructuralNode[]` / `StructuralEdge[]`, with
+`flowStructureKey()` giving it a string identity.
+
+Inputs are structurally typed, so the collab `FlowNode`, a ReactFlow `Node` and
+the `FlowUpdate` wire shape all project without an adapter.
+
+It is the single answer to "did anything downstream-relevant change?", and has
+three consumers:
+
+- **`FlowUpdateDispatcher`** — `runtimeRelevantKey` delegates to it, so a node
+  move does not re-dispatch the flow to the runtime.
+- **Sketch code view** — the codegen dedupe key, so moving a node does not
+  re-run Arduino codegen.
+- **`useFlowStructuralNodes(doc)`** (`apps/web/src/session/use-flow-nodes.ts`) —
+  re-emits the node array only when the key moves, so the reference survives a
+  drag and the tscircuit netlist is not rebuilt.
+
+Distinct from the **Flow Document**'s no-op write guard, which stops an
+*identical* write from becoming a Yjs update at all: `updateNode`,
+`updateNodePosition`, `updateNodeData` and `updateEdge` return before opening a
+transaction when the prospective value is already stored (`isValueEqual`,
+`packages/collab/src/schema.ts`). `addNode` / `addEdge` are unguarded — adding
+is a genuine intent.
+
 ## ReactFlowBridge
 
 Bidirectional reconciler between a `FlowDocument` (Y.Doc CRDT) and the [ReactFlow](https://reactflow.dev) change protocol. Lives in `apps/web/src/session/react-flow-bridge.ts`. One instance per canvas mount; the hook `useReactFlowBridge(doc)` constructs and tears down via `useState` lazy init + `useEffect` cleanup, exposes a `useSyncExternalStore`-backed snapshot. Five named invariants live on the class:

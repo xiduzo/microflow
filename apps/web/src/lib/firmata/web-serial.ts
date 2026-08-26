@@ -215,33 +215,15 @@ async function tryConnectAtBaud(
   // Distinguishes a deliberate teardown from the board dropping mid-session.
   let tornDown = false;
 
-  // Persistent read loop: feed every incoming chunk to the codec and surface
-  // pin changes. Ends when the reader is cancelled (on disconnect / teardown).
-  const readLoop = (async () => {
-    try {
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value && value.length > 0) {
-          // `feed` returns `""` when the chunk changed nothing — the common case
-          // while a board streams steady analog reports. Skip the parse then.
-          const json = session.feed(value);
-          if (json !== "") {
-            const result = JSON.parse(json) as FeedResult;
-            for (const change of result.pinChanges) {
-              options.onPinChange?.(change.pin, change.value, change.isAnalog);
-            }
-          }
-          // Hand the raw chunk to the flow runtime (it owns its own decode).
-          options.onBytes?.(value);
-        }
-      }
-    } catch {
-      // Port closed / disconnected mid-read — fall through to teardown.
-    }
-    // Board reset or was unplugged while connected — let the caller recover.
-    if (!tornDown) options.onClosed?.();
-  })();
+  // Persistent read loop. Ends when the reader is cancelled (on disconnect /
+  // teardown) — see `pumpReader` for why only that counts as the port going away.
+  const readLoop = pumpReader(reader, session, {
+    ...options,
+    onClosed: () => {
+      // Board reset or was unplugged while connected — let the caller recover.
+      if (!tornDown) options.onClosed?.();
+    },
+  });
 
   const teardown = async () => {
     tornDown = true;
@@ -295,6 +277,49 @@ async function tryConnectAtBaud(
   }
 
   return { write, session, disconnect: teardown, port };
+}
+
+/**
+ * Drain one reader into the detection codec and the probe hooks until it ends,
+ * then fire `onClosed` exactly once.
+ *
+ * The only thing here that can mean *the port is gone* is `reader.read()`
+ * rejecting. Everything else in the loop is computation over a chunk that
+ * already arrived: the codec is wasm (`session.feed`), and `onBytes` crosses
+ * into the wasm flow runtime. Those faults are contained per chunk so the loop
+ * keeps reading — a broken engine must never be reported as an unplugged board
+ * (ADR-0017). `onClosed` therefore stays reachable only from genuine transport
+ * loss, which is what the caller's auto-reconnect is allowed to act on.
+ */
+export async function pumpReader(
+  reader: { read(): Promise<{ value?: Uint8Array; done: boolean }> },
+  session: Pick<FirmataSession, "feed">,
+  hooks: ProbeHooks,
+): Promise<void> {
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value || value.length === 0) continue;
+      try {
+        const result = JSON.parse(session.feed(value)) as FeedResult;
+        for (const change of result.pinChanges) {
+          hooks.onPinChange?.(change.pin, change.value, change.isAnalog);
+        }
+      } catch (error) {
+        console.warn("[web-serial] detection codec rejected a chunk:", error);
+      }
+      try {
+        // Hand the raw chunk to the flow runtime (it owns its own decode).
+        hooks.onBytes?.(value);
+      } catch (error) {
+        console.error("[web-serial] inbound-bytes handler threw:", error);
+      }
+    }
+  } catch {
+    // `reader.read()` rejected: the port closed or the device went away.
+  }
+  hooks.onClosed?.();
 }
 
 /** Number of pins the session currently knows about. */

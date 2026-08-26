@@ -32,6 +32,7 @@ use microflow_core::firmata::{FirmataClient, Message};
 use microflow_core::flasher::firmware::standard_firmata_hex;
 use microflow_core::flasher::{hex, new_driver, BoardConfig, BoardType, FlashDriver, FlashStep};
 use serde::Serialize;
+use ts_rs::TS;
 use wasm_bindgen::prelude::*;
 
 /// Initialise the wasm module: install a panic hook so a Rust panic surfaces as
@@ -43,8 +44,9 @@ pub fn init() {
 }
 
 /// A pin value change, mirroring the desktop `PinChangeEvent`.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
 struct PinChange {
     pin: u8,
     value: u16,
@@ -52,8 +54,9 @@ struct PinChange {
 }
 
 /// An I2C reply, mirroring the desktop `I2cReplyEvent`.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
 struct I2cReplyOut {
     address: u8,
     register: u8,
@@ -72,10 +75,15 @@ struct PinInfo {
 
 /// What changed after feeding a chunk of incoming bytes. Returned as JSON from
 /// [`FirmataSession::feed`].
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 struct FeedResult {
+    // Inlined: `PinChange`/`I2cReplyOut` exist only as this result's payload, so
+    // they stay anonymous in TS rather than leaking two extra binding files.
+    #[ts(inline)]
     pin_changes: Vec<PinChange>,
+    #[ts(inline)]
     i2c_replies: Vec<I2cReplyOut>,
     /// A firmware report arrived this feed — the caller should re-read
     /// `firmwareName` / `firmwareVersion`.

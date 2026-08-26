@@ -32,6 +32,26 @@ export const COLLAB_COLORS = [
   "#be123c", // rose-700
 ];
 
+/**
+ * Frame scheduling for ephemeral, pointer-rate state. Falls back to a timer
+ * outside the browser so this module stays importable on the server.
+ */
+const frames = globalThis as unknown as {
+  requestAnimationFrame?: (cb: () => void) => number;
+  cancelAnimationFrame?: (handle: number) => void;
+};
+
+function requestFrame(callback: () => void): number {
+  return frames.requestAnimationFrame
+    ? frames.requestAnimationFrame(callback)
+    : (setTimeout(callback, 16) as unknown as number);
+}
+
+function cancelFrame(handle: number): void {
+  if (frames.cancelAnimationFrame) frames.cancelAnimationFrame(handle);
+  else clearTimeout(handle);
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -80,6 +100,8 @@ export type SyncProviderOptions = {
 export class SyncProvider {
   private doc: Y.Doc;
   private ws: WebSocket | null = null;
+  /** Pending awareness push for the latest cursor; one per animation frame. */
+  private cursorFrame: number | null = null;
   private awareness: awarenessProtocol.Awareness;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
@@ -341,12 +363,25 @@ export class SyncProvider {
     this.ws.send(encoding.toUint8Array(encoder));
   }
 
+  /**
+   * A cursor is ephemeral peer state arriving at pointer rate (~120Hz). The
+   * latest position is kept locally and pushed to awareness — and therefore
+   * onto the wire — at most once per animation frame, so neither the
+   * awareness re-encode nor the observer fan-out runs per pointer event.
+   *
+   */
   updateCursor(cursor: { x: number; y: number }): void {
     this.localUser.cursor = cursor;
-    this.awareness.setLocalStateField("user", {
-      ...this.localUser,
+    if (this.cursorFrame !== null) return;
+
+    this.cursorFrame = requestFrame(() => {
+      this.cursorFrame = null;
+      if (this.destroyed) return;
+      this.awareness.setLocalStateField("user", {
+        ...this.localUser,
+      });
+      this.sendAwareness();
     });
-    this.sendAwareness();
   }
 
   updateSelectedNodes(nodeIds: string[]): void {
@@ -399,6 +434,10 @@ export class SyncProvider {
   destroy(): void {
     console.log(`[SYNC] Destroying sync provider for flow ${this.flowId}`);
     this.destroyed = true;
+    if (this.cursorFrame !== null) {
+      cancelFrame(this.cursorFrame);
+      this.cursorFrame = null;
+    }
     this.disconnect();
     this.doc.off("update", this.handleLocalUpdate);
     this.awareness.off("change", this.handleAwarenessChange);

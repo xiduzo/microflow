@@ -1,5 +1,4 @@
-import { create } from "zustand";
-import { useShallow } from "zustand/shallow";
+import { useCallback, useSyncExternalStore } from "react";
 
 export type Signal = {
   id: string;
@@ -8,143 +7,111 @@ export type Signal = {
 };
 
 export const SIGNAL_DURATION = 150;
-export type SignalState = {
-  signals: Map<string, Signal[]>;
-  addSignal: (edgeId: string) => void;
-  removeSignal: (edgeId: string, signalId: string) => void;
-  getEdgeSignals: (edgeId: string) => Signal[];
-  clearSignals: () => void;
-  clearEdgeSignals: (edgeId: string) => void;
+
+/** What one edge draws: its live signals and the clock time they were sampled at. */
+export type SignalFrame = {
+  signals: readonly Signal[];
+  now: number;
 };
 
-/** Shared by every signal id; cheaper and more collision-proof than the
- *  `Date.now()` + `Math.random()` string this used to build per signal. */
-let signalCounter = 0;
+const EMPTY_FRAME: SignalFrame = { signals: [], now: 0 };
 
-/** One shared empty array, so an idle edge's selector keeps a stable reference
- *  and never re-renders on another edge's signal. */
-const EMPTY_SIGNALS: Signal[] = [];
+// Only edges with at least one live signal have an entry, and only their own
+// listeners are woken — an idle edge is never re-rendered by a neighbour's
+// traffic.
+const frames = new Map<string, SignalFrame>();
+const listeners = new Map<string, Set<() => void>>();
 
-/**
- * Signals added since the last publish, and the frame callback that will publish
- * them. A single flow turn can fire dozens of signals; batching means one `Map`
- * rebuild and one re-render per frame rather than per signal.
- */
-let pendingAdds: Signal[] = [];
-let addHandle: number | null = null;
-/** Set while a sweep is scheduled, so expiry costs one timer for the whole
- *  store rather than one `setTimeout` per signal. */
-let sweepHandle: ReturnType<typeof setTimeout> | null = null;
+// Non-null exactly while a frame is scheduled, which is exactly while at least
+// one signal is alive.
+let scheduled: ReturnType<typeof setTimeout> | number | null = null;
 
-const raf = (callback: () => void): number =>
-  typeof requestAnimationFrame === "function"
-    ? requestAnimationFrame(callback)
-    : (setTimeout(callback, 16) as unknown as number);
+let counter = 0;
 
-const cancelRaf = (handle: number): void => {
-  if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(handle);
-  else clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
-};
+/** `requestAnimationFrame` where it exists (browser); a timer under test/SSR.
+ *  Resolved per call, so a test that installs a deterministic frame queue is
+ *  honoured no matter when this module was imported. */
+const schedule = (tick: () => void) =>
+  typeof requestAnimationFrame === "function" ? requestAnimationFrame(tick) : setTimeout(tick, 16);
 
-export const useSignalStore = create<SignalState>((set, get) => {
-  /** Drop every signal past its animation window, in one pass over the store. */
-  const sweep = (): void => {
-    sweepHandle = null;
-    const cutoff = Date.now() - SIGNAL_DURATION;
-    const current = get().signals;
-    if (current.size === 0) return;
-
-    let changed = false;
-    const next = new Map<string, Signal[]>();
-    for (const [edgeId, signals] of current) {
-      const live = signals.filter((signal) => signal.startTime > cutoff);
-      if (live.length !== signals.length) changed = true;
-      if (live.length > 0) next.set(edgeId, live);
-    }
-    if (changed) set({ signals: next });
-    if (next.size > 0) scheduleSweep();
-  };
-
-  function scheduleSweep(): void {
-    if (sweepHandle !== null) return;
-    sweepHandle = setTimeout(sweep, SIGNAL_DURATION + 10);
-  }
-
-  const flushAdds = (): void => {
-    addHandle = null;
-    const batch = pendingAdds;
-    pendingAdds = [];
-    if (batch.length === 0) return;
-
-    set((state) => {
-      const next = new Map(state.signals);
-      for (const signal of batch) {
-        const existing = next.get(signal.edgeId);
-        next.set(signal.edgeId, existing ? [...existing, signal] : [signal]);
-      }
-      return { signals: next };
-    });
-    scheduleSweep();
-  };
-
-  return {
-    signals: new Map(),
-
-    addSignal: (edgeId: string) => {
-      signalCounter += 1;
-      pendingAdds.push({ id: `${edgeId}-${signalCounter}`, edgeId, startTime: Date.now() });
-      if (addHandle === null) addHandle = raf(flushAdds);
-    },
-
-    removeSignal: (edgeId: string, signalId: string) => {
-      set((state) => {
-        const existing = state.signals.get(edgeId);
-        if (!existing) return state;
-        const filtered = existing.filter((signal) => signal.id !== signalId);
-        if (filtered.length === existing.length) return state;
-
-        const newSignals = new Map(state.signals);
-        if (filtered.length === 0) newSignals.delete(edgeId);
-        else newSignals.set(edgeId, filtered);
-        return { signals: newSignals };
-      });
-    },
-
-    getEdgeSignals: (edgeId: string) => {
-      return get().signals.get(edgeId) ?? EMPTY_SIGNALS;
-    },
-
-    clearSignals: () => {
-      pendingAdds = [];
-      if (addHandle !== null) {
-        cancelRaf(addHandle);
-        addHandle = null;
-      }
-      set({ signals: new Map() });
-    },
-
-    clearEdgeSignals: (edgeId: string) => {
-      set((state) => {
-        if (!state.signals.has(edgeId)) return state;
-        const newSignals = new Map(state.signals);
-        newSignals.delete(edgeId);
-        return { signals: newSignals };
-      });
-    },
-  };
-});
-
-export function useEdgeSignals(edgeId: string) {
-  return useSignalStore(useShallow((state) => state.signals.get(edgeId) ?? EMPTY_SIGNALS));
+function notify(edgeId: string) {
+  const subscribers = listeners.get(edgeId);
+  if (!subscribers) return;
+  for (const listener of subscribers) listener();
 }
 
-export function useSignalActions() {
-  return useSignalStore(
-    useShallow((state) => ({
-      addSignal: state.addSignal,
-      removeSignal: state.removeSignal,
-      clearSignals: state.clearSignals,
-      clearEdgeSignals: state.clearEdgeSignals,
-    })),
+function subscribe(edgeId: string, listener: () => void): () => void {
+  let subscribers = listeners.get(edgeId);
+  if (!subscribers) {
+    subscribers = new Set();
+    listeners.set(edgeId, subscribers);
+  }
+  subscribers.add(listener);
+  return () => {
+    subscribers.delete(listener);
+    if (subscribers.size === 0) listeners.delete(edgeId);
+  };
+}
+
+/** Advance every live edge one frame, dropping signals that have run their course. */
+function tick() {
+  scheduled = null;
+  const now = Date.now();
+
+  for (const [edgeId, frame] of frames) {
+    const alive = frame.signals.filter((signal) => now - signal.startTime < SIGNAL_DURATION);
+    if (alive.length === 0) frames.delete(edgeId);
+    else frames.set(edgeId, { signals: alive, now });
+    notify(edgeId);
+  }
+
+  // Stops itself once the last signal expired.
+  if (frames.size > 0) scheduled = schedule(tick);
+}
+
+export const signalStore = {
+  /** The frame one edge is currently drawing. Idle edges all share
+   *  {@link EMPTY_FRAME}, so an idle edge's snapshot never changes identity. */
+  get(edgeId: string): SignalFrame {
+    return frames.get(edgeId) ?? EMPTY_FRAME;
+  },
+  /** The edges carrying at least one live signal. */
+  edgeIds(): string[] {
+    return [...frames.keys()];
+  },
+  addSignal(edgeId: string) {
+    const now = Date.now();
+    counter += 1;
+    const signal: Signal = { id: `${edgeId}-${now}-${counter}`, edgeId, startTime: now };
+
+    const frame = frames.get(edgeId);
+    frames.set(edgeId, { signals: frame ? [...frame.signals, signal] : [signal], now });
+
+    // Deliberately *not* notified here. A flow turn can fire dozens of signals
+    // down one edge, each in its own task, and waking the edge per signal would
+    // cost one render each. The clock below publishes them together on the next
+    // frame — which is the soonest the animation could show them anyway.
+    if (scheduled === null) scheduled = schedule(tick);
+  },
+
+  clearSignals() {
+    const edgeIds = [...frames.keys()];
+    frames.clear();
+    // Stop the clock as well as emptying the store — a live handle would keep
+    // `addSignal` from re-arming it, leaving the next signal undrawn.
+    if (scheduled !== null) {
+      if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(scheduled as number);
+      else clearTimeout(scheduled as ReturnType<typeof setTimeout>);
+      scheduled = null;
+    }
+    for (const edgeId of edgeIds) notify(edgeId);
+  },
+};
+
+export function useEdgeSignals(edgeId: string): SignalFrame {
+  return useSyncExternalStore(
+    useCallback((listener: () => void) => subscribe(edgeId, listener), [edgeId]),
+    () => frames.get(edgeId) ?? EMPTY_FRAME,
+    () => EMPTY_FRAME,
   );
 }

@@ -3085,6 +3085,7 @@ dependencies = [
  "microflow-core",
  "serde",
  "serde_json",
+ "ts-rs",
  "wasm-bindgen",
 ]
 

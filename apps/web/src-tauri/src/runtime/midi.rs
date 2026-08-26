@@ -4,9 +4,11 @@
 //! Owns the open `midir` connections, confined to the actor thread like the
 //! runtime itself. Routing stays out of here on purpose: an input callback only
 //! forwards the raw bytes as [`ActorMsg::MidiMessage`]; the actor fans each
-//! message out against `FlowRuntime::collect_midi_listeners()` (always fresh —
-//! no listener state to go stale here). Output connections open lazily on the
-//! first send to a matching port name.
+//! message out against its cached listener list, which it rebuilds from
+//! `FlowRuntime::collect_midi_listeners()` on every flow update — the same point
+//! it calls [`MidiManager::reconcile`], so the open ports and the routing table
+//! are always derived from the same listener list. Output connections open
+//! lazily on the first send to a matching port name.
 //!
 //! [`ActorMsg::MidiMessage`]: crate::runtime::host::ActorMsg
 

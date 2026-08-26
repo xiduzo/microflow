@@ -10,14 +10,41 @@ export type Pin = PinInfo;
 
 type BoardStoreState = {
   board: Board;
+  /** Reference-stable while pin *identity* is unchanged — see `pinsIdentity`. */
+  pins: Pin[];
+  pinsIdentity: string;
   setBoard: (board: Board) => void;
 };
 
-export const useBoardStore = create<BoardStoreState>((set) => {
+const NO_PINS: Pin[] = [];
+
+/**
+ * Value identity of a pin list. Every `board-state` event carries a freshly
+ * deserialized `Pin[]`, so reference equality is always false; this string is
+ * what decides whether pin subscribers are notified.
+ */
+export function pinsIdentity(pins: Pin[]): string {
+  return pins.map((p) => `${p.pin}:${p.analogChannel}:${p.supportedModes.join(".")}`).join("|");
+}
+
+const boardPins = (board: Board): Pin[] => (board.state === "connected" ? board.pins : NO_PINS);
+
+export const useBoardStore = create<BoardStoreState>((set, get) => {
   return {
     board: { state: "disconnected" },
+    pins: NO_PINS,
+    pinsIdentity: "",
     setBoard: (board: Board) => {
-      set({ board: board });
+      const pins = boardPins(board);
+      const identity = pinsIdentity(pins);
+      // Keep the previous `pins` reference when nothing about the pins changed,
+      // so an unrelated board event does not wake every pin subscriber.
+      if (identity === get().pinsIdentity) {
+        const previous = get().pins;
+        set({ board: board.state === "connected" ? { ...board, pins: previous } : board });
+        return;
+      }
+      set({ board, pins, pinsIdentity: identity });
     },
   };
 });
@@ -33,31 +60,32 @@ export function useBoardEvents() {
   });
 }
 
+/**
+ * Subscribe to the board pins, optionally filtered by mode.
+ *
+ * Callers may pass inline array literals: the memo is keyed on the *contents*
+ * of the mode arrays, not their identity, so a fresh literal per render does
+ * not re-run the filter.
+ */
 export const usePins = (shouldHaveMode?: MODES[], shouldNotHaveMode?: MODES[]) => {
-  const boardPins = useBoardStore(
-    useShallow((state) => (state.board.state === "connected" ? state.board.pins : ([] as Pin[]))),
-  );
+  const pins = useBoardStore((state) => state.pins);
+  const requiredKey = shouldHaveMode?.join(",") ?? "";
+  const forbiddenKey = shouldNotHaveMode?.join(",") ?? "";
 
-  // Callers pass array literals (`usePins([MODES.PWM])`), which are a fresh
-  // reference on every render — so keying the memo on the arrays themselves
-  // meant it never hit and every node re-filtered the whole pin table on every
-  // render. Key on the modes' *values* instead, which are stable.
-  const requireKey = shouldHaveMode?.join(",") ?? "";
-  const excludeKey = shouldNotHaveMode?.join(",") ?? "";
+  return useMemo(() => {
+    // Derived from the keys rather than the array props so the memo can never
+    // close over a stale filter.
+    const required = requiredKey ? requiredKey.split(",").map(Number) : [];
+    if (!required.length) return pins;
 
-  const filteredPins = useMemo(() => {
-    if (!requireKey) return boardPins;
-    const require = requireKey.split(",").map(Number);
-    const pins = boardPins.filter((pin) =>
-      require.every((mode) => pin.supportedModes.includes(mode)),
+    const filtered = pins.filter((pin) =>
+      required.every((mode) => pin.supportedModes.includes(mode)),
     );
 
-    if (!excludeKey) return pins;
-    const exclude = excludeKey.split(",").map(Number);
-    return pins.filter((pin) => !exclude.some((mode) => pin.supportedModes.includes(mode)));
-  }, [boardPins, requireKey, excludeKey]);
-
-  return filteredPins;
+    const forbidden = forbiddenKey ? forbiddenKey.split(",").map(Number) : [];
+    if (!forbidden.length) return filtered;
+    return filtered.filter((pin) => !forbidden.some((mode) => pin.supportedModes.includes(mode)));
+  }, [pins, requiredKey, forbiddenKey]);
 };
 
 export const useBoardPort = () =>

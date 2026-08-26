@@ -38,9 +38,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NodeContainerContext } from "../nodes/_base/node-context";
-import { useNodeValue } from "@/stores/node-data";
-import { useNodeDataStore } from "@/stores/node-data";
-import { useEdgeSignals, useSignalStore } from "@/stores/signal";
+import { nodeDataStore, useNodeValue } from "@/stores/node-data";
+import { signalStore, useEdgeSignals } from "@/stores/signal";
 import { applyComponentEvent } from "@/lib/event-ingest";
 import { useDevLogStore } from "@/stores/dev-log";
 
@@ -72,8 +71,8 @@ beforeEach(() => {
   (globalThis as { cancelAnimationFrame: typeof cancelAnimationFrame }).cancelAnimationFrame =
     (() => {}) as typeof cancelAnimationFrame;
 
-  useNodeDataStore.setState({ data: {} });
-  useSignalStore.setState({ signals: new Map() });
+  nodeDataStore.clear();
+  signalStore.clearSignals();
   useDevLogStore.setState({ entries: [], paused: true });
 
   container = document.createElement("div");
@@ -109,7 +108,7 @@ function ValueProbeBody({ id, renders }: { id: string; renders: Map<string, numb
 
 /** Subscribes the way `AnimatedEdge` does, and counts itself. */
 function EdgeProbe({ id, renders }: { id: string; renders: Map<string, number> }) {
-  const signals = useEdgeSignals(id);
+  const { signals } = useEdgeSignals(id);
   renders.set(id, (renders.get(id) ?? 0) + 1);
   return <span>{signals.length}</span>;
 }
@@ -185,10 +184,9 @@ describe("node render budget (invariants)", () => {
     frame();
 
     const moved = ids.filter((id) => renders.get(id)! > baseline.get(id)!);
-    // The store publishes a new `data` object, so all 50 selectors re-run — but
-    // 49 of them return the same value, so React bails out and only one node
-    // actually re-renders. That bail-out is the property worth guarding: it is
-    // what keeps a 200-node canvas cheap under a streaming sensor.
+    // The store keys its listeners by node id, so the other 49 are never even
+    // woken. That routing is the property worth guarding: it is what keeps a
+    // 200-node canvas cheap under a streaming sensor.
     expect(moved).toEqual(["node7"]);
   });
 
@@ -235,8 +233,8 @@ describe("edge render budget", () => {
     frame();
 
     expect(renders.get("e1")!).toBeGreaterThan(baseline.get("e1")!);
-    // `e2`'s selector returns the shared empty array, so React bails. Without
-    // that shared reference every signal anywhere re-rendered every edge.
+    // `e2` has no entry in the store, so its listener is never called. Before,
+    // every signal anywhere re-rendered every edge.
     expect(renders.get("e2")!).toBe(baseline.get("e2")!);
   });
 

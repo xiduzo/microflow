@@ -139,6 +139,30 @@ async function dispatch(event: BringUpEvent): Promise<void> {
   }
 }
 
+/**
+ * The wasm flow engine died — a Rust panic traps the module, so no flow will run
+ * again on this runtime (ADR-0017). Drop the reactor so nothing calls back into
+ * the dead module, and surface it on the board-level error state.
+ *
+ * Deliberately NOT a bring-up event: the port is open and the board is fine, so
+ * `connectionLost` would be a lie, and the machine's retry would close a working
+ * port to reconnect into the same dead module, forever. This sets the store
+ * directly instead — a *notify* without a transition.
+ *
+ * It uses the `error` state rather than a toast alone because the condition is
+ * persistent and a toast is not: until the page reloads, this board runs no
+ * flow, and a UI still reading `connected` would say otherwise. Reload is the
+ * recovery (a trapped module cannot be revived in place), which is also why it
+ * does not matter that `connect()` short-circuits while `active` is set.
+ */
+function onEngineFault(message: string): void {
+  reactor?.dispose();
+  reactor = null;
+  console.error("[board-controller] flow engine fault:", message);
+  setBoard({ state: "error", error: message });
+  toast.error(message);
+}
+
 /** The probe hooks: raw bytes feed the flow runtime; an unexpected read-loop
  *  end while connected re-enters the machine as `connectionLost`. */
 function probeHooks(): ProbeHooks {
@@ -237,7 +261,7 @@ async function applyPhase(phase: BringUpPhase): Promise<void> {
       reactor = null;
       if (active) {
         try {
-          reactor = await FlowReactor.attach(active, cloudDeps);
+          reactor = await FlowReactor.attach(active, cloudDeps, { onEngineFault });
           if (latestFlow) reactor.applyFlow(latestFlow);
         } catch (reactorError) {
           console.error("[board-controller] flow reactor attach failed:", reactorError);

@@ -26,33 +26,13 @@ export { BringUpMachine, FirmataSession, FlashSession };
 // --- Bring-up policy (microflow_core::bringup, shared with the desktop) -----
 
 /** An event fed into the shared bring-up state machine. */
-export type BringUpEvent =
-  | { type: "portReady"; board: string | null; autoFlash: boolean; explicit: boolean }
-  | { type: "probeOk" }
-  | { type: "probeFailed" }
-  | { type: "flashProgress"; done: number; total: number }
-  | { type: "flashOk" }
-  | { type: "flashFailed"; detail: string }
-  | { type: "connectionLost" }
-  | { type: "portGone" }
-  | { type: "disconnectRequested" };
+export type { BringUpEvent } from "@/lib/bindings/BringUpEvent";
 
 /** A UI-facing bring-up phase; the adapter maps it onto `BoardState`. */
-export type BringUpPhase =
-  | { kind: "disconnected" }
-  | { kind: "connecting" }
-  | { kind: "flashing"; board: string }
-  | { kind: "connected" }
-  | { kind: "error"; detail: string };
+export type { BringUpPhase } from "@/lib/bindings/BringUpPhase";
 
 /** An action the machine tells the host to perform, in order. */
-export type BringUpAction =
-  | { type: "probe"; afterFlash: boolean }
-  | { type: "flash"; board: string }
-  | { type: "closePort" }
-  | { type: "scheduleRetry" }
-  | { type: "notify"; phase: BringUpPhase }
-  | { type: "notifyFlashProgress"; percent: number };
+export type { BringUpAction } from "@/lib/bindings/BringUpAction";
 
 /** Create the shared bring-up state machine (the policy lives in Rust). */
 export async function createBringUp(): Promise<BringUpMachine> {
@@ -82,16 +62,7 @@ export async function flashBaud(boardId: string): Promise<number | undefined> {
 }
 
 /** A `FlashStep` emitted by a `FlashSession` (parsed from its JSON). */
-export type FlashStep =
-  | { kind: "reset"; dtr: boolean; rts: boolean; delayMs: number }
-  | { kind: "setBaud"; baud: number }
-  | { kind: "flushInput" }
-  | { kind: "transact"; write: number[]; readLen: number; timeoutMs: number }
-  | { kind: "delay"; ms: number }
-  | { kind: "reacquirePort"; waitMs: number; baud: number }
-  | { kind: "progress"; done: number; total: number }
-  | { kind: "done" }
-  | { kind: "error"; message: string };
+export type { FlashStep } from "@/lib/bindings/FlashStep";
 
 /** Lazily instantiate the wasm module exactly once; concurrent callers share it. */
 let initPromise: Promise<unknown> | null = null;
@@ -124,9 +95,4 @@ export async function detectBoardFromUsb(
 }
 
 /** The shape `FirmataSession.feed()` returns (parsed from its JSON string). */
-export type FeedResult = {
-  pinChanges: { pin: number; value: number; isAnalog: boolean }[];
-  i2cReplies: { address: number; register: number; data: number[] }[];
-  firmwareUpdated: boolean;
-  capabilitiesUpdated: boolean;
-};
+export type { FeedResult } from "@/lib/bindings/FeedResult";

@@ -20,7 +20,13 @@ const MESSAGE_ACK = 2;
 export type YjsServerOptions = {
   /** Where room documents live. Required — see `RoomStore`. */
   store: RoomStore;
+  /** Quiet period after the last change before a room is persisted. */
   persistDebounce?: number;
+  /**
+   * Hard upper bound between a room going dirty and it being persisted, so
+   * sustained editing can't postpone persistence indefinitely.
+   */
+  persistMaxWait?: number;
 };
 
 /** The socket a room writes to. Supplied by the transport (see `handler.ts`). */
@@ -61,6 +67,8 @@ type Room = {
   awareness: awarenessProtocol.Awareness;
   connections: Set<RoomConnectionImpl>;
   persistTimeout: ReturnType<typeof setTimeout> | null;
+  /** When the room first went dirty since the last persist; drives the max-wait. */
+  dirtySince: number | null;
   lastPersistedAt: number;
   isDirty: boolean;
 };
@@ -109,10 +117,15 @@ export class YjsServer {
   private rooms = new Map<string, Room>();
   private readonly store: RoomStore;
   private persistDebounce: number;
+  private persistMaxWait: number;
 
   constructor(options: YjsServerOptions) {
     this.store = options.store;
     this.persistDebounce = options.persistDebounce ?? 2000;
+    this.persistMaxWait = Math.max(
+      this.persistDebounce,
+      options.persistMaxWait ?? 10_000,
+    );
   }
 
   // --------------------------------------------------------------------------
@@ -381,14 +394,27 @@ export class YjsServer {
   // Persistence
   // --------------------------------------------------------------------------
 
+  /**
+   * Persist after `persistDebounce` of quiet, but never later than
+   * `persistMaxWait` after the room first went dirty — sustained editing
+   * pushes the quiet-period timer forever, so the deadline is what bounds
+   * how much unsaved work a room can hold.
+   */
   private schedulePersist(flowId: string, room: Room): void {
     if (room.persistTimeout) {
       clearTimeout(room.persistTimeout);
     }
+    if (room.dirtySince === null) {
+      room.dirtySince = Date.now();
+    }
+
+    const untilDeadline = room.dirtySince + this.persistMaxWait - Date.now();
+    const wait = Math.max(0, Math.min(this.persistDebounce, untilDeadline));
 
     room.persistTimeout = setTimeout(async () => {
+      room.persistTimeout = null;
       await this.persistRoom(flowId, room);
-    }, this.persistDebounce);
+    }, wait);
   }
 
   private async persistRoom(flowId: string, room: Room): Promise<void> {
@@ -398,6 +424,7 @@ export class YjsServer {
       await this.store.save(flowId, Y.encodeStateAsUpdate(room.doc));
 
       room.isDirty = false;
+      room.dirtySince = null;
       room.lastPersistedAt = Date.now();
 
       // Notify clients of successful persistence
@@ -458,6 +485,7 @@ export class YjsServer {
       awareness,
       connections: new Set(),
       persistTimeout: null,
+      dirtySince: null,
       lastPersistedAt: Date.now(),
       isDirty: false,
     };
