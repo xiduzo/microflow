@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFlowSession } from "./use-flow-session";
 import { isRemoteSyncAdapter, type RemoteSyncAdapter } from "./sync-adapter";
 import type { FlowSession } from "./flow-session";
@@ -41,22 +41,45 @@ function buildSnapshot(session: FlowSession): FlowSyncSnapshot {
   };
 }
 
+/** Whether two snapshots differ in any way a consumer can observe. */
+function snapshotsEqual(a: FlowSyncSnapshot, b: FlowSyncSnapshot): boolean {
+  return (
+    a.mode === b.mode &&
+    a.state === b.state &&
+    a.isSynced === b.isSynced &&
+    a.error === b.error &&
+    a.localUser === b.localUser &&
+    a.remote === b.remote &&
+    a.users === b.users
+  );
+}
+
 /**
- * Read-only reactive view of the session's sync state. Backed by
- * `useState` + adapter event subscriptions — the snapshot reference is
- * stable between adapter events so it does not trigger render loops in
- * consumers (`useSyncExternalStore` would require explicit cache keying
- * since every `buildSnapshot` call returns a new object literal).
+ * Read-only reactive view of the session's sync state.
+ *
+ * `buildSnapshot` returns a fresh object literal every call, so publishing it
+ * unconditionally on every adapter event re-renders every consumer — and
+ * awareness events are the highest-frequency events in the editor. The
+ * equality check keeps the previous reference when nothing observable moved.
+ *
+ * Prefer the narrower hooks below where they fit: `useFlowAwareness` needs no
+ * subscription at all, and `useCollabPresence` is the only thing that should
+ * wake for a remote cursor.
  */
 export function useFlowSync(): FlowSyncSnapshot {
   const session = useFlowSession();
   const [snapshot, setSnapshot] = useState<FlowSyncSnapshot>(() => buildSnapshot(session));
 
   useEffect(() => {
-    setSnapshot(buildSnapshot(session));
+    const rebuild = () =>
+      setSnapshot((previous) => {
+        const next = buildSnapshot(session);
+        return snapshotsEqual(previous, next) ? previous : next;
+      });
+
+    rebuild();
     if (!isRemoteSyncAdapter(session.sync)) return;
     const adapter = session.sync;
-    const rebuild = () => setSnapshot(buildSnapshot(session));
     const unsubs = [
       adapter.on("state", rebuild),
       adapter.on("awareness", rebuild),
@@ -69,14 +92,43 @@ export function useFlowSync(): FlowSyncSnapshot {
   return snapshot;
 }
 
+/**
+ * The imperative presence writers — cursor and selection.
+ *
+ * Deliberately *not* built on `useFlowSync`: this hook only sends, and
+ * subscribing to awareness merely to publish a cursor made the canvas
+ * re-render on every remote pointer move in the room. The callbacks read the
+ * adapter through a ref, so they are stable for the life of the session and
+ * do not invalidate their callers' memoisation either.
+ */
 export function useFlowAwareness() {
-  const { remote } = useFlowSync();
-  return {
-    updateCursor: (cursor: { x: number; y: number }) => remote?.updateCursor(cursor),
-    updateSelectedNodes: (ids: string[]) => remote?.updateSelectedNodes(ids),
-  };
+  const session = useFlowSession();
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
+  const updateCursor = useCallback((cursor: { x: number; y: number }) => {
+    const sync = sessionRef.current.sync;
+    if (isRemoteSyncAdapter(sync)) sync.updateCursor(cursor);
+  }, []);
+
+  const updateSelectedNodes = useCallback((ids: string[]) => {
+    const sync = sessionRef.current.sync;
+    if (isRemoteSyncAdapter(sync)) sync.updateSelectedNodes(ids);
+  }, []);
+
+  return useMemo(
+    () => ({ updateCursor, updateSelectedNodes }),
+    [updateCursor, updateSelectedNodes],
+  );
 }
 
+/**
+ * Presence for rendering — cursors and the collaborator list.
+ *
+ * This is the hook that *should* wake on a remote cursor, and the only one.
+ * Keep it to components that draw presence (`CollabCursors`, `PressensePanel`)
+ * so the rest of the canvas stays still.
+ */
 export function useCollabPresence(): {
   users: AwarenessUser[];
   otherUsers: AwarenessUser[];
@@ -85,7 +137,13 @@ export function useCollabPresence(): {
 } {
   const { users, localUser } = useFlowSync();
   const localClientId = localUser?.clientId;
-  const otherUsers =
-    localClientId == null ? users : users.filter((u) => u.clientId !== localClientId);
+
+  // Memoised so a presence event that did not change the roster hands
+  // consumers the same array, letting a memo'd cursor layer skip its render.
+  const otherUsers = useMemo(
+    () => (localClientId == null ? users : users.filter((u) => u.clientId !== localClientId)),
+    [users, localClientId],
+  );
+
   return { users, otherUsers, localUser, totalUsers: users.length };
 }

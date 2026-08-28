@@ -1,34 +1,16 @@
 import { useEffect, useState } from "react";
-import { Debouncer } from "@tanstack/react-pacer";
 import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
 import { readHostSnapshot } from "./cloud-capabilities";
-import {
-  FlowUpdateDispatcher,
-  type DispatchScheduler,
-} from "./flow-update-dispatcher";
+import { DebounceScheduler, FlowUpdateDispatcher } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
 import { WasmFlowUpdateSender } from "./wasm-flow-update-sender";
 import { isDesktop } from "@/lib/platform";
 import type { FlowSession } from "./flow-session";
 
 const DEBOUNCE_MS = 500;
-
-class DebounceScheduler implements DispatchScheduler {
-  private readonly debouncer: Debouncer<(fn: () => void) => void>;
-
-  constructor(waitMs: number) {
-    this.debouncer = new Debouncer((fn: () => void) => fn(), { wait: waitMs });
-  }
-
-  schedule(callback: () => void): void {
-    this.debouncer.maybeExecute(callback);
-  }
-
-  cancel(): void {
-    // react-pacer's Debouncer doesn't expose an external cancel hook; the
-    // dispatcher's `destroyed` flag in `dispatchNow` is the fail-safe.
-  }
-}
+/** Never let the runtime go longer than this without the current flow, however
+ *  busy the room is. See `DebounceScheduler`. */
+const DEBOUNCE_MAX_WAIT_MS = 1500;
 
 /**
  * Mount one `FlowUpdateDispatcher` for the active `FlowSession`. Caller is
@@ -45,7 +27,7 @@ export function useFlowUpdateDispatcher(session: FlowSession): void {
         // Desktop drives the native runtime over Tauri IPC; the browser drives
         // the in-browser wasm runtime via the board-controller.
         isDesktop() ? new TauriFlowUpdateSender() : new WasmFlowUpdateSender(),
-        new DebounceScheduler(DEBOUNCE_MS),
+        new DebounceScheduler(DEBOUNCE_MS, DEBOUNCE_MAX_WAIT_MS),
         NODE_REGISTRY,
       ),
   );

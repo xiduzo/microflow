@@ -1,16 +1,20 @@
 import type { AwarenessUser } from "@microflow/collab";
 import { useReactFlow } from "@xyflow/react";
 import { Heart, MousePointer2Icon } from "lucide-react";
-import { Icon, type IconName } from "../ui/icon";
-
-type CollabCursorsProps = {
-  users: AwarenessUser[];
-};
+import { memo } from "react";
+import { useCollabPresence } from "@/session";
 
 /**
- * Renders cursors of other users on the canvas
+ * Renders cursors of other users on the canvas.
+ *
+ * Subscribes to presence itself rather than taking it as a prop. Remote
+ * cursors move at pointer rate, and every one of those events used to travel
+ * through the canvas component — re-rendering the whole editor subtree to move
+ * an arrow a few pixels. Keeping the subscription here confines that churn to
+ * the layer that actually draws it.
  */
-export function CollabCursors({ users }: CollabCursorsProps) {
+export const CollabCursors = memo(function CollabCursors() {
+  const { otherUsers: users } = useCollabPresence();
   const { flowToScreenPosition } = useReactFlow();
 
   return (
@@ -27,7 +31,7 @@ export function CollabCursors({ users }: CollabCursorsProps) {
       })}
     </div>
   );
-}
+});
 
 export function Cursor(props: AwarenessUser) {
   return (
@@ -60,9 +64,3 @@ export function Cursor(props: AwarenessUser) {
     </div>
   );
 }
-
-type CursorProps = {
-  color: string;
-  name: string;
-  offset: { x: number; y: number };
-};

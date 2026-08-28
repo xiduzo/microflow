@@ -12,7 +12,6 @@ import {
   useFlowSession,
   useFlowHistory,
   useReactFlowBridge,
-  useCollabPresence,
   useFlowAwareness,
 } from "@/session";
 import { useClipboardStore } from "@/stores/clipboard-store";
@@ -39,7 +38,9 @@ export function ReactFlowCanvas() {
   const { theme } = useTheme();
 
   const { doc, readOnly, role } = useFlowSession();
-  const { otherUsers } = useCollabPresence();
+  // Presence is deliberately *not* read here: `CollabCursors` and
+  // `PressensePanel` subscribe to it themselves, so a remote cursor moving no
+  // longer re-renders this component and everything under it.
   const { updateCursor } = useFlowAwareness();
 
   const { nodes, edges, onNodesChange, onEdgesChange } = useReactFlowBridge(doc, { readOnly });
@@ -120,10 +121,10 @@ export function ReactFlowCanvas() {
               View only
             </span>
           )}
-          <PressensePanel users={otherUsers} />
+          <PressensePanel />
         </Panel>
       </ReactFlow>
-      <CollabCursors users={otherUsers} />
+      <CollabCursors />
     </div>
   );
 }
