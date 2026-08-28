@@ -13,7 +13,7 @@ export type {
 } from "./sync-adapter";
 export { isRemoteSyncAdapter } from "./sync-adapter";
 
-export { LocalStorageSyncAdapter } from "./local-storage-sync-adapter";
+export { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
 export { WebSocketSyncAdapter } from "./websocket-sync-adapter";
 export { RecordingSyncAdapter } from "./recording-sync-adapter";
 

@@ -1,5 +1,5 @@
 import { FlowDocument } from "@microflow/collab";
-import { LocalStorageSyncAdapter } from "./local-storage-sync-adapter";
+import { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
 import { WebSocketSyncAdapter, type WebSocketSyncAdapterOptions } from "./websocket-sync-adapter";
 import { readOnlyDocument } from "./read-only-document";
 import type { SyncAdapter } from "./sync-adapter";
@@ -37,7 +37,7 @@ export type FlowSession = {
 export function createLocalSession(): FlowSession {
   const doc = FlowDocument.createEmpty();
   doc.setMeta({ name: "Local Flow", description: "Local development flow" });
-  const sync = new LocalStorageSyncAdapter(doc);
+  const sync = new IndexeddbSyncAdapter(doc);
   return makeSession("local", "local", doc, sync, false, null);
 }
 
