@@ -44,18 +44,72 @@ export type FlowData = {
   edges: FlowEdge[];
 };
 
-/**
- * How a node is stored. New writes produce a `Y.Map`; documents written before
- * [ADR-0017](../../../docs/adr/0017-nested-node-fields-for-concurrent-edits.md)
- * hold a plain object, which reads still accept. See `materialiseNode`.
- */
-type StoredNode = Y.Map<unknown> | FlowNode;
-
 /** Fields the node's `Y.Map` carries alongside the nested `data` map. */
 const NODE_SCALAR_KEYS = ["id", "type", "position", "width", "height"] as const;
 
 /** Local-only; never written to the document. */
 const LOCAL_ONLY_KEYS = new Set(["selected", "dragging"]);
+
+/**
+ * Build the `Y.Map` for a node, with `data` nested.
+ *
+ * The one place the storage shape is defined. `upgradeLegacyNodes` and
+ * `FlowDocument` both go through it so they cannot drift.
+ */
+function buildNodeMap(node: FlowNode): Y.Map<unknown> {
+  const map = new Y.Map<unknown>();
+  map.set("id", node.id);
+  map.set("type", node.type);
+  map.set("position", { ...node.position });
+  if (node.width !== undefined) map.set("width", node.width);
+  if (node.height !== undefined) map.set("height", node.height);
+
+  const data = new Y.Map<unknown>();
+  for (const [key, value] of Object.entries(node.data ?? {})) {
+    if (LOCAL_ONLY_KEYS.has(key)) continue;
+    data.set(key, value);
+  }
+  map.set("data", data);
+  return map;
+}
+
+/**
+ * Bring a document written before
+ * [ADR-0017](../../../docs/adr/0017-nested-node-fields-for-concurrent-edits.md)
+ * onto the nested node shape, in place.
+ *
+ * Run once at the load boundary — the room store on the server, IndexedDB on
+ * the client — so the document is already correct by the time anything reads
+ * it. `FlowDocument` itself has no legacy branch: it assumes every node is a
+ * `Y.Map`, and this is what makes that assumption safe.
+ *
+ * The origin is `"migration"`, deliberately not `"local"`, so the upgrade is
+ * not tracked by anyone's `UndoManager` and cannot be undone into a broken
+ * state.
+ *
+ * **This function is disposable.** Once no stored document predates ADR-0017,
+ * delete it and its call sites.
+ *
+ * @returns how many nodes were upgraded; 0 means the document was already current.
+ */
+export function upgradeLegacyNodes(doc: Y.Doc): number {
+  const nodes = doc.getMap<unknown>("nodes");
+  const legacy: Array<[string, FlowNode]> = [];
+
+  for (const [id, value] of nodes.entries()) {
+    if (value instanceof Y.Map) continue;
+    if (value && typeof value === "object") legacy.push([id, value as FlowNode]);
+  }
+  if (legacy.length === 0) return 0;
+
+  doc.transact(() => {
+    for (const [id, node] of legacy) {
+      nodes.set(id, buildNodeMap({ ...node, id: node.id ?? id }));
+    }
+  }, "migration");
+
+  return legacy.length;
+}
 
 // ============================================================================
 // FlowDocument - Yjs-first document wrapper
@@ -82,15 +136,17 @@ const LOCAL_ONLY_KEYS = new Set(["selected", "dragging"]);
  * a deep observer: an untouched node yields the identical object across calls.
  * Do not remove that cache without understanding what it holds up.
  *
- * **Reads accept both shapes.** Documents persisted before the change hold
- * plain objects. They are read as-is and upgraded on their first write, so a
- * mixed document is correct at every point and an old client can share a room
- * with a new one.
+ * **Every node is a `Y.Map`.** There is no second shape to branch on: a
+ * document written before ADR-0017 is brought forward by `upgradeLegacyNodes`
+ * at the load boundary, before anything reads it. Keeping the compatibility
+ * branch out of these methods is the point — a dual-shape read path is
+ * permanent complexity on the hottest code in the editor, whereas a migration
+ * gets deleted.
  */
 export class FlowDocument {
   readonly doc: Y.Doc;
   readonly meta: Y.Map<unknown>;
-  readonly nodes: Y.Map<StoredNode>;
+  readonly nodes: Y.Map<Y.Map<unknown>>;
   readonly edges: Y.Map<FlowEdge>;
   readonly undoManager: Y.UndoManager;
 
@@ -134,29 +190,7 @@ export class FlowDocument {
   // Storage <-> plain object
   // --------------------------------------------------------------------------
 
-  /** Build the `Y.Map` for a node, with `data` nested. */
-  private static buildNodeMap(node: FlowNode): Y.Map<unknown> {
-    const map = new Y.Map<unknown>();
-    map.set("id", node.id);
-    map.set("type", node.type);
-    map.set("position", { ...node.position });
-    if (node.width !== undefined) map.set("width", node.width);
-    if (node.height !== undefined) map.set("height", node.height);
-
-    const data = new Y.Map<unknown>();
-    for (const [key, value] of Object.entries(node.data ?? {})) {
-      data.set(key, value);
-    }
-    map.set("data", data);
-    return map;
-  }
-
-  /**
-   * Read one node as a plain object, from either storage shape.
-   *
-   * Legacy plain objects are returned as Yjs stored them — already a stable
-   * reference — so they need no cache entry of their own.
-   */
+  /** Read one node as a plain object, cached for reference stability. */
   private materialiseNode(id: string): FlowNode | undefined {
     const cached = this.nodeCache.get(id);
     if (cached) return cached;
@@ -164,17 +198,10 @@ export class FlowDocument {
     const stored = this.nodes.get(id);
     if (stored === undefined) return undefined;
 
-    if (!(stored instanceof Y.Map)) {
-      // Pre-ADR-0017 document: the value is the node.
-      return stored as FlowNode;
-    }
-
     const data: Record<string, unknown> = {};
     const storedData = stored.get("data");
     if (storedData instanceof Y.Map) {
       for (const [key, value] of storedData.entries()) data[key] = value;
-    } else if (storedData && typeof storedData === "object") {
-      Object.assign(data, storedData);
     }
 
     const node = {
@@ -191,7 +218,7 @@ export class FlowDocument {
   }
 
   /**
-   * Write a whole node, upgrading a legacy entry to the nested shape.
+   * Write a whole node.
    *
    * Skips rewriting `data` when the caller hands back the same object we
    * materialised — the common case for a drag, where only `position` moved.
@@ -201,8 +228,8 @@ export class FlowDocument {
   private writeNode(node: FlowNode): void {
     const existing = this.nodes.get(node.id);
 
-    if (!(existing instanceof Y.Map)) {
-      this.nodes.set(node.id, FlowDocument.buildNodeMap(node));
+    if (existing === undefined) {
+      this.nodes.set(node.id, buildNodeMap(node));
       return;
     }
 
@@ -238,17 +265,14 @@ export class FlowDocument {
     data: Record<string, unknown>,
     replace: boolean,
   ): void {
-    let dataMap = nodeMap.get("data");
-    if (!(dataMap instanceof Y.Map)) {
-      const upgraded = new Y.Map<unknown>();
-      // Carry over a legacy plain `data` object before replacing it.
-      if (dataMap && typeof dataMap === "object") {
-        for (const [key, value] of Object.entries(dataMap)) upgraded.set(key, value);
-      }
-      nodeMap.set("data", upgraded);
-      dataMap = upgraded;
+    const existing = nodeMap.get("data");
+    let target: Y.Map<unknown>;
+    if (existing instanceof Y.Map) {
+      target = existing as Y.Map<unknown>;
+    } else {
+      target = new Y.Map<unknown>();
+      nodeMap.set("data", target);
     }
-    const target = dataMap as Y.Map<unknown>;
 
     if (replace) {
       for (const key of Array.from(target.keys())) {
@@ -267,7 +291,7 @@ export class FlowDocument {
 
   addNode(node: FlowNode): void {
     this.doc.transact(() => {
-      this.nodes.set(node.id, FlowDocument.buildNodeMap(node));
+      this.nodes.set(node.id, buildNodeMap(node));
     }, "local");
   }
 
@@ -290,16 +314,9 @@ export class FlowDocument {
     this.doc.transact(() => {
       const stored = this.nodes.get(nodeId);
       if (stored === undefined) return;
-      if (stored instanceof Y.Map) {
-        // Touches only the `position` key, so a peer editing this node's
-        // `data` at the same moment keeps their edit.
-        stored.set("position", { ...position });
-        return;
-      }
-      this.nodes.set(
-        nodeId,
-        FlowDocument.buildNodeMap({ ...(stored as FlowNode), position }),
-      );
+      // Touches only the `position` key, so a peer editing this node's `data`
+      // at the same moment keeps their edit.
+      stored.set("position", { ...position });
     }, "local");
   }
 
@@ -314,17 +331,7 @@ export class FlowDocument {
     this.doc.transact(() => {
       const stored = this.nodes.get(nodeId);
       if (stored === undefined) return;
-
-      if (stored instanceof Y.Map) {
-        this.writeNodeData(stored, data, false);
-        return;
-      }
-
-      const legacy = stored as FlowNode;
-      this.nodes.set(
-        nodeId,
-        FlowDocument.buildNodeMap({ ...legacy, data: { ...legacy.data, ...data } }),
-      );
+      this.writeNodeData(stored, data, false);
     }, "local");
   }
 
@@ -408,7 +415,7 @@ export class FlowDocument {
     this.doc.transact(() => {
       this.nodes.clear();
       this.edges.clear();
-      nodes.forEach((n) => this.nodes.set(n.id, FlowDocument.buildNodeMap(n)));
+      nodes.forEach((n) => this.nodes.set(n.id, buildNodeMap(n)));
       edges.forEach((e) => this.edges.set(e.id, { ...e }));
     }, "local");
   }

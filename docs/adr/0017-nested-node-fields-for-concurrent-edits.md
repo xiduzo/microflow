@@ -74,23 +74,34 @@ would edit independently.
 `getNodes()` / `getNode()` continue to return plain `FlowNode` objects,
 materialised from the nested maps. No consumer of the read API changes.
 
-### Migration is lazy, not a batch job
+### Migration happens at the load boundary, not in the read path
 
-There are persisted documents in the database in the current format, and a
-Y.Doc update stream cannot be rewritten server-side without invalidating every
-client's history. So:
+There are persisted documents in the database in the old format. They are
+brought forward by `upgradeLegacyNodes(doc)`, called in exactly two places —
+`YjsServer.loadRoom` after applying the stored state, and the IndexedDB adapter
+once its store has synced — so the document is already correct before anything
+reads it.
 
-- **Read** accepts both shapes. `nodes.get(id)` returning a plain object means
-  a node that has not been upgraded; materialise it directly.
-- **Write** always produces the nested shape. The first write to a node
-  upgrades it.
-- A document therefore converges on the new format through normal use, and a
-  flow nobody edits is never touched.
+`FlowDocument` therefore has **no compatibility branch**. Every node is a
+`Y.Map`; there is no second shape to check for on the hottest code path in the
+editor.
 
-Mixed-format documents are correct at every point, which is what makes a
-rolling deploy safe: an old client and a new client can share a room, with the
-old client simply not getting per-field merge on nodes the new client has
-upgraded.
+This was a deliberate choice over the obvious alternative, a dual-shape read
+that upgrades each node on its first write. That version was written first and
+then removed, because:
+
+- A dual-shape read is *permanent* complexity in `materialiseNode`,
+  `writeNode`, `updateNodePosition` and `updateNodeData` — four branches on the
+  hot path, forever, for a state that should not outlive one deploy. A
+  migration is one function with a "delete me" note on it.
+- Upgrading on first write leaves a window: until a node is rewritten it is
+  still an atom, so two clients editing the same un-upgraded node concurrently
+  still clobber. Migrating at load closes that window entirely.
+
+The migration writes with origin `"migration"`, outside the `UndoManager`'s
+tracked set, so nobody can undo a document back into the old shape. It is
+idempotent and reports how many nodes it touched; the server marks a migrated
+room dirty so the upgrade is persisted once rather than repeated on every load.
 
 ## Consequences
 
@@ -209,11 +220,20 @@ removed from the list.
 **Undo survives the nesting.** Field edits, position changes and the
 origin-scoping that keeps a peer's edit out of our undo stack are all covered.
 
-### The limit of the migration
+### What the load-boundary migration bought
 
-A node still stored in the legacy flat shape remains an atom until somebody
-rewrites it. Two clients concurrently upgrading *the same* legacy node still
-resolve last-write-wins on the `nodes` slot — the merge only applies once the
-node is nested. In practice the first write upgrades it and every write after
-that merges, so the exposure is one edit wide per node. There is a test that
-documents this rather than pretending otherwise.
+An earlier draft of this change upgraded nodes lazily, on first write, and
+accepted a one-edit-wide window per node where two clients could still clobber
+each other. Migrating at the load boundary removes that window: by the time any
+client sees the document, every node is nested and every edit merges. The test
+`an upgraded node merges like any other` pins it.
+
+It also deleted the dual-shape read. `FlowDocument` is smaller than it was
+before this ADR started, not larger.
+
+### Deleting the migration
+
+`upgradeLegacyNodes` is disposable by design. Once no stored document predates
+this change — every room has been opened at least once, and every local
+IndexedDB store has synced once — delete the function and its two call sites.
+Nothing else has to change, because nothing else knows the old shape exists.

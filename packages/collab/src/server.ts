@@ -8,7 +8,7 @@ export { drizzleRoomStore } from "./drizzle-room-store";
 export { createYjsHandler, yjsServer } from "./handler";
 
 // Re-export client types for convenience
-export { FlowDocument } from "./schema";
+export { FlowDocument, upgradeLegacyNodes } from "./schema";
 export type { FlowMeta, FlowNode, FlowEdge, FlowData } from "./schema";
 
 // The client/server wire contract — see `protocol.ts`.

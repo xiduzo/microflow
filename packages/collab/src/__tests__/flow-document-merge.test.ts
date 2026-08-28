@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as Y from "yjs";
-import { FlowDocument, type FlowNode } from "../schema";
+import { FlowDocument, upgradeLegacyNodes, type FlowNode } from "../schema";
 
 /**
  * The property ADR-0017 exists for: two people editing one node concurrently
@@ -160,57 +160,78 @@ describe("materialisation cache", () => {
   });
 });
 
-describe("legacy documents", () => {
-  /** A document in the pre-ADR-0017 shape: nodes as plain objects. */
-  function legacyDoc(): FlowDocument {
-    const doc = new FlowDocument();
-    doc.doc.transact(() => {
-      doc.nodes.set("old", mkNode("old", { position: { x: 1, y: 2 } }) as never);
+describe("upgradeLegacyNodes", () => {
+  /** A raw document in the pre-ADR-0017 shape: nodes as plain objects. */
+  function legacyDoc(): Y.Doc {
+    const doc = new Y.Doc();
+    doc.transact(() => {
+      const nodes = doc.getMap<unknown>("nodes");
+      nodes.set("old", mkNode("old", { position: { x: 1, y: 2 } }));
+      nodes.set("old2", mkNode("old2", { data: { label: "Second" } }));
     }, "legacy");
     return doc;
   }
 
-  test("a node stored in the old shape still reads correctly", () => {
-    const doc = legacyDoc();
+  test("converts every flat node and reports how many", () => {
+    const raw = legacyDoc();
+    expect(upgradeLegacyNodes(raw)).toBe(2);
+
+    const doc = new FlowDocument(raw);
     const node = doc.getNode("old")!;
     expect(node.id).toBe("old");
     expect(node.position).toEqual({ x: 1, y: 2 });
     expect(node.data).toEqual({ label: "LED", pin: 13 });
+    expect(doc.getNode("old2")!.data).toEqual({ label: "Second" });
   });
 
-  test("a legacy node is upgraded on its first write, keeping its fields", () => {
-    const doc = legacyDoc();
-    doc.updateNodeData("old", { pin: 9 });
+  test("is a no-op on a document that is already current", () => {
+    const doc = new FlowDocument();
+    doc.addNode(mkNode("n1"));
 
-    expect(doc.nodes.get("old")).toBeInstanceOf(Y.Map);
-    const node = doc.getNode("old")!;
-    expect(node.data).toEqual({ label: "LED", pin: 9 });
-    expect(node.position).toEqual({ x: 1, y: 2 });
+    expect(upgradeLegacyNodes(doc.doc)).toBe(0);
+    expect(doc.getNode("n1")!.data).toEqual({ label: "LED", pin: 13 });
   });
 
-  test("a legacy node merges once upgraded", () => {
-    const doc = legacyDoc();
-    const other = new FlowDocument();
-    Y.applyUpdate(other.doc, Y.encodeStateAsUpdate(doc.doc));
-
-    // Both upgrade the same node concurrently, each touching one field.
-    doc.updateNodeData("old", { label: "A" });
-    other.updateNodeData("old", { pin: 4 });
-    converge(doc, other);
-
-    // One of the two upgrades wins the `nodes` slot outright — a legacy node
-    // is still an atom until somebody rewrites it — so this documents the
-    // limit of the migration rather than claiming a merge it cannot make.
-    expect(doc.getNode("old")!.data).toEqual(other.getNode("old")!.data);
-    expect(doc.nodes.get("old")).toBeInstanceOf(Y.Map);
+  test("is idempotent", () => {
+    const raw = legacyDoc();
+    expect(upgradeLegacyNodes(raw)).toBe(2);
+    expect(upgradeLegacyNodes(raw)).toBe(0);
+    expect(new FlowDocument(raw).getNodes()).toHaveLength(2);
   });
 
-  test("a mixed document reads both shapes together", () => {
-    const doc = legacyDoc();
-    doc.addNode(mkNode("new"));
+  test("an upgraded node merges like any other", () => {
+    const raw = legacyDoc();
+    upgradeLegacyNodes(raw);
 
-    const ids = doc.getNodes().map((n) => n.id).sort();
-    expect(ids).toEqual(["new", "old"]);
+    // Both clients load the already-migrated document, as they would from the
+    // room store, then edit different fields of the same node.
+    const a = new FlowDocument(raw);
+    const b = new FlowDocument();
+    Y.applyUpdate(b.doc, Y.encodeStateAsUpdate(a.doc));
+
+    a.updateNodeData("old", { label: "A" });
+    b.updateNodeData("old", { pin: 4 });
+    converge(a, b);
+
+    // Migrating at the load boundary is what removes the one-edit-wide window
+    // an on-first-write upgrade would have left.
+    expect(a.getNode("old")!.data).toEqual({ label: "A", pin: 4 });
+    expect(b.getNode("old")!.data).toEqual({ label: "A", pin: 4 });
+  });
+
+  test("the upgrade is not undoable", () => {
+    const raw = legacyDoc();
+    upgradeLegacyNodes(raw);
+    const doc = new FlowDocument(raw);
+
+    doc.updateNodeData("old", { label: "edited" });
+    doc.undo();
+
+    // Origin "migration" is outside the UndoManager's tracked set, so undo
+    // cannot walk back past it into the flat shape.
+    expect(doc.getNode("old")!.data.label).toBe("LED");
+    doc.undo();
+    expect(doc.getNode("old")).toBeDefined();
   });
 });
 

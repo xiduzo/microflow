@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as Y from "yjs";
 import { FlowDocument, type FlowNode } from "@microflow/collab";
 import {
   FlowUpdateDispatcher,
@@ -410,10 +411,12 @@ describe("FlowUpdateDispatcher", () => {
     await Promise.resolve();
     sender.sent.length = 0;
 
-    // Simulate a remote update on the same doc
-    doc.doc.transact(() => {
-      doc.nodes.set("remote-n", mkNode("remote-n"));
-    }, "remote");
+    // A real remote update: another client's document state, applied with a
+    // remote origin. Writing into `doc.nodes` by hand would bypass the storage
+    // shape the document owns (ADR-0017) rather than simulating a peer.
+    const peer = FlowDocument.createEmpty();
+    peer.addNode(mkNode("remote-n"));
+    Y.applyUpdate(doc.doc, Y.encodeStateAsUpdate(peer.doc), "remote");
 
     expect(scheduler.hasPending).toBe(true);
     scheduler.flush();

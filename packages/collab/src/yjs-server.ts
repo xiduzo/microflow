@@ -4,6 +4,7 @@ import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import type { RoomStore } from "./room-store";
+import { upgradeLegacyNodes } from "./schema";
 // Shared with the client provider — the numbering is constrained by
 // y-websocket's reserved range. See `protocol.ts`.
 import {
@@ -644,8 +645,17 @@ export class YjsServer {
 
     // Create Y.Doc
     const doc = new Y.Doc();
+    let migrated = 0;
     if (persisted) {
       Y.applyUpdate(doc, persisted);
+      // The load boundary is the only place the pre-ADR-0017 node shape is
+      // handled. Bringing the document forward here means every reader —
+      // clients included, since they sync from this doc — sees one shape, and
+      // `FlowDocument` needs no compatibility branch on its hot path.
+      migrated = upgradeLegacyNodes(doc);
+      if (migrated > 0) {
+        console.log(`[YJS] Room ${flowId}: upgraded ${migrated} node(s) to the nested shape`);
+      }
     } else {
       // Initialize empty structure
       doc.getMap("meta");
@@ -662,8 +672,10 @@ export class YjsServer {
       connections: new Set(),
       persistTimeout: null,
       lastPersistedAt: Date.now(),
-      isDirty: false,
-      firstDirtyAt: null,
+      // A migrated document is dirty by definition: flush it so the upgrade
+      // happens once rather than on every load of this flow.
+      isDirty: migrated > 0,
+      firstDirtyAt: migrated > 0 ? Date.now() : null,
     };
 
     // Set up doc update broadcasting

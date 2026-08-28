@@ -1,5 +1,5 @@
 // Client-side exports (browser-safe)
-export { FlowDocument } from "./schema";
+export { FlowDocument, upgradeLegacyNodes } from "./schema";
 export type { FlowMeta, FlowNode, FlowEdge, FlowData } from "./schema";
 
 export { SyncProvider } from "./sync-provider";

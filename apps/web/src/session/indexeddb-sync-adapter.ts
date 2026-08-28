@@ -1,36 +1,6 @@
 import { IndexeddbPersistence } from "y-indexeddb";
-import type { FlowDocument } from "@microflow/collab";
+import { upgradeLegacyNodes, type FlowDocument } from "@microflow/collab";
 import type { SyncAdapter } from "./sync-adapter";
-
-/** The key the previous `localStorage`-backed adapter wrote to. */
-const LEGACY_STORAGE_KEY = "microflow-local-flow";
-
-type LegacyPayload = {
-  nodes: ReturnType<FlowDocument["getNodes"]>;
-  edges: ReturnType<FlowDocument["getEdges"]>;
-};
-
-/**
- * Read the flow the old adapter left behind, if any.
- *
- * Deliberately does **not** delete the key. It costs a few KB and it is the
- * only copy of a local user's work; leaving it means a rollback to a previous
- * build still finds their flow.
- */
-function readLegacyPayload(): LegacyPayload | null {
-  try {
-    const stored = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (!stored) return null;
-    const data = JSON.parse(stored) as Partial<LegacyPayload>;
-    const nodes = data.nodes ?? [];
-    const edges = data.edges ?? [];
-    if (nodes.length === 0 && edges.length === 0) return null;
-    return { nodes, edges };
-  } catch (error) {
-    console.error("[LOCAL-SYNC] Failed to read legacy local flow:", error);
-    return null;
-  }
-}
 
 /**
  * Local persistence for the offline/local flow, backed by `y-indexeddb`.
@@ -60,7 +30,10 @@ export class IndexeddbSyncAdapter implements SyncAdapter {
 
     this.whenSynced = new Promise<void>((resolve) => {
       this.persistence.once("synced", () => {
-        this.migrateLegacyPayload();
+        // The load boundary, same as the server's room store: a document
+        // stored before ADR-0017 is brought onto the nested node shape here,
+        // so nothing downstream needs a compatibility branch.
+        if (!this.destroyed) upgradeLegacyNodes(doc.doc);
         resolve();
       });
     });
@@ -68,26 +41,6 @@ export class IndexeddbSyncAdapter implements SyncAdapter {
     this.whenSynced.catch((error) => {
       console.error("[LOCAL-SYNC] IndexedDB persistence failed:", error);
     });
-  }
-
-  /**
-   * One-time import of the pre-IndexedDB flow.
-   *
-   * Only runs when IndexedDB came back empty — otherwise the stored document
-   * is authoritative and re-seeding would clobber newer work with a stale
-   * snapshot. `clearHistory` keeps the import off the undo stack, so a user's
-   * first ctrl-Z after upgrading does not erase their flow.
-   */
-  private migrateLegacyPayload(): void {
-    if (this.destroyed) return;
-    if (this.doc.getNodeIds().length > 0 || this.doc.getEdgeIds().length > 0) return;
-
-    const legacy = readLegacyPayload();
-    if (!legacy) return;
-
-    console.log("[LOCAL-SYNC] Importing local flow from the previous storage format");
-    this.doc.setFlowData(legacy.nodes, legacy.edges);
-    this.doc.clearHistory();
   }
 
   destroy(): void {

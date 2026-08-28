@@ -45,9 +45,9 @@ function seed(nodeCount: number): FlowDocument {
         width: 160,
         height: 80,
       };
-      doc.nodes.set(node.id, node);
+      doc.addNode(node);
       if (i > 0) {
-        doc.edges.set(`e${i}`, {
+        doc.addEdge({
           id: `e${i}`,
           source: `n${i - 1}`,
           target: `n${i}`,

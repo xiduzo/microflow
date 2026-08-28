@@ -26,7 +26,7 @@ function seed(count: number): FlowDocument {
   const doc = FlowDocument.createEmpty();
   doc.doc.transact(() => {
     for (let i = 0; i < count; i++) {
-      doc.nodes.set(`n${i}`, {
+      doc.addNode({
         id: `n${i}`,
         type: "Led",
         position: { x: i * 10, y: i * 5 },
