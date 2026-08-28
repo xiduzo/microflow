@@ -1,5 +1,6 @@
 import type { WSContext } from "hono/ws";
 import { YjsServer, type RoomConnection } from "./yjs-server";
+import { CLOSE_ACCESS_DENIED } from "./protocol";
 import { drizzleRoomStore } from "./drizzle-room-store";
 
 // ============================================================================
@@ -49,8 +50,10 @@ export function createYjsHandler() {
       const { flowId, userId, canWrite } = data;
 
       if (!flowId || !userId || typeof canWrite !== "boolean") {
-        // Fail closed: the endpoint sets all three only after authorizing.
-        ws.close(1008, "Missing flowId, userId or access decision");
+        // Fail closed: the endpoint sets all three only after authorizing, so
+        // reconnecting with the same credentials cannot succeed — hence the
+        // non-retryable close code.
+        ws.close(CLOSE_ACCESS_DENIED, "Missing flowId, userId or access decision");
         return;
       }
 
@@ -70,7 +73,7 @@ export function createYjsHandler() {
                 // WebSocket might be closed
               }
             },
-            close: () => ws.close(),
+            close: (code, reason) => ws.close(code, reason),
             // Lets the room drop a peer whose socket has fallen behind rather
             // than buffering for it without bound. Not every runtime exposes
             // this; `?? 0` there means "no limit enforced", which is the

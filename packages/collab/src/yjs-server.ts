@@ -4,14 +4,15 @@ import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import type { RoomStore } from "./room-store";
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-const MESSAGE_SYNC = 0;
-const MESSAGE_AWARENESS = 1;
-const MESSAGE_ACK = 2;
+// Shared with the client provider — the numbering is constrained by
+// y-websocket's reserved range. See `protocol.ts`.
+import {
+  CLOSE_ACCESS_DENIED,
+  MESSAGE_ACK,
+  MESSAGE_AWARENESS,
+  MESSAGE_QUERY_AWARENESS,
+  MESSAGE_SYNC,
+} from "./protocol";
 
 // ============================================================================
 // Types
@@ -45,7 +46,11 @@ export type YjsServerOptions = {
 /** The socket a room writes to. Supplied by the transport (see `handler.ts`). */
 export type Connection = {
   send: (data: Uint8Array) => void;
-  close: () => void;
+  /**
+   * Close the socket. A code in 4400–4499 tells `WebsocketProvider` the answer
+   * will not change and stops it reconnecting — see `CLOSE_ACCESS_DENIED`.
+   */
+  close: (code?: number, reason?: string) => void;
   /**
    * Bytes queued on the socket but not yet flushed to the network, when the
    * transport can report it. Read before every broadcast so a stalled peer is
@@ -286,7 +291,9 @@ export class YjsServer {
       if (access === "none") {
         console.log(`[YJS] Room ${flowId}: revoking ${userId}`);
         connection.close();
-        connection.socket.close();
+        // Non-retryable: a removed collaborator must stop reconnecting rather
+        // than back off and try again forever.
+        connection.socket.close(CLOSE_ACCESS_DENIED, "Access revoked");
         continue;
       }
       connection.canWrite = access === "write";
@@ -332,6 +339,13 @@ export class YjsServer {
         break;
       case MESSAGE_AWARENESS:
         this.handleAwarenessMessage(room, connection, decoder);
+        break;
+      case MESSAGE_QUERY_AWARENESS:
+        // Part of the y-websocket protocol: "tell me who else is here".
+        // The provider only sends it over its cross-tab BroadcastChannel
+        // today, but answering it costs nothing and keeps us honest against
+        // the protocol rather than against one client's current behaviour.
+        this.sendAwarenessState(connection.socket, room.awareness);
         break;
     }
   }

@@ -18,6 +18,7 @@ mock.module("@microflow/db", () => ({
 }));
 
 const { createYjsHandler, yjsServer } = await import("../handler");
+const { CLOSE_ACCESS_DENIED } = await import("../protocol");
 
 const MESSAGE_SYNC = 0;
 
@@ -189,7 +190,9 @@ describe("createYjsHandler transport", () => {
 
     await handler.onOpen(new Event("open"), ws as never);
 
-    expect(closedWith).toBe(1008);
+    // 4400-4499 tells WebsocketProvider not to reconnect: the endpoint only
+    // sets these after authorizing, so retrying cannot succeed.
+    expect(closedWith).toBe(CLOSE_ACCESS_DENIED);
     expect(yjsServer.getConnectionCount("flow-h5")).toBe(0);
   });
 });

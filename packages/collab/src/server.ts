@@ -10,3 +10,13 @@ export { createYjsHandler, yjsServer } from "./handler";
 // Re-export client types for convenience
 export { FlowDocument } from "./schema";
 export type { FlowMeta, FlowNode, FlowEdge, FlowData } from "./schema";
+
+// The client/server wire contract — see `protocol.ts`.
+export {
+  MESSAGE_SYNC,
+  MESSAGE_AWARENESS,
+  MESSAGE_AUTH,
+  MESSAGE_QUERY_AWARENESS,
+  MESSAGE_ACK,
+  CLOSE_ACCESS_DENIED,
+} from "./protocol";
