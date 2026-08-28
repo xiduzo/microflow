@@ -3,7 +3,7 @@
  * it still requires a lot of testing before exposing it to users
  */
 
-import { useMemo } from "react";
+import { useCallback } from "react";
 import { NodeHandles } from "../_base/node-handles";
 import {
   NodeContainer,
@@ -13,8 +13,9 @@ import {
 } from "../_base/_base";
 import { useNodeValue } from "@/stores/node-data";
 import { useNodeDiagnostic } from "@/stores/node-diagnostics";
-import { useFlowNodes, useFlowSession } from "@/session";
+import { useFlowNodesSelector, useFlowSession } from "@/session";
 import { dataSchema, type Data, type Value } from "./i2c-device.schema";
+import type { FlowNode } from "@microflow/collab";
 import {
   I2C_PRESETS,
   I2C_DEVICE_OPTIONS,
@@ -32,20 +33,28 @@ import { folder } from "leva";
  */
 function useSharedAddressWarning(id: string, address: number): string | undefined {
   const { doc } = useFlowSession();
-  const nodes = useFlowNodes(doc);
 
-  return useMemo(() => {
-    const others = nodes.filter(
-      (node) =>
-        node.id !== id &&
-        node.data?.instance === "I2cDevice" &&
-        node.data?.address === address,
-    );
-    if (others.length === 0) return undefined;
+  // Selects the warning string rather than subscribing to the whole node set:
+  // this hook is mounted once per I²C node, so reading the full array here
+  // meant every instance re-ran its filter whenever anyone in the room moved
+  // any node. The selector only re-renders when the warning itself changes.
+  const selector = useCallback(
+    (nodes: FlowNode[]) => {
+      const others = nodes.filter(
+        (node) =>
+          node.id !== id &&
+          node.data?.instance === "I2cDevice" &&
+          node.data?.address === address,
+      );
+      if (others.length === 0) return undefined;
 
-    const hex = `0x${address.toString(16).toUpperCase().padStart(2, "0")}`;
-    return `${others.length + 1} nodes share I2C address ${hex}. That's fine if they're the same sensor on different registers (e.g. MPU6050 accel + gyro), but a conflict if they're different chips — give one an address-select pin.`;
-  }, [nodes, id, address]);
+      const hex = `0x${address.toString(16).toUpperCase().padStart(2, "0")}`;
+      return `${others.length + 1} nodes share I2C address ${hex}. That's fine if they're the same sensor on different registers (e.g. MPU6050 accel + gyro), but a conflict if they're different chips — give one an address-select pin.`;
+    },
+    [id, address],
+  );
+
+  return useFlowNodesSelector(doc, selector);
 }
 
 export function I2cDevice(props: Props) {

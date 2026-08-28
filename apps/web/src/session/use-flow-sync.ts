@@ -116,9 +116,17 @@ export function useFlowAwareness() {
     if (isRemoteSyncAdapter(sync)) sync.updateSelectedNodes(ids);
   }, []);
 
+  const updateDraggedNodes = useCallback(
+    (positions: Record<string, { x: number; y: number }> | null) => {
+      const sync = sessionRef.current.sync;
+      if (isRemoteSyncAdapter(sync)) sync.updateDraggedNodes(positions);
+    },
+    [],
+  );
+
   return useMemo(
-    () => ({ updateCursor, updateSelectedNodes }),
-    [updateCursor, updateSelectedNodes],
+    () => ({ updateCursor, updateSelectedNodes, updateDraggedNodes }),
+    [updateCursor, updateSelectedNodes, updateDraggedNodes],
   );
 }
 

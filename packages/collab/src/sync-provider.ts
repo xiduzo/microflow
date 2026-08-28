@@ -45,6 +45,14 @@ export type AwarenessUser = {
   icon: string;
   cursor?: { x: number; y: number };
   selectedNodes?: string[];
+  /**
+   * Live positions of the nodes this user is dragging right now, keyed by
+   * node id. Carried on awareness rather than in the document: a drag is
+   * ephemeral by nature, and routing sixty positions a second through the
+   * CRDT would bloat the update history and flood the undo stack. Absent when
+   * the user is not dragging.
+   */
+  draggingNodes?: Record<string, { x: number; y: number }>;
   /** Yjs client ID — unique per connection, not per account */
   clientId?: number;
   isSupporter?: boolean;
@@ -114,6 +122,13 @@ export class SyncProvider {
   private pendingCursor: { x: number; y: number } | null = null;
   private cursorTimer: ReturnType<typeof setTimeout> | null = null;
   private lastCursorSentAt = 0;
+
+  /** Latest drag positions not yet broadcast. Boxed so `undefined` (drop) is
+   *  distinguishable from "nothing pending". */
+  private pendingDrag: { value: Record<string, { x: number; y: number }> | undefined } | null =
+    null;
+  private dragTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastDragSentAt = 0;
   private readonly cursorThrottleMs: number;
   private readonly maxPendingBytes: number;
 
@@ -543,6 +558,45 @@ export class SyncProvider {
     this.sendAwareness();
   }
 
+  /**
+   * Publish the positions of the nodes being dragged, or `null` on drop.
+   *
+   * Shares the cursor's throttle budget and its trailing guarantee, so peers
+   * see the drag move continuously and always land on the final position.
+   * The document write still happens once, on drop, via the bridge.
+   */
+  updateDraggedNodes(positions: Record<string, { x: number; y: number }> | null): void {
+    if (this.destroyed) return;
+
+    const next = positions ?? undefined;
+    if (next === undefined && this.localUser.draggingNodes === undefined) return;
+
+    this.pendingDrag = { value: next };
+
+    if (this.dragTimer !== null) return;
+
+    const elapsed = Date.now() - this.lastDragSentAt;
+    if (elapsed >= this.cursorThrottleMs) {
+      this.flushDrag();
+      return;
+    }
+    this.dragTimer = setTimeout(() => {
+      this.dragTimer = null;
+      this.flushDrag();
+    }, this.cursorThrottleMs - elapsed);
+  }
+
+  private flushDrag(): void {
+    const pending = this.pendingDrag;
+    this.pendingDrag = null;
+    if (!pending || this.destroyed) return;
+
+    this.lastDragSentAt = Date.now();
+    this.localUser.draggingNodes = pending.value;
+    this.awareness.setLocalStateField("user", { ...this.localUser });
+    this.sendAwareness();
+  }
+
   updateSelectedNodes(nodeIds: string[]): void {
     if (this.destroyed) return;
     const current = this.localUser.selectedNodes;
@@ -619,7 +673,12 @@ export class SyncProvider {
       clearTimeout(this.cursorTimer);
       this.cursorTimer = null;
     }
+    if (this.dragTimer !== null) {
+      clearTimeout(this.dragTimer);
+      this.dragTimer = null;
+    }
     this.pendingCursor = null;
+    this.pendingDrag = null;
     this.removeRecoveryListeners();
     this.disconnect();
     this.doc.off("update", this.handleLocalUpdate);

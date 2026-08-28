@@ -13,6 +13,9 @@ import {
   useFlowHistory,
   useReactFlowBridge,
   useFlowAwareness,
+  useRemoteDragPositions,
+  usePublishDrag,
+  applyRemoteDrag,
 } from "@/session";
 import { useClipboardStore } from "@/stores/clipboard-store";
 import type { FlowEdge, FlowNode } from "@microflow/collab";
@@ -21,7 +24,7 @@ import "@xyflow/react/dist/style.css";
 import { NODE_TYPES } from "./nodes/_REGISTRY";
 import { NewNodeDialog } from "./dialogs/new-node-dialog";
 import { SettingsPanel } from "./panels/settings-panel";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { EDGE_TYPES } from "./edges/edges.constants";
 import { DockPanel } from "./panels/dock-panel";
@@ -43,7 +46,21 @@ export function ReactFlowCanvas() {
   // longer re-renders this component and everything under it.
   const { updateCursor } = useFlowAwareness();
 
-  const { nodes, edges, onNodesChange, onEdgesChange } = useReactFlowBridge(doc, { readOnly });
+  const {
+    nodes: documentNodes,
+    edges,
+    onNodesChange: onDocumentNodesChange,
+    onEdgesChange,
+  } = useReactFlowBridge(doc, { readOnly });
+
+  // A drag lives on awareness until it lands: peers see it move rather than
+  // teleport on drop, and the document still records exactly one position.
+  const remoteDrag = useRemoteDragPositions();
+  const nodes = useMemo(
+    () => applyRemoteDrag(documentNodes, remoteDrag),
+    [documentNodes, remoteDrag],
+  );
+  const onNodesChange = usePublishDrag(onDocumentNodesChange);
 
   const onConnect = useCallback(
     (connection: Connection) => {
