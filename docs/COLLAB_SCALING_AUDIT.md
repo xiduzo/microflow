@@ -6,8 +6,12 @@ path. **Question asked:** what breaks — or gets slow — when a *large group* 
 contributors is in one room at once?
 
 Findings are ordered by expected impact at scale. Each names the file, the
-mechanism, and the smallest fix that addresses it. Nothing here has been
-changed; this is the map, not the patch.
+mechanism, and the smallest fix that addresses it.
+
+> **Status: 11 of 13 items landed.** See [Results](#results) for measurements
+> and [What is not done](#what-is-not-done) for the two that are not. Sections
+> below describe the problem as found; the fix is in the linked commits.
+> Benchmarks live in `apps/web/bench` (`bun run bench` from `apps/web`).
 
 ---
 
@@ -431,41 +435,135 @@ node flat.
 
 ---
 
-## Suggested order of work
+## Work items
 
-Ordered by (impact at scale ÷ effort), not by section number:
+Ordered by (impact at scale ÷ effort), not by section number.
 
-| # | Change | Section | Effort |
+| # | Change | Section | Status |
 |---|---|---|---|
-| 1 | In-flight guard in `getOrCreateRoom`; delete-before-destroy in `cleanupRoom` | §1 | S |
-| 2 | Throttle `updateCursor` to one frame | §2 | S |
-| 3 | `useFlowAwareness` stops subscribing to awareness | §3 | S |
-| 4 | Identity-preserving `mergeYjsIntoSnapshot` | §4 | S |
-| 5 | Compute `runtimeRelevantKey` once; add debounce `maxWait` | §5 | S |
-| 6 | Persist ceiling on the server; merge the offline queue; backoff jitter | §8, §9 | S |
-| 7 | Split presence out of the sync snapshot; memo cursor components | §3 | M |
-| 8 | Remove/redact the IPC and flow-update payload logging | §6 | S |
-| 9 | Backpressure + rate limits on the WS server | §9 | M |
-| 10 | Bridge: flush on destroy, dirty-id tracking, edge updates | §10 | M |
-| 11 | Drag positions over awareness | §10 | M |
-| 12 | Nested `Y.Map` for `position`/`data` (needs an ADR) | §7 | L |
-| 13 | Delta `flow_update` IPC command | §6 | L |
+| 1 | In-flight guard in `getOrCreateRoom`; delete-before-destroy in `cleanupRoom` | §1 | ✅ done |
+| 2 | Throttle `updateCursor` to one frame | §2 | ✅ done |
+| 3 | `useFlowAwareness` stops subscribing to awareness | §3 | ✅ done |
+| 4 | Identity-preserving `mergeYjsIntoSnapshot` | §4 | ✅ done |
+| 5 | Compute `runtimeRelevantKey` once; add debounce `maxWait` | §5 | ✅ done |
+| 6 | Persist ceiling on the server; merge the offline queue; backoff jitter | §8, §9 | ✅ done |
+| 7 | Split presence out of the sync snapshot; memo cursor components | §3 | ✅ done |
+| 8 | Remove/redact the IPC and flow-update payload logging | §6 | ✅ done |
+| 9 | Backpressure + rate limits on the WS server | §9 | ✅ done |
+| 10 | Bridge: flush on destroy, dirty-id tracking, edge updates | §10 | ✅ done |
+| 11 | Drag positions over awareness | §10 | ✅ done |
+| 12 | Nested `Y.Map` for `data` | §7 | 📋 [ADR-0017](adr/0017-nested-node-fields-for-concurrent-edits.md) |
+| 13 | Delta `flow_update` IPC command | §6 | ⛔ not done |
 
-Items 1–6 are each a handful of lines and together address the majority of what
-degrades a large-group session. Items 12 and 13 are the structural ones and
-should be scheduled deliberately.
+Item 4b (`useFlowNodes` rebuilding per subscriber) landed alongside item 4.
+
+One recommendation in §2 was **dropped after checking it**: splitting identity
+out of the volatile presence fields. `encodeAwarenessUpdate` JSON-stringifies
+the entire state object on every update regardless of which field changed
+(`y-protocols/awareness.js`), so the split would not have reduced wire size.
+Rounding cursor coordinates to whole flow units does, and was done instead.
 
 ---
 
-## What we could not measure here
+## Results
 
-This audit is a read of the code, not a profile. Before committing to items
-7–13 it is worth having numbers:
+Measured with `bun run bench` from `apps/web`. Each benchmark compares against
+an inline re-implementation of the previous behaviour, so the two numbers come
+from the same run on the same machine.
 
-- A synthetic load test against `YjsServer`: `k` simulated clients on one room,
-  each moving a cursor and editing, measuring server CPU, broadcast fan-out, and
-  time-to-converge. This would confirm §1 and quantify §2/§9.
-- A React Profiler trace of `ReactFlowCanvas` with one remote peer moving a
-  cursor, to size §3 and §4 against each other.
-- IPC payload sizes on a representative large flow, to decide whether §6 needs
-  the delta command or just the logging removal.
+### Canvas: node re-renders caused by one peer's edit
+
+ReactFlow memoises a node's render on its object identity, so the count of
+identities that change per remote edit is a direct proxy for how many node
+components React re-renders.
+
+| flow size | before | after | |
+|---|---|---|---|
+| 25 nodes | 5,000 | 199 | 25x fewer |
+| 100 nodes | 20,000 | 101 | 101x fewer |
+| 300 nodes | 60,000 | 199 | 302x fewer |
+| 1000 nodes | 200,000 | 199 | 1005x fewer |
+
+The reduction is exactly proportional to flow size, which is the signature of
+the bug: the old merge's cost per edit was O(flow), the new one is O(changed).
+
+The merge call *itself* is only 1.15–1.32x faster (fewer allocations). The win
+is not in the merge; it is in the work React no longer does downstream.
+
+Scaled to a room on a 300-node flow, assuming each contributor commits ~2
+edits/second:
+
+| contributors | before | after |
+|---|---|---|
+| 5 | 3,000 renders/s | 10 renders/s |
+| 20 | 12,000 renders/s | 40 renders/s |
+
+### Server: presence fan-out
+
+A real `YjsServer` with in-memory sockets, over 10 seconds of everyone moving
+their cursor. "Before" is one frame per pointer event (~120/s); "after" is the
+client throttle's ceiling of 20/s.
+
+| room size | frames out (before) | frames out (after) | bandwidth before | after |
+|---|---|---|---|---|
+| 2 | 2,400 | 400 | 0.36 MB | 0.06 MB |
+| 5 | 24,000 | 4,000 | 3.60 MB | 0.60 MB |
+| 10 | 108,000 | 18,000 | 16.20 MB | 2.68 MB |
+| 20 | 456,000 | 76,000 | 68.90 MB | 11.36 MB |
+
+The quadratic term is plainly visible: 10x the people is 190x the frames. The
+throttle cuts a constant ~6x off it (84% of bandwidth), which does not change
+the exponent — a room large enough will still saturate. What it buys is roughly
+a 2.4x larger room for the same server cost, and it moves 20-person rooms from
+~6.9 MB/s of cursor egress to ~1.1 MB/s.
+
+Server CPU for that fan-out, over the same 10 seconds: 729ms → 147ms at 20
+contributors.
+
+### Dispatcher: per-accepted-change cost
+
+| flow size | payload | before | after | saved |
+|---|---|---|---|---|
+| 25 nodes | 5 KB | 0.05ms | 0.03ms | 36% |
+| 100 nodes | 21 KB | 0.26ms | 0.17ms | 44% |
+| 300 nodes | 64 KB | 0.76ms | 0.47ms | 33% |
+| 1000 nodes | 215 KB | 2.58ms | 1.36ms | 44% |
+
+A real saving, but a modest one in absolute terms — at 300 nodes and 10
+dispatches/second this is ~4.7ms/s of main thread, down from ~7.6ms/s. Worth
+having, not worth celebrating. The IPC payload column is the more interesting
+number, and it is the argument for item 13 below.
+
+---
+
+## What is not done
+
+**Item 13 — delta `flow_update` IPC command.** Not attempted: the Tauri crate
+does not compile in the environment this work was done in (`gdk-3.0` and the
+rest of the GTK stack are absent), so the Rust half could not be built, run, or
+tested. Writing it blind into the desktop runtime would be worse than not
+writing it. `microflow-core` itself compiles and its 484 tests pass, so the
+blocker is specifically the `apps/web/src-tauri` crate.
+
+The measurements above size the prize: 64 KB per dispatch at 300 nodes
+(0.62 MB/s at 10 dispatches/second), 215 KB at 1000 nodes (2.10 MB/s). Core's
+`FlowRuntime::update_flow` already diffs per node on the far side, so this is
+purely the cost of getting there. Worth doing on a machine with the Tauri
+toolchain; not urgent at typical flow sizes.
+
+**Item 12 — nested `Y.Map` for node `data`.** Deliberately not landed in this
+batch, and written up instead as
+[ADR-0017](adr/0017-nested-node-fields-for-concurrent-edits.md). It changes the
+format of every persisted document, which needs a decision rather than a patch.
+
+Doing item 4 also turned up a constraint that materially affects its design:
+the identity-preserving merge relies on Yjs returning a stable object reference
+for a node nobody wrote, which is true *because* nodes are stored as opaque
+objects. Materialising a plain object from a nested `Y.Map` allocates on every
+read, so a naive implementation of item 12 would silently undo the largest
+client-side win measured above. The ADR carries that constraint and the
+required materialisation cache.
+
+This one is still a real correctness gap — concurrent edits to different fields
+of one node clobber each other, and it reads to users as lost work — so it
+should be scheduled, not forgotten.
