@@ -8,7 +8,7 @@ contributors is in one room at once?
 Findings are ordered by expected impact at scale. Each names the file, the
 mechanism, and the smallest fix that addresses it.
 
-> **Status: 11 of 13 items landed.** See [Results](#results) for measurements
+> **Status: 12 of 13 items landed.** See [Results](#results) for measurements
 > and [What is not done](#what-is-not-done) for the two that are not. Sections
 > below describe the problem as found; the fix is in the linked commits.
 > Benchmarks live in `apps/web/bench` (`bun run bench` from `apps/web`).
@@ -452,7 +452,7 @@ Ordered by (impact at scale ÷ effort), not by section number.
 | 9 | Backpressure + rate limits on the WS server | §9 | ✅ done |
 | 10 | Bridge: flush on destroy, dirty-id tracking, edge updates | §10 | ✅ done |
 | 11 | Drag positions over awareness | §10 | ✅ done |
-| 12 | Nested `Y.Map` for `data` | §7 | 📋 [ADR-0017](adr/0017-nested-node-fields-for-concurrent-edits.md) |
+| 12 | Nested `Y.Map` for `data` | §7 | ✅ done — [ADR-0017](adr/0017-nested-node-fields-for-concurrent-edits.md) |
 | 13 | Delta `flow_update` IPC command | §6 | ⛔ not done |
 
 Item 4b (`useFlowNodes` rebuilding per subscriber) landed alongside item 4.

@@ -80,7 +80,7 @@ export class IndexeddbSyncAdapter implements SyncAdapter {
    */
   private migrateLegacyPayload(): void {
     if (this.destroyed) return;
-    if (this.doc.nodes.size > 0 || this.doc.edges.size > 0) return;
+    if (this.doc.getNodeIds().length > 0 || this.doc.getEdgeIds().length > 0) return;
 
     const legacy = readLegacyPayload();
     if (!legacy) return;

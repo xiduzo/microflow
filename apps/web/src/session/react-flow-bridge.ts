@@ -403,59 +403,58 @@ export class ReactFlowBridge {
    * something we could not attribute, so fall back to the full sweep.
    */
   private writeNodesToDoc(localNodes: FlowNode[], dirty: Set<string> | null): void {
-    const yMap = this.doc.nodes;
-
+    // Writes go through `FlowDocument`, never at `doc.nodes` directly: the
+    // document owns its storage shape (a node is a `Y.Map` with a nested
+    // `data` map — ADR-0017), and a raw `set` here would write the legacy flat
+    // shape and quietly opt the node out of per-field merging.
     if (dirty) {
       const byId = new Map(localNodes.map((n) => [n.id, n]));
       for (const id of dirty) {
         const node = byId.get(id);
         if (!node) {
-          yMap.delete(id);
+          this.doc.deleteNode(id);
           continue;
         }
-        if (!ReactFlowBridge.nodeNeedsWrite(node, yMap.get(id))) continue;
-        yMap.set(id, { ...node, selected: undefined, dragging: undefined });
+        if (!ReactFlowBridge.nodeNeedsWrite(node, this.doc.getNode(id))) continue;
+        this.doc.setNode({ ...node, selected: undefined, dragging: undefined });
       }
       return;
     }
 
     const nextIds = new Set(localNodes.map((n) => n.id));
-    for (const id of Array.from(yMap.keys())) {
-      if (!nextIds.has(id)) yMap.delete(id);
+    for (const id of this.doc.getNodeIds()) {
+      if (!nextIds.has(id)) this.doc.deleteNode(id);
     }
     for (const node of localNodes) {
-      const existing = yMap.get(node.id);
-      if (!ReactFlowBridge.nodeNeedsWrite(node, existing)) continue;
-      yMap.set(node.id, { ...node, selected: undefined, dragging: undefined });
+      if (!ReactFlowBridge.nodeNeedsWrite(node, this.doc.getNode(node.id))) continue;
+      this.doc.setNode({ ...node, selected: undefined, dragging: undefined });
     }
   }
 
   private writeEdgesToDoc(localEdges: FlowEdge[], dirty: Set<string> | null): void {
-    const yMap = this.doc.edges;
-
     if (dirty) {
       const byId = new Map(localEdges.map((e) => [e.id, e]));
       for (const id of dirty) {
         const edge = byId.get(id);
         if (!edge) {
-          yMap.delete(id);
+          this.doc.removeEdge(id);
           continue;
         }
-        if (!ReactFlowBridge.edgeNeedsWrite(edge, yMap.get(id))) continue;
-        yMap.set(id, { ...edge, selected: undefined });
+        if (!ReactFlowBridge.edgeNeedsWrite(edge, this.doc.getEdge(id))) continue;
+        this.doc.setEdge({ ...edge, selected: undefined });
       }
       return;
     }
 
     const nextIds = new Set(localEdges.map((e) => e.id));
-    for (const id of Array.from(yMap.keys())) {
-      if (!nextIds.has(id)) yMap.delete(id);
+    for (const id of this.doc.getEdgeIds()) {
+      if (!nextIds.has(id)) this.doc.removeEdge(id);
     }
     for (const edge of localEdges) {
       // Existing edges are updated, not skipped: a reconnect changes an edge's
       // endpoints in place, and skipping meant that never reached the document.
-      if (!ReactFlowBridge.edgeNeedsWrite(edge, yMap.get(edge.id))) continue;
-      yMap.set(edge.id, { ...edge, selected: undefined });
+      if (!ReactFlowBridge.edgeNeedsWrite(edge, this.doc.getEdge(edge.id))) continue;
+      this.doc.setEdge({ ...edge, selected: undefined });
     }
   }
 }

@@ -6,13 +6,16 @@ import type { FlowDocument } from "@microflow/collab";
  * / `edges` handles) passes through untouched, so incoming remote updates and
  * the Yjs→React read path are unaffected.
  */
-const MUTATORS = new Set<PropertyKey>([
+export const MUTATORS = new Set<PropertyKey>([
   "addNode",
+  "setNode",
   "updateNode",
   "updateNodePosition",
   "updateNodeData",
   "removeNode",
+  "deleteNode",
   "addEdge",
+  "setEdge",
   "updateEdge",
   "removeEdge",
   "setFlowData",
@@ -33,9 +36,14 @@ const noop = () => {};
  * seam is the session — `makeSession` applies this whenever `readOnly` is
  * set, so a Viewer's or a preview's doc simply has no writable surface.
  *
- * `ReactFlowBridge` writes through `doc.nodes` / `doc.edges` rather than
- * these methods and carries its own `readOnly` flag; the two guards are
- * independent on purpose.
+ * `ReactFlowBridge` carries its own `readOnly` flag as well; the two guards
+ * are independent on purpose. Since ADR-0017 the bridge writes through
+ * `setNode` / `deleteNode` rather than at `doc.nodes` directly, so it passes
+ * through this proxy too — but do not rely on that as the only guard.
+ *
+ * `MUTATORS` is exported so a test can assert it still covers every writing
+ * method on `FlowDocument`. A new mutator that is not listed here is a
+ * silent hole in Viewer enforcement.
  */
 export function readOnlyDocument(doc: FlowDocument): FlowDocument {
   return new Proxy(doc, {

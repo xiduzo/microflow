@@ -1,8 +1,8 @@
 # ADR-0017 — Nest `data` inside the node's Y.Map so concurrent field edits merge
 
-- **Status:** proposed
+- **Status:** accepted — implemented
 - **Date:** 2026-08-28
-- **Deciders:** —
+- **Deciders:** sander
 
 ## Context
 
@@ -47,8 +47,6 @@ because, unlike the rest, it **changes the format of every persisted
 document**.
 
 ## Decision
-
-*(Proposed — not yet implemented.)*
 
 Store each node as a `Y.Map`, with `data` as a further nested `Y.Map`:
 
@@ -174,16 +172,48 @@ merge.
 mean re-implementing inside the node what Yjs already does correctly one level
 up. No.
 
-## Implementation notes
+## What was implemented
 
-Roughly in order; each step is independently landable:
+All of the above, plus the guards the design called for.
 
-1. Move every direct `doc.nodes` / `doc.edges` write behind a `FlowDocument`
-   method. Pure refactor, no behaviour change, safe to land alone.
-2. Add the materialisation cache with the current flat schema, and a test
-   asserting reference stability for untouched nodes. Also safe alone, and it
-   makes the invariant explicit before anything depends on it.
-3. Introduce the nested write path plus the dual-format read.
-4. Undo/redo tests over nested writes.
-5. Concurrent-merge tests: two docs, disjoint field edits on one node, exchange
-   updates, assert both survive. This is the test that would fail today.
+**The merge works.** `flow-document-merge.test.ts` covers two clients editing
+disjoint fields of one node, a drag racing a rename, and a whole-node bridge
+write racing a field edit. Three of those fail against the previous flat shape;
+they are the reason this exists.
+
+**The materialisation cache holds.** `apps/web/bench/bridge-merge.bench.ts`
+still reports 300x fewer node re-renders on a 300-node flow after the change —
+identical to before it. Dispatcher cost is unchanged too (573ms vs 569ms per
+1000 dispatches at 300 nodes), because a cached read costs what the old direct
+read did. The cache is invalidated per id from a deep observer registered in the
+constructor, so it runs before any consumer callback and consumers never see a
+stale entry.
+
+**`onNodesChange` had to become deep.** A change to a node's `data` now fires on
+that node's nested map, not on the top-level `nodes` map. A shallow observer
+would have missed every field edit — this was the one change that could have
+broken the editor silently, and it is why `onNodesChange` uses `observeDeep`.
+
+**Writes moved behind the seam.** `ReactFlowBridge`, the clipboard paste path
+and the tests all went through `doc.nodes.set(...)` directly, which would now
+write the legacy flat shape and quietly opt those nodes out of merging. They
+call `setNode` / `deleteNode` / `setEdge` instead.
+
+**Viewer enforcement got a parity guard.** Adding `setNode` and `deleteNode`
+opened a silent hole in `readOnlyDocument`'s `MUTATORS` list — a Viewer could
+have written through them. `read-only-mutator-parity.test.ts` now calls every
+method on `FlowDocument`, asks the document whether it changed, and fails if
+anything writes without being guarded. Verified to fail when a mutator is
+removed from the list.
+
+**Undo survives the nesting.** Field edits, position changes and the
+origin-scoping that keeps a peer's edit out of our undo stack are all covered.
+
+### The limit of the migration
+
+A node still stored in the legacy flat shape remains an atom until somebody
+rewrites it. Two clients concurrently upgrading *the same* legacy node still
+resolve last-write-wins on the `nodes` slot — the merge only applies once the
+node is nested. In practice the first write upgrades it and every write after
+that merges, so the exposure is one edit wide per node. There is a test that
+documents this rather than pretending otherwise.

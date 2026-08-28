@@ -38,7 +38,7 @@ function seededDoc(count: number): FlowDocument {
   const doc = FlowDocument.createEmpty();
   doc.doc.transact(() => {
     for (let i = 0; i < count; i++) {
-      doc.nodes.set(`n${i}`, mkNode(`n${i}`, { position: { x: i, y: i } }));
+      doc.addNode(mkNode(`n${i}`, { position: { x: i, y: i } }));
     }
   }, "seed");
   return doc;
@@ -77,7 +77,7 @@ describe("ReactFlowBridge snapshot identity", () => {
     // Touch the document without changing any node: writing an identical
     // value still fires the Y.Map observer.
     doc.doc.transact(() => {
-      doc.nodes.set("n3", doc.nodes.get("n3")!);
+      doc.setNode(doc.getNode("n3")!);
     }, "remote");
 
     expect(notifications).toBe(0);
@@ -102,7 +102,7 @@ describe("ReactFlowBridge snapshot identity", () => {
   test("edges keep identity through an unrelated edge change", () => {
     const doc = FlowDocument.createEmpty();
     doc.doc.transact(() => {
-      for (let i = 0; i < 10; i++) doc.edges.set(`e${i}`, mkEdge(`e${i}`));
+      for (let i = 0; i < 10; i++) doc.addEdge(mkEdge(`e${i}`));
     }, "seed");
     const bridge = new ReactFlowBridge(doc);
     const before = bridge.getSnapshot().edges;
@@ -116,14 +116,20 @@ describe("ReactFlowBridge snapshot identity", () => {
 });
 
 describe("ReactFlowBridge write scope", () => {
-  test("moving one node writes only that node", () => {
+  test("moving one node writes only that node's position key", () => {
     const doc = seededDoc(30);
     const bridge = new ReactFlowBridge(doc);
 
+    // `path` is the route from the nodes map down to whatever changed:
+    // `[nodeId]` for the node's own map, `[nodeId, "data"]` for a field.
     const written: string[] = [];
-    doc.nodes.observe((event) => {
-      for (const [key, change] of event.changes.keys) {
-        if (change.action === "update" || change.action === "add") written.push(key);
+    doc.nodes.observeDeep((events) => {
+      for (const event of events) {
+        for (const [key, change] of event.changes.keys) {
+          if (change.action === "update" || change.action === "add") {
+            written.push([...event.path, key].join("."));
+          }
+        }
       }
     });
 
@@ -132,7 +138,10 @@ describe("ReactFlowBridge write scope", () => {
     ]);
     bridge.flush();
 
-    expect(written).toEqual(["n5"]);
+    // One key, on one node. Under the previous flat shape this was a
+    // whole-node replace, which is what made a drag clobber a concurrent
+    // rename of the same node.
+    expect(written).toEqual(["n5.position"]);
     bridge.destroy();
   });
 
@@ -143,7 +152,7 @@ describe("ReactFlowBridge write scope", () => {
     // Same position and size as the stored node, so `data` is the only
     // difference — otherwise the old position-only diff would write it anyway
     // and the test would prove nothing.
-    const stored = doc.nodes.get("n1")!;
+    const stored = doc.getNode("n1")!;
     const replacement = mkNode("n1", { position: { ...stored.position }, data: { pin: 13 } });
     bridge.applyNodeChanges([{ id: "n1", type: "replace", item: replacement } as NodeChange]);
     bridge.flush();
@@ -151,14 +160,14 @@ describe("ReactFlowBridge write scope", () => {
     // The previous diff compared only position and dimensions, so a
     // structural change carrying only new `data` was classified for writing
     // and then discarded.
-    expect(doc.nodes.get("n1")?.data).toEqual({ pin: 13 });
+    expect(doc.getNode("n1")?.data).toEqual({ pin: 13 });
     bridge.destroy();
   });
 
   test("an edge reconnect updates the stored edge instead of being skipped", () => {
     const doc = FlowDocument.createEmpty();
     doc.doc.transact(() => {
-      doc.edges.set("e1", mkEdge("e1", { source: "a", target: "b" }));
+      doc.addEdge(mkEdge("e1", { source: "a", target: "b" }));
     }, "seed");
     const bridge = new ReactFlowBridge(doc);
 
@@ -166,7 +175,7 @@ describe("ReactFlowBridge write scope", () => {
     bridge.applyEdgeChanges([{ id: "e1", type: "replace", item: reconnected } as EdgeChange]);
     bridge.flush();
 
-    expect(doc.edges.get("e1")?.target).toBe("c");
+    expect(doc.getEdge("e1")?.target).toBe("c");
     bridge.destroy();
   });
 
@@ -177,8 +186,8 @@ describe("ReactFlowBridge write scope", () => {
     bridge.applyNodeChanges([{ id: "n2", type: "remove" } as NodeChange]);
     bridge.flush();
 
-    expect(doc.nodes.has("n2")).toBe(false);
-    expect(doc.nodes.size).toBe(3);
+    expect(doc.hasNode("n2")).toBe(false);
+    expect(doc.getNodeIds()).toHaveLength(3);
     bridge.destroy();
   });
 
@@ -193,7 +202,7 @@ describe("ReactFlowBridge write scope", () => {
     ]);
     bridge.destroy();
 
-    expect(doc.nodes.get("n0")?.position).toEqual({ x: 42, y: 42 });
+    expect(doc.getNode("n0")?.position).toEqual({ x: 42, y: 42 });
   });
 
   test("a read-only bridge still writes nothing", () => {
@@ -205,6 +214,6 @@ describe("ReactFlowBridge write scope", () => {
     ]);
     bridge.destroy();
 
-    expect(doc.nodes.get("n0")?.position).toEqual({ x: 0, y: 0 });
+    expect(doc.getNode("n0")?.position).toEqual({ x: 0, y: 0 });
   });
 });
