@@ -82,10 +82,10 @@ Every custom component in the collaboration path, and why it exists.
 | `react-flow-bridge.ts` | a ReactFlow↔Yjs binding, if one exists | **Keep.** No maintained binding is known to us. *Not verified* — registry lookups were unavailable in the environment where this was written, so this row is based on absence of knowledge, not evidence of absence. Worth ten minutes with a working npm search before anyone extends this file substantially. |
 | `flow-update-dispatcher.ts`, senders | — | **Keep.** The Tauri/wasm runtime seam; nothing to do with Yjs. |
 | `use-flow-sync.ts`, `use-remote-drag.ts`, hooks | — | **Keep.** App-specific React glue over the adapters. |
-| `local-storage-sync-adapter.ts` | **`y-indexeddb`** | **Replace — see below.** |
+| `local-storage-sync-adapter.ts` | **`y-indexeddb`** | **Replaced.** Deleted; see below. |
 | `recording-sync-adapter.ts` | — | **Keep.** Test double. |
 
-### `local-storage-sync-adapter.ts` is the next thing to delete
+### `local-storage-sync-adapter.ts` — deleted
 
 It subscribes to `onAnyChange` and, on **every** document change, serialises the
 entire flow to JSON and writes it to `localStorage`:
@@ -101,11 +101,18 @@ of problem as the dispatcher's double serialisation that the audit measured at
 0.76ms per dispatch on a 300-node flow, except this one runs on every keystroke
 rather than every 500ms, and `localStorage` is synchronous I/O.
 
-`y-indexeddb` (`IndexeddbPersistence`, v9.0.12, verified installable) replaces
-it wholesale: incremental persistence of the Y.Doc, no JSON round trip, and it
-would also give **cloud** flows offline durability across a reload, which we do
-not have today at all. Migration is additive — seed from `localStorage` when
-IndexedDB is empty, and leave the old key in place.
+`y-indexeddb`'s `IndexeddbPersistence` replaced it wholesale: incremental
+persistence of the Y.Doc, no JSON round trip, and the document's history
+survives a reload instead of being flattened into a node/edge snapshot.
+
+Migration is additive. The legacy payload is imported only when IndexedDB comes
+back empty — a stale snapshot must never clobber newer stored work — and the
+old key is deliberately left in place, because it is the only copy of a local
+user's flow and leaving it means a rollback still finds it.
+
+The same package would also give **cloud** flows offline durability across a
+reload, which we do not have today at all. That is a larger change (it
+interacts with the server's authority over the document) and is not done.
 
 ## Consequences
 
