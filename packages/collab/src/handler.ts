@@ -19,7 +19,24 @@ type WebSocketData = {
   canWrite: boolean;
   /** The room handle, held for the life of the socket. */
   connection?: RoomConnection;
+  /**
+   * Frames that arrived before `join()` resolved, replayed in order once it
+   * does. `onOpen` is async (it awaits the room load) while `onMessage` is
+   * not, and a client sends sync-step-1 the instant the socket opens — so
+   * without this queue that first message is dropped and the client sits in
+   * `syncing` until something else happens to nudge it.
+   */
+  pending?: Uint8Array[];
+  /** Set once the socket is closed, so a late `join()` does not resurrect it. */
+  closed?: boolean;
 };
+
+/**
+ * Frames buffered per socket before its room handle exists. Capped so a client
+ * that floods during a slow room load cannot grow the queue without bound;
+ * past the cap the socket is closed and resyncs on reconnect.
+ */
+const MAX_PENDING_FRAMES = 64;
 
 // ============================================================================
 // Hono WebSocket Handler
@@ -43,7 +60,7 @@ export function createYjsHandler() {
         // One socket, one handle — held here for the life of the connection.
         // Every later message goes through it, so the room always recognises
         // the sender and its access decision.
-        data.connection = await yjsServer.join(
+        const connection = await yjsServer.join(
           flowId,
           {
             send: (bytes) => {
@@ -54,10 +71,27 @@ export function createYjsHandler() {
               }
             },
             close: () => ws.close(),
+            // Lets the room drop a peer whose socket has fallen behind rather
+            // than buffering for it without bound. Not every runtime exposes
+            // this; `?? 0` there means "no limit enforced", which is the
+            // pre-existing behaviour.
+            bufferedAmount: () => (ws.raw as { bufferedAmount?: number })?.bufferedAmount ?? 0,
           },
           userId,
           canWrite,
         );
+
+        // The socket may have closed while the room was loading. Detach
+        // immediately rather than leaving a handle nobody will ever close.
+        if (data.closed) {
+          connection.close();
+          return;
+        }
+
+        data.connection = connection;
+        const pending = data.pending;
+        data.pending = undefined;
+        for (const frame of pending ?? []) connection.receive(frame);
       } catch (error) {
         console.error(`[YJS] Connection error:`, error);
         ws.close(1011, "Internal error");
@@ -65,24 +99,44 @@ export function createYjsHandler() {
     },
 
     onMessage: (event: MessageEvent, ws: WSContext<WebSocketData>) => {
-      const { connection } = ws.raw as unknown as WebSocketData;
-      if (!connection) return;
+      const data = ws.raw as unknown as WebSocketData;
 
-      const data = event.data;
-      if (data instanceof ArrayBuffer) {
-        connection.receive(new Uint8Array(data));
+      const payload = event.data;
+      if (!(payload instanceof ArrayBuffer)) return;
+      const frame = new Uint8Array(payload);
+
+      if (data.connection) {
+        data.connection.receive(frame);
+        return;
       }
+      if (data.closed) return;
+
+      // Still joining — hold the frame rather than dropping it.
+      const pending = (data.pending ??= []);
+      if (pending.length >= MAX_PENDING_FRAMES) {
+        console.warn(
+          `[YJS] Too many frames before join on flow=${data.flowId}; closing socket`,
+        );
+        data.pending = undefined;
+        ws.close(1013, "Too many messages before join");
+        return;
+      }
+      pending.push(frame);
     },
 
     onClose: (_event: CloseEvent, ws: WSContext<WebSocketData>) => {
-      const { flowId, userId, connection } = ws.raw as unknown as WebSocketData;
-      console.log(`[YJS] Client disconnected: flow=${flowId}, user=${userId}`);
-      connection?.close();
+      const data = ws.raw as unknown as WebSocketData;
+      console.log(`[YJS] Client disconnected: flow=${data.flowId}, user=${data.userId}`);
+      data.closed = true;
+      data.pending = undefined;
+      data.connection?.close();
     },
 
     onError: (_event: Event, ws: WSContext<WebSocketData>) => {
-      const { connection } = ws.raw as unknown as WebSocketData;
-      connection?.close();
+      const data = ws.raw as unknown as WebSocketData;
+      data.closed = true;
+      data.pending = undefined;
+      data.connection?.close();
     },
   };
 }

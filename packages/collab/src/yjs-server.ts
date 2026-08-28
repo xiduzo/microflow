@@ -21,12 +21,37 @@ export type YjsServerOptions = {
   /** Where room documents live. Required — see `RoomStore`. */
   store: RoomStore;
   persistDebounce?: number;
+  /**
+   * Ceiling on how long a dirty room may go unpersisted. `persistDebounce` is
+   * a reset-on-every-update timer, so in a room where somebody is always
+   * typing it never expires and the flow is never written. Once a room has
+   * been dirty for this long the next update persists immediately instead of
+   * re-arming. See `schedulePersist`.
+   */
+  persistMaxWait?: number;
+  /** Inbound frames allowed per connection per second before dropping. */
+  messageRateLimit?: number;
+  /** Largest inbound frame accepted, in bytes. */
+  maxMessageBytes?: number;
+  /**
+   * Close a connection whose socket has buffered more than this many bytes.
+   * A client that cannot keep up with the broadcast must resync from scratch;
+   * buffering for it indefinitely costs the whole room. Requires the
+   * transport to report `bufferedAmount` — without it, no limit is enforced.
+   */
+  maxBufferedBytes?: number;
 };
 
 /** The socket a room writes to. Supplied by the transport (see `handler.ts`). */
 export type Connection = {
   send: (data: Uint8Array) => void;
   close: () => void;
+  /**
+   * Bytes queued on the socket but not yet flushed to the network, when the
+   * transport can report it. Read before every broadcast so a stalled peer is
+   * dropped rather than buffered without bound.
+   */
+  bufferedAmount?: () => number;
 };
 
 /**
@@ -63,6 +88,12 @@ type Room = {
   persistTimeout: ReturnType<typeof setTimeout> | null;
   lastPersistedAt: number;
   isDirty: boolean;
+  /**
+   * When the room first became dirty since the last successful persist, or
+   * `null` when clean. `schedulePersist` uses it to enforce `persistMaxWait`
+   * against a debounce timer that would otherwise re-arm forever.
+   */
+  firstDirtyAt: number | null;
 };
 
 // ============================================================================
@@ -75,19 +106,48 @@ class RoomConnectionImpl implements RoomConnection {
   canWrite: boolean;
   private closed = false;
 
+  /**
+   * Token bucket over inbound frames. One contributor with a runaway loop (or
+   * a hostile client) must not be able to spend the whole room's budget, so
+   * the limit is per connection and enforced before any decoding happens.
+   * Refills continuously at `rate` tokens/second, capped at `rate`.
+   */
+  private tokens: number;
+  private lastRefillAt = Date.now();
+
   constructor(
     readonly flowId: string,
     readonly userId: string,
     readonly socket: Connection,
     canWrite: boolean,
     private readonly server: YjsServer,
+    private readonly rate: number,
+    private readonly maxMessageBytes: number,
   ) {
     this.canWrite = canWrite;
+    this.tokens = rate;
   }
 
   receive(data: Uint8Array): void {
     if (this.closed) return;
+    if (data.byteLength > this.maxMessageBytes) {
+      console.warn(
+        `[YJS] Dropping ${data.byteLength}B frame from ${this.userId} on ${this.flowId} (limit ${this.maxMessageBytes}B)`,
+      );
+      return;
+    }
+    if (!this.takeToken()) return;
     this.server.receive(this, data);
+  }
+
+  /** Refill by elapsed time, then spend one token. False when starved. */
+  private takeToken(): boolean {
+    const now = Date.now();
+    this.tokens = Math.min(this.rate, this.tokens + ((now - this.lastRefillAt) / 1000) * this.rate);
+    this.lastRefillAt = now;
+    if (this.tokens < 1) return false;
+    this.tokens -= 1;
+    return true;
   }
 
   close(): void {
@@ -107,12 +167,38 @@ class RoomConnectionImpl implements RoomConnection {
 
 export class YjsServer {
   private rooms = new Map<string, Room>();
+  /**
+   * Rooms being loaded, keyed by flow id. `getOrCreateRoom` is async — it
+   * awaits `store.load` between the "does this room exist?" check and the
+   * `rooms.set` — so without this two simultaneous joins would each build a
+   * `Y.Doc` and the second would overwrite the first in `rooms`. The losing
+   * room's connections are then unreachable: `receive` looks the room up by
+   * flow id, finds the surviving room, sees the connection is not in its set
+   * and drops the message silently. Memoizing the in-flight load makes every
+   * concurrent join await the same room.
+   */
+  private roomsLoading = new Map<string, Promise<Room>>();
+  /**
+   * Rooms being torn down, keyed by flow id. Cleanup persists before it
+   * destroys, so a join arriving mid-teardown must wait for that write to
+   * land — otherwise it loads a stale document from the store and the last
+   * edits of the previous session are lost.
+   */
+  private roomsClosing = new Map<string, Promise<void>>();
   private readonly store: RoomStore;
   private persistDebounce: number;
+  private persistMaxWait: number;
+  private messageRateLimit: number;
+  private maxMessageBytes: number;
+  private maxBufferedBytes: number;
 
   constructor(options: YjsServerOptions) {
     this.store = options.store;
     this.persistDebounce = options.persistDebounce ?? 2000;
+    this.persistMaxWait = options.persistMaxWait ?? 10_000;
+    this.messageRateLimit = options.messageRateLimit ?? 240;
+    this.maxMessageBytes = options.maxMessageBytes ?? 8 * 1024 * 1024;
+    this.maxBufferedBytes = options.maxBufferedBytes ?? 8 * 1024 * 1024;
   }
 
   // --------------------------------------------------------------------------
@@ -133,7 +219,15 @@ export class YjsServer {
     canWrite: boolean,
   ): Promise<RoomConnection> {
     const room = await this.getOrCreateRoom(flowId);
-    const connection = new RoomConnectionImpl(flowId, userId, socket, canWrite, this);
+    const connection = new RoomConnectionImpl(
+      flowId,
+      userId,
+      socket,
+      canWrite,
+      this,
+      this.messageRateLimit,
+      this.maxMessageBytes,
+    );
 
     room.connections.add(connection);
     console.log(`[YJS] Room ${flowId}: ${room.connections.size} connection(s)`);
@@ -359,13 +453,41 @@ export class YjsServer {
     socket.send(encoding.toUint8Array(encoder));
   }
 
+  /**
+   * Fan a message out to the room, skipping `except` (the origin).
+   *
+   * A peer whose socket has fallen too far behind is closed rather than
+   * buffered: the send queue is server memory, and one stalled client in a
+   * busy room can consume it without bound. Dropping is safe — the client
+   * reconnects and resyncs from scratch, which is what sync-step-1 is for.
+   */
   private broadcast(room: Room, message: Uint8Array, except: unknown): void {
+    let stalled: RoomConnectionImpl[] | null = null;
+
     for (const connection of room.connections) {
       if (connection === except) continue;
       try {
+        const buffered = connection.socket.bufferedAmount?.() ?? 0;
+        if (buffered > this.maxBufferedBytes) {
+          (stalled ??= []).push(connection);
+          continue;
+        }
         connection.socket.send(message);
       } catch {
         // Connection might be closed
+      }
+    }
+
+    // Closing mutates `room.connections`, so it happens after the iteration.
+    for (const connection of stalled ?? []) {
+      console.warn(
+        `[YJS] Room ${connection.flowId}: dropping ${connection.userId} — send buffer over ${this.maxBufferedBytes}B`,
+      );
+      connection.close();
+      try {
+        connection.socket.close();
+      } catch {
+        // Already gone
       }
     }
   }
@@ -381,12 +503,32 @@ export class YjsServer {
   // Persistence
   // --------------------------------------------------------------------------
 
+  /**
+   * Arm (or re-arm) the debounced persist for a dirty room.
+   *
+   * The debounce is reset-on-every-update, which alone means a room with
+   * continuous activity — a large group mid-session is exactly that — never
+   * reaches its timeout and is never written. `persistMaxWait` bounds it: once
+   * the room has been dirty that long, persist now rather than re-arming.
+   */
   private schedulePersist(flowId: string, room: Room): void {
+    room.firstDirtyAt ??= Date.now();
+
+    if (Date.now() - room.firstDirtyAt >= this.persistMaxWait) {
+      if (room.persistTimeout) {
+        clearTimeout(room.persistTimeout);
+        room.persistTimeout = null;
+      }
+      void this.persistRoom(flowId, room);
+      return;
+    }
+
     if (room.persistTimeout) {
       clearTimeout(room.persistTimeout);
     }
 
     room.persistTimeout = setTimeout(async () => {
+      room.persistTimeout = null;
       await this.persistRoom(flowId, room);
     }, this.persistDebounce);
   }
@@ -394,10 +536,15 @@ export class YjsServer {
   private async persistRoom(flowId: string, room: Room): Promise<void> {
     if (!room.isDirty) return;
 
+    // Clear the flags before the await, not after: an update arriving while
+    // `save` is in flight must leave the room dirty so it is written again,
+    // rather than being cleared by this call's completion.
+    room.isDirty = false;
+    room.firstDirtyAt = null;
+
     try {
       await this.store.save(flowId, Y.encodeStateAsUpdate(room.doc));
 
-      room.isDirty = false;
       room.lastPersistedAt = Date.now();
 
       // Notify clients of successful persistence
@@ -405,37 +552,79 @@ export class YjsServer {
 
       console.log(`[YJS] Persisted room ${flowId}`);
     } catch (error) {
+      // Put the room back in the dirty state so the next update — or the
+      // final flush on teardown — retries the write instead of assuming it
+      // landed.
+      room.isDirty = true;
+      room.firstDirtyAt ??= Date.now();
       console.error(`[YJS] Failed to persist room ${flowId}:`, error);
     }
   }
 
-  private async cleanupRoom(flowId: string, room: Room): Promise<void> {
-    // Clear any pending persist timeout
+  /**
+   * Flush and tear down an empty room.
+   *
+   * Deregistration happens *first*, before the final persist is awaited: a
+   * join arriving during that await must not be handed a room whose doc is
+   * about to be destroyed. The teardown is published on `roomsClosing` so the
+   * replacement load waits for this write rather than reading a stale
+   * document out from under it.
+   */
+  private cleanupRoom(flowId: string, room: Room): Promise<void> {
     if (room.persistTimeout) {
       clearTimeout(room.persistTimeout);
+      room.persistTimeout = null;
     }
 
-    // Final persist before cleanup
-    if (room.isDirty) {
-      await this.persistRoom(flowId, room);
-    }
-
-    // Destroy awareness and doc
-    room.awareness.destroy();
-    room.doc.destroy();
-
-    // Remove from rooms map
     this.rooms.delete(flowId);
-    console.log(`[YJS] Cleaned up room ${flowId}`);
+
+    const closing = (async () => {
+      if (room.isDirty) {
+        await this.persistRoom(flowId, room);
+      }
+      room.awareness.destroy();
+      room.doc.destroy();
+      console.log(`[YJS] Cleaned up room ${flowId}`);
+    })().finally(() => {
+      // Only retract our own entry — a later teardown of a newer room for the
+      // same flow may already have replaced it.
+      if (this.roomsClosing.get(flowId) === closing) this.roomsClosing.delete(flowId);
+    });
+
+    this.roomsClosing.set(flowId, closing);
+    return closing;
   }
 
   // --------------------------------------------------------------------------
   // Room Management
   // --------------------------------------------------------------------------
 
-  private async getOrCreateRoom(flowId: string): Promise<Room> {
-    let room = this.rooms.get(flowId);
-    if (room) return room;
+  /**
+   * The room for `flowId`, loading it if this is the first join.
+   *
+   * Deliberately *not* `async`: the synchronous prefix — the `rooms` lookup
+   * and the `roomsLoading` memo — must run to completion before any other
+   * join can interleave. An `async` function would suspend at its first
+   * `await` and reopen the window this exists to close.
+   */
+  private getOrCreateRoom(flowId: string): Promise<Room> {
+    const live = this.rooms.get(flowId);
+    if (live) return Promise.resolve(live);
+
+    const loading = this.roomsLoading.get(flowId);
+    if (loading) return loading;
+
+    const pending = this.loadRoom(flowId).finally(() => {
+      this.roomsLoading.delete(flowId);
+    });
+    this.roomsLoading.set(flowId, pending);
+    return pending;
+  }
+
+  private async loadRoom(flowId: string): Promise<Room> {
+    // A teardown for this flow may still be flushing its final state. Load
+    // after it lands, or we read a document that is one session out of date.
+    await this.roomsClosing.get(flowId)?.catch(() => {});
 
     const persisted = await this.store.load(flowId);
 
@@ -453,13 +642,14 @@ export class YjsServer {
     // Create awareness
     const awareness = new awarenessProtocol.Awareness(doc);
 
-    room = {
+    const room: Room = {
       doc,
       awareness,
       connections: new Set(),
       persistTimeout: null,
       lastPersistedAt: Date.now(),
       isDirty: false,
+      firstDirtyAt: null,
     };
 
     // Set up doc update broadcasting
@@ -467,7 +657,7 @@ export class YjsServer {
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
       syncProtocol.writeUpdate(encoder, update);
-      this.broadcast(room!, encoding.toUint8Array(encoder), origin);
+      this.broadcast(room, encoding.toUint8Array(encoder), origin);
     });
 
     // Set up awareness broadcasting
@@ -486,7 +676,7 @@ export class YjsServer {
           encoder,
           awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients),
         );
-        this.broadcast(room!, encoding.toUint8Array(encoder), origin);
+        this.broadcast(room, encoding.toUint8Array(encoder), origin);
       },
     );
 

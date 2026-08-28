@@ -117,22 +117,54 @@ describe("createYjsHandler transport", () => {
     handler.onClose(new CloseEvent("close"), viewer.ws);
   });
 
-  test("messages arriving before onOpen resolves are ignored, not misattributed", async () => {
+  test("messages arriving before onOpen resolves are replayed once the handle exists", async () => {
     const handler = createYjsHandler();
     const early = fakeSocket("flow-h3", "editor-1", true);
 
-    // No await: the handle does not exist yet.
+    // No await: the handle does not exist yet. A real client sends
+    // sync-step-1 the instant the socket opens, so this window is always hit;
+    // dropping the frame left the client stuck in `syncing`.
     const opening = handler.onOpen(new Event("open"), early.ws);
     handler.onMessage(
-      { data: updateMessage((d) => d.getMap("nodes").set("a", "too-early")) } as MessageEvent,
+      { data: updateMessage((d) => d.getMap("nodes").set("a", "sent-early")) } as MessageEvent,
       early.ws,
     );
     await opening;
 
     handler.onMessage({ data: syncStep1Message() } as MessageEvent, early.ws);
-    expect(early.mirror().getMap("nodes").has("a")).toBe(false);
+    expect(early.mirror().getMap("nodes").get("a")).toBe("sent-early");
 
     handler.onClose(new CloseEvent("close"), early.ws);
+  });
+
+  test("an early message is still subject to the connection's access decision", async () => {
+    const handler = createYjsHandler();
+    const viewer = fakeSocket("flow-h3b", "viewer-1", false);
+
+    // Replaying buffered frames must go through the room handle, not around
+    // it — a Viewer's write is dropped whether it arrived early or late.
+    const opening = handler.onOpen(new Event("open"), viewer.ws);
+    handler.onMessage(
+      { data: updateMessage((d) => d.getMap("nodes").set("a", "viewer-wrote-this")) } as MessageEvent,
+      viewer.ws,
+    );
+    await opening;
+
+    handler.onMessage({ data: syncStep1Message() } as MessageEvent, viewer.ws);
+    expect(viewer.mirror().getMap("nodes").has("a")).toBe(false);
+
+    handler.onClose(new CloseEvent("close"), viewer.ws);
+  });
+
+  test("a socket that closes mid-join does not leave a handle behind", async () => {
+    const handler = createYjsHandler();
+    const abandoned = fakeSocket("flow-h3c", "editor-1", true);
+
+    const opening = handler.onOpen(new Event("open"), abandoned.ws);
+    handler.onClose(new CloseEvent("close"), abandoned.ws);
+    await opening;
+
+    expect(yjsServer.getConnectionCount("flow-h3c")).toBe(0);
   });
 
   test("onClose detaches the connection from the room", async () => {
