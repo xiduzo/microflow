@@ -1,94 +1,96 @@
 ---
 title: Board not detected
-description: The sidebar will not reach a connected state. Checks in order, most likely first.
+description: The sidebar will not reach a connected state. Checks in order, most likely cause first.
 ---
 
-The board is plugged in and Studio will not connect to it. Work down this page in order — the checks are ordered by how often each one is the cause, not by how interesting it is.
+The board is plugged in and Studio does not connect to it. Work down this page in order. The checks are ordered by how often each cause is to blame.
 
 <Video title="The board will not connect" duration="4:00" script="/docs/videos/board-wont-connect">
-Every cause on this page reproduced live, including what ten seconds of nothing happening looks like.
+Every cause on this page, reproduced live.
 </Video>
 
 ## First, read the status
 
-| Status | What it means |
+| Status | Meaning |
 | --- | --- |
 | **No microcontroller connected** | Desktop app: no serial port found. Start at check 1. |
-| **Connect board** | Browser: you have not granted permission yet. Click it. See check 5. |
-| **Use Chrome/Edge or the desktop app** | Firefox or Safari. There is no workaround — see check 5. |
-| **Connecting** | Studio found a port. Give it a few seconds. |
-| **Flashing firmware** | Installing firmware. Can take up to a minute. **Do not unplug.** |
-| **Error** | The connection failed outright. Work through this page. |
+| **Connect board** | Browser: you have granted no permission yet. See check 5. |
+| **Use Chrome/Edge or the desktop app** | You are in Firefox or Safari. See check 5. |
+| **Connecting** | Studio found a port. Wait a few seconds. |
+| **Flashing firmware** | Studio is installing the firmware. Wait up to a minute. Do not unplug the board. |
+| **Error** | The connection failed. Work through this page. |
 
 ## 1. The cable
 
-Most "broken Arduinos" are cables. Plenty of USB cables carry power and no data, and they are physically identical to ones that do. The board's power light comes on with either kind, so it tells you nothing.
+Most broken boards are broken cables. Many USB cables carry power and no data, and look identical to cables that carry both. The board's power light comes on with either kind, so the light tells you nothing.
 
-- Try a different cable — ideally one you have used to upload a sketch from the Arduino IDE.
-- Plug straight into the computer, not into a hub.
-- If the cable came with headphones, a battery pack, or a phone charger, assume it is charge-only until proven otherwise.
+1. Try a different cable. Use one you have already uploaded a sketch with, if you have one.
+2. Plug into the computer, not into a hub.
 
-## 2. Another program is holding the port
+Assume a cable that came with headphones, a battery pack, or a phone charger carries power only.
 
-A serial port has one occupant at a time. If something else has it, Studio cannot.
+## 2. Another program holds the port
 
-The usual suspects: the Arduino IDE's **Serial Monitor** or plotter, PlatformIO, a `screen` or `minicom` session, and a second copy of Studio — including a second **browser tab**.
+A serial port has one occupant at a time.
 
-- Close them. On Windows, closing the whole Arduino IDE is safer than just the Serial Monitor.
-- Unplug and replug the board.
+Close anything else that talks to the board: the Arduino IDE's **Serial Monitor** or plotter, PlatformIO, a `screen` or `minicom` session, a second copy of Studio, and a second **browser tab** with Studio open.
+
+On Windows, close the whole Arduino IDE rather than the Serial Monitor alone. Then unplug the board and plug it in again.
 
 ## 3. The driver
 
-Official Arduino boards work out of the box. Cheaper clones use a different USB-to-serial chip — usually CH340 or CP2102 — which needs a driver on Windows and older macOS.
+Official Arduino boards need no driver. Clones use a different USB-to-serial chip, usually CH340 or CP2102, which needs a driver on Windows and on older macOS.
 
-The tell is that **your operating system itself** cannot see the board. If the OS cannot see it, no application can.
+Check whether your operating system sees the board at all:
 
 - **Windows** — Device Manager → Ports (COM & LPT).
 - **macOS** — System Information → USB.
-- **Linux** — `ls /dev/tty*` before and after plugging in.
+- **Linux** — run `ls /dev/tty*` before and after you plug the board in.
 
-If the board is not listed, install the driver. See [Install board drivers](/docs/how-to/install-board-drivers).
+If the operating system does not list the board, no application can reach it. Install the driver — see [Install board drivers](/docs/how-to/install-board-drivers).
 
-**Windows, CH340 clone, "device not functioning":** if the board *does* appear as *USB-SERIAL CH340 (COM3)* but Studio still fails — and the same board works on macOS — the newest CH340 driver (4.0) is rejecting the clone chip. Downgrade to 3.4. See [CH340 clones and the "device not functioning" error](/docs/how-to/install-board-drivers#ch340-clones-and-the-device-not-functioning-error-windows).
+**Windows, CH340 clone, "device not functioning":** the board appears as *USB-SERIAL CH340 (COM3)*, Studio still fails, and the same board works on macOS. CH340 driver 4.0 rejects the clone chip. Downgrade to 3.4 — see [CH340 clones and the "device not functioning" error](/docs/how-to/install-board-drivers#ch340-clones-and-the-device-not-functioning-error-windows).
 
-## 4. The board itself
+## 4. The board
 
-- Plug in a different board. If that one connects, the first board is the problem.
-- Open the Arduino IDE and upload **File → Examples → 01.Basics → BareMinimum**. If that fails too — particularly with `avrdude: stk500_recv()` — the board has a bootloader problem and needs hardware-level recovery, which is outside what Studio can do.
+1. Plug in a different board. If that board connects, the first board is at fault.
+2. Open the Arduino IDE and upload **File → Examples → 01.Basics → BareMinimum**.
+
+If that upload fails, and especially if it reports `avrdude: stk500_recv()`, the board has a bootloader fault. Bootloader recovery needs an ISP programmer and is outside what Studio can do.
 
 ## 5. In a browser
 
-Web Serial has rules a desktop app does not.
+Web Serial has rules the desktop app does not.
 
-- **Firefox and Safari do not support it at all.** The sidebar says so. Switch to Chrome, Edge, or Opera, or install the desktop app.
-- **Permission is a deliberate act.** If the status says **Connect board**, nothing has been granted. Click it and pick your board in the browser's chooser. Dismissing that chooser leaves you exactly where you started, with no error.
-- **Permission is per origin and per device.** Granted on `localhost` does not carry over to the hosted app, or the other way round.
-- **One tab only.** A second tab with Studio open cannot take a port the first one holds.
-- **Enterprise policy or `chrome://flags` can disable Web Serial**, in which case Studio reports the browser as unsupported even though it normally would not.
+- **Firefox and Safari cannot reach a serial port.** Switch to Chrome, Edge, or Opera, or install the desktop app.
+- **You must grant permission.** A status of **Connect board** means no board is granted. Click it and select your board. If you dismiss the chooser, nothing changes and no error appears.
+- **Permission covers one origin and one device.** Permission granted on a local dev server does not apply to the hosted app.
+- **One tab holds the port.** A second Studio tab cannot take a port the first tab holds. Close the other tab.
+- **Policy can disable Web Serial.** An enterprise policy or a `chrome://flags` setting makes Studio report the browser as unsupported.
 
-A board you have already granted reconnects on its own after that, including after unplugging and replugging.
+Studio reconnects to a granted board on its own, including after you unplug it.
 
 ## 6. Firmware
 
-Studio checks the firmware every time it connects: it probes the board, flashes Microflow's firmware if it is missing, and connects. So a board that has been used for something else — a sketch from the Arduino IDE, another tool — fixes itself on the next connection.
+Studio checks the firmware on every connection: it probes the board, flashes the firmware if the probe fails, then connects. A board you have used with the Arduino IDE or another tool therefore recovers on the next connection.
 
-That means **"the firmware is corrupt" is rarely the answer**. If flashing itself is failing, it is nearly always check 1 or check 2 underneath. See [Flash firmware manually](/docs/how-to/flash-firmware-manually) if you want to take over the process yourself.
+Corrupt firmware is rarely the cause. When the flash itself fails, check 1 and check 2 are the usual reasons. To run the step yourself, see [Flash firmware manually](/docs/how-to/flash-firmware-manually).
 
 ## 7. Unsupported board
 
-Microflow generates code for **Arduino Uno**, **Arduino Nano**, and **ESP32**. Other boards may connect and may partly work, but the generated sketch and the wiring diagram will be wrong for them, and nothing will warn you.
+Microflow generates code for the **Arduino Uno**, the **Arduino Nano**, and the **ESP32**. Another board may connect and may partly work, but the generated sketch and the wiring diagram will be wrong for it, and no warning appears.
 
-Check which target the flow is set to — see [Choose a board target](/docs/how-to/choose-a-board-target).
+Check which target the flow uses — see [Choose a board target](/docs/how-to/choose-a-board-target).
 
 ## Still stuck
 
 Open an issue on [GitHub](https://github.com/xiduzo/microflow-t-stack/issues) with:
 
-- Board name, and whether it is genuine or a clone
-- Operating system and version
-- Studio version, and whether you are in the desktop app or a browser (and which)
-- The exact status text in the sidebar
-- Whether the Arduino IDE can talk to the same board
-- Whether your operating system lists the board as a serial device
+- The board name, and whether it is genuine or a clone.
+- Your operating system and version.
+- The Studio version, and whether you use the desktop app or a browser.
+- The exact status text in the sidebar.
+- Whether the Arduino IDE reaches the same board.
+- Whether your operating system lists the board as a serial device.
 
-That last pair is what separates a Microflow bug from a machine that cannot see the hardware, and it is the first thing anyone will ask.
+The last two answers separate a Microflow fault from a machine that cannot see the hardware.

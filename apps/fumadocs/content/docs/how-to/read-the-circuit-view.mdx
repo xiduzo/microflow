@@ -3,47 +3,50 @@ title: Read the circuit view
 description: Build your wiring from the diagram Microflow generates out of your flow.
 ---
 
-**Show circuit** draws the wiring your flow implies — every component you have used, with the pin each one is set to. It is generated from the flow each time you open it, so it cannot fall out of date with the canvas.
+**Show circuit** draws the wiring your flow implies: every component you have used, with the pin set in its node. Studio regenerates the diagram each time you open the view, so it always matches the canvas.
 
 <Video title="Circuit view and the Arduino sketch" duration="4:00" script="/docs/videos/circuit-and-code">
 Reading the diagram, building from it, and what the code view adds.
 </Video>
 
-## When you need it
+## When to use it
 
-- You have built a flow and now need to wire the physical side.
-- You wired something from a kit's own diagram and it does not work.
-- You loaded a template and need to know what it expects.
-- You are handing a project to someone else to build.
+- You have built a flow and now need to wire the hardware.
+- You wired a circuit from a kit's diagram and it does not work.
+- You loaded a template and need to know which pins it expects.
+- You are handing the build to someone else.
 
 ## Steps
 
 1. Open **Show circuit** in the sidebar, under the current flow.
-2. Read the diagram once, whole, before touching a wire.
-3. Wire one connection at a time. Check the pin against the diagram *before* pushing the wire in, not after.
-4. Wire power and ground last, so nothing is live while you work.
+2. Read the whole diagram before you touch a wire.
+3. Wire one connection at a time. Check the pin against the diagram before you push the wire in.
+4. Wire power and ground last.
 
-## What the diagram is telling you
+## What the diagram shows
 
-- **Every component on the canvas appears**, with the pin from its settings.
-- **Change a pin on the canvas and the diagram changes** the next time you open it. The canvas is the source of truth.
-- **Components that need power and ground show both.** Those are the connections people skip and then spend an hour on.
+- Every component on the canvas, with the pin from its settings.
+- Power and ground for each component that needs them.
 
-## What it does not tell you
+Change a pin on the canvas, and the diagram changes with it.
 
-The diagram is generated from your flow, so it only knows what your flow knows.
+## What the diagram does not know
 
-- **It does not know your components' quirks.** Whether your relay module is active-low, whether your RGB LED is common-anode, whether your particular sensor breakout has a pull-up on board — none of that is in the flow.
-- **It does not size resistors for you.** An LED needs a current-limiting resistor; 220 Ω is a sensible default with a 5 V board.
-- **It does not know about power budget.** A motor, a relay coil, or an LED strip will draw more than a USB port can supply. Power them separately and join the grounds.
+The diagram is generated from the flow, so it knows only what the flow knows.
+
+- **Your components' quirks.** Whether a relay module is active-low, whether an RGB LED is common-anode, whether a breakout board already has a pull-up.
+- **Resistor values.** An LED needs a current-limiting resistor. Use 220 Ω with a 5 V board.
+- **Power budget.** A motor, a relay coil, or an LED strip draws more than a USB port supplies. Power those separately and join the grounds.
 
 ## Verify it worked
 
-Wire it, then drive one output at a time from a [Constant](/docs/microflow-studio/nodes/generate/constant) node. If the component responds, that leg of the wiring is right. Doing this one component at a time is much faster than building the whole thing and debugging it as a unit.
+Test one component at a time. Drive each output from a [Constant](/docs/microflow-studio/nodes/generate/constant) node. If the component responds, that part of the wiring is correct.
 
-## If the wiring is right and nothing happens
+Testing one component at a time is faster than building everything and then debugging it.
 
-See [Nothing happens on the board](/docs/troubleshooting/pin-conflicts). The pin number in the node's settings not matching the pin on the board is the single most common cause, and the circuit view is the fastest way to catch it.
+## If the wiring matches and nothing happens
+
+See [Nothing happens on the board](/docs/troubleshooting/pin-conflicts). A pin number in a node that does not match the board is the most common cause, and the circuit view is the fastest way to find it.
 
 ## Related
 

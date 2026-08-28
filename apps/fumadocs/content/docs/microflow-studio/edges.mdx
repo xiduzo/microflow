@@ -3,49 +3,49 @@ title: Edges
 description: The lines between nodes — what they carry, how to draw them, and what will not connect.
 ---
 
-An edge is a line from one node's **output handle** to another node's **input handle**. Outputs sit on the right of a node, inputs on the left.
+An edge runs from one node's output handle to another node's input handle. Outputs sit on the right of a node. Inputs sit on the left.
 
-- **Draw one** — drag from an output handle to an input handle. Zoom in first (`Cmd/Ctrl + =`) if the handles are hard to hit.
-- **Delete one** — click it, then press Delete or Backspace.
+- **Draw an edge** — drag from an output handle to an input handle. Press `Cmd/Ctrl + =` to zoom in first if the handles are hard to hit.
+- **Delete an edge** — click it, then press Delete or Backspace.
 
 <Video title="Your first flow" duration="3:30" script="/docs/videos/first-flow">
-Drawing an edge from an output handle to an input handle, zoomed in enough to see the handles.
+Drawing an edge from an output handle to an input handle, zoomed in far enough to see them.
 </Video>
 
-## Handles have shapes, and the shape is the meaning
+## Handle shapes
 
-Every handle is drawn as one of four symbols. Knowing them saves reading a reference page.
+Studio draws every handle as one of four symbols. The symbol tells you what the handle carries.
 
-| Symbol | Kind | What it carries |
+| Symbol | Kind | Carries |
 | --- | --- | --- |
-| ● | **Value** | A number, a colour, or text that updates continuously. A sensor reading, a brightness, a count. |
-| ◆ | **Event** | A moment. Fires and is gone — a button press, an interval tick, a delay elapsing. |
-| ■ | **State** | A condition that is true or false right now. True *while* a button is held, not the moment it was pressed. |
-| ▶ | **Command** | An instruction to do something. Turn on. Reset. Play. Send. |
+| ● | **Value** | A number, a colour, or text that updates continuously. |
+| ◆ | **Event** | A moment. It fires once and is gone. |
+| ■ | **State** | A condition that is true or false right now. |
+| ▶ | **Command** | An instruction: turn on, reset, play, send. |
 
 The useful pairings follow from that:
 
-- **Event → Command.** Something happened, so do a thing. `Interval` `event` → `LED` `toggle`.
-- **State → State.** Mirror a condition. `Button` `true` → `LED` `true`, plus `false` → `false` so it turns off again.
-- **Value → Value.** Pass a number along a chain, usually through a [Map](/docs/microflow-studio/nodes/shape/map) or [Smooth](/docs/microflow-studio/nodes/shape/smooth) node on the way.
+- **Event → Command.** Something happened, so do something. Interval `event` → LED `toggle`.
+- **State → State.** Mirror a condition. Button `true` → LED `true`, and `false` → `false` so the LED switches off again.
+- **Value → Value.** Pass a number along a chain, usually through a [Map](/docs/microflow-studio/nodes/shape/map) or [Smooth](/docs/microflow-studio/nodes/shape/smooth) node.
 
-Nothing stops you crossing the kinds, and sometimes you should — a value arriving at a command input still triggers it. But a flow that reads oddly usually has one of these in it.
+You can cross the kinds. A value arriving at a command input still triggers it.
 
 ## One output, many inputs
 
-An output handle can feed as many inputs as you like. This is why you can hang a [Monitor](/docs/microflow-studio/nodes/express/monitor) anywhere without disturbing the flow — attach it to any output and the existing edge keeps working.
+An output handle feeds as many inputs as you like. This is why you can connect a [Monitor](/docs/microflow-studio/nodes/express/monitor) node to any output without disturbing the existing edge.
 
 ## When a handle will not connect
 
-- **The handle is disabled.** The [LED](/docs/microflow-studio/nodes/express/led) node's brightness input refuses to connect on a pin without PWM, and the node's hint tells you: `requires a ~ pin`. Move the LED to pin 3, 5, 6, 9, 10, or 11 on an Uno.
-- **You are in a flow you can only view.** A **View only** badge in the corner means you have the viewer role. See [Collaborate on a flow](/docs/how-to/collaborate-on-a-flow).
-- **You are dragging the wrong way.** Output on the right, input on the left. Two outputs will not connect to each other.
+- **The handle is disabled.** The [LED](/docs/microflow-studio/nodes/express/led) node's brightness input refuses a pin without PWM, and the handle's hint reads `requires a ~ pin`. Move the LED to pin 3, 5, 6, 9, 10, or 11 on an Uno.
+- **You have the viewer role.** A **View only** badge appears in the corner. See [Collaborate on a flow](/docs/how-to/collaborate-on-a-flow).
+- **You are dragging the wrong way.** Two outputs do not connect to each other.
 
 ## Examples
 
 ### Two nodes
 
-Press a button, light an LED. Two edges, because turning it off is a separate instruction from turning it on.
+Press a button, light an LED. Two edges, because switching off is a separate instruction.
 
 ```mermaid
 flowchart LR
@@ -57,7 +57,7 @@ Build it in [A button controls an LED](/docs/learn/button-controls-led).
 
 ### A longer chain
 
-A knob drives a servo, with the values rescaled on the way and a Monitor watching the middle.
+A knob drives a servo. A Map node rescales the value, and a Monitor watches the middle.
 
 ```mermaid
 flowchart LR
@@ -66,11 +66,11 @@ flowchart LR
     B -- "to ●" --> D[Monitor]
 ```
 
-The Map node is there because a knob reads `0`–`1023` and a servo wants `0`–`180`. Without it the servo hits its limit a fifth of the way round — see [Values look wrong](/docs/troubleshooting/values-look-wrong#ranges).
+A knob reads `0`–`1023` and a servo takes `0`–`180`, so the Map node sits between them. Without it the servo reaches its limit a fifth of the way round. See [Values look wrong](/docs/troubleshooting/values-look-wrong#ranges).
 
 ### A decision
 
-Count presses, and do one thing above a threshold and another below it.
+Count presses, then act differently above and below a threshold.
 
 ```mermaid
 flowchart LR

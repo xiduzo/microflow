@@ -46,21 +46,21 @@ Each cause below is reproduced for real. Prepare, in advance:
 **Screen:** Sidebar reading **No microcontroller connected**, board visibly plugged in with its power light on.
 
 **Narration:**
-> "The board is plugged in, its power light is on, and Studio says nothing is connected. Four things cause this almost every time. We are going to reproduce all four, in the order worth checking them."
+> "The board is plugged in, the power light is on, and Studio says nothing is connected. Four causes account for almost every case. We reproduce all four, in the order worth checking them."
 
 ### 0:20 — Cable
 
 **Screen:** Swap to the charge-only cable. Wait ten uncut seconds — nothing. Swap back to the data cable; the status walks to connected.
 
 **Narration:**
-> "Start with the cable, because it costs nothing to check and it is the most common cause. Plenty of USB cables carry power and no data. The board lights up on either kind, so the power light tells you nothing. If your cable came with headphones, a battery pack, or a phone charger, try a different one before you try anything else."
+> "Start with the cable. It is the most common cause and it costs nothing to check. Many USB cables carry power and no data. The board lights up either way, so the power light tells you nothing. If the cable came with headphones, a battery pack, or a phone charger, try another one first."
 
 ### 1:00 — Another program has the port
 
 **Screen:** With the board connected, open the Arduino IDE and its Serial Monitor on the same port. Unplug and replug the board. Studio fails to reconnect. Hold. Then close the Serial Monitor and replug — Studio connects.
 
 **Narration:**
-> "Second: something else is already holding the port. A serial port has one occupant at a time. The Arduino IDE's Serial Monitor is the usual culprit, but so is a plotter window, a terminal you left open, or a second copy of Studio. Close them — closing the window is enough, you do not need to quit the whole IDE — and plug the board back in."
+> "Second: something else holds the port. A serial port has one occupant at a time. The Arduino IDE's Serial Monitor is the usual one, and so are a plotter window, an open terminal, and a second copy of Studio. Close them, then plug the board in again."
 
 **On-screen text:** `One program per serial port`
 
@@ -69,7 +69,7 @@ Each cause below is reproduced for real. Prepare, in advance:
 **Screen:** Plug in the clone board. Show the operating system's device list with an unrecognised device. Then Studio, still showing nothing connected.
 
 **Narration:**
-> "Third: the driver. Official Arduino boards work out of the box. Cheaper clones use a different USB chip — CH340 or CP2102 — and on Windows and older macOS you have to install a driver for it. The tell is that your computer itself does not list the board, not just Studio. If the operating system cannot see it, no app can. The driver guide linked under this video has the downloads."
+> "Third: the driver. Official Arduino boards need none. Clones use a different USB chip, CH340 or CP2102, which needs a driver on Windows and older macOS. The sign is that your operating system does not list the board either. If the operating system cannot see it, no application can. The driver guide under this video has the downloads."
 
 **On-screen text:** `Clone boards: CH340 · CP2102`
 
@@ -78,14 +78,14 @@ Each cause below is reproduced for real. Prepare, in advance:
 **Screen:** Chrome, Studio in a tab, status showing **Connect board**. Point at it without clicking. Then click, and dismiss the browser's port chooser by pressing Escape — the status stays at **Connect board**. Then click again and choose the board properly.
 
 **Narration:**
-> "Fourth, and this one only happens in the browser. A web page cannot open a serial port on its own; you have to grant it. If the button says Connect board, nothing is granted yet — click it and choose your board in the browser's chooser. Dismiss that chooser and you are back where you started, with no error to tell you what happened. And if the button tells you to use Chrome or Edge, you are in Firefox or Safari, which cannot do this at all."
+> "Fourth, in the browser only. A web page cannot open a serial port on its own. If the button says Connect board, you have granted nothing yet. Click it and select your board. Dismiss the chooser and nothing changes, with no error. If the button tells you to use Chrome or Edge, you are in Firefox or Safari, which cannot reach a serial port at all."
 
 ### 3:20 — Stuck in flashing
 
 **Screen:** Trigger a first-time connection so the status reads **Flashing firmware**. Let it run to completion in real time.
 
 **Narration:**
-> "Last thing. The first time you use a board, Studio puts firmware on it, and the status says so for up to a minute. That is not a hang. Unplugging in the middle is the one thing that can leave a board in a genuinely confused state — and if that happens, the fix is to plug it back in and let it finish, or flash it manually from the Arduino IDE. Wait it out."
+> "Last one. The first time you use a board, Studio puts firmware on it, and the status says so for up to a minute. That is not a hang. Unplugging during the flash is the one thing that can leave a board in a state Studio cannot recover from. Wait for it to finish."
 
 **On-screen text:** `Flashing can take up to a minute. Do not unplug.`
 

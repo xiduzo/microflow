@@ -1,39 +1,39 @@
 ---
 title: Troubleshooting
-description: Find your symptom, get the fix.
+description: Find your symptom, then follow the checks for it.
 ---
 
-Find the line that matches what you are seeing. Each one goes straight to the checks for that symptom, ordered by how often each cause is the real one.
+Find the line that matches what you see. Each page orders its causes by how often each one is to blame.
 
 ## Connecting to a board
 
 | What you see | Go to |
 | --- | --- |
-| Sidebar says **No microcontroller connected** with the board plugged in | [Board not detected](/docs/troubleshooting/board-not-detected) |
-| Sidebar says **Connect board** and clicking it does nothing lasting | [Board not detected — in a browser](/docs/troubleshooting/board-not-detected#5-in-a-browser) |
-| Sidebar says **Use Chrome/Edge or the desktop app** | You are in Firefox or Safari. [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser) |
-| Stuck on **Flashing firmware** | Wait — up to a minute is normal. Longer: [Board not detected](/docs/troubleshooting/board-not-detected) |
-| Sidebar says **Error** | [Board not detected](/docs/troubleshooting/board-not-detected) |
-| Connected, then dropped out on its own | [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run) |
+| **No microcontroller connected**, with the board plugged in | [Board not detected](/docs/troubleshooting/board-not-detected) |
+| **Connect board**, and clicking it changes nothing | [Board not detected — in a browser](/docs/troubleshooting/board-not-detected#5-in-a-browser) |
+| **Use Chrome/Edge or the desktop app** | [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser) |
+| **Flashing firmware** for more than a minute | [Board not detected](/docs/troubleshooting/board-not-detected) |
+| **Error** | [Board not detected](/docs/troubleshooting/board-not-detected) |
+| The board connects, then drops out | [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run) |
 
 ## The flow runs, the hardware does not
 
 | What you see | Go to |
 | --- | --- |
-| A node shows values but nothing physical happens | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
-| An LED is on or off but will not dim | [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings#pwm) |
+| A node shows values and nothing physical happens | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
+| An LED switches on and off but will not dim | [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings#pwm) |
 | A sensor node never produces a value | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
-| Two nodes seem to fight over the same component | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
-| It worked, then stopped after a while | [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run) |
+| Two nodes appear to fight over one component | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
+| It worked, then stopped | [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run) |
 
 ## The values are wrong
 
 | What you see | Go to |
 | --- | --- |
-| A reading jitters when nothing is moving | [Values look wrong](/docs/troubleshooting/values-look-wrong#noise) |
-| An output reaches its limit long before the input does | [Values look wrong](/docs/troubleshooting/values-look-wrong#ranges) |
-| An output flickers rapidly at a threshold | [Values look wrong](/docs/troubleshooting/values-look-wrong#chatter) |
-| A colour comes out inverted or with channels swapped | [Values look wrong](/docs/troubleshooting/values-look-wrong#colour) |
+| A reading jitters when nothing moves | [Values look wrong](/docs/troubleshooting/values-look-wrong#noise) |
+| An output maxes out before the input does | [Values look wrong](/docs/troubleshooting/values-look-wrong#ranges) |
+| An output flickers at a threshold | [Values look wrong](/docs/troubleshooting/values-look-wrong#chatter) |
+| A colour is inverted or has swapped channels | [Values look wrong](/docs/troubleshooting/values-look-wrong#colour) |
 
 ## Code and circuit views
 
@@ -48,25 +48,25 @@ Find the line that matches what you are seeing. Each one goes straight to the ch
 | What you see | Go to |
 | --- | --- |
 | The bridge never connects to the broker | [MQTT will not connect](/docs/troubleshooting/mqtt-cant-connect#the-connection-fails) |
-| Connected, but the Figma variable never changes | [Connected, but nothing arrives](/docs/troubleshooting/mqtt-cant-connect#connected-but-nothing-arrives) |
+| Connected, and the Figma variable never changes | [Connected, but nothing arrives](/docs/troubleshooting/mqtt-cant-connect#connected-but-nothing-arrives) |
 | The variable list in the Figma node is empty | [Connected, but nothing arrives](/docs/troubleshooting/mqtt-cant-connect#connected-but-nothing-arrives) |
 | The LLM node never answers | [The AI node does not answer](/docs/troubleshooting/ai-node-no-answer) |
-| A MIDI controller does not appear in the device list | [The AI node does not answer — device lists](/docs/troubleshooting/ai-node-no-answer#device-lists-are-snapshots) |
+| A MIDI controller is missing from the device list | [Device lists are snapshots](/docs/troubleshooting/ai-node-no-answer#device-lists-are-snapshots) |
 
 ## Collaboration
 
 | What you see | Go to |
 | --- | --- |
-| A **View only** badge, and nothing can be moved | You have the viewer role. [Collaborate on a flow](/docs/how-to/collaborate-on-a-flow) |
-| Your collaborator's sidebar says no board is connected | Correct — hardware is not shared. [Collaborate without hardware](/docs/how-to/collaborate-without-hardware) |
+| A **View only** badge, and nothing moves | You have the viewer role. See [Collaborate on a flow](/docs/how-to/collaborate-on-a-flow) |
+| Your collaborator's sidebar reports no board, and their Monitors are empty | Correct. Hardware and live values are local. See [Collaborate without hardware](/docs/how-to/collaborate-without-hardware) |
 
 ## None of these
 
 Open an issue on [GitHub](https://github.com/xiduzo/microflow-t-stack/issues) with:
 
-- Your operating system, and whether you are in the desktop app or a browser
-- The Microflow Studio version
-- What you expected, and what happened instead
-- Whether you can reproduce it from an empty canvas, and the steps
+- Your operating system, and whether you use the desktop app or a browser.
+- The Microflow Studio version.
+- What you expected, and what happened.
+- The steps to reproduce it from an empty canvas.
 
-The [contributing guide](/docs/contributing/report-bug-or-request) has more on what makes a report actionable.
+See the [contributing guide](/docs/contributing/report-bug-or-request) for what makes a report actionable.

@@ -14,7 +14,7 @@ The Delay node holds a signal for a set amount of time before passing it on. Ins
 
 When **debounce** is enabled, the timer resets every time a new signal arrives. The Delay only fires after signals have stopped arriving for the full duration.
 
-This is useful for sensors that fire many times in quick succession. Instead of acting on every single reading, you wait for activity to settle down first.
+Debouncing suits a sensor that fires many times in quick succession. Instead of acting on every reading, you wait for activity to settle down first.
 
 **Example:** A vibration sensor fires 20 times when tapped. With a 500 ms debounce, the Delay waits until tapping has fully stopped for half a second before passing the signal through.
 

@@ -1,53 +1,46 @@
 ---
-title: MQTT (Sense)
-description: Subscribe to an MQTT topic and feed incoming messages into your flow.
+title: MQTT
+description: Send and receive messages on an MQTT topic.
 ---
 
-The MQTT (Sense) node subscribes to a topic on an MQTT broker — a message-passing server — and emits each message it receives as a value into your flow. It is the subscribe counterpart to the [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node, which publishes.
+The MQTT node connects your flow to an MQTT broker, which is a message-passing server. Set **Direction** to `subscribe` to receive messages, or to `publish` to send them.
 
-<Callout title="Going Figma → hardware? You probably want this node">
-When the [Hardware Bridge](/docs/microflow-hardware-bridge) writes a Figma variable change back out to MQTT, this is the node that picks it up in Studio. See [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma).
+Use it to reach anything that speaks MQTT: another Microflow flow, a Raspberry Pi, a home automation system, or your own script.
+
+To reach a Figma or Penpot file, use the [Figma](/docs/microflow-studio/nodes/express/figma) node instead. It handles the addressing for you.
+
+<Callout type="warn" title="Broker configuration is desktop-only">
+The browser build cannot add or edit brokers.
 </Callout>
-
-By default, the node connects to a free public server run by [Mosquitto](https://mosquitto.org/). You can change the connection settings in **Settings → MQTT settings**.
-
-<Callout type="warn" title="Public server means public data">
-The default server is open to everyone. Do not send passwords, personal information, or anything sensitive through it. It is fine for testing and prototyping.
-</Callout>
-
-## Connection settings
-
-| Setting | What it does |
-| --- | --- |
-| **Identifier** | A unique name that keeps your messages separate from others using the same server |
-| **Host** | The address of the MQTT server |
-| **Port** | The connection port number — check your server's documentation |
-| **Username** | Only needed if your server requires one |
-| **Password** | Only needed if your server requires one |
-
-If you are using the Hardware Bridge, make sure both Microflow Studio and the Figma plugin are configured with the same settings.
 
 ## Inputs
 
-- **`trigger`** — Publish the current value to the topic. Publish direction only.
+- **`trigger`** — Publish the current value to the topic. `publish` direction only.
 
 ## Outputs
 
-- **`value`** — The last message received on the topic. Subscribe direction only.
+- **`value`** — The last message received on the topic. `subscribe` direction only.
 
 ## Settings
 
-- **Direction** — Whether this node sends or receives. Default `subscribe`.
-- **Broker** — Which configured MQTT broker to use. Set them up under **Configuration → MQTT**.
-- **Topic** — The MQTT topic to publish to or subscribe to.
-- **QoS** — MQTT quality of service. `0` is fire-and-forget, `1` guarantees delivery at least once, `2` exactly once. Default `1`.
-- **Retain** — Ask the broker to keep the last message so new subscribers get it immediately. Default `false`.
+- **Direction** — `subscribe` to receive, `publish` to send. Default `subscribe`.
+- **Broker** — Which configured MQTT broker to use. Add brokers under **Configuration → MQTT**.
+- **Topic** — The topic to publish to or subscribe to.
+- **QoS** — Quality of service. `0` delivers at most once, `1` at least once, `2` exactly once. Default `1`.
+- **Retain** — Ask the broker to keep the last message, so a new subscriber receives it at once. Default `false`.
+
+## Tips
+
+- **Use a WebSocket URL for the broker.** Microflow accepts `ws://` and `wss://` only. See [MQTT will not connect](/docs/troubleshooting/mqtt-cant-connect).
+- **Test a broker before you build on it.** The **Test Client** on the MQTT configuration page subscribes and publishes without a flow.
+- **Topics are case sensitive.** `home/Light` and `home/light` are different topics.
+- **A public broker is public.** Anyone can read and write your topics. Use one for a demo, not for anything you care about.
 
 ## Related
 
-- How-to: [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma) — main use of the Sense MQTT node.
-- How-to: [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)
-- Troubleshooting: [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)
+- [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)
+- [Figma node](/docs/microflow-studio/nodes/express/figma)
+- [MQTT will not connect](/docs/troubleshooting/mqtt-cant-connect)
 
 ## Resources
 

@@ -1,57 +1,58 @@
 ---
 title: Flow stops mid-run
-description: The flow worked, then values stopped. Causes and recovery.
+description: The flow worked, then the values stopped.
 ---
 
-A flow that ran fine for a while stops responding — Monitors freeze, hardware sits still, and the sidebar still shows a connected port. Rare, but worth diagnosing rather than restarting blindly.
+The flow ran, then stopped responding. Monitors freeze, the hardware sits still, and the sidebar still shows a connected port.
 
-## Step 1 — Distinguish "frozen" from "still running but boring"
+## 1. Check that something should have changed
 
-Before assuming the flow froze, make sure something *should* have changed.
+A flow with no [Generate](/docs/microflow-studio/nodes/generate) node — no Interval, Oscillator, or Constant — produces values only when a Sense input changes. A quiet sensor then looks like a frozen flow.
 
-- Does the flow have a [Generate](/docs/microflow-studio/nodes/generate) node (Interval, Oscillator, Trigger, Constant)? If not, the only way values flow is when a Sense input changes — and your sensor may simply not be producing new data.
-- Push a button, twist a knob, breathe on a temperature sensor. If a Monitor reacts, the flow is fine.
+Press a button, turn a knob, or breathe on a temperature sensor. If a Monitor reacts, the flow is working.
 
-## Step 2 — Check the board status
+## 2. Check the board status
 
-Look at the microcontroller status in the sidebar.
+Read the microcontroller status in the sidebar.
 
-- **A port name** — the connection is still live. The fault is in the flow.
-- **No microcontroller connected**, **Connecting**, or **Error** — the USB connection dropped. Unplug and replug the board; Studio reconnects on its own, and re-flashes the firmware first if it needs to.
+- **A port name.** The connection is live, and the fault is in the flow. Go to step 3.
+- **No microcontroller connected**, **Connecting**, or **Error.** The USB connection dropped. Unplug the board and plug it in again. Studio reconnects on its own and re-flashes the firmware if it needs to.
 
-USB drops happen with marginal cables, hubs, power-hungry components browning out the board, and machines that aggressively suspend USB devices. If a flow drops out reliably when a motor or an LED strip kicks in, that is a power problem, not a software one — power the component separately and join the grounds.
+USB connections drop for four common reasons: a marginal cable, a USB hub, a machine that suspends USB devices, and a component that draws too much current.
 
-## Step 3 — A specific node hung
+If the flow drops out every time a motor or an LED strip starts, the cause is power, not software. Power the component from a separate supply and join the grounds.
 
-The most common cause of a flow that stops in the middle is a [Function](/docs/microflow-studio/nodes/shape/function) node whose user code has an issue. The runtime guards against infinite loops (10,000 iteration cap), but slow code can still stall a chain.
+## 3. Check the Function nodes
 
-- Drop a [Monitor](/docs/microflow-studio/nodes/express/monitor) just *before* and just *after* every Function node.
-- If a Function's input changes but its output never updates, the code inside is the suspect. Look for: large recursive operations, loops over big arrays, accidental string operations on huge data.
+A [Function](/docs/microflow-studio/nodes/shape/function) node running slow code is the most common cause of a stalled chain. The runtime stops infinite loops at 10,000 iterations, but slow code still holds up the nodes after it.
 
-If a Function node throws an error, the runtime emits the *last successfully computed value* — so a node may appear to be working when it is actually emitting stale data. Check the Studio console for error messages.
+1. Connect a [Monitor](/docs/microflow-studio/nodes/express/monitor) before and after each Function node.
+2. Watch for an input that changes while the output does not.
 
-## Step 4 — A Stepper or Servo blocking
+That node's code is the cause. Look for deep recursion, loops over large arrays, and string operations on large data.
 
-Stepper motors with high acceleration or large step counts take real time. While they are moving, the flow does not stop, but a *new* command sent to the same Stepper while it is already moving may be queued or dropped depending on the driver. If a Stepper appears to ignore commands, wait for the previous motion to finish.
+A Function node that throws an error emits its last successful value, so the node looks like it is working while it repeats stale data. Check the Studio console for the error.
 
-## Step 5 — Restart the connection
+## 4. Check for a moving Stepper
 
-If nothing else explains it, unplug the board, count to five, and plug it back in. Studio probes it, re-flashes the firmware if it is missing, reconnects, and rebuilds the runtime — which clears any stale state.
+A stepper motor takes real time to reach its target. A new command that arrives during a movement is queued or dropped, depending on the driver. If a [Stepper](/docs/microflow-studio/nodes/express/stepper) node ignores commands, wait for the current movement to finish.
 
-In a browser, unplugging and replugging works the same way: a board you have already granted permission for reconnects on its own.
+## 5. Restart the connection
 
-## Step 6 — Restart Studio
+Unplug the board, wait five seconds, and plug it in again. Studio probes the board, re-flashes the firmware if it is missing, reconnects, and rebuilds the runtime. This clears stale state.
 
-If the connection won't recover:
+In a browser this works the same way. Studio reconnects to a board you have already granted.
 
-1. Quit Microflow Studio entirely.
-2. Unplug the board, count to five, plug it back in.
-3. Re-open Studio and the flow.
+## 6. Restart Studio
 
-This is the nuclear option but always works for a wedged runtime. If you have to do this often, that is a bug — please [report it](https://github.com/xiduzo/microflow-t-stack/issues) with details.
+1. Quit Microflow Studio.
+2. Unplug the board, wait five seconds, and plug it in again.
+3. Open Studio and the flow.
+
+If you need this often, [report it](https://github.com/xiduzo/microflow-t-stack/issues) with the steps that lead to it.
 
 ## Related
 
-- [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) — the other cause of "this node does nothing".
-- [Values look wrong](/docs/troubleshooting/values-look-wrong) — when it is running but the numbers are off.
-- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — the bisection method.
+- [Nothing happens on the board](/docs/troubleshooting/pin-conflicts)
+- [Values look wrong](/docs/troubleshooting/values-look-wrong)
+- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node)

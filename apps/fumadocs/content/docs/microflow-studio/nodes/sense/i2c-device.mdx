@@ -3,7 +3,7 @@ title: I2C Device
 description: Read from and write to I2C sensors like SHT21, TCS34725, BME280, BMP280, MPU6050, BH1750, and other I2C peripherals.
 ---
 
-The I2C Device node lets you communicate with sensors and peripherals over the I2C (Inter-Integrated Circuit) bus. I2C uses just two wires — SDA (data) and SCL (clock) — and supports many devices on the same pair of wires, each identified by a unique address.
+The I2C Device node talks to sensors and peripherals over the I²C bus. I²C uses two wires, SDA for data and SCL for the clock, and carries many devices on the same pair. Each device has its own address.
 
 Use it for sensors that don't have a dedicated node in Microflow: temperature/humidity sensors, colour sensors, accelerometers, light sensors, ADCs, and distance sensors. Pick a [device preset](#device-presets) to auto-fill the settings, or choose **Custom** and enter the address and register by hand.
 
@@ -28,9 +28,13 @@ Use it for sensors that don't have a dedicated node in Microflow: temperature/hu
 
 ## How reading works
 
-When you add an I2C node, Microflow arms a **continuous read** on the board: the firmware re-reads the register every interval and pushes the bytes back on its own. You do not poll — the **Value** output just updates.
+When you add an I2C node, Microflow arms a continuous read on the board. The firmware re-reads the register every interval and returns the bytes on its own. You do not poll it: the `value` output updates by itself.
 
-Devices that need waking up or configuring first — clearing the accelerometer's sleep bit, powering on the colour sensor's ADC, putting the pressure sensor into continuous mode — are set up automatically for the presets that need it. The one exception is the **VL53L0X**, whose start-up is too involved for this to cover (see its entry below). For a **Custom** device that needs configuration, send the setup bytes to the **Write** handle once.
+Some devices need waking or configuring first: an accelerometer's sleep bit cleared, a colour sensor's ADC powered on, a pressure sensor put into continuous mode. Microflow does that for every preset that needs it.
+
+The **VL53L0X** is the exception. Its start-up sequence is too involved — see its entry below.
+
+For a **Custom** device that needs configuration, send the setup bytes to the `write` handle once.
 
 ## Device presets
 
@@ -84,12 +88,14 @@ The [Device reference](#device-reference) below has a ready-made snippet for eve
 What each preset sensor measures, the data it produces, and a [Function node](/docs/microflow-studio/nodes/shape/function) snippet to convert it. In every snippet the incoming reading is `input` and the converted value is `return`ed.
 
 <Callout type="info" title="Ready vs. Advanced">
-Sensors marked **Ready** stream usable data as soon as you add the node — Microflow runs any wake-up or configuration write the sensor needs automatically. You still convert the raw number to units downstream. Sensors marked **Advanced** need extra care the preset can't give you: the **VL53L0X** needs an external init sequence before it ranges at all, and the **BME280 / BMP280** stream only raw, uncompensated ADC counts that need per-chip calibration to become real units.
+A sensor marked **Ready** streams usable data as soon as you add the node. Microflow runs any wake-up or configuration write it needs. You still convert the raw number to units downstream.
+
+A sensor marked **Advanced** needs more than the preset can give it. The **VL53L0X** needs an external init sequence before it ranges at all. The **BME280** and **BMP280** stream raw, uncompensated ADC counts, which need per-chip calibration to become real units.
 </Callout>
 
 ### SHT21 / HTU21 — temperature & humidity
 
-**Address 0x40 · Ready.** A common humidity + temperature sensor. Two presets: temperature (register 0xF3) and humidity (register 0xF5). Microflow sets the sensor to 11-bit resolution and waits for the conversion automatically, so each preset just streams a raw 16-bit number.
+**Address 0x40 · Ready.** A common humidity and temperature sensor. Two presets: temperature at register 0xF3, and humidity at register 0xF5. Microflow sets 11-bit resolution and waits for the conversion, so each preset returns a raw 16-bit number.
 
 **Data produced:** Unsigned int, 0–65535. The lowest two bits are status flags, not measurement — clear them before converting.
 
@@ -205,7 +211,9 @@ return { x: s16(0, 1) / scale, y: s16(2, 3) / scale, z: s16(4, 5) / scale };
 **Data produced:** Unsigned int — the **raw, uncompensated** ADC reading, not a temperature or humidity.
 
 <Callout type="warn" title="Raw ADC only">
-Turning the BME280's raw ADC counts into °C / %RH / hPa requires each chip's factory calibration coefficients and the datasheet compensation formulas — more than a single Function node can do from one register. Treat these presets as raw. If you only need "hotter/colder" or "more/less humid", feed the raw value straight into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Smooth](/docs/microflow-studio/nodes/shape/smooth) node without converting.
+Converting the BME280's raw counts into °C, %RH, or hPa needs that chip's factory calibration coefficients and the datasheet's compensation formulas. One Function node reading one register cannot do it. Treat these presets as raw.
+
+If you only need hotter or colder, feed the raw value into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Smooth](/docs/microflow-studio/nodes/shape/smooth) node without converting it.
 </Callout>
 
 ### BMP280 — temperature & pressure
@@ -257,7 +265,13 @@ Swapping the SDA and SCL wires is the most common reason a sensor returns no dat
 </Callout>
 
 <Callout type="info" title="Multiple devices on one bus">
-Connect as many I2C devices as you like to the same SDA/SCL lines. **One chip, two readings** is fine — a MPU6050 accel + gyro, or an SHT21 temp + humidity, are two nodes at the same address on different registers, and Microflow keeps their streams separate (it routes each reply by register). **Two different chips at the same address** (e.g. a VL53L0X and a TCS34725 both hard-wired to 0x29) is a hardware conflict they can't resolve on the bus — give one an address-select pin. Microflow keeps every device streaming when you add or remove another.
+Connect as many I²C devices as you like to the same SDA and SCL lines.
+
+**One chip, two readings** works. An MPU6050 accelerometer and gyroscope, or an SHT21 temperature and humidity sensor, are two nodes at one address on different registers. Microflow routes each reply by register, so the streams stay separate.
+
+**Two chips at one address** is a hardware conflict — a VL53L0X and a TCS34725 are both wired to 0x29 by default. Give one of them an address-select pin.
+
+Adding or removing a device does not interrupt the others.
 </Callout>
 
 <Callout type="info" title="Pull-up resistors">

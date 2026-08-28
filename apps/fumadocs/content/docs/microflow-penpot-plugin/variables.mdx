@@ -41,10 +41,10 @@ Run the Microflow plugin in Penpot. Navigate to the **Variables** tab. The plugi
 
 ### 3. Publish from Microflow Studio
 
-In your Studio flow, add an [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node and connect a sense node's output to it. Set the **topic** to `figma/<token-name>`.
+In your Studio flow, add a [Figma](/docs/microflow-studio/nodes/express/figma) node and connect a sense node's output to it. Select the broker, enter the same identifier the plugin uses, and pick the token from the **Variable** list.
 
-<Callout type="info" title="The topic prefix is `figma/` even for Penpot">
-The Penpot plugin uses the same MQTT topic format as the Figma Bridge so flows can drive either tool. Use `figma/<token-name>` regardless of which design tool is on the other end.
+<Callout type="info" title="One node drives either tool">
+Studio uses the same node for Penpot and for Figma. Studio asks for the variable list, and whichever plugin is running answers, so the node's **Variable** list holds your Penpot tokens.
 </Callout>
 
 ### 4. Watch the token update

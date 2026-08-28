@@ -9,32 +9,32 @@ description: Shooting script for the 5:00 Smooth and Compare video.
 
 | | |
 | --- | --- |
-| **Goal** | A jittery light sensor is cleaned up, then made to fire exactly once when the room gets dark. |
-| **Audience** | Someone whose first sensor project is flickering and who does not know why. |
+| **Goal** | A jittery light sensor is cleaned up, then fires once when the room gets dark. |
+| **Audience** | Someone whose first sensor project flickers. |
 | **Runtime** | 5:00 |
-| **Hardware** | Uno, LDR with a 10 kΩ divider on A0, LED on pin 9, a lamp or phone torch to change the light. |
+| **Hardware** | Uno, LDR with a 10 kΩ divider on A0, LED on pin 9, a lamp or a phone torch. |
 
 ## Where it appears
 
 - [Smooth a noisy sensor](/docs/learn/smooth-a-sensor)
 - [React only when a sensor crosses a threshold](/docs/learn/react-on-threshold)
-- [Smooth node reference](/docs/microflow-studio/nodes/shape/smooth)
+- [Values look wrong](/docs/troubleshooting/values-look-wrong)
 
 ## Set up before you record
 
-- Deliberately leave the LDR wiring slightly long and untidy — you want real noise, not clean readings.
-- A Monitor node in graph mode is on the canvas from the start; the graph is the star of this video.
-- Note the room's actual dark and light readings before recording so the threshold number in the script matches what viewers will see.
+- Leave the LDR leads long and untidy. You want real noise.
+- Put a Monitor node in graph mode on the canvas from the start. The graph is the subject of this video.
+- Measure the room's dark and light readings before recording, and use those numbers in the narration.
 
 ## Shot list
 
 <Chapters>
   <Chapter time="0:00" title="The problem, on a graph">Raw values jittering.</Chapter>
   <Chapter time="0:40" title="Add Smooth">Moving average, window size.</Chapter>
-  <Chapter time="1:40" title="Smooth versus moving average">Two settings, two behaviours.</Chapter>
+  <Chapter time="1:40" title="The two modes">Window size against attenuation.</Chapter>
   <Chapter time="2:20" title="Add Compare">Less than a number.</Chapter>
-  <Chapter time="3:10" title="Deliberate failure — chatter at the boundary">Firing dozens of times.</Chapter>
-  <Chapter time="3:50" title="Fix it">Smoothing harder, and where a Delay helps.</Chapter>
+  <Chapter time="3:10" title="Failure: chatter at the boundary">Firing dozens of times.</Chapter>
+  <Chapter time="3:50" title="Fix it">Smooth first, then delay.</Chapter>
   <Chapter time="4:30" title="Recap">Sense, shape, decide, express.</Chapter>
 </Chapters>
 
@@ -42,69 +42,65 @@ description: Shooting script for the 5:00 Smooth and Compare video.
 
 ### 0:00 — The problem, on a graph
 
-**Screen:** Canvas with LDR → Monitor (graph). Zoom so the graph fills half the frame. Hold still — the trace visibly jitters even with nothing moving.
+**Screen:** LDR → Monitor in graph mode, zoomed so the graph fills half the frame. Nothing moves in the room. The trace jitters.
 
 **Narration:**
-> "Nothing in the room is changing, and the reading will not sit still. Every analog sensor does this. It is not a broken sensor and it is not a broken board — it is the last digit or two of a measurement that was never that precise to begin with. The trouble starts when you make a decision from it."
+> "Nothing in this room is changing, and the reading will not sit still. Every analog sensor does this. It is the last digit or two of a measurement that was never that precise. The trouble starts when you make a decision from it."
 
 ### 0:40 — Add Smooth
 
-**Screen:** `Cmd/Ctrl + K`, add **Smooth**, drop it between the LDR and the Monitor. Rewire: LDR `value` → Smooth `value`, Smooth `value` → Monitor `value`. Set **Type** to `moving average` and **Window size** to `25`.
+**Screen:** `Cmd/Ctrl + K`, add **Smooth** between the LDR and the Monitor. Set **Type** to `moving average` and **Window size** to `25`. Hold on the graph for five seconds before and after.
 
 **Narration:**
-> "Put a Smooth node in the middle. Set it to moving average with a window of twenty-five, and it reports the average of the last twenty-five readings instead of the newest one. Watch the graph settle."
+> "Put a Smooth node in the middle. Moving average, window of twenty-five. It reports the average of the last twenty-five readings instead of the newest one. Watch the graph settle."
 
-**On-screen:** Hold on the graph for five seconds before and after so the difference is unmistakable.
+### 1:40 — The two modes
 
-### 1:40 — Smooth versus moving average
-
-**Screen:** Change **Window size** from 25 to 100, then to 5, pausing on each. Then switch **Type** to `smooth` and set **Attenuation** to `0.995`, then `0.9`.
+**Screen:** Change **Window size** to `100`, then to `5`, pausing on each. Then set **Type** to `smooth` with **Attenuation** at `0.995`, then `0.9`.
 
 **Narration:**
-> "Two ways to do this. Moving average is the blunt one: bigger window, calmer line, slower to react. A window of a hundred is glassy but it lags — cover the sensor and the graph takes a moment to notice. A window of five barely helps.
+> "Moving average is the blunt one. A bigger window is calmer and slower: at a hundred, the graph is glassy, but cover the sensor and it takes a moment to notice. At five it barely helps.
 >
-> The other mode, plain smooth, uses an attenuation between zero and one. Closer to one means heavier smoothing. It reacts more gracefully than a big window, but it never quite arrives at the value. Start with a moving average of twenty-five and only reach for the other one if the lag bothers you."
+> The other mode uses an attenuation between zero and one. Closer to one smooths harder. It reacts more gracefully than a big window, but it never quite arrives at the value. Start with a moving average of twenty-five."
 
 **On-screen text:** `window 25 · window 100 (laggy) · window 5 (still noisy)`
 
 ### 2:20 — Add Compare
 
-**Screen:** Add a **Compare** node after Smooth. Set **Validator** to `number` and **Sub-validator** to `less than`, with the value at your measured dark threshold — say `300`. Wire Compare's `true` output into the LED's `true` input, and `false` into `false`.
+**Screen:** Add a **Compare** node after Smooth. Set **Compare as** to `number`, **Test** to `less than`, and **Number** to your measured dark threshold. Connect `true` to the LED node's `true`, and `false` to `false`. Cover the sensor. The LED lights.
 
 **Narration:**
-> "Now the decision. Compare takes a value and answers a yes-or-no question about it. Set it to *number*, *less than*, three hundred — because in this room, below three hundred means someone has covered the sensor. True and false out of Compare go straight into the LED's true and false."
+> "Now the decision. Compare answers a yes-or-no question about a value. Number, less than, three hundred — because in this room, under three hundred means someone has covered the sensor. True and false out of Compare go into the LED's true and false."
 
-**Screen:** Cover the sensor with a hand. The LED lights. Uncover. It goes out.
+### 3:10 — Failure: chatter at the boundary
 
-### 3:10 — Deliberate failure: chatter at the boundary
-
-**Screen:** Temporarily set the Smooth window back to `1` (or bypass Smooth entirely by rewiring LDR → Compare). Hold a hand at exactly the boundary distance so the reading hovers around 300. Cut to hardware: the LED flickers rapidly. Hold for six seconds.
+**Screen:** Set the Smooth window to `1`, or bypass Smooth. Hold a hand at the boundary so the reading hovers at the threshold. Cut to the hardware. The LED flickers. Hold for six seconds.
 
 **Narration:**
-> "Here is what happens without the smoothing. Hold the light right at the boundary and the reading crosses three hundred back and forth, dozens of times a second — so the LED does too. If that were a relay switching a lamp, you would hear it buzzing. This is the failure that sends people looking for a hardware fault, and it is not one."
+> "Here is what happens without the smoothing. Hold the light at the boundary, and the reading crosses three hundred dozens of times a second, so the LED does too. On a relay you would hear it buzzing. This sends people looking for a hardware fault that is not there."
 
 **On-screen text:** `[reading oscillating 297–304]`
 
 ### 3:50 — Fix it
 
-**Screen:** Restore the Smooth node with window `25`. Repeat the same hover — the LED now holds steady. Then add a **Delay** node between Compare and the LED and show it holding the signal.
+**Screen:** Restore Smooth with a window of `25`. Repeat the hover. The LED holds steady. Then add a **Delay** node between Compare and the LED, with **Forget previous** on.
 
 **Narration:**
-> "Smoothing first — the average does not cross the line nearly as often as the raw reading does. If it still chatters, a Delay node after the decision makes the flow wait before it acts, so a momentary blip never reaches the light. Smooth the input, then slow down the output. In that order."
+> "Smooth first: the average crosses the line far less often than the raw reading. If it still chatters, a Delay node after the decision makes the flow wait, so a blip never reaches the light. Smooth the input, then slow the output. In that order."
 
 ### 4:30 — Recap
 
-**Screen:** Zoom to fit the whole flow: LDR → Smooth → Compare → LED, with the Monitor hanging off the Smooth node.
+**Screen:** Zoom to fit: LDR → Smooth → Compare → LED, with the Monitor on the Smooth node.
 
 **Narration:**
-> "Four nodes and one shape you will use constantly. Sense the world. Shape the reading into something trustworthy. Decide something from it. Express the result. And keep a Monitor hanging off the middle of it while you build, because it is the only way to see which of those four is lying to you."
+> "Four nodes, and a shape you will use constantly. Sense the world. Shape the reading into something you can trust. Decide from it. Express the result. Keep a Monitor on the middle while you build. It is the only way to see which of the four is lying to you."
 
 ## Deliberate failure
 
-The chattering boundary at 3:10 — recorded live, not staged in the edit.
+The chattering boundary at 3:10, recorded live.
 
 ## Post-production notes
 
-- The graph is the subject: never let it drop below a third of the frame.
-- Do not speed up any graph footage. Timing is the whole point of this video.
-- Record the room's real threshold value on the day and update the spoken number to match. Do not say 300 if the sensor reads 640.
+- Keep the graph filling at least a third of the frame.
+- Do not speed up any graph footage. Timing is the point.
+- Use the room's real threshold on the day. Do not say 300 if the sensor reads 640.

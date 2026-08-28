@@ -3,67 +3,63 @@ title: Values look wrong
 description: The flow runs and the values arrive, but they are noisy, out of range, or flickering.
 ---
 
-Everything is connected and values are moving — they are just not the values you want.
-
 <Video title="Smooth a sensor and react to a threshold" duration="5:00" script="/docs/videos/smooth-and-threshold">
-The noise and the chatter, on a graph, with the fix for each.
+Sensor noise and threshold chatter on a graph, with the fix for each.
 </Video>
 
-## A reading jitters when nothing is moving [#noise]
+## A reading jitters when nothing moves [#noise]
 
-Every analog sensor does this. It is the last digit or two of a measurement that was never that precise, and it is not a fault.
+Every analog sensor jitters. The last digit or two of the reading was never precise. This is not a fault. It becomes a problem only when you make a decision from it.
 
-It only becomes a problem when you make a decision from it.
+**Fix:** add a [Smooth](/docs/microflow-studio/nodes/shape/smooth) node between the sensor and whatever uses the reading.
 
-**Fix:** put a [Smooth](/docs/microflow-studio/nodes/shape/smooth) node between the sensor and whatever uses it.
+- Start with **moving average** and a window of `25`.
+- A larger window is calmer and slower. A window of `100` visibly lags behind the sensor.
+- The **smooth** mode uses an attenuation between `0` and `1`. A value closer to `1` smooths harder. This mode reacts faster than a large window, but never settles on the exact value.
 
-- Start with **moving average**, window `25`.
-- A bigger window is calmer but slower to react. A window of `100` is glassy and visibly lags.
-- The other mode, **smooth**, uses an attenuation between `0` and `1` — closer to `1` is heavier. It reacts more gracefully than a large window but never quite settles on the exact value.
+If the jitter is large rather than a couple of digits, check the wiring instead: a long unshielded lead, a loose breadboard connection, or a missing pull-down resistor.
 
-If the jitter is enormous rather than a couple of digits, suspect the wiring instead: a long unshielded lead, a loose breadboard connection, or a missing pull-down resistor.
+## An output maxes out before the input does [#ranges]
 
-## An output maxes out long before the input does [#ranges]
+The knob reaches full brightness a quarter of the way round. The servo hits its stop immediately.
 
-A knob reaches full brightness a quarter of the way round; a servo hits its stop almost immediately.
+The two ends use different ranges. An analog pin reads `0`–`1023`. LED brightness is `0`–`255`. A servo angle is `0`–`180`. Wired directly, the output runs out first.
 
-The two ends are using different ranges. An analog pin reads `0`–`1023`. LED brightness is `0`–`255`. A servo angle is `0`–`180`. Wired directly, the output runs out long before the input does.
+**Fix:** add a [Map](/docs/microflow-studio/nodes/shape/map) node between them. Set **From** to the input's range and **To** to the output's range.
 
-**Fix:** put a [Map](/docs/microflow-studio/nodes/shape/map) node in between, with **From** set to the input's range and **To** set to the output's.
-
-| Into | Range |
+| Output | Range |
 | --- | --- |
 | LED brightness, RGB channel | `0`–`255` |
 | Servo angle | `0`–`180` |
-| Alpha / opacity | `0`–`100` |
+| Alpha, opacity | `0`–`100` |
 | MIDI note, velocity, CC value | `0`–`127` |
 
 ## An output flickers at a threshold [#chatter]
 
-Hold a sensor right at the boundary of a [Compare](/docs/microflow-studio/nodes/decide/compare) and the reading crosses it back and forth many times a second — so the output does too. On a relay you can hear it.
+Hold a sensor at the boundary of a [Compare](/docs/microflow-studio/nodes/decide/compare) node. The reading crosses the boundary many times a second, and so does the output. On a relay you can hear it.
 
-**Fix, in this order:**
+Fix it in this order:
 
-1. **Smooth the input.** The average crosses the line far less often than the raw reading.
-2. **Delay the output.** A [Delay](/docs/microflow-studio/nodes/decide/delay) node after the decision, with **Forget previous** on, means a momentary blip never reaches the hardware.
+1. **Smooth the input.** The average crosses the boundary far less often than the raw reading.
+2. **Delay the output.** Add a [Delay](/docs/microflow-studio/nodes/decide/delay) node after the decision and turn on **Forget previous**. A short blip then never reaches the hardware.
 
-Smooth the input first. Delaying a noisy signal just gives you a late noisy signal.
+Smooth the input first. A delayed noisy signal is still a noisy signal.
 
-## A colour is inverted or has channels swapped [#colour]
+## A colour is inverted or has swapped channels [#colour]
 
-- **[RGB](/docs/microflow-studio/nodes/express/rgb) LED inverted** — full brightness looks dark and off looks bright. Your LED is common-anode and the **Common anode** setting is off, or the reverse.
-- **[LED Strip](/docs/microflow-studio/nodes/express/pixel) red and green swapped** — change **Colour order**. Strips vary by manufacturer and there is no way to detect it.
-- **Mid-brightness colours look washed out** — raise **Gamma**.
+- **An [RGB](/docs/microflow-studio/nodes/express/rgb) LED is inverted.** Full brightness looks dark. Your LED is common-anode and the **Common anode** setting is off, or the reverse.
+- **An [LED Strip](/docs/microflow-studio/nodes/express/pixel) shows red as green.** Change **Colour order**. Strips vary by manufacturer, and Studio cannot detect the order.
+- **Mid-brightness colours look washed out.** Raise **Gamma**.
 
-## A value updates less often than expected
+## A value updates too slowly
 
-- Sense nodes have a **Read frequency** setting, in milliseconds. Lower reads more often, at the cost of more traffic.
-- The [Figma](/docs/microflow-studio/nodes/express/figma) node has a **Debounce time** that deliberately limits how often it sends, so a noisy sensor cannot flood the bridge. Lower it if you need finer updates in Figma.
-- Some sensors are just slow. An ultrasonic distance sensor has to wait for an echo.
+- Sense nodes have a **Read frequency**, in milliseconds. A lower value reads more often.
+- The [Figma](/docs/microflow-studio/nodes/express/figma) node has a **Debounce time** that limits how often it sends, so a noisy sensor cannot flood the bridge. Lower it for finer updates.
+- Some sensors are slow. An ultrasonic distance sensor waits for an echo.
 
-## Nothing is obviously wrong and it still looks odd
+## Nothing above matches
 
-Put a [Monitor](/docs/microflow-studio/nodes/express/monitor) on the first node in the chain, then one in the middle, and keep halving. Two or three probes will find almost anything. See [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node).
+Connect a [Monitor](/docs/microflow-studio/nodes/express/monitor) to the first node in the chain, then to a node in the middle, and keep halving. Two or three probes find most faults. See [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node).
 
 ## Related
 

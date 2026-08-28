@@ -45,14 +45,14 @@ description: Shooting script for the 4:00 video on the circuit and code views.
 **Screen:** Sidebar, cursor resting on the current flow's three entries: **Edit flow**, **Show circuit**, **Show code**.
 
 **Narration:**
-> "Every flow has three views. You have been living in Edit flow. The other two are why Microflow is not a dead end: one shows you how to wire the thing, and one hands you the Arduino code."
+> "Every flow has three views. You have been working in Edit flow. One of the other two shows you how to wire the project. The other hands you the Arduino code."
 
 ### 0:25 — Circuit view
 
 **Screen:** Click **Show circuit**. Hold on the full diagram for four seconds. Then zoom into each component in turn: the potentiometer's three connections, the servo's three.
 
 **Narration:**
-> "Circuit view draws the wiring your flow implies. Every component you added to the canvas appears here with its connections marked — power, ground, and the signal pin you set in the node's settings. It is generated from the flow, so it cannot drift out of date: change a pin on the canvas and the diagram changes with it."
+> "Circuit view draws the wiring your flow implies. Every component appears with its connections: power, ground, and the signal pin from the node's settings. Studio generates it from the flow, so change a pin on the canvas and the diagram changes with it."
 
 **On-screen:** Overlay the pin number from the node settings next to the matching line in the diagram.
 
@@ -61,21 +61,21 @@ description: Shooting script for the 4:00 video on the circuit and code views.
 **Screen:** Split screen — diagram on the left, live overhead breadboard shot on the right. Place two wires, checking each against the diagram before pushing it in.
 
 **Narration:**
-> "Working from it is the point. One connection at a time, check the pin against the diagram, push the wire in. If you are building from a kit's own diagram instead, this is the view to check it against — mismatched pin numbers between the diagram and the canvas are the single most common reason a finished build does nothing."
+> "Work from it one connection at a time. Check the pin against the diagram, then push the wire in. If you are building from a kit's diagram instead, check it against this one. A pin number that differs between the diagram and the canvas is the most common reason a finished build does nothing."
 
 ### 1:50 — Code view
 
 **Screen:** Click **Show code**. Scroll slowly from the top: the header comment, the includes, `setup()`, and `loop()`. Pause at the pin definitions.
 
 **Narration:**
-> "Code view is the Arduino sketch your flow becomes. It is real, complete C++ — not a summary. The pin numbers you set on the canvas are right there at the top. Setup runs once when the board powers on. Loop runs forever after that. If you have ever written an Arduino sketch by hand, this is the file you would have written."
+> "Code view is the Arduino sketch your flow becomes: complete C++, not a summary. The pin numbers you set on the canvas are at the top. Setup runs once when the board powers on. Loop runs forever after that."
 
 ### 2:35 — Board target
 
 **Screen:** Open the flow's board target picker and switch from **Arduino Uno** to **ESP32**. Return to the code view and scroll to a line that changed.
 
 **Narration:**
-> "The sketch is generated for a specific board. Uno, Nano, and ESP32 are supported, and they do not have the same pins or the same abilities — an ESP32 has networking, an Uno does not, and their analog pins are numbered differently. Change the target and the generated sketch changes with it. Set this to whatever board is actually on your desk before you download anything."
+> "The sketch is built for one specific board. Uno, Nano, and ESP32 are supported, and they differ: an ESP32 has networking, an Uno does not, and their pins are numbered differently. Set this to the board on your desk before you download anything."
 
 **On-screen text:** `Targets: Arduino Uno · Arduino Nano · ESP32`
 
@@ -84,7 +84,7 @@ description: Shooting script for the 4:00 video on the circuit and code views.
 **Screen:** Back in **Edit flow**, move the servo to a pin the selected target cannot drive. Return to **Show code**. A warning triangle appears next to the download control and the sketch header carries a comment about it. Zoom in on the comment.
 
 **Narration:**
-> "Ask for something the board cannot do and the sketch tells you rather than failing silently. The warning triangle here means the sketch generated, but with a note at the top — read the comment, because it will name the pin. If generation fails outright you get a cross instead, and the download button is disabled until you fix it on the canvas."
+> "Ask for something the board cannot do, and the sketch tells you. This warning triangle means the sketch generated with a note at the top. Read the comment: it names the pin. If generation fails, you get a cross instead, and the download stays disabled until you fix the canvas."
 
 **On-screen text:** `[warning: see comments at the top of the sketch]`
 
@@ -93,7 +93,7 @@ description: Shooting script for the 4:00 video on the circuit and code views.
 **Screen:** Undo the bad pin. Click **Download sketch**. Show the `.ino` file landing. Open it in the Arduino IDE, select the board and port, and upload. Cut to the hardware: the servo tracks the knob with Studio closed.
 
 **Narration:**
-> "Download the sketch, open it in the Arduino IDE, pick your board and port, and upload. Now watch this — I am closing Microflow entirely. The board keeps working, because the program is on the board now. Whatever you build here, you can take with you."
+> "Download the sketch, open it in the Arduino IDE, select your board and port, and upload. Now watch. I am closing Microflow. The board keeps working, because the program is on the board. Whatever you build here, you can take with you."
 
 ## Deliberate failure
 
@@ -102,5 +102,5 @@ The unsupported pin at 3:05. Choose one that genuinely triggers the warning on t
 ## Post-production notes
 
 - Do not scroll the code faster than a viewer can read the function names.
-- The final beat — Studio closed, hardware still running — is the emotional payoff of the video. Give it four seconds of silence.
-- Clear the downloads bar and any file-manager notification before take.
+- Hold the final shot — Studio closed, hardware running — for four silent seconds.
+- Clear the downloads bar and any file-manager notification before the take.

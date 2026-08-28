@@ -3,43 +3,46 @@ title: Choose a board target
 description: Tell Microflow which board a flow is for, so the diagram and the sketch are right.
 ---
 
-A flow carries a **board target** — the board its generated sketch and wiring diagram are built for. It defaults to **Arduino Uno**. If you are using something else, change it, or the two most useful views in Studio will quietly describe the wrong hardware.
+Every flow carries a **board target**: the board its generated sketch and wiring diagram are built for. The default is Arduino Uno.
 
-## When you need it
+## When to change it
 
-- You are using a Nano or an ESP32.
-- The circuit view shows pins that are not on your board.
-- The generated sketch will not compile in the Arduino IDE.
-- You are getting warnings about pins that plainly exist.
+- You use a Nano or an ESP32.
+- The circuit view shows pins your board does not have.
+- The generated sketch does not compile in the Arduino IDE.
+- You get warnings about pins that exist on your board.
 
 ## Steps
 
 1. Open **Show code** in the sidebar, under the current flow.
 2. Use the board picker at the top of the view.
-3. Pick the board that is actually on your desk.
-4. The sketch, its warnings, and the circuit view all regenerate.
+3. Select the board on your desk.
+
+Studio regenerates the sketch, its warnings, and the circuit view.
 
 ## The targets
 
 | Target | Pins | Notes |
 | --- | --- | --- |
 | **Arduino Uno** | Digital 0–13, analog A0–A5. PWM on 3, 5, 6, 9, 10, 11. | The default. |
-| **Arduino Nano** | Same chip and pin map as the Uno, smaller board. | Interchangeable with the Uno as far as a flow is concerned. |
-| **ESP32** | Different numbering, more pins, fewer of them safe. | The only target with networking. **Avoid GPIO 6–11** — they drive the chip's flash and using them stops the board booting. |
+| **Arduino Nano** | The same as the Uno. | Interchangeable with the Uno. |
+| **ESP32** | Different numbering, more pins. | The only target with networking. Never use GPIO 6 to 11: they drive the chip's flash, and the board does not boot without them. |
 
-## What the target does and does not affect
+## What the target changes
 
-**It affects:**
+The target changes three things:
 
 - The generated Arduino sketch.
 - The wiring diagram in the circuit view.
-- The validation that produces [sketch warnings](/docs/troubleshooting/sketch-warnings) — which pins exist, which do PWM, how many analog inputs there are, and whether networking is available.
+- The validation behind the [sketch warnings](/docs/troubleshooting/sketch-warnings): which pins exist, which support PWM, how many analog inputs there are, and whether the board has networking.
 
-**It does not affect** running a flow over USB from Studio. That works on the connected board whatever the target says. Which is exactly why a wrong target goes unnoticed: everything works on the desk, and then the exported sketch does not.
+The target does not change how a flow runs over USB from Studio. That works on the connected board whatever the target says.
+
+That is why a wrong target goes unnoticed. Everything works on the desk, and the exported sketch does not.
 
 ## Verify it worked
 
-Open **Show code** and check the warnings at the top. Warnings about pins that do not exist, or about missing PWM on a pin you know is fine, usually mean the target is wrong rather than the flow.
+Open **Show code** and read the warnings at the top. Warnings about pins that exist on your board, or about missing PWM on a pin you know supports it, mean the target is still wrong.
 
 ## Related
 

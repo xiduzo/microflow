@@ -1,77 +1,73 @@
 ---
 title: Flows, signals, and events
-description: The single data model that powers every Microflow flow.
+description: The data model behind every Microflow flow.
 ---
 
-Once you have built a couple of flows, you start to recognise patterns. This page explains the model under those patterns: what a flow *is*, what travels along its edges, and when nodes wake up to do work.
+This page explains what a flow is, what travels along its edges, and when a node does work.
 
 ## A flow is a directed graph
 
-A **flow** is the entire diagram on the Studio canvas. Each box is a **node**. Each line connecting two boxes is an **edge**. Edges go in one direction — from a node's *output* on the right to another node's *input* on the left.
+A **flow** is the whole diagram on the canvas. Each box is a **node**. Each line is an **edge**. An edge runs one way: from a node's output, on the right, to another node's input, on the left.
 
-Cycles are allowed but rare; most flows fan out and converge again, like a tree.
+## What a node holds
 
-## Nodes are pure little machines
+- **Settings** — fixed configuration, such as a pin number, a range, or a maths operation. Settings are stored with the flow.
+- **Inputs** — the handles on the left. Some nodes have several, each with its own meaning.
+- **Outputs** — the handles on the right. Some nodes emit on several, such as a [Button](/docs/microflow-studio/nodes/sense/button) with `event`, `true`, `false`, `hold`, and `value`.
+- **Behaviour** — what the node does when an input arrives.
 
-Each node has:
+Most nodes hold no state. A few do: a [Counter](/docs/microflow-studio/nodes/generate/counter) holds a count, and a [Smooth](/docs/microflow-studio/nodes/shape/smooth) holds a window of recent readings.
 
-- **Settings** — fixed configuration (which pin? which range? which math operation?). Set in the side panel and stored as part of the flow.
-- **Inputs** — incoming edges. Most nodes have one main input, sometimes plus auxiliary ones (e.g. Function nodes have template-variable inputs).
-- **Outputs** — outgoing edges. Most nodes emit one value, but some emit several (e.g. RGB has separate red, green, and blue outputs).
-- **An update function** — runs when an input arrives. Reads the inputs and settings, computes a new output value, sends it to whatever is connected.
+## Values move on events, not on a clock
 
-A node has *no memory* unless explicitly defined (e.g. a [Counter](/docs/microflow-studio/nodes/generate/counter) holds a count, a [Smooth](/docs/microflow-studio/nodes/shape/smooth) holds a window of recent values). Most nodes are stateless transformations.
+Microflow is event-driven. No global clock scans the nodes.
 
-## Values flow on **events**, not on a clock
+- A Sense node fires when its input changes. For an analog input, it fires when the change is large enough to matter.
+- A Generate node fires on its own schedule, such as an Interval, or once at startup, such as a Constant.
+- Every other node fires when one of its inputs changes.
 
-Microflow is **event-driven**. There is no global clock that ticks every X ms scanning every node. Instead:
+When a node fires, the value travels down every outgoing edge, and each downstream node fires in turn.
 
-- A sense node fires when its physical input changes (e.g. button pressed) or, for analog inputs, when its value changes by enough to matter.
-- A generate node fires on its own schedule (Interval, Oscillator) or once at startup (Constant).
-- Every other node fires *only when one of its inputs changes*.
+<img src="/diagrams/event-propagation.svg" alt="An event chain: the physical world, a Button node, a Smooth node, a Compare node, an LED node, and back to the physical world. One physical event triggers one chain." />
 
-When a node fires, its new output value flows down all its outgoing edges. Each downstream node fires in turn. The chain reaction stops when the last node is reached or when no node's output actually changed (a node that re-emits the same value as last time does not retrigger downstream).
+A node's `value` output is deduplicated: it fires only when the value changes. Momentary handles such as `event`, `true`, `false`, and `hold` always fire, because they mark a moment rather than a state.
 
-<img src="/diagrams/event-propagation.svg" alt="Event chain: Physical world → Button (Sense) → Smooth (Shape) → Compare (Decide) → LED (Express) → Physical world. One physical event triggers one chain of fires." />
+Three consequences:
 
-If `Compare` had emitted the same value as last time, the chain stops there — `LED` does not re-fire. Same-value emissions are deduplicated downstream.
+- **A flow with no Generate node and no sensor activity does nothing.** No event means no work.
+- **A [Monitor](/docs/microflow-studio/nodes/express/monitor) node passes its value straight through.** You can add one anywhere in a chain without breaking it.
+- **A node never blocks.** Firing a node schedules the nodes after it.
 
-This has practical consequences:
-
-- **A flow with no Generate node and no Sense activity does nothing.** No timer means no events.
-- **Adding a Monitor node never affects timing.** It is a leaf — it observes but does not propagate.
-- **A loop does not block.** A node firing simply schedules its downstream nodes. There is no "while" — just causality.
-
-## Signals: digital, analog, and beyond
-
-The values flowing on edges fall into a few rough buckets:
+## What travels on an edge
 
 | Kind | Looks like | Examples |
 | --- | --- | --- |
-| **Digital** | `0` or `1` | Button press, switch state |
-| **Analog** | Number in a range | Potentiometer (`0`–`1023`), brightness (`0`–`255`) |
-| **Boolean** | `true` / `false` | Output of Compare, Gate, etc. |
-| **String** | text | MQTT topic data, Function node output |
-| **Object** | structured | Stepper position, RGB triple |
+| **Digital** | `0` or `1` | A button press, a switch state |
+| **Analog** | A number in a range | A potentiometer, `0`–`1023`. Brightness, `0`–`255`. |
+| **Boolean** | `true` or `false` | The output of a Compare or a Gate node |
+| **Text** | A string | An MQTT message, an LLM answer |
+| **Structured** | An array or an object | A colour, a strip of pixel colours |
 
-Most nodes are forgiving — a `Compare` node will accept any number-like input. The [Function](/docs/microflow-studio/nodes/shape/function) node makes the type explicit because user code lives there.
+Most nodes accept anything number-like. The [Function](/docs/microflow-studio/nodes/shape/function) node is stricter, because your own code runs inside it.
 
-## Hot-swapping the flow
+Handles are drawn by kind: `●` value, `◆` event, `■` state, `▶` command. See [Edges](/docs/microflow-studio/edges).
 
-You can edit a running flow. Add, remove, reconnect — the runtime catches up:
+## Editing a running flow
 
-- **Add a node** — it sits idle until something connects to it.
-- **Add an edge** — the upstream node's *next* output will flow through it.
-- **Remove a node** — its hardware (a pin, a buffer) is released; downstream nodes stop receiving.
-- **Change settings** — the node picks up the new config on its next event.
+You can change a flow while it runs. The runtime keeps up.
 
-This is why building feels iterative — you can leave the Arduino running and tweak the flow without restarting anything.
+- **Add a node.** It stays idle until an edge reaches it.
+- **Add an edge.** The upstream node's next output travels through it.
+- **Remove a node.** Its pin is released, and the nodes after it stop receiving.
+- **Change a setting.** The node uses the new setting on its next event.
+
+That is why building feels iterative. Leave the board running and change the flow around it.
 
 ## Where the runtime lives
 
-Inside Microflow Studio (a Tauri desktop app), the executor is a **Rust runtime** that translates your flow into pin operations on the connected board, manages I/O loops, and feeds events back to the UI. The Arduino itself does not know your flow exists — it just answers Firmata commands. See [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) for that side of the story.
+The executor is a Rust runtime inside Studio. It turns your flow into pin operations on the connected board, runs the I/O loops, and feeds events back to the canvas. The board does not know your flow exists — it answers Firmata commands. See [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge).
 
 ## Related
 
-- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — applying this model in practice.
-- [Glossary](/docs/concepts/glossary) — definitions of node, edge, handle, etc.
+- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node)
+- [Glossary](/docs/concepts/glossary)

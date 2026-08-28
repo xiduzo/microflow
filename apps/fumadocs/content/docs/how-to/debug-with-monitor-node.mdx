@@ -1,63 +1,53 @@
 ---
 title: Debug with the Monitor node
-description: Place Monitors before and after a node to find exactly where a flow is going wrong.
+description: Place Monitor nodes before and after a node to find where a flow goes wrong.
 ---
 
-The [Monitor](/docs/microflow-studio/nodes/express/monitor) node is the single most useful tool for debugging a flow. It does not change anything — it shows you what value is passing through a particular point on the canvas, in real-time.
-
-The technique is simple but the discipline behind it is important.
+The [Monitor](/docs/microflow-studio/nodes/express/monitor) node shows the value passing one point on the canvas, while the flow runs. It changes nothing, and it passes the value straight through, so you can add one anywhere.
 
 <Video title="Debug a flow with Monitor" duration="3:30" script="/docs/videos/debug-with-monitor">
 A flow that does nothing, bisected with two Monitor nodes until the broken node falls out.
 </Video>
 
-## The bisection method
+## The method
 
-When a flow does not behave the way you expected, the rule is: **find the first point where the value is wrong**.
+Find the first point where the value is wrong.
 
-1. Place a Monitor on the *input* of the suspect node.
-2. Place a Monitor on the *output* of the suspect node.
-3. Run the flow.
-4. Look at the two Monitors:
-   - **Input correct, output wrong** → the suspect node is the problem. Check its settings.
-   - **Input already wrong** → the problem is upstream. Move the Monitors back one step and repeat.
+1. Connect a Monitor node to the input of the node you suspect.
+2. Connect a second Monitor node to its output.
+3. Run the flow and compare the two.
 
-This isolates a bug in seconds, even in a flow with dozens of nodes.
+| What you see | What it means |
+| --- | --- |
+| The input is correct, the output is wrong | The suspect node is at fault. Check its settings. |
+| The input is already wrong | The fault is upstream. Move both Monitors back one node and repeat. |
 
-## Display modes
+Two or three rounds isolate a fault in a flow of any size.
 
-The Monitor node has a few display modes you can switch between in its settings:
+An output feeds as many inputs as you like, so adding a Monitor never disturbs an existing edge.
 
-- **Number** — shows the current value as plain text. Good for analog sensors.
-- **Graph** — plots values over time. Good for spotting noise or oscillation.
-- **State** — shows on/off as a coloured dot. Good for digital signals.
+## The two modes
 
-If you don't see a value where you expect one, switch the mode — sometimes a value of `0` is invisible in *Graph* but obvious in *Number*.
+Set **Type** in the Monitor node's settings.
 
-## Common patterns
+- **`graph`** plots the value over time. Use it for anything continuous, to see noise, lag, or a stuck value.
+- **`raw`** prints the value. Use it for text, for booleans, and for any number you need to read exactly.
 
-### "My LED isn't responding"
+If a graph shows nothing where you expect a value, switch to `raw`. A constant `0` is hard to see on a graph and obvious as text.
 
-Place a Monitor between the upstream node and the LED. Press the input (button, sensor, whatever).
+## Common cases
 
-- Monitor changes → flow is fine, problem is in wiring or LED settings.
-- Monitor stays still → problem is upstream of the Monitor.
+**An LED does not respond.** Connect a Monitor between the upstream node and the LED node, then trigger the input. If the Monitor changes, the flow is correct and the fault is in the wiring or the LED node's settings. If it does not change, the fault is upstream.
 
-### "My values are wrong but I don't know where"
+**The values are wrong somewhere.** Connect a Monitor to every edge and run the flow once. The first Monitor showing a wrong value names the node.
 
-Drop Monitors on every connection. Run the flow once. Whichever Monitor shows the first wrong number tells you exactly which node went sideways.
+**The values jump.** Set the Monitor to `graph`. A fuzzy line is noise — see [Smooth a noisy sensor](/docs/learn/smooth-a-sensor). A clean line that steps up and down many times for one physical event is bounce — see [Debounce a button](/docs/how-to/debounce-a-button).
 
-### "Values are jumpy"
+## Keep them while you build
 
-Set the Monitor to **Graph** mode. If the line is fuzzy, you have noise — see [Smooth a noisy sensor](/docs/learn/smooth-a-sensor).
-
-If the line cleanly steps up and down many times for a single physical event, you have bouncing — see [Debounce a button](/docs/how-to/debounce-a-button).
-
-## Keep them or remove them?
-
-Monitor nodes have no runtime cost and no effect on the flow. Leave them in once placed; they are useful documentation. If you want a clean canvas before sharing the flow, delete them just before you share — you can always add them back.
+Leave the Monitor nodes in place while you work on a flow. They document what you were checking. Delete them before you share the flow if you want a clean canvas.
 
 ## Related
 
-- [Concepts: flows, signals, events](/docs/concepts/flows-signals-events) — the model behind why values move.
-- [Monitor node reference](/docs/microflow-studio/nodes/express/monitor) — every Monitor setting.
+- [Monitor node reference](/docs/microflow-studio/nodes/express/monitor)
+- [Flows, signals, and events](/docs/concepts/flows-signals-events)

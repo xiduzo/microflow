@@ -1,57 +1,57 @@
 ---
 title: The AI node does not answer
-description: The LLM node is triggered and nothing comes back — or comes back wrong.
+description: The LLM node is triggered and returns nothing, or returns something unusable.
 ---
 
-The [LLM node](/docs/microflow-studio/nodes/express/llm) is the slowest thing in Microflow by a wide margin, so "not answering" and "still thinking" look identical unless you wire it to tell you apart.
+The [LLM node](/docs/microflow-studio/nodes/express/llm) is far slower than anything else in Microflow. A node that is still working and a node that has failed look the same, unless you wire the node to tell you apart.
 
-## First: wire up `thinking` and `error`
+## First, wire up `thinking` and `error`
 
-Before diagnosing anything, connect the node's two status outputs to a [Monitor](/docs/microflow-studio/nodes/express/monitor) in `raw` mode:
+Connect both status outputs to a [Monitor](/docs/microflow-studio/nodes/express/monitor) node in `raw` mode.
 
-- **`thinking`** goes true the moment you trigger it and false when the answer lands. If it goes true, the request left Studio.
-- **`error`** fires when the model could not be reached or refused.
+- **`thinking`** goes true when you trigger the node and false when the answer arrives.
+- **`error`** fires when the model is unreachable or refuses the request.
 
-That one step tells you which half of the problem you have.
+These two outputs tell you which half of the problem you have.
 
 ## `thinking` never goes true
 
 The trigger never arrived.
 
-- Is anything connected to the node's **`trigger`** input? The node does nothing on its own — no trigger, no request.
-- Is the node upstream of it actually firing? Hang a Monitor on that node's output.
+- Check that something is connected to the node's **`trigger`** input. The node does nothing on its own.
+- Check that the upstream node fires. Connect a Monitor to its output.
 
 ## `thinking` goes true and stays true
 
-The request left and nothing came back.
+The request left Studio and nothing came back.
 
-- **Is the provider running?** Open **Configuration → LLM** and use the test control. It reports "reachable" or gives you the error. If it fails there, the problem is not your flow.
-- **Is the model name right?** It must match what the provider calls it, exactly. With Ollama, `ollama list` gives you the list.
-- **Is it just slow?** A large model on a modest machine takes tens of seconds. Try a smaller model before concluding it is broken.
+- **Check the provider.** Open **Configuration → LLM** and run the test. It reports either that the provider is reachable, or the error. A failure here is not a fault in your flow.
+- **Check the model name.** It must match the provider's name for the model exactly. Run `ollama list` to see the names.
+- **Wait longer.** A large model on a modest machine takes tens of seconds. Try a smaller model.
 
 ## `error` fires
 
-The provider answered, and the answer was a refusal or a failure.
+The provider answered with a failure.
 
-- Wrong model name is the most common cause — most providers report an unknown model as an error rather than a silent no-op.
-- If the provider needs an API key and none is set, the request fails at authentication.
-- If you have pointed at a machine that is asleep or on another network, you get a connection error.
+- A wrong model name is the usual cause. Most providers report an unknown model as an error.
+- A provider that needs an API key fails at authentication when no key is set.
+- A machine that is asleep or on another network produces a connection error.
 
-## The answer arrives but is unusable
+## The answer arrives and is unusable
 
-- **Far too long?** Say how long in the **System** prompt: "Answer in one short sentence." A model with no length instruction writes an essay.
-- **Ignoring your values?** Reference them with `{{name}}` in the prompt. Each placeholder gives the node an input handle of that name; if the handle is not connected, nothing is substituted.
-- **Different every time?** That is what these models do. If you need a fixed set of outcomes, decide with a [Compare](/docs/microflow-studio/nodes/decide/compare) node and use the model only for the wording.
+- **The answer is too long.** Set the length in the **System** prompt: "Answer in one short sentence."
+- **The answer ignores your values.** Reference each value as `{{name}}` in the prompt. Each placeholder adds an input handle. An unconnected handle substitutes nothing.
+- **The answer differs every time.** Language models work this way. To get a fixed set of outcomes, decide with a [Compare](/docs/microflow-studio/nodes/decide/compare) node and use the model only for the wording.
 
-## Configuration is missing entirely
+## The configuration page is missing
 
-AI provider configuration is **desktop-only**. In a browser the page tells you so and saves nothing. Use the desktop app.
+AI provider configuration runs in the desktop app only. In a browser the page says so and saves nothing.
 
 ## Device lists are snapshots [#device-lists-are-snapshots]
 
-The same trap catches the [MIDI](/docs/microflow-studio/nodes/sense/midi) node. Its **Device** list — like the provider and broker lists — is read when you open the settings. Plug a controller in afterwards and it will not appear until you close and reopen the settings.
+Studio reads the provider list, the broker list, and the [MIDI](/docs/microflow-studio/nodes/sense/midi) node's **Device** list when you open the settings. A device you plug in afterwards appears only after you close and reopen the settings.
 
-If a MIDI controller still does not show up after reopening: check your operating system can see it (macOS Audio MIDI Setup, Windows Device Manager), and remember that a MIDI controller plugs into your **computer**, not into the Arduino.
+If a MIDI controller is still missing after that, check that your operating system sees it: Audio MIDI Setup on macOS, Device Manager on Windows. A MIDI controller plugs into the computer, not into the Arduino.
 
 ## Related
 

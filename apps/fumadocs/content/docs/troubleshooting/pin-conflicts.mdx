@@ -1,64 +1,67 @@
 ---
 title: Nothing happens on the board
-description: The flow is running and the values are moving, but the hardware sits there.
+description: The flow runs and the values move, but the hardware does nothing.
 ---
 
-The canvas looks right, values are updating on the nodes, the board is connected — and the physical thing does nothing. Nothing on screen is red, because as far as Studio is concerned nothing is wrong: it is faithfully driving a pin, and the component is somewhere else.
+The canvas looks right. The values update. The board is connected. The component does nothing, and nothing on screen is marked as wrong — Studio is driving a pin correctly, and the component is somewhere else.
 
-Work down this list. It is ordered by how often each one is the cause.
+Work down this list. The causes are ordered by how often each one is to blame.
 
 ## 1. The pin number
 
-The most common cause, every time. The number in the node's settings must match the pin the component is physically in.
+The number in the node's settings must match the pin the component is plugged into.
 
-- Open the node and read the pin number aloud.
-- Trace the wire on the board to the header and read that number.
-- If they differ, that is your answer.
+1. Open the node and read its pin number.
+2. Follow the wire to the board and read the pin number there.
+3. Change one of them if they differ.
 
 Studio cannot detect this. A pin with nothing attached behaves exactly like a pin with a broken component on it.
 
-## 2. Two nodes on the same pin
+## 2. Two nodes on one pin
 
-A pin can be in one mode at a time — input, output, PWM, servo. Two nodes pointing at the same pin means one wins and the other silently does nothing, and which one wins can depend on the order you added them.
+A pin holds one mode at a time: input, output, PWM, or servo. If two nodes name the same pin, one node wins and the other does nothing. Which node wins can depend on the order you added them.
 
-**Find it:** open every node that names a pin and list the numbers. Duplicates are the conflict. Two LED nodes on pin 13, or a Button and a Sensor on the same pin, are the classics.
+1. Open every node that names a pin.
+2. List the pin numbers.
+3. Move or delete a node for each duplicate.
 
-**Fix:** move one to a free pin, or delete it if it was a duplicate.
+Two LED nodes on pin 13, or a Button and a Sensor on one pin, are the common cases.
 
 ## 3. The wrong kind of pin
 
-Some things need a specific kind of pin:
+Some components need a specific kind of pin.
 
-- **Dimming an LED, an intensity, or a servo** needs PWM — pins `3, 5, 6, 9, 10, 11` on an Uno or Nano, marked `~` on the board. On a non-PWM pin, an LED still works but only on and off, and a servo does not work at all.
-- **Analog sensors** need an analog input, `A0`–`A5` on an Uno or Nano.
+- **Brightness, intensity, and servo angle need PWM.** On an Uno or a Nano, PWM runs on pins 3, 5, 6, 9, 10, and 11, marked `~` on the board. On a pin without PWM, an LED still switches on and off, and a servo does not work at all.
+- **Analog sensors need an analog input**, `A0` to `A5` on an Uno or a Nano.
 
-Open **Show code** — the [sketch warnings](/docs/troubleshooting/sketch-warnings) name the node and the pin.
+Open **Show code**. The [sketch warnings](/docs/troubleshooting/sketch-warnings) name the node and the pin.
 
 ## 4. The wiring
 
-- **Nothing at all from an LED?** Check the long leg goes to the signal pin and the short leg to ground through a resistor. Backwards, it will not light and nothing will break.
-- **A button that never registers?** It needs a pull-up or a pull-down, otherwise the pin floats between values. Wire a resistor, or turn on the node's **Pull-up** setting.
-- **A motor, a relay, or a strip that browns out the board?** They draw more current than a USB port supplies. Power them separately and join the grounds.
-- **Half a breadboard dead?** Some breadboards split their power rails down the middle.
+- **An LED does nothing.** Check that the long leg goes to the signal pin, and the short leg to ground through a resistor. A reversed LED does not light and does not break.
+- **A button never registers.** The pin floats without a pull-up or a pull-down. Add a resistor, or turn on the node's **Pull-up** setting.
+- **A motor, a relay, or an LED strip resets the board.** They draw more current than a USB port supplies. Power them from a separate supply and join the grounds.
+- **Half the breadboard is dead.** Some breadboards split their power rails at the middle.
 
 ## 5. Reserved pins
 
-- **Pins 0 and 1** on Uno and Nano are the USB serial lines. Driving them from a flow breaks communication with the board.
-- **A4 and A5** on Uno and Nano are also the I²C lines. Do not use them as analog inputs if you are using an [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) or the [NFC reader](/docs/microflow-studio/nodes/sense/pn532).
-- **GPIO 6–11 on an ESP32** drive the chip's own flash memory. Using them stops the board booting.
-- **Pin 13** is fine to use, but it also drives the on-board LED, so that LED mirrors whatever you do.
+- **Pins 0 and 1 on an Uno or a Nano** are the USB serial lines. Driving them breaks communication with the board.
+- **Pins A4 and A5 on an Uno or a Nano** are also the I²C lines. Do not use them as analog inputs alongside an [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) or the [NFC reader](/docs/microflow-studio/nodes/sense/pn532).
+- **GPIO 6 to 11 on an ESP32** drive the chip's flash memory. The board does not boot if you use them.
+- **Pin 13** also drives the on-board LED, which mirrors whatever you send.
 
-## 6. Prove which half is broken
+## 6. Split the problem in two
 
-Split the problem in two, rather than guessing.
+Test each half separately instead of guessing.
 
-- **Is the output side alive?** Delete everything upstream and drive the output node from a [Constant](/docs/microflow-studio/nodes/generate/constant) or an [Interval](/docs/microflow-studio/nodes/generate/interval). If the hardware responds, your wiring and pin are fine and the fault is upstream in the flow.
-- **Is the input side alive?** Hang a [Monitor](/docs/microflow-studio/nodes/express/monitor) directly on the sense node. Values means the sensor, wiring, and board are fine.
+**Test the output:** delete everything upstream and drive the output node from a [Constant](/docs/microflow-studio/nodes/generate/constant) or an [Interval](/docs/microflow-studio/nodes/generate/interval). If the component responds, the wiring and the pin are correct, and the fault is upstream.
+
+**Test the input:** connect a [Monitor](/docs/microflow-studio/nodes/express/monitor) directly to the sense node. If values appear, the sensor, the wiring, and the board are correct.
 
 See [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) for the full method.
 
 ## Related
 
 - [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings)
-- [Read the circuit view](/docs/how-to/read-the-circuit-view) — the diagram Microflow generates from your flow, to check your wiring against
-- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — why pin modes exist
+- [Read the circuit view](/docs/how-to/read-the-circuit-view) — check your wiring against the diagram Microflow generates.
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — why pin modes exist.

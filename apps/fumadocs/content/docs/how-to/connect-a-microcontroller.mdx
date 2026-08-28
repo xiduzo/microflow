@@ -1,82 +1,88 @@
 ---
 title: Connect a microcontroller
-description: Plug a board in, get it connected, and know what each status means.
+description: Plug a board in, get it connected, and read what the sidebar is telling you.
 ---
 
-Everything else in Microflow assumes a connected board. This guide gets you there and tells you what the sidebar is saying while it happens.
+Everything else in Microflow needs a connected board.
 
 <Video title="Install Studio and connect a board" duration="4:00" script="/docs/videos/install-and-connect">
-Plug a board in and watch the status walk to connected — on the desktop app and in the browser — including what a charge-only cable looks like.
+A board connecting on the desktop app and in the browser, including what a charge-only cable looks like.
 </Video>
 
 ## Before you start
 
 - A supported board: **Arduino Uno**, **Arduino Nano**, or **ESP32**.
-- A USB cable **that carries data**. Many cables sold with phones and battery packs carry power only, and they look identical.
-- Microflow Studio — either the [desktop app](https://github.com/xiduzo/microflow-t-stack/releases) or the web app in Chrome, Edge, or Opera.
+- A USB cable **that carries data**. Many cables sold with phones and battery packs carry power only, and look identical.
+- Microflow Studio: the [desktop app](https://github.com/xiduzo/microflow-t-stack/releases), or the web app in Chrome, Edge, or Opera.
 
-## Steps — desktop app
+## Connect on the desktop app
 
-1. **Plug the board into your computer.** Use a port on the computer itself rather than a hub for the first connection.
-2. **Open Microflow Studio.** The microcontroller status sits in the sidebar, under the flow switcher.
-3. **Watch the status.** Studio finds the board on its own — there is nothing to click.
-4. **Wait for a port name.** When the status shows your serial port (`COM3`, `/dev/cu.usbmodem14201`, `/dev/ttyACM0`), you are connected.
+1. Plug the board into the computer. Use a port on the computer, not a hub.
+2. Open Microflow Studio.
+3. Find the microcontroller status in the sidebar, below the flow switcher.
+4. Wait. Studio finds the board on its own. There is nothing to click.
 
-## Steps — in a browser
+The board is connected when the status shows a serial port name, such as `COM3` or `/dev/cu.usbmodem14201`.
 
-A web page cannot open a serial port without your permission, so there is one extra click.
+## Connect in a browser
 
-1. **Plug the board in.**
-2. **Open Studio in Chrome, Edge, or Opera.** Firefox and Safari cannot reach a serial port at all; the sidebar will say so.
-3. **Click *Connect board* in the sidebar.** Your browser shows its own port chooser.
-4. **Pick your board and confirm.** From here the states are identical to the desktop app.
+A web page cannot open a serial port without your permission, so the browser adds one step.
 
-Once you have granted permission for a board, Studio reconnects to it automatically on later visits and after unplugging and replugging — the chooser only appears for a board it has not seen before.
+1. Plug the board into the computer.
+2. Open Studio in Chrome, Edge, or Opera. Firefox and Safari cannot reach a serial port.
+3. Click **Connect board** in the sidebar. The browser opens its own port chooser.
+4. Select your board and confirm.
+
+Studio reconnects to that board on its own from now on, including after you unplug it. The chooser opens only for a board you have not granted before.
 
 ## What the statuses mean
 
-| Status | What is happening | What to do |
+| Status | Meaning | What to do |
 | --- | --- | --- |
-| **No microcontroller connected** | Desktop: no board found. | Check the cable and the port. |
-| **Connect board** | Browser: no permission granted yet. | Click it and pick your board. |
-| **Connecting** | Studio found a port and is checking what is on it. | Wait. A few seconds. |
-| **Flashing firmware** | The board did not have Microflow's firmware, so Studio is installing it. | Wait, and do not unplug. Up to a minute. |
-| *A port name* | Connected. Your flow is running on the board. | Build something. |
+| **No microcontroller connected** | Desktop app: no board found. | Check the cable and the port. |
+| **Connect board** | Browser: you have granted no permission yet. | Click it and select your board. |
+| **Connecting** | Studio found a port and is checking the board. | Wait a few seconds. |
+| **Flashing firmware** | Studio is installing the firmware. | Wait up to a minute. Do not unplug the board. |
+| A port name | Connected. Your flow runs on the board. | Build something. |
 | **Error** | The connection failed. | See [Board not detected](/docs/troubleshooting/board-not-detected). |
 
 <Callout type="warn" title="Do not unplug during Flashing firmware">
-Interrupting the flash is the one thing that can leave a board in a genuinely confused state. It can take up to a minute on a first connection. Let it finish.
+An interrupted flash can leave the board in a state Studio cannot recover from. A first flash takes up to a minute.
 </Callout>
-
-## About that firmware step
-
-Your board arrives knowing nothing about Microflow. Before it can be useful, Studio puts a small program on it whose only job is to take orders over USB — *set pin 9 high*, *tell me when pin 2 changes*.
-
-Studio handles this for you and checks every time you connect:
-
-1. It probes the board to see whether the firmware is already there.
-2. If it is missing — a new board, or one you have since used with the Arduino IDE — it flashes it and probes again.
-3. Then it connects.
-
-So a board that has been used for something else recovers on its own. You do not need to flash anything by hand. If you want to do it yourself anyway, see [Flash firmware manually](/docs/how-to/flash-firmware-manually).
 
 ## Verify it worked
 
-Add any [Sense](/docs/microflow-studio/nodes/sense) node and a [Monitor](/docs/microflow-studio/nodes/express/monitor), connect them, and interact with the component. Values appearing in the Monitor means the whole chain — cable, board, firmware, flow — is working.
+1. Add any [Sense](/docs/microflow-studio/nodes/sense) node.
+2. Add a [Monitor](/docs/microflow-studio/nodes/express/monitor) node and connect the two.
+3. Touch the component.
+
+Values in the Monitor mean the cable, the board, the firmware, and the flow all work.
+
+## About the firmware step
+
+Your board knows nothing about Microflow when it arrives. Studio puts a small program on the board that takes orders over USB, such as *set pin 9 high* or *report changes on pin 2*.
+
+Studio checks the firmware on every connection:
+
+1. Studio probes the board for the firmware.
+2. If the firmware is missing, Studio flashes it and probes again.
+3. Studio connects.
+
+A board you have used for something else therefore recovers on its own. To run the step yourself, see [Flash firmware manually](/docs/how-to/flash-firmware-manually).
 
 ## Supported boards
 
 | Board | Notes |
 | --- | --- |
 | Arduino Uno | The default target. Digital pins 0–13, analog A0–A5. PWM on 3, 5, 6, 9, 10, 11. |
-| Arduino Nano | Same chip and pin layout as the Uno in a smaller package. |
-| ESP32 | Different pin numbering, and the only target with networking. |
+| Arduino Nano | The same chip and pin layout as the Uno, in a smaller package. |
+| ESP32 | Different pin numbering. The only target with networking. |
 
-Set which one a flow targets in the board picker — see [Choose a board target](/docs/how-to/choose-a-board-target). Getting this wrong does not stop the board connecting, but it does produce a wrong wiring diagram and a wrong exported sketch.
+Set the target for each flow in the board picker. See [Choose a board target](/docs/how-to/choose-a-board-target). A wrong target still connects, but produces a wrong wiring diagram and a wrong exported sketch.
 
-## If it does not connect
+## If the board does not connect
 
-Work through [Board not detected](/docs/troubleshooting/board-not-detected). In order of how often it is the cause: the cable, another program holding the serial port, a missing driver for a clone board, and — in the browser — permission never granted.
+Work through [Board not detected](/docs/troubleshooting/board-not-detected). The causes there are ordered by how often each one is to blame.
 
 ## Related
 

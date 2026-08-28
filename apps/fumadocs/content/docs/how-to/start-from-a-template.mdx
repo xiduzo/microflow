@@ -3,33 +3,37 @@ title: Start from a template
 description: Load a working flow instead of building one from an empty canvas.
 ---
 
-Studio ships around thirty ready-made flows. Loading one is the fastest way to see how a node is meant to be wired, and a reasonable starting point for your own project.
+Studio ships about thirty ready-made flows.
 
-## When you need it
+## When to use one
 
-- You want to see a working example of a node before using it.
-- You are teaching, and want everyone on the same flow in five seconds.
-- You know roughly what you want to build and would rather edit than start blank.
+- You want a working example of a node before you use it.
+- You are teaching, and want everyone on the same flow at once.
+- You know roughly what to build and prefer to edit rather than start empty.
 
 ## Steps
 
 1. Open **Templates** in the sidebar, under **General**.
-2. Filter if you want — by category (*Basic*, *Digital*, *Analog*, *Control structures*, *Communication*) or by the components a template uses.
-3. Click **Use template** on the one you want.
-4. Studio loads it into your **Local Flow** and opens the canvas.
-5. Check the pin numbers on every node against what you have actually wired before expecting anything to happen.
+2. Filter by category — *Basic*, *Digital*, *Analog*, *Control structures*, *Communication* — or by the components a template uses.
+3. Click **Use template**.
+4. Studio loads the flow into your **Local Flow** and opens the canvas.
+5. Check the pin number on every node against your wiring.
 
-<Callout type="warn" title="Templates load into the Local Flow, replacing what is there">
-**Use template** overwrites the Local Flow's contents. If you have unsaved work there, [export it to a file](/docs/how-to/save-and-share-a-flow) first — or work in a named flow, which templates never touch.
+<Callout type="warn" title="A template replaces the Local Flow">
+**Use template** overwrites whatever is in the Local Flow. [Export your work to a file](/docs/how-to/save-and-share-a-flow) first, or work in a named flow, which templates never touch.
 </Callout>
+
+## Verify it worked
+
+Templates are built for specific pins, and they will not match your breadboard by chance. Open **Show circuit** to see the wiring the template expects. Either wire to match it, or change the pin numbers on the nodes.
 
 ## Templates worth knowing
 
-| Template | What it shows |
+| Template | Shows |
 | --- | --- |
-| **Blink** | The minimum flow: Interval → LED. |
-| **Button LED** | Digital input driving a digital output. |
-| **Knob Servo** | Analog input, a Map node, and why the ranges matter. |
+| **Blink** | The smallest flow: Interval → LED. |
+| **Button LED** | A digital input driving a digital output. |
+| **Knob Servo** | An analog input, a Map node, and why ranges matter. |
 | **Smooth a Noisy Sensor** | The Smooth node against a real signal. |
 | **Wave Monitor** | The Monitor node in graph mode. |
 | **No-Hardware Playground** | A flow that runs with nothing plugged in. |
@@ -37,10 +41,6 @@ Studio ships around thirty ready-made flows. Loading one is the fastest way to s
 | **Figma to LED** | The other end. |
 | **Pixel Strip** | Driving addressable LEDs. |
 | **Matrix Counter** | Numbers on an 8×8 matrix. |
-
-## Verify it worked
-
-Templates are built around specific pins, and they will not match your breadboard by accident. Open **Show circuit** to see the wiring the template expects, then either wire to match or change the pin numbers on the nodes.
 
 ## Related
 

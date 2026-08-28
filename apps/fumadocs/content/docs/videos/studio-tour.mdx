@@ -9,10 +9,10 @@ description: Shooting script for the 5:00 interface tour.
 
 | | |
 | --- | --- |
-| **Goal** | The viewer can name every part of the window and knows which one to reach for. |
+| **Goal** | The viewer can name every part of the window and knows which part to reach for. |
 | **Audience** | Someone who has built one flow and now wants the map. |
 | **Runtime** | 5:00 |
-| **Hardware** | A connected Uno with an LDR on A0 and an LED on pin 9, so live values are visible. |
+| **Hardware** | A connected Uno with an LDR on A0 and an LED on pin 9, so values move. |
 
 ## Where it appears
 
@@ -21,82 +21,82 @@ description: Shooting script for the 5:00 interface tour.
 
 ## Set up before you record
 
-- A saved flow named `Tour` containing LDR → Smooth → Map → LED, already working.
-- A second flow in the switcher so the switcher has something to switch to.
-- Signed in as the demo account; the collaborators section is shown but no real names appear.
+- A saved flow named `Tour`: LDR → Smooth → Map → LED, already working.
+- A second flow in the switcher, so the switcher has something to switch to.
+- Sign in as the demo account. No real names on screen.
 
 ## Shot list
 
 <Chapters>
   <Chapter time="0:00" title="The three regions">Sidebar, canvas, dock.</Chapter>
-  <Chapter time="0:35" title="The sidebar, top to bottom">Flow switcher, board status, views, general.</Chapter>
+  <Chapter time="0:35" title="The sidebar">Top to bottom.</Chapter>
   <Chapter time="1:40" title="The canvas">Pan, zoom, select, minimap.</Chapter>
   <Chapter time="2:25" title="The dock">Add, undo, redo, export, settings.</Chapter>
   <Chapter time="3:05" title="A node up close">Handles, settings, live value.</Chapter>
   <Chapter time="3:45" title="Three views of one flow">Edit, circuit, code.</Chapter>
-  <Chapter time="4:30" title="The shortcuts worth memorising">Six of them.</Chapter>
+  <Chapter time="4:30" title="Six shortcuts">The ones worth learning.</Chapter>
 </Chapters>
 
 ## Script
 
 ### 0:00 — The three regions
 
-**Screen:** Full window, the `Tour` flow open, values moving.
+**Screen:** The full window with the `Tour` flow running.
 
 **Narration:**
-> "Three regions. The sidebar on the left is everything *about* your flow. The canvas in the middle is the flow itself. The dock along the bottom is what you do *to* the canvas. That is the whole interface."
+> "Three regions. The sidebar on the left is everything about your flow. The canvas in the middle is the flow. The dock along the bottom is what you do to the canvas."
 
 **On-screen:** Dim the window and light each region as it is named.
 
 ### 0:35 — The sidebar
 
-**Screen:** Sidebar only, cursor moving down it as each item is named.
+**Screen:** The sidebar alone, cursor moving down it.
 
 **Narration:**
-> "At the top is the flow switcher — every flow you have, and the button to make a new one. Below it, the microcontroller status. Right now it shows the port my board is on; when nothing is plugged in it says so, and the question mark beside it opens the troubleshooting page.
+> "At the top, the flow switcher: every flow you have, and the button to make a new one. Below it, the microcontroller status. Right now it shows the port my board is on. When nothing is plugged in it says so, and the question mark opens the troubleshooting page.
 >
-> Under that, the current flow with its three views: Edit flow, Show circuit, Show code. Then the general section: My flows, Templates, and Configuration — which is where MQTT brokers and AI providers live. Those are set up once and shared by every flow."
+> Under that, the current flow and its three views: Edit flow, Show circuit, Show code. Then the general section: My flows, Templates, and Configuration, where MQTT brokers and AI providers live. You set those once, and every flow uses them."
 
-**On-screen text, as each is named:** `Flow switcher` · `Board status` · `Edit / Circuit / Code` · `My flows · Templates · Configuration`
+**On-screen text:** `Flow switcher` · `Board status` · `Edit / Circuit / Code` · `My flows · Templates · Configuration`
 
 ### 1:40 — The canvas
 
-**Screen:** Drag on empty canvas to pan. Scroll to zoom. Drag a selection box across two nodes. Point at the minimap in the corner and drag inside it.
+**Screen:** Drag empty canvas to pan. Scroll to zoom. Drag a box across two nodes. Drag inside the minimap.
 
 **Narration:**
-> "Drag empty space to pan. Scroll to zoom. Drag across nodes to select several at once. When you lose yourself, Shift and one zooms to fit — or to fit just the nodes you have selected, which is the version you will actually use. The minimap in the corner is draggable too."
+> "Drag empty space to pan. Scroll to zoom. Drag across nodes to select several. Shift and one fits everything in view, or just what you have selected, which is the version you will use. The minimap in the corner is draggable too."
 
 **On-screen text:** `Shift + 1 — zoom to fit`
 
 ### 2:25 — The dock
 
-**Screen:** Bottom-centre dock. Hover each icon slowly; click the ones that are safe to demonstrate.
+**Screen:** The dock. Hover each icon, and click the safe ones.
 
 **Narration:**
-> "Left to right: add a node, undo, redo, export this flow to a file, and the flow's settings. Undo and redo go dim when there is nothing left to undo — which is a quicker way to tell than trying it. Export writes the flow to a file you can send to someone else. Settings is where you rename the flow, invite collaborators, and delete it."
+> "Left to right: add a node, undo, redo, export this flow to a file, and the flow's settings. Undo and redo go dim when there is nothing left to undo. Export writes the flow to a file you can send to someone. Settings is where you rename the flow, invite collaborators, and delete it."
 
 ### 3:05 — A node up close
 
-**Screen:** Zoom to 200 % on the Smooth node. Point at the input handles on the left, output on the right. Click the node to open its settings. Change the smoothing amount and watch the live value change behaviour.
+**Screen:** Zoom to 200 % on the Smooth node. Point at the inputs, then the output. Click the node to open its settings. Change the window size and watch the value change.
 
 **Narration:**
-> "Every node is the same three things. Inputs on the left. Outputs on the right. Settings when you click it. The number on the node is its current value, updating live while the flow runs — which means you can watch a value move through your flow and see exactly where it stops making sense."
+> "Every node is the same three things. Inputs on the left. Outputs on the right. Settings when you click it. The number on the node is its current value, updating live, so you can watch a value move through your flow and see where it stops making sense."
 
 ### 3:45 — Three views of one flow
 
-**Screen:** Click **Show circuit**. Hold on the generated wiring diagram. Then **Show code**, scroll the generated Arduino sketch, and hover the **Download sketch** button without clicking. Return to **Edit flow**.
+**Screen:** Click **Show circuit**. Hold on the diagram. Then **Show code**, scroll the sketch, and hover **Download sketch** without clicking. Return to **Edit flow**.
 
 **Narration:**
-> "The same flow, three ways. Circuit shows you how to wire the components you have used — pin by pin, so you can build the physical side from it. Code shows the Arduino sketch your flow compiles to, and you can download it as a dot-ino file and open it in the Arduino IDE. That is your escape hatch: whatever you build here, you can take with you."
+> "The same flow, three ways. Circuit shows you how to wire the components you used, pin by pin. Code shows the Arduino sketch your flow compiles to, and you can download it as a dot-ino file. That is your escape hatch: whatever you build here, you can take with you."
 
 **On-screen text:** `Show circuit · Show code · Download sketch`
 
-### 4:30 — Shortcuts worth memorising
+### 4:30 — Six shortcuts
 
-**Screen:** Card listing six shortcuts, demonstrating each on the canvas as it appears.
+**Screen:** A card listing the six, each performed on the canvas as it appears.
 
 **Narration:**
-> "Six worth learning. Command K adds a node. Command C and Command V copy and paste — the paste lands wherever your cursor is. Command Z and Command Shift Z undo and redo. Shift one fits the view. Command and the number one, two, three switches between your flows. Everything else you can find with the mouse."
+> "Six worth learning. Command K adds a node. Command C and Command V copy and paste, and the paste lands at your cursor. Command Z and Command Shift Z undo and redo. Shift one fits the view. Command and a number switches flows. Everything else you can find with the mouse."
 
 **On-screen text:**
 ```
@@ -109,10 +109,10 @@ Cmd/Ctrl + 1…9    switch flow
 
 ## Deliberate failure
 
-None here — the tour has no task to fail. The failure content lives in the videos that build something.
+None. The failures live in the videos that build something.
 
 ## Post-production notes
 
-- The region-lighting effect at 0:00 sets up the whole video; do not skip it to save time.
-- Do not click **Download sketch** on camera unless you have cleared your download bar. A downloads popup mid-shot is the usual reshoot.
-- Every shortcut named must be visibly performed. Captions carry the keystroke as `[Cmd+K]`.
+- Keep the region-lighting effect at 0:00. It sets up the whole video.
+- Clear the downloads bar before the take. Do not click **Download sketch** on camera.
+- Perform every shortcut you name. Caption each keystroke as `[Cmd+K]`.

@@ -3,68 +3,69 @@ title: Connect a local AI model
 description: Point Studio at an Ollama server and use an LLM node in your flow.
 ---
 
-The [LLM node](/docs/microflow-studio/nodes/express/llm) sends a prompt to a language model running on your own machine and puts the answer back into your flow. Nothing leaves your computer, and it works with no internet connection.
+The [LLM node](/docs/microflow-studio/nodes/express/llm) sends a prompt to a language model on your own machine and returns the answer to your flow. Nothing leaves the computer, and it works without an internet connection.
 
 <Video title="Add a local AI model" duration="5:00" script="/docs/videos/local-llm">
-Ollama running, the provider configured and tested, and a button on a breadboard triggering an answer — at real speed.
+Ollama running, the provider configured and tested, and a button triggering an answer at real speed.
 </Video>
 
 <Callout type="warn" title="Desktop app only">
-AI provider configuration is not available in the browser build.
+The browser build cannot configure AI providers.
 </Callout>
 
-## When you need it
+## When to use it
 
-- You want generated text in a prototype — a caption, a greeting, a description.
-- You want it without sending sensor data or prompts to a third party.
-- You want it to work at an exhibition with no reliable network.
+- You want generated text in a prototype: a caption, a greeting, a description.
+- You do not want to send sensor data or prompts to a third party.
+- The project must work with no reliable network.
 
 ## Before you start
 
-Install [Ollama](https://ollama.com) and pull a model. A small model is dramatically faster and usually enough for a prototype:
+Install [Ollama](https://ollama.com) and pull a model. A small model is much faster and usually enough for a prototype.
 
 ```sh
 ollama pull llama3.2
 ollama list
 ```
 
-Leave the Ollama server running. Studio talks to it; it does not start it for you.
+Leave the Ollama server running. Studio talks to it and does not start it.
 
 ## Steps
 
-1. In Studio, open **Configuration → LLM** in the sidebar.
+1. Open **Configuration → LLM** in the sidebar.
 2. Click **Add Provider**.
-3. **Name** — anything, for example `Local Ollama`.
-4. **Base URL** — `http://localhost:11434`, Ollama's default.
-5. **API Key** — leave empty. There is nobody to authenticate to on your own machine.
-6. Save, then use the **test** control on the provider. You want the "is reachable" confirmation.
-7. On the canvas, press `Cmd/Ctrl + K` and add an **LLM** node — it is under **Express**.
-8. In its settings: pick the provider, type the model name exactly as `ollama list` prints it, and write the **System** and **Prompt** fields.
-9. Wire something into the node's `trigger` input. It does nothing until triggered.
-10. Hang a [Monitor](/docs/microflow-studio/nodes/express/monitor) in `raw` mode on the `value` output so you can read the answer.
+3. Set **Name** to anything, such as `Local Ollama`.
+4. Set **Base URL** to `http://localhost:11434`, which is Ollama's default.
+5. Leave **API Key** empty. Ollama runs on your machine and needs no authentication.
+6. Save the provider, then run its test. Wait for the confirmation that the provider is reachable.
+7. On the canvas, press `Cmd/Ctrl + K` and add an **LLM** node, under **Express**.
+8. In its settings, select the provider and type the model name exactly as `ollama list` prints it.
+9. Write the **System** and **Prompt** fields.
+10. Connect something to the node's `trigger` input. The node does nothing until it is triggered.
+11. Connect a [Monitor](/docs/microflow-studio/nodes/express/monitor) node in `raw` mode to the `value` output.
 
 ## Verify it worked
 
-Fire the trigger and watch the Monitor. Expect to wait a few seconds — that is normal, not a fault.
+Fire the trigger and watch the Monitor. Expect to wait several seconds. That is normal.
 
-Wire the `thinking` output to an LED's `true` and `false` inputs while you are testing. It goes true the instant you trigger and false when the answer lands, which tells you at a glance whether a request left at all.
+While you test, connect the `thinking` output to an LED node's `true` and `false` inputs. It goes true when you trigger the node and false when the answer arrives, which tells you whether a request left at all.
 
 ## Write a better prompt
 
-- **Set the length in the system prompt.** "Answer in one short sentence." Without it you get an essay.
-- **Set the character there too.** "You are a museum guide."
-- **Use values from your flow** with `{{name}}` in the prompt. Each placeholder gives the node an input handle of that name:
+- **Set the length in the System prompt.** "Answer in one short sentence." Without it, the model writes an essay.
+- **Set the character in the System prompt.** "You are a museum guide."
+- **Use values from your flow** with `{{name}}` in the prompt. Each placeholder adds an input handle of that name.
 
-  ```
-  The visitor is {{distance}} centimetres away. Greet them in one short sentence.
-  ```
+```
+The visitor is {{distance}} centimetres away. Greet them in one short sentence.
+```
 
-## Gotchas
+## Limits to know
 
-- **It is slow.** Seconds, not milliseconds. Put the node at the end of a flow, never in a loop something physical depends on.
-- **Wire the `error` output somewhere visible.** A stopped Ollama server looks exactly like a model that is still thinking.
-- **Chain from `done`, not `value`.** `done` fires once when the answer is complete.
-- **The provider list is read when you open the node's settings.** Add a provider afterwards and you need to reopen them.
+- **The node is slow.** It takes seconds, not milliseconds. Put it at the end of a flow, never inside a loop that drives hardware.
+- **Connect the `error` output to something visible.** A stopped Ollama server looks the same as a model that is still working.
+- **Chain from `done`, not `value`.** `done` fires once, when the answer is complete.
+- **The provider list is a snapshot.** Studio reads it when you open the node's settings. Reopen them after you add a provider.
 
 ## Related
 

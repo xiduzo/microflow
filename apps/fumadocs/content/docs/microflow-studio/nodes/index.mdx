@@ -3,26 +3,24 @@ title: Nodes
 description: Nodes are the building blocks of any flow — each one performs a specific job.
 ---
 
-Nodes are the building blocks of a flow. Each node does one specific thing — reading a sensor, turning on a light, doing math, making a decision — and you connect them together to build something interactive.
+A node does one thing: it reads a sensor, drives a light, does maths, or makes a decision. You connect nodes with [edges](/docs/microflow-studio/edges), and values travel along the edges from one node to the next.
 
-You connect nodes using [edges](/docs/microflow-studio/edges) (the lines between them). Data and signals travel along these edges from one node to the next.
+For example: an LDR node reads the room's brightness, a Map node rescales the reading, and an LED node matches it.
 
-**Example:** an LDR reads the room's brightness → a Map node rescales the reading → an LED matches it.
-
-Every node in Studio is documented here with its exact inputs, outputs, and settings — the same names you see on the node itself.
+Every node is documented here with the same input, output, and setting names that appear on the node itself.
 
 ## Adding a node to the canvas
 
-Press `Cmd/Ctrl + K`, or click the `+` in the dock at the bottom, to open the **Add node** palette. It is grouped by category and searchable — and it searches each node's description and tags as well as its name, so typing `distance`, `noise`, or `magnet` finds the right node without knowing what it is called.
+1. Press `Cmd/Ctrl + K`, or click `+` in the dock, to open the **Add node** palette.
+2. Type what you want. The palette searches each node's description and tags as well as its name, so `distance`, `noise`, and `magnet` all find the right node.
+3. Press Enter to place the node.
 
-Press Enter to place the highlighted node on the canvas.
+Then:
 
-Once a node is there:
-
-- **Move it** by dragging.
-- **Configure it** by clicking it.
-- **Copy and paste it** with `Cmd/Ctrl + C` and `Cmd/Ctrl + V` — it lands where your pointer is.
-- **Delete it** by selecting it and pressing Delete or Backspace.
+- **Move a node** — drag it.
+- **Configure a node** — click it.
+- **Copy and paste a node** — `Cmd/Ctrl + C`, then `Cmd/Ctrl + V`. The copy lands at the pointer.
+- **Delete a node** — select it and press Delete or Backspace.
 
 <Cards>
   <Card title="Sense" href="/docs/microflow-studio/nodes/sense" description="Read data from the physical world — buttons, sensors, switches, and more." />
@@ -37,11 +35,9 @@ Once a node is there:
 
 ## Anatomy of a node
 
-Every node is the same three things.
+Every node has inputs on the left, outputs on the right, and settings that open when you click it.
 
-**Inputs** on the left. **Outputs** on the right. **Settings** when you click it.
-
-The number or icon in the middle of a node is its **live value**, updating while the flow runs. That is the fastest debugging tool in Studio: you can watch a value travel through your flow and see exactly where it stops making sense.
+The number or icon in the middle is the node's live value. It updates while the flow runs, so you can follow a value through the flow and find the point where it stops making sense.
 
 ### Handle shapes
 
@@ -54,7 +50,7 @@ Handles are drawn as one of four symbols, and the symbol tells you what the hand
 | ■ | State | A condition that is true or false right now |
 | ▶ | Command | An instruction: turn on, reset, play, send |
 
-Some handles also carry a hint next to them — `0-255`, `requires a ~ pin` — which tells you what the node expects before you connect anything. A handle that refuses to connect is usually one whose requirement is not met.
+Some handles carry a hint beside them, such as `0-255` or `requires a ~ pin`. The hint states what the node expects. A handle that refuses to connect has an unmet requirement.
 
 See [Edges](/docs/microflow-studio/edges) for which kinds pair well.
 

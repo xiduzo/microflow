@@ -3,16 +3,16 @@ title: Sense
 description: Sense nodes read data from the physical world — buttons, sensors, switches, and external services.
 ---
 
-Sense nodes are how your flow receives information from the outside world. They read from physical components connected to your Arduino, like buttons, sensors, and switches. They can also receive data from external services like MQTT.
+A Sense node brings information into your flow. Most read a component wired to your board: a button, a switch, a sensor. Others read your keyboard, a MIDI controller, or the network.
 
-Every flow usually starts with at least one Sense node — it is what kicks things off.
+Most flows start with a Sense node.
 
 Three Sense nodes need no Arduino at all: [Hotkey](/docs/microflow-studio/nodes/sense/hotkey) listens to your keyboard, [MIDI](/docs/microflow-studio/nodes/sense/midi) listens to a MIDI controller plugged into your computer, and [MQTT](/docs/microflow-studio/nodes/sense/mqtt) listens to the network.
 
-Sense nodes can read two kinds of signals:
+A Sense node reads one of two kinds of signal:
 
-- **Digital** — on or off, like a button being pressed or released
-- **Analog** — a continuous range of values, like a light sensor reading from 0 to 1023
+- **Digital** — on or off, such as a button pressed or released.
+- **Analog** — a range, such as a light sensor reading between `0` and `1023`.
 
 | Node | What it does |
 | --- | --- |

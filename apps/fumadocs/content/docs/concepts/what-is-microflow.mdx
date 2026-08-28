@@ -1,69 +1,69 @@
 ---
 title: What is Microflow?
-description: A working mental model of the two tools and how they relate.
+description: What each tool does, and when to use which.
 ---
 
-"Microflow" is not one program — it is two, designed to be used either separately or together. This page explains what each one does and why a project might use one, the other, or both.
+Microflow is three tools. Use Studio alone, or add a design-tool plugin.
 
 ## Microflow Studio
 
-A desktop app. The thing you open when you want to make hardware do something.
+The app you open to make hardware do something. It runs on Windows, macOS, and Linux, and in Chrome, Edge, or Opera.
 
-Studio gives you a **canvas** — a blank infinite grid — and a library of building blocks called **nodes**. You drag nodes onto the canvas, connect them, and configure them. Plug in an Arduino-compatible board over USB and Microflow runs your flow on it. No code, no compilation, no Arduino IDE.
+Studio gives you a canvas and a library of **nodes**. Drag nodes on, connect them, configure them, and plug a board in over USB. Studio runs the flow on the board. You write no code and run no compiler.
 
-Six categories of node cover everything Studio can do:
+Six categories of node cover everything Studio does:
 
-- **Sense** — read from the world (buttons, sensors, switches).
-- **Generate** — produce values from time, intervals, or constants.
-- **Shape** — transform values (math, smoothing, mapping).
-- **Decide** — apply logic (comparisons, gates, counters, delays).
-- **Express** — drive the world (LEDs, motors, sounds).
-- **Internal** — observe (Monitor) and document (Note) your flow.
+- **Sense** — read the world: buttons, sensors, switches, a keyboard, a MIDI controller, the network.
+- **Generate** — produce values from time, a pattern, or a fixed setting.
+- **Shape** — transform values: maths, rescaling, smoothing.
+- **Decide** — apply logic: comparisons, gates, change detection, delays.
+- **Express** — act: LEDs, motors, sounds, a Figma variable, a language model.
+- **Internal** — document a flow with a Note.
 
-Most flows are a chain like: Sense → Shape → Decide → Express. The Generate and Internal categories slot in wherever they are useful.
+Most flows are a chain: Sense → Shape → Decide → Express.
 
-Studio runs **everywhere**: macOS, Windows, Linux. The Arduino runs StandardFirmata; Studio sends commands to it over USB. The runtime that executes your flow lives inside the desktop app itself, not on the Arduino.
+Studio also generates an Arduino sketch from your flow, so a finished project can run on the board with Studio closed. See [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch).
 
 ## Microflow Hardware Bridge
 
-A Figma plugin. It turns a Figma file into the screen of a real device.
+A Figma plugin. It connects Figma variables to the outside world.
 
-The Bridge does only one thing: it connects Figma variables to the outside world. When something in your flow changes a value, the Bridge can write that value into a Figma variable. When something in Figma changes a variable, the Bridge can publish that value out to anything subscribed.
+When your flow changes a value, the Bridge writes it into a Figma variable. When Figma changes a variable, the Bridge publishes the new value. Two workflows follow:
 
-This is what unlocks the workflow product designers care about:
+> Make a Figma prototype react to a real button. Studio reads the button and publishes it over MQTT. The Bridge sets the variable. Figma redraws.
 
-> "Make my Figma prototype react to a real button press" — Studio reads the button, publishes via MQTT, the Bridge sets a variable, Figma redraws.
+> Make a real LED light up when someone taps a Figma button. The prototype changes a variable, the Bridge publishes it, and Studio's Figma node drives the LED.
 
-> "Make a real LED light up when the user taps a Figma button" — the Figma prototype changes a variable, the Bridge publishes via MQTT, Studio's MQTT (Sense) node receives it and drives the LED.
+The Bridge knows nothing about hardware. It speaks MQTT. Studio bridges MQTT and your board, and so could anything else that speaks MQTT.
 
-The Bridge does not know anything about hardware. It just speaks MQTT. Microflow Studio is what bridges the gap between MQTT and your Arduino — but anything else that publishes to MQTT (a Raspberry Pi, an ESP32, a custom script) could also drive the same Figma file.
+## Microflow for Penpot
+
+The same idea for [Penpot](https://penpot.app), the open-source design tool. It maps Penpot design tokens instead of Figma variables. It is experimental.
 
 ## How they fit together
 
-<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="Pipeline: Arduino + components ↔ USB/Firmata ↔ Microflow Studio ↔ MQTT ↔ Hardware Bridge Figma plugin ↔ variables ↔ Figma file MHB collection." />
+<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="The pipeline: an Arduino and its components, over USB and Firmata, into Microflow Studio, over MQTT, into the Hardware Bridge plugin, into variables in a Figma file's MHB collection." />
 
-The pipe between Studio and the Bridge is **MQTT**, an off-the-shelf messaging protocol. By default, both Studio and the Bridge connect to a free public MQTT broker — but you can [run your own](/docs/how-to/run-your-own-mqtt-broker) in seconds.
+MQTT is the pipe between Studio and a plugin. Both ends connect to a broker, and you can [run your own](/docs/how-to/run-your-own-mqtt-broker).
 
-Importantly:
-
-- **Studio works on its own.** You do not need the Bridge or Figma.
-- **The Bridge works on its own.** Anything that speaks MQTT can drive the Figma side.
-- **They are both free, open-source, and locally running** — your data does not have to leave your network.
+- **Studio works alone.** You need neither plugin.
+- **A plugin works with anything that speaks MQTT**, not only with Studio.
+- **All three are free and open source**, and run locally.
 
 ## When to use which
 
-| Project | Tool(s) |
+| Project | Tools |
 | --- | --- |
-| Make a thing that responds to physical inputs | Studio |
-| Prototype a smart device with no real hardware yet | Figma + Bridge |
-| Demo a connected product behaviour to a stakeholder | Studio + Bridge + Figma |
-| Run a workshop teaching electronics without code | Studio |
-| Plug your Figma prototype into a real button on a model you 3D-printed | Studio + Bridge + Figma |
+| A thing that responds to physical inputs | Studio |
+| A smart-device prototype with no hardware yet | Figma and the Bridge |
+| A demo of connected-product behaviour | Studio, the Bridge, and Figma |
+| A workshop teaching electronics without code | Studio |
+| A Figma prototype wired to a button on a 3D-printed model | Studio, the Bridge, and Figma |
 
-When you are unsure: start with Studio. The Bridge is an optional layer you can add at any point.
+If you are unsure, start with Studio. Add a plugin later.
 
-## Where to go next
+## Next
 
-- [Flows, signals, and events](/docs/concepts/flows-signals-events) — the model behind a Studio canvas.
-- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — what actually runs on the Arduino.
-- [Collaboration](/docs/concepts/collaboration) — how real-time multi-user editing fits in.
+- [Flows, signals, and events](/docs/concepts/flows-signals-events)
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge)
+- [Collaboration](/docs/concepts/collaboration)

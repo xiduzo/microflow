@@ -1,49 +1,42 @@
 ---
-title: Save, export, and share a flow file
-description: Persist a flow to disk, hand it to someone else, and open one they sent you.
+title: Export and share a flow file
+description: Write a flow to a file, hand it to someone else, and open one you were sent.
 ---
 
-A flow is just a file. You can save it, drop it into a chat, commit it to a repo. This guide covers the three things you will do with that file.
+A flow exports to a JSON file. Use a file to hand a flow over once. Use [collaboration](/docs/how-to/collaborate-on-a-flow) to work on a flow together.
 
-## Save the current flow
+## Export a flow
 
-Microflow Studio autosaves to its local store while you work, so closing the app does not lose your changes. To produce a *standalone* file you can move around:
+1. Open the flow.
+2. Click the export button in the dock at the bottom of the canvas.
+3. Your browser or operating system saves the file, named `<flow name>-<timestamp>.json`.
 
-1. Open the flow you want to export.
-2. **File → Save as…** (or `Cmd/Ctrl + Shift + S`).
-3. Pick a location and name. The file extension is `.microflow`.
+The file holds every node, every edge, every setting, and the canvas layout.
 
-The file contains the entire flow: every node, every edge, every setting, plus the canvas layout. It does **not** contain runtime state, the connected board's identity, or your MQTT credentials.
+The file does not hold runtime state, the identity of the connected board, or your MQTT and AI credentials. Those live in **Configuration** and belong to your machine.
 
-<Callout type="info" title="Want collaborative real-time editing instead?">
-Use the **Share** button in the top-right corner. See [Collaborate on a flow in real-time](/docs/how-to/collaborate-on-a-flow). File-based sharing is for one-shot handoffs; the Share link is for ongoing collaboration.
-</Callout>
+## Open a flow you were sent
 
-## Open a flow someone sent you
+1. Click the import button in the dock.
+2. Select the file.
 
-1. Receive the `.microflow` file (any channel — email, drag-drop, git).
-2. **File → Open…** in Microflow Studio.
-3. Select the file.
-
-The flow opens on a fresh canvas. Pin numbers, settings, and MQTT topics travel with it. If the original used a board you do not have plugged in, the sidebar keeps saying no microcontroller is connected until you plug in a matching one — the flow itself opens fine either way.
+Pin numbers and node settings arrive with the flow. If the flow was built for a board you do not have plugged in, the sidebar reports no microcontroller until you connect a matching board. The flow itself opens either way.
 
 ## Commit a flow to version control
 
-Treat `.microflow` files as text — they diff reasonably in git. The format is structured (Yjs document serialised to a stable form), so you can review changes with a normal `git diff`.
-
-A common layout:
+The export is JSON, so `git diff` shows a readable change. A common layout:
 
 ```
 my-project/
   flows/
-    main.microflow
-    demo.microflow
+    main.json
+    demo.json
   README.md
 ```
 
-For a project with many people editing the *same* flow simultaneously, prefer the [collaboration server](/docs/how-to/collaborate-on-a-flow) over a `git` workflow. Yjs handles concurrent edits; git merges of binary-ish documents do not.
+If several people edit the same flow at the same time, use [collaboration](/docs/how-to/collaborate-on-a-flow) rather than git. Yjs merges concurrent edits. Git does not merge this format well.
 
 ## Related
 
-- [Collaborate on a flow in real-time](/docs/how-to/collaborate-on-a-flow)
-- [Concepts: collaboration](/docs/concepts/collaboration) — what is *inside* a flow file.
+- [Collaborate on a flow in real time](/docs/how-to/collaborate-on-a-flow)
+- [Collaboration](/docs/concepts/collaboration)

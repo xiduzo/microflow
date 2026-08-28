@@ -1,52 +1,54 @@
 ---
 title: Flash firmware manually
-description: Take over the firmware step yourself, when Studio's automatic flash will not do it.
+description: Take over the firmware step when Studio's automatic flash does not complete.
 ---
 
-Studio handles firmware on its own. Every time it connects to a board it probes for Microflow's firmware, flashes it if it is missing, and connects. A board that has been used for something else — a sketch from the Arduino IDE, another tool, a colleague's project — recovers on the next connection with no action from you.
+Studio handles firmware on its own. On every connection it probes the board, flashes the firmware if the probe fails, and connects. A board you have used for something else recovers on the next connection.
 
-So doing it by hand is rare. It is worth doing when:
+Doing it yourself is therefore rare. Do it when:
 
-- The status cycles between **Connecting** and **Flashing firmware** and never settles.
-- The board connects but no pin ever responds, on any flow.
-- You interrupted a flash by unplugging the board mid-way.
-- You want to keep working while the board holds a sketch of your own.
+- The status moves between **Connecting** and **Flashing firmware** and never settles.
+- The board connects and no pin responds, on any flow.
+- You unplugged the board during a flash.
+- You want to keep a sketch of your own on the board while you work.
 
 ## Before you start
 
-Rule out the two causes that make an automatic flash fail, because they will make a manual one fail too:
+Rule out the two causes that break an automatic flash and a manual one alike.
 
 1. **The cable.** A charge-only cable connects nothing. See [Board not detected](/docs/troubleshooting/board-not-detected#1-the-cable).
-2. **Another program holding the port.** The Arduino IDE's Serial Monitor is the usual one. Close it — including the IDE itself on Windows.
+2. **Another program holding the port.** The Arduino IDE's Serial Monitor is the usual one. Close it, and on Windows close the whole IDE.
 
-## Let Studio do it
-
-The reliable path is to let the automatic flow run cleanly:
+## Let Studio run the flash cleanly
 
 1. Close every other program that talks to the board.
-2. Unplug the board. Count to five.
-3. Plug it back in, directly into the computer rather than a hub.
-4. Watch the sidebar. **Connecting**, then **Flashing firmware**, then a port name.
-5. **Do not unplug during Flashing firmware.** It can take up to a minute.
+2. Unplug the board and wait five seconds.
+3. Plug it into the computer directly, not into a hub.
+4. Watch the sidebar: **Connecting**, then **Flashing firmware**, then a port name.
 
-That is the whole procedure for the great majority of cases.
+Do not unplug during **Flashing firmware**. It takes up to a minute.
+
+This procedure fixes most cases.
 
 ## Flash from the Arduino IDE
 
-If the board will not take a flash from Studio at all, prove the board can be written to at all:
+If Studio cannot flash the board at all, check that anything can write to it.
 
 1. Open the Arduino IDE.
-2. **Tools → Board** — pick your board. **Tools → Port** — pick the port.
-3. **File → Examples → 01.Basics → BareMinimum**, and upload it.
+2. Select **Tools → Board**, then **Tools → Port**.
+3. Open **File → Examples → 01.Basics → BareMinimum** and upload it.
 
-- **The upload succeeds** — the board and the cable are fine. Close the IDE completely and let Studio connect again.
-- **The upload fails**, particularly with `avrdude: stk500_recv()` — the board has a bootloader problem. That needs hardware-level recovery (an ISP programmer) and is outside what Microflow can do.
+**If the upload succeeds**, the board and the cable work. Close the IDE completely and let Studio connect.
+
+**If the upload fails**, and especially if it reports `avrdude: stk500_recv()`, the board has a bootloader fault. Recovery needs an ISP programmer and is outside what Microflow can do.
 
 ## Verify it worked
 
-Add any [Sense](/docs/microflow-studio/nodes/sense) node and a [Monitor](/docs/microflow-studio/nodes/express/monitor), connect them, and interact with the component. Values appearing means firmware, board, and flow are all healthy.
+1. Add any [Sense](/docs/microflow-studio/nodes/sense) node.
+2. Add a [Monitor](/docs/microflow-studio/nodes/express/monitor) node and connect the two.
+3. Touch the component.
 
-If the Monitor stays blank, the firmware is not the problem — see [Nothing happens on the board](/docs/troubleshooting/pin-conflicts).
+Values in the Monitor mean the firmware, the board, and the flow all work. A blank Monitor means the firmware is not the problem — see [Nothing happens on the board](/docs/troubleshooting/pin-conflicts).
 
 ## Related
 

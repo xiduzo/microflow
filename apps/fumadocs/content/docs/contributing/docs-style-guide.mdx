@@ -3,9 +3,9 @@ title: Documentation style guide
 description: Templates and conventions for the Microflow docs.
 ---
 
-These docs follow the [Diátaxis](https://diataxis.fr/) framework. Each page is one of four types — **Tutorial**, **How-to**, **Reference**, or **Explanation** — and each type has its own job.
+These docs follow the [Diátaxis](https://diataxis.fr/) framework. Every page is a **Tutorial**, a **How-to**, a **Reference**, or an **Explanation**.
 
-When in doubt, ask yourself: is this page teaching, problem-solving, listing facts, or explaining? The answer tells you which template to use.
+To choose a type, ask what the page does: teach, solve a problem, list facts, or explain. Then use the matching template below.
 
 ## File layout
 
@@ -199,10 +199,10 @@ description: Shooting script for the <runtime> <subject> video.
 
 Rules:
 
-- **Narration goes in quotation marks.** Everything else is a stage direction.
-- **Every script that can fail has a deliberate failure**, recorded live. Showing the error on screen is what makes the doc page's troubleshooting section recognisable later.
-- **Do not cut a wait short** where the wait is the content — a firmware flash, a model thinking, ten seconds of a dead cable.
-- The [production guide](/docs/videos/production-guide) holds the capture settings and the publishing checklist. Do not repeat them in a script.
+- **Put narration in quotation marks.** Everything else is a stage direction.
+- **Record a deliberate failure** in every script where the task can fail. The reader recognises the error later because they have seen it.
+- **Do not cut a wait short** when the wait is the content: a firmware flash, a model thinking, a dead cable.
+- **Do not repeat the [production guide](/docs/videos/production-guide).** It holds the capture settings and the publishing checklist.
 
 ## Embedding a video in a doc page
 
@@ -216,45 +216,73 @@ One line describing what the viewer will see.
 
 When the recording exists, add `src="…"` to the same tag. Nothing else on the page changes.
 
-A page must read correctly with the video removed. The text is the source of truth; the video demonstrates it.
+Every page must read correctly with the video removed. The text is the source of truth. The video demonstrates it.
 
-## Voice and tone
+## Writing rules
 
-- **Friendly, not formal.** Address the reader as *you*. Avoid corporate boilerplate.
-- **Direct.** "Click X" beats "you may wish to consider clicking X".
-- **No hedging unless real.** "Sometimes a board needs a driver" is fine; "it might possibly perhaps require" is not.
-- **No emoji** unless asked.
-- **No "AI" voice.** Avoid "let's", "in this guide we", "it is worth noting that".
+Write in Simplified Technical English. The rules below are not style preferences. They exist to remove ambiguity.
+
+### Sentences
+
+- **One instruction per sentence.** Two actions means two sentences, or two numbered steps.
+- **Keep instructions under 20 words.** Keep descriptions under 25.
+- **Use the imperative for instructions.** "Open the settings", not "you can open the settings" or "the settings can be opened".
+- **Use the present tense.** "The node emits a value", not "the node will emit a value".
+- **Use the active voice.** Name who does the thing.
+
+### Words
+
+- **One word for one thing.** The **Add node** palette is always the **Add node** palette. Never "the node menu", "the palette", or "the picker".
+- **Name UI elements exactly as they are labelled.** Copy the label from the app.
+- **Replace a pronoun with its noun** when more than one noun could be meant. "Open the node. The node shows its pin." not "Open it. It shows its pin."
+- **Delete hedges.** No "simply", "just", "basically", "of course", "obviously", "actually", "in practice".
+- **Delete flourishes.** No jokes, no idioms, no rhetorical questions, no "the trick is", no "worse than not working".
+- **Use the definite article.** "Press the button", not "press button".
+- **Do not stack nouns.** Three-word noun clusters at most.
+
+### Structure
+
+- **Put the warning before the step it applies to**, never after.
+- **State a condition before the action.** "If the status shows an error, unplug the board." not "Unplug the board if the status shows an error."
+- **Give every procedure a verify step.** Say what the reader should see.
+- **Order troubleshooting causes by frequency**, most common first, and say so.
+
+### What to cut
+
+Cut a paragraph if it does one of these:
+
+- Restates the heading.
+- Explains why the docs are organised the way they are.
+- Tells the reader how to feel about the product.
+- Repeats something the next section says better.
 
 ## Code samples
 
-- TypeScript and Rust samples should be syntactically correct and copy-pasteable.
-- Use `sh` for shell, `ts` for TypeScript, `rust` for Rust.
-- Example values should be sensible (not `foo`/`bar` — use realistic names like `light_level`).
+- Make every sample syntactically correct and copy-pasteable.
+- Tag the fence `sh` for shell, `ts` for TypeScript, `rust` for Rust.
+- Use realistic example values such as `light_level`. Never `foo` or `bar`.
 
 ## Cross-linking
 
-Every page should link to:
+Link every page three ways:
 
-- **Up** — the section index (`/docs/learn`, `/docs/how-to`, etc.).
-- **Across** — at least one Related link to a sibling page.
-- **Down** — to specific reference pages when mentioning a node by name.
+- **Up** — to the section index, such as `/docs/learn`.
+- **Across** — to at least one sibling page, under **Related**.
+- **Down** — to the reference page for every node you name.
 
-Wherever you mention a node, link to its reference page using `[NodeName](/docs/microflow-studio/nodes/<category>/<name>)`.
+Link a node like this: `[NodeName](/docs/microflow-studio/nodes/<category>/<name>)`.
 
-## When to add a new page
+## When to add a page
 
-- **A reader could solve a real problem with it.** New how-to.
-- **A reader might want to learn the concept once.** New concept page.
-- **A reader needs to look up specific facts.** New reference entry (if it is a new node, add it; otherwise extend an existing page).
-- **It is something only a contributor needs.** Put it under `contributing/`.
+| The page lets a reader… | Add it to |
+| --- | --- |
+| Solve one specific problem | `how-to/` |
+| Learn a concept once | `concepts/` |
+| Look up a fact | the node reference |
+| Contribute to the project | `contributing/` |
 
-## When *not* to add a new page
-
-- Internal architecture notes — keep those in the repo's `docs/` folder, not in user-facing docs.
-- Things that change often — link to GitHub or external docs instead of duplicating.
-- One-off announcements — use the GitHub release notes.
+Do not add a page for internal architecture notes, for anything that changes often, or for an announcement. Put architecture notes in the repo's `docs/` folder, link to external docs instead of copying them, and announce releases in the GitHub release notes.
 
 ## Publishing
 
-Docs are part of the same repo, so a docs change is a regular pull request. Run `bun run dev` to preview locally before sending it.
+A docs change is a normal pull request. Run `bun run dev` and check the page before you open it.

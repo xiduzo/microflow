@@ -3,7 +3,7 @@ title: Collaborate on a flow in real time
 description: Invite someone to a flow and edit it together, with both screens in sync.
 ---
 
-Several people can have the same flow open and see each other's changes as they happen, like a Figma file. Access is granted per person, by email — the link on its own grants nothing.
+Several people can open the same flow and see each other's changes as they happen. Access is granted per person, by email.
 
 <Video title="Collaborate on a flow" duration="3:30" script="/docs/videos/collaborate">
 Inviting an editor, live cursors on two machines, and what changes when you switch someone to viewer.
@@ -11,53 +11,55 @@ Inviting an editor, live cursors on two machines, and what changes when you swit
 
 ## What you need
 
-- A Microflow account, and a saved flow. The **Local Flow** cannot be shared — it lives in your browser.
-- An email address for each person you are inviting.
+- A Microflow account and a saved flow. The **Local Flow** cannot be shared. It lives in your browser.
+- An email address for each person you invite.
 
 ## Steps
 
-1. Open the flow, then open its **settings** from the dock at the bottom of the canvas.
+1. Open the flow, then open its settings from the dock at the bottom of the canvas.
 2. Find the **Collaborators** section and click **Share**.
-3. Type their email address.
-4. Choose a role:
+3. Enter the person's email address.
+4. Select a role:
    - **Editor** — can change the flow.
-   - **Viewer** — can open, pan, zoom, and select, but change nothing.
-5. Submit. If they already have an account they are added immediately; if not, the row shows **Invited** and they get access when they sign up.
+   - **Viewer** — can open, pan, zoom, and select, and can change nothing.
+5. Submit. A person with an account is added at once. A person without one shows as **Invited** and gets access when they sign up.
 6. Send them the link from the same dialog.
 
-<Callout type="warn" title="The link does not grant access">
-Copying the link and sending it to someone who has not been added does nothing for them. The link opens the flow for people who already have access — the email invite is what grants it.
+<Callout type="warn" title="The link grants no access">
+Sending the link to someone you have not added does nothing for them. The link opens the flow for people who already have access. The email invite grants the access.
 </Callout>
 
 ## Verify it worked
 
-Their row appears in the collaborators table with their role. Once they open the flow, their cursor appears on your canvas with their name on it.
+The person appears in the collaborators table with their role. When they open the flow, their cursor appears on your canvas with their name beside it.
 
 ## Change or remove access
 
-Same page. Change someone's role from the row's menu, and it takes effect on their screen immediately — a viewer gets a **View only** badge, their nodes stop moving, and the delete key stops doing anything.
+Change a role from the row's menu on the same page. The change applies at once: a viewer gets a **View only** badge, their nodes stop moving, and the delete key stops working.
 
-A pending invite can be withdrawn before it is accepted. Only the flow's owner can invite, change roles, or delete the flow.
+You can withdraw a pending invite before it is accepted. Only the flow's owner can invite people, change roles, or delete the flow.
 
-## Who runs the hardware?
+## Who runs the hardware
 
 The flow is shared. The hardware is not.
 
-The board is plugged into one person's machine, so everybody else's sidebar correctly says no microcontroller is connected. The **values** from that board travel with the flow, so a collaborator with no hardware at all can watch the sensors and edit the flow that reacts to them — which is how you run a workshop with one kit. See [Collaborate without hardware](/docs/how-to/collaborate-without-hardware).
+The board is plugged into one person's machine, so every other sidebar correctly reports no microcontroller.
+
+Live values are local too. Each person's Monitor nodes show their own machine's runtime, so a collaborator without a board sees the flow but no readings. See [Collaborate without hardware](/docs/how-to/collaborate-without-hardware).
 
 ## What stays in sync
 
-**Synced:** node positions, node settings, edges, and the live values flowing through the flow.
+**Synced:** node positions, node settings, edges, each person's cursor, and each person's selection.
 
-**Per machine:** which board is connected, and the local view — your zoom and pan are yours.
+**Per machine:** which board is connected, the live values on the nodes, and your zoom and pan.
 
 ## Conflicts
 
-Microflow uses [Yjs](https://yjs.dev), so simultaneous edits merge rather than erroring. If two of you change the same setting at the same instant, one of them wins. There is no lock, no merge dialog, and no way to lose the document — but there is also nothing to stop you quietly undoing each other, so talk first.
+Microflow uses [Yjs](https://yjs.dev), so simultaneous edits merge instead of failing. If two people change one setting at the same instant, one change wins. There is no lock and no merge dialog, and you cannot lose the document. Nothing stops two people undoing each other's work, so agree who edits what.
 
-Edits made offline are stored locally and merged when you reconnect. There is no save button.
+Edits made offline are stored locally and merge when you reconnect. There is no save button.
 
 ## Related
 
 - [Collaborate on a flow without hardware](/docs/how-to/collaborate-without-hardware)
-- [Collaboration](/docs/concepts/collaboration) — how the sync model works.
+- [Collaboration](/docs/concepts/collaboration)

@@ -20,7 +20,7 @@ Your flow does not get compiled and uploaded to the board. Instead, Microflow up
 
 These instructions follow the [Firmata protocol](https://github.com/firmata/protocol) — a thin, well-documented standard for talking to microcontrollers. Whatever you build in Microflow ends up as a sequence of Firmata commands.
 
-This has three big consequences:
+Running the logic on your computer has three consequences:
 
 ### 1. The board is largely interchangeable
 
@@ -30,7 +30,7 @@ That stops being true the moment you leave the USB tether. Microflow can also *g
 
 ### 2. The board is not autonomous
 
-Pull the USB cable and the board stops responding to your flow. The "logic" lives in your computer; the board is a remote-controlled bag of pins. This is the right trade-off for prototyping — you can change behaviour at the speed of dragging a node — but it is *not* the right trade-off for shipping a product into the world.
+Pull the USB cable and the board stops responding to your flow. The "logic" lives in your computer; the board is a remote-controlled bag of pins. That is the right trade-off while prototyping, because you change behaviour at the speed of dragging a node. It is the wrong trade-off for a finished product.
 
 If you reach the stage where you want a project to run untethered, you do not have to rewrite it. Open **Show code** and Microflow generates the equivalent Arduino sketch, which you can download and upload with the Arduino IDE. The board then runs on its own with Microflow closed. See [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch).
 
@@ -50,11 +50,11 @@ Studio is built with [Tauri](https://tauri.app), so the same desktop app is part
 
 When you edit a flow on the canvas, the React side serialises the change, the Rust side reconciles it against the running graph, and the board's pin state is updated. You can do this while the flow is running.
 
-## Pin modes — why pin 13 just works for LED but not for a servo
+## Pin modes
 
 The Firmata protocol defines a pin "mode" — `INPUT`, `OUTPUT`, `INPUT_PULLUP`, `ANALOG`, `PWM`, `SERVO`, etc. Each Microflow node sets its pin to the right mode the moment it starts. This is why:
 
-- **The built-in LED on pin 13 just works** — `OUTPUT` is straightforward.
+- **The built-in LED on pin 13 works on any digital pin.** `OUTPUT` needs nothing special.
 - **A servo on pin 9 works because pin 9 supports PWM** — try pin 7 (no PWM) and the [Servo](/docs/microflow-studio/nodes/express/servo) node will not be able to drive it smoothly.
 - **A button on pin A0 works as a digital input** — analog pins can be used digitally on most boards.
 

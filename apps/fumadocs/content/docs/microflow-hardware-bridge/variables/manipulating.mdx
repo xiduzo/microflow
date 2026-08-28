@@ -24,21 +24,24 @@ You do not need to set up or know about MQTT topics to use this feature. Microfl
 <details>
 <summary>Advanced: MQTT topic format</summary>
 
-MQTT routes messages using "topics" — structured strings that act like addresses. Each variable has its own unique topic, based on your settings and the variable's ID in Figma.
+MQTT routes messages by topic. Each variable has its own topic, built from your identifier and the variable's ID in Figma.
 
-**Example publishing topic:**
+To set a variable, publish to:
+
 ```
-microflow/v1/xiduzo/YOUR_APP_NAME/variable/VariableID:1:25/set
+microflow/xiduzo/my-app/variable/1-25/set
 ```
 
 | Segment | Meaning |
 | --- | --- |
-| `microflow/v1` | Base topic for the Hardware Bridge |
+| `microflow` | The root for every Microflow topic |
 | `xiduzo` | Your configured [identifier](/docs/microflow-hardware-bridge/variables#mqtt-settings) |
-| `YOUR_APP_NAME` | A name for your client — any string without spaces (e.g. `my-app`) |
-| `variable` | Message type: a variable update |
-| `VariableID:1:25` | The Figma variable ID (in this case, `1:25`) |
-| `set` | The action to perform |
+| `my-app` | A name for your client. Any string without spaces. |
+| `variable` | The message type |
+| `1-25` | The Figma variable ID, with `VariableID:` removed and each `:` replaced by `-` |
+| `set` | The action |
+
+The plugin also publishes the full variable list, retained, to `microflow/xiduzo/figma/variables`. Read that topic to discover the IDs.
 
 </details>
 
@@ -57,18 +60,19 @@ You do not need to configure anything for this direction. When you change a vari
 <details>
 <summary>Advanced: MQTT subscribing topic format</summary>
 
-**Example subscribing topic:**
+To receive a variable's value, subscribe to:
+
 ```
-microflow/v1/xiduzo/plugin/variable/VariableID:1:25
+microflow/xiduzo/figma/variable/1-25
 ```
 
 | Segment | Meaning |
 | --- | --- |
-| `microflow/v1` | Base topic for the Hardware Bridge |
+| `microflow` | The root for every Microflow topic |
 | `xiduzo` | Your configured identifier |
-| `plugin` | Identifies this message as coming from the Figma plugin |
-| `variable` | Message type: a variable update |
-| `VariableID:1:25` | The Figma variable ID |
+| `figma` | The message comes from the Figma plugin |
+| `variable` | The message type |
+| `1-25` | The Figma variable ID, with `VariableID:` removed and each `:` replaced by `-` |
 
 </details>
 

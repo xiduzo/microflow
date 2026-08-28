@@ -3,12 +3,12 @@ title: Microflow Studio
 description: The app where you build interactive hardware projects on a visual canvas.
 ---
 
-Microflow Studio is where you build. Drag [nodes](/docs/microflow-studio/nodes) onto a canvas, connect them with [edges](/docs/microflow-studio/edges), and Studio runs the whole thing on your board over USB. No compile step, no run button — edit while it runs and the change applies immediately.
+You build in Studio. Drag [nodes](/docs/microflow-studio/nodes) onto a canvas, connect them with [edges](/docs/microflow-studio/edges), and Studio runs the result on your board over USB. There is no compile step and no run button. Edit the canvas while the flow runs, and the change applies at once.
 
-It comes in two forms, and they do the same thing:
+Studio comes in two forms that do the same thing:
 
-- **The desktop app** — Windows, macOS, and Linux. Auto-detects your board. Required for MQTT and AI provider configuration. [Download it](https://github.com/xiduzo/microflow-t-stack/releases).
-- **The web app** — Chrome, Edge, or Opera, with nothing to install. See [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser).
+- **The desktop app**, for Windows, macOS, and Linux. It finds your board on its own, and it is the only form that configures MQTT brokers and AI providers. [Download it](https://github.com/xiduzo/microflow-t-stack/releases).
+- **The web app**, in Chrome, Edge, or Opera, with nothing to install. See [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser).
 
 <Video title="A tour of Microflow Studio" duration="5:00" script="/docs/videos/studio-tour">
 Every part of the window named and used: sidebar, canvas, dock, node settings, and the three views of a flow.
@@ -16,56 +16,52 @@ Every part of the window named and used: sidebar, canvas, dock, node settings, a
 
 ## New here?
 
-Start with [Learn](/docs/learn) — six short lessons from blank canvas to working hardware. If your board is already on the desk, [connect it first](/docs/how-to/connect-a-microcontroller).
+Start with [Learn](/docs/learn). If your board is already on the desk, [connect it first](/docs/how-to/connect-a-microcontroller).
 
 ## The window
 
-Three regions.
-
 ### The sidebar
 
-Everything *about* your flow, top to bottom:
+Everything about your flow, top to bottom:
 
-- **Flow switcher** — every flow you have, and the button to make a new one. `Cmd/Ctrl + 1`–`9` jumps between them.
-- **Microcontroller status** — which board is connected, or why none is. The question mark beside it opens [Board not detected](/docs/troubleshooting/board-not-detected).
-- **The current flow** — its three views: **Edit flow**, **Show circuit**, **Show code**.
-- **General** — **My flows**, **Templates**, and **Configuration** for [MQTT brokers](/docs/how-to/run-your-own-mqtt-broker) and [AI providers](/docs/how-to/connect-a-local-llm). Those are set once and shared by every flow.
+- **Flow switcher** — every flow you have, and the button to create one. `Cmd/Ctrl + 1` to `9` switches between them.
+- **Microcontroller status** — which board is connected, or why none is. The question mark opens [Board not detected](/docs/troubleshooting/board-not-detected).
+- **The current flow** — its three views: **Edit flow**, **Show circuit**, and **Show code**.
+- **General** — **My flows**, **Templates**, and **Configuration** for [MQTT brokers](/docs/how-to/run-your-own-mqtt-broker) and [AI providers](/docs/how-to/connect-a-local-llm). You set those once, and every flow uses them.
 
 ### The canvas
 
-The flow itself.
-
-- **Add a node** — `Cmd/Ctrl + K`, or the `+` in the dock. The palette is searchable: type what the thing does, not what it is called.
+- **Add a node** — press `Cmd/Ctrl + K`, or click `+` in the dock. Search the palette by what the node does, not only by its name.
 - **Connect nodes** — drag from a handle on the right of one node to a handle on the left of another.
-- **Move** — drag a node. **Pan** — drag empty canvas. **Zoom** — scroll.
-- **Find your way back** — `Shift + 1` fits everything, or just what you have selected.
+- **Move a node** — drag it. **Pan** — drag the empty canvas. **Zoom** — scroll.
+- **Fit the view** — press `Shift + 1`. With nodes selected, it fits the selection.
 
-Each node shows its live value while the flow runs. That is the fastest debugging tool in the app — see [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node).
+Each node shows its live value while the flow runs. See [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node).
 
 ### The dock
 
-Along the bottom: **add node**, **undo**, **redo**, **export this flow to a file**, and **flow settings** — where you rename a flow, [invite collaborators](/docs/how-to/collaborate-on-a-flow), and delete it. Undo and redo dim when there is nothing left to do.
+Along the bottom: **add node**, **undo**, **redo**, **export this flow to a file**, and **flow settings**. Undo and redo dim when there is nothing left to do. Flow settings is where you rename a flow, [invite collaborators](/docs/how-to/collaborate-on-a-flow), and delete it.
 
 ## Three views of one flow
 
-| View | What it is for |
+| View | Use it to |
 | --- | --- |
-| **Edit flow** | Building. The canvas. |
-| **Show circuit** | The wiring your flow implies, pin by pin. Build the physical side from it — see [Read the circuit view](/docs/how-to/read-the-circuit-view). |
-| **Show code** | The Arduino sketch your flow compiles to, downloadable as a `.ino` file — see [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch). |
+| **Edit flow** | Build the flow. |
+| **Show circuit** | Read the wiring your flow implies, pin by pin. See [Read the circuit view](/docs/how-to/read-the-circuit-view). |
+| **Show code** | Read and download the Arduino sketch your flow compiles to. See [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch). |
 
-The circuit and the code are generated from the flow every time you open them, so they cannot fall out of date.
+Studio generates the circuit and the code from the flow each time you open the view, so neither can fall out of date.
 
 ## In this section
 
 <Cards>
   <Card title="Nodes" href="/docs/microflow-studio/nodes" description="Every node, by category. Inputs, outputs, settings, wiring." />
-  <Card title="Edges" href="/docs/microflow-studio/edges" description="The connections between nodes — what they carry and what will not connect." />
+  <Card title="Edges" href="/docs/microflow-studio/edges" description="The connections between nodes, and what will not connect." />
   <Card title="Keyboard shortcuts" href="/docs/microflow-studio/keyboard-shortcuts" description="Every keystroke Studio responds to." />
 </Cards>
 
 ## Pointers
 
-- Want to *do* something specific? → [How-to guides](/docs/how-to)
-- Something is wrong? → [Troubleshooting](/docs/troubleshooting)
-- Want the *why*? → [Concepts](/docs/concepts)
+- To do something specific → [How-to guides](/docs/how-to)
+- To fix something → [Troubleshooting](/docs/troubleshooting)
+- To understand something → [Concepts](/docs/concepts)

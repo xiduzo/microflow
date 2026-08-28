@@ -9,7 +9,7 @@ Some sensors give readings that jump around even when conditions have not really
 
 **Example:** A light sensor reads 100, then 105, then 98, then 102 in quick succession, even though the light has not moved. The Smooth node averages these into a stable value around 101, making it much easier to work with.
 
-This is especially useful before feeding sensor data into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Map](/docs/microflow-studio/nodes/shape/map) node, where erratic values would cause unwanted triggering.
+Smoothing matters most before a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Map](/docs/microflow-studio/nodes/shape/map) node, where erratic values would cause unwanted triggering.
 
 ## Inputs
 

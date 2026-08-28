@@ -3,7 +3,7 @@ title: Glossary
 description: Microflow vocabulary in one place.
 ---
 
-Definitions for the terms that show up across these docs.
+Every Microflow term used in these docs.
 
 ### Analog pin
 A pin that can read a continuous range of voltages, typically `0`–`1023` on a 10-bit Arduino. Marked `A0`, `A1`, etc. on the board.
@@ -15,13 +15,13 @@ Short for [Microflow Hardware Bridge](/docs/microflow-hardware-bridge), the Figm
 The blank infinite grid in Microflow Studio where you place and connect nodes.
 
 ### Component
-The runtime equivalent of a node. When the flow runs, each node on the canvas instantiates a *component* in the Rust runtime. Most Microflow users never need this distinction; it shows up if you read source code or [contribute](/docs/contributing).
+The runtime equivalent of a node. Each node on the canvas creates a component in the Rust runtime. You need this term only if you read the source or [contribute](/docs/contributing).
 
 ### Debounce
-Filtering out the rapid spurious changes a mechanical input emits when it actually transitions once. See [Debounce a button](/docs/how-to/debounce-a-button).
+Filtering the rapid false changes a mechanical input produces when it changes once. See [Debounce a button](/docs/how-to/debounce-a-button).
 
 ### Decide
-The category of nodes that route or hold signals: Compare, Counter, Delay, Gate.
+The category of nodes that test and hold signals: Compare, Gate, Trigger, Delay.
 
 ### Digital pin
 A pin whose value is either HIGH (~5 V) or LOW (0 V). Numbered without a prefix on the Arduino: pin `2`, pin `9`, etc.
@@ -30,25 +30,25 @@ A pin whose value is either HIGH (~5 V) or LOW (0 V). Numbered without a prefix 
 The line connecting two nodes on the canvas. Carries values from the source node's output to the target node's input.
 
 ### Express
-The category of nodes that produce real-world output: LEDs, servos, motors, piezos, MQTT publishes, etc.
+The category of nodes that act: LEDs, servos, motors, buzzers, a Figma variable, a language model, and the Monitor node.
 
-### Firmata / StandardFirmata
-The protocol Microflow uses to talk to a microcontroller over USB. StandardFirmata is the specific implementation that runs on the board. See [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge).
+### Firmata and StandardFirmata
+The protocol Studio uses to talk to a board over USB. StandardFirmata is the program that runs on the board. See [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge).
 
 ### Flow
 The whole document on the canvas — every node, every edge, every setting.
 
 ### Generate
-The category of nodes that produce values without external input: constants, intervals, oscillators, triggers.
+The category of nodes that produce values without hardware: Constant, Counter, Interval, Oscillator.
 
 ### Handle
-The visible dot on a node where an edge can attach. Inputs are on the left, outputs on the right.
+The point on a node where an edge attaches. Inputs are on the left, outputs on the right. The shape shows what the handle carries: `●` value, `◆` event, `■` state, `▶` command.
 
 ### Hot-swap
-Editing a flow while it is running. Microflow applies changes immediately without restarting the connection.
+Editing a flow while it runs. Microflow applies each change at once, without restarting the connection.
 
 ### Internal
-The category of nodes used to debug and document a flow: Monitor, Note. They do not affect what the flow does.
+The category for the Note node, which documents a flow and changes nothing about it.
 
 ### MQTT
 A lightweight publish/subscribe messaging protocol Microflow uses to connect Studio to the Hardware Bridge (and to anything else that speaks MQTT). See [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker).
@@ -60,16 +60,25 @@ A single building block on the canvas. Each one has settings, inputs, outputs, a
 A way to fake an analog output by toggling a digital pin extremely fast. Used to dim LEDs and run servos. PWM-capable pins on an Arduino Uno are pins 3, 5, 6, 9, 10, 11.
 
 ### Sense
-The category of nodes that read from the world: buttons, sensors, switches, MQTT subscriptions.
+The category of nodes that read the world: buttons, sensors, switches, a keyboard, a MIDI controller, the network.
 
 ### Shape
 The category of nodes that transform values: Calculate, Function, Map, Smooth.
 
 ### Studio
-Short for [Microflow Studio](/docs/microflow-studio), the desktop app for building flows.
+Short for [Microflow Studio](/docs/microflow-studio), the app you build flows in. It runs on the desktop and in a browser.
 
 ### Topic (MQTT)
-The string identifier a publisher and subscriber use to find each other. Microflow uses topics like `figma/light_level` to connect a flow value to a Figma variable.
+The address a publisher and a subscriber use to find each other. The Hardware Bridge uses topics of the form `microflow/<identifier>/figma/variable/<variable-id>`.
+
+### Board target
+The board a flow's generated sketch and wiring diagram are built for: Arduino Uno, Arduino Nano, or ESP32. See [Choose a board target](/docs/how-to/choose-a-board-target).
+
+### Sketch
+The Arduino C++ file Microflow generates from a flow. See [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch).
+
+### Web Serial
+The browser feature Studio uses to reach a serial port in Chrome, Edge, and Opera. See [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser).
 
 ### Yjs
 The CRDT library that powers Microflow's real-time collaboration. See [Collaboration](/docs/concepts/collaboration).

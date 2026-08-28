@@ -1,22 +1,22 @@
 ---
 title: Warnings in the generated sketch
-description: What the triangle and the cross in the code view mean, and how to clear them.
+description: What the triangle and the cross in the code view mean, and how to clear each one.
 ---
 
-Open **Show code** for a flow and Microflow checks it against the board target you have chosen before it generates the sketch. Two kinds of result:
+When you open **Show code**, Microflow checks the flow against the board target before it generates the sketch. There are two results:
 
-- **A warning triangle** — the sketch generated, but part of your flow will not behave the way the canvas suggests. The download works. Read the comments at the top of the sketch; each problem names the node.
-- **A cross** — generation failed. **Download sketch** is disabled until you fix it on the canvas.
+- **A warning triangle.** The sketch generated. Part of the flow will not behave as the canvas suggests. The download works. Read the comments at the top of the sketch.
+- **A cross.** Generation failed. **Download sketch** stays disabled until you fix the flow.
 
-Every message names the node it is about. Fix the node, not the sketch — the sketch is regenerated every time you open the view.
+Every message names the node it refers to. Fix the node, not the sketch. Microflow regenerates the sketch each time you open the view.
 
 ## Pin does not exist on this target [#pins]
 
 > Node … uses pin *N*, which is not a usable GPIO on board target '…' (absent or reserved — e.g. ESP32 GPIO 6-11 drive the onboard flash)
 
-The pin you asked for is not on this board, or it is reserved for something the board needs.
+The pin is not on this board, or the board reserves it.
 
-**Fix:** move the node to a pin the target actually has, or change the target. On an ESP32, avoid GPIO 6–11 entirely — those drive the chip's own flash memory, and using them stops the board booting.
+**Fix:** move the node to a pin the target has, or change the target. On an ESP32, never use GPIO 6 to 11. They drive the chip's flash memory, and the board does not boot without them.
 
 ## Not a PWM pin [#pwm]
 
@@ -24,11 +24,11 @@ The pin you asked for is not on this board, or it is reserved for something the 
 
 > Node … drives brightness on pin *N*, which is not PWM-capable on board target '…' — the output degrades to on/off
 
-Dimming an LED, setting an intensity, and driving a servo all need a pin that can hold a partial output. On an Arduino Uno or Nano those are pins **3, 5, 6, 9, 10, and 11** — the ones marked `~` on the board.
+LED brightness, vibration intensity, and servo angle all need a pin that holds a partial output. On an Uno or a Nano, those are pins 3, 5, 6, 9, 10, and 11, marked `~` on the board.
 
 **Fix:** move the component to a PWM pin, on the board and in the node's settings.
 
-The LED case is the sneaky one: it still works, just as on and off with nothing in between. If your LED refuses to dim and there is no error on the canvas, this warning is why.
+The LED case is easy to miss. The LED still switches on and off, with nothing in between. If an LED refuses to dim and the canvas shows no error, this warning is the reason.
 
 ## Out of analog inputs [#analog]
 
@@ -36,33 +36,33 @@ The LED case is the sneaky one: it still works, just as on and off with nothing 
 
 > Node … reads analog input A*N*, but board target '…' has only *N* analog input(s)
 
-An Uno and a Nano have six analog inputs, A0–A5. A flow with seven analog sensors cannot run on one, however the canvas looks.
+An Uno and a Nano have six analog inputs, A0 to A5. A flow with seven analog sensors cannot run on either board.
 
-**Fix:** use fewer analog sensors, move some to digital pins if the component allows it, switch to a board with more inputs, or add an analog multiplexer and read it through an [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) node.
+**Fix:** use fewer analog sensors, move some to digital pins where the component allows it, choose a board with more inputs, or read an analog multiplexer through an [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) node.
 
 ## Needs networking [#networking]
 
 > Node … requires networking, which board target '…' does not offer — the generated network code assumes an ESP32-class board
 
-You have used a node that talks to the network in a flow targeting a board with no network hardware. An Uno cannot reach a broker on its own.
+The flow uses a node that reaches the network, and the target has no network hardware. An Uno cannot reach a broker on its own.
 
-**Fix:** switch the target to ESP32, or keep the networking on the computer side — Studio itself talks to MQTT brokers over your computer's connection, and that path works with any board.
+**Fix:** change the target to ESP32, or keep the networking on the computer. Studio reaches MQTT brokers over the computer's connection, which works with any board.
 
 ## MIDI claims the hardware serial [#midi]
 
 > Node … (Midi) uses serial MIDI on the board's primary hardware serial (31250 baud) — the USB Serial Monitor is unavailable while running, and a DIN-5 MIDI jack or shield is required
 
-Serial MIDI on the board takes over the same lines the USB serial connection uses. Two consequences: you cannot use the Arduino IDE's Serial Monitor while it runs, and you need a physical MIDI jack or shield — a USB MIDI controller plugged into your computer is a different thing entirely.
+Serial MIDI takes the same lines the USB serial connection uses. The Arduino IDE's Serial Monitor stops working while the sketch runs, and the board needs a physical MIDI jack or shield.
 
-**Fix:** if you meant a USB controller plugged into your computer, this warning does not apply to your setup and you can ignore it — but check the [MIDI node](/docs/microflow-studio/nodes/sense/midi) settings match what you actually have.
+**Fix:** if your controller plugs into the computer instead, this warning does not apply to your setup. Check the [MIDI node](/docs/microflow-studio/nodes/sense/midi) settings match your hardware.
 
 ## Node ids collide [#ids]
 
 > Node … shares the generated identifier '…' with … — rename the node ids so they differ by more than punctuation
 
-Two nodes produce the same variable name in the generated C++, because their ids differ only by punctuation.
+Two nodes generate the same variable name in C++, because their ids differ only by punctuation.
 
-**Fix:** rename one of the nodes so the names differ by more than a dash or an underscore.
+**Fix:** rename one node so the names differ by more than a dash or an underscore.
 
 ## Related
 

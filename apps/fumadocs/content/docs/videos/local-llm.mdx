@@ -1,6 +1,6 @@
 ---
 title: "Script: Add a local AI model"
-description: Shooting script for the 5:00 LLM node video using Ollama.
+description: Shooting script for the 5:00 LLM node video, using Ollama.
 ---
 
 <Video title="Add a local AI model" duration="5:00" />
@@ -9,10 +9,10 @@ description: Shooting script for the 5:00 LLM node video using Ollama.
 
 | | |
 | --- | --- |
-| **Goal** | A sensor reading triggers a local language model, and its answer appears in the flow. |
-| **Audience** | Someone comfortable in Studio who wants text generation without sending data anywhere. |
+| **Goal** | A sensor triggers a local language model, and the answer appears in the flow. |
+| **Audience** | Someone comfortable in Studio who wants text generation with no cloud service. |
 | **Runtime** | 5:00 |
-| **Hardware** | Uno with a button on pin 6. A machine that can run Ollama comfortably. |
+| **Hardware** | Uno with a button on pin 6. A machine that runs Ollama comfortably. |
 
 ## Where it appears
 
@@ -21,18 +21,18 @@ description: Shooting script for the 5:00 LLM node video using Ollama.
 
 ## Set up before you record
 
-- Use the **desktop app** — AI provider configuration is desktop-only.
-- Ollama installed and a small model already pulled, so the download is not part of the runtime. Say on camera that you pulled it in advance.
-- Ollama **stopped** at the start of the recording. Starting it is part of the script, and so is the failure when it is not running.
+- Use the desktop app. AI provider configuration is desktop-only.
+- Install Ollama and pull a small model in advance. Say on camera that you did.
+- Stop Ollama before recording. Starting it is part of the script, and so is the failure when it is not running.
 
 ## Shot list
 
 <Chapters>
   <Chapter time="0:00" title="What this is for">And what it is not for.</Chapter>
-  <Chapter time="0:40" title="Start Ollama">Terminal, one command.</Chapter>
+  <Chapter time="0:40" title="Start Ollama">One terminal command.</Chapter>
   <Chapter time="1:10" title="Add the provider">Base URL, test, saved.</Chapter>
-  <Chapter time="2:00" title="Deliberate failure — Ollama not running">The test fails, and what it says.</Chapter>
-  <Chapter time="2:40" title="The LLM node">Prompt, system prompt, model.</Chapter>
+  <Chapter time="2:00" title="Failure: Ollama stopped">The test fails, and what it says.</Chapter>
+  <Chapter time="2:40" title="The LLM node">Provider, model, prompts.</Chapter>
   <Chapter time="3:30" title="Trigger it from hardware">Button in, answer out.</Chapter>
   <Chapter time="4:20" title="Thinking, done, and error">The three other outputs.</Chapter>
 </Chapters>
@@ -41,71 +41,71 @@ description: Shooting script for the 5:00 LLM node video using Ollama.
 
 ### 0:00 — What this is for
 
-**Screen:** Finished flow on the canvas: Button → LLM → Monitor.
+**Screen:** The finished flow: Button → LLM → Monitor.
 
 **Narration:**
-> "A language model as a node in your flow. Press a button, get a sentence back. It runs on your own machine, so nothing you type or sense leaves the room, and it works with no internet at all. It is also slow compared to everything else in Microflow — a model takes seconds, not milliseconds — so it belongs at the end of a flow, not in the middle of a control loop."
+> "A language model as a node. Press a button, get a sentence back. It runs on your machine, so nothing you sense or type leaves the room, and it works with no internet. It is also slow compared to everything else in Microflow, so it belongs at the end of a flow, never inside a control loop."
 
 ### 0:40 — Start Ollama
 
-**Screen:** Terminal. Run the Ollama server. Then `ollama list` showing the model you pulled earlier.
+**Screen:** Terminal. Start the Ollama server, then run `ollama list`.
 
 **Narration:**
-> "Microflow does not ship a model — it talks to one you are already running. Ollama is the easiest of those. Start it, and check the model you want is there. I pulled this one before recording because that download is a few gigabytes and you do not need to watch it."
+> "Microflow ships no model. It talks to one you are already running, and Ollama is the easiest of those. Start it, and check your model is there. I pulled this one before recording, because that download is several gigabytes."
 
 **On-screen text:** `http://localhost:11434`
 
 ### 1:10 — Add the provider
 
-**Screen:** Sidebar → **Configuration** → **LLM**. Click **Add Provider**. Name `Local Ollama`, Base URL `http://localhost:11434`, API key left empty. Submit. Then click the test control and show the "is reachable" toast.
+**Screen:** **Configuration → LLM** → **Add Provider**. Name `Local Ollama`, base URL `http://localhost:11434`, no API key. Submit, then run the test. The success message appears.
 
 **Narration:**
-> "In Studio, Configuration, then LLM. Add a provider. Give it a name, and for the base URL use localhost, colon, one-one-four-three-four — that is Ollama's default. No API key; it is running on your own machine and there is nobody to authenticate to. Save it, then test it. That toast is the whole point of the test button: it tells you the problem is not Studio before you go looking in your flow."
+> "Configuration, then LLM. Add a provider. The base URL is localhost, colon, one-one-four-three-four, which is Ollama's default. No API key: it runs on your own machine. Save it, then test it. That test tells you the problem is not Studio, before you go looking in your flow."
 
 **On-screen text:** `Base URL http://localhost:11434 · no API key`
 
-### 2:00 — Deliberate failure: Ollama not running
+### 2:00 — Failure: Ollama stopped
 
-**Screen:** Switch to the terminal and stop Ollama. Return to Studio and press test again. The failure toast appears with its error description. Zoom in on it. Restart Ollama and test again — success.
+**Screen:** Stop Ollama in the terminal. Press test again. The failure message appears with its reason. Zoom in. Restart Ollama and test again.
 
 **Narration:**
-> "Stop the server and test again. You get a failure with the reason attached, and it is a connection error — Studio could not reach anything at that address. That is the error you will see if Ollama is not running, if you typed the port wrong, or if you put the address of a machine that is asleep. Start it again, test again, and you are back."
+> "Stop the server and test again. You get a connection error with the reason attached. You will see this if Ollama is not running, if the port is wrong, or if you pointed at a machine that is asleep."
 
 **On-screen text:** `[provider test failed — connection refused]`
 
 ### 2:40 — The LLM node
 
-**Screen:** Canvas. `Cmd/Ctrl + K`, add **LLM** — it is under **Express**. Open its settings: pick the provider, type the model name, fill in the **System** prompt (`You are a museum guide. Answer in one short sentence.`) and the **Prompt** (`Someone just walked up to the exhibit. Greet them.`).
+**Screen:** `Cmd/Ctrl + K`, add **LLM**, under **Express**. In its settings: select the provider, type the model name, then fill in **System** (`You are a museum guide. Answer in one short sentence.`) and **Prompt** (`Someone just walked up to the exhibit. Greet them.`).
 
 **Narration:**
-> "The LLM node lives under Express, because it is something your flow *does*, not something it senses. Pick the provider you just made and name the model. The system prompt sets the character — keep it short, and tell it how long to answer, because a model with no length instruction will write you an essay. The prompt below it is the actual request."
+> "The LLM node lives under Express, because it is something your flow does. Select the provider and name the model. The system prompt sets the character and the answer length. Say how long you want the answer, or you get an essay. The prompt below it is the request."
 
 ### 3:30 — Trigger it from hardware
 
-**Screen:** Add a **Button** node on pin 6. Wire Button `event` → LLM `trigger`. Add a **Monitor** in `raw` mode on the LLM's `value` output. Press the physical button. Wait — do not cut — until the text appears in the Monitor.
+**Screen:** Add a **Button** node on pin 6. Connect Button `event` to LLM `trigger`. Add a **Monitor** node in `raw` mode on the `value` output. Press the button. Do not cut. Wait for the text.
 
 **Narration:**
-> "It needs a trigger; it does not run on its own. Wire a button's event into the node's trigger input, and hang a Monitor in raw mode off its value output so you can read what comes back. Press the button — and now we wait, because this is what it actually feels like. There it is."
+> "It needs a trigger. Connect a button's event to the trigger input, and hang a Monitor in raw mode on the value output. Press the button. Now we wait, because this is what it actually feels like."
 
 <Callout type="warn" title="Do not cut the wait">
-Show the real latency, unedited. A viewer who expects an instant answer will assume it is broken at four seconds.
+Show the real latency. A viewer who expects an instant answer assumes it is broken at four seconds.
 </Callout>
 
 ### 4:20 — Thinking, done, and error
 
-**Screen:** Zoom on the LLM node's four outputs. Wire `thinking` into an LED node's `true`/`false` inputs. Press the button again: the LED is on while the model works and goes out when the answer lands.
+**Screen:** Zoom on the node's four outputs. Connect `thinking` to an LED node's `true` and `false` inputs. Press the button again. The LED is on while the model works.
 
 **Narration:**
-> "That wait is why the node has four outputs. *Value* is the text. *Thinking* is true from the moment you trigger it until the answer arrives — wire it to a light and your prototype can show it is working instead of looking dead. *Done* fires once when the answer is complete, which is what you chain the next thing to. And *error* fires if the model could not be reached, so your flow can react to that instead of silently stopping."
+> "That wait is why the node has four outputs. Value is the text. Thinking is true from the trigger until the answer arrives, so wire it to a light and your prototype shows it is working. Done fires once, when the answer is complete, and that is what you chain the next step to. Error fires when the model could not be reached."
 
 **On-screen text:** `value · thinking · done · error`
 
 ## Deliberate failure
 
-The stopped server at 2:00, tested from inside Studio so the real error text is on screen.
+The stopped server at 2:00, tested from inside Studio so the real error is on screen.
 
 ## Post-production notes
 
-- Show the model's real latency at least once at full speed. A second occurrence may be sped up with a visible badge.
-- Do not show a cloud API key on screen at any point, even a revoked one.
-- Caption the generated text — it will differ from take to take, so caption from the final take, not the script.
+- Show the real latency at full speed at least once. A second occurrence may be sped up with a visible badge.
+- Never show an API key, even a revoked one.
+- Caption the generated text from the final take, not from this script.

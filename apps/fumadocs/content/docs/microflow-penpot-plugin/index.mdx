@@ -20,7 +20,7 @@ Penpot uses **design tokens** where Figma uses variables. The plugin maps tokens
 
 - [Penpot](https://penpot.app/) (cloud or self-hosted) — open-source design tool.
 - The Microflow plugin for Penpot installed in your file. Currently distributed via the open-source repo; see [Build from source](/docs/contributing/build-from-source).
-- [Microflow Studio](/docs/microflow-studio) running with a flow that has an [MQTT (Express) node](/docs/microflow-studio/nodes/express/figma).
+- [Microflow Studio](/docs/microflow-studio) running a flow that has a [Figma node](/docs/microflow-studio/nodes/express/figma).
 - An MQTT broker reachable from both — the [default public broker](/docs/microflow-hardware-bridge/mqtt) is fine for prototyping.
 
 ## How it works
@@ -41,7 +41,7 @@ The wire format is identical to the Figma plugin's — the same MQTT broker can 
 | Penpot → Studio (design drives hardware) | Not yet supported |
 | Numeric tokens bound to text | Not yet supported |
 | Public plugin distribution | No — install via [build from source](/docs/contributing/build-from-source) |
-| MQTT topic format | Stable: `figma/<token-name>` (intentionally shares format with Figma Bridge) |
+| MQTT topics | `microflow/<identifier>/penpot/variable/<token-path>` |
 
 If you need a feature-complete bridge today, use the [Figma Hardware Bridge](/docs/microflow-hardware-bridge) instead.
 

@@ -1,50 +1,51 @@
 ---
 title: MQTT will not connect
-description: Studio or a bridge plugin never reaches a connected state, or connects and nothing arrives.
+description: The connection never comes up, or it connects and no values arrive.
 ---
 
-Two very different problems wear the same clothes here. Work out which one you have first — it saves an hour.
+These are two different faults with the same appearance. Decide which one you have first.
 
 - **The connection never comes up.** Start at [The connection fails](#the-connection-fails).
-- **Both ends say connected, but no values arrive.** Skip to [Connected, but nothing arrives](#connected-but-nothing-arrives). This is the more common of the two, and none of the connection checks will help you.
+- **Both ends report a connection, and no values arrive.** Go to [Connected, but nothing arrives](#connected-but-nothing-arrives). No connection check helps here.
 
 <Video title="Set up an MQTT broker" duration="4:30" script="/docs/videos/mqtt-setup">
-Adding a broker, proving it works with the built-in test client, and the URL mistake that costs people an evening.
+Adding a broker, proving it with the test client, and the URL mistake that breaks it.
 </Video>
 
 ## The connection fails
 
 ### 1. The URL is not a WebSocket URL
 
-This is the most common cause by a distance. Microflow speaks **MQTT over WebSockets** — nothing else.
+This is the most common cause. Microflow speaks MQTT over WebSockets only.
 
 - Accepted: `wss://host:port/path` and `ws://host:port/path`.
-- Not accepted: `mqtt://`, `mqtts://`, or `tcp://`.
+- Rejected: `mqtt://`, `mqtts://`, and `tcp://`.
 
-Most broker documentation gives you the native address — `mqtt://host:1883` — because that is what a native client uses. You need the broker's **WebSocket** port instead. If a broker's documentation does not mention WebSockets at all, it will not work with Microflow.
+Broker documentation usually gives the native address, `mqtt://host:1883`, because a native client needs it. Use the broker's WebSocket port instead. A broker whose documentation never mentions WebSockets does not work with Microflow.
 
-If you leave parts out, Studio fills them in: protocol `wss`, port `8883`, path `/mqtt`. So `broker.example.com` becomes `wss://broker.example.com:8883/mqtt` — which is only right if that is genuinely where your broker listens.
+Studio fills in what you leave out: protocol `wss`, port `8883`, path `/mqtt`. So `broker.example.com` becomes `wss://broker.example.com:8883/mqtt`, which is correct only if your broker listens there.
 
 ### 2. Credentials
 
-If the broker requires a username and password, both ends need them, spelled identically. Brokers rarely report a bad password as anything more specific than a failed connection.
+If the broker requires a username and password, enter the same values at both ends. Most brokers report a wrong password as a failed connection and nothing more specific.
 
 ### 3. Prove the broker with the test client
 
-Do not build a flow to find out whether a broker works. Open **Configuration → MQTT** in the desktop app and use the **Test Client** at the bottom of the page:
+Do not build a flow to test a broker. Open **Configuration → MQTT** in the desktop app and use the **Test Client**.
 
 1. Subscribe to `test/#`.
-2. Publish anything to `test/message`.
-3. If it comes back, the broker is fine and the fault is downstream. If it does not, stop and fix the broker.
+2. Publish any message to `test/message`.
+3. Watch for the message to arrive.
 
-### 4. Your network is blocking it
+If the message arrives, the broker works and the fault is downstream. If it does not, fix the broker before you go further.
 
-Institutional and corporate networks commonly block outbound ports other than 80 and 443.
+### 4. Your network blocks the port
 
-- Try the same broker from a phone hotspot. Works there, fails on the office Wi-Fi? The network is the cause.
-- Fix: use a broker that serves WebSockets on 443, or run one locally.
+Corporate and institutional networks often block outbound ports other than 80 and 443.
 
-### 5. The broker itself
+Try the same broker on a phone hotspot. If it works there and fails on the office network, the network is the cause. Use a broker that serves WebSockets on port 443, or run a broker locally.
+
+### 5. The broker
 
 For a self-hosted broker:
 
@@ -53,37 +54,37 @@ ps aux | grep mosquitto          # is it running?
 nc -zv broker.example.com 8883   # is the port reachable?
 ```
 
-A Mosquitto install serves native MQTT only until you explicitly add a WebSocket listener. See [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker).
+A default Mosquitto install serves native MQTT only. Add a WebSocket listener — see [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker).
 
 ## Connected, but nothing arrives
 
-Both ends healthy, no errors anywhere, and no values. Almost always one of these three.
+Both ends report a connection. No error appears. No values arrive. One of these three is the cause.
 
-### 1. The unique identifiers do not match
+### 1. The unique identifiers differ
 
-Every message Microflow sends is addressed under your **unique identifier**:
+Microflow addresses every message under your unique identifier:
 
 ```
 microflow/<unique-id>/figma/variable/<variable-id>
 ```
 
-If Studio uses `workshop-01` and the plugin uses `Workshop-01`, both are connected to the broker, both are perfectly healthy, and neither will ever hear the other. It is case sensitive, and there is no error for this — it is indistinguishable from a broken sensor.
+If Studio uses `workshop-01` and the plugin uses `Workshop-01`, both ends connect, both stay healthy, and neither hears the other. The identifier is case sensitive, and no error reports a mismatch.
 
-Check both ends character by character. This is the first thing to check, every time.
+Compare the two identifiers character by character. Check this first, every time.
 
 ### 2. The plugin is closed
 
-A Figma or Penpot plugin only runs while its panel is open. Close the panel and the bridge stops, silently. Reopen it.
+A Figma or Penpot plugin runs only while its panel is open. Closing the panel stops the bridge and reports nothing. Open the panel again.
 
-### 3. The node is bound to a different variable
+### 3. The node uses a different variable
 
-Variables are addressed by their **ID**, not their name — so renaming a variable in Figma does not break anything, but deleting and recreating one does, even with the same name. Reopen the node's settings and pick the variable again from the list.
+Microflow addresses a variable by its ID, not its name. Renaming a variable in Figma is safe. Deleting a variable and creating a new one with the same name is not.
 
-If the variable list in the node's settings is empty, the plugin is not reachable — go back to the identifier check.
+Open the node's settings and select the variable again. If the variable list is empty, the plugin is unreachable — go back to check 1.
 
 ## Restart order
 
-When you want to clear stale state, do it in this order:
+To clear stale state, restart in this order:
 
 1. Close and reopen the plugin panel in Figma or Penpot.
 2. Reopen the flow in Studio.

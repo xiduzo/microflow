@@ -1,80 +1,83 @@
 ---
 title: Fade an LED with a potentiometer
-description: Read an analog sensor and use its full range to control LED brightness.
+description: Read an analog sensor and use its full range to set LED brightness.
 ---
 
-So far values have been on or off. A potentiometer (a "pot") gives you something richer: a value that smoothly slides between two extremes as you twist the knob. In this lesson, twisting the knob makes an LED grow brighter or dimmer.
+So far every value has been on or off. A potentiometer reports a range: turning the knob slides the value between two extremes. In this lesson the knob sets the LED's brightness.
 
 <Video title="Read a knob, fade an LED" duration="4:30" script="/docs/videos/knob-and-map">
-The knob wired up, the reading straight into the LED (which half works), and the Map node that fixes it.
+The knob wired up, the reading sent straight to the LED, and the Map node that fixes the result.
 </Video>
 
 ## What you need
 
-- A standard 10kΩ rotary potentiometer (three legs)
-- An LED and a 220Ω resistor
-- A breadboard and jumper wires
-- An Arduino and Microflow Studio
+- A 10 kΩ rotary potentiometer, with three legs.
+- An LED and a 220 Ω resistor.
+- A breadboard and jumper wires.
+- A board [connected to Studio](/docs/how-to/connect-a-microcontroller).
 
 <Callout type="info" title="Template available">
-  Studio ships this flow as the **Potentiometer Fade** template — open the **Templates** page and load it to skip the node-by-node setup.
+Studio ships this flow as the **Potentiometer Fade** template, under **Templates**.
 </Callout>
 
 ## Step 1 — Wire the potentiometer
 
-A pot has three legs: two outer legs and a middle "wiper". The outer legs go to power and ground, the wiper reports a voltage between them.
+A potentiometer has two outer legs and a middle leg, called the wiper. The outer legs take power and ground. The wiper reports a voltage between them.
 
 | Connection | From | To |
 | --- | --- | --- |
-| Power | Arduino 5V | One outer leg of the pot |
-| Ground | Arduino GND | The other outer leg of the pot |
-| Signal | Middle (wiper) leg of the pot | Arduino **A0** (an analog pin) |
+| Power | 5V | One outer leg |
+| Ground | GND | The other outer leg |
+| Signal | The middle leg | **A0** |
+
+Swapping the two outer legs reverses the direction of the reading. It damages nothing.
 
 ## Step 2 — Wire the LED
 
-The LED needs to be on a **PWM** pin so we can dim it. On an Uno, PWM pins are marked with a `~` (3, 5, 6, 9, 10, 11).
+The LED needs a PWM pin, because dimming needs a partial output. On an Uno, the PWM pins are 3, 5, 6, 9, 10, and 11, marked `~` on the board.
 
 | Connection | From | To |
 | --- | --- | --- |
-| Signal | Arduino pin 9 | 220Ω resistor → long leg of the LED |
-| Ground | Short leg of the LED | Arduino GND |
+| Signal | Pin 9 | The 220 Ω resistor, then the long leg of the LED |
+| Ground | The short leg of the LED | GND |
 
 ## Step 3 — Build the flow
 
-In a new flow, add:
+1. Add a [Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer) node and set **Pin** to `A0`.
+2. Add a [Map](/docs/microflow-studio/nodes/shape/map) node.
+3. Add an [LED](/docs/microflow-studio/nodes/express/led) node and set **Pin** to `9`.
+4. Connect the Potentiometer node's `value` output to the Map node's `value` input.
+5. Connect the Map node's `to` output to the LED node's `value` input.
 
-1. A [**Potentiometer**](/docs/microflow-studio/nodes/sense/potentiometer) node — set its pin to `A0`.
-2. A [**Map**](/docs/microflow-studio/nodes/shape/map) node.
-3. An [**LED**](/docs/microflow-studio/nodes/express/led) node — set **Pin** to `9`.
-4. Connect Potentiometer → Map → LED.
+Now set the ranges in the Map node:
 
-The Potentiometer outputs a number from `0` to `1023`. The LED expects a brightness from `0` to `255`. The Map node converts between them.
+- **From** — min `0`, max `1023`. That is what an analog pin reads.
+- **To** — min `0`, max `255`. That is what LED brightness accepts.
 
-In the Map node settings:
+## Step 4 — Test it
 
-- **From min** = `0`
-- **From max** = `1023`
-- **To min** = `0`
-- **To max** = `255`
+Turn the knob. The LED fades between off and full brightness across the whole travel of the knob.
 
-## Step 4 — Try it
+If it does not, check these in order.
 
-Twist the knob. The LED should fade smoothly between off and full brightness.
+| Symptom | Cause |
+| --- | --- |
+| The LED reaches full brightness in the first quarter turn | The Map node is missing, or its ranges are wrong. |
+| The LED will not dim, only switch | The LED is on a pin without PWM. Move it to 3, 5, 6, 9, 10, or 11. |
+| The LED stays dark or stays bright | 5 V and ground are swapped on the outer legs, or the wiper is on an outer leg. |
 
-If the brightness only changes in big jumps, your wiper might be on the wrong leg — try a different middle pin. If it stays dark or stays full-bright, double-check ground and 5V are not swapped on the outer legs.
+## What just happened
 
-## What just happened?
+Your flow now uses three categories of node:
 
-Three categories of node now appear in your flow:
+- **Sense** — the Potentiometer node reads the world.
+- **Shape** — the Map node rescales the value.
+- **Express** — the LED node acts on the world.
 
-- **Sense** (Potentiometer) — read a real-world signal
-- **Shape** (Map) — transform a value into the right range
-- **Express** (LED) — produce a real-world effect
+The Map node does one small job: it converts a number from one range into another. Reach for it whenever a sensor's range does not match what the next node expects.
 
-Map's job is small but constant: it turns a number from one range (`0–1023`) into another (`0–255`). You will reach for it again whenever a sensor's "natural" range does not match what the next node expects.
+## Next
 
-## Going further
-
-Real sensors are noisy. The raw value bounces around even when the knob is still. The next lesson shows you how to clean that up.
+Real sensors are noisy. The raw value moves even when the knob is still.
 
 → [Smooth a noisy sensor](/docs/learn/smooth-a-sensor)

@@ -53,7 +53,7 @@ description: Shooting script for the 4:00 button-and-LED video, including the br
 **Screen:** Push the button across the centre channel of the breadboard. Then, one wire at a time, pausing after each: 5 V rail to one side of the button, the other side of the button to digital pin 6, and a 10 kΩ pull-down from that same leg to ground — or, if you are using the node's internal pull-up instead, say so and wire 5 V out.
 
 **Narration:**
-> "The button straddles the channel down the middle of the breadboard so its two sides are not connected to each other. Five volts into one leg. The other leg out to digital pin six — that is the pin Microflow expects by default. And a resistor from that same leg down to ground, so that when the button is not pressed the pin is held at zero instead of floating between values."
+> "The button straddles the channel down the middle of the breadboard, so its two sides are not connected. Five volts into one leg. The other leg out to digital pin six. And a resistor from that same leg to ground, so the pin reads zero when the button is up instead of floating."
 
 **On-screen text:** `5V → button → pin 6 · pull-down to GND`
 
@@ -66,7 +66,7 @@ The pin number is the single most common mistake in this build. Say "pin six" ev
 **Screen:** LED into the board, long leg noted with a close-up. Resistor from the short leg to the ground rail. Jumper from the long leg to pin 9.
 
 **Narration:**
-> "The LED has a long leg and a short leg. Long leg is positive — that goes to pin nine. Short leg goes through the resistor to ground. Backwards and it simply will not light; it will not break anything."
+> "The LED has a long leg and a short leg. The long leg is positive and goes to pin nine. The short leg goes through the resistor to ground. Wired backwards it will not light, and nothing breaks."
 
 **On-screen text:** `long leg → pin 9 · short leg → 220 Ω → GND`
 
@@ -77,7 +77,7 @@ The pin number is the single most common mistake in this build. Say "pin six" ev
 Drag from the Button's `true` output to the LED's `true` input. Then drag from the Button's `false` output to the LED's `false` input.
 
 **Narration:**
-> "Add a Button node and check the pin matches the one you wired — six. Add an LED node on pin nine. Now the connections. The button has an output called *true* that fires while it is held down, and one called *false* for when it is released. The LED has matching inputs. True to true. False to false. Two edges, not one."
+> "Add a Button node and set the pin to six, to match the wiring. Add an LED node on pin nine. The button has an output called *true*, which is on while you hold it, and one called *false*. The LED has matching inputs. True to true. False to false. Two edges."
 
 **On-screen text:** `true → true` then `false → false`
 
@@ -93,7 +93,7 @@ Drag from the Button's `true` output to the LED's `true` input. Then drag from t
 **Screen:** Back on the canvas, click the `false → false` edge and delete it. Cut to hardware: press the button, LED lights, release it — the LED stays on. Hold for four seconds. Cut back, redraw the edge, show it working again.
 
 **Narration:**
-> "Delete the second edge and watch what happens. Press — on. Release — still on. The button is fine, the LED is fine, the flow is running. Nothing ever told the light to turn off. Half-wired flows almost always look like broken hardware, and this is what they feel like."
+> "Delete the second edge and watch. Press: on. Release: still on. The button works, the LED works, the flow runs. Nothing ever told the light to switch off. A half-wired flow looks exactly like broken hardware."
 
 **On-screen text:** `[false → false edge deleted]`
 
@@ -102,7 +102,7 @@ Drag from the Button's `true` output to the LED's `true` input. Then drag from t
 **Screen:** Zoom to 200 % on the Button node so all its output handles are legible.
 
 **Narration:**
-> "A button gives you four outputs, not two. *Event* fires on any change. *True* and *false* are the two you just used. *Hold* fires when the button is held down for longer than the hold time in its settings — half a second by default — which is how you get a long-press without building a timer."
+> "A button gives you four outputs, not two. *Event* fires on any change. *True* and *false* are the two you used. *Hold* fires after the button is held for longer than the hold time in its settings, half a second by default. That is how you get a long press without building a timer."
 
 ## Deliberate failure
 
@@ -110,6 +110,6 @@ The deleted `false → false` edge at 3:05.
 
 ## Post-production notes
 
-- The wiring section needs a top-down camera with no zoom pushes. Cut between locked-off wide and macro instead.
-- Overlay a still wiring diagram in the corner for the whole wiring section.
-- Do not silently fix a mis-wire between takes. If the take is wrong, restart the section.
+- Keep the wiring camera locked off. Cut between wide and macro instead of zooming.
+- Overlay a still wiring diagram in the corner throughout the wiring section.
+- If a take is mis-wired, restart the section. Do not fix it between takes.

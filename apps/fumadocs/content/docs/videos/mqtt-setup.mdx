@@ -44,14 +44,14 @@ description: Shooting script for the 4:30 MQTT configuration video.
 **Screen:** Diagram: Studio, the Figma plugin, and a phone, all pointing at one broker in the middle.
 
 **Narration:**
-> "A broker is a post office. Anything that wants to send a message hands it over with a topic on the front — a label like `studio/light-level`. Anything that wants those messages tells the broker which labels it cares about. Nothing needs to know where anything else is. That is how Studio gets a sensor reading into Figma, and how two people on different networks can drive the same flow."
+> "A broker is a post office. A sender hands over a message with a topic on the front, like studio slash light-level. A receiver tells the broker which topics it wants. Neither needs to know where the other is. That is how Studio gets a sensor reading into Figma."
 
 ### 0:45 — Add a broker
 
 **Screen:** Sidebar → **Configuration** → **MQTT**. The broker list is empty. Click to add. Fill in **Name** `Test broker`, **URL** `wss://broker.example.com:8883/mqtt`, leave username and password empty. Submit. The success toast appears and the broker joins the list.
 
 **Narration:**
-> "Configuration, then MQTT. Add a broker. The name is only for you. The URL is the part that matters, and it has to be a WebSocket URL — that is `wss` at the front, not `mqtt`. Username and password are optional and depend on your broker. Save it, and it is available to every flow, not just this one."
+> "Configuration, then MQTT. Add a broker. The name is only for you. The URL matters: it must be a WebSocket URL, so `wss` at the front, not `mqtt`. Username and password depend on your broker. Save it, and every flow can use it."
 
 **On-screen text:** `wss://host:port/mqtt`
 
@@ -60,7 +60,7 @@ description: Shooting script for the 4:30 MQTT configuration video.
 **Screen:** Edit the broker and change `wss://` to `mqtt://`. Save. Show the connection failing — the status never becomes healthy. Hold for five seconds. Then change it back and show it recovering.
 
 **Narration:**
-> "Here is the one that costs people an evening. Most broker documentation gives you an address starting with `mqtt` and a port like one-eight-eight-three. That is the address for a native client, and Studio cannot use it — it speaks MQTT over WebSockets. If your broker's docs offer a WebSocket port, use that one. If they do not mention WebSockets at all, that broker will not work here."
+> "This is the common mistake. Most broker documentation gives an address starting with `mqtt` and a port like one-eight-eight-three. That is the address for a native client, and Studio cannot use it. Studio speaks MQTT over WebSockets. Use the broker's WebSocket port. If its documentation never mentions WebSockets, that broker does not work here."
 
 **On-screen text:** `mqtt://… ✗   wss://… ✓`
 
@@ -69,7 +69,7 @@ description: Shooting script for the 4:30 MQTT configuration video.
 **Screen:** Scroll to the **Test Client** card on the same page. Subscribe to `test/#`. Then publish a message to `test/message` with a short payload. The message appears in the subscription list.
 
 **Narration:**
-> "Do not go and build a whole flow to find out whether the broker works. There is a test client right here. Subscribe to `test`, slash, hash — the hash means *everything below this*. Then publish something to `test/message`. If it comes straight back to you, the broker is fine and any problem after this point is in your flow or in the other tool. If it does not come back, stop and fix the broker."
+> "Do not build a flow to test a broker. There is a test client here. Subscribe to test slash hash: the hash means everything below this. Publish something to test slash message. If it comes back, the broker works, and any later problem is in your flow. If it does not, fix the broker first."
 
 **On-screen text:** `subscribe test/#  ·  publish test/message`
 
@@ -78,14 +78,14 @@ description: Shooting script for the 4:30 MQTT configuration video.
 **Screen:** Back on the canvas. Add an **MQTT** node. Open its settings: pick the broker from the dropdown, set a topic, choose direction. Publish from the test client and watch the node's value update.
 
 **Narration:**
-> "Now the node. Pick the broker you just added, set the topic, and choose whether this node is listening or sending. Publish from the test client again and the node's value changes on the canvas. That is the same path Figma uses — you have just built it by hand."
+> "Now the node. Select the broker you added, set the topic, and choose whether the node subscribes or publishes. Publish from the test client, and the node's value changes on the canvas. That is the same path the Figma bridge uses."
 
 ### 3:50 — Public versus your own
 
 **Screen:** The broker list, with a public test broker and a local Mosquitto side by side.
 
 **Narration:**
-> "One warning about public test brokers. They are genuinely public: anyone can subscribe to your topics, and anyone can publish to them. They are fine for a demo and wrong for anything you care about. Running your own on your laptop takes about five minutes, and the how-to guide linked under this video walks through it."
+> "One warning about public test brokers. They are public: anyone can read your topics and anyone can write to them. Use one for a demo, not for anything you care about. Running your own takes about five minutes, and the guide under this video covers it."
 
 ## Deliberate failure
 

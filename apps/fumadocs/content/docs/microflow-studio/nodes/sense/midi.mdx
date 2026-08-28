@@ -33,7 +33,7 @@ Plug the controller into your computer, not into the Arduino — this node talks
 
 ## Tips
 
-- **A knob is not a note.** If you are turning a knob or moving a fader, set **Mode** to `cc` and find the controller number — most controllers print it, or you can watch the `value` output with a [Monitor](/docs/microflow-studio/nodes/express/monitor) while you turn things.
+- **A knob is not a note.** For a knob or a fader, set **Mode** to `cc`, then find the controller number. Most controllers print it in the manual. Otherwise, watch the `value` output with a [Monitor](/docs/microflow-studio/nodes/express/monitor) while you turn the knob.
 - **Channel `0` first.** If nothing arrives, set the channel to `0` so you catch everything, then narrow it once you know which channel your device uses.
 - **The device list is a snapshot.** Plug a controller in after opening the settings and it will not appear until you reopen them.
 - **Song mode carries its own velocity per note**, unlike the [Piezo](/docs/microflow-studio/nodes/express/piezo) node's songs — a buzzer has no dynamics, a synth does.

@@ -1,65 +1,62 @@
 ---
 title: Collaboration
-description: How multi-user editing works in Microflow Studio, and what it means when there's only one piece of hardware.
+description: How multi-user editing works, and what it means when there is one board.
 ---
 
-Microflow Studio supports real-time collaboration: many people can have the same flow open at once and see each other's edits as they happen. This page explains how it works under the hood and what consequences that model has for hardware projects.
+Several people can open the same flow and see each other's edits as they happen. This page explains how, and what follows from it for a hardware project.
 
-<img src="/diagrams/collaboration-topology.svg" alt="Two editors share one flow: both hold a local Yjs doc synced through the Collab server; only Editor A also has the USB cable to a real Arduino that drives a real LED." />
+<img src="/diagrams/collaboration-topology.svg" alt="Two editors share one flow. Both hold a local Yjs document, synced through the collaboration server. Only editor A has the USB cable to an Arduino." />
 
-Both editors see the same flow document. Only Editor A's runtime drives the Arduino.
+Both editors see the same document. Only editor A's runtime drives the board.
 
-## CRDTs, not "save and merge"
+## CRDTs, not save and merge
 
-The collaboration layer is built on [Yjs](https://yjs.dev), a library for **Conflict-free Replicated Data Types** (CRDTs). Each editor holds a local copy of the flow document; changes propagate over WebSocket to every other editor and to a server that persists the document.
+The collaboration layer uses [Yjs](https://yjs.dev), a library of conflict-free replicated data types. Each editor holds a local copy of the flow. Changes travel over a WebSocket to every other editor and to a server that stores the document.
 
-The "conflict-free" part is the magic: any two operations, applied in any order, yield the same final state. There is no "save" button. There is no "the server overwrote my edit". You can edit offline; when you reconnect, your changes merge in.
+Conflict-free means any two operations, applied in any order, produce the same result. There is no save button, and the server never overwrites your edit. You can edit offline, and your changes merge when you reconnect.
 
-## What's in the document
-
-The Yjs document holds *the structure of the flow*:
+## What the document holds
 
 - Every node, with its position, type, and settings.
 - Every edge.
-- A few metadata fields (title, etc.).
+- Flow metadata, such as the name.
 
-That is the whole shared state. Anything that changes when you collaborate has to be in here.
+Each editor also broadcasts their cursor position and their selection, so you can see where other people are working.
 
-What is **not** in the document:
+The document does not hold:
 
-- **Live runtime values.** A Monitor node's reading is local; what your collaborator sees on their Monitor is their own runtime, against their own connected board (if any).
-- **Hardware connection state.** Whether a board is plugged in is a property of a single editor's machine.
-- **UI state** — what's selected, what's zoomed.
+- **Live values.** A Monitor node reads the local runtime. Your collaborator sees their own machine's values, or none.
+- **The board connection.** Which board is plugged in belongs to one machine.
+- **Your view.** Zoom and pan are yours.
 
-## One flow, multiple machines, one board
+## One flow, several machines, one board [#one-flow-multiple-machines-one-board]
 
-This is the scenario most people don't anticipate: only one collaborator can run the flow against a real Arduino at a time, because there is only one physical board.
+Only one person can run a flow against a board, because there is one board.
 
-In practice that means:
+- **Edit together, run on one machine.** The person with the board sees the LED light up. Everyone else sees the flow, with no live values.
+- **You can work with no hardware at all.** Replace the Sense nodes with Constant, Oscillator, and Hotkey nodes. See [Collaborate without hardware](/docs/how-to/collaborate-without-hardware).
+- **You cannot share a board over the network.** A serial port is local to one machine.
 
-- **Edit together, run on one machine.** The person with the board plugged in sees the LED light up; everyone else sees the abstract flow with no live values.
-- **You can collaborate with no hardware at all.** Use Monitor nodes and Constant generators to "play" the flow conceptually.
-- **You cannot share a board over the network.** The serial port is local.
+## Conflicts
 
-## Conflict resolution at the node level
+If two people change the same setting on the same node at the same moment, Yjs keeps one value and discards the other, without reporting it. This is rare, because people work on different parts of a flow. When it happens, agree who edits what and redo the change.
 
-If you and a collaborator simultaneously change the *same setting on the same node*, Yjs picks one value (typically last-write-wins for primitive fields). The losing edit is discarded — quietly.
+If two people delete and re-add the same node at the same moment, you can end up with a duplicate. Delete the extra one.
 
-This is rare in practice: people tend to work on different parts of a flow. When it does happen, talk it out and re-edit.
+## Roles
 
-If you and a collaborator delete and re-add the same node simultaneously, you might end up with two duplicates. This is also rare; remove the extra.
+A flow has one owner, and every other person is an **editor** or a **viewer**. A viewer can pan, zoom, and select, and can change nothing. Only the owner can invite people, change roles, and delete the flow. See [Collaborate on a flow](/docs/how-to/collaborate-on-a-flow).
 
 ## Persistence and self-hosting
 
-The official Microflow server stores Yjs documents in PostgreSQL. The collaboration layer itself is open source. Self-hosting requires running the server (Hono + WebSocket + PostgreSQL) and pointing Studio at it; see the [GitHub repo](https://github.com/xiduzo/microflow-t-stack) for current options.
+The Microflow server stores Yjs documents in PostgreSQL. The collaboration layer is open source. To self-host, run the server — Hono, a WebSocket, and PostgreSQL — and point Studio at it. See the [repository](https://github.com/xiduzo/microflow-t-stack).
 
-## Trade-offs to know about
+## Limits to know
 
-- **No version history (yet).** Yjs gives you snapshot-free conflict-free editing, but Microflow does not currently expose a "go back to yesterday" feature.
-- **Documents grow over time.** As you edit, the Yjs document accumulates an operations log. Currently this is fine for typical flows; very long-lived heavily-edited documents may eventually need cleanup.
-- **No fine-grained permissions.** Anyone with the share link can edit. Treat shared flows as you would a Google Doc with link access.
+- **No version history.** Microflow exposes no way to return to yesterday's flow. [Export a file](/docs/how-to/save-and-share-a-flow) before a large change.
+- **Documents grow.** A Yjs document accumulates an operation log as you edit. This is fine for a normal flow.
 
 ## Related
 
-- [Collaborate on a flow in real-time](/docs/how-to/collaborate-on-a-flow) — the user-facing how-to.
-- [Concepts: flows, signals, events](/docs/concepts/flows-signals-events) — what is *in* the document being collaborated on.
+- [Collaborate on a flow in real time](/docs/how-to/collaborate-on-a-flow)
+- [Flows, signals, and events](/docs/concepts/flows-signals-events)

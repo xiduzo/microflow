@@ -3,7 +3,7 @@ title: Your first flow
 description: Blink the built-in LED on your board in five minutes, with no extra parts.
 ---
 
-By the end of this lesson the small LED already soldered to your board will blink once a second, and you will have built the flow that does it. No extra components.
+At the end of this lesson, the small LED soldered to your board blinks once a second, and you have built the flow that drives it.
 
 <Video title="Your first flow" duration="3:30" script="/docs/videos/first-flow">
 The same five minutes on camera, including the mistake everyone makes with pin numbers.
@@ -11,74 +11,73 @@ The same five minutes on camera, including the mistake everyone makes with pin n
 
 ## What you need
 
-- A computer running Windows, macOS, or Linux — or Chrome, Edge, or Opera.
-- An **Arduino Uno**, **Arduino Nano**, or **ESP32**.
+- A computer running Windows, macOS, or Linux, or Chrome, Edge, or Opera.
+- An **Arduino Uno**, an **Arduino Nano**, or an **ESP32**.
 - A USB cable that carries data.
 - Microflow Studio, [connected to your board](/docs/how-to/connect-a-microcontroller).
 
-<Callout type="info" title="There is a shortcut, but do not take it yet">
-Studio ships this flow as the **Blink** template under **Templates** in the sidebar. Building it by hand once is worth the five minutes.
+<Callout type="info" title="Build it by hand this once">
+Studio ships this flow as the **Blink** template under **Templates**. Build it yourself the first time.
 </Callout>
 
-## Step 1 — Confirm your board is connected
+## Step 1 — Check the board is connected
 
-Look at the microcontroller status in the sidebar. It should show a serial port name — something like `COM3` or `/dev/cu.usbmodem14201`.
+Read the microcontroller status in the sidebar. It shows a serial port name, such as `COM3` or `/dev/cu.usbmodem14201`.
 
-If it says **No microcontroller connected**, or **Connect board** in the browser, stop here and follow [Connect a microcontroller](/docs/how-to/connect-a-microcontroller). Nothing below will work until this is right.
+If it shows **No microcontroller connected**, or **Connect board** in a browser, stop here. Follow [Connect a microcontroller](/docs/how-to/connect-a-microcontroller) first. Nothing below works until the board is connected.
 
 ## Step 2 — Add an Interval node
 
-You need something that fires repeatedly. The [Interval](/docs/microflow-studio/nodes/generate/interval) node does exactly that.
+A flow starts with a node that produces something. The [Interval](/docs/microflow-studio/nodes/generate/interval) node produces a tick on a schedule.
 
 1. Press `Cmd/Ctrl + K` to open the **Add node** palette.
-2. Type `interval`. It filters to the **Generate** group.
-3. Press Enter. The node lands on the canvas.
-4. Click the node and set **Interval** to `1000` — one tick per second.
+2. Type `interval`. The Interval node moves to the top, under **Generate**.
+3. Press Enter to place the node on the canvas.
+4. Click the node and set **Interval** to `1000`. That is one tick per second.
 
 ## Step 3 — Add an LED node
 
-Now something that acts on the tick.
+Now add a node that acts on the tick.
 
-1. Press `Cmd/Ctrl + K` again and type `led`.
-2. You will see three results — **LED**, **LED Matrix**, **LED Strip**. Choose plain **LED**, under **Express**.
-3. Place it to the right of the Interval node.
-4. Click it and set **Pin** to `13` — the LED already on the board. No wiring today.
+1. Press `Cmd/Ctrl + K` and type `led`. Three nodes match: **LED**, **LED Matrix**, and **LED Strip**.
+2. Select **LED**, under **Express**, and place it to the right of the Interval node.
+3. Click the LED node and set **Pin** to `13`. Pin 13 drives the LED already on the board, so you wire nothing.
 
-## Step 4 — Connect them
+## Step 4 — Connect the two nodes
 
-The dots on the right of a node are its **outputs**. The dots on the left are its **inputs**.
+The handles on the right of a node are its outputs. The handles on the left are its inputs.
 
-Drag from the Interval node's `event` output to the LED node's `toggle` input. A line appears between them — that is an **edge**, and it carries the tick from one node to the other.
+Drag from the Interval node's `event` output to the LED node's `toggle` input. The line between them is an **edge**, and it carries each tick to the LED.
 
 <Callout type="info" title="Handles are small">
-Zoom in first (`Cmd/Ctrl + =`) if the handles are hard to hit. Hovering over a node makes them easier to see.
+Press `Cmd/Ctrl + =` to zoom in first. Hovering over a node also makes its handles easier to see.
 </Callout>
 
-## Step 5 — Watch it blink
+## Step 5 — Watch the LED
 
-The built-in LED should now toggle once a second. There was no run button to press — the flow started the moment the edge connected.
+The built-in LED now switches on and off once a second. There is no run button. The flow started when you connected the edge.
 
-## If it is not blinking
+## If the LED does not blink
 
-Work down this list. It is in order of likelihood.
+Check these in order.
 
-| Check | What to look for |
+| Check | What you want |
 | --- | --- |
-| The status in the sidebar | It must show a port name. **Connecting** or **Flashing firmware** means wait; anything else means [start here](/docs/troubleshooting/board-not-detected). |
-| The LED node's **Pin** | It must be `13`. This is the most common mistake, and nothing on screen will tell you it is wrong. |
-| The edge | It should run from `event` to `toggle`. Click it — a selected edge highlights. If nothing highlights, the connection never completed. |
-| The Interval's value | The node shows its live value. If it is not changing, the Interval is not running. |
+| The sidebar status | A port name. **Connecting** and **Flashing firmware** mean wait. Anything else: see [Board not detected](/docs/troubleshooting/board-not-detected). |
+| The LED node's **Pin** | `13`. A wrong pin number is the most common cause, and nothing on screen reports it. |
+| The edge | It runs from `event` to `toggle`. Click it. A selected edge highlights. If nothing highlights, the connection never completed. |
+| The Interval node's value | It changes. A static value means the Interval is not running. |
 
-Still nothing? Add a [Monitor](/docs/microflow-studio/nodes/express/monitor) node and connect the Interval's `event` output to it. If the Monitor ticks, the problem is between the LED node and the board. If it does not, the problem is the Interval.
+If all four are correct, add a [Monitor](/docs/microflow-studio/nodes/express/monitor) node and connect the Interval node's `event` output to it. If the Monitor ticks, the fault is between the LED node and the board. If it does not, the fault is the Interval node.
 
 ## What just happened
 
-- **Interval** emits a tick every 1000 ms.
+- The Interval node emits a tick every 1000 ms.
 - The tick travels along the edge.
-- **LED** flips its pin between on and off each time one arrives.
+- The LED node switches its pin each time a tick arrives.
 
-Something generates a value, the value travels along an edge, something expresses it in the physical world. Every flow you build is that shape, repeated.
+One node generates a value. The value travels along an edge. Another node expresses the value in the physical world. Every flow you build repeats that shape.
 
-## Next up
+## Next
 
-→ [A button controls an LED](/docs/learn/button-controls-led) — now put the world *into* the flow.
+→ [A button controls an LED](/docs/learn/button-controls-led)

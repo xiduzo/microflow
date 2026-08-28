@@ -23,7 +23,7 @@ The sensor outputs a number on a scale of **0 to 1023**. With no magnet nearby, 
 Because the resting value sits in the middle of the range, you can detect both poles and measure field strength with a single sensor.
 
 <Callout title="Pairing with Map or Compare">
-Since the resting value is around 512 (not 0), you will often want to use a [Compare](/docs/microflow-studio/nodes/decide/compare) node to trigger when the value crosses a threshold, or a [Map](/docs/microflow-studio/nodes/shape/map) node to convert the range into something more useful.
+The resting value is around 512, not 0. Use a [Compare](/docs/microflow-studio/nodes/decide/compare) node to trigger when the value crosses a threshold, or a [Map](/docs/microflow-studio/nodes/shape/map) node to convert the range into something more useful.
 </Callout>
 
 ## Inputs
