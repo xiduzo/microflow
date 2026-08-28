@@ -9,34 +9,22 @@ Use it for sensors that don't have a dedicated node in Microflow: temperature/hu
 
 ## Inputs
 
-- **Write** — send bytes to the device at the configured address and register. Accepts a single number or an array of numbers
-- **Trigger** — perform a one-shot read from the device
-
-Most sensors don't need either input: once the node is on the canvas it **streams** on its own (see [How reading works](#how-reading-works)). Use **Write** only to configure a device that needs it, and **Trigger** only for read-on-demand.
+- **`write`** — Write the incoming value to the configured register.
+- **`trigger`** — Read the device now. Only needed when **Autoread** is off.
 
 ## Outputs
 
-- **Value** — the data read from the device, formatted according to the **Output format** setting:
-  - **Raw bytes** → an array of numbers, one per byte (e.g. `[0, 44, 1, 8]`)
-  - **Unsigned int** → the bytes combined big-endian into one positive number
-  - **Signed int** → the bytes combined big-endian as a two's-complement number (can be negative)
-
-A raw sensor value is rarely the final number you want. See [Transforming values](#transforming-values) to turn it into °C, %, lux, or millimetres.
+- **`value`** — The bytes read back, interpreted according to **Output**.
 
 ## Settings
 
-Open the settings panel to configure:
-
-- **Device preset** — choose a known sensor to auto-fill address, register, read length, and output format, or **Custom** for manual setup. The auto-filled values stay editable
-- **Address** — the 7-bit I2C address of the device (0–127)
-- **Register** — the register (command) the read points at (0–255)
-- **Read bytes** — how many bytes to read back (1–32)
-- **Output format** — how to interpret the bytes: Raw bytes, Unsigned int, or Signed int
-- **Interval** — how often to read, in milliseconds. Each sensor has a floor set by its conversion time; reading faster than that returns stale or zero values
-
-<Callout type="warn" title="Interval is shared by the whole board">
-The read interval is a single global Firmata setting, so **every** I2C node on the board runs at the *slowest* configured interval. If one sensor needs 180 ms and another 20 ms, both run at 180 ms. The presets already pick a safe floor per sensor.
-</Callout>
+- **Address** — The I²C address of the device. Default `0x48`.
+- **Register** — Which register to read from. Default `0x00`.
+- **Read length** — How many bytes to read. Default `2`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `100`.
+- **Device** — A known device preset, or `custom`. Default `custom`.
+- **Output** — How to interpret the bytes read back. Default `unsigned_int`.
+- **Auto-read** — Read continuously instead of only when `trigger` fires. Default `true`.
 
 ## How reading works
 

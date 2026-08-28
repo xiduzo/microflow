@@ -11,23 +11,18 @@ present.
 It works with common PN532 boards such as the Aideepen V3. On the board, set the
 DIP switches to **I2C** mode (not SPI or HSU).
 
+## Inputs
+
+This node has no inputs. It produces values on its own.
+
 ## Outputs
 
-- **Value** — the card's UID as an uppercase hex string, e.g. `04A2B1C3`. It fires
-  **when the UID changes**, so holding a card still won't spam events, and tapping
-  the same card again stays quiet. Different cards have different UID lengths
-  (4 bytes for Mifare Classic, 7 for NTAG/Ultralight) — the node reports the full
-  UID either way.
-
-To react to a *specific* card, compare the UID against a known value downstream;
-to react to *any* card, wire the value straight into an action.
+- **`value`** — The UID of the card currently on the reader, as text. Empty when no card is present.
 
 ## Settings
 
-- **Address** — the 7-bit I2C address of the module. The default **0x24 (36)** is
-  correct for a PN532 with its switches set to I2C.
-- **Poll interval (ms)** — how often the reader scans for a card while idle
-  (default 300 ms). Lower is more responsive but busier on the bus.
+- **Address** — The I²C address of the device. Default `0x24`.
+- **Poll interval** — How often to check for a card, in milliseconds. Default `300`.
 
 ## How reading works
 

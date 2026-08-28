@@ -12,12 +12,19 @@ A proximity sensor measures how far away an object is. It outputs a distance val
 
 The node outputs a distance in **centimetres**.
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`value`** — The measured distance, in centimetres.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which pin your sensor is connected to. Infrared sensors use analog pins (A0, A1, etc.)
-- **Sensor type** — select the model of your sensor from the list
+- **Pin** — Which pin the component is connected to. Default `A0`.
+- **Controller** — Which hardware controller the component uses. Default `GP2Y0A21YK`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `25`.
 
 ## Supported sensors
 
@@ -47,4 +54,4 @@ Pulse/PWM, plain analog, and I2C proximity sensors have not been tested with Mic
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/proximity/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/proximity/)

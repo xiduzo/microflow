@@ -5,11 +5,15 @@ description: Edit and reason about a flow with someone who does not have a board
 
 Only one collaborator can run the flow against a real Arduino at a time — there is just one physical board. The other editors see the canvas but no live values. This guide shows how to work productively from the "no hardware" side.
 
+<Video title="Collaborate on a flow" duration="3:30" script="/docs/videos/collaborate">
+Why the guest’s sidebar says no board is connected, and why they can still see the values.
+</Video>
+
 For *why* this limitation exists, see [Concepts: collaboration](/docs/concepts/collaboration#one-flow-multiple-machines-one-board).
 
 ## Substitute the world with Constants
 
-Replace each Sense node temporarily with a [Constant](/docs/microflow-studio/nodes/generate/constant) producing a representative value. A potentiometer becomes a Constant at `512`. A button becomes a Constant toggled by a [Trigger](/docs/microflow-studio/nodes/generate/trigger).
+Replace each Sense node temporarily with a [Constant](/docs/microflow-studio/nodes/generate/constant) producing a representative value. A potentiometer becomes a Constant at `512`. A button becomes a [Hotkey](/docs/microflow-studio/nodes/sense/hotkey) node — same outputs as a Button, driven from your keyboard, no hardware at all.
 
 This lets you exercise the downstream Shape/Decide/Express logic end-to-end. The Express side does nothing physical without a board — but it runs, and its inputs are visible.
 
@@ -19,7 +23,7 @@ This lets you exercise the downstream Shape/Decide/Express logic end-to-end. The
 
 ## Observe with Monitor
 
-Drop [Monitor](/docs/microflow-studio/nodes/internal/monitor) nodes liberally. They are the eyes of a hardware-less collaborator: each one shows the live value passing a particular point on the canvas.
+Drop [Monitor](/docs/microflow-studio/nodes/express/monitor) nodes liberally. They are the eyes of a hardware-less collaborator: each one shows the live value passing a particular point on the canvas.
 
 Pair Monitors with the Constants from the previous step. You can change a Constant, watch the value propagate, and confirm the flow behaves the way you expect — all without touching a wire.
 

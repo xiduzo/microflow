@@ -21,11 +21,20 @@ The potentiometer outputs a number between **0 and 1023**:
 
 Because this range is large, you will often pair the potentiometer with a [Map](/docs/microflow-studio/nodes/shape/map) node to scale the value to something more useful — for example, 0–180 for a servo position, or 0–255 for LED brightness.
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`value`** — The knob position, `0`–`1023`.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which analog pin on your Arduino the potentiometer is connected to (analog pins are labelled A0, A1, A2, etc.)
+- **Pin** — Which pin the component is connected to. Default `A0`.
+- **Type** — Which mode the node runs in. Default `analog`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `25`.
+- **Threshold** — How much the reading must change before the node reports it. Default `1`.
 
 ## 2-channel sliding potentiometer
 
@@ -42,4 +51,4 @@ Some linear (sliding) potentiometers have two independent channels — two separ
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/sensor/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/sensor/)

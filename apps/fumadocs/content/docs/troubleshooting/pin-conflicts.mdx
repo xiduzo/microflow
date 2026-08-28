@@ -1,43 +1,64 @@
 ---
-title: Pin conflicts
-description: Two nodes claim the same pin. The symptoms and the fix.
+title: Nothing happens on the board
+description: The flow is running and the values are moving, but the hardware sits there.
 ---
 
-Each digital or analog pin on your Arduino can be in one *mode* at a time — input, output, PWM, servo, etc. When two nodes in your flow point at the same pin number, only one can win, and the loser silently does nothing.
+The canvas looks right, values are updating on the nodes, the board is connected — and the physical thing does nothing. Nothing on screen is red, because as far as Studio is concerned nothing is wrong: it is faithfully driving a pin, and the component is somewhere else.
 
-## Symptoms
+Work down this list. It is ordered by how often each one is the cause.
 
-- A node looks correct in the panel, the flow is **Running**, but nothing happens at that pin.
-- An LED is permanently on, off, or flickering wrong even when no input is changing.
-- A button press registers in the wrong node.
-- The board's behaviour changes depending on the order in which you placed the nodes.
+## 1. The pin number
 
-## How to find the conflict
+The most common cause, every time. The number in the node's settings must match the pin the component is physically in.
 
-1. **Open every Express, Sense, and Generate node that touches a pin.** Note the pin number on each.
-2. **Look for duplicates.** Most often it is two LED nodes both set to pin 13, or a Button and a Sensor on the same pin.
-3. **Check pin mode mismatches** too: if you have a Button (input) and an LED (output) both on pin 9, they want incompatible modes.
+- Open the node and read the pin number aloud.
+- Trace the wire on the board to the header and read that number.
+- If they differ, that is your answer.
 
-A quick visual technique: drop a [Note](/docs/microflow-studio/nodes/internal/note) node next to each pin-using node listing the pin. Conflicts become obvious at a glance.
+Studio cannot detect this. A pin with nothing attached behaves exactly like a pin with a broken component on it.
 
-## How to fix
+## 2. Two nodes on the same pin
 
-- Move one of the conflicting nodes to a different free pin.
-- If you really only need one of them, delete the other.
-- If the two are conceptually one (e.g. you wired the LED to pin 9 by mistake when you meant pin 10), update the *node settings*, not the wiring on the breadboard, then verify the wiring matches.
+A pin can be in one mode at a time — input, output, PWM, servo. Two nodes pointing at the same pin means one wins and the other silently does nothing, and which one wins can depend on the order you added them.
 
-## Reserved pins
+**Find it:** open every node that names a pin and list the numbers. Duplicates are the conflict. Two LED nodes on pin 13, or a Button and a Sensor on the same pin, are the classics.
 
-A few pins are usually best avoided unless you know what you are doing:
+**Fix:** move one to a free pin, or delete it if it was a duplicate.
 
-- **Pins 0 and 1** on most boards — these are RX/TX, the same lines USB uses to talk to the board. Setting these as outputs in your flow can break communication and require a re-flash.
-- **Pin 13** — has the on-board LED. Driving it from your flow is fine, but be aware that the LED will mirror anything you do.
-- **A4, A5** on Uno and Nano — these are also the I2C lines (SDA, SCL). If you use [I2C](/docs/microflow-studio/nodes/sense/i2c-device) (when supported), do not also use them as analog inputs.
+## 3. The wrong kind of pin
 
-## What about reusing a pin in two flows?
+Some things need a specific kind of pin:
 
-You can have multiple flows saved, but you can only run **one at a time** against a single board. Pin conflicts within a single flow are the only kind that matters at runtime.
+- **Dimming an LED, an intensity, or a servo** needs PWM — pins `3, 5, 6, 9, 10, 11` on an Uno or Nano, marked `~` on the board. On a non-PWM pin, an LED still works but only on and off, and a servo does not work at all.
+- **Analog sensors** need an analog input, `A0`–`A5` on an Uno or Nano.
+
+Open **Show code** — the [sketch warnings](/docs/troubleshooting/sketch-warnings) name the node and the pin.
+
+## 4. The wiring
+
+- **Nothing at all from an LED?** Check the long leg goes to the signal pin and the short leg to ground through a resistor. Backwards, it will not light and nothing will break.
+- **A button that never registers?** It needs a pull-up or a pull-down, otherwise the pin floats between values. Wire a resistor, or turn on the node's **Pull-up** setting.
+- **A motor, a relay, or a strip that browns out the board?** They draw more current than a USB port supplies. Power them separately and join the grounds.
+- **Half a breadboard dead?** Some breadboards split their power rails down the middle.
+
+## 5. Reserved pins
+
+- **Pins 0 and 1** on Uno and Nano are the USB serial lines. Driving them from a flow breaks communication with the board.
+- **A4 and A5** on Uno and Nano are also the I²C lines. Do not use them as analog inputs if you are using an [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) or the [NFC reader](/docs/microflow-studio/nodes/sense/pn532).
+- **GPIO 6–11 on an ESP32** drive the chip's own flash memory. Using them stops the board booting.
+- **Pin 13** is fine to use, but it also drives the on-board LED, so that LED mirrors whatever you do.
+
+## 6. Prove which half is broken
+
+Split the problem in two, rather than guessing.
+
+- **Is the output side alive?** Delete everything upstream and drive the output node from a [Constant](/docs/microflow-studio/nodes/generate/constant) or an [Interval](/docs/microflow-studio/nodes/generate/interval). If the hardware responds, your wiring and pin are fine and the fault is upstream in the flow.
+- **Is the input side alive?** Hang a [Monitor](/docs/microflow-studio/nodes/express/monitor) directly on the sense node. Values means the sensor, wiring, and board are fine.
+
+See [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) for the full method.
 
 ## Related
 
-- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — why pin modes exist at all.
+- [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings)
+- [Read the circuit view](/docs/how-to/read-the-circuit-view) — the diagram Microflow generates from your flow, to check your wiring against
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — why pin modes exist

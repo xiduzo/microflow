@@ -14,27 +14,27 @@ This is called **bouncing**, and the fix is **debouncing**.
 ## When you need it
 
 - A button is supposed to advance a counter by 1, but jumps by 2 or 3.
-- A toggle (e.g. with a [Counter](/docs/microflow-studio/nodes/decide/counter) node) flips back and forth too fast.
+- A toggle (e.g. with a [Counter](/docs/microflow-studio/nodes/generate/counter) node) flips back and forth too fast.
 - A motion or vibration sensor fires bursts of events for a single physical event.
 
 You will *not* need this for analog sensors (potentiometers, light sensors) — they have a different problem (noise) which the [Smooth](/docs/microflow-studio/nodes/shape/smooth) node handles.
 
-## Method 1 — A Delay node with debounce
+## The fix: a Delay node with Forget previous
 
-The [Delay](/docs/microflow-studio/nodes/decide/delay) node has a `Debounce` setting. When enabled, the timer **resets every time a new value arrives** and only fires when no new value has arrived for the full duration.
+The [Delay](/docs/microflow-studio/nodes/decide/delay) node has a **Forget previous** setting. That is what turns it into a debounce: with it on, a new trigger **restarts** the wait instead of queueing behind it, so the node only fires once nothing new has arrived for the full duration.
 
-Setup:
+1. Put a Delay node between the sense node and whatever it drives: Button `event` → Delay `trigger`, Delay `event` → the next node.
+2. In the Delay node's settings:
+   - **Delay** — `30` ms for a typical push-button, `200` for a vibration sensor.
+   - **Forget previous** — on.
 
-1. Sense node (Button or other) → Delay node → next node.
-2. In the Delay node settings, set:
-   - **Duration** — `30` ms is plenty for a typical push-button. `200` ms for a vibration sensor.
-   - **Debounce** — enabled.
+Press the button: the Delay sees five rapid changes as the contacts bounce, restarts its timer on each one, and passes exactly one event through 30 ms after the bouncing stops.
 
-Now: press the button, the Delay sees five rapid changes from bouncing contacts, the timer resets each time, and only after 30 ms of stillness does it pass the value through. The downstream node sees one clean event.
+With **Forget previous** off, the same node does the opposite job — it holds each event and passes every one of them on, late. That is a delay, not a debounce, and on a bouncing button it makes things worse.
 
-## Method 2 — Counter with `delay` reset
+## Counting presses
 
-If you actually want to *count* button presses but ignore bounces, the [Counter](/docs/microflow-studio/nodes/decide/counter) node has a `delay` setting that ignores increment events that arrive too soon after the previous one. Use this when you want the counting itself to be debounce-aware.
+The [Counter](/docs/microflow-studio/nodes/generate/counter) node has no settings and no debounce of its own — it counts every event it receives. Debounce before it, not inside it: Button `event` → Delay (**Forget previous** on) → Counter `increment`.
 
 ## Picking a duration
 
@@ -50,4 +50,6 @@ Start short and increase only if you still see double-fires. Long debounce times
 
 ## Verify it worked
 
-Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node *before* and *after* the Delay. Press the button. The "before" Monitor will flicker a few times; the "after" Monitor will tick once.
+Drop a [Monitor](/docs/microflow-studio/nodes/express/monitor) node in `raw` mode *before* and *after* the Delay. Press the button once. The "before" Monitor flickers several times; the "after" Monitor ticks once.
+
+If both flicker, **Forget previous** is off.

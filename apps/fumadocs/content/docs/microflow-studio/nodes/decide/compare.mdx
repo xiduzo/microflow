@@ -7,18 +7,21 @@ The Compare node checks whether a value meets a condition — greater than, less
 
 **Example:** If a temperature sensor reads above 80°C, send a signal to turn on a fan. Otherwise, send a signal to keep the fan off.
 
-The Compare node fires on every incoming value. When you want to detect a *crossing point* (like "fire once when the value rises above 80") use the [Trigger](/docs/microflow-studio/nodes/generate/trigger) node instead.
+The Compare node re-tests every incoming value, so its outputs describe the value you have right now. If what you care about is a *sudden change* — the light dropping fast, a knock, a hand passing over — that is the [Trigger](/docs/microflow-studio/nodes/decide/trigger) node, which watches the rate of change instead of the value.
+
+## Inputs
+
+- **`value`** — The value to test.
 
 ## Outputs
 
-- **True** — fires when the condition is met
-- **False** — fires when the condition is not met
-
-Both outputs fire on every incoming value, so your flow reacts continuously as readings arrive.
+- **`true`** — True while the comparison passes.
+- **`false`** — True while the comparison fails.
+- **`value`** — The result as a value — `1` when the comparison passes, `0` when it fails.
 
 ## Settings
 
-Open the settings panel to configure:
-
-- **Condition** — the comparison to apply: greater than (`>`), less than (`<`), equal to (`=`), greater than or equal (`≥`), less than or equal (`≤`), not equal (`≠`)
-- **Value** — the number to compare against
+- **Compare as** — What kind of comparison to make. Default `boolean`.
+- **Test** — The specific test within that kind. Default `true`.
+- **Text** — The text to compare against.
+- **Number** — The number to compare against. Default `0`.

@@ -1,0 +1,115 @@
+---
+title: "Script: Install Studio and connect a board"
+description: Shooting script for the 4:00 install-and-connect video, covering desktop and browser.
+---
+
+<Video title="Install Studio and connect a board" duration="4:00" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | The viewer ends with the sidebar showing a port name instead of **No microcontroller connected**. |
+| **Audience** | Someone who has downloaded nothing yet. |
+| **Runtime** | 4:00 |
+| **Hardware** | Arduino Uno, a data USB cable, and one charge-only USB cable for the failure section. |
+
+## Where it appears
+
+- [Connect a microcontroller](/docs/how-to/connect-a-microcontroller)
+- [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser)
+- [Board not detected](/docs/troubleshooting/board-not-detected)
+
+## Set up before you record
+
+- A clean machine, or a fresh user account, so the install is genuinely first-run.
+- Both USB cables labelled on the underside so you can pick the right one without hunting on camera.
+- The Arduino IDE installed and **closed** — it opens in the failure section.
+- Chrome or Edge for the browser half. Revoke any previously granted serial permission for the Studio origin first, so the browser permission prompt appears.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="What you need on the desk">Hardware laid out.</Chapter>
+  <Chapter time="0:25" title="Download and install the desktop app">Release page to first launch.</Chapter>
+  <Chapter time="1:10" title="Plug the board in">Status button walks itself to Connected.</Chapter>
+  <Chapter time="2:00" title="What the firmware step was">Explanation over a still.</Chapter>
+  <Chapter time="2:25" title="Deliberate failure — the wrong cable">Disconnect, swap cable, nothing happens, fix it.</Chapter>
+  <Chapter time="3:05" title="The browser route">Same board, no install.</Chapter>
+  <Chapter time="3:45" title="Recap">Two ways in, one status button.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — What you need
+
+**Screen:** Overhead of the desk: Arduino Uno, USB cable, laptop.
+
+**Narration:**
+> "To follow along you need a board — this is an Arduino Uno, and a Nano or an ESP32 works too — a USB cable that carries data, and a computer. That is the whole list."
+
+**On-screen text:** `Supported boards: Arduino Uno · Arduino Nano · ESP32`
+
+### 0:25 — Download and install
+
+**Screen:** Browser on the Microflow releases page. Pick the build for the platform you are recording on, download, run the installer, launch the app. Cut the copying progress bar down to two seconds.
+
+**Narration:**
+> "Grab the build for your operating system from the releases page. On a Mac, drag it to Applications. On Windows, run the installer. Open it, and you land on an empty canvas with the sidebar down the left."
+
+**On-screen:** Circle the sidebar as it is named.
+
+### 1:10 — Plug the board in
+
+**Screen:** Sidebar, top of the recording, reading **No microcontroller connected**. Cut to the hand plugging in the USB cable. Cut back to the sidebar and hold, unedited, through the whole sequence.
+
+**Narration:**
+> "Nothing is connected yet, and the sidebar says so. Plug the board in and watch that button. It says **Connecting** while Studio finds the port. The first time you use a board it also says **Flashing firmware** for up to a minute — leave it alone while it does that. When it finishes you get the name of the serial port your board is on, and that is the signal that everything is ready."
+
+**On-screen text, timed to each state:** `Connecting` → `Flashing firmware` → `/dev/cu.usbmodem14201`
+
+<Callout type="warn" title="Do not cut the flashing wait">
+Show the real duration, sped up 4× with a visible speed badge if it runs past 20 seconds. Cutting it teaches people to panic at 30 seconds and unplug.
+</Callout>
+
+### 2:00 — What that firmware step was
+
+**Screen:** Still frame of the connected sidebar button, held.
+
+**Narration:**
+> "Your board arrives knowing nothing about Microflow. That flashing step puts a small program on it whose only job is to take orders over USB — set this pin high, tell me when that pin changes. It happens once per board. After that, connecting takes a couple of seconds."
+
+### 2:25 — Deliberate failure: the wrong cable
+
+**Screen:** Unplug the board. The sidebar returns to **No microcontroller connected**. Plug in using the charge-only cable. Hold on the sidebar for a full ten seconds while nothing changes. Then click the question-mark button beside the status and let it open the troubleshooting page in the browser. Cut back, swap to the data cable, and the status walks to connected again.
+
+**Narration:**
+> "Here is the failure you are most likely to hit. This cable came with a pair of headphones and only carries power. The board lights up, so it looks alive, but the computer never sees a serial port — and Studio just sits there. That question mark next to the status opens the troubleshooting page. In this case the fix is a different cable. If a cable came with a phone or a battery pack, try another one before you try anything else."
+
+**On-screen text:** `[status unchanged for 10s — charge-only cable]`
+
+### 3:05 — The browser route
+
+**Screen:** Chrome, Studio open in a tab. Sidebar shows **Connect board**. Click it, and the browser's serial port chooser appears. Pick the Arduino, confirm, and watch the same states run through.
+
+**Narration:**
+> "You do not have to install anything. In Chrome, Edge, or Opera the same app runs in a tab — the difference is that the browser will not touch a serial port until you say so. The status button reads **Connect board**. Click it, pick your board in the chooser, and from there it behaves exactly like the desktop app. In Firefox or Safari the button tells you to switch browsers, because those cannot reach a serial port at all."
+
+**On-screen text:** `Web Serial: Chrome · Edge · Opera`
+
+### 3:45 — Recap
+
+**Screen:** Split screen, desktop app on the left, browser tab on the right, both showing a connected board.
+
+**Narration:**
+> "Two ways in, one thing to look at: if the sidebar shows a port name, you are connected, and every flow you build from here will run on that board."
+
+## Deliberate failure
+
+The charge-only cable at 2:25. Do not fake it — plug in a real charge-only cable and show ten uncut seconds of nothing happening.
+
+## Post-production notes
+
+- The flashing wait may be sped up; the failure wait may not.
+- Blur the serial port name only if it contains a machine name. Port names like `COM3` or `/dev/cu.usbmodem14201` stay visible — viewers compare theirs to it.
+- Caption every status string as `[status: …]`.

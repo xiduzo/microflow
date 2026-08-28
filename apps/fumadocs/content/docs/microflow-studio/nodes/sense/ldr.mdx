@@ -18,12 +18,21 @@ The LDR node outputs a number between **0 and 1023**:
 
 Because these values are large, you will often want to pair the LDR with a [Map](/docs/microflow-studio/nodes/shape/map) node to convert the range into something more useful — for example, converting 0–1023 into 0–255 to control LED brightness.
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`value`** — The light level, `0`–`1023`. Higher is brighter — though which way round depends on how you wired the divider.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which analog pin on your Arduino the LDR is connected to (analog pins are usually labelled A0, A1, A2, etc.)
+- **Pin** — Which pin the component is connected to. Default `A0`.
+- **Type** — Which mode the node runs in. Default `analog`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `25`.
+- **Threshold** — How much the reading must change before the node reports it. Default `1`.
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/light)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/light)

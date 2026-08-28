@@ -1,0 +1,51 @@
+---
+title: Use Studio in your browser
+description: Run Microflow without installing anything, and know what you give up.
+---
+
+Microflow Studio runs in a browser tab and talks to a board over Web Serial. It is the fastest way to try Microflow, and the right choice on a locked-down machine where you cannot install software.
+
+## When you need it
+
+- You want to try Microflow without installing anything.
+- You are on a school or work machine that will not let you install an app.
+- You are running a workshop and would rather send a link than a download.
+
+## Steps
+
+1. **Use Chrome, Edge, or Opera.** Firefox and Safari cannot reach a serial port at all, and there is no workaround inside them — the sidebar will say so.
+2. **Plug your board in** with a data-carrying USB cable.
+3. **Open Studio** in a tab.
+4. **Click *Connect board*** in the sidebar. A web page cannot open a serial port on its own; the browser asks you first.
+5. **Pick your board** in the browser's chooser and confirm.
+6. **Wait for the port name** in the sidebar. If this is a new board it flashes firmware first — up to a minute. Do not unplug.
+
+After that first grant, Studio reconnects to that board automatically: on reload, and after unplugging and replugging.
+
+## Verify it worked
+
+Add any [Sense](/docs/microflow-studio/nodes/sense) node and a [Monitor](/docs/microflow-studio/nodes/express/monitor), connect them, and touch the component. Values in the Monitor means the whole chain works.
+
+## What the browser cannot do
+
+The canvas, the nodes, the runtime, collaboration, the circuit view, the code view, and the sketch download are all identical. Three things are not:
+
+| | Browser | Desktop app |
+| --- | --- | --- |
+| Finding the board | You grant permission per board, once | Automatic |
+| MQTT broker configuration | Not available | **Configuration → MQTT** |
+| AI provider configuration | Not available | **Configuration → LLM** |
+
+If you need MQTT — which includes the Figma and Penpot bridges — or a local AI model, you need the [desktop app](https://github.com/xiduzo/microflow-t-stack/releases).
+
+## Gotchas
+
+- **One tab holds the port.** A second Studio tab cannot connect to a board the first one has. Close the other tab.
+- **Permission is per origin.** Granted on a local dev server does not carry over to the hosted app, or the other way round.
+- **Enterprise policy can disable Web Serial** entirely, in which case Studio reports the browser as unsupported. Nothing in the app can override that.
+- **The browser cannot install drivers.** If your operating system does not list the board as a serial device, no browser can fix that — see [Install board drivers](/docs/how-to/install-board-drivers).
+
+## Related
+
+- [Connect a microcontroller](/docs/how-to/connect-a-microcontroller)
+- [Board not detected](/docs/troubleshooting/board-not-detected)

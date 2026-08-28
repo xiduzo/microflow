@@ -16,14 +16,25 @@ A piezo is a small buzzer that can make sounds. It is not a speaker — it produ
 - **Play a melody** — compose a sequence of notes in the node's settings and trigger them to play in order.
 - **Stop** — send a signal to stop any sound currently playing.
 
+## Inputs
+
+- **`trigger`** — Play the tone or the song.
+- **`stop`** — Stop playing.
+
+## Outputs
+
+- **`value`** — `1` while playing, `0` when silent.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which digital pin on your Arduino the piezo is connected to
-- **Melody** — compose a custom melody by entering notes and their durations
+- **Type** — Which mode the node runs in. Default `buzz`.
+- **Duration** — How long the tone lasts, in milliseconds. Default `500`.
+- **Frequency** — The pitch, in hertz. `440` is A above middle C. Default `440`.
+- **Pin** — Which pin the component is connected to. Default `11`.
+- **Song** — The sequence to play. Default `DEFAULT_SONG`.
+- **Tempo** — Beats per minute. Default `113`.
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/piezo/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/piezo/)
 - [Arduino](https://docs.arduino.cc/built-in-examples/digital/toneMelody/)

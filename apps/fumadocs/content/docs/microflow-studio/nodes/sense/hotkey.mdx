@@ -1,0 +1,36 @@
+---
+title: Hotkey
+description: Fire part of your flow from a key on your keyboard — no hardware required.
+---
+
+The Hotkey node turns a key on your keyboard into an input, exactly like a physical button. It is the fastest way to test a flow before the hardware exists, to demo a prototype without wiring anything, and to give yourself a manual override during a workshop.
+
+It works whenever Microflow Studio has focus. It does not fire while you are typing in a text field, so it will not go off while you are editing a Function node.
+
+## Inputs
+
+- **`key_event`** — Reserved for Studio's own keyboard plumbing. You do not wire anything here.
+
+## Outputs
+
+- **`event`** — Fires on every press and every release of the chosen key.
+- **`true`** — True while the key is held down.
+- **`false`** — True while the key is up.
+- **`value`** — `1` while held, `0` while released.
+
+## Settings
+
+- **Accelerator** — The key to listen for. One character: `a`–`z` or `0`–`9`. Default `x`.
+
+Modifier keys are not supported, and nor are function keys — a single letter or digit only.
+
+## Tips
+
+- **Give each Hotkey node a different key.** Two nodes on the same key both fire, which is occasionally what you want and usually a surprise.
+- **Avoid keys Studio already uses.** Numbers `1`–`9` switch between flows when held with `Cmd`/`Ctrl`, so a bare number key is fine, but pick letters if you are unsure.
+- **Swap it out later.** A Hotkey node has the same outputs as a [Button](/docs/microflow-studio/nodes/sense/button), so when the real button arrives you can delete the Hotkey, drop in a Button, and reconnect the same two edges.
+
+## Related
+
+- [Button](/docs/microflow-studio/nodes/sense/button) — the physical equivalent.
+- [Collaborate on a flow without hardware](/docs/how-to/collaborate-without-hardware) — where this node earns its keep.

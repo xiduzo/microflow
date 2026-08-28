@@ -1,89 +1,84 @@
 ---
 title: Your first flow
-description: Blink the built-in LED on your Arduino in five minutes, with no extra parts.
+description: Blink the built-in LED on your board in five minutes, with no extra parts.
 ---
 
-This is your "hello world" with hardware. By the end, the small LED on your Arduino will blink on and off once a second. You will not need any extra components — every supported Arduino board has an LED on pin 13 already soldered to the board.
+By the end of this lesson the small LED already soldered to your board will blink once a second, and you will have built the flow that does it. No extra components.
+
+<Video title="Your first flow" duration="3:30" script="/docs/videos/first-flow">
+The same five minutes on camera, including the mistake everyone makes with pin numbers.
+</Video>
 
 ## What you need
 
-- A computer (Windows, macOS, or Linux)
-- A supported Arduino board: Uno, Mega, Leonardo, Micro, Nano, or Yun
-- A USB cable that fits your board
-- Microflow Studio installed — [install it now](/docs/microflow-studio) if you have not yet
+- A computer running Windows, macOS, or Linux — or Chrome, Edge, or Opera.
+- An **Arduino Uno**, **Arduino Nano**, or **ESP32**.
+- A USB cable that carries data.
+- Microflow Studio, [connected to your board](/docs/how-to/connect-a-microcontroller).
 
-<Callout type="info" title="Template available">
-  Studio ships this flow as the **Blink** template — open the **Templates** page and load it to skip the node-by-node setup. Building it by hand is still the best way to learn.
+<Callout type="info" title="There is a shortcut, but do not take it yet">
+Studio ships this flow as the **Blink** template under **Templates** in the sidebar. Building it by hand once is worth the five minutes.
 </Callout>
 
-## Step 1 — Plug in your board
+## Step 1 — Confirm your board is connected
 
-Connect the Arduino to your computer with the USB cable. A small power LED on the board should light up. Leave it plugged in for the rest of the tutorial.
+Look at the microcontroller status in the sidebar. It should show a serial port name — something like `COM3` or `/dev/cu.usbmodem14201`.
 
-## Step 2 — Open Microflow Studio and create a new flow
+If it says **No microcontroller connected**, or **Connect board** in the browser, stop here and follow [Connect a microcontroller](/docs/how-to/connect-a-microcontroller). Nothing below will work until this is right.
 
-Launch Microflow Studio. From the home screen, click **New flow**. You will see a blank grid — this is the **canvas**. It is where you build everything.
+## Step 2 — Add an Interval node
 
-<Callout type="info" title="Video placeholder">
-  10-second clip: opening Studio, creating a new flow, landing on the empty canvas.
+You need something that fires repeatedly. The [Interval](/docs/microflow-studio/nodes/generate/interval) node does exactly that.
+
+1. Press `Cmd/Ctrl + K` to open the **Add node** palette.
+2. Type `interval`. It filters to the **Generate** group.
+3. Press Enter. The node lands on the canvas.
+4. Click the node and set **Interval** to `1000` — one tick per second.
+
+## Step 3 — Add an LED node
+
+Now something that acts on the tick.
+
+1. Press `Cmd/Ctrl + K` again and type `led`.
+2. You will see three results — **LED**, **LED Matrix**, **LED Strip**. Choose plain **LED**, under **Express**.
+3. Place it to the right of the Interval node.
+4. Click it and set **Pin** to `13` — the LED already on the board. No wiring today.
+
+## Step 4 — Connect them
+
+The dots on the right of a node are its **outputs**. The dots on the left are its **inputs**.
+
+Drag from the Interval node's `event` output to the LED node's `toggle` input. A line appears between them — that is an **edge**, and it carries the tick from one node to the other.
+
+<Callout type="info" title="Handles are small">
+Zoom in first (`Cmd/Ctrl + =`) if the handles are hard to hit. Hovering over a node makes them easier to see.
 </Callout>
 
-## Step 3 — Wait for the board to be detected
+## Step 5 — Watch it blink
 
-In the bottom panel, Studio will say something like *"Waiting for board…"* and then *"Detected: Arduino Uno on COM3"*. The first time you connect a board, it also installs a small program called **StandardFirmata** onto it. This takes 30–60 seconds.
+The built-in LED should now toggle once a second. There was no run button to press — the flow started the moment the edge connected.
 
-When you see *"Running"*, the board is ready to talk to your flow.
+## If it is not blinking
 
-If detection fails, see [Board not detected](/docs/troubleshooting/board-not-detected).
+Work down this list. It is in order of likelihood.
 
-## Step 4 — Add an Interval node
+| Check | What to look for |
+| --- | --- |
+| The status in the sidebar | It must show a port name. **Connecting** or **Flashing firmware** means wait; anything else means [start here](/docs/troubleshooting/board-not-detected). |
+| The LED node's **Pin** | It must be `13`. This is the most common mistake, and nothing on screen will tell you it is wrong. |
+| The edge | It should run from `event` to `toggle`. Click it — a selected edge highlights. If nothing highlights, the connection never completed. |
+| The Interval's value | The node shows its live value. If it is not changing, the Interval is not running. |
 
-You need something to fire repeatedly. The [Interval](/docs/microflow-studio/nodes/generate/interval) node does exactly that — it emits a tick on a schedule.
+Still nothing? Add a [Monitor](/docs/microflow-studio/nodes/express/monitor) node and connect the Interval's `event` output to it. If the Monitor ticks, the problem is between the LED node and the board. If it does not, the problem is the Interval.
 
-1. Open the **Add node** panel (press `n` or click the `+` button).
-2. Find **Interval** under the **Generate** category.
-3. Drag it onto the canvas.
-4. Click the node and set **Interval** to `1000` milliseconds (one second).
+## What just happened
 
-## Step 5 — Add an LED node
+- **Interval** emits a tick every 1000 ms.
+- The tick travels along the edge.
+- **LED** flips its pin between on and off each time one arrives.
 
-Now the thing you want to control:
-
-1. Open **Add node** again.
-2. Find **LED** under the **Express** category.
-3. Drag it onto the canvas.
-4. Click the LED node and set **Pin** to `13` — this is the built-in LED on most Arduinos.
-
-## Step 6 — Connect them
-
-Look at the right side of the Interval node. You will see a small dot — this is its **output handle**. Look at the left side of the LED node. You will see another dot — its **input handle**.
-
-Click and drag from the Interval's output to the LED's input. A line appears connecting them. This is an **edge**, and it carries values from one node to the next.
-
-<Callout type="info" title="Video placeholder">
-  10-second clip: dragging an edge from one handle to another.
-</Callout>
-
-## Step 7 — Watch the LED blink
-
-That's it. The small built-in LED on your Arduino should now toggle on and off once a second.
-
-If it does not, check:
-
-- Is the bottom panel still showing **Running**?
-- Did you set the LED's pin to `13`?
-- Is the edge actually connected? (it should be a solid line, not faded)
-
-## What just happened?
-
-- The **Interval** node emits a tick every 1000 ms.
-- That tick travels along the edge to the **LED** node.
-- The LED toggles its pin between high (on) and low (off) on each tick.
-
-Three nodes — Generate → Express — and you have a working hardware project. Every flow you build follows this same pattern: something produces a value, that value flows through other nodes, and eventually something physical happens.
+Something generates a value, the value travels along an edge, something expresses it in the physical world. Every flow you build is that shape, repeated.
 
 ## Next up
 
-Now that one node can drive another, the next lesson plugs the world *into* your flow.
-
-→ [A button controls an LED](/docs/learn/button-controls-led)
+→ [A button controls an LED](/docs/learn/button-controls-led) — now put the world *into* the flow.

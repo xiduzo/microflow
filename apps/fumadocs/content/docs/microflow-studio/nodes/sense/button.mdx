@@ -7,24 +7,25 @@ A button is a simple input device that you can press to interact with your proje
 
 **How it works:** Connect a button to your Arduino, and the Button node sends a signal whenever someone presses or releases it. You can use each of those signals separately — for example, turning on a light when the button is pressed down, and turning it off again when it is released.
 
+## Inputs
+
+- **`read`** — Take a reading now. The button is polled for you, so this is rarely needed.
+
 ## Outputs
 
-The Button node has two output handles:
-
-- **Down** — fires when the button is pressed
-- **Up** — fires when the button is released
-
-Connect whichever output (or both) you need to other nodes in your flow.
+- **`event`** — Fires on every press and every release.
+- **`true`** — True while the button is held down.
+- **`false`** — True while the button is up.
+- **`hold`** — Fires when the button has been held for longer than **Hold time**. This is how you get a long-press without building a timer.
+- **`value`** — `1` while pressed, `0` while released.
 
 ## Settings
 
-Open the settings panel (the icon in the top right corner of the node) to configure:
-
-- **Pin** — which numbered pin on your Arduino the button is connected to
-
-<Callout title="Which pin should I use?">
-Pins are the numbered connection points on your Arduino board. They are the physical holes or legs you plug wires into. Connect your button to any available digital pin and set that same number in the node's settings. Pin 13 is special — it has a built-in LED on the board, which is handy for testing.
-</Callout>
+- **Pin** — Which pin the component is connected to. Default `6`.
+- **Pull-up** — Use the board's internal pull-up resistor, so you can wire the component without an external one. Default `false`.
+- **Pull-down** — Use an internal pull-down resistor instead. Default `false`.
+- **Hold time** — How long the button must be held, in milliseconds, before `hold` fires. Default `500`.
+- **Invert** — Swap the meaning of pressed and released. Useful for normally-closed wiring. Default `false`.
 
 ## Related
 
@@ -33,5 +34,5 @@ Pins are the numbered connection points on your Arduino board. They are the phys
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/button/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/button/)
 - [Arduino](https://docs.arduino.cc/built-in-examples/digital/Button/)

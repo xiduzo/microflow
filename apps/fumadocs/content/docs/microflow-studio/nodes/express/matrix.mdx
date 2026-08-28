@@ -1,0 +1,52 @@
+---
+title: LED Matrix
+description: Display shapes, patterns, and text on an LED matrix such as an 8×8 MAX7219.
+---
+
+The LED Matrix node drives a grid of LEDs — most commonly an 8×8 MAX7219 module, and chains of them. You draw a shape in the node's editor or send one in as an array of rows, and the node puts it on the display.
+
+## Inputs
+
+- **`value`** — The shape to display, as an array of row strings.
+- **`reset`** — Clear the display.
+- **`reinitialize`** — Re-run the display's start-up sequence. Use this if the matrix comes up garbled after a power glitch.
+
+## Outputs
+
+- **`value`** — The shape currently displayed.
+
+## Settings
+
+- **Shapes** — The shapes you have drawn, in order. Send an index to `value` to pick one.
+- **Dimensions** — The size of one module. Default `8x8`.
+- **Chained devices** — How many modules are daisy-chained. Default `1`.
+- **Pins** — `data`, `clock`, and `cs`. Defaults `2`, `3`, and `4`.
+- **Controller** — Which driver chip the module uses.
+- **Address** — The module's address, for I²C-addressed displays.
+
+## Wiring
+
+| Module pin | Goes to |
+| --- | --- |
+| VCC | 5 V |
+| GND | GND |
+| DIN | Pin 2 (data) |
+| CLK | Pin 3 (clock) |
+| CS | Pin 4 |
+
+To chain modules, connect each module's DOUT to the next module's DIN, share VCC, GND, CLK, and CS, and set **Chained devices** to the number of modules.
+
+## Tips
+
+- **Display garbled on power-up?** Fire `reinitialize`. MAX7219 modules occasionally come up in a bad state, particularly on a marginal supply.
+- **Shape rotated or mirrored?** Modules are sold in several orientations. Rotate the shape in the editor rather than rewiring.
+- **Chained modules dim or flickering?** They are drawing more than the board can supply. Power them separately and join the grounds.
+
+## Related
+
+- [LED Strip](/docs/microflow-studio/nodes/express/pixel) — a line of addressable LEDs.
+- [Monitor](/docs/microflow-studio/nodes/express/monitor) — check what you are sending before blaming the wiring.
+
+## Resources
+
+- [Johnny-Five LED Matrix — behaviour reference](https://johnny-five.io/api/led.matrix/)

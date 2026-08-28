@@ -1,62 +1,63 @@
 ---
-title: Collaborate on a flow in real-time
-description: Share a flow with someone else and edit together — both screens stay in sync.
+title: Collaborate on a flow in real time
+description: Invite someone to a flow and edit it together, with both screens in sync.
 ---
 
-Microflow Studio supports real-time collaboration: multiple people can have the same flow open at the same time and see each other's changes as they happen — much like a Figma file or Google Doc.
+Several people can have the same flow open and see each other's changes as they happen, like a Figma file. Access is granted per person, by email — the link on its own grants nothing.
+
+<Video title="Collaborate on a flow" duration="3:30" script="/docs/videos/collaborate">
+Inviting an editor, live cursors on two machines, and what changes when you switch someone to viewer.
+</Video>
 
 ## What you need
 
-- Both collaborators on the same network *or* a Microflow account on a hosted server.
-- Microflow Studio installed on both machines.
+- A Microflow account, and a saved flow. The **Local Flow** cannot be shared — it lives in your browser.
+- An email address for each person you are inviting.
 
-<Callout type="info" title="Video placeholder">
-  45-second screencast: click Share, copy the link, open it on a second machine, watch both cursors and node edits sync live.
+## Steps
+
+1. Open the flow, then open its **settings** from the dock at the bottom of the canvas.
+2. Find the **Collaborators** section and click **Share**.
+3. Type their email address.
+4. Choose a role:
+   - **Editor** — can change the flow.
+   - **Viewer** — can open, pan, zoom, and select, but change nothing.
+5. Submit. If they already have an account they are added immediately; if not, the row shows **Invited** and they get access when they sign up.
+6. Send them the link from the same dialog.
+
+<Callout type="warn" title="The link does not grant access">
+Copying the link and sending it to someone who has not been added does nothing for them. The link opens the flow for people who already have access — the email invite is what grants it.
 </Callout>
 
-## Share a flow
+## Verify it worked
 
-1. Open the flow you want to share.
-2. Click the **Share** button in the top-right corner.
-3. Copy the link.
-4. Send it to a collaborator.
+Their row appears in the collaborators table with their role. Once they open the flow, their cursor appears on your canvas with their name on it.
 
-When they open the link in Microflow Studio, the flow loads with the latest server state. Their cursor appears on your canvas as a coloured pointer; yours appears on theirs.
+## Change or remove access
+
+Same page. Change someone's role from the row's menu, and it takes effect on their screen immediately — a viewer gets a **View only** badge, their nodes stop moving, and the delete key stops doing anything.
+
+A pending invite can be withdrawn before it is accepted. Only the flow's owner can invite, change roles, or delete the flow.
 
 ## Who runs the hardware?
 
-Only one person at a time can run the flow against a real Arduino, because there is only one physical board. The hardware connection is local to the machine that has the board plugged in.
+The flow is shared. The hardware is not.
 
-In practice that means:
-
-- You can both **edit the flow** at the same time.
-- One of you also **runs the flow** on a real board, and the other watches via Monitor nodes.
-- If the board is plugged into your machine, the flow runs locally — your collaborator sees the same Yjs document but does not control the hardware.
+The board is plugged into one person's machine, so everybody else's sidebar correctly says no microcontroller is connected. The **values** from that board travel with the flow, so a collaborator with no hardware at all can watch the sensors and edit the flow that reacts to them — which is how you run a workshop with one kit. See [Collaborate without hardware](/docs/how-to/collaborate-without-hardware).
 
 ## What stays in sync
 
-- Node positions on the canvas.
-- Node settings.
-- Edges (connections between nodes).
+**Synced:** node positions, node settings, edges, and the live values flowing through the flow.
 
-What is **not** synced (it stays per-machine):
+**Per machine:** which board is connected, and the local view — your zoom and pan are yours.
 
-- Live Monitor values — these are runtime, not part of the flow definition.
-- Hardware connection state — depends on which board is plugged into which computer.
-- Cursor positions of *other* collaborators (only your own and theirs).
+## Conflicts
 
-## Conflict handling
+Microflow uses [Yjs](https://yjs.dev), so simultaneous edits merge rather than erroring. If two of you change the same setting at the same instant, one of them wins. There is no lock, no merge dialog, and no way to lose the document — but there is also nothing to stop you quietly undoing each other, so talk first.
 
-Microflow uses [Yjs](https://yjs.dev) for conflict resolution. If two of you edit the same node setting at the same instant, the operations are merged — you will not lose work and you will not see error dialogs. The result might be a setting that's the union of both edits, or one wins; if you find yourselves disagreeing, talk first.
-
-## Working offline
-
-Edits made offline are stored locally. When the network reconnects, your changes are merged with the server's. There is no separate "save" step.
-
-## Hosting your own server
-
-Self-hosting the collaboration server is possible — Microflow's collaboration layer is just a WebSocket bridge for Yjs documents. See the [Microflow GitHub repository](https://github.com/xiduzo/microflow-t-stack) for current self-hosting options.
+Edits made offline are stored locally and merged when you reconnect. There is no save button.
 
 ## Related
 
-- [Concepts: collaboration](/docs/concepts/collaboration) — how the sync model works.
+- [Collaborate on a flow without hardware](/docs/how-to/collaborate-without-hardware)
+- [Collaboration](/docs/concepts/collaboration) — how the sync model works.

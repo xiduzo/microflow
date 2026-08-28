@@ -1,31 +1,54 @@
 ---
 title: Flash firmware manually
-description: Re-upload StandardFirmata to a board that is misbehaving or running someone else's sketch.
+description: Take over the firmware step yourself, when Studio's automatic flash will not do it.
 ---
 
-Microflow Studio uploads StandardFirmata automatically the first time you connect a board. Sometimes you need to do it again — for example after a different program (the Arduino IDE, another tool, or another user's sketch) has overwritten what was on the board.
+Studio handles firmware on its own. Every time it connects to a board it probes for Microflow's firmware, flashes it if it is missing, and connects. A board that has been used for something else — a sketch from the Arduino IDE, another tool, a colleague's project — recovers on the next connection with no action from you.
 
-## When to re-flash
+So doing it by hand is rare. It is worth doing when:
 
-- Studio detects the board but never reaches **Running**.
-- The board reaches **Running** but pins do not respond to your flow.
-- You used the board with the Arduino IDE and then came back to Microflow.
-- A new firmware version of Microflow ships with an updated StandardFirmata.
+- The status cycles between **Connecting** and **Flashing firmware** and never settles.
+- The board connects but no pin ever responds, on any flow.
+- You interrupted a flash by unplugging the board mid-way.
+- You want to keep working while the board holds a sketch of your own.
 
-## Steps
+## Before you start
 
-1. Make sure the board is plugged in and detected by your operating system. If not, see [Install board drivers](/docs/how-to/install-board-drivers).
-2. In Microflow Studio, open the connection panel at the bottom of the canvas.
-3. Click the menu next to the connection state and choose **Re-flash firmware** (label may also say *Upload firmware* depending on version).
-4. Studio reports **Uploading**. Wait 30–60 seconds — do not unplug the board.
-5. The state advances to **Running**. The board is fresh.
+Rule out the two causes that make an automatic flash fail, because they will make a manual one fail too:
+
+1. **The cable.** A charge-only cable connects nothing. See [Board not detected](/docs/troubleshooting/board-not-detected#1-the-cable).
+2. **Another program holding the port.** The Arduino IDE's Serial Monitor is the usual one. Close it — including the IDE itself on Windows.
+
+## Let Studio do it
+
+The reliable path is to let the automatic flow run cleanly:
+
+1. Close every other program that talks to the board.
+2. Unplug the board. Count to five.
+3. Plug it back in, directly into the computer rather than a hub.
+4. Watch the sidebar. **Connecting**, then **Flashing firmware**, then a port name.
+5. **Do not unplug during Flashing firmware.** It can take up to a minute.
+
+That is the whole procedure for the great majority of cases.
+
+## Flash from the Arduino IDE
+
+If the board will not take a flash from Studio at all, prove the board can be written to at all:
+
+1. Open the Arduino IDE.
+2. **Tools → Board** — pick your board. **Tools → Port** — pick the port.
+3. **File → Examples → 01.Basics → BareMinimum**, and upload it.
+
+- **The upload succeeds** — the board and the cable are fine. Close the IDE completely and let Studio connect again.
+- **The upload fails**, particularly with `avrdude: stk500_recv()` — the board has a bootloader problem. That needs hardware-level recovery (an ISP programmer) and is outside what Microflow can do.
 
 ## Verify it worked
 
-Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas, connect any sense node to it, and watch values appear. If the Monitor stays blank, see [Pin conflicts](/docs/troubleshooting/pin-conflicts) or [Board not detected](/docs/troubleshooting/board-not-detected).
+Add any [Sense](/docs/microflow-studio/nodes/sense) node and a [Monitor](/docs/microflow-studio/nodes/express/monitor), connect them, and interact with the component. Values appearing means firmware, board, and flow are all healthy.
 
-## If re-flashing keeps failing
+If the Monitor stays blank, the firmware is not the problem — see [Nothing happens on the board](/docs/troubleshooting/pin-conflicts).
 
-The most common cause is **another program holding the serial port**. The Arduino IDE's Serial Monitor is the usual suspect. Close any other program that talks to the board and try again.
+## Related
 
-If the failure persists across reboots, the board may have a bootloader issue. Use the Arduino IDE to upload the *Bare Minimum* example sketch first — if even that fails, the board needs hardware-level recovery, which is outside Microflow's scope.
+- [Connect a microcontroller](/docs/how-to/connect-a-microcontroller)
+- [Board not detected](/docs/troubleshooting/board-not-detected)

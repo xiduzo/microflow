@@ -5,6 +5,10 @@ description: Use shape nodes to clean up jumpy readings before they reach an out
 
 Plug a sensor into a Monitor node and you will see it: even when nothing changes, the readings flicker. This is normal — analog inputs always carry some electrical noise. In this lesson you will *see* the noise, then *remove* it.
 
+<Video title="Smooth a sensor and react to a threshold" duration="5:00" script="/docs/videos/smooth-and-threshold">
+Sensor noise on a graph, and what each Smooth setting does to it.
+</Video>
+
 ## What you need
 
 - The setup from the [previous lesson](/docs/learn/fade-with-potentiometer): potentiometer on `A0`, LED on pin `9`.
@@ -15,7 +19,7 @@ Plug a sensor into a Monitor node and you will see it: even when nothing changes
 
 ## Step 1 — See the noise
 
-In your flow, drag a [**Monitor**](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas and connect the Potentiometer's output to it.
+In your flow, drag a [**Monitor**](/docs/microflow-studio/nodes/express/monitor) node onto the canvas and connect the Potentiometer's output to it.
 
 Hold the knob completely still. The Monitor should show a value that twitches by 1–3 every reading even though you are not touching the pot. That is sensor noise.
 

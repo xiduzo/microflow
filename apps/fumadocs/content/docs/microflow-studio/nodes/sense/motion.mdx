@@ -42,6 +42,22 @@ The sensor can be set to two modes of operation: **Single trigger mode** (`L`) a
 - **Behavior:** In single trigger mode, the PIR sensor will activate its output (e.g., turn on a light or send a signal) when it detects motion. The output will remain active for a predetermined period (the delay time) and then turn off, regardless of whether motion continues to be detected.
 - **Use Case:** This mode is useful in scenarios where you want the sensor to trigger an action once and then ignore further motion until the delay time has elapsed. For example, turning on a light for a set period when motion is first detected, and then turning it off after the delay time, even if there is continued motion.
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`event`** — Fires when motion starts and when it stops.
+- **`true`** — True while motion is detected.
+- **`false`** — True while nothing is moving.
+- **`value`** — `1` while motion is detected, `0` otherwise.
+
+## Settings
+
+- **Controller** — Which hardware controller the component uses. Default `HCSR501`.
+- **Pin** — Which pin the component is connected to. Default `8`.
+
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/examples/ir-motion/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/examples/ir-motion/)

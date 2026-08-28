@@ -17,9 +17,9 @@ In the last lesson, time told the LED what to do. In this one, *you* will — by
   Studio ships this flow as the **Button LED** template — open the **Templates** page and load it to skip the node-by-node setup.
 </Callout>
 
-<Callout type="info" title="Video placeholder">
-  30-second breadboard close-up: shows the button, resistor, and jumper layout from above with each connection annotated.
-</Callout>
+<Video title="A button controls an LED" duration="4:00" script="/docs/videos/button-and-led">
+The breadboard built from nothing, overhead, one wire at a time — then the flow, then what a missing edge feels like.
+</Video>
 
 ## Step 1 — Wire the button
 
@@ -34,7 +34,7 @@ A button on its own is not enough — you also need a **pull-down resistor**, wh
 Pressing the button connects 5V to pin 2 directly; releasing it leaves pin 2 connected to GND through the resistor.
 
 <Callout type="info" title="No breadboard? Use the built-in pull-up">
-If you wire the button between pin 2 and GND (no resistor), set the Button node's **mode** to "Input pull-up" instead. The Arduino will use its internal resistor and pin 2 will read `HIGH` when *not* pressed and `LOW` when pressed.
+If you wire the button between pin 2 and GND with no resistor, turn on the Button node's **Pull-up** setting instead. The board uses its own internal resistor, and the reading inverts — pressed becomes `LOW`. Turn on **Invert** as well if you would rather not think about that.
 </Callout>
 
 ## Step 2 — Wire the LED (skip if reusing pin 13)
@@ -51,7 +51,11 @@ In Microflow Studio, create a new flow and add:
 
 1. A [**Button**](/docs/microflow-studio/nodes/sense/button) node — set **Pin** to `2`.
 2. An [**LED**](/docs/microflow-studio/nodes/express/led) node — set **Pin** to `9` (or `13` if you skipped step 2).
-3. Connect the Button's output to the LED's input.
+3. Draw **two** edges:
+   - Button `true` → LED `true`
+   - Button `false` → LED `false`
+
+Two edges, not one. The first turns the light on; the second turns it off. Wire only the first and the LED comes on and stays on — which looks exactly like broken hardware and is the most common mistake in this build.
 
 ## Step 4 — Try it
 
@@ -59,12 +63,14 @@ Press the button. The LED should turn on. Release the button. The LED should tur
 
 If nothing happens:
 
-- Drop a [**Monitor**](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas and connect the Button's output to it. Press the button — the Monitor should show `1`. If it stays at `0`, the button is wired wrong.
-- Make sure the Arduino is still in the **Running** state.
+- **Is the second edge there?** If the LED comes on and never goes off, `false → false` is missing.
+- **Is the sensor side alive?** Drop a [**Monitor**](/docs/microflow-studio/nodes/express/monitor) node on the canvas and connect the Button's `value` output to it. Press the button — the Monitor should show `1`. If it stays at `0`, the button is wired wrong or on a different pin.
+- **Is the board still connected?** The sidebar should show a port name.
+- **Does the pin in the node match the pin on the board?** See [Nothing happens on the board](/docs/troubleshooting/pin-conflicts).
 
 ## What just happened?
 
-The Button node reads pin 2 and emits a value: `1` when pressed, `0` when not. The LED node turns on when it receives any non-zero value and off when it receives `0`. No "if-then" logic was needed — values flow through and the LED reacts.
+The Button node watches pin 2 and reports what it sees on several outputs at once: `true` while it is held, `false` while it is up, `event` on any change, `hold` on a long press, and `value` as `1` or `0`. You used two of them. The LED's `true` and `false` inputs are commands — arrive at one and the light does that thing. No "if-then" logic was needed.
 
 This is the **sense → express** pattern: input from the world, output to the world.
 

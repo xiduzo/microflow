@@ -1,52 +1,71 @@
 ---
 title: Microflow Studio
-description: The desktop app where you build interactive hardware projects on a visual canvas.
+description: The app where you build interactive hardware projects on a visual canvas.
 ---
 
-Microflow Studio is the desktop app at the heart of Microflow. You build projects by dragging [nodes](/docs/microflow-studio/nodes) onto a canvas and connecting them with [edges](/docs/microflow-studio/edges) — Microflow then runs the whole thing on your Arduino over USB.
+Microflow Studio is where you build. Drag [nodes](/docs/microflow-studio/nodes) onto a canvas, connect them with [edges](/docs/microflow-studio/edges), and Studio runs the whole thing on your board over USB. No compile step, no run button — edit while it runs and the change applies immediately.
 
-No code, no compilation. Edit the canvas while it runs and the changes apply live.
+It comes in two forms, and they do the same thing:
 
-[Download Microflow Studio](https://github.com/xiduzo/microflow-t-stack/releases)
+- **The desktop app** — Windows, macOS, and Linux. Auto-detects your board. Required for MQTT and AI provider configuration. [Download it](https://github.com/xiduzo/microflow-t-stack/releases).
+- **The web app** — Chrome, Edge, or Opera, with nothing to install. See [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser).
 
-<Callout type="info" title="Video placeholder">
-  90-second Studio tour: open app → empty canvas → add Sense + Express → connect → see live values → adjust settings → confirm running. Narrated.
-</Callout>
+<Video title="A tour of Microflow Studio" duration="5:00" script="/docs/videos/studio-tour">
+Every part of the window named and used: sidebar, canvas, dock, node settings, and the three views of a flow.
+</Video>
 
-## Brand new to Microflow?
+## New here?
 
-Start with the [Learn](/docs/learn) section. It walks you from blank canvas to a working hardware project in five short tutorials.
+Start with [Learn](/docs/learn) — six short lessons from blank canvas to working hardware. If your board is already on the desk, [connect it first](/docs/how-to/connect-a-microcontroller).
 
-If you have a board on your desk and just want to confirm it works:
+## The window
 
-→ [Connect a microcontroller](/docs/how-to/connect-a-microcontroller)
+Three regions.
 
-## The canvas
+### The sidebar
 
-When you open Microflow Studio, you see a large blank canvas — this is where you build your project.
+Everything *about* your flow, top to bottom:
 
-- **Add a node** — right-click anywhere on the canvas, or press `n`, to open the node menu.
-- **Move nodes** — click and drag a node to reposition it.
-- **Connect nodes** — click and drag from a node's right-hand handle to another node's left-hand handle.
-- **Pan the canvas** — click and drag on an empty area.
-- **Zoom** — scroll wheel, or pinch on a trackpad.
+- **Flow switcher** — every flow you have, and the button to make a new one. `Cmd/Ctrl + 1`–`9` jumps between them.
+- **Microcontroller status** — which board is connected, or why none is. The question mark beside it opens [Board not detected](/docs/troubleshooting/board-not-detected).
+- **The current flow** — its three views: **Edit flow**, **Show circuit**, **Show code**.
+- **General** — **My flows**, **Templates**, and **Configuration** for [MQTT brokers](/docs/how-to/run-your-own-mqtt-broker) and [AI providers](/docs/how-to/connect-a-local-llm). Those are set once and shared by every flow.
 
-Once your flow is ready and your board is connected, Microflow runs it automatically — there is no "run" button.
+### The canvas
 
-For the conceptual model behind the canvas, see [Flows, signals, and events](/docs/concepts/flows-signals-events).
+The flow itself.
 
-## What's in this section
+- **Add a node** — `Cmd/Ctrl + K`, or the `+` in the dock. The palette is searchable: type what the thing does, not what it is called.
+- **Connect nodes** — drag from a handle on the right of one node to a handle on the left of another.
+- **Move** — drag a node. **Pan** — drag empty canvas. **Zoom** — scroll.
+- **Find your way back** — `Shift + 1` fits everything, or just what you have selected.
 
-This section is **reference material** for Microflow Studio specifically. Lookups, not lessons.
+Each node shows its live value while the flow runs. That is the fastest debugging tool in the app — see [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node).
+
+### The dock
+
+Along the bottom: **add node**, **undo**, **redo**, **export this flow to a file**, and **flow settings** — where you rename a flow, [invite collaborators](/docs/how-to/collaborate-on-a-flow), and delete it. Undo and redo dim when there is nothing left to do.
+
+## Three views of one flow
+
+| View | What it is for |
+| --- | --- |
+| **Edit flow** | Building. The canvas. |
+| **Show circuit** | The wiring your flow implies, pin by pin. Build the physical side from it — see [Read the circuit view](/docs/how-to/read-the-circuit-view). |
+| **Show code** | The Arduino sketch your flow compiles to, downloadable as a `.ino` file — see [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch). |
+
+The circuit and the code are generated from the flow every time you open them, so they cannot fall out of date.
+
+## In this section
 
 <Cards>
-  <Card title="Nodes" href="/docs/microflow-studio/nodes" description="Every node in Studio, organised by category. Inputs, outputs, settings, wiring." />
-  <Card title="Edges" href="/docs/microflow-studio/edges" description="The connections between nodes — what they carry and how to use them." />
-  <Card title="Keyboard shortcuts" href="/docs/microflow-studio/keyboard-shortcuts" description="Every keystroke Studio responds to, in one place." />
+  <Card title="Nodes" href="/docs/microflow-studio/nodes" description="Every node, by category. Inputs, outputs, settings, wiring." />
+  <Card title="Edges" href="/docs/microflow-studio/edges" description="The connections between nodes — what they carry and what will not connect." />
+  <Card title="Keyboard shortcuts" href="/docs/microflow-studio/keyboard-shortcuts" description="Every keystroke Studio responds to." />
 </Cards>
 
 ## Pointers
 
-- Looking for *how* to do something? → [How-to guides](/docs/how-to)
-- Hit a problem? → [Troubleshooting](/docs/troubleshooting)
+- Want to *do* something specific? → [How-to guides](/docs/how-to)
+- Something is wrong? → [Troubleshooting](/docs/troubleshooting)
 - Want the *why*? → [Concepts](/docs/concepts)

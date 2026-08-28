@@ -27,6 +27,22 @@ The default server is open to everyone. Do not send passwords, personal informat
 
 If you are using the Hardware Bridge, make sure both Microflow Studio and the Figma plugin are configured with the same settings.
 
+## Inputs
+
+- **`trigger`** — Publish the current value to the topic. Publish direction only.
+
+## Outputs
+
+- **`value`** — The last message received on the topic. Subscribe direction only.
+
+## Settings
+
+- **Direction** — Whether this node sends or receives. Default `subscribe`.
+- **Broker** — Which configured MQTT broker to use. Set them up under **Configuration → MQTT**.
+- **Topic** — The MQTT topic to publish to or subscribe to.
+- **QoS** — MQTT quality of service. `0` is fire-and-forget, `1` guarantees delivery at least once, `2` exactly once. Default `1`.
+- **Retain** — Ask the broker to keep the last message so new subscribers get it immediately. Default `false`.
+
 ## Related
 
 - How-to: [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma) — main use of the Sense MQTT node.

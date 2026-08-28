@@ -13,12 +13,20 @@ If your sensor does not have its own dedicated node in Microflow, you can still 
 
 If you are unsure which type your sensor is, check its datasheet or packaging. A sensor that connects to one of the A0–A5 pins is almost certainly analog. A sensor that only needs a single digital pin is digital.
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`value`** — The reading, `0`–`1023` in analog mode, `0` or `1` in digital mode.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which pin on your Arduino the sensor is connected to
-- **Type** — digital or analog
+- **Pin** — Which pin the component is connected to. Default `A0`.
+- **Type** — Which mode the node runs in. Default `analog`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `25`.
+- **Threshold** — How much the reading must change before the node reports it. Default `1`.
 
 ## When to use this node
 
@@ -34,4 +42,4 @@ For sensors that have their own dedicated node — [Button](/docs/microflow-stud
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/sensor/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/sensor/)

@@ -18,8 +18,17 @@ If the vibration motor is connected to an **analog pin**, you can control how st
 
 If connected to a **digital pin**, the motor is simply on or off — no intensity control.
 
+## Inputs
+
+- **`true`** — Start vibrating.
+- **`false`** — Stop.
+- **`toggle`** — Flip between on and off.
+- **`value`** — Intensity, `0`–`255`. Needs a PWM pin.
+
+## Outputs
+
+- **`value`** — The current intensity.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which pin on your Arduino the vibration motor is connected to. Use an analog-capable pin if you want to control intensity.
+- **Pin** — Which pin the component is connected to. Default `13`.

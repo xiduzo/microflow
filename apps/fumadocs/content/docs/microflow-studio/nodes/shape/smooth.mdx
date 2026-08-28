@@ -11,11 +11,19 @@ Some sensors give readings that jump around even when conditions have not really
 
 This is especially useful before feeding sensor data into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Map](/docs/microflow-studio/nodes/shape/map) node, where erratic values would cause unwanted triggering.
 
+## Inputs
+
+- **`value`** — The noisy value to clean up.
+
+## Outputs
+
+- **`value`** — The smoothed value.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Samples** — how many recent readings to average together. More samples = smoother output, but slower to react to genuine changes. A value of 5–10 is a good starting point for most sensors
+- **Type** — Which mode the node runs in. Default `smooth`.
+- **Attenuation** — How heavily to smooth, `0`–`1`. Closer to 1 is smoother and slower to react. Default `0.995`.
+- **Window size** — How many readings to average. Default `25`.
 
 ## Related
 

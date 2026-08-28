@@ -3,57 +3,56 @@ title: Welcome to Microflow
 description: Build interactive hardware projects without writing code.
 ---
 
-Microflow is a set of free tools that lets you connect physical hardware — buttons, lights, sensors, motors — and make them work together, all without writing a single line of code.
+Microflow is a set of free tools for connecting physical hardware — buttons, lights, sensors, motors — and making it do something, without writing code. You build the project visually: drag blocks onto a canvas, connect them, and it runs on your board as you build.
 
-You build your project visually by dragging and dropping building blocks onto a canvas and connecting them together. Microflow handles all the technical stuff under the hood.
+<Video title="Meet Microflow" duration="2:30" script="/docs/videos/meet-microflow">
+What Microflow is, and four things people build with it.
+</Video>
 
-<Callout type="info" title="Video placeholder">
-  Intro video (2–3 min): Show what Microflow looks like in action — open the app, drag a button node and an LED node onto the canvas, connect them, plug in an Arduino, and press the button to turn on the LED. End with a few more examples of finished projects (light sensor controlling brightness, motion triggering sound) to inspire the viewer.
-</Callout>
+## What you need
 
-## What you will need
+- A computer running Windows, macOS, or Linux — or Chrome, Edge, or Opera if you would rather not install anything.
+- An **Arduino Uno**, **Arduino Nano**, or **ESP32**.
+- A USB cable that carries data. Many cables carry power only.
+- Whatever components your project needs. The first tutorial needs none.
 
-To use Microflow Studio you need:
+No programming experience required.
 
-- A **computer** running Windows, macOS, or Linux
-- An **Arduino board** (Uno, Mega, Leonardo, Micro, Nano, or Yun)
-- A **USB cable** to connect the Arduino to your computer
-- The hardware components you want to use (buttons, LEDs, sensors, etc.)
+## Start here
 
-That's it. No programming experience needed.
+<Cards>
+  <Card title="Connect a board" href="/docs/how-to/connect-a-microcontroller" description="Five minutes. Get from a board in a box to a connected board, on desktop or in the browser." />
+  <Card title="Your first flow" href="/docs/learn/first-flow" description="Blink the LED already on your board. No extra parts, no wiring." />
+</Cards>
 
-## What can you make?
+## Find what you need
 
-Here are some examples to give you an idea:
-
-- Press a button and turn on an LED
-- Read a light sensor and adjust the brightness of a lamp
-- Detect motion and trigger a sound
-- Connect a sensor to a Figma prototype and make it react to the real world
+<Cards>
+  <Card title="Learn" href="/docs/learn" description="Six lessons, in order, from blank canvas to a working project. Start here if Microflow is new to you." />
+  <Card title="How-to guides" href="/docs/how-to" description="Recipes for one specific job: connect a board, smooth a sensor, export a sketch, invite a collaborator." />
+  <Card title="Node reference" href="/docs/microflow-studio/nodes" description="Every node, with its exact inputs, outputs, settings, and wiring." />
+  <Card title="Troubleshooting" href="/docs/troubleshooting" description="Organised by symptom. Find the line that matches what you are seeing." />
+  <Card title="Video tutorials" href="/docs/videos" description="Screencasts that walk through the apps — and the full script behind each one." />
+  <Card title="Concepts" href="/docs/concepts" description="How it all works underneath. Read when you are curious, not when you are stuck." />
+</Cards>
 
 ## The tools
 
-Microflow is a small family of tools. You will probably start with Studio.
-
 <Cards>
-  <Card title="Microflow Studio" href="/docs/microflow-studio" description="A desktop app where you build interactive projects using a visual canvas. This is the main tool — start here." />
-  <Card title="Microflow Hardware Bridge" href="/docs/microflow-hardware-bridge" description="A Figma plugin that connects your physical hardware to Figma designs. Useful if you are doing UX or product design work." />
-  <Card title="Microflow for Penpot" href="/docs/microflow-penpot-plugin" description="An experimental plugin for Penpot, the open-source design tool — same idea as the Figma Bridge for designers who prefer open-source." />
+  <Card title="Microflow Studio" href="/docs/microflow-studio" description="The app where you build. Desktop or browser. This is the one to start with." />
+  <Card title="Microflow Hardware Bridge" href="/docs/microflow-hardware-bridge" description="A Figma plugin that connects your hardware to a Figma prototype, in both directions." />
+  <Card title="Microflow for Penpot" href="/docs/microflow-penpot-plugin" description="The same idea for Penpot, the open-source design tool. Experimental." />
 </Cards>
 
-<Callout title="Not sure which one to use?">
-Start with **Microflow Studio**. It works on its own and is the core of everything. The Bridge plugins are add-ons for people who also use Figma or Penpot.
+<Callout title="Not sure which one?">
+**Microflow Studio.** It works on its own and everything else is an add-on for people who also use Figma or Penpot.
 </Callout>
 
-## Where to go next
+## What people build
 
-These docs are organised so you can find what you need fast — whether you are learning, solving a specific problem, looking up a node, or just trying to understand how something works.
-
-<Cards>
-  <Card title="Learn — guided lessons" href="/docs/learn" description="Step-by-step tutorials. Start here if Microflow is brand new to you. Build your first flow in five minutes." />
-  <Card title="How-to guides" href="/docs/how-to" description="Recipes for solving specific problems: connect a board, smooth a noisy sensor, send data to Figma, and more." />
-  <Card title="Concepts" href="/docs/concepts" description="Background reading. What is a flow? How does Microflow talk to your Arduino? When do values move?" />
-  <Card title="Troubleshooting" href="/docs/troubleshooting" description="Things that commonly go wrong, and what to do about them." />
-</Cards>
-
-Looking up a specific node? Open the [node reference](/docs/microflow-studio/nodes).
+- Press a button, turn on a light.
+- Read a light sensor, dim a lamp to match.
+- Detect motion, set off a sound.
+- Feed a real sensor into a Figma prototype so it reacts to the room it is in.
+- Drive a servo, a stepper, an LED strip, an 8×8 matrix, or a MIDI synth.
+- Ask a local AI model a question and use the answer in your flow.

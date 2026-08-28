@@ -159,6 +159,65 @@ description: <one-sentence summary of the idea>
 
 Concepts can be longer (1–2 thousand words). Discursive style is fine. The voice is "essay", not "checklist".
 
+### Video script template
+
+Every video in `videos/` has a script before it has a recording. The script is the deliverable; the recording is produced from it.
+
+```mdx
+---
+title: "Script: <video title>"
+description: Shooting script for the <runtime> <subject> video.
+---
+
+<Video title="<video title>" duration="<m:ss>" />
+
+## At a glance
+<table: goal, audience, runtime, hardware>
+
+## Where it appears
+<the doc pages that embed this video>
+
+## Set up before you record
+<hardware, wiring, app state, what must be prepared off camera>
+
+## Shot list
+<Chapters> … </Chapters>
+
+## Script
+### <timecode> — <section>
+**Screen:** <what is on screen>
+**Narration:**
+> "<word for word>"
+**On-screen text:** <overlays>
+
+## Deliberate failure
+<what breaks on camera, and how it is fixed>
+
+## Post-production notes
+<cuts, zooms, captions that need care>
+```
+
+Rules:
+
+- **Narration goes in quotation marks.** Everything else is a stage direction.
+- **Every script that can fail has a deliberate failure**, recorded live. Showing the error on screen is what makes the doc page's troubleshooting section recognisable later.
+- **Do not cut a wait short** where the wait is the content — a firmware flash, a model thinking, ten seconds of a dead cable.
+- The [production guide](/docs/videos/production-guide) holds the capture settings and the publishing checklist. Do not repeat them in a script.
+
+## Embedding a video in a doc page
+
+Use the `<Video />` component. Without a `src` it renders a placeholder linking to the script, which is how an unrecorded video stays visible to readers:
+
+```mdx
+<Video title="Your first flow" duration="3:30" script="/docs/videos/first-flow">
+One line describing what the viewer will see.
+</Video>
+```
+
+When the recording exists, add `src="…"` to the same tag. Nothing else on the page changes.
+
+A page must read correctly with the video removed. The text is the source of truth; the video demonstrates it.
+
 ## Voice and tone
 
 - **Friendly, not formal.** Address the reader as *you*. Avoid corporate boilerplate.

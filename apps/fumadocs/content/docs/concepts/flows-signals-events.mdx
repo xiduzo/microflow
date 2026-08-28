@@ -20,7 +20,7 @@ Each node has:
 - **Outputs** — outgoing edges. Most nodes emit one value, but some emit several (e.g. RGB has separate red, green, and blue outputs).
 - **An update function** — runs when an input arrives. Reads the inputs and settings, computes a new output value, sends it to whatever is connected.
 
-A node has *no memory* unless explicitly defined (e.g. a [Counter](/docs/microflow-studio/nodes/decide/counter) holds a count, a [Smooth](/docs/microflow-studio/nodes/shape/smooth) holds a window of recent values). Most nodes are stateless transformations.
+A node has *no memory* unless explicitly defined (e.g. a [Counter](/docs/microflow-studio/nodes/generate/counter) holds a count, a [Smooth](/docs/microflow-studio/nodes/shape/smooth) holds a window of recent values). Most nodes are stateless transformations.
 
 ## Values flow on **events**, not on a clock
 

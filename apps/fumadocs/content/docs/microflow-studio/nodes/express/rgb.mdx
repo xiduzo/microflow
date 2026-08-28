@@ -1,0 +1,53 @@
+---
+title: RGB
+description: Mix red, green, and blue to show any colour on a single RGB LED.
+---
+
+An RGB LED is three LEDs in one package. The RGB node drives all three, so you set a colour rather than three separate brightnesses.
+
+It needs three PWM pins — the ones marked `~` on the board — because mixing colours means holding each channel at a partial brightness. On an Arduino Uno that is pins 3, 5, 6, 9, 10, and 11.
+
+## Inputs
+
+- **`red`** — Red channel, `0`–`255`.
+- **`green`** — Green channel, `0`–`255`.
+- **`blue`** — Blue channel, `0`–`255`.
+- **`alpha`** — Overall brightness, `0`–`100`. Scales all three channels at once, so you can dim a colour without changing it.
+- **`off`** — Turn all three channels off.
+
+## Outputs
+
+- **`value`** — The colour currently being shown.
+
+## Settings
+
+- **Pins** — One pin per channel. Defaults: red `9`, green `10`, blue `11`. All three must be PWM pins.
+- **Common anode** — Set this if your LED is common-anode. Default `false`.
+
+## Wiring
+
+An RGB LED has four legs. The longest is the common one; the other three are the colour channels.
+
+| Leg | Goes to |
+| --- | --- |
+| Red | Pin 9, through a 220 Ω resistor |
+| Green | Pin 10, through a 220 Ω resistor |
+| Blue | Pin 11, through a 220 Ω resistor |
+| Common | GND for a common-cathode LED, 5 V for a common-anode one |
+
+Each channel needs its own resistor. One resistor on the common leg changes the colour as the mix changes, which is why a "white" made that way comes out tinted.
+
+## Tips
+
+- **Colours inverted?** You have a common-anode LED and the **Common anode** setting is off — or the other way round. That is the only symptom, and it is the first thing to check.
+- **No colour at all on one channel?** That channel is on a pin without PWM. Move it.
+- **Driving it from a sensor?** Put a [Map](/docs/microflow-studio/nodes/shape/map) node in front of each channel to get from the sensor's range into `0`–`255`.
+
+## Related
+
+- [LED](/docs/microflow-studio/nodes/express/led) — one colour, one pin.
+- [LED Strip](/docs/microflow-studio/nodes/express/pixel) — many addressable LEDs on one pin.
+
+## Resources
+
+- [Johnny-Five RGB LED — behaviour reference](https://johnny-five.io/api/led.rgb/)

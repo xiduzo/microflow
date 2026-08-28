@@ -1,0 +1,58 @@
+---
+title: LLM
+description: Send a prompt to a language model and use its answer in your flow.
+---
+
+The LLM node sends a prompt to a language model and puts the answer back into your flow as text. Pair it with a [Monitor](/docs/microflow-studio/nodes/express/monitor) to read it, a [Figma](/docs/microflow-studio/nodes/express/figma) node to display it in a prototype, or a [Function](/docs/microflow-studio/nodes/shape/function) node to pick it apart.
+
+It talks to a provider you configure yourself under **Configuration → LLM**, which today means a local [Ollama](https://ollama.com) server. Nothing leaves your machine, and it works with no internet connection.
+
+<Callout type="warn" title="This node is slow on purpose">
+A model takes seconds, not milliseconds. Put it at the end of a flow, never inside a control loop that something physical depends on.
+</Callout>
+
+Provider configuration is only available in the desktop app.
+
+## Inputs
+
+- **`trigger`** — Send the prompt to the model. Nothing happens until this fires.
+
+## Outputs
+
+- **`thinking`** — True from the moment you trigger the node until the answer arrives. Wire it to an LED so your prototype does not look dead while it works.
+- **`value`** — The generated text.
+- **`done`** — Fires once when the answer is complete. Chain the next step to this, not to `value`.
+- **`error`** — Fires when the model could not be reached or refused the request.
+
+The node also grows an input handle for every `{{name}}` placeholder you use in the prompt — see **Using values from your flow** below.
+
+## Settings
+
+- **Provider** — Which configured AI provider to use. Add one under **Configuration → LLM**.
+- **Model** — The model name exactly as the provider knows it, for example `llama3.2`. Run `ollama list` to see what you have.
+- **System** — Instructions that set the model's character and, importantly, its answer length. Keep it short.
+- **Prompt** — The request sent each time the node is triggered.
+
+## Using values from your flow
+
+Reference a connected input in the prompt with double braces. Writing `{{distance}}` in the prompt gives the node an input handle named `distance`, and whatever value arrives there is substituted before the prompt is sent.
+
+```
+The visitor is {{distance}} centimetres away. Greet them in one short sentence.
+```
+
+## Tips
+
+- **Tell it how long to answer.** "In one short sentence" in the system prompt is the difference between a caption and three paragraphs.
+- **Wire `error` to something visible.** Otherwise a stopped Ollama server looks exactly like a flow that is thinking.
+- **Test the provider before you build.** The test control on the LLM configuration page tells you whether the problem is Studio or your flow.
+- **Small models are usually enough** for a prototype, and they are dramatically faster.
+
+## Related
+
+- [Connect a local AI model](/docs/how-to/connect-a-local-llm) — the full setup, start to finish.
+- [Monitor](/docs/microflow-studio/nodes/express/monitor) — read what came back.
+
+## Resources
+
+- [Ollama](https://ollama.com)

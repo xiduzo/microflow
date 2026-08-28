@@ -11,11 +11,19 @@ An Interval node fires a signal on a repeating schedule — every second, every 
 - Nudge a servo position every 100 milliseconds to animate it smoothly
 - Trigger a check at regular intervals in an automated flow
 
+## Inputs
+
+- **`start`** — Start ticking.
+- **`stop`** — Stop ticking.
+
+## Outputs
+
+- **`event`** — Fires once every **Interval** milliseconds.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Interval** — how often the signal fires, in milliseconds. 1000 ms = 1 second. 500 ms = twice per second. 60000 ms = once per minute
+- **Interval** — Milliseconds between ticks. Default `1000`.
+- **Auto-start** — Start as soon as the flow runs, rather than waiting for `start`. Default `true`.
 
 ## Related
 

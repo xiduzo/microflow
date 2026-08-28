@@ -1,0 +1,96 @@
+---
+title: "Script: Collaborate on a flow"
+description: Shooting script for the 3:30 real-time collaboration video.
+---
+
+<Video title="Collaborate on a flow" duration="3:30" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | The viewer can invite someone to a flow and knows what each role can do. |
+| **Audience** | Teachers, studios, and anyone pair-building on one board. |
+| **Runtime** | 3:30 |
+| **Hardware** | One connected board on the host machine only. The guest has no hardware — that is the point. |
+
+## Where it appears
+
+- [Collaborate on a flow in real time](/docs/how-to/collaborate-on-a-flow)
+- [Collaborate on a flow without hardware](/docs/how-to/collaborate-without-hardware)
+- [Collaboration](/docs/concepts/collaboration)
+
+## Set up before you record
+
+- Two machines, or one machine and a second browser profile. Two distinct demo accounts — `Demo` and `Guest` — with different avatar colours.
+- Capture both screens. The whole video is a split screen.
+- A flow named `Workshop` with three or four nodes already on the canvas.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="Two people, one flow">The end state first.</Chapter>
+  <Chapter time="0:20" title="Invite an editor">Settings, collaborators, email.</Chapter>
+  <Chapter time="1:00" title="What the guest sees">Cursors and live edits.</Chapter>
+  <Chapter time="1:45" title="The viewer role">Read-only, and how it looks.</Chapter>
+  <Chapter time="2:25" title="Whose board is it?">Only the host has hardware.</Chapter>
+  <Chapter time="3:00" title="Revoking access">Change role, withdraw invite.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — Two people, one flow
+
+**Screen:** Split screen, both windows on the same flow. Both cursors move; the guest drags a node and it moves on the host's screen at the same time.
+
+**Narration:**
+> "Two people, two computers, one flow. Nobody is sending files back and forth and nobody is overwriting anybody."
+
+### 0:20 — Invite an editor
+
+**Screen:** Host: dock → flow settings → **Collaborators**. Type the guest's email, choose the **editor** role, send. The row appears marked **Invited**. Cut to the guest accepting and opening the flow.
+
+**Narration:**
+> "On the host's side, open the flow's settings and find Collaborators. Type an email address and pick a role. Editor can change the flow; viewer can only look. Send it, and until they accept, the row sits there marked Invited — which is also how you tell you sent it to the wrong address."
+
+**On-screen text:** `Settings → Collaborators → role: editor`
+
+### 1:00 — What the guest sees
+
+**Screen:** Split screen. The guest adds a node; it appears on the host's canvas. The host edits a setting; the guest's node updates. Both coloured cursors visible with names attached.
+
+**Narration:**
+> "Every edit lands on both screens as it happens. The coloured cursor with a name on it is the other person — useful for more than decoration, because it tells you what they are about to touch. If you both edit the same node at the same moment, the last change wins; there is no lock and no merge dialog."
+
+### 1:45 — The viewer role
+
+**Screen:** Host changes the guest's role to **viewer**. Cut to the guest's window: a **View only** badge appears in the corner. The guest tries to drag a node — it does not move — and tries to draw an edge — the handles do not respond.
+
+**Narration:**
+> "Switch them to viewer and their window changes immediately. There is a View only badge in the corner, nodes will not move, edges will not connect, and the delete key does nothing. They can still pan, zoom, and select — so they can follow along and read the flow, they just cannot change it. That is the role for a classroom."
+
+**On-screen text:** `[View only]`
+
+### 2:25 — Whose board is it?
+
+**Screen:** Host's sidebar shows a connected port. Guest's sidebar shows **No microcontroller connected**. The host presses the physical button; both canvases show the value change.
+
+**Narration:**
+> "One thing that surprises people. The flow is shared; the hardware is not. My board is plugged into my machine, so the sidebar on the other side says nothing is connected — and that is correct, nothing is. But the values from my board travel with the flow, so my collaborator can watch the sensor readings and edit the flow that reacts to them without owning a single component. That is how you run a workshop with one kit."
+
+### 3:00 — Revoking access
+
+**Screen:** Host: change the role back to editor, then withdraw a pending invite from the list. Show the toast confirmations.
+
+**Narration:**
+> "Roles change at any time and take effect immediately. A pending invite can be withdrawn before it is accepted. And the owner — whoever created the flow — is the only one who can do any of this, or delete the flow."
+
+## Deliberate failure
+
+None staged. The viewer-role restrictions at 1:45 serve the same purpose: show the thing that looks broken and name it as intended behaviour.
+
+## Post-production notes
+
+- Label each half of the split screen with the account name for the entire runtime. Viewers lose track otherwise.
+- Do not cut between an action and its appearance on the other screen. The simultaneity is the demonstration.
+- Blur real email addresses. Use `guest@example.com`.

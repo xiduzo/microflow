@@ -15,14 +15,20 @@ Servos are commonly used for robot arms, mechanical linkages, automated valves, 
 
 ## Inputs
 
-- **Value** — for a positional servo: the target angle in degrees (0–180). For a continuous servo: the speed and direction (0–180, where 90 = stopped)
+- **`min`** — Move to the minimum angle.
+- **`max`** — Move to the maximum angle.
+- **`value`** — The angle to move to, `0`–`180` for a standard servo.
+- **`rotate`** — Spin — continuous-rotation servos only. The value sets speed and direction.
+- **`stop`** — Stop a continuous-rotation servo.
+
+## Outputs
+
+- **`value`** — The angle the servo was last told to hold.
 
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which PWM-capable pin on your Arduino the servo signal wire is connected to. Servos require a PWM pin
-- **Type** — positional or continuous
+- **Pin** — Which pin the component is connected to. Default `3`.
+- **Type** — Which mode the node runs in. Default `standard`.
 
 ## Wiring
 
@@ -42,4 +48,4 @@ Power the servo from a **separate 5V power supply** and connect only the signal 
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/servo/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/servo/)

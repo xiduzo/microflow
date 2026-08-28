@@ -1,0 +1,117 @@
+---
+title: "Script: Read a knob, fade an LED"
+description: Shooting script for the 4:30 analog input and Map video.
+---
+
+<Video title="Read a knob, fade an LED" duration="4:30" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | A potentiometer smoothly fades an LED, with the Map node explained as the reason it works. |
+| **Audience** | Someone comfortable with on/off flows meeting analog values for the first time. |
+| **Runtime** | 4:30 |
+| **Hardware** | Uno, breadboard, 10 kΩ potentiometer, LED, 220 Ω resistor, wires. |
+
+## Where it appears
+
+- [Fade an LED with a potentiometer](/docs/learn/fade-with-potentiometer)
+- [Map node reference](/docs/microflow-studio/nodes/shape/map)
+
+## Set up before you record
+
+- LED on **pin 9**. It must be a PWM pin — the LED node's brightness input refuses to connect on a pin without one, and that refusal is part of the script.
+- Potentiometer wired: outer legs to 5 V and GND, wiper to A0.
+- Studio open, board connected, canvas empty.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="Why this one is different">On/off versus a range.</Chapter>
+  <Chapter time="0:25" title="Wire the potentiometer">Three legs.</Chapter>
+  <Chapter time="1:00" title="Read it on screen">Potentiometer node, live numbers.</Chapter>
+  <Chapter time="1:40" title="Deliberate failure — straight to the LED">1023 into a 0–255 input.</Chapter>
+  <Chapter time="2:20" title="Add the Map node">0–1023 in, 0–255 out.</Chapter>
+  <Chapter time="3:10" title="Fade it">Hardware shot.</Chapter>
+  <Chapter time="3:35" title="Why the pin has a tilde">PWM, briefly.</Chapter>
+  <Chapter time="4:05" title="Where else Map earns its keep">Servo angles, volume.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — Why this one is different
+
+**Screen:** Hardware: a knob and a dark LED.
+
+**Narration:**
+> "Up to now everything has been on or off. A knob is not on or off — it is a number, anywhere between nothing and all the way round. Getting that number to mean something to an LED is what this video is about."
+
+### 0:25 — Wire the potentiometer
+
+**Screen:** Overhead. Three wires, one at a time.
+
+**Narration:**
+> "A potentiometer has three legs. The outer two go to five volts and ground — it does not matter which way round, it only flips which direction counts as up. The middle leg is the one that reports the position, and it goes to A-zero, an analog input."
+
+**On-screen text:** `outer legs → 5V / GND · wiper → A0`
+
+### 1:00 — Read it on screen
+
+**Screen:** `Cmd/Ctrl + K`, add **Potentiometer**, set **Pin** to `A0`. Zoom to 150 % on the node. Turn the knob slowly through its full range while the value on the node updates.
+
+**Narration:**
+> "Add a Potentiometer node, set its pin to A-zero, and turn the knob. The number on the node is live. All the way one way, zero. All the way the other, one thousand and twenty-three. That range is not arbitrary — it is what the board's analog-to-digital converter gives you, and every analog sensor you plug in will speak in it."
+
+**On-screen text:** `0 – 1023`
+
+### 1:40 — Deliberate failure: straight to the LED
+
+**Screen:** Add an **LED** node, set **Pin** to `9`. Drag from the Potentiometer's `value` output to the LED's `value` (brightness) input. Cut to hardware and turn the knob: the LED jumps to full brightness almost immediately and stays there through most of the knob's travel.
+
+**Narration:**
+> "Wire the knob straight into the LED's brightness input and it half works, which is worse than not working. Brightness runs zero to two hundred and fifty-five. The knob goes up to a thousand and twenty-three. So a quarter of a turn takes you to full brightness and the rest of the knob does nothing at all. The two ends are speaking different languages."
+
+**On-screen text:** `[knob 0–1023 → brightness 0–255]`
+
+### 2:20 — Add the Map node
+
+**Screen:** Delete the edge. `Cmd/Ctrl + K`, search `map`, place the **Map** node between the two. Open its settings: **From** `0`–`1023`, **To** `0`–`255`. Connect Potentiometer `value` → Map `value`, and Map `to` → LED `value`.
+
+**Narration:**
+> "The Map node is the translator. Tell it what range comes in — zero to one thousand and twenty-three — and what range should come out — zero to two hundred and fifty-five. It scales everything in between, proportionally. Knob into Map, Map's *to* output into the LED's brightness."
+
+**On-screen text:** `from 0–1023 → to 0–255`
+
+### 3:10 — Fade it
+
+**Screen:** Hardware close-up. Turn the knob slowly across its whole travel, both directions. The LED tracks it evenly. Hold for six seconds.
+
+**Narration:**
+> "Now the whole knob does something, and it does it evenly."
+
+### 3:35 — Why the pin has a tilde
+
+**Screen:** Back on the canvas. Open the LED node's settings and change **Pin** to `7`. The brightness input becomes unconnectable and the node's hint reads `requires a ~ pin`. Change it back to 9.
+
+**Narration:**
+> "One thing that will catch you out. Brightness only works on pins marked with a tilde on the board — those are the ones that can fake an in-between voltage by switching very fast. Move the LED to pin seven and Studio will not let you connect brightness at all; it tells you it needs a tilde pin. On an Uno those are pins three, five, six, nine, ten and eleven."
+
+**On-screen text:** `PWM pins on an Uno: 3 · 5 · 6 · 9 · 10 · 11`
+
+### 4:05 — Where else Map earns its keep
+
+**Screen:** Canvas with the working flow, cursor idle.
+
+**Narration:**
+> "Any time two things disagree about their range, Map sits between them. A knob driving a servo — nought to a thousand and twenty-three into nought to a hundred and eighty degrees. A light sensor driving a volume. A distance sensor driving a colour. Same node, different numbers."
+
+## Deliberate failure
+
+The unmapped connection at 1:40. Record the real behaviour — the LED reaching full brightness early and flattening out — not a simulation of it.
+
+## Post-production notes
+
+- The knob turn must be slow enough to read the value on screen. Rehearse it.
+- Split-screen the canvas and the hardware for the 3:10 fade so the number and the light are visible together.
+- Caption the hint string exactly: `[hint: requires a ~ pin]`.

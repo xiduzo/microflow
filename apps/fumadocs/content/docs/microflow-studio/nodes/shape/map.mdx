@@ -21,6 +21,22 @@ You can map any input range to any output range - they don't have to match. For 
 
 The output range can be completely different from the input range - it doesn't have to overlap at all.
 
+## Inputs
+
+- **`value`** — The value to rescale.
+
+## Outputs
+
+- **`to`** — The rescaled value. This is the output you normally use.
+- **`value`** — The unscaled value that came in, passed through.
+
+## Settings
+
+- **From** — The range the incoming value lives in, as a **min** and a **max**. Default `0`–`1023`, which is what an analog pin gives you.
+- **To** — The range to rescale it into, as a **min** and a **max**. Default `0`–`1023`.
+
+Values outside the **From** range are still scaled, so they land outside the **To** range too. Clamp them with a [Compare](/docs/microflow-studio/nodes/decide/compare) node first if that matters.
+
 ## Related
 
 - Tutorial: [Fade an LED with a potentiometer](/docs/learn/fade-with-potentiometer) — Map's main use case in one short lesson.

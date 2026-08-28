@@ -13,12 +13,8 @@ The Calculate node performs arithmetic on numbers passing through your flow. Con
 
 ## Inputs
 
-- **Value** — the number to perform the operation on. Connect a sensor or another node here
-- **Operand** *(optional)* — the second number in the calculation. You can wire it from another node, or set it as a fixed value in the settings panel
+- **`value`** — Connect one edge per operand. Each connection adds an input.
 
-## Settings
+## Outputs
 
-Open the settings panel to configure:
-
-- **Operation** — the math to apply: Add (+), Subtract (−), Multiply (×), Divide (÷)
-- **Value** — the fixed number to use as the operand, if you are not connecting the Operand input to another node
+- **`value`** — The result of the calculation.

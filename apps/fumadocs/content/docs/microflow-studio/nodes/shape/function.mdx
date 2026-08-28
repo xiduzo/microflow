@@ -16,28 +16,15 @@ function trigger(input: unknown) {
 
 ## Inputs
 
-- **Trigger** (left handle) — the incoming value, available as `input` inside your code
-- **Template variables** (bottom handles) — use `{{varName}}` anywhere in your code to create additional input handles. Each connected value is substituted at runtime before execution
+- **`trigger`** — Run the code once.
 
-## Output
+## Outputs
 
-- **Value** (right handle) — emits whatever your function returns
+- **`value`** — Whatever your code returns.
 
 ## Settings
 
-Click **Edit code** to open the Monaco editor. You get full TypeScript IntelliSense, syntax highlighting, and error checking.
-
-### Template variables
-
-Write `{{brightness}}` or `{{threshold}}` in your code and a new handle appears on the bottom of the node. Connect any value-producing node to it and the placeholder is replaced with the live value at runtime.
-
-```ts
-// Two template variables: {{min}} and {{max}}
-if (typeof input !== "number") return 0;
-return Math.min(Math.max(input, {{min}}), {{max}});
-```
-
-Template variables inside comments (`//` or `/* */`) are ignored and will not create handles.
+- **Code** — The JavaScript to run. Reference connected inputs with `{{name}}`.
 
 ## Built-in utility functions
 

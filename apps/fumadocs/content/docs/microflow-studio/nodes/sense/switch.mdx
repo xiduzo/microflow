@@ -49,6 +49,22 @@ The input pin is usually connected to the middle pin, while the other two pins a
   Wiring diagram for a 3-pin on/off switch (no resistor needed), showing the middle pin connected to a digital input pin and the outer pins connected to GND and 5V.
 </Callout>
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`event`** — Fires every time the switch flips.
+- **`true`** — True while the switch is closed.
+- **`false`** — True while the switch is open.
+- **`value`** — `1` when closed, `0` when open.
+
+## Settings
+
+- **Pin** — Which pin the component is connected to. Default `2`.
+- **Type** — Which mode the node runs in. Default `NC`.
+
 ## Resources
 
-[Johnny-Five](https://johnny-five.io/api/switch/)
+[Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/switch/)

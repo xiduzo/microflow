@@ -1,0 +1,83 @@
+---
+title: Production guide
+description: The capture settings, voice, and checks every Microflow video is recorded and reviewed against.
+---
+
+Read this once before recording anything. The individual scripts assume everything on this page.
+
+## Capture settings
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Resolution | 1920×1080, 60 fps | Node labels stay legible after compression |
+| Studio window | 1600×1000, centred | Leaves room for a 1080p frame without scaling the UI |
+| Display scaling | 100 % (no HiDPI downscale) | Prevents blurry text |
+| Theme | System light for screen, dark for the canvas close-ups | Matches what most viewers see first |
+| Cursor | Highlighted, no click ripple | Ripples read as UI feedback and confuse viewers |
+| Audio | 48 kHz mono, −16 LUFS | Consistent loudness across the series |
+| Camera (hardware shots) | Overhead, fixed, 50 mm equivalent | The breadboard should not move between shots |
+
+Hide anything personal before recording: browser bookmarks, other flows in the flow switcher, the account name in the sidebar footer, and any broker credentials.
+
+## The Studio state to start from
+
+Unless a script says otherwise:
+
+- Signed out, or signed in as a demo account named `Demo`.
+- One flow in the switcher, named after the video's subject.
+- Sidebar expanded.
+- Canvas empty and zoomed to 100 % (`Cmd/Ctrl + 0`).
+- Microcontroller status showing **No microcontroller connected** at the top of the recording, so the connection is earned on camera.
+
+## Voice
+
+- Second person, present tense. "You drag the node onto the canvas," not "we will be dragging".
+- Say what you are about to do, then do it. Never narrate over an action already finished.
+- Name the UI element exactly as it is labelled. **Add node**, not "the plus thing".
+- Pause for one full second after each action completes. That pause is where the viewer catches up, and it is where captions breathe.
+- Never say "simply", "just", or "obviously".
+
+## Showing failure
+
+Every script that can fail includes a deliberate failure. Record it for real — unplug the cable, type the wrong pin, leave the Serial Monitor open in the Arduino IDE. A viewer who has seen the error message on screen recognises it when it happens to them.
+
+Show the error, name it out loud, then fix it on camera.
+
+## Timecodes
+
+Scripts are written to a target runtime. Landing within 15 % of it is fine. If a section runs long, cut narration, not the pause after an action.
+
+## Captions and accessibility
+
+- Burn no text into the video. Ship an `.srt` file instead.
+- Every spoken sentence goes in the captions verbatim.
+- Anything shown but not spoken — an error string, a pin number, a topic name — gets a caption line too, in square brackets: `[error: no serial port selected]`.
+- Do not rely on colour alone to point at something. Circle it or zoom in.
+- Keep at least one second between a highlight appearing and the narration referring to it.
+
+## Publishing checklist
+
+Before a video replaces its placeholder:
+
+- [ ] Runtime within 15 % of the target in the script.
+- [ ] Every step in the linked doc page appears in the video, in the same order and with the same labels.
+- [ ] The deliberate failure and its fix are both on screen.
+- [ ] Captions attached, spell-checked, and timed.
+- [ ] No account name, email, broker password, or API key visible in any frame.
+- [ ] Audio normalised to −16 LUFS, no clipping.
+- [ ] The `src` prop added to the `<Video />` tag on every page listed under **Where it appears**.
+- [ ] The doc page still reads correctly with the video muted — the text is the source of truth, the video is the demonstration.
+
+## Writing a new script
+
+Copy the structure of any existing script:
+
+1. **At a glance** — goal, audience, runtime, prerequisites.
+2. **Where it appears** — the doc pages that embed it.
+3. **Set up before you record** — hardware, wiring, app state.
+4. **Shot list** — chapters with timecodes.
+5. **Script** — per section: what is on screen, what is said, what is typed.
+6. **Deliberate failure** — what breaks and how it is fixed.
+7. **Post-production notes** — cuts, zooms, captions that need care.
+
+Keep narration in quotation marks so it is obvious what is read aloud and what is a stage direction.

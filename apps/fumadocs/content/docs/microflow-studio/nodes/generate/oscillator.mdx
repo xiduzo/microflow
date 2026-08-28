@@ -17,11 +17,20 @@ An Oscillator generates a continuously repeating pattern of numbers that rises a
 - Make a servo motor sweep back and forth automatically
 - Drive a repeating animation in a Figma prototype
 
+## Inputs
+
+- **`start`** — Start the wave.
+- **`stop`** — Freeze the wave where it is.
+- **`reset`** — Return the wave to the start of its cycle.
+
+## Outputs
+
+- **`value`** — The wave's current position, updated continuously.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Wave type** — the shape of the repeating pattern (sine, square, triangle, sawtooth)
-- **Frequency** — how fast the wave repeats, in Hz (cycles per second). 1 Hz = one full cycle per second. 0.5 Hz = one cycle every two seconds. 10 Hz = ten cycles per second
-- **Amplitude** — how large the swings are. An amplitude of 100 means the wave travels from −100 to +100
-- **Phase** — where in the cycle the wave starts. Leave this at 0 for most uses
+- **Period** — How long one full cycle takes, in milliseconds. Default `1000`.
+- **Amplitude** — How far the wave swings from its centre. Default `1`.
+- **Phase** — Where in the cycle the wave starts. Default `0`.
+- **Shift** — A constant added to the wave's output. Default `0`.
+- **Auto-start** — Start as soon as the flow runs, rather than waiting for `start`. Default `true`.

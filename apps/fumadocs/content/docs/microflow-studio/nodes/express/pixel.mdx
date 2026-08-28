@@ -1,0 +1,53 @@
+---
+title: LED Strip
+description: Control a strip of individually addressable LEDs — WS2812, NeoPixel, and compatible.
+---
+
+An addressable LED strip puts a controller chip behind every LED, so a single data pin can set every pixel to a different colour. The LED Strip node drives one: give it a list of colours and it paints the strip.
+
+## Inputs
+
+- **`value`** — An array of hex colours, one per pixel — for example `["#ff0000", "#00ff00", "#0000ff"]`. Shorter than the strip means the rest are left alone.
+- **`color`** — One hex colour, applied to every pixel at once.
+- **`set`** — Apply one of the saved presets by index.
+- **`reset`** — Turn every pixel off.
+
+## Outputs
+
+- **`event`** — Fires once each time the strip is updated.
+- **`value`** — The colours currently on the strip.
+
+## Settings
+
+- **Pin** — The strip's data pin. Default `11`.
+- **Length** — How many pixels the strip has, `1`–`144`. Default `32`.
+- **Colour order** — The byte order the strip expects. Default `BRG`.
+- **Gamma** — Gamma correction. Default `2.8`. Raise it if mid-brightness colours look washed out.
+- **Presets** — Saved colour patterns you can recall with the `set` input.
+- **Skip firmware check** — Skip the strip's firmware check when connecting. Default `true`.
+
+## Wiring
+
+| Strip wire | Goes to |
+| --- | --- |
+| Data in | Pin 11, through a 330–470 Ω resistor |
+| 5 V | An external 5 V supply, not the board |
+| Ground | The supply's ground **and** the board's ground |
+
+<Callout type="warn" title="Power it externally">
+A full strip at full white can draw 60 mA per pixel — a thirty-pixel strip is nearly two amps, far more than a USB port will give you. Powering a strip from the board's 5 V pin browns out the board, and the symptom is a flow that restarts at random rather than an obvious power fault. Use a separate supply and join the grounds.
+</Callout>
+
+Add a 1000 µF capacitor across the supply at the strip end if the first pixel flickers on power-up.
+
+## Tips
+
+- **Red and green swapped?** Change **Colour order**. Strips vary by manufacturer and there is no way to detect it.
+- **Only the first few pixels light?** **Length** is too low, or the supply cannot carry the whole strip.
+- **Build patterns with a [Function](/docs/microflow-studio/nodes/shape/function) node.** It is the practical way to produce an array of hex colours from a sensor value.
+- **Start dim.** Testing at full brightness on a long strip is how people discover their power supply's limit the hard way.
+
+## Related
+
+- [RGB](/docs/microflow-studio/nodes/express/rgb) — a single multi-colour LED.
+- [LED Matrix](/docs/microflow-studio/nodes/express/matrix) — a grid rather than a line.

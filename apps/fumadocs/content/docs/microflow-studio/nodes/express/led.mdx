@@ -80,6 +80,21 @@ The first frame is frame 0, the second is frame 1, and so on. This is standard i
 
 ---
 
+## Inputs
+
+- **`true`** — Turn the LED on.
+- **`false`** — Turn the LED off.
+- **`toggle`** — Flip the LED.
+- **`value`** — Brightness, `0`–`255`. Only connectable on a PWM pin — the ones marked `~` on the board.
+
+## Outputs
+
+- **`value`** — The LED's current brightness.
+
+## Settings
+
+- **Pin** — Which pin the component is connected to. Default `13`.
+
 ## Related
 
 - Tutorial: [Your first flow](/docs/learn/first-flow) — blink the built-in LED.
@@ -88,7 +103,7 @@ The first frame is frame 0, the second is frame 1, and so on. This is standard i
 
 ## Resources
 
-- [Johnny-Five LED](https://johnny-five.io/api/led/)
-- [Johnny-Five RGB LED](https://johnny-five.io/api/led.rgb/)
-- [Johnny-Five LED Matrix](https://johnny-five.io/api/led.matrix/)
+- [Johnny-Five LED — behaviour reference](https://johnny-five.io/api/led/)
+- [Johnny-Five RGB LED — behaviour reference](https://johnny-five.io/api/led.rgb/)
+- [Johnny-Five LED Matrix — behaviour reference](https://johnny-five.io/api/led.matrix/)
 - [Arduino](https://docs.arduino.cc/built-in-examples/basics/Blink/)

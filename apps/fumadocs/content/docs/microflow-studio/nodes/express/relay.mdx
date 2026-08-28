@@ -13,6 +13,21 @@ Working with high voltage can be `DEADLY`. Even a momentary lapse in caution can
 Never attempt to handle high voltage circuits without proper knowledge and always work under the supervision of a qualified expert. Your life is on the line.
 </Callout>
 
+## Inputs
+
+- **`true`** — Energise the relay.
+- **`false`** — De-energise it.
+- **`toggle`** — Flip it.
+
+## Outputs
+
+- **`value`** — `1` when energised, `0` when not.
+
+## Settings
+
+- **Pin** — Which pin the component is connected to. Default `10`.
+- **Type** — Which mode the node runs in. Default `NO`.
+
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/relay/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/relay/)

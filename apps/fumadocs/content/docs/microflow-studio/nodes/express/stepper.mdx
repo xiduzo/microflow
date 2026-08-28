@@ -19,27 +19,29 @@ Common driver boards: **A4988**, **DRV8825**, **TMC2209**, **EasyDriver**, **TB6
 
 ## Inputs
 
-- **Value** — relative move: number of steps to move. Positive values move clockwise, negative values move counter-clockwise
-- **To** — absolute move: move to a specific step position (relative to the zero point)
-- **Stop** — stop the motor. If acceleration is set, the motor decelerates to a stop
-- **Zero** — reset the position counter to zero without moving the motor
+- **`value`** — Move this many steps, relative to where the motor is now.
+- **`to`** — Move to this absolute step position.
+- **`stop`** — Stop immediately.
+- **`zero`** — Treat the current position as zero.
+- **`enable`** — Energise or release the driver. Releasing lets the shaft turn freely and stops the motor drawing current.
 
 ## Outputs
 
-- **Position** — the current position in steps after a move completes
-- **Complete** — fires an event when a move finishes
+- **`value`** — The motor's current step position.
 
 ## Settings
 
-Open the settings panel to configure:
-
-- **Interface** — choose between "Step/Dir driver" (for A4988, DRV8825, etc.) or "4-wire (H-bridge)" (for L293D, L298N, or similar dual H-bridge boards)
-- **Step pin** (driver mode) — the digital pin connected to the driver's STEP input
-- **Dir pin** (driver mode) — the digital pin connected to the driver's DIR (direction) input
-- **IN1–IN4** (4-wire mode) — the four digital pins connected to the H-bridge inputs controlling the two motor coils
-- **Steps/rev** — steps per full revolution of your motor. Most standard stepper motors are 200 steps/rev (1.8° per step). If your driver is set to microstepping, multiply accordingly (e.g. 1/16 microstepping on a 200-step motor = 3200)
-- **Speed** — maximum speed in steps per second
-- **Acceleration** — acceleration and deceleration rate in steps per second squared. Set to 0 for instant speed changes (no ramping)
+- **Interface** — Driver board or four-wire, depending on how the motor is wired. Default `driver`.
+- **Step pin** — default `2`.
+- **Direction pin** — default `3`.
+- **Motor pin 1** — default `4`.
+- **Motor pin 2** — default `5`.
+- **Motor pin 3** — default `6`.
+- **Motor pin 4** — default `7`.
+- **Steps per revolution** — Steps per full revolution. Check your motor's datasheet. Default `200`.
+- **Speed** — Steps per second. Default `200`.
+- **Acceleration** — How quickly the motor ramps up to speed. Default `100`.
+- **Device number** — Which stepper this is, when you have several. Default `0`.
 
 ## Wiring
 

@@ -1,0 +1,125 @@
+---
+title: "Script: Hardware in a Figma prototype"
+description: Shooting script for the 6:00 end-to-end Figma Hardware Bridge video.
+---
+
+<Video title="Hardware in a Figma prototype" duration="6:00" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | A light sensor drives a Figma variable, and a Figma prototype button drives an LED back on the desk. |
+| **Audience** | A designer who has Figma open and a board they have never used. |
+| **Runtime** | 6:00 |
+| **Hardware** | Uno, LDR on A0, LED on pin 9. Second monitor showing Figma. |
+
+## Where it appears
+
+- [Microflow Hardware Bridge](/docs/microflow-hardware-bridge)
+- [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma)
+- [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma)
+- [Link a sensor to Figma](/docs/learn/link-to-figma)
+
+## Set up before you record
+
+- A Figma file with one frame, a rectangle, and a variable collection ready to receive a new variable. Do not pre-create the variable — that happens on camera.
+- The Hardware Bridge plugin **not yet installed**. Installing it is part of the video.
+- A broker already configured in Studio, and its details on a card you can read from — you will type the same unique identifier into both tools and it must match exactly.
+- Both screens captured at the same resolution so the split-screen is not lopsided.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="What you are about to build">Both directions, shown working.</Chapter>
+  <Chapter time="0:35" title="The middleman">One paragraph on MQTT.</Chapter>
+  <Chapter time="1:05" title="Install the plugin">Figma community to running plugin.</Chapter>
+  <Chapter time="1:45" title="Match the identifiers">The step everyone gets wrong.</Chapter>
+  <Chapter time="2:30" title="Sensor to Figma">Create the variable, wire the node.</Chapter>
+  <Chapter time="3:40" title="Deliberate failure — mismatched identifier">Connected, but nothing arrives.</Chapter>
+  <Chapter time="4:25" title="Figma to hardware">Prototype button lights an LED.</Chapter>
+  <Chapter time="5:25" title="What to check when it stops">Three things, in order.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — What you are about to build
+
+**Screen:** Split screen. Left: hand covering the light sensor. Right: a rectangle in a Figma prototype darkening in step. Then reverse — click a button in the Figma prototype, and the LED on the desk lights.
+
+**Narration:**
+> "A sensor on the desk changing a value in Figma. And a button in a Figma prototype turning on a light on the desk. Both directions, in about six minutes, and no code in either tool."
+
+### 0:35 — The middleman
+
+**Screen:** Static diagram: Studio → broker → Figma plugin, arrows both ways.
+
+**Narration:**
+> "Studio and Figma never talk to each other directly — a Figma plugin cannot see your USB ports. Instead both connect to a message broker and pass notes through it. The broker does not care what the messages mean; it just delivers anything addressed correctly. Which means the whole setup comes down to making sure both ends agree on the address."
+
+### 1:05 — Install the plugin
+
+**Screen:** Figma. Open the Microflow Hardware Bridge on the community page, install it, then run it from **Plugins**. The plugin panel opens and shows its connection state.
+
+**Narration:**
+> "In Figma, install the Microflow Hardware Bridge from the community, then run it. The panel that opens is where everything on the Figma side happens. Leave it open — closing a Figma plugin stops it, and the bridge stops with it."
+
+**On-screen text:** `Plugins → Microflow Hardware Bridge`
+
+### 1:45 — Match the identifiers
+
+**Screen:** Side by side: the plugin's broker settings and Studio's MQTT configuration. Type the same broker URL into both, then the same unique identifier into both, character by character, on camera.
+
+**Narration:**
+> "Both ends need the same broker and the same unique identifier. The identifier is the part of the address that separates your project from everybody else's on that broker. Type it in both places, and type it carefully — it is case sensitive, and a mismatch here produces exactly the same symptom as a broken sensor."
+
+**On-screen text:** `Same broker URL · same unique identifier · both ends`
+
+### 2:30 — Sensor to Figma
+
+**Screen:** In Figma, create a `FLOAT` variable named `light_level` in the collection. Then in Studio: add an **LDR** node on A0, add a **Figma** node, and in the Figma node's settings pick the broker and select `light_level` from the variable list. Wire LDR `value` → Figma `set`. Cover and uncover the sensor while both screens are visible.
+
+**Narration:**
+> "In Figma, make a variable — a number, called light-underscore-level. Back in Studio, add the light sensor, then a Figma node. The Figma node reads the variable list straight from the plugin, so if the connection is healthy your variable is in that dropdown. Pick it, connect the sensor's value into the node, and cover the sensor. The number in Figma moves."
+
+**On-screen:** Keep the Figma variables panel and the Studio canvas in the same frame for the reveal.
+
+### 3:40 — Deliberate failure: mismatched identifier
+
+**Screen:** In the Figma plugin, change one character of the unique identifier. The plugin still reports a healthy broker connection. Cover the sensor: nothing changes in Figma. Hold for six seconds on the healthy-looking status. Then fix the character and show it working again.
+
+**Narration:**
+> "Now the failure you will actually hit. I am changing one character of the identifier in Figma. Look at the status — still connected, still green, no error anywhere. Cover the sensor and nothing happens, because Studio is posting to one address and Figma is listening at another. Both ends are healthy; they are just not talking. When the bridge says connected but nothing arrives, this is nearly always why."
+
+**On-screen text:** `[connected · identifier mismatch · no error shown]`
+
+### 4:25 — Figma to hardware
+
+**Screen:** In Figma, create a `BOOLEAN` variable named `lamp_on`. Add an interactive component in the prototype that toggles it. In Studio, add a second Figma node bound to `lamp_on`, and wire its `true` and `false` outputs into an LED node's `true` and `false` inputs. Run the Figma prototype and click the button. Cut to the LED lighting.
+
+**Narration:**
+> "The other direction works the same way. A boolean variable in Figma, a prototype button that toggles it, and in Studio a Figma node bound to that variable with its true and false outputs driving the LED. Run the prototype — and the light on the desk is now part of your prototype."
+
+### 5:25 — What to check when it stops
+
+**Screen:** Checklist card, with a quick cut to each item in the UI as it is named.
+
+**Narration:**
+> "When it stops working, check three things in this order. One: is the plugin still open in Figma — closing the panel kills it. Two: do the unique identifiers still match on both ends. Three: is the variable in the Figma node's dropdown still the one your prototype uses. Ninety per cent of bridge problems are one of those three, and none of them are the hardware."
+
+**On-screen text:**
+```
+1. Plugin panel still open?
+2. Unique identifiers identical?
+3. Right variable selected?
+```
+
+## Deliberate failure
+
+The one-character identifier mismatch at 3:40, shown with a healthy connection status. This is the most valuable 45 seconds in the video — do not trim it.
+
+## Post-production notes
+
+- Both screens must be legible at 1080p. If Figma's variables panel is too small, zoom the Figma UI rather than the recording.
+- Blur the broker password field if you use an authenticated broker. Never show it, even briefly.
+- Caption the variable names exactly, including underscores.

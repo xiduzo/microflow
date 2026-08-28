@@ -1,0 +1,59 @@
+---
+title: Use a MIDI controller
+description: Drive a flow from a MIDI keyboard or knob box, or play notes out to a synth.
+---
+
+The [MIDI node](/docs/microflow-studio/nodes/sense/midi) connects your flow to MIDI devices attached to your **computer**. A knob on a controller becomes a value in your flow; a sensor on your desk becomes a note on a synth.
+
+## When you need it
+
+- You have a controller with more knobs and buttons than you want to wire on a breadboard.
+- You are building an instrument and want your sensors to play something.
+- You want a physical interface for a prototype in five minutes rather than an afternoon.
+
+## Before you start
+
+Plug the controller into your computer, not into the Arduino, and confirm your operating system sees it:
+
+- **macOS** — Audio MIDI Setup → Window → Show MIDI Studio.
+- **Windows** — Device Manager → Sound, video and game controllers.
+
+If your computer cannot see it, Studio cannot either.
+
+## Receive from a controller
+
+1. Press `Cmd/Ctrl + K` and add a **MIDI** node.
+2. Set **Direction** to `in`.
+3. Pick your controller in **Device**.
+4. Leave **Channel** at `0` to start — that means every channel.
+5. Set **Mode**:
+   - `note` for keys and pads. Use the `note`, `velocity`, `on`, and `off` outputs.
+   - `cc` for knobs and faders. Set **Control** to the controller number and read the `value` output.
+6. Hang a [Monitor](/docs/microflow-studio/nodes/express/monitor) on the outputs and move something on the controller.
+
+**Finding a knob's control number:** set **Mode** to `cc`, put a Monitor on `value`, and try control numbers while turning the knob. Most controllers also print their mapping in the manual, which is quicker.
+
+## Send to a synth
+
+1. Set **Direction** to `out` and pick the destination device.
+2. Set **Mode** to `note` and choose the **Note** and **Velocity**, or `song` to play a sequence at a **Tempo**.
+3. Wire something into the `send` input — a [Button](/docs/microflow-studio/nodes/sense/button), an [Interval](/docs/microflow-studio/nodes/generate/interval), or a [Compare](/docs/microflow-studio/nodes/decide/compare) firing on a threshold.
+
+To play a note from a sensor reading, put a [Map](/docs/microflow-studio/nodes/shape/map) node in between: MIDI notes run `0`–`127`, and so do velocity and CC values.
+
+## Verify it worked
+
+Receiving: turn a knob and watch the Monitor. Nothing arriving? Set **Channel** to `0`, then check the mode matches what your device sends — a knob sending CC will produce nothing at all in note mode.
+
+Sending: put the synth somewhere you can hear it and fire the `send` input by hand from a [Constant](/docs/microflow-studio/nodes/generate/constant) or a [Hotkey](/docs/microflow-studio/nodes/sense/hotkey) node.
+
+## Gotchas
+
+- **The device list is a snapshot.** Plug a controller in after opening the settings and it will not appear until you reopen them.
+- **Serial MIDI on the board is a different thing.** If you generate a sketch that uses MIDI on the board itself, it claims the board's hardware serial and needs a physical DIN-5 jack or shield — see [the sketch warning](/docs/troubleshooting/sketch-warnings#midi). A USB controller plugged into your computer is unaffected.
+- **Channel `0` means all channels.** Narrow it once you know which one your device uses.
+
+## Related
+
+- [MIDI node reference](/docs/microflow-studio/nodes/sense/midi)
+- [Piezo](/docs/microflow-studio/nodes/express/piezo) — the same idea on a buzzer.

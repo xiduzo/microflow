@@ -1,0 +1,106 @@
+---
+title: "Script: Circuit view and the Arduino sketch"
+description: Shooting script for the 4:00 video on the circuit and code views.
+---
+
+<Video title="Circuit view and the Arduino sketch" duration="4:00" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | The viewer can build their wiring from the circuit view and take a flow out of Microflow as an Arduino sketch. |
+| **Audience** | Someone who has a working flow and wants to build the physical version — or leave Microflow behind. |
+| **Runtime** | 4:00 |
+| **Hardware** | Uno with a potentiometer on A0 and a servo on pin 9. |
+
+## Where it appears
+
+- [Read the circuit view](/docs/how-to/read-the-circuit-view)
+- [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch)
+- [Choose a board target](/docs/how-to/choose-a-board-target)
+
+## Set up before you record
+
+- A saved flow named `Knob servo`: Potentiometer → Map → Servo.
+- The Arduino IDE installed, with a blank sketch window open on a second desktop so you can switch to it without a search.
+- Downloads folder emptied and the browser download bar cleared.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="The same flow, three views">Where the switch lives.</Chapter>
+  <Chapter time="0:25" title="Circuit view">Reading the diagram.</Chapter>
+  <Chapter time="1:15" title="Build from it">Diagram beside the breadboard.</Chapter>
+  <Chapter time="1:50" title="Code view">What the sketch contains.</Chapter>
+  <Chapter time="2:35" title="Board target">Uno, Nano, ESP32 and what changes.</Chapter>
+  <Chapter time="3:05" title="Deliberate failure — an unsupported pin">A warning in the sketch header.</Chapter>
+  <Chapter time="3:35" title="Download and open it">Into the Arduino IDE.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — The same flow, three views
+
+**Screen:** Sidebar, cursor resting on the current flow's three entries: **Edit flow**, **Show circuit**, **Show code**.
+
+**Narration:**
+> "Every flow has three views. You have been living in Edit flow. The other two are why Microflow is not a dead end: one shows you how to wire the thing, and one hands you the Arduino code."
+
+### 0:25 — Circuit view
+
+**Screen:** Click **Show circuit**. Hold on the full diagram for four seconds. Then zoom into each component in turn: the potentiometer's three connections, the servo's three.
+
+**Narration:**
+> "Circuit view draws the wiring your flow implies. Every component you added to the canvas appears here with its connections marked — power, ground, and the signal pin you set in the node's settings. It is generated from the flow, so it cannot drift out of date: change a pin on the canvas and the diagram changes with it."
+
+**On-screen:** Overlay the pin number from the node settings next to the matching line in the diagram.
+
+### 1:15 — Build from it
+
+**Screen:** Split screen — diagram on the left, live overhead breadboard shot on the right. Place two wires, checking each against the diagram before pushing it in.
+
+**Narration:**
+> "Working from it is the point. One connection at a time, check the pin against the diagram, push the wire in. If you are building from a kit's own diagram instead, this is the view to check it against — mismatched pin numbers between the diagram and the canvas are the single most common reason a finished build does nothing."
+
+### 1:50 — Code view
+
+**Screen:** Click **Show code**. Scroll slowly from the top: the header comment, the includes, `setup()`, and `loop()`. Pause at the pin definitions.
+
+**Narration:**
+> "Code view is the Arduino sketch your flow becomes. It is real, complete C++ — not a summary. The pin numbers you set on the canvas are right there at the top. Setup runs once when the board powers on. Loop runs forever after that. If you have ever written an Arduino sketch by hand, this is the file you would have written."
+
+### 2:35 — Board target
+
+**Screen:** Open the flow's board target picker and switch from **Arduino Uno** to **ESP32**. Return to the code view and scroll to a line that changed.
+
+**Narration:**
+> "The sketch is generated for a specific board. Uno, Nano, and ESP32 are supported, and they do not have the same pins or the same abilities — an ESP32 has networking, an Uno does not, and their analog pins are numbered differently. Change the target and the generated sketch changes with it. Set this to whatever board is actually on your desk before you download anything."
+
+**On-screen text:** `Targets: Arduino Uno · Arduino Nano · ESP32`
+
+### 3:05 — Deliberate failure: an unsupported pin
+
+**Screen:** Back in **Edit flow**, move the servo to a pin the selected target cannot drive. Return to **Show code**. A warning triangle appears next to the download control and the sketch header carries a comment about it. Zoom in on the comment.
+
+**Narration:**
+> "Ask for something the board cannot do and the sketch tells you rather than failing silently. The warning triangle here means the sketch generated, but with a note at the top — read the comment, because it will name the pin. If generation fails outright you get a cross instead, and the download button is disabled until you fix it on the canvas."
+
+**On-screen text:** `[warning: see comments at the top of the sketch]`
+
+### 3:35 — Download and open it
+
+**Screen:** Undo the bad pin. Click **Download sketch**. Show the `.ino` file landing. Open it in the Arduino IDE, select the board and port, and upload. Cut to the hardware: the servo tracks the knob with Studio closed.
+
+**Narration:**
+> "Download the sketch, open it in the Arduino IDE, pick your board and port, and upload. Now watch this — I am closing Microflow entirely. The board keeps working, because the program is on the board now. Whatever you build here, you can take with you."
+
+## Deliberate failure
+
+The unsupported pin at 3:05. Choose one that genuinely triggers the warning on the selected target; verify before recording.
+
+## Post-production notes
+
+- Do not scroll the code faster than a viewer can read the function names.
+- The final beat — Studio closed, hardware still running — is the emotional payoff of the video. Give it four seconds of silence.
+- Clear the downloads bar and any file-manager notification before take.

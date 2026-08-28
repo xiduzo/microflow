@@ -1,0 +1,55 @@
+---
+title: Export an Arduino sketch
+description: Turn your flow into a .ino file and run it on the board with Microflow closed.
+---
+
+**Show code** compiles your flow into an Arduino sketch. Download it, upload it with the Arduino IDE, and the board runs on its own — no computer, no USB tether, no Microflow.
+
+<Video title="Circuit view and the Arduino sketch" duration="4:00" script="/docs/videos/circuit-and-code">
+Reading the generated code, the board target, a warning, and the upload — ending with Studio closed and the hardware still running.
+</Video>
+
+## When you need it
+
+- The project needs to run untethered, on its own power.
+- You are handing the work to someone who writes Arduino code.
+- You want to keep going in the Arduino IDE from here.
+- You want to read what your flow actually does, in C++.
+
+## Steps
+
+1. **Set the board target first.** Open **Show code** and use the picker at the top. The sketch is generated for a specific chip, and the default is Arduino Uno. See [Choose a board target](/docs/how-to/choose-a-board-target).
+2. **Read the top of the sketch.** Any problems Microflow found are listed there as comments, each naming the node it came from.
+3. **Click *Download sketch*.** You get a `.ino` file named after your flow.
+4. **Open it in the Arduino IDE.** Put it in a folder of the same name if the IDE asks — that is an Arduino convention, not a Microflow one.
+5. **Tools → Board** and **Tools → Port**, then upload.
+6. **Close Microflow.** The board keeps running.
+
+## Verify it worked
+
+Unplug the board from your computer and power it from a USB charger or a battery. If it still does what the flow did, the sketch is doing the work — nothing is left on your machine.
+
+## What the icons next to the download mean
+
+| Icon | Meaning | What to do |
+| --- | --- | --- |
+| Nothing | The sketch generated cleanly. | Download it. |
+| A warning triangle | The sketch generated, but part of your flow will not behave as the canvas suggests. | Read the comments at the top of the sketch. See [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings). |
+| A cross | Generation failed. Download is disabled. | Fix the problem on the canvas — the message names the node. |
+
+## What does not survive the export
+
+The generated sketch runs on the board. Anything that depends on your computer does not:
+
+- **[MQTT](/docs/microflow-studio/nodes/sense/mqtt) and the [Figma](/docs/microflow-studio/nodes/express/figma) bridge** — on an ESP32 the sketch can carry network code; on an Uno or a Nano there is no network hardware at all.
+- **[LLM](/docs/microflow-studio/nodes/express/llm)** — the model runs on your machine.
+- **[Hotkey](/docs/microflow-studio/nodes/sense/hotkey) and [MIDI](/docs/microflow-studio/nodes/sense/midi)** — your keyboard and your MIDI controller are attached to your computer.
+- **[Monitor](/docs/microflow-studio/nodes/express/monitor)** — there is no canvas to draw on.
+
+A flow built around those nodes is a flow that wants to stay connected. That is a legitimate choice — plenty of installations run with a laptop in the cupboard.
+
+## Related
+
+- [Read the circuit view](/docs/how-to/read-the-circuit-view)
+- [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings)
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge)

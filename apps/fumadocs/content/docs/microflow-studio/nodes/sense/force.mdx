@@ -14,12 +14,21 @@ A force sensor (also called a Force Sensitive Resistor, or FSR) is a thin, flexi
 
 The Force node outputs a number that increases as more pressure is applied. The exact range depends on your sensor, but it typically goes from near **0** (no pressure) to a higher value (maximum pressure).
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`value`** — How hard the sensor is being pressed, `0`–`1023`.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which analog pin on your Arduino the force sensor is connected to
+- **Pin** — Which pin the component is connected to. Default `A0`.
+- **Type** — Which mode the node runs in. Default `analog`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `25`.
+- **Threshold** — How much the reading must change before the node reports it. Default `1`.
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/sensor/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/sensor/)

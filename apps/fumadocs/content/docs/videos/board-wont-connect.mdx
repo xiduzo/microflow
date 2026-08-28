@@ -1,0 +1,100 @@
+---
+title: "Script: The board will not connect"
+description: Shooting script for the 4:00 troubleshooting video, recorded as a live diagnosis.
+---
+
+<Video title="The board will not connect" duration="4:00" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | The viewer can work the connection checklist themselves instead of guessing. |
+| **Audience** | Someone stuck at **No microcontroller connected** right now, watching this on a phone. |
+| **Runtime** | 4:00 |
+| **Hardware** | Uno, a data cable, a charge-only cable, and a second board with an unrelated sketch on it. |
+
+## Where it appears
+
+- [Board not detected](/docs/troubleshooting/board-not-detected)
+- [Connect a microcontroller](/docs/how-to/connect-a-microcontroller)
+- [Install board drivers](/docs/how-to/install-board-drivers)
+
+## Set up before you record
+
+Each cause below is reproduced for real. Prepare, in advance:
+
+- A charge-only USB cable.
+- The Arduino IDE with its Serial Monitor open on the right port, to hold the port hostage.
+- A clone board with a CH340 chip and, on the recording machine, no driver installed for it — if that is not possible, record that section on a machine where it is.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="The symptom">What the sidebar shows.</Chapter>
+  <Chapter time="0:20" title="Cable">Cheapest to check, most often wrong.</Chapter>
+  <Chapter time="1:00" title="Another program has the port">The Serial Monitor.</Chapter>
+  <Chapter time="1:50" title="Missing driver">Clone boards.</Chapter>
+  <Chapter time="2:40" title="Browser: permission never granted">Web Serial specifics.</Chapter>
+  <Chapter time="3:20" title="Stuck in flashing">When to wait and when to unplug.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — The symptom
+
+**Screen:** Sidebar reading **No microcontroller connected**, board visibly plugged in with its power light on.
+
+**Narration:**
+> "The board is plugged in, its power light is on, and Studio says nothing is connected. Four things cause this almost every time. We are going to reproduce all four, in the order worth checking them."
+
+### 0:20 — Cable
+
+**Screen:** Swap to the charge-only cable. Wait ten uncut seconds — nothing. Swap back to the data cable; the status walks to connected.
+
+**Narration:**
+> "Start with the cable, because it costs nothing to check and it is the most common cause. Plenty of USB cables carry power and no data. The board lights up on either kind, so the power light tells you nothing. If your cable came with headphones, a battery pack, or a phone charger, try a different one before you try anything else."
+
+### 1:00 — Another program has the port
+
+**Screen:** With the board connected, open the Arduino IDE and its Serial Monitor on the same port. Unplug and replug the board. Studio fails to reconnect. Hold. Then close the Serial Monitor and replug — Studio connects.
+
+**Narration:**
+> "Second: something else is already holding the port. A serial port has one occupant at a time. The Arduino IDE's Serial Monitor is the usual culprit, but so is a plotter window, a terminal you left open, or a second copy of Studio. Close them — closing the window is enough, you do not need to quit the whole IDE — and plug the board back in."
+
+**On-screen text:** `One program per serial port`
+
+### 1:50 — Missing driver
+
+**Screen:** Plug in the clone board. Show the operating system's device list with an unrecognised device. Then Studio, still showing nothing connected.
+
+**Narration:**
+> "Third: the driver. Official Arduino boards work out of the box. Cheaper clones use a different USB chip — CH340 or CP2102 — and on Windows and older macOS you have to install a driver for it. The tell is that your computer itself does not list the board, not just Studio. If the operating system cannot see it, no app can. The driver guide linked under this video has the downloads."
+
+**On-screen text:** `Clone boards: CH340 · CP2102`
+
+### 2:40 — Browser: permission never granted
+
+**Screen:** Chrome, Studio in a tab, status showing **Connect board**. Point at it without clicking. Then click, and dismiss the browser's port chooser by pressing Escape — the status stays at **Connect board**. Then click again and choose the board properly.
+
+**Narration:**
+> "Fourth, and this one only happens in the browser. A web page cannot open a serial port on its own; you have to grant it. If the button says Connect board, nothing is granted yet — click it and choose your board in the browser's chooser. Dismiss that chooser and you are back where you started, with no error to tell you what happened. And if the button tells you to use Chrome or Edge, you are in Firefox or Safari, which cannot do this at all."
+
+### 3:20 — Stuck in flashing
+
+**Screen:** Trigger a first-time connection so the status reads **Flashing firmware**. Let it run to completion in real time.
+
+**Narration:**
+> "Last thing. The first time you use a board, Studio puts firmware on it, and the status says so for up to a minute. That is not a hang. Unplugging in the middle is the one thing that can leave a board in a genuinely confused state — and if that happens, the fix is to plug it back in and let it finish, or flash it manually from the Arduino IDE. Wait it out."
+
+**On-screen text:** `Flashing can take up to a minute. Do not unplug.`
+
+## Deliberate failure
+
+All of it. Every cause is reproduced live — nothing in this video is described without being shown.
+
+## Post-production notes
+
+- Never cut a wait short in this video. The waits are the content: viewers need to know what ten dead seconds look like.
+- Show the operating system's own device list, not just Studio, in the driver section. That distinction is the diagnostic.
+- Chapter markers must be exported with the video so a stuck viewer can jump to their symptom.

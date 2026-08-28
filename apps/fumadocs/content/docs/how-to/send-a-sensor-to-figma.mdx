@@ -13,9 +13,9 @@ This is the *hardware-to-Figma* direction of the bridge: a sensor in the real wo
 
 ## Steps
 
-<Callout type="info" title="Video placeholder">
-  90-second screencast: twist a knob, watch a rectangle in Figma resize live. Full setup shown end-to-end.
-</Callout>
+<Video title="Hardware in a Figma prototype" duration="6:00" script="/docs/videos/figma-bridge">
+The whole bridge, both directions — including a one-character identifier mismatch that shows as a healthy connection.
+</Video>
 
 ### 1. Create a variable in the MHB collection
 
@@ -41,7 +41,7 @@ Set the node's **topic** to `figma/<variable-name>`, e.g. `figma/light_level`. T
 
 ### 3. Run
 
-The Bridge should report **Connected**. Studio's connection panel should show the board **Running**. Touch the sensor — the Figma layer should update live.
+The Bridge should report **Connected**, and Studio's sidebar should show your board's port name. Touch the sensor — the Figma layer should update live.
 
 ## Sending multiple values to one variable type
 
@@ -64,7 +64,7 @@ Add one MQTT node per variable. Each gets its own topic (`figma/var_a`, `figma/v
 
 - The Bridge plugin should say **Connected**.
 - The Bridge "log" panel (if your version has one) should show messages arriving.
-- Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the MQTT node's input in Studio — values should be flowing.
+- Drop a [Monitor](/docs/microflow-studio/nodes/express/monitor) node on the MQTT node's input in Studio — values should be flowing.
 
 If the Bridge is connected but the variable does not update, check:
 

@@ -1,0 +1,101 @@
+---
+title: "Script: Debug a flow with Monitor"
+description: Shooting script for the 3:30 debugging video.
+---
+
+<Video title="Debug a flow with Monitor" duration="3:30" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | The viewer learns to find the broken link in a flow by bisecting it with Monitor nodes. |
+| **Audience** | Anyone whose flow "does nothing" and who is about to blame the hardware. |
+| **Runtime** | 3:30 |
+| **Hardware** | Uno, potentiometer on A0, servo on pin 9. |
+
+## Where it appears
+
+- [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node)
+- [Monitor node reference](/docs/microflow-studio/nodes/express/monitor)
+- [My flow runs but nothing happens](/docs/troubleshooting/pin-conflicts)
+
+## Set up before you record
+
+Build a flow that is **deliberately broken before recording starts**: Potentiometer → Map → Servo, where the Map node's **To** range is set to `0`–`0`. Do not mention that this is staged. The viewer should meet it as they would meet their own bug.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="A flow that does nothing">The symptom.</Chapter>
+  <Chapter time="0:25" title="Do not start at the hardware">Where people waste an hour.</Chapter>
+  <Chapter time="0:50" title="Monitor at the source">Confirm the knob works.</Chapter>
+  <Chapter time="1:25" title="Monitor in the middle">Find the dead value.</Chapter>
+  <Chapter time="2:05" title="The bug">Map's output range was zero to zero.</Chapter>
+  <Chapter time="2:35" title="Graph or raw">Which mode for which question.</Chapter>
+  <Chapter time="3:00" title="The method">Bisect, do not guess.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — A flow that does nothing
+
+**Screen:** The broken flow on the canvas, board connected. Turn the knob. The servo does not move. Cut to the hardware to confirm nothing is happening. Return to the canvas.
+
+**Narration:**
+> "Three nodes, all connected, board connected, and the servo will not move. Nothing on screen is red. Nothing is warning you. This is the most common state a flow gets stuck in, and it has a method."
+
+### 0:25 — Do not start at the hardware
+
+**Screen:** Hardware shot, hands hovering over the servo wires but not touching them.
+
+**Narration:**
+> "The instinct is to start re-seating wires. Resist it. You can find out whether the problem is even in the hardware without touching anything, and it takes about thirty seconds."
+
+### 0:50 — Monitor at the source
+
+**Screen:** `Cmd/Ctrl + K`, add a **Monitor** node. Connect the Potentiometer's `value` output to it — the existing edge to Map stays. Set the Monitor to `graph`. Turn the knob: the graph responds.
+
+**Narration:**
+> "Add a Monitor node and hang it off the very first node in the chain. An output can feed more than one place at once, so you are not disturbing anything. Turn the knob — the graph moves. That settles it: the sensor, the wiring, and the board are all fine. The bug is downstream, in software."
+
+**On-screen text:** `one output → many inputs`
+
+### 1:25 — Monitor in the middle
+
+**Screen:** Add a second Monitor, connected to the Map node's `to` output. Turn the knob. The first graph moves; the second is a flat line at zero.
+
+**Narration:**
+> "Now hang one off the middle. Same knob, same turn — and the second graph is a flat line. Values are going into the Map node and something useless is coming out. You have gone from three suspects to one, and you have not touched a wire."
+
+### 2:05 — The bug
+
+**Screen:** Open the Map node's settings. Zoom to 200 %. The **To** range reads `0` to `0`. Change it to `0`–`180`. The second graph springs to life; cut to hardware and the servo tracks the knob.
+
+**Narration:**
+> "There it is. The output range is zero to zero, so everything the knob does maps faithfully onto nothing. Set it to zero to a hundred and eighty — the range a servo actually understands — and the whole chain wakes up."
+
+**On-screen text:** `to: 0–0 → 0–180`
+
+### 2:35 — Graph or raw
+
+**Screen:** Switch one Monitor to `raw`. Show the numbers scrolling. Switch back to `graph`.
+
+**Narration:**
+> "Two modes. Graph is for anything that changes continuously — you are looking at the shape, whether it is noisy, whether it is stuck. Raw prints the values, which is what you want for text, for booleans, and for anything you need to read exactly rather than eyeball."
+
+### 3:00 — The method
+
+**Screen:** Zoom to fit the whole flow with both Monitors attached.
+
+**Narration:**
+> "The method, not the bug: put a Monitor at the start to prove the input is alive, then one in the middle to halve the search, and keep halving. Two or three probes will find almost anything. And leave the Monitors on the canvas while you work — they cost nothing and they will save you the next hour too."
+
+## Deliberate failure
+
+The whole video is the failure. The staged bug must be genuinely present before recording; do not introduce it on camera.
+
+## Post-production notes
+
+- Both Monitor graphs must be visible in the same frame at 1:25. Arrange the canvas for that before recording.
+- Do not cut between turning the knob and the graph responding — the lack of a cut is what makes the demonstration trustworthy.

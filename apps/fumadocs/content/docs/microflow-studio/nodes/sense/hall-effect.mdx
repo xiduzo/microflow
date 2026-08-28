@@ -26,11 +26,20 @@ Because the resting value sits in the middle of the range, you can detect both p
 Since the resting value is around 512 (not 0), you will often want to use a [Compare](/docs/microflow-studio/nodes/decide/compare) node to trigger when the value crosses a threshold, or a [Map](/docs/microflow-studio/nodes/shape/map) node to convert the range into something more useful.
 </Callout>
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`value`** — The magnetic field reading, `0`–`1023`.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which analog pin on your Arduino the sensor is connected to (analog pins are labelled A0, A1, A2, etc.)
+- **Pin** — Which pin the component is connected to. Default `A0`.
+- **Type** — Which mode the node runs in. Default `analog`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `25`.
+- **Threshold** — How much the reading must change before the node reports it. Default `1`.
 
 ## Wiring
 
@@ -52,4 +61,4 @@ Not every sensor is wired identically — check the datasheet for your specific 
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/sensor/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/sensor/)

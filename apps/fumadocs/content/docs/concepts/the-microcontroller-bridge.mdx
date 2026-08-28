@@ -22,17 +22,17 @@ These instructions follow the [Firmata protocol](https://github.com/firmata/prot
 
 This has three big consequences:
 
-### 1. The board is interchangeable
+### 1. The board is largely interchangeable
 
-Any board running StandardFirmata is fungible. Swap an Uno for a Mega and Microflow notices the higher pin count and lets you use the new pins. Nothing about your flow changes.
+While a flow is running over USB, one board is much like another: the flow does not name a board, it names pins. Swap an Uno for a Nano and nothing about the canvas changes.
 
-It also means anything that runs StandardFirmata can in principle work — [johnny-five.io's platform list](https://johnny-five.io/platform-support/) tells you what has been tested.
+That stops being true the moment you leave the USB tether. Microflow can also *generate* an Arduino sketch from your flow, and a sketch has to be written for a specific chip — which is why a flow carries a **board target**. Microflow generates code for **Arduino Uno**, **Arduino Nano**, and **ESP32**, and validates your flow against the target's real pin map before it emits anything. See [Choose a board target](/docs/how-to/choose-a-board-target) and [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings).
 
 ### 2. The board is not autonomous
 
 Pull the USB cable and the board stops responding to your flow. The "logic" lives in your computer; the board is a remote-controlled bag of pins. This is the right trade-off for prototyping — you can change behaviour at the speed of dragging a node — but it is *not* the right trade-off for shipping a product into the world.
 
-If you reach the stage where you want a project to run untethered, the standard path is: keep prototyping in Microflow, then port the final logic into a regular Arduino sketch when you are ready to commit.
+If you reach the stage where you want a project to run untethered, you do not have to rewrite it. Open **Show code** and Microflow generates the equivalent Arduino sketch, which you can download and upload with the Arduino IDE. The board then runs on its own with Microflow closed. See [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch).
 
 ### 3. The latency model is "fast enough for prototyping"
 
@@ -60,20 +60,23 @@ The Firmata protocol defines a pin "mode" — `INPUT`, `OUTPUT`, `INPUT_PULLUP`,
 
 If you change the pin number on a node, the old pin is released and the new pin is acquired in its new mode. This "hot-swap" is fragile: if you have two nodes claiming the same pin, only the most-recently configured one wins. See [Pin conflicts](/docs/troubleshooting/pin-conflicts).
 
-## I2C, SPI, and other buses
+## I²C, SPI, and other buses
 
-I2C support is *being implemented*. The [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) node ships in the canvas but is documented as work-in-progress. SPI is not currently exposed.
+I²C is supported: the [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) node talks to any device by address and register, and the [NFC reader](/docs/microflow-studio/nodes/sense/pn532) node uses it for a PN532. SPI is not currently exposed.
 
-For now, the supported I/O surface is:
+The supported I/O surface:
 
-- Digital pins (read and write).
+- Digital pins, read and write.
 - Analog input pins.
-- PWM-capable digital pins (analog output / fading / servo).
-- Tone output (Piezo).
+- PWM-capable digital pins — brightness, intensity, servo.
+- Tone output for a piezo.
 - AccelStepper — step/direction or H-bridge stepper drivers.
+- Addressable LED strips and MAX7219 matrices.
+- I²C, by address and register.
 
 ## Related
 
 - [Connect a microcontroller](/docs/how-to/connect-a-microcontroller) — the user-facing flow.
 - [Pin conflicts](/docs/troubleshooting/pin-conflicts) — what happens when two nodes claim the same pin.
 - [Flash firmware manually](/docs/how-to/flash-firmware-manually) — re-uploading StandardFirmata.
+- [Export an Arduino sketch](/docs/how-to/export-an-arduino-sketch) — leaving the tether behind.

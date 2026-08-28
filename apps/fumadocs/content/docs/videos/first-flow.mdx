@@ -1,0 +1,114 @@
+---
+title: "Script: Your first flow"
+description: Shooting script for the 3:30 first-flow video — blink the on-board LED.
+---
+
+<Video title="Your first flow" duration="3:30" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | The viewer's on-board LED blinks once a second, built node by node. |
+| **Audience** | Someone who has a connected board and an empty canvas. |
+| **Runtime** | 3:30 |
+| **Hardware** | Arduino Uno and a data USB cable. Nothing else. |
+
+## Where it appears
+
+- [Your first flow](/docs/learn/first-flow)
+
+## Set up before you record
+
+- Board already connected, sidebar showing the port name. Connecting is the previous video's job.
+- Empty canvas, zoom at 100 %.
+- Do **not** load the Blink template. This video builds it by hand; the template gets a mention at the end.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="The promise">What will be blinking in three minutes.</Chapter>
+  <Chapter time="0:15" title="Add the Interval node">Command palette, search, place.</Chapter>
+  <Chapter time="0:55" title="Add the LED node">Same again, then set the pin.</Chapter>
+  <Chapter time="1:35" title="Connect them">Drag handle to handle.</Chapter>
+  <Chapter time="2:00" title="It blinks">Hardware shot.</Chapter>
+  <Chapter time="2:20" title="Deliberate failure — the wrong pin">Set pin 12, nothing happens, fix it.</Chapter>
+  <Chapter time="3:00" title="What just happened">Recap over the canvas.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — The promise
+
+**Screen:** Close-up of the Arduino, LED beside pin 13 dark.
+
+**Narration:**
+> "There is a small LED soldered onto your board next to pin thirteen. By the end of this video it will be blinking, and you will have built the flow that does it from scratch."
+
+### 0:15 — Add the Interval node
+
+**Screen:** Empty canvas. Press `Cmd/Ctrl + K`. The **Add node** palette opens, grouped by category. Type `interval`. The Interval entry filters to the top under **Generate**. Press Enter. The node lands on the canvas.
+
+**Narration:**
+> "Every flow starts with something that produces a value. Press Command K — Control K on Windows — to open the node palette. It is searchable, so type what you want rather than hunting through the list. Interval is a generator: it emits a tick on a schedule. Enter drops it on the canvas."
+
+**Screen:** Click the node to open its settings. Set the interval to `1000`.
+
+**Narration:**
+> "One thousand milliseconds. That is one tick per second."
+
+**On-screen text:** `Cmd/Ctrl + K — add a node`
+
+### 0:55 — Add the LED node
+
+**Screen:** `Cmd/Ctrl + K` again, type `led`, and pause for one second on the results so the viewer sees several matches — LED, LED Matrix, LED Strip. Select **LED** under **Express**. Place it to the right of Interval.
+
+**Narration:**
+> "Now something that acts on that tick. Search for LED — notice there are three: a single LED, a matrix, and a strip. You want the plain one, under Express. Express nodes are the ones that do something in the physical world."
+
+**Screen:** Open its settings and set **Pin** to `13`.
+
+**Narration:**
+> "Pin thirteen, because that is the LED already on the board. No wiring today."
+
+### 1:35 — Connect them
+
+**Screen:** Zoom to 150 %. Hover over the Interval node's right edge until the handles are visible. Drag from the `event` handle across to the `toggle` handle on the left of the LED node. Hold on the completed edge for two seconds.
+
+**Narration:**
+> "The dots on the right of a node are its outputs. The dots on the left are its inputs. Drag from the Interval's event output to the LED's toggle input. That line is an edge, and it is how the tick reaches the light."
+
+**On-screen text:** `event → toggle`
+
+### 2:00 — It blinks
+
+**Screen:** Cut to the hardware close-up. The on-board LED blinks once a second. Hold for five seconds — long enough to count three blinks.
+
+**Narration:**
+> "That is it. No compile step, no run button. The flow started the moment the edge connected."
+
+### 2:20 — Deliberate failure: the wrong pin
+
+**Screen:** Back on the canvas. Open the LED settings and change **Pin** from 13 to 12. Cut to the hardware: dark. Hold for four seconds. Cut back and set it to 13 again. Cut to the hardware: blinking.
+
+**Narration:**
+> "Here is the mistake everyone makes at least once. Change the pin to twelve and the light stops — and nothing on screen tells you anything is wrong, because nothing *is* wrong as far as Studio is concerned. It is faithfully switching pin twelve, and there is nothing attached to pin twelve. When a flow looks right and the hardware does nothing, the pin number is the first thing to check."
+
+**On-screen text:** `[pin 12 — flow still running, nothing wired to it]`
+
+### 3:00 — What just happened
+
+**Screen:** Zoom to fit (`Shift + 1`) so both nodes and the edge fill the frame.
+
+**Narration:**
+> "Two nodes and one edge. Something generates a value, the value travels along an edge, and something expresses it in the physical world. Every flow you build from here — however big — is that same shape repeated. If you would rather not build this by hand next time, it also ships as the Blink template under Templates in the sidebar."
+
+## Deliberate failure
+
+The pin-12 change at 2:20. It must be a real edit with the real (absent) result on camera.
+
+## Post-production notes
+
+- Zoom to 150 % for every handle drag. At 100 % the handles are too small to follow.
+- The hardware shot needs a fixed camera. Do not re-frame between the working and non-working takes — the viewer should be able to tell nothing changed except the pin.
+- Caption the palette search string as `[typing: interval]`.

@@ -1,4 +1,4 @@
 {
   "title": "Generate",
-  "pages": ["index", "constant", "oscillator", "interval", "trigger"]
+  "pages": ["index", "constant", "counter", "interval", "oscillator"]
 }

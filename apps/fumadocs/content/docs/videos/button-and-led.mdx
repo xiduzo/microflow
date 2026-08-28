@@ -1,0 +1,115 @@
+---
+title: "Script: A button controls an LED"
+description: Shooting script for the 4:00 button-and-LED video, including the breadboard wiring.
+---
+
+<Video title="A button controls an LED" duration="4:00" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | A physical button on a breadboard turns an LED on and off. |
+| **Audience** | Someone who has done the blink tutorial and has never wired a breadboard. |
+| **Runtime** | 4:00 |
+| **Hardware** | Uno, breadboard, momentary push button, LED, 220 Ω resistor, four jumper wires. |
+
+## Where it appears
+
+- [A button controls an LED](/docs/learn/button-controls-led)
+- [Button node reference](/docs/microflow-studio/nodes/sense/button)
+
+## Set up before you record
+
+- Wire the circuit once off camera to confirm it works, then take it apart. The wiring is built on camera from nothing.
+- Overhead camera locked off, framed so the whole breadboard and the Arduino's pin headers are in shot.
+- Studio open with an empty canvas and the board connected.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="The parts">Everything laid out and named.</Chapter>
+  <Chapter time="0:30" title="Wire the button">Four wires, one at a time.</Chapter>
+  <Chapter time="1:20" title="Wire the LED">Long leg, resistor, ground.</Chapter>
+  <Chapter time="1:50" title="Build the flow">Button node, LED node, two edges.</Chapter>
+  <Chapter time="2:45" title="Press it">Hardware shot, both states.</Chapter>
+  <Chapter time="3:05" title="Deliberate failure — one edge missing">Light never turns off.</Chapter>
+  <Chapter time="3:35" title="The four outputs of a button">Why there is more than one.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — The parts
+
+**Screen:** Overhead, parts laid in a row, each tapped as it is named.
+
+**Narration:**
+> "A push button, an LED, a two-hundred-and-twenty-ohm resistor, four jumper wires, a breadboard, and the board itself. If your kit came with a different resistor between two hundred and a thousand ohms, use that."
+
+**On-screen text:** `1 × push button · 1 × LED · 1 × 220 Ω resistor · 4 × jumper wires`
+
+### 0:30 — Wire the button
+
+**Screen:** Push the button across the centre channel of the breadboard. Then, one wire at a time, pausing after each: 5 V rail to one side of the button, the other side of the button to digital pin 6, and a 10 kΩ pull-down from that same leg to ground — or, if you are using the node's internal pull-up instead, say so and wire 5 V out.
+
+**Narration:**
+> "The button straddles the channel down the middle of the breadboard so its two sides are not connected to each other. Five volts into one leg. The other leg out to digital pin six — that is the pin Microflow expects by default. And a resistor from that same leg down to ground, so that when the button is not pressed the pin is held at zero instead of floating between values."
+
+**On-screen text:** `5V → button → pin 6 · pull-down to GND`
+
+<Callout type="info" title="Say the number out loud">
+The pin number is the single most common mistake in this build. Say "pin six" every time you touch that wire.
+</Callout>
+
+### 1:20 — Wire the LED
+
+**Screen:** LED into the board, long leg noted with a close-up. Resistor from the short leg to the ground rail. Jumper from the long leg to pin 9.
+
+**Narration:**
+> "The LED has a long leg and a short leg. Long leg is positive — that goes to pin nine. Short leg goes through the resistor to ground. Backwards and it simply will not light; it will not break anything."
+
+**On-screen text:** `long leg → pin 9 · short leg → 220 Ω → GND`
+
+### 1:50 — Build the flow
+
+**Screen:** Canvas. `Cmd/Ctrl + K`, search `button`, place the Button node. Open its settings and confirm **Pin** is `6`. Then `Cmd/Ctrl + K`, search `led`, place the LED node, set **Pin** to `9`.
+
+Drag from the Button's `true` output to the LED's `true` input. Then drag from the Button's `false` output to the LED's `false` input.
+
+**Narration:**
+> "Add a Button node and check the pin matches the one you wired — six. Add an LED node on pin nine. Now the connections. The button has an output called *true* that fires while it is held down, and one called *false* for when it is released. The LED has matching inputs. True to true. False to false. Two edges, not one."
+
+**On-screen text:** `true → true` then `false → false`
+
+### 2:45 — Press it
+
+**Screen:** Hardware close-up. Press and hold: the LED lights. Release: it goes out. Repeat three times, unhurried.
+
+**Narration:**
+> "Held down, the light is on. Released, it is off."
+
+### 3:05 — Deliberate failure: one edge missing
+
+**Screen:** Back on the canvas, click the `false → false` edge and delete it. Cut to hardware: press the button, LED lights, release it — the LED stays on. Hold for four seconds. Cut back, redraw the edge, show it working again.
+
+**Narration:**
+> "Delete the second edge and watch what happens. Press — on. Release — still on. The button is fine, the LED is fine, the flow is running. Nothing ever told the light to turn off. Half-wired flows almost always look like broken hardware, and this is what they feel like."
+
+**On-screen text:** `[false → false edge deleted]`
+
+### 3:35 — The four outputs of a button
+
+**Screen:** Zoom to 200 % on the Button node so all its output handles are legible.
+
+**Narration:**
+> "A button gives you four outputs, not two. *Event* fires on any change. *True* and *false* are the two you just used. *Hold* fires when the button is held down for longer than the hold time in its settings — half a second by default — which is how you get a long-press without building a timer."
+
+## Deliberate failure
+
+The deleted `false → false` edge at 3:05.
+
+## Post-production notes
+
+- The wiring section needs a top-down camera with no zoom pushes. Cut between locked-off wide and macro instead.
+- Overlay a still wiring diagram in the corner for the whole wiring section.
+- Do not silently fix a mis-wire between takes. If the take is wrong, restart the section.

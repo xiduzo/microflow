@@ -1,0 +1,26 @@
+{
+  "title": "Video tutorials",
+  "pages": [
+    "index",
+    "---Get started---",
+    "meet-microflow",
+    "install-and-connect",
+    "first-flow",
+    "studio-tour",
+    "---Build something---",
+    "button-and-led",
+    "knob-and-map",
+    "smooth-and-threshold",
+    "debug-with-monitor",
+    "---Beyond the canvas---",
+    "circuit-and-code",
+    "figma-bridge",
+    "mqtt-setup",
+    "collaborate",
+    "local-llm",
+    "---When it breaks---",
+    "board-wont-connect",
+    "---Production---",
+    "production-guide"
+  ]
+}

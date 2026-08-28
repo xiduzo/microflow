@@ -7,14 +7,22 @@ Express nodes are the endpoints of your flow — they make things happen. Whethe
 
 Express nodes can control both:
 
-- **Digital** outputs — simply on or off, like switching an LED
-- **Analog** outputs — variable levels, like setting LED brightness or servo position
+- **Digital** outputs — on or off, like switching a relay
+- **Analog** outputs — variable levels, like LED brightness or servo angle. These need a PWM pin, marked `~` on the board.
+
+Two Express nodes drive nothing physical: [Monitor](/docs/microflow-studio/nodes/express/monitor) shows you a value while the flow runs, and [LLM](/docs/microflow-studio/nodes/express/llm) sends a prompt to a language model.
 
 | Node | What it does |
 | --- | --- |
-| [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) | Publishes a value to an MQTT topic — used by the Figma Hardware Bridge and Penpot plugin |
-| [LED](/docs/microflow-studio/nodes/express/led) | Controls an LED — single, RGB, or LED matrix |
+| [LED](/docs/microflow-studio/nodes/express/led) | Turns an LED on and off, or dims it on a PWM pin |
+| [RGB](/docs/microflow-studio/nodes/express/rgb) | Mixes red, green, and blue on a single RGB LED |
+| [LED Strip](/docs/microflow-studio/nodes/express/pixel) | Drives an addressable strip — WS2812, NeoPixel |
+| [LED Matrix](/docs/microflow-studio/nodes/express/matrix) | Shows shapes and patterns on an 8×8 grid |
 | [Piezo](/docs/microflow-studio/nodes/express/piezo) | Plays tones and melodies through a buzzer |
-| [Relay](/docs/microflow-studio/nodes/express/relay) | Switches high-voltage circuits on or off |
-| [Servo](/docs/microflow-studio/nodes/express/servo) | Controls a servo motor's position or speed |
 | [Vibration](/docs/microflow-studio/nodes/express/vibration) | Drives a vibration motor for haptic feedback |
+| [Relay](/docs/microflow-studio/nodes/express/relay) | Switches a high-power circuit on or off |
+| [Servo](/docs/microflow-studio/nodes/express/servo) | Moves a servo to an angle, or spins a continuous one |
+| [Stepper](/docs/microflow-studio/nodes/express/stepper) | Drives a stepper motor to an exact position |
+| [Monitor](/docs/microflow-studio/nodes/express/monitor) | Graphs or prints a value while the flow runs |
+| [Figma](/docs/microflow-studio/nodes/express/figma) | Reads and writes a Figma variable through the Hardware Bridge |
+| [LLM](/docs/microflow-studio/nodes/express/llm) | Sends a prompt to a local language model and returns the answer |

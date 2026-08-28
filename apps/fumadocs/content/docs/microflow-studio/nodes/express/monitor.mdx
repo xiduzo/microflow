@@ -14,6 +14,20 @@ It does not change your flow in any way. It is purely for observation.
 
 **Tip:** Place a Monitor node just *before* the node that is not working as expected. If the values arriving look wrong, the problem is upstream of that point. If they look correct, the problem is in that node's settings.
 
+## Inputs
+
+- **`value`** — Anything you want to look at. Numbers, booleans, and text all work.
+
+## Outputs
+
+- **`value`** — The value passed straight through, so a Monitor can sit in the middle of a chain without breaking it.
+
+## Settings
+
+- **Type** — `graph` or `raw`. Default `graph`.
+  - **`graph`** for anything continuous: you are looking at the shape, whether it is noisy, whether it is stuck.
+  - **`raw`** prints the values. Use it for text, booleans, and anything you need to read exactly rather than eyeball.
+
 ## Related
 
 - How-to: [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — the bisection method.

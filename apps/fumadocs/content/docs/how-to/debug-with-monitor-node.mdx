@@ -3,13 +3,13 @@ title: Debug with the Monitor node
 description: Place Monitors before and after a node to find exactly where a flow is going wrong.
 ---
 
-The [Monitor](/docs/microflow-studio/nodes/internal/monitor) node is the single most useful tool for debugging a flow. It does not change anything — it shows you what value is passing through a particular point on the canvas, in real-time.
+The [Monitor](/docs/microflow-studio/nodes/express/monitor) node is the single most useful tool for debugging a flow. It does not change anything — it shows you what value is passing through a particular point on the canvas, in real-time.
 
 The technique is simple but the discipline behind it is important.
 
-<Callout type="info" title="Video placeholder">
-  60-second screencast: a broken flow, two Monitors dropped, the bug isolated to one node in one cut.
-</Callout>
+<Video title="Debug a flow with Monitor" duration="3:30" script="/docs/videos/debug-with-monitor">
+A flow that does nothing, bisected with two Monitor nodes until the broken node falls out.
+</Video>
 
 ## The bisection method
 
@@ -60,4 +60,4 @@ Monitor nodes have no runtime cost and no effect on the flow. Leave them in once
 ## Related
 
 - [Concepts: flows, signals, events](/docs/concepts/flows-signals-events) — the model behind why values move.
-- [Monitor node reference](/docs/microflow-studio/nodes/internal/monitor) — every Monitor setting.
+- [Monitor node reference](/docs/microflow-studio/nodes/express/monitor) — every Monitor setting.

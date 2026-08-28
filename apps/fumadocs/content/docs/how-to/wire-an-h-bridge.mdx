@@ -71,6 +71,6 @@ A 4-wire stepper has two coils. Wires on the same coil will read low resistance 
 
 ## Verify it works
 
-Add the relevant Express node ([LED](/docs/microflow-studio/nodes/express/led), [Relay](/docs/microflow-studio/nodes/express/relay), or [Stepper](/docs/microflow-studio/nodes/express/stepper)) to your flow with the matching pin numbers, then drive it from a [Constant](/docs/microflow-studio/nodes/generate/constant), [Interval](/docs/microflow-studio/nodes/generate/interval), or [Trigger](/docs/microflow-studio/nodes/generate/trigger).
+Add the relevant Express node ([LED](/docs/microflow-studio/nodes/express/led), [Relay](/docs/microflow-studio/nodes/express/relay), or [Stepper](/docs/microflow-studio/nodes/express/stepper)) to your flow with the matching pin numbers, then drive it from a [Constant](/docs/microflow-studio/nodes/generate/constant), an [Interval](/docs/microflow-studio/nodes/generate/interval), or a [Hotkey](/docs/microflow-studio/nodes/sense/hotkey) while you test.
 
 If the motor sits silent: check the shared ground. If the motor whines but does not turn (steppers): coil pairing is probably swapped — try reversing IN3 and IN4 in your wiring.

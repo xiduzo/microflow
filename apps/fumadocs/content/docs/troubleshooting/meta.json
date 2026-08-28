@@ -4,7 +4,10 @@
     "index",
     "board-not-detected",
     "pin-conflicts",
+    "values-look-wrong",
+    "sketch-warnings",
     "flow-stops-mid-run",
-    "mqtt-cant-connect"
+    "mqtt-cant-connect",
+    "ai-node-no-answer"
   ]
 }

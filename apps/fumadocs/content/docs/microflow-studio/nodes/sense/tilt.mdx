@@ -16,12 +16,21 @@ The Tilt node outputs one of two states:
 - **Up** — the sensor is in its normal, upright position
 - **Down** (or tilted) — the sensor has been tilted
 
+## Inputs
+
+- **`read`** — Take a reading now. The node also reads on its own schedule, so you only need this if you want readings on your terms.
+
+## Outputs
+
+- **`value`** — `0` or `1` depending on which way the sensor is tipped.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Pin** — which digital pin on your Arduino the tilt sensor is connected to
+- **Pin** — Which pin the component is connected to. Default `A0`.
+- **Type** — Which mode the node runs in. Default `analog`.
+- **Read frequency** — How often the node reads, in milliseconds. Default `25`.
+- **Threshold** — How much the reading must change before the node reports it. Default `1`.
 
 ## Resources
 
-- [Johnny-Five](https://johnny-five.io/api/sensor/)
+- [Johnny-Five — the API this node’s behaviour is modelled on](https://johnny-five.io/api/sensor/)

@@ -1,0 +1,48 @@
+---
+title: Start from a template
+description: Load a working flow instead of building one from an empty canvas.
+---
+
+Studio ships around thirty ready-made flows. Loading one is the fastest way to see how a node is meant to be wired, and a reasonable starting point for your own project.
+
+## When you need it
+
+- You want to see a working example of a node before using it.
+- You are teaching, and want everyone on the same flow in five seconds.
+- You know roughly what you want to build and would rather edit than start blank.
+
+## Steps
+
+1. Open **Templates** in the sidebar, under **General**.
+2. Filter if you want — by category (*Basic*, *Digital*, *Analog*, *Control structures*, *Communication*) or by the components a template uses.
+3. Click **Use template** on the one you want.
+4. Studio loads it into your **Local Flow** and opens the canvas.
+5. Check the pin numbers on every node against what you have actually wired before expecting anything to happen.
+
+<Callout type="warn" title="Templates load into the Local Flow, replacing what is there">
+**Use template** overwrites the Local Flow's contents. If you have unsaved work there, [export it to a file](/docs/how-to/save-and-share-a-flow) first — or work in a named flow, which templates never touch.
+</Callout>
+
+## Templates worth knowing
+
+| Template | What it shows |
+| --- | --- |
+| **Blink** | The minimum flow: Interval → LED. |
+| **Button LED** | Digital input driving a digital output. |
+| **Knob Servo** | Analog input, a Map node, and why the ranges matter. |
+| **Smooth a Noisy Sensor** | The Smooth node against a real signal. |
+| **Wave Monitor** | The Monitor node in graph mode. |
+| **No-Hardware Playground** | A flow that runs with nothing plugged in. |
+| **Sensor to Figma** | One end of the Hardware Bridge. |
+| **Figma to LED** | The other end. |
+| **Pixel Strip** | Driving addressable LEDs. |
+| **Matrix Counter** | Numbers on an 8×8 matrix. |
+
+## Verify it worked
+
+Templates are built around specific pins, and they will not match your breadboard by accident. Open **Show circuit** to see the wiring the template expects, then either wire to match or change the pin numbers on the nodes.
+
+## Related
+
+- [Read the circuit view](/docs/how-to/read-the-circuit-view)
+- [Save, export, and share a flow file](/docs/how-to/save-and-share-a-flow)

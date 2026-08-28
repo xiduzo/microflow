@@ -5,6 +5,10 @@ description: Use a Compare node to fire an output only when a value crosses a bo
 
 So far every value flowing in your flow has reached the output. Sometimes that is too much — you want the LED to come on only when the room is *dark enough*, or the buzzer to sound only when motion is *fast enough*. That decision lives in the **Decide** category.
 
+<Video title="Smooth a sensor and react to a threshold" duration="5:00" script="/docs/videos/smooth-and-threshold">
+Compare firing on a threshold — and the chatter you get when you skip the smoothing.
+</Video>
+
 In this lesson you will use a [Compare](/docs/microflow-studio/nodes/decide/compare) node to turn an analog reading into a yes/no signal and only light an LED when the reading crosses a threshold.
 
 ## What you need
@@ -17,7 +21,7 @@ In this lesson you will use a [Compare](/docs/microflow-studio/nodes/decide/comp
 
 ## Step 1 — See the raw value
 
-Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) on the Potentiometer's output. Twist the knob and watch the value swing between `0` and `1023`. Pick a value somewhere in the middle to use as your threshold — say, `512`.
+Drop a [Monitor](/docs/microflow-studio/nodes/express/monitor) on the Potentiometer's output. Twist the knob and watch the value swing between `0` and `1023`. Pick a value somewhere in the middle to use as your threshold — say, `512`.
 
 ## Step 2 — Add a Compare node
 
@@ -47,7 +51,7 @@ Decide nodes are how you keep a flow from doing too much. Without one, every cha
 
 ## Going further
 
-- [Counter](/docs/microflow-studio/nodes/decide/counter) — count how many times the threshold has been crossed.
+- [Counter](/docs/microflow-studio/nodes/generate/counter) — count how many times the threshold has been crossed.
 - [Delay](/docs/microflow-studio/nodes/decide/delay) — wait a moment before reacting.
 - [Gate](/docs/microflow-studio/nodes/decide/gate) — let a value through only when another signal allows it.
 

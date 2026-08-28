@@ -5,6 +5,10 @@ description: Use a Figma variable as the input to a hardware action — turn on 
 
 This is the *Figma-to-hardware* direction. You define a Figma variable, an interaction in your prototype changes that variable, and the Hardware Bridge pushes the new value into Microflow Studio, where any node can pick it up.
 
+<Video title="Hardware in a Figma prototype" duration="6:00" script="/docs/videos/figma-bridge">
+A prototype button toggling a boolean variable, and an LED on the desk following it.
+</Video>
+
 This is what makes Microflow useful for product designers prototyping physical products: tap a button in your Figma prototype, watch the real LED light up.
 
 ## What you need
@@ -62,7 +66,7 @@ function trigger(input: unknown) {
 ## Verify it worked
 
 - The Bridge plugin should say **Connected**.
-- Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the MQTT (Sense) node's output — values should appear when you change the Figma variable.
+- Drop a [Monitor](/docs/microflow-studio/nodes/express/monitor) node on the MQTT (Sense) node's output — values should appear when you change the Figma variable.
 - If values arrive but the hardware does not move, the issue is in the Express node or wiring, not in the Bridge.
 
 ## Going the other way

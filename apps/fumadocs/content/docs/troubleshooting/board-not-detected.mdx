@@ -1,95 +1,94 @@
 ---
 title: Board not detected
-description: Microflow Studio cannot find your Arduino. Things to check, in order.
+description: The sidebar will not reach a connected state. Checks in order, most likely first.
 ---
 
-If the connection panel sits at **Waiting**, fails at **Detecting**, or never advances past **Uploading**, work through these checks in order. The most common causes are at the top.
+The board is plugged in and Studio will not connect to it. Work down this page in order — the checks are ordered by how often each one is the cause, not by how interesting it is.
+
+<Video title="The board will not connect" duration="4:00" script="/docs/videos/board-wont-connect">
+Every cause on this page reproduced live, including what ten seconds of nothing happening looks like.
+</Video>
+
+## First, read the status
+
+| Status | What it means |
+| --- | --- |
+| **No microcontroller connected** | Desktop app: no serial port found. Start at check 1. |
+| **Connect board** | Browser: you have not granted permission yet. Click it. See check 5. |
+| **Use Chrome/Edge or the desktop app** | Firefox or Safari. There is no workaround — see check 5. |
+| **Connecting** | Studio found a port. Give it a few seconds. |
+| **Flashing firmware** | Installing firmware. Can take up to a minute. **Do not unplug.** |
+| **Error** | The connection failed outright. Work through this page. |
 
 ## 1. The cable
 
-A surprising number of "broken Arduinos" are just bad cables. Many phone cables are **charge-only** and carry no data, even though they fit the port perfectly.
+Most "broken Arduinos" are cables. Plenty of USB cables carry power and no data, and they are physically identical to ones that do. The board's power light comes on with either kind, so it tells you nothing.
 
-- Try a different USB cable. One that you have used to flash an Arduino with the official Arduino IDE before is ideal.
-- Try a different USB port on your computer. USB hubs sometimes refuse to power a board reliably; plug straight into the computer.
+- Try a different cable — ideally one you have used to upload a sketch from the Arduino IDE.
+- Plug straight into the computer, not into a hub.
+- If the cable came with headphones, a battery pack, or a phone charger, assume it is charge-only until proven otherwise.
 
-## 2. The power LED on the board
+## 2. Another program is holding the port
 
-When you plug the board in, a small power LED should light up (usually labelled `ON` or `PWR`).
+A serial port has one occupant at a time. If something else has it, Studio cannot.
 
-- **No light** — the board is not getting power. Bad cable (see above) or bad port.
-- **Light is on** — power is fine; move to the next check.
+The usual suspects: the Arduino IDE's **Serial Monitor** or plotter, PlatformIO, a `screen` or `minicom` session, and a second copy of Studio — including a second **browser tab**.
 
-## 3. USB drivers
+- Close them. On Windows, closing the whole Arduino IDE is safer than just the Serial Monitor.
+- Unplug and replug the board.
 
-Some boards (especially clones) need a driver before the operating system will see them as a serial device.
+## 3. The driver
 
-- Open your operating system's device list:
-  - **Windows** — *Device Manager → Ports (COM & LPT)*.
-  - **macOS** — *System Information → USB*.
-  - **Linux** — `ls /dev/tty*` before and after plugging in.
-- If the board does not appear, install the right driver. See [Install board drivers](/docs/how-to/install-board-drivers).
-- **Windows, CH340 clone:** if the board *does* appear as *USB-SERIAL CH340 (COM3)* but Microflow still fails with "device not functioning" (and it works fine on macOS), the newest CH340 driver (version 4.0) is rejecting the clone chip. Downgrade to CH340 driver version 3.4 — see [CH340 clones and the "device not functioning" error](/docs/how-to/install-board-drivers#ch340-clones-and-the-device-not-functioning-error-windows).
+Official Arduino boards work out of the box. Cheaper clones use a different USB-to-serial chip — usually CH340 or CP2102 — which needs a driver on Windows and older macOS.
 
-## 4. Another program is using the serial port
+The tell is that **your operating system itself** cannot see the board. If the OS cannot see it, no application can.
 
-Only one program can hold a serial port at a time. The most common conflict is the Arduino IDE's **Serial Monitor**, but anything that connects to the board (PlatformIO, mosquitto pubsub examples, screen sessions) blocks Microflow.
+- **Windows** — Device Manager → Ports (COM & LPT).
+- **macOS** — System Information → USB.
+- **Linux** — `ls /dev/tty*` before and after plugging in.
 
-- Close the Arduino IDE entirely (the Serial Monitor closing is not enough on Windows).
-- Close any other tool talking to the board.
-- Restart Microflow Studio.
+If the board is not listed, install the driver. See [Install board drivers](/docs/how-to/install-board-drivers).
 
-## 5. Firmware corruption
+**Windows, CH340 clone, "device not functioning":** if the board *does* appear as *USB-SERIAL CH340 (COM3)* but Studio still fails — and the same board works on macOS — the newest CH340 driver (4.0) is rejecting the clone chip. Downgrade to 3.4. See [CH340 clones and the "device not functioning" error](/docs/how-to/install-board-drivers#ch340-clones-and-the-device-not-functioning-error-windows).
 
-If a different program has uploaded a custom sketch to the board, StandardFirmata is gone and Microflow's "Detecting" probes get no useful response.
+## 4. The board itself
 
-- Open the connection panel in Studio and choose **Re-flash firmware** to reinstall StandardFirmata.
-- See [Flash firmware manually](/docs/how-to/flash-firmware-manually) for a step-by-step.
+- Plug in a different board. If that one connects, the first board is the problem.
+- Open the Arduino IDE and upload **File → Examples → 01.Basics → BareMinimum**. If that fails too — particularly with `avrdude: stk500_recv()` — the board has a bootloader problem and needs hardware-level recovery, which is outside what Studio can do.
 
-## 6. The board itself
+## 5. In a browser
 
-If everything else is ruled out, the board may be physically faulty.
+Web Serial has rules a desktop app does not.
 
-- Open the Arduino IDE. Try the **Bare Minimum** example: *File → Examples → 01.Basics → BareMinimum*. Upload it. If even that fails with errors like "avrdude: stk500_recv()", the board has a bootloader issue and needs hardware-level recovery.
-- Try a known-working board on the same computer. If it works, the original board is the problem.
+- **Firefox and Safari do not support it at all.** The sidebar says so. Switch to Chrome, Edge, or Opera, or install the desktop app.
+- **Permission is a deliberate act.** If the status says **Connect board**, nothing has been granted. Click it and pick your board in the browser's chooser. Dismissing that chooser leaves you exactly where you started, with no error.
+- **Permission is per origin and per device.** Granted on `localhost` does not carry over to the hosted app, or the other way round.
+- **One tab only.** A second tab with Studio open cannot take a port the first one holds.
+- **Enterprise policy or `chrome://flags` can disable Web Serial**, in which case Studio reports the browser as unsupported even though it normally would not.
 
-## 7. You are running Microflow in a browser (Web Serial)
+A board you have already granted reconnects on its own after that, including after unplugging and replugging.
 
-Microflow Studio can talk to your board in two ways: through **Web Serial** when you open the app in a Chromium-based browser, or through native USB when you use the **desktop app**. They behave differently, and a lot of "the board just won't connect" reports in the browser are actually Web Serial limitations rather than hardware faults.
+## 6. Firmware
 
-### What Web Serial cannot do
+Studio checks the firmware every time it connects: it probes the board, flashes Microflow's firmware if it is missing, and connects. So a board that has been used for something else — a sketch from the Arduino IDE, another tool — fixes itself on the next connection.
 
-- **Firefox and Safari** do not implement Web Serial at all. The sidebar will tell you to switch browsers or install the desktop app — there is no workaround inside those browsers.
-- **The browser never auto-detects a board.** You have to click *Connect board* and pick the port from the browser's native chooser every session. Studio cannot remember the port across reloads on most platforms.
-- **The browser cannot install USB drivers.** If your OS does not see the board as a serial device (see [USB drivers](#3-usb-drivers)), no browser can fix that.
-- **The browser cannot flash a board that has no bootloader.** Web Serial can re-flash StandardFirmata on top of an existing bootloader, but a bricked board still needs the desktop app or the Arduino IDE.
-- **Permission is per-origin, per-device.** If you previously granted access on `localhost` and are now on `app.microflow.tech` (or vice versa), you will be asked to authorise the board again.
-- **Only one tab can hold the port.** If you have Microflow open in two tabs, the second one will fail to connect. Close the other tab first.
-- **Chrome flags can disable it.** If Web Serial has been turned off in `chrome://flags` or by an enterprise policy, Studio will report the browser as unsupported.
+That means **"the firmware is corrupt" is rarely the answer**. If flashing itself is failing, it is nearly always check 1 or check 2 underneath. See [Flash firmware manually](/docs/how-to/flash-firmware-manually) if you want to take over the process yourself.
 
-### When the desktop app solves it
+## 7. Unsupported board
 
-The desktop app (Tauri) talks to the serial port through the operating system directly and sidesteps most of the above. Prefer the desktop app when:
+Microflow generates code for **Arduino Uno**, **Arduino Nano**, and **ESP32**. Other boards may connect and may partly work, but the generated sketch and the wiring diagram will be wrong for them, and nothing will warn you.
 
-- You are on Firefox or Safari and cannot switch browsers.
-- The board flashes fine from the Arduino IDE but not from the browser.
-- You want the board to reconnect automatically after unplugging/re-plugging or reloading.
-- You need to flash a board where the bootloader is intact but Web Serial refuses the write (some CH340 clones behave this way).
-- You are on a corporate machine where Chrome policies block Web Serial.
+Check which target the flow is set to — see [Choose a board target](/docs/how-to/choose-a-board-target).
 
-The desktop app cannot fix a bad cable, a broken bootloader, or a missing OS-level driver — for those, keep working through the checks above.
+## Still stuck
 
-Download the desktop app from the [Microflow releases page](https://github.com/xiduzo/microflow-t-stack/releases). Your flows are stored in the cloud (or locally, depending on your setup), so switching between browser and desktop does not lose any work.
+Open an issue on [GitHub](https://github.com/xiduzo/microflow-t-stack/issues) with:
 
-## 8. Unsupported board
-
-Microflow officially supports Arduino Uno, Mega, Leonardo, Micro, Nano, and Yun. Other boards may work but are not guaranteed. Boards based on ESP32, RP2040, Teensy, and similar typically need a different firmware path that Microflow does not handle today.
-
-## When to ask for help
-
-After working through the above, open an issue on the [GitHub repository](https://github.com/xiduzo/microflow-t-stack/issues) and include:
-
-- Board name and source (genuine Arduino vs. clone)
+- Board name, and whether it is genuine or a clone
 - Operating system and version
-- Microflow Studio version
-- What appears in the connection panel
+- Studio version, and whether you are in the desktop app or a browser (and which)
+- The exact status text in the sidebar
 - Whether the Arduino IDE can talk to the same board
+- Whether your operating system lists the board as a serial device
+
+That last pair is what separates a Microflow bug from a machine that cannot see the hardware, and it is the first thing anyone will ask.

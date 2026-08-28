@@ -1,0 +1,71 @@
+---
+title: Values look wrong
+description: The flow runs and the values arrive, but they are noisy, out of range, or flickering.
+---
+
+Everything is connected and values are moving — they are just not the values you want.
+
+<Video title="Smooth a sensor and react to a threshold" duration="5:00" script="/docs/videos/smooth-and-threshold">
+The noise and the chatter, on a graph, with the fix for each.
+</Video>
+
+## A reading jitters when nothing is moving [#noise]
+
+Every analog sensor does this. It is the last digit or two of a measurement that was never that precise, and it is not a fault.
+
+It only becomes a problem when you make a decision from it.
+
+**Fix:** put a [Smooth](/docs/microflow-studio/nodes/shape/smooth) node between the sensor and whatever uses it.
+
+- Start with **moving average**, window `25`.
+- A bigger window is calmer but slower to react. A window of `100` is glassy and visibly lags.
+- The other mode, **smooth**, uses an attenuation between `0` and `1` — closer to `1` is heavier. It reacts more gracefully than a large window but never quite settles on the exact value.
+
+If the jitter is enormous rather than a couple of digits, suspect the wiring instead: a long unshielded lead, a loose breadboard connection, or a missing pull-down resistor.
+
+## An output maxes out long before the input does [#ranges]
+
+A knob reaches full brightness a quarter of the way round; a servo hits its stop almost immediately.
+
+The two ends are using different ranges. An analog pin reads `0`–`1023`. LED brightness is `0`–`255`. A servo angle is `0`–`180`. Wired directly, the output runs out long before the input does.
+
+**Fix:** put a [Map](/docs/microflow-studio/nodes/shape/map) node in between, with **From** set to the input's range and **To** set to the output's.
+
+| Into | Range |
+| --- | --- |
+| LED brightness, RGB channel | `0`–`255` |
+| Servo angle | `0`–`180` |
+| Alpha / opacity | `0`–`100` |
+| MIDI note, velocity, CC value | `0`–`127` |
+
+## An output flickers at a threshold [#chatter]
+
+Hold a sensor right at the boundary of a [Compare](/docs/microflow-studio/nodes/decide/compare) and the reading crosses it back and forth many times a second — so the output does too. On a relay you can hear it.
+
+**Fix, in this order:**
+
+1. **Smooth the input.** The average crosses the line far less often than the raw reading.
+2. **Delay the output.** A [Delay](/docs/microflow-studio/nodes/decide/delay) node after the decision, with **Forget previous** on, means a momentary blip never reaches the hardware.
+
+Smooth the input first. Delaying a noisy signal just gives you a late noisy signal.
+
+## A colour is inverted or has channels swapped [#colour]
+
+- **[RGB](/docs/microflow-studio/nodes/express/rgb) LED inverted** — full brightness looks dark and off looks bright. Your LED is common-anode and the **Common anode** setting is off, or the reverse.
+- **[LED Strip](/docs/microflow-studio/nodes/express/pixel) red and green swapped** — change **Colour order**. Strips vary by manufacturer and there is no way to detect it.
+- **Mid-brightness colours look washed out** — raise **Gamma**.
+
+## A value updates less often than expected
+
+- Sense nodes have a **Read frequency** setting, in milliseconds. Lower reads more often, at the cost of more traffic.
+- The [Figma](/docs/microflow-studio/nodes/express/figma) node has a **Debounce time** that deliberately limits how often it sends, so a noisy sensor cannot flood the bridge. Lower it if you need finer updates in Figma.
+- Some sensors are just slow. An ultrasonic distance sensor has to wait for an echo.
+
+## Nothing is obviously wrong and it still looks odd
+
+Put a [Monitor](/docs/microflow-studio/nodes/express/monitor) on the first node in the chain, then one in the middle, and keep halving. Two or three probes will find almost anything. See [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node).
+
+## Related
+
+- [Smooth a noisy sensor](/docs/learn/smooth-a-sensor)
+- [Map node reference](/docs/microflow-studio/nodes/shape/map)

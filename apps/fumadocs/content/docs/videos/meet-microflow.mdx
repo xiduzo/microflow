@@ -1,0 +1,95 @@
+---
+title: "Script: Meet Microflow"
+description: Shooting script for the 2:30 introduction video.
+---
+
+<Video title="Meet Microflow" duration="2:30" />
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Goal** | A viewer who has never heard of Microflow understands what it does and wants to try it. |
+| **Audience** | Designers, artists, students, makers. Assumes no electronics and no programming. |
+| **Runtime** | 2:30 |
+| **Teaches nothing** | This video sells the idea. No instructions, no settings, no troubleshooting. |
+
+## Where it appears
+
+- [Welcome to Microflow](/docs/) — top of the page.
+
+## Set up before you record
+
+Build all four demos physically and get them working *before* the camera is on. Nothing is assembled on screen.
+
+1. **Blink** — Arduino Uno, on-board LED on pin 13, Interval → LED.
+2. **Knob and lamp** — potentiometer on A0, LED on pin 9 through a 220 Ω resistor, Potentiometer → Map → LED.
+3. **Motion and sound** — PIR on pin 7, piezo on pin 8, Motion → Delay → Piezo.
+4. **Sensor into Figma** — LDR on A0 driving a Figma variable through the Hardware Bridge, with a prototype whose background lightens as the room does.
+
+Each demo gets its own saved flow so you can switch between them in the flow switcher without building anything.
+
+## Shot list
+
+<Chapters>
+  <Chapter time="0:00" title="Cold open — the hardware works">No UI. Just a hand and a working prototype.</Chapter>
+  <Chapter time="0:20" title="The reveal — this is what drives it">Cut to the canvas behind the demo.</Chapter>
+  <Chapter time="0:50" title="Three more things people build">Fast montage.</Chapter>
+  <Chapter time="1:40" title="Who it is for">Talking over a wide shot of a desk.</Chapter>
+  <Chapter time="2:05" title="Where to start">Card pointing at the first tutorial.</Chapter>
+</Chapters>
+
+## Script
+
+### 0:00 — Cold open
+
+**Screen:** Overhead shot of a breadboard. A hand turns a potentiometer; an LED fades up and down in time with it. No app visible. Five seconds of this before anyone speaks.
+
+**Narration:**
+> "This is a knob turning a light on and off. Nothing surprising — except that nobody wrote any code to make it happen."
+
+### 0:20 — The reveal
+
+**Screen:** Pull back or cut to a screen recording of Microflow Studio with the knob-and-lamp flow on the canvas: three nodes, two edges. As the hand turns the knob off-screen, the values on the nodes update live.
+
+**Narration:**
+> "This is the whole program. A node that reads the knob. A node that rescales the reading. A node that drives the light. You connect them by dragging a line between them, and it runs the moment you plug your board in."
+
+**On-screen:** Zoom to 150 % on the value readout of the Potentiometer node so the changing number is legible.
+
+### 0:50 — Three more things people build
+
+**Screen:** Montage, roughly 15 seconds each, cutting between the hardware and the canvas that drives it.
+
+1. Blink: the on-board LED pulsing, canvas showing Interval → LED.
+2. Motion and sound: a hand waving past a PIR sensor, a piezo chirping a beat later, canvas showing Motion → Delay → Piezo.
+3. Figma: a hand covering a light sensor, and a Figma prototype on a second monitor dimming in response.
+
+**Narration:**
+> "A light that blinks on a timer. A sensor that notices someone walk past and sets off a buzzer. A prototype in Figma that reacts to the actual light level in the room — because the sensor on the desk is feeding it."
+
+### 1:40 — Who it is for
+
+**Screen:** Wide shot of the desk: laptop, breadboard, a small pile of components.
+
+**Narration:**
+> "Microflow is for people who want to build something physical without learning to program a microcontroller first. If you can plug in a USB cable and drag a box across a screen, you have everything you need. It is free, it is open source, and it runs on Windows, macOS, and Linux — or straight in a Chrome browser if you would rather not install anything."
+
+### 2:05 — Where to start
+
+**Screen:** Studio, empty canvas, sidebar visible. Cursor rests on the flow switcher.
+
+**Narration:**
+> "The first tutorial takes about five minutes and needs nothing except a board and a USB cable. It is linked right below this video."
+
+**On-screen text (final card, 4 seconds):** `Your first flow — docs.microflow.tech/docs/learn/first-flow`
+
+## Deliberate failure
+
+None. This is the only video in the series without one — a first impression is not the place to show something breaking.
+
+## Post-production notes
+
+- Keep the cold open silent apart from room tone. The first spoken word lands at 0:05.
+- The montage cuts must be on the beat of the physical event, not the narration.
+- No music under the narration. A short music sting on the final card only.

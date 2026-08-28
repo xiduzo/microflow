@@ -29,10 +29,34 @@ The node sends values in a format the Bridge can write into the target variable.
 - **String** — text
 - **Color** — color values
 
+## Inputs
+
+- **`true`** — Set a boolean variable to true.
+- **`false`** — Set it to false.
+- **`toggle`** — Flip a boolean variable.
+- **`set`** — Set the variable to the value that arrives here.
+- **`increment`** — Add one to a number variable.
+- **`decrement`** — Subtract one.
+- **`reset`** — Return the variable to its initial value.
+- **`red`** — Red channel of a colour variable, `0`–`255`.
+- **`green`** — Green channel, `0`–`255`.
+- **`blue`** — Blue channel, `0`–`255`.
+- **`opacity`** — Opacity of a colour variable, `0`–`100`.
+
+## Outputs
+
+- **`change`** — Fires when the variable changes in Figma.
+- **`value`** — The variable's current value in Figma.
+
+Which handles appear depends on the type of the Figma variable you select. A boolean variable shows `true`, `false` and `toggle`; a number shows `set`, `increment`, `decrement` and `reset`; a colour shows the four channel inputs; a string shows `set`.
+
 ## Settings
 
-- **Broker** — which MQTT broker to publish to. Defaults to the shared public broker; change for self-hosted setups.
-- **Topic** — the topic string. Use `figma/<name>` to drive the Figma Bridge or the Penpot plugin; any other topic for custom subscribers.
+- **Broker** — Which configured MQTT broker to use. Set them up under **Configuration → MQTT**.
+- **Unique identifier** — The identifier that must match on both ends of the bridge. Case sensitive.
+- **Variable** — Which Figma variable this node is bound to.
+- **Variable type** — The variable's type in Figma. Set for you when you pick the variable. Default `STRING`.
+- **Debounce time** — Minimum milliseconds between updates sent to Figma, so a noisy sensor cannot flood it. Default `100`.
 
 ## Related
 

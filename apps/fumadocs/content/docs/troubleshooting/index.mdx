@@ -1,42 +1,72 @@
 ---
 title: Troubleshooting
-description: Things that commonly go wrong, organised by symptom.
+description: Find your symptom, get the fix.
 ---
 
-If something is not behaving the way you expect, this page is the fastest way to a fix. Each entry below is a *symptom* — pick the one that matches what you are seeing.
+Find the line that matches what you are seeing. Each one goes straight to the checks for that symptom, ordered by how often each cause is the real one.
 
-## My board never reaches "Running"
-The connection panel shows **Waiting**, **Detecting**, or **Uploading** but never advances.
+## Connecting to a board
 
-→ [Board not detected](/docs/troubleshooting/board-not-detected)
+| What you see | Go to |
+| --- | --- |
+| Sidebar says **No microcontroller connected** with the board plugged in | [Board not detected](/docs/troubleshooting/board-not-detected) |
+| Sidebar says **Connect board** and clicking it does nothing lasting | [Board not detected — in a browser](/docs/troubleshooting/board-not-detected#5-in-a-browser) |
+| Sidebar says **Use Chrome/Edge or the desktop app** | You are in Firefox or Safari. [Use Studio in your browser](/docs/how-to/use-studio-in-your-browser) |
+| Stuck on **Flashing firmware** | Wait — up to a minute is normal. Longer: [Board not detected](/docs/troubleshooting/board-not-detected) |
+| Sidebar says **Error** | [Board not detected](/docs/troubleshooting/board-not-detected) |
+| Connected, then dropped out on its own | [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run) |
 
-## My flow runs, but a node has no effect
-Specifically: a Sense node never produces values, or an Express node does nothing physical, even though the flow is **Running**.
+## The flow runs, the hardware does not
 
-→ [Pin conflicts](/docs/troubleshooting/pin-conflicts)
+| What you see | Go to |
+| --- | --- |
+| A node shows values but nothing physical happens | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
+| An LED is on or off but will not dim | [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings#pwm) |
+| A sensor node never produces a value | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
+| Two nodes seem to fight over the same component | [Nothing happens on the board](/docs/troubleshooting/pin-conflicts) |
+| It worked, then stopped after a while | [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run) |
 
-## My flow stops working after a while
-It worked at first, then values stopped flowing or hardware froze.
+## The values are wrong
 
-→ [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run)
+| What you see | Go to |
+| --- | --- |
+| A reading jitters when nothing is moving | [Values look wrong](/docs/troubleshooting/values-look-wrong#noise) |
+| An output reaches its limit long before the input does | [Values look wrong](/docs/troubleshooting/values-look-wrong#ranges) |
+| An output flickers rapidly at a threshold | [Values look wrong](/docs/troubleshooting/values-look-wrong#chatter) |
+| A colour comes out inverted or with channels swapped | [Values look wrong](/docs/troubleshooting/values-look-wrong#colour) |
 
-## The Hardware Bridge says "Reconnecting"
-Or values from Studio do not appear in Figma.
+## Code and circuit views
 
-→ [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)
+| What you see | Go to |
+| --- | --- |
+| A warning triangle beside **Download sketch** | [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings) |
+| A cross, and the download is disabled | [Warnings in the generated sketch](/docs/troubleshooting/sketch-warnings) |
+| The circuit diagram shows pins you did not wire | [Read the circuit view](/docs/how-to/read-the-circuit-view) |
 
-## The Bridge says "Connected" but my Figma variable never changes
-The MQTT pipe is healthy but values are silently going nowhere. Almost always a topic-name or collection mismatch.
+## Bridges and other tools
 
-→ [MQTT can't connect — topic mismatch](/docs/troubleshooting/mqtt-cant-connect)
+| What you see | Go to |
+| --- | --- |
+| The bridge never connects to the broker | [MQTT will not connect](/docs/troubleshooting/mqtt-cant-connect#the-connection-fails) |
+| Connected, but the Figma variable never changes | [Connected, but nothing arrives](/docs/troubleshooting/mqtt-cant-connect#connected-but-nothing-arrives) |
+| The variable list in the Figma node is empty | [Connected, but nothing arrives](/docs/troubleshooting/mqtt-cant-connect#connected-but-nothing-arrives) |
+| The LLM node never answers | [The AI node does not answer](/docs/troubleshooting/ai-node-no-answer) |
+| A MIDI controller does not appear in the device list | [The AI node does not answer — device lists](/docs/troubleshooting/ai-node-no-answer#device-lists-are-snapshots) |
 
-## Something else
+## Collaboration
 
-Open an issue on the [Microflow GitHub repository](https://github.com/xiduzo/microflow-t-stack/issues). Include:
+| What you see | Go to |
+| --- | --- |
+| A **View only** badge, and nothing can be moved | You have the viewer role. [Collaborate on a flow](/docs/how-to/collaborate-on-a-flow) |
+| Your collaborator's sidebar says no board is connected | Correct — hardware is not shared. [Collaborate without hardware](/docs/how-to/collaborate-without-hardware) |
 
-- Operating system
-- Microflow Studio version
-- A short description of what you expected and what happened
-- Whether you can reproduce it from scratch (and how)
+## None of these
 
-The [contributing guide](/docs/contributing) has more on how to write a good bug report.
+Open an issue on [GitHub](https://github.com/xiduzo/microflow-t-stack/issues) with:
+
+- Your operating system, and whether you are in the desktop app or a browser
+- The Microflow Studio version
+- What you expected, and what happened instead
+- Whether you can reproduce it from an empty canvas, and the steps
+
+The [contributing guide](/docs/contributing/report-bug-or-request) has more on what makes a report actionable.

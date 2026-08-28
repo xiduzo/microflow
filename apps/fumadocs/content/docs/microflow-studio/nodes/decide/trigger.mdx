@@ -1,0 +1,51 @@
+---
+title: Trigger
+description: Fire when a value changes sharply, rather than when it reaches a particular number.
+---
+
+The Trigger node watches a value and fires when it **changes by more than a threshold within a time window**. It is about the *rate* of change, not the value itself — "the light level dropped fast", not "the light level is below 300".
+
+That makes it the opposite tool to [Compare](/docs/microflow-studio/nodes/decide/compare), which tests the value you have right now. Reach for Trigger when the interesting thing is the movement:
+
+- A door opening — the light jumps, whatever the room's baseline is.
+- Someone knocking — the vibration sensor spikes.
+- A hand passing over a proximity sensor.
+- A pressure sensor being released suddenly.
+
+## Inputs
+
+- **`value`** — The value to watch.
+
+## Outputs
+
+- **`bang`** — Fires when the value has changed by more than **Threshold**, in the direction set by **Behaviour**, within the last **Within** milliseconds. Carries the value that caused it.
+- **`value`** — `true` while the node is in its triggered state, `false` once the movement reverses.
+
+## Settings
+
+- **Behaviour** — `increasing` or `decreasing`. Default `decreasing`.
+- **Threshold** — How much the value must change. Default `5`.
+- **Relative** — Measure the change as a percentage of the earlier value instead of an absolute amount. Default `false`.
+- **Within** — The window, in milliseconds, the change must happen inside. Default `250`.
+
+## How it decides
+
+The node keeps the values it has seen inside the **Within** window and compares the newest one against the oldest still in that window.
+
+- If the difference is bigger than **Threshold** and moves in the **Behaviour** direction, it bangs.
+- It then stays triggered — and will not bang again — until the value moves the other way.
+
+So a slow drift never fires, however far it eventually travels: the movement has to fit inside the window.
+
+## Tips
+
+- **Nothing ever fires?** The window is probably too short for how fast the value actually moves, or the threshold is too high. Watch the raw value with a [Monitor](/docs/microflow-studio/nodes/express/monitor) and see how far it really travels in a quarter of a second.
+- **It fires constantly?** Threshold too low, and the sensor's own noise is crossing it. Put a [Smooth](/docs/microflow-studio/nodes/shape/smooth) node in front.
+- **Use Relative for sensors with no fixed baseline.** A change of 5 means one thing in a dark room and another in daylight; 20 % means the same thing in both.
+- **Need "above 300" instead?** That is [Compare](/docs/microflow-studio/nodes/decide/compare).
+
+## Related
+
+- [Compare](/docs/microflow-studio/nodes/decide/compare) — test the value, not the change.
+- [React only when a sensor crosses a threshold](/docs/learn/react-on-threshold)
+- [Smooth](/docs/microflow-studio/nodes/shape/smooth) — stop noise from triggering it.

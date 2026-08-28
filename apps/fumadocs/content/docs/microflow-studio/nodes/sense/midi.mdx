@@ -1,0 +1,44 @@
+---
+title: MIDI
+description: Receive notes and knob values from a MIDI controller, or play notes and send control changes to a synth.
+---
+
+The MIDI node connects your flow to MIDI hardware and software. Pointed inwards, it turns a keyboard, pad controller, or knob box into a source of values for your flow. Pointed outwards, it plays notes and sends controller values to a synth, a DAW, or anything else listening on the MIDI bus.
+
+Plug the controller into your computer, not into the Arduino — this node talks to your computer's MIDI devices.
+
+## Inputs
+
+- **`send`** — Send the configured note, control change, or song. Only present when **Direction** is `out`.
+
+## Outputs
+
+- **`value`** — The last value received. In note mode that is the note number; in CC mode it is the controller's value, `0`–`127`.
+- **`note`** — The note number of the last note received.
+- **`velocity`** — How hard the last note was played, `0`–`127`.
+- **`on`** — Fires on note-on.
+- **`off`** — Fires on note-off.
+
+## Settings
+
+- **Direction** — `in` to receive, `out` to send. Default `in`.
+- **Device** — Which MIDI device to use. The list is populated from what your computer can see, so plug the controller in before opening this.
+- **Channel** — MIDI channel, `0`–`16`. `0` means every channel. Default `0`.
+- **Mode** — `note`, `cc` (control change), or `song`. Default `note`.
+- **Control** — Which CC controller number to send or listen for, `0`–`127`. CC mode only. Default `1`.
+- **Note** — Which note to send, `0`–`127`. Middle C is `60`. Out and note mode only. Default `60`.
+- **Velocity** — How hard to play the note, `0`–`127`. Default `127`.
+- **Song** — The sequence of notes to play, each with its own beat length and velocity. Out and song mode only.
+- **Tempo** — Beats per minute for song mode, `40`–`240`. Default `113`.
+
+## Tips
+
+- **A knob is not a note.** If you are turning a knob or moving a fader, set **Mode** to `cc` and find the controller number — most controllers print it, or you can watch the `value` output with a [Monitor](/docs/microflow-studio/nodes/express/monitor) while you turn things.
+- **Channel `0` first.** If nothing arrives, set the channel to `0` so you catch everything, then narrow it once you know which channel your device uses.
+- **The device list is a snapshot.** Plug a controller in after opening the settings and it will not appear until you reopen them.
+- **Song mode carries its own velocity per note**, unlike the [Piezo](/docs/microflow-studio/nodes/express/piezo) node's songs — a buzzer has no dynamics, a synth does.
+
+## Related
+
+- [Piezo](/docs/microflow-studio/nodes/express/piezo) — the same idea in hardware, on a buzzer.
+- [Hotkey](/docs/microflow-studio/nodes/sense/hotkey) — another input that needs no wiring.

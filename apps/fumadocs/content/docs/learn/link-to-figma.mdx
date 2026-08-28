@@ -15,9 +15,9 @@ The Microflow ecosystem has a second tool for designers: the **Hardware Bridge**
   Studio ships the flow half of this lesson as the **Sensor to Figma** template (potentiometer → MQTT on `figma/pot_value`) — open the **Templates** page and load it, then follow the Figma-side steps below.
 </Callout>
 
-<Callout type="info" title="Video placeholder">
-  60-second Figma-side screencast: open plugin → MHB collection appears → create variable → bind to rectangle width → watch it move as a knob turns on a real desk.
-</Callout>
+<Video title="Hardware in a Figma prototype" duration="6:00" script="/docs/videos/figma-bridge">
+The Figma side end to end: create the variable, bind it, and watch it move as a knob turns.
+</Video>
 
 ## Step 1 — Open the Hardware Bridge plugin
 
@@ -56,7 +56,7 @@ If nothing happens:
 
 - Verify the Bridge plugin says **Connected**, not **Reconnecting**.
 - Check that both Studio and the Bridge are pointed at the same MQTT broker (the [default server](/docs/microflow-hardware-bridge/mqtt) unless you changed it).
-- Open a [Monitor](/docs/microflow-studio/nodes/internal/monitor) on the MQTT node's input to confirm values are flowing.
+- Open a [Monitor](/docs/microflow-studio/nodes/express/monitor) on the MQTT node's input to confirm values are flowing.
 
 ## What just happened?
 

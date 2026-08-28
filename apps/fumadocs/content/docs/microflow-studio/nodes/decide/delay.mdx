@@ -18,12 +18,18 @@ This is useful for sensors that fire many times in quick succession. Instead of 
 
 **Example:** A vibration sensor fires 20 times when tapped. With a 500 ms debounce, the Delay waits until tapping has fully stopped for half a second before passing the signal through.
 
+## Inputs
+
+- **`trigger`** — Start the delay.
+
+## Outputs
+
+- **`event`** — Fires once the delay has elapsed.
+
 ## Settings
 
-Open the settings panel to configure:
-
-- **Duration** — how long to wait, in milliseconds (1000 ms = 1 second)
-- **Debounce** — when enabled, the timer resets on every new incoming signal instead of starting once
+- **Delay** — How long to wait, in milliseconds. Default `1000`.
+- **Forget previous** — Restart the wait when a new trigger arrives, instead of queuing it. This is what turns Delay into a debounce. Default `false`.
 
 ## Related
 
