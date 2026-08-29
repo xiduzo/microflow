@@ -5,6 +5,10 @@ description: Write custom JavaScript to transform values inline within your flow
 
 The Function node lets you write custom JavaScript that runs each time a value arrives. It is the escape hatch for transformations that are too specific or complex for the built-in nodes.
 
+<Clip title="Function" duration="0:25" spec="function">
+The output doubles. A new input handle named `offset` appears on the node.
+</Clip>
+
 Your code lives inside a `trigger(input)` wrapper. Whatever you `return` becomes the output value.
 
 ```ts

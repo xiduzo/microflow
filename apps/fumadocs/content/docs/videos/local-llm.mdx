@@ -100,6 +100,44 @@ Show the real latency. A viewer who expects an instant answer assumes it is brok
 
 **On-screen text:** `value · thinking · done · error`
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+A language model as a node. Press a button, get a sentence back. It runs on your machine, so nothing you sense or type leaves the room, and it works with no internet. It is also slow compared to everything else in Microflow, so it belongs at the end of a flow, never inside a control loop.
+
+**0:40**
+
+Microflow ships no model. It talks to one you are already running, and Ollama is the easiest of those. Start it, and check your model is there. I pulled this one before recording, because that download is several gigabytes.
+
+**1:10**
+
+Configuration, then LLM. Add a provider. The base URL is localhost, colon, one-one-four-three-four, which is Ollama's default. No API key: it runs on your own machine. Save it, then test it. That test tells you the problem is not Studio, before you go looking in your flow.
+
+**2:00**
+
+Stop the server and test again. You get a connection error with the reason attached. You will see this if Ollama is not running, if the port is wrong, or if you pointed at a machine that is asleep.
+
+**2:40**
+
+The LLM node lives under Express, because it is something your flow does. Select the provider and name the model. The system prompt sets the character and the answer length. Say how long you want the answer, or you get an essay. The prompt below it is the request.
+
+**3:30**
+
+It needs a trigger. Connect a button's event to the trigger input, and hang a Monitor in raw mode on the value output. Press the button. Now we wait, because this is what it actually feels like.
+
+**4:20**
+
+That wait is why the node has four outputs. Value is the text. Thinking is true from the trigger until the answer arrives, so wire it to a light and your prototype shows it is working. Done fires once, when the answer is complete, and that is what you chain the next step to. Error fires when the model could not be reached.
+
+</Transcript>
+
 ## Deliberate failure
 
 The stopped server at 2:00, tested from inside Studio so the real error is on screen.

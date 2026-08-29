@@ -104,6 +104,44 @@ Drag from the Button's `true` output to the LED's `true` input. Then drag from t
 **Narration:**
 > "A button gives you four outputs, not two. *Event* fires on any change. *True* and *false* are the two you used. *Hold* fires after the button is held for longer than the hold time in its settings, half a second by default. That is how you get a long press without building a timer."
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+A push button, an LED, a two-hundred-and-twenty-ohm resistor, four jumper wires, a breadboard, and the board itself. If your kit came with a different resistor between two hundred and a thousand ohms, use that.
+
+**0:30**
+
+The button straddles the channel down the middle of the breadboard, so its two sides are not connected. Five volts into one leg. The other leg out to digital pin six. And a resistor from that same leg to ground, so the pin reads zero when the button is up instead of floating.
+
+**1:20**
+
+The LED has a long leg and a short leg. The long leg is positive and goes to pin nine. The short leg goes through the resistor to ground. Wired backwards it will not light, and nothing breaks.
+
+**1:50**
+
+Add a Button node and set the pin to six, to match the wiring. Add an LED node on pin nine. The button has an output called true, which is on while you hold it, and one called false. The LED has matching inputs. True to true. False to false. Two edges.
+
+**2:45**
+
+Held down, the light is on. Released, it is off.
+
+**3:05**
+
+Delete the second edge and watch. Press: on. Release: still on. The button works, the LED works, the flow runs. Nothing ever told the light to switch off. A half-wired flow looks exactly like broken hardware.
+
+**3:35**
+
+A button gives you four outputs, not two. Event fires on any change. True and false are the two you used. Hold fires after the button is held for longer than the hold time in its settings, half a second by default. That is how you get a long press without building a timer.
+
+</Transcript>
+
 ## Deliberate failure
 
 The deleted `false → false` edge at 3:05.

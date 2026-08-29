@@ -112,6 +112,48 @@ description: Shooting script for the 6:00 end-to-end Figma Hardware Bridge video
 3. Right variable selected?
 ```
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+A sensor on the desk, changing a value in Figma. And a button in Figma, turning on a light on the desk. Both directions, no code.
+
+**0:35**
+
+Studio and Figma never talk directly. A Figma plugin cannot see your USB ports. Both ends connect to a message broker instead, and pass notes through it. So the whole setup comes down to one thing: both ends must agree on the address.
+
+**1:05**
+
+In Figma, install the Microflow Hardware Bridge and run it. Everything on the Figma side happens in this panel. Leave it open. Closing a Figma plugin stops it, and the bridge stops with it.
+
+**1:45**
+
+Both ends need the same broker and the same identifier. The identifier separates your project from everyone else's on that broker. Type it carefully. It is case sensitive, and a mismatch looks exactly like a broken sensor.
+
+**2:30**
+
+In Figma, make a number variable called light-underscore-level. In Studio, add the light sensor and a Figma node. The Figma node reads the variable list from the plugin, so if your variable is in that dropdown, the connection is healthy. Pick it, connect the sensor, and cover the sensor. The number in Figma moves.
+
+**3:40**
+
+Now the failure you will actually hit. I am changing one character of the identifier. The status is still green. No error anywhere. Cover the sensor and nothing happens, because Studio posts to one address and Figma listens at another. When the bridge says connected and nothing arrives, this is why.
+
+**4:25**
+
+The other direction works the same way. A boolean variable, a prototype button that toggles it, and a second Figma node bound to that variable, driving the LED. Run the prototype. The light on the desk is now part of it.
+
+**5:25**
+
+Three things, in this order. Is the plugin panel still open. Do the identifiers still match. Is the node still bound to the right variable. Almost every bridge problem is one of those three, and none of them are the hardware.
+
+</Transcript>
+
 ## Deliberate failure
 
 The one-character identifier mismatch at 3:40, shown with a healthy status. Do not trim it.

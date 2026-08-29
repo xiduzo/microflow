@@ -5,6 +5,10 @@ description: Fire when a value changes sharply, rather than when it reaches a pa
 
 The Trigger node watches a value and fires when it **changes by more than a threshold within a time window**. It is about the *rate* of change, not the value itself — "the light level dropped fast", not "the light level is below 300".
 
+<Clip title="Trigger" duration="0:25" spec="trigger">
+The sharp change bangs. The slow drift does not, however far it travels.
+</Clip>
+
 That makes it the opposite tool to [Compare](/docs/microflow-studio/nodes/decide/compare), which tests the value you have right now. Reach for Trigger when the interesting thing is the movement:
 
 - A door opening — the light jumps, whatever the room's baseline is.

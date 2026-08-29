@@ -5,6 +5,10 @@ description: The flow worked, then the values stopped.
 
 The flow ran, then stopped responding. Monitors freeze, the hardware sits still, and the sidebar still shows a connected port.
 
+<Clip title="A board dropping out" duration="0:20" spec="usb-drop">
+The Monitors freeze and the sidebar stops showing a port. On replug the status walks back to connected and the flow resumes.
+</Clip>
+
 ## 1. Check that something should have changed
 
 A flow with no [Generate](/docs/microflow-studio/nodes/generate) node — no Interval, Oscillator, or Constant — produces values only when a Sense input changes. A quiet sensor then looks like a frozen flow.

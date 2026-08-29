@@ -5,6 +5,10 @@ description: Control a strip of individually addressable LEDs — WS2812, NeoPix
 
 An addressable LED strip puts a controller chip behind every LED, so a single data pin can set every pixel to a different colour. The LED Strip node drives one: give it a list of colours and it paints the strip.
 
+<Clip title="LED Strip" duration="0:30" spec="pixel">
+The strip fills, then animates pixel by pixel, then goes dark.
+</Clip>
+
 ## Inputs
 
 - **`value`** — An array of hex colours, one per pixel — for example `["#ff0000", "#00ff00", "#0000ff"]`. Shorter than the strip means the rest are left alone.

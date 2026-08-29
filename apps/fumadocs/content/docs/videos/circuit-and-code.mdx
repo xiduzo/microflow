@@ -95,6 +95,44 @@ description: Shooting script for the 4:00 video on the circuit and code views.
 **Narration:**
 > "Download the sketch, open it in the Arduino IDE, select your board and port, and upload. Now watch. I am closing Microflow. The board keeps working, because the program is on the board. Whatever you build here, you can take with you."
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+Every flow has three views. You have been working in Edit flow. One of the other two shows you how to wire the project. The other hands you the Arduino code.
+
+**0:25**
+
+Circuit view draws the wiring your flow implies. Every component appears with its connections: power, ground, and the signal pin from the node's settings. Studio generates it from the flow, so change a pin on the canvas and the diagram changes with it.
+
+**1:15**
+
+Work from it one connection at a time. Check the pin against the diagram, then push the wire in. If you are building from a kit's diagram instead, check it against this one. A pin number that differs between the diagram and the canvas is the most common reason a finished build does nothing.
+
+**1:50**
+
+Code view is the Arduino sketch your flow becomes: complete C++, not a summary. The pin numbers you set on the canvas are at the top. Setup runs once when the board powers on. Loop runs forever after that.
+
+**2:35**
+
+The sketch is built for one specific board. Uno, Nano, and ESP32 are supported, and they differ: an ESP32 has networking, an Uno does not, and their pins are numbered differently. Set this to the board on your desk before you download anything.
+
+**3:05**
+
+Ask for something the board cannot do, and the sketch tells you. This warning triangle means the sketch generated with a note at the top. Read the comment: it names the pin. If generation fails, you get a cross instead, and the download stays disabled until you fix the canvas.
+
+**3:35**
+
+Download the sketch, open it in the Arduino IDE, select your board and port, and upload. Now watch. I am closing Microflow. The board keeps working, because the program is on the board. Whatever you build here, you can take with you.
+
+</Transcript>
+
 ## Deliberate failure
 
 The unsupported pin at 3:05. Choose one that genuinely triggers the warning on the selected target; verify before recording.

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClapperboardIcon, PlayIcon } from "lucide-react";
+import { ClapperboardIcon, FilmIcon, PlayIcon } from "lucide-react";
 
 type VideoProps = {
   /** Title shown on the player / placeholder. */
@@ -116,4 +116,88 @@ export function Chapter({ time, title, children }: ChapterProps) {
 /** Chapter list for a video. */
 export function Chapters({ children }: { children?: React.ReactNode }) {
   return <ul className="my-4 not-prose list-none rounded-lg border p-4 pl-4">{children}</ul>;
+}
+
+type ClipProps = {
+  /** What the clip shows, e.g. "Button". Used as the tab and gallery label. */
+  title: string;
+  /** Target runtime, e.g. "0:25". Clips are short. */
+  duration?: string;
+  /** Anchor on the clip sheet, e.g. "button". */
+  spec?: string;
+  /** Source URL of the recorded clip. Until it exists, the slot reads TODO. */
+  src?: string;
+  /**
+   * What a viewer sees, in words. Required: this is the text equivalent of the
+   * clip for anyone who cannot play it, and for anything reading these docs as
+   * text. Never put information here that the page does not already state.
+   */
+  children: React.ReactNode;
+};
+
+/**
+ * A short, silent, looping demonstration — a node doing its one job, a setting
+ * changing something visible.
+ *
+ * A clip has no narration, so `children` carries its meaning in words and stays
+ * on the page whether or not the clip plays.
+ */
+export function Clip({ title, duration, spec, src, children }: ClipProps) {
+  const specHref = spec ? `/docs/videos/clips#${spec}` : "/docs/videos/clips";
+
+  return (
+    <figure className="my-6 not-prose overflow-hidden rounded-lg border bg-fd-card">
+      {src ? (
+        <video
+          src={src}
+          autoPlay
+          loop
+          muted
+          playsInline
+          controls
+          aria-label={title}
+          className="aspect-video w-full bg-fd-muted object-cover"
+        />
+      ) : (
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 border-b border-dashed bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,var(--color-fd-muted)_10px,var(--color-fd-muted)_20px)] p-6 text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-fd-foreground/20 bg-fd-background px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
+            <FilmIcon className="size-3.5" aria-hidden />
+            Todo · clip
+          </span>
+          <p className="font-medium text-fd-foreground">{title}</p>
+          <p className="text-sm text-fd-muted-foreground">
+            Not recorded yet{duration ? ` · target ${duration}` : ""}
+          </p>
+        </div>
+      )}
+      <figcaption className="flex flex-wrap items-baseline gap-x-2 gap-y-1 p-3 text-sm text-fd-muted-foreground">
+        <span>{children}</span>
+        <Link href={specHref} className="underline underline-offset-2">
+          clip spec
+        </Link>
+      </figcaption>
+    </figure>
+  );
+}
+
+/**
+ * The spoken words of a video, in full.
+ *
+ * Collapsed by default so it does not crowd the page, but present in the
+ * markup — which is what keeps a video's content readable by search, by
+ * screen readers, and by anything consuming these docs as text.
+ */
+export function Transcript({
+  title = "Transcript",
+  children,
+}: {
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="my-6 rounded-lg border bg-fd-card px-4 py-3 [&_p]:my-2">
+      <summary className="cursor-pointer text-sm font-medium">{title}</summary>
+      <div className="mt-2 border-t pt-3 text-sm text-fd-muted-foreground">{children}</div>
+    </details>
+  );
 }

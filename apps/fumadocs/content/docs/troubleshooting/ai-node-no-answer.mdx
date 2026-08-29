@@ -5,6 +5,10 @@ description: The LLM node is triggered and returns nothing, or returns something
 
 The [LLM node](/docs/microflow-studio/nodes/express/llm) is far slower than anything else in Microflow. A node that is still working and a node that has failed look the same, unless you wire the node to tell you apart.
 
+<Clip title="Telling a slow model from a failed one" duration="0:30" spec="thinking-error">
+First the thinking light holds and an answer arrives. Second the thinking light holds and the error light fires instead.
+</Clip>
+
 ## First, wire up `thinking` and `error`
 
 Connect both status outputs to a [Monitor](/docs/microflow-studio/nodes/express/monitor) node in `raw` mode.

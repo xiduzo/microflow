@@ -5,6 +5,10 @@ description: The data model behind every Microflow flow.
 
 This page explains what a flow is, what travels along its edges, and when a node does work.
 
+<Clip title="One event, one chain" duration="0:20" spec="event-propagation">
+Each node updates in turn along the chain, one press producing one pass.
+</Clip>
+
 ## A flow is a directed graph
 
 A **flow** is the whole diagram on the canvas. Each box is a **node**. Each line is an **edge**. An edge runs one way: from a node's output, on the right, to another node's input, on the left.

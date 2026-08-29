@@ -87,6 +87,40 @@ description: Shooting script for the 4:30 MQTT configuration video.
 **Narration:**
 > "One warning about public test brokers. They are public: anyone can read your topics and anyone can write to them. Use one for a demo, not for anything you care about. Running your own takes about five minutes, and the guide under this video covers it."
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+A broker is a post office. A sender hands over a message with a topic on the front, like studio slash light-level. A receiver tells the broker which topics it wants. Neither needs to know where the other is. That is how Studio gets a sensor reading into Figma.
+
+**0:45**
+
+Configuration, then MQTT. Add a broker. The name is only for you. The URL matters: it must be a WebSocket URL, so wss at the front, not mqtt. Username and password depend on your broker. Save it, and every flow can use it.
+
+**1:30**
+
+This is the common mistake. Most broker documentation gives an address starting with mqtt and a port like one-eight-eight-three. That is the address for a native client, and Studio cannot use it. Studio speaks MQTT over WebSockets. Use the broker's WebSocket port. If its documentation never mentions WebSockets, that broker does not work here.
+
+**2:15**
+
+Do not build a flow to test a broker. There is a test client here. Subscribe to test slash hash: the hash means everything below this. Publish something to test slash message. If it comes back, the broker works, and any later problem is in your flow. If it does not, fix the broker first.
+
+**3:15**
+
+Now the node. Select the broker you added, set the topic, and choose whether the node subscribes or publishes. Publish from the test client, and the node's value changes on the canvas. That is the same path the Figma bridge uses.
+
+**3:50**
+
+One warning about public test brokers. They are public: anyone can read your topics and anyone can write to them. Use one for a demo, not for anything you care about. Running your own takes about five minutes, and the guide under this video covers it.
+
+</Transcript>
+
 ## Deliberate failure
 
 The `mqtt://` scheme at 1:30. Show the real failure state, not a mock-up.

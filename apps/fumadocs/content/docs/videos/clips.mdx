@@ -1,0 +1,554 @@
+---
+title: Clip sheet
+description: Every short demonstration clip in the docs, grouped by the rig you build to shoot it.
+---
+
+A **clip** is a short, silent, looping demonstration: one node doing its one job, or one
+setting changing something visible. No narration, no titles, no cuts. A reader who cannot
+play it loses nothing, because every clip's caption says in words what the clip shows.
+
+There are 55 clips, about 21 minutes of finished footage. They are grouped by
+the rig you build to shoot them, not by where they appear in the docs. Build a rig once,
+then shoot everything on it.
+
+## Rules for every clip
+
+- **10 to 30 seconds.** One idea. If it needs two, it is two clips.
+- **Silent.** Clips ship muted and loop. Nothing in a clip may depend on sound.
+- **No cuts inside a clip.** A cut hides the thing the clip exists to prove.
+- **Loop cleanly.** Start and end on the same state.
+- **Frame the canvas at 150 %** wherever a handle or a value has to be legible.
+- **Show the whole wait.** If a node takes a second, so does the clip.
+- **The caption is the clip.** Whatever a clip demonstrates must already be stated in the
+  page's own text. A clip shows; it never tells you something the text does not.
+
+Capture settings, cursor treatment, and the personal details to hide are the same as for the
+narrated videos. See the [production guide](/docs/videos/production-guide).
+
+## Session 1 · Bare board
+
+An Uno connected over USB. Nothing wired. Every clip here is screen-only apart from the LED on pin 13.
+
+*16 clips · 5:34 of footage*
+
+### Interval [#interval]
+
+**0:15** · appears on [/docs/microflow-studio/nodes/generate/interval](/docs/microflow-studio/nodes/generate/interval)
+
+- **Build** — Interval → Monitor in raw mode.
+- **Do** — Set Interval to 1000, then to 250.
+- **See** — The Monitor ticks once a second, then four times a second.
+
+### Constant [#constant]
+
+**0:12** · appears on [/docs/microflow-studio/nodes/generate/constant](/docs/microflow-studio/nodes/generate/constant)
+
+- **Build** — Constant → Monitor in raw mode.
+- **Do** — Change the value from 1337 to 42.
+- **See** — The Monitor holds one number and changes only when the setting does.
+
+### Counter [#counter]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/generate/counter](/docs/microflow-studio/nodes/generate/counter)
+
+- **Build** — Hotkey → Counter, Counter → Monitor in raw mode.
+- **Do** — Press the key four times, then fire reset.
+- **See** — The count climbs 1, 2, 3, 4, then drops back to 0.
+
+### Oscillator [#oscillator]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/generate/oscillator](/docs/microflow-studio/nodes/generate/oscillator)
+
+- **Build** — Oscillator → Monitor in graph mode.
+- **Do** — Cycle the shape through sine, square, sawtooth, and triangle.
+- **See** — The graph redraws as each wave shape, at the same period.
+
+### Hotkey [#hotkey]
+
+**0:15** · appears on [/docs/microflow-studio/nodes/sense/hotkey](/docs/microflow-studio/nodes/sense/hotkey)
+
+- **Build** — Hotkey on `x` → Monitor in raw mode, with an LED on pin 13 on `true` and `false`.
+- **Do** — Press and release the key. Then click into a text field and press it again.
+- **See** — The LED follows the key. In the text field the key types and the node stays quiet.
+
+### Monitor [#monitor]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/express/monitor](/docs/microflow-studio/nodes/express/monitor)
+
+- **Build** — Oscillator → Monitor → LED on pin 13.
+- **Do** — Switch the Monitor between graph and raw.
+- **See** — Graph draws the wave; raw prints the numbers. The LED keeps running either way, because the Monitor passes the value through.
+
+### Note [#note]
+
+**0:12** · appears on [/docs/microflow-studio/nodes/internal/note](/docs/microflow-studio/nodes/internal/note)
+
+- **Build** — Any small flow.
+- **Do** — Add a Note beside two nodes and type into it.
+- **See** — The text sits on the canvas and changes nothing about the flow.
+
+### Calculate [#calculate]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/shape/calculate](/docs/microflow-studio/nodes/shape/calculate)
+
+- **Build** — Two Constants → Calculate → Monitor in raw mode.
+- **Do** — Change the operation from add to multiply, then change one Constant.
+- **See** — The result updates on each change.
+
+### Map [#map]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/shape/map](/docs/microflow-studio/nodes/shape/map)
+
+- **Build** — Oscillator (0–1023) → Map → Monitor in graph mode, with a second Monitor on the raw wave.
+- **Do** — Set To to 0–255, then to 0–180.
+- **See** — Both graphs keep the same shape. Only the scale on the mapped one changes.
+
+### Smooth [#smooth]
+
+**0:30** · appears on [/docs/microflow-studio/nodes/shape/smooth](/docs/microflow-studio/nodes/shape/smooth)
+
+- **Build** — A noisy analog input → Smooth → Monitor in graph mode, with a second Monitor on the raw input.
+- **Do** — Move the window size from 5 to 25 to 100.
+- **See** — The smoothed line flattens as the window grows, and lags further behind the raw one.
+
+### Function [#function]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/shape/function](/docs/microflow-studio/nodes/shape/function)
+
+- **Build** — Constant → Function → Monitor in raw mode.
+- **Do** — Type a line of code that doubles the input, then reference a second input as `{{offset}}`.
+- **See** — The output doubles. A new input handle named `offset` appears on the node.
+
+### Compare [#compare]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/decide/compare](/docs/microflow-studio/nodes/decide/compare)
+
+- **Build** — Oscillator → Compare (number, greater than, 512) → LED on pin 13 via `true` and `false`.
+- **Do** — Let the wave run through the threshold twice.
+- **See** — The LED switches on above 512 and off below it.
+
+### Gate [#gate]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/decide/gate](/docs/microflow-studio/nodes/decide/gate)
+
+- **Build** — Two Hotkeys → Gate → LED on pin 13.
+- **Do** — Hold each key alone, then both. Switch the operation from AND to OR.
+- **See** — With AND the LED lights only while both keys are held. With OR either key is enough.
+
+### Trigger [#trigger]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/decide/trigger](/docs/microflow-studio/nodes/decide/trigger)
+
+- **Build** — An analog input → Trigger (decreasing, threshold 5, within 250 ms) → Monitor in raw mode.
+- **Do** — Cover the sensor sharply, then let the light fall away slowly.
+- **See** — The sharp change bangs. The slow drift does not, however far it travels.
+
+### Delay [#delay]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/decide/delay](/docs/microflow-studio/nodes/decide/delay)
+
+- **Build** — Hotkey → Delay (1000 ms) → LED on pin 13, with a Monitor before and after the Delay.
+- **Do** — Press once. Then turn on Forget previous and press four times quickly.
+- **See** — The first press reaches the LED a second late. With Forget previous on, four fast presses produce one event.
+
+### LED [#led]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/express/led](/docs/microflow-studio/nodes/express/led)
+
+- **Build** — LED node on pin 13 with `toggle` from an Interval, then moved to pin 9 with a knob on brightness.
+- **Do** — Show the toggle, then move to pin 9 and turn the knob. Then set the pin to 7.
+- **See** — On pin 13 it blinks. On pin 9 it fades. On pin 7 the brightness handle refuses to connect and reads `requires a ~ pin`.
+
+## Session 2 · Button and switch bench
+
+A breadboard with a push button on pin 2 (pull-down), a toggle switch on pin 3, and an LED on pin 9. Overhead camera plus the canvas.
+
+*4 clips · 1:25 of footage*
+
+### Button [#button]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/sense/button](/docs/microflow-studio/nodes/sense/button)
+
+- **Build** — Button on pin 2 → LED on pin 9 via `true` and `false`, with a Monitor on `value`.
+- **Do** — Tap the button twice, then hold it for a full second.
+- **See** — The LED follows the press. `value` flips between 1 and 0, and `hold` fires after half a second.
+
+### Switch [#switch]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/sense/switch](/docs/microflow-studio/nodes/sense/switch)
+
+- **Build** — Switch on pin 3 → LED on pin 9 via `true` and `false`.
+- **Do** — Flip the switch on, then off. Then change the type from NO to NC.
+- **See** — The LED follows the switch. Changing the type inverts which position counts as on.
+
+### Relay [#relay]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/express/relay](/docs/microflow-studio/nodes/express/relay)
+
+- **Build** — Relay module on pin 10, driven by a Button. A mains-free load: a torch bulb on a battery.
+- **Do** — Press the button twice.
+- **See** — The relay clicks audibly and the bulb switches with it.
+
+### Vibration [#vibration]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/express/vibration](/docs/microflow-studio/nodes/express/vibration)
+
+- **Build** — Vibration motor on pin 9, taped to a sheet of paper so the movement is visible.
+- **Do** — Drive intensity from a knob, low to high.
+- **See** — The paper buzzes harder as the value climbs.
+
+## Session 3 · Analog bench
+
+A breadboard carrying a potentiometer on A0, an LDR divider on A1, an FSR on A2, a hall sensor on A3, and a tilt switch on A4. One rig, six clips.
+
+*6 clips · 1:55 of footage*
+
+### Potentiometer [#potentiometer]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/sense/potentiometer](/docs/microflow-studio/nodes/sense/potentiometer)
+
+- **Build** — Potentiometer on A0 → Monitor in graph mode.
+- **Do** — Turn the knob slowly through its whole travel, both ways.
+- **See** — The value sweeps between 0 and 1023 and tracks the knob.
+
+### Analog Sensor [#sensor]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/sense/sensor](/docs/microflow-studio/nodes/sense/sensor)
+
+- **Build** — Analog Sensor on A0 → Monitor in graph mode.
+- **Do** — Change the type from analog to digital while the input moves.
+- **See** — In analog mode the value ranges 0–1023. In digital mode it collapses to 0 or 1.
+
+### LDR [#ldr]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/sense/ldr](/docs/microflow-studio/nodes/sense/ldr)
+
+- **Build** — LDR on A1 → Monitor in graph mode.
+- **Do** — Cover the sensor with a hand, then shine a torch on it.
+- **See** — The reading drops when covered and climbs under the torch.
+
+### Force [#force]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/sense/force](/docs/microflow-studio/nodes/sense/force)
+
+- **Build** — FSR on A2 → Monitor in graph mode.
+- **Do** — Press the pad gently, then hard, then release.
+- **See** — The value rises with pressure and falls back when released.
+
+### Hall Effect [#hall-effect]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/sense/hall-effect](/docs/microflow-studio/nodes/sense/hall-effect)
+
+- **Build** — Hall sensor on A3 → Monitor in graph mode.
+- **Do** — Bring a magnet close, flip it over, and take it away.
+- **See** — The reading sits near 512 at rest and moves either side of it depending on the magnet's pole.
+
+### Tilt [#tilt]
+
+**0:15** · appears on [/docs/microflow-studio/nodes/sense/tilt](/docs/microflow-studio/nodes/sense/tilt)
+
+- **Build** — Tilt switch on A4 → Monitor in raw mode.
+- **Do** — Tip the breadboard one way, then the other.
+- **See** — The value flips between 0 and 1 as the sensor passes upright.
+
+## Session 4 · Distance and movement
+
+A PIR on pin 7 and an ultrasonic sensor on A0, both pointed across the desk. Frame so the hand entering the field is visible.
+
+*2 clips · 0:50 of footage*
+
+### Motion [#motion]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/sense/motion](/docs/microflow-studio/nodes/sense/motion)
+
+- **Build** — PIR on pin 7 → LED on pin 13 via `true` and `false`.
+- **Do** — Walk a hand into the field, hold still, then withdraw it.
+- **See** — The LED lights on movement and stays lit for the sensor's own hold time before releasing.
+
+### Proximity [#proximity]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/sense/proximity](/docs/microflow-studio/nodes/sense/proximity)
+
+- **Build** — Ultrasonic sensor on A0 → Monitor in graph mode.
+- **Do** — Move a flat card from 5 cm to 50 cm and back.
+- **See** — The reading tracks the distance in centimetres, with a step each time the sensor completes a ping.
+
+## Session 5 · Motors
+
+A standard servo on pin 9 and a stepper on a driver board, both on an external supply with the grounds joined. Mark the servo horn so the angle reads on camera.
+
+*2 clips · 0:55 of footage*
+
+### Servo [#servo]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/express/servo](/docs/microflow-studio/nodes/express/servo)
+
+- **Build** — Potentiometer → Map (0–1023 to 0–180) → Servo on pin 9.
+- **Do** — Sweep the knob end to end, then fire `min` and `max`.
+- **See** — The horn tracks the knob across 180°, then jumps to each end.
+
+### Stepper [#stepper]
+
+**0:30** · appears on [/docs/microflow-studio/nodes/express/stepper](/docs/microflow-studio/nodes/express/stepper)
+
+- **Build** — Stepper on a driver, fed from a Constant into `to`.
+- **Do** — Send it to 200 steps, then to 0, then fire `zero` and send 200 again.
+- **See** — The shaft turns one revolution and back. After `zero` the same command turns from wherever it stopped.
+
+## Session 6 · Sound
+
+A piezo on pin 8. Record audio for these clips even though they ship muted — the waveform in the edit confirms the timing.
+
+*1 clips · 0:25 of footage*
+
+### Piezo [#piezo]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/express/piezo](/docs/microflow-studio/nodes/express/piezo)
+
+- **Build** — Button → Piezo on pin 8, in buzz mode, then in song mode.
+- **Do** — Press once in buzz mode. Switch to song and press again.
+- **See** — Buzz mode gives one tone of the set duration. Song mode plays the sequence at its tempo.
+
+## Session 7 · Colour and light
+
+An RGB LED on pins 9, 10, 11; a 30-pixel strip on pin 6; an 8×8 MAX7219 matrix on pins 2, 3, 4. All on an external 5 V supply with grounds joined.
+
+*3 clips · 1:20 of footage*
+
+### RGB [#rgb]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/express/rgb](/docs/microflow-studio/nodes/express/rgb)
+
+- **Build** — Three knobs → the red, green, and blue inputs of an RGB node.
+- **Do** — Mix a colour, then drive alpha from full to zero.
+- **See** — The LED shows the mixed colour, then dims without changing hue.
+
+### LED Strip [#pixel]
+
+**0:30** · appears on [/docs/microflow-studio/nodes/express/pixel](/docs/microflow-studio/nodes/express/pixel)
+
+- **Build** — LED Strip on pin 6, length 30, driven from a Function node that builds an array of colours.
+- **Do** — Send one colour to the whole strip, then a moving pattern, then fire reset.
+- **See** — The strip fills, then animates pixel by pixel, then goes dark.
+
+### LED Matrix [#matrix]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/express/matrix](/docs/microflow-studio/nodes/express/matrix)
+
+- **Build** — 8×8 matrix on pins 2, 3, 4, with two shapes saved.
+- **Do** — Switch between the shapes, then fire reset, then reinitialize.
+- **See** — The display swaps shapes, clears, and comes back after the start-up sequence.
+
+## Session 8 · I²C bench
+
+A PN532 NFC module and one I²C sensor on SDA and SCL, sharing the bus. Show the two wires once at the start.
+
+*2 clips · 0:50 of footage*
+
+### NFC Reader [#pn532]
+
+**0:20** · appears on [/docs/microflow-studio/nodes/sense/pn532](/docs/microflow-studio/nodes/sense/pn532)
+
+- **Build** — PN532 → Monitor in raw mode.
+- **Do** — Present a card, take it away, present a different card.
+- **See** — The UID appears as text, empties when the card leaves, and changes for the second card.
+
+### I2C Device [#i2c-device]
+
+**0:30** · appears on [/docs/microflow-studio/nodes/sense/i2c-device](/docs/microflow-studio/nodes/sense/i2c-device)
+
+- **Build** — An I2C Device node on a known preset → Monitor in raw mode.
+- **Do** — Show the address and register, then change the output from raw to unsigned int.
+- **See** — The value streams without polling, and the interpretation changes with the setting.
+
+## Session 9 · Off the board
+
+No microcontroller. These four run against your computer, a MIDI controller, a broker, and a local model.
+
+*4 clips · 1:50 of footage*
+
+### MIDI [#midi]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/sense/midi](/docs/microflow-studio/nodes/sense/midi)
+
+- **Build** — A MIDI controller on the computer → MIDI node in `in` mode → Monitors on `note`, `velocity`, and `value`.
+- **Do** — Play two keys at different strengths, then turn a knob in CC mode.
+- **See** — Note and velocity update per key. In CC mode the knob drives `value` between 0 and 127.
+
+### MQTT [#mqtt]
+
+**0:25** · appears on [/docs/microflow-studio/nodes/sense/mqtt](/docs/microflow-studio/nodes/sense/mqtt)
+
+- **Build** — MQTT node subscribed to a topic → Monitor in raw mode, with the Test Client open beside it.
+- **Do** — Publish two messages from the Test Client.
+- **See** — Each message appears on the node within a moment of being sent.
+
+### Figma [#figma]
+
+**0:30** · appears on [/docs/microflow-studio/nodes/express/figma](/docs/microflow-studio/nodes/express/figma)
+
+- **Build** — A Figma node bound to a number variable, driven by a knob, with the Figma file beside it.
+- **Do** — Turn the knob, then change the variable in Figma.
+- **See** — The variable follows the knob. Changing it in Figma sends a value back the other way.
+
+### LLM [#llm]
+
+**0:30** · appears on [/docs/microflow-studio/nodes/express/llm](/docs/microflow-studio/nodes/express/llm)
+
+- **Build** — Hotkey → LLM → Monitor in raw mode, with `thinking` on an LED.
+- **Do** — Trigger it once and let the wait run at full speed.
+- **See** — The LED lights while the model works, the answer arrives as text, and the LED goes out.
+
+## Session 10 · The app itself
+
+Screen only, on a connected board.
+
+*8 clips · 3:05 of footage*
+
+### One event, one chain [#event-propagation]
+
+**0:20** · appears on [/docs/concepts/flows-signals-events](/docs/concepts/flows-signals-events)
+
+- **Build** — Button → Smooth → Compare → LED, with a Monitor on each edge.
+- **Do** — Press the button once.
+- **See** — Each node updates in turn along the chain, one press producing one pass.
+
+### Editing a running flow [#hot-swap]
+
+**0:25** · appears on [/docs/concepts/the-microcontroller-bridge](/docs/concepts/the-microcontroller-bridge)
+
+- **Build** — A running Interval → LED flow.
+- **Do** — Change the interval, move the LED to another pin, and delete an edge, all while it runs.
+- **See** — Each change takes effect immediately. Nothing restarts and the board stays connected.
+
+### Three views of one flow [#three-views]
+
+**0:25** · appears on [/docs/concepts/what-is-microflow](/docs/concepts/what-is-microflow)
+
+- **Build** — A knob-to-servo flow.
+- **Do** — Switch between Edit flow, Show circuit, and Show code.
+- **See** — The same flow appears as a canvas, as a wiring diagram, and as an Arduino sketch.
+
+### Export and open a flow [#import-export]
+
+**0:20** · appears on [/docs/how-to/save-and-share-a-flow](/docs/how-to/save-and-share-a-flow)
+
+- **Build** — Any saved flow.
+- **Do** — Export it from the dock, then import the file into an empty canvas.
+- **See** — The file downloads as JSON and the flow reappears with its nodes, edges, and settings intact.
+
+### A first-time firmware flash [#firmware-flash]
+
+**0:30** · appears on [/docs/how-to/flash-firmware-manually](/docs/how-to/flash-firmware-manually)
+
+- **Build** — A board that has never been used with Microflow.
+- **Do** — Plug it in and hold on the sidebar for the whole sequence.
+- **See** — The status moves through Connecting and Flashing firmware to a port name, unedited and at real speed.
+
+### A warning in the code view [#sketch-warning]
+
+**0:20** · appears on [/docs/troubleshooting/sketch-warnings](/docs/troubleshooting/sketch-warnings)
+
+- **Build** — A flow with a servo on a pin without PWM.
+- **Do** — Open Show code, read the comment at the top, then fix the pin on the canvas and reopen.
+- **See** — The warning names the node and the pin, and clears when the pin changes.
+
+### Variables appearing in the node [#bridge-variables]
+
+**0:20** · appears on [/docs/microflow-hardware-bridge/variables/connecting](/docs/microflow-hardware-bridge/variables/connecting)
+
+- **Build** — The plugin open in Figma with two variables in the MHB collection.
+- **Do** — Add a third variable in Figma, then reopen the Figma node's settings in Studio.
+- **See** — The new variable appears in the node's list once the settings are reopened.
+
+### A value crossing in both directions [#bridge-both-ways]
+
+**0:25** · appears on [/docs/microflow-hardware-bridge/variables/manipulating](/docs/microflow-hardware-bridge/variables/manipulating)
+
+- **Build** — A sensor bound to a number variable, and a Figma control bound to the same variable.
+- **Do** — Move the sensor, then change the variable in Figma.
+- **See** — The value crosses in both directions without either side being reconfigured.
+
+## Session 11 · Faults and plugins
+
+A mix: one clip needs the board unplugged mid-run, two need the Penpot plugin, two need a terminal.
+
+*7 clips · 3:00 of footage*
+
+### Telling a slow model from a failed one [#thinking-error]
+
+**0:30** · appears on [/docs/troubleshooting/ai-node-no-answer](/docs/troubleshooting/ai-node-no-answer)
+
+- **Build** — LLM node with `thinking` on one LED and `error` on another.
+- **Do** — Trigger it once with the provider running. Stop the provider and trigger it again.
+- **See** — First the thinking light holds and an answer arrives. Second the thinking light holds and the error light fires instead.
+
+### A board dropping out [#usb-drop]
+
+**0:20** · appears on [/docs/troubleshooting/flow-stops-mid-run](/docs/troubleshooting/flow-stops-mid-run)
+
+- **Build** — A running Interval → LED flow, with the sidebar in frame.
+- **Do** — Unplug the board mid-run, wait, then plug it back in.
+- **See** — The Monitors freeze and the sidebar stops showing a port. On replug the status walks back to connected and the flow resumes.
+
+### Proving a broker [#broker-test-client]
+
+**0:25** · appears on [/docs/microflow-hardware-bridge/mqtt](/docs/microflow-hardware-bridge/mqtt)
+
+- **Build** — Configuration → MQTT with a broker saved, and the Test Client open.
+- **Do** — Subscribe to `test/#`, publish to `test/message`, then break the URL and publish again.
+- **See** — The first message returns immediately. With a broken URL nothing returns and the connection fails.
+
+### Matching the Penpot plugin [#penpot-broker]
+
+**0:20** · appears on [/docs/microflow-penpot-plugin/mqtt](/docs/microflow-penpot-plugin/mqtt)
+
+- **Build** — The Penpot plugin's settings beside Studio's MQTT configuration.
+- **Do** — Type the same broker URL and the same identifier into both.
+- **See** — Both ends report a connection once the two identifiers match.
+
+### A token following a sensor [#penpot-tokens]
+
+**0:25** · appears on [/docs/microflow-penpot-plugin/variables](/docs/microflow-penpot-plugin/variables)
+
+- **Build** — A sensor bound to a Penpot design token, with the Penpot file beside the canvas.
+- **Do** — Move the sensor.
+- **See** — The token's value updates and every element using it redraws.
+
+### Building from source [#build-from-source]
+
+**0:30** · appears on [/docs/contributing/build-from-source](/docs/contributing/build-from-source)
+
+- **Build** — A clean clone and a terminal.
+- **Do** — Run the install, start the database, and start dev mode.
+- **See** — The commands run in order and the app opens on an empty canvas.
+
+### A new node on the canvas [#adding-a-node]
+
+**0:30** · appears on [/docs/contributing/adding-a-node](/docs/contributing/adding-a-node)
+
+- **Build** — A checked-out branch with a new node's schema and component written.
+- **Do** — Run the codegen step, restart dev mode, and open the Add node palette.
+- **See** — The new node appears in the palette under its category and drops onto the canvas.
+
+## Pages that get no clip
+
+Checked and deliberately left alone, so nobody re-audits them:
+
+| Pages | Why |
+| --- | --- |
+| Section indexes — `/docs/learn`, `/docs/how-to`, `/docs/troubleshooting`, `/docs/concepts`, `/docs/contributing`, and the six node category indexes | These are lists of links. A clip on a page you pass through is noise. |
+| Glossary — `/docs/concepts/glossary` | Definitions. Nothing to watch. |
+| Bug reports — `/docs/contributing/report-bug-or-request` | A form and a checklist. Filming it would teach nobody anything. |
+| Variables overview — `/docs/microflow-hardware-bridge/variables` | The two pages below it carry the clips that matter. |
+
+## When a clip is recorded
+
+Add its URL as the `src` of the `<Clip />` tag on the page named beside it. Leave the caption
+where it is. The caption is the clip's text equivalent, and it carries the meaning for a
+reader who cannot play it and for anything reading these docs as text.
+
+## Related
+
+- [Video tutorials](/docs/videos) — the fourteen narrated scripts.
+- [Production guide](/docs/videos/production-guide)

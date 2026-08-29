@@ -5,6 +5,10 @@ description: Read from and write to I2C sensors like SHT21, TCS34725, BME280, BM
 
 The I2C Device node talks to sensors and peripherals over the I²C bus. I²C uses two wires, SDA for data and SCL for the clock, and carries many devices on the same pair. Each device has its own address.
 
+<Clip title="I2C Device" duration="0:30" spec="i2c-device">
+The value streams without polling, and the interpretation changes with the setting.
+</Clip>
+
 Use it for sensors that don't have a dedicated node in Microflow: temperature/humidity sensors, colour sensors, accelerometers, light sensors, ADCs, and distance sensors. Pick a [device preset](#device-presets) to auto-fill the settings, or choose **Custom** and enter the address and register by hand.
 
 ## Inputs

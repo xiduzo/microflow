@@ -204,21 +204,59 @@ Rules:
 - **Do not cut a wait short** when the wait is the content: a firmware flash, a model thinking, a dead cable.
 - **Do not repeat the [production guide](/docs/videos/production-guide).** It holds the capture settings and the publishing checklist.
 
-## Embedding a video in a doc page
+## Moving images
 
-Use the `<Video />` component. Without a `src` it renders a **TODO** placeholder, so an unrecorded video stays visible to readers and to whoever records it:
+Two kinds, and they do different jobs.
+
+| | `<Video />` | `<Clip />` |
+| --- | --- | --- |
+| Length | 2–6 minutes | 10–30 seconds |
+| Audio | Narrated | Silent, looping |
+| Has | A [shooting script](/docs/videos) and a transcript | An entry on the [clip sheet](/docs/videos/clips) |
+| Answers | "Walk me through this" | "What does this actually do?" |
+| Lives on | Tutorials, how-tos, product overviews | Reference pages, and any page with one visible behaviour |
+
+A page can carry both: a clip that shows the thing working, then a video that builds it.
+
+### The rule that matters
+
+**A video never carries information the page does not already state in text.**
+
+Everything in these docs has to work for a reader who cannot play video, for a reader who
+will not, and for the tools that read the docs as text. A moving image demonstrates; the
+text is the source of truth. If you find yourself explaining something in a script that the
+page does not say, fix the page.
+
+### Embedding
 
 ```mdx
 <Video title="Your first flow" duration="3:30" script="/docs/videos/first-flow">
 One line describing what the viewer will see.
 </Video>
+
+<Clip title="Button" duration="0:25" spec="button">
+What the viewer sees, in words. This caption is the clip's text equivalent.
+</Clip>
 ```
 
-Give the placeholder a `script` when a script exists. Without one it reads "Script not written yet" and links to the [video index](/docs/videos), which is how a video nobody has written yet stays on the list.
+Without a `src`, both render a **TODO** placeholder — a `<Video />` links to its script, a
+`<Clip />` to its entry on the clip sheet. Add `src` when the recording exists; nothing else
+on the page changes.
 
-When the recording exists, add `src="…"` to the same tag. Nothing else on the page changes.
+A `<Video />` with no `script` reads "Script not written yet" and links to the video index,
+which is how a video nobody has written yet stays on the list.
 
-Every page must read correctly with the video removed. The text is the source of truth. The video demonstrates it.
+### Transcripts
+
+Every narrated video has a `<Transcript>` block on its script page holding every spoken word,
+in order, with timecodes. Until the recording exists, the transcript is the script's own
+narration; afterwards, replace it with the cut's real transcript and ship the same text as
+the `.srt`.
+
+The transcript is collapsed on the page but present in the markup, which is what puts it in
+search, in `llms-full.txt`, and in front of a screen reader.
+
+Clips need no transcript. They have no audio, and their caption already says what they show.
 
 ## Writing rules
 

@@ -103,6 +103,48 @@ description: Shooting script for the 3:30 first-flow video — blink the on-boar
 **Narration:**
 > "Two nodes and one edge. One node generates a value, the value travels along the edge, another node expresses it in the physical world. Every flow repeats that shape. It also ships as the Blink template, under Templates."
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+There is a small LED soldered to your board, next to pin thirteen. By the end of this video it is blinking, and you have built the flow that drives it.
+
+**0:15**
+
+Every flow starts with a node that produces something. Press Command K, or Control K on Windows, to open the node palette. It is searchable, so type what you want. Interval emits a tick on a schedule. Enter places it.
+
+One thousand milliseconds. That is one tick per second.
+
+**0:55**
+
+Now a node that acts on the tick. Search for LED. There are three: a single LED, a matrix, and a strip. Take the plain one, under Express. Express nodes act on the physical world.
+
+Pin thirteen, because that is the LED already on the board. No wiring today.
+
+**1:35**
+
+The handles on the right are outputs. The handles on the left are inputs. Drag from the Interval's event output to the LED's toggle input. That line is an edge, and it carries the tick to the light.
+
+**2:00**
+
+No compile step, no run button. The flow started when the edge connected.
+
+**2:20**
+
+Here is the mistake everyone makes once. Change the pin to twelve and the light stops. Nothing on screen reports a problem, because there is none: Studio is switching pin twelve, and nothing is attached to pin twelve. When a flow looks right and the hardware does nothing, check the pin number first.
+
+**3:00**
+
+Two nodes and one edge. One node generates a value, the value travels along the edge, another node expresses it in the physical world. Every flow repeats that shape. It also ships as the Blink template, under Templates.
+
+</Transcript>
+
 ## Deliberate failure
 
 The pin-12 change at 2:20. It must be a real edit with the real (absent) result on camera.

@@ -95,6 +95,46 @@ description: Shooting script for the 5:00 Smooth and Compare video.
 **Narration:**
 > "Four nodes, and a shape you will use constantly. Sense the world. Shape the reading into something you can trust. Decide from it. Express the result. Keep a Monitor on the middle while you build. It is the only way to see which of the four is lying to you."
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+Nothing in this room is changing, and the reading will not sit still. Every analog sensor does this. It is the last digit or two of a measurement that was never that precise. The trouble starts when you make a decision from it.
+
+**0:40**
+
+Put a Smooth node in the middle. Moving average, window of twenty-five. It reports the average of the last twenty-five readings instead of the newest one. Watch the graph settle.
+
+**1:40**
+
+Moving average is the blunt one. A bigger window is calmer and slower: at a hundred, the graph is glassy, but cover the sensor and it takes a moment to notice. At five it barely helps.
+
+The other mode uses an attenuation between zero and one. Closer to one smooths harder. It reacts more gracefully than a big window, but it never quite arrives at the value. Start with a moving average of twenty-five.
+
+**2:20**
+
+Now the decision. Compare answers a yes-or-no question about a value. Number, less than, three hundred — because in this room, under three hundred means someone has covered the sensor. True and false out of Compare go into the LED's true and false.
+
+**3:10**
+
+Here is what happens without the smoothing. Hold the light at the boundary, and the reading crosses three hundred dozens of times a second, so the LED does too. On a relay you would hear it buzzing. This sends people looking for a hardware fault that is not there.
+
+**3:50**
+
+Smooth first: the average crosses the line far less often than the raw reading. If it still chatters, a Delay node after the decision makes the flow wait, so a blip never reaches the light. Smooth the input, then slow the output. In that order.
+
+**4:30**
+
+Four nodes, and a shape you will use constantly. Sense the world. Shape the reading into something you can trust. Decide from it. Express the result. Keep a Monitor on the middle while you build. It is the only way to see which of the four is lying to you.
+
+</Transcript>
+
 ## Deliberate failure
 
 The chattering boundary at 3:10, recorded live.

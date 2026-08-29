@@ -106,6 +106,48 @@ description: Shooting script for the 4:30 analog input and Map video.
 **Narration:**
 > "Whenever two things disagree about their range, Map goes between them. A knob driving a servo: nought to a thousand and twenty-three, into nought to a hundred and eighty degrees. A light sensor driving a volume. A distance sensor driving a colour. Same node, different numbers."
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+Up to now everything has been on or off. A knob is neither. It is a number, anywhere between nothing and all the way round. Getting that number to mean something to an LED is what this video is about.
+
+**0:25**
+
+A potentiometer has three legs. The outer two go to five volts and ground. Swapping them only flips which direction counts as up. The middle leg reports the position, and it goes to A-zero, an analog input.
+
+**1:00**
+
+Add a Potentiometer node, set its pin to A-zero, and turn the knob. All the way one way, zero. All the way the other, one thousand and twenty-three. That range is what the board's analog-to-digital converter gives you, and every analog sensor speaks in it.
+
+**1:40**
+
+Wire the knob straight into the brightness input and it half works, which is worse than not working. Brightness runs zero to two hundred and fifty-five. The knob goes to a thousand and twenty-three. A quarter turn takes you to full brightness, and the rest of the knob does nothing.
+
+**2:20**
+
+The Map node is the translator. Tell it what comes in — zero to a thousand and twenty-three — and what should come out — zero to two hundred and fifty-five. It scales everything in between. Knob into Map, Map's to output into the brightness.
+
+**3:10**
+
+Now the whole knob does something, and it does it evenly.
+
+**3:35**
+
+One thing will catch you out. Brightness only works on pins marked with a tilde, which can fake an in-between voltage by switching very fast. Move the LED to pin seven and Studio will not let you connect brightness at all. On an Uno the tilde pins are three, five, six, nine, ten and eleven.
+
+**4:05**
+
+Whenever two things disagree about their range, Map goes between them. A knob driving a servo: nought to a thousand and twenty-three, into nought to a hundred and eighty degrees. A light sensor driving a volume. A distance sensor driving a colour. Same node, different numbers.
+
+</Transcript>
+
 ## Deliberate failure
 
 The unmapped connection at 1:40. Record the real behaviour.

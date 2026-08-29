@@ -91,6 +91,44 @@ Build a flow that is **deliberately broken before recording starts**: Potentiome
 **Narration:**
 > "The method, not the bug. Put a Monitor at the start to prove the input is alive. Put one in the middle to halve the search. Keep halving. Two or three probes find most faults. Leave them on the canvas while you work."
 
+## Transcript
+
+Every word spoken in the video, in order. Until the recording exists this is the
+script's narration; replace it with the cut's real transcript afterwards, and ship
+the same text as the `.srt`.
+
+<Transcript>
+
+**0:00**
+
+Three nodes, all connected. The board is connected. The servo will not move, and nothing on screen is marked as wrong. This is the most common state a flow gets stuck in, and there is a method for it.
+
+**0:25**
+
+The instinct is to re-seat the wires. Do not. You can find out whether the hardware is even involved without touching it, in about thirty seconds.
+
+**0:50**
+
+Connect a Monitor node to the first node in the chain. An output feeds as many inputs as you like, so this disturbs nothing. Turn the knob: the graph moves. The sensor, the wiring, and the board are all fine, so the fault is downstream.
+
+**1:25**
+
+Now connect one in the middle. Same knob, same turn, and the second graph is flat. Values go into the Map node and something useless comes out. Three suspects down to one, without touching a wire.
+
+**2:05**
+
+There it is. The output range is zero to zero, so every reading maps onto nothing. Set it to zero to a hundred and eighty, which is what a servo takes, and the chain works.
+
+**2:35**
+
+Two modes. Graph is for anything continuous: you are reading the shape, whether it is noisy, whether it is stuck. Raw prints the values, for text, for booleans, and for any number you need to read exactly.
+
+**3:00**
+
+The method, not the bug. Put a Monitor at the start to prove the input is alive. Put one in the middle to halve the search. Keep halving. Two or three probes find most faults. Leave them on the canvas while you work.
+
+</Transcript>
+
 ## Deliberate failure
 
 The whole video is the failure. The staged bug must be genuinely present before recording; do not introduce it on camera.

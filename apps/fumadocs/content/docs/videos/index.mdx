@@ -1,9 +1,14 @@
 ---
 title: Video tutorials
-description: Screencasts that walk through Microflow Studio and the bridge plugins, with the full shooting script for each.
+description: Every narrated video and short clip in the docs, with the script or spec behind each one.
 ---
 
-Every video below has a finished shooting script: goal, shot list, timecodes, and word-for-word narration. Anyone with the hardware on their desk can record it.
+The docs carry two kinds of moving image.
+
+- **Videos** — narrated walkthroughs, two to six minutes. Fourteen of them, listed below, each with a finished shooting script and a transcript.
+- **Clips** — short, silent, looping demonstrations of one behaviour. Fifty-five of them, specified on the [clip sheet](/docs/videos/clips) and grouped by the rig you build to shoot them.
+
+Every one has a finished spec. Anyone with the hardware on their desk can record them.
 
 <Callout type="warn" title="None of these are recorded yet">
 The scripts are final. The recordings are not. Every slot in the docs shows a **TODO** placeholder until a recording exists.
@@ -11,9 +16,14 @@ The scripts are final. The recordings are not. Every slot in the docs shows a **
 To publish one, add its embed URL as the `src` of the `<Video />` tag on every page listed under **Where it appears** in its script. Nothing else changes.
 </Callout>
 
-## Recording order
+## Where to start
 
-Record in the order below. Each video assumes the state the previous one left the viewer in, and the first four share one hardware setup.
+Record the fourteen videos in the order below: each assumes the state the previous one left the viewer in, and the first four share one hardware setup. The clips are independent of them and of each other, so shoot those a rig at a time whenever a rig is already on the bench.
+
+<Cards>
+  <Card title="Clip sheet" href="/docs/videos/clips" description="55 short clips, grouped into eleven recording sessions by the rig each one needs." />
+  <Card title="Production guide" href="/docs/videos/production-guide" description="Capture settings, voice, captions, and the checklist every recording is reviewed against." />
+</Cards>
 
 ## Get started
 
@@ -61,8 +71,8 @@ These five pages carry a **TODO** placeholder with no script behind it yet. Reco
 | Wire an H-bridge | 4:00 | [Wire an H-bridge](/docs/how-to/wire-an-h-bridge) |
 | Hardware in a Penpot file | 4:00 | [Microflow for Penpot](/docs/microflow-penpot-plugin) |
 
-## Recording standards
+## Everything stays readable as text
 
-<Cards>
-  <Card title="Production guide" href="/docs/videos/production-guide" description="Resolution, capture settings, voice, captions, and the checklist every recording is checked against." />
-</Cards>
+No video in these docs carries information that the page does not already state in writing.
+
+Each narrated video has a **transcript** on its script page: every spoken word, in order, with timecodes. Each clip has a caption saying what it shows. Both are in the page markup, so search, screen readers, and anything reading the docs as text get the same content as a viewer.

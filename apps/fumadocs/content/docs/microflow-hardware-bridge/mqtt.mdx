@@ -5,6 +5,10 @@ description: MQTT is the messaging system used to pass data between Microflow St
 
 The Microflow Hardware Bridge uses **MQTT** (Message Queuing Telemetry Transport) to send and receive data between your hardware and your Figma designs.
 
+<Clip title="Proving a broker" duration="0:25" spec="broker-test-client">
+The first message returns immediately. With a broken URL nothing returns and the connection fails.
+</Clip>
+
 MQTT is a lightweight messaging protocol designed for devices that need to send small bits of data quickly. It works like a publish/subscribe system: one side publishes a message on a topic, and any other side that is subscribed to that topic receives it instantly.
 
 You do not need to understand the details of MQTT to use Microflow — it works in the background. But knowing it exists helps if you ever need to troubleshoot or set up your own server.

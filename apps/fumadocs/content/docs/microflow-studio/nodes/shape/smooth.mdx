@@ -5,6 +5,10 @@ description: Stabilize noisy or jumpy sensor readings by averaging them out over
 
 Some sensors give readings that jump around even when conditions have not really changed. This is called *noise* — tiny electrical fluctuations that affect the output. The Smooth node removes this jitter by averaging the last several readings into one stable value.
 
+<Clip title="Smooth" duration="0:30" spec="smooth">
+The smoothed line flattens as the window grows, and lags further behind the raw one.
+</Clip>
+
 **How it works:** The Smooth node keeps a rolling window of recent readings and outputs their average. The larger the window, the smoother — but slower to respond to real changes.
 
 **Example:** A light sensor reads 100, then 105, then 98, then 102 in quick succession, even though the light has not moved. The Smooth node averages these into a stable value around 101, making it much easier to work with.
