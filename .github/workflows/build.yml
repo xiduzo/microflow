@@ -77,6 +77,23 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      # Linux only — one typecheck is enough, and this is the job that already
+      # pays for the Rust and wasm-pack setup it needs.
+      #
+      # `build:wasm` has to run first: apps/web imports the wasm-pack generated
+      # modules, and without them tsc reports missing-module errors plus the
+      # inference fallout they cause (an unresolved import types `init` as
+      # `any`, which defeats assignment narrowing and produces a spurious
+      # TS2322). The bindings are cheap here because the Rust cache is already
+      # warm from the steps above, and tauri-action re-runs the same command
+      # during the build against that same cache.
+      - name: Typecheck
+        if: matrix.platform == 'ubuntu-22.04'
+        working-directory: apps/web
+        run: |
+          bun run build:wasm
+          bun run check-types
+
       - name: Import Apple Developer Certificate
         if: startsWith(matrix.platform, 'macos')
         env:

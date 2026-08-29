@@ -25,6 +25,10 @@ jobs:
       # DOM-less unit tests across apps/* and packages/*. Deliberately does not
       # build the wasm crates: nothing under test imports them, so this job
       # stays fast and independent of the Rust toolchain.
+      #
+      # `tsc --noEmit` is not here for the same reason — it *does* need those
+      # bindings. It runs in the build workflow's Linux job, which already has
+      # the Rust and wasm-pack setup.
       - name: Test
         run: bun test
 
