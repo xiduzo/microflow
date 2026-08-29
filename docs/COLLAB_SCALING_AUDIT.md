@@ -11,7 +11,8 @@ mechanism, and the smallest fix that addresses it.
 > **Status: 12 of 13 items landed.** See [Results](#results) for measurements
 > and [What is not done](#what-is-not-done) for the two that are not. Sections
 > below describe the problem as found; the fix is in the linked commits.
-> Benchmarks live in `apps/web/bench` (`bun run bench` from `apps/web`).
+> Benchmarks sit beside the code they measure as `*.bench.ts`; `bun run bench`
+> from the repo root runs them all.
 
 ---
 

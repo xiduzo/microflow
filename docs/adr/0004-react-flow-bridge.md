@@ -144,7 +144,7 @@ Roll out as one pure-addition PR:
 1. Add `react-flow-bridge.ts` (class).
 2. Rewrite `use-react-flow-bridge.ts` as thin hook (`useState` + `useEffect`
    + `useSyncExternalStore`).
-3. Add `__tests__/react-flow-bridge.test.ts` — 28 vitest cases.
+3. Add `react-flow-bridge.test.ts` — 28 vitest cases.
 
 No call-site changes — the hook signature is preserved.
 
@@ -219,7 +219,7 @@ New terms recorded in [`CONTEXT.md`](../../CONTEXT.md):
 
 - `apps/web/src/session/react-flow-bridge.ts` — class implementation.
 - `apps/web/src/session/use-react-flow-bridge.ts` — React adapter.
-- `apps/web/src/session/__tests__/react-flow-bridge.test.ts` — 28 tests.
+- `apps/web/src/session/react-flow-bridge.test.ts` — 28 tests.
 - [ADR-0003](0003-flow-session-seam.md) — established the surrounding
   `FlowSession` seam; this ADR deepens the candidate-2 placeholder
   identified in ADR-0003's "Neutral" consequences.

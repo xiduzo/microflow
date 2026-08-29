@@ -6,7 +6,7 @@
 // `keyof Effects`, so a field added to the Rust `Effects` (regenerated into the
 // wasm type) is a **compile error** here until it is ordered and handled — the
 // browser can no longer silently drop a new field, the way the desktop sink
-// can't (its Rust trait gains a required method). `__tests__/effects-sink.test.ts`
+// can't (its Rust trait gains a required method). `effects-sink.test.ts`
 // remains the behavioural twin of the Rust `apply_tests`, asserting the order at
 // runtime; the types now guarantee coverage so the test can't be the only guard.
 

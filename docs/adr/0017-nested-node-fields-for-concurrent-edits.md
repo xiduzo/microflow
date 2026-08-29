@@ -113,8 +113,8 @@ than a patch.
 `ReactFlowBridge.mergeYjsIntoSnapshot` preserves object identity for unchanged
 nodes, which is what stops one peer's edit from re-rendering every node on
 everybody else's canvas (measured at 300x fewer React renders on a 300-node
-flow — see `apps/web/bench/bridge-merge.bench.ts`). It does that by comparing
-`local.data !== incoming.data` **by reference**, which is exact today precisely
+flow — see `apps/web/src/session/react-flow-bridge.bench.ts`). It does that by
+comparing `local.data !== incoming.data` **by reference**, which is exact precisely
 *because* nodes are stored as opaque objects: Yjs hands back the identical
 reference for a key nobody wrote.
 
@@ -159,8 +159,9 @@ rather than an assumption.
 
 - A more complex document layer, including a cache whose invalidation is load-
   bearing for rendering performance.
-- Two read paths (legacy plain object, nested map) for as long as unupgraded
-  documents exist, which in practice is indefinitely.
+- A migration to carry until every stored document has been opened once. It is
+  one function at the load boundary rather than a branch in the read path, so
+  the cost is a deletion we owe ourselves, not permanent complexity.
 
 ## Alternatives considered
 
@@ -192,7 +193,7 @@ disjoint fields of one node, a drag racing a rename, and a whole-node bridge
 write racing a field edit. Three of those fail against the previous flat shape;
 they are the reason this exists.
 
-**The materialisation cache holds.** `apps/web/bench/bridge-merge.bench.ts`
+**The materialisation cache holds.** `apps/web/src/session/react-flow-bridge.bench.ts`
 still reports 300x fewer node re-renders on a 300-node flow after the change —
 identical to before it. Dispatcher cost is unchanged too (573ms vs 569ms per
 1000 dispatches at 300 nodes), because a cached read costs what the old direct

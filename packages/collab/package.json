@@ -26,5 +26,9 @@
     "hono": "^4.8.2",
     "typescript": "catalog:",
     "y-websocket": "^3.1.0"
+  },
+  "scripts": {
+    "bench": "bun src/yjs-server.bench.ts",
+    "check-types": "tsc --noEmit"
   }
 }

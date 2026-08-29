@@ -12,7 +12,7 @@
 > extracted to `apps/web/src/lib/firmata/effects-sink.ts`; `FlowReactor` implements
 > it (its prior inline loop was already in canonical order). Conformance: the
 > cancel + re-arm + emit + bytes scenario runs as `context::apply_tests` (Rust) and
-> `__tests__/effects-sink.test.ts` (`bun:test`), both asserting order + no
+> `effects-sink.test.ts` (`bun:test`), both asserting order + no
 > double-fire. Verified: core 365 pass, desktop `cargo check`/clippy clean, browser
 > 2 pass, `tsc --noEmit` clean.
 

@@ -244,7 +244,7 @@ section rewritten):
   sender (split file so tests don't pull Tauri / env).
 - `apps/web/src/session/use-flow-update-dispatcher.ts` — production
   React adapter wiring.
-- `apps/web/src/session/__tests__/flow-update-dispatcher.test.ts` —
+- `apps/web/src/session/flow-update-dispatcher.test.ts` —
   17 cases.
 - [ADR-0002](0002-per-capability-service-traits.md) — sender / scheduler
   patterns mirror the Rust-side capability-trait + recording-test

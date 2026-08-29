@@ -10,7 +10,7 @@
 // result, an inbound broker message) arrive as injected callbacks — the browser
 // analog of the desktop's `ActorMsg::Inject` / `ActorMsg::Deliver` channel sends.
 // That makes it unit-testable with a stub `MqttClientFactory`, a stubbed `fetch`,
-// and fake resolvers — no broker, no runtime (see `__tests__/cloud-performer.test.ts`).
+// and fake resolvers — no broker, no runtime (see `cloud-performer.test.ts`).
 
 import type { EmitOf } from "@/components/flow/nodes/_base/_base.types";
 import type { CloudRequest } from "../effects-sink";
