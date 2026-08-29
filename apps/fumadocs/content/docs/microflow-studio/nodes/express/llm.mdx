@@ -5,6 +5,10 @@ description: Send a prompt to a language model and use its answer in your flow.
 
 The LLM node sends a prompt to a language model and puts the answer back into your flow as text. Pair it with a [Monitor](/docs/microflow-studio/nodes/express/monitor) to read it, a [Figma](/docs/microflow-studio/nodes/express/figma) node to display it in a prototype, or a [Function](/docs/microflow-studio/nodes/shape/function) node to pick it apart.
 
+<Video title="Add a local AI model" duration="5:00" script="/docs/videos/local-llm">
+A provider configured and tested, then a button triggering an answer at real speed.
+</Video>
+
 It talks to a provider you configure yourself under **Configuration → LLM**, which today means a local [Ollama](https://ollama.com) server. Nothing leaves your machine, and it works with no internet connection.
 
 <Callout type="warn" title="This node is slow on purpose">

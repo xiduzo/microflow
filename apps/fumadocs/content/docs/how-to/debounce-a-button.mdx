@@ -5,6 +5,10 @@ description: Stop a single button press from being read as several presses.
 
 Mechanical buttons do not switch cleanly. When you press one, the contacts inside it bounce against each other for a few milliseconds before settling. The Arduino reads each bounce as a separate event — so one press becomes "press, release, press, release, press" all in a heartbeat.
 
+<Video title="Debounce a button" duration="2:30">
+One press counted three times on a Monitor graph, then the same press counted once with Forget previous on.
+</Video>
+
 This is called **bouncing**, and the fix is **debouncing**.
 
 <Callout type="info" title="Template available">
