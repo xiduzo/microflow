@@ -1,16 +1,16 @@
 # Benchmarks
 
-Two benchmark suites, deliberately different tools, because they measure
-different kinds of thing.
+Three suites, deliberately different tools, because they measure different kinds
+of thing.
 
 | Suite | Tool | What it measures | Where |
 |---|---|---|---|
 | Flow engine | criterion | In-process cost of one runtime turn | `crates/microflow-core/benches/runtime.rs` |
-| Collab presence | k6 | Network service under N concurrent clients | `bench/collab/` |
+| Collab presence | k6 | A network service under N concurrent clients | `bench/collab/` |
+| Canvas budgets | `bun test` | Renders and runtime crossings per event | `apps/web/src/**/__tests__/*-budget.test.*` |
 
-Neither covers **canvas rendering** or the **wasm boundary**. Those live in the
-browser; they want a profile from devtools or a Playwright trace, not a harness
-in this repo.
+The third suite is the answer to "how do you test rendering without a browser".
+See [Budget tests](#budget-tests-counting-instead-of-timing) below.
 
 ## Flow engine (criterion)
 
@@ -124,3 +124,70 @@ change on a sub-microsecond benchmark.
 
 See [`bench/collab/README.md`](../bench/collab/README.md) — what it measures,
 what is stubbed and why, and the recorded numbers.
+
+## Budget tests: counting instead of timing
+
+Canvas performance resists the tools above. Rendering happens in a browser, so
+criterion cannot reach it and k6 cannot see it; and a wall-clock number from a
+browser is noisy, machine-dependent, and useless as a CI gate.
+
+But none of the render optimisations are really *about* time. Each one has an
+exact, countable consequence — a render that does or does not happen, a runtime
+crossing that does or does not occur. Those are integers. They do not drift with
+CPU load, they run in `bun test` in milliseconds, and a regression flips them.
+
+Two suites, both A/B-verified against the pre-optimisation commit — a budget test
+that passes on both versions is measuring nothing, which is a mistake worth
+making once deliberately rather than shipping by accident:
+
+### `components/flow/__tests__/render-budget.test.tsx`
+
+Mounts real components against `happy-dom` and counts renders.
+
+| property | before | after |
+|---|---:|---:|
+| renders for a 100-event burst on one node | 100 | **1** |
+| renders for a 60-signal burst on one edge | 60 | **1** |
+
+**The subtlety that makes or breaks this suite:** React already batches every
+synchronous update inside one task into a single render. Fire a hundred events
+inside one `act()` and you measure *React's* batching, not the store's — the
+first draft of this file did that and passed against both versions. Component
+events do not arrive that way: the desktop delivers one Tauri IPC callback per
+event, the browser one `Effects` per `feedBytes` return. The helper
+`deliverInOwnTask` models that, and it is the entire difference between a real
+test and a tautology.
+
+The file separates **improvements** (verified to fail on the old stores) from
+**invariants** (already true; kept so a future batching change cannot quietly
+break them) — including that coalescing still lands the *newest* value, never a
+stale intermediate.
+
+### `session/__tests__/dispatch-budget.test.ts`
+
+`FlowUpdateDispatcher` is the canvas's only channel into the engine, so "calls
+into Rust" is literally countable here.
+
+| property | before | after |
+|---|---:|---:|
+| runtime crossings for 20 node drags | 0 | 0 (invariant) |
+| full flow serialisations per dispatch | 2 | **1** |
+
+`runtimeRelevantKey` sorts and `JSON.stringify`s the whole flow; it used to run
+twice per dispatch, once to compare and once to remember. Counting global
+`JSON.stringify` calls is a crude instrument but a *stable* one — it ignores
+machine speed and fails loudly if a second full serialisation reappears.
+
+Writing it also surfaced a real property worth knowing: the no-delta skip only
+works once the previous `send` has settled, because `lastDispatchKey` is
+assigned after the await. Production gets that for free from the debounced
+scheduler; a test driving `flush()` synchronously does not, and must await.
+
+### What is still not covered
+
+Budget tests prove *how much work is requested*. They do not prove **how long
+the browser takes to do it** — layout, paint, compositing, wasm execution. For
+that the tools are a devtools performance profile or a Playwright trace over a
+real build, and both need the wasm artifacts (`bun run build:wasm`, which needs
+`wasm-pack`). Worth doing before any claim about frame rate specifically; the
+counts above are the cause, not the effect.
