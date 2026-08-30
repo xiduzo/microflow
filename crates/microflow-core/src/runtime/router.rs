@@ -101,6 +101,10 @@ impl EdgeMap {
 pub struct FlowRouter {
     edges: Vec<FlowEdge>,
     edge_map: EdgeMap,
+    /// The inbound mirror of `edge_map`: pre-hashed `(target, target_handle)` →
+    /// the source ids feeding it, in edge order. Snapshot delivery reads this
+    /// instead of re-scanning the whole edge list per aggregating dispatch.
+    inbound_map: FxHashMap<u64, Vec<Arc<str>>>,
 }
 
 impl FlowRouter {
@@ -109,6 +113,7 @@ impl FlowRouter {
         Self {
             edges: Vec::new(),
             edge_map: EdgeMap::new(),
+            inbound_map: FxHashMap::default(),
         }
     }
 
@@ -130,6 +135,7 @@ impl FlowRouter {
     pub fn clear(&mut self) {
         self.edges.clear();
         self.edge_map.clear();
+        self.inbound_map.clear();
     }
 
     /// Plan the dispatch calls produced by one outgoing event.
@@ -179,22 +185,21 @@ impl FlowRouter {
     }
 
     /// Snapshot every source feeding `(target_id, target_handle)` and
-    /// return their current stored values as `Array`. Walks `edges`
-    /// linearly — fanout-in counts are tiny in practice.
+    /// return their current stored values as `Array`. One hash lookup into
+    /// `inbound_map` — the previous linear `edges` walk cost O(edges) on every
+    /// dispatch into an aggregating node, which is the hot path for a Calculate
+    /// or Compare node fed by a streaming sensor.
     fn deliver_snapshot(
         &self,
         target: &EdgeTarget,
         lookup: &dyn ComponentLookup,
     ) -> ComponentValue {
-        let inputs: Vec<ComponentValue> = self
-            .edges
-            .iter()
-            .filter(|e| {
-                e.target.as_str() == target.target_id.as_ref()
-                    && e.target_handle.as_str() == target.target_handle.as_ref()
-            })
-            .filter_map(|e| lookup.value_of(&e.source))
-            .collect();
+        let key = EdgeMap::key(&target.target_id, &target.target_handle);
+        let Some(sources) = self.inbound_map.get(&key) else {
+            return ComponentValue::Array(Vec::new());
+        };
+        let inputs: Vec<ComponentValue> =
+            sources.iter().filter_map(|source| lookup.value_of(source)).collect();
         ComponentValue::Array(inputs)
     }
 
@@ -204,6 +209,7 @@ impl FlowRouter {
 
     fn rebuild_index(&mut self) {
         self.edge_map.clear();
+        self.inbound_map.clear();
         for edge in &self.edges {
             let target = EdgeTarget {
                 target_id: Arc::from(edge.target.as_str()),
@@ -211,6 +217,12 @@ impl FlowRouter {
                 edge_id: edge.id.as_ref().map(|s| Arc::from(s.as_str())),
             };
             self.edge_map.insert(&edge.source, &edge.source_handle, target);
+            // Built in the same pass, in the same order, so a snapshot's inputs
+            // arrive in exactly the order the old edge-list scan produced.
+            self.inbound_map
+                .entry(EdgeMap::key(&edge.target, &edge.target_handle))
+                .or_default()
+                .push(Arc::from(edge.source.as_str()));
         }
     }
 }

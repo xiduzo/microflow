@@ -90,6 +90,23 @@ mod reserved_handles {
     pub(crate) const PIN_CHANGE: &str = "_pin_change";
     /// Board I2C reply → [`super::HardwareComponent::on_i2c_reply`].
     pub(crate) const I2C_REPLY: &str = "_i2c_reply";
+
+    use std::sync::{Arc, OnceLock};
+
+    /// The two hardware-callback handles are stamped on every inbound pin change
+    /// and I2C reply — the highest-frequency events in the system. Interning them
+    /// once turns each stamp into a refcount bump instead of an `Arc<str>`
+    /// allocation plus string copy per event per listener.
+    static PIN_CHANGE_ARC: OnceLock<Arc<str>> = OnceLock::new();
+    static I2C_REPLY_ARC: OnceLock<Arc<str>> = OnceLock::new();
+
+    pub(crate) fn pin_change_arc() -> Arc<str> {
+        Arc::clone(PIN_CHANGE_ARC.get_or_init(|| Arc::from(PIN_CHANGE)))
+    }
+
+    pub(crate) fn i2c_reply_arc() -> Arc<str> {
+        Arc::clone(I2C_REPLY_ARC.get_or_init(|| Arc::from(I2C_REPLY)))
+    }
 }
 
 /// Adapter that lets [`FlowRouter`] read the runtime's component map without
@@ -143,9 +160,14 @@ pub struct FlowRuntime {
     key_listeners: HashMap<String, Vec<Arc<str>>>,
     /// Monotonic id source for wakeups handed to the host.
     next_wakeup_id: WakeupId,
-    /// Outstanding wakeups keyed by `(node_id, method)` so a re-schedule or
-    /// cancel can target the right host timer.
-    outstanding: HashMap<(String, String), WakeupId>,
+    /// Outstanding wakeups keyed by node id, then method, so a re-schedule or
+    /// cancel can target the right host timer. Nested (rather than a
+    /// `(String, String)` tuple key) so the hot `wake` path can look an entry up
+    /// from `&str`s without allocating the two `String`s a tuple key would need.
+    outstanding: HashMap<String, HashMap<String, WakeupId>>,
+    /// Scratch buffer reused by `detect_pin_changes` so the per-chunk inbound
+    /// scan does not allocate a fresh index vector on every serial read.
+    pin_scan_scratch: Vec<usize>,
     /// Dispatch errors seen during the current turn, rolled into the `flow tick`
     /// wide event and reset to 0 at the end of every `finish`.
     tick_errors: u32,
@@ -177,6 +199,7 @@ impl FlowRuntime {
             key_listeners: HashMap::new(),
             next_wakeup_id: 1,
             outstanding: HashMap::new(),
+            pin_scan_scratch: Vec::new(),
             tick_errors: 0,
             run_seq: 0,
             last_firmata_string: None,
@@ -449,7 +472,7 @@ impl FlowRuntime {
     /// (e.g. `_tick`). The outstanding entry is cleared first so the node may
     /// re-schedule from within its handler.
     pub fn wake(&mut self, node_id: &str, method: &str) -> Effects {
-        self.outstanding.remove(&(node_id.to_string(), method.to_string()));
+        Self::take_outstanding(&mut self.outstanding, node_id, method);
         let value = self
             .components
             .get(node_id)
@@ -463,7 +486,7 @@ impl FlowRuntime {
         };
         let mut out = Vec::new();
         let mut reqs = ScheduleRequests::default();
-        self.process_event(event, &mut out, &mut reqs);
+        self.process_event(&event, &mut out, &mut reqs);
         self.finish("wake", out, reqs)
     }
 
@@ -612,15 +635,18 @@ impl FlowRuntime {
     /// seq-stamped `_pin_change` event per listening component. Ported from the
     /// desktop `BoardConnection::detect_and_emit_changes`.
     fn detect_pin_changes(&mut self) {
-        let scan_all = self.active_pins.is_empty();
-        let indices: Vec<usize> = if scan_all {
-            (0..self.client.pins.len()).collect()
+        // Reuse the scan buffer across calls — `feed_bytes` runs it once per
+        // inbound serial chunk, so a fresh `Vec` here was an allocation per read.
+        let mut indices = std::mem::take(&mut self.pin_scan_scratch);
+        indices.clear();
+        if self.active_pins.is_empty() {
+            indices.extend(0..self.client.pins.len());
         } else {
-            self.active_pins.iter().map(|&p| p as usize).collect()
-        };
+            indices.extend(self.active_pins.iter().map(|&p| p as usize));
+        }
 
         let mut changes: Vec<(u8, u16, bool)> = Vec::new();
-        for index in indices {
+        for &index in &indices {
             let Some(pin) = self.client.pins.get(index) else { continue };
             let pin_num = index as u8;
             let current = pin.value as u16;
@@ -654,13 +680,15 @@ impl FlowRuntime {
             for component_id in listeners {
                 self.sink.borrow_mut().push_back(ComponentEvent {
                     source: Arc::clone(component_id),
-                    source_handle: Arc::from(reserved_handles::PIN_CHANGE),
+                    source_handle: reserved_handles::pin_change_arc(),
                     value: value.clone(),
                     edge_id: None,
                     sequence: self.current_sequence,
                 });
             }
         }
+
+        self.pin_scan_scratch = indices;
     }
 
     /// Drain decoded I2C replies into seq-stamped `_i2c_reply` events.
@@ -694,7 +722,7 @@ impl FlowRuntime {
                 }
                 self.sink.borrow_mut().push_back(ComponentEvent {
                     source: Arc::clone(component_id),
-                    source_handle: Arc::from(reserved_handles::I2C_REPLY),
+                    source_handle: reserved_handles::i2c_reply_arc(),
                     value: ComponentValue::Array(data.clone()),
                     edge_id: None,
                     sequence: self.current_sequence,
@@ -735,11 +763,15 @@ impl FlowRuntime {
                 "drain",
             );
             // Internal/hardware events (`_`-prefixed) are runtime plumbing the
-            // UI never renders — keep them out of `component_events`.
-            if !event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX) {
-                events.push(event.clone());
+            // UI never renders — keep them out of `component_events`. Processed
+            // by reference first so the UI-visible event can be *moved* into the
+            // list afterwards, instead of cloning every event (source/handle
+            // `Arc`s plus a deep `ComponentValue`) on the drain's hot path.
+            let internal = event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX);
+            self.process_event(&event, &mut out, &mut reqs);
+            if !internal {
+                events.push(event);
             }
-            self.process_event(event, &mut out, &mut reqs);
         }
         // Cloud requests a node asked for this turn (ADR-0009), resolved into the
         // host-facing `Effects` shape. `source` (node id) is the correlation key
@@ -791,7 +823,7 @@ impl FlowRuntime {
     /// Gate stale events, branch internal/hardware callbacks, echo `set_value`
     /// on the source, route, and dispatch. Ported from the desktop
     /// `FlowExecutor::process_event`.
-    fn process_event(&mut self, event: ComponentEvent, out: &mut Vec<u8>, reqs: &mut ScheduleRequests) {
+    fn process_event(&mut self, event: &ComponentEvent, out: &mut Vec<u8>, reqs: &mut ScheduleRequests) {
         // Stale-event gate. sequence == 0 means "unsequenced" (component logic,
         // never stale). Only drop events carrying a non-zero sequence older than
         // the current flow version (leftover board events from an old flow).
@@ -811,7 +843,7 @@ impl FlowRuntime {
         // (`_pin_change`/`_i2c_reply`) → typed methods, other `_method` →
         // `dispatch_internal`. Never flows through the router (source == target).
         if event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX) {
-            self.dispatch_internal_event(&event, out, reqs);
+            self.dispatch_internal_event(event, out, reqs);
             return;
         }
 
@@ -823,7 +855,7 @@ impl FlowRuntime {
 
         let plan = {
             let lookup = ComponentMapLookup { components: &self.components };
-            self.router.route(&event, &lookup)
+            self.router.route(event, &lookup)
         };
         tracing::trace!(
             run_id = self.run_seq,
@@ -909,20 +941,42 @@ impl FlowRuntime {
         let mut wakeups = Vec::new();
         let mut cancellations = Vec::new();
         for (node, method) in reqs.cancels {
-            if let Some(id) = self.outstanding.remove(&(node, method)) {
+            if let Some(id) = Self::take_outstanding(&mut self.outstanding, &node, &method) {
                 cancellations.push(id);
             }
         }
         for (node, method, delay_ms) in reqs.schedules {
-            if let Some(old) = self.outstanding.remove(&(node.clone(), method.clone())) {
-                cancellations.push(old);
-            }
             let id = self.next_wakeup_id;
             self.next_wakeup_id += 1;
-            self.outstanding.insert((node.clone(), method.clone()), id);
+            // One `insert` does the read-and-replace: the previous timer for this
+            // `(node, method)`, if any, is the value it hands back — no separate
+            // `remove` and no second pair of key clones on the hot timer path.
+            let previous = self
+                .outstanding
+                .entry(node.clone())
+                .or_default()
+                .insert(method.clone(), id);
+            if let Some(old) = previous {
+                cancellations.push(old);
+            }
             wakeups.push(Wakeup { id, node_id: node, method, delay_ms });
         }
         (wakeups, cancellations)
+    }
+
+    /// Remove one outstanding timer, pruning the node's sub-map when it empties.
+    /// Takes the map rather than `&mut self` so callers keep their other borrows.
+    fn take_outstanding(
+        outstanding: &mut HashMap<String, HashMap<String, WakeupId>>,
+        node_id: &str,
+        method: &str,
+    ) -> Option<WakeupId> {
+        let methods = outstanding.get_mut(node_id)?;
+        let id = methods.remove(method);
+        if methods.is_empty() {
+            outstanding.remove(node_id);
+        }
+        id
     }
 }
 

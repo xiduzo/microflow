@@ -43,8 +43,7 @@ import type { BoardConnection } from "./web-serial";
 // type now lives with the performer that consumes it.
 export type { CloudDeps };
 
-const now = (): number =>
-  typeof performance !== "undefined" ? performance.now() : Date.now();
+const now = (): number => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
 /**
  * Drives a wasm `FlowRuntime` for one connected board. Create with
@@ -142,6 +141,10 @@ export class FlowReactor implements EffectsSink {
    *  reactor is the `EffectsSink` supplying the four browser primitives below. */
   private apply(effectsJson: string): void {
     if (this.disposed) return;
+    // The wasm shim returns `""` for a turn that produced nothing — the common
+    // case for an inbound serial chunk whose pin values did not move. Bail
+    // before `JSON.parse` rather than parsing six empty arrays per read.
+    if (effectsJson === "") return;
     let fx: Effects;
     try {
       fx = JSON.parse(effectsJson) as Effects;

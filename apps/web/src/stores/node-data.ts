@@ -1,4 +1,4 @@
-import { useNodeId } from "@/components/flow/nodes/_base/_base";
+import { useNodeId } from "@/components/flow/nodes/_base/node-context";
 import { create } from "zustand";
 
 type NodeData<T extends unknown = unknown> = {
@@ -7,21 +7,43 @@ type NodeData<T extends unknown = unknown> = {
   clear: () => void;
 };
 
+/**
+ * Values written since the last publish. A running flow can emit hundreds of
+ * component events a second — far more than the display can show — and each one
+ * used to rebuild the whole `data` record and wake every node's selector.
+ * Buffering here collapses a frame's worth of events per node into a single
+ * store publish; because the store only ever holds the *latest* value per node,
+ * the collapsed frames were never rendered to begin with.
+ */
+let pending = new Map<string, unknown>();
+let frame: number | null = null;
+
 export const useNodeDataStore = create<NodeData>((set) => {
+  const flush = () => {
+    frame = null;
+    if (pending.size === 0) return;
+    const batch = pending;
+    pending = new Map();
+    set((state) => {
+      const data = { ...state.data };
+      for (const [id, value] of batch) data[id] = value;
+      return { data };
+    });
+  };
+
   return {
     data: {},
     clear: () => {
+      pending.clear();
       set({ data: {} });
     },
     update: (id, data) => {
-      set((state) => {
-        return {
-          data: {
-            ...state.data,
-            [id]: data,
-          },
-        };
-      });
+      pending.set(id, data);
+      if (frame !== null) return;
+      frame =
+        typeof requestAnimationFrame === "function"
+          ? requestAnimationFrame(flush)
+          : (setTimeout(flush, 16) as unknown as number);
     },
   };
 });

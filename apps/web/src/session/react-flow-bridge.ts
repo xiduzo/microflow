@@ -220,11 +220,16 @@ export class ReactFlowBridge {
     const localMap = new Map(currentLocal.map((n) => [n.id, n]));
     return yjsNodes.map((yjsNode) => {
       const local = localMap.get(yjsNode.id);
-      return {
+      const merged = {
         ...yjsNode,
         selected: local?.selected,
         dragging: local?.dragging,
       };
+      // Keep the existing object when the merge changed nothing. ReactFlow
+      // re-renders a node whose object identity moved, so without this a change
+      // to one node re-rendered *every* node on the canvas — remote collab
+      // edits and a single drag alike.
+      return local && ReactFlowBridge.nodesEquivalent(local, merged) ? local : merged;
     });
   }
 
@@ -233,8 +238,39 @@ export class ReactFlowBridge {
     const localMap = new Map(currentLocal.map((e) => [e.id, e]));
     return yjsEdges.map((yjsEdge) => {
       const local = localMap.get(yjsEdge.id);
-      return { ...yjsEdge, selected: local?.selected };
+      const merged = { ...yjsEdge, selected: local?.selected };
+      return local && ReactFlowBridge.edgesEquivalent(local, merged) ? local : merged;
     });
+  }
+
+  /** Field-wise comparison over everything the canvas renders from a node. `data`
+   *  is compared by reference — the doc hands out a fresh `data` object only when
+   *  that node's data actually changed, which is exactly when we want a
+   *  re-render. */
+  private static nodesEquivalent(a: FlowNode, b: FlowNode): boolean {
+    return (
+      a.id === b.id &&
+      a.type === b.type &&
+      a.data === b.data &&
+      a.position.x === b.position.x &&
+      a.position.y === b.position.y &&
+      a.width === b.width &&
+      a.height === b.height &&
+      a.selected === b.selected &&
+      a.dragging === b.dragging
+    );
+  }
+
+  private static edgesEquivalent(a: FlowEdge, b: FlowEdge): boolean {
+    return (
+      a.id === b.id &&
+      a.type === b.type &&
+      a.source === b.source &&
+      a.target === b.target &&
+      a.sourceHandle === b.sourceHandle &&
+      a.targetHandle === b.targetHandle &&
+      a.selected === b.selected
+    );
   }
 
   // -------------------------------------------------------------------------

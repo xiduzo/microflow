@@ -223,9 +223,14 @@ async function tryConnectAtBaud(
         const { value, done } = await reader.read();
         if (done) break;
         if (value && value.length > 0) {
-          const result = JSON.parse(session.feed(value)) as FeedResult;
-          for (const change of result.pinChanges) {
-            options.onPinChange?.(change.pin, change.value, change.isAnalog);
+          // `feed` returns `""` when the chunk changed nothing — the common case
+          // while a board streams steady analog reports. Skip the parse then.
+          const json = session.feed(value);
+          if (json !== "") {
+            const result = JSON.parse(json) as FeedResult;
+            for (const change of result.pinChanges) {
+              options.onPinChange?.(change.pin, change.value, change.isAnalog);
+            }
           }
           // Hand the raw chunk to the flow runtime (it owns its own decode).
           options.onBytes?.(value);
@@ -333,7 +338,10 @@ export async function detectBoard(port: WebSerialPort): Promise<string | undefin
 export type FlashProgress = (done: number, total: number) => void;
 
 /** Concatenate two byte arrays. */
-function concat(a: Uint8Array<ArrayBufferLike>, b: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBufferLike> {
+function concat(
+  a: Uint8Array<ArrayBufferLike>,
+  b: Uint8Array<ArrayBufferLike>,
+): Uint8Array<ArrayBufferLike> {
   const out = new Uint8Array(a.length + b.length);
   out.set(a);
   out.set(b, a.length);

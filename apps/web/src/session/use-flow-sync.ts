@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFlowSession } from "./use-flow-session";
 import { isRemoteSyncAdapter, type RemoteSyncAdapter } from "./sync-adapter";
 import type { FlowSession } from "./flow-session";
@@ -69,12 +69,22 @@ export function useFlowSync(): FlowSyncSnapshot {
   return snapshot;
 }
 
+/**
+ * The awareness writers, with a stable identity for as long as the adapter is
+ * the same one. Callers put these in `useCallback`/`useEffect` deps (the canvas
+ * wraps `updateCursor` in a throttled mouse handler); returning fresh closures
+ * every render invalidated those deps on every render, so the canvas rebuilt
+ * and re-attached its handler continuously.
+ */
 export function useFlowAwareness() {
   const { remote } = useFlowSync();
-  return {
-    updateCursor: (cursor: { x: number; y: number }) => remote?.updateCursor(cursor),
-    updateSelectedNodes: (ids: string[]) => remote?.updateSelectedNodes(ids),
-  };
+  return useMemo(
+    () => ({
+      updateCursor: (cursor: { x: number; y: number }) => remote?.updateCursor(cursor),
+      updateSelectedNodes: (ids: string[]) => remote?.updateSelectedNodes(ids),
+    }),
+    [remote],
+  );
 }
 
 export function useCollabPresence(): {
@@ -85,7 +95,13 @@ export function useCollabPresence(): {
 } {
   const { users, localUser } = useFlowSync();
   const localClientId = localUser?.clientId;
-  const otherUsers =
-    localClientId == null ? users : users.filter((u) => u.clientId !== localClientId);
-  return { users, otherUsers, localUser, totalUsers: users.length };
+  // Memoised on the snapshot, which only changes on a real adapter event. The
+  // unmemoised version handed `<CollabCursors>` and `<PressensePanel>` a new
+  // `otherUsers` array on every canvas render, so both re-rendered whenever
+  // anything else on the canvas did.
+  return useMemo(() => {
+    const otherUsers =
+      localClientId == null ? users : users.filter((u) => u.clientId !== localClientId);
+    return { users, otherUsers, localUser, totalUsers: users.length };
+  }, [users, localUser, localClientId]);
 }

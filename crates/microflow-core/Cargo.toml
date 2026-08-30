@@ -43,6 +43,17 @@ thiserror = { version = "1", optional = true }
 boa_engine = { version = "0.20", optional = true }
 
 [dev-dependencies]
+# Drives `benches/runtime.rs`. `default-features = false` drops the plotting
+# stack (gnuplot/plotters) — the benches are read as numbers in CI and on the
+# terminal, not as rendered charts.
+criterion = { version = "0.5.1", default-features = false, features = ["cargo_bench_support"] }
 # Capture-assert that the runtime's `flow tick` wide event still fires, so the
 # telemetry can't silently regress under a refactor.
 tracing-test = "0.2"
+
+# The runtime benches need the runtime, which is not a default feature:
+#   cargo bench -p microflow-core --features runtime
+[[bench]]
+name = "runtime"
+harness = false
+required-features = ["runtime"]

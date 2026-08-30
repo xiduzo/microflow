@@ -6,6 +6,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const SIGNAL_RATE_THRESHOLD = 10;
 const RATE_WINDOW_MS = 500;
 
+/** Shared identity for "this edge is showing nothing", so an idle edge's state
+ *  update is a no-op rather than a re-render with a fresh empty Map. */
+const EMPTY_POSITIONS = new Map<string, { x: number; y: number }>();
+
 export function AnimatedEdge(props: EdgeProps) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition } = props;
   const signals = useEdgeSignals(id);
@@ -74,53 +78,36 @@ function EdgeWithSignals(
     return parseBezierPath(edgePath, sourceX, sourceY, targetX, targetY);
   }, [edgePath, sourceX, sourceY, targetX, targetY]);
 
-  const [signalPositions, setSignalPositions] = useState<Map<string, { x: number; y: number }>>(
-    new Map(),
-  );
-  const isMountedRef = useRef(true);
+  const [signalPositions, setSignalPositions] =
+    useState<Map<string, { x: number; y: number }>>(EMPTY_POSITIONS);
 
-  // Clean up signalPositions when signals are removed
+  // Animate only while this edge actually carries signals. The previous
+  // `setInterval(…, 16)` ran unconditionally, so an idle canvas woke one timer
+  // per edge 60 times a second and re-rendered every edge with a freshly-built
+  // position Map — the dominant idle cost on any flow of a few dozen wires.
+  // Signals are also short-lived (`SIGNAL_DURATION`), so this stops on its own
+  // once the last one expires. `requestAnimationFrame` additionally pauses in a
+  // background tab, which `setInterval` does not.
   useEffect(() => {
-    const signalIds = new Set(signals.map((s) => s.id));
-    setSignalPositions((prev) => {
-      const filtered = new Map<string, { x: number; y: number }>();
-      prev.forEach((position, signalId) => {
-        if (signalIds.has(signalId)) {
-          filtered.set(signalId, position);
-        }
-      });
-      return filtered;
-    });
-  }, [signals]);
+    if (signals.length === 0) {
+      // Only publish the empty Map if we are not already showing it, so an idle
+      // edge settles at exactly one render rather than looping.
+      setSignalPositions((prev) => (prev.size === 0 ? prev : EMPTY_POSITIONS));
+      return;
+    }
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    const interval = setInterval(() => {
-      if (!isMountedRef.current) return;
-
+    let frame = requestAnimationFrame(function step() {
       const now = Date.now();
       const newPositions = new Map<string, { x: number; y: number }>();
-
-      signals.forEach((signal) => {
-        const elapsed = now - signal.startTime;
-        const progress = Math.max(0, Math.min(1, elapsed / SIGNAL_DURATION));
-
-        // Calculate position along the Bezier curve path
-        const position = getPointOnBezierCurve(bezierPoints, progress);
-
-        newPositions.set(signal.id, position);
-      });
-
-      // Only update if component is still mounted
-      if (isMountedRef.current) {
-        setSignalPositions(newPositions);
+      for (const signal of signals) {
+        const progress = Math.max(0, Math.min(1, (now - signal.startTime) / SIGNAL_DURATION));
+        newPositions.set(signal.id, getPointOnBezierCurve(bezierPoints, progress));
       }
-    }, 16); // ~60fps
+      setSignalPositions(newPositions);
+      frame = requestAnimationFrame(step);
+    });
 
-    return () => {
-      isMountedRef.current = false;
-      clearInterval(interval);
-    };
+    return () => cancelAnimationFrame(frame);
   }, [signals, bezierPoints]);
 
   return (

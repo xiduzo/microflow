@@ -1,5 +1,6 @@
 import { type Node, type NodeProps } from "@xyflow/react";
-import { createContext, type PropsWithChildren, useContext } from "react";
+import { type PropsWithChildren } from "react";
+import { NodeContainerContext, useNodeData } from "./node-context";
 import {
   CardAction,
   CardHeader,
@@ -20,6 +21,11 @@ import { Badge } from "@/components/ui/badge";
 // Hook implementations live in their own modules to keep the layout file focused.
 export { useNodeControls, type Controls } from "./use-node-controls";
 export { useDeleteHandles } from "./use-delete-handles";
+// The container context now lives in the leaf `./node-context` module, so a
+// consumer that needs only `useNodeId` (the node-data store, on the hot event
+// path) can import it without dragging in this file's UI dependency tree. Both
+// paths stay valid — every existing `from "../_base/_base"` import is unchanged.
+export { useNode, useNodeId, useNodeData } from "./node-context";
 
 function NodeHeader(props: { error?: string; warning?: string }) {
   const data = useNodeData();
@@ -115,27 +121,6 @@ function NodeDescription() {
     </CardDescription>
   );
 }
-
-type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
-
-const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
-  {} as ContainerProps<Record<string, unknown>>,
-);
-
-/** Internal accessor for everything the container provides. Hook modules use this
- *  to read id/data/selected/etc. without each one re-deriving the context shape. */
-export const useNode = <T extends Record<string, unknown>>() =>
-  useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
-
-export const useNodeId = () => {
-  const { id } = useNode();
-  return id;
-};
-
-export const useNodeData = <T extends Record<string, any>>() => {
-  const { data } = useNode<T>();
-  return data;
-};
 
 export function NodeContainer(
   props: PropsWithChildren &

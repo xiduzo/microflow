@@ -284,6 +284,17 @@ impl FirmataSession {
             firmware_updated,
             capabilities_updated,
         };
+        // Nothing changed — return `""` so the JS read loop can skip its
+        // `JSON.parse`. Serial chunks arrive continuously while a board streams
+        // analog reports, and most carry no change at all; serialising an
+        // all-empty `FeedResult` for each was per-read cost with no consumer.
+        if result.pin_changes.is_empty()
+            && result.i2c_replies.is_empty()
+            && !result.firmware_updated
+            && !result.capabilities_updated
+        {
+            return Ok(String::new());
+        }
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("failed to serialize feed result: {e}")))
     }
@@ -595,8 +606,9 @@ mod tests {
         assert!(json.contains("\"pin\":0"), "got: {json}");
         assert!(json.contains("\"pin\":2"), "got: {json}");
 
-        // Same values again -> no changes reported.
+        // Same values again -> nothing changed, so the empty-result short
+        // circuit kicks in and the host is handed "" instead of a JSON body.
         let json = s.feed(&[0x90, 0b0000_0101, 0]).expect("feed ok");
-        assert!(json.contains("\"pinChanges\":[]"), "got: {json}");
+        assert_eq!(json, "", "an unchanged chunk must not serialize a result");
     }
 }
