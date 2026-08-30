@@ -103,6 +103,34 @@ describe("ReactFlowBridge — Yjs → React", () => {
     const b = bridge.getSnapshot();
     expect(a).toBe(b);
   });
+
+  test("untouched nodes keep their object identity across a Yjs change", () => {
+    const { doc, bridge } = setup();
+    doc.addNode(mkNode("n1"));
+    doc.addNode(mkNode("n2"));
+    const before = bridge.getSnapshot().nodes;
+    const untouchedBefore = before.find((n) => n.id === "n2")!;
+
+    doc.updateNodeData("n1", { v: 1 });
+
+    const after = bridge.getSnapshot().nodes;
+    // The changed node is a new object; the untouched one is the *same* object,
+    // so ReactFlow re-renders only the node that actually changed.
+    expect(after.find((n) => n.id === "n1")).not.toBe(before.find((n) => n.id === "n1"));
+    expect(after.find((n) => n.id === "n2")).toBe(untouchedBefore);
+  });
+
+  test("untouched edges keep their object identity across a Yjs change", () => {
+    const { doc, bridge } = setup();
+    doc.addEdge({ id: "e1", source: "a", target: "b" });
+    const untouchedBefore = bridge.getSnapshot().edges[0]!;
+
+    doc.addEdge({ id: "e2", source: "b", target: "c" });
+
+    const after = bridge.getSnapshot().edges;
+    expect(after.find((e) => e.id === "e1")).toBe(untouchedBefore);
+    expect(after.map((e) => e.id).sort()).toEqual(["e1", "e2"]);
+  });
 });
 
 // =========================================================================
@@ -177,18 +205,14 @@ describe("ReactFlowBridge — React → Yjs", () => {
 
   test("selected field stays out of Y.Doc on write", () => {
     const { doc, bridge } = setup();
-    bridge.applyNodeChanges([
-      { type: "add", item: mkNode("n1", { selected: true }) },
-    ]);
+    bridge.applyNodeChanges([{ type: "add", item: mkNode("n1", { selected: true }) }]);
     bridge.flush();
     expect(doc.getNodes()[0]!.selected).toBeUndefined();
   });
 
   test("dragging field stays out of Y.Doc on write", () => {
     const { doc, bridge } = setup();
-    bridge.applyNodeChanges([
-      { type: "add", item: mkNode("n1", { dragging: true }) },
-    ]);
+    bridge.applyNodeChanges([{ type: "add", item: mkNode("n1", { dragging: true }) }]);
     bridge.flush();
     expect(doc.getNodes()[0]!.dragging).toBeUndefined();
   });
@@ -218,14 +242,17 @@ describe("ReactFlowBridge — React → Yjs", () => {
     bridge.applyNodeChanges([{ type: "add", item: mkNode("b") }]);
     bridge.flush();
     expect(localTransactionCount).toBe(1);
-    expect(doc.getNodes().map((n) => n.id).sort()).toEqual(["a", "b"]);
+    expect(
+      doc
+        .getNodes()
+        .map((n) => n.id)
+        .sort(),
+    ).toEqual(["a", "b"]);
   });
 
   test("edge add propagates to doc", () => {
     const { doc, bridge } = setup();
-    bridge.applyEdgeChanges([
-      { type: "add", item: { id: "e1", source: "a", target: "b" } },
-    ]);
+    bridge.applyEdgeChanges([{ type: "add", item: { id: "e1", source: "a", target: "b" } }]);
     bridge.flush();
     expect(doc.getEdges().map((e) => e.id)).toEqual(["e1"]);
   });
@@ -278,9 +305,7 @@ describe("ReactFlowBridge — lifecycle", () => {
   test("post-destroy applyNodeChanges is a no-op (idempotent)", () => {
     const { doc, bridge } = setup();
     bridge.destroy();
-    expect(() =>
-      bridge.applyNodeChanges([{ type: "add", item: mkNode("n1") }]),
-    ).not.toThrow();
+    expect(() => bridge.applyNodeChanges([{ type: "add", item: mkNode("n1") }])).not.toThrow();
     expect(doc.getNodes()).toHaveLength(0);
   });
 
@@ -341,9 +366,9 @@ describe("ReactFlowBridge — convergence", () => {
 // =========================================================================
 describe("ReactFlowBridge — classifyNodeChange", () => {
   test("add/remove/dimensions/replace are structural", () => {
-    expect(ReactFlowBridge.classifyNodeChange({ type: "add", item: mkNode("x") } as NodeChange)).toBe(
-      "structural",
-    );
+    expect(
+      ReactFlowBridge.classifyNodeChange({ type: "add", item: mkNode("x") } as NodeChange),
+    ).toBe("structural");
     expect(ReactFlowBridge.classifyNodeChange({ type: "remove", id: "x" })).toBe("structural");
     expect(
       ReactFlowBridge.classifyNodeChange({
@@ -374,8 +399,8 @@ describe("ReactFlowBridge — classifyNodeChange", () => {
   });
 
   test("select is ephemeral", () => {
-    expect(
-      ReactFlowBridge.classifyNodeChange({ type: "select", id: "x", selected: true }),
-    ).toBe("ephemeral");
+    expect(ReactFlowBridge.classifyNodeChange({ type: "select", id: "x", selected: true })).toBe(
+      "ephemeral",
+    );
   });
 });

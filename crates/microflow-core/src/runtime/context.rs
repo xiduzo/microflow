@@ -144,6 +144,24 @@ pub trait EffectsSink {
 }
 
 impl Effects {
+    /// True when the turn produced nothing for the host to do.
+    ///
+    /// The overwhelmingly common turn: a Firmata analog report arrives whose pin
+    /// value has not moved, so nothing is emitted, written, armed, or cancelled.
+    /// Hosts that have to marshal `Effects` across a language boundary (the wasm
+    /// shim serialises to JSON, the browser parses it back) check this first and
+    /// skip the whole round trip — the boundary cost, not the engine, dominates
+    /// there.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.outbound_bytes.is_empty()
+            && self.component_events.is_empty()
+            && self.wakeups.is_empty()
+            && self.cancellations.is_empty()
+            && self.cloud_requests.is_empty()
+            && self.node_diagnostics.is_empty()
+    }
+
     /// Apply this turn's effects to `sink` in the **canonical order** (ADR-0008,
     /// extended by ADR-0009): `outbound_bytes → cancellations → wakeups →
     /// cloud_requests → component_events → node_diagnostics`.

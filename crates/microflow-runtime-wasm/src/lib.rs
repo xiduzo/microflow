@@ -241,7 +241,17 @@ pub fn figma_announce_actions_js(prev_json: &str, next_json: &str) -> Result<Str
         .map_err(|e| JsError::new(&format!("failed to serialize figma actions: {e}")))
 }
 
+/// Serialize a turn's `Effects` for the JS host — or return `""` when the turn
+/// produced nothing, so the host can skip its `JSON.parse`.
+///
+/// Inbound serial chunks are the highest-frequency entry point (a board streams
+/// analog reports continuously) and most of them change nothing. Serialising
+/// `{"outboundBytes":[],…}` for those turns, only for the host to parse it and
+/// find six empty arrays, was pure boundary cost on every read.
 fn effects_json(effects: &Effects) -> Result<String, JsError> {
+    if effects.is_empty() {
+        return Ok(String::new());
+    }
     serde_json::to_string(effects)
         .map_err(|e| JsError::new(&format!("failed to serialize effects: {e}")))
 }
@@ -270,17 +280,19 @@ mod tests {
         assert!(json.contains("\"outboundBytes\""), "got: {json}");
         assert!(json.contains("\"componentEvents\""), "got: {json}");
 
-        // Feeding empty bytes is a no-op cascade with valid JSON.
+        // Feeding empty bytes produces nothing, so the host is handed "" and
+        // skips its JSON.parse rather than parsing six empty arrays.
         let json = rt.feed_bytes(&[], 1.0).expect("feed ok");
-        assert!(json.contains("\"wakeups\""), "got: {json}");
+        assert_eq!(json, "", "a no-op turn must not serialize Effects");
     }
 
     #[test]
     fn dispatch_parses_value_json() {
         let mut rt = FlowRuntime::new();
         let json = rt.dispatch("missing", "value", "true", 0.0).expect("dispatch ok");
-        // No such component, but the call returns a well-formed empty Effects.
-        assert!(json.contains("\"componentEvents\":[]"), "got: {json}");
+        // No such component, so the turn is a no-op: the empty-Effects short
+        // circuit returns "" rather than a body of empty arrays.
+        assert_eq!(json, "", "a no-op turn must not serialize Effects");
     }
 
     #[test]

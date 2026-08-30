@@ -28,7 +28,6 @@ export function useBoardEvents() {
   useListen<Board>({
     type: "board-state",
     handler: ({ payload }) => {
-      console.log(payload);
       setBoard(payload);
     },
   });
@@ -39,17 +38,24 @@ export const usePins = (shouldHaveMode?: MODES[], shouldNotHaveMode?: MODES[]) =
     useShallow((state) => (state.board.state === "connected" ? state.board.pins : ([] as Pin[]))),
   );
 
+  // Callers pass array literals (`usePins([MODES.PWM])`), which are a fresh
+  // reference on every render — so keying the memo on the arrays themselves
+  // meant it never hit and every node re-filtered the whole pin table on every
+  // render. Key on the modes' *values* instead, which are stable.
+  const requireKey = shouldHaveMode?.join(",") ?? "";
+  const excludeKey = shouldNotHaveMode?.join(",") ?? "";
+
   const filteredPins = useMemo(() => {
-    if (!shouldHaveMode?.length) return boardPins;
+    if (!requireKey) return boardPins;
+    const require = requireKey.split(",").map(Number);
     const pins = boardPins.filter((pin) =>
-      shouldHaveMode.every((mode) => pin.supportedModes.includes(mode)),
+      require.every((mode) => pin.supportedModes.includes(mode)),
     );
 
-    if (!shouldNotHaveMode?.length) return pins;
-    return pins.filter(
-      (pin) => !shouldNotHaveMode.some((mode) => pin.supportedModes.includes(mode)),
-    );
-  }, [boardPins, shouldHaveMode, shouldNotHaveMode]);
+    if (!excludeKey) return pins;
+    const exclude = excludeKey.split(",").map(Number);
+    return pins.filter((pin) => !exclude.some((mode) => pin.supportedModes.includes(mode)));
+  }, [boardPins, requireKey, excludeKey]);
 
   return filteredPins;
 };

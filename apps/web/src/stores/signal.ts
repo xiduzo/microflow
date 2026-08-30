@@ -17,63 +17,125 @@ export type SignalState = {
   clearEdgeSignals: (edgeId: string) => void;
 };
 
-export const useSignalStore = create<SignalState>((set, get) => ({
-  signals: new Map(),
+/** Shared by every signal id; cheaper and more collision-proof than the
+ *  `Date.now()` + `Math.random()` string this used to build per signal. */
+let signalCounter = 0;
 
-  addSignal: (edgeId: string) => {
-    const signal: Signal = {
-      id: `${edgeId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      edgeId,
-      startTime: Date.now(),
-    };
+/** One shared empty array, so an idle edge's selector keeps a stable reference
+ *  and never re-renders on another edge's signal. */
+const EMPTY_SIGNALS: Signal[] = [];
+
+/**
+ * Signals added since the last publish, and the frame callback that will publish
+ * them. A single flow turn can fire dozens of signals; batching means one `Map`
+ * rebuild and one re-render per frame rather than per signal.
+ */
+let pendingAdds: Signal[] = [];
+let addHandle: number | null = null;
+/** Set while a sweep is scheduled, so expiry costs one timer for the whole
+ *  store rather than one `setTimeout` per signal. */
+let sweepHandle: ReturnType<typeof setTimeout> | null = null;
+
+const raf = (callback: () => void): number =>
+  typeof requestAnimationFrame === "function"
+    ? requestAnimationFrame(callback)
+    : (setTimeout(callback, 16) as unknown as number);
+
+const cancelRaf = (handle: number): void => {
+  if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(handle);
+  else clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
+};
+
+export const useSignalStore = create<SignalState>((set, get) => {
+  /** Drop every signal past its animation window, in one pass over the store. */
+  const sweep = (): void => {
+    sweepHandle = null;
+    const cutoff = Date.now() - SIGNAL_DURATION;
+    const current = get().signals;
+    if (current.size === 0) return;
+
+    let changed = false;
+    const next = new Map<string, Signal[]>();
+    for (const [edgeId, signals] of current) {
+      const live = signals.filter((signal) => signal.startTime > cutoff);
+      if (live.length !== signals.length) changed = true;
+      if (live.length > 0) next.set(edgeId, live);
+    }
+    if (changed) set({ signals: next });
+    if (next.size > 0) scheduleSweep();
+  };
+
+  function scheduleSweep(): void {
+    if (sweepHandle !== null) return;
+    sweepHandle = setTimeout(sweep, SIGNAL_DURATION + 10);
+  }
+
+  const flushAdds = (): void => {
+    addHandle = null;
+    const batch = pendingAdds;
+    pendingAdds = [];
+    if (batch.length === 0) return;
 
     set((state) => {
-      const newSignals = new Map(state.signals);
-      const existingSignals = newSignals.get(edgeId) || [];
-      newSignals.set(edgeId, [...existingSignals, signal]);
-      return { signals: newSignals };
-    });
-
-    setTimeout(() => {
-      get().removeSignal(edgeId, signal.id);
-    }, SIGNAL_DURATION + 10);
-  },
-
-  removeSignal: (edgeId: string, signalId: string) => {
-    set((state) => {
-      const newSignals = new Map(state.signals);
-      const existingSignals = newSignals.get(edgeId) || [];
-      const filteredSignals = existingSignals.filter((signal) => signal.id !== signalId);
-
-      if (filteredSignals.length === 0) {
-        newSignals.delete(edgeId);
-      } else {
-        newSignals.set(edgeId, filteredSignals);
+      const next = new Map(state.signals);
+      for (const signal of batch) {
+        const existing = next.get(signal.edgeId);
+        next.set(signal.edgeId, existing ? [...existing, signal] : [signal]);
       }
-
-      return { signals: newSignals };
+      return { signals: next };
     });
-  },
+    scheduleSweep();
+  };
 
-  getEdgeSignals: (edgeId: string) => {
-    return get().signals.get(edgeId) || [];
-  },
+  return {
+    signals: new Map(),
 
-  clearSignals: () => {
-    set({ signals: new Map() });
-  },
+    addSignal: (edgeId: string) => {
+      signalCounter += 1;
+      pendingAdds.push({ id: `${edgeId}-${signalCounter}`, edgeId, startTime: Date.now() });
+      if (addHandle === null) addHandle = raf(flushAdds);
+    },
 
-  clearEdgeSignals: (edgeId: string) => {
-    set((state) => {
-      const newSignals = new Map(state.signals);
-      newSignals.delete(edgeId);
-      return { signals: newSignals };
-    });
-  },
-}));
+    removeSignal: (edgeId: string, signalId: string) => {
+      set((state) => {
+        const existing = state.signals.get(edgeId);
+        if (!existing) return state;
+        const filtered = existing.filter((signal) => signal.id !== signalId);
+        if (filtered.length === existing.length) return state;
+
+        const newSignals = new Map(state.signals);
+        if (filtered.length === 0) newSignals.delete(edgeId);
+        else newSignals.set(edgeId, filtered);
+        return { signals: newSignals };
+      });
+    },
+
+    getEdgeSignals: (edgeId: string) => {
+      return get().signals.get(edgeId) ?? EMPTY_SIGNALS;
+    },
+
+    clearSignals: () => {
+      pendingAdds = [];
+      if (addHandle !== null) {
+        cancelRaf(addHandle);
+        addHandle = null;
+      }
+      set({ signals: new Map() });
+    },
+
+    clearEdgeSignals: (edgeId: string) => {
+      set((state) => {
+        if (!state.signals.has(edgeId)) return state;
+        const newSignals = new Map(state.signals);
+        newSignals.delete(edgeId);
+        return { signals: newSignals };
+      });
+    },
+  };
+});
 
 export function useEdgeSignals(edgeId: string) {
-  return useSignalStore(useShallow((state) => state.getEdgeSignals(edgeId)));
+  return useSignalStore(useShallow((state) => state.signals.get(edgeId) ?? EMPTY_SIGNALS));
 }
 
 export function useSignalActions() {

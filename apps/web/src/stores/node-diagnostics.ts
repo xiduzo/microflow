@@ -1,4 +1,4 @@
-import { useNodeId } from "@/components/flow/nodes/_base/_base";
+import { useNodeId } from "@/components/flow/nodes/_base/node-context";
 import type { NodeDiagnostic } from "@/lib/firmata/effects-sink";
 import { create } from "zustand";
 

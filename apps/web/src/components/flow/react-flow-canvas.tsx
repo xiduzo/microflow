@@ -68,13 +68,31 @@ export function ReactFlowCanvas() {
   useHelperHotkeys(nodes);
 
   const { screenToFlowPosition } = useReactFlow();
+  // Coalesce cursor broadcasts to one per frame. Every `updateCursor` encodes an
+  // awareness update and pushes it down the collab socket, and a mouse can fire
+  // well over 100 move events a second — so the raw handler put a multiple of
+  // the useful traffic on the wire (and ran `screenToFlowPosition`, which reads
+  // layout, just as often).
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const cursorFrameRef = useRef<number | null>(null);
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      updateCursor(flowPosition);
+      pointerRef.current = { x: event.clientX, y: event.clientY };
+      if (cursorFrameRef.current !== null) return;
+      cursorFrameRef.current = requestAnimationFrame(() => {
+        cursorFrameRef.current = null;
+        const pointer = pointerRef.current;
+        if (pointer) updateCursor(screenToFlowPosition(pointer));
+      });
     },
     [updateCursor, screenToFlowPosition],
   );
+
+  useEffect(() => {
+    return () => {
+      if (cursorFrameRef.current !== null) cancelAnimationFrame(cursorFrameRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     fitView({ duration: 250, padding: 0.15 });
