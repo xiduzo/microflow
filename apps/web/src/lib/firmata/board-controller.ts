@@ -39,6 +39,7 @@ import {
 } from "./web-serial";
 import {
   createBringUp,
+  handleBringUp,
   type BringUpAction,
   type BringUpEvent,
   type BringUpMachine,
@@ -171,7 +172,7 @@ function trackData(a: Attempt) {
 async function dispatch(event: BringUpEvent): Promise<void> {
   machinePromise ??= createBringUp();
   const machine = await machinePromise;
-  const actions = JSON.parse(machine.handle(JSON.stringify(event))) as BringUpAction[];
+  const actions = handleBringUp(machine, event);
   for (const action of actions) {
     await perform(action);
   }

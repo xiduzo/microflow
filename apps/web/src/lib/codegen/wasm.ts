@@ -18,19 +18,10 @@ import init, {
 // the module loads correctly in dev and after a production build without any
 // extra Vite plugin.
 import wasmUrl from "./generated/microflow_codegen_wasm_bg.wasm?url";
+import { lazyWasmInit } from "@/lib/wasm-init";
 
-/**
- * Lazily instantiate the wasm module exactly once. Every entry point awaits this
- * first; concurrent callers share the single in-flight promise so the module is
- * fetched and compiled only one time.
- */
-let initPromise: Promise<unknown> | null = null;
-function ensureReady(): Promise<unknown> {
-  if (initPromise === null) {
-    initPromise = init({ module_or_path: wasmUrl });
-  }
-  return initPromise;
-}
+/** Lazily instantiate the wasm module exactly once; concurrent callers share it. */
+const ensureReady = lazyWasmInit(init, wasmUrl);
 
 /** Serialize the optional credentials to JSON, or `undefined` to pass through. */
 function serializeCredentials(credentials?: Credentials): string | undefined {

@@ -25,10 +25,8 @@ import {
   type RuntimeFault,
 } from "./runtime-bridge";
 import { CloudPerformer, type CloudDeps } from "./cloud/cloud-performer";
-import type { ActiveSub } from "./cloud/mqtt-subscriptions";
 import { MidiPerformer } from "./midi/midi-performer";
 import { AudioPerformer, audioSourcesOf } from "@/lib/audio/audio-performer";
-import type { MidiListener } from "@/lib/runtime/wasm";
 import {
   applyEffects,
   type CloudRequest,
@@ -57,21 +55,6 @@ export type AttachOptions = {
 
 const now = (): number =>
   typeof performance !== "undefined" ? performance.now() : Date.now();
-
-/**
- * A reply the runtime returned but the host could not decode. The call itself
- * succeeded, so the module is intact — this is `badInput` in the {@link
- * RuntimeFault} taxonomy, and it belongs to no single node. Routed through
- * {@link FlowReactor.handleFault} so a bad reply and a thrown fault reach the
- * same surface (ADR-0017), rather than one going to the seam and the other to
- * the console.
- */
-const decodeFault = (op: string, error: unknown): RuntimeFault => ({
-  kind: "badInput",
-  op,
-  node: null,
-  message: `undecodable ${op} reply: ${error instanceof Error ? error.message : String(error)}`,
-});
 
 /**
  * Drives a wasm `FlowRuntime` for one connected board. Create with
@@ -120,25 +103,19 @@ export class FlowReactor implements EffectsSink {
       // LLM result re-entry: inject on the node's handle and apply the cascade it
       // drives (mirrors the desktop `ActorMsg::Inject` → `inject_event`).
       (source, handle, value) => {
-        this.turn("injectEvent", source, (rt) =>
-          rt.injectEvent(source, handle, JSON.stringify(value), now()),
-        );
+        this.applyTurn(this.bridge?.injectEvent(source, handle, value, now()));
       },
       // Inbound broker message re-entry: route to the subscribe node and apply
       // (mirrors the desktop `ActorMsg::Deliver` → `deliver_message`).
       (nodeId, topic, payload) => {
-        this.turn("deliverMessage", nodeId, (rt) =>
-          rt.deliverMessage(nodeId, topic, payload, now()),
-        );
+        this.applyTurn(this.bridge?.deliverMessage(nodeId, topic, payload, now()));
       },
       // Figma handshake policy: core's `figma_announce_actions` via the wasm
       // binding, so the browser announces identically to the desktop host.
       figmaAnnounceActions,
     );
     this.midiPerformer = new MidiPerformer((nodeId, portName, bytes) => {
-      this.turn("deliverMessage", nodeId, (rt) =>
-        rt.deliverMessage(nodeId, portName, bytes, now()),
-      );
+      this.applyTurn(this.bridge?.deliverMessage(nodeId, portName, bytes, now()));
     });
     this.audioPerformer = new AudioPerformer(
       (nodeId, track) => this.audioSources.get(nodeId)?.[track],
@@ -167,14 +144,12 @@ export class FlowReactor implements EffectsSink {
     // reports it and the reactor still attaches.
     // No board means no pin table: the runtime keeps its empty one, inbound
     // decode has nothing to decode, and the software nodes run as usual.
-    reactor.bridge.call("setPins", null, (rt) => {
-      rt.setPins(connection?.session.pinsJson() ?? "[]");
-    });
+    reactor.bridge.setPins(connection?.session.pinsJson() ?? "[]");
     return reactor;
   }
 
-  /** Apply a flow graph (the core `FlowUpdate` shape, serialised here — the
-   *  one place the flow crosses into wasm). */
+  /** Apply a flow graph (the core `FlowUpdate` shape; the bridge owns its
+   *  serialisation across the wasm crossing). */
   applyFlow(flow: FlowUpdateShape): void {
     if (this.disposed) return;
     this.edges = flow.edges;
@@ -185,7 +160,7 @@ export class FlowReactor implements EffectsSink {
     }
     // A deleted (or re-pointed) Music node must not keep playing.
     this.audioPerformer.retain(this.audioSources);
-    this.turn("updateFlow", null, (rt) => rt.updateFlow(JSON.stringify(flow), now()));
+    this.applyTurn(this.bridge?.updateFlow(flow, now()));
     this.reconcile();
   }
 
@@ -193,14 +168,12 @@ export class FlowReactor implements EffectsSink {
    *  the desktop actor's `ActorMsg::Key`/`component_call` paths. Used by the
    *  hotkey listener; the runtime owns all routing from there. */
   dispatchToNode(nodeId: string, port: string, value: unknown): void {
-    this.turn("dispatch", nodeId, (rt) =>
-      rt.dispatch(nodeId, port, JSON.stringify(value), now()),
-    );
+    this.applyTurn(this.bridge?.dispatch(nodeId, port, value, now()));
   }
 
   /** Feed raw inbound serial bytes (from the Web Serial read loop). */
   feedBytes(bytes: Uint8Array): void {
-    this.turn("feedBytes", null, (rt) => rt.feedBytes(bytes, now()));
+    this.applyTurn(this.bridge?.feedBytes(bytes, now()));
   }
 
   /** Tear down: cancel every pending timer, tear down the cloud performer (abort
@@ -216,33 +189,14 @@ export class FlowReactor implements EffectsSink {
     this.bridge = null;
   }
 
-  /** Cross into wasm for one effects-producing op and apply what comes back. A
-   *  fault yields `null` — already classified and surfaced by
-   *  {@link handleFault} — and this turn is simply dropped. */
-  private turn(op: string, node: string | null, fn: (rt: FlowRuntimeCalls) => string): void {
-    if (this.disposed) return;
-    const effectsJson = this.bridge?.call(op, node, fn);
-    if (typeof effectsJson === "string") this.apply(effectsJson);
-  }
-
   /** Apply one turn's effects in the canonical order (ADR-0008). The order
    *  lives in {@link applyEffects} (mirroring the Rust `Effects::apply`); this
-   *  reactor is the `EffectsSink` supplying the browser primitives below. */
-  private apply(effectsJson: string): void {
-    // The wasm shim returns `""` for a turn that produced nothing — the common
-    // case for an inbound serial chunk whose pin values did not move. Bail
-    // before `JSON.parse` rather than parsing six empty arrays per read.
-    if (effectsJson === "") return;
-    let fx: Effects;
-    try {
-      fx = JSON.parse(effectsJson) as Effects;
-    } catch (error) {
-      // The call returned, so the module is not poisoned — but a reply the host
-      // cannot decode still costs this turn its bytes, timers and cloud requests.
-      this.handleFault(decodeFault("effects", error));
-      return;
-    }
-    applyEffects(fx, this);
+   *  reactor is the `EffectsSink` supplying the browser primitives below. A
+   *  faulted turn yields `undefined` — already classified and surfaced by
+   *  {@link handleFault} — and is simply dropped. */
+  private applyTurn(effects: Effects | undefined): void {
+    if (this.disposed || effects === undefined) return;
+    applyEffects(effects, this);
   }
 
   /**
@@ -278,27 +232,11 @@ export class FlowReactor implements EffectsSink {
    *  against its live set. */
   private reconcile(): void {
     if (this.disposed) return;
-    const subsJson = this.bridge?.call("reconcileSubscriptions", null, (rt) =>
-      rt.reconcileSubscriptions(),
-    );
-    if (typeof subsJson !== "string") return;
-    let reconciled: ActiveSub[];
-    try {
-      reconciled = JSON.parse(subsJson) as ActiveSub[];
-    } catch (error) {
-      this.handleFault(decodeFault("reconcileSubscriptions", error));
-      return;
-    }
+    const reconciled = this.bridge?.reconcileSubscriptions();
+    if (reconciled === undefined) return;
     this.cloudPerformer.reconcile(reconciled);
-    const midiJson = this.bridge?.call("midiListeners", null, (rt) => rt.midiListeners());
-    if (typeof midiJson !== "string") return;
-    let midiListeners: MidiListener[];
-    try {
-      midiListeners = JSON.parse(midiJson) as MidiListener[];
-    } catch (error) {
-      this.handleFault(decodeFault("midiListeners", error));
-      return;
-    }
+    const midiListeners = this.bridge?.midiListeners();
+    if (midiListeners === undefined) return;
     this.midiPerformer.reconcile(midiListeners);
   }
 
@@ -327,7 +265,7 @@ export class FlowReactor implements EffectsSink {
       this.timers.delete(wakeup.id);
       // Nothing here may throw: a timer callback has no caller to catch it. The
       // bridge is what makes that true (ADR-0017).
-      this.turn("wake", wakeup.nodeId, (rt) => rt.wake(wakeup.nodeId, wakeup.method, now()));
+      this.applyTurn(this.bridge?.wake(wakeup.nodeId, wakeup.method, now()));
     }, wakeup.delayMs);
     this.timers.set(wakeup.id, handle);
   }

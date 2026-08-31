@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { FlowUpdate } from "@/lib/bindings/FlowUpdate";
 import { RuntimeBridge, type FlowRuntimeCalls, type RuntimeFault } from "./runtime-bridge";
 import { pumpReader } from "./web-serial";
 import type { FirmataSession } from "./wasm";
@@ -15,14 +16,15 @@ import type { FirmataSession } from "./wasm";
 // Both run without wasm, without a serial port and without React: the bridge
 // takes a structural `FlowRuntimeCalls`, and the pump takes a structural reader.
 
-const NO_EFFECTS = JSON.stringify({
+const NO_EFFECTS_OBJ = {
   outboundBytes: [],
   componentEvents: [],
   wakeups: [],
   cancellations: [],
   cloudRequests: [],
   nodeDiagnostics: [],
-});
+};
+const NO_EFFECTS = JSON.stringify(NO_EFFECTS_OBJ);
 
 /** A runtime double whose `feedBytes` throws whatever it is handed. */
 function throwingRuntime(error: unknown): { runtime: FlowRuntimeCalls; calls: () => number } {
@@ -57,7 +59,7 @@ describe("RuntimeBridge (ADR-0017)", () => {
     const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
 
     // The call site (the serial read loop) sees a value, not an exception.
-    const result = bridge.call("feedBytes", null, (rt) => rt.feedBytes(new Uint8Array([1]), 0));
+    const result = bridge.feedBytes(new Uint8Array([1]), 0);
 
     expect(result).toBeUndefined();
     expect(faults).toHaveLength(1);
@@ -78,10 +80,10 @@ describe("RuntimeBridge (ADR-0017)", () => {
     } as unknown as FlowRuntimeCalls;
     const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
 
-    bridge.call("feedBytes", null, (rt) => rt.feedBytes(new Uint8Array([1]), 0));
-    const second = bridge.call("feedBytes", null, (rt) => rt.feedBytes(new Uint8Array([2]), 0));
+    bridge.feedBytes(new Uint8Array([1]), 0);
+    const second = bridge.feedBytes(new Uint8Array([2]), 0);
 
-    expect(second).toBe(NO_EFFECTS);
+    expect(second).toEqual(NO_EFFECTS_OBJ);
     expect(feeds).toBe(2);
     expect(faults).toHaveLength(1);
   });
@@ -93,7 +95,7 @@ describe("RuntimeBridge (ADR-0017)", () => {
     const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
 
     for (let i = 0; i < 50; i += 1) {
-      bridge.call("feedBytes", null, (rt) => rt.feedBytes(new Uint8Array([i]), 0));
+      bridge.feedBytes(new Uint8Array([i]), 0);
     }
 
     // The module was entered exactly once; the latch dropped the other 49.
@@ -110,7 +112,7 @@ describe("RuntimeBridge (ADR-0017)", () => {
     const { runtime } = throwingRuntime(new Error("no such method"));
     const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
 
-    bridge.call("wake", "osc-1", (rt) => rt.wake("osc-1", "_tick", 0));
+    bridge.wake("osc-1", "_tick", 0);
 
     expect(faults[0]).toMatchObject({ kind: "badInput", op: "wake", node: "osc-1" });
   });
@@ -121,10 +123,50 @@ describe("RuntimeBridge (ADR-0017)", () => {
     const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
     bridge.dispose();
 
-    bridge.call("feedBytes", null, (rt) => rt.feedBytes(new Uint8Array([1]), 0));
+    bridge.feedBytes(new Uint8Array([1]), 0);
 
     expect(calls()).toBe(0);
     expect(faults).toEqual([]);
+  });
+
+  test("a typed entry point round-trips: args encoded in, reply decoded out", () => {
+    const seen: Array<[string, number]> = [];
+    const effects = { ...NO_EFFECTS_OBJ, outboundBytes: [0x90, 0x01] };
+    const runtime = {
+      updateFlow: (json: string, nowMs: number) => {
+        seen.push([json, nowMs]);
+        return JSON.stringify(effects);
+      },
+    } as unknown as FlowRuntimeCalls;
+    const bridge = new RuntimeBridge(runtime, () => {});
+    const flow: FlowUpdate = { nodes: [], edges: [] };
+
+    const result = bridge.updateFlow(flow, 42);
+
+    // The caller handed over a typed FlowUpdate and got typed Effects back; the
+    // JSON only ever existed inside the bridge.
+    expect(seen).toEqual([[JSON.stringify(flow), 42]]);
+    expect(result).toEqual(effects);
+  });
+
+  test("an empty reply is a turn with no effects, not a fault", () => {
+    const faults: RuntimeFault[] = [];
+    const runtime = { feedBytes: () => "" } as unknown as FlowRuntimeCalls;
+    const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
+
+    expect(bridge.feedBytes(new Uint8Array([1]), 0)).toBeUndefined();
+    expect(faults).toEqual([]);
+  });
+
+  test("an undecodable reply classifies as badInput through the taxonomy", () => {
+    const faults: RuntimeFault[] = [];
+    const runtime = { midiListeners: () => "not json{" } as unknown as FlowRuntimeCalls;
+    const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
+
+    expect(bridge.midiListeners()).toBeUndefined();
+    expect(faults[0]).toMatchObject({ kind: "badInput", op: "midiListeners", node: null });
+    // The call returned, so the module is intact — not a poisoned engine.
+    expect(bridge.live).toBe(true);
   });
 });
 
