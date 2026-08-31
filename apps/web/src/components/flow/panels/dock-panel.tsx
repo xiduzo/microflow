@@ -4,6 +4,7 @@ import { Dock } from "@/components/ui/dock";
 import { Separator } from "@/components/ui/separator";
 import { useReactFlow } from "@xyflow/react";
 import {
+  BotMessageSquareIcon,
   HardDriveUploadIcon,
   PlusIcon,
   RedoIcon,
@@ -13,6 +14,7 @@ import {
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
+import { useAskAiStore } from "@/stores/ask-ai";
 import { useFlowHistory, useFlowSession } from "@/session";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app";
@@ -27,6 +29,8 @@ export function DockPanel() {
   const navigate = useNavigate();
   const { activeFlowId } = useAppStore();
   const { exportFlow } = useFlowImportExport();
+  const askAiOpen = useAskAiStore((s) => s.open);
+  const toggleAskAi = useAskAiStore((s) => s.toggle);
 
   const handleZoomIn = (event?: KeyboardEvent | MouseEvent) => {
     event?.stopPropagation();
@@ -112,6 +116,12 @@ export function DockPanel() {
       </DockIcon>
       <DockIcon onClick={handleRedo}>
         <RedoIcon className={cn(history.canRedo ? "text-primary" : "text-muted-foreground")} />
+      </DockIcon>
+      <Separator orientation="vertical" className="h-full" />
+      {/* Lives with the canvas tools, not in navigation: it edits the flow in
+          front of you rather than taking you somewhere. */}
+      <DockIcon onClick={toggleAskAi}>
+        <BotMessageSquareIcon className={cn(askAiOpen && "text-primary")} />
       </DockIcon>
       <Separator orientation="vertical" className="h-full" />
       <DockIcon onClick={exportFlow}>
