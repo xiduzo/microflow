@@ -90,6 +90,65 @@ function validateData(
   return { ok: true, data: { ...merged, ...(parsed.data as Record<string, unknown>) } };
 }
 
+/**
+ * Resolve what the model called a node into a real node id.
+ *
+ * Ids are random strings, and a model — especially a small local one — reaches
+ * for the type name it just created instead ("Button"). When exactly one node of
+ * that type exists there is nothing ambiguous about it, so accept it: the
+ * alternative is a rejected call for a request that was perfectly clear.
+ */
+function resolveNode(doc: FlowDocument, ref: string): { ok: true; id: string } | { ok: false; error: string } {
+  if (doc.getNode(ref)) return { ok: true, id: ref };
+  const byType = doc.getNodes().filter((n) => n.type?.toLowerCase() === ref.toLowerCase());
+  if (byType.length === 1) return { ok: true, id: byType[0].id };
+  if (byType.length > 1) {
+    return {
+      ok: false,
+      error: `this flow has ${byType.length} ${ref} nodes — use one of these ids: ${byType.map((n) => n.id).join(", ")}`,
+    };
+  }
+  return { ok: false, error: `no node '${ref}' in this flow — call get_flow for the ids` };
+}
+
+/** `data` as the model may send it: the object it should be, or the string a
+ *  small model often makes of a nested object. Both types stay in the JSON
+ *  schema — an untyped field tells the model nothing about what to send. */
+const DATA_INPUT = z.union([z.record(z.string(), z.unknown()), z.string()]);
+
+/**
+ * Accept a node's `data` in whatever shape the model managed.
+ *
+ * Small local models routinely send a nested object as a *string* — sometimes
+ * JSON, often something JSON-ish like `{pin:2, control:PinController}`. Letting
+ * the tool's own schema reject that is the worst outcome available: the
+ * framework's generic "input validation failed" reaches the model instead of
+ * ours, and a small model reacts by abandoning the tool API and typing its
+ * calls out as prose. So `data` is taken as `unknown` and normalised here,
+ * where a rejection can say what a correct call looks like.
+ */
+function coerceData(value: unknown): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+  if (value == null) return { ok: true, data: {} };
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return { ok: true, data: value as Record<string, unknown> };
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return { ok: true, data: parsed as Record<string, unknown> };
+      }
+    } catch {
+      // falls through to the same advice as any other wrong shape
+    }
+  }
+  return {
+    ok: false,
+    error:
+      'data must be an object of config fields, not a string — send it as an object, e.g. {"pin": 13}',
+  };
+}
+
 export type FlowToolsOptions = {
   mode: WriteMode;
   /** Called in `confirm` mode instead of writing. */
@@ -156,22 +215,29 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
       "Add a node to the flow. `type` must be one from the catalogue. `data` may set only the fields you care about; the rest take the node's defaults.",
     inputSchema: z.object({
       type: z.string().describe("Component type, e.g. 'Led' or 'Button'"),
-      data: z.record(z.string(), z.unknown()).optional(),
+      data: DATA_INPUT.optional().describe('Config fields as an object, e.g. {"pin": 13}'),
     }),
   }).server(({ type, data }) => {
-    if (!isComponentType(type)) {
+    // Case-insensitive: the catalogue says `Led`, a model will write `led`, and
+    // spending a round trip on that teaches it nothing.
+    const resolved = (Object.keys(NODE_REGISTRY) as ComponentType[]).find(
+      (candidate) => candidate.toLowerCase() === String(type).toLowerCase(),
+    );
+    if (!resolved || !isComponentType(resolved)) {
       return fail(`unknown node type '${type}' — use one from the catalogue`);
     }
-    const validated = validateData(type, data ?? {});
+    const coerced = coerceData(data);
+    if (!coerced.ok) return fail(coerced.error);
+    const validated = validateData(resolved, coerced.data);
     if (!validated.ok) return fail(validated.error);
 
     const node: FlowNode = {
       id: uid(),
-      type,
+      type: resolved,
       position: nextPosition(doc),
       data: validated.data,
     };
-    return write(`added ${type} (id ${node.id})`, () => doc.addNode(node));
+    return write(`added ${resolved} (id ${node.id})`, () => doc.addNode(node));
   });
 
   const updateNodeData = toolDefinition({
@@ -180,18 +246,24 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
       "Change a node's configuration. Pass only the fields you want to change; the others are left as they are.",
     inputSchema: z.object({
       nodeId: z.string(),
-      data: z.record(z.string(), z.unknown()),
+      data: DATA_INPUT.describe('Fields to change, as an object, e.g. {"pin": 13}'),
     }),
-  }).server(({ nodeId, data }) => {
+  }).server((input) => {
+    const found = resolveNode(doc, input.nodeId);
+    if (!found.ok) return fail(found.error);
+    const nodeId = found.id;
+    const data = input.data;
     const existing = doc.getNode(nodeId);
     if (!existing) return fail(`no node '${nodeId}' in this flow`);
     const type = typeOf(doc, nodeId);
     if (!type) return fail(`node '${nodeId}' has an unknown type '${existing.type}'`);
 
-    const validated = validateData(type, data, existing.data);
+    const coerced = coerceData(data);
+    if (!coerced.ok) return fail(coerced.error);
+    const validated = validateData(type, coerced.data, existing.data);
     if (!validated.ok) return fail(validated.error);
 
-    const changed = Object.keys(data).join(", ");
+    const changed = Object.keys(coerced.data).join(", ");
     return write(`updated ${type} ${nodeId} (${changed})`, () =>
       doc.updateNodeData(nodeId, validated.data),
     );
@@ -207,7 +279,15 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
       target: z.string().describe("id of the node the value goes to"),
       targetHandle: z.string().describe("input (port) name on the target node"),
     }),
-  }).server(({ source, sourceHandle, target, targetHandle }) => {
+  }).server((input) => {
+    const from = resolveNode(doc, input.source);
+    if (!from.ok) return fail(from.error);
+    const to = resolveNode(doc, input.target);
+    if (!to.ok) return fail(to.error);
+    const { sourceHandle, targetHandle } = input;
+    const source = from.id;
+    const target = to.id;
+
     const sourceType = typeOf(doc, source);
     if (!sourceType) return fail(`no node '${source}' in this flow`);
     const targetType = typeOf(doc, target);
@@ -256,7 +336,10 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
     name: "delete_node",
     description: "Remove a node and every edge attached to it.",
     inputSchema: z.object({ nodeId: z.string() }),
-  }).server(({ nodeId }) => {
+  }).server((input) => {
+    const found = resolveNode(doc, input.nodeId);
+    if (!found.ok) return fail(found.error);
+    const nodeId = found.id;
     const type = doc.getNode(nodeId)?.type;
     if (!type) return fail(`no node '${nodeId}' in this flow`);
     return write(`deleted ${type} ${nodeId}`, () => doc.deleteNode(nodeId));

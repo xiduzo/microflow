@@ -12,6 +12,8 @@
 // every conversation — and a model that can see the whole palette proposes
 // better flows than one that has to guess what to ask for.
 
+import type { FlowDocument } from "@microflow/collab";
+
 import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
 import {
   COMPONENT_EMITS,
@@ -104,4 +106,62 @@ the user can see the canvas.
 # Node catalogue
 
 ${NODE_CATALOG}`;
+}
+
+/**
+ * The canvas as it stands, injected on every turn.
+ *
+ * `get_flow` exists and the prompt asks for it, but a small local model happily
+ * skips it and builds a second Button beside the one it placed a turn ago —
+ * tool results are not in the transcript, so without this it is blind to its own
+ * work. Handing it the state costs a few hundred tokens and removes the failure.
+ *
+ * A selection narrows it: with nodes highlighted the user is talking about
+ * those, so those are what the model is shown (plus the edges between them),
+ * and a big flow stops crowding out the question.
+ */
+export function currentFlowPrompt(doc: FlowDocument, selectedNodeIds: string[] = []): string {
+  const all = doc.getNodes();
+  if (all.length === 0) return "# Current flow\n\nThe canvas is empty.";
+
+  const selection = new Set(selectedNodeIds.filter((id) => doc.getNode(id)));
+  const scoped = selection.size > 0;
+  const nodes = scoped ? all.filter((node) => selection.has(node.id)) : all;
+  const edges = doc
+    .getEdges()
+    .filter(
+      (edge) => !scoped || (selection.has(edge.source) && selection.has(edge.target)),
+    );
+
+  const describeNode = (node: (typeof nodes)[number]) => {
+    const config = Object.entries(node.data ?? {})
+      .filter(([key]) => !PRESENTATION_KEYS.has(key) && key !== "instance")
+      .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+      .join(", ");
+    return `- ${node.id}: ${node.type}${config ? ` (${config})` : ""}`;
+  };
+
+  const heading = scoped
+    ? `The user has selected these ${nodes.length} of ${all.length} nodes — unless they say
+otherwise, they are asking about this selection. Call get_flow if you need the rest.`
+    : `These nodes are already on the canvas. Reuse and update them with
+update_node_data rather than adding duplicates.`;
+
+  return `# Current flow
+
+${heading}
+
+${nodes.map(describeNode).join("\n")}
+
+Edges:
+${
+  edges.length > 0
+    ? edges
+        .map(
+          (edge) =>
+            `- ${edge.id}: ${edge.source}.${edge.sourceHandle} → ${edge.target}.${edge.targetHandle}`,
+        )
+        .join("\n")
+    : "(none)"
+}`;
 }

@@ -173,3 +173,68 @@ describe("write modes", () => {
     expect(doc.getNodes()).toHaveLength(0);
   });
 });
+
+// What a small local model actually sends. Each of these used to reach the
+// framework's own input validation, which answers with a generic "input
+// validation failed" — and llama3.2 responds to that by abandoning the tool API
+// and typing its calls out as prose, so the flow never changes. Every one of
+// them has to be answered by us, either by accepting it or by failing with
+// advice the model can act on.
+describe("createFlowTools — what models actually send", () => {
+  test("accepts data sent as a JSON string", () => {
+    const { doc, call } = tools();
+    const result = call("add_node", { type: "Led", data: '{"pin": 13}' });
+
+    expect(result.ok).toBe(true);
+    expect(doc.getNodes()[0].data.pin).toBe(13);
+  });
+
+  test("rejects unparseable data with an example rather than a schema error", () => {
+    const { call } = tools();
+    const result = call("add_node", { type: "Led", data: "{pin:13, control:PinController}" });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('{"pin": 13}');
+  });
+
+  test("accepts a lowercase node type", () => {
+    const { doc, call } = tools();
+    expect(call("add_node", { type: "led", data: { pin: 13 } }).ok).toBe(true);
+    expect(doc.getNodes()[0].type).toBe("Led");
+  });
+
+  test("connect resolves a node referred to by its type name", () => {
+    const { doc, call } = tools();
+    call("add_node", { type: "Button", data: { pin: 2 } });
+    call("add_node", { type: "Led", data: { pin: 13 } });
+
+    const result = call("connect", {
+      source: "Button",
+      sourceHandle: "true",
+      target: "Led",
+      targetHandle: "toggle",
+    });
+
+    expect(result.ok).toBe(true);
+    const [edge] = doc.getEdges();
+    expect(edge.source).toBe(doc.getNodes()[0].id);
+    expect(edge.target).toBe(doc.getNodes()[1].id);
+  });
+
+  test("a type name matching two nodes asks for an id instead of guessing", () => {
+    const { call } = tools();
+    call("add_node", { type: "Button", data: { pin: 2 } });
+    call("add_node", { type: "Led", data: { pin: 13 } });
+    call("add_node", { type: "Led", data: { pin: 12 } });
+
+    const result = call("connect", {
+      source: "Button",
+      sourceHandle: "true",
+      target: "Led",
+      targetHandle: "toggle",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("2 Led nodes");
+  });
+});
