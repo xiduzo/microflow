@@ -43,7 +43,6 @@ pub use microflow_core::codegen;
 mod error;
 mod flasher;
 pub mod hardware;
-pub mod llm;
 pub mod mqtt;
 pub mod runtime;
 
@@ -52,7 +51,7 @@ pub use error::*;
 use hardware::HardwareService;
 use mqtt::MqttManager;
 use runtime::host::{self, BoardLink};
-use runtime::services::{LlmRegistry, MqttPublisher};
+use runtime::services::MqttPublisher;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tauri::Listener;
@@ -92,10 +91,6 @@ pub struct AppState {
     /// MQTT publish handle the cloud nodes hold (captured by the actor's cloud
     /// factory closures); also used directly by `flow_update` for status pings.
     pub mqtt_publisher: Arc<dyn MqttPublisher>,
-    /// Live LLM provider registry. Shared with the actor's cloud factories so
-    /// components resolve providers at dispatch time and pick up credential
-    /// rotation. Filled by the `flow_update` and `llm_sync_providers` commands.
-    pub llm_registry: Arc<LlmRegistry>,
     /// Active Figma MQTT subscriptions (cleaned up on flow switch)
     pub figma_subscriptions: Arc<TokioMutex<Vec<FigmaSubscription>>>,
 }
@@ -129,7 +124,6 @@ pub fn run() {
     // so the cloned instance handed to the dyn-trait `Arc` shares the same
     // broker pool as the one held on `AppState`.
     let mqtt_publisher: Arc<dyn MqttPublisher> = Arc::new(mqtt_manager.clone());
-    let llm_registry = Arc::new(LlmRegistry::new());
 
     // The runtime actor channel + its shared connected flag. The channel is
     // created here so the `Send + Sync` sender can live on `AppState` (and the
@@ -141,7 +135,6 @@ pub fn run() {
     // Clones the actor thread captures (cloud factory services); the originals
     // move into `AppState`.
     let actor_publisher = Arc::clone(&mqtt_publisher);
-    let actor_registry = Arc::clone(&llm_registry);
     let actor_tx_exit = actor_tx.clone();
 
     let app_state = AppState {
@@ -149,7 +142,6 @@ pub fn run() {
         actor: actor_tx.clone(),
         mqtt_manager,
         mqtt_publisher,
-        llm_registry,
         figma_subscriptions: Arc::new(TokioMutex::new(Vec::new())),
     };
 
@@ -175,6 +167,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_http::init())
         .setup(move |app| {
             // Register the microflow:// scheme at runtime so deep links work in
             // dev builds on Windows/Linux (macOS uses the bundled Info.plist).
@@ -217,7 +210,6 @@ pub fn run() {
                 app.handle().clone(),
                 rt_handle,
                 actor_publisher,
-                actor_registry,
             );
 
             // Hardware monitoring drives the actor through a `BoardLink`: on
@@ -267,6 +259,7 @@ pub fn run() {
             flasher::commands::get_supported_boards,
             runtime::commands::flow_update,
             runtime::commands::component_call,
+            runtime::commands::llm_result,
             runtime::commands::generate_sketch,
             runtime::commands::check_credentials,
             runtime::commands::list_board_targets,
@@ -279,8 +272,6 @@ pub fn run() {
             mqtt::commands::mqtt_connected_brokers,
             mqtt::commands::mqtt_sync_brokers,
             mqtt::commands::mqtt_all_statuses,
-            llm::commands::llm_sync_providers,
-            llm::commands::llm_test_provider,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

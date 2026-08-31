@@ -3,7 +3,6 @@
 //! `flow_update` and `component_call` commands
 
 use super::host::ActorMsg;
-use super::services::{HttpLlmProvider, LlmProvider};
 use crate::codegen::board::{target_by_id, BoardTarget};
 use crate::codegen::credentials::{Credentials, MissingCredential};
 use crate::codegen::GenerationOutcome;
@@ -148,24 +147,44 @@ async fn ensure_infrastructure(
         }
     }
 
-    // Sync any provider records straight into the shared LlmRegistry so
-    // components built by this flow_update — and any subsequent
-    // `Llm::dispatch("trigger")` — see live credentials. This replaces the
-    // legacy build-time snapshot into `LlmConfig.base_url/api_key`. See
-    // ADR-0002 § Decision D2.
-    if let Some(provider_configs) = providers {
-        let entries: Vec<(String, Arc<dyn LlmProvider>)> = provider_configs
-            .into_iter()
-            .map(|p| {
-                let provider: Arc<dyn LlmProvider> =
-                    Arc::new(HttpLlmProvider::new(p.base_url, p.api_key));
-                (p.id, provider)
-            })
-            .collect();
-        state.llm_registry.sync(entries).await;
-    }
+    // Providers are no longer pushed down here: since ADR-0021 the webview owns
+    // the LLM transport for both hosts and resolves `providerId` from its own
+    // store at request time, so there is nothing for this side to hold. The
+    // parameter is still accepted so an older frontend does not fail to invoke.
+    let _ = providers;
 
     Ok(())
+}
+
+/// Re-enter one LLM result value on the issuing node's handle.
+///
+/// The webview half of the ADR-0021 split: `Actor::perform_cloud` forwards an
+/// `llmGenerate` request as an `llm-request` event, the frontend performs it
+/// with `TanStack` AI (`lib/firmata/cloud/llm-client.ts`), and every emission it
+/// produces — the streaming `value` deltas, then `thinking`/`done` or `error` —
+/// comes back through here onto `ActorMsg::Inject`, the same path an MQTT
+/// delivery or a hotkey takes.
+///
+/// A result for a node that is gone is harmless: its edges went with it, so
+/// `inject_event` routes nowhere.
+#[tauri::command]
+pub async fn llm_result(
+    source: String,
+    handle: String,
+    value: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let value = match value {
+        serde_json::Value::Bool(b) => ComponentValue::Bool(b),
+        serde_json::Value::Number(n) => ComponentValue::Number(n.as_f64().unwrap_or(0.0)),
+        serde_json::Value::String(s) => ComponentValue::String(s),
+        _ => ComponentValue::default(),
+    };
+
+    state
+        .actor
+        .send(ActorMsg::Inject { source: Arc::from(source.as_str()), handle, value })
+        .map_err(|_| "runtime actor is gone".to_string())
 }
 
 /// Apply `flow` to the runtime and reconcile its MQTT/Figma subscriptions. Hands

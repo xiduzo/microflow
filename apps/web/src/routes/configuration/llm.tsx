@@ -13,7 +13,6 @@ import { track } from "@/lib/analytics";
 import { invokeCommand } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { probeLlmProvider } from "@/session/browser-cloud-probe";
-import { performLlmGenerate } from "@/lib/firmata/cloud/llm-client";
 import {
   ConnectionConsole,
   ConsoleChip,
@@ -159,12 +158,12 @@ function LlmConfigPage() {
     setStatus(entry.id, "testing");
     push({ kind: "sys", text: `probing ${entry.baseUrl}…` });
 
-    // Desktop tests through the native host's HTTP client; the browser calls the
-    // endpoint itself, which is also the only way to see its browser-only
-    // blockers (mixed content, CORS).
-    const result = isDesktop()
-      ? await invokeCommand({ type: "llm_test_provider", baseUrl: entry.baseUrl, apiKey: entry.apiKey })
-      : { success: (await probeLlmProvider(entry)) === "ok", error: browserBlocker(entry.baseUrl) };
+    // One probe, both hosts (ADR-0021) — it runs over the same `hostFetch` a
+    // generation does, so "reachable" here means the Llm node will answer.
+    // `browserBlocker` still explains the failures only a browser can have
+    // (mixed content, CORS); on desktop it returns nothing to add.
+    const ok = (await probeLlmProvider(entry)) === "ok";
+    const result = { success: ok, error: browserBlocker(entry.baseUrl) };
 
     track("llm_provider_tested", { family: providerFamily(entry.baseUrl), ok: result.success });
     setStatus(entry.id, result.success ? "ok" : "error");
@@ -179,6 +178,10 @@ function LlmConfigPage() {
     push({ kind: "out", label: current.model, text: prompt });
     setStatus(entry.id, "testing");
     try {
+      // Loaded on demand: this console is the only reason a user who never
+      // places an Llm node would need the transport, and they reached it by
+      // typing `ask`.
+      const { performLlmGenerate } = await import("@/lib/firmata/cloud/llm-client");
       const text = await performLlmGenerate(
         { baseUrl: entry.baseUrl, apiKey: entry.apiKey },
         { model: current.model, system: current.system || null, prompt },

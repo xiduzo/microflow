@@ -1,20 +1,26 @@
-// Browser LLM transport for ADR-0009 Phase 3 (cloud-as-Effect, browser host).
+// The LLM transport for the `Llm` node — in BOTH hosts (ADR-0021).
 //
-// The wasm `Llm` node is sans-IO: it emits an `llmGenerate` `CloudRequest`; THIS
-// is the browser half of what the desktop's `HttpLlmProvider` does natively —
-// one POST to an OpenAI-compatible `/v1/chat/completions` endpoint. Kept a pure
-// transport (provider connection in, text out / throws) so it unit-tests against
-// a stubbed `fetch` with no runtime or store in scope. Provider resolution
-// (providerId → baseUrl/apiKey) and result re-entry live in the reactor.
+// The wasm/core `Llm` node is sans-IO: it emits an `llmGenerate` `CloudRequest`
+// and the host performs it. Before ADR-0021 each host performed it its own way
+// (browser `fetch` here, desktop `reqwest` in `runtime/services`), kept honest
+// by parity tests. Now there is one implementation — this one — and the desktop
+// routes its requests up to the webview to run it, so the two hosts cannot
+// drift apart in the first place.
 //
-// Per ADR-0009 D4 the call is **direct**: the user's own key, in the user's own
-// browser. CORS is the only practical blocker (a proxy fallback is Phase 4).
+// Kept a pure transport (provider connection in, text out / throws) so it
+// unit-tests against a stubbed adapter with no runtime or store in scope.
+// Provider resolution (providerId -> connection) and result re-entry live in
+// the `CloudPerformer`.
+//
+// Per ADR-0009 D4 the call is **direct**: the user's own key, from the user's
+// own machine. `hostFetch` in `lib/ai/adapter` is what makes that work on
+// desktop without CORS.
 
-/** The connection half of an `LlmProviderConfig` — what a request needs. */
-export type LlmProviderConn = {
-  baseUrl: string;
-  apiKey: string;
-};
+import { chat, EventType } from "@tanstack/ai";
+
+import { adapterFor, type LlmProviderConn } from "@/lib/ai/adapter";
+
+export type { LlmProviderConn };
 
 /** The request half carried by an `llmGenerate` cloud request. */
 export type LlmGenerateInput = {
@@ -24,49 +30,57 @@ export type LlmGenerateInput = {
 };
 
 /**
- * POST one generation to an OpenAI-compatible endpoint and return the assistant
- * text. Mirrors the desktop `HttpLlmProvider::generate` byte-for-byte: trim a
- * trailing slash, append `/v1/chat/completions`, send `{model, messages, stream:
- * false}` with an optional `system` message, `Authorization: Bearer` only when a
- * key is set, and read `choices[0].message.content`.
+ * Stream one generation and return the full assistant text.
  *
- * Throws on transport failure, non-2xx, or a response missing the content field.
- * Pass an `AbortSignal` for latest-wins cancellation (a re-trigger supersedes).
+ * `onDelta` receives the text so far (not the increment) on every chunk, which
+ * is what the `Llm` node's `value` handle wants: each inject overwrites the
+ * previous, so a downstream `Monitor` shows the answer growing rather than a
+ * stutter of fragments. Callers that only want the final text can omit it.
+ *
+ * Throws on transport failure or a provider error. Pass an `AbortSignal` for
+ * latest-wins cancellation (a re-trigger supersedes its predecessor).
  */
 export async function performLlmGenerate(
   provider: LlmProviderConn,
   input: LlmGenerateInput,
   signal?: AbortSignal,
+  onDelta?: (textSoFar: string) => void,
 ): Promise<string> {
-  const base = provider.baseUrl.replace(/\/+$/, "");
-  const url = `${base}/v1/chat/completions`;
+  const adapter = await adapterFor(provider, input.model);
 
-  const messages: Array<{ role: "system" | "user"; content: string }> = [];
-  if (input.system && input.system.length > 0) {
-    messages.push({ role: "system", content: input.system });
+  // `chat` takes an AbortController, not a signal. Callers own the real one
+  // (the performer's latest-wins table), so bridge rather than take ownership:
+  // an already-aborted signal short-circuits before any network call.
+  const controller = new AbortController();
+  if (signal) {
+    if (signal.aborted) throw abortError();
+    signal.addEventListener("abort", () => controller.abort(), { once: true });
   }
-  messages.push({ role: "user", content: input.prompt });
 
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (provider.apiKey.length > 0) headers.authorization = `Bearer ${provider.apiKey}`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ model: input.model, messages, stream: false }),
-    signal,
+  const stream = chat({
+    adapter,
+    systemPrompts: input.system && input.system.length > 0 ? [input.system] : undefined,
+    messages: [{ role: "user", content: input.prompt }],
+    abortController: controller,
+    stream: true,
   });
 
-  if (!response.ok) {
-    throw new Error(`LLM request failed: ${response.status} ${response.statusText}`);
+  let text = "";
+  for await (const chunk of stream) {
+    if (chunk.type === EventType.RUN_ERROR) {
+      throw new Error(chunk.message || "LLM request failed");
+    }
+    if (chunk.type === EventType.TEXT_MESSAGE_CONTENT && chunk.delta) {
+      text += chunk.delta;
+      onDelta?.(text);
+    }
   }
 
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const text = json.choices?.[0]?.message?.content;
-  if (typeof text !== "string") {
-    throw new Error("LLM response missing choices[0].message.content");
-  }
   return text;
+}
+
+function abortError(): Error {
+  const error = new Error("LLM request aborted");
+  error.name = "AbortError";
+  return error;
 }

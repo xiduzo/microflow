@@ -1,19 +1,23 @@
-// Browser reachability probes for the cloud config pages.
+// Reachability probes for the cloud config pages.
 //
-// The desktop host owns live connections and pushes their state back as
-// "mqtt-broker-status" / an `llm_test_provider` result, which is what fills the
-// status dots on /configuration/{mqtt,llm}. The browser has no such host: its
-// connections are opened lazily by the CloudPerformer when a flow needs them, so
-// nothing ever set a status and every broker/provider read as "never connected".
+// For MQTT this is browser-only: the desktop host owns live connections and
+// pushes their state back as "mqtt-broker-status", while the browser opens
+// connections lazily in the CloudPerformer, so nothing ever set a status and
+// every broker read as "never connected".
 //
-// These are that missing feedback channel — a short-lived probe per config entry,
-// answering only "is this endpoint reachable from THIS page?". They never touch
-// the runtime's own connections.
+// For LLM it runs in both hosts. Since ADR-0021 there is one transport, so there
+// is one probe — `llm_test_provider` (a Rust command) is gone, and the status
+// dot is now answered by the same code path a generation takes.
+//
+// Either way: a short-lived probe per config entry, answering only "is this
+// endpoint reachable from HERE?". They never touch the runtime's own
+// connections.
 
 import mqtt from "mqtt";
 import type { ConnectionStatus, MqttBrokerConfig } from "@/stores/mqtt-broker";
 import type { LlmProviderConfig, ProviderStatus } from "@/stores/llm-provider";
 import { isBrowserReachableBroker } from "@/components/flow/nodes/_base/browser-support";
+import { hostFetch, normalizeBaseUrl } from "@/lib/ai/endpoint";
 
 const PROBE_TIMEOUT_MS = 8000;
 
@@ -47,21 +51,29 @@ export async function probeBroker(broker: MqttBrokerConfig): Promise<ConnectionS
 }
 
 /**
- * GET the provider's `/v1/models` — the cheapest OpenAI-compatible endpoint that
- * proves the browser can actually reach it. This is also where a browser-only
- * blocker surfaces: an `http://localhost` provider on an https page (mixed
- * content) and a provider that doesn't allow this origin (CORS) both fail here,
- * where the desktop app succeeds.
+ * Probe an LLM provider's model list — the cheapest endpoint that proves this
+ * page can actually reach it.
+ *
+ * Since ADR-0021 this runs in BOTH hosts, over the same `hostFetch` the real
+ * transport uses, so a green dot here means the `Llm` node will work: on desktop
+ * the request goes through the Tauri HTTP plugin exactly as a generation does.
+ *
+ * In the browser it is also where the browser-only blockers surface — an
+ * `http://localhost` provider on an https page (mixed content) and a provider
+ * that does not allow this origin (CORS) both fail here, where the desktop app
+ * succeeds. That difference is real and worth showing.
  */
 export async function probeLlmProvider(
   provider: LlmProviderConfig,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl?: typeof fetch,
 ): Promise<ProviderStatus> {
-  const base = provider.baseUrl.replace(/\/+$/, "");
+  const url = `${normalizeBaseUrl(provider.baseUrl)}/models`;
+
   const headers: Record<string, string> = {};
   if (provider.apiKey.length > 0) headers.authorization = `Bearer ${provider.apiKey}`;
   try {
-    const response = await fetchImpl(`${base}/v1/models`, {
+    const doFetch = fetchImpl ?? (await hostFetch());
+    const response = await doFetch(url, {
       headers,
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
