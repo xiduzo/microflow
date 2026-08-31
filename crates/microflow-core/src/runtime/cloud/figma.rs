@@ -323,7 +323,10 @@ mod tests {
             CloudRequestKind::MqttPublish { broker_id, topic, payload, retain } => {
                 (broker_id, topic, payload, retain)
             }
-            other @ (CloudRequestKind::LlmGenerate { .. } | CloudRequestKind::MidiSend { .. }) => {
+            other @ (CloudRequestKind::LlmGenerate { .. }
+            | CloudRequestKind::MidiSend { .. }
+            | CloudRequestKind::AudioPlay { .. }
+            | CloudRequestKind::AudioStop) => {
                 panic!("expected MqttPublish, got {other:?}")
             }
         }

@@ -27,6 +27,7 @@ import {
 import { CloudPerformer, type CloudDeps } from "./cloud/cloud-performer";
 import type { ActiveSub } from "./cloud/mqtt-subscriptions";
 import { MidiPerformer } from "./midi/midi-performer";
+import { AudioPerformer, audioSourcesOf } from "@/lib/audio/audio-performer";
 import type { MidiListener } from "@/lib/runtime/wasm";
 import {
   applyEffects,
@@ -90,6 +91,14 @@ export class FlowReactor implements EffectsSink {
   /** The MIDI half (Web MIDI): the browser twin of the desktop `MidiManager`.
    *  Inbound messages re-enter via the same `deliverMessage` path MQTT uses. */
   private readonly midiPerformer: MidiPerformer;
+  /** Host speaker playback (the `Music` node). Shared with the desktop host,
+   *  which forwards the same requests into the webview. */
+  private readonly audioPerformer: AudioPerformer;
+  /** `Music` node id -> its records' sources (data URLs), kept from the last
+   *  {@link applyFlow}: the files are far too big to ride in an effects turn, so
+   *  the runtime sends the node id + a record index and the host resolves the
+   *  source. */
+  private readonly audioSources = new Map<string, string[]>();
   /** Edges of the flow the runtime is executing — kept from the last
    *  {@link applyFlow} so `dispatchEvent` routes component events onto exactly
    *  the wires the runtime fired them across. */
@@ -131,6 +140,13 @@ export class FlowReactor implements EffectsSink {
         rt.deliverMessage(nodeId, portName, bytes, now()),
       );
     });
+    this.audioPerformer = new AudioPerformer(
+      (nodeId, track) => this.audioSources.get(nodeId)?.[track],
+      // A track that ends on its own stops the node the same way a wire would.
+      (nodeId) => {
+        this.dispatchToNode(nodeId, "stop", false);
+      },
+    );
   }
 
   /** Instantiate the wasm runtime and seed its pin table from the detection
@@ -162,6 +178,13 @@ export class FlowReactor implements EffectsSink {
   applyFlow(flow: FlowUpdateShape): void {
     if (this.disposed) return;
     this.edges = flow.edges;
+    this.audioSources.clear();
+    for (const node of flow.nodes) {
+      const sources = audioSourcesOf(node.data);
+      if (sources.length > 0) this.audioSources.set(node.id, sources);
+    }
+    // A deleted (or re-pointed) Music node must not keep playing.
+    this.audioPerformer.retain(this.audioSources);
     this.turn("updateFlow", null, (rt) => rt.updateFlow(JSON.stringify(flow), now()));
     this.reconcile();
   }
@@ -188,6 +211,7 @@ export class FlowReactor implements EffectsSink {
     this.timers.clear();
     this.cloudPerformer.dispose();
     this.midiPerformer.dispose();
+    this.audioPerformer.dispose();
     this.bridge?.dispose();
     this.bridge = null;
   }
@@ -317,6 +341,15 @@ export class FlowReactor implements EffectsSink {
     // it (mirrors the desktop actor intercepting `MidiSend` before delegating).
     if (request.kind === "midiSend") {
       this.midiPerformer.send(request.deviceName, request.bytes);
+      return;
+    }
+    // Audio is host-peripheral too — the speakers, not the network.
+    if (request.kind === "audioPlay") {
+      this.audioPerformer.play(request.source, request.track, request.volume, request.loop);
+      return;
+    }
+    if (request.kind === "audioStop") {
+      this.audioPerformer.stop(request.source);
       return;
     }
     this.cloudPerformer.perform(request);

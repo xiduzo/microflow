@@ -13,4 +13,12 @@ export type CloudRequest = {
  * The node that issued the request; results re-enter via `inject_event`
  * targeting this id.
  */
-source: string, } & ({ "kind": "mqttPublish", brokerId: string, topic: string, payload: Array<number>, retain: boolean, } | { "kind": "llmGenerate", providerId: string, model: string, system: string | null, prompt: string, } | { "kind": "midiSend", deviceName: string, bytes: Array<number>, });
+source: string, } & ({ "kind": "mqttPublish", brokerId: string, topic: string, payload: Array<number>, retain: boolean, } | { "kind": "llmGenerate", providerId: string, model: string, system: string | null, prompt: string, } | { "kind": "midiSend", deviceName: string, bytes: Array<number>, } | { "kind": "audioPlay", 
+/**
+ * Which record to play: an index into the node's `data.tracks`.
+ */
+track: number, 
+/**
+ * 0.0-1.0, already clamped by the node.
+ */
+volume: number, loop: boolean, } | { "kind": "audioStop" });

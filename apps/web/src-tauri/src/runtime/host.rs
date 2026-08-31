@@ -441,6 +441,14 @@ impl EffectsSink for Actor {
             self.midi.send(device_name, bytes);
             return;
         }
+        // Audio plays in the webview: the desktop app already *is* a browser, so
+        // forwarding the request lets both hosts share one `AudioPerformer`
+        // instead of linking an audio backend here. The webview resolves the
+        // node's `src` (see `use-audio-requests.ts`).
+        if matches!(request.kind, CloudRequestKind::AudioPlay { .. } | CloudRequestKind::AudioStop) {
+            let _ = self.app.emit("audio-request", request);
+            return;
+        }
         self.cloud.perform(request);
     }
 
@@ -561,10 +569,15 @@ impl CloudPerformer {
                 });
                 self.llm_tasks.insert(Arc::clone(&request.source), join.abort_handle());
             }
-            // Intercepted by `Actor::perform_cloud` (the actor owns the `midir`
-            // connections); a request reaching here has no performer.
-            CloudRequestKind::MidiSend { .. } => {
-                log::warn!("[cloud] MidiSend reached the CloudPerformer — handled by the actor");
+            // Intercepted by `Actor::perform_cloud`: MIDI on the actor's own
+            // `midir` connections, audio forwarded to the webview. A request
+            // reaching here has no performer.
+            CloudRequestKind::MidiSend { .. }
+            | CloudRequestKind::AudioPlay { .. }
+            | CloudRequestKind::AudioStop => {
+                log::warn!(
+                    "[cloud] host-peripheral request reached the CloudPerformer — handled by the actor"
+                );
             }
         }
     }
@@ -751,7 +764,10 @@ mod tests {
                 assert_eq!(topic, "microflow/uid-1/app/variable/1-2/set");
                 assert_eq!(payload, b"true");
             }
-            other @ (CloudRequestKind::LlmGenerate { .. } | CloudRequestKind::MidiSend { .. }) => {
+            other @ (CloudRequestKind::LlmGenerate { .. }
+            | CloudRequestKind::MidiSend { .. }
+            | CloudRequestKind::AudioPlay { .. }
+            | CloudRequestKind::AudioStop) => {
                 panic!("expected MqttPublish, got {other:?}")
             }
         }

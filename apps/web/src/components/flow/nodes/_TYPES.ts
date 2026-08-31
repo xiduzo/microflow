@@ -4,6 +4,7 @@ import { Monitor } from "./monitor/monitor";
 import { Motion } from "./motion/motion";
 import { Note } from "./note/note";
 import { Mqtt } from "./mqtt/mqtt";
+import { Music } from "./music/music";
 import { Oscillator } from "./oscillator/oscillator";
 import { Piezo } from "./piezo/piezo";
 import { Pixel } from "./pixel/pixel";
@@ -77,6 +78,7 @@ export const NODE_TYPES = {
   Monitor: Monitor,
   Motion: Motion,
   Mqtt: Mqtt,
+  Music: Music,
   Note: Note,
   Oscillator: Oscillator,
   Piezo: Piezo,

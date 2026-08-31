@@ -190,7 +190,10 @@ mod tests {
                 assert_eq!(payload, b"42");
                 assert!(retain);
             }
-            other @ (CloudRequestKind::LlmGenerate { .. } | CloudRequestKind::MidiSend { .. }) => {
+            other @ (CloudRequestKind::LlmGenerate { .. }
+            | CloudRequestKind::MidiSend { .. }
+            | CloudRequestKind::AudioPlay { .. }
+            | CloudRequestKind::AudioStop) => {
                 panic!("expected MqttPublish, got {other:?}")
             }
         }

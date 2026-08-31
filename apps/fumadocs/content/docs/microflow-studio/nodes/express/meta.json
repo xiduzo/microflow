@@ -1,4 +1,4 @@
 {
   "title": "Express",
-  "pages": ["index", "figma", "led", "piezo", "relay", "servo", "stepper", "vibration"]
+  "pages": ["index", "figma", "led", "music", "piezo", "relay", "servo", "stepper", "vibration"]
 }

@@ -14,6 +14,7 @@ import { useFlowStructuralNodes } from "@/session/use-flow-nodes";
 import { usePins, type Pin } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
 import { useNodeDiagnostics } from "@/hooks/use-node-diagnostics";
+import { useAudioRequests } from "@/hooks/use-audio-requests";
 import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
@@ -37,6 +38,7 @@ function FlowEventListeners() {
   useComponentEvents();
   useNodeDiagnostics();
   useHotkeyEvents();
+  useAudioRequests();
   // Dispatch the live flow to the runtime — Tauri IPC on desktop, the in-browser
   // wasm runtime on web; the dispatcher picks the sender by platform.
   useFlowUpdateDispatcher(session);
