@@ -158,59 +158,13 @@ export const CLI_PROVIDERS: CliProvider[] = [
  * The one predicate for it, because the answer changes several unrelated
  * things: the config page hides endpoint and key fields, the probe looks for a
  * binary instead of a URL, and — the one that would otherwise fail silently —
- * Ask AI refuses to route through it. These CLIs run their own tools and have
- * no wire format for ours, so an Ask AI turn against one comes back as prose
- * where the panel expected `add_node`, and every write the user asked for is
- * quietly dropped.
+ * `hostLimitation` (`browser-support.ts`) rules it out of Ask AI. These CLIs
+ * run their own tools and have no wire format for ours, so an Ask AI turn
+ * against one comes back as prose where the panel expected `add_node`, and
+ * every write the user asked for is quietly dropped.
  */
 export function isCliProvider(provider: { kind?: string }): boolean {
   return provider.kind === "cli";
-}
-
-/** Where a provider is about to be used. The same CLI provider is fine in one
- *  place and useless in another, and the difference is worth saying out loud. */
-export type ProviderSurface = "config" | "node" | "ask-ai";
-
-/** A short badge label and the sentence behind it. */
-export type ProviderLimitation = { label: string; reason: string };
-
-/**
- * Why this provider will not work on `surface`, or `undefined` when it will.
- *
- * One function for every surface — the config page, the `Llm` node and Ask AI
- * all show the same badge from the same answer, so a provider cannot look
- * usable in one place and quietly fail in another. HTTP providers are never
- * limited here; their failures are reachability, which the status dot owns.
- */
-export function providerLimitation(
-  provider: { kind?: string; baseUrl?: string },
-  surface: ProviderSurface,
-  desktop: boolean,
-): ProviderLimitation | undefined {
-  if (!isCliProvider(provider)) return undefined;
-
-  // Host first: in a browser a CLI provider cannot run anywhere, which outranks
-  // whatever else the surface would object to.
-  if (!desktop) {
-    return {
-      label: "studio only",
-      reason:
-        "This provider runs a command-line tool on your computer, which a browser tab cannot start. It works in Microflow Studio, the desktop app.",
-    };
-  }
-
-  // On desktop the only remaining gap is Ask AI's: these CLIs run their own
-  // tools and have no wire format for ours, so the assistant would answer in
-  // prose and change nothing in the flow.
-  if (surface === "ask-ai") {
-    return {
-      label: "no flow tools",
-      reason:
-        "This CLI brings its own tools and cannot call Microflow's, so Ask AI could describe a change but never make one. Use it from an Llm node or the LLM console instead.",
-    };
-  }
-
-  return undefined;
 }
 
 /** The CLI a provider config points at, if it is a CLI provider at all. */

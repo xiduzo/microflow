@@ -18,7 +18,7 @@ import { track } from "@/lib/analytics";
 import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { openTestClient, type TestClient } from "@/session/browser-mqtt-test-client";
-import { isBrowserReachableBroker } from "@/components/flow/nodes/_base/browser-support";
+import { hostLimitation } from "@/components/flow/nodes/_base/browser-support";
 import {
   ConnectionConsole,
   ConsoleChip,
@@ -241,7 +241,8 @@ function MqttConfigPage() {
   );
 
   const browserUnreachable =
-    !isDesktop() && Boolean(broker) && broker!.url.trim() !== "" && !isBrowserReachableBroker(broker!.url);
+    broker !== undefined &&
+    hostLimitation({ kind: "broker", name: broker.name, url: broker.url }) !== undefined;
 
   return (
     <ConnectionConsole

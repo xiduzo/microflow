@@ -20,7 +20,7 @@ import { mergePending, runTurn } from "./turn-runner";
 import { useLlmProviderStore } from "@/stores/llm-provider";
 import { useAskAiStore } from "@/stores/ask-ai";
 import { providerModel } from "./models";
-import { isCliProvider } from "./cli-providers";
+import { hostLimitation } from "@/components/flow/nodes/_base/browser-support";
 import { uid } from "@/lib/uid";
 
 /** A turn in the transcript. `tools` names what ran during an assistant turn, so
@@ -43,11 +43,13 @@ export function useAskAi(doc: FlowDocument, writeMode: WriteMode, providerId: st
   // failing: the panel would otherwise stay dead until the user noticed why.
   //
   // Local CLI providers are excluded here and from the picker: they cannot call
-  // our flow tools (see `isCliProvider`), so an Ask AI turn against one answers
+  // our flow tools (see `hostLimitation`), so an Ask AI turn against one answers
   // in prose and silently changes nothing. Better no provider — which the panel
   // says out loud — than one that looks like it worked.
   const provider = useLlmProviderStore((s) => {
-    const usable = s.providers.filter((p) => !isCliProvider(p));
+    const usable = s.providers.filter(
+      (p) => hostLimitation({ kind: "provider", provider: p, surface: "ask-ai" }) === undefined,
+    );
     return (
       usable.find((p) => p.id === providerId) ?? usable.find((p) => p.isDefault) ?? usable[0]
     );
