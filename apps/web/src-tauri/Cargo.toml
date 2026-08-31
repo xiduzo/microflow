@@ -37,7 +37,7 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-http = "2"
 serialport = "4"
 midir = "0.10"
-tokio = { version = "1", features = ["sync", "rt", "macros", "time", "net"] }
+tokio = { version = "1", features = ["sync", "rt", "macros", "time", "net", "process", "io-util"] }
 mqtt-endpoint-tokio = { version = "0.6", default-features = false, features = ["tls", "ws"] }
 uuid = { version = "1", features = ["v4"] }
 rand = "0.8"

@@ -10,24 +10,29 @@
 // module runs it there. The only host difference is {@link hostFetch} — see its
 // doc for why that is the entire CORS story.
 //
-// One wire protocol is supported: OpenAI chat-completions. That is not a
+// One HTTP wire protocol is supported: OpenAI chat-completions. That is not a
 // limitation in practice — OpenAI, OpenRouter, LM Studio, llama.cpp, vLLM and
-// Ollama (via its `/v1` shim, tool calls included) all speak it, which is why
-// the existing provider store only ever held a base URL and a key. A native
-// adapter for one of them would need its own client construction, and
-// `@tanstack/ai-ollama` in particular cannot take a custom `fetch` and pulls a
-// Node-targeted build into the web bundle. Revisit only if the shim's
-// tool-calling proves inadequate for Ask AI on small local models.
+// Ollama all speak it, which is why the existing provider store only ever held
+// a base URL and a key. A native adapter for one of them would need its own
+// client construction, and `@tanstack/ai-ollama` in particular cannot take a
+// custom `fetch` and pulls a Node-targeted build into the web bundle.
+//
+// What a small local model does need is `tool-call-recovery.ts`, wrapped around
+// the transport below: the wire format is right, the model's use of it is not.
 
 import { OpenAIChatCompletionsTextAdapter } from "@tanstack/ai-openai";
 import type { AnyTextAdapter } from "@tanstack/ai";
 
 import { hostFetch, normalizeBaseUrl } from "./endpoint";
+import { recoverTextToolCalls } from "./tool-call-recovery";
 
 export { hostFetch, normalizeBaseUrl, resetHostFetch } from "./endpoint";
 
 /** The connection half of an `LlmProviderConfig` — what a request needs. */
 export type LlmProviderConn = {
+  /** `"cli"` routes to a local agent CLI instead of an HTTP endpoint; absent
+   *  means `"http"`, which is every configuration saved before CLIs existed. */
+  kind?: "http" | "cli";
   baseUrl: string;
   apiKey: string;
 };
@@ -49,7 +54,20 @@ export async function adapterFor(
   provider: LlmProviderConn,
   model: string,
 ): Promise<AnyTextAdapter> {
-  const fetchImpl = await hostFetch();
+  // A local CLI is a subprocess, not an endpoint — a different transport
+  // entirely, so it gets its own adapter rather than a branch inside this one.
+  // Loaded on demand so the web build never pulls it in.
+  if (provider.kind === "cli") {
+    const { cliAdapterFor } = await import("./cli-adapter");
+    const adapter = cliAdapterFor(provider.baseUrl, model);
+    if (!adapter) throw new Error(`${provider.baseUrl} is not a supported local CLI`);
+    return adapter;
+  }
+
+  // Wrapped so a tool call the model typed out as text still runs — the
+  // difference between Ask AI editing the flow and only describing it on a
+  // small local model. See `tool-call-recovery.ts`.
+  const fetchImpl = recoverTextToolCalls(await hostFetch());
 
   return new OpenAIChatCompletionsTextAdapter(
     {

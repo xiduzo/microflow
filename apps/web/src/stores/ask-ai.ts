@@ -22,14 +22,18 @@ type AskAiStore = {
   /** How the assistant's edits reach the flow. Persisted: it is a standing
    *  preference about trust, not a per-conversation choice. */
   writeMode: WriteMode;
-  /** The model to talk to. Providers have no single canonical model and the
-   *  same one is rarely right for two of them, so it is remembered per user
-   *  alongside the provider list. */
-  model: string;
+  /** Which saved LLM configuration (Configuration → LLM) answers. Empty means
+   *  "the default one", so a fresh install works without a choice being made. */
+  providerId: string;
+  /** Node ids currently selected on the canvas. Not persisted: it is where the
+   *  user is looking right now, and it scopes the flow context Ask AI is given
+   *  so "wire these two up" means the two that are highlighted. */
+  selectedNodeIds: string[];
   setOpen: (open: boolean) => void;
   toggle: () => void;
   setWriteMode: (mode: WriteMode) => void;
-  setModel: (model: string) => void;
+  setProviderId: (providerId: string) => void;
+  setSelectedNodeIds: (selectedNodeIds: string[]) => void;
 };
 
 export const useAskAiStore = create<AskAiStore>()(
@@ -37,17 +41,22 @@ export const useAskAiStore = create<AskAiStore>()(
     (set) => ({
       open: false,
       writeMode: "auto",
-      model: "",
+      providerId: "",
+      selectedNodeIds: [],
       setOpen: (open) => set({ open }),
       toggle: () => set((s) => ({ open: !s.open })),
       setWriteMode: (writeMode) => set({ writeMode }),
-      setModel: (model) => set({ model }),
+      setProviderId: (providerId) => set({ providerId }),
+      setSelectedNodeIds: (selectedNodeIds) => set({ selectedNodeIds }),
     }),
     {
       name: "microflow-ask-ai",
       // `open` is deliberately not persisted: the panel should not reappear on a
       // flow you opened to look at.
-      partialize: (s) => ({ writeMode: s.writeMode, model: s.model }),
+      partialize: (s) => ({
+        writeMode: s.writeMode,
+        providerId: s.providerId,
+      }),
     },
   ),
 );

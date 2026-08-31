@@ -140,8 +140,32 @@ type GenerateSketch = {
   credentials?: Credentials;
 };
 
+// Local agent CLIs as an LLM provider (desktop only) — see
+// `lib/ai/cli-providers.ts` for why these cannot go over the HTTP transport.
+// `bin` is checked against an allowlist in Rust; `args` never reaches a shell.
+type LlmCliGenerate = {
+  type: "llm_cli_generate";
+  bin: string;
+  args: string[];
+  prompt: string;
+};
+
+type LlmCliProbe = {
+  type: "llm_cli_probe";
+  bin: string;
+};
+
+type LlmCliModels = {
+  type: "llm_cli_models";
+  bin: string;
+  args: string[];
+};
+
 type Command =
   | Flow
+  | LlmCliGenerate
+  | LlmCliProbe
+  | LlmCliModels
   | MqttConnect
   | MqttDisconnect
   | MqttSubscribe

@@ -6,16 +6,20 @@
 // transport the Llm node uses. If a prompt answers here, the node will answer.
 import { createFileRoute } from "@tanstack/react-router";
 import { BotIcon, MessageSquareIcon, PlusIcon } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useLlmProviderStore, type LlmProviderConfig } from "@/stores/llm-provider";
 import { track } from "@/lib/analytics";
 import { invokeCommand } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { probeLlmProvider } from "@/session/browser-cloud-probe";
+import { fetchModels, KNOWN_MODELS, providerFamily, providerModel } from "@/lib/ai/models";
+import { CLI_PROVIDERS, isCliProvider as isCli } from "@/lib/ai/cli-providers";
+import { ProviderBadge } from "@/components/flow/nodes/_base/desktop-only-badge";
 import {
   ConnectionConsole,
   ConsoleChip,
+  ConsoleCombo,
   ConsoleField,
   appendLine,
   type ConnectionStatusTone,
@@ -40,30 +44,50 @@ const COMMANDS: ConsoleCommand[] = [
   { name: "?", help: "List every command", insert: "?" },
 ];
 
-const PRESETS: Array<ConsolePreset & { defaults: { name: string; baseUrl: string; apiKey: string } }> = [
+const PRESETS: Array<ConsolePreset & { defaults: Omit<LlmProviderConfig, "id" | "isDefault"> }> = [
   {
     id: "ollama",
     title: "Ollama",
     blurb: "Runs on your machine. No key, no bill, desktop app only.",
-    defaults: { name: "Ollama", baseUrl: "http://localhost:11434", apiKey: "" },
+    defaults: { kind: "http", name: "Ollama", baseUrl: "http://localhost:11434", apiKey: "", model: "llama3.2" },
   },
   {
     id: "openrouter",
     title: "OpenRouter",
     blurb: "One key, hundreds of models. Works on web and desktop.",
-    defaults: { name: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", apiKey: "" },
+    defaults: {
+      kind: "http",
+      name: "OpenRouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "",
+      model: "openai/gpt-4o-mini",
+    },
   },
   {
     id: "openai",
     title: "OpenAI",
     blurb: "GPT models from the source. Bring your own key.",
-    defaults: { name: "OpenAI", baseUrl: "https://api.openai.com/v1", apiKey: "" },
+    defaults: { kind: "http", name: "OpenAI", baseUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
   },
+  // Local agent CLIs. They run as a subprocess, so they are desktop-only and
+  // the list is filtered below rather than offered on the web and then failing.
+  ...CLI_PROVIDERS.map((cli) => ({
+    id: cli.id,
+    title: cli.title,
+    blurb: cli.blurb,
+    defaults: {
+      kind: "cli" as const,
+      name: cli.title,
+      baseUrl: cli.id,
+      apiKey: "",
+      model: cli.defaultModel,
+    },
+  })),
   {
     id: "custom",
     title: "Custom endpoint",
     blurb: "Anything that speaks the OpenAI API.",
-    defaults: { name: "Custom endpoint", baseUrl: "", apiKey: "" },
+    defaults: { kind: "http", name: "Custom endpoint", baseUrl: "", apiKey: "", model: "" },
   },
 ];
 
@@ -77,34 +101,6 @@ function mixedContent(baseUrl: string): boolean {
   );
 }
 
-// Coarse provider family from the base URL — keeps analytics low-cardinality
-// (never the URL itself, which can identify a user's private endpoint).
-function providerFamily(baseUrl: string): string {
-  const url = baseUrl.toLowerCase();
-  if (url.includes("localhost:11434") || url.includes("ollama")) return "ollama";
-  if (url.includes("openrouter.ai")) return "openrouter";
-  if (url.includes("api.openai.com")) return "openai";
-  return "other";
-}
-
-/** Models worth offering as completions per family. The first is the default. */
-const KNOWN_MODELS: Record<string, string[]> = {
-  ollama: ["llama3.2", "llama3.1", "mistral", "qwen2.5", "phi3"],
-  openrouter: [
-    "openai/gpt-4o-mini",
-    "anthropic/claude-3.5-sonnet",
-    "google/gemini-flash-1.5",
-    "meta-llama/llama-3.1-70b-instruct",
-  ],
-  openai: ["gpt-4o-mini", "gpt-4o", "o3-mini"],
-  other: [],
-};
-
-/** A sane first model per family, so `ask` works without a `model` command. */
-function defaultModel(baseUrl: string): string {
-  return KNOWN_MODELS[providerFamily(baseUrl)]?.[0] ?? "gpt-4o-mini";
-}
-
 function statusTone(status: string | undefined): ConnectionStatusTone {
   if (status === "ok") return "ok";
   if (status === "testing") return "busy";
@@ -112,9 +108,10 @@ function statusTone(status: string | undefined): ConnectionStatusTone {
   return "idle";
 }
 
-/** Console-only settings: the Llm node carries its own model, so these are not
- *  worth persisting — they exist to make the next `ask` do what you meant. */
-type ConsoleSettings = { model: string; system: string };
+/** Console-only setting: a scratch system prompt for the next `ask`. The model
+ *  is not here — it belongs to the configuration, so everything that uses this
+ *  provider uses the same one. */
+type ConsoleSettings = { system: string };
 
 function LlmConfigPage() {
   const providers = useLlmProviderStore((state) => state.providers);
@@ -131,8 +128,36 @@ function LlmConfigPage() {
   const [lines, setLines] = useState<ConsoleLine[]>([]);
   const [settings, setSettings] = useState<Record<string, ConsoleSettings>>({});
 
+  // What the selected provider says it can run, asked once per provider and
+  // kept for the session. Keyed by provider id rather than held as one list so
+  // switching back to a provider does not re-ask, and so a slow endpoint never
+  // shows its answer under a different provider.
+  const [catalogue, setCatalogue] = useState<Record<string, string[]>>({});
+
   const provider = providers.find((entry) => entry.id === selectedId);
-  const current = settings[selectedId] ?? { model: defaultModel(provider?.baseUrl ?? ""), system: "" };
+  const current = settings[selectedId] ?? { system: "" };
+  const model = provider ? providerModel(provider) : "";
+
+  // Ask the provider for its models when it is selected, and again whenever the
+  // endpoint or key changes — those are exactly the edits that change the
+  // answer. Ignores a response that lands after the user moved on.
+  const endpoint = provider ? `${provider.baseUrl}|${provider.apiKey}` : "";
+  useEffect(() => {
+    if (!provider) return;
+    let current = true;
+    const { id, kind, baseUrl, apiKey } = provider;
+    void fetchModels({ kind, baseUrl, apiKey }).then((models) => {
+      if (current) setCatalogue((previous) => ({ ...previous, [id]: models }));
+    });
+    return () => {
+      current = false;
+    };
+    // `endpoint` is the identity that matters here; `provider` is a fresh object
+    // on every store write (including the model edits this must not re-run for).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, endpoint]);
+
+  const models = catalogue[selectedId] ?? [];
 
   const push = (line: Omit<ConsoleLine, "at">) => setLines((previous) => appendLine(previous, line));
   const patch = (values: Partial<ConsoleSettings>) =>
@@ -156,26 +181,36 @@ function LlmConfigPage() {
 
   const test = async (entry: LlmProviderConfig) => {
     setStatus(entry.id, "testing");
-    push({ kind: "sys", text: `probing ${entry.baseUrl}…` });
+    push({
+      kind: "sys",
+      text: isCli(entry) ? `looking for the ${entry.baseUrl} CLI…` : `probing ${entry.baseUrl}…`,
+    });
 
     // One probe, both hosts (ADR-0021) — it runs over the same `hostFetch` a
     // generation does, so "reachable" here means the Llm node will answer.
     // `browserBlocker` still explains the failures only a browser can have
     // (mixed content, CORS); on desktop it returns nothing to add.
     const ok = (await probeLlmProvider(entry)) === "ok";
-    const result = { success: ok, error: browserBlocker(entry.baseUrl) };
+    const result = {
+      success: ok,
+      error: isCli(entry)
+        ? isDesktop()
+          ? `${entry.baseUrl} was not found on this machine — install it, or check it is on your PATH.`
+          : `${entry.baseUrl} runs as a program on your computer, which a browser tab cannot start. Use Microflow Studio, the desktop app.`
+        : browserBlocker(entry.baseUrl),
+    };
 
     track("llm_provider_tested", { family: providerFamily(entry.baseUrl), ok: result.success });
     setStatus(entry.id, result.success ? "ok" : "error");
     push(
       result.success
-        ? { kind: "sys", text: "reachable" }
+        ? { kind: "sys", text: isCli(entry) ? "installed" : "reachable" }
         : { kind: "err", text: (result as { error: string }).error },
     );
   };
 
   const ask = async (entry: LlmProviderConfig, prompt: string) => {
-    push({ kind: "out", label: current.model, text: prompt });
+    push({ kind: "out", label: model, text: prompt });
     setStatus(entry.id, "testing");
     try {
       // Loaded on demand: this console is the only reason a user who never
@@ -183,11 +218,11 @@ function LlmConfigPage() {
       // typing `ask`.
       const { performLlmGenerate } = await import("@/lib/firmata/cloud/llm-client");
       const text = await performLlmGenerate(
-        { baseUrl: entry.baseUrl, apiKey: entry.apiKey },
-        { model: current.model, system: current.system || null, prompt },
+        { kind: entry.kind, baseUrl: entry.baseUrl, apiKey: entry.apiKey },
+        { model, system: current.system || null, prompt },
       );
       setStatus(entry.id, "ok");
-      push({ kind: "in", label: current.model, text });
+      push({ kind: "in", label: model, text });
     } catch (error) {
       setStatus(entry.id, "error");
       push({ kind: "err", text: error instanceof Error ? error.message : String(error) });
@@ -205,8 +240,8 @@ function LlmConfigPage() {
         return ask(provider, prompt);
       }
       case "model":
-        if (parsed.rest === "") return push({ kind: "sys", text: `model is ${current.model}` });
-        patch({ model: parsed.rest });
+        if (parsed.rest === "") return push({ kind: "sys", text: `model is ${model}` });
+        updateProvider(provider.id, { model: parsed.rest });
         return push({ kind: "sys", text: `model set to ${parsed.rest}` });
       case "system":
         patch({ system: parsed.rest });
@@ -226,16 +261,23 @@ function LlmConfigPage() {
   };
 
   const commands = useMemo<ConsoleCommand[]>(() => {
-    const models = [
-      ...new Set([current.model, ...(KNOWN_MODELS[providerFamily(provider?.baseUrl ?? "")] ?? [])]),
-    ];
+    // The live catalogue first, the hardcoded guess only to keep completions
+    // useful while a listing is still in flight or the endpoint is down.
+    const options = [
+      ...new Set([
+        model,
+        ...models,
+        ...(KNOWN_MODELS[providerFamily(provider?.baseUrl ?? "")] ?? []),
+      ]),
+    ].filter(Boolean);
     return COMMANDS.map((command) =>
-      command.name === "model" ? { ...command, values: () => models } : command,
+      command.name === "model" ? { ...command, values: () => options } : command,
     );
-  }, [current.model, provider?.baseUrl]);
+  }, [model, models, provider?.baseUrl]);
 
   const add = (presetId?: string) => {
-    const preset = PRESETS.find((entry) => entry.id === presetId) ?? PRESETS[PRESETS.length - 1];
+    const preset =
+      PRESETS.find((entry) => entry.id === presetId) ?? PRESETS[PRESETS.length - 1];
     const id = addProvider({ ...preset.defaults, isDefault: providers.length === 0 });
     if (preset.defaults.baseUrl !== "") {
       tracked.current.add(id);
@@ -250,14 +292,20 @@ function LlmConfigPage() {
       connections={providers.map((entry) => ({
         id: entry.id,
         name: entry.name,
-        subtitle: entry.baseUrl,
+        subtitle: isCli(entry) ? `${entry.baseUrl} · local CLI` : entry.baseUrl,
+        badge: <ProviderBadge provider={entry} surface="config" />,
         isDefault: entry.isDefault,
         status: statusTone(statuses[entry.id]),
       }))}
       selectedId={selectedId}
       onSelect={select}
       addLabel="provider"
-      presets={PRESETS.map(({ id, title, blurb }) => ({ id, title, blurb }))}
+      presets={PRESETS.map(({ id, title, blurb, defaults }) => ({
+        id,
+        title,
+        blurb,
+        badge: <ProviderBadge provider={defaults} surface="config" />,
+      }))}
       onAdd={add}
       lines={lines}
       onClear={() => setLines([])}
@@ -290,14 +338,17 @@ function LlmConfigPage() {
       chips={
         provider ? (
           <>
-            <ConsoleChip>model: {current.model}</ConsoleChip>
+            <ConsoleChip>model: {model}</ConsoleChip>
             {current.system && (
               <ConsoleChip onRemove={() => patch({ system: "" })} removeLabel="Clear system prompt">
                 system prompt
               </ConsoleChip>
             )}
-            {!provider.apiKey && providerFamily(provider.baseUrl) !== "ollama" && (
-              <ConsoleChip>no API key</ConsoleChip>
+            {isCli(provider) ? (
+              <ConsoleChip>local CLI</ConsoleChip>
+            ) : (
+              !provider.apiKey &&
+              providerFamily(provider.baseUrl) !== "ollama" && <ConsoleChip>no API key</ConsoleChip>
             )}
           </>
         ) : null
@@ -310,27 +361,50 @@ function LlmConfigPage() {
               value={provider.name}
               onChange={(event) => updateProvider(provider.id, { name: event.target.value })}
             />
-            <ConsoleField
-              label="Base URL"
-              value={provider.baseUrl}
-              placeholder="http://localhost:11434"
-              tone={mixedContent(provider.baseUrl) ? "warning" : undefined}
-              hint={isDesktop() ? undefined : browserHint(provider.baseUrl)}
-              onChange={(event) => updateProvider(provider.id, { baseUrl: event.target.value })}
-              onBlur={() => trackConfigured(provider)}
-            />
-            <ConsoleField
-              label="API key"
-              type="password"
-              value={provider.apiKey}
-              placeholder="sk-…"
-              onChange={(event) => updateProvider(provider.id, { apiKey: event.target.value })}
-            />
-            <ConsoleField
+            {isCli(provider) ? (
+              <ConsoleField
+                label="CLI"
+                value={provider.baseUrl}
+                readOnly
+                hint="Runs the CLI installed on this machine, signed in as you — no endpoint and no API key. Its own tools stay out of your flow; it only answers."
+              />
+            ) : (
+              <>
+                <ConsoleField
+                  label="Base URL"
+                  value={provider.baseUrl}
+                  placeholder="http://localhost:11434"
+                  tone={mixedContent(provider.baseUrl) ? "warning" : undefined}
+                  hint={isDesktop() ? undefined : browserHint(provider.baseUrl)}
+                  onChange={(event) => updateProvider(provider.id, { baseUrl: event.target.value })}
+                  onBlur={() => trackConfigured(provider)}
+                />
+                <ConsoleField
+                  label="API key"
+                  type="password"
+                  value={provider.apiKey}
+                  placeholder="sk-…"
+                  onChange={(event) => updateProvider(provider.id, { apiKey: event.target.value })}
+                />
+              </>
+            )}
+            <ConsoleCombo
               label="Model"
-              value={current.model}
-              hint="Used by ask on this page. Each Llm node picks its own."
-              onChange={(event) => patch({ model: event.target.value })}
+              // Bound to what is *stored*, not to `model` — which is the
+              // resolved value and falls back when the field is empty. An empty
+              // store value is a real choice (a CLI runs its own default), so
+              // the combo offers it back as "use the default" rather than
+              // writing the resolved name in as if the user had picked it.
+              value={provider.model ?? ""}
+              options={models}
+              fallback={model || "the CLI's own default"}
+              placeholder={isCli(provider) ? (model ?? "the CLI's own default") : model}
+              hint={
+                models.length > 0
+                  ? `Used by ask here and by Ask AI. Each Llm node still picks its own. ${models.length} available, or type any other.`
+                  : "Used by ask here and by Ask AI. Each Llm node still picks its own."
+              }
+              onValueChange={(next) => updateProvider(provider.id, { model: next })}
             />
             <ConsoleField
               label="System prompt"

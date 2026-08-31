@@ -16,9 +16,12 @@ import { chat, EventType, maxIterations } from "@tanstack/ai";
 import type { FlowDocument } from "@microflow/collab";
 
 import { adapterFor } from "./adapter";
-import { askAiSystemPrompt } from "./catalog-prompt";
+import { askAiSystemPrompt, currentFlowPrompt } from "./catalog-prompt";
 import { applyChanges, createFlowTools, type PendingChange, type WriteMode } from "./flow-tools";
 import { useLlmProviderStore } from "@/stores/llm-provider";
+import { useAskAiStore } from "@/stores/ask-ai";
+import { providerModel } from "./models";
+import { isCliProvider } from "./cli-providers";
 import { uid } from "@/lib/uid";
 
 /** A turn in the transcript. `tools` names what ran during an assistant turn, so
@@ -41,13 +44,25 @@ export type AskAiMessage = {
  */
 const MAX_ITERATIONS = 12;
 
-export function useAskAi(doc: FlowDocument, writeMode: WriteMode, model: string) {
+export function useAskAi(doc: FlowDocument, writeMode: WriteMode, providerId: string) {
   const [messages, setMessages] = useState<AskAiMessage[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingChange[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
-  const provider = useLlmProviderStore((s) => s.providers.find((p) => p.isDefault) ?? s.providers[0]);
+  // A configuration that was picked and then deleted falls back rather than
+  // failing: the panel would otherwise stay dead until the user noticed why.
+  //
+  // Local CLI providers are excluded here and from the picker: they cannot call
+  // our flow tools (see `isCliProvider`), so an Ask AI turn against one answers
+  // in prose and silently changes nothing. Better no provider — which the panel
+  // says out loud — than one that looks like it worked.
+  const provider = useLlmProviderStore((s) => {
+    const usable = s.providers.filter((p) => !isCliProvider(p));
+    return (
+      usable.find((p) => p.id === providerId) ?? usable.find((p) => p.isDefault) ?? usable[0]
+    );
+  });
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -117,10 +132,15 @@ export function useAskAi(doc: FlowDocument, writeMode: WriteMode, model: string)
       };
 
       try {
-        const adapter = await adapterFor(provider, model);
+        const adapter = await adapterFor(provider, providerModel(provider));
         const stream = chat({
           adapter,
-          systemPrompts: [askAiSystemPrompt(writeMode !== "read-only")],
+          systemPrompts: [
+            askAiSystemPrompt(writeMode !== "read-only"),
+            // Read at send time rather than subscribed to: selection changes on
+            // every click, and only its value at the moment of asking matters.
+            currentFlowPrompt(doc, useAskAiStore.getState().selectedNodeIds),
+          ],
           messages: [
             ...history.map((m) => ({ role: m.role, content: m.content })),
             { role: "user" as const, content: prompt },
@@ -164,7 +184,7 @@ export function useAskAi(doc: FlowDocument, writeMode: WriteMode, model: string)
         setBusy(false);
       }
     },
-    [busy, doc, messages, model, provider, writeMode],
+    [busy, doc, messages, provider, writeMode],
   );
 
   return useMemo(

@@ -4,29 +4,45 @@
 // about it — a node appearing where you can see it is most of the feedback this
 // feature owes you, so a route that hides the canvas would throw that away.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BotMessageSquareIcon, CheckIcon, SquareIcon, XIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/states/empty-state";
 import { useFlowSession } from "@/session";
 import { useAskAi, type AskAiMessage } from "@/lib/ai/use-ask-ai";
 import { useAskAiStore, WRITE_MODES } from "@/stores/ask-ai";
+import { useLlmProviderStore } from "@/stores/llm-provider";
+import { providerModel } from "@/lib/ai/models";
+import { isCliProvider } from "@/lib/ai/cli-providers";
+import { ProviderBadge } from "@/components/flow/nodes/_base/desktop-only-badge";
 import { cn } from "@/lib/utils";
 
 export function AskAiPanel() {
   const { doc, readOnly } = useFlowSession();
-  const { setOpen, writeMode, setWriteMode, model, setModel } = useAskAiStore();
+  const { setOpen, writeMode, setWriteMode, providerId, setProviderId } = useAskAiStore();
+  // CLI providers cannot drive the flow tools this panel exists for, so they
+  // cannot be *chosen* here — but they are still listed, disabled and badged,
+  // rather than hidden: a provider that silently vanishes from one surface
+  // reads as a bug, where a greyed row with a tooltip explains itself.
+  // `useAskAi` does the same exclusion when resolving the active one.
+  const providers = useLlmProviderStore((s) => s.providers);
   // A flow you cannot edit is a flow the assistant cannot edit either — the
   // document would reject the write anyway, so the tools should not be offered.
   const effectiveMode = readOnly ? "read-only" : writeMode;
 
   const { messages, busy, pending, provider, send, stop, reset, acceptPending, rejectPending } =
-    useAskAi(doc, effectiveMode, model);
+    useAskAi(doc, effectiveMode, providerId);
 
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
@@ -85,12 +101,29 @@ export function AskAiPanel() {
             ? "This flow is read-only, so the assistant can only look and explain."
             : WRITE_MODES.find((m) => m.value === effectiveMode)?.hint}
         </p>
-        <Input
-          value={model}
-          onChange={(event) => setModel(event.target.value)}
-          placeholder="Model, e.g. llama3.2 or gpt-4o-mini"
-          className="h-7 text-xs"
-        />
+        {/* Which saved LLM configuration answers. The model comes with it —
+            set once under Configuration → LLM, not restated per surface. */}
+        <Select value={provider?.id ?? ""} onValueChange={(value) => setProviderId(value ?? "")}>
+          <SelectTrigger size="sm" className="h-7 w-full text-xs">
+            <SelectValue placeholder="No LLM configuration">
+              {(value: string | null) => {
+                const selected = providers.find((p) => p.id === value);
+                return selected
+                  ? `${selected.name} · ${providerModel(selected)}`
+                  : "No LLM configuration";
+              }}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {providers.map((p) => (
+              <SelectItem key={p.id} value={p.id} className="text-xs" disabled={isCliProvider(p)}>
+                {p.name}
+                <span className="text-muted-foreground ml-1">{providerModel(p)}</span>
+                <ProviderBadge provider={p} surface="ask-ai" />
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3">

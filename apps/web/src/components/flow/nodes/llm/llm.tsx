@@ -11,6 +11,7 @@ import {
   type BaseNode,
 } from "../_base/_base";
 import { useLlmProviderStore } from "@/stores/llm-provider";
+import { ProviderBadge } from "../_base/desktop-only-badge";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useNodeValue, useNodeHandleValue } from "@/stores/node-data";
@@ -25,7 +26,7 @@ export function Llm(props: Props) {
   const error = !hasProviders ? "No LLM providers configured" : !provider ? "Select a provider" : undefined;
 
   return (
-    <NodeContainer {...props} error={error}>
+    <NodeContainer {...props} error={error} badge={<ProviderBadge provider={provider} surface="node" />}>
       <Value />
       <Settings />
       <Handle type="target" position="left" id="trigger" handleType="command" />
