@@ -173,3 +173,15 @@ New terms recorded in `CONTEXT.md`:
 - `apps/web/src/lib/firmata/__tests__/runtime-bridge.test.ts` — containment, poisoning, and that a throwing runtime does not close the board.
 - [ADR-0006](0006-rehost-runtime-on-core.md) — the sans-IO runtime this hosts.
 - [ADR-0008](0008-effects-apply-policy.md) — the apply policy that runs after a successful crossing.
+
+---
+
+**Amendment (2026-08-31):** the first negative consequence is resolved.
+`RuntimeBridge` now exposes one typed entry point per runtime op
+(`updateFlow`, `wake`, `feedBytes`, `dispatch`, `injectEvent`,
+`deliverMessage`, `reconcileSubscriptions`, `midiListeners`, `setPins`),
+each owning the op name, the JSON encode of its arguments and the decode of
+its reply into the ts-rs binding types; `call()` is the private core behind
+them, so call sites read as `bridge.updateFlow(flow, now)` rather than
+`bridge.call("op", node, fn)`. A reply the host cannot decode classifies as
+`badInput`. The seam and the fault taxonomy are unchanged.
