@@ -1,4 +1,4 @@
-import { useReactFlow } from "@xyflow/react";
+import { useReactFlow, useStoreApi, type XYPosition } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { NODE_REGISTRY } from "../nodes/_REGISTRY";
@@ -253,6 +253,7 @@ export function NewNodeDialog() {
 function useDraggableNewNode() {
   const { nodeToAdd, setNodeToAdd } = useNewNodeStore();
   const { screenToFlowPosition, getZoom } = useReactFlow();
+  const store = useStoreApi();
   const { doc } = useFlowSession();
   const removeNode = useCallback((id: string) => doc.removeNode(id), [doc]);
   const updateNode = useCallback(
@@ -260,25 +261,37 @@ function useDraggableNewNode() {
     [doc],
   );
 
+  // The placement position lives here — not in the Y.Doc — until commit.
+  const placedPosition = useRef<XYPosition | null>(null);
+
+  const addNode = useCallback(() => {
+    if (!nodeToAdd) return;
+    const position = placedPosition.current;
+    // One document write for the whole placement: the final position and the
+    // deselect land in a single transaction, so undo sees one entry.
+    updateNode(nodeToAdd, position ? { position, selected: false } : { selected: false });
+    placedPosition.current = null;
+    setNodeToAdd(null);
+  }, [nodeToAdd, updateNode, setNodeToAdd]);
+
+  const cancelNode = useCallback(() => {
+    if (!nodeToAdd) return;
+    removeNode(nodeToAdd);
+    placedPosition.current = null;
+    setNodeToAdd(null);
+  }, [nodeToAdd, removeNode, setNodeToAdd]);
+
   // Handle Escape/Backspace to cancel node placement
   useHotkeys(
     [
       {
         hotkey: "Escape",
-        callback: () => {
-          if (!nodeToAdd) return;
-          removeNode(nodeToAdd);
-          setNodeToAdd(null);
-        },
+        callback: cancelNode,
         options: { enabled: !!nodeToAdd, ignoreInputs: true },
       },
       {
         hotkey: "Backspace",
-        callback: () => {
-          if (!nodeToAdd) return;
-          removeNode(nodeToAdd);
-          setNodeToAdd(null);
-        },
+        callback: cancelNode,
         options: { enabled: !!nodeToAdd, ignoreInputs: true },
       },
     ],
@@ -286,11 +299,7 @@ function useDraggableNewNode() {
 
   useHotkey(
     "Enter",
-    () => {
-      if (!nodeToAdd) return;
-      updateNode(nodeToAdd, { selected: false });
-      setNodeToAdd(null);
-    },
+    addNode,
     {
       enabled: !!nodeToAdd,
       ignoreInputs: true,
@@ -298,26 +307,32 @@ function useDraggableNewNode() {
     }
   );
 
-  const addNode = useCallback(() => {
-    if (!nodeToAdd) return;
-    console.log("addNode", nodeToAdd);
-    updateNode(nodeToAdd, { selected: false });
-    setNodeToAdd(null);
-  }, [nodeToAdd, updateNode, setNodeToAdd]);
-
   // Handle mouse interactions for dragging and placing
   useEffect(() => {
     if (!nodeToAdd) return;
+    const id = nodeToAdd;
+    let frame: number | null = null;
+    let pointer: { x: number; y: number } | null = null;
+
+    // Placement is a drag: positions are ephemeral, coalesced to one per
+    // animation frame, and never written to the Y.Doc mid-move (ADR-0004).
+    // Routing through `onNodesChange` with `dragging: true` is exactly the
+    // path `ReactFlowBridge` classifies as ephemeral.
+    function flush() {
+      frame = null;
+      if (!pointer) return;
+      const zoom = getZoom();
+      const position = screenToFlowPosition({
+        x: pointer.x - (NODE_SIZE.width / 2) * zoom,
+        y: pointer.y - (NODE_SIZE.height / 2) * zoom,
+      });
+      placedPosition.current = position;
+      store.getState().onNodesChange?.([{ id, type: "position", position, dragging: true }]);
+    }
 
     function handleMouseMove(event: MouseEvent) {
-      if (!nodeToAdd) return;
-      const zoom = getZoom();
-      updateNode(nodeToAdd, {
-        position: screenToFlowPosition({
-          x: event.clientX - (NODE_SIZE.width / 2) * zoom,
-          y: event.clientY - (NODE_SIZE.height / 2) * zoom,
-        }),
-      });
+      pointer = { x: event.clientX, y: event.clientY };
+      if (frame === null) frame = requestAnimationFrame(flush);
     }
 
     // Defer registration so the click that triggered node selection doesn't
@@ -332,6 +347,7 @@ function useDraggableNewNode() {
 
     return () => {
       clearTimeout(timeoutId);
+      if (frame !== null) cancelAnimationFrame(frame);
       if (registered) {
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mousedown", addNode);
@@ -341,7 +357,7 @@ function useDraggableNewNode() {
   }, [
     nodeToAdd,
     getZoom,
-    updateNode,
+    store,
     screenToFlowPosition,
     setNodeToAdd,
     addNode,

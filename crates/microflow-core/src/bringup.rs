@@ -13,10 +13,12 @@
 //! it to the browser.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// What happened in the host, fed into [`BringUp::handle`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[ts(export, rename = "BringUpEvent", tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Event {
     /// A candidate port is ready to bring up (user gesture, load scan, plug-in
     /// event, or the desktop poll finding a new port).
@@ -50,8 +52,9 @@ pub enum Event {
 
 /// UI-facing bring-up phase. Hosts map this onto their `BoardState` payload
 /// (the desktop fills in port/pins/firmware from its probe result).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[ts(export, rename = "BringUpPhase", tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Phase {
     Disconnected,
     Connecting,
@@ -63,8 +66,9 @@ pub enum Phase {
 }
 
 /// What the host must do next, in order.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[ts(export, rename = "BringUpAction", tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Action {
     /// Run the Firmata probe/handshake on the attempt's port, then feed back
     /// `ProbeOk` / `ProbeFailed`. `after_flash: true` ⇒ the board just got

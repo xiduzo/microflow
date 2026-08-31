@@ -6,11 +6,11 @@ import {
   useCloudSession,
   useFlowSession,
   useFlowUpdateDispatcher,
-  useFlowNodes,
   useLocalSession,
   type FlowRole,
   type FlowSession,
 } from "@/session";
+import { useFlowStructuralNodes } from "@/session/use-flow-nodes";
 import { usePins, type Pin } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
 import { useNodeDiagnostics } from "@/hooks/use-node-diagnostics";
@@ -50,7 +50,10 @@ function FlowEventListeners() {
  */
 function CircuitBuildListener() {
   const { doc } = useFlowSession();
-  const nodes = useFlowNodes(doc);
+  // Structural identity: a netlist is a function of which Nodes exist and how
+  // they are configured, never of where they sit on the canvas, so dragging a
+  // Node must not rebuild the circuit in the tscircuit worker.
+  const nodes = useFlowStructuralNodes(doc);
   const pins = usePins();
   const buildCircuit = useCircuitStore((s) => s.buildCircuit);
 
@@ -61,6 +64,9 @@ function CircuitBuildListener() {
     { wait: 1000 },
   );
 
+  // `maybeExecute` is an instance-bound field on the Debouncer, so its
+  // reference is stable for the lifetime of the component even though
+  // `useDebouncer` hands back a fresh wrapper object each render.
   useEffect(() => {
     debouncer.maybeExecute(nodes, pins);
   }, [nodes, pins, debouncer.maybeExecute]);

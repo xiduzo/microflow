@@ -5,7 +5,7 @@ import { Handle as BaseHandle } from "../../handle";
 const Handle = BaseHandle<"Monitor">;
 import { dataSchema, defaults, type Data, type Value } from "./monitor.schema";
 import { useNodeValue } from "@/stores/node-data";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 export function Monitor(props: Props) {
   return (
@@ -43,11 +43,22 @@ function Value() {
     ref.current = value;
   }, [value]);
 
+  // Pretty-printed only when the value actually changes — never per render.
+  // Malformed JSON falls back to the raw string instead of throwing.
+  const prettyJson = useMemo(() => {
+    if (typeof value !== "string" || !value.startsWith("{")) return null;
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }, [value]);
+
   if (data.type === "raw") {
-    if (typeof value === "string" && value.startsWith("{")) {
+    if (prettyJson !== null) {
       return (
         <section className="text-xs text-muted-foreground text-start grow p-4 max-w-md">
-          <pre>{JSON.stringify(JSON.parse(value), null, 2)}</pre>
+          <pre>{prettyJson}</pre>
         </section>
       );
     }

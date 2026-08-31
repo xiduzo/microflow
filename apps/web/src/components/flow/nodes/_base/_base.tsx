@@ -1,6 +1,7 @@
 import { type Node, type NodeProps } from "@xyflow/react";
-import { type PropsWithChildren } from "react";
-import { NodeContainerContext, useNodeData } from "./node-context";
+import { type PropsWithChildren, useRef } from "react";
+import { shallow } from "zustand/shallow";
+import { NodeContainerContext, type NodeContainerProps, useNodeData } from "./node-context";
 import {
   CardAction,
   CardHeader,
@@ -122,35 +123,51 @@ function NodeDescription() {
   );
 }
 
+/**
+ * Every context consumer re-renders when the provider value changes identity, so
+ * the container must hand out the *same* object while the node props are
+ * shallow-equal — a fresh `props` object per render would wake every
+ * `useNodeData`/`useNodeId` consumer in the subtree on each parent render.
+ */
+function useStableNode(node: NodeContainerProps<Record<string, unknown>>) {
+  const ref = useRef(node);
+  if (!shallow(ref.current, node)) ref.current = node;
+  return ref.current;
+}
+
 export function NodeContainer(
   props: PropsWithChildren &
     BaseNode & { error?: string; warning?: string } & { className?: string },
 ) {
+  // `children` is a new element every render and the presentational props are
+  // not part of the context shape — neither belongs in the provider value.
+  const { children, error, warning, className, ...rest } = props;
+  const value = useStableNode(rest);
+
   return (
-    <NodeContainerContext.Provider value={props}>
+    <NodeContainerContext.Provider value={value}>
       <Card
         className={node({
-          className: props.className,
-          draggable: props.draggable,
-          selected: props.selected,
-          hasError: !!props.error,
+          className,
+          draggable: rest.draggable,
+          selected: rest.selected,
+          hasError: !!error,
           // Error's red ring outranks the amber warning ring when both are set.
-          hasWarning: !!props.warning && !props.error,
+          hasWarning: !!warning && !error,
         })}
       >
-        <NodeHeader error={props.error} warning={props.warning} />
-        <CardContent className="min-h-32 flex justify-center items-center">
-          {props.children}
-        </CardContent>
+        <NodeHeader error={error} warning={warning} />
+        <CardContent className="min-h-32 flex justify-center items-center">{children}</CardContent>
       </Card>
     </NodeContainerContext.Provider>
   );
 }
 
 export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
-  return (
-    <NodeContainerContext.Provider value={props}>{props.children}</NodeContainerContext.Provider>
-  );
+  const { children, ...rest } = props;
+  const value = useStableNode(rest);
+
+  return <NodeContainerContext.Provider value={value}>{children}</NodeContainerContext.Provider>;
 }
 
 const node = cva(

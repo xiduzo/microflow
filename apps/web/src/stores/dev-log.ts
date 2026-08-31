@@ -15,13 +15,18 @@ export type DevLogEntry = {
 type RecordableLog = {
   level: DevLogLevel;
   source: string;
-  /** A thunk defers formatting until flush, so a message that the ring buffer
-   *  is about to drop is never built at all. See {@link useDevLogStore.record}. */
+  /**
+   * A thunk instead of a string keeps the message unformatted until the panel
+   * reads the row — the flow ingest records thousands of rows nobody looks at.
+   */
   message: string | (() => string);
 };
 
 /** Newest-first, bounded so the panel never grows without limit. */
 const MAX_ENTRIES = 1000;
+
+/** Records land here first and reach React in batches, not one commit each. */
+const FLUSH_INTERVAL_MS = 100;
 
 type DevLogState = {
   entries: DevLogEntry[];
@@ -34,79 +39,75 @@ type DevLogState = {
 // Monotonic suffix so two entries in the same millisecond still get unique ids.
 let counter = 0;
 
-/**
- * Records buffered since the last flush, oldest-first. Every flow event lands
- * here; only a flush touches React.
- */
-let pending: (RecordableLog & { timestamp: number; id: string })[] = [];
-let flushHandle: ReturnType<typeof setTimeout> | number | null = null;
+// Oldest-first; drained into `entries` (newest-first) by `flush`.
+let pending: DevLogEntry[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
-const scheduleFlush = (flush: () => void): void => {
-  if (flushHandle !== null) return;
-  flushHandle =
-    typeof requestAnimationFrame === "function"
-      ? requestAnimationFrame(() => {
-          flushHandle = null;
-          flush();
-        })
-      : setTimeout(() => {
-          flushHandle = null;
-          flush();
-        }, 16);
-};
+function entryOf(entry: RecordableLog): DevLogEntry {
+  counter += 1;
+  const timestamp = Date.now();
+  const base = {
+    id: `${timestamp}-${counter}`,
+    timestamp,
+    level: entry.level,
+    source: entry.source,
+  };
+
+  if (typeof entry.message === "string") return { ...base, message: entry.message };
+
+  const format = entry.message;
+  let formatted: string | undefined;
+  return Object.defineProperty(base, "message", {
+    enumerable: true,
+    get: () => (formatted ??= format()),
+  }) as DevLogEntry;
+}
+
+function flush() {
+  flushTimer = null;
+  if (pending.length === 0) return;
+
+  const batch = pending.reverse();
+  pending = [];
+  useDevLogStore.setState((state) => {
+    const entries = batch.concat(state.entries);
+    if (entries.length > MAX_ENTRIES) entries.length = MAX_ENTRIES;
+    return { entries };
+  });
+}
 
 export const useDevLogStore = create<DevLogState>((set, get) => ({
   entries: [],
   paused: false,
   /**
    * Buffer one record; the store's `entries` are republished at most once per
-   * frame.
+   * {@link FLUSH_INTERVAL_MS}.
    *
    * A running flow emits component events far faster than a human reads them —
    * a streaming sensor alone is hundreds a second — and each one used to
    * rebuild the whole (up to 1000-entry) array and wake every subscriber. Now a
-   * record is an array push, and one frame's worth of events costs one array
-   * rebuild and one re-render no matter how many arrived.
+   * record is an array push, and one flush interval's worth of events costs one
+   * array rebuild and one re-render no matter how many arrived.
    *
-   * `message` may be a thunk: it is only called for records that survive the
-   * `MAX_ENTRIES` cap, so a burst that overflows the buffer never pays to
-   * format the entries it is about to discard.
+   * `message` may be a thunk, and stays one: the row formats itself the first
+   * time something reads it, so records that overflow the buffer or are never
+   * scrolled into view never pay to be formatted at all.
    */
   record: (entry) => {
     if (get().paused) return;
-    counter += 1;
-    pending.push({ ...entry, timestamp: Date.now(), id: `${Date.now()}-${counter}` });
-    scheduleFlush(() => {
-      const batch = pending;
-      pending = [];
-      if (batch.length === 0) return;
-      set((state) => {
-        const entries: DevLogEntry[] = [];
-        // Newest-first: walk the batch backwards, then take from the previous
-        // entries only what still fits under the cap.
-        for (let i = batch.length - 1; i >= 0 && entries.length < MAX_ENTRIES; i -= 1) {
-          const item = batch[i];
-          entries.push({
-            id: item.id,
-            timestamp: item.timestamp,
-            level: item.level,
-            source: item.source,
-            message: typeof item.message === "function" ? item.message() : item.message,
-          });
-        }
-        for (let i = 0; i < state.entries.length && entries.length < MAX_ENTRIES; i += 1) {
-          entries.push(state.entries[i]);
-        }
-        return { entries };
-      });
-    });
+    pending.push(entryOf(entry));
+    if (pending.length > MAX_ENTRIES) pending.splice(0, pending.length - MAX_ENTRIES);
+    if (flushTimer === null) flushTimer = setTimeout(flush, FLUSH_INTERVAL_MS);
   },
   clear: () => {
     pending = [];
+    // Disarm too, so a record made right after a clear waits its own full
+    // interval rather than riding the previous batch's deadline.
+    if (flushTimer !== null) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
     set({ entries: [] });
   },
-  setPaused: (paused) => {
-    if (paused) pending = [];
-    set({ paused });
-  },
+  setPaused: (paused) => set({ paused }),
 }));

@@ -4,45 +4,100 @@ import {
   Handle as XyFlowHandle,
   type Edge,
   type Connection,
-  useEdges,
   useReactFlow,
   useNodeId,
+  useStore,
 } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
 import type { ComponentType, EmitOf, PortOf } from "./nodes/_base/_base.types";
+import {
+  HANDLE_SIZE,
+  HANDLE_SPACING,
+  HANDLE_SPACING_OFFSET,
+  HANDLE_TRANSLATE_OFFSET,
+  isHandleNearPointer,
+  subscribeToPointerProximity,
+  type HandlePosition,
+} from "./handle-proximity";
 
-const HANDLE_SIZE = 18;
-const HANDLE_TRANSLATE_OFFSET = HANDLE_SIZE * 0.9;
+/**
+ * Hover affordance: subscribe to the shared, frame-coalesced pointer source
+ * and read this handle's geometry from the ReactFlow store. No DOM
+ * measurement, one listener for the whole canvas.
+ */
+function useHandleProximity(
+  nodeId: string | null,
+  position: HandlePosition,
+  offset: number,
+): boolean {
+  const { getInternalNode, screenToFlowPosition, getZoom } = useReactFlow();
+  const [isNear, setIsNear] = useState(false);
 
-const HANDLE_SPACING_OFFSET = 14;
-const HANDLE_SPACING = HANDLE_SIZE * 1.5;
+  useEffect(() => {
+    if (!nodeId) return;
+    return subscribeToPointerProximity({
+      toFlow: screenToFlowPosition,
+      getZoom,
+      near: (pointerFlow, zoom) => {
+        const node = getInternalNode(nodeId);
+        if (!node) return false;
+        return isHandleNearPointer({
+          node: {
+            x: node.internals.positionAbsolute.x,
+            y: node.internals.positionAbsolute.y,
+            width: node.measured.width ?? 0,
+            height: node.measured.height ?? 0,
+          },
+          position,
+          offset,
+          pointer: pointerFlow,
+          zoom,
+        });
+      },
+      onChange: setIsNear,
+    });
+  }, [nodeId, position, offset, getInternalNode, screenToFlowPosition, getZoom]);
+
+  return isNear;
+}
 
 export function Handle<T extends ComponentType = ComponentType>(props: Props<T>) {
   const { position, handleType: _handleType, offset: _offset, hint: _hint, ...restProps } = props;
-  const edges = useEdges();
-  const ref = useRef<HTMLDivElement>(null);
-  const { getZoom } = useReactFlow();
-  const [showHandle, setShowHandle] = useState(false);
+  const { getEdges } = useReactFlow();
 
   const nodeId = useNodeId();
-  const selectedEdges = useMemo(() => {
-    return edges.filter(({ selected }) => selected);
-  }, [edges]);
-  const isHandleSelectedViaEdge = useMemo(() => {
-    return !!selectedEdges.find(
-      (edge) =>
-        (edge.target === nodeId && edge.targetHandle === props.id) ||
-        (edge.source === nodeId && edge.sourceHandle === props.id),
-    );
-  }, [selectedEdges, nodeId, props.id]);
+  const handleId = props.id;
 
-  const isConnectable = useMemo(() => {
-    return typeof props.isConnectable === "boolean"
-      ? props.isConnectable
-      : (props.isConnectable?.(edges) ?? true);
-  }, [props.isConnectable, edges]);
+  // Narrow subscriptions: both selectors return a boolean, so a handle
+  // re-renders only when its own answer flips — not when the edge array
+  // changes identity.
+  const isHandleSelectedViaEdge = useStore(
+    useCallback(
+      (state: { edges: Edge[] }) =>
+        state.edges.some(
+          (edge) =>
+            edge.selected &&
+            ((edge.target === nodeId && edge.targetHandle === handleId) ||
+              (edge.source === nodeId && edge.sourceHandle === handleId)),
+        ),
+      [nodeId, handleId],
+    ),
+  );
+
+  const isConnectableProp = props.isConnectable;
+  const isConnectable = useStore(
+    useCallback(
+      (state: { edges: Edge[] }) =>
+        typeof isConnectableProp === "boolean"
+          ? isConnectableProp
+          : (isConnectableProp?.(state.edges) ?? true),
+      [isConnectableProp],
+    ),
+  );
+
+  const showHandle = useHandleProximity(nodeId, position, props.offset ?? 0);
 
   const translate = useMemo(() => {
     switch (position) {
@@ -54,33 +109,6 @@ export function Handle<T extends ComponentType = ComponentType>(props: Props<T>)
         return `-${HANDLE_TRANSLATE_OFFSET}px`;
     }
   }, [position]);
-
-  useEffect(() => {
-    function handleMouseClose(event: MouseEvent) {
-      const zoom = getZoom();
-      if (zoom < 0.75) {
-        setShowHandle(false);
-        return;
-      }
-
-      if (!ref.current) return;
-
-      const boundingBox = ref.current.getBoundingClientRect();
-      const { clientX, clientY } = event;
-      const { left, top, right, bottom } = boundingBox;
-      const closestX = Math.max(left, Math.min(clientX, right));
-      const closestY = Math.max(top, Math.min(clientY, bottom));
-      const distance = Math.sqrt((clientX - closestX) ** 2 + (clientY - closestY) ** 2);
-      const threshold = zoom * 200;
-      setShowHandle(distance <= threshold);
-    }
-
-    window.addEventListener("mousemove", handleMouseClose);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseClose);
-    };
-  }, [props.id, getZoom]);
 
   const tooltipSide = useMemo(() => {
     // For bottom handles, show tooltip above so it appears closer to the label text.
@@ -94,10 +122,9 @@ export function Handle<T extends ComponentType = ComponentType>(props: Props<T>)
         <XyFlowHandle
           {...restProps}
           position={position as Position}
-          ref={ref}
           isConnectable={isConnectable}
           isValidConnection={(edge) => {
-            if (props.isValidConnection) props.isValidConnection(edges, edge);
+            if (props.isValidConnection) props.isValidConnection(getEdges(), edge);
 
             // Can not connect to self
             if (edge.source === edge.target) return false;

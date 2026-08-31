@@ -68,21 +68,20 @@ export function ReactFlowCanvas() {
   useHelperHotkeys(nodes);
 
   const { screenToFlowPosition } = useReactFlow();
-  // Coalesce cursor broadcasts to one per frame. Every `updateCursor` encodes an
-  // awareness update and pushes it down the collab socket, and a mouse can fire
-  // well over 100 move events a second — so the raw handler put a multiple of
-  // the useful traffic on the wire (and ran `screenToFlowPosition`, which reads
-  // layout, just as often).
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
-  const cursorFrameRef = useRef<number | null>(null);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const pointerFrame = useRef<number | null>(null);
+
+  // The cursor is ephemeral peer state. Pointer events arrive far faster than
+  // frames, so only the latest position is kept and it is converted to flow
+  // coordinates — a container measurement — once per animation frame.
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      pointerRef.current = { x: event.clientX, y: event.clientY };
-      if (cursorFrameRef.current !== null) return;
-      cursorFrameRef.current = requestAnimationFrame(() => {
-        cursorFrameRef.current = null;
-        const pointer = pointerRef.current;
-        if (pointer) updateCursor(screenToFlowPosition(pointer));
+      pointer.current = { x: event.clientX, y: event.clientY };
+      if (pointerFrame.current !== null) return;
+      pointerFrame.current = requestAnimationFrame(() => {
+        pointerFrame.current = null;
+        if (!pointer.current) return;
+        updateCursor(screenToFlowPosition(pointer.current));
       });
     },
     [updateCursor, screenToFlowPosition],
@@ -90,7 +89,7 @@ export function ReactFlowCanvas() {
 
   useEffect(() => {
     return () => {
-      if (cursorFrameRef.current !== null) cancelAnimationFrame(cursorFrameRef.current);
+      if (pointerFrame.current !== null) cancelAnimationFrame(pointerFrame.current);
     };
   }, []);
 

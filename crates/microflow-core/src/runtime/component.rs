@@ -199,6 +199,12 @@ pub struct ComponentBase {
     pub value: ComponentValue,
     /// The shared emit queue. `None` until the registry calls `set_sink`.
     pub sink: Option<EventSink>,
+    /// One `Arc<str>` per Emit handle this component has used. An impl's Emit
+    /// set is closed and compile-checked (ADR-0007, [`Component::emits`]), so
+    /// this stays at that set's size — a handful of entries — and every emit
+    /// after the first on a handle clones the `Arc` instead of allocating a
+    /// fresh one at sample rate.
+    handles: RefCell<Vec<Arc<str>>>,
 }
 
 impl ComponentBase {
@@ -214,6 +220,7 @@ impl ComponentBase {
             id: Arc::from(id),
             value: initial_value,
             sink: None,
+            handles: RefCell::new(Vec::new()),
         }
     }
 
@@ -249,12 +256,25 @@ impl ComponentBase {
         if let Some(sink) = &self.sink {
             sink.borrow_mut().push_back(ComponentEvent {
                 source: Arc::clone(&self.id),
-                source_handle: Arc::from(handle),
+                source_handle: self.interned(handle),
                 value: value.into_owned(),
                 edge_id: None,
                 sequence: 0,
             });
         }
+    }
+
+    /// The `Arc<str>` for `handle`, allocated once per component per handle and
+    /// cloned on every later emit. Linear scan: the list is one entry per Emit
+    /// handle the impl declares.
+    fn interned(&self, handle: &str) -> Arc<str> {
+        let mut handles = self.handles.borrow_mut();
+        if let Some(cached) = handles.iter().find(|h| &***h == handle) {
+            return Arc::clone(cached);
+        }
+        let interned: Arc<str> = Arc::from(handle);
+        handles.push(Arc::clone(&interned));
+        interned
     }
 }
 

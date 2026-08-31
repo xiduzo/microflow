@@ -762,14 +762,13 @@ impl FlowRuntime {
                 internal = event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX),
                 "drain",
             );
-            // Internal/hardware events (`_`-prefixed) are runtime plumbing the
-            // UI never renders — keep them out of `component_events`. Processed
-            // by reference first so the UI-visible event can be *moved* into the
-            // list afterwards, instead of cloning every event (source/handle
-            // `Arc`s plus a deep `ComponentValue`) on the drain's hot path.
-            let internal = event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX);
             self.process_event(&event, &mut out, &mut reqs);
-            if !internal {
+            // Internal/hardware events (`_`-prefixed) are runtime plumbing the
+            // UI never renders — keep them out of `component_events`. Moved in
+            // after dispatch (the cascade it triggers is drained on later
+            // iterations, so the order is unchanged) to keep this handoff a
+            // move rather than a deep clone of the event.
+            if !event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX) {
                 events.push(event);
             }
         }
@@ -849,8 +848,12 @@ impl FlowRuntime {
 
         // Echo `set_value` on the source so a subsequent snapshot delivery
         // (aggregating target) reads the just-emitted value, not stale state.
+        // Skipped when it would be a no-op, which is the common case: the
+        // emitter that set this value already stored it.
         if let Some(component) = self.components.get_mut(event.source.as_ref()) {
-            component.set_value(event.value.clone());
+            if component.base().value != event.value {
+                component.set_value(event.value.clone());
+            }
         }
 
         let plan = {

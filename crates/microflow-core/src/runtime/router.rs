@@ -58,38 +58,56 @@ pub trait ComponentLookup {
     fn value_of(&self, id: &str) -> Option<ComponentValue>;
 }
 
-/// Pre-hashed `(source, source_handle)` → `Vec<EdgeTarget>` lookup.
+/// One `(a, b)` pair and the items filed under it. Kept per bucket so a hash
+/// hit is confirmed against the real key.
+struct Entry<T> {
+    a: Box<str>,
+    b: Box<str>,
+    items: Vec<T>,
+}
+
+/// Pre-hashed `(a, b)` → `Vec<T>` lookup.
 ///
 /// Private to this module — `FxHasher` of the two strings (with a 0-byte
 /// separator to avoid `("ab","c")` vs `("a","bc")` collisions) gives an
 /// integer key cached in the map, so the hot path skips string hashing.
-struct EdgeMap {
-    map: FxHashMap<u64, Vec<EdgeTarget>>,
+/// `FxHasher` is a speed hash, not collision-resistant, so every entry stores
+/// its own pair and `get` compares them: a collision costs one extra entry in
+/// the bucket, never a delivery to some other node's targets.
+struct EdgeMap<T> {
+    map: FxHashMap<u64, Vec<Entry<T>>>,
 }
 
-impl EdgeMap {
+impl<T> EdgeMap<T> {
     fn new() -> Self {
         Self { map: FxHashMap::default() }
     }
 
     #[inline]
-    fn key(source: &str, handle: &str) -> u64 {
+    fn key(a: &str, b: &str) -> u64 {
         let mut hasher = FxHasher::default();
-        source.hash(&mut hasher);
+        a.hash(&mut hasher);
         0u8.hash(&mut hasher);
-        handle.hash(&mut hasher);
+        b.hash(&mut hasher);
         hasher.finish()
     }
 
-    fn insert(&mut self, source: &str, handle: &str, target: EdgeTarget) {
-        let key = Self::key(source, handle);
-        self.map.entry(key).or_default().push(target);
+    fn insert(&mut self, a: &str, b: &str, item: T) {
+        let bucket = self.map.entry(Self::key(a, b)).or_default();
+        if let Some(entry) = bucket.iter_mut().find(|e| &*e.a == a && &*e.b == b) {
+            entry.items.push(item);
+        } else {
+            bucket.push(Entry { a: a.into(), b: b.into(), items: vec![item] });
+        }
     }
 
     #[inline]
-    fn get(&self, source: &str, handle: &str) -> Option<&[EdgeTarget]> {
-        let key = Self::key(source, handle);
-        self.map.get(&key).map(std::vec::Vec::as_slice)
+    fn get(&self, a: &str, b: &str) -> Option<&[T]> {
+        self.map
+            .get(&Self::key(a, b))?
+            .iter()
+            .find(|e| &*e.a == a && &*e.b == b)
+            .map(|e| e.items.as_slice())
     }
 
     fn clear(&mut self) {
@@ -99,43 +117,47 @@ impl EdgeMap {
 
 /// Plans dispatch calls for a flow graph.
 pub struct FlowRouter {
-    edges: Vec<FlowEdge>,
-    edge_map: EdgeMap,
-    /// The inbound mirror of `edge_map`: pre-hashed `(target, target_handle)` →
-    /// the source ids feeding it, in edge order. Snapshot delivery reads this
-    /// instead of re-scanning the whole edge list per aggregating dispatch.
-    inbound_map: FxHashMap<u64, Vec<Arc<str>>>,
+    /// `(source, source_handle)` → the targets that edge feeds.
+    edge_map: EdgeMap<EdgeTarget>,
+    /// `(target, target_handle)` → the source ids feeding that input, in edge
+    /// order. Snapshot delivery reads this instead of scanning the edge list.
+    input_map: EdgeMap<Arc<str>>,
 }
 
 impl FlowRouter {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            edges: Vec::new(),
             edge_map: EdgeMap::new(),
-            inbound_map: FxHashMap::default(),
+            input_map: EdgeMap::new(),
         }
     }
 
-    /// Replace the edge set and rebuild the lookup index. Cheap — one
+    /// Replace the edge set and rebuild the lookup indexes. Cheap — one
     /// hashmap rebuild over the edge list.
     pub fn set_edges(&mut self, edges: Vec<FlowEdge>) {
         log::info!("Setting {} edges", edges.len());
+        self.clear();
         for edge in &edges {
             log::debug!(
                 "  Edge: {} ({}) -> {} ({})",
                 edge.source, edge.source_handle, edge.target, edge.target_handle
             );
+            let target = EdgeTarget {
+                target_id: Arc::from(edge.target.as_str()),
+                target_handle: Arc::from(edge.target_handle.as_str()),
+                edge_id: edge.id.as_ref().map(|s| Arc::from(s.as_str())),
+            };
+            self.input_map
+                .insert(&edge.target, &edge.target_handle, Arc::from(edge.source.as_str()));
+            self.edge_map.insert(&edge.source, &edge.source_handle, target);
         }
-        self.edges = edges;
-        self.rebuild_index();
     }
 
-    /// Drop all edges and clear the lookup index.
+    /// Drop all edges and clear the lookup indexes.
     pub fn clear(&mut self) {
-        self.edges.clear();
         self.edge_map.clear();
-        self.inbound_map.clear();
+        self.input_map.clear();
     }
 
     /// Plan the dispatch calls produced by one outgoing event.
@@ -185,45 +207,24 @@ impl FlowRouter {
     }
 
     /// Snapshot every source feeding `(target_id, target_handle)` and
-    /// return their current stored values as `Array`. One hash lookup into
-    /// `inbound_map` — the previous linear `edges` walk cost O(edges) on every
-    /// dispatch into an aggregating node, which is the hot path for a Calculate
-    /// or Compare node fed by a streaming sensor.
+    /// return their current stored values as `Array`. One `input_map` lookup;
+    /// the work is proportional to that input's fan-in, never to the edge count.
     fn deliver_snapshot(
         &self,
         target: &EdgeTarget,
         lookup: &dyn ComponentLookup,
     ) -> ComponentValue {
-        let key = EdgeMap::key(&target.target_id, &target.target_handle);
-        let Some(sources) = self.inbound_map.get(&key) else {
-            return ComponentValue::Array(Vec::new());
-        };
+        let sources = self
+            .input_map
+            .get(target.target_id.as_ref(), target.target_handle.as_ref())
+            .unwrap_or_default();
         let inputs: Vec<ComponentValue> =
-            sources.iter().filter_map(|source| lookup.value_of(source)).collect();
+            sources.iter().filter_map(|s| lookup.value_of(s)).collect();
         ComponentValue::Array(inputs)
     }
 
     fn deliver_direct(value: &ComponentValue) -> ComponentValue {
         value.clone()
-    }
-
-    fn rebuild_index(&mut self) {
-        self.edge_map.clear();
-        self.inbound_map.clear();
-        for edge in &self.edges {
-            let target = EdgeTarget {
-                target_id: Arc::from(edge.target.as_str()),
-                target_handle: Arc::from(edge.target_handle.as_str()),
-                edge_id: edge.id.as_ref().map(|s| Arc::from(s.as_str())),
-            };
-            self.edge_map.insert(&edge.source, &edge.source_handle, target);
-            // Built in the same pass, in the same order, so a snapshot's inputs
-            // arrive in exactly the order the old edge-list scan produced.
-            self.inbound_map
-                .entry(EdgeMap::key(&edge.target, &edge.target_handle))
-                .or_default()
-                .push(Arc::from(edge.source.as_str()));
-        }
     }
 }
 
@@ -389,6 +390,34 @@ mod tests {
             }
             other => panic!("expected Array, got {other:?}"),
         }
+    }
+
+    /// `FxHasher` is a speed hash: two different `(source, handle)` pairs can
+    /// land on the same `u64`. Plant a foreign entry in a bucket — exactly what
+    /// a collision produces — and assert the lookup resolves by key, so one
+    /// node's emissions can never reach another node's targets.
+    #[test]
+    fn hash_collision_does_not_deliver_to_the_wrong_target() {
+        let mut map: EdgeMap<EdgeTarget> = EdgeMap::new();
+        let target = |id: &str| EdgeTarget {
+            target_id: Arc::from(id),
+            target_handle: Arc::from("value"),
+            edge_id: None,
+        };
+        map.insert("a", "value", target("mine"));
+        map.map
+            .get_mut(&EdgeMap::<EdgeTarget>::key("a", "value"))
+            .expect("bucket")
+            .push(Entry {
+                a: "collides".into(),
+                b: "value".into(),
+                items: vec![target("theirs")],
+            });
+
+        let hit = map.get("a", "value").expect("own entry");
+        assert_eq!(hit.len(), 1, "the colliding entry must not be returned");
+        assert_eq!(hit[0].target_id.as_ref(), "mine");
+        assert!(map.get("a", "other").is_none());
     }
 
     #[test]

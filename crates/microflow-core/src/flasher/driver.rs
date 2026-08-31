@@ -15,6 +15,7 @@
 //! executor as JSON.
 
 use serde::Serialize;
+use ts_rs::TS;
 
 /// One action the executor must perform on the serial transport.
 ///
@@ -23,8 +24,9 @@ use serde::Serialize;
 /// the struct variants (`delay_ms` → `delayMs`, `read_len` → `readLen`, …). Without
 /// it those multi-word fields serialize `snake_case` and arrive `undefined` in the
 /// JS executor (which reads `delayMs`/`readLen`/`timeoutMs`/`waitMs`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[ts(export, tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum FlashStep {
     /// Set the DTR/RTS control lines, then hold for `delay_ms` (board reset).
     Reset { dtr: bool, rts: bool, delay_ms: u32 },

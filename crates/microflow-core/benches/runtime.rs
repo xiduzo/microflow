@@ -47,11 +47,11 @@ fn edge(source: &str, source_handle: &str, target: &str, target_handle: &str) ->
 /// is pin `FIRST_ANALOG_PIN`.
 const FIRST_ANALOG_PIN: i64 = 14;
 /// Analog channels seeded, i.e. `A0`..`A15` — a Mega-shaped board.
-const ANALOG_CHANNELS: usize = 16;
+const ANALOG_CHANNELS: i64 = 16;
 
 /// Seed the codec's pin table exactly as the connection handshake does.
 fn seed_board(runtime: &mut FlowRuntime) {
-    let total = FIRST_ANALOG_PIN + ANALOG_CHANNELS as i64;
+    let total = FIRST_ANALOG_PIN + ANALOG_CHANNELS;
     let pins: Vec<serde_json::Value> = (0..total)
         .map(|pin| {
             json!({
@@ -114,7 +114,7 @@ fn produced_nothing(effects: &microflow_core::runtime::Effects) -> bool {
 fn bench_inbound(c: &mut Criterion) {
     let mut group = c.benchmark_group("inbound");
 
-    for sensors in [1usize, 8, ANALOG_CHANNELS] {
+    for sensors in [1i64, 8, ANALOG_CHANNELS] {
         let mut runtime = FlowRuntime::new();
         seed_board(&mut runtime);
 

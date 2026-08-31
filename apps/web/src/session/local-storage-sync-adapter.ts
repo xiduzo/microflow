@@ -3,6 +3,13 @@ import type { SyncAdapter } from "./sync-adapter";
 
 const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
 
+/**
+ * Upper bound on how often the whole flow is serialised to `localStorage`.
+ * `setItem` is synchronous and main-thread blocking, so the write rate — not
+ * the change rate — is what has to stay bounded.
+ */
+const WRITE_INTERVAL_MS = 500;
+
 type StoredPayload = {
   nodes: ReturnType<FlowDocument["getNodes"]>;
   edges: ReturnType<FlowDocument["getEdges"]>;
@@ -29,10 +36,22 @@ function saveStored(payload: StoredPayload): void {
   }
 }
 
+/**
+ * Mirrors the document into `localStorage`, at most once per
+ * `WRITE_INTERVAL_MS`. Leading-edge: the first change of a quiet period is
+ * written immediately, further changes inside the window coalesce into one
+ * trailing write. `destroy()` flushes synchronously, so an unload never loses
+ * the tail of an edit burst.
+ *
+ * ponytail: whole-flow `JSON.stringify` per write — fine at flow sizes we
+ * ship; a per-node delta store is the upgrade path if flows get big.
+ */
 export class LocalStorageSyncAdapter implements SyncAdapter {
   readonly kind = "local" as const;
   private unobserve: (() => void) | null = null;
   private destroyed = false;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private pending = false;
 
   constructor(private readonly doc: FlowDocument) {
     const stored = loadStored();
@@ -42,7 +61,7 @@ export class LocalStorageSyncAdapter implements SyncAdapter {
     }
     this.unobserve = doc.onAnyChange(() => {
       if (this.destroyed) return;
-      saveStored({ nodes: doc.getNodes(), edges: doc.getEdges() });
+      this.schedule();
     });
   }
 
@@ -51,6 +70,29 @@ export class LocalStorageSyncAdapter implements SyncAdapter {
     this.destroyed = true;
     this.unobserve?.();
     this.unobserve = null;
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    this.pending = false;
+    this.save();
+  }
+
+  private schedule(): void {
+    if (this.timer !== null) {
+      this.pending = true;
+      return;
+    }
+    this.save();
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      if (this.destroyed || !this.pending) return;
+      this.pending = false;
+      this.schedule();
+    }, WRITE_INTERVAL_MS);
+  }
+
+  private save(): void {
     saveStored({ nodes: this.doc.getNodes(), edges: this.doc.getEdges() });
   }
 }

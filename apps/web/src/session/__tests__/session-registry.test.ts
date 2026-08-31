@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   __peekRegistry,
   __resetRegistry,
@@ -6,8 +6,39 @@ import {
   releaseSession,
 } from "../session-registry";
 
+// A local session builds a `LocalStorageSyncAdapter`, which reads and writes
+// `localStorage` — a global bun's test runner does not provide. Install one per
+// test and remove it after, so this file neither depends on another test file
+// having installed one nor leaves one behind for the next.
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+  get length(): number {
+    return this.store.size;
+  }
+  clear(): void {
+    this.store.clear();
+  }
+  getItem(key: string): string | null {
+    return this.store.get(key) ?? null;
+  }
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, value);
+  }
+}
+
+beforeEach(() => {
+  (globalThis as { localStorage?: Storage }).localStorage = new MemoryStorage();
+});
+
 afterEach(() => {
   __resetRegistry();
+  delete (globalThis as { localStorage?: Storage }).localStorage;
 });
 
 function sleep(ms: number): Promise<void> {
