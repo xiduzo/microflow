@@ -52,6 +52,12 @@ jobs:
       - name: Test
         run: bun test
 
+      # oxlint exits 0 on warnings and non-zero on errors, so this gates new
+      # errors without first demanding a cleanup of the warnings already in the
+      # tree.
+      - name: Lint
+        run: bunx oxlint
+
   check-types:
     name: Check types
     runs-on: ubuntu-latest

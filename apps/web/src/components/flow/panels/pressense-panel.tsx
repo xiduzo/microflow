@@ -1,11 +1,19 @@
 import { Icon, type IconName } from "@/components/ui/icon";
-import type { AwarenessUser } from "@microflow/collab";
 import { Heart } from "lucide-react";
+import { memo } from "react";
+import { useCollabPresence } from "@/session";
 
-export function PressensePanel(props: Props) {
+/**
+ * The collaborator avatars. Subscribes to presence directly — see the note in
+ * `CollabCursors` — so a remote cursor move does not travel through the canvas
+ * to reach it.
+ */
+export const PressensePanel = memo(function PressensePanel() {
+  const { otherUsers: users } = useCollabPresence();
+
   return (
     <div className="flex -space-x-3">
-      {props.users.map((user) => (
+      {users.map((user) => (
         <div key={user.id} className="relative">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center border-2 border-background"
@@ -28,8 +36,4 @@ export function PressensePanel(props: Props) {
       ))}
     </div>
   );
-}
-
-type Props = {
-  users: AwarenessUser[];
-};
+});

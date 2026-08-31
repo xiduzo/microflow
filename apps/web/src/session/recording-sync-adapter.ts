@@ -17,7 +17,7 @@ export class RecordingSyncAdapter implements RemoteSyncAdapter {
   readonly kind = "remote" as const;
 
   readonly appliedUpdates: Uint8Array[] = [];
-  readonly awarenessUpdates: { kind: "cursor" | "selection"; payload: unknown }[] = [];
+  readonly awarenessUpdates: { kind: "cursor" | "selection" | "drag"; payload: unknown }[] = [];
   connectCalls = 0;
   disconnectCalls = 0;
   destroyed = false;
@@ -75,6 +75,11 @@ export class RecordingSyncAdapter implements RemoteSyncAdapter {
   updateSelectedNodes(nodeIds: string[]): void {
     this.awarenessUpdates.push({ kind: "selection", payload: nodeIds });
     this._localUser = { ...this._localUser, selectedNodes: nodeIds };
+  }
+
+  updateDraggedNodes(positions: Record<string, { x: number; y: number }> | null): void {
+    this.awarenessUpdates.push({ kind: "drag", payload: positions });
+    this._localUser = { ...this._localUser, draggingNodes: positions ?? undefined };
   }
 
   reconnect(): void {

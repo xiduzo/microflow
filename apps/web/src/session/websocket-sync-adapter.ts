@@ -69,6 +69,10 @@ export class WebSocketSyncAdapter implements RemoteSyncAdapter {
     this.provider.updateSelectedNodes(nodeIds);
   }
 
+  updateDraggedNodes(positions: Record<string, { x: number; y: number }> | null): void {
+    this.provider.updateDraggedNodes(positions);
+  }
+
   reconnect(): void {
     this.provider.disconnect();
     this.provider.connect();

@@ -169,7 +169,12 @@ export async function invokeCommand<
 
   const { type, ...payload } = command;
   try {
-    console.log("[INVOKE-COMMAND] <invokeCommand>", type, payload);
+    // Deliberately logs the command name only. The payload carries MQTT broker
+    // passwords and LLM API keys (see `gatherBrokers` / `gatherProviders`), and
+    // on the hot `flow_update` path it is the entire flow — so logging it both
+    // leaked credentials into devtools and log files and cost a full
+    // serialisation on every accepted change from anyone in the room.
+    console.log("[INVOKE-COMMAND]", type);
     const data = await invoke<unknown>(type, payload);
     return { success: true, data } as OkResponse<TResponse>;
   } catch (error) {

@@ -23,6 +23,8 @@ export type RemoteSyncAdapter = SyncAdapter & {
   readonly error: Error | null;
   updateCursor(cursor: { x: number; y: number }): void;
   updateSelectedNodes(nodeIds: string[]): void;
+  /** Publish live drag positions, or `null` on drop. See `SyncProvider`. */
+  updateDraggedNodes(positions: Record<string, { x: number; y: number }> | null): void;
   reconnect(): void;
   disconnect(): void;
   on<K extends keyof SyncAdapterEvents>(event: K, cb: SyncAdapterEvents[K]): () => void;

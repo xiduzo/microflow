@@ -40,6 +40,58 @@ export interface DispatchScheduler {
   cancel(): void;
 }
 
+/**
+ * Production scheduler: debounce with a ceiling.
+ *
+ * A plain reset-on-every-call debounce never fires while edits keep arriving,
+ * and in a room with several contributors that is the steady state — the
+ * runtime would simply stop receiving flow updates for as long as anybody was
+ * typing. `maxWaitMs` bounds the starvation: once a dispatch has been pending
+ * that long, the next request runs instead of re-arming.
+ */
+export class DebounceScheduler implements DispatchScheduler {
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private pending: (() => void) | null = null;
+  private firstRequestAt = 0;
+
+  constructor(
+    private readonly waitMs: number,
+    private readonly maxWaitMs: number,
+  ) {}
+
+  schedule(callback: () => void): void {
+    this.pending = callback;
+    const now = Date.now();
+    if (this.timer === null) this.firstRequestAt = now;
+
+    if (now - this.firstRequestAt >= this.maxWaitMs) {
+      this.run();
+      return;
+    }
+
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.run(), this.waitMs);
+  }
+
+  cancel(): void {
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    this.pending = null;
+  }
+
+  private run(): void {
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    const callback = this.pending;
+    this.pending = null;
+    callback?.();
+  }
+}
+
 /** Test scheduler. Stores the callback; `flush()` runs it synchronously. */
 export class ManualDispatchScheduler implements DispatchScheduler {
   private pending: (() => void) | null = null;
@@ -217,6 +269,11 @@ export class FlowUpdateDispatcher {
     this.requestDispatch();
   }
 
+  /** Incremented per send, so a response that lands out of order can be
+   *  recognised as stale rather than overwriting a newer key. */
+  private dispatchSequence = 0;
+  private latestDispatchSequence = 0;
+
   private requestDispatch(): void {
     if (this.destroyed) return;
     this.scheduler.schedule(() => {
@@ -225,7 +282,9 @@ export class FlowUpdateDispatcher {
       // Skip when nothing the runtime cares about changed — a pure node
       // move/selection must not churn downstream MQTT/Figma subscriptions.
       // Forced dispatches (`dispatchNow`) deliberately bypass this.
-      // The key is computed once here and handed to `send`, which records it.
+      // The key is computed once and handed to `send`: it is a full
+      // JSON serialisation of the flow, and computing it again on the way out
+      // doubled that cost on every accepted change from anyone in the room.
       const key = runtimeRelevantKey(update);
       if (key === this.lastDispatchKey) return;
       void this.send(update, key);
@@ -239,13 +298,24 @@ export class FlowUpdateDispatcher {
     return this.send(buildFlowUpdate(this.session.doc, this.snapshotProvider(), this.registry));
   }
 
-  /** Send one update; remember its key on success so the next scheduled
-   *  dispatch can detect a no-op. Callers that already computed the key pass it
-   *  in so a dispatch never serializes the whole graph twice. */
-  private async send(update: FlowUpdate, key?: string): Promise<SendResult> {
+  /**
+   * Send one update; remember its key on success so the next scheduled
+   * dispatch can detect a no-op.
+   *
+   * Sends are not serialised — `dispatchNow` can overlap the debounced path —
+   * so an older send completing last must not install its key as the latest.
+   * That would make the *next* genuinely-different update look like a repeat
+   * and skip it.
+   */
+  private async send(update: FlowUpdate, precomputedKey?: string): Promise<SendResult> {
+    const sequence = ++this.dispatchSequence;
     const result = await this.sender.send(update);
+
     if (result.ok) {
-      this.lastDispatchKey = key ?? runtimeRelevantKey(update);
+      if (sequence > this.latestDispatchSequence) {
+        this.latestDispatchSequence = sequence;
+        this.lastDispatchKey = precomputedKey ?? runtimeRelevantKey(update);
+      }
     } else {
       console.error("[FLOW-DISPATCH] failed:", result.error);
     }

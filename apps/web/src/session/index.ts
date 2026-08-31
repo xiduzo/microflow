@@ -13,7 +13,7 @@ export type {
 } from "./sync-adapter";
 export { isRemoteSyncAdapter } from "./sync-adapter";
 
-export { LocalStorageSyncAdapter } from "./local-storage-sync-adapter";
+export { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
 export { WebSocketSyncAdapter } from "./websocket-sync-adapter";
 export { RecordingSyncAdapter } from "./recording-sync-adapter";
 
@@ -37,7 +37,8 @@ export {
   useCollabPresence,
   type FlowSyncSnapshot,
 } from "./use-flow-sync";
-export { useFlowNodes, useFlowEdges } from "./use-flow-nodes";
+export { useFlowNodes, useFlowEdges, useFlowNodesSelector } from "./use-flow-nodes";
+export { useRemoteDragPositions, usePublishDrag, applyRemoteDrag } from "./use-remote-drag";
 export { useFlowMeta } from "./use-flow-meta";
 export { useFlowHistory } from "./use-flow-history";
 export { useReactFlowBridge } from "./use-react-flow-bridge";

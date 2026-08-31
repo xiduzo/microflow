@@ -54,6 +54,9 @@
     },
     "db:down": {
       "cache": false
+    },
+    "bench": {
+      "cache": false
     }
   }
 }
