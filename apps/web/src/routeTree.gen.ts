@@ -14,6 +14,7 @@ import { Route as SupportRouteImport } from './routes/support'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DiscussionsRouteImport } from './routes/discussions'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FlowIndexRouteImport } from './routes/flow/index'
 import { Route as CommunityIndexRouteImport } from './routes/community/index'
@@ -50,6 +51,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscussionsRoute = DiscussionsRouteImport.update({
+  id: '/discussions',
+  path: '/discussions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -119,6 +125,7 @@ const FlowFlowIdCircuitRoute = FlowFlowIdCircuitRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/discussions': typeof DiscussionsRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/discussions': typeof DiscussionsRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
@@ -158,6 +166,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/discussions': typeof DiscussionsRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/success': typeof SuccessRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/discussions'
     | '/login'
     | '/profile'
     | '/success'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/discussions'
     | '/login'
     | '/profile'
     | '/success'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/discussions'
     | '/login'
     | '/profile'
     | '/success'
@@ -237,6 +249,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DiscussionsRoute: typeof DiscussionsRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   SuccessRoute: typeof SuccessRoute
@@ -286,6 +299,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discussions': {
+      id: '/discussions'
+      path: '/discussions'
+      fullPath: '/discussions'
+      preLoaderRoute: typeof DiscussionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -395,6 +415,7 @@ const FlowFlowIdRouteWithChildren = FlowFlowIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DiscussionsRoute: DiscussionsRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   SuccessRoute: SuccessRoute,

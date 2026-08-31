@@ -1,17 +1,22 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Github, Heart, LogIn, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRightIcon,
+  BookOpenIcon,
+  Github,
+  Heart,
+  LogIn,
+  MessagesSquareIcon,
+  Sparkles,
+} from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CONTRIBUTION_WAYS, wayDiscussionUrl } from "@/lib/contribute";
+import { openDocs, openExternal } from "@/lib/docs";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/support")({
   component: SupportPage,
@@ -21,37 +26,66 @@ const GITHUB_SPONSORS_URL = "https://github.com/sponsors/xiduzo";
 
 type SupporterSource = "subscription" | "donation" | "github";
 
-const sourceMeta: Record<
+const SOURCE_META: Record<
   SupporterSource,
-  { Icon: typeof Heart; label: string; iconTint: string; chipTint: string }
+  { Icon: typeof Heart; label: string; group: string; tint: string }
 > = {
   subscription: {
     Icon: Heart,
     label: "Recurring",
-    iconTint: "fill-rose-500 text-rose-500",
-    chipTint: "border-rose-500/30 bg-rose-500/[0.04] hover:bg-rose-500/[0.08]",
+    group: "Monthly supporters",
+    tint: "fill-rose-500 text-rose-500",
   },
   donation: {
     Icon: Sparkles,
     label: "One-time",
-    iconTint: "text-amber-500",
-    chipTint:
-      "border-amber-500/30 bg-amber-500/[0.04] hover:bg-amber-500/[0.08]",
+    group: "One-time tips",
+    tint: "text-amber-500",
   },
   github: {
     Icon: Github,
     label: "GitHub Sponsor",
-    iconTint: "text-foreground",
-    chipTint:
-      "border-foreground/25 bg-foreground/[0.04] hover:bg-foreground/[0.08]",
+    group: "GitHub sponsors",
+    tint: "text-foreground",
   },
 };
+
+const GROUP_ORDER: SupporterSource[] = ["subscription", "donation", "github"];
+
+type Ask = {
+  key: "supporter" | "donation" | "github";
+  title: string;
+  body: string;
+  cta: string;
+};
+
+const ASKS: Ask[] = [
+  {
+    key: "supporter",
+    title: "Monthly supporter",
+    body: "Choose your amount. Microflow charges it every month. You can cancel at any time.",
+    cta: "Become a supporter",
+  },
+  {
+    key: "donation",
+    title: "One-time tip",
+    body: "Give once, at any amount. The payment happens one time only, so you never need to cancel it.",
+    cta: "Send a one-time tip",
+  },
+  {
+    key: "github",
+    title: "GitHub Sponsors",
+    body: "Sponsor Microflow through GitHub, every month or one time. Your avatar also appears on the Microflow repository.",
+    cta: "Sponsor on GitHub",
+  },
+];
 
 async function startCheckout(slug: "supporter" | "donation") {
   await authClient.checkout({ slug });
 }
 
 function SupportPage() {
+  const navigate = useNavigate();
   const { data: session } = authClient.useSession();
   const isSignedIn = !!session?.user;
 
@@ -60,110 +94,168 @@ function SupportPage() {
     staleTime: 5 * 60 * 1000,
   });
   const supporters = supportersData?.supporters ?? [];
-  const recurringCount = supporters.filter(
-    (s) => s.source === "subscription",
-  ).length;
-  const oneTimeCount = supporters.filter((s) => s.source === "donation").length;
-  const githubCount = supporters.filter((s) => s.source === "github").length;
   const total = supporters.length;
+  const counts = {
+    recurring: supporters.filter((s) => s.source === "subscription").length,
+    oneTime: supporters.filter((s) => s.source === "donation").length,
+    github: supporters.filter((s) => s.source === "github").length,
+  };
 
   return (
     <div className="h-full w-full overflow-y-auto">
-      <main className="mx-auto flex h-full w-full max-w-5xl flex-col gap-12 px-4 py-12">
-        <header className="text-center">
-          <h1 className="mb-4 text-4xl font-bold tracking-tight">
-            Support Microflow
+      <main className="mx-auto w-full max-w-3xl px-4 py-16">
+        <header>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            {total > 0 ? (
+              <>
+                {total} {total === 1 ? "person keeps" : "people keep"} Microflow
+                going
+              </>
+            ) : (
+              <>Microflow has no supporters yet</>
+            )}
           </h1>
-          <p className="mx-auto max-w-3xl text-muted-foreground">
-            Microflow is, and <strong className="underline">always</strong> will
-            be, fully open-source.
-            <br />
-            If it saved you a weekend, helped a student, or powered an
-            installation — toss something in the jar so it keeps growing.
-          </p>
-        </header>
-
-        <section className="grid items-stretch gap-4 md:grid-cols-3">
-          <Card className="flex flex-col">
-            <CardHeader className="flex-1">
-              <div className="mb-2 flex items-start justify-between">
-                <Github className="size-6 text-foreground" />
-                <span className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  01
-                </span>
-              </div>
-              <CardTitle>GitHub Sponsors</CardTitle>
-              <CardDescription>
-                One-time or recurring support via GitHub. Most visible — your
-                avatar shows up on the repo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
+            {counts.recurring > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <Heart className="size-3 fill-rose-500 text-rose-500" />
+                {counts.recurring} recurring
+              </span>
+            )}
+            {counts.oneTime > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="size-3 text-amber-500" />
+                {counts.oneTime} one-time
+              </span>
+            )}
+            {counts.github > 0 && (
               <a
                 href={GITHUB_SPONSORS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full"
+                className="inline-flex items-center gap-1.5 underline-offset-2 hover:text-foreground hover:underline"
               >
-                <Button className="w-full">
-                  Sponsor on GitHub
-                  <ArrowRight className="size-3.5" />
-                </Button>
+                <Github className="size-3" />
+                {counts.github} from GitHub
               </a>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+        </header>
 
-          <Card className="flex flex-col">
-            <CardHeader className="flex-1">
-              <div className="mb-2 flex items-start justify-between">
-                <Heart className="size-6 fill-rose-500 text-rose-500" />
-                <span className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  02
-                </span>
-              </div>
-              <CardTitle>Monthly Supporter</CardTitle>
-              <CardDescription>
-                Recurring tip jar — you pick the amount at checkout. No paid
-                features unlocked, just a Supporter badge in the app and your
-                name in credits.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SupportButton
-                isSignedIn={isSignedIn}
-                onClick={() => startCheckout("supporter")}
-                label="Become a Supporter"
-              />
-            </CardContent>
-          </Card>
+        {total > 0 ? (
+          <div className="mt-8 space-y-6">
+            {GROUP_ORDER.map((source) => {
+              const group = supporters.filter((s) => s.source === source);
+              if (!group.length) return null;
+              const meta = SOURCE_META[source];
+              return (
+                <section key={source}>
+                  <h2 className="mb-2.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {meta.group}
+                  </h2>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {group.map((supporter, index) => (
+                      <li
+                        key={`${source}-${supporter.name}-${index}`}
+                        title={
+                          supporter.since
+                            ? `${meta.label} · since ${new Date(supporter.since).toLocaleDateString()}`
+                            : meta.label
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-sm"
+                      >
+                        <meta.Icon className={cn("size-3", meta.tint)} />
+                        {supporter.name}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-6 text-muted-foreground">
+            The wall is empty. You can be the first name on it.
+          </p>
+        )}
 
-          <Card className="flex flex-col">
-            <CardHeader className="flex-1">
-              <div className="mb-2 flex items-start justify-between">
-                <Sparkles className="size-6 text-amber-500" />
-                <span className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  03
-                </span>
-              </div>
-              <CardTitle>One-time donation</CardTitle>
-              <CardDescription>
-                Throw a coin in the jar. Same cosmetic Supporter mention, no
-                recurring charge.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SupportButton
-                isSignedIn={isSignedIn}
-                onClick={() => startCheckout("donation")}
-                label="Send a one-time tip"
-              />
-            </CardContent>
-          </Card>
+        <section className="mt-14 border-t pt-10">
+          <h2 className="text-xl font-semibold">
+            {total > 0 ? "Join them" : "Be the first"}
+          </h2>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+            Microflow is open-source and stays open-source. Support gives you
+            no extra features. It pays for maintenance, new components and the
+            hosted services that the community uses. Every supporter gets a
+            Supporter badge in the app and a name on this page.
+          </p>
+
+          <ul className="mt-6 divide-y border-y">
+            {ASKS.map((ask, index) => (
+              <li
+                key={ask.key}
+                className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:gap-6"
+              >
+                <div className="flex-1">
+                  <h3 className="font-semibold">{ask.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {ask.body}
+                  </p>
+                </div>
+                <AskAction
+                  ask={ask}
+                  isSignedIn={isSignedIn}
+                  emphasis={index === 0 ? "default" : "outline"}
+                />
+              </li>
+            ))}
+          </ul>
         </section>
 
-        <div className="flex flex-col items-center gap-3 text-center">
+        <section className="mt-14 border-t pt-10">
+          <h2 className="text-xl font-semibold">No money? Give time.</h2>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+            Money is one way to help, and it is not the most important one.
+            Design, code review, promotion, documentation, translations,
+            walkthroughs and hardware reports all make Microflow better. Each
+            one of them starts in a discussion on GitHub.
+          </p>
+
+          <ul className="mt-6 flex flex-wrap gap-1.5">
+            {CONTRIBUTION_WAYS.map((way) => (
+              <li key={way.key}>
+                <button
+                  type="button"
+                  title={way.body}
+                  onClick={() => openExternal(wayDiscussionUrl(way))}
+                  className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-sm transition-colors hover:bg-muted/40 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-[3px]"
+                >
+                  <way.icon className="size-3 text-muted-foreground" />
+                  {way.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button onClick={() => navigate({ to: "/discussions" })}>
+              <MessagesSquareIcon className="size-3.5" />
+              Browse discussions
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => openDocs("/docs/contributing/ways-to-help")}
+            >
+              <BookOpenIcon className="size-3.5" />
+              Read how to help
+              <ArrowUpRightIcon className="size-3.5" />
+            </Button>
+          </div>
+        </section>
+
+        <div className="mt-12 flex flex-col items-start gap-3">
           <p className="text-sm text-muted-foreground">
-            No budget? Leaving a review is a free way to help Microflow grow.
+            No budget? A review is free and helps as much.
           </p>
           <a
             href="https://www.producthunt.com/products/microflow/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-microflow"
@@ -186,125 +278,59 @@ function SupportPage() {
             />
           </a>
         </div>
-
-        <section className="border-t pt-12 grow">
-          {total > 0 ? (
-            <>
-              <div className="mb-8 flex flex-col items-center text-center">
-                <div className="mb-4 inline-flex items-center gap-2 border bg-card px-3 py-1 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  <span className="size-1.5 bg-rose-500" />
-                  Wall of Supporters
-                </div>
-                <h2 className="mb-2 text-2xl font-bold sm:text-3xl">
-                  {total} {total === 1 ? "person keeps" : "people keep"}{" "}
-                  Microflow growing
-                </h2>
-                <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
-                  {recurringCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Heart className="size-3 fill-rose-500 text-rose-500" />
-                      {recurringCount} recurring
-                    </span>
-                  )}
-                  {oneTimeCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Sparkles className="size-3 text-amber-500" />
-                      {oneTimeCount} one-time
-                    </span>
-                  )}
-                  {githubCount > 0 && (
-                    <a
-                      href={GITHUB_SPONSORS_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 underline-offset-2 hover:text-foreground hover:underline"
-                    >
-                      <Github className="size-3" />
-                      {githubCount} from GitHub
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              <ul className="flex flex-wrap justify-center gap-2">
-                {supporters.map((supporter, i) => {
-                  const meta = sourceMeta[supporter.source];
-                  const Icon = meta.Icon;
-                  return (
-                    <li
-                      key={`${supporter.source}-${supporter.name}-${i}`}
-                      title={`${meta.label}${supporter.since ? ` · since ${new Date(supporter.since).toLocaleDateString()}` : ""}`}
-                      className={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors ${meta.chipTint}`}
-                    >
-                      <Icon className={`size-3 ${meta.iconTint}`} />
-                      {supporter.name}
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          ) : (
-            <div className="mx-auto max-w-md text-center">
-              <Heart className="mx-auto mb-4 size-8 fill-rose-500 text-rose-500" />
-              <h2 className="mb-2 text-xl font-bold">No supporters yet</h2>
-              <p className="mb-6 text-sm text-muted-foreground">
-                Be the first to keep Microflow growing. Your first name will
-                land here.
-              </p>
-              {isSignedIn ? (
-                <Button onClick={() => startCheckout("supporter")}>
-                  Be the first Supporter
-                  <ArrowRight className="size-3.5" />
-                </Button>
-              ) : (
-                <Button render={(props) => <Link to="/login" {...props} />}>
-                  <LogIn className="size-3.5" />
-                  Sign in to support
-                </Button>
-              )}
-            </div>
-          )}
-        </section>
-
-        <p className="text-center text-xs max-w-lg mx-auto text-muted-foreground">
-          Supporting doesn&apos;t unlock features. The whole app stays free for
-          everyone — that&apos;s the point. You&apos;re funding maintenance, new
-          components, and the hosted services that some of the community uses.
-        </p>
       </main>
     </div>
   );
 }
 
-function SupportButton({
+function AskAction({
+  ask,
   isSignedIn,
-  onClick,
-  label,
+  emphasis,
 }: {
+  ask: Ask;
   isSignedIn: boolean;
-  onClick: () => void;
-  label: string;
+  emphasis: "default" | "outline";
 }) {
-  if (!isSignedIn) {
+  // Destructured so the narrowing below survives into the onClick closure.
+  const { key } = ask;
+
+  if (key === "github") {
     return (
-      <div className="flex flex-col gap-2">
-        <Button className="w-full" disabled>
-          {label}
-          <ArrowRight className="size-3.5" />
+      <a
+        href={GITHUB_SPONSORS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0"
+      >
+        <Button variant={emphasis} className="w-full sm:w-auto">
+          <Github className="size-3.5" />
+          {ask.cta}
         </Button>
-        <Link
-          to="/login"
-          className="inline-flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <LogIn className="size-3" />
-          Sign in to support
-        </Link>
-      </div>
+      </a>
     );
   }
+
+  if (!isSignedIn) {
+    return (
+      <Button
+        variant={emphasis}
+        className="w-full shrink-0 sm:w-auto"
+        render={(props) => <Link to="/login" {...props} />}
+      >
+        <LogIn className="size-3.5" />
+        Sign in to support
+      </Button>
+    );
+  }
+
   return (
-    <Button className="w-full" onClick={onClick}>
-      {label}
+    <Button
+      variant={emphasis}
+      className="w-full shrink-0 sm:w-auto"
+      onClick={() => startCheckout(key)}
+    >
+      {ask.cta}
       <ArrowRight className="size-3.5" />
     </Button>
   );
