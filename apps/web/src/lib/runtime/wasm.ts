@@ -7,6 +7,10 @@
 // This module only loads the wasm and hands out a `FlowRuntime`. The transport
 // (Web Serial read/write) and timers (`setTimeout` for wakeups) live in JS —
 // see ../firmata/flow-reactor.ts — because WASM cannot block on Promises.
+//
+// The runtime-seam *types* are not declared here: they are generated from the
+// Rust structs by ts-rs into @/lib/bindings and only re-exported below, so the
+// two languages cannot drift.
 
 import init, {
   FlowRuntime,
@@ -14,7 +18,7 @@ import init, {
 } from "./generated/microflow_runtime_wasm.js";
 // `?url` asks Vite to emit the wasm as a hashed asset and hand us its URL.
 import wasmUrl from "./generated/microflow_runtime_wasm_bg.wasm?url";
-import type { ComponentValue } from "@/lib/bindings/ComponentValue";
+import type { FigmaPublish } from "@/lib/bindings/FigmaPublish";
 
 export { FlowRuntime };
 
@@ -33,14 +37,8 @@ export async function createFlowRuntime(): Promise<FlowRuntime> {
   return new FlowRuntime();
 }
 
-/** One Figma plugin-handshake publish a host must make (the Rust `FigmaPublish`
- *  serde shape). */
-export type FigmaPublish = {
-  brokerId: string;
-  topic: string;
-  payload: string;
-  retain: boolean;
-};
+/** One Figma plugin-handshake publish a host must make. */
+export type { FigmaPublish };
 
 /** The Figma connect/disconnect publishes for a change in the live plugin-uid
  *  set (`prev`/`next` are `uid -> brokerId` maps). The handshake *protocol* —
@@ -57,60 +55,25 @@ export function figmaAnnounceActions(
   ) as FigmaPublish[];
 }
 
-/** One emitted component event (matches the Rust `ComponentEvent` serde shape). */
-export type ComponentEvent = {
-  source: string;
-  sourceHandle: string;
-  value: ComponentValue;
-  edgeId: string | null;
-  sequence: number;
-};
+/** One emitted component event. */
+export type { ComponentEvent } from "@/lib/bindings/ComponentEvent";
 
 /** A timer the host must arm; on fire, call `runtime.wake(nodeId, method, now)`. */
-export type Wakeup = {
-  id: number;
-  nodeId: string;
-  method: string;
-  delayMs: number;
-};
+export type { Wakeup } from "@/lib/bindings/Wakeup";
 
-/** An outbound cloud call the host must perform (matches the Rust `CloudRequest`
- *  serde shape: `kind`-tagged, `source` is the issuing node id). The result, if
- *  any, re-enters the runtime via its inject path. */
-export type CloudRequest = { source: string } & (
-  | { kind: "mqttPublish"; brokerId: string; topic: string; payload: number[]; retain: boolean }
-  | {
-      kind: "llmGenerate";
-      providerId: string;
-      model: string;
-      system: string | null;
-      prompt: string;
-    }
-  | { kind: "midiSend"; deviceName: string; bytes: number[] }
-);
+/** An outbound cloud call the host must perform (`kind`-tagged, `source` is the
+ *  issuing node id). The result, if any, re-enters the runtime via its inject
+ *  path. */
+export type { CloudRequest } from "@/lib/bindings/CloudRequest";
 
-/** One MIDI in-node's device interest (matches the Rust `MidiListener` serde
- *  shape, as returned by `runtime.midiListeners()`). `deviceName` is a
- *  case-insensitive substring filter on the host port name; "" = every device. */
-export type MidiListener = {
-  nodeId: string;
-  deviceName: string;
-};
+/** One MIDI in-node's device interest, as returned by `runtime.midiListeners()`.
+ *  `deviceName` is a case-insensitive substring filter on the host port name;
+ *  "" = every device. */
+export type { MidiListener } from "@/lib/bindings/MidiListener";
 
-/** A node's runtime health signal, shown on its UI badge (matches the Rust
- *  `NodeDiagnostic` serde shape). `message: null` clears the node's diagnostic. */
-export type NodeDiagnostic = {
-  node: string;
-  level: "warning" | "error";
-  message: string | null;
-};
+/** A node's runtime health signal, shown on its UI badge. `message: null` clears
+ *  the node's diagnostic. */
+export type { NodeDiagnostic } from "@/lib/bindings/NodeDiagnostic";
 
-/** The side effects of one runtime turn (matches the Rust `Effects` serde shape). */
-export type Effects = {
-  outboundBytes: number[];
-  componentEvents: ComponentEvent[];
-  wakeups: Wakeup[];
-  cancellations: number[];
-  cloudRequests: CloudRequest[];
-  nodeDiagnostics: NodeDiagnostic[];
-};
+/** The side effects of one runtime turn. */
+export type { Effects } from "@/lib/bindings/Effects";

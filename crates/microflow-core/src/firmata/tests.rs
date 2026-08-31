@@ -297,3 +297,58 @@ fn incomplete_sysex_waits_for_end_marker() {
     assert_eq!(c.feed(&[b'S', b'F', END_SYSEX]), vec![Message::ReportFirmware]);
     assert_eq!(c.firmware_name, "SF");
 }
+
+#[test]
+fn chunking_never_changes_the_parse() {
+    // The cursor + resumable sysex scan must make framing independent of how
+    // the transport happens to split the stream, including a sysex frame cut
+    // mid-frame (chunk 1 and 4 both land inside one).
+    let mut stream = Vec::new();
+    stream.extend_from_slice(&[PROTOCOL_VERSION, 2, 5]);
+    stream.extend_from_slice(&[ANALOG_MESSAGE, 1, 0]);
+    stream.extend_from_slice(&[START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', b'F', END_SYSEX]);
+    stream.extend_from_slice(&[DIGITAL_MESSAGE, 0b0000_0111, 0]);
+    stream.extend_from_slice(&[START_SYSEX, I2C_REPLY, 0x08, 0, 0, 0, 0x42, 0, END_SYSEX]);
+    stream.extend_from_slice(&[ANALOG_MESSAGE, 2, 0]);
+
+    let expected = vec![
+        Message::ProtocolVersion,
+        Message::Analog,
+        Message::ReportFirmware,
+        Message::Digital,
+        Message::I2cReply,
+        Message::Analog,
+    ];
+
+    for chunk in 1..=stream.len() {
+        let mut c = FirmataClient::new();
+        c.pins = vec![Pin::default(); 20];
+        let msgs: Vec<Message> = stream.chunks(chunk).flat_map(|c2| c.feed(c2)).collect();
+        assert_eq!(msgs, expected, "chunk size {chunk}");
+        assert_eq!(c.pending_bytes(), 0, "chunk size {chunk}");
+        assert_eq!(c.protocol_version, "2.5");
+        assert_eq!(c.firmware_name, "SF");
+        assert_eq!(c.pins[14].value, 2);
+        assert_eq!(c.i2c_data.len(), 1, "chunk size {chunk}");
+        assert_eq!(c.i2c_data[0].data, vec![0x42]);
+    }
+}
+
+#[test]
+fn sysex_scan_resumes_across_feeds() {
+    // A frame dribbled in one byte at a time still parses, and the buffer is
+    // drained the moment it completes.
+    let frame = [START_SYSEX, STRING_DATA, b'H', 0, b'i', 0, END_SYSEX];
+    let mut c = FirmataClient::new();
+    for (i, b) in frame.iter().enumerate() {
+        let msgs = c.feed(&[*b]);
+        if i + 1 == frame.len() {
+            assert_eq!(msgs, vec![Message::StringData]);
+            assert_eq!(c.pending_bytes(), 0);
+        } else {
+            assert_eq!(msgs, vec![]);
+            assert_eq!(c.pending_bytes(), i + 1);
+        }
+    }
+    assert_eq!(c.strings, vec!["Hi".to_string()]);
+}

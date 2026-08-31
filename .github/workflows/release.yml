@@ -142,9 +142,11 @@ jobs:
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
-          # Pin a modern wasm-pack — the action's `latest` is a stale v0.9.1
-          # whose wasm-opt can't parse current wasm-bindgen output.
-          version: 'v0.13.1'
+          # Pin a modern wasm-pack: the action's `latest` resolves to a stale
+          # v0.9.1 whose bundled wasm-opt can't parse current wasm-bindgen output
+          # ("Fatal: error in parsing input"). v0.15.x ships a working wasm-opt
+          # and the `--profile` flag `build:wasm` uses to select `wasm-release`.
+          version: 'v0.15.0'
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2

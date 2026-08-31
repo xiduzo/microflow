@@ -86,13 +86,30 @@ export function ReactFlowCanvas() {
   useHelperHotkeys(nodes);
 
   const { screenToFlowPosition } = useReactFlow();
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const pointerFrame = useRef<number | null>(null);
+
+  // The cursor is ephemeral peer state. Pointer events arrive far faster than
+  // frames, so only the latest position is kept and it is converted to flow
+  // coordinates — a container measurement — once per animation frame.
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      updateCursor(flowPosition);
+      pointer.current = { x: event.clientX, y: event.clientY };
+      if (pointerFrame.current !== null) return;
+      pointerFrame.current = requestAnimationFrame(() => {
+        pointerFrame.current = null;
+        if (!pointer.current) return;
+        updateCursor(screenToFlowPosition(pointer.current));
+      });
     },
     [updateCursor, screenToFlowPosition],
   );
+
+  useEffect(() => {
+    return () => {
+      if (pointerFrame.current !== null) cancelAnimationFrame(pointerFrame.current);
+    };
+  }, []);
 
   useEffect(() => {
     fitView({ duration: 250, padding: 0.15 });

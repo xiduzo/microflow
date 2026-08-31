@@ -64,9 +64,13 @@ export const useNodeControls = <
   // deferral, getNode(id) inside updateNodeData reads stale data and the
   // merge silently drops fields that were just set by onChange/setNodeData.
   //
-  // Skipped on read-only (preview) sessions — writing back to the doc on
-  // every render loops because Leva's controlsData identity churns each
-  // render and the preview has no ReactFlowBridge to absorb the echo.
+  // Leva's controlsData identity churns on every render, so this effect runs
+  // far more often than the values actually change; `FlowDocument.updateNodeData`
+  // drops the write when the data is value-equal to what is stored, which is
+  // what keeps the render → doc-write → render cycle from sustaining itself.
+  //
+  // Skipped entirely on read-only (preview) sessions, which have no
+  // ReactFlowBridge to absorb the echo.
   useEffect(() => {
     if (readOnly) return;
     requestAnimationFrame(() => {
@@ -124,11 +128,6 @@ export const useNodeControls = <
     // Prevent other effects from running
     lastControlData.current = newData as typeof lastControlData.current;
     set(newData as Parameters<typeof set>[0]);
-    console.debug("[NODE-CONTROLS] <useEffect>", lastControlData.current, {
-      data,
-      newData,
-    });
-    // flowChanged();
   }, [data, set]);
 
   return { render, set, setNodeData };

@@ -1,16 +1,15 @@
-import { cn } from "@/lib/utils";
 import { SIGNAL_DURATION, useEdgeSignals, type Signal } from "@/stores/signal";
 import { BaseEdge, getBezierPath, type EdgeProps } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 
-const SIGNAL_RATE_THRESHOLD = 10;
-const RATE_WINDOW_MS = 500;
-
+/**
+ * An edge plus the signal dots travelling along it. The store's shared clock
+ * decides when this re-renders — an edge with no live signal is woken by
+ * nothing and draws a plain path.
+ */
 export function AnimatedEdge(props: EdgeProps) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition } = props;
-  const signals = useEdgeSignals(id);
-  const signalTimestampsRef = useRef<Set<number>>(new Set());
-  const [useLightweightMode, setUseLightweightMode] = useState(false);
+  const { signals, now } = useEdgeSignals(id);
 
   const [edgePath] = useMemo(() => {
     return getBezierPath({
@@ -23,131 +22,39 @@ export function AnimatedEdge(props: EdgeProps) {
     });
   }, [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]);
 
-  useEffect(() => {
-    const now = Date.now();
-    const cutoffTime = now - RATE_WINDOW_MS;
-
-    signals.forEach((signal) => {
-      signalTimestampsRef.current.add(signal.startTime);
-    });
-
-    const validTimestamps = new Set<number>();
-    signalTimestampsRef.current.forEach((timestamp) => {
-      if (timestamp < cutoffTime) return;
-      validTimestamps.add(timestamp);
-    });
-    signalTimestampsRef.current = validTimestamps;
-
-    const signalsInWindow = signalTimestampsRef.current.size;
-    const rate = (signalsInWindow / RATE_WINDOW_MS) * 1000;
-
-    setUseLightweightMode(rate >= SIGNAL_RATE_THRESHOLD);
-  }, [signals]);
-
-  // Switch to lightweight AnimatedEdge when signal rate is high
-  if (useLightweightMode) {
-    return <AnimatedBaseEdge id={id} edgePath={edgePath} hasSignals={signals.length > 0} />;
-  }
-
-  return (
-    <EdgeWithSignals
-      id={id}
-      sourceX={sourceX}
-      sourceY={sourceY}
-      targetX={targetX}
-      targetY={targetY}
-      signals={signals}
-      edgePath={edgePath}
-    />
-  );
-}
-
-function EdgeWithSignals(
-  props: Pick<EdgeProps, "id" | "sourceX" | "sourceY" | "targetX" | "targetY"> & {
-    signals: Signal[];
-    edgePath: string;
-  },
-) {
-  const { id, sourceX, sourceY, targetX, targetY, signals, edgePath } = props;
   // Parse the path once and cache the control points
   const bezierPoints = useMemo(() => {
     return parseBezierPath(edgePath, sourceX, sourceY, targetX, targetY);
   }, [edgePath, sourceX, sourceY, targetX, targetY]);
 
-  const [signalPositions, setSignalPositions] = useState<Map<string, { x: number; y: number }>>(
-    new Map(),
-  );
-  const isMountedRef = useRef(true);
-
-  // Clean up signalPositions when signals are removed
-  useEffect(() => {
-    const signalIds = new Set(signals.map((s) => s.id));
-    setSignalPositions((prev) => {
-      const filtered = new Map<string, { x: number; y: number }>();
-      prev.forEach((position, signalId) => {
-        if (signalIds.has(signalId)) {
-          filtered.set(signalId, position);
-        }
-      });
-      return filtered;
-    });
-  }, [signals]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    const interval = setInterval(() => {
-      if (!isMountedRef.current) return;
-
-      const now = Date.now();
-      const newPositions = new Map<string, { x: number; y: number }>();
-
-      signals.forEach((signal) => {
-        const elapsed = now - signal.startTime;
-        const progress = Math.max(0, Math.min(1, elapsed / SIGNAL_DURATION));
-
-        // Calculate position along the Bezier curve path
-        const position = getPointOnBezierCurve(bezierPoints, progress);
-
-        newPositions.set(signal.id, position);
-      });
-
-      // Only update if component is still mounted
-      if (isMountedRef.current) {
-        setSignalPositions(newPositions);
-      }
-    }, 16); // ~60fps
-
-    return () => {
-      isMountedRef.current = false;
-      clearInterval(interval);
-    };
-  }, [signals, bezierPoints]);
-
   return (
     <>
       <BaseEdge id={id} path={edgePath} />
-      {signals.map((signal) => {
-        const position = signalPositions.get(signal.id);
-        if (!position) return null;
-
-        return <circle key={signal.id} r="8" fill="#ffcc00" cx={position.x} cy={position.y} />;
-      })}
+      {signalPositions(signals, now, bezierPoints).map((position) => (
+        <circle key={position.id} r="8" fill="#ffcc00" cx={position.x} cy={position.y} />
+      ))}
     </>
   );
 }
 
-function AnimatedBaseEdge({
-  id,
-  edgePath,
-  hasSignals,
-}: Pick<EdgeProps, "id"> & {
-  edgePath: string;
-  hasSignals: boolean;
-}) {
-  return <BaseEdge id={id} path={edgePath} className={cn({ animated: hasSignals })} />;
+/**
+ * Where each signal sits at `now` — a pure function of the frame the store
+ * handed out, so it can be checked without rendering an edge.
+ */
+export function signalPositions(
+  signals: readonly Signal[],
+  now: number,
+  points: BezierPoints,
+): Array<{ id: string; x: number; y: number }> {
+  return signals.map((signal) => {
+    const elapsed = now - signal.startTime;
+    const progress = Math.max(0, Math.min(1, elapsed / SIGNAL_DURATION));
+    const { x, y } = getPointOnBezierCurve(points, progress);
+    return { id: signal.id, x, y };
+  });
 }
 
-type BezierPoints = {
+export type BezierPoints = {
   startX: number;
   startY: number;
   cp1X: number;
@@ -163,7 +70,7 @@ type BezierPoints = {
  * Parse SVG path string once and extract control points.
  * This is called only when the path changes, not on every animation frame.
  */
-function parseBezierPath(
+export function parseBezierPath(
   path: string,
   sourceX: number,
   sourceY: number,

@@ -8,19 +8,16 @@
 // desired set against THIS host's live subscriptions, and deriving the Figma uid
 // lifecycle keys. No mqtt.js, no runtime: unit-testable.
 
+import type { DesiredSub as ActiveSub } from "@/lib/bindings/DesiredSub";
+
 /** The wiring kinds core reports (`SubKind` serialized by the wasm shim). */
-export type SubKind = "plain" | "topicAware" | "displayEcho";
+export type { SubKind } from "@/lib/bindings/SubKind";
 
 /**
- * A reconciled subscription — exactly one per (brokerId, topic). The shape of
- * core's `DesiredSub`, as returned by `FlowRuntime.reconcileSubscriptions()`.
+ * A reconciled subscription — exactly one per (brokerId, topic). Core's
+ * `DesiredSub`, as returned by `FlowRuntime.reconcileSubscriptions()`.
  */
-export type ActiveSub = {
-  brokerId: string;
-  topic: string;
-  nodeId: string;
-  kind: SubKind;
-};
+export type { ActiveSub };
 
 const KEY_SEP = " ";
 

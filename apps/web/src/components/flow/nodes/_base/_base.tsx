@@ -1,5 +1,7 @@
 import { type Node, type NodeProps } from "@xyflow/react";
-import { createContext, type PropsWithChildren, useContext } from "react";
+import { type PropsWithChildren, useRef } from "react";
+import { shallow } from "zustand/shallow";
+import { NodeContainerContext, type NodeContainerProps, useNodeData } from "./node-context";
 import {
   CardAction,
   CardHeader,
@@ -20,6 +22,11 @@ import { Badge } from "@/components/ui/badge";
 // Hook implementations live in their own modules to keep the layout file focused.
 export { useNodeControls, type Controls } from "./use-node-controls";
 export { useDeleteHandles } from "./use-delete-handles";
+// The container context now lives in the leaf `./node-context` module, so a
+// consumer that needs only `useNodeId` (the node-data store, on the hot event
+// path) can import it without dragging in this file's UI dependency tree. Both
+// paths stay valid — every existing `from "../_base/_base"` import is unchanged.
+export { useNode, useNodeId, useNodeData } from "./node-context";
 
 function NodeHeader(props: { error?: string; warning?: string }) {
   const data = useNodeData();
@@ -116,56 +123,51 @@ function NodeDescription() {
   );
 }
 
-type ContainerProps<T extends Record<string, unknown>> = BaseNode<T>;
-
-const NodeContainerContext = createContext<ContainerProps<Record<string, unknown>>>(
-  {} as ContainerProps<Record<string, unknown>>,
-);
-
-/** Internal accessor for everything the container provides. Hook modules use this
- *  to read id/data/selected/etc. without each one re-deriving the context shape. */
-export const useNode = <T extends Record<string, unknown>>() =>
-  useContext(NodeContainerContext as React.Context<ContainerProps<T>>);
-
-export const useNodeId = () => {
-  const { id } = useNode();
-  return id;
-};
-
-export const useNodeData = <T extends Record<string, any>>() => {
-  const { data } = useNode<T>();
-  return data;
-};
+/**
+ * Every context consumer re-renders when the provider value changes identity, so
+ * the container must hand out the *same* object while the node props are
+ * shallow-equal — a fresh `props` object per render would wake every
+ * `useNodeData`/`useNodeId` consumer in the subtree on each parent render.
+ */
+function useStableNode(node: NodeContainerProps<Record<string, unknown>>) {
+  const ref = useRef(node);
+  if (!shallow(ref.current, node)) ref.current = node;
+  return ref.current;
+}
 
 export function NodeContainer(
   props: PropsWithChildren &
     BaseNode & { error?: string; warning?: string } & { className?: string },
 ) {
+  // `children` is a new element every render and the presentational props are
+  // not part of the context shape — neither belongs in the provider value.
+  const { children, error, warning, className, ...rest } = props;
+  const value = useStableNode(rest);
+
   return (
-    <NodeContainerContext.Provider value={props}>
+    <NodeContainerContext.Provider value={value}>
       <Card
         className={node({
-          className: props.className,
-          draggable: props.draggable,
-          selected: props.selected,
-          hasError: !!props.error,
+          className,
+          draggable: rest.draggable,
+          selected: rest.selected,
+          hasError: !!error,
           // Error's red ring outranks the amber warning ring when both are set.
-          hasWarning: !!props.warning && !props.error,
+          hasWarning: !!warning && !error,
         })}
       >
-        <NodeHeader error={props.error} warning={props.warning} />
-        <CardContent className="min-h-32 flex justify-center items-center">
-          {props.children}
-        </CardContent>
+        <NodeHeader error={error} warning={warning} />
+        <CardContent className="min-h-32 flex justify-center items-center">{children}</CardContent>
       </Card>
     </NodeContainerContext.Provider>
   );
 }
 
 export function BlankNodeContainer(props: PropsWithChildren & BaseNode) {
-  return (
-    <NodeContainerContext.Provider value={props}>{props.children}</NodeContainerContext.Provider>
-  );
+  const { children, ...rest } = props;
+  const value = useStableNode(rest);
+
+  return <NodeContainerContext.Provider value={value}>{children}</NodeContainerContext.Provider>;
 }
 
 const node = cva(

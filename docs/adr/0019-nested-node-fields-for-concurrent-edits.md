@@ -1,4 +1,4 @@
-# ADR-0017 — Nest `data` inside the node's Y.Map so concurrent field edits merge
+# ADR-0019 — Nest `data` inside the node's Y.Map so concurrent field edits merge
 
 - **Status:** accepted — implemented
 - **Date:** 2026-08-28

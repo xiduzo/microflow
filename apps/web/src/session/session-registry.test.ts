@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
+// A local session persists through y-indexeddb; bun's test runner provides no
+// `indexedDB`. Import the shim here so this file does not depend on another
+// test file having installed one.
+import "fake-indexeddb/auto";
 import {
   __peekRegistry,
   __resetRegistry,

@@ -10,8 +10,9 @@
 //! do.
 //!
 //! Each message maps to one core entry point whose returned [`Effects`] the actor
-//! applies: write `outbound_bytes` to the port, `emit("component-event", …)` per
-//! event, arm Tokio timers for `wakeups` (firing `ActorMsg::Wake`), abort them on
+//! applies: write `outbound_bytes` to the port, `emit("component-events", …)`
+//! once with the turn's whole event batch, arm Tokio timers for `wakeups`
+//! (firing `ActorMsg::Wake`), abort them on
 //! `cancellations`. On `Connect` the runtime is rebuilt fresh and the last flow
 //! re-applied, so a (re)connected board gets clean pin-mode/reporting init — the
 //! same model the browser reactor uses (a fresh runtime per connection).
@@ -21,12 +22,14 @@
 use crate::runtime::services::{LlmError, LlmRegistry, LlmRequest, MqttPublisher};
 use microflow_core::runtime::cloud;
 use microflow_core::flow::FlowUpdate;
+use microflow_core::runtime::subscriptions::MidiListener;
 use microflow_core::runtime::{
     CloudRequest, CloudRequestKind, ComponentBase, ComponentEvent, ComponentValue, Effects,
     EffectsSink, FlowRuntime, NodeDiagnostic, SubscriberWiring, Wakeup, WakeupId,
 };
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -175,6 +178,13 @@ struct Actor {
     /// Open `midir` connections; inputs reconciled per flow update, outputs
     /// opened lazily per `MidiSend`. Thread-confined like the runtime.
     midi: crate::runtime::midi::MidiManager,
+    /// The flow's MIDI in-node listeners, cached because inbound MIDI (CC
+    /// sweeps, aftertouch) arrives up to ~1kHz and the list only changes when the
+    /// flow does. Rebuilt from `FlowRuntime::collect_midi_listeners` in exactly
+    /// the one place the flow changes (`ActorMsg::FlowUpdate`), alongside
+    /// `MidiManager::reconcile`. `Rc` so a fan-out can hold it while the turn
+    /// mutates the actor, without copying the list per message.
+    midi_listeners: Rc<[MidiListener]>,
 }
 
 impl Actor {
@@ -207,6 +217,7 @@ impl Actor {
             timers: HashMap::new(),
             cloud,
             midi: crate::runtime::midi::MidiManager::new(),
+            midi_listeners: Rc::from([] as [MidiListener; 0]),
         }
     }
 
@@ -299,8 +310,10 @@ impl Actor {
                 let effects = self.rt.update_flow(flow);
                 self.apply(effects);
                 let _ = reply.send(self.rt.collect_subscriber_wirings());
-                let listeners = self.rt.collect_midi_listeners();
-                self.midi.reconcile(&listeners, &self.self_tx);
+                // The flow changed: this is the only place the listener cache
+                // can go stale, so it is the only place it is rebuilt.
+                self.midi_listeners = self.rt.collect_midi_listeners().into();
+                self.midi.reconcile(&self.midi_listeners, &self.self_tx);
             }
             ActorMsg::Call { id, method, value } => {
                 self.set_now();
@@ -318,12 +331,13 @@ impl Actor {
                 self.apply(effects);
             }
             ActorMsg::MidiMessage { port_name, bytes } => {
-                // Fan out against the runtime's own listener list (always fresh)
-                // — every matching in-node receives the raw message; parsing
-                // lives in core's `Midi::receive_raw_message`.
+                // Fan out against the cached listener list — every matching
+                // in-node receives the raw message; parsing lives in core's
+                // `Midi::receive_raw_message`. The `Rc` clone keeps the list
+                // readable while the turn mutates the actor.
                 self.set_now();
-                let listeners = self.rt.collect_midi_listeners();
-                for listener in listeners {
+                let listeners = Rc::clone(&self.midi_listeners);
+                for listener in listeners.iter() {
                     if crate::runtime::midi::device_matches(&port_name, &listener.device_name) {
                         let effects = self.rt.deliver_message(&listener.node_id, &port_name, &bytes);
                         self.apply(effects);
@@ -431,7 +445,14 @@ impl EffectsSink for Actor {
     }
 
     fn dispatch_event(&mut self, event: &ComponentEvent) {
-        let _ = self.app.emit("component-event", event);
+        self.dispatch_events(std::slice::from_ref(event));
+    }
+
+    /// One Tauri IPC message per turn: event name `component-events`, payload a
+    /// `ComponentEvent[]` in emission order. Every event of a turn costs one
+    /// serialize + one IPC hop + one webview `JSON.parse` together, not each.
+    fn dispatch_events(&mut self, events: &[ComponentEvent]) {
+        let _ = self.app.emit("component-events", events);
     }
 
     fn report_diagnostic(&mut self, diagnostic: &NodeDiagnostic) {

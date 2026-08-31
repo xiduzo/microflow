@@ -1,8 +1,9 @@
 import type { ComponentValue } from "@/lib/bindings/ComponentValue";
-import { useNodeDataStore } from "@/stores/node-data";
-import { useSignalStore } from "@/stores/signal";
+import { nodeDataStore } from "@/stores/node-data";
+import { signalStore } from "@/stores/signal";
 import { useDevLogStore } from "@/stores/dev-log";
 import { formatComponentValue } from "@/lib/format-value";
+import { edgeIdsFor, edgeIndexOf, type EdgeLike } from "@/lib/ingest/edge-index";
 
 /** A component event from either runtime (browser wasm or desktop IPC). */
 type IngestedEvent = {
@@ -12,39 +13,35 @@ type IngestedEvent = {
   sequence?: number;
 };
 
-/** The edge fields ingest needs; both `CoreEdge` and collab `FlowEdge` satisfy it. */
-type EdgeLike = {
-  id?: string | null;
-  source: string;
-  sourceHandle?: string | null;
-};
+export type { EdgeLike };
 
 /**
  * The single place a component event is applied to the UI. Both runtimes — the
  * browser wasm reactor (`flow-reactor.ts`) and the desktop IPC listener
  * (`use-component-events.ts`) — funnel through here, so node values, edge-signal
  * animations, and the devtools dev-log stay in lock-step across platforms.
+ *
+ * Costs the emitting node's fan-out, not the size of the flow: `edges` is
+ * indexed once per flow change, the value write wakes one node, and the
+ * dev-log message is formatted only if the panel shows it.
  */
 export function applyComponentEvent(event: IngestedEvent, edges: ReadonlyArray<EdgeLike>): void {
   // Latest value per node (and the LLM `thinking` side-channel).
   if (event.sourceHandle === "value" || event.sourceHandle === "event") {
-    useNodeDataStore.getState().update(event.source, event.value);
+    nodeDataStore.update(event.source, event.value);
   } else if (event.sourceHandle === "thinking") {
-    useNodeDataStore.getState().update(`${event.source}:thinking`, event.value);
+    nodeDataStore.update(`${event.source}:thinking`, event.value);
   }
 
   // Animate every wire leaving this (source, handle).
-  const addSignal = useSignalStore.getState().addSignal;
-  for (const edge of edges) {
-    if (edge.id && edge.source === event.source && edge.sourceHandle === event.sourceHandle) {
-      addSignal(edge.id);
-    }
+  for (const edgeId of edgeIdsFor(edgeIndexOf(edges), event.source, event.sourceHandle)) {
+    signalStore.addSignal(edgeId);
   }
 
   // Feed the unified dev-log as the devtools' `flow` source.
   useDevLogStore.getState().record({
     level: "debug",
     source: "flow",
-    message: `${event.source} · ${event.sourceHandle} → ${formatComponentValue(event.value)}`,
+    message: () => `${event.source} · ${event.sourceHandle} → ${formatComponentValue(event.value)}`,
   });
 }

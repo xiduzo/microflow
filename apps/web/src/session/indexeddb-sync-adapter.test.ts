@@ -38,7 +38,7 @@ describe("IndexeddbSyncAdapter", () => {
     b.destroy();
   });
 
-  test("brings a document stored in the pre-ADR-0017 shape forward on load", async () => {
+  test("brings a document stored in the pre-ADR-0019 shape forward on load", async () => {
     const store = freshStore();
 
     // Seed IndexedDB with a flat node, as a build before the nested shape

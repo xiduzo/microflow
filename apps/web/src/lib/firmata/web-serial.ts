@@ -21,7 +21,6 @@ import {
   flashBaud,
   parseHex,
   standardFirmataHex,
-  type FeedResult,
   type FirmataSession,
   type FlashSession,
   type FlashStep,
@@ -80,8 +79,6 @@ export function isWebSerialSupported(): boolean {
   return getSerial() !== undefined;
 }
 
-export type PinChangeHandler = (pin: number, value: number, isAnalog: boolean) => void;
-
 export type BoardConnection = {
   /** Write raw Firmata bytes to the board (from a session encoder). */
   write: (bytes: Uint8Array) => Promise<void>;
@@ -94,15 +91,13 @@ export type BoardConnection = {
 };
 
 export type ProbeHooks = {
-  /** Called for each pin value change the board reports. */
-  onPinChange?: PinChangeHandler;
   /** The board's read loop ended unexpectedly (reset / unplug mid-session). */
   onClosed?: () => void;
   /**
    * Raw inbound bytes, handed straight to the flow runtime once a board is
-   * connected. The runtime owns its own codec (single source of truth with the
-   * desktop), so it decodes these itself rather than reusing the detection
-   * session's `feed` above.
+   * connected. The runtime owns its own codec — the same `microflow-core`
+   * decoder the desktop runs — so it decodes the chunk itself rather than
+   * reusing the detection session's `feed` (ADR-0018).
    */
   onBytes?: (bytes: Uint8Array) => void;
 };
@@ -215,28 +210,15 @@ async function tryConnectAtBaud(
   // Distinguishes a deliberate teardown from the board dropping mid-session.
   let tornDown = false;
 
-  // Persistent read loop: feed every incoming chunk to the codec and surface
-  // pin changes. Ends when the reader is cancelled (on disconnect / teardown).
-  const readLoop = (async () => {
-    try {
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value && value.length > 0) {
-          const result = JSON.parse(session.feed(value)) as FeedResult;
-          for (const change of result.pinChanges) {
-            options.onPinChange?.(change.pin, change.value, change.isAnalog);
-          }
-          // Hand the raw chunk to the flow runtime (it owns its own decode).
-          options.onBytes?.(value);
-        }
-      }
-    } catch {
-      // Port closed / disconnected mid-read — fall through to teardown.
-    }
-    // Board reset or was unplugged while connected — let the caller recover.
-    if (!tornDown) options.onClosed?.();
-  })();
+  // Persistent read loop. Ends when the reader is cancelled (on disconnect /
+  // teardown) — see `pumpReader` for why only that counts as the port going away.
+  const readLoop = pumpReader(reader, session, {
+    ...options,
+    onClosed: () => {
+      // Board reset or was unplugged while connected — let the caller recover.
+      if (!tornDown) options.onClosed?.();
+    },
+  });
 
   const teardown = async () => {
     tornDown = true;
@@ -292,6 +274,54 @@ async function tryConnectAtBaud(
   return { write, session, disconnect: teardown, port };
 }
 
+/**
+ * Drain one reader into the detection codec and the probe hooks until it ends,
+ * then fire `onClosed` exactly once. Every chunk goes to both, in that order and
+ * without filtering — that identical stream is what keeps the detection codec's
+ * pin table and the flow runtime's from drifting apart (ADR-0018).
+ *
+ * The only thing here that can mean *the port is gone* is `reader.read()`
+ * rejecting. Everything else in the loop is computation over a chunk that
+ * already arrived: the codec is wasm (`session.feed`), and `onBytes` crosses
+ * into the wasm flow runtime. Those faults are contained per chunk so the loop
+ * keeps reading — a broken engine must never be reported as an unplugged board
+ * (ADR-0017). `onClosed` therefore stays reachable only from genuine transport
+ * loss, which is what the caller's auto-reconnect is allowed to act on.
+ */
+export async function pumpReader(
+  reader: { read(): Promise<{ value?: Uint8Array; done: boolean }> },
+  session: Pick<FirmataSession, "feed">,
+  hooks: ProbeHooks,
+): Promise<void> {
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value || value.length === 0) continue;
+      try {
+        // Advance the detection codec's own state — this is what makes
+        // `firmwareName()` and `pinsJson()` answer during the handshake, and
+        // keeps them truthful afterwards for `connectedState`. Its per-chunk
+        // `FeedResult` report has no consumer in the browser: pin observations
+        // reach the UI as the flow runtime's component events (ADR-0018).
+        session.feed(value);
+      } catch (error) {
+        console.warn("[web-serial] detection codec rejected a chunk:", error);
+      }
+      try {
+        // The same chunk, undecoded, to the flow runtime — it owns the pin table
+        // the flow runs on and decodes with its own copy of the core codec.
+        hooks.onBytes?.(value);
+      } catch (error) {
+        console.error("[web-serial] inbound-bytes handler threw:", error);
+      }
+    }
+  } catch {
+    // `reader.read()` rejected: the port closed or the device went away.
+  }
+  hooks.onClosed?.();
+}
+
 /** Number of pins the session currently knows about. */
 function pinCount(session: FirmataSession): number {
   return (JSON.parse(session.pinsJson()) as PinInfo[]).length;
@@ -333,7 +363,10 @@ export async function detectBoard(port: WebSerialPort): Promise<string | undefin
 export type FlashProgress = (done: number, total: number) => void;
 
 /** Concatenate two byte arrays. */
-function concat(a: Uint8Array<ArrayBufferLike>, b: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBufferLike> {
+function concat(
+  a: Uint8Array<ArrayBufferLike>,
+  b: Uint8Array<ArrayBufferLike>,
+): Uint8Array<ArrayBufferLike> {
   const out = new Uint8Array(a.length + b.length);
   out.set(a);
   out.set(b, a.length);

@@ -32,6 +32,7 @@ use microflow_core::firmata::{FirmataClient, Message};
 use microflow_core::flasher::firmware::standard_firmata_hex;
 use microflow_core::flasher::{hex, new_driver, BoardConfig, BoardType, FlashDriver, FlashStep};
 use serde::Serialize;
+use ts_rs::TS;
 use wasm_bindgen::prelude::*;
 
 /// Initialise the wasm module: install a panic hook so a Rust panic surfaces as
@@ -43,8 +44,9 @@ pub fn init() {
 }
 
 /// A pin value change, mirroring the desktop `PinChangeEvent`.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
 struct PinChange {
     pin: u8,
     value: u16,
@@ -52,8 +54,9 @@ struct PinChange {
 }
 
 /// An I2C reply, mirroring the desktop `I2cReplyEvent`.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
 struct I2cReplyOut {
     address: u8,
     register: u8,
@@ -72,10 +75,15 @@ struct PinInfo {
 
 /// What changed after feeding a chunk of incoming bytes. Returned as JSON from
 /// [`FirmataSession::feed`].
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 struct FeedResult {
+    // Inlined: `PinChange`/`I2cReplyOut` exist only as this result's payload, so
+    // they stay anonymous in TS rather than leaking two extra binding files.
+    #[ts(inline)]
     pin_changes: Vec<PinChange>,
+    #[ts(inline)]
     i2c_replies: Vec<I2cReplyOut>,
     /// A firmware report arrived this feed — the caller should re-read
     /// `firmwareName` / `firmwareVersion`.
@@ -284,6 +292,17 @@ impl FirmataSession {
             firmware_updated,
             capabilities_updated,
         };
+        // Nothing changed — return `""` so the JS read loop can skip its
+        // `JSON.parse`. Serial chunks arrive continuously while a board streams
+        // analog reports, and most carry no change at all; serialising an
+        // all-empty `FeedResult` for each was per-read cost with no consumer.
+        if result.pin_changes.is_empty()
+            && result.i2c_replies.is_empty()
+            && !result.firmware_updated
+            && !result.capabilities_updated
+        {
+            return Ok(String::new());
+        }
         serde_json::to_string(&result)
             .map_err(|e| JsError::new(&format!("failed to serialize feed result: {e}")))
     }
@@ -595,8 +614,9 @@ mod tests {
         assert!(json.contains("\"pin\":0"), "got: {json}");
         assert!(json.contains("\"pin\":2"), "got: {json}");
 
-        // Same values again -> no changes reported.
+        // Same values again -> nothing changed, so the empty-result short
+        // circuit kicks in and the host is handed "" instead of a JSON body.
         let json = s.feed(&[0x90, 0b0000_0101, 0]).expect("feed ok");
-        assert!(json.contains("\"pinChanges\":[]"), "got: {json}");
+        assert_eq!(json, "", "an unchanged chunk must not serialize a result");
     }
 }

@@ -2,6 +2,7 @@ import type { Edge, Node } from "@xyflow/react";
 import type { Credentials } from "@/lib/bindings/Credentials";
 import type { GenerationOutcome } from "@/lib/bindings/GenerationOutcome";
 import type { ValidationProblem } from "@/lib/bindings/ValidationProblem";
+import { projectFlowStructure } from "@microflow/collab/schema";
 
 /**
  * The `generate_sketch` command payload: the current Flow graph plus the
@@ -152,13 +153,15 @@ export function buildGenerateSketchCommand(
 /**
  * Produce a stable string key for a Flow graph and selected target so
  * successive snapshots can be compared cheaply. Two inputs that would generate
- * the same sketch must yield the same key, so we serialize the same
- * `{ nodes, edges }` payload sent to the generator together with the selected
- * `targetId`. Including the target means switching the board re-generates even
- * when the graph is unchanged. Used to skip redundant regeneration otherwise.
+ * the same sketch must yield the same key, so we serialize the Flow's
+ * structural projection (node id/type/config data + edge endpoints — the
+ * generator reads nothing else; layout has no bearing on emitted code)
+ * together with the selected `targetId`. Including the target means switching
+ * the board re-generates even when the graph is unchanged. Used to skip
+ * redundant regeneration otherwise.
  */
 export function serializeFlowGraph(nodes: Node[], edges: Edge[], targetId?: string): string {
-  return JSON.stringify({ flow: buildGenerateSketchCommand(nodes, edges).flow, targetId });
+  return JSON.stringify({ flow: projectFlowStructure(nodes, edges), targetId });
 }
 
 /**

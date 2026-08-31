@@ -2,24 +2,29 @@
 # microflow-core is compiled to wasm three ways (codegen / firmata / runtime) and
 # emitted into apps/web/src/lib/*/generated, which the Vite app imports. wasm-pack
 # resolves the whole Cargo workspace, so the full repo is copied in. The wasm-pack
-# invocations mirror the project's build:wasm scripts exactly (same CWD + relative
-# paths) so --out-dir resolves identically to a local build. No bun here — its
-# installer needs unzip (absent from rust:1); wasm-pack is called directly.
+# invocations mirror the project's build:wasm scripts exactly — same CWD, relative
+# paths, and `--profile wasm-release` — so --out-dir resolves identically to a local
+# build and the image ships the same size-tuned binaries. Keep them in step: this is
+# a hand-kept copy of those scripts, and a flag added there must be added here or
+# the deployed app quietly differs from every other build. No bun in this stage —
+# its installer needs unzip (absent from rust:1); wasm-pack is called directly.
 FROM rust:1 AS wasm
 WORKDIR /app
 
-# wasm toolchain — above the source COPY so it stays layer-cached across commits
+# wasm toolchain — above the source COPY so it stays layer-cached across commits.
+# wasm-pack is version-pinned: `--profile` (used below) landed after 0.13, and an
+# unpinned `cargo install` would silently move this build to whatever is latest.
 RUN rustup target add wasm32-unknown-unknown \
- && cargo install wasm-pack --locked
+ && cargo install wasm-pack --locked --version 0.15.0
 
 # whole workspace: wasm-pack loads every member manifest during resolution
 COPY . .
 
 # emits apps/web/src/lib/{codegen,firmata,runtime}/generated
 WORKDIR /app/apps/web
-RUN wasm-pack build ../../crates/microflow-codegen-wasm --target web --out-dir ../../apps/web/src/lib/codegen/generated \
- && wasm-pack build ../../crates/microflow-firmata-wasm --target web --out-dir ../../apps/web/src/lib/firmata/generated \
- && wasm-pack build ../../crates/microflow-runtime-wasm --target web --out-dir ../../apps/web/src/lib/runtime/generated
+RUN wasm-pack build ../../crates/microflow-codegen-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/codegen/generated \
+ && wasm-pack build ../../crates/microflow-firmata-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/firmata/generated \
+ && wasm-pack build ../../crates/microflow-runtime-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/runtime/generated
 
 # ---- Stage 2: install JS deps, bundle the Vite app, serve ----
 FROM oven/bun:1 AS web

@@ -413,7 +413,7 @@ describe("FlowUpdateDispatcher", () => {
 
     // A real remote update: another client's document state, applied with a
     // remote origin. Writing into `doc.nodes` by hand would bypass the storage
-    // shape the document owns (ADR-0017) rather than simulating a peer.
+    // shape the document owns (ADR-0019) rather than simulating a peer.
     const peer = FlowDocument.createEmpty();
     peer.addNode(mkNode("remote-n"));
     Y.applyUpdate(doc.doc, Y.encodeStateAsUpdate(peer.doc), "remote");

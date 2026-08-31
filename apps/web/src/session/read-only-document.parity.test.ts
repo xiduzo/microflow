@@ -10,7 +10,7 @@ import { MUTATORS, readOnlyDocument } from "./read-only-document";
  * Rather than trusting a hand-maintained set, this calls every method on
  * `FlowDocument` and asks the document whether it changed. Anything that writes
  * and is not in `MUTATORS` is a silent hole in Viewer enforcement — which is
- * exactly what adding `setNode` and `deleteNode` (ADR-0017) would have opened
+ * exactly what adding `setNode` and `deleteNode` (ADR-0019) would have opened
  * if nobody had remembered.
  */
 
@@ -119,7 +119,7 @@ describe("readOnlyDocument mutator parity", () => {
     expect(missing).toEqual([]);
   });
 
-  test("the new ADR-0017 write methods are actually neutralised", () => {
+  test("the new ADR-0019 write methods are actually neutralised", () => {
     const doc = seeded();
     const guarded = readOnlyDocument(doc);
 

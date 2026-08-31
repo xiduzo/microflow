@@ -53,7 +53,7 @@ export const useClipboardStore = create<ClipboardState>((set, get) => ({
         };
         // Through the document, not at `doc.nodes` directly: a raw `set` here
         // would write the legacy flat shape and quietly opt the pasted node
-        // out of per-field merging (ADR-0017).
+        // out of per-field merging (ADR-0019).
         doc.setNode(newNode);
       }
     }, "local");

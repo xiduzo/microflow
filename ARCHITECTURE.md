@@ -96,6 +96,9 @@ mirror drifts from Rust. Handle rendering is driven from those generated types
   guard; clippy-clean.
 - TypeScript: `bun test` (DOM-less unit tests) + `tsc --noEmit`.
 - CI runs in `.github/workflows/` (`rust.yml`, `build.yml`, `release.yml`).
+- Benchmarks: `criterion` over the engine's hot paths and `k6` over the collab
+  room — what each covers, and how to A/B two commits, is in
+  [`docs/benchmarks.md`](docs/benchmarks.md).
 
 ## Where to read next
 

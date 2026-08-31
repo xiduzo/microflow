@@ -453,7 +453,7 @@ Ordered by (impact at scale ÷ effort), not by section number.
 | 9 | Backpressure + rate limits on the WS server | §9 | ✅ done |
 | 10 | Bridge: flush on destroy, dirty-id tracking, edge updates | §10 | ✅ done |
 | 11 | Drag positions over awareness | §10 | ✅ done |
-| 12 | Nested `Y.Map` for `data` | §7 | ✅ done — [ADR-0017](adr/0017-nested-node-fields-for-concurrent-edits.md) |
+| 12 | Nested `Y.Map` for `data` | §7 | ✅ done — [ADR-0019](adr/0019-nested-node-fields-for-concurrent-edits.md) |
 | 13 | Delta `flow_update` IPC command | §6 | ⛔ not done |
 
 Item 4b (`useFlowNodes` rebuilding per subscriber) landed alongside item 4.
@@ -554,7 +554,7 @@ toolchain; not urgent at typical flow sizes.
 
 **Item 12 — nested `Y.Map` for node `data`.** Deliberately not landed in this
 batch, and written up instead as
-[ADR-0017](adr/0017-nested-node-fields-for-concurrent-edits.md). It changes the
+[ADR-0019](adr/0019-nested-node-fields-for-concurrent-edits.md). It changes the
 format of every persisted document, which needs a decision rather than a patch.
 
 Doing item 4 also turned up a constraint that materially affects its design:

@@ -31,7 +31,7 @@ export class IndexeddbSyncAdapter implements SyncAdapter {
     this.whenSynced = new Promise<void>((resolve) => {
       this.persistence.once("synced", () => {
         // The load boundary, same as the server's room store: a document
-        // stored before ADR-0017 is brought onto the nested node shape here,
+        // stored before ADR-0019 is brought onto the nested node shape here,
         // so nothing downstream needs a compatibility branch.
         if (!this.destroyed) upgradeLegacyNodes(doc.doc);
         resolve();

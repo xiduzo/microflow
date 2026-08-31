@@ -145,13 +145,13 @@ export function useCollabPresence(): {
 } {
   const { users, localUser } = useFlowSync();
   const localClientId = localUser?.clientId;
-
-  // Memoised so a presence event that did not change the roster hands
-  // consumers the same array, letting a memo'd cursor layer skip its render.
-  const otherUsers = useMemo(
-    () => (localClientId == null ? users : users.filter((u) => u.clientId !== localClientId)),
-    [users, localClientId],
-  );
-
-  return { users, otherUsers, localUser, totalUsers: users.length };
+  // Memoised on the snapshot, which only changes on a real adapter event. The
+  // unmemoised version handed `<CollabCursors>` and `<PressensePanel>` a new
+  // `otherUsers` array on every canvas render, so both re-rendered whenever
+  // anything else on the canvas did.
+  return useMemo(() => {
+    const otherUsers =
+      localClientId == null ? users : users.filter((u) => u.clientId !== localClientId);
+    return { users, otherUsers, localUser, totalUsers: users.length };
+  }, [users, localUser, localClientId]);
 }

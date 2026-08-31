@@ -75,7 +75,7 @@ function buildNodeMap(node: FlowNode): Y.Map<unknown> {
 
 /**
  * Bring a document written before
- * [ADR-0017](../../../docs/adr/0017-nested-node-fields-for-concurrent-edits.md)
+ * [ADR-0019](../../../docs/adr/0019-nested-node-fields-for-concurrent-edits.md)
  * onto the nested node shape, in place.
  *
  * Run once at the load boundary — the room store on the server, IndexedDB on
@@ -87,7 +87,7 @@ function buildNodeMap(node: FlowNode): Y.Map<unknown> {
  * not tracked by anyone's `UndoManager` and cannot be undone into a broken
  * state.
  *
- * **This function is disposable.** Once no stored document predates ADR-0017,
+ * **This function is disposable.** Once no stored document predates ADR-0019,
  * delete it and its call sites.
  *
  * @returns how many nodes were upgraded; 0 means the document was already current.
@@ -109,6 +109,112 @@ export function upgradeLegacyNodes(doc: Y.Doc): number {
   }, "migration");
 
   return legacy.length;
+}
+
+// ============================================================================
+// Flow structure — the one visual-free projection of a Flow
+// ============================================================================
+
+/** A Node reduced to what any structural consumer needs: which Node it is,
+ *  what kind it is, and how it is configured. */
+export type StructuralNode = {
+  id: string;
+  type: string | null;
+  data: Record<string, unknown>;
+};
+
+/** An Edge reduced to its endpoints — the wiring, without id or styling. */
+export type StructuralEdge = {
+  source: string;
+  sourceHandle: string;
+  target: string;
+  targetHandle: string;
+};
+
+/** The Flow, minus how it looks. See {@link projectFlowStructure}. */
+export type FlowStructure = {
+  nodes: StructuralNode[];
+  edges: StructuralEdge[];
+};
+
+/** Loose inputs so collab `FlowNode`, ReactFlow `Node` and the runtime wire
+ *  shape all project without adaptation at the call site. */
+// The index signature is the point: callers hand in whole nodes and edges, and
+// everything not named here (position, dimensions, selection, edge id) is what
+// the projection exists to drop.
+type StructuralNodeInput = {
+  id: string;
+  type?: string | null;
+  data?: Record<string, unknown>;
+  [ignored: string]: unknown;
+};
+
+type StructuralEdgeInput = {
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  [ignored: string]: unknown;
+};
+
+/**
+ * Project a Flow onto its **structure**: node id/type/config data and edge
+ * endpoints. Everything that only describes how the Flow is *drawn* is
+ * stripped — node `position`, `width`/`height`, `selected`, `dragging`, and
+ * edge `id`/`type`/`selected`. Nodes and edges are sorted so a doc reorder
+ * without a semantic change projects identically.
+ *
+ * This is the single definition of "the parts of the Flow that matter" shared
+ * by every consumer that must not react to the Author moving a Node around:
+ * the runtime dispatcher, the Arduino sketch generator, and the schematic
+ * circuit builder.
+ */
+export function projectFlowStructure(
+  nodes: StructuralNodeInput[],
+  edges: StructuralEdgeInput[] = [],
+): FlowStructure {
+  return {
+    nodes: nodes
+      .map((n) => ({ id: n.id, type: n.type ?? null, data: n.data ?? {} }))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+    edges: edges
+      .map((e) => ({
+        source: e.source,
+        sourceHandle: e.sourceHandle ?? "",
+        target: e.target,
+        targetHandle: e.targetHandle ?? "",
+      }))
+      .sort((a, b) => {
+        const ka = `${a.source} ${a.sourceHandle} ${a.target} ${a.targetHandle}`;
+        const kb = `${b.source} ${b.sourceHandle} ${b.target} ${b.targetHandle}`;
+        return ka < kb ? -1 : ka > kb ? 1 : 0;
+      }),
+  };
+}
+
+/** Stable string identity of {@link projectFlowStructure} — two Flows with the
+ *  same structure always yield the same key, whatever their layout. */
+export function flowStructureKey(
+  nodes: StructuralNodeInput[],
+  edges: StructuralEdgeInput[] = [],
+): string {
+  return JSON.stringify(projectFlowStructure(nodes, edges));
+}
+
+/** Value equality for the JSON-ish values a Flow doc holds. Key order is
+ *  irrelevant; `undefined` is a value, not an absent key. */
+function isValueEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, i) => isValueEqual(item, b[i]));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const aKeys = Object.keys(ao);
+  if (aKeys.length !== Object.keys(bo).length) return false;
+  return aKeys.every((key) => key in bo && isValueEqual(ao[key], bo[key]));
 }
 
 // ============================================================================
@@ -137,7 +243,7 @@ export function upgradeLegacyNodes(doc: Y.Doc): number {
  * Do not remove that cache without understanding what it holds up.
  *
  * **Every node is a `Y.Map`.** There is no second shape to branch on: a
- * document written before ADR-0017 is brought forward by `upgradeLegacyNodes`
+ * document written before ADR-0019 is brought forward by `upgradeLegacyNodes`
  * at the load boundary, before anything reads it. Keeping the compatibility
  * branch out of these methods is the point — a dual-shape read path is
  * permanent complexity on the hottest code in the editor, whereas a migration
@@ -247,7 +353,7 @@ export class FlowDocument {
         existing.set(key, { ...next });
         continue;
       }
-      if (current !== value) existing.set(key, value);
+      if (!isValueEqual(current, value)) existing.set(key, value);
     }
 
     const cached = this.nodeCache.get(node.id);
@@ -281,7 +387,10 @@ export class FlowDocument {
     }
     for (const [key, value] of Object.entries(data)) {
       if (LOCAL_ONLY_KEYS.has(key)) continue;
-      if (target.get(key) !== value) target.set(key, value);
+      // By value, not identity: a leva control hands back a fresh array or
+      // object on every render, and an identity check would write — and fan
+      // an update out to the whole room — for data that did not change.
+      if (!isValueEqual(target.get(key), value)) target.set(key, value);
     }
   }
 
@@ -314,6 +423,10 @@ export class FlowDocument {
     this.doc.transact(() => {
       const stored = this.nodes.get(nodeId);
       if (stored === undefined) return;
+      // Skip a move that moved nothing: a Y.Map `set` emits an update even for
+      // an unchanged value, and that fans out to every observer in the room.
+      const prev = stored.get("position") as { x: number; y: number } | undefined;
+      if (prev && prev.x === position.x && prev.y === position.y) return;
       // Touches only the `position` key, so a peer editing this node's `data`
       // at the same moment keeps their edit.
       stored.set("position", { ...position });
@@ -331,6 +444,7 @@ export class FlowDocument {
     this.doc.transact(() => {
       const stored = this.nodes.get(nodeId);
       if (stored === undefined) return;
+      // `writeNodeData` already skips keys whose value is unchanged.
       this.writeNodeData(stored, data, false);
     }, "local");
   }
@@ -378,18 +492,23 @@ export class FlowDocument {
     }, "local");
   }
 
+  /** Write a whole edge. Same no-op write guard as the node mutators. */
   setEdge(edge: FlowEdge): void {
+    const existing = this.edges.get(edge.id);
+    if (existing && isValueEqual(existing, edge)) return;
     this.doc.transact(() => {
       this.edges.set(edge.id, { ...edge });
     }, "local");
   }
 
+  /** Same no-op write guard: an unchanged `set` still fans out an update. */
   updateEdge(edgeId: string, updates: Partial<FlowEdge>): void {
+    const existing = this.edges.get(edgeId);
+    if (!existing) return;
+    const next = { ...existing, ...updates };
+    if (isValueEqual(existing, next)) return;
     this.doc.transact(() => {
-      const existing = this.edges.get(edgeId);
-      if (existing) {
-        this.edges.set(edgeId, { ...existing, ...updates });
-      }
+      this.edges.set(edgeId, next);
     }, "local");
   }
 

@@ -22,6 +22,7 @@ import {
 export type YjsServerOptions = {
   /** Where room documents live. Required — see `RoomStore`. */
   store: RoomStore;
+  /** Quiet period after the last change before a room is persisted. */
   persistDebounce?: number;
   /**
    * Ceiling on how long a dirty room may go unpersisted. `persistDebounce` is
@@ -648,7 +649,7 @@ export class YjsServer {
     let migrated = 0;
     if (persisted) {
       Y.applyUpdate(doc, persisted);
-      // The load boundary is the only place the pre-ADR-0017 node shape is
+      // The load boundary is the only place the pre-ADR-0019 node shape is
       // handled. Bringing the document forward here means every reader —
       // clients included, since they sync from this doc — sees one shape, and
       // `FlowDocument` needs no compatibility branch on its hot path.

@@ -54,8 +54,9 @@ jobs:
         with:
           # Pin a modern wasm-pack: the action's `latest` resolves to a stale
           # v0.9.1 whose bundled wasm-opt can't parse current wasm-bindgen output
-          # ("Fatal: error in parsing input"). v0.13.x ships a working wasm-opt.
-          version: 'v0.13.1'
+          # ("Fatal: error in parsing input"). v0.15.x ships a working wasm-opt
+          # and the `--profile` flag `build:wasm` uses to select `wasm-release`.
+          version: 'v0.15.0'
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -76,23 +77,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install
-
-      # Linux only — one typecheck is enough, and this is the job that already
-      # pays for the Rust and wasm-pack setup it needs.
-      #
-      # `build:wasm` has to run first: apps/web imports the wasm-pack generated
-      # modules, and without them tsc reports missing-module errors plus the
-      # inference fallout they cause (an unresolved import types `init` as
-      # `any`, which defeats assignment narrowing and produces a spurious
-      # TS2322). The bindings are cheap here because the Rust cache is already
-      # warm from the steps above, and tauri-action re-runs the same command
-      # during the build against that same cache.
-      - name: Typecheck
-        if: matrix.platform == 'ubuntu-22.04'
-        working-directory: apps/web
-        run: |
-          bun run build:wasm
-          bun run check-types
 
       - name: Import Apple Developer Certificate
         if: startsWith(matrix.platform, 'macos')

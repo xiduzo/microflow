@@ -33,24 +33,11 @@ function formatTime(ts: number): string {
 export function MicroflowDevtools() {
   const open = useUiPanelStore((state) => state.devtoolsOpen);
   const setOpen = useUiPanelStore((state) => state.setDevtoolsOpen);
-  const entries = useDevLogStore((state) => state.entries);
-  const paused = useDevLogStore((state) => state.paused);
-  const setPaused = useDevLogStore((state) => state.setPaused);
-  const clear = useDevLogStore((state) => state.clear);
-  const [filter, setFilter] = useState("");
 
-  const visible = useMemo(() => {
-    const query = filter.trim().toLowerCase();
-    const matched = query
-      ? entries.filter(
-          (entry) =>
-            entry.source.toLowerCase().includes(query) ||
-            entry.message.toLowerCase().includes(query),
-        )
-      : entries;
-    return matched.slice(0, VISIBLE_LIMIT);
-  }, [entries, filter]);
-
+  // Deliberately subscribes to nothing but `devtoolsOpen`. The log subscription
+  // lives in `DevtoolsPanel` below, which only mounts while the drawer is open —
+  // otherwise this component re-rendered on every flow event to draw a static
+  // launcher button, for the whole life of the app.
   if (!open) {
     return (
       <button
@@ -63,6 +50,37 @@ export function MicroflowDevtools() {
       </button>
     );
   }
+
+  return <DevtoolsPanel onClose={() => setOpen(false)} />;
+}
+
+/** The open drawer. Mounted only while open, so it is the only thing in the app
+ *  that re-renders as the dev log fills. */
+function DevtoolsPanel({ onClose }: { onClose: () => void }) {
+  const entries = useDevLogStore((state) => state.entries);
+  const paused = useDevLogStore((state) => state.paused);
+  const setPaused = useDevLogStore((state) => state.setPaused);
+  const clear = useDevLogStore((state) => state.clear);
+  const [filter, setFilter] = useState("");
+
+  const visible = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    if (!query) return entries.slice(0, VISIBLE_LIMIT);
+    // Stop scanning once the visible window is full — a 1000-entry history only
+    // ever shows `VISIBLE_LIMIT` rows, so filtering the whole array was work
+    // thrown away on every keystroke and every flush.
+    const matched: typeof entries = [];
+    for (const entry of entries) {
+      if (matched.length >= VISIBLE_LIMIT) break;
+      if (
+        entry.source.toLowerCase().includes(query) ||
+        entry.message.toLowerCase().includes(query)
+      ) {
+        matched.push(entry);
+      }
+    }
+    return matched;
+  }, [entries, filter]);
 
   return (
     <div className="bg-background/95 border-border fixed inset-x-0 bottom-0 z-50 flex h-[45vh] flex-col border-t shadow-2xl backdrop-blur">
@@ -87,7 +105,7 @@ export function MicroflowDevtools() {
         <Button variant="ghost" size="icon-sm" onClick={clear} aria-label="Clear">
           <Trash2Icon />
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Close">
+        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
           <XIcon />
         </Button>
       </div>

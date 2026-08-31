@@ -18,12 +18,12 @@
 import type { FlowEdge } from "@/lib/bindings/FlowEdge";
 import type { FlowUpdate as FlowUpdateShape } from "@/lib/bindings/FlowUpdate";
 import { applyComponentEvent } from "@/lib/event-ingest";
+import { createFlowRuntime, figmaAnnounceActions, type Effects } from "@/lib/runtime/wasm";
 import {
-  createFlowRuntime,
-  figmaAnnounceActions,
-  type Effects,
-  type FlowRuntime,
-} from "@/lib/runtime/wasm";
+  RuntimeBridge,
+  type FlowRuntimeCalls,
+  type RuntimeFault,
+} from "./runtime-bridge";
 import { CloudPerformer, type CloudDeps } from "./cloud/cloud-performer";
 import type { ActiveSub } from "./cloud/mqtt-subscriptions";
 import { MidiPerformer } from "./midi/midi-performer";
@@ -43,8 +43,34 @@ import type { BoardConnection } from "./web-serial";
 // type now lives with the performer that consumes it.
 export type { CloudDeps };
 
+/** Optional wiring for {@link FlowReactor.attach}. */
+export type AttachOptions = {
+  /** Called once when the wasm engine dies (a Rust panic traps the module). The
+   *  board is still connected at the transport level, but no flow will run
+   *  again on this runtime — the host surfaces it and stops. */
+  onEngineFault?: (message: string) => void;
+  /** Use this runtime instead of loading the wasm module. The injection seam
+   *  the fault tests drive; production leaves it unset. */
+  runtime?: FlowRuntimeCalls;
+};
+
 const now = (): number =>
   typeof performance !== "undefined" ? performance.now() : Date.now();
+
+/**
+ * A reply the runtime returned but the host could not decode. The call itself
+ * succeeded, so the module is intact — this is `badInput` in the {@link
+ * RuntimeFault} taxonomy, and it belongs to no single node. Routed through
+ * {@link FlowReactor.handleFault} so a bad reply and a thrown fault reach the
+ * same surface (ADR-0017), rather than one going to the seam and the other to
+ * the console.
+ */
+const decodeFault = (op: string, error: unknown): RuntimeFault => ({
+  kind: "badInput",
+  op,
+  node: null,
+  message: `undecodable ${op} reply: ${error instanceof Error ? error.message : String(error)}`,
+});
 
 /**
  * Drives a wasm `FlowRuntime` for one connected board. Create with
@@ -53,7 +79,10 @@ const now = (): number =>
  * teardown.
  */
 export class FlowReactor implements EffectsSink {
-  private runtime: FlowRuntime | null = null;
+  /** The one crossing into wasm (ADR-0017) — no call site touches the runtime
+   *  directly, so a Rust fault surfaces as a {@link RuntimeFault} here instead
+   *  of unwinding into the serial read loop or a timer callback. */
+  private bridge: RuntimeBridge | null = null;
   private readonly timers = new Map<number, ReturnType<typeof setTimeout>>();
   /** The cloud half (LLM/MQTT/Figma), lifted out of this class (ADR-0009). The
    *  reactor supplies the two runtime re-entry seams the performer needs. */
@@ -70,28 +99,32 @@ export class FlowReactor implements EffectsSink {
   private constructor(
     private readonly connection: BoardConnection,
     cloud: CloudDeps | null,
+    private readonly onEngineFault: ((message: string) => void) | undefined,
   ) {
     this.cloudPerformer = new CloudPerformer(
       cloud,
       // LLM result re-entry: inject on the node's handle and apply the cascade it
       // drives (mirrors the desktop `ActorMsg::Inject` → `inject_event`).
       (source, handle, value) => {
-        if (!this.runtime || this.disposed) return;
-        this.apply(this.runtime.injectEvent(source, handle, JSON.stringify(value), now()));
+        this.turn("injectEvent", source, (rt) =>
+          rt.injectEvent(source, handle, JSON.stringify(value), now()),
+        );
       },
       // Inbound broker message re-entry: route to the subscribe node and apply
       // (mirrors the desktop `ActorMsg::Deliver` → `deliver_message`).
       (nodeId, topic, payload) => {
-        if (!this.runtime || this.disposed) return;
-        this.apply(this.runtime.deliverMessage(nodeId, topic, payload, now()));
+        this.turn("deliverMessage", nodeId, (rt) =>
+          rt.deliverMessage(nodeId, topic, payload, now()),
+        );
       },
       // Figma handshake policy: core's `figma_announce_actions` via the wasm
       // binding, so the browser announces identically to the desktop host.
       figmaAnnounceActions,
     );
     this.midiPerformer = new MidiPerformer((nodeId, portName, bytes) => {
-      if (!this.runtime || this.disposed) return;
-      this.apply(this.runtime.deliverMessage(nodeId, portName, bytes, now()));
+      this.turn("deliverMessage", nodeId, (rt) =>
+        rt.deliverMessage(nodeId, portName, bytes, now()),
+      );
     });
   }
 
@@ -99,31 +132,36 @@ export class FlowReactor implements EffectsSink {
    *  session's discovered capabilities (so inbound decode + analog math work).
    *  `cloud` supplies the provider/broker lookups cloud nodes need; omit it and
    *  cloud requests are logged and skipped. */
-  static async attach(connection: BoardConnection, cloud?: CloudDeps): Promise<FlowReactor> {
-    const reactor = new FlowReactor(connection, cloud ?? null);
-    const runtime = await createFlowRuntime();
-    try {
-      runtime.setPins(connection.session.pinsJson());
-    } catch (error) {
-      console.warn("[flow-reactor] setPins failed (continuing without seed):", error);
-    }
-    reactor.runtime = runtime;
+  static async attach(
+    connection: BoardConnection,
+    cloud?: CloudDeps,
+    options: AttachOptions = {},
+  ): Promise<FlowReactor> {
+    const reactor = new FlowReactor(connection, cloud ?? null, options.onEngineFault);
+    const runtime = options.runtime ?? (await createFlowRuntime());
+    reactor.bridge = new RuntimeBridge(runtime, (fault) => {
+      reactor.handleFault(fault);
+    });
+    // A missing pin seed is survivable (inbound decode degrades); the bridge
+    // reports it and the reactor still attaches.
+    reactor.bridge.call("setPins", null, (rt) => {
+      rt.setPins(connection.session.pinsJson());
+    });
     return reactor;
   }
 
   /** Apply a flow graph (the core `FlowUpdate` shape, serialised here — the
    *  one place the flow crosses into wasm). */
   applyFlow(flow: FlowUpdateShape): void {
-    if (!this.runtime || this.disposed) return;
+    if (this.disposed) return;
     this.edges = flow.edges;
-    this.apply(this.runtime.updateFlow(JSON.stringify(flow), now()));
+    this.turn("updateFlow", null, (rt) => rt.updateFlow(JSON.stringify(flow), now()));
     this.reconcile();
   }
 
   /** Feed raw inbound serial bytes (from the Web Serial read loop). */
   feedBytes(bytes: Uint8Array): void {
-    if (!this.runtime || this.disposed) return;
-    this.apply(this.runtime.feedBytes(bytes, now()));
+    this.turn("feedBytes", null, (rt) => rt.feedBytes(bytes, now()));
   }
 
   /** Tear down: cancel every pending timer, tear down the cloud performer (abort
@@ -134,22 +172,63 @@ export class FlowReactor implements EffectsSink {
     this.timers.clear();
     this.cloudPerformer.dispose();
     this.midiPerformer.dispose();
-    this.runtime = null;
+    this.bridge?.dispose();
+    this.bridge = null;
+  }
+
+  /** Cross into wasm for one effects-producing op and apply what comes back. A
+   *  fault yields `null` — already classified and surfaced by
+   *  {@link handleFault} — and this turn is simply dropped. */
+  private turn(op: string, node: string | null, fn: (rt: FlowRuntimeCalls) => string): void {
+    if (this.disposed) return;
+    const effectsJson = this.bridge?.call(op, node, fn);
+    if (typeof effectsJson === "string") this.apply(effectsJson);
   }
 
   /** Apply one turn's effects in the canonical order (ADR-0008). The order
    *  lives in {@link applyEffects} (mirroring the Rust `Effects::apply`); this
-   *  reactor is the `EffectsSink` supplying the four browser primitives below. */
+   *  reactor is the `EffectsSink` supplying the browser primitives below. */
   private apply(effectsJson: string): void {
-    if (this.disposed) return;
+    // The wasm shim returns `""` for a turn that produced nothing — the common
+    // case for an inbound serial chunk whose pin values did not move. Bail
+    // before `JSON.parse` rather than parsing six empty arrays per read.
+    if (effectsJson === "") return;
     let fx: Effects;
     try {
       fx = JSON.parse(effectsJson) as Effects;
     } catch (error) {
-      console.error("[flow-reactor] bad effects json:", error);
+      // The call returned, so the module is not poisoned — but a reply the host
+      // cannot decode still costs this turn its bytes, timers and cloud requests.
+      this.handleFault(decodeFault("effects", error));
       return;
     }
     applyEffects(fx, this);
+  }
+
+  /**
+   * Route one wasm fault to the surface that fits it (ADR-0017).
+   *
+   * - `engineBroken` → the board-level error state, via the host callback. The
+   *   engine is gone, so this is not one node's problem; the host stops driving
+   *   a corpse rather than retrying forever.
+   * - `badInput` with a node → that node's diagnostic badge, the same surface
+   *   the runtime's own `node_diagnostics` effect uses.
+   * - `badInput` without a node → the console. `feedBytes`/`updateFlow` belong
+   *   to no single node, and pinning the badge on an arbitrary one would lie.
+   * - `disposed` → the console only. The fault that closed the bridge was
+   *   already surfaced; a badge here would blame a node for a dead engine.
+   */
+  private handleFault(fault: RuntimeFault): void {
+    if (fault.kind === "engineBroken") {
+      console.error(`[flow-reactor] wasm engine fault in ${fault.op}:`, fault.message);
+      this.onEngineFault?.(`The flow engine stopped: ${fault.message}`);
+      return;
+    }
+    if (fault.kind === "badInput" && fault.node !== null) {
+      this.reportDiagnostic({ node: fault.node, level: "error", message: fault.message });
+      return;
+    }
+    console.warn(`[flow-reactor] ${fault.op} ${fault.kind}:`, fault.message);
   }
 
   /** Reconcile the runtime's subscriber wirings into the cloud performer's live
@@ -158,20 +237,26 @@ export class FlowReactor implements EffectsSink {
    *  already-reconciled desired set (one per topic), which the performer diffs
    *  against its live set. */
   private reconcile(): void {
-    if (!this.runtime || this.disposed) return;
+    if (this.disposed) return;
+    const subsJson = this.bridge?.call("reconcileSubscriptions", null, (rt) =>
+      rt.reconcileSubscriptions(),
+    );
+    if (typeof subsJson !== "string") return;
     let reconciled: ActiveSub[];
     try {
-      reconciled = JSON.parse(this.runtime.reconcileSubscriptions()) as ActiveSub[];
+      reconciled = JSON.parse(subsJson) as ActiveSub[];
     } catch (error) {
-      console.error("[flow-reactor] bad reconcileSubscriptions json:", error);
+      this.handleFault(decodeFault("reconcileSubscriptions", error));
       return;
     }
     this.cloudPerformer.reconcile(reconciled);
+    const midiJson = this.bridge?.call("midiListeners", null, (rt) => rt.midiListeners());
+    if (typeof midiJson !== "string") return;
     let midiListeners: MidiListener[];
     try {
-      midiListeners = JSON.parse(this.runtime.midiListeners()) as MidiListener[];
+      midiListeners = JSON.parse(midiJson) as MidiListener[];
     } catch (error) {
-      console.error("[flow-reactor] bad midiListeners json:", error);
+      this.handleFault(decodeFault("midiListeners", error));
       return;
     }
     this.midiPerformer.reconcile(midiListeners);
@@ -196,8 +281,9 @@ export class FlowReactor implements EffectsSink {
   armWakeup(wakeup: Wakeup): void {
     const handle = setTimeout(() => {
       this.timers.delete(wakeup.id);
-      if (!this.runtime || this.disposed) return;
-      this.apply(this.runtime.wake(wakeup.nodeId, wakeup.method, now()));
+      // Nothing here may throw: a timer callback has no caller to catch it. The
+      // bridge is what makes that true (ADR-0017).
+      this.turn("wake", wakeup.nodeId, (rt) => rt.wake(wakeup.nodeId, wakeup.method, now()));
     }, wakeup.delayMs);
     this.timers.set(wakeup.id, handle);
   }

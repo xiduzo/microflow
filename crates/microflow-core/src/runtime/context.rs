@@ -12,18 +12,25 @@ use crate::runtime::board::{BoardWriter, I2cBus};
 use crate::runtime::value::ComponentEvent;
 use serde::Serialize;
 use std::sync::Arc;
+use ts_rs::TS;
 
 /// Opaque handle to a scheduled wakeup, so the host can cancel a specific timer.
 pub type WakeupId = u64;
 
 /// A future self-callback a timer node asked for. The host arms a timer for
 /// `delay_ms`; when it fires it calls `FlowRuntime::wake(node_id, method)`.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct Wakeup {
+    // `u64` maps to `bigint` in ts-rs, but these cross the wire as JSON and
+    // `JSON.parse` yields a plain `number` on both hosts — so `number` is the
+    // honest TS type. Same for `Effects::cancellations` below.
+    #[ts(type = "number")]
     pub id: WakeupId,
     pub node_id: String,
     pub method: String,
+    #[ts(type = "number")]
     pub delay_ms: u64,
 }
 
@@ -33,8 +40,9 @@ pub struct Wakeup {
 /// of touching the network; the host's [`EffectsSink::perform_cloud`] performs
 /// it, and any result re-enters through `FlowRuntime::inject_event` on `source`.
 /// `source` (the node id) is the correlation key for that re-entry.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct CloudRequest {
     /// The node that issued the request; results re-enter via `inject_event`
     /// targeting this id.
@@ -47,8 +55,9 @@ pub struct CloudRequest {
 /// service handles, no Tokio) so a cloud node stays fully sans-IO and unit-
 /// testable by asserting the emitted request. The host maps each variant onto
 /// its platform transport (desktop `rumqttc`/`reqwest`; browser WSS/`fetch`).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export, tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum CloudRequestKind {
     /// Fire-and-forget MQTT publish (the MQTT publish node and Figma's set-back).
     /// Nothing re-enters the runtime.
@@ -74,8 +83,9 @@ pub enum CloudRequestKind {
 
 /// Severity of a [`NodeDiagnostic`], mapped 1:1 onto the UI's existing per-node
 /// `error` (red) / `warning` (amber) badge on `NodeContainer`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub enum DiagnosticLevel {
     Warning,
     Error,
@@ -87,8 +97,9 @@ pub enum DiagnosticLevel {
 /// device whose reads never ACK ("too few bytes"). `message: None` clears any
 /// prior diagnostic on that node (recovery). Nodes should raise these only on a
 /// state *transition* so a per-poll failure doesn't spam the channel.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct NodeDiagnostic {
     /// The node the diagnostic is about (and displayed on).
     pub node: String,
@@ -101,12 +112,14 @@ pub struct NodeDiagnostic {
 /// port, events to the UI stores, wakeups to host timers, cancellations clear
 /// timers that are no longer wanted, cloud requests go to the network, node
 /// diagnostics go to the node's badge in the UI.
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Default, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
 pub struct Effects {
     pub outbound_bytes: Vec<u8>,
     pub component_events: Vec<ComponentEvent>,
     pub wakeups: Vec<Wakeup>,
+    #[ts(type = "Array<number>")]
     pub cancellations: Vec<WakeupId>,
     pub cloud_requests: Vec<CloudRequest>,
     pub node_diagnostics: Vec<NodeDiagnostic>,
@@ -138,12 +151,40 @@ pub trait EffectsSink {
     /// Deliver a component event to the UI (desktop Tauri `emit`, browser store
     /// ingest). These leave the runtime and do not feed back this turn.
     fn dispatch_event(&mut self, event: &ComponentEvent);
+    /// Deliver the turn's component events to the UI as one batch, in emission
+    /// order. The default loops [`dispatch_event`](Self::dispatch_event); a host
+    /// whose per-event UI hop is expensive (desktop: one Tauri IPC message plus a
+    /// webview `JSON.parse` each) overrides this to make one hop per turn. Called
+    /// only when there is at least one event ([`Effects::apply`] guards empty).
+    fn dispatch_events(&mut self, events: &[ComponentEvent]) {
+        for event in events {
+            self.dispatch_event(event);
+        }
+    }
     /// Surface a node's runtime health on its UI badge (desktop Tauri `emit`,
     /// browser store write). `message: None` clears the node's diagnostic.
     fn report_diagnostic(&mut self, diagnostic: &NodeDiagnostic);
 }
 
 impl Effects {
+    /// True when the turn produced nothing for the host to do.
+    ///
+    /// The overwhelmingly common turn: a Firmata analog report arrives whose pin
+    /// value has not moved, so nothing is emitted, written, armed, or cancelled.
+    /// Hosts that have to marshal `Effects` across a language boundary (the wasm
+    /// shim serialises to JSON, the browser parses it back) check this first and
+    /// skip the whole round trip — the boundary cost, not the engine, dominates
+    /// there.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.outbound_bytes.is_empty()
+            && self.component_events.is_empty()
+            && self.wakeups.is_empty()
+            && self.cancellations.is_empty()
+            && self.cloud_requests.is_empty()
+            && self.node_diagnostics.is_empty()
+    }
+
     /// Apply this turn's effects to `sink` in the **canonical order** (ADR-0008,
     /// extended by ADR-0009): `outbound_bytes → cancellations → wakeups →
     /// cloud_requests → component_events → node_diagnostics`.
@@ -155,6 +196,8 @@ impl Effects {
     /// - Cloud requests launched before UI events leave, so an outbound call
     ///   issued this turn is in flight before the turn's events exit the runtime.
     /// - UI events last: they exit the runtime and never feed back this turn.
+    ///   The whole turn's events go out in one [`EffectsSink::dispatch_events`]
+    ///   call, in emission order, so a host can make a single UI hop per turn.
     ///
     /// The desktop host calls this directly; the browser reactor cannot (it is
     /// TypeScript) and mirrors the same order + hook shape, held to it by a
@@ -172,8 +215,8 @@ impl Effects {
         for request in &self.cloud_requests {
             sink.perform_cloud(request);
         }
-        for event in &self.component_events {
-            sink.dispatch_event(event);
+        if !self.component_events.is_empty() {
+            sink.dispatch_events(&self.component_events);
         }
         for diagnostic in &self.node_diagnostics {
             sink.report_diagnostic(diagnostic);
@@ -389,6 +432,66 @@ mod apply_tests {
             ],
             "effects must apply in the canonical order with no double-fire"
         );
+    }
+
+    /// A sink that takes the batched hook — the desktop shape (one UI hop per
+    /// turn). `singles` must stay empty: overriding `dispatch_events` means the
+    /// per-event hook is never reached.
+    #[derive(Default)]
+    struct BatchRecorder {
+        batches: Vec<Vec<String>>,
+        singles: Vec<String>,
+    }
+
+    impl EffectsSink for BatchRecorder {
+        fn write_bytes(&mut self, _bytes: &[u8]) {}
+        fn cancel_wakeup(&mut self, _id: WakeupId) {}
+        fn arm_wakeup(&mut self, _wakeup: &Wakeup) {}
+        fn perform_cloud(&mut self, _request: &CloudRequest) {}
+        fn dispatch_event(&mut self, event: &ComponentEvent) {
+            self.singles.push(event.source_handle.to_string());
+        }
+        fn dispatch_events(&mut self, events: &[ComponentEvent]) {
+            self.batches
+                .push(events.iter().map(|e| e.source_handle.to_string()).collect());
+        }
+        fn report_diagnostic(&mut self, _diagnostic: &NodeDiagnostic) {}
+    }
+
+    #[test]
+    fn batched_dispatch_delivers_the_same_events_in_the_same_order() {
+        // A host that batches must observe exactly what a host that takes the
+        // default per-event hook observes: same events, same order, one turn.
+        let effects = Effects {
+            component_events: vec![event("a"), event("b"), event("c")],
+            ..Effects::default()
+        };
+        let expected = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+
+        let mut per_event = Recorder::default();
+        effects.apply(&mut per_event);
+        assert_eq!(
+            per_event.calls,
+            expected.iter().cloned().map(Call::Event).collect::<Vec<_>>()
+        );
+
+        let mut batched = BatchRecorder::default();
+        effects.apply(&mut batched);
+        assert_eq!(batched.batches, vec![expected], "one turn is one batch, in order");
+        assert!(batched.singles.is_empty(), "the batched hook replaces the per-event one");
+    }
+
+    #[test]
+    fn apply_skips_dispatch_when_no_component_events() {
+        // No events must not reach the sink at all — the host's UI hop (Tauri
+        // `emit` / store ingest) is skipped rather than sent an empty batch.
+        let effects = Effects { outbound_bytes: vec![0xF0], ..Effects::default() };
+
+        let mut batched = BatchRecorder::default();
+        effects.apply(&mut batched);
+
+        assert!(batched.batches.is_empty());
+        assert!(batched.singles.is_empty());
     }
 
     #[test]

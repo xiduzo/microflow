@@ -3,7 +3,7 @@ import * as Y from "yjs";
 import { FlowDocument, upgradeLegacyNodes, type FlowNode } from "./schema";
 
 /**
- * The property ADR-0017 exists for: two people editing one node concurrently
+ * The property ADR-0019 exists for: two people editing one node concurrently
  * must both keep their edit.
  *
  * Every case here fails against the previous storage shape, where a node was a
@@ -162,7 +162,7 @@ describe("materialisation cache", () => {
 });
 
 describe("upgradeLegacyNodes", () => {
-  /** A raw document in the pre-ADR-0017 shape: nodes as plain objects. */
+  /** A raw document in the pre-ADR-0019 shape: nodes as plain objects. */
   function legacyDoc(): Y.Doc {
     const doc = new Y.Doc();
     doc.transact(() => {

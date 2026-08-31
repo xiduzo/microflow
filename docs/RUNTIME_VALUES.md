@@ -66,19 +66,21 @@ Runtime execution is fundamentally different - it's ephemeral, local, and real-t
 ### Node Value Store (`stores/node-data.ts`)
 
 ```typescript
-// Local-only store for runtime values
-const useNodeDataStore = create<NodeData>((set) => ({
-  data: {},
-  update: (id, data) => set((state) => ({
-    data: { ...state.data, [id]: data }
-  })),
-  clear: () => set({ data: {} }),
-}));
+// Local-only store for runtime values: a plain Map with one listener set per
+// key, so a write wakes only the Node that reads it. Wakes are batched onto the
+// next frame — see docs/perf/01-emission-ingest.md.
+const values = new Map<string, unknown>();
+const listeners = new Map<string, Set<() => void>>();
+
+export const nodeDataStore = {
+  update(id: string, value: unknown) { values.set(id, value); schedule(id); },
+  clear() { /* ... */ },
+};
 
 // Hook for nodes to read their current value
 export function useNodeValue<T>(defaultValue: T) {
   const id = useNodeId();
-  return useNodeDataStore((state) => state.data[id] ?? defaultValue);
+  return useValue(id, defaultValue); // useSyncExternalStore over the Map
 }
 ```
 
@@ -87,12 +89,16 @@ export function useNodeValue<T>(defaultValue: T) {
 Edge animations (showing data flow) are also local-only:
 
 ```typescript
-// Signals are visual feedback, not persisted state
-const useSignalStore = create<SignalState>((set, get) => ({
-  signals: new Map(),
-  addSignal: (edgeId) => { /* ... */ },
-  // Auto-cleanup after animation duration
-}));
+// Signals are visual feedback, not persisted state. One shared clock advances
+// every live Edge; it starts on the first signal and stops itself when the last
+// one expires, so an idle canvas runs no timers.
+export const signalStore = {
+  addSignal(edgeId: string) { /* append to the edge's frame, arm the clock */ },
+  clearSignals() { /* ... */ },
+};
+
+// Each Edge reads its own frame; Edges with no live signal are never woken.
+export function useEdgeSignals(edgeId: string): SignalFrame { /* ... */ }
 ```
 
 ## Future Considerations

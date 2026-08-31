@@ -7,9 +7,9 @@
     "dev": "bun run build:wasm && vite dev",
     "build": "bun run build:wasm && vite build",
     "build:wasm": "bun run build:wasm:codegen && bun run build:wasm:firmata && bun run build:wasm:runtime",
-    "build:wasm:codegen": "wasm-pack build ../../crates/microflow-codegen-wasm --target web --out-dir ../../apps/web/src/lib/codegen/generated",
-    "build:wasm:firmata": "wasm-pack build ../../crates/microflow-firmata-wasm --target web --out-dir ../../apps/web/src/lib/firmata/generated",
-    "build:wasm:runtime": "wasm-pack build ../../crates/microflow-runtime-wasm --target web --out-dir ../../apps/web/src/lib/runtime/generated",
+    "build:wasm:codegen": "wasm-pack build ../../crates/microflow-codegen-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/codegen/generated",
+    "build:wasm:firmata": "wasm-pack build ../../crates/microflow-firmata-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/firmata/generated",
+    "build:wasm:runtime": "wasm-pack build ../../crates/microflow-runtime-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/runtime/generated",
     "build:app": "vite build",
     "serve": "vite preview",
     "start": "vite",
@@ -88,6 +88,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^20.12.0",
     "@microflow/config": "workspace:*",
     "@tanstack/react-query-devtools": "^5.91.3",
     "@tanstack/react-router-devtools": "^1.166.7",

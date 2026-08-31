@@ -138,8 +138,15 @@ pub struct FirmataClient {
     pub protocol_version: String,
     pub firmware_name: String,
     pub firmware_version: String,
-    /// Bytes received but not yet forming a complete message.
+    /// Bytes received but not yet forming a complete message. Everything before
+    /// `rx_pos` is already consumed and is dropped by `compact` once per `feed`.
     rx: Vec<u8>,
+    /// Read cursor into `rx`; `rx[rx_pos..]` is the pending stream.
+    rx_pos: usize,
+    /// How many pending bytes have already been scanned for `END_SYSEX` without
+    /// a hit. Reset by `consume`, so it is only ever non-zero while a partial
+    /// sysex frame is buffered.
+    sysex_scanned: usize,
 }
 
 impl FirmataClient {
@@ -347,48 +354,74 @@ impl FirmataClient {
                 Step::Incomplete => break,
             }
         }
+        self.compact();
         out
     }
 
     /// Number of bytes currently buffered awaiting completion (test/debug aid).
     #[must_use]
     pub fn pending_bytes(&self) -> usize {
-        self.rx.len()
+        self.rx.len() - self.rx_pos
+    }
+
+    /// Drop the consumed prefix. Called once per [`feed`](Self::feed), so the
+    /// remainder is moved at most once per transport read no matter how many
+    /// messages that read carried.
+    fn compact(&mut self) {
+        if self.rx_pos == 0 {
+            return;
+        }
+        if self.rx_pos == self.rx.len() {
+            self.rx.clear();
+        } else {
+            self.rx.drain(..self.rx_pos);
+        }
+        self.rx_pos = 0;
+    }
+
+    /// Advance the read cursor past `n` consumed bytes. O(1) — the memmove is
+    /// deferred to [`compact`](Self::compact).
+    #[inline]
+    fn consume(&mut self, n: usize) {
+        self.rx_pos += n;
+        self.sysex_scanned = 0;
     }
 
     #[allow(clippy::too_many_lines)]
     fn parse_one(&mut self) -> Step {
-        let Some(&cmd) = self.rx.first() else {
+        let p = self.rx_pos;
+        let avail = self.rx.len() - p;
+        let Some(&cmd) = self.rx.get(p) else {
             return Step::Incomplete;
         };
 
         match cmd {
             PROTOCOL_VERSION => {
-                if self.rx.len() < 3 {
+                if avail < 3 {
                     return Step::Incomplete;
                 }
-                self.protocol_version = format!("{:o}.{:o}", self.rx[1], self.rx[2]);
-                self.rx.drain(..3);
+                self.protocol_version = format!("{:o}.{:o}", self.rx[p + 1], self.rx[p + 2]);
+                self.consume(3);
                 Step::Parsed(Message::ProtocolVersion)
             }
             ANALOG_MESSAGE..=ANALOG_MESSAGE_BOUND => {
-                if self.rx.len() < 3 {
+                if avail < 3 {
                     return Step::Incomplete;
                 }
-                let value = i32::from(self.rx[1]) | (i32::from(self.rx[2]) << 7);
+                let value = i32::from(self.rx[p + 1]) | (i32::from(self.rx[p + 2]) << 7);
                 let pin = (i32::from(cmd) & 0x0F) + 14;
                 if (self.pins.len() as i32) > pin {
                     self.pins[pin as usize].value = value;
                 }
-                self.rx.drain(..3);
+                self.consume(3);
                 Step::Parsed(Message::Analog)
             }
             DIGITAL_MESSAGE..=DIGITAL_MESSAGE_BOUND => {
-                if self.rx.len() < 3 {
+                if avail < 3 {
                     return Step::Incomplete;
                 }
                 let port = i32::from(cmd) & 0x0F;
-                let value = i32::from(self.rx[1]) | (i32::from(self.rx[2]) << 7);
+                let value = i32::from(self.rx[p + 1]) | (i32::from(self.rx[p + 2]) << 7);
                 for i in 0..8 {
                     let pin = (8 * port) + i;
                     // Update input pins from the port report; skip OUTPUT/PWM/etc
@@ -403,22 +436,34 @@ impl FirmataClient {
                         self.pins[pin as usize].value = (value >> (i & 0x07)) & 0x01;
                     }
                 }
-                self.rx.drain(..3);
+                self.consume(3);
                 Step::Parsed(Message::Digital)
             }
             START_SYSEX => {
                 // A complete sysex message ends at the first END_SYSEX. Data
                 // bytes are 7-bit so none can equal 0xF7 — scanning is safe.
-                let Some(end) = self.rx.iter().position(|&b| b == END_SYSEX) else {
+                // The scan resumes at `sysex_scanned`, so a frame arriving in
+                // several reads is walked once in total, not once per read.
+                let from = p + self.sysex_scanned;
+                let Some(offset) = self.rx[from..].iter().position(|&b| b == END_SYSEX) else {
+                    self.sysex_scanned = avail;
                     return Step::Incomplete;
                 };
-                let msg: Vec<u8> = self.rx.drain(..=end).collect();
-                self.parse_sysex(&msg)
+                let end = from + offset;
+                // Move `rx` aside so the frame can be borrowed while
+                // `parse_sysex` mutates the decoded state; it never touches
+                // `rx` itself, so putting the buffer back is lossless and the
+                // frame needs no copy.
+                let rx = std::mem::take(&mut self.rx);
+                let step = self.parse_sysex(&rx[p..=end]);
+                self.rx = rx;
+                self.consume(end - p + 1);
+                step
             }
             _ => {
                 // Stray / unaligned byte (data byte or unhandled status). Drop
                 // one and re-sync on the next status boundary.
-                self.rx.remove(0);
+                self.consume(1);
                 Step::Skipped
             }
         }

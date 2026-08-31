@@ -37,7 +37,7 @@ const noop = () => {};
  * set, so a Viewer's or a preview's doc simply has no writable surface.
  *
  * `ReactFlowBridge` carries its own `readOnly` flag as well; the two guards
- * are independent on purpose. Since ADR-0017 the bridge writes through
+ * are independent on purpose. Since ADR-0019 the bridge writes through
  * `setNode` / `deleteNode` rather than at `doc.nodes` directly, so it passes
  * through this proxy too — but do not rely on that as the only guard.
  *
