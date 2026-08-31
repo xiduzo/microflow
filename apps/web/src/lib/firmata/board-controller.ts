@@ -54,7 +54,9 @@ import { isDesktop } from "@/lib/platform";
 const cloudDeps: CloudDeps = {
   resolveLlmProvider: (id) => {
     const provider = useLlmProviderStore.getState().getProvider(id);
-    return provider ? { baseUrl: provider.baseUrl, apiKey: provider.apiKey } : undefined;
+    return provider
+      ? { kind: provider.kind, baseUrl: provider.baseUrl, apiKey: provider.apiKey }
+      : undefined;
   },
   resolveBroker: (id) => {
     const broker = useMqttBrokerStore.getState().getBroker(id);

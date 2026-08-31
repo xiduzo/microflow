@@ -4,6 +4,7 @@ import {
   Panel,
   ReactFlow,
   useReactFlow,
+  useOnSelectionChange,
   type ColorMode,
   type XYPosition,
   type Connection,
@@ -18,6 +19,7 @@ import {
   applyRemoteDrag,
 } from "@/session";
 import { useClipboardStore } from "@/stores/clipboard-store";
+import { useAskAiStore } from "@/stores/ask-ai";
 import type { FlowEdge, FlowNode } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";
@@ -61,6 +63,18 @@ export function ReactFlowCanvas() {
     [documentNodes, remoteDrag],
   );
   const onNodesChange = usePublishDrag(onDocumentNodesChange);
+
+  // Selection lives in React Flow's own store, which the Ask AI panel sits
+  // outside of — mirroring the ids lets it scope its context to what the user
+  // has highlighted.
+  const setSelectedNodeIds = useAskAiStore((s) => s.setSelectedNodeIds);
+  useOnSelectionChange({
+    onChange: useCallback(
+      ({ nodes: selected }: { nodes: Array<{ id: string }> }) =>
+        setSelectedNodeIds(selected.map((node) => node.id)),
+      [setSelectedNodeIds],
+    ),
+  });
 
   const onConnect = useCallback(
     (connection: Connection) => {

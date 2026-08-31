@@ -1,5 +1,5 @@
 import { type Node, type NodeProps } from "@xyflow/react";
-import { type PropsWithChildren, useRef } from "react";
+import { type PropsWithChildren, type ReactNode, useRef } from "react";
 import { shallow } from "zustand/shallow";
 import { NodeContainerContext, type NodeContainerProps, useNodeData } from "./node-context";
 import {
@@ -29,7 +29,12 @@ export { useDeleteHandles } from "./use-delete-handles";
 // paths stay valid — every existing `from "../_base/_base"` import is unchanged.
 export { useNode, useNodeId, useNodeData } from "./node-context";
 
-function NodeHeader(props: { error?: string; warning?: string; type?: string }) {
+function NodeHeader(props: {
+  error?: string;
+  warning?: string;
+  type?: string;
+  badge?: ReactNode;
+}) {
   const data = useNodeData();
 
   return (
@@ -55,6 +60,10 @@ function NodeHeader(props: { error?: string; warning?: string; type?: string }) 
           not to this node's config — so it is resolved here, once, rather than
           in each of the ~39 node modules. */}
       <DesktopOnlyBadge type={props.type} />
+      {/* A gap that belongs to *this* node's configuration rather than to its
+          type — an LLM provider the current host cannot run, say. Passed in by
+          the node, because only it knows what it is configured with. */}
+      {props.badge}
       {/* An error (red) outranks a warning (amber) — only one status icon shows. */}
       {props.error ? (
         <CardAction>
@@ -142,11 +151,11 @@ function useStableNode(node: NodeContainerProps<Record<string, unknown>>) {
 
 export function NodeContainer(
   props: PropsWithChildren &
-    BaseNode & { error?: string; warning?: string } & { className?: string },
+    BaseNode & { error?: string; warning?: string; badge?: ReactNode } & { className?: string },
 ) {
   // `children` is a new element every render and the presentational props are
   // not part of the context shape — neither belongs in the provider value.
-  const { children, error, warning, className, ...rest } = props;
+  const { children, error, warning, badge, className, ...rest } = props;
   const value = useStableNode(rest);
 
   return (
@@ -161,7 +170,7 @@ export function NodeContainer(
           hasWarning: !!warning && !error,
         })}
       >
-        <NodeHeader error={error} warning={warning} type={rest.type} />
+        <NodeHeader error={error} warning={warning} type={rest.type} badge={badge} />
         <CardContent className="min-h-32 flex justify-center items-center">{children}</CardContent>
       </Card>
     </NodeContainerContext.Provider>

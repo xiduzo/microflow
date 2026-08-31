@@ -40,6 +40,7 @@
 // app). Re-export `codegen` here so existing `app_lib::codegen::…` /
 // `crate::codegen::…` paths — including the integration tests — keep working.
 pub use microflow_core::codegen;
+pub mod cli_llm;
 mod error;
 mod flasher;
 pub mod hardware;
@@ -272,6 +273,9 @@ pub fn run() {
             mqtt::commands::mqtt_connected_brokers,
             mqtt::commands::mqtt_sync_brokers,
             mqtt::commands::mqtt_all_statuses,
+            cli_llm::llm_cli_probe,
+            cli_llm::llm_cli_generate,
+            cli_llm::llm_cli_models,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

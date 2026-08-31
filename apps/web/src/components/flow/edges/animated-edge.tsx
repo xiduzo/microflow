@@ -31,7 +31,15 @@ export function AnimatedEdge(props: EdgeProps) {
     <>
       <BaseEdge id={id} path={edgePath} />
       {signalPositions(signals, now, bezierPoints).map((position) => (
-        <circle key={position.id} r="8" fill="#ffcc00" cx={position.x} cy={position.y} />
+        <circle
+          key={position.id}
+          r="8"
+          // #ffcc00 washes out on the light canvas; amber-600 holds up there, the
+          // original yellow stays for dark.
+          className="fill-amber-600 dark:fill-[#ffcc00]"
+          cx={position.x}
+          cy={position.y}
+        />
       ))}
     </>
   );

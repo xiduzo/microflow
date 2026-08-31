@@ -67,6 +67,17 @@ export async function probeLlmProvider(
   provider: LlmProviderConfig,
   fetchImpl?: typeof fetch,
 ): Promise<ProviderStatus> {
+  // A local CLI has no endpoint to reach — "reachable" can only mean the
+  // binary is installed, which is exactly what `llm_cli_probe` answers.
+  if (provider.kind === "cli") {
+    const { invokeCommand } = await import("@/lib/ipc");
+    const response = await invokeCommand<{ type: "llm_cli_probe"; bin: string }, Record<string, unknown>>({
+      type: "llm_cli_probe",
+      bin: provider.baseUrl,
+    });
+    return response.success ? "ok" : "error";
+  }
+
   const url = `${normalizeBaseUrl(provider.baseUrl)}/models`;
 
   const headers: Record<string, string> = {};

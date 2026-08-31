@@ -4,8 +4,17 @@ import { persist } from "zustand/middleware";
 export type LlmProviderConfig = {
   id: string;
   name: string;
+  /** Which transport reaches this provider. `"http"` (the default, and what
+   *  every configuration saved before local CLIs existed is) means an
+   *  OpenAI-compatible endpoint at `baseUrl`. `"cli"` means a local agent CLI,
+   *  named by `baseUrl` — see `lib/ai/cli-providers.ts`; desktop only. */
+  kind?: "http" | "cli";
+  /** The endpoint, or for a `"cli"` provider the CLI's id. */
   baseUrl: string;
   apiKey: string;
+  /** The model this configuration talks to. Set here rather than at each place
+   *  that asks — a configuration is an endpoint plus what to say to it. */
+  model: string;
   isDefault: boolean;
 };
 

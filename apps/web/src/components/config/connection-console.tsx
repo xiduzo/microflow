@@ -21,7 +21,9 @@ import {
   type ReactNode,
 } from "react";
 import {
+  CheckIcon,
   ChevronDownIcon,
+  ChevronsUpDownIcon,
   EraserIcon,
   SearchIcon,
   Settings2Icon,
@@ -30,6 +32,14 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/states/empty-state";
 import {
@@ -55,6 +65,8 @@ export type ConsoleConnection = {
   subtitle: string;
   status: ConnectionStatusTone;
   isDefault?: boolean;
+  /** A chip beside the name — a limitation worth seeing before selecting. */
+  badge?: ReactNode;
 };
 
 export type ConsoleLine = {
@@ -69,7 +81,7 @@ export type ConsoleLine = {
 };
 
 /** A starting point offered in the rail's add menu. */
-export type ConsolePreset = { id: string; title: string; blurb: string };
+export type ConsolePreset = { id: string; title: string; blurb: string; badge?: ReactNode };
 
 const MAX_LINES = 300;
 
@@ -263,6 +275,7 @@ export function ConnectionConsole({
                     {connection.isDefault && (
                       <StarIcon className="size-3 shrink-0 text-accent fill-accent" aria-label="default" />
                     )}
+                    {connection.badge}
                   </span>
                   <span className="block text-[11px] text-muted-foreground truncate">
                     {connection.subtitle || "not configured"}
@@ -609,7 +622,10 @@ function AddConnection({
         <ChevronDownIcon className={cn("size-3.5 ml-auto transition-transform", open && "rotate-180")} />
       </Button>
       {open && (
-        <div className="mt-1 space-y-0.5">
+        // Rows carry two lines each and, once badges arrived, a taller first
+        // line — at `space-y-0.5` the blurb of one preset ran straight into the
+        // title of the next.
+        <div className="mt-1 space-y-1.5">
           {presets.map((preset) => (
             <button
               key={preset.id}
@@ -618,9 +634,15 @@ function AddConnection({
                 onAdd(preset.id);
                 setOpen(false);
               }}
-              className="w-full rounded px-2.5 py-1.5 text-left hover:bg-sidebar-accent"
+              className="w-full space-y-0.5 rounded px-2.5 py-2 text-left hover:bg-sidebar-accent"
             >
-              <span className="text-xs">{preset.title}</span>
+              <span className="flex items-center gap-1.5 text-xs">
+                {/* The title takes the slack so the badge sits at the right
+                    edge, in one column down the list rather than wherever each
+                    title happens to end. */}
+                <span className="grow truncate">{preset.title}</span>
+                {preset.badge}
+              </span>
               <span className="block text-[11px] text-muted-foreground leading-snug">{preset.blurb}</span>
             </button>
           ))}
@@ -636,7 +658,11 @@ export function ConsoleField({
   hint,
   tone,
   ...props
-}: { label: string; hint?: ReactNode; tone?: "warning" } & InputHTMLAttributes<HTMLInputElement>) {
+}: {
+  label: string;
+  hint?: ReactNode;
+  tone?: "warning";
+} & InputHTMLAttributes<HTMLInputElement>) {
   const id = useId();
   return (
     <div className="space-y-1 mb-3">
@@ -648,17 +674,169 @@ export function ConsoleField({
         {...props}
         className="w-full rounded border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-ring placeholder:text-muted-foreground/60"
       />
-      {hint && (
-        <p
-          className={cn(
-            "text-[11px] leading-snug",
-            tone === "warning" ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground",
-          )}
-        >
-          {hint}
-        </p>
-      )}
+      <ConsoleHint hint={hint} tone={tone} />
     </div>
+  );
+}
+
+/** One entry in a {@link ConsoleCombo} list. `value` is what gets stored. */
+export type ComboEntry = {
+  /** What gets stored when this entry is picked. */
+  value: string;
+  label: string;
+  /** What the search filters on — `value` for anything with one, since the
+   *  fallback's value is the empty string and would match every query. */
+  search: string;
+  kind: "option" | "custom" | "fallback";
+};
+
+/**
+ * The entries a combo shows for a query — the only part of it with a decision
+ * in it, kept out of the JSX so it can be checked without a browser.
+ *
+ * Filtering is left to `cmdk`; what this decides is what exists to filter: the
+ * endpoint's own list, plus the two entries that are not on it. A value typed
+ * but never listed is offered as itself (local users run models we cannot know
+ * about), and a set value can be handed back to the fallback (an empty model is
+ * a real choice — a CLI then runs its own default).
+ */
+export function comboEntries(
+  options: readonly string[],
+  query: string,
+  value: string,
+  fallback?: string,
+): ComboEntry[] {
+  const typed = query.trim();
+  const entries: ComboEntry[] = [];
+  if (typed.length > 0 && !options.includes(typed)) {
+    entries.push({ value: typed, label: `Use \u201C${typed}\u201D`, search: typed, kind: "custom" });
+  }
+  if (fallback !== undefined && value !== "") {
+    entries.push({
+      value: "",
+      label: `Use the default \u2014 ${fallback}`,
+      search: `default ${fallback}`,
+      kind: "fallback",
+    });
+  }
+  return [
+    ...entries,
+    ...options.map((option) => ({
+      value: option,
+      label: option,
+      search: option,
+      kind: "option" as const,
+    })),
+  ];
+}
+
+/**
+ * The same field, for a value that comes from a list: type to filter, pick one,
+ * and the field holds exactly what was picked.
+ *
+ * A `<datalist>` was the cheaper thing and it is what this replaces. Its
+ * filtering runs against whatever is already in the input, so the list a user
+ * wants to browse is hidden by the value they are trying to change — they had
+ * to clear the field first, which the hint used to have to explain.
+ *
+ * The list is still suggestions rather than law: a model this endpoint never
+ * listed is offered as its own entry once typed. What changed is that it takes
+ * a deliberate pick to set one, so the stored value is always something the
+ * user chose whole, never a half-typed name left behind in an input.
+ */
+export function ConsoleCombo({
+  label,
+  hint,
+  tone,
+  value,
+  options,
+  onValueChange,
+  placeholder,
+  /** What an empty value falls back to, offered as its own entry so a picked
+   *  value can be given back. Omitted means empty is not a choice. */
+  fallback,
+}: {
+  label: string;
+  hint?: ReactNode;
+  tone?: "warning";
+  value: string;
+  options: string[];
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  fallback?: string;
+}) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const commit = (next: string) => {
+    onValueChange(next);
+    setQuery("");
+    setOpen(false);
+  };
+
+  const entries = comboEntries(options, query, value, fallback);
+
+  return (
+    <div className="space-y-1 mb-3">
+      <label htmlFor={id} className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          id={id}
+          className="flex w-full items-center justify-between gap-2 rounded border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-ring"
+        >
+          <span className={cn("truncate", value === "" && "text-muted-foreground/60")}>
+            {value === "" ? (placeholder ?? "Choose one") : value}
+          </span>
+          <ChevronsUpDownIcon className="size-3 shrink-0 opacity-50" />
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-72 p-0">
+          <Command>
+            <CommandInput
+              placeholder={`Search or type a ${label.toLowerCase()}\u2026`}
+              value={query}
+              onValueChange={setQuery}
+              className="text-xs"
+            />
+            <CommandList className="max-h-56">
+              <CommandEmpty>Nothing listed — type one to use it.</CommandEmpty>
+              {entries.map((entry) => (
+                <CommandItem
+                  key={entry.kind + entry.value}
+                  value={entry.search}
+                  onSelect={() => commit(entry.value)}
+                  className={cn("text-xs", entry.kind === "fallback" && "text-muted-foreground")}
+                >
+                  {entry.kind === "option" && (
+                    <CheckIcon
+                      className={cn("size-3", entry.value === value ? "opacity-100" : "opacity-0")}
+                    />
+                  )}
+                  {entry.label}
+                </CommandItem>
+              ))}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      <ConsoleHint hint={hint} tone={tone} />
+    </div>
+  );
+}
+
+function ConsoleHint({ hint, tone }: { hint?: ReactNode; tone?: "warning" }) {
+  if (!hint) return null;
+  return (
+    <p
+      className={cn(
+        "text-[11px] leading-snug",
+        tone === "warning" ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground",
+      )}
+    >
+      {hint}
+    </p>
   );
 }
 
