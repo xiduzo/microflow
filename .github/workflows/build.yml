@@ -30,6 +30,11 @@ jobs:
             args: ''
 
     runs-on: ${{ matrix.platform }}
+    env:
+      # Fork PRs get no repository secrets: the Apple certificate and the
+      # updater signing key are both empty there, so signing/bundling can only
+      # fail. Build them unsigned instead of failing the check.
+      IS_FORK: ${{ github.event.pull_request.head.repo.fork == true }}
     # Guard: a stuck Apple notarization (`notarytool --wait` blocks indefinitely)
     # otherwise hangs the job to GitHub's 6h default. Fail fast + re-runnable.
     timeout-minutes: 60
@@ -79,7 +84,7 @@ jobs:
         run: bun install
 
       - name: Import Apple Developer Certificate
-        if: startsWith(matrix.platform, 'macos')
+        if: startsWith(matrix.platform, 'macos') && env.IS_FORK != 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -96,7 +101,7 @@ jobs:
           rm certificate.p12
 
       - name: Verify Certificate
-        if: startsWith(matrix.platform, 'macos')
+        if: startsWith(matrix.platform, 'macos') && env.IS_FORK != 'true'
         run: |
           echo "Available signing identities:"
           security find-identity -v -p codesigning build.keychain
@@ -125,4 +130,5 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/web
-          args: ${{ matrix.args }}
+          # `--no-bundle` on forks: no bundle means no updater artifact to sign.
+          args: ${{ matrix.args }}${{ env.IS_FORK == 'true' && ' --no-bundle' || '' }}
