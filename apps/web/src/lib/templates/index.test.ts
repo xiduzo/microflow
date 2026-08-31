@@ -1,10 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import {
-  COMPONENT_EMITS,
-  COMPONENT_PORTS,
-  isComponentType,
-} from "../../components/flow/nodes/_base/_base.types";
-import { TEMPLATES } from ".";
+
+// `TEMPLATES` resolves node data through `NODE_REGISTRY`, which pulls in every
+// node component, and some of them read the web env at import time. Seed it
+// before the dynamic imports below — under `bun test` there is no Vite to
+// supply it.
+process.env.VITE_SERVER_URL ??= "http://localhost:3000";
+const { COMPONENT_EMITS, COMPONENT_PORTS, isComponentType } = await import(
+  "../../components/flow/nodes/_base/_base.types"
+);
+const { NODE_REGISTRY } = await import("../../components/flow/nodes/_REGISTRY");
+const { TEMPLATES } = await import(".");
 
 // Templates are plain @xyflow Node/Edge objects, so nothing type-checks their
 // handles against the generated port/emit catalog. This suite is that guard:
@@ -29,6 +34,14 @@ describe("TEMPLATES", () => {
         expect(new Set(nodeIds).size).toBe(nodeIds.length);
         const edgeIds = template.edges.map((e) => e.id);
         expect(new Set(edgeIds).size).toBe(edgeIds.length);
+      });
+
+      it("node data passes each node's own schema", () => {
+        for (const node of template.nodes) {
+          if (!isComponentType(node.type)) continue; // caught by the type guard above
+          const parsed = NODE_REGISTRY[node.type].schema.safeParse(node.data);
+          expect(parsed.success ? [] : parsed.error.issues).toEqual([]);
+        }
       });
 
       it("edges connect existing nodes via declared emits and ports", () => {
