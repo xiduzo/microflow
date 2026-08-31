@@ -169,7 +169,7 @@ describe("SyncProvider presence throttling", () => {
     socket.open();
 
     let notifications = 0;
-    provider.on("awarenessChange", () => notifications++);
+    provider.on("awareness", () => notifications++);
 
     for (let i = 0; i < 30; i++) provider.updateCursor({ x: i, y: i });
     await new Promise((r) => setTimeout(r, 60));
@@ -224,7 +224,7 @@ describe("SyncProvider lifecycle", () => {
   test("state tracks the transport through connect and sync", () => {
     const { provider, socket } = makeProvider();
     const states: string[] = [];
-    provider.on("stateChange", (s) => states.push(s));
+    provider.on("state", (s) => states.push(s));
 
     socket.open();
     expect(provider.state).toBe("syncing");
@@ -242,8 +242,7 @@ describe("SyncProvider lifecycle", () => {
     const { provider, socket } = makeProvider();
     socket.open();
 
-    const users = provider.getAwarenessUsers();
-    const local = users.get(provider.localUser.clientId!);
+    const local = provider.users.find((u) => u.clientId === provider.localUser.clientId);
     expect(local?.id).toBe("user-1");
     expect(local?.name).toBe("Ada");
     expect(local?.color).toMatch(/^#[0-9a-f]{6}$/i);
@@ -251,15 +250,15 @@ describe("SyncProvider lifecycle", () => {
     provider.destroy();
   });
 
-  test("getAwarenessUsers caches between changes", () => {
+  test("users keeps its identity between changes", () => {
     const { provider, socket } = makeProvider();
     socket.open();
 
-    const first = provider.getAwarenessUsers();
-    expect(provider.getAwarenessUsers()).toBe(first);
+    const first = provider.users;
+    expect(provider.users).toBe(first);
 
     provider.updateSelectedNodes(["a"]);
-    expect(provider.getAwarenessUsers()).not.toBe(first);
+    expect(provider.users).not.toBe(first);
 
     provider.destroy();
   });

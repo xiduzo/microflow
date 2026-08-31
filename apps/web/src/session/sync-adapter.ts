@@ -1,13 +1,15 @@
-import type { AwarenessUser, SyncState } from "@microflow/collab";
+import type { AwarenessUser, SyncProviderEvents, SyncState } from "@microflow/collab";
 
 export type { AwarenessUser, SyncState };
 
-export type SyncAdapterEvents = {
-  state: (state: SyncState) => void;
-  awareness: (users: AwarenessUser[]) => void;
-  synced: () => void;
-  error: (err: Error) => void;
-};
+/**
+ * The events a remote adapter exposes: the connection/presence subset of the
+ * provider's events (`ack` and `accessDenied` stay a transport concern).
+ */
+export type SyncAdapterEvents = Pick<
+  SyncProviderEvents,
+  "state" | "awareness" | "synced" | "error"
+>;
 
 export type SyncAdapter = {
   readonly kind: "local" | "remote";

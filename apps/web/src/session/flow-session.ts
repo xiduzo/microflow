@@ -1,8 +1,8 @@
-import { FlowDocument } from "@microflow/collab";
+import * as Y from "yjs";
+import { FlowDocument, SyncProvider } from "@microflow/collab";
 import { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
-import { WebSocketSyncAdapter, type WebSocketSyncAdapterOptions } from "./websocket-sync-adapter";
 import { readOnlyDocument } from "./read-only-document";
-import type { SyncAdapter } from "./sync-adapter";
+import type { RemoteSyncAdapter, SyncAdapter } from "./sync-adapter";
 
 export type FlowMode = "local" | "cloud";
 
@@ -41,7 +41,13 @@ export function createLocalSession(): FlowSession {
   return makeSession("local", "local", doc, sync, false, null);
 }
 
-export type CreateCloudSessionOptions = Omit<WebSocketSyncAdapterOptions, "doc"> & {
+export type CreateCloudSessionOptions = {
+  flowId: string;
+  wsUrl: string;
+  user: { id: string; name: string; color?: string; icon?: string; isSupporter?: boolean };
+  authToken?: string;
+  /** A server-side snapshot to seed the doc with before the socket syncs. */
+  initialData?: Uint8Array;
   meta?: { name?: string; description?: string };
   /** The local user's Flow Role, from `flow.get`. Viewers get a read-only session. */
   role?: FlowRole;
@@ -50,7 +56,21 @@ export type CreateCloudSessionOptions = Omit<WebSocketSyncAdapterOptions, "doc">
 export function createCloudSession(options: CreateCloudSessionOptions): FlowSession {
   const doc = FlowDocument.createEmpty();
   if (options.meta) doc.setMeta(options.meta);
-  const sync = new WebSocketSyncAdapter({ ...options, doc });
+  // Seed before the socket syncs, and keep the seed out of the undo history
+  // so ctrl-Z cannot unwind into an empty document.
+  if (options.initialData) {
+    Y.applyUpdate(doc.doc, options.initialData);
+    doc.clearHistory();
+  }
+  // `SyncProvider` satisfies the adapter port directly; the annotation is the
+  // compile-time proof.
+  const sync: RemoteSyncAdapter = new SyncProvider({
+    flowId: options.flowId,
+    doc: doc.doc,
+    wsUrl: options.wsUrl,
+    user: options.user,
+    authToken: options.authToken,
+  });
   const role = options.role ?? null;
   return makeSession("cloud", options.flowId, doc, sync, role === "viewer", role);
 }
