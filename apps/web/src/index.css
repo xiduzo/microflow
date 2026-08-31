@@ -139,7 +139,7 @@
   /* IDE-style text selection */
   ::selection {
     background: oklch(0.72 0.18 148 / 0.28);
-    color: oklch(0.92 0.018 55);
+    color: inherit;
   }
 
   /* Precision scrollbars */
