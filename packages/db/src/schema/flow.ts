@@ -36,13 +36,49 @@ export const flow = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    // Community publishing: a published flow is a frozen snapshot, never the
+    // live doc. `publishedAt IS NOT NULL` is the visibility flag.
+    description: text("description"),
+    publishedYdoc: bytea("published_ydoc"),
+    publishedAt: timestamp("published_at"),
+    // The community flow this one was copied from, for attribution.
+    forkedFromId: text("forked_from_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("flow_ownerId_idx").on(table.ownerId)]
+  (table) => [
+    index("flow_ownerId_idx").on(table.ownerId),
+    index("flow_publishedAt_idx").on(table.publishedAt),
+  ]
+);
+
+/**
+ * A user saved a community flow. Doubles as the popularity signal:
+ * bookmark counts rank community flows.
+ */
+export const flowBookmark = pgTable(
+  "flow_bookmark",
+  {
+    id: text("id").primaryKey(),
+    flowId: text("flow_id")
+      .notNull()
+      .references(() => flow.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("flow_bookmark_userId_idx").on(table.userId),
+    index("flow_bookmark_flowId_idx").on(table.flowId),
+    uniqueIndex("flow_bookmark_flowId_userId_idx").on(
+      table.flowId,
+      table.userId
+    ),
+  ]
 );
 
 export const flowCollaborator = pgTable(
@@ -105,6 +141,18 @@ export const flowRelations = relations(flow, ({ one, many }) => ({
     references: [user.id],
   }),
   collaborators: many(flowCollaborator),
+  bookmarks: many(flowBookmark),
+}));
+
+export const flowBookmarkRelations = relations(flowBookmark, ({ one }) => ({
+  flow: one(flow, {
+    fields: [flowBookmark.flowId],
+    references: [flow.id],
+  }),
+  user: one(user, {
+    fields: [flowBookmark.userId],
+    references: [user.id],
+  }),
 }));
 
 export const flowCollaboratorRelations = relations(

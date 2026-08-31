@@ -6,6 +6,7 @@ import type { NodeDefaults } from "../nodes/_REGISTRY";
 import { useFlowSession } from "@/session";
 import { useNewNodeStore } from "@/stores/new-node";
 import { groupIndicator } from "../nodes/_base/_base";
+import { DesktopOnlyBadge } from "../nodes/_base/desktop-only-badge";
 import { uid } from "@/lib/uid";
 import { track } from "@/lib/analytics";
 import { docsUrl } from "@/lib/docs";
@@ -212,6 +213,8 @@ export function NewNodeDialog() {
                                 beta
                               </Badge>
                             )}
+                            {/* Say it before the node is on the canvas, not after. */}
+                            <DesktopOnlyBadge type={type} />
                           </ItemTitle>
                           <ItemDescription>
                             <HighlightedText text={defaults.description ?? ""} query={filter} />

@@ -1,0 +1,73 @@
+# Compiles the golden sketches (crates/microflow-core/tests/golden/*.ino) with
+# the real Arduino toolchains, enforcing codegen's core invariant — "the output
+# is always syntactically valid Arduino C++" — which the Rust tests alone
+# cannot prove. The goldens are kept in lockstep with the emitters by the
+# golden_sketches snapshot test (cargo test -p microflow-core --test
+# golden_sketches; regenerate with UPDATE_GOLDEN=1).
+name: Sketch compile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/microflow-core/src/codegen/**"
+      - "crates/microflow-core/tests/golden/**"
+      - "scripts/compile-goldens.sh"
+      - ".github/workflows/sketch-compile.yml"
+  pull_request:
+    paths:
+      - "crates/microflow-core/src/codegen/**"
+      - "crates/microflow-core/tests/golden/**"
+      - "scripts/compile-goldens.sh"
+      - ".github/workflows/sketch-compile.yml"
+
+env:
+  # Board cores, pinned so the cache key is stable and builds are reproducible.
+  AVR_CORE_VERSION: 1.8.6
+  ESP32_CORE_VERSION: 3.1.3
+  ESP32_BOARDS_URL: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+
+jobs:
+  compile:
+    name: Compile golden sketches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      # The esp32 core alone is several hundred MB — cache the whole arduino
+      # data dir (cores + downloaded archives) and the sketchbook (libraries),
+      # keyed on the pinned versions below.
+      - name: Cache cores and libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino
+          key: arduino-avr${{ env.AVR_CORE_VERSION }}-esp32${{ env.ESP32_CORE_VERSION }}-libs-v1
+
+      - name: Install board cores
+        run: |
+          arduino-cli core update-index --additional-urls "$ESP32_BOARDS_URL"
+          arduino-cli core install "arduino:avr@$AVR_CORE_VERSION"
+          arduino-cli core install "esp32:esp32@$ESP32_CORE_VERSION" --additional-urls "$ESP32_BOARDS_URL"
+
+      # Exactly the third-party libraries the goldens' #include lines pull in.
+      # (Wire/WiFi/WiFiClientSecure/HTTPClient ship with the cores.)
+      - name: Install libraries
+        run: |
+          arduino-cli lib install \
+            "Servo@1.2.2" \
+            "ESP32Servo@3.0.5" \
+            "Adafruit NeoPixel@1.12.3" \
+            "AccelStepper@1.64" \
+            "LedControl@1.0.6" \
+            "MIDI Library@5.0.2" \
+            "PubSubClient@2.8" \
+            "ArduinoJson@7.2.0"
+
+      - name: Compile goldens
+        run: bash scripts/compile-goldens.sh

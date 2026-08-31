@@ -32,8 +32,9 @@ pub(crate) const CLOUD_NODE_TYPES: [&str; 4] = ["Mqtt", "Figma", "Llm", "Monitor
 /// Browser-only Nodes — UI features with no Arduino hardware equivalent. They
 /// are routed here on purpose (see [`crate::codegen::emit_node`]) so the skip is
 /// explicit rather than an accidental fall-through. `AudioPlayer` plays audio
-/// in the web UI; there is no board-side counterpart.
-const BROWSER_ONLY_NODE_TYPES: [&str; 1] = ["AudioPlayer"];
+/// in the web UI; `Note` is a canvas annotation; there is no board-side
+/// counterpart for either.
+const BROWSER_ONLY_NODE_TYPES: [&str; 2] = ["AudioPlayer", "Note"];
 
 /// True when `node_type` names a Cloud (networked) Node.
 fn is_cloud_node(node_type: &str) -> bool {

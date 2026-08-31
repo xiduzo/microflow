@@ -3,6 +3,7 @@
 pub mod led;
 pub mod matrix;
 pub mod monitor;
+pub mod note;
 pub mod piezo;
 pub mod pixel;
 pub mod relay;

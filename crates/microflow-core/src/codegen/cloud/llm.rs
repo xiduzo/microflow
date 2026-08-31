@@ -31,10 +31,17 @@
 //!   placeholder and a `#warning` rather than silently failing to connect or
 //!   authenticate.
 //!
+//! The endpoint, API key, and SSID gate prefer the generate-time
+//! [`Credentials`] surface when a value was supplied there — the same fields
+//! `Credentials::missing_for` asks the Author for — falling back to the
+//! `node.data` shapes above.
+//!
 //! Like every emitter this is a pure function of the [`FlowNode`]: identical
 //! input yields byte-identical output (determinism invariant).
 
+use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{str_or_default, NodeEmission, NodeToken};
+use crate::config::llm::LlmConfig;
 use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
 
@@ -91,17 +98,35 @@ fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
 /// source, mirroring one dispatch == one generate). With no wired input the
 /// request fires once after boot. The target is assumed to offer networking —
 /// validation refuses the Node otherwise.
+///
+/// The endpoint and API key come from the generate-time `credentials` surface
+/// when supplied there (the same fields `Credentials::missing_for` asks the
+/// Author for), falling back to the Node's own `data` otherwise.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub fn emit(
+    node: &FlowNode,
+    inputs: &NodeInputs,
+    credentials: Option<&Credentials>,
+) -> NodeEmission {
     let token = node.id_token();
 
-    let endpoint = first_non_empty(node, &["endpoint", "baseUrl"], "");
-    let model = first_non_empty(node, &["model"], "");
-    let prompt = first_non_empty(node, &["prompt"], "");
-    let system = first_non_empty(node, &["system"], "");
-    let wifi_ssid = first_non_empty(node, &["wifiSsid"], "");
-    let api_key = first_non_empty(node, &["llmApiKey", "apiKey"], "");
+    let endpoint = supplied_or(
+        credentials.map_or("", |c| c.llm_endpoint.as_str()),
+        first_non_empty(node, &["endpoint", "baseUrl"], ""),
+    );
+    let config: LlmConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let model = config.model;
+    let prompt = config.prompt;
+    let system = config.system;
+    let wifi_ssid = supplied_or(
+        credentials.map_or("", |c| c.wifi_ssid.as_str()),
+        first_non_empty(node, &["wifiSsid"], ""),
+    );
+    let api_key = supplied_or(
+        credentials.map_or("", |c| c.llm_api_key.as_str()),
+        first_non_empty(node, &["llmApiKey", "apiKey"], ""),
+    );
 
     // A Node is missing its essentials if it has no endpoint to call, no WiFi
     // SSID (the connection prerequisite), or no API key to authenticate with.
@@ -254,6 +279,12 @@ mod tests {
         }
     }
 
+    /// Test-local default: emit with no generate-time credentials (shadows the
+    /// glob-imported `emit`, keeping the node-data call sites unchanged).
+    fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+        super::emit(node, inputs, None)
+    }
+
     fn joined(lines: &[String]) -> String {
         lines.join("\n")
     }
@@ -377,6 +408,38 @@ mod tests {
         assert!(decls.contains("#warning"), "warns the Author at compile time");
         // It still emits requesting code rather than silently doing nothing.
         assert!(decls.contains("http.POST(requestBody)"), "still attempts the request");
+    }
+
+    /// Scenario: an endpoint/API key typed into the credentials surface reach
+    /// the emitted sketch — they win over whatever the Node's own data carries.
+    #[test]
+    fn surface_credentials_override_node_data() {
+        let creds = Credentials {
+            llm_endpoint: "https://surface.example.com".to_string(),
+            llm_api_key: "surface-key".to_string(), // ggignore
+            wifi_ssid: "surface-net".to_string(),
+            ..Credentials::default()
+        };
+        let e = super::emit(
+            &llm("l-1", json!({ "endpoint": "https://stale.example.com", "model": "m", "prompt": "p" })),
+            &NodeInputs::default(),
+            Some(&creds),
+        );
+        let decls = joined(&e.declarations);
+        assert!(decls.contains("\"https://surface.example.com\""), "surface endpoint wins: {decls}");
+        assert!(!decls.contains("stale.example.com"), "node-data endpoint superseded");
+        assert!(decls.contains("\"surface-key\""), "surface API key wins");
+        assert!(!decls.contains("#warning"), "surface credentials satisfy the gate");
+    }
+
+    /// Empty surface credentials leave the Node's own data intact — the
+    /// fallback path is unchanged.
+    #[test]
+    fn empty_surface_credentials_fall_back_to_node_data() {
+        let n = full("l-1");
+        let with_empty =
+            super::emit(&n, &NodeInputs::default(), Some(&Credentials::default()));
+        assert_eq!(with_empty, emit(&n, &NodeInputs::default()), "empty surface == no surface");
     }
 
     /// A missing API key alone (endpoint + `WiFi` present) still warns.

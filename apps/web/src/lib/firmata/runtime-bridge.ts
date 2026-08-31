@@ -27,6 +27,7 @@ export interface FlowRuntimeCalls {
   updateFlow(json: string, nowMs: number): string;
   feedBytes(bytes: Uint8Array, nowMs: number): string;
   wake(nodeId: string, method: string, nowMs: number): string;
+  dispatch(id: string, method: string, valueJson: string, nowMs: number): string;
   injectEvent(source: string, handle: string, valueJson: string, nowMs: number): string;
   deliverMessage(id: string, topic: string, payload: Uint8Array, nowMs: number): string;
   reconcileSubscriptions(): string;

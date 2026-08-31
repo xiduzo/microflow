@@ -14,7 +14,7 @@
 
 use crate::codegen::board::{BoardTarget, CoreFamily};
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::config::servo::{ServoConfig, ServoType};
 use crate::flow::FlowNode;
 
@@ -105,9 +105,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> NodeE
         ("max", max.to_string()),
         ("stop", "90".to_string()),
     ] {
-        let binding = bind_pulses(&format!("servo_{token}_{port}"), inputs.on(port));
-        e.declarations.extend(binding.declarations.iter().cloned());
-        e.loop_body.extend(binding.loop_lines.iter().cloned());
+        let binding = e.bind_port(&format!("servo_{token}_{port}"), inputs.on(port));
         if let Some(any) = binding.any_fired() {
             e.loop_body
                 .push(format!("if ({any}) {{ {obj}.write({target}); }}"));

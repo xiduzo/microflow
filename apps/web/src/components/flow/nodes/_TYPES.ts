@@ -2,6 +2,7 @@ import { Matrix } from "./matrix/matrix";
 import { Midi } from "./midi/midi";
 import { Monitor } from "./monitor/monitor";
 import { Motion } from "./motion/motion";
+import { Note } from "./note/note";
 import { Mqtt } from "./mqtt/mqtt";
 import { Oscillator } from "./oscillator/oscillator";
 import { Piezo } from "./piezo/piezo";
@@ -76,6 +77,7 @@ export const NODE_TYPES = {
   Monitor: Monitor,
   Motion: Motion,
   Mqtt: Mqtt,
+  Note: Note,
   Oscillator: Oscillator,
   Piezo: Piezo,
   Pixel: Pixel,

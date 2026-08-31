@@ -12,7 +12,7 @@
 //! protocol.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::flow::FlowNode;
 
 /// Pin defaults match `runtime/output/matrix.rs` (data=2, clock=3, cs=4).
@@ -29,6 +29,17 @@ fn pin(node: &FlowNode, key: &str, default: u8) -> u8 {
         .and_then(serde_json::Value::as_u64)
         .and_then(|n| u8::try_from(n).ok())
         .unwrap_or(default)
+}
+
+/// The data/clock/cs pins as `(label, pin)` — the same resolution `emit`
+/// uses, exposed so validation can never drift from emission.
+#[must_use]
+pub fn pins(node: &FlowNode) -> [(&'static str, u8); 3] {
+    [
+        ("data", pin(node, "data", DEFAULT_DATA)),
+        ("clock", pin(node, "clock", DEFAULT_CLOCK)),
+        ("cs", pin(node, "cs", DEFAULT_CS)),
+    ]
 }
 
 fn devices(node: &FlowNode) -> u8 {
@@ -122,9 +133,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
             e.declarations.push(rows.join(",\n"));
             e.declarations.push("};".to_string());
 
-            let binding = bind_pulses(&format!("matrix_{token}_value"), &value_sources[..1]);
-            e.declarations.extend(binding.declarations.iter().cloned());
-            e.loop_body.extend(binding.loop_lines.iter().cloned());
+            let binding = e.bind_port(&format!("matrix_{token}_value"), &value_sources[..1]);
             let fired = &binding.fired[0];
             let idx = format!("matrix_{token}_idx");
             let last = count - 1;
@@ -145,9 +154,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // reset: clear every device.
-    let binding = bind_pulses(&format!("matrix_{token}_reset"), inputs.on("reset"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("matrix_{token}_reset"), inputs.on("reset"));
     if let Some(any) = binding.any_fired() {
         e.loop_body.push(format!(
             "if ({any}) {{ for (int {i} = 0; {i} < {devices}; {i}++) {{ {obj}.clearDisplay({i}); }} }}"
@@ -155,9 +162,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // reinitialize: re-run the chip init sequence.
-    let binding = bind_pulses(&format!("matrix_{token}_reinit"), inputs.on("reinitialize"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("matrix_{token}_reinit"), inputs.on("reinitialize"));
     if let Some(any) = binding.any_fired() {
         e.loop_body.push(format!("if ({any}) {{"));
         e.loop_body.extend(init_lines.iter().map(|l| format!("  {l}")));

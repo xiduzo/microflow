@@ -45,6 +45,7 @@ import {
   type BringUpPhase,
 } from "./wasm";
 import { FlowReactor, type CloudDeps } from "./flow-reactor";
+import { isDesktop } from "@/lib/platform";
 
 /** Cloud lookups the reactor needs to perform cloud requests (ADR-0009). Read
  *  live from the provider store via `getState()` (this module is not a React
@@ -78,6 +79,9 @@ let latestFlow: CoreFlowUpdate | null = null;
 /** The shared bring-up policy machine (lazy: wasm loads on first use). */
 let machinePromise: Promise<BringUpMachine> | null = null;
 let started = false;
+// A trapped wasm module never runs a flow again (ADR-0017); latched so the
+// boardless runtime is not respawned into the same fault on every disconnect.
+let engineDead = false;
 // Serialise every port operation so connect / auto-reconnect / plug events never
 // race to open the same port.
 let queue: Promise<unknown> = Promise.resolve();
@@ -104,6 +108,38 @@ function setBoard(state: BoardState): void {
 export function pushFlowUpdate(flow: CoreFlowUpdate): void {
   latestFlow = flow;
   reactor?.applyFlow(flow);
+}
+
+/**
+ * Stand up a runtime with no board behind it, so the software half of a flow
+ * (Hotkey, Interval, Llm, Mqtt, Midi, …) runs from page load instead of waiting
+ * for hardware that may never arrive. Replaced by a board-backed runtime when
+ * one connects, and restored when it goes away.
+ *
+ * Never revives a runtime killed by an engine fault: that module is trapped, and
+ * a fresh one would just re-run the flow that trapped it (ADR-0017).
+ */
+function ensureBoardlessReactor(): void {
+  if (isDesktop() || engineDead || reactor !== null) return;
+  void run(async () => {
+    // `run` serialises against bring-up, so a board may have won the race.
+    if (reactor !== null || active !== null || engineDead) return;
+    try {
+      reactor = await FlowReactor.attach(null, cloudDeps, { onEngineFault });
+      if (latestFlow) reactor.applyFlow(latestFlow);
+    } catch (error) {
+      console.error("[board-controller] boardless reactor attach failed:", error);
+      reactor = null;
+    }
+  });
+}
+
+/**
+ * Deliver one host-originated input (today: a hotkey key event) to a node's
+ * port. A no-op only while the runtime is down (an engine fault).
+ */
+export function dispatchToNode(nodeId: string, port: string, value: unknown): void {
+  reactor?.dispatchToNode(nodeId, port, value);
 }
 
 // --- Machine adapter --------------------------------------------------------
@@ -156,6 +192,7 @@ async function dispatch(event: BringUpEvent): Promise<void> {
  * does not matter that `connect()` short-circuits while `active` is set.
  */
 function onEngineFault(message: string): void {
+  engineDead = true;
   reactor?.dispose();
   reactor = null;
   console.error("[board-controller] flow engine fault:", message);
@@ -167,7 +204,11 @@ function onEngineFault(message: string): void {
  *  end while connected re-enters the machine as `connectionLost`. */
 function probeHooks(): ProbeHooks {
   return {
-    onBytes: (bytes) => reactor?.feedBytes(bytes),
+    // Only once a connection is live: mid-bring-up the reactor is still the
+    // boardless one, whose empty pin table cannot decode this board's traffic.
+    onBytes: (bytes) => {
+      if (active) reactor?.feedBytes(bytes);
+    },
     onClosed: () => void run(() => dispatch({ type: "connectionLost" })),
   };
 }
@@ -207,6 +248,8 @@ async function perform(action: BringUpAction): Promise<void> {
       const connection = active;
       active = null;
       await connection?.disconnect();
+      // The board is gone, the flow is not: fall back to the boardless runtime.
+      ensureBoardlessReactor();
       break;
     }
     case "scheduleRetry":
@@ -378,13 +421,20 @@ async function reconnectGranted(): Promise<void> {
 }
 
 /**
- * Start the background orchestration once: reconnect any already-granted board
- * on load, and watch for plug/unplug of granted devices. Idempotent; a no-op
- * outside Chromium.
+ * Start the background orchestration once: stand up the boardless flow runtime,
+ * reconnect any already-granted board on load, and watch for plug/unplug of
+ * granted devices. Idempotent.
+ *
+ * Only the board half needs Chromium — the runtime runs in every browser, so a
+ * Firefox user still gets their software nodes.
  */
 export function start(): void {
-  if (started || !isWebSerialSupported()) return;
+  if (started || isDesktop()) return;
   started = true;
+
+  ensureBoardlessReactor();
+
+  if (!isWebSerialSupported()) return;
 
   // Reconnect a granted board on load (no picker; common case: a board that
   // already has Firmata just comes back).

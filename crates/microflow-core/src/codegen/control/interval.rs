@@ -16,7 +16,7 @@
 //! emission, consumed by pulse-driven downstream ports.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, NodeInputs};
+use crate::codegen::wire::NodeInputs;
 use crate::config::interval::IntervalConfig;
 use crate::flow::FlowNode;
 
@@ -70,17 +70,13 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     e.loop_body.push(format!("{fired} = false;"));
 
     // start: re-arm and reset the elapsed base; stop: halt. Mirrors dispatch.
-    let start_binding = bind_pulses(&format!("interval_{token}_start_port"), inputs.on("start"));
-    e.declarations.extend(start_binding.declarations.iter().cloned());
-    e.loop_body.extend(start_binding.loop_lines.iter().cloned());
+    let start_binding = e.bind_port(&format!("interval_{token}_start_port"), inputs.on("start"));
     if let Some(any) = start_binding.any_fired() {
         e.loop_body.push(format!(
             "if ({any}) {{ {running} = true; {previous} = millis(); {start} = millis(); }}"
         ));
     }
-    let stop_binding = bind_pulses(&format!("interval_{token}_stop_port"), inputs.on("stop"));
-    e.declarations.extend(stop_binding.declarations.iter().cloned());
-    e.loop_body.extend(stop_binding.loop_lines.iter().cloned());
+    let stop_binding = e.bind_port(&format!("interval_{token}_stop_port"), inputs.on("stop"));
     if let Some(any) = stop_binding.any_fired() {
         e.loop_body.push(format!("if ({any}) {{ {running} = false; }}"));
     }

@@ -17,6 +17,7 @@ import { usePins } from "@/stores/board";
 import { Pin, pinDisplayValue } from "@/components/hardware/pin";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
+import { DesktopOnlyBadge } from "./desktop-only-badge";
 
 // Re-exports so existing callers (`from "../_base/_base"`) keep working transparently.
 // Hook implementations live in their own modules to keep the layout file focused.
@@ -28,7 +29,7 @@ export { useDeleteHandles } from "./use-delete-handles";
 // paths stay valid — every existing `from "../_base/_base"` import is unchanged.
 export { useNode, useNodeId, useNodeData } from "./node-context";
 
-function NodeHeader(props: { error?: string; warning?: string }) {
+function NodeHeader(props: { error?: string; warning?: string; type?: string }) {
   const data = useNodeData();
 
   return (
@@ -50,6 +51,10 @@ function NodeHeader(props: { error?: string; warning?: string }) {
           beta
         </Badge>
       )}
+      {/* A capability the browser host cannot provide belongs to the node type,
+          not to this node's config — so it is resolved here, once, rather than
+          in each of the ~39 node modules. */}
+      <DesktopOnlyBadge type={props.type} />
       {/* An error (red) outranks a warning (amber) — only one status icon shows. */}
       {props.error ? (
         <CardAction>
@@ -156,7 +161,7 @@ export function NodeContainer(
           hasWarning: !!warning && !error,
         })}
       >
-        <NodeHeader error={error} warning={warning} />
+        <NodeHeader error={error} warning={warning} type={rest.type} />
         <CardContent className="min-h-32 flex justify-center items-center">{children}</CardContent>
       </Card>
     </NodeContainerContext.Provider>

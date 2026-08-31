@@ -28,6 +28,7 @@ pub mod hotkey;
 pub mod i2c_device;
 pub mod motion;
 pub mod pn532;
+pub mod proximity;
 pub mod switch;
 
 // output
@@ -35,6 +36,7 @@ pub mod led;
 pub mod piezo;
 pub mod pixel;
 pub mod relay;
+pub mod rgb;
 pub mod servo;
 pub mod stepper;
 

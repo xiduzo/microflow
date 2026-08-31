@@ -43,6 +43,13 @@
       "when": 1787474370770,
       "tag": "0005_puzzling_jetstream",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788185936520,
+      "tag": "0006_workable_yellowjacket",
+      "breakpoints": true
     }
   ]
 }

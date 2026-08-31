@@ -8,6 +8,7 @@
 //! [`NodeEmission`]. No clock, no hashmap iteration, no board IO: identical
 //! input always yields identical output.
 
+use crate::codegen::wire::{bind_pulses, PulseBinding, SourceExpr};
 use crate::flow::FlowNode;
 
 /// C++ fragments a single Node contributes to the assembled sketch.
@@ -43,6 +44,17 @@ pub struct NodeEmission {
 }
 
 impl NodeEmission {
+    /// Bind `sources` as pulses on one port (see
+    /// [`bind_pulses`]), appending the binding's tracker
+    /// declarations and per-tick detector lines to this emission. The caller
+    /// consumes the returned binding's fired expressions.
+    pub fn bind_port(&mut self, prefix: &str, sources: &[SourceExpr]) -> PulseBinding {
+        let binding = bind_pulses(prefix, sources);
+        self.declarations.extend(binding.declarations.iter().cloned());
+        self.loop_body.extend(binding.loop_lines.iter().cloned());
+        binding
+    }
+
     /// True when the Node produced no C++ at all (unsupported / skipped).
     #[must_use]
     pub fn is_empty(&self) -> bool {

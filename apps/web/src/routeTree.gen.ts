@@ -16,9 +16,12 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FlowIndexRouteImport } from './routes/flow/index'
+import { Route as CommunityIndexRouteImport } from './routes/community/index'
+import { Route as UUserIdRouteImport } from './routes/u.$userId'
 import { Route as FlowFlowIdRouteImport } from './routes/flow/$flowId'
 import { Route as ConfigurationMqttRouteImport } from './routes/configuration/mqtt'
 import { Route as ConfigurationLlmRouteImport } from './routes/configuration/llm'
+import { Route as CommunityFlowIdRouteImport } from './routes/community/$flowId'
 import { Route as FlowFlowIdSettingsRouteImport } from './routes/flow/$flowId/settings'
 import { Route as FlowFlowIdGraphRouteImport } from './routes/flow/$flowId/graph'
 import { Route as FlowFlowIdCodeRouteImport } from './routes/flow/$flowId/code'
@@ -59,6 +62,16 @@ const FlowIndexRoute = FlowIndexRouteImport.update({
   path: '/flow/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityIndexRoute = CommunityIndexRouteImport.update({
+  id: '/community/',
+  path: '/community/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UUserIdRoute = UUserIdRouteImport.update({
+  id: '/u/$userId',
+  path: '/u/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FlowFlowIdRoute = FlowFlowIdRouteImport.update({
   id: '/flow/$flowId',
   path: '/flow/$flowId',
@@ -72,6 +85,11 @@ const ConfigurationMqttRoute = ConfigurationMqttRouteImport.update({
 const ConfigurationLlmRoute = ConfigurationLlmRouteImport.update({
   id: '/configuration/llm',
   path: '/configuration/llm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityFlowIdRoute = CommunityFlowIdRouteImport.update({
+  id: '/community/$flowId',
+  path: '/community/$flowId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlowFlowIdSettingsRoute = FlowFlowIdSettingsRouteImport.update({
@@ -106,9 +124,12 @@ export interface FileRoutesByFullPath {
   '/success': typeof SuccessRoute
   '/support': typeof SupportRoute
   '/templates': typeof TemplatesRoute
+  '/community/$flowId': typeof CommunityFlowIdRoute
   '/configuration/llm': typeof ConfigurationLlmRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
+  '/u/$userId': typeof UUserIdRoute
+  '/community/': typeof CommunityIndexRoute
   '/flow/': typeof FlowIndexRoute
   '/flow/$flowId/circuit': typeof FlowFlowIdCircuitRoute
   '/flow/$flowId/code': typeof FlowFlowIdCodeRoute
@@ -122,9 +143,12 @@ export interface FileRoutesByTo {
   '/success': typeof SuccessRoute
   '/support': typeof SupportRoute
   '/templates': typeof TemplatesRoute
+  '/community/$flowId': typeof CommunityFlowIdRoute
   '/configuration/llm': typeof ConfigurationLlmRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
+  '/u/$userId': typeof UUserIdRoute
+  '/community': typeof CommunityIndexRoute
   '/flow': typeof FlowIndexRoute
   '/flow/$flowId/circuit': typeof FlowFlowIdCircuitRoute
   '/flow/$flowId/code': typeof FlowFlowIdCodeRoute
@@ -139,9 +163,12 @@ export interface FileRoutesById {
   '/success': typeof SuccessRoute
   '/support': typeof SupportRoute
   '/templates': typeof TemplatesRoute
+  '/community/$flowId': typeof CommunityFlowIdRoute
   '/configuration/llm': typeof ConfigurationLlmRoute
   '/configuration/mqtt': typeof ConfigurationMqttRoute
   '/flow/$flowId': typeof FlowFlowIdRouteWithChildren
+  '/u/$userId': typeof UUserIdRoute
+  '/community/': typeof CommunityIndexRoute
   '/flow/': typeof FlowIndexRoute
   '/flow/$flowId/circuit': typeof FlowFlowIdCircuitRoute
   '/flow/$flowId/code': typeof FlowFlowIdCodeRoute
@@ -157,9 +184,12 @@ export interface FileRouteTypes {
     | '/success'
     | '/support'
     | '/templates'
+    | '/community/$flowId'
     | '/configuration/llm'
     | '/configuration/mqtt'
     | '/flow/$flowId'
+    | '/u/$userId'
+    | '/community/'
     | '/flow/'
     | '/flow/$flowId/circuit'
     | '/flow/$flowId/code'
@@ -173,9 +203,12 @@ export interface FileRouteTypes {
     | '/success'
     | '/support'
     | '/templates'
+    | '/community/$flowId'
     | '/configuration/llm'
     | '/configuration/mqtt'
     | '/flow/$flowId'
+    | '/u/$userId'
+    | '/community'
     | '/flow'
     | '/flow/$flowId/circuit'
     | '/flow/$flowId/code'
@@ -189,9 +222,12 @@ export interface FileRouteTypes {
     | '/success'
     | '/support'
     | '/templates'
+    | '/community/$flowId'
     | '/configuration/llm'
     | '/configuration/mqtt'
     | '/flow/$flowId'
+    | '/u/$userId'
+    | '/community/'
     | '/flow/'
     | '/flow/$flowId/circuit'
     | '/flow/$flowId/code'
@@ -206,9 +242,12 @@ export interface RootRouteChildren {
   SuccessRoute: typeof SuccessRoute
   SupportRoute: typeof SupportRoute
   TemplatesRoute: typeof TemplatesRoute
+  CommunityFlowIdRoute: typeof CommunityFlowIdRoute
   ConfigurationLlmRoute: typeof ConfigurationLlmRoute
   ConfigurationMqttRoute: typeof ConfigurationMqttRoute
   FlowFlowIdRoute: typeof FlowFlowIdRouteWithChildren
+  UUserIdRoute: typeof UUserIdRoute
+  CommunityIndexRoute: typeof CommunityIndexRoute
   FlowIndexRoute: typeof FlowIndexRoute
 }
 
@@ -263,6 +302,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FlowIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community/': {
+      id: '/community/'
+      path: '/community'
+      fullPath: '/community/'
+      preLoaderRoute: typeof CommunityIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/u/$userId': {
+      id: '/u/$userId'
+      path: '/u/$userId'
+      fullPath: '/u/$userId'
+      preLoaderRoute: typeof UUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/flow/$flowId': {
       id: '/flow/$flowId'
       path: '/flow/$flowId'
@@ -282,6 +335,13 @@ declare module '@tanstack/react-router' {
       path: '/configuration/llm'
       fullPath: '/configuration/llm'
       preLoaderRoute: typeof ConfigurationLlmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community/$flowId': {
+      id: '/community/$flowId'
+      path: '/community/$flowId'
+      fullPath: '/community/$flowId'
+      preLoaderRoute: typeof CommunityFlowIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flow/$flowId/settings': {
@@ -340,9 +400,12 @@ const rootRouteChildren: RootRouteChildren = {
   SuccessRoute: SuccessRoute,
   SupportRoute: SupportRoute,
   TemplatesRoute: TemplatesRoute,
+  CommunityFlowIdRoute: CommunityFlowIdRoute,
   ConfigurationLlmRoute: ConfigurationLlmRoute,
   ConfigurationMqttRoute: ConfigurationMqttRoute,
   FlowFlowIdRoute: FlowFlowIdRouteWithChildren,
+  UUserIdRoute: UUserIdRoute,
+  CommunityIndexRoute: CommunityIndexRoute,
   FlowIndexRoute: FlowIndexRoute,
 }
 export const routeTree = rootRouteImport

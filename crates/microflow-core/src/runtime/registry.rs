@@ -102,6 +102,7 @@ impl ComponentRegistry {
         self.register::<output::led::Led>("Vibration");
         self.register::<output::matrix::Matrix>("Matrix");
         self.register::<output::monitor::Monitor>("Monitor");
+        self.register::<output::note::Note>("Note");
         self.register::<output::piezo::Piezo>("Piezo");
         self.register::<output::pixel::Pixel>("Pixel");
         self.register::<output::relay::Relay>("Relay");

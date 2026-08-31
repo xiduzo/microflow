@@ -10,6 +10,15 @@ use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::config::motion::MotionConfig;
 use crate::flow::FlowNode;
 
+/// The pin this Motion sensor is emitted on — the same resolution `emit` uses,
+/// exposed so validation can never drift from emission.
+#[must_use]
+pub fn pin(node: &FlowNode) -> u8 {
+    serde_json::from_value::<MotionConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pin
+}
+
 /// The C++ `bool` variable name holding this Motion sensor's detected state.
 #[must_use]
 pub fn state_var(node: &FlowNode) -> String {

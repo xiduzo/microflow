@@ -1,608 +1,369 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useState } from "react";
-import { useForm } from "@tanstack/react-form";
-import { toast } from "sonner";
-import {
-  PlusIcon,
-  TrashIcon,
-  StarIcon,
-  SendIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  Loader2Icon,
-  PencilIcon,
-  CircleIcon,
-} from "lucide-react";
+// Reachable in both hosts: since ADR-0009 the browser runs the Mqtt/Figma nodes
+// itself (MQTT over WebSocket), and it reads the broker list straight from this
+// store — so a web user who cannot open this page cannot use those nodes at all.
+//
+// The page is a console: the broker list is a rail, and the transcript below it
+// is a real client — the desktop host's native `MqttManager` over IPC, or the
+// browser's own mqtt.js connection. What you can do here is what a flow can do.
+import { createFileRoute } from "@tanstack/react-router";
+import { AntennaIcon, PlusIcon, RadioIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useMqttBrokerStore, useBrokerStatus, type MqttBrokerConfig, type ConnectionStatus } from "@/stores/mqtt-broker";
+import {
+  useMqttBrokerStore,
+  type ConnectionStatus,
+  type MqttBrokerConfig,
+} from "@/stores/mqtt-broker";
 import { track } from "@/lib/analytics";
-import { Button } from "@/components/ui/button";
+import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
+import { isDesktop } from "@/lib/platform";
+import { openTestClient, type TestClient } from "@/session/browser-mqtt-test-client";
+import { isBrowserReachableBroker } from "@/components/flow/nodes/_base/browser-support";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+  ConnectionConsole,
+  ConsoleChip,
+  ConsoleField,
+  appendLine,
+  type ConnectionStatusTone,
+  type ConsoleCommand,
+  type ConsoleLine,
+} from "@/components/config/connection-console";
+import { parseCommand, restAfter } from "@/components/config/parse-command";
 import { EmptyState } from "@/components/states/empty-state";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/configuration/mqtt")({
   component: MqttConfigPage,
-  beforeLoad: async () => {
-    if (!isDesktop()) {
-      toast.warning("MQTT configuration is only available on desktop");
-      return redirect({ to: "/" });
-    }
-  },
 });
 
-function MqttConfigPage() {
-  const brokers = useMqttBrokerStore((s) => s.brokers);
+/** Long verbs read better in a transcript; the short forms still work. */
+const COMMANDS: ConsoleCommand[] = [
+  {
+    name: "subscribe",
+    args: "<topic>",
+    help: "Listen to a topic. Wildcards: + and #",
+    insert: "subscribe ",
+    aliases: ["sub"],
+  },
+  {
+    name: "unsubscribe",
+    args: "<topic>",
+    help: "Stop listening to a topic",
+    insert: "unsubscribe ",
+    aliases: ["unsub"],
+  },
+  {
+    name: "publish",
+    args: "<topic> <payload>",
+    help: "Send a message to a topic",
+    insert: "publish ",
+    aliases: ["pub"],
+  },
+  { name: "clear", help: "Empty the transcript", insert: "clear" },
+  { name: "?", help: "List every command", insert: "?" },
+];
 
-  return (
-    <div className="h-full overflow-auto">
-      <div className="container max-w-4xl mx-auto py-8 px-4 space-y-6">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">MQTT Configuration</h1>
-            <p className="text-muted-foreground text-sm">
-              Configure MQTT brokers for IoT connectivity
-            </p>
-          </div>
-          <AddBrokerDialog />
-        </header>
-
-        {brokers.length === 0 ? (
-          <EmptyState
-            title="No brokers configured"
-            description="Add an MQTT broker to enable IoT connectivity in your flows"
-            icon={PlusIcon}
-          >
-            <AddBrokerDialog />
-          </EmptyState>
-        ) : (
-          <div className="space-y-2">
-            {brokers.map((broker) => (
-              <BrokerCard key={broker.id} broker={broker} />
-            ))}
-          </div>
-        )}
-
-        <Separator />
-
-        {brokers.length > 0 && <TestClientCard />}
-      </div>
-    </div>
-  );
+function statusTone(status: ConnectionStatus | undefined): ConnectionStatusTone {
+  if (status === "connected") return "ok";
+  if (status === "connecting") return "busy";
+  if (status === "error") return "error";
+  return "idle";
 }
 
-function StatusIndicator({ status }: { status: ConnectionStatus }) {
-  switch (status) {
-    case "connected":
-      return (
-        <CheckCircleIcon className="text-green-500 size-5" />
-      );
-    case "connecting":
-      return (
-        <Loader2Icon className="animate-spin text-blue-500 size-5" />
-      );
-    case "error":
-      return (
-        <XCircleIcon className="text-red-500 size-5" />
-      );
-    default:
-      return (
-        <CircleIcon className="text-gray-500 size-5" />
-      );
-  }
-}
+/**
+ * The console's transport, one per host. Desktop drives the native `MqttManager`
+ * over IPC and gets inbound messages as "mqtt-message" events; the browser opens
+ * its own mqtt.js connection for as long as the page is mounted (see
+ * `openTestClient`) and feeds `onMessage` directly. Same three operations either
+ * way, so the page below has no platform branches.
+ */
+function useBrokerTransport(
+  broker: MqttBrokerConfig | undefined,
+  onMessage: (topic: string, payload: string) => void,
+) {
+  const client = useRef<TestClient | null>(null);
+  const setStatus = useMqttBrokerStore((state) => state.setStatus);
+  // The page passes a fresh closure every render; keep the latest without
+  // tearing down the connection (same trick as `useListen`).
+  const messageHandler = useRef(onMessage);
+  messageHandler.current = onMessage;
 
-function BrokerCard({ broker }: { broker: MqttBrokerConfig }) {
-  const { deleteBroker, setDefaultBroker } = useMqttBrokerStore();
-  const [editOpen, setEditOpen] = useState(false);
-  const status = useBrokerStatus(broker.id);
+  const brokerId = broker?.id ?? "";
+  const url = broker?.url ?? "";
 
-  return (
-    <Item variant="outline">
-      <ItemMedia>
-        <StatusIndicator status={status} />
-      </ItemMedia>
-      <ItemContent>
-        <ItemTitle>{broker.name}</ItemTitle>
-        <ItemDescription>
-          {broker.url}
-        </ItemDescription>
-      </ItemContent>
-      <ItemActions>
-        {!broker.isDefault && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDefaultBroker(broker.id)}
-          >
-            <StarIcon />
-          </Button>
-        )}
-        {broker.isDefault && (
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled
-          >
-            <StarIcon className="text-yellow-900 fill-yellow-500" />
-          </Button>
-        )}
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogTrigger render={<Button variant="ghost" size="sm"><PencilIcon /></Button>} />
-          <EditBrokerDialogContent broker={broker} onClose={() => setEditOpen(false)} />
-        </Dialog>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            deleteBroker(broker.id);
-            toast.success("Broker deleted");
-          }}
-        >
-          <TrashIcon />
-        </Button>
-      </ItemActions>
-    </Item>
-  );
-}
+  useEffect(() => {
+    if (isDesktop() || !broker || url.trim() === "") return;
+    const opened = openTestClient(
+      broker,
+      (topic, payload) => messageHandler.current(topic, payload),
+      (status) => setStatus(broker.id, status),
+    );
+    client.current = opened;
+    return () => {
+      opened.end();
+      client.current = null;
+    };
+    // Reconnect when the broker or its URL changes, not on every keystroke in
+    // an unrelated field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brokerId, url, setStatus]);
 
-function AddBrokerDialog() {
-  const [open, setOpen] = useState(false);
-  const addBroker = useMqttBrokerStore((s) => s.addBroker);
-
-  const form = useForm({
-    defaultValues: {
-      name: "",
-      url: "",
-      username: "",
-      password: "",
-    },
-    onSubmit: ({ value }) => {
-      addBroker({
-        name: value.name,
-        url: value.url,
-        username: value.username || undefined,
-        password: value.password || undefined,
-        isDefault: false,
-      });
-      track("mqtt_broker_added", {
-        scheme: value.url.split("://")[0] || "unknown",
-        auth: Boolean(value.username),
-      });
-      toast.success("Broker added");
-      setOpen(false);
-      form.reset();
-    },
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button>
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Add Broker
-          </Button>
-        }
-      />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add MQTT Broker</DialogTitle>
-          <DialogDescription>
-            Configure a new MQTT broker connection
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            form.handleSubmit();
-          }}
-        >
-          <FieldGroup>
-            <form.Field name="name">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>Name</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      id={field.name}
-                      placeholder="My Broker"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                    />
-                  </InputGroup>
-                </Field>
-              )}
-            </form.Field>
-            <form.Field name="url">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>URL</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      id={field.name}
-                      placeholder="wss://broker.example.com:8883/mqtt"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                    />
-                  </InputGroup>
-                </Field>
-              )}
-            </form.Field>
-            <form.Field name="username">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>Username (optional)</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      id={field.name}
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                    />
-                  </InputGroup>
-                </Field>
-              )}
-            </form.Field>
-            <form.Field name="password">
-              {(field) => (
-                <Field>
-                  <FieldLabel htmlFor={field.name}>Password (optional)</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      id={field.name}
-                      type="password"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                    />
-                  </InputGroup>
-                </Field>
-              )}
-            </form.Field>
-          </FieldGroup>
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Add Broker</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EditBrokerDialogContent({
-  broker,
-  onClose,
-}: {
-  broker: MqttBrokerConfig;
-  onClose: () => void;
-}) {
-  const updateBroker = useMqttBrokerStore((s) => s.updateBroker);
-
-  const form = useForm({
-    defaultValues: {
-      name: broker.name,
-      url: broker.url,
-      username: broker.username ?? "",
-      password: broker.password ?? "",
-    },
-    onSubmit: ({ value }) => {
-      updateBroker(broker.id, {
-        name: value.name,
-        url: value.url,
-        username: value.username || undefined,
-        password: value.password || undefined,
-      });
-      toast.success("Broker updated");
-      onClose();
-    },
-  });
-
-  return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Edit Broker</DialogTitle>
-        <DialogDescription>Update broker configuration</DialogDescription>
-      </DialogHeader>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          form.handleSubmit();
-        }}
-      >
-        <FieldGroup>
-          <form.Field name="name">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
-                <InputGroup>
-                  <InputGroupInput
-                    id={field.name}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </InputGroup>
-              </Field>
-            )}
-          </form.Field>
-          <form.Field name="url">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>URL</FieldLabel>
-                <InputGroup>
-                  <InputGroupInput
-                    id={field.name}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </InputGroup>
-              </Field>
-            )}
-          </form.Field>
-          <form.Field name="username">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Username (optional)</FieldLabel>
-                <InputGroup>
-                  <InputGroupInput
-                    id={field.name}
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </InputGroup>
-              </Field>
-            )}
-          </form.Field>
-          <form.Field name="password">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Password (optional)</FieldLabel>
-                <InputGroup>
-                  <InputGroupInput
-                    id={field.name}
-                    type="password"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </InputGroup>
-              </Field>
-            )}
-          </form.Field>
-        </FieldGroup>
-        <DialogFooter className="mt-4">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit">Save</Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  );
-}
-
-import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
-import { isDesktop } from "@/lib/platform";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { Separator } from "@/components/ui/separator";
-
-function TestClientCard() {
-  const brokers = useMqttBrokerStore((s) => s.brokers);
-  const [selectedBrokerId, setSelectedBrokerId] = useState<string>(
-    brokers.find((b) => b.isDefault)?.id ?? brokers[0]?.id ?? ""
-  );
-  const status = useBrokerStatus(selectedBrokerId);
-  const [subscribeTopic, setSubscribeTopic] = useState("test/#");
-  const [publishTopic, setPublishTopic] = useState("test/message");
-  const [publishPayload, setPublishPayload] = useState("Hello from Microflow!");
-  const [messages, setMessages] = useState<Array<{ topic: string; payload: string; timestamp: Date }>>([]);
-  const [subscriptions, setSubscriptions] = useState<Set<string>>(new Set());
-
-  const selectedBroker = brokers.find((b) => b.id === selectedBrokerId);
-
-  const handleSubscribe = async () => {
-    if (status !== "connected" || !selectedBroker) return;
-
-    const result = await invokeCommand({
-      type: "mqtt_subscribe",
-      brokerId: selectedBrokerId,
-      topic: subscribeTopic,
-    });
-
-    if (result.success) {
-      setSubscriptions((prev) => new Set([...prev, subscribeTopic]));
-      toast.success(`Subscribed to ${subscribeTopic}`);
-    } else {
-      toast.error("Failed to subscribe");
-    }
-  };
-
-  const handleUnsubscribe = async (topic: string) => {
-    if (status !== "connected") return;
-
-    const result = await invokeCommand({
-      type: "mqtt_unsubscribe",
-      brokerId: selectedBrokerId,
-      topic,
-    });
-
-    if (result.success) {
-      setSubscriptions((prev) => {
-        const next = new Set(prev);
-        next.delete(topic);
-        return next;
-      });
-      toast.success(`Unsubscribed from ${topic}`);
-    } else {
-      toast.error("Failed to unsubscribe");
-    }
-  };
-
-  const handlePublish = async () => {
-    if (status !== "connected") return;
-
-    const result = await invokeCommand({
-      type: "mqtt_publish",
-      brokerId: selectedBrokerId,
-      topic: publishTopic,
-      payload: publishPayload,
-    });
-
-    if (result.success) {
-      toast.success("Message published");
-    } else {
-      toast.error("Failed to publish");
-    }
-  };
-
-  // Listen for incoming messages
+  // Desktop delivers inbound messages as a host event rather than a callback.
   useListen<MqttMessagePayload>({
     type: "mqtt-message",
-    handler: (event) => {
-      if (status !== "connected") return;
-      setMessages((prev) => [
-        { topic: event.payload.topic, payload: event.payload.payload, timestamp: new Date() },
-        ...prev.slice(0, 49),
-      ]);
-    },
+    handler: (event) => messageHandler.current(event.payload.topic, event.payload.payload),
   });
 
-  // Clear messages and subscriptions when broker changes
-  const handleBrokerChange = (newBrokerId: string) => {
-    setSelectedBrokerId(newBrokerId);
-    setMessages([]);
-    setSubscriptions(new Set());
+  return {
+    subscribe: async (topic: string) =>
+      isDesktop()
+        ? await invokeCommand({ type: "mqtt_subscribe", brokerId, topic })
+        : { success: (await client.current?.subscribe(topic)) ?? false },
+    unsubscribe: async (topic: string) =>
+      isDesktop()
+        ? await invokeCommand({ type: "mqtt_unsubscribe", brokerId, topic })
+        : { success: (await client.current?.unsubscribe(topic)) ?? false },
+    publish: async (topic: string, payload: string) =>
+      isDesktop()
+        ? await invokeCommand({ type: "mqtt_publish", brokerId, topic, payload })
+        : { success: client.current?.publish(topic, payload) ?? false },
+  };
+}
+
+function MqttConfigPage() {
+  const brokers = useMqttBrokerStore((state) => state.brokers);
+  const statuses = useMqttBrokerStore((state) => state.statuses);
+  const addBroker = useMqttBrokerStore((state) => state.addBroker);
+  const updateBroker = useMqttBrokerStore((state) => state.updateBroker);
+  const deleteBroker = useMqttBrokerStore((state) => state.deleteBroker);
+  const setDefaultBroker = useMqttBrokerStore((state) => state.setDefaultBroker);
+
+  const [selectedId, setSelectedId] = useState(
+    () => brokers.find((broker) => broker.isDefault)?.id ?? brokers[0]?.id ?? "",
+  );
+  const [lines, setLines] = useState<ConsoleLine[]>([]);
+  const [subscriptions, setSubscriptions] = useState<string[]>([]);
+
+  const broker = brokers.find((entry) => entry.id === selectedId);
+  const push = (line: Omit<ConsoleLine, "at">) => setLines((previous) => appendLine(previous, line));
+
+  const transport = useBrokerTransport(broker, (topic, payload) =>
+    push({ kind: "in", label: topic, text: payload }),
+  );
+
+  // A broker is added blank and configured in place, so the "added" event fires
+  // once its URL exists — otherwise every entry would report an empty scheme.
+  const tracked = useRef(new Set<string>());
+  const trackConfigured = (entry: MqttBrokerConfig) => {
+    if (entry.url.trim() === "" || tracked.current.has(entry.id)) return;
+    tracked.current.add(entry.id);
+    track("mqtt_broker_added", {
+      scheme: entry.url.split("://")[0] || "unknown",
+      auth: Boolean(entry.username),
+    });
   };
 
+  const select = (id: string) => {
+    setSelectedId(id);
+    setLines([]);
+    setSubscriptions([]);
+  };
+
+  const subscribe = async (topic: string) => {
+    const { success } = await transport.subscribe(topic);
+    if (success) setSubscriptions((previous) => [...new Set([...previous, topic])]);
+    push({
+      kind: success ? "sys" : "err",
+      label: topic,
+      text: success ? "subscribed" : "could not subscribe — is the broker connected?",
+    });
+  };
+
+  const unsubscribe = async (topic: string) => {
+    const { success } = await transport.unsubscribe(topic);
+    if (success) setSubscriptions((previous) => previous.filter((entry) => entry !== topic));
+    push({ kind: success ? "sys" : "err", label: topic, text: success ? "unsubscribed" : "could not unsubscribe" });
+  };
+
+  const run = async (input: string) => {
+    const parsed = parseCommand(input);
+    const topic = parsed.tokens[0];
+
+    switch (parsed.verb) {
+      case "subscribe":
+      case "sub":
+        if (!topic) return push({ kind: "err", text: "subscribe needs a topic — try: subscribe test/#" });
+        return subscribe(topic);
+      case "unsubscribe":
+      case "unsub":
+        if (!topic) return push({ kind: "err", text: "unsubscribe needs a topic" });
+        return unsubscribe(topic);
+      case "publish":
+      case "pub": {
+        if (!topic) {
+          return push({ kind: "err", text: "publish needs a topic — try: publish test/hello world" });
+        }
+        const payload = restAfter(parsed, 1);
+        const { success } = await transport.publish(topic, payload);
+        return push({
+          kind: success ? "out" : "err",
+          label: topic,
+          text: success ? payload : "could not publish — is the broker connected?",
+        });
+      }
+      case "clear":
+        return setLines([]);
+      case "?":
+      case "help":
+        return push({ kind: "sys", text: "", table: commands });
+      default:
+        return push({ kind: "err", text: `unknown command "${parsed.verb}" — press ? for the list` });
+    }
+  };
+
+  // Topics the console has actually touched, newest first — better completions
+  // than any list we could guess at.
+  const knownTopics = useMemo(() => {
+    const seen = lines.map((line) => line.label).filter((label): label is string => Boolean(label));
+    return [...new Set([...subscriptions, ...seen.reverse()])];
+  }, [lines, subscriptions]);
+
+  const commands = useMemo<ConsoleCommand[]>(
+    () =>
+      COMMANDS.map((command) => {
+        if (command.name === "unsubscribe") return { ...command, values: () => subscriptions };
+        if (command.name === "subscribe" || command.name === "publish") {
+          return { ...command, values: () => knownTopics };
+        }
+        return command;
+      }),
+    [knownTopics, subscriptions],
+  );
+
+  const browserUnreachable =
+    !isDesktop() && Boolean(broker) && broker!.url.trim() !== "" && !isBrowserReachableBroker(broker!.url);
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Test Client</CardTitle>
-        <CardDescription>
-          Test your broker connection by subscribing and publishing messages.
-          Brokers auto-connect on startup.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-4">
-          <select
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            value={selectedBrokerId}
-            onChange={(e) => handleBrokerChange(e.target.value)}
+    <ConnectionConsole
+      title="mqtt"
+      connections={brokers.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        subtitle: entry.url,
+        isDefault: entry.isDefault,
+        status: statusTone(statuses[entry.id]),
+      }))}
+      selectedId={selectedId}
+      onSelect={select}
+      addLabel="broker"
+      onAdd={() =>
+        select(addBroker({ name: "New broker", url: "", isDefault: brokers.length === 0 }))
+      }
+      lines={lines}
+      onClear={() => setLines([])}
+      commands={commands}
+      onRun={run}
+      placeholder="subscribe test/#"
+      emptyState={
+        brokers.length === 0 ? (
+          <EmptyState
+            icon={RadioIcon}
+            title="No brokers yet"
+            description="Add a broker to publish and subscribe from here — and from your flows."
           >
-            {brokers.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} {b.isDefault ? "(default)" : ""}
-              </option>
+            <Button
+              size="sm"
+              onClick={() =>
+                select(addBroker({ name: "New broker", url: "", isDefault: true }))
+              }
+            >
+              <PlusIcon /> Add broker
+            </Button>
+          </EmptyState>
+        ) : (
+          <EmptyState
+            icon={AntennaIcon}
+            title="Nothing has come through yet"
+            description="Subscribe to a topic and anything published to it shows up here."
+          >
+            <code className="text-[11px] text-muted-foreground">
+              subscribe test/# · publish test/hello world
+            </code>
+          </EmptyState>
+        )
+      }
+      chips={
+        subscriptions.length > 0 ? (
+          <>
+            <span className="text-[11px] text-muted-foreground self-center">listening:</span>
+            {subscriptions.map((topic) => (
+              <ConsoleChip key={topic} onRemove={() => unsubscribe(topic)} removeLabel={`Unsubscribe from ${topic}`}>
+                {topic}
+              </ConsoleChip>
             ))}
-          </select>
-          <StatusIndicator status={status} />
-        </div>
-
-        {status === "connected" && (
-          <Tabs defaultValue="subscribe">
-            <TabsList>
-              <TabsTrigger value="subscribe">Subscribe</TabsTrigger>
-              <TabsTrigger value="publish">Publish</TabsTrigger>
-            </TabsList>
-            <TabsContent value="subscribe" className="space-y-4">
-              <div className="flex gap-2">
-                <InputGroup className="flex-1">
-                  <InputGroupInput
-                    placeholder="Topic (e.g., test/#)"
-                    value={subscribeTopic}
-                    onChange={(e) => setSubscribeTopic(e.target.value)}
-                  />
-                </InputGroup>
-                <Button onClick={handleSubscribe}>Subscribe</Button>
-              </div>
-              {subscriptions.size > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {[...subscriptions].map((topic) => (
-                    <Badge key={topic} variant="secondary" className="gap-1">
-                      {topic}
-                      <button
-                        type="button"
-                        onClick={() => handleUnsubscribe(topic)}
-                        className="ml-1 hover:text-destructive"
-                      >
-                        <XCircleIcon className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
+          </>
+        ) : null
+      }
+      detail={
+        broker && (
+          <>
+            <ConsoleField
+              label="Name"
+              value={broker.name}
+              onChange={(event) => updateBroker(broker.id, { name: event.target.value })}
+            />
+            <ConsoleField
+              label="URL"
+              value={broker.url}
+              placeholder="wss://broker.example.com:8883/mqtt"
+              tone={browserUnreachable ? "warning" : undefined}
+              hint={
+                browserUnreachable
+                  ? "A browser can only reach a broker over ws:// or wss://. This URL works in the desktop app, but not on the web."
+                  : "ws:// or wss:// in the browser; any scheme in the desktop app."
+              }
+              onChange={(event) => updateBroker(broker.id, { url: event.target.value })}
+              onBlur={() => trackConfigured(broker)}
+            />
+            <ConsoleField
+              label="Username"
+              value={broker.username ?? ""}
+              placeholder="optional"
+              onChange={(event) => updateBroker(broker.id, { username: event.target.value })}
+            />
+            <ConsoleField
+              label="Password"
+              type="password"
+              value={broker.password ?? ""}
+              placeholder="optional"
+              onChange={(event) => updateBroker(broker.id, { password: event.target.value })}
+            />
+            <div className="flex items-center gap-3 pt-1 text-[11px]">
+              {broker.isDefault ? (
+                <span className="text-accent">default broker</span>
+              ) : (
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setDefaultBroker(broker.id)}
+                >
+                  make default
+                </button>
               )}
-              <div className="border rounded-md p-4 h-48 overflow-auto bg-muted/50">
-                {messages.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center">
-                    No messages received yet
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {messages.map((msg, i) => (
-                      <div key={i} className="text-sm font-mono">
-                        <span className="text-muted-foreground">
-                          [{msg.timestamp.toLocaleTimeString()}]
-                        </span>{" "}
-                        <span className="text-blue-500">{msg.topic}</span>:{" "}
-                        {msg.payload}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            <TabsContent value="publish" className="space-y-4">
-              <InputGroup>
-                <InputGroupInput
-                  placeholder="Topic (e.g., test/message)"
-                  value={publishTopic}
-                  onChange={(e) => setPublishTopic(e.target.value)}
-                />
-              </InputGroup>
-              <Textarea
-                placeholder="Message payload"
-                value={publishPayload}
-                onChange={(e) => setPublishPayload(e.target.value)}
-                rows={3}
-              />
-              <Button onClick={handlePublish}>
-                <SendIcon className="h-4 w-4 mr-2" />
-                Publish
-              </Button>
-            </TabsContent>
-          </Tabs>
-        )}
-
-        {status !== "connected" && (
-          <p className="text-sm text-muted-foreground">
-            {status === "connecting"
-              ? "Connecting to broker..."
-              : status === "error"
-                ? "Failed to connect. Check broker configuration."
-                : "Broker will auto-connect when configured."}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+              <button
+                type="button"
+                className="ml-auto text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  deleteBroker(broker.id);
+                  select(brokers.find((entry) => entry.id !== broker.id)?.id ?? "");
+                }}
+              >
+                delete
+              </button>
+            </div>
+          </>
+        )
+      }
+    />
   );
 }

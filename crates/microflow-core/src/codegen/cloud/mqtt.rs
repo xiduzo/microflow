@@ -29,10 +29,17 @@
 //!   clearly-marked credential placeholder and a `#warning` rather than
 //!   silently failing to connect.
 //!
+//! Every broker field (host/port/username/password) and the SSID gate prefer
+//! the generate-time [`Credentials`] surface when a value was supplied there —
+//! the same fields `Credentials::missing_for` asks the Author for — falling
+//! back to the `node.data` shapes above.
+//!
 //! Like every emitter this is a pure function of the [`FlowNode`]: identical
 //! input yields byte-identical output (determinism invariant).
 
+use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{str_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::config::mqtt::MqttConfig;
 use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
 
@@ -83,6 +90,15 @@ fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
     default.to_string()
 }
 
+/// The Node's direction from the shared [`MqttConfig`]. An empty value (the
+/// field-level serde default) means subscribe, like the runtime component.
+fn direction(node: &FlowNode) -> String {
+    let d = serde_json::from_value::<MqttConfig>(node.data.clone())
+        .unwrap_or_default()
+        .direction;
+    if d.is_empty() { DEFAULT_DIRECTION.to_string() } else { d }
+}
+
 /// Emit C++ for an Mqtt Cloud Node on a networked target.
 ///
 /// A publish Node sends one message per pulse arriving on its `trigger` port
@@ -90,22 +106,43 @@ fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
 /// dispatch == one publish. A subscribe Node ignores trigger wiring. The
 /// target is assumed to offer networking — validation refuses the Node
 /// otherwise.
+///
+/// Broker host/port/auth come from the generate-time `credentials` surface
+/// when supplied there (the same fields `Credentials::missing_for` asks the
+/// Author for), falling back to the Node's own `data` otherwise.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub fn emit(
+    node: &FlowNode,
+    inputs: &NodeInputs,
+    credentials: Option<&Credentials>,
+) -> NodeEmission {
     let token = node.id_token();
-    let direction = {
-        let d = str_or_default(node, "direction", DEFAULT_DIRECTION);
-        if d.is_empty() { DEFAULT_DIRECTION.to_string() } else { d }
-    };
+    let config: MqttConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let direction = direction(node);
     let is_publish = direction == "publish";
 
-    let topic = first_non_empty(node, &["topic"], "");
-    let broker = first_non_empty(node, &["broker", "brokerId"], "");
-    let port = u16_or_default(node, "port", DEFAULT_PORT);
-    let wifi_ssid = first_non_empty(node, &["wifiSsid"], "");
-    let broker_user = first_non_empty(node, &["brokerUsername"], "");
-    let broker_pass = first_non_empty(node, &["brokerPassword"], "");
+    let topic = config.topic;
+    let broker = supplied_or(
+        credentials.map_or("", |c| c.broker_host.as_str()),
+        first_non_empty(node, &["broker", "brokerId"], ""),
+    );
+    let port = credentials
+        .map(|c| c.broker_port)
+        .filter(|p| *p != 0)
+        .unwrap_or_else(|| u16_or_default(node, "port", DEFAULT_PORT));
+    let wifi_ssid = supplied_or(
+        credentials.map_or("", |c| c.wifi_ssid.as_str()),
+        first_non_empty(node, &["wifiSsid"], ""),
+    );
+    let broker_user = supplied_or(
+        credentials.map_or("", |c| c.broker_username.as_str()),
+        first_non_empty(node, &["brokerUsername"], ""),
+    );
+    let broker_pass = supplied_or(
+        credentials.map_or("", |c| c.broker_password.as_str()),
+        first_non_empty(node, &["brokerPassword"], ""),
+    );
 
     // A Node is missing its essential connection details if it has no WiFi SSID
     // or no broker host. We still emit a connecting sketch, but with a loud
@@ -256,7 +293,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 /// Nodes expose no readable value.
 #[must_use]
 pub fn output(node: &FlowNode) -> Option<SourceExpr> {
-    let direction = str_or_default(node, "direction", DEFAULT_DIRECTION);
+    let direction = direction(node);
     if direction == "publish" {
         return None;
     }
@@ -279,6 +316,12 @@ mod tests {
             data,
             position: Position { x: 0.0, y: 0.0 },
         }
+    }
+
+    /// Test-local default: emit with no generate-time credentials (shadows the
+    /// glob-imported `emit`, keeping the node-data call sites unchanged).
+    fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+        super::emit(node, inputs, None)
     }
 
     fn joined(lines: &[String]) -> String {
@@ -416,6 +459,45 @@ mod tests {
         assert!(decls.contains("#warning"), "warns the Author at compile time");
         // It still emits connecting code rather than silently doing nothing.
         assert!(joined(&e.setup).contains("ensure_connected()"), "still attempts to connect");
+    }
+
+    /// Scenario: broker details typed into the credentials surface reach the
+    /// emitted sketch — they win over whatever the Node's own data carries.
+    #[test]
+    fn surface_credentials_override_node_data() {
+        let creds = Credentials {
+            broker_host: "surface.example.com".to_string(),
+            broker_port: 8883,
+            broker_username: "surface-user".to_string(),
+            broker_password: "surface-pass".to_string(), // ggignore
+            wifi_ssid: "surface-net".to_string(),
+            ..Credentials::default()
+        };
+        let e = super::emit(
+            &mqtt("m-1", json!({ "broker": "stale.example.com", "port": 1883, "topic": "t" })),
+            &NodeInputs::default(),
+            Some(&creds),
+        );
+        let decls = joined(&e.declarations);
+        assert!(decls.contains("\"surface.example.com\""), "surface broker wins: {decls}");
+        assert!(!decls.contains("stale.example.com"), "node-data broker superseded");
+        assert!(decls.contains("8883"), "surface port wins");
+        assert!(decls.contains("\"surface-user\", \"surface-pass\""), "surface auth wins");
+        assert!(!decls.contains("#warning"), "surface WiFi SSID satisfies the gate");
+    }
+
+    /// Empty surface credentials leave the Node's own data intact — the
+    /// fallback path is unchanged.
+    #[test]
+    fn empty_surface_credentials_fall_back_to_node_data() {
+        let n = mqtt("m-1", json!({ "broker": "data.example.com", "port": 1884, "topic": "t", "wifiSsid": "net" }));
+        let with_empty =
+            super::emit(&n, &NodeInputs::default(), Some(&Credentials::default()));
+        assert_eq!(with_empty, emit(&n, &NodeInputs::default()), "empty surface == no surface");
+        assert!(
+            joined(&with_empty.declarations).contains("\"data.example.com\""),
+            "node data still used"
+        );
     }
 
     /// Direction defaults to subscribe when absent (matches runtime default).

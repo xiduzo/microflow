@@ -24,6 +24,7 @@ export const COMPONENT_TYPES = [
   "Monitor",
   "Motion",
   "Mqtt",
+  "Note",
   "Oscillator",
   "Piezo",
   "Pixel",
@@ -79,6 +80,7 @@ export const COMPONENT_PORTS = {
   Monitor: ["value"] as const,
   Motion: ["read"] as const,
   Mqtt: ["trigger"] as const,
+  Note: [] as const,
   Oscillator: ["start", "stop", "reset"] as const,
   Piezo: ["trigger", "stop"] as const,
   Pixel: ["value", "color", "set", "reset"] as const,
@@ -137,6 +139,7 @@ export const COMPONENT_EMITS = {
   Monitor: ["value"] as const,
   Motion: ["event", "true", "false", "value"] as const,
   Mqtt: ["value"] as const,
+  Note: [] as const,
   Oscillator: ["value"] as const,
   Piezo: ["value"] as const,
   Pixel: ["event", "value"] as const,
@@ -164,3 +167,53 @@ export const COMPONENT_EMITS = {
 export type EmitOf<T extends ComponentType> = T extends ComponentType
   ? (typeof COMPONENT_EMITS)[T][number]
   : never;
+
+/**
+ * Whether a Component drives a pin, and so cannot do anything without a board.
+ * GENERATED from `impls[].requiresHardware` in node-components.json — the same
+ * flag the Rust registry uses to decide on `Component::initialize(board)`.
+ * The browser consults it to tell a user on a browser without Web Serial that
+ * this node can never run here (see `_base/browser-support.ts`).
+ */
+export const REQUIRES_HARDWARE = {
+  Button: true,
+  Calculate: false,
+  Compare: false,
+  Constant: false,
+  Counter: false,
+  Delay: false,
+  Figma: false,
+  Force: true,
+  Function: false,
+  Gate: false,
+  HallEffect: true,
+  Hotkey: false,
+  I2cDevice: true,
+  Interval: false,
+  Ldr: true,
+  Led: true,
+  Llm: false,
+  Matrix: true,
+  Midi: false,
+  Monitor: false,
+  Motion: true,
+  Mqtt: false,
+  Note: false,
+  Oscillator: false,
+  Piezo: true,
+  Pixel: true,
+  Pn532: true,
+  Potentiometer: true,
+  Proximity: true,
+  RangeMap: false,
+  Relay: true,
+  Rgb: true,
+  Sensor: true,
+  Servo: true,
+  Smooth: false,
+  Stepper: true,
+  Switch: true,
+  Tilt: true,
+  Trigger: false,
+  Vibration: true,
+} as const satisfies Record<ComponentType, boolean>;

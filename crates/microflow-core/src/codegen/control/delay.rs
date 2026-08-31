@@ -22,7 +22,7 @@
 //! closest single-slot approximation).
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, NodeInputs};
+use crate::codegen::wire::NodeInputs;
 use crate::config::delay::DelayConfig;
 use crate::flow::FlowNode;
 
@@ -70,10 +70,9 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     e.declarations.push(format!("unsigned long {armed} = 0;"));
     e.declarations.push(format!("double {stored} = 0.0;"));
 
-    let binding = bind_pulses(&format!("delay_{token}_trigger"), sources);
-    e.declarations.extend(binding.declarations.iter().cloned());
+    // The fired-flag reset must precede the detector lines `bind_port` appends.
     e.loop_body.push(format!("{fired} = false;"));
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("delay_{token}_trigger"), sources);
 
     // Arm per fired source: capture the value and the deadline start. With
     // `forgetPrevious` off, a pending deadline is kept (single-slot queue).

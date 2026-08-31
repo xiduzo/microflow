@@ -14,27 +14,25 @@
 //! like the live Node.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
+use crate::config::rgb::RgbConfig;
 use crate::flow::FlowNode;
 
-/// Channel pin defaults match `runtime/output/rgb.rs` (red=9, green=10, blue=11).
-const DEFAULT_RED: u8 = 9;
-const DEFAULT_GREEN: u8 = 10;
-const DEFAULT_BLUE: u8 = 11;
-
-/// Read a channel pin from `data.pins.<channel>` with the runtime default.
-fn channel_pin(node: &FlowNode, channel: &str, default: u8) -> u8 {
-    node.data
-        .get("pins")
-        .and_then(|p| p.get(channel))
-        .and_then(serde_json::Value::as_u64)
-        .and_then(|n| u8::try_from(n).ok())
-        .unwrap_or(default)
+/// The three channel pins as `(label, pin)` — the same resolution `emit`
+/// uses, exposed so validation can never drift from emission.
+#[must_use]
+pub fn pins(node: &FlowNode) -> [(&'static str, u8); 3] {
+    let pins = serde_json::from_value::<RgbConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pins;
+    [("red", pins.red), ("green", pins.green), ("blue", pins.blue)]
 }
 
 /// True when the LED is common-anode (active-low channels).
 fn is_anode(node: &FlowNode) -> bool {
-    node.data.get("isAnode").and_then(serde_json::Value::as_bool).unwrap_or(false)
+    serde_json::from_value::<RgbConfig>(node.data.clone())
+        .unwrap_or_default()
+        .is_anode
 }
 
 /// Emit C++ for an Rgb Node. Unwired channels keep their initial `0`.
@@ -48,15 +46,11 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 
     let mut e = NodeEmission::default();
     let mut channel_vars: Vec<(String, String)> = Vec::new();
-    for (channel, default) in [
-        ("red", DEFAULT_RED),
-        ("green", DEFAULT_GREEN),
-        ("blue", DEFAULT_BLUE),
-    ] {
+    for (channel, pin) in pins(node) {
         let pin_var = format!("rgb_{token}_{channel}_pin");
         let level_var = format!("rgb_{token}_{channel}");
         e.declarations
-            .push(format!("const uint8_t {pin_var} = {};", channel_pin(node, channel, default)));
+            .push(format!("const uint8_t {pin_var} = {pin};"));
         e.declarations.push(format!("uint8_t {level_var} = 0;"));
         e.setup.push(format!("pinMode({pin_var}, OUTPUT);"));
         // Mirror runtime initialize: start off.
@@ -94,9 +88,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // off: reset the stored color, like the runtime's default Rgba.
-    let binding = bind_pulses(&format!("rgb_{token}_off"), inputs.on("off"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("rgb_{token}_off"), inputs.on("off"));
     if let Some(any) = binding.any_fired() {
         any_wired = true;
         let resets: Vec<String> = channel_vars

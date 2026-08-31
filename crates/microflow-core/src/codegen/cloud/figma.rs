@@ -32,6 +32,7 @@
 
 use crate::codegen::cloud::transport::{cpp_string, Subscription, Transport, DEFAULT_PORT};
 use crate::codegen::emit::{str_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::config::figma::FigmaConfig;
 use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
 
@@ -69,8 +70,9 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 
     let broker = first_non_empty(node, &["broker", "brokerId"], "");
     let port = u16_or_default(node, "port", DEFAULT_PORT);
-    let unique_id = first_non_empty(node, &["uniqueId"], "");
-    let variable_id = first_non_empty(node, &["variableId"], "");
+    let config: FigmaConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let unique_id = config.unique_id;
+    let variable_id = config.variable_id;
     let wifi_ssid = first_non_empty(node, &["wifiSsid"], "");
     let broker_user = first_non_empty(node, &["brokerUsername"], "");
     let broker_pass = first_non_empty(node, &["brokerPassword"], "");

@@ -185,6 +185,19 @@ impl fmt::Debug for Credentials {
     }
 }
 
+/// The Author-supplied credential when non-empty, else `fallback` (the value
+/// persisted in the Node's own `data`). The credentials surface is the
+/// generate-time fill-in step — see `missing_for`, which directs the Author to
+/// these fields — so a supplied value wins over whatever the Flow carries.
+#[must_use]
+pub fn supplied_or(supplied: &str, fallback: String) -> String {
+    if supplied.trim().is_empty() {
+        fallback
+    } else {
+        supplied.to_string()
+    }
+}
+
 /// Escape a credential value for embedding inside a C++ double-quoted string
 /// literal so a stray quote or backslash can never break the generated Sketch.
 fn cpp_string(value: &str) -> String {

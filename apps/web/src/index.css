@@ -122,6 +122,12 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Tailwind v4 preflight sets buttons to cursor:default — restore pointer. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   body {
     @apply font-sans bg-background text-foreground;
   }

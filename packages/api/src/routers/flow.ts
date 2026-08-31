@@ -49,7 +49,7 @@ export const FLOW_COLORS = [
 // Helpers
 // ============================================================================
 
-const uid = () =>
+export const uid = () =>
   Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
 /**
@@ -64,7 +64,7 @@ function syncLiveAccess(flowId: string, userId: string, role: FlowRole | null) {
   yjsServer.setAccess(flowId, userId, role === null ? "none" : role === "viewer" ? "read" : "write");
 }
 
-function decodeFlowData(ydoc: Buffer | null) {
+export function decodeFlowData(ydoc: Buffer | null) {
   if (!ydoc) return { nodes: [], edges: [] };
   try {
     const flowDoc = FlowDocument.decode(new Uint8Array(ydoc));
@@ -385,6 +385,78 @@ export const flowRouter = router({
       yjsServer.dropRoom(input.id);
 
       return flowRecord;
+    }),
+
+  /**
+   * Publish (or republish) a flow to the community: freeze the current doc
+   * into a public snapshot. Live edits stay private until the next publish.
+   */
+  publish: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        description: z.string().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { flow: flowRecord } = await requireFlowAccess(
+        input.id,
+        ctx.session.user.id,
+        "owner"
+      );
+
+      await db
+        .update(flow)
+        .set({
+          publishedYdoc: flowRecord.ydoc,
+          publishedAt: new Date(),
+          description: input.description,
+          updatedAt: flowRecord.updatedAt, // publishing is not an edit
+        })
+        .where(eq(flow.id, input.id));
+
+      return { success: true };
+    }),
+
+  /**
+   * Remove a flow from the community
+   */
+  unpublish: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { flow: flowRecord } = await requireFlowAccess(
+        input.id,
+        ctx.session.user.id,
+        "owner"
+      );
+
+      await db
+        .update(flow)
+        .set({
+          publishedYdoc: null,
+          publishedAt: null,
+          updatedAt: flowRecord.updatedAt,
+        })
+        .where(eq(flow.id, input.id));
+
+      return { success: true };
+    }),
+
+  /**
+   * Published state for the share dialog, without hauling the whole doc over.
+   */
+  publishInfo: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { flow: flowRecord } = await requireFlowAccess(
+        input.id,
+        ctx.session.user.id,
+        "viewer"
+      );
+      return {
+        publishedAt: flowRecord.publishedAt,
+        description: flowRecord.description,
+      };
     }),
 
   /**

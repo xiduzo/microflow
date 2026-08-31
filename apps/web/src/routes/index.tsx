@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { User2Icon, HardDriveDownloadIcon, Plus, SearchIcon } from "lucide-react";
 import { compareDesc } from "date-fns";
@@ -13,6 +18,10 @@ import {
   FlowSpotlight,
   type OverviewFlow,
 } from "@/components/home/flow-list";
+import {
+  CommunityFlowCard,
+  type CommunityFlow,
+} from "@/components/community/community-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
@@ -35,6 +44,7 @@ const SCOPES = [
   { key: "all", label: "All" },
   { key: "mine", label: "Mine" },
   { key: "shared", label: "Shared with me" },
+  { key: "bookmarked", label: "Bookmarked" },
 ] as const;
 
 type Scope = (typeof SCOPES)[number]["key"];
@@ -123,6 +133,23 @@ function HomeComponent() {
     enabled: isSignedIn,
   });
 
+  const {
+    data: bookmarkedData,
+    isLoading: bookmarkedLoading,
+    hasNextPage: bookmarkedHasMore,
+    fetchNextPage: fetchMoreBookmarked,
+    isFetchingNextPage: fetchingMoreBookmarked,
+  } = useInfiniteQuery({
+    ...trpc.community.bookmarks.infiniteQueryOptions(
+      {},
+      { getNextPageParam: (lastPage) => lastPage.nextCursor }
+    ),
+    enabled: isSignedIn && scope === "bookmarked",
+  });
+  const bookmarked = bookmarkedData?.pages.flatMap((page) => page.items) as
+    | CommunityFlow[]
+    | undefined;
+
   const flows = useMemo<OverviewFlow[]>(() => {
     const cloud: OverviewFlow[] = [
       ...(data?.owned ?? []).map((flow) => ({ ...flow, role: "owner" as const })),
@@ -210,27 +237,60 @@ function HomeComponent() {
             </div>
           )}
 
-          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
-            {isSignedIn && isLoading && (
-              <>
-                <FlowCardSkeleton />
-                <FlowCardSkeleton />
-                <FlowCardSkeleton />
-              </>
-            )}
-            {visible.map((flow) => (
-              <FlowCard
-                key={flow.id}
-                flow={flow}
-                onExport={exportHandler(flow)}
-              />
-            ))}
-            {!visible.length && !isLoading && (
-              <p className="col-span-full p-10 text-center text-sm text-muted-foreground">
-                No flows match.
-              </p>
-            )}
-          </div>
+          {scope === "bookmarked" ? (
+            <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
+              {bookmarkedLoading && <FlowCardSkeleton />}
+              {bookmarked
+                ?.filter((flow) =>
+                  flow.name.toLowerCase().includes(search.toLowerCase().trim())
+                )
+                .map((flow) => (
+                  <CommunityFlowCard key={flow.id} flow={flow} />
+                ))}
+              {bookmarkedHasMore && (
+                <div className="col-span-full flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => fetchMoreBookmarked()}
+                    disabled={fetchingMoreBookmarked}
+                  >
+                    {fetchingMoreBookmarked ? "Loading…" : "Load more"}
+                  </Button>
+                </div>
+              )}
+              {!bookmarkedLoading && !bookmarked?.length && (
+                <p className="col-span-full p-10 text-center text-sm text-muted-foreground">
+                  Nothing bookmarked yet — find flows to save in the{" "}
+                  <Link to="/community" className="underline">
+                    community
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
+              {isSignedIn && isLoading && (
+                <>
+                  <FlowCardSkeleton />
+                  <FlowCardSkeleton />
+                  <FlowCardSkeleton />
+                </>
+              )}
+              {visible.map((flow) => (
+                <FlowCard
+                  key={flow.id}
+                  flow={flow}
+                  onExport={exportHandler(flow)}
+                />
+              ))}
+              {!visible.length && !isLoading && (
+                <p className="col-span-full p-10 text-center text-sm text-muted-foreground">
+                  No flows match.
+                </p>
+              )}
+            </div>
+          )}
         </section>
       </section>
       {!isSignedIn && <SignInNudge />}

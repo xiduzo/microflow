@@ -20,6 +20,13 @@ const usesHostAdapter = new Map<string, boolean>(
 );
 const entryUsesAdapter = (e: { impl: string }) => usesHostAdapter.get(e.impl) ?? false;
 
+// Map impl name -> requiresHardware, so the frontend can tell which nodes are
+// useless without a board (and therefore without Web Serial, in the browser).
+const requiresHardware = new Map<string, boolean>(
+  impls.map((i) => [i.name, Boolean((i as Record<string, unknown>).requiresHardware)]),
+);
+const entryRequiresHardware = (e: { impl: string }) => requiresHardware.get(e.impl) ?? false;
+
 // Per-entry Port / Emit sets, GENERATED from the Rust impls' ports()/emits()
 // into wire-interface.generated.json — the single source of truth for the wire
 // interface (see src-tauri/tests/catalog_parity.rs). Keyed by entry name, so
@@ -56,6 +63,9 @@ const emitsObjectLines = entries
     const literal = emits.length === 0 ? "[]" : `[${emits.map((p) => `"${p}"`).join(", ")}]`;
     return `  ${e.name}: ${literal} as const,`;
   })
+  .join("\n");
+const hardwareObjectLines = entries
+  .map((e) => `  ${e.name}: ${entryRequiresHardware(e)},`)
   .join("\n");
 const baseTypesContent = `// GENERATED — do not edit. Sources: node-components.json (entries/metadata) +
 // wire-interface.generated.json (ports/emits, from Rust). Run \`bun run codegen\`.
@@ -109,6 +119,17 @@ ${emitsObjectLines}
 export type EmitOf<T extends ComponentType> = T extends ComponentType
   ? (typeof COMPONENT_EMITS)[T][number]
   : never;
+
+/**
+ * Whether a Component drives a pin, and so cannot do anything without a board.
+ * GENERATED from \`impls[].requiresHardware\` in node-components.json — the same
+ * flag the Rust registry uses to decide on \`Component::initialize(board)\`.
+ * The browser consults it to tell a user on a browser without Web Serial that
+ * this node can never run here (see \`_base/browser-support.ts\`).
+ */
+export const REQUIRES_HARDWARE = {
+${hardwareObjectLines}
+} as const satisfies Record<ComponentType, boolean>;
 `;
 writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
 

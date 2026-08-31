@@ -154,7 +154,7 @@ fn emit_sketch(
         .iter()
         .map(|node| {
             let inputs = wiring.inputs.get(node.id.as_str()).unwrap_or(&empty);
-            let mut emission = emit_node(node, inputs, target);
+            let mut emission = emit_node(node, inputs, target, credentials);
             // Surface wiring the generated code cannot honor as explicit
             // comments on the Node instead of silently dropping the edges.
             if let Some(notes) = wiring.notes.get(node.id.as_str()) {
@@ -277,7 +277,14 @@ fn header(order: &[&FlowNode], target: &BoardTarget) -> String {
 /// `(target, target_handle)` dispatch. `target` supplies the board facts the
 /// few board-sensitive emitters need (the Servo library differs per core; the
 /// analog `A{n}` macros resolve to per-board pin numbers).
-fn emit_node(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> NodeEmission {
+/// `credentials` is the generate-time surface the Mqtt/Llm emitters prefer
+/// over node data (see those emitters' docs).
+fn emit_node(
+    node: &FlowNode,
+    inputs: &NodeInputs,
+    target: &BoardTarget,
+    credentials: Option<&Credentials>,
+) -> NodeEmission {
     match node.node_type.as_deref() {
         Some("Led") => output::led::emit(node, inputs),
         Some("Relay") => output::relay::emit(node, inputs),
@@ -299,7 +306,7 @@ fn emit_node(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> Node
         }
         Some("Switch") => input::switch::emit(node),
         Some("Motion") => input::motion::emit(node),
-        Some("Proximity") => input::proximity::emit(node),
+        Some("Proximity") => input::proximity::emit(node, target),
         Some("Hotkey") => input::hotkey::emit(node),
         Some("I2cDevice") => input::i2c_device::emit(node, inputs),
         Some("Oscillator") => generator::oscillator::emit(node, inputs),
@@ -319,10 +326,10 @@ fn emit_node(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> Node
         // ESP32-class core), not a blocked Sketch. Mqtt (Task #38), Figma and
         // Monitor (Task #42) bridge over the network transport; Llm (Task #44)
         // issues HTTP requests over the same shared WiFi connection.
-        Some("Mqtt") => cloud::mqtt::emit(node, inputs),
+        Some("Mqtt") => cloud::mqtt::emit(node, inputs, credentials),
         Some("Figma") => cloud::figma::emit(node, inputs),
         Some("Monitor") => cloud::monitor::emit(node, inputs),
-        Some("Llm") => cloud::llm::emit(node, inputs),
+        Some("Llm") => cloud::llm::emit(node, inputs, credentials),
         // Midi bridges the board's serial MIDI jack (MIDI.h); the host's Web
         // MIDI / midir I/O becomes MIDI.read()/sendNoteOn on-device. Several
         // Midi nodes share one MIDI instance + read-pump via the assembler's
@@ -332,7 +339,7 @@ fn emit_node(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> Node
         // web UI and has no Arduino hardware equivalent. We route it explicitly
         // (rather than letting it fall through) so the skip is intentional and
         // documented; the placeholder names it as browser-only. See #22.
-        Some("AudioPlayer") => placeholder::emit(node),
+        Some("AudioPlayer" | "Note") => placeholder::emit(node),
         _ => placeholder::emit(node),
     }
 }
@@ -751,6 +758,12 @@ mod tests {
         assert!(sketch.contains("#include <WiFi.h>"), "WiFi include missing:\n{sketch}");
         assert!(sketch.contains("\"studio-net\""), "SSID not embedded:\n{sketch}");
         assert!(sketch.contains("\"s3cret-pass\""), "password not embedded in sketch");
+        // The surface's broker host reaches the Mqtt emitter (the bare Node
+        // carries none in its data).
+        assert!(
+            sketch.contains("\"broker.example.com\""),
+            "surface broker host not plumbed into the Mqtt Node:\n{sketch}"
+        );
         assert!(
             sketch.contains("WiFi.begin(wifi_ssid, wifi_password);"),
             "no WiFi.begin in setup:\n{sketch}"

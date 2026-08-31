@@ -50,6 +50,8 @@ import { defaults as MotionDefaults } from "./motion/motion.schema";
 import { Mqtt } from "./mqtt/mqtt";
 import { defaults as MqttDefaults } from "./mqtt/mqtt.schema";
 import { adapter as MqttAdapter } from "./mqtt/mqtt";
+import { Note } from "./note/note";
+import { defaults as NoteDefaults } from "./note/note.schema";
 import { Oscillator } from "./oscillator/oscillator";
 import { defaults as OscillatorDefaults } from "./oscillator/oscillator.schema";
 import { Piezo } from "./piezo/piezo";
@@ -123,6 +125,7 @@ export const NODE_REGISTRY = {
   Monitor: { component: Monitor, defaults: MonitorDefaults as NodeDefaults, adapter: undefined },
   Motion: { component: Motion, defaults: MotionDefaults as NodeDefaults, adapter: undefined },
   Mqtt: { component: Mqtt, defaults: MqttDefaults as NodeDefaults, adapter: MqttAdapter },
+  Note: { component: Note, defaults: NoteDefaults as NodeDefaults, adapter: undefined },
   Oscillator: { component: Oscillator, defaults: OscillatorDefaults as NodeDefaults, adapter: undefined },
   Piezo: { component: Piezo, defaults: PiezoDefaults as NodeDefaults, adapter: undefined },
   Pixel: { component: Pixel, defaults: PixelDefaults as NodeDefaults, adapter: undefined },
@@ -166,6 +169,7 @@ export const NODE_TYPES = {
   Monitor,
   Motion,
   Mqtt,
+  Note,
   Oscillator,
   Piezo,
   Pixel,

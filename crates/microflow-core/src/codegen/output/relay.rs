@@ -9,7 +9,7 @@
 //! last written state exactly like the runtime's `is_open`.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, NodeInputs};
+use crate::codegen::wire::NodeInputs;
 use crate::config::relay::{RelayConfig, RelayType};
 use crate::flow::FlowNode;
 
@@ -52,9 +52,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     for (port, level, state) in
         [("true", open_level, "true"), ("false", closed, "false")]
     {
-        let binding = bind_pulses(&format!("relay_{token}_{port}"), inputs.on(port));
-        e.declarations.extend(binding.declarations.iter().cloned());
-        e.loop_body.extend(binding.loop_lines.iter().cloned());
+        let binding = e.bind_port(&format!("relay_{token}_{port}"), inputs.on(port));
         if let Some(any) = binding.any_fired() {
             e.loop_body.push(format!(
                 "if ({any}) {{ digitalWrite({var}, {level}); {open_state} = {state}; }}"
@@ -63,9 +61,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // toggle: one flip per fired source.
-    let binding = bind_pulses(&format!("relay_{token}_toggle"), inputs.on("toggle"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("relay_{token}_toggle"), inputs.on("toggle"));
     for fired in &binding.fired {
         e.loop_body.push(format!(
             "if ({fired}) {{ {open_state} = !{open_state}; digitalWrite({var}, {open_state} ? {open_level} : {closed}); }}"

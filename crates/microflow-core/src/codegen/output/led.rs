@@ -10,7 +10,7 @@
 //! the runtime's `is_on` so `toggle` flips from the last written state.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::config::led::LedConfig;
 use crate::flow::FlowNode;
 
@@ -61,9 +61,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 
     // true / false: idempotent digital writes on any firing source.
     for (port, level, state) in [("true", "HIGH", "true"), ("false", "LOW", "false")] {
-        let binding = bind_pulses(&format!("led_{token}_{port}"), inputs.on(port));
-        e.declarations.extend(binding.declarations.iter().cloned());
-        e.loop_body.extend(binding.loop_lines.iter().cloned());
+        let binding = e.bind_port(&format!("led_{token}_{port}"), inputs.on(port));
         if let Some(any) = binding.any_fired() {
             e.loop_body.push(format!(
                 "if ({any}) {{ digitalWrite({var}, {level}); {on} = {state}; }}"
@@ -72,9 +70,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // toggle: one flip per fired source, from the tracked on/off state.
-    let binding = bind_pulses(&format!("led_{token}_toggle"), inputs.on("toggle"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("led_{token}_toggle"), inputs.on("toggle"));
     for fired in &binding.fired {
         e.loop_body.push(format!(
             "if ({fired}) {{ {on} = !{on}; digitalWrite({var}, {on} ? HIGH : LOW); }}"

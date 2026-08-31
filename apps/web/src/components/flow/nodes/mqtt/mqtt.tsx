@@ -8,16 +8,24 @@ import { RadioIcon, RadioTowerIcon } from "lucide-react";
 import { IconWithValue } from "../../icon-with-value";
 import { useMqttBrokerStore } from "@/stores/mqtt-broker";
 import { useMemo } from "react";
+import { isBrowserReachableBroker } from "../_base/browser-support";
+import { isDesktop } from "@/lib/platform";
 
 export function Mqtt(props: Props) {
   const brokers = useMqttBrokerStore((s) => s.brokers);
   const hasBrokers = brokers.length > 0;
   const broker = brokers.find((b) => b.id === props.data.brokerId);
+  // A browser can only speak MQTT over a WebSocket; a `mqtt://` broker works on
+  // the desktop and silently never connects here, so say so on the node.
+  const unreachableBroker =
+    broker && !isDesktop() && !isBrowserReachableBroker(broker.url)
+      ? `${broker.name} is not reachable from a browser — use a ws:// or wss:// broker, or the desktop app.`
+      : undefined;
   const error = !hasBrokers
     ? "No MQTT brokers configured"
     : !broker
       ? "Select a broker"
-      : undefined;
+      : unreachableBroker;
 
   return (
     <NodeContainer {...props} error={error}>

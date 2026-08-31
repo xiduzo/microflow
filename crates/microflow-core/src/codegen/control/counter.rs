@@ -12,7 +12,7 @@
 //! `loop()` iterations exactly as the runtime's value persists across signals.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, NodeInputs};
+use crate::codegen::wire::NodeInputs;
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Counter Node's running count. Exposed
@@ -39,9 +39,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         ("decrement", format!("{var} -= 1.0;")),
         ("reset", format!("{var} = 0.0;")),
     ] {
-        let binding = bind_pulses(&format!("counter_{token}_{port}"), inputs.on(port));
-        e.declarations.extend(binding.declarations.iter().cloned());
-        e.loop_body.extend(binding.loop_lines.iter().cloned());
+        let binding = e.bind_port(&format!("counter_{token}_{port}"), inputs.on(port));
         for fired in &binding.fired {
             e.loop_body.push(format!("if ({fired}) {{ {action} }}"));
         }
@@ -49,9 +47,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 
     // set: every new sample from a wired source overwrites the count.
     let sources = inputs.on("set");
-    let binding = bind_pulses(&format!("counter_{token}_set"), sources);
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("counter_{token}_set"), sources);
     for (fired, source) in binding.fired.iter().zip(sources) {
         e.loop_body.push(format!(
             "if ({fired}) {{ {var} = {}; }}",

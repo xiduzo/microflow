@@ -272,6 +272,20 @@ pub fn bind_pulses(prefix: &str, sources: &[SourceExpr]) -> PulseBinding {
                     .loop_lines
                     .push(format!("bool {fired} = {now} && !{prev};"));
             }
+            // A text source has no numeric projection (`as_double` is its
+            // constant fallback), so the change detector compares the String
+            // itself — otherwise a text-valued source (e.g. the Llm response)
+            // could never fire a pulse port. The empty-string init mirrors the
+            // numeric arm's 0.0: the runtime twin's initial stored value.
+            Detector::Change if source.value.ty == CppType::Str => {
+                binding.declarations.push(format!("String {prev} = \"\";"));
+                binding
+                    .loop_lines
+                    .push(format!("String {now} = {};", source.value.as_string()));
+                binding
+                    .loop_lines
+                    .push(format!("bool {fired} = ({now} != {prev});"));
+            }
             Detector::Change => {
                 binding.declarations.push(format!("double {prev} = 0.0;"));
                 binding
@@ -361,6 +375,25 @@ mod tests {
         assert_eq!(b.declarations, ["bool led_l1_true_prev0 = false;"]);
         assert!(b.loop_lines.iter().any(|l| l.contains("&& !led_l1_true_prev0")));
         assert_eq!(b.any_fired().unwrap(), "(led_l1_true_fired0)");
+    }
+
+    #[test]
+    fn str_level_sources_synthesize_a_string_compare_detector() {
+        // A text source coerced through as_double is a constant, so the change
+        // detector must compare the String itself or the port never fires.
+        let sources = [SourceExpr::level(CppExpr::text("llm_l_value"))];
+        let b = bind_pulses("counter_c_inc", &sources);
+        assert_eq!(b.declarations, ["String counter_c_inc_prev0 = \"\";"]);
+        assert!(
+            b.loop_lines.iter().any(|l| l == "String counter_c_inc_now0 = (llm_l_value);"),
+            "compares the String value, got: {:?}",
+            b.loop_lines
+        );
+        assert!(b
+            .loop_lines
+            .iter()
+            .any(|l| l.contains("counter_c_inc_now0 != counter_c_inc_prev0")));
+        assert_eq!(b.fired, ["counter_c_inc_fired0"]);
     }
 
     #[test]

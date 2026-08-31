@@ -191,7 +191,45 @@ bun run dev:web
 
 Open Studio. Open the Add Node panel. Drag a Sparkle node onto the canvas. Connect a [Trigger](/docs/microflow-studio/nodes/generate/trigger) to its input and a [Monitor](/docs/microflow-studio/nodes/internal/monitor) to its output. Press the trigger — the Monitor should show a fresh random value each time.
 
-## Step 8 — Document it
+## Step 8 — Check it works in the browser too
+
+Studio runs in two hosts: the desktop app (native Rust runtime) and the web app
+(the same runtime compiled to WebAssembly). Every node is registered in both —
+so if your node needs nothing but the runtime, it already works in both.
+
+It does **not** work in both if it depends on something the browser sandbox does
+not hand out: an OS-level keyboard hook, a native peripheral, a raw TCP socket, a
+request to an endpoint that does not send CORS headers.
+
+If that is your node, add a row to
+`apps/web/src/components/flow/nodes/_base/browser-support.ts`:
+
+```ts
+const BROWSER_LIMITATIONS: Record<string, () => string | undefined> = {
+  Sparkle: () => "Sparkle needs an OS-level sparkle bus. Use the desktop app.",
+};
+```
+
+A row makes a **desktop only** badge appear on the node header and beside the
+node in the Add Node list, with your text as its tooltip — no change to your node
+component, and every instance picks it up.
+
+Return `undefined` from the row when the browser at hand *can* do the job (the
+`Midi` row does this: Web MIDI exists in Chromium, not in Firefox or Safari).
+Nodes that drive a pin need no row at all — `requiresHardware` in
+`node-components.json` already marks them, and the browser flags them when Web
+Serial is missing.
+
+A limitation that depends on the node's *config* rather than the node type —
+"this broker URL is not reachable from a browser" — belongs next to that
+config's other checks instead. See `mqtt.tsx` (the node) and
+`routes/configuration/mqtt.tsx` (the broker form).
+
+Before you add a row, make sure the limitation is real. Most "desktop-only"
+behaviour is not the runtime — the same Rust engine runs in both hosts — but a
+missing bit of host wiring, and wiring it up is usually the smaller change.
+
+## Step 9 — Document it
 
 Add a reference page at `apps/fumadocs/content/docs/microflow-studio/nodes/shape/sparkle.mdx`. Match the template used by neighbouring node pages — see the [docs style guide](/docs/contributing/docs-style-guide) for the canonical structure.
 
@@ -202,4 +240,5 @@ Add `"sparkle"` to `apps/fumadocs/content/docs/microflow-studio/nodes/shape/meta
 - **Zod schema mismatch with Rust component.** If the frontend sends `min` and the Rust struct expects `lower`, the runtime will silently fail to construct. Match field names exactly.
 - **Forgetting `node-components.json`.** Without it the node will not appear in the Add Node panel even if everything else is correct.
 - **Hardware flag wrong.** If your node touches a pin, `requiresHardware` must be `true` so the runtime initialises the board connection for it.
+- **Assuming desktop-only capabilities.** The web app runs the same runtime in WebAssembly. If your node reaches for a native capability, say so in `browser-support.ts` (Step 8) instead of letting it fail silently in the browser.
 - **Hot reload does not always pick up schema changes.** Restart `bun run dev:web` after edits to schema files.

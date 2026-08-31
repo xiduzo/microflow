@@ -1,45 +1,13 @@
 //! RGB LED Component — Output. Template port for the workflow node fan-out.
 
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue,
     HardwareComponent, RuntimeContext, RuntimeError,
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RgbPins {
-    #[serde(default = "default_red", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub red: u8,
-    #[serde(default = "default_green", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub green: u8,
-    #[serde(default = "default_blue", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub blue: u8,
-}
+pub use crate::config::rgb::{RgbConfig, RgbPins};
 
-fn default_red() -> u8 {
-    9
-}
-fn default_green() -> u8 {
-    10
-}
-fn default_blue() -> u8 {
-    11
-}
-
-impl Default for RgbPins {
-    fn default() -> Self {
-        Self { red: default_red(), green: default_green(), blue: default_blue() }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct RgbConfig {
-    #[serde(default)]
-    pub pins: RgbPins,
-    #[serde(default)]
-    pub is_anode: bool,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RgbaColor {

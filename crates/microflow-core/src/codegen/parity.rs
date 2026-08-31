@@ -51,6 +51,101 @@ mod tests {
         inputs
     }
 
+    // ---- Pulse wiring: boot + text-change semantics ----------------------
+
+    /// A sketch for `flow` on the ESP32, unwrapped (these flows fit it).
+    fn sketch(flow: &crate::flow::FlowUpdate) -> String {
+        let target = crate::codegen::board::target_by_id("esp32").expect("esp32 is supported");
+        crate::codegen::generate(flow, &target)
+            .expect("generation should succeed")
+            .sketch
+            .expect("flow fits the esp32")
+    }
+
+    fn flow_edge(
+        source: &str,
+        source_handle: &str,
+        target: &str,
+        target_handle: &str,
+    ) -> crate::flow::FlowEdge {
+        crate::flow::FlowEdge {
+            id: None,
+            source: source.to_string(),
+            target: target.to_string(),
+            source_handle: source_handle.to_string(),
+            target_handle: target_handle.to_string(),
+        }
+    }
+
+    fn id_node(id: &str, node_type: &str, data: serde_json::Value) -> FlowNode {
+        FlowNode {
+            id: id.to_string(),
+            node_type: Some(node_type.to_string()),
+            data,
+            position: Position { x: 0.0, y: 0.0 },
+        }
+    }
+
+    /// The runtime's `Constant::on_start` emits its value once at boot, so a
+    /// Constant wired into a Counter's `increment` port increments it once.
+    /// The generated change detector matches: its tracker starts at `0.0`, so
+    /// the first tick sees `5.0 != 0.0` and fires exactly once. (Known corner:
+    /// a Constant of exactly `0.0` still emits at runtime — an explicit
+    /// `emit`, not a deduped `set_value` — but a change detector cannot fire
+    /// on 0→0, so on-device that boot pulse is dropped.)
+    #[test]
+    fn constant_boot_emit_fires_a_pulse_port_once_on_the_first_tick() {
+        let flow = crate::flow::FlowUpdate {
+            nodes: vec![
+                id_node("c-1", "Constant", json!({ "value": 5.0 })),
+                id_node("ctr-1", "Counter", json!({})),
+            ],
+            edges: vec![flow_edge("c-1", "value", "ctr-1", "increment")],
+        };
+        let s = sketch(&flow);
+        assert!(
+            s.contains("double counter_ctr_1_increment_prev0 = 0.0;"),
+            "tracker starts at the runtime's initial stored value:\n{s}"
+        );
+        assert!(
+            s.contains("counter_ctr_1_increment_now0 = ((double)(constant_c_1_value))"),
+            "detector reads the constant:\n{s}"
+        );
+        assert!(
+            s.contains("if (counter_ctr_1_increment_fired0) { counter_ctr_1_count += 1.0; }"),
+            "increment gated on the fired tick:\n{s}"
+        );
+    }
+
+    /// The runtime delivers the Llm's response text to any wired port when it
+    /// arrives. On-device the response is an Arduino `String`, so the pulse
+    /// detector must compare the String itself — the numeric projection of
+    /// text is a constant and would never fire (the pre-fix silent-dead-code
+    /// bug).
+    #[test]
+    fn llm_response_into_a_pulse_port_fires_on_text_change() {
+        let flow = crate::flow::FlowUpdate {
+            nodes: vec![
+                id_node("llm-1", "Llm", json!({ "prompt": "p" })),
+                id_node("ctr-1", "Counter", json!({})),
+            ],
+            edges: vec![flow_edge("llm-1", "value", "ctr-1", "increment")],
+        };
+        let s = sketch(&flow);
+        assert!(
+            s.contains("String counter_ctr_1_increment_prev0 = \"\";"),
+            "String tracker for the text source:\n{s}"
+        );
+        assert!(
+            s.contains("counter_ctr_1_increment_now0 = (llm_llm_1_value)"),
+            "compares the response text itself:\n{s}"
+        );
+        assert!(
+            s.contains("if (counter_ctr_1_increment_fired0) { counter_ctr_1_count += 1.0; }"),
+            "a new response increments the counter:\n{s}"
+        );
+    }
+
     // ---- Calculate: 11 arithmetic functions ------------------------------
 
     /// EXHAUSTIVE over `CalculateFunction`: the C++ token each variant's fold
@@ -888,6 +983,7 @@ mod tests {
             "Sensor" | "Force" | "HallEffect" | "Ldr" | "Potentiometer" | "Tilt" | "Proximity" => {
                 Exempt("plain analogRead into a state variable — no value transform")
             }
+            "Note" => Exempt("canvas annotation — no ports, no emits, no device behaviour"),
             "Midi" => Case(midi_emit_covers_both_directions_and_modes),
             // cloud
             "Monitor" | "Mqtt" | "Figma" | "Llm" => Exempt(

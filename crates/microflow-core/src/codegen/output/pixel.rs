@@ -14,9 +14,18 @@
 //! an explicit note instead of wrong code.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::config::pixel::PixelConfig;
 use crate::flow::FlowNode;
+
+/// The pin this Pixel strip is emitted on — the same resolution `emit` uses,
+/// exposed so validation can never drift from emission.
+#[must_use]
+pub fn pin(node: &FlowNode) -> u8 {
+    serde_json::from_value::<PixelConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pin
+}
 
 /// Map the configured colour-order string to the `NeoPixel` type flag.
 fn neo_color_flag(color_order: &str) -> &'static str {
@@ -119,9 +128,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 
             // Apply on every new index sample (change pulse), clamped like the
             // runtime's `index.min(len - 1)`.
-            let binding = bind_pulses(&format!("pixel_{token}_value"), &value_sources[..1]);
-            e.declarations.extend(binding.declarations.iter().cloned());
-            e.loop_body.extend(binding.loop_lines.iter().cloned());
+            let binding = e.bind_port(&format!("pixel_{token}_value"), &value_sources[..1]);
             let fired = &binding.fired[0];
             let idx = format!("pixel_{token}_idx");
             let last = count - 1;
@@ -139,9 +146,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // reset: clear the strip.
-    let binding = bind_pulses(&format!("pixel_{token}_reset"), inputs.on("reset"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("pixel_{token}_reset"), inputs.on("reset"));
     if let Some(any) = binding.any_fired() {
         e.loop_body
             .push(format!("if ({any}) {{ {obj}.clear(); {obj}.show(); }}"));

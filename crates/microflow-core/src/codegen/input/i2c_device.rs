@@ -4,9 +4,18 @@
 //! reads `read_length` bytes, and decodes them as a big-endian unsigned or
 //! signed integer (or leaves them raw). The generated sketch uses the Arduino
 //! `Wire` library: it `#include <Wire.h>`, calls `Wire.begin()` in `setup()`,
-//! and each loop writes the register, requests the bytes, and folds them into a
-//! `long` value variable big-endian — the same decode the runtime applies for
-//! the unsigned/signed integer formats. Downstream Nodes read that value.
+//! and on each due read writes the register, requests the bytes, and folds
+//! them into a `long` value variable big-endian — the same decode the runtime
+//! applies for the unsigned/signed integer formats. Downstream Nodes read that
+//! value.
+//!
+//! A read becomes *due* exactly when the runtime twin would read: every
+//! `sample_interval_ms` while `autoread` streams (the board's sampling
+//! interval), and on any `trigger` pulse — the runtime dispatches `trigger`
+//! to `request_read` unconditionally, so a trigger is an extra manual read even
+//! while streaming. Everything is `millis()`-gated; the no-hold `SHT2x` settle
+//! wait is a two-phase request→collect state machine, never a blocking
+//! `delay()` (the module-wide invariant).
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, NodeInputs};
@@ -19,11 +28,13 @@ pub fn value_var(node: &FlowNode) -> String {
     format!("i2c_{}_value", node.id_token())
 }
 
-/// Emit C++ for an `I2cDevice` Node. When `autoread` is off, the read fires
-/// on pulses from the sources wired into the `trigger` port (the generated
-/// twin of the runtime's `trigger` handle); otherwise the device streams
-/// every loop and trigger wiring is ignored. The `write` port carries raw
-/// byte payloads with no on-device value model; wiring it emits a note.
+/// Emit C++ for an `I2cDevice` Node. With `autoread` on the device reads every
+/// `sample_interval_ms`; a wired `trigger` port fires an extra read on each
+/// pulse (streaming or not — the runtime's `trigger` dispatch is unguarded).
+/// With `autoread` off and no trigger wired the device never reads and the
+/// value stays at its 0 default, matching the runtime where nothing is armed.
+/// The `write` port carries raw byte payloads with no on-device value model;
+/// wiring it emits a note.
 #[must_use]
 pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     // Deserialize the SAME config the runtime builds from (ungated in
@@ -48,25 +59,22 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let i = format!("i2c_{token}_i");
     let b = format!("i2c_{token}_b");
 
-    // No-hold sensors (SHT2x/HTU21) NACK until their conversion completes, so the
-    // command write must end with a STOP and be followed by a delay before the
-    // read. Other devices keep the repeated-start (no STOP, no delay) read.
+    // No-hold sensors (SHT2x/HTU21) NACK until their conversion completes, so
+    // the command write must end with a STOP and the collect must wait out the
+    // settle window. Other devices keep the repeated-start (no STOP) read.
     let delay_ms = read_delay_ms(&config);
     let stop_tx = if delay_ms > 0 { "true" } else { "false" };
-    let mut loop_body = vec![
+    let request = [
         format!("Wire.beginTransmission((uint8_t){addr});"),
         format!("Wire.write((uint8_t){register});"),
         format!("Wire.endTransmission({stop_tx});"),
     ];
-    if delay_ms > 0 {
-        loop_body.push(format!("delay({delay_ms});"));
-    }
-    loop_body.extend([
+    let mut collect = vec![
         format!("Wire.requestFrom((uint8_t){addr}, (uint8_t){read_length});"),
         format!("long {acc} = 0;"),
         format!("for (uint8_t {i} = 0; {i} < {read_length} && Wire.available(); {i}++) {{"),
         format!("  uint8_t {b} = Wire.read();"),
-    ]);
+    ];
     // The fold transcribed from the descriptor: big-endian shift-or, optionally
     // sign-extended from bit 7 of the first byte, capped at `FOLD_BYTE_CAP`
     // bytes. A longer read still drains the Wire buffer, but only the FIRST cap
@@ -84,29 +92,68 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
             .chain(std::iter::once("}".to_string()))
             .collect();
     }
-    loop_body.extend(fold.into_iter().map(|l| format!("  {l}")));
-    loop_body.push("}".to_string());
-    loop_body.push(format!("{value} = {acc};"));
+    collect.extend(fold.into_iter().map(|l| format!("  {l}")));
+    collect.push("}".to_string());
+    collect.push(format!("{value} = {acc};"));
 
-    // `autoread` off ⇒ trigger-only: read on a pulse from any source wired
-    // into the `trigger` port (mirrors the runtime `trigger` handle), not
-    // every loop. With no trigger wired the device never reads — the value
-    // stays at its 0 default, matching the runtime, where no continuous read
-    // is armed and nothing calls `request_read`.
+    // A read is due exactly when the runtime twin would read: once per
+    // sampling interval while `autoread` streams, and on any `trigger` pulse —
+    // the runtime dispatches `trigger` to `request_read` unconditionally, so a
+    // trigger is an extra manual read even while streaming. With neither, the
+    // device never reads and the value stays at its 0 default, matching the
+    // runtime where no continuous read is armed and nothing calls
+    // `request_read`.
     let mut declarations = vec![format!("long {value} = 0;")];
-    if !config.autoread {
-        let binding = bind_pulses(&format!("i2c_{token}_trigger"), inputs.on("trigger"));
-        loop_body = match binding.any_fired() {
-            Some(any) => {
-                declarations.extend(binding.declarations.iter().cloned());
-                let mut gated = binding.loop_lines.clone();
-                gated.push(format!("if ({any}) {{"));
-                gated.extend(loop_body.into_iter().map(|l| format!("  {l}")));
-                gated.push("}".to_string());
-                gated
-            }
-            None => Vec::new(),
-        };
+    let mut loop_body = Vec::new();
+    let mut interval_seed = None;
+    let binding = bind_pulses(&format!("i2c_{token}_trigger"), inputs.on("trigger"));
+    let trigger_any = binding.any_fired();
+    if config.autoread || trigger_any.is_some() {
+        declarations.extend(binding.declarations.iter().cloned());
+        loop_body.extend(binding.loop_lines.iter().cloned());
+        let due = format!("i2c_{token}_due");
+        loop_body.push(format!("bool {due} = false;"));
+        if config.autoread {
+            // The sampling gate, `millis()`-compared like every timer in the
+            // module. Re-basing to `millis()` (not `+= interval`) skips
+            // catch-up bursts after a stalled loop — the board samples the
+            // bus, it does not backfill missed samples.
+            let previous = format!("i2c_{token}_previous");
+            let interval = config.sample_interval_ms.max(1);
+            declarations.push(format!("unsigned long {previous} = 0;"));
+            interval_seed = Some(format!("{previous} = millis();"));
+            loop_body.push(format!(
+                "if (millis() - {previous} >= {interval}UL) {{ {previous} = millis(); {due} = true; }}"
+            ));
+        }
+        if let Some(any) = &trigger_any {
+            loop_body.push(format!("if ({any}) {{ {due} = true; }}"));
+        }
+        if delay_ms > 0 {
+            // Two-phase non-blocking settle: write the command, then collect
+            // once the conversion window has elapsed. A read that comes due
+            // mid-conversion is dropped — the transaction in flight is the one
+            // it would have started.
+            let pending = format!("i2c_{token}_pending");
+            let requested_at = format!("i2c_{token}_requested_at");
+            declarations.push(format!("bool {pending} = false;"));
+            declarations.push(format!("unsigned long {requested_at} = 0;"));
+            loop_body.push(format!("if ({due} && !{pending}) {{"));
+            loop_body.extend(request.iter().map(|l| format!("  {l}")));
+            loop_body.push(format!("  {requested_at} = millis();"));
+            loop_body.push(format!("  {pending} = true;"));
+            loop_body.push("}".to_string());
+            loop_body
+                .push(format!("if ({pending} && millis() - {requested_at} >= {delay_ms}UL) {{"));
+            loop_body.push(format!("  {pending} = false;"));
+            loop_body.extend(collect.iter().map(|l| format!("  {l}")));
+            loop_body.push("}".to_string());
+        } else {
+            loop_body.push(format!("if ({due}) {{"));
+            loop_body.extend(request.iter().map(|l| format!("  {l}")));
+            loop_body.extend(collect.iter().map(|l| format!("  {l}")));
+            loop_body.push("}".to_string());
+        }
     }
     if !inputs.on("write").is_empty() {
         declarations.push(
@@ -126,6 +173,10 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         }
         setup.push("Wire.endTransmission();".to_string());
     }
+    // Seed the sampling gate so the first read lands one interval after boot —
+    // the runtime's continuous read also delivers its first reply one sampling
+    // interval after being armed.
+    setup.extend(interval_seed);
 
     NodeEmission {
         includes: vec!["#include <Wire.h>".to_string()],
@@ -212,8 +263,10 @@ mod tests {
     #[test]
     fn i2c_custom_device_emits_no_init_writes() {
         let e = emit(&i2c("d-1", json!({ "device": "custom" })), &NodeInputs::default());
-        // Only Wire.begin() — no extra transmissions for generic devices.
-        assert_eq!(e.setup, vec!["Wire.begin();".to_string()]);
+        // No init transmissions for generic devices — just the bus begin and
+        // the sampling-gate seed.
+        assert!(!e.setup.iter().any(|s| s.contains("beginTransmission")));
+        assert_eq!(e.setup[0], "Wire.begin();");
     }
 
     #[test]
@@ -252,9 +305,16 @@ mod tests {
             ),
             &NodeInputs::default(),
         );
-        // No-hold: STOP after the command write, then a delay before the read.
+        // No-hold: STOP after the command write, then a non-blocking settle —
+        // the collect phase waits out the conversion on millis(), never delay().
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(true)")));
-        assert!(e.loop_body.iter().any(|l| l.starts_with("delay(")), "must delay before read");
+        assert!(
+            e.loop_body
+                .iter()
+                .any(|l| l.contains("i2c_d_1_pending && millis() - i2c_d_1_requested_at >= 30UL")),
+            "must wait out the settle window without blocking"
+        );
+        assert!(!e.loop_body.iter().any(|l| l.trim_start().starts_with("delay(")), "no blocking delay");
         // Resolution write to the user register (0xE6 = 230, 0x83 = 131) in setup.
         assert!(e.setup.iter().any(|s| s.contains("230")), "must write user register");
         assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)131)")));
@@ -271,10 +331,10 @@ mod tests {
     }
 
     #[test]
-    fn i2c_non_sht_keeps_repeated_start_without_delay() {
+    fn i2c_non_sht_keeps_repeated_start_without_settle_state() {
         let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })), &NodeInputs::default());
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(false)")));
-        assert!(!e.loop_body.iter().any(|l| l.starts_with("delay(")), "non-no-hold must not delay");
+        assert!(!e.loop_body.iter().any(|l| l.contains("_pending")), "no settle machine needed");
     }
 
     #[test]
@@ -302,14 +362,29 @@ mod tests {
     }
 
     #[test]
-    fn i2c_autoread_default_reads_every_loop_ignoring_driver() {
-        // Absent `autoread` ⇒ streaming: the read runs unconditionally every loop,
-        // even with a driver wired (matches the runtime, which streams on the
-        // sampling interval and treats `trigger` as an extra manual read).
+    fn i2c_autoread_streams_on_sampling_interval_and_honors_trigger() {
+        // Absent `autoread` ⇒ streaming at the default 100ms sampling interval
+        // — never every 1ms loop tick — AND a wired trigger still fires an
+        // extra manual read: the runtime dispatches `trigger` to
+        // `request_read` unguarded, streaming or not.
         let e = emit(&i2c("d-1", json!({})), &trigger_input("btn_state"));
+        assert!(
+            e.loop_body
+                .iter()
+                .any(|l| l.contains("millis() - i2c_d_1_previous >= 100UL")),
+            "streaming is gated at the default sampling interval"
+        );
+        assert!(e.loop_body.iter().any(|l| l.contains("btn_state")), "trigger still honored");
         assert!(e.loop_body.iter().any(|l| l.contains("requestFrom")), "must read");
-        assert!(!e.loop_body.iter().any(|l| l.contains("btn_state")), "streaming ignores driver");
-        assert!(!e.declarations.iter().any(|d| d.contains("_prev")), "no edge state when streaming");
+        assert!(e.setup.iter().any(|s| s.contains("i2c_d_1_previous = millis()")), "gate seeded");
+    }
+
+    #[test]
+    fn i2c_autoread_honors_configured_freq_key() {
+        // The web persists the sampling period under the key `freq` (a period
+        // in ms despite the name — see I2cDeviceConfig).
+        let e = emit(&i2c("d-1", json!({ "freq": 250 })), &NodeInputs::default());
+        assert!(e.loop_body.iter().any(|l| l.contains(">= 250UL")), "configured period wins");
     }
 
     #[test]

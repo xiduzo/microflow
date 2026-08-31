@@ -215,6 +215,10 @@
       "trigger"
     ]
   },
+  "Note": {
+    "emits": [],
+    "ports": []
+  },
   "Oscillator": {
     "emits": [
       "value"

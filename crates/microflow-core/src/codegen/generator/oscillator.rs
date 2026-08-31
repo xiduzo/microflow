@@ -10,7 +10,7 @@
 //! the scheduler's clock, never waits.
 
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, NodeInputs};
+use crate::codegen::wire::NodeInputs;
 use crate::config::oscillator::{OscillatorConfig, Waveform};
 use crate::flow::FlowNode;
 
@@ -127,22 +127,16 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 
     // start: run and re-base the phase; stop: halt; reset: restart the phase
     // only while running (the runtime's stop-then-start-if-was-running).
-    let start_binding = bind_pulses(&format!("oscillator_{token}_start_port"), inputs.on("start"));
-    e.declarations.extend(start_binding.declarations.iter().cloned());
-    e.loop_body.extend(start_binding.loop_lines.iter().cloned());
+    let start_binding = e.bind_port(&format!("oscillator_{token}_start_port"), inputs.on("start"));
     if let Some(any) = start_binding.any_fired() {
         e.loop_body
             .push(format!("if ({any}) {{ {running} = true; {start} = millis(); }}"));
     }
-    let stop_binding = bind_pulses(&format!("oscillator_{token}_stop_port"), inputs.on("stop"));
-    e.declarations.extend(stop_binding.declarations.iter().cloned());
-    e.loop_body.extend(stop_binding.loop_lines.iter().cloned());
+    let stop_binding = e.bind_port(&format!("oscillator_{token}_stop_port"), inputs.on("stop"));
     if let Some(any) = stop_binding.any_fired() {
         e.loop_body.push(format!("if ({any}) {{ {running} = false; }}"));
     }
-    let reset_binding = bind_pulses(&format!("oscillator_{token}_reset_port"), inputs.on("reset"));
-    e.declarations.extend(reset_binding.declarations.iter().cloned());
-    e.loop_body.extend(reset_binding.loop_lines.iter().cloned());
+    let reset_binding = e.bind_port(&format!("oscillator_{token}_reset_port"), inputs.on("reset"));
     if let Some(any) = reset_binding.any_fired() {
         e.loop_body
             .push(format!("if ({any} && {running}) {{ {start} = millis(); }}"));

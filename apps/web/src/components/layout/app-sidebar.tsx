@@ -4,6 +4,7 @@ import {
   BookIcon,
   CircuitBoardIcon,
   CodeIcon,
+  EarthIcon,
   LibraryBigIcon,
   BotIcon,
   RadioTowerIcon,
@@ -27,7 +28,6 @@ import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { useAppStore } from "@/stores/app";
 import { useMemo } from "react";
-import { isDesktop } from "@/lib/platform";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = authClient.useSession();
@@ -101,11 +101,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     url: "/",
                     icon: BookIcon,
                   },
-                  // {
-                  //   title: "Community",
-                  //   url: "/community",
-                  //   icon: BookSearchIcon,
-                  // },
+                  {
+                    title: "Community",
+                    url: "/community",
+                    icon: EarthIcon,
+                  },
                   {
                     title: "Templates",
                     url: "/templates",
@@ -118,25 +118,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   // },
                 ],
               },
-              ...(isDesktop()
-                ? [
-                    {
-                      title: "Configuration",
-                      routes: [
-                        {
-                          title: "MQTT",
-                          url: "/configuration/mqtt",
-                          icon: RadioTowerIcon,
-                        },
-                        {
-                          title: "LLM",
-                          url: "/configuration/llm",
-                          icon: BotIcon,
-                        },
-                      ],
-                    },
-                  ]
-                : []),
+              // Shown in both hosts: the browser runs the Mqtt/Figma/Llm nodes
+              // itself (ADR-0009) and reads these stores, so hiding the pages on
+              // web left those nodes unconfigurable there.
+              {
+                title: "Configuration",
+                routes: [
+                  {
+                    title: "MQTT",
+                    url: "/configuration/mqtt",
+                    icon: RadioTowerIcon,
+                  },
+                  {
+                    title: "LLM",
+                    url: "/configuration/llm",
+                    icon: BotIcon,
+                  },
+                ],
+              },
             ]}
           />
           <NavSecondary className="mt-auto" />

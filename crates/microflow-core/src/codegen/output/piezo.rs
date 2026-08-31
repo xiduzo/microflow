@@ -11,9 +11,18 @@
 //! generated counterpart yet; a song-configured Node emits an explicit note.
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, NodeInputs};
+use crate::codegen::wire::NodeInputs;
 use crate::config::piezo::PiezoConfig;
 use crate::flow::FlowNode;
+
+/// The pin this Piezo is emitted on — the same resolution `emit` uses, exposed
+/// so validation can never drift from emission.
+#[must_use]
+pub fn pin(node: &FlowNode) -> u8 {
+    serde_json::from_value::<PiezoConfig>(node.data.clone())
+        .unwrap_or_default()
+        .pin
+}
 
 /// True when the Node is configured as a song player rather than a buzzer.
 fn is_song(node: &FlowNode) -> bool {
@@ -44,9 +53,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     };
 
     // trigger: one buzz per firing source. Song playback is host-only.
-    let trigger_binding = bind_pulses(&format!("piezo_{token}_trigger"), inputs.on("trigger"));
-    e.declarations.extend(trigger_binding.declarations.iter().cloned());
-    e.loop_body.extend(trigger_binding.loop_lines.iter().cloned());
+    let trigger_binding = e.bind_port(&format!("piezo_{token}_trigger"), inputs.on("trigger"));
     if let Some(any) = trigger_binding.any_fired() {
         if is_song(node) {
             e.declarations.push(
@@ -60,9 +67,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // stop: silence on any firing source.
-    let stop_binding = bind_pulses(&format!("piezo_{token}_stop"), inputs.on("stop"));
-    e.declarations.extend(stop_binding.declarations.iter().cloned());
-    e.loop_body.extend(stop_binding.loop_lines.iter().cloned());
+    let stop_binding = e.bind_port(&format!("piezo_{token}_stop"), inputs.on("stop"));
     if let Some(any) = stop_binding.any_fired() {
         e.loop_body.push(format!("if ({any}) {{ noTone({pin_var}); }}"));
     }

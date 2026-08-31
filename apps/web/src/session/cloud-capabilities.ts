@@ -10,6 +10,7 @@ import {
   startCloudCapabilitySync,
   type CloudCapability,
 } from "./cloud-capability-sync";
+import { probeBroker, probeLlmProvider } from "./browser-cloud-probe";
 import type { HostSnapshot } from "./flow-update-dispatcher";
 
 // Production cloud-capability registry: each entry owns its store slice, its
@@ -98,17 +99,60 @@ const figma: CloudCapability = {
 
 export const CLOUD_CAPABILITIES: readonly CloudCapability[] = [mqtt, llm, figma];
 
+// The browser has no host to sync config *to* — the CloudPerformer resolves it
+// live from these same stores. What it lacks is the desktop's status feedback,
+// so its "push" is a reachability probe that fills the status dots instead.
+const browserMqtt: CloudCapability = {
+  ...mqtt,
+  listen: undefined,
+  sync: {
+    read: mqtt.sync!.read,
+    subscribe: mqtt.sync!.subscribe,
+    push: () => {
+      const { brokers, setStatus } = useMqttBrokerStore.getState();
+      for (const broker of brokers) {
+        setStatus(broker.id, "connecting");
+        void probeBroker(broker).then((status) => setStatus(broker.id, status));
+      }
+    },
+  },
+};
+
+const browserLlm: CloudCapability = {
+  ...llm,
+  sync: {
+    read: llm.sync!.read,
+    subscribe: llm.sync!.subscribe,
+    push: () => {
+      const { providers, setStatus } = useLlmProviderStore.getState();
+      for (const provider of providers) {
+        setStatus(provider.id, "testing");
+        void probeLlmProvider(provider).then((status) => setStatus(provider.id, status));
+      }
+    },
+  },
+};
+
+export const BROWSER_CLOUD_CAPABILITIES: readonly CloudCapability[] = [
+  browserMqtt,
+  browserLlm,
+  figma,
+];
+
 /** `HostSnapshotProvider` for the `FlowUpdateDispatcher`, assembled from the
  * same registry that drives the sync. */
 export function readHostSnapshot(): HostSnapshot {
   return assembleHostSnapshot(CLOUD_CAPABILITIES);
 }
 
-/** Mount the config→runtime sync driver for every cloud capability. Desktop
- * only — the browser resolves cloud config live from the stores (CloudDeps). */
+/** Mount the cloud-capability driver: on desktop it syncs config to the native
+ * host and listens for its status events; in the browser (which resolves config
+ * live from the stores via `CloudDeps`) it probes each endpoint for reachability
+ * so the config pages show a real status instead of a permanent "disconnected". */
 export function useCloudCapabilitySync(): void {
-  useEffect(() => {
-    if (!isDesktop()) return;
-    return startCloudCapabilitySync(CLOUD_CAPABILITIES);
-  }, []);
+  useEffect(
+    () =>
+      startCloudCapabilitySync(isDesktop() ? CLOUD_CAPABILITIES : BROWSER_CLOUD_CAPABILITIES),
+    [],
+  );
 }

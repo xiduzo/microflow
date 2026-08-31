@@ -97,7 +97,12 @@ export class FlowReactor implements EffectsSink {
   private disposed = false;
 
   private constructor(
-    private readonly connection: BoardConnection,
+    /** The board this flow drives, or `null` when there is none: the software
+     *  half of a flow (Hotkey, Interval, Llm, Mqtt, Midi, …) runs perfectly well
+     *  without hardware, and refusing to run it left the whole flow dead in the
+     *  browser until a board was plugged in. Outbound Firmata bytes have nowhere
+     *  to go and are dropped. */
+    private readonly connection: BoardConnection | null,
     cloud: CloudDeps | null,
     private readonly onEngineFault: ((message: string) => void) | undefined,
   ) {
@@ -133,7 +138,7 @@ export class FlowReactor implements EffectsSink {
    *  `cloud` supplies the provider/broker lookups cloud nodes need; omit it and
    *  cloud requests are logged and skipped. */
   static async attach(
-    connection: BoardConnection,
+    connection: BoardConnection | null,
     cloud?: CloudDeps,
     options: AttachOptions = {},
   ): Promise<FlowReactor> {
@@ -144,8 +149,10 @@ export class FlowReactor implements EffectsSink {
     });
     // A missing pin seed is survivable (inbound decode degrades); the bridge
     // reports it and the reactor still attaches.
+    // No board means no pin table: the runtime keeps its empty one, inbound
+    // decode has nothing to decode, and the software nodes run as usual.
     reactor.bridge.call("setPins", null, (rt) => {
-      rt.setPins(connection.session.pinsJson());
+      rt.setPins(connection?.session.pinsJson() ?? "[]");
     });
     return reactor;
   }
@@ -157,6 +164,15 @@ export class FlowReactor implements EffectsSink {
     this.edges = flow.edges;
     this.turn("updateFlow", null, (rt) => rt.updateFlow(JSON.stringify(flow), now()));
     this.reconcile();
+  }
+
+  /** Deliver one host-originated input to a node's port — the browser twin of
+   *  the desktop actor's `ActorMsg::Key`/`component_call` paths. Used by the
+   *  hotkey listener; the runtime owns all routing from there. */
+  dispatchToNode(nodeId: string, port: string, value: unknown): void {
+    this.turn("dispatch", nodeId, (rt) =>
+      rt.dispatch(nodeId, port, JSON.stringify(value), now()),
+    );
   }
 
   /** Feed raw inbound serial bytes (from the Web Serial read loop). */
@@ -265,6 +281,10 @@ export class FlowReactor implements EffectsSink {
   // --- EffectsSink: the browser platform primitives (ADR-0008) ---------------
 
   writeBytes(bytes: number[]): void {
+    // Nothing to write to without a board. The node that produced these bytes
+    // already says it needs hardware (its "desktop only" badge, or the sidebar's
+    // "Connect board"), so this stays quiet rather than logging per turn.
+    if (this.connection === null) return;
     void this.connection.write(Uint8Array.from(bytes)).catch((error: unknown) => {
       console.warn("[flow-reactor] write failed:", error);
     });

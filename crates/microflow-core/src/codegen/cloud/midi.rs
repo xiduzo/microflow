@@ -19,7 +19,7 @@
 //! input yields byte-identical output (determinism invariant).
 
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
+use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
 use crate::config::midi::{MidiConfig, MidiDirection, MidiMode};
 use crate::flow::FlowNode;
 
@@ -139,9 +139,7 @@ fn emit_out(node: &FlowNode, config: &MidiConfig, inputs: &NodeInputs, e: &mut N
     }
 
     let sources = inputs.on("send");
-    let binding = bind_pulses(&format!("midi_{token}_send"), sources);
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("midi_{token}_send"), sources);
     if binding.fired.is_empty() {
         e.loop_body
             .push(format!("// midi Node {token} has no wired send input — nothing to send"));

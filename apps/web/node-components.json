@@ -89,6 +89,10 @@
       "impl": "Mqtt"
     },
     {
+      "name": "Note",
+      "impl": "Note"
+    },
+    {
       "name": "Oscillator",
       "impl": "Oscillator"
     },
@@ -256,6 +260,11 @@
       "category": "external",
       "requiresHardware": false,
       "usesHostAdapter": true
+    },
+    {
+      "name": "Note",
+      "category": "output",
+      "requiresHardware": false
     },
     {
       "name": "Oscillator",

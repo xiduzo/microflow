@@ -13,9 +13,36 @@
 //! other Nodes keep ticking.
 
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
-use crate::codegen::wire::{bind_pulses, extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, NodeInputs};
 use crate::config::stepper::{StepperConfig, StepperInterface};
 use crate::flow::FlowNode;
+
+/// The pins this Stepper is emitted on as `(label, pin)`, following the
+/// configured interface (driver = step/dir, two-wire = motor pins 1–2,
+/// four-wire = motor pins 1–4) plus the optional enable pin — the same
+/// resolution `emit` uses, exposed so validation can never drift from emission.
+#[must_use]
+pub fn pins(node: &FlowNode) -> Vec<(&'static str, u8)> {
+    let config: StepperConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let mut pins: Vec<(&'static str, u8)> = match config.interface {
+        StepperInterface::Driver => {
+            vec![("step", config.step_pin), ("dir", config.dir_pin)]
+        }
+        StepperInterface::TwoWire => {
+            vec![("motor 1", config.motor_pin1), ("motor 2", config.motor_pin2)]
+        }
+        StepperInterface::FourWire => vec![
+            ("motor 1", config.motor_pin1),
+            ("motor 2", config.motor_pin2),
+            ("motor 3", config.motor_pin3),
+            ("motor 4", config.motor_pin4),
+        ],
+    };
+    if let Some(enable) = config.enable_pin {
+        pins.push(("enable", enable));
+    }
+    pins
+}
 
 /// Emit C++ for a Stepper Node. Unwired, the motor parks at zero.
 #[must_use]
@@ -69,9 +96,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         e.declarations.push(note);
     }
     if let Some(source) = value_sources.first() {
-        let binding = bind_pulses(&format!("stepper_{token}_value"), &value_sources[..1]);
-        e.declarations.extend(binding.declarations.iter().cloned());
-        e.loop_body.extend(binding.loop_lines.iter().cloned());
+        let binding = e.bind_port(&format!("stepper_{token}_value"), &value_sources[..1]);
         let fired = &binding.fired[0];
         let steps = format!("stepper_{token}_steps");
         e.loop_body.push(format!("if ({fired}) {{"));
@@ -93,15 +118,11 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
 
     // stop / zero: pulses.
-    let binding = bind_pulses(&format!("stepper_{token}_stop"), inputs.on("stop"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("stepper_{token}_stop"), inputs.on("stop"));
     if let Some(any) = binding.any_fired() {
         e.loop_body.push(format!("if ({any}) {{ {obj}.stop(); }}"));
     }
-    let binding = bind_pulses(&format!("stepper_{token}_zero"), inputs.on("zero"));
-    e.declarations.extend(binding.declarations.iter().cloned());
-    e.loop_body.extend(binding.loop_lines.iter().cloned());
+    let binding = e.bind_port(&format!("stepper_{token}_zero"), inputs.on("zero"));
     if let Some(any) = binding.any_fired() {
         e.loop_body
             .push(format!("if ({any}) {{ {obj}.setCurrentPosition(0); }}"));
@@ -113,9 +134,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         e.declarations.push(note);
     }
     if let Some(source) = enable_sources.first() {
-        let binding = bind_pulses(&format!("stepper_{token}_enable"), &enable_sources[..1]);
-        e.declarations.extend(binding.declarations.iter().cloned());
-        e.loop_body.extend(binding.loop_lines.iter().cloned());
+        let binding = e.bind_port(&format!("stepper_{token}_enable"), &enable_sources[..1]);
         let fired = &binding.fired[0];
         e.loop_body.push(format!(
             "if ({fired}) {{ if ({}) {{ {obj}.enableOutputs(); }} else {{ {obj}.disableOutputs(); }} }}",

@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
+import { communityRouter } from "./community";
 import { flowRouter } from "./flow";
 import { profileRouter } from "./profile";
 import { supportersRouter } from "./supporters";
@@ -14,6 +15,7 @@ export const appRouter = router({
     };
   }),
   flow: flowRouter,
+  community: communityRouter,
   profile: profileRouter,
   supporters: supportersRouter,
 });

@@ -1,6 +1,8 @@
 import { useState, isValidElement } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Share2, UserPlus, X, Copy, Check, Search, Mail } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { formatDistanceToNow } from "date-fns";
+import { EarthIcon, Loader2, Share2, UserPlus, X, Copy, Check, Search, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
@@ -28,6 +30,8 @@ import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { InputGroupAddon } from "@/components/ui/input-group";
 import { useCopyToClipboard } from 'usehooks-ts'
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   flowId: string;
@@ -198,8 +202,112 @@ export function ShareFlowDialog({ flowId, flowName, trigger, open: controlledOpe
               </Button>
             </FieldGroup>
           </form>
+
+          <Separator />
+
+          <PublishSection flowId={flowId} open={open} />
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Publish a frozen snapshot of the flow to the public community page.
+ * Republish to push newer edits; unpublish to take it down.
+ */
+function PublishSection({ flowId, open }: { flowId: string; open: boolean }) {
+  const queryClient = useQueryClient();
+  const [description, setDescription] = useState<string | null>(null);
+
+  const { data: publishInfo } = useQuery({
+    ...trpc.flow.publishInfo.queryOptions({ id: flowId }),
+    enabled: open,
+  });
+  const isPublished = !!publishInfo?.publishedAt;
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({
+      queryKey: trpc.flow.publishInfo.queryKey({ id: flowId }),
+    });
+    queryClient.invalidateQueries({ queryKey: trpc.community.pathKey() });
+  };
+
+  const publishMutation = useMutation(
+    trpc.flow.publish.mutationOptions({
+      onSuccess: () => {
+        invalidate();
+        track("flow_shared", { via: "community" });
+        toast.success(isPublished ? "Community flow updated" : "Published to community");
+      },
+      onError: (error) => toast.error(error.message),
+    })
+  );
+
+  const unpublishMutation = useMutation(
+    trpc.flow.unpublish.mutationOptions({
+      onSuccess: () => {
+        invalidate();
+        toast.success("Removed from community");
+      },
+      onError: (error) => toast.error(error.message),
+    })
+  );
+
+  const pending = publishMutation.isPending || unpublishMutation.isPending;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <EarthIcon className="size-4" />
+        <span className="text-sm font-medium">Community</span>
+        {isPublished && publishInfo?.publishedAt && (
+          <Link
+            to="/community/$flowId"
+            params={{ flowId }}
+            className="ml-auto text-xs text-muted-foreground hover:underline"
+          >
+            Published {formatDistanceToNow(publishInfo.publishedAt, { addSuffix: true })}
+          </Link>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {isPublished
+          ? "Anyone can view and copy the published snapshot. Publishing again shares your latest changes."
+          : "Share a snapshot of this flow publicly so anyone can view and copy it."}
+      </p>
+      <Textarea
+        placeholder="What does this flow do? (optional)"
+        value={description ?? publishInfo?.description ?? ""}
+        onChange={(e) => setDescription(e.target.value)}
+        maxLength={500}
+        rows={2}
+      />
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={pending}
+          onClick={() =>
+            publishMutation.mutate({
+              id: flowId,
+              description: (description ?? publishInfo?.description ?? undefined) || undefined,
+            })
+          }
+        >
+          {publishMutation.isPending && <Loader2 className="size-4 mr-2 animate-spin" />}
+          {isPublished ? "Publish update" : "Publish"}
+        </Button>
+        {isPublished && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => unpublishMutation.mutate({ id: flowId })}
+          >
+            Unpublish
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
