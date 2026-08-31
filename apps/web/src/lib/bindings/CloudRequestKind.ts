@@ -6,4 +6,12 @@
  * testable by asserting the emitted request. The host maps each variant onto
  * its platform transport (desktop `rumqttc`/`reqwest`; browser WSS/`fetch`).
  */
-export type CloudRequestKind = { "kind": "mqttPublish", brokerId: string, topic: string, payload: Array<number>, retain: boolean, } | { "kind": "llmGenerate", providerId: string, model: string, system: string | null, prompt: string, } | { "kind": "midiSend", deviceName: string, bytes: Array<number>, };
+export type CloudRequestKind = { "kind": "mqttPublish", brokerId: string, topic: string, payload: Array<number>, retain: boolean, } | { "kind": "llmGenerate", providerId: string, model: string, system: string | null, prompt: string, } | { "kind": "midiSend", deviceName: string, bytes: Array<number>, } | { "kind": "audioPlay", 
+/**
+ * Which record to play: an index into the node's `data.tracks`.
+ */
+track: number, 
+/**
+ * 0.0-1.0, already clamped by the node.
+ */
+volume: number, loop: boolean, } | { "kind": "audioStop" };

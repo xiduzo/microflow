@@ -79,6 +79,21 @@ pub enum CloudRequestKind {
     /// output whose port name contains `device_name` ("" = all). Nothing
     /// re-enters the runtime.
     MidiSend { device_name: String, bytes: Vec<u8> },
+    /// Play the `Music` node's audio file on the host's speakers, restarting it
+    /// if it is already playing. The file itself is deliberately absent: the
+    /// host resolves the node's `data.src` (a data URL, often megabytes) from
+    /// the flow it already holds, keyed by `CloudRequest::source`. When the
+    /// track ends the host dispatches `stop` on the node, so `value` falls to
+    /// false without a second re-entry seam.
+    AudioPlay {
+        /// Which record to play: an index into the node's `data.tracks`.
+        track: u32,
+        /// 0.0-1.0, already clamped by the node.
+        volume: f32,
+        r#loop: bool,
+    },
+    /// Stop the `Music` node's playback (`CloudRequest::source` names it).
+    AudioStop,
 }
 
 /// Severity of a [`NodeDiagnostic`], mapped 1:1 onto the UI's existing per-node

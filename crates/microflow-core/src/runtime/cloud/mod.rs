@@ -1,4 +1,5 @@
-//! Cloud nodes (`Mqtt`, `Llm`, `Figma`) on the [`Component`] trait.
+//! Cloud nodes (`Mqtt`, `Llm`, `Figma`) plus the host-peripheral nodes that
+//! share their sans-IO shape (`Midi`, `Music`) on the [`Component`] trait.
 //!
 //! These nodes are **sans-IO** (ADR-0009): a `dispatch` records a `CloudRequest`
 //! into the turn's `Effects` instead of spawning network work. The host's
@@ -17,6 +18,7 @@ pub mod figma;
 pub mod llm;
 pub mod midi;
 pub mod mqtt;
+pub mod music;
 
 #[cfg(test)]
 pub(crate) mod test_support {

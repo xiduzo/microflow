@@ -89,6 +89,10 @@
       "impl": "Mqtt"
     },
     {
+      "name": "Music",
+      "impl": "Music"
+    },
+    {
       "name": "Note",
       "impl": "Note"
     },
@@ -260,6 +264,11 @@
       "category": "external",
       "requiresHardware": false,
       "usesHostAdapter": true
+    },
+    {
+      "name": "Music",
+      "category": "external",
+      "requiresHardware": false
     },
     {
       "name": "Note",

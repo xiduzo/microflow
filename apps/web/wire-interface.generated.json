@@ -215,6 +215,17 @@
       "trigger"
     ]
   },
+  "Music": {
+    "emits": [
+      "value",
+      "track"
+    ],
+    "ports": [
+      "play",
+      "stop",
+      "set"
+    ]
+  },
   "Note": {
     "emits": [],
     "ports": []

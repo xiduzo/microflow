@@ -138,6 +138,7 @@ impl ComponentRegistry {
             self.register::<cloud::llm::Llm>("Llm");
             self.register::<cloud::figma::Figma>("Figma");
             self.register::<cloud::midi::Midi>("Midi");
+            self.register::<cloud::music::Music>("Music");
         }
     }
 }

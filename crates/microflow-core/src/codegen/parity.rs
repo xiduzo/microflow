@@ -985,6 +985,10 @@ mod tests {
             }
             "Note" => Exempt("canvas annotation — no ports, no emits, no device behaviour"),
             "Midi" => Case(midi_emit_covers_both_directions_and_modes),
+            "Music" => Exempt(
+                "host audio playback (a file on the laptop) — no device equivalent; the \
+                 Arduino export omits it",
+            ),
             // cloud
             "Monitor" | "Mqtt" | "Figma" | "Llm" => Exempt(
                 "network transport side-effect — values cross unchanged; bring-up and \

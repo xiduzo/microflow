@@ -1,0 +1,39 @@
+---
+title: Music
+description: Play songs from your computer through its speakers.
+---
+
+The Music node plays songs from your own machine. Where the [Piezo](/docs/microflow-studio/nodes/express/piezo) makes simple electronic tones on your board, Music plays real audio — mp3, wav, or anything else your browser can play — through the speakers of the computer running Microflow.
+
+One node holds a stack of records, so it can act as a jukebox for a whole project rather than a single sound effect.
+
+**Example uses:**
+- Play a jingle when a sensor is triggered
+- Give each button on your prototype its own song
+- Step through a playlist with a counter or a dial
+
+## What you can do
+
+- **Play** — start the selected record from the beginning. Triggering it again while it plays restarts it.
+- **Stop** — stop playback.
+- **Set** — select a record without playing it, by name or by number (0 is the first record). Wire a counter or a dial here to step through your songs.
+- **One handle per song** — every record you add gets its own handle on the node, so you can wire a trigger straight to the song it should play. It selects that record and plays it in one go.
+- **Value** — true while a song is playing, false once it stops or reaches the end.
+- **Track** — the name of the selected record, so you can show it on a monitor.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **Add songs** — pick one or more audio files from your computer. Files are stored inside the flow itself, so they travel with it when you share it — which is why each file must stay under 2 MB, and all of them together under 6 MB.
+- **Record** — which song is selected
+- **Play / Stop** — try the selected record without wiring anything up
+- **Remove song** — remove the selected record
+- **Volume** — playback volume, from 0 to 1
+- **Loop** — restart the song when it ends instead of stopping
+
+## Good to know
+
+Songs play on the computer running Microflow, not on your board — so the node works with or without hardware connected, and it is left out when you export your flow as an Arduino sketch.
+
+Only the first eight records get their own handle, to keep the node readable. Beyond that, select records through **Set**.
