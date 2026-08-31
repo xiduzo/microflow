@@ -20,6 +20,7 @@ export { RecordingSyncAdapter } from "./recording-sync-adapter";
 export { createLocalSession, createCloudSession } from "./flow-session";
 export { createPreviewSession } from "./preview-session";
 export { PreviewFlowSessionProvider } from "./preview-flow-session-provider";
+export { saveLocalFlow, loadLocalFlow } from "./local-flow";
 export {
   acquireLocalSession,
   acquireCloudSession,

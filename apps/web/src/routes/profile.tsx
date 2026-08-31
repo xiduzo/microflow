@@ -3,14 +3,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 import { getSession } from "@/lib/auth-client";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { COLLAB_COLORS } from "@microflow/collab/sync-provider";
 import { Separator } from "@/components/ui/separator";
-import { ComputerIcon, MoonIcon, PlusIcon, SunIcon } from "lucide-react";
+import { ComputerIcon, MoonIcon, SunIcon } from "lucide-react";
 import { LoadingState } from "@/components/states/loading-state";
 import { ErrorState } from "@/components/states/error-state";
 import { EmptyState } from "@/components/states/empty-state";
@@ -27,7 +19,7 @@ import { useTheme } from "@/providers/theme-provider";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { ButtonGroup } from "@/components/ui/button-group";
 
-const COLLAB_ICONS: IconName[] = [
+const COLLAB_ICONS = [
   "Bird",
   "Bug",
   "Cat",
@@ -41,7 +33,13 @@ const COLLAB_ICONS: IconName[] = [
   "Squirrel",
   "Turtle",
   "Worm",
-];
+] as const satisfies IconName[];
+
+const THEMES = [
+  { key: "dark", icon: MoonIcon, label: "Dark" },
+  { key: "system", icon: ComputerIcon, label: "System" },
+  { key: "light", icon: SunIcon, label: "Light" },
+] as const;
 
 export const Route = createFileRoute("/profile")({
   beforeLoad: async () => {
@@ -55,12 +53,14 @@ export const Route = createFileRoute("/profile")({
 
 function ProfilePage() {
   const queryClient = useQueryClient();
-  const { data: profile, isLoading, error } = useQuery(
-    trpc.profile.get.queryOptions()
-  );
+  const {
+    data: profile,
+    isLoading,
+    error,
+  } = useQuery(trpc.profile.get.queryOptions());
   const { theme, setTheme } = useTheme();
 
-
+  // Hovering a swatch or critter previews it live in the header.
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const [hoveredIcon, setHoveredIcon] = useState<IconName | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -82,7 +82,11 @@ function ProfilePage() {
   );
 
   useEffect(() => {
-    if (debouncedUsername !== null && debouncedUsername.trim() && debouncedUsername !== profile?.name) {
+    if (
+      debouncedUsername !== null &&
+      debouncedUsername.trim() &&
+      debouncedUsername !== profile?.name
+    ) {
       updateName.mutate({ name: debouncedUsername.trim() });
     }
   }, [debouncedUsername]);
@@ -103,75 +107,80 @@ function ProfilePage() {
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState title="Failed to load profile" error={error} />;
-  if (!profile) return <EmptyState title="Profile not found" description="Please try again later" />;
+  if (!profile)
+    return (
+      <EmptyState
+        title="Profile not found"
+        description="Please try again later"
+      />
+    );
+
+  const color = hoveredColor ?? profile.settings.collabColor;
+  const icon = (hoveredIcon ?? profile.settings.collabIcon) as IconName;
 
   return (
-    <div className="container max-w-3xl mx-auto py-8 px-4 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Profile</h1>
-        <p className="text-muted-foreground text-sm">
-          Manage your account settings
-        </p>
-      </div>
+    <div className="h-full overflow-auto">
+      {/* Banner takes its tint from the live colour choice. The colour lives on
+          background-color (which transitions) while the fade is a mask, since
+          background-image gradients don't animate. */}
+      <div
+        className="h-40 w-full transition-colors duration-500 ease-out"
+        style={{
+          backgroundColor: color,
+          maskImage: "linear-gradient(160deg, rgba(0,0,0,0.55), transparent 85%)",
+          WebkitMaskImage:
+            "linear-gradient(160deg, rgba(0,0,0,0.55), transparent 85%)",
+        }}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Microflow</CardTitle>
-          <CardDescription>
-            General settings for Microflow
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-3">
-            <Label htmlFor="username">Username</Label>
+      <div className="container max-w-2xl mx-auto px-4 pb-16">
+        <div className="-mt-12 flex items-end gap-4">
+          <div className="rounded-3xl p-1.5 -ml-1.5 bg-background">
+            <div
+              className="size-[88px] rounded-2xl flex items-center justify-center shadow-sm transition-colors duration-500 ease-out"
+              style={{ backgroundColor: color }}
+            >
+              <Icon icon={icon} size={40} className="text-white" />
+            </div>
+          </div>
+          <div className="pb-1.5 min-w-0">
+            <p className="text-xl font-semibold truncate">
+              {username || "Unnamed"}
+            </p>
+            <p className="text-sm text-muted-foreground truncate">
+              {profile.email}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-10 space-y-8">
+          <div className="space-y-2">
+            <Label htmlFor="username">Display name</Label>
             <Input
               id="username"
               value={username ?? ""}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Your name"
             />
+            <p className="text-xs text-muted-foreground">Saves as you type.</p>
           </div>
-          <div className="space-y-3">
-            <Label>Theme</Label>
-            <ButtonGroup className="w-full">
-              <Button variant={theme === "dark" ? "default" : "outline"} className="grow" size="icon" onClick={() => setTheme("dark")}>
-                <MoonIcon />
-              </Button>
-              <Button variant={theme === "system" ? "default" : "outline"} className="grow" size="icon" onClick={() => setTheme("system")}>
-                <ComputerIcon />
-              </Button>
-              <Button variant={theme === "light" ? "default" : "outline"} className="grow" size="icon" onClick={() => setTheme("light")}>
-                <SunIcon />
-              </Button>
-            </ButtonGroup>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Collaboration</CardTitle>
-          <CardDescription>
-            Customize how you appear to others when collaborating on flows
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
           <div className="space-y-3">
-            <Label>My vibe is</Label>
+            <Label>Your colour</Label>
             <div className="flex flex-wrap gap-2">
-              {COLLAB_COLORS.map((color) => (
+              {COLLAB_COLORS.map((swatch) => (
                 <button
-                  key={color}
+                  key={swatch}
                   type="button"
+                  style={{ backgroundColor: swatch }}
                   className={cn(
-                    "w-8 h-8 rounded-full transition-all",
-                    profile.settings.collabColor === color
+                    "size-8 rounded-full transition-transform duration-200 ease-out",
+                    profile.settings.collabColor === swatch
                       ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
-                      : "hover:scale-105 hover:ring-1 hover:ring-offset-2 hover:ring-offset-background/5 hover:ring-primary/5"
+                      : "hover:scale-125 hover:-translate-y-0.5"
                   )}
-                  style={{ backgroundColor: color }}
-                  onClick={() => updateCollab.mutate({ collabColor: color })}
-                  onMouseEnter={() => setHoveredColor(color)}
+                  onClick={() => updateCollab.mutate({ collabColor: swatch })}
+                  onMouseEnter={() => setHoveredColor(swatch)}
                   onMouseLeave={() => setHoveredColor(null)}
                 />
               ))}
@@ -179,66 +188,55 @@ function ProfilePage() {
           </div>
 
           <div className="space-y-3">
-            <Label>I am team</Label>
+            <Label>Your critter</Label>
             <div className="flex flex-wrap gap-2">
-              {COLLAB_ICONS.map((icon) => {
-                const isSelected = profile.settings.collabIcon === icon;
+              {COLLAB_ICONS.map((critter) => {
+                const isSelected = profile.settings.collabIcon === critter;
                 return (
-                  <Button
-                    key={icon}
+                  <button
+                    key={critter}
                     type="button"
-                    variant={isSelected ? "default" : "outline"}
-                    size="icon"
-                    className="w-10 h-10 group"
-                    onClick={() =>
-                      updateCollab.mutate({ collabIcon: icon as any })
+                    style={
+                      isSelected
+                        ? { backgroundColor: color, borderColor: color }
+                        : undefined
                     }
-                    onMouseEnter={() => setHoveredIcon(icon)}
+                    className={cn(
+                      "size-10 rounded-xl border flex items-center justify-center transition-all duration-200 ease-out",
+                      isSelected
+                        ? "text-white scale-110 shadow-sm"
+                        : "text-muted-foreground hover:bg-muted hover:scale-110 hover:-translate-y-0.5"
+                    )}
+                    onClick={() => updateCollab.mutate({ collabIcon: critter })}
+                    onMouseEnter={() => setHoveredIcon(critter)}
                     onMouseLeave={() => setHoveredIcon(null)}
                   >
-                    <Icon
-                      icon={icon}
-                      className={cn(
-                        "transition-transform duration-200",
-                        isSelected ? "scale-110" : "group-hover:scale-105"
-                      )}
-                    />
-                  </Button>
+                    <Icon icon={critter} size={18} />
+                  </button>
                 );
               })}
             </div>
           </div>
+
           <Separator />
-          <div>
-            <Label className="text-muted-foreground">Preview</Label>
-            <div className="mt-3 flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-                  style={{
-                    backgroundColor:
-                      hoveredColor ?? profile.settings.collabColor,
-                  }}
+
+          <div className="space-y-3">
+            <Label>Appearance</Label>
+            <ButtonGroup className="w-full">
+              {THEMES.map(({ key, icon: ThemeIcon, label }) => (
+                <Button
+                  key={key}
+                  variant={theme === key ? "default" : "outline"}
+                  className="grow gap-2"
+                  onClick={() => setTheme(key)}
                 >
-                  <Icon
-                    icon={
-                      (hoveredIcon ?? profile.settings.collabIcon) as IconName
-                    }
-                    size={20}
-                    className="text-white"
-                  />
-                </div>
-                <div>
-                  <p className="font-medium">{profile.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {profile.email}
-                  </p>
-                </div>
-              </div>
-            </div>
+                  <ThemeIcon className="size-4" /> {label}
+                </Button>
+              ))}
+            </ButtonGroup>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

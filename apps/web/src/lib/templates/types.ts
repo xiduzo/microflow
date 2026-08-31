@@ -1,4 +1,4 @@
-import type { Node, Edge } from "@xyflow/react";
+import type { FlowNode, FlowEdge } from "@microflow/collab";
 
 export type Template = {
   id: string;
@@ -6,6 +6,6 @@ export type Template = {
   description: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   categories?: string[];
-  nodes: Node[];
-  edges: Edge[];
+  nodes: FlowNode[];
+  edges: FlowEdge[];
 };

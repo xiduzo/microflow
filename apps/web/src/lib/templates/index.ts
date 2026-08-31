@@ -43,7 +43,7 @@ const blink: Template = {
   categories: ["Basic"],
   nodes: [
     { id: "interval-1", type: "Interval", position: { x: 0, y: 0 }, data: intervalData(1000) },
-    { id: "led-1", type: "Led", position: { x: 280, y: 0 }, data: ledData(13) },
+    { id: "led-1", type: "Led", position: { x: 440, y: 0 }, data: ledData(13) },
   ],
   edges: [
     { id: "e1", source: "interval-1", target: "led-1", sourceHandle: "event", targetHandle: "toggle" },
@@ -58,7 +58,7 @@ const buttonLed: Template = {
   categories: ["Basic"],
   nodes: [
     { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
-    { id: "led-1", type: "Led", position: { x: 280, y: 0 }, data: ledData(13) },
+    { id: "led-1", type: "Led", position: { x: 440, y: 0 }, data: ledData(13) },
   ],
   edges: [
     { id: "e1", source: "button-1", target: "led-1", sourceHandle: "event", targetHandle: "toggle" },
@@ -73,7 +73,7 @@ const waveMonitor: Template = {
   categories: ["Basic"],
   nodes: [
     { id: "oscillator-1", type: "Oscillator", position: { x: 0, y: 0 }, data: oscillatorData("sinus", 2000) },
-    { id: "monitor-1", type: "Monitor", position: { x: 280, y: 0 }, data: monitorData("graph") },
+    { id: "monitor-1", type: "Monitor", position: { x: 440, y: 0 }, data: monitorData("graph") },
   ],
   edges: [
     { id: "e1", source: "oscillator-1", target: "monitor-1", sourceHandle: "value", targetHandle: "value" },
@@ -90,7 +90,7 @@ const switchLed: Template = {
   categories: ["Digital"],
   nodes: [
     { id: "switch-1", type: "Switch", position: { x: 0, y: 0 }, data: switchData(2) },
-    { id: "led-1", type: "Led", position: { x: 280, y: 0 }, data: ledData(13) },
+    { id: "led-1", type: "Led", position: { x: 440, y: 0 }, data: ledData(13) },
   ],
   edges: [
     { id: "e1", source: "switch-1", target: "led-1", sourceHandle: "event", targetHandle: "toggle" },
@@ -105,7 +105,7 @@ const doorbell: Template = {
   categories: ["Digital"],
   nodes: [
     { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
-    { id: "piezo-1", type: "Piezo", position: { x: 280, y: 0 }, data: piezoData(8) },
+    { id: "piezo-1", type: "Piezo", position: { x: 440, y: 0 }, data: piezoData(8) },
   ],
   edges: [
     { id: "e1", source: "button-1", target: "piezo-1", sourceHandle: "event", targetHandle: "trigger" },
@@ -120,8 +120,8 @@ const motionAlarm: Template = {
   categories: ["Digital"],
   nodes: [
     { id: "motion-1", type: "Motion", position: { x: 0, y: 0 }, data: motionData(7) },
-    { id: "delay-1", type: "Delay", position: { x: 280, y: 0 }, data: delayData(500) },
-    { id: "piezo-1", type: "Piezo", position: { x: 560, y: 0 }, data: piezoData(8) },
+    { id: "delay-1", type: "Delay", position: { x: 440, y: 0 }, data: delayData(500) },
+    { id: "piezo-1", type: "Piezo", position: { x: 880, y: 0 }, data: piezoData(8) },
   ],
   edges: [
     { id: "e1", source: "motion-1", target: "delay-1", sourceHandle: "event", targetHandle: "trigger" },
@@ -137,7 +137,7 @@ const motionRelay: Template = {
   categories: ["Digital"],
   nodes: [
     { id: "motion-1", type: "Motion", position: { x: 0, y: 0 }, data: motionData(7) },
-    { id: "relay-1", type: "Relay", position: { x: 280, y: 0 }, data: relayData(10) },
+    { id: "relay-1", type: "Relay", position: { x: 440, y: 0 }, data: relayData(10) },
   ],
   edges: [
     { id: "e1", source: "motion-1", target: "relay-1", sourceHandle: "true", targetHandle: "true" },
@@ -155,8 +155,8 @@ const knobServo: Template = {
   categories: ["Analog"],
   nodes: [
     { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
-    { id: "rangemap-1", type: "RangeMap", position: { x: 280, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 180 }) },
-    { id: "servo-1", type: "Servo", position: { x: 560, y: 0 }, data: servoData(9) },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 440, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 180 }) },
+    { id: "servo-1", type: "Servo", position: { x: 880, y: 0 }, data: servoData(9) },
   ],
   edges: [
     { id: "e1", source: "pot-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
@@ -172,8 +172,8 @@ const lightMonitor: Template = {
   categories: ["Analog"],
   nodes: [
     { id: "ldr-1", type: "Ldr", position: { x: 0, y: 0 }, data: ldrData("A0") },
-    { id: "smooth-1", type: "Smooth", position: { x: 280, y: 0 }, data: smoothData("movingAverage", 10) },
-    { id: "monitor-1", type: "Monitor", position: { x: 560, y: 0 }, data: monitorData("graph") },
+    { id: "smooth-1", type: "Smooth", position: { x: 440, y: 0 }, data: smoothData("movingAverage", 10) },
+    { id: "monitor-1", type: "Monitor", position: { x: 880, y: 0 }, data: monitorData("graph") },
   ],
   edges: [
     { id: "e1", source: "ldr-1", target: "smooth-1", sourceHandle: "value", targetHandle: "value" },
@@ -189,8 +189,8 @@ const servoSweep: Template = {
   categories: ["Analog"],
   nodes: [
     { id: "oscillator-1", type: "Oscillator", position: { x: 0, y: 0 }, data: oscillatorData("sinus", 3000) },
-    { id: "rangemap-1", type: "RangeMap", position: { x: 280, y: 0 }, data: rangeMapData({ min: 1, max: 255 }, { min: 0, max: 180 }) },
-    { id: "servo-1", type: "Servo", position: { x: 560, y: 0 }, data: servoData(9) },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 440, y: 0 }, data: rangeMapData({ min: 1, max: 255 }, { min: 0, max: 180 }) },
+    { id: "servo-1", type: "Servo", position: { x: 880, y: 0 }, data: servoData(9) },
   ],
   edges: [
     { id: "e1", source: "oscillator-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
@@ -205,10 +205,10 @@ const rgbMoodLamp: Template = {
   difficulty: "intermediate",
   categories: ["Analog"],
   nodes: [
-    { id: "osc-red", type: "Oscillator", position: { x: 0, y: -160 }, data: { ...oscillatorData("sinus", 5000), phase: 0, label: "Red Channel" } },
+    { id: "osc-red", type: "Oscillator", position: { x: 0, y: -560 }, data: { ...oscillatorData("sinus", 5000), phase: 0, label: "Red Channel" } },
     { id: "osc-green", type: "Oscillator", position: { x: 0, y: 0 }, data: { ...oscillatorData("sinus", 5000), phase: 120, label: "Green Channel" } },
-    { id: "osc-blue", type: "Oscillator", position: { x: 0, y: 160 }, data: { ...oscillatorData("sinus", 5000), phase: 240, label: "Blue Channel" } },
-    { id: "rgb-1", type: "Rgb", position: { x: 280, y: 0 }, data: rgbData({ red: 9, green: 10, blue: 11 }) },
+    { id: "osc-blue", type: "Oscillator", position: { x: 0, y: 560 }, data: { ...oscillatorData("sinus", 5000), phase: 240, label: "Blue Channel" } },
+    { id: "rgb-1", type: "Rgb", position: { x: 440, y: 0 }, data: rgbData({ red: 9, green: 10, blue: 11 }) },
   ],
   edges: [
     { id: "e1", source: "osc-red", target: "rgb-1", sourceHandle: "value", targetHandle: "red" },
@@ -227,7 +227,7 @@ const mqttButton: Template = {
   categories: ["Communication"],
   nodes: [
     { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
-    { id: "mqtt-1", type: "Mqtt", position: { x: 280, y: 0 }, data: mqttPublishData("home/button") },
+    { id: "mqtt-1", type: "Mqtt", position: { x: 440, y: 0 }, data: mqttPublishData("home/button") },
   ],
   edges: [
     { id: "e1", source: "button-1", target: "mqtt-1", sourceHandle: "event", targetHandle: "trigger" },
@@ -242,8 +242,8 @@ const matrixCounter: Template = {
   categories: ["Communication"],
   nodes: [
     { id: "interval-1", type: "Interval", position: { x: 0, y: 0 }, data: intervalData(1000) },
-    { id: "counter-1", type: "Counter", position: { x: 280, y: 0 }, data: counterData() },
-    { id: "matrix-1", type: "Matrix", position: { x: 560, y: 0 }, data: matrixData() },
+    { id: "counter-1", type: "Counter", position: { x: 440, y: 0 }, data: counterData() },
+    { id: "matrix-1", type: "Matrix", position: { x: 880, y: 0 }, data: matrixData() },
   ],
   edges: [
     { id: "e1", source: "interval-1", target: "counter-1", sourceHandle: "event", targetHandle: "increment" },
@@ -259,8 +259,8 @@ const pixelStrip: Template = {
   categories: ["Communication"],
   nodes: [
     { id: "interval-1", type: "Interval", position: { x: 0, y: 0 }, data: intervalData(2000) },
-    { id: "counter-1", type: "Counter", position: { x: 280, y: 0 }, data: counterData() },
-    { id: "pixel-1", type: "Pixel", position: { x: 560, y: 0 }, data: pixelData(11, 8) },
+    { id: "counter-1", type: "Counter", position: { x: 440, y: 0 }, data: counterData() },
+    { id: "pixel-1", type: "Pixel", position: { x: 880, y: 0 }, data: pixelData(11, 8) },
   ],
   edges: [
     { id: "e1", source: "interval-1", target: "counter-1", sourceHandle: "event", targetHandle: "increment" },
@@ -278,8 +278,8 @@ const thresholdAlert: Template = {
   categories: ["Control structures"],
   nodes: [
     { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
-    { id: "compare-1", type: "Compare", position: { x: 280, y: 0 }, data: compareNumberData("greater than", 512) },
-    { id: "led-1", type: "Led", position: { x: 560, y: 0 }, data: ledData(9) },
+    { id: "compare-1", type: "Compare", position: { x: 440, y: 0 }, data: compareNumberData("greater than", 512) },
+    { id: "led-1", type: "Led", position: { x: 880, y: 0 }, data: ledData(9) },
   ],
   edges: [
     { id: "e1", source: "pot-1", target: "compare-1", sourceHandle: "value", targetHandle: "value" },
@@ -295,10 +295,10 @@ const andGate: Template = {
   difficulty: "intermediate",
   categories: ["Control structures"],
   nodes: [
-    { id: "button-1", type: "Button", position: { x: 0, y: -80 }, data: { ...buttonData(2), label: "Button A" } },
-    { id: "button-2", type: "Button", position: { x: 0, y: 80 }, data: { ...buttonData(3), label: "Button B" } },
-    { id: "gate-1", type: "Gate", position: { x: 280, y: 0 }, data: gateData("and") },
-    { id: "led-1", type: "Led", position: { x: 560, y: 0 }, data: ledData(13) },
+    { id: "button-1", type: "Button", position: { x: 0, y: -280 }, data: { ...buttonData(2), label: "Button A" } },
+    { id: "button-2", type: "Button", position: { x: 0, y: 280 }, data: { ...buttonData(3), label: "Button B" } },
+    { id: "gate-1", type: "Gate", position: { x: 440, y: 0 }, data: gateData("and") },
+    { id: "led-1", type: "Led", position: { x: 880, y: 0 }, data: ledData(13) },
   ],
   edges: [
     { id: "e1", source: "button-1", target: "gate-1", sourceHandle: "true", targetHandle: "value" },
@@ -316,8 +316,8 @@ const clickCounter: Template = {
   categories: ["Control structures"],
   nodes: [
     { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
-    { id: "counter-1", type: "Counter", position: { x: 280, y: 0 }, data: counterData() },
-    { id: "monitor-1", type: "Monitor", position: { x: 560, y: 0 }, data: monitorData("raw") },
+    { id: "counter-1", type: "Counter", position: { x: 440, y: 0 }, data: counterData() },
+    { id: "monitor-1", type: "Monitor", position: { x: 880, y: 0 }, data: monitorData("raw") },
   ],
   edges: [
     { id: "e1", source: "button-1", target: "counter-1", sourceHandle: "event", targetHandle: "increment" },
@@ -332,10 +332,10 @@ const sensorMath: Template = {
   difficulty: "intermediate",
   categories: ["Control structures"],
   nodes: [
-    { id: "sensor-1", type: "Sensor", position: { x: 0, y: -80 }, data: { ...sensorData("A0"), label: "Sensor A" } },
-    { id: "sensor-2", type: "Sensor", position: { x: 0, y: 80 }, data: { ...sensorData("A1"), label: "Sensor B" } },
-    { id: "calculate-1", type: "Calculate", position: { x: 280, y: 0 }, data: calculateData("add") },
-    { id: "monitor-1", type: "Monitor", position: { x: 560, y: 0 }, data: monitorData("graph") },
+    { id: "sensor-1", type: "Sensor", position: { x: 0, y: -280 }, data: { ...sensorData("A0"), label: "Sensor A" } },
+    { id: "sensor-2", type: "Sensor", position: { x: 0, y: 280 }, data: { ...sensorData("A1"), label: "Sensor B" } },
+    { id: "calculate-1", type: "Calculate", position: { x: 440, y: 0 }, data: calculateData("add") },
+    { id: "monitor-1", type: "Monitor", position: { x: 880, y: 0 }, data: monitorData("graph") },
   ],
   edges: [
     { id: "e1", source: "sensor-1", target: "calculate-1", sourceHandle: "value", targetHandle: "value" },
@@ -352,8 +352,8 @@ const edgeTrigger: Template = {
   categories: ["Control structures"],
   nodes: [
     { id: "sensor-1", type: "Sensor", position: { x: 0, y: 0 }, data: sensorData("A0") },
-    { id: "trigger-1", type: "Trigger", position: { x: 280, y: 0 }, data: triggerData("increasing", 50, 250) },
-    { id: "piezo-1", type: "Piezo", position: { x: 560, y: 0 }, data: piezoData(8) },
+    { id: "trigger-1", type: "Trigger", position: { x: 440, y: 0 }, data: triggerData("increasing", 50, 250) },
+    { id: "piezo-1", type: "Piezo", position: { x: 880, y: 0 }, data: piezoData(8) },
   ],
   edges: [
     { id: "e1", source: "sensor-1", target: "trigger-1", sourceHandle: "value", targetHandle: "value" },
@@ -371,8 +371,8 @@ const potentiometerFade: Template = {
   categories: ["Analog"],
   nodes: [
     { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
-    { id: "rangemap-1", type: "RangeMap", position: { x: 280, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
-    { id: "led-1", type: "Led", position: { x: 560, y: 0 }, data: ledData(9) },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 440, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
+    { id: "led-1", type: "Led", position: { x: 880, y: 0 }, data: ledData(9) },
   ],
   edges: [
     { id: "e1", source: "pot-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
@@ -388,11 +388,11 @@ const smoothSensor: Template = {
   categories: ["Analog"],
   nodes: [
     { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
-    { id: "monitor-raw", type: "Monitor", position: { x: 280, y: -160 }, data: { ...monitorData("graph"), label: "Raw" } },
-    { id: "smooth-1", type: "Smooth", position: { x: 280, y: 0 }, data: smoothData("movingAverage", 10) },
-    { id: "monitor-smooth", type: "Monitor", position: { x: 560, y: -160 }, data: { ...monitorData("graph"), label: "Smoothed" } },
-    { id: "rangemap-1", type: "RangeMap", position: { x: 560, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
-    { id: "led-1", type: "Led", position: { x: 840, y: 0 }, data: ledData(9) },
+    { id: "monitor-raw", type: "Monitor", position: { x: 440, y: -560 }, data: { ...monitorData("graph"), label: "Raw" } },
+    { id: "smooth-1", type: "Smooth", position: { x: 440, y: 0 }, data: smoothData("movingAverage", 10) },
+    { id: "monitor-smooth", type: "Monitor", position: { x: 880, y: -560 }, data: { ...monitorData("graph"), label: "Smoothed" } },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 880, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
+    { id: "led-1", type: "Led", position: { x: 1320, y: 0 }, data: ledData(9) },
   ],
   edges: [
     { id: "e1", source: "pot-1", target: "monitor-raw", sourceHandle: "value", targetHandle: "value" },
@@ -411,7 +411,7 @@ const sensorToFigma: Template = {
   categories: ["Communication"],
   nodes: [
     { id: "pot-1", type: "Potentiometer", position: { x: 0, y: 0 }, data: potentiometerData("A0") },
-    { id: "mqtt-1", type: "Mqtt", position: { x: 280, y: 0 }, data: mqttPublishData("figma/pot_value") },
+    { id: "mqtt-1", type: "Mqtt", position: { x: 440, y: 0 }, data: mqttPublishData("figma/pot_value") },
   ],
   edges: [
     { id: "e1", source: "pot-1", target: "mqtt-1", sourceHandle: "value", targetHandle: "trigger" },
@@ -426,7 +426,7 @@ const figmaToLed: Template = {
   categories: ["Communication"],
   nodes: [
     { id: "mqtt-1", type: "Mqtt", position: { x: 0, y: 0 }, data: mqttSubscribeData("figma/led_brightness") },
-    { id: "led-1", type: "Led", position: { x: 280, y: 0 }, data: ledData(9) },
+    { id: "led-1", type: "Led", position: { x: 440, y: 0 }, data: ledData(9) },
   ],
   edges: [
     { id: "e1", source: "mqtt-1", target: "led-1", sourceHandle: "value", targetHandle: "value" },
@@ -441,9 +441,9 @@ const debouncedButton: Template = {
   categories: ["Digital"],
   nodes: [
     { id: "button-1", type: "Button", position: { x: 0, y: 0 }, data: buttonData() },
-    { id: "delay-1", type: "Delay", position: { x: 280, y: 0 }, data: delayData(30, true) },
-    { id: "counter-1", type: "Counter", position: { x: 560, y: 0 }, data: counterData() },
-    { id: "monitor-1", type: "Monitor", position: { x: 840, y: 0 }, data: monitorData("raw") },
+    { id: "delay-1", type: "Delay", position: { x: 440, y: 0 }, data: delayData(30, true) },
+    { id: "counter-1", type: "Counter", position: { x: 880, y: 0 }, data: counterData() },
+    { id: "monitor-1", type: "Monitor", position: { x: 1320, y: 0 }, data: monitorData("raw") },
   ],
   edges: [
     { id: "e1", source: "button-1", target: "delay-1", sourceHandle: "event", targetHandle: "trigger" },
@@ -460,8 +460,8 @@ const noHardware: Template = {
   categories: ["Basic"],
   nodes: [
     { id: "constant-1", type: "Constant", position: { x: 0, y: 0 }, data: { ...constantData(512), label: "Fake Sensor" } },
-    { id: "rangemap-1", type: "RangeMap", position: { x: 280, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
-    { id: "monitor-1", type: "Monitor", position: { x: 560, y: 0 }, data: monitorData("graph") },
+    { id: "rangemap-1", type: "RangeMap", position: { x: 440, y: 0 }, data: rangeMapData({ min: 0, max: 1023 }, { min: 0, max: 255 }) },
+    { id: "monitor-1", type: "Monitor", position: { x: 880, y: 0 }, data: monitorData("graph") },
   ],
   edges: [
     { id: "e1", source: "constant-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
@@ -477,7 +477,7 @@ const stepperPosition: Template = {
   categories: ["Analog"],
   nodes: [
     { id: "constant-1", type: "Constant", position: { x: 0, y: 0 }, data: { ...constantData(200), label: "Target Steps" } },
-    { id: "stepper-1", type: "Stepper", position: { x: 280, y: 0 }, data: stepperData("four_wire") },
+    { id: "stepper-1", type: "Stepper", position: { x: 440, y: 0 }, data: stepperData("four_wire") },
   ],
   edges: [
     { id: "e1", source: "constant-1", target: "stepper-1", sourceHandle: "value", targetHandle: "to" },
@@ -493,11 +493,11 @@ const smartHomeHub: Template = {
   difficulty: "advanced",
   categories: ["Digital", "Control structures"],
   nodes: [
-    { id: "motion-1", type: "Motion", position: { x: 0, y: -80 }, data: motionData(7) },
-    { id: "button-1", type: "Button", position: { x: 0, y: 80 }, data: buttonData() },
-    { id: "gate-1", type: "Gate", position: { x: 280, y: 0 }, data: gateData("or") },
-    { id: "led-1", type: "Led", position: { x: 560, y: -80 }, data: { ...ledData(13), label: "Room Light" } },
-    { id: "relay-1", type: "Relay", position: { x: 560, y: 80 }, data: { ...relayData(10), label: "Main Switch" } },
+    { id: "motion-1", type: "Motion", position: { x: 0, y: -280 }, data: motionData(7) },
+    { id: "button-1", type: "Button", position: { x: 0, y: 280 }, data: buttonData() },
+    { id: "gate-1", type: "Gate", position: { x: 440, y: 0 }, data: gateData("or") },
+    { id: "led-1", type: "Led", position: { x: 880, y: -280 }, data: { ...ledData(13), label: "Room Light" } },
+    { id: "relay-1", type: "Relay", position: { x: 880, y: 280 }, data: { ...relayData(10), label: "Main Switch" } },
   ],
   edges: [
     { id: "e1", source: "motion-1", target: "gate-1", sourceHandle: "true", targetHandle: "value" },
@@ -516,11 +516,11 @@ const weatherStation: Template = {
   difficulty: "intermediate",
   categories: ["Analog", "Communication"],
   nodes: [
-    { id: "ldr-1", type: "Ldr", position: { x: 0, y: -80 }, data: { ...ldrData("A0"), label: "Light Sensor" } },
-    { id: "sensor-1", type: "Sensor", position: { x: 0, y: 80 }, data: { ...sensorData("A1"), label: "Temp Sensor" } },
-    { id: "smooth-1", type: "Smooth", position: { x: 280, y: -80 }, data: smoothData("movingAverage", 10) },
-    { id: "monitor-1", type: "Monitor", position: { x: 560, y: -80 }, data: { ...monitorData("graph"), label: "Light Level" } },
-    { id: "monitor-2", type: "Monitor", position: { x: 560, y: 80 }, data: { ...monitorData("graph"), label: "Temperature" } },
+    { id: "ldr-1", type: "Ldr", position: { x: 0, y: -280 }, data: { ...ldrData("A0"), label: "Light Sensor" } },
+    { id: "sensor-1", type: "Sensor", position: { x: 0, y: 280 }, data: { ...sensorData("A1"), label: "Temp Sensor" } },
+    { id: "smooth-1", type: "Smooth", position: { x: 440, y: -280 }, data: smoothData("movingAverage", 10) },
+    { id: "monitor-1", type: "Monitor", position: { x: 880, y: -280 }, data: { ...monitorData("graph"), label: "Light Level" } },
+    { id: "monitor-2", type: "Monitor", position: { x: 880, y: 280 }, data: { ...monitorData("graph"), label: "Temperature" } },
   ],
   edges: [
     { id: "e1", source: "ldr-1", target: "smooth-1", sourceHandle: "value", targetHandle: "value" },
@@ -536,12 +536,12 @@ const securityGate: Template = {
   difficulty: "advanced",
   categories: ["Digital", "Analog", "Control structures"],
   nodes: [
-    { id: "motion-1", type: "Motion", position: { x: 0, y: -120 }, data: motionData(7) },
-    { id: "proximity-1", type: "Proximity", position: { x: 0, y: 120 }, data: proximityData("A0") },
-    { id: "compare-1", type: "Compare", position: { x: 280, y: 120 }, data: compareNumberData("less than", 50) },
-    { id: "gate-1", type: "Gate", position: { x: 560, y: 0 }, data: gateData("or") },
-    { id: "relay-1", type: "Relay", position: { x: 840, y: -80 }, data: { ...relayData(10), label: "Door Lock" } },
-    { id: "piezo-1", type: "Piezo", position: { x: 840, y: 80 }, data: piezoData(8) },
+    { id: "motion-1", type: "Motion", position: { x: 0, y: -420 }, data: motionData(7) },
+    { id: "proximity-1", type: "Proximity", position: { x: 0, y: 420 }, data: proximityData("A0") },
+    { id: "compare-1", type: "Compare", position: { x: 440, y: 420 }, data: compareNumberData("less than", 50) },
+    { id: "gate-1", type: "Gate", position: { x: 880, y: 0 }, data: gateData("or") },
+    { id: "relay-1", type: "Relay", position: { x: 1320, y: -280 }, data: { ...relayData(10), label: "Door Lock" } },
+    { id: "piezo-1", type: "Piezo", position: { x: 1320, y: 280 }, data: piezoData(8) },
   ],
   edges: [
     { id: "e1", source: "motion-1", target: "gate-1", sourceHandle: "true", targetHandle: "value" },

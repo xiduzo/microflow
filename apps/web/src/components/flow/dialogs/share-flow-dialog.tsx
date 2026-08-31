@@ -33,9 +33,12 @@ type Props = {
   flowId: string;
   flowName: string;
   trigger?: React.ReactNode;
+  /** Control the dialog from elsewhere (e.g. a dropdown item); omit for a trigger-driven dialog. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
+export function ShareFlowDialog({ flowId, flowName, trigger, open: controlledOpen, onOpenChange }: Props) {
   const [copiedText, copy] = useCopyToClipboard()
 
   const addCollaboratorMutation = useMutation(trpc.flow.addCollaboratorByEmail.mutationOptions({
@@ -73,7 +76,10 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
     },
   });
 
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setUncontrolledOpen;
   const queryClient = useQueryClient();
 
   // Always share the public web link. In the desktop build
@@ -108,9 +114,9 @@ export function ShareFlowDialog({ flowId, flowName, trigger }: Props) {
       if (isOpen) return
       form.reset();
     }}>
-      <DialogTrigger
-        render={isValidElement(trigger) ? trigger : defaultTrigger}
-      />
+      {!isControlled && (
+        <DialogTrigger render={isValidElement(trigger) ? trigger : defaultTrigger} />
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share "{flowName}"</DialogTitle>

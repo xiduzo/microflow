@@ -31,8 +31,6 @@ function RouteComponent() {
         useShallow((state) => ({ data: state.data, isPending: state.isPending, error: state.error })),
     );
 
-    const showLoading = !circuitJson.length && isPending;
-
     if (error) return <ErrorState title="Failed to render circuit" error={error} />;
 
     return (
@@ -41,16 +39,15 @@ function RouteComponent() {
                 <Loader2Icon className="animate-spin size-3" />
                 Updating...
             </div>
-            {showLoading && (
+            {!circuitJson.length && isPending && (
                 <LoadingState title="Rendering circuit..." />
             )}
-            {!circuitJson.length && (
+            {!circuitJson.length && !isPending && (
                 <EmptyState description="Your flow is empty or does not contain any components that can be rendered in a circuit." />
             )}
             {!!circuitJson.length && (
                 <SchematicViewer
                     circuitJson={circuitJson}
-                    editingEnabled={false}
                     colorOverrides={{
                         schematic: SCHEMATIC_COLOR_OVERRIDES,
                     }}

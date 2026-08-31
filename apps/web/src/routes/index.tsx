@@ -1,29 +1,43 @@
-import { useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { User2Icon, HardDriveDownloadIcon, Plus } from "lucide-react";
+import { User2Icon, HardDriveDownloadIcon, Plus, SearchIcon } from "lucide-react";
+import { compareDesc } from "date-fns";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
-import { FlowCard, FlowCardSkeleton } from "@/components/home/flow-card";
+import {
+  FlowCard,
+  FlowCardSkeleton,
+  FlowSpotlight,
+  type OverviewFlow,
+} from "@/components/home/flow-list";
 import { Button } from "@/components/ui/button";
-
+import { Input } from "@/components/ui/input";
 import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
 import { EmptyState } from "@/components/states/empty-state";
-import { compareDesc } from "date-fns";
 import {
   exportFlowData,
   useOverviewImport,
-  LOCAL_FLOW_STORAGE_KEY,
   type FlowExportData,
 } from "@/hooks/use-flow-import-export";
+import { loadLocalFlow, saveLocalFlow } from "@/session";
 import { useAppStore } from "@/stores/app";
 import { FLOW_COLORS } from "@/lib/flow-colors";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
 });
+
+const SCOPES = [
+  { key: "all", label: "All" },
+  { key: "mine", label: "Mine" },
+  { key: "shared", label: "Shared with me" },
+] as const;
+
+type Scope = (typeof SCOPES)[number]["key"];
 
 function HomeComponent() {
   const { data: session } = authClient.useSession();
@@ -32,6 +46,9 @@ function HomeComponent() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+
+  const [scope, setScope] = useState<Scope>("all");
+  const [search, setSearch] = useState("");
 
   const createFromImportMutation = useMutation(
     trpc.flow.createFromImport.mutationOptions({
@@ -64,8 +81,7 @@ function HomeComponent() {
           edges: data.data.edges,
         });
       } else {
-        const payload = { nodes: data.data.nodes, edges: data.data.edges };
-        localStorage.setItem(LOCAL_FLOW_STORAGE_KEY, JSON.stringify(payload));
+        await saveLocalFlow(data.data.nodes, data.data.edges);
         setActiveFlowId("local");
         toast.success("Flow imported", {
           description: `${data.data.nodes.length} nodes, ${data.data.edges.length} edges`,
@@ -76,115 +92,149 @@ function HomeComponent() {
     [isSignedIn, createFromImportMutation, setActiveFlowId, navigate]
   );
 
-  // Read local flow directly from localStorage to avoid showing the last visited flow
-  const localFlowData = useMemo(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_FLOW_STORAGE_KEY);
-      if (stored) {
-        const data = JSON.parse(stored);
-        return { nodes: data.nodes ?? [], edges: data.edges ?? [] };
-      }
-    } catch (e) {
-      console.error("[HOME] Failed to load local flow:", e);
-    }
-    return { nodes: [], edges: [] };
+  // Read the local flow from its Yjs document, so the card previews what the
+  // editor will actually open rather than the last visited flow.
+  const [localContents, setLocalContents] = useState<{
+    nodes: OverviewFlow["nodes"];
+    edges: OverviewFlow["edges"];
+  }>({ nodes: [], edges: [] });
+
+  useEffect(() => {
+    loadLocalFlow()
+      .then(setLocalContents)
+      .catch((e) => console.error("[HOME] Failed to load local flow:", e));
   }, []);
+
+  const localFlow = useMemo<OverviewFlow>(
+    () => ({
+      id: "local",
+      name: "Local Flow",
+      updatedAt: new Date().toISOString(),
+      nodes: localContents.nodes,
+      edges: localContents.edges,
+      role: "local",
+      people: [],
+    }),
+    [localContents],
+  );
+
+  const { data, isLoading } = useQuery({
+    ...trpc.flow.list.queryOptions(),
+    enabled: isSignedIn,
+  });
+
+  const flows = useMemo<OverviewFlow[]>(() => {
+    const cloud: OverviewFlow[] = [
+      ...(data?.owned ?? []).map((flow) => ({ ...flow, role: "owner" as const })),
+      ...(data?.collaborated ?? []).map((flow) => ({
+        ...flow,
+        role: flow.role === "viewer" ? ("viewer" as const) : ("editor" as const),
+      })),
+    ];
+    return [
+      ...cloud.sort((a, b) => compareDesc(a.updatedAt, b.updatedAt)),
+      localFlow,
+    ];
+  }, [data, localFlow]);
+
+  const exportHandler = (flow: OverviewFlow) => () => {
+    exportFlowData(
+      { name: flow.name, updatedAt: new Date(flow.updatedAt).getTime() },
+      { nodes: flow.nodes, edges: flow.edges }
+    );
+    toast.success("Flow exported");
+  };
+
+  const spotlight = flows[0];
+  const visible = flows.filter((flow) => {
+    if (scope === "mine" && !(flow.role === "owner" || flow.role === "local"))
+      return false;
+    if (scope === "shared" && (flow.role === "owner" || flow.role === "local"))
+      return false;
+    return flow.name.toLowerCase().includes(search.toLowerCase().trim());
+  });
 
   return (
     <div className="h-full overflow-auto flex flex-col pb-16">
-      <section className="container mx-auto px-4 md:px-8">
-        <div className="flex flex-col gap-10 pt-8">
-          <section>
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-xl font-semibold">My Flows</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => triggerImport(handleImport)}
-                >
-                  <HardDriveDownloadIcon className="size-4 mr-2" />
-                  Import
-                </Button>
-                <CreateFlowDialog trigger={<Button size="sm"><Plus className="size-4 mr-2" />New Flow</Button>} />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-              <FlowCard
-                id="local"
-                name="Local Flow"
-                description="This flow is only available on this device"
-                updatedAt={new Date().toISOString()}
-                nodes={localFlowData.nodes}
-                edges={localFlowData.edges}
-                badges={[{ label: "LOCAL", variant: "default" }]}
-                onExport={() => {
-                  exportFlowData(
-                    { name: "Local Flow", updatedAt: Date.now() },
-                    { nodes: localFlowData.nodes, edges: localFlowData.edges }
-                  );
-                  toast.success("Flow exported");
-                }}
+      <section className="container mx-auto px-4 md:px-8 pt-8 flex flex-col gap-10">
+        {spotlight && (
+          <FlowSpotlight flow={spotlight} onExport={exportHandler(spotlight)} />
+        )}
+
+        <section>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <h2 className="text-xl font-semibold mr-auto">My Flows</h2>
+            <div className="relative">
+              <SearchIcon className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search flows"
+                className="pl-8 w-full sm:w-56"
               />
-              {isSignedIn && <CloudFlows />}
             </div>
-          </section>
-        </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => triggerImport(handleImport)}
+            >
+              <HardDriveDownloadIcon className="size-4 mr-2" />
+              Import
+            </Button>
+            <CreateFlowDialog
+              trigger={
+                <Button size="sm">
+                  <Plus className="size-4 mr-2" />
+                  New Flow
+                </Button>
+              }
+            />
+          </div>
+
+          {isSignedIn && (
+            <div className="flex gap-1 mb-2">
+              {SCOPES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setScope(key)}
+                  className={cn(
+                    "px-3 py-1.5 text-sm rounded-md",
+                    scope === key
+                      ? "bg-muted font-medium"
+                      : "text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
+            {isSignedIn && isLoading && (
+              <>
+                <FlowCardSkeleton />
+                <FlowCardSkeleton />
+                <FlowCardSkeleton />
+              </>
+            )}
+            {visible.map((flow) => (
+              <FlowCard
+                key={flow.id}
+                flow={flow}
+                onExport={exportHandler(flow)}
+              />
+            ))}
+            {!visible.length && !isLoading && (
+              <p className="col-span-full p-10 text-center text-sm text-muted-foreground">
+                No flows match.
+              </p>
+            )}
+          </div>
+        </section>
       </section>
       {!isSignedIn && <SignInNudge />}
     </div>
-  );
-}
-
-function CloudFlows() {
-  const { data, isLoading, error } = useQuery(trpc.flow.list.queryOptions());
-
-  if (isLoading) return (
-    <>
-      <FlowCardSkeleton />
-      <FlowCardSkeleton />
-      <FlowCardSkeleton />
-    </>
-  );
-  if (error) return null;
-
-  const flows = [...(data?.owned ?? []), ...(data?.collaborated ?? [])].sort((a,b) => compareDesc(a.updatedAt, b.updatedAt));
-
-  if (flows.length === 0) return null;
-
-  return (
-    <>
-      {flows.map((flow) => (
-        <FlowCard
-          key={flow.id}
-          id={flow.id}
-          name={flow.name}
-          updatedAt={flow.updatedAt}
-          nodes={flow.nodes}
-          edges={flow.edges}
-          badges={[
-            {
-              label: "role" in flow ? String(flow.role) : "owner",
-              variant: "secondary",
-            },
-          ]}
-          onExport={() => {
-            exportFlowData(
-              {
-                name: flow.name,
-                updatedAt: new Date(flow.updatedAt).getTime(),
-              },
-              { nodes: flow.nodes, edges: flow.edges }
-            );
-            toast.success("Flow exported");
-          }}
-          settingsFlowId={flow.id}
-          deleteFlow={{ id: flow.id, name: flow.name }}
-        />
-      ))}
-    </>
   );
 }
 

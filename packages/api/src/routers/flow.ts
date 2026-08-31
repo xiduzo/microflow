@@ -85,44 +85,81 @@ export const flowRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
 
+    const withPeople = {
+      owner: { columns: { id: true, name: true } },
+      collaborators: {
+        columns: { role: true },
+        with: { user: { columns: { id: true, name: true } } },
+      },
+    } as const;
+
+    const flowColumns = {
+      id: true,
+      name: true,
+      color: true,
+      createdAt: true,
+      updatedAt: true,
+      ydoc: true,
+    } as const;
+
     // Get flows where user is owner
     const ownedFlowsRaw = await db.query.flow.findMany({
       where: eq(flow.ownerId, userId),
-      columns: {
-        id: true,
-        name: true,
-        color: true,
-        createdAt: true,
-        updatedAt: true,
-        ydoc: true,
-      },
-    });
-
-    const ownedFlows = ownedFlowsRaw.map((f) => {
-      const { ydoc, ...rest } = f;
-      return { ...rest, ...decodeFlowData(ydoc) };
+      columns: flowColumns,
+      with: withPeople,
     });
 
     // Get flows where user is collaborator
     const collaborations = await db.query.flowCollaborator.findMany({
       where: eq(flowCollaborator.userId, userId),
       with: {
-        flow: {
-          columns: {
-            id: true,
-            name: true,
-            color: true,
-            createdAt: true,
-            updatedAt: true,
-            ydoc: true,
-          },
-        },
+        flow: { columns: flowColumns, with: withPeople },
       },
     });
 
+    // Everyone with access, so the overview can show who a flow is shared
+    // with. One settings query for every user across every flow.
+    const involved = [...ownedFlowsRaw, ...collaborations.map((c) => c.flow)];
+    const peopleIds = [
+      ...new Set(
+        involved.flatMap((f) => [f.owner.id, ...f.collaborators.map((c) => c.user.id)]),
+      ),
+    ];
+    const settingsRows = peopleIds.length
+      ? await db.query.userSettings.findMany({
+          where: inArray(userSettings.userId, peopleIds),
+          columns: { userId: true, collabColor: true, collabIcon: true },
+        })
+      : [];
+    const settingsByUser = new Map(settingsRows.map((s) => [s.userId, s]));
+
+    /** Owner + collaborators, minus the caller — that is what "shared with" means here. */
+    function peopleOf(f: (typeof involved)[number]) {
+      return [
+        { ...f.owner, role: "owner" as const },
+        ...f.collaborators.map((c) => ({ ...c.user, role: c.role })),
+      ]
+        .filter((person) => person.id !== userId)
+        .map((person) => ({
+          ...person,
+          collabColor: settingsByUser.get(person.id)?.collabColor ?? "#4338ca",
+          collabIcon: settingsByUser.get(person.id)?.collabIcon ?? "Cat",
+        }));
+    }
+
+    const ownedFlows = ownedFlowsRaw.map((f) => {
+      const { ydoc, owner, collaborators, ...rest } = f;
+      return { ...rest, ...decodeFlowData(ydoc), people: peopleOf(f) };
+    });
+
     const collaboratedFlows = collaborations.map((c) => {
-      const { ydoc, ...rest } = c.flow;
-      return { ...rest, ...decodeFlowData(ydoc), role: c.role };
+      const { ydoc, owner, collaborators, ...rest } = c.flow;
+      return {
+        ...rest,
+        ...decodeFlowData(ydoc),
+        people: peopleOf(c.flow),
+        role: c.role,
+      };
     });
 
     return {
