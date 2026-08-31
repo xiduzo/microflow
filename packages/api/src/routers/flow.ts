@@ -9,11 +9,11 @@ import {
   assertFlowRole,
   requireFlowAccess,
   resolveFlowRole,
+  setFlowRole,
   type FlowRole,
 } from "./flow-access";
 import { FlowDocument, yjsServer } from "@microflow/collab/server";
 import {
-  grantAccess,
   inviteByEmail,
   listPendingInvites,
   revokeInvite,
@@ -51,18 +51,6 @@ export const FLOW_COLORS = [
 
 export const uid = () =>
   Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
-
-/**
- * Push an access change onto any live Yjs connection the user holds.
- *
- * A socket resolves its Flow Role once, at connect time; without this a
- * removed collaborator keeps writing until they reconnect. Same-process only
- * — the tRPC router and the `/yjs/:flowId` endpoint are both mounted by
- * `apps/server`, so they share the `yjsServer` singleton.
- */
-function syncLiveAccess(flowId: string, userId: string, role: FlowRole | null) {
-  yjsServer.setAccess(flowId, userId, role === null ? "none" : role === "viewer" ? "read" : "write");
-}
 
 export function decodeFlowData(ydoc: Buffer | null) {
   if (!ydoc) return { nodes: [], edges: [] };
@@ -473,8 +461,7 @@ export const flowRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
 
-      await grantAccess(input.flowId, input.userId, input.role);
-      syncLiveAccess(input.flowId, input.userId, input.role);
+      await setFlowRole(input.flowId, input.userId, input.role);
 
       return { success: true };
     }),
@@ -492,16 +479,7 @@ export const flowRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireFlowAccess(input.flowId, ctx.session.user.id, "owner");
 
-      await db
-        .delete(flowCollaborator)
-        .where(
-          and(
-            eq(flowCollaborator.flowId, input.flowId),
-            eq(flowCollaborator.userId, input.userId)
-          )
-        )
-
-      syncLiveAccess(input.flowId, input.userId, null);
+      await setFlowRole(input.flowId, input.userId, null);
 
       return { success: true };
     }),
@@ -555,6 +533,7 @@ export const flowRouter = router({
           id: ctx.session.user.id,
           name: ctx.session.user.name || ctx.session.user.email,
         },
+        grant: setFlowRole,
         mailer: resendInviteMailer,
       });
 
@@ -600,9 +579,7 @@ export const flowRouter = router({
           throw new Error("Collaborator not found");
         }
 
-        await db.update(flowCollaborator).set({ role: input.role }).where(eq(flowCollaborator.id, collaborator.id));
-
-        syncLiveAccess(input.flowId, input.userId, input.role);
+        await setFlowRole(input.flowId, input.userId, input.role);
 
         return { success: true };
       }),

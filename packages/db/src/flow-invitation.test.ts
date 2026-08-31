@@ -67,6 +67,16 @@ const mailer = () => {
   return { sent, fn: async (notice: unknown) => void sent.push(notice) };
 };
 
+/** Recording stand-in for the injected grant (the api layer's setFlowRole). */
+const granter = () => {
+  const calls: Array<{ flowId: string; userId: string; role: string }> = [];
+  return {
+    calls,
+    fn: async (flowId: string, userId: string, role: "viewer" | "editor") =>
+      void calls.push({ flowId, userId, role }),
+  };
+};
+
 describe("grantAccess", () => {
   beforeEach(reset);
 
@@ -87,9 +97,10 @@ describe("grantAccess", () => {
 describe("inviteByEmail", () => {
   beforeEach(reset);
 
-  test("an address with an account is granted immediately", async () => {
+  test("an address with an account is granted through the injected grant", async () => {
     recorded.users = [{ id: "user-2", email: "her@example.com" }];
     const m = mailer();
+    const g = granter();
 
     const result = await inviteByEmail({
       flowId: "flow-1",
@@ -97,11 +108,15 @@ describe("inviteByEmail", () => {
       email: "her@example.com",
       role: "editor",
       invitedBy: { id: "owner-1", name: "Sander" },
+      grant: g.fn,
       mailer: m.fn,
     });
 
     expect(result).toEqual({ kind: "granted", userId: "user-2" });
-    expect(recorded.inserts[0]!.table).toBe("flow_collaborator");
+    // The grant goes through the adapter — pairing row write + live push is
+    // the caller's setFlowRole's job, not a direct row write from here.
+    expect(g.calls).toEqual([{ flowId: "flow-1", userId: "user-2", role: "editor" }]);
+    expect(recorded.inserts.length).toBe(0);
     expect(m.sent[0]).toMatchObject({
       to: "her@example.com",
       kind: "granted",
@@ -113,6 +128,7 @@ describe("inviteByEmail", () => {
 
   test("an address with no account becomes a pending invite", async () => {
     const m = mailer();
+    const g = granter();
 
     const result = await inviteByEmail({
       flowId: "flow-1",
@@ -120,10 +136,12 @@ describe("inviteByEmail", () => {
       email: "stranger@example.com",
       role: "viewer",
       invitedBy: { id: "owner-1", name: "Sander" },
+      grant: g.fn,
       mailer: m.fn,
     });
 
     expect(result).toEqual({ kind: "pending" });
+    expect(g.calls.length).toBe(0);
     expect(recorded.inserts[0]!.table).toBe("flow_invite");
     expect(recorded.inserts[0]!.upsert).toBe(true); // re-inviting updates the role
     expect(m.sent[0]).toMatchObject({ kind: "pending", role: "viewer" });
@@ -132,6 +150,7 @@ describe("inviteByEmail", () => {
   test("inviting yourself is refused", async () => {
     recorded.users = [{ id: "owner-1", email: "me@example.com" }];
     const m = mailer();
+    const g = granter();
 
     await expect(
       inviteByEmail({
@@ -140,16 +159,19 @@ describe("inviteByEmail", () => {
         email: "me@example.com",
         role: "editor",
         invitedBy: { id: "owner-1", name: "Sander" },
+        grant: g.fn,
         mailer: m.fn,
       }),
     ).rejects.toThrow("Cannot add yourself as a collaborator");
 
+    expect(g.calls.length).toBe(0);
     expect(recorded.inserts.length).toBe(0);
     expect(m.sent.length).toBe(0);
   });
 
   test("a failing mailer does not undo the grant", async () => {
     recorded.users = [{ id: "user-2", email: "her@example.com" }];
+    const g = granter();
 
     const result = await inviteByEmail({
       flowId: "flow-1",
@@ -157,13 +179,14 @@ describe("inviteByEmail", () => {
       email: "her@example.com",
       role: "viewer",
       invitedBy: { id: "owner-1", name: "Sander" },
+      grant: g.fn,
       mailer: async () => {
         throw new Error("resend is down");
       },
     });
 
     expect(result).toEqual({ kind: "granted", userId: "user-2" });
-    expect(recorded.inserts[0]!.table).toBe("flow_collaborator");
+    expect(g.calls).toEqual([{ flowId: "flow-1", userId: "user-2", role: "viewer" }]);
   });
 });
 

@@ -9,8 +9,8 @@ import { user } from "./schema/auth";
  * Lives in `@microflow/db` because it is the only package both callers can
  * reach: the flow router (`@microflow/api`) invites, and the better-auth
  * `user.create.after` hook (`@microflow/auth`) accepts, and api already
- * depends on auth. Email is injected as an adapter (`InviteMailer`) so this
- * module needs neither.
+ * depends on auth. Email (`InviteMailer`) and the grant (`GrantRole`) are
+ * injected as adapters so this module needs neither mail nor collab.
  */
 
 // ============================================================================
@@ -44,6 +44,17 @@ export type InviteMailer = (notice: InviteNotice) => Promise<void>;
 export type InviteResult =
   | { kind: "granted"; userId: string }
   | { kind: "pending" };
+
+/**
+ * Applies a grant when the invitee already has an account. Injected like the
+ * mailer: the api layer passes its `setFlowRole` so the row write and the
+ * live-access push stay paired — this package cannot reach the collab server.
+ */
+export type GrantRole = (
+  flowId: string,
+  userId: string,
+  role: CollaboratorRole,
+) => Promise<void>;
 
 // ============================================================================
 // Grants
@@ -89,9 +100,10 @@ export async function inviteByEmail(params: {
   email: string;
   role: CollaboratorRole;
   invitedBy: { id: string; name: string };
+  grant: GrantRole;
   mailer: InviteMailer;
 }): Promise<InviteResult> {
-  const { flowId, flowName, email, role, invitedBy, mailer } = params;
+  const { flowId, flowName, email, role, invitedBy, grant, mailer } = params;
 
   const targetUser = await db.query.user.findFirst({ where: eq(user.email, email) });
 
@@ -104,7 +116,7 @@ export async function inviteByEmail(params: {
     : { kind: "pending" };
 
   if (targetUser) {
-    await grantAccess(flowId, targetUser.id, role);
+    await grant(flowId, targetUser.id, role);
   } else {
     await db
       .insert(flowInvite)
