@@ -35,8 +35,15 @@ COPY bun.lock package.json turbo.json tsconfig.json ./
 COPY apps ./apps
 COPY packages ./packages
 
-# Install dependencies for the whole monorepo (use lockfile)
-RUN bun install --frozen-lockfile
+# Install dependencies for the whole monorepo (use lockfile).
+# Retried once: buildkit runs this concurrently with the wasm stage's ~450MB
+# rust:1 layer pull, and under that I/O contention a single package's tarball
+# download/extract can fail and take the whole install with it (seen with
+# @img/sharp-libvips-linux-x64, an optional binary this image never even uses —
+# it rides in via next, an optional peer of better-auth). By the retry the
+# image pull has settled. ponytail: a flat retry; pin the stages apart if this
+# ever fails twice.
+RUN bun install --frozen-lockfile || bun install --frozen-lockfile
 
 # Reuse the WASM compiled in stage 1 — this image has no Rust toolchain
 COPY --from=wasm /app/apps/web/src/lib/codegen/generated  ./apps/web/src/lib/codegen/generated
