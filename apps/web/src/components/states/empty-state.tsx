@@ -7,7 +7,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../ui/empty";
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 
 export function EmptyState(props: Props) {
   const Icon = props.icon ?? CircleDashedIcon;
@@ -32,6 +32,6 @@ export function EmptyState(props: Props) {
 
 type Props = PropsWithChildren & {
   title?: string;
-  description?: string;
+  description?: ReactNode;
   icon?: LucideIcon;
 };

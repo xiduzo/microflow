@@ -1,18 +1,11 @@
 //! Runtime Services — per-capability traits and registries for the desktop's
 //! external (cloud) nodes.
 //!
-//! Each external kind gets a **Capability Trait** plus a **Service Registry**
-//! (LLM) or a direct publisher handle (MQTT). The cloud nodes in
-//! [`super::cloud`] hold the relevant `Arc` (captured by the actor's cloud
-//! factories) and resolve the backing implementation at dispatch time, so
-//! credential rotation and broker reconfiguration take effect without
-//! rebuilding components.
+//! Since ADR-0021 that is MQTT alone: a direct publisher handle the cloud nodes
+//! resolve at dispatch time, so broker reconfiguration takes effect without
+//! rebuilding components. LLM generation left this layer entirely — the webview
+//! performs it for both hosts and resolves providers from its own store.
 
-pub mod llm;
 pub mod mqtt;
 
-pub use llm::{
-    HttpLlmProvider, LlmError, LlmProvider, LlmRegistry, LlmRequest, LlmResponse,
-    RecordingLlmProvider,
-};
 pub use mqtt::{MqttPublishError, MqttPublisher, RecordedPublish, RecordingMqttPublisher};

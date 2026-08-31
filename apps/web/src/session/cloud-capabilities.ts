@@ -63,6 +63,10 @@ const mqtt: CloudCapability = {
   snapshot: () => ({ brokers: useMqttBrokerStore.getState().brokers }),
 };
 
+// Identical in both hosts since ADR-0021: there is nothing to sync *to* any
+// more — the webview performs every generation and resolves `providerId` from
+// this store at request time, on desktop as in the browser. All that is left is
+// the status dot, filled by the probe that runs the same transport.
 const llm: CloudCapability = {
   name: "llm",
   sync: {
@@ -70,20 +74,9 @@ const llm: CloudCapability = {
     subscribe: (onChange) => useLlmProviderStore.subscribe(onChange),
     push: () => {
       const { providers, setStatus } = useLlmProviderStore.getState();
-      invokeCommand({
-        type: "llm_sync_providers",
-        providers: providers.map((p) => ({
-          id: p.id,
-          name: p.name,
-          base_url: p.baseUrl,
-          api_key: p.apiKey,
-        })),
-      });
-      for (const p of providers) {
-        setStatus(p.id, "testing");
-        invokeCommand({ type: "llm_test_provider", baseUrl: p.baseUrl, apiKey: p.apiKey }).then(
-          (result) => setStatus(p.id, result.success ? "ok" : "error"),
-        );
+      for (const provider of providers) {
+        setStatus(provider.id, "testing");
+        void probeLlmProvider(provider).then((status) => setStatus(provider.id, status));
       }
     },
   },
@@ -118,26 +111,7 @@ const browserMqtt: CloudCapability = {
   },
 };
 
-const browserLlm: CloudCapability = {
-  ...llm,
-  sync: {
-    read: llm.sync!.read,
-    subscribe: llm.sync!.subscribe,
-    push: () => {
-      const { providers, setStatus } = useLlmProviderStore.getState();
-      for (const provider of providers) {
-        setStatus(provider.id, "testing");
-        void probeLlmProvider(provider).then((status) => setStatus(provider.id, status));
-      }
-    },
-  },
-};
-
-export const BROWSER_CLOUD_CAPABILITIES: readonly CloudCapability[] = [
-  browserMqtt,
-  browserLlm,
-  figma,
-];
+export const BROWSER_CLOUD_CAPABILITIES: readonly CloudCapability[] = [browserMqtt, llm, figma];
 
 /** `HostSnapshotProvider` for the `FlowUpdateDispatcher`, assembled from the
  * same registry that drives the sync. */

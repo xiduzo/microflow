@@ -58,7 +58,7 @@ function InputOTPSlot({
         // Base slot styles with improved dark-mode contrast
         "bg-card dark:bg-card/40 text-foreground",
         "border-input dark:border-muted-foreground/70",
-        "size-8 border-y border-r text-xs transition-all outline-none",
+        "size-11 text-2xl sm:size-14 sm:text-4xl border-y border-r transition-all outline-none",
         "first:rounded-none first:border-l last:rounded-none",
         "relative flex items-center justify-center data-[active=true]:z-10",
         // Focus & validation states
@@ -75,7 +75,7 @@ function InputOTPSlot({
       {char}
       {hasFakeCaret && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="animate-caret-blink bg-foreground h-4 w-px duration-1000 bg-foreground h-4 w-px" />
+          <div className="animate-caret-blink bg-foreground h-[45%] w-px duration-1000" />
         </div>
       )}
     </div>

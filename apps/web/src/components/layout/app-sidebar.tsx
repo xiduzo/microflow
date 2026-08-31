@@ -7,6 +7,7 @@ import {
   EarthIcon,
   LibraryBigIcon,
   BotIcon,
+  BotMessageSquareIcon,
   RadioTowerIcon,
   WaypointsIcon,
 } from "lucide-react";
@@ -27,12 +28,15 @@ import { NavDownloadStudio } from "./nav-download-studio";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { useAppStore } from "@/stores/app";
+import { useAskAiStore } from "@/stores/ask-ai";
 import { useMemo } from "react";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = authClient.useSession();
   const user = session?.user ?? null;
   const activeFlowId = useAppStore((s) => s.activeFlowId);
+  const askAiOpen = useAskAiStore((s) => s.open);
+  const toggleAskAi = useAskAiStore((s) => s.toggle);
 
   const { data: cloudFlows } = useQuery({
     ...trpc.flow.list.queryOptions(),
@@ -89,6 +93,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     title: "Show code",
                     icon: CodeIcon,
                     url: `/flow/${activeFlow.id}/code`,
+                    badge: "beta",
+                  },
+                  // Toggles the side panel rather than navigating: the assistant
+                  // edits the canvas, so it has to sit beside it.
+                  {
+                    title: "Ask AI",
+                    icon: BotMessageSquareIcon,
+                    onClick: toggleAskAi,
+                    isActive: askAiOpen,
                     badge: "beta",
                   },
                 ],

@@ -112,22 +112,15 @@ type MqttAllStatuses = {
   type: "mqtt_all_statuses";
 };
 
+// Still carried on `flow_update` for the dispatcher's change detection, but the
+// desktop ignores it: since ADR-0021 the webview owns the LLM transport and
+// resolves providers from its own store, so there is no registry to fill. The
+// `llm_sync_providers` / `llm_test_provider` commands are gone with it.
 type ProviderConfig = {
   id: string;
   name: string;
   base_url: string;
   api_key: string;
-};
-
-type LlmSyncProviders = {
-  type: "llm_sync_providers";
-  providers: ProviderConfig[];
-};
-
-type LlmTestProvider = {
-  type: "llm_test_provider";
-  baseUrl: string;
-  apiKey: string;
 };
 
 // Sketch Generation context: translate a Flow into an Arduino sketch for the
@@ -157,8 +150,6 @@ type Command =
   | MqttStatus
   | MqttSyncBrokers
   | MqttAllStatuses
-  | LlmSyncProviders
-  | LlmTestProvider
   | GenerateSketch;
 
 export async function invokeCommand<

@@ -1,10 +1,13 @@
-// Browser CloudPerformer seam (ADR-0009). Proves the cloud half is unit-testable
-// in isolation now that it no longer lives inside the FlowReactor: a stub
+// CloudPerformer seam (ADR-0009). Proves the cloud half is unit-testable in
+// isolation now that it no longer lives inside the FlowReactor: a stub
 // `MqttClientFactory` stands in for a real broker, `fetch` is stubbed for the LLM
 // transport, and the two runtime re-entry points (LLM result / inbound message)
-// are captured as plain callbacks. The behavioural twin of the desktop
-// `CloudPerformer` tests in `src-tauri/src/runtime/host.rs` (latest-wins LLM
-// cancellation + the relocated MQTT/LLM IO), here against the browser primitives.
+// are captured as plain callbacks.
+//
+// Since ADR-0021 the LLM cases here are not a "browser twin" of anything — this
+// performer is the only LLM performer, the desktop drives the same transport
+// through `use-llm-requests.ts`. So these are THE tests for latest-wins
+// cancellation and for what re-enters the runtime after a generation.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import {
@@ -15,18 +18,41 @@ import {
 } from "./cloud-performer";
 import type { BrokerConn, MqttClientFactory, MqttClientLike } from "./mqtt-client";
 import type { ActiveSub } from "./mqtt-subscriptions";
+import { resetHostFetch } from "@/lib/ai/endpoint";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = realFetch;
+  resetHostFetch();
 });
 
 function stubFetch(impl: typeof fetch): void {
   globalThis.fetch = impl;
+  // `hostFetch` memoises what it resolved, so a stub would leak between tests.
+  resetHostFetch();
 }
 
-function jsonResponse(body: unknown): Response {
-  return new Response(JSON.stringify(body), { status: 200 });
+/** An OpenAI chat-completions SSE stream carrying `deltas`, then `[DONE]`. */
+function streamResponse(deltas: string[]): Response {
+  const frames = deltas.map((delta, index) =>
+    JSON.stringify({
+      id: "chatcmpl-test",
+      object: "chat.completion.chunk",
+      created: 0,
+      model: "m",
+      choices: [
+        {
+          index: 0,
+          delta: { content: delta },
+          finish_reason: index === deltas.length - 1 ? "stop" : null,
+        },
+      ],
+    }),
+  );
+  return new Response(`${frames.map((f) => `data: ${f}\n\n`).join("")}data: [DONE]\n\n`, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
 }
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -121,59 +147,68 @@ const llmRequest = (source: string, prompt: string): ActiveLlmReq => ({
 type ActiveLlmReq = Extract<Parameters<CloudPerformer["perform"]>[0], { kind: "llmGenerate" }>;
 
 describe("CloudPerformer (ADR-0009 cloud seam)", () => {
-  test("(a) llmGenerate re-enters value/done via the resultInjector", async () => {
-    stubFetch(async () => jsonResponse({ choices: [{ message: { content: "hi back" } }] }));
+  test("(a) llmGenerate streams into value, then re-enters thinking/value/done", async () => {
+    stubFetch((async () => streamResponse(["hi", " back"])) as typeof fetch);
     const { performer, injects } = setup();
 
     performer.perform(llmRequest("llm", "hello"));
     await waitFor(() => injects.some((i) => i.handle === "done"));
 
-    // thinking=false, then value, then done — the same handles the desktop injects.
+    // Each delta re-injects the whole answer so far on `value` (every inject
+    // overwrites the last, so a Monitor fills in as the model writes), and only
+    // then does the terminal trio land — the same handles both hosts inject on.
     expect(injects).toEqual([
+      { source: "llm", handle: "value", value: "hi" },
+      { source: "llm", handle: "value", value: "hi back" },
       { source: "llm", handle: "thinking", value: false },
       { source: "llm", handle: "value", value: "hi back" },
       { source: "llm", handle: "done", value: true },
     ]);
   });
 
-  test("(b) a second llmGenerate for the same source aborts the first (latest-wins)", async () => {
-    let firstSignal: AbortSignal | undefined;
-    let resolveSecond: ((text: string) => void) | undefined;
+  test("(b) a second llmGenerate for the same source supersedes the first (latest-wins)", async () => {
+    let firstAborted = false;
+    let releaseSecond: (() => void) | undefined;
     let call = 0;
-    stubFetch((_input, init) => {
+    stubFetch(((_input: RequestInfo | URL, init?: RequestInit) => {
       call += 1;
       const signal = init?.signal ?? undefined;
       if (call === 1) {
-        firstSignal = signal;
-        // Hang until aborted, then reject like a real aborted fetch.
+        // Hang until aborted, then reject the way a real aborted fetch does.
         return new Promise<Response>((_resolve, reject) => {
-          signal?.addEventListener("abort", () =>
-            reject(new DOMException("aborted", "AbortError")),
-          );
+          signal?.addEventListener("abort", () => {
+            firstAborted = true;
+            reject(new DOMException("aborted", "AbortError"));
+          });
         });
       }
       return new Promise<Response>((resolve) => {
-        resolveSecond = (text) => resolve(jsonResponse({ choices: [{ message: { content: text } }] }));
+        releaseSecond = () => resolve(streamResponse(["second-answer"]));
       });
-    });
+    }) as unknown as typeof fetch);
 
     const { performer, injects } = setup();
 
     performer.perform(llmRequest("llm", "first"));
-    await waitFor(() => firstSignal !== undefined);
+    await waitFor(() => call === 1);
     performer.perform(llmRequest("llm", "second")); // supersedes — must abort the first
 
-    expect(firstSignal?.aborted).toBe(true);
+    await waitFor(() => firstAborted);
+    expect(firstAborted).toBe(true);
 
-    resolveSecond?.("second-answer");
+    await waitFor(() => releaseSecond !== undefined);
+    releaseSecond?.();
     await waitFor(() => injects.some((i) => i.handle === "done"));
 
-    // Only the second generation's result re-enters; the aborted first drops silently.
-    expect(injects).toEqual([
-      { source: "llm", handle: "thinking", value: false },
-      { source: "llm", handle: "value", value: "second-answer" },
-      { source: "llm", handle: "done", value: true },
-    ]);
+    // Only the second generation re-enters; the aborted first drops silently —
+    // no `error` inject, because a superseded result would route nowhere.
+    expect(injects.filter((i) => i.handle === "error")).toEqual([]);
+    expect(injects.at(-2)).toEqual({
+      source: "llm",
+      handle: "value",
+      value: "second-answer",
+    });
+    expect(injects.at(-1)).toEqual({ source: "llm", handle: "done", value: true });
   });
 
   test("(c) reconcile subscribes the desired topics and publishes the Figma connect", () => {

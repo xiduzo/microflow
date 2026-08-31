@@ -19,12 +19,11 @@
 //!
 //! [`Effects`]: microflow_core::runtime::Effects
 
-use crate::runtime::services::{LlmError, LlmRegistry, LlmRequest, MqttPublisher};
-use microflow_core::runtime::cloud;
+use crate::runtime::services::MqttPublisher;
 use microflow_core::flow::FlowUpdate;
 use microflow_core::runtime::subscriptions::MidiListener;
 use microflow_core::runtime::{
-    CloudRequest, CloudRequestKind, ComponentBase, ComponentEvent, ComponentValue, Effects,
+    CloudRequest, CloudRequestKind, ComponentEvent, ComponentValue, Effects,
     EffectsSink, FlowRuntime, NodeDiagnostic, SubscriberWiring, Wakeup, WakeupId,
 };
 use std::collections::HashMap;
@@ -110,12 +109,11 @@ pub fn run_actor(
     app: AppHandle,
     rt_handle: Handle,
     mqtt_publisher: Arc<dyn MqttPublisher>,
-    llm_registry: Arc<LlmRegistry>,
 ) {
     std::thread::Builder::new()
         .name("microflow-runtime".into())
         .spawn(move || {
-            let actor = Actor::new(app, rt_handle, mqtt_publisher, llm_registry, self_tx, connected);
+            let actor = Actor::new(app, rt_handle, mqtt_publisher, self_tx, connected);
             actor.run(rx);
             log::info!("[actor] runtime thread stopped");
         })
@@ -192,16 +190,10 @@ impl Actor {
         app: AppHandle,
         rt_handle: Handle,
         mqtt_publisher: Arc<dyn MqttPublisher>,
-        llm_registry: Arc<LlmRegistry>,
         self_tx: UnboundedSender<ActorMsg>,
         connected: Arc<AtomicBool>,
     ) -> Self {
-        let cloud = CloudPerformer::new(
-            mqtt_publisher,
-            llm_registry,
-            rt_handle.clone(),
-            self_tx.clone(),
-        );
+        let cloud = CloudPerformer::new(mqtt_publisher, rt_handle.clone());
         // Cloud nodes are sans-IO and auto-registered by core (the `cloud`
         // feature); the actor only supplies the `CloudPerformer` that performs
         // their recorded requests.
@@ -449,6 +441,20 @@ impl EffectsSink for Actor {
             let _ = self.app.emit("audio-request", request);
             return;
         }
+        // LLM generation runs in the webview too, for the same reason and with
+        // more to gain (ADR-0021): one TanStack AI transport serves both hosts,
+        // so streaming, tool calls and provider quirks are implemented once
+        // instead of twice-and-parity-tested. The webview resolves the provider
+        // from its own store and injects the result back through the
+        // `llm_result` command (see `use-llm-requests.ts`).
+        //
+        // Reaching a laptop-local endpoint from the webview would normally die
+        // on CORS; the frontend performs it over `@tauri-apps/plugin-http`,
+        // which requests from Rust exactly as this host used to.
+        if matches!(request.kind, CloudRequestKind::LlmGenerate { .. }) {
+            let _ = self.app.emit("llm-request", request);
+            return;
+        }
         self.cloud.perform(request);
     }
 
@@ -470,32 +476,19 @@ impl EffectsSink for Actor {
 
 /// Performs cloud `Effects` for the desktop host (ADR-0009): the network I/O that
 /// used to be spawned *inside* the cloud components, relocated behind one small
-/// `perform(&CloudRequest)` interface. Holds the live MQTT/LLM services, the
-/// Tokio handle to spawn on, the channel LLM results re-enter through
-/// (`ActorMsg::Inject` → `FlowRuntime::inject_event`), and the per-node in-flight
-/// LLM task table (latest-wins cancellation). Unlike the `Actor` it lives on, it
-/// needs no Tauri `AppHandle`, so it is unit-testable directly.
+/// `perform(&CloudRequest)` interface.
+///
+/// Since ADR-0021 that is MQTT only — LLM generation moved to the webview, where
+/// one `TanStack` AI transport serves both hosts. Unlike the `Actor` it lives on,
+/// it needs no Tauri `AppHandle`, so it is unit-testable directly.
 struct CloudPerformer {
     mqtt_publisher: Arc<dyn MqttPublisher>,
-    llm_registry: Arc<LlmRegistry>,
     rt_handle: Handle,
-    /// Where LLM results re-enter the runtime (`ActorMsg::Inject`).
-    tx: UnboundedSender<ActorMsg>,
-    /// In-flight LLM generation tasks keyed by issuing node id, so a fresh
-    /// `LlmGenerate` for the same node cancels its predecessor. A late result
-    /// from an aborted/removed node is harmless — its edges are gone, so
-    /// `inject_event` routes nowhere.
-    llm_tasks: HashMap<Arc<str>, tokio::task::AbortHandle>,
 }
 
 impl CloudPerformer {
-    fn new(
-        mqtt_publisher: Arc<dyn MqttPublisher>,
-        llm_registry: Arc<LlmRegistry>,
-        rt_handle: Handle,
-        tx: UnboundedSender<ActorMsg>,
-    ) -> Self {
-        Self { mqtt_publisher, llm_registry, rt_handle, tx, llm_tasks: HashMap::new() }
+    fn new(mqtt_publisher: Arc<dyn MqttPublisher>, rt_handle: Handle) -> Self {
+        Self { mqtt_publisher, rt_handle }
     }
 
     /// Perform one cloud request. The `reqwest`/`rumqttc` bodies are the same as
@@ -517,64 +510,13 @@ impl CloudPerformer {
                     }
                 });
             }
-            CloudRequestKind::LlmGenerate { provider_id, model, system, prompt } => {
-                // Latest-wins: a new generation for this node cancels the prior
-                // in-flight one (the abort the node used to hold itself).
-                if let Some(prev) = self.llm_tasks.remove(&request.source) {
-                    prev.abort();
-                }
-                let registry = Arc::clone(&self.llm_registry);
-                let tx = self.tx.clone();
-                let source = Arc::clone(&request.source);
-                let provider_id = provider_id.clone();
-                let req = LlmRequest {
-                    model: model.clone(),
-                    system: system.clone(),
-                    prompt: prompt.clone(),
-                };
-                let join = self.rt_handle.spawn(async move {
-                    // Result handles are sourced from `Llm`'s own consts so the
-                    // host injects on exactly the handles the node declares in
-                    // `emits()`. `thinking=true` is emitted synchronously by the
-                    // node's dispatch; only the resolution re-enters here.
-                    let send = |handle: &str, value: ComponentValue| {
-                        let _ = tx.send(ActorMsg::Inject {
-                            source: Arc::clone(&source),
-                            handle: handle.to_string(),
-                            value,
-                        });
-                    };
-                    let Some(provider) = registry.get(&provider_id).await else {
-                        send(cloud::llm::Llm::E_THINKING, ComponentValue::Bool(false));
-                        send(
-                            cloud::llm::Llm::E_ERROR,
-                            ComponentValue::String(format!(
-                                "LLM provider '{provider_id}' not configured"
-                            )),
-                        );
-                        return;
-                    };
-                    match provider.generate(req).await {
-                        Ok(response) => {
-                            send(cloud::llm::Llm::E_THINKING, ComponentValue::Bool(false));
-                            send(ComponentBase::VALUE_HANDLE, ComponentValue::String(response.text));
-                            send(cloud::llm::Llm::E_DONE, ComponentValue::Bool(true));
-                        }
-                        Err(LlmError::Cancelled) => {}
-                        Err(e) => {
-                            send(cloud::llm::Llm::E_THINKING, ComponentValue::Bool(false));
-                            send(cloud::llm::Llm::E_ERROR, ComponentValue::String(e.to_string()));
-                        }
-                    }
-                });
-                self.llm_tasks.insert(Arc::clone(&request.source), join.abort_handle());
-            }
             // Intercepted by `Actor::perform_cloud`: MIDI on the actor's own
-            // `midir` connections, audio forwarded to the webview. A request
-            // reaching here has no performer.
+            // `midir` connections, audio and LLM forwarded to the webview
+            // (ADR-0021). A request reaching here has no performer.
             CloudRequestKind::MidiSend { .. }
             | CloudRequestKind::AudioPlay { .. }
-            | CloudRequestKind::AudioStop => {
+            | CloudRequestKind::AudioStop
+            | CloudRequestKind::LlmGenerate { .. } => {
                 log::warn!(
                     "[cloud] host-peripheral request reached the CloudPerformer — handled by the actor"
                 );
@@ -586,9 +528,7 @@ impl CloudPerformer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::services::{
-        LlmProvider, RecordedPublish, RecordingLlmProvider, RecordingMqttPublisher,
-    };
+    use crate::runtime::services::{RecordedPublish, RecordingMqttPublisher};
     use microflow_core::flow::{FlowEdge, FlowNode, Position};
     use std::time::Duration;
 
@@ -620,40 +560,13 @@ mod tests {
         }
     }
 
-    /// Poll the actor channel for the first `Inject` on `handle` (the path an LLM
-    /// result re-enters by), or `None` on timeout.
-    async fn wait_for_inject(
-        rx: &mut tokio::sync::mpsc::UnboundedReceiver<ActorMsg>,
-        handle: &str,
-        timeout: Duration,
-    ) -> Option<ComponentValue> {
-        let deadline = tokio::time::Instant::now() + timeout;
-        loop {
-            match rx.try_recv() {
-                Ok(ActorMsg::Inject { handle: h, value, .. }) if h == handle => return Some(value),
-                Ok(_) => {}
-                Err(_) => {
-                    if tokio::time::Instant::now() >= deadline {
-                        return None;
-                    }
-                    tokio::time::sleep(Duration::from_millis(10)).await;
-                }
-            }
-        }
-    }
-
     #[tokio::test]
     async fn perform_cloud_mqtt_publish_reaches_publisher() {
         // The relocated IO regression net: a `MqttPublish` request drives the
         // live publisher (the body that used to live in the Mqtt component).
         let publisher = Arc::new(RecordingMqttPublisher::new());
-        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut performer = CloudPerformer::new(
-            publisher.clone() as Arc<dyn MqttPublisher>,
-            Arc::new(LlmRegistry::new()),
-            tokio::runtime::Handle::current(),
-            tx,
-        );
+        let mut performer =
+            CloudPerformer::new(publisher.clone() as Arc<dyn MqttPublisher>, tokio::runtime::Handle::current());
 
         performer.perform(&req(
             "m",
@@ -674,67 +587,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn perform_cloud_llm_generate_injects_result() {
-        // The relocated LLM IO: a `LlmGenerate` request resolves the provider and
-        // feeds the response back via `ActorMsg::Inject` on the `value` handle.
-        let registry = Arc::new(LlmRegistry::new());
-        let recorder = Arc::new(RecordingLlmProvider::new());
-        recorder.script_ok("hi back");
-        registry
-            .insert("p".into(), recorder.clone() as Arc<dyn LlmProvider>)
-            .await;
-
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    async fn perform_cloud_ignores_llm_generate() {
+        // Since ADR-0021 an `LlmGenerate` is intercepted by `Actor::perform_cloud`
+        // and forwarded to the webview, which owns the only LLM transport. If it
+        // ever reaches the `CloudPerformer` it must do nothing rather than fall
+        // through to a publish — the same contract MidiSend and audio hold.
+        let publisher = Arc::new(RecordingMqttPublisher::new());
         let mut performer = CloudPerformer::new(
-            Arc::new(RecordingMqttPublisher::new()) as Arc<dyn MqttPublisher>,
-            Arc::clone(&registry),
+            publisher.clone() as Arc<dyn MqttPublisher>,
             tokio::runtime::Handle::current(),
-            tx,
         );
 
         performer.perform(&req(
             "llm",
             CloudRequestKind::LlmGenerate {
                 provider_id: "p".into(),
-                model: "test-model".into(),
-                system: None,
-                prompt: "hello".into(),
-            },
-        ));
-
-        let value = wait_for_inject(&mut rx, "value", Duration::from_secs(2)).await;
-        assert_eq!(value, Some(ComponentValue::String("hi back".into())));
-
-        let calls = recorder.recorded();
-        assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].model, "test-model");
-        assert_eq!(calls[0].prompt, "hello");
-    }
-
-    #[tokio::test]
-    async fn perform_cloud_llm_missing_provider_injects_error() {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut performer = CloudPerformer::new(
-            Arc::new(RecordingMqttPublisher::new()) as Arc<dyn MqttPublisher>,
-            Arc::new(LlmRegistry::new()), // empty registry
-            tokio::runtime::Handle::current(),
-            tx,
-        );
-
-        performer.perform(&req(
-            "llm",
-            CloudRequestKind::LlmGenerate {
-                provider_id: "missing".into(),
                 model: "m".into(),
                 system: None,
                 prompt: "hi".into(),
             },
         ));
 
-        match wait_for_inject(&mut rx, "error", Duration::from_secs(2)).await {
-            Some(ComponentValue::String(msg)) => assert!(msg.contains("missing")),
-            other => panic!("expected error string, got {other:?}"),
-        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(publisher.recorded().is_empty(), "LLM must not reach the publisher");
     }
 
     #[test]

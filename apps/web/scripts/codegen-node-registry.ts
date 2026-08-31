@@ -137,6 +137,7 @@ writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
 const lines: string[] = [
   "// GENERATED — do not edit. Source: node-components.json. Run `bun run codegen`.",
   'import type { NodeTypes } from "@xyflow/react";',
+  'import type { ZodType } from "zod";',
   'import type { ComponentType } from "./_base/_base.types";',
   'import type { NodeHostAdapter } from "./_base/host-adapter";',
   "",
@@ -147,6 +148,7 @@ for (const e of entries) {
   const fp = `./${kebab}/${kebab}`;
   lines.push(`import { ${e.name} } from "${fp}";`);
   lines.push(`import { defaults as ${e.name}Defaults } from "${fp}.schema";`);
+  lines.push(`import { dataSchema as ${e.name}Schema } from "${fp}.schema";`);
   if (entryUsesAdapter(e)) {
     lines.push(`import { adapter as ${e.name}Adapter } from "${fp}";`);
   }
@@ -166,6 +168,10 @@ lines.push(
   "export type NodeRegistryEntry = {",
   "  component: unknown;",
   "  defaults: NodeDefaults;",
+  "  /** The node's own zod schema — the authority on what its `data` may hold.",
+  "   *  Exposed here so a caller holding only a type string can validate before",
+  "   *  writing to the document (see `lib/ai/flow-tools.ts`). */",
+  "  schema: ZodType;",
   "  adapter?: NodeHostAdapter;",
   "};",
   "",
@@ -175,7 +181,7 @@ lines.push(
 for (const e of entries) {
   const adapterField = entryUsesAdapter(e) ? `${e.name}Adapter` : "undefined";
   lines.push(
-    `  ${e.name}: { component: ${e.name}, defaults: ${e.name}Defaults as NodeDefaults, adapter: ${adapterField} },`,
+    `  ${e.name}: { component: ${e.name}, defaults: ${e.name}Defaults as NodeDefaults, schema: ${e.name}Schema, adapter: ${adapterField} },`,
   );
 }
 

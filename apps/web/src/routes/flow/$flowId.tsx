@@ -15,12 +15,19 @@ import { usePins, type Pin } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
 import { useNodeDiagnostics } from "@/hooks/use-node-diagnostics";
 import { useAudioRequests } from "@/hooks/use-audio-requests";
+import { useLlmRequests } from "@/hooks/use-llm-requests";
 import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo } from "react";
+import { Group, Panel, Separator } from "react-resizable-panels";
+import { useAskAiStore } from "@/stores/ask-ai";
+
+const AskAiPanel = lazy(() =>
+  import("@/components/flow/ask-ai/ask-ai-panel").then((m) => ({ default: m.AskAiPanel })),
+);
 import { env } from "@microflow/env/web";
 import { ErrorState } from "@/components/states/error-state";
 import { LoadingState } from "@/components/states/loading-state";
@@ -39,6 +46,7 @@ function FlowEventListeners() {
   useNodeDiagnostics();
   useHotkeyEvents();
   useAudioRequests();
+  useLlmRequests();
   // Dispatch the live flow to the runtime — Tauri IPC on desktop, the in-browser
   // wasm runtime on web; the dispatcher picks the sender by platform.
   useFlowUpdateDispatcher(session);
@@ -108,8 +116,39 @@ function FlowProviderShell({ session }: { session: FlowSession }) {
     <FlowSessionProvider session={session}>
       <FlowEventListeners />
       <CircuitBuildListener />
-      <Outlet />
+      <FlowWithAskAi />
     </FlowSessionProvider>
+  );
+}
+
+/**
+ * The flow view, with Ask AI as a resizable companion rather than a route of its
+ * own — the assistant edits the canvas, so hiding the canvas to talk to it would
+ * remove the only feedback that matters. Mounted here (not in `graph.tsx`) so it
+ * survives switching between the graph, circuit and code tabs mid-conversation.
+ *
+ * Lazy-loaded: it pulls in TanStack AI and the OpenAI client, which no one who
+ * never opens the panel should pay to download.
+ */
+function FlowWithAskAi() {
+  const askAiOpen = useAskAiStore((state) => state.open);
+
+  return (
+    <Group orientation="horizontal" className="size-full">
+      <Panel minSize="30%" className="relative min-w-0">
+        <Outlet />
+      </Panel>
+      {askAiOpen && (
+        <>
+          <Separator className="bg-border hover:bg-primary w-px transition-colors" />
+          <Panel defaultSize="26%" minSize="18%" maxSize="55%" className="min-w-0">
+            <Suspense fallback={null}>
+              <AskAiPanel />
+            </Suspense>
+          </Panel>
+        </>
+      )}
+    </Group>
   );
 }
 

@@ -4,9 +4,10 @@ import {
   HandFistIcon,
   HeartIcon,
   HeartPlusIcon,
+  MessagesSquareIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import {
   SidebarGroup,
@@ -33,6 +34,12 @@ const LINKS: LinkItem[] = [
     internal: true,
   },
   {
+    title: "Discussions",
+    url: "/discussions",
+    icon: MessagesSquareIcon,
+    internal: true,
+  },
+  {
     title: "Documentation",
     url: DOCS_URL,
     icon: BookMarkedIcon,
@@ -49,6 +56,7 @@ export function NavSecondary(
   props: React.ComponentPropsWithoutRef<typeof SidebarGroup>,
 ) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const handleClick = (item: LinkItem) => {
     if (item.internal) {
@@ -70,6 +78,10 @@ export function NavSecondary(
               <SidebarMenuButton
                 size="sm"
                 tooltip={item.tooltip ?? item.title}
+                isActive={
+                  item.internal &&
+                  pathname.replace(/\/$/, "") === item.url.replace(/\/$/, "")
+                }
                 onClick={() => handleClick(item)}
               >
                 <item.icon />

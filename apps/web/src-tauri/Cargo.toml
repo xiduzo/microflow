@@ -31,6 +31,10 @@ tauri-plugin-fs = "2"
 tauri-plugin-process = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2"
+# Rust-backed `fetch` for the webview (ADR-0021). The LLM transport is TS in
+# both hosts; on desktop it runs here so a request to a laptop-local Ollama /
+# LM Studio is not refused by CORS against the `tauri.localhost` origin.
+tauri-plugin-http = "2"
 serialport = "4"
 midir = "0.10"
 tokio = { version = "1", features = ["sync", "rt", "macros", "time", "net"] }

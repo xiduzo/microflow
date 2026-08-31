@@ -14,7 +14,7 @@
 
 import type { EmitOf } from "@/components/flow/nodes/_base/_base.types";
 import type { CloudRequest } from "../effects-sink";
-import { performLlmGenerate, type LlmProviderConn } from "./llm-client";
+import type { LlmProviderConn } from "./llm-client";
 import {
   BrokerConnections,
   defaultMqttClientFactory,
@@ -180,10 +180,22 @@ export class CloudPerformer {
     this.llmAborts.set(source, controller);
 
     try {
+      // Imported on first use: the transport pulls in TanStack AI and the OpenAI
+      // client, which is a lot of bundle for every user who never places an Llm
+      // node. By the time we get here they have.
+      const { performLlmGenerate } = await import("./llm-client");
       const text = await performLlmGenerate(
         provider,
         { model: request.model, system: request.system, prompt: request.prompt },
         controller.signal,
+        // Stream: each delta re-injects the whole answer so far on `value`, so a
+        // downstream Monitor fills in as the model writes instead of sitting on
+        // `thinking` until the end. `thinking` stays true until the run
+        // finishes — a partial answer is still a pending one.
+        (textSoFar) => {
+          if (controller.signal.aborted || this.disposed) return;
+          this.inject(source, LLM_VALUE, textSoFar);
+        },
       );
       if (controller.signal.aborted || this.disposed) return;
       this.inject(source, LLM_THINKING, false);
