@@ -40,7 +40,14 @@ impl RangeMap {
         let out_min = self.config.to.min;
         let out_max = self.config.to.max;
 
-        let mapped = ((input_num - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min;
+        // A zero-width `from` range (min == max) would divide by zero and
+        // produce inf/nan, which then propagates to whatever this Node drives.
+        // Collapse the degenerate range to the low output bound instead.
+        let mapped = if (in_max - in_min).abs() < f64::EPSILON {
+            out_min
+        } else {
+            ((input_num - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min
+        };
         let distance = (out_max - out_min).abs();
         let precision = i32::from(distance <= 10.0);
         let factor = 10_f64.powi(precision);
