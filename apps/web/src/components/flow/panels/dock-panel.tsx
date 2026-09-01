@@ -6,6 +6,7 @@ import { useReactFlow } from "@xyflow/react";
 import {
   BotMessageSquareIcon,
   HardDriveUploadIcon,
+  NetworkIcon,
   PlusIcon,
   RedoIcon,
   SettingsIcon,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app";
 import { useNavigate } from "@tanstack/react-router";
 import { useFlowImportExport } from "@/hooks/use-flow-import-export";
+import { applyAutoLayout } from "@/lib/auto-layout";
 
 export function DockPanel() {
   const { fitView, zoomIn, zoomOut, zoomTo } = useReactFlow();
@@ -62,6 +64,13 @@ export function DockPanel() {
     setOpen(true);
   };
 
+  // One undo step, then frame the result — a layout you cannot see is
+  // indistinguishable from nothing having happened.
+  const handleAutoLayout = () => {
+    applyAutoLayout(doc);
+    fitView({ duration: 250, padding: 0.25 });
+  };
+
   const handleSettings = () => {
     // navigate to settings page
     navigate({
@@ -100,6 +109,11 @@ export function DockPanel() {
     meta: { name: "Redo", description: "Redo" },
   });
 
+  useHotkey("Shift+L", handleAutoLayout, {
+    ignoreInputs: true,
+    meta: { name: "Auto layout", description: "Arrange the flow left to right" },
+  });
+
   useHotkey("Mod+K", handleAddNode, {
     meta: { name: "Add node", description: "Add node" },
     preventDefault: true,
@@ -116,6 +130,9 @@ export function DockPanel() {
       </DockIcon>
       <DockIcon onClick={handleRedo}>
         <RedoIcon className={cn(history.canRedo ? "text-primary" : "text-muted-foreground")} />
+      </DockIcon>
+      <DockIcon onClick={handleAutoLayout}>
+        <NetworkIcon />
       </DockIcon>
       <Separator orientation="vertical" className="h-full" />
       {/* Lives with the canvas tools, not in navigation: it edits the flow in

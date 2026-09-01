@@ -26,6 +26,7 @@ import {
   type ComponentType,
 } from "@/components/flow/nodes/_base/_base.types";
 import { useNodeDiagnosticsStore } from "@/stores/node-diagnostics";
+import { applyAutoLayout } from "@/lib/auto-layout";
 import { resolveNodeData } from "@/lib/node-data";
 import { uid } from "@/lib/uid";
 
@@ -46,15 +47,6 @@ type ToolResult = { ok: true; detail: string } | { ok: false; error: string };
 
 const ok = (detail: string): ToolResult => ({ ok: true, detail });
 const fail = (error: string): ToolResult => ({ ok: false, error });
-
-/** Layout for a node the model did not place: to the right of everything, on the
- *  same row. The model should be reasoning about wiring, not coordinates. */
-function nextPosition(doc: FlowDocument): { x: number; y: number } {
-  const nodes = doc.getNodes();
-  if (nodes.length === 0) return { x: 0, y: 0 };
-  const rightmost = nodes.reduce((a, b) => (a.position.x >= b.position.x ? a : b));
-  return { x: rightmost.position.x + 260, y: rightmost.position.y };
-}
 
 /** Resolve a node id to its component type, or `undefined` if it is gone or
  *  carries a type the catalogue does not know. */
@@ -138,13 +130,27 @@ export type FlowToolsOptions = {
 export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
   const { mode, stage } = options;
 
-  /** Perform or stage one mutation, depending on the mode. */
-  const write = (summary: string, apply: () => void): ToolResult => {
+  /**
+   * Perform or stage one mutation, depending on the mode.
+   *
+   * `structural` mutations (anything that adds or removes a node or a wire)
+   * re-run the same auto-layout the dock button uses. The model has no sense of
+   * canvas geometry and should not be given one — it reasons about wiring, and
+   * the layout falls out of the graph it built. Config edits leave positions
+   * alone, so a flow the user arranged by hand is not snapped for a pin change.
+   */
+  const write = (summary: string, apply: () => void, structural = false): ToolResult => {
+    const run = structural
+      ? () => {
+          apply();
+          applyAutoLayout(doc);
+        }
+      : apply;
     if (mode === "confirm") {
-      stage({ id: uid(), summary, apply });
+      stage({ id: uid(), summary, apply: run });
       return ok(`staged for the user to approve: ${summary}`);
     }
-    apply();
+    run();
     return ok(summary);
   };
 
@@ -207,10 +213,11 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
     const node: FlowNode = {
       id: uid(),
       type: resolved,
-      position: nextPosition(doc),
+      // Placeholder: the structural write below lays the whole flow out.
+      position: { x: 0, y: 0 },
       data: validated.data,
     };
-    return write(`added ${resolved} (id ${node.id})`, () => doc.addNode(node));
+    return write(`added ${resolved} (id ${node.id})`, () => doc.addNode(node), true);
   });
 
   const updateNodeData = toolDefinition({
@@ -302,6 +309,7 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
     return write(
       `connected ${sourceType}.${sourceHandle} → ${targetType}.${targetHandle}`,
       () => doc.addEdge(edge),
+      true,
     );
   });
 
@@ -315,7 +323,7 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
     const nodeId = found.id;
     const type = doc.getNode(nodeId)?.type;
     if (!type) return fail(`no node '${nodeId}' in this flow`);
-    return write(`deleted ${type} ${nodeId}`, () => doc.deleteNode(nodeId));
+    return write(`deleted ${type} ${nodeId}`, () => doc.deleteNode(nodeId), true);
   });
 
   const deleteEdge = toolDefinition({
@@ -324,7 +332,7 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
     inputSchema: z.object({ edgeId: z.string() }),
   }).server(({ edgeId }) => {
     if (!doc.getEdge(edgeId)) return fail(`no edge '${edgeId}' in this flow`);
-    return write(`deleted edge ${edgeId}`, () => doc.removeEdge(edgeId));
+    return write(`deleted edge ${edgeId}`, () => doc.removeEdge(edgeId), true);
   });
 
   return [...readTools, addNode, updateNodeData, connect, deleteNode, deleteEdge];
