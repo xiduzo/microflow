@@ -111,3 +111,15 @@ describe("isBrowserReachableBroker", () => {
     expect(isBrowserReachableBroker("broker.example")).toBe(false);
   });
 });
+
+describe("isBrowserReachableBroker", () => {
+  it("rejects the half-typed URLs the config field produces per keystroke", () => {
+    // mqtt.connect throws "Missing protocol" on these, so every connect site
+    // must ask first.
+    for (const url of ["", " ", "w", "wss:/", "broker.example.com", "mqtt://host"]) {
+      expect(isBrowserReachableBroker(url)).toBe(false);
+    }
+    expect(isBrowserReachableBroker(" wss://broker.example.com:8883/mqtt ")).toBe(true);
+    expect(isBrowserReachableBroker("ws://localhost:9001")).toBe(true);
+  });
+});

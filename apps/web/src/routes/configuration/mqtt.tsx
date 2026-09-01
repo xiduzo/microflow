@@ -18,7 +18,7 @@ import { track } from "@/lib/analytics";
 import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { openTestClient, type TestClient } from "@/session/browser-mqtt-test-client";
-import { hostLimitation } from "@/components/flow/nodes/_base/browser-support";
+import { hostLimitation, isBrowserReachableBroker } from "@/components/flow/nodes/_base/browser-support";
 import {
   ConnectionConsole,
   ConsoleChip,
@@ -92,7 +92,10 @@ function useBrokerTransport(
   const url = broker?.url ?? "";
 
   useEffect(() => {
-    if (isDesktop() || !broker || url.trim() === "") return;
+    // A half-typed URL is the normal state of this field: it is edited live,
+    // and `mqtt.connect` throws "Missing protocol" on anything without a
+    // ws(s):// scheme — which would take the whole page down with it.
+    if (isDesktop() || !broker || !isBrowserReachableBroker(url)) return;
     const opened = openTestClient(
       broker,
       (topic, payload) => messageHandler.current(topic, payload),
