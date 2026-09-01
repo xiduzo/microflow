@@ -42,6 +42,7 @@
 pub use microflow_core::codegen;
 pub mod cli_llm;
 mod error;
+pub mod mcp;
 mod flasher;
 pub mod hardware;
 pub mod mqtt;
@@ -226,6 +227,13 @@ pub fn run() {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .start_monitoring(app.handle().clone(), board_link, observer);
 
+            // Publish the flow tools to agent CLIs over MCP. A failure here
+            // costs Ask AI its CLI providers and nothing else, so it is logged
+            // rather than propagated — the app still runs a board.
+            if let Err(error) = mcp::listen(app.handle().clone()) {
+                log::warn!("[mcp] not listening: {error}");
+            }
+
             // Hotkeys: the webview emits "key_event" { key, pressed }; Rust owns
             // hotkey→component routing. Forward both key-down and key-up to the
             // actor, which dispatches to the registered Hotkey components.
@@ -252,6 +260,7 @@ pub fn run() {
             Ok(())
         })
         .manage(app_state)
+        .manage(mcp::McpState::default())
         .invoke_handler(tauri::generate_handler![
             hardware::get_available_serial_ports,
             flasher::commands::flash_firmware,
@@ -276,6 +285,9 @@ pub fn run() {
             cli_llm::llm_cli_probe,
             cli_llm::llm_cli_generate,
             cli_llm::llm_cli_models,
+            mcp::session::mcp_session_start,
+            mcp::session::mcp_session_end,
+            mcp::session::mcp_tool_result,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

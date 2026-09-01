@@ -7,24 +7,42 @@
 // `llm_cli_generate` and reports its stdout as one assistant message.
 //
 // TanStack AI has no adapter for this (its own docs point at "a future
-// `claudeCode()`" harness adapter), and cannot: running a process is a host
+// `claudeCode()` harness adapter"), and cannot: running a process is a host
 // capability, and the only host we have with one is the desktop app.
 //
-// ## What a CLI provider cannot do
+// ## Tools
 //
-// **Tools.** These CLIs have their own tools and no wire format for ours, so
-// nothing here ever yields `TOOL_CALL_*`. Ask AI's loop therefore gets prose
-// where it wanted `add_node`, and its writes never fire — which is why the Ask
-// AI panel steers away from CLI providers rather than silently under-delivering.
-// The `Llm` node and the config console, which only want text, are unaffected.
+// `chat()` hands every adapter the turn's `tools` and expects it to put them on
+// the wire and read tool calls back off it. A CLI has no such wire — it has its
+// own agent loop, and its own tool protocol, which is MCP. So the tools are not
+// serialised into the prompt here; they are *published* on the desktop app's
+// MCP server for the length of this call, and the CLI is spawned pointed at
+// them (`mcp-bridge.ts`, `src-tauri/src/mcp/`). The CLI then runs its own loop
+// against the same `createFlowTools` tool objects the HTTP path calls directly.
 //
-// **Streaming.** One invoke, one string (see `llm_cli_generate`). The stream
-// below is a stream of one, so `onDelta` fires once with the whole answer.
+// Which means `chatStream` yields `TOOL_CALL_*` for work it did not itself
+// perform: the events come from the bridge as the calls arrive, so the panel
+// shows tools running while the process is still going. It is a report, not a
+// request — nothing here waits on a tool result, because the CLI already did.
+//
+// A CLI with no `mcpArgs` gets no session at all and answers in prose, which is
+// what `hostLimitation` warns about before the user picks one for Ask AI.
+//
+// ## Streaming
+//
+// One invoke, one string (see `llm_cli_generate`). The text arrives whole at
+// the end; the tool events above are the only thing that streams.
 
 import { EventType } from "@tanstack/ai";
-import type { AnyTextAdapter } from "@tanstack/ai";
+import type { AnyTextAdapter, AnyTool } from "@tanstack/ai";
 
 import { cliProvider, takesSystemFlag, type CliProvider } from "./cli-providers";
+import { withFlowToolServer, type RelayCommand } from "./mcp-bridge";
+
+/** The MCP server name Rust registers under. Mirrors `mcp::SERVER_NAME`; the
+ *  CLIs' own permission flags are written as `mcp__<server>__<tool>`, so this
+ *  is wire contract, not a label. */
+const SERVER_NAME = "microflow";
 
 /** Flatten a TanStack message list to the single prompt a print-mode CLI takes.
  *
@@ -67,6 +85,13 @@ function clean(cli: CliProvider, stdout: string): string {
   return (cli.stripBanner ? cli.stripBanner(plain) : plain).trim();
 }
 
+type RunOptions = {
+  messages: ReadonlyArray<{ role: string; content: unknown }>;
+  systemPrompts?: ReadonlyArray<string | { content?: string }>;
+  tools?: ReadonlyArray<AnyTool>;
+  abortSignal?: AbortSignal;
+};
+
 class CliTextAdapter {
   readonly kind = "text" as const;
   readonly name: string;
@@ -78,10 +103,12 @@ class CliTextAdapter {
     this.name = cli.id;
   }
 
-  private async run(options: {
-    messages: ReadonlyArray<{ role: string; content: unknown }>;
-    systemPrompts?: ReadonlyArray<string | { content?: string }>;
-  }): Promise<string> {
+  /** Run the binary once. `mcp` is the server the CLI should call our flow
+   *  tools on, when there is one to give it. */
+  private async run(
+    options: RunOptions,
+    mcp?: { relay: RelayCommand; tools: string[] },
+  ): Promise<string> {
     const system =
       (options.systemPrompts ?? [])
         .map((entry) => (typeof entry === "string" ? entry : (entry.content ?? "")))
@@ -107,6 +134,9 @@ class CliTextAdapter {
       // empty stdin; every other one gets it on stdin and no prompt in argv.
       args: [
         ...this.cli.args(this.model, inline ? null : system),
+        ...(mcp
+          ? (this.cli.mcpArgs?.({ relay: mcp.relay, server: SERVER_NAME, tools: mcp.tools }) ?? [])
+          : []),
         ...(this.cli.promptAsArg ? [prompt] : []),
       ],
       prompt: this.cli.promptAsArg ? "" : prompt,
@@ -117,63 +147,120 @@ class CliTextAdapter {
     return clean(this.cli, stdout);
   }
 
-  async *chatStream(options: unknown): AsyncIterable<unknown> {
-    const chatOptions = options as unknown as {
-      messages: ReadonlyArray<{ role: string; content: unknown }>;
-      systemPrompts?: ReadonlyArray<string | { content?: string }>;
-      runId?: string;
-      threadId?: string;
+  /**
+   * Run the CLI, publishing this turn's flow tools to it if it can take them.
+   *
+   * Returns the answer plus a live queue of the tool names it called, which
+   * `chatStream` drains into `TOOL_CALL_*` events while the process runs.
+   */
+  private start(options: RunOptions): { answer: Promise<string>; calls: string[]; done: Promise<void>; wake: () => Promise<void> } {
+    const calls: string[] = [];
+    let notify: (() => void) | undefined;
+    const bump = () => {
+      const resolve = notify;
+      notify = undefined;
+      resolve?.();
     };
+
+    const tools = options.tools ?? [];
+    const names = tools.map((tool) => tool.name);
+    // No `mcpArgs` (or no tools this turn) means no session: publishing tools a
+    // CLI was never told how to reach would open the door for the length of the
+    // run and get nothing for it.
+    const answer =
+      this.cli.mcpArgs && names.length > 0
+        ? withFlowToolServer(
+            {
+              tools,
+              signal: options.abortSignal,
+              onCall: (name) => {
+                calls.push(name);
+                bump();
+              },
+            },
+            (relay) =>
+              this.run(options, relay ? { relay, tools: names } : undefined),
+          )
+        : this.run(options);
+
+    // `done` never rejects: the failure is `answer`'s to report, and an
+    // unhandled rejection here would surface as a console error instead.
+    const done = answer.then(
+      () => bump(),
+      () => bump(),
+    );
+    return { answer, calls, done, wake: () => new Promise<void>((resolve) => { notify = resolve; }) };
+  }
+
+  async *chatStream(options: unknown): AsyncIterable<unknown> {
+    const chatOptions = options as RunOptions & { runId?: string; threadId?: string };
     const runId = chatOptions.runId ?? `run-${Date.now()}`;
     const threadId = chatOptions.threadId ?? `thread-${Date.now()}`;
     const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const at = () => Date.now();
 
-    const emit = (chunk: Record<string, unknown>) => chunk;
+    yield { type: EventType.RUN_STARTED, runId, threadId, model: this.model, timestamp: at() };
+
+    const { answer, calls, done, wake } = this.start(chatOptions);
+    let finished = false;
+    void done.then(() => {
+      finished = true;
+    });
 
     try {
-      const text = await this.run(chatOptions);
+      // Report tool calls as the bridge sees them, so the panel shows the CLI
+      // working rather than a spinner for however long its loop takes.
+      let index = 0;
+      for (;;) {
+        while (index < calls.length) {
+          const toolCallName = calls[index];
+          const toolCallId = `${messageId}-tool-${index}`;
+          index += 1;
+          yield { type: EventType.TOOL_CALL_START, toolCallId, toolCallName, toolName: toolCallName, timestamp: at() };
+          // The CLI already ran it and already has the result; the pair exists
+          // so a stream reader sees a complete call, not a dangling start.
+          yield { type: EventType.TOOL_CALL_END, toolCallId, timestamp: at() };
+        }
+        if (finished) break;
+        await Promise.race([wake(), done]);
+      }
 
-      yield emit({ type: EventType.RUN_STARTED, runId, threadId, model: this.model, timestamp: at() });
-      yield emit({
+      const text = await answer;
+
+      yield {
         type: EventType.TEXT_MESSAGE_START,
         messageId,
         model: this.model,
         timestamp: at(),
         role: "assistant",
-      });
-      yield emit({
+      };
+      yield {
         type: EventType.TEXT_MESSAGE_CONTENT,
         messageId,
         model: this.model,
         timestamp: at(),
         delta: text,
         content: text,
-      });
-      yield emit({
-        type: EventType.TEXT_MESSAGE_END,
-        messageId,
-        model: this.model,
-        timestamp: at(),
-      });
-      yield emit({
+      };
+      yield { type: EventType.TEXT_MESSAGE_END, messageId, model: this.model, timestamp: at() };
+      yield {
         type: EventType.RUN_FINISHED,
         runId,
         threadId,
         model: this.model,
         timestamp: at(),
         finishReason: "stop",
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      yield emit({
+      yield {
         type: EventType.RUN_ERROR,
         model: this.model,
         timestamp: at(),
         message,
         code: "cli_error",
         error: { message, code: "cli_error" },
-      });
+      };
     }
   }
 
@@ -183,13 +270,13 @@ class CliTextAdapter {
     // asks a provider for structured output today — this exists so the adapter
     // satisfies the interface rather than throwing halfway through a run.
     const { chatOptions, outputSchema } = options as unknown as {
-      chatOptions: Parameters<CliTextAdapter["run"]>[0] & {
-        systemPrompts?: ReadonlyArray<string | { content?: string }>;
-      };
+      chatOptions: RunOptions;
       outputSchema: unknown;
     };
     const rawText = await this.run({
       ...chatOptions,
+      // Tools are for `chatStream`; a structured answer wants no side effects.
+      tools: undefined,
       systemPrompts: [
         ...(chatOptions.systemPrompts ?? []),
         `Reply with JSON matching this schema and nothing else: ${JSON.stringify(outputSchema)}`,

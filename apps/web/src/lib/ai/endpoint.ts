@@ -25,6 +25,11 @@ let cachedFetch: typeof fetch | undefined;
  * plugin has no origin and no preflight, so one implementation serves both
  * hosts without either giving anything up.
  *
+ * The plugin only calls URLs inside the `http:default` scope in
+ * `capabilities/default.json`. That scope needs an explicit `*` port
+ * (`http://*:*`) — `http://*` matches port 80 only, which silently blocks every
+ * localhost Ollama / LM Studio.
+ *
  * Resolved lazily and cached: importing the Tauri plugin eagerly would pull it
  * into the web bundle for a code path the browser never takes.
  */

@@ -15,6 +15,8 @@
 // means adding it in both places, deliberately: the Rust side is what decides
 // which binaries this app may ever execute, and it will not take our word for it.
 
+import type { RelayCommand } from "./mcp-bridge";
+
 /** How to ask one CLI for a single non-interactive answer. */
 export type CliProvider = {
   /** Stored as a provider's `baseUrl`. Also the binary name. */
@@ -36,6 +38,22 @@ export type CliProvider = {
   /** How to ask this CLI which models it can reach, and how to read the reply.
    *  Omitted when it has no listing at all — `KNOWN_MODELS` covers those. */
   listModels?: { args: string[]; parse: (output: string) => string[] };
+  /**
+   * Arguments that point this CLI at Microflow's MCP server for one run, so it
+   * can actually edit the flow instead of describing an edit (`mcp-bridge.ts`).
+   *
+   * **Omitted means "cannot".** Only a CLI that takes an MCP server *per run*
+   * belongs here: a CLI configured through a config file in the user's home
+   * would have the flow tools in every session it ever runs, including the ones
+   * that have nothing to do with Microflow, and a session-scoped grant is the
+   * whole security model. `hostLimitation` reads the absence and says so.
+   *
+   * Two things every entry must do, because the CLI is being pointed at a live
+   * document: give it *only* our tools (no file, shell or network tools — the
+   * user asked to edit a flow, not to be agented at), and make sure it will not
+   * stop to ask a permission question no one is there to answer.
+   */
+  mcpArgs?: (mcp: { relay: RelayCommand; server: string; tools: string[] }) => string[];
 };
 
 export const CLI_PROVIDERS: CliProvider[] = [
@@ -53,6 +71,27 @@ export const CLI_PROVIDERS: CliProvider[] = [
       // Appends rather than replaces: Claude Code's own prompt is what makes it
       // competent, and there is no flag to drop it.
       ...(system ? ["--append-system-prompt", system] : []),
+    ],
+    // `--restricted` and `--tools ""` are the important half, not the MCP
+    // config: without them this is Claude Code with its whole toolbox pointed
+    // at the user's machine, and "add an LED node" is one bad inference away
+    // from a shell command. Together they leave it exactly our tools and
+    // nothing else — no Bash, no Edit, no user/project settings, and (with
+    // `--strict-mcp-config`) none of the MCP servers the user configured for
+    // their own work.
+    //
+    // `--allowedTools` is comma-joined into a single argument on purpose: the
+    // flag is variadic, and a space-separated list would swallow the flag that
+    // follows it.
+    mcpArgs: ({ relay, server, tools }) => [
+      "--mcp-config",
+      JSON.stringify({ mcpServers: { [server]: { command: relay.bin, args: relay.args } } }),
+      "--strict-mcp-config",
+      "--restricted",
+      "--tools",
+      "",
+      "--allowedTools",
+      tools.map((tool) => `mcp__${server}__${tool}`).join(","),
     ],
   },
   {
@@ -158,10 +197,7 @@ export const CLI_PROVIDERS: CliProvider[] = [
  * The one predicate for it, because the answer changes several unrelated
  * things: the config page hides endpoint and key fields, the probe looks for a
  * binary instead of a URL, and — the one that would otherwise fail silently —
- * `hostLimitation` (`browser-support.ts`) rules it out of Ask AI. These CLIs
- * run their own tools and have no wire format for ours, so an Ask AI turn
- * against one comes back as prose where the panel expected `add_node`, and
- * every write the user asked for is quietly dropped.
+ * `hostLimitation` (`browser-support.ts`) decides what it may be used for.
  */
 export function isCliProvider(provider: { kind?: string }): boolean {
   return provider.kind === "cli";
@@ -170,6 +206,17 @@ export function isCliProvider(provider: { kind?: string }): boolean {
 /** The CLI a provider config points at, if it is a CLI provider at all. */
 export function cliProvider(id: string): CliProvider | undefined {
   return CLI_PROVIDERS.find((entry) => entry.id === id);
+}
+
+/**
+ * Whether this CLI can be handed Microflow's flow tools for a single run.
+ *
+ * The question `hostLimitation` asks before letting a CLI provider into Ask AI:
+ * one that cannot take an MCP server per invocation would answer in prose and
+ * change nothing, which is worse than saying so up front.
+ */
+export function takesFlowTools(cli: CliProvider): boolean {
+  return cli.mcpArgs !== undefined;
 }
 
 /** Whether this CLI can be told a system prompt out of band. When it cannot,

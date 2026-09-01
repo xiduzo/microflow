@@ -42,8 +42,8 @@ export function useAskAi(doc: FlowDocument, writeMode: WriteMode, providerId: st
   // A configuration that was picked and then deleted falls back rather than
   // failing: the panel would otherwise stay dead until the user noticed why.
   //
-  // Local CLI providers are excluded here and from the picker: they cannot call
-  // our flow tools (see `hostLimitation`), so an Ask AI turn against one answers
+  // A CLI provider that cannot be handed the flow tools for one run is excluded
+  // here and from the picker (see `hostLimitation`): a turn against one answers
   // in prose and silently changes nothing. Better no provider — which the panel
   // says out loud — than one that looks like it worked.
   const provider = useLlmProviderStore((s) => {

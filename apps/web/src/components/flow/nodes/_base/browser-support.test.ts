@@ -88,13 +88,25 @@ describe("hostLimitation: provider", () => {
     }
   });
 
-  it("on desktop only Ask AI objects: these CLIs cannot call flow tools", () => {
+  it("on desktop lets a CLI that takes an MCP server per run into Ask AI", () => {
+    // Claude Code can be handed this turn's flow tools and nothing else
+    // (`mcpArgs`), so there is no gap left to report on any surface.
     isDesktop.mockReturnValue(true);
-    expect(on(cli, "config")).toBeUndefined();
-    expect(on(cli, "node")).toBeUndefined();
-    const limitation = on(cli, "ask-ai");
+    for (const surface of ["config", "node", "ask-ai"] as const) {
+      expect(on(cli, surface)).toBeUndefined();
+    }
+  });
+
+  it("on desktop still keeps a CLI without one out of Ask AI", () => {
+    // opencode's MCP servers come from its own config file, so pointing it at
+    // ours would outlive the turn — the grant this feature will not make.
+    isDesktop.mockReturnValue(true);
+    const opencode = { kind: "cli", baseUrl: "opencode" };
+    expect(on(opencode, "config")).toBeUndefined();
+    expect(on(opencode, "node")).toBeUndefined();
+    const limitation = on(opencode, "ask-ai");
     expect(limitation?.label).toBe("no flow tools");
-    expect(limitation?.reason).toContain("cannot call Microflow's");
+    expect(limitation?.reason).toContain("for a single run");
   });
 
   it("never limits an HTTP provider — its failures are reachability", () => {

@@ -457,6 +457,9 @@ function browserHint(baseUrl: string): string {
 }
 
 function browserBlocker(baseUrl: string): string {
+  // The desktop app fetches through Tauri's HTTP plugin, so CORS never applies
+  // — saying it does sent users chasing an origin that was never the problem.
+  if (isDesktop()) return `${baseUrl} did not answer — check that it is running and the URL is right.`;
   return `${baseUrl} is not reachable from this page — check that it allows CORS from ${window.location.origin}${
     mixedContent(baseUrl) ? ", and note that an http:// endpoint is blocked on an https page" : ""
   }.`;

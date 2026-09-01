@@ -31,11 +31,12 @@ import { cn } from "@/lib/utils";
 export function AskAiPanel() {
   const { doc, readOnly } = useFlowSession();
   const { setOpen, writeMode, setWriteMode, providerId, setProviderId } = useAskAiStore();
-  // CLI providers cannot drive the flow tools this panel exists for, so they
-  // cannot be *chosen* here — but they are still listed, disabled and badged,
-  // rather than hidden: a provider that silently vanishes from one surface
-  // reads as a bug, where a greyed row with a tooltip explains itself.
-  // `useAskAi` does the same exclusion when resolving the active one.
+  // A CLI provider that cannot be handed the flow tools for one run cannot
+  // drive what this panel exists for, so it cannot be *chosen* here — but it is
+  // still listed, disabled and badged, rather than hidden: a provider that
+  // silently vanishes from one surface reads as a bug, where a greyed row with
+  // a tooltip explains itself. `useAskAi` does the same exclusion when
+  // resolving the active one.
   const providers = useLlmProviderStore((s) => s.providers);
   // A flow you cannot edit is a flow the assistant cannot edit either — the
   // document would reject the write anyway, so the tools should not be offered.

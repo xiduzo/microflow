@@ -12,9 +12,9 @@
 // - a broker *URL* (Mqtt/Figma): a browser can only speak MQTT over a
 //   WebSocket, so a `mqtt://` broker works on desktop and never connects here;
 // - an LLM *provider* on a given surface: a local CLI is a subprocess no
-//   browser tab can start, and even on desktop it runs its own tools and has no
-//   wire format for Ask AI's flow tools — a turn against one answers in prose
-//   and silently changes nothing in the flow.
+//   browser tab can start, and on desktop it can drive Ask AI only if it takes
+//   an MCP server per run — that is how the flow tools reach it (`mcp-bridge.ts`).
+//   A CLI that cannot answers in prose and silently changes nothing.
 //
 // Callers render the answer; none of them keeps a predicate or a sentence.
 // `isDesktop()` is read here rather than passed in so every caller — the node,
@@ -24,7 +24,7 @@
 import { isDesktop } from "@/lib/platform";
 import { REQUIRES_HARDWARE, isComponentType } from "./_base.types";
 import { isWebSerialSupported } from "@/lib/firmata/web-serial";
-import { isCliProvider } from "@/lib/ai/cli-providers";
+import { cliProvider, isCliProvider, takesFlowTools } from "@/lib/ai/cli-providers";
 
 /** A short badge label and the sentence behind it. */
 export type HostLimitation = { label: string; reason: string };
@@ -103,14 +103,17 @@ export function hostLimitation(subject: HostSubject): HostLimitation | undefined
         };
       }
 
-      // On desktop the only remaining gap is Ask AI's: these CLIs run their
-      // own tools and have no wire format for ours, so the assistant would
-      // answer in prose and change nothing in the flow.
-      if (subject.surface === "ask-ai") {
+      // On desktop the remaining gap is Ask AI's, and it is now per CLI: the
+      // flow tools are published over MCP for the length of one turn, which
+      // only a CLI that takes an MCP server per invocation can be pointed at.
+      // One configured through a file in the user's home cannot — a grant that
+      // outlives the turn is not a grant this feature is willing to make.
+      const cli = subject.provider.baseUrl ? cliProvider(subject.provider.baseUrl) : undefined;
+      if (subject.surface === "ask-ai" && !(cli && takesFlowTools(cli))) {
         return {
           label: "no flow tools",
           reason:
-            "This CLI brings its own tools and cannot call Microflow's, so Ask AI could describe a change but never make one. Use it from an Llm node or the LLM console instead.",
+            "This CLI cannot be handed Microflow's tools for a single run, so Ask AI could describe a change but never make one. Use it from an Llm node or the LLM console instead.",
         };
       }
 
