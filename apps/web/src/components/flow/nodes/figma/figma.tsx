@@ -20,8 +20,7 @@ import {
 import { RgbaColorPicker } from "react-colorful";
 import { useNodeValue } from "@/stores/node-data";
 import { type RGBA } from "../_base/_base.schema";
-import { isBrowserReachableBroker } from "../_base/browser-support";
-import { isDesktop } from "@/lib/platform";
+import { hostLimitation } from "../_base/browser-support";
 
 export function Figma(props: Props) {
   const pluginConnected = useFigmaPluginConnected();
@@ -31,9 +30,7 @@ export function Figma(props: Props) {
   // Figma talks to the plugin over MQTT, so it inherits the browser's
   // WebSocket-only constraint (see `browser-support.ts`).
   const unreachableBroker =
-    broker && !isDesktop() && !isBrowserReachableBroker(broker.url)
-      ? `${broker.name} is not reachable from a browser — use a ws:// or wss:// broker, or the desktop app.`
-      : undefined;
+    broker && hostLimitation({ kind: "broker", name: broker.name, url: broker.url })?.reason;
 
   const error = !brokers.length
     ? "No MQTT brokers configured"

@@ -41,9 +41,10 @@ All of this lives in `apps/web/src/session/` (ADR-0003) and
   Y.Doc: `Y.Map("meta" | "nodes" | "edges")`, built-in `UndoManager`,
   `onAnyChange` fires for local *and* remote updates.
 - **`SyncAdapter`** (`session/sync-adapter.ts`, ADR-0003) — the persistence
-  seam. Adapters: `LocalStorageSyncAdapter` (local flows),
-  `WebSocketSyncAdapter` → `SyncProvider` → `YjsServer` → Postgres (cloud
-  flows), `RecordingSyncAdapter` (tests). Sessions are refcounted in the
+  seam. Adapters: `IndexeddbSyncAdapter` (local flows, `y-indexeddb`,
+  ADR-0020), `SyncProvider` → `YjsServer` → Postgres (cloud flows — the
+  provider satisfies `RemoteSyncAdapter` directly, ADR-0023), and
+  `RecordingSyncAdapter` (tests). Sessions are refcounted in the
   `SessionRegistry` and delivered via React context.
 - **`YjsServer`** (`packages/collab/src/yjs-server.ts`) — one room per
   flowId, broadcast to peers, debounced persistence with ACK.

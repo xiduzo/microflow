@@ -137,7 +137,7 @@ The one-shot `setPins` at `FlowReactor.attach` ([ADR-0018](docs/adr/0018-two-fir
 
 ## RuntimeBridge
 
-The browser's one crossing into the wasm flow runtime, and the only holder of a `FlowRuntime` handle. Lives in `apps/web/src/lib/firmata/runtime-bridge.ts` ([ADR-0017](docs/adr/0017-wasm-fault-seam.md)). Every runtime entry point returns `Result<String, JsError>` — a *throw* on the JS side — so `bridge.call(op, node, fn)` wraps each one, returns the reply or `undefined`, and **never throws**. Faults are classified into three kinds and routed to a surface that already exists: `badInput` (Rust returned `Err`; the module is intact and only this turn is lost) → the node's diagnostic badge when the op names a node; `engineBroken` (a wasm trap) → the board error state, reactor disposed; `disposed` → the console, once.
+The browser's one crossing into the wasm flow runtime, and the only holder of a `FlowRuntime` handle. Lives in `apps/web/src/lib/firmata/runtime-bridge.ts` ([ADR-0017](docs/adr/0017-wasm-fault-seam.md)). The surface is one **typed entry point** per runtime op the host uses — `setPins`, `updateFlow`, `wake`, `feedBytes`, `dispatch`, `injectEvent`, `deliverMessage`, `reconcileSubscriptions`, `midiListeners` — each owning its op's whole call codec: the JSON encode of arguments and the decode of replies into the ts-rs binding types ([`Effects`](#effects), `DesiredSub[]`, `MidiListener[]`), so no caller touches a JSON string or casts a result. `call(op, node, fn)` is the **private** core they all route through: every wasm entry point returns `Result<String, JsError>` — a *throw* on the JS side — so `call` wraps each one, returns the reply or `undefined`, and **never throws**. Faults are classified into three kinds and routed to a surface that already exists: `badInput` (Rust returned `Err` — or the host could not decode the reply; the module is intact and only this turn is lost) → the node's diagnostic badge when the op names a node; `engineBroken` (a wasm trap) → the board error state, reactor disposed; `disposed` → the console, once.
 
 A trap does not destroy the wasm instance — the module stays mechanically callable — but it destroys the runtime's *invariants*, since the panic aborted mid-mutation and no destructor ran. So the bridge latches closed **by policy** on `engineBroken`, before the fault is routed, and a deterministic fault faults once rather than per chunk. This is what keeps an engine fault out of the transport layer: the Web Serial read loop can no longer mistake a decode defect for an unplugged board (`onClosed` means the reader ended, and nothing else), and a timer callback — which has no caller to catch it — cannot become an uncaught exception. The runtime surface is declared *structurally* (`FlowRuntimeCalls`), so the bridge needs no value import of the wasm glue and its tests drive a double with no wasm, no port, and no React.
 
@@ -201,8 +201,7 @@ Three shapes matter:
 > `microflow-core`. It does not exist in the current code; the description below
 > is the actual state.
 
-The **Capability Trait**s and **Service Registry**s (`LlmRegistry`,
-`MqttPublisher`, `LlmProvider`, …) live in the **desktop** crate
+The **Capability Trait**s (`MqttPublisher`, …) live in the **desktop** crate
 (`apps/web/src-tauri/src/runtime/services/`), not in core — core stays
 dependency-light. They are **not** threaded through a `RuntimeServices` bundle or
 a `Deps` associated type. Core's `ComponentBuilder` is `{ type Config; fn
@@ -210,8 +209,11 @@ build(id, config) }` (`runtime/component.rs:226`) — no services. As of
 [ADR-0009](docs/adr/0009-cloud-sans-io-capability.md) the cloud nodes no longer
 capture services either: they are sans-IO and emit [`CloudRequest`](#cloudrequest)s
 the host performs (see **Cloud Node Registration** below). The live
-`MqttPublisher` / `LlmRegistry` now live on the desktop host's **CloudPerformer**
-(behind the [`EffectsSink`](#effectssink) `perform_cloud` hook), not on the nodes.
+`MqttPublisher` now lives on the desktop host's **CloudPerformer**
+(behind the [`EffectsSink`](#effectssink) `perform_cloud` hook), not on the nodes;
+LLM I/O left this layer entirely — the webview performs it for both hosts
+([ADR-0021](docs/adr/0021-one-llm-transport-in-the-webview.md), see
+[LLM Provider](#llm-provider)).
 
 ## CloudRequest
 
@@ -226,11 +228,14 @@ the host's [`EffectsSink`](#effectssink) `perform_cloud` hook performs it, and a
 result re-enters via `FlowRuntime::inject_event` keyed on `source`. The node thus
 holds no Tokio/`reqwest`/`rumqttc` and is unit-tested by asserting the recorded
 request (`cloud::test_support::recorded_cloud_requests`). Decided in
-[ADR-0009](docs/adr/0009-cloud-sans-io-capability.md); on the desktop the I/O is
-performed by the **CloudPerformer** (a deep module on the actor holding the live
-services + the latest-wins LLM task table). Phase 3 added the browser performer:
-`FlowReactor.performCloud` does `LlmGenerate` directly via `fetch` (mirroring the
-desktop `HttpLlmProvider`, with latest-wins `AbortController` cancellation) and
+[ADR-0009](docs/adr/0009-cloud-sans-io-capability.md); on the desktop the broker
+I/O is performed by the **CloudPerformer** (a deep module on the actor holding
+the live `MqttPublisher`), while `LlmGenerate` is forwarded to the webview,
+which runs the one shared LLM transport
+([ADR-0021](docs/adr/0021-one-llm-transport-in-the-webview.md)). In the browser
+the [Browser CloudPerformer](#browser-cloudperformer) does `LlmGenerate` through
+the same transport (`lib/firmata/cloud/llm-client.ts`, with latest-wins
+`AbortController` cancellation) and
 re-enters the result through the wasm `injectEvent` binding. `MqttPublish`
 (MQTT + Figma) publishes over WSS via `mqtt.js`; inbound subscribe routing comes
 back through the wasm `deliverMessage` binding. The desired subscription set is
@@ -286,31 +291,19 @@ per-broker connection manager in `lib/firmata/cloud/`).
 
 ## Capability Trait
 
-A Rust trait describing one external kind's outbound operations (e.g. [`LlmProvider`](#llm-provider)`::generate`, `MqttPublisher::publish`). Lives in `runtime/services/<kind>.rs`. Components depend on `Arc<dyn CapabilityTrait>` (or on the **Service Registry** that maps id → `Arc<dyn CapabilityTrait>`), never on the concrete HTTP client / broker library.
+A Rust trait describing one external kind's outbound operations (e.g. `MqttPublisher::publish`). Lives in `runtime/services/<kind>.rs`. Consumers depend on `Arc<dyn CapabilityTrait>`, never on the concrete HTTP client / broker library.
 
-Each Capability Trait ships with two adapters from day one — a production impl (e.g. `HttpLlmProvider`) and a recording test impl (e.g. `RecordingLlmProvider`) — which is what makes the trait a real seam rather than a hypothetical one (same rule as **BoardHandle** + **TestIoLoop**).
+Each Capability Trait ships with two adapters from day one — a production impl (e.g. the `MqttManager` impl of `MqttPublisher`) and a recording test impl (e.g. `RecordingMqttPublisher`) — which is what makes the trait a real seam rather than a hypothetical one (same rule as [RemoteSyncAdapter](#remotesyncadapter) + `RecordingSyncAdapter`).
 
 See [ADR-0002](docs/adr/0002-per-capability-service-traits.md).
 
-## Service Registry
-
-Live, mutable map of `id → Arc<dyn CapabilityTrait>` for one capability kind (e.g. `LlmRegistry`, future `MqttRegistry`). Lives in `runtime/services/<kind>.rs`. The frontend's authoritative list is pushed in full via `sync(providers: Vec<(id, Arc<dyn ..>)>)`; existing in-flight calls against the previous instance run to completion, subsequent lookups see the new entry.
-
-Components hold `Arc<Registry>` and resolve the **Capability Trait** by id at dispatch time, not at construction time. Consequence: credential / endpoint rotation takes effect on the next call, no component rebuild, no flow_update re-fire.
-
-Replaces the parallel `LlmManager` + `RuntimeContext.providers` dual-state pattern.
-
 ## LLM Provider
 
-The **Capability Trait** for any backend that can run an LLM completion against an OpenAI-compatible `/v1/chat/completions` request shape. Lives in `runtime/services/llm.rs`. Carries one method:
+A stored connection to any backend that can run an LLM completion — since [ADR-0021](docs/adr/0021-one-llm-transport-in-the-webview.md) a **webview** concept in both hosts, not a Rust capability. A provider config's connection half is `LlmProviderConn` — `{ kind?: "http" | "cli", baseUrl, apiKey }` — and `adapterFor(provider, model)` in `apps/web/src/lib/ai/adapter.ts` is the one place a config becomes a TanStack AI adapter, resolved by both AI surfaces: the `Llm` flow node's transport (`lib/firmata/cloud/llm-client.ts`, driven by the [Browser CloudPerformer](#browser-cloudperformer)) and Ask AI (the [Turn Runner](#turn-runner)). `"http"` speaks the OpenAI chat-completions wire shape (OpenAI, OpenRouter, LM Studio, llama.cpp, vLLM and Ollama all serve it) through `hostFetch()` (`lib/ai/endpoint.ts`) — the page's `fetch` in a browser, the Tauri HTTP plugin's in the desktop webview, which is the entire CORS story. `"cli"` runs a local agent CLI as a subprocess (`lib/ai/cli-adapter.ts` / `cli-providers.ts`) — desktop only, and excluded from Ask AI even there; both exclusions are answered by [Host Limitation](#host-limitation). The desktop actor performs no LLM I/O: `Actor::perform_cloud` forwards an `LlmGenerate` [`CloudRequest`](#cloudrequest) to the webview as an `llm-request` event, and the result re-enters through the `llm_result` command onto `ActorMsg::Inject`.
 
-```rust
-async fn generate(&self, request: LlmRequest) -> Result<LlmResponse, LlmError>;
-```
+## Turn Runner
 
-`LlmRequest` is `{ model, system: Option<String>, prompt }` — template substitution is the caller's job, the provider sees the rendered text. `LlmResponse` is `{ text }` for now; token counts / finish reasons accrete only when a consumer needs them.
-
-Production adapter: `HttpLlmProvider` (one `reqwest::Client` per instance for connection-pool reuse; empty `api_key` skips the `Authorization` header so local Ollama works). Test adapter: `RecordingLlmProvider` (records every request, returns scripted responses or errors from a FIFO queue, returns `LlmError::Cancelled` when the script is exhausted).
+One Ask AI turn as a plain async generator — `runTurn(options)` in `apps/web/src/lib/ai/turn-runner.ts`. Owns everything between "the user hit send" and "the reply is final": filtering the transcript's own error notices out of the history sent to the model (they are UI, not something the model said), driving `@tanstack/ai`'s `chat()` against the flow tools, mapping the stream to `TurnUpdate` patches (text so far, tools run so far, or the failure that ended it), the no-provider notice, and `MAX_ITERATIONS` (12 model↔tool round trips — enough for "add a button that toggles an LED" plus a correction, without letting a confused small model loop forever). It never throws: every failure becomes an `error: true` update, and an abort ends the turn silently with the partial text. Returns what `confirm` mode staged, as `PendingChange[]`; `mergePending` appends in staging order (entries are uid-keyed apply-thunks, and `applyChanges` runs the whole set in one transaction, so a later change to the same node wins by ordering — one undo step). The [LLM Provider](#llm-provider) adapter is taken as a **lazy resolver** at the `adapterFor` seam ([ADR-0021](docs/adr/0021-one-llm-transport-in-the-webview.md)) — a resolution failure is this turn's error like any other, not a new seam. No React inside: `use-ask-ai.ts` is state plumbing over it, and the whole loop is testable against a fake adapter (`kind`/`name`/`model`/`chatStream`/`structuredOutput` suffice).
 
 ## MQTT Publisher
 
@@ -324,7 +317,7 @@ async fn publish(&self, broker_id: &str, topic: &str, payload: &[u8], retain: bo
 
 Production adapter: `crate::mqtt::manager::MqttManager` (via `impl MqttPublisher for MqttManager` in `runtime/services/mqtt.rs`) — delegates to the existing broker pool, translating the legacy `String` error into the typed variant. Test adapter: `RecordingMqttPublisher` (records every `(broker_id, topic, payload, retain)` tuple and pops scripted errors from a FIFO queue).
 
-`Mqtt` and `Figma` components hold `Arc<dyn MqttPublisher>` and call `publish(...)` directly from their `dispatch` arms via a Tokio-spawned task. Replaces the legacy `_mqtt_publish` reserved-event pattern (component emits a JSON-encoded publish request, `lib.rs` parses it and re-routes through a dedicated handler thread) — that path was retired in [ADR-0002](docs/adr/0002-per-capability-service-traits.md) Phase 3.
+The desktop **CloudPerformer** holds the `Arc<dyn MqttPublisher>` and performs the `MqttPublish` [`CloudRequest`](#cloudrequest)s the sans-IO `Mqtt`/`Figma` nodes record ([ADR-0009](docs/adr/0009-cloud-sans-io-capability.md)). Replaces the legacy `_mqtt_publish` reserved-event pattern (component emits a JSON-encoded publish request, `lib.rs` parses it and re-routes through a dedicated handler thread) — that path was retired in [ADR-0002](docs/adr/0002-per-capability-service-traits.md) Phase 3.
 
 ## Host Adapter
 
@@ -354,11 +347,23 @@ This makes the ADR-0007 arrays *load-bearing at render*, not merely id-checked.
 Nodes with dynamic/conditional handle sets (e.g. `Mqtt` by `direction`, `Function`'s
 open ports via `DynamicHandles`) opt out and keep bespoke `Handle`s.
 
+## Host Limitation
+
+Why something cannot run in the current host — `hostLimitation(subject)` in `apps/web/src/components/flow/nodes/_base/browser-support.ts`, the one resolver for every host-gated subject, so no two surfaces can disagree about the answer or the wording. The flow engine registers every node in both hosts (see [Cloud Node Registration](#cloud-node-registration)), so every gap is a *host* gap: an OS capability the browser sandbox does not hand out, or hands out only on some browsers. Three subject kinds: a node **type** (`{ kind: "node", type }` — no Web Serial makes every `requiresHardware` node inert, no Web MIDI gates `Midi`, both per *browser*), a broker **URL** (`{ kind: "broker", name, url }` — a browser can only speak MQTT over WebSocket, so a non-`ws(s)://` broker never connects there; a *blank* URL is unconfigured, not a host gap), and an [LLM Provider](#llm-provider) **on a surface** (`{ kind: "provider", provider, surface: "config" | "node" | "ask-ai" }` — a CLI provider is a subprocess no browser tab can start, and even on desktop it has no wire format for Ask AI's flow tools, so `ask-ai` excludes it everywhere). The answer is `{ label, reason } | undefined` — a short badge label plus the sentence behind it. Callsites (the node badge in `desktop-only-badge.tsx`, the `Mqtt`/`Figma` node bodies, the MQTT config page, the Ask AI panel and provider picker) render the answer and never author a predicate or a sentence; `isDesktop()` is read inside, so no caller can disagree about which host it is running on.
+
+## Node-Data Commit
+
+The last hop where a node's control edits become CRDT writes — `createNodeDataCommitter({ doc, nodeId, readOnly, schedule? })` in `apps/web/src/components/flow/nodes/_base/node-data-commit.ts`, plain TS so the commit policy is testable without Leva or ReactFlow (`useNodeControls` is the Leva adapter over it). Three operations: `commit(values)` — deferred through `schedule` (rAF in the app, injectable in tests) and latest-wins coalesced; `forceCommit(values)` — the `setNodeData` escape hatch for values the controls cannot express, written immediately and therefore *ahead* of any scheduled commit; `reconcile(docData, controlValues)` — the doc changed under the controls (remote edit, undo/redo, or the echo of our own write), returning the patch of declared keys to replay into them, or `null` when they already agree. The committer owns the write ordering (forceCommit first, controls commit last), per-key echo suppression via a `lastKnown` basis (no write-back loop after a remote edit is replayed; our own echo does not stomp the controls mid-edit), and the `readOnly` guard (a read-only [FlowSession](#flowsession)'s committer never writes — the cheap first line before the [Read-Only Document](#read-only-document) proxy). Writes go per-field through `FlowDocument.updateNodeData` ([ADR-0019](docs/adr/0019-nested-node-fields-for-concurrent-edits.md)), so a data field the control schema does not declare — a Function node's `code` — is deliberately preserved: never written, never deleted, never replayed.
+
+## Node Data Resolver
+
+`resolveNodeData(type, patch, base?)` in `apps/web/src/lib/node-data.ts` — the one path from "a node type plus a patch of config fields" to a complete, schema-valid node `data` object: the type's `NODE_REGISTRY` defaults (codegen'd from the [Component Catalog](#component-catalog)), the optional existing node's `base`, the `patch` on top, validated by the node's own zod schema. Returns `{ ok: true, data }` or `{ ok: false, error }` with the schema issues spelled out. Presentation keys (label/icon/group) live on `defaults` but not in the schema, so the merged object is kept and the parse only proves validity — the caller may send just the field it cares about and still get the same complete node the picker places by hand. Both authoring paths share it: Ask AI's flow tools (`lib/ai/flow-tools.ts`, behind the [Turn Runner](#turn-runner)) and the built-in templates (`lib/templates`, authored as `(type, overrides)` pairs), so neither can ship data the node itself would reject.
+
 ## FlowSession
 
-Live editing context wrapping a **FlowDocument** plus a **SyncAdapter**. Lives in `apps/web/src/session/flow-session.ts`. A plain object: `{ flowId, mode, role, readOnly, doc, sync, destroy }`. Held by a **FlowSessionProvider** (one per route layout) and retrieved by `useFlowSession()` — which throws if called outside a provider, so consumers get type-narrowed access (`FlowSession`, never `FlowSession | null`) inside the subtree. Three factories: `createLocalSession()` pairs a fresh `FlowDocument` with a `LocalStorageSyncAdapter` (`readOnly: false`); `createCloudSession({ flowId, user, wsUrl, authToken, initialData?, role? })` pairs a `FlowDocument` (seeded from `initialData` if provided) with a `WebSocketSyncAdapter`; `createPreviewSession(nodes, edges)` pairs a fresh `FlowDocument` with a `NoOpSyncAdapter` for read-only thumbnail surfaces (`readOnly: true`). `destroy()` tears down the sync adapter, then the doc, in that order.
+Live editing context wrapping a **FlowDocument** plus a **SyncAdapter**. Lives in `apps/web/src/session/flow-session.ts`. A plain object: `{ flowId, mode, role, readOnly, doc, sync, destroy }`. Held by a **FlowSessionProvider** (one per route layout) and retrieved by `useFlowSession()` — which throws if called outside a provider, so consumers get type-narrowed access (`FlowSession`, never `FlowSession | null`) inside the subtree. Three factories: `createLocalSession()` pairs a fresh `FlowDocument` with an `IndexeddbSyncAdapter` (`readOnly: false`); `createCloudSession({ flowId, user, wsUrl, authToken, initialData?, role? })` pairs a `FlowDocument` (seeded from `initialData` if provided, with history cleared so undo cannot unwind into an empty document) with a `SyncProvider`, which satisfies [RemoteSyncAdapter](#remotesyncadapter) directly; `createPreviewSession(nodes, edges)` pairs a fresh `FlowDocument` with a `NoOpSyncAdapter` for read-only thumbnail surfaces (`readOnly: true`). `destroy()` tears down the sync adapter, then the doc, in that order.
 
-`role` carries the local user's [Flow Role](#flow-role) on a cloud flow (`null` for local flows and previews), sourced from `flow.get` by the `/flow/$flowId` route. `readOnly` is true for previews and for a Viewer — the Yjs room drops a Viewer's writes, so accepting them locally would diverge the two documents in silence. Three consumers act on it: `useNodeControls` suppresses the Leva→Yjs commit effect (without it, Leva's per-render `controlsData` identity churn would write to the preview doc on every render and, with no `ReactFlowBridge` to absorb the echo, loop); [ReactFlowBridge](#reactflowbridge) suppresses structural writes; the canvas disables dragging, connecting and deleting through ReactFlow's own props. Everything else reaches the doc directly, so `makeSession` wraps it in a **Read-Only Document** when `readOnly` is set.
+`role` carries the local user's [Flow Role](#flow-role) on a cloud flow (`null` for local flows and previews), sourced from `flow.get` by the `/flow/$flowId` route. `readOnly` is true for previews and for a Viewer — the Yjs room drops a Viewer's writes, so accepting them locally would diverge the two documents in silence. Three consumers act on it: the [Node-Data Commit](#node-data-commit) committer refuses to write (without that, Leva's per-render `controlsData` identity churn would write to the preview doc on every render and, with no `ReactFlowBridge` to absorb the echo, loop); [ReactFlowBridge](#reactflowbridge) suppresses structural writes; the canvas disables dragging, connecting and deleting through ReactFlow's own props. Everything else reaches the doc directly, so `makeSession` wraps it in a **Read-Only Document** when `readOnly` is set.
 
 ## Read-Only Document
 
@@ -366,23 +371,23 @@ Live editing context wrapping a **FlowDocument** plus a **SyncAdapter**. Lives i
 
 ## SyncAdapter
 
-Base interface for the session's persistence/sync seam, mirroring the **Capability Trait** discipline on the Rust side ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)). Lives in `apps/web/src/session/sync-adapter.ts`. Carries only `destroy()`. Two-tier: extended by `RemoteSyncAdapter` for server-backed adapters. `LocalStorageSyncAdapter` satisfies the base only — no `state`, no `users`, no `error`, because none of those are meaningful for localStorage. UI code switches on `session.mode === "cloud"` (or a `discriminator: "remote"` field on `session.sync`) to render the sync chip / collaborator panel.
+Base interface for the session's persistence/sync seam, mirroring the **Capability Trait** discipline on the Rust side ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)). Lives in `apps/web/src/session/sync-adapter.ts`. Carries `kind: "local" | "remote"` and `destroy()`. Two-tier: extended by `RemoteSyncAdapter` for server-backed adapters. `IndexeddbSyncAdapter` and the preview `NoOpSyncAdapter` satisfy the base only — no `state`, no `users`, no `error`, because none of those are meaningful without a server. UI code narrows with the `isRemoteSyncAdapter` guard (on `kind`) to render the sync chip / collaborator panel.
 
 ## RemoteSyncAdapter
 
-Sub-interface of **SyncAdapter** for server-backed adapters. Adds `state: SyncState`, `isSynced: boolean`, `users: AwarenessUser[]`, `localUser: AwarenessUser | null`, `error: Error | null`, `updateCursor`, `updateSelectedNodes`, `reconnect`, `disconnect`, and an `on(event, cb): () => void` subscription surface (events: `"state"`, `"awareness"`, `"error"`). Implemented by `WebSocketSyncAdapter` (production) and `RecordingSyncAdapter` (tests). Not implemented by `LocalStorageSyncAdapter`. The two-tier split is type-honest — local sessions don't lie about being "synced to nothing."
+Sub-interface of **SyncAdapter** for server-backed adapters. Adds `state: SyncState`, `isSynced: boolean`, `users: AwarenessUser[]`, `localUser: AwarenessUser | null`, `error: Error | null`, the presence writers (`updateCursor`, `updateSelectedNodes`, `updateDraggedNodes`), `reconnect`, `disconnect`, and an `on(event, cb): () => void` subscription surface (events: `"state"`, `"awareness"`, `"synced"`, `"error"` — the connection/presence subset of the provider's events; `ack` and `accessDenied` stay a transport concern). Satisfied **structurally by `SyncProvider` itself** (`packages/collab/src/sync-provider.ts`) — no wrapping adapter class; the `RemoteSyncAdapter` annotation in `createCloudSession` is the compile-time proof ([ADR-0023](docs/adr/0023-one-presence-module-owns-the-awareness-field-set.md)) — and by `RecordingSyncAdapter` in tests. Not satisfied by `IndexeddbSyncAdapter`. The two-tier split is type-honest — local sessions don't lie about being "synced to nothing." Presence *reads* go through [Presence](#presence) slices rather than raw `users`.
 
-## LocalStorageSyncAdapter
+## IndexeddbSyncAdapter
 
-The `SyncAdapter` for local-only flows. Lives in `apps/web/src/session/local-storage-sync-adapter.ts`. Subscribes to the `FlowDocument`'s Y.Doc updates and persists a snapshot to `localStorage` under `microflow-local-flow`. On construction, reads any existing snapshot and applies it to the doc. No `connect`/`disconnect` concept — the adapter is "always synced" with localStorage. `destroy()` flushes any pending write and removes the observer.
-
-## WebSocketSyncAdapter
-
-The production `RemoteSyncAdapter`. Lives in `apps/web/src/session/websocket-sync-adapter.ts`. Wraps the `SyncProvider` from [`@microflow/collab`](packages/collab/src/sync-provider.ts), forwarding `connect`/`disconnect`/`destroy`/`updateCursor`/`updateSelectedNodes` and translating `SyncProvider`'s `on(event, cb)` event names. If the constructor receives `initialData: Uint8Array` (typically a Yjs snapshot fetched via tRPC `flow.get`), it applies the snapshot to the doc synchronously before opening the WebSocket — eliminating blank-canvas during the sync handshake. `isSynced` flips true only after the Yjs `messageYjsSyncStep2` handshake completes, so UI gating on `isSynced` guarantees "latest state."
+The local-persistence `SyncAdapter` (`kind: "local"`). Lives in `apps/web/src/session/indexeddb-sync-adapter.ts`, backed by `y-indexeddb`'s `IndexeddbPersistence` ([ADR-0020](docs/adr/0020-lean-on-the-yjs-ecosystem.md)): Yjs updates persist incrementally — no JSON round trip, no whole-document write — and the document's history survives a reload. The document name (`microflow-local-flow` by default) is the storage key. `whenSynced` resolves once the stored document has loaded, running `upgradeLegacyNodes` at the load boundary — the same [ADR-0019](docs/adr/0019-nested-node-fields-for-concurrent-edits.md) shape upgrade the server's room store applies. No connect/disconnect concept; `destroy()` detaches the observer and closes the database handle (applied updates are already durable, so there is no final flush).
 
 ## RecordingSyncAdapter
 
-Test-mode replacement for `WebSocketSyncAdapter`. Lives in `apps/web/src/session/recording-sync-adapter.ts`. Mirrors the [`TestIoLoop`](#testioloop) / `RecordingLlmProvider` ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)) discipline. Records `appliedUpdates: Uint8Array[]`, `awarenessUpdates: AwarenessUpdate[]`, `connectCalls`, `disconnectCalls`, `destroyed`. Scripts `injectRemoteUpdate(update)` (simulate a collaborator's edit), `injectAwareness(users)` (simulate presence), `injectState(state)` (simulate connection drop / recover), `injectError(err)` (simulate sync error). Two `RecordingSyncAdapter`s pointed at separate `FlowDocument`s can replay each other's updates in vitest — the convergence property is testable without a Yjs server.
+The test-side `RemoteSyncAdapter`. Lives in `apps/web/src/session/recording-sync-adapter.ts`. Mirrors the `RecordingMqttPublisher` ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)) discipline — the second adapter that keeps the seam real. Records `appliedUpdates: Uint8Array[]`, `awarenessUpdates` (tagged `"cursor"` / `"selection"` / `"drag"`), `connectCalls`, `disconnectCalls`, `destroyed`. Scripts `injectRemoteUpdate(update)` (simulate a collaborator's edit), `injectAwareness(users)` (simulate presence), `injectState(state)` (simulate connection drop / recover), `injectError(err)` (simulate sync error). Two `RecordingSyncAdapter`s pointed at separate `FlowDocument`s can replay each other's updates in tests — the convergence property is testable without a Yjs server.
+
+## Presence
+
+The awareness channel, sliced by what each consumer draws — `apps/web/src/session/presence.ts` ([ADR-0023](docs/adr/0023-one-presence-module-owns-the-awareness-field-set.md)). Awareness is the editor's highest-frequency event source (every peer's pointer move lands on it), so a **PresenceSlice**`<T>` packages the pair that controls the churn: `select(peers)` derives the view and `equal(a, b)` decides whether subscribers see a change. Three slices today: `cursorsSlice` (peers that are pointing somewhere — blind to selection and drag fields, so those changes do not redraw cursors), `collaboratorsSlice` (who is in the room — blind to cursors, so the avatar panel does not re-render at pointer rate), and `remoteDragSlice` (every dragging peer's live positions flattened into one `DragMap`, `null` when nobody drags). `observePresence(sync, slice, onChange)` is the non-React core and `usePresence(slice)` the React shell; both fire only when the slice itself moves, and the local user is excluded before `select` runs. Consumers subscribe to the slice they draw (`collab-cursors.tsx`, the presence panel, `use-remote-drag.ts`). The write side is `useFlowAwareness()` — `updateCursor` / `updateSelectedNodes` / `updateDraggedNodes` on the [RemoteSyncAdapter](#remotesyncadapter), deliberately not a subscription, so publishing a cursor does not re-render the canvas on every remote pointer move. Adding a presence field costs one slice declaration.
 
 ## SessionRegistry
 
@@ -411,7 +416,7 @@ The pure compositional helpers, each independently testable:
 - **`gatherProviders(allProviders)`** — project LLM provider configs to the snake-case wire shape.
 - **`buildFlowUpdate(doc, snapshot, registry)`** — composes the three helpers into a complete `FlowUpdate`. Pure: same inputs → same payload.
 
-Mounted by the desktop layout only — the `useFlowUpdateDispatcher(session)` hook is `isDesktop`-gated at the route, never inside the dispatcher itself, so platform concerns don't leak into the dispatch layer. Construction fires an immediate dispatch so the runtime gets the current flow on mount (matches the legacy `setupDocSync` behaviour). Because the observer fires on every Y.Doc mutation regardless of origin, remote collaborator edits arriving via `WebSocketSyncAdapter` also dispatch to the local runtime, keeping the native runtime in sync with whatever the user sees on screen.
+Mounted by the desktop layout only — the `useFlowUpdateDispatcher(session)` hook is `isDesktop`-gated at the route, never inside the dispatcher itself, so platform concerns don't leak into the dispatch layer. Construction fires an immediate dispatch so the runtime gets the current flow on mount (matches the legacy `setupDocSync` behaviour). Because the observer fires on every Y.Doc mutation regardless of origin, remote collaborator edits arriving over the [RemoteSyncAdapter](#remotesyncadapter) also dispatch to the local runtime, keeping the native runtime in sync with whatever the user sees on screen.
 
 ## Flow Structure
 
@@ -461,13 +466,13 @@ Sans-IO state machine owning the board bring-up policy: probe → flash Standard
 
 ## Flow Role
 
-The access level a user has on a cloud flow: **Owner** (the `flow.ownerId` user — full control including delete, sharing, and role changes), **Editor** (a `flowCollaborator` row with `role: "editor"` — may edit the document), or **Viewer** (`role: "viewer"` — read-only). Ranked `viewer < editor < owner`. The type and the pure resolution/enforcement helpers (`resolveFlowRole`, `assertFlowRole`) live in `packages/api/src/routers/flow-role.ts`; the access matrix is table-tested in `flow-access.test.ts`.
+The access level a user has on a cloud flow: **Owner** (the `flow.ownerId` user — full control including delete, sharing, and role changes), **Editor** (a `flowCollaborator` row with `role: "editor"` — may edit the document), or **Viewer** (`role: "viewer"` — read-only). Ranked `viewer < editor < owner`. The type, the pure resolution/enforcement helpers (`resolveFlowRole`, `assertFlowRole`) and the one transition owner (`setFlowRole`, [ADR-0022](docs/adr/0022-flow-role-transition-has-one-owner.md)) live in `packages/api/src/routers/flow-access.ts`; the access matrix is table-tested in `flow-access.test.ts`.
 
 ## Flow Access seam
 
 `requireFlowAccess(flowId, userId, minRole)` in `packages/api/src/routers/flow-access.ts` — the single choke point where tRPC flow procedures resolve a [Flow Role](#flow-role) and enforce a minimum. Fetches the flow row, resolves owner-or-collaborator role via `resolveFlowRole`, throws `"Flow not found"` / `"Access denied"`, and returns `{ flow, role }` so procedures never re-implement the check. `flow.get` keeps its richer eager-loaded query but routes role resolution through the same pure helpers, so the two access notions cannot drift. The `/yjs/:flowId` endpoint authorizes through the same function before a room is created, mapping the resolved role onto the room's [Access](#room-connection) (`viewer` → read).
 
-A role resolved at connect time would otherwise outlive the grant it came from, so the collaborator mutations push changes onto live sockets through `syncLiveAccess` → `YjsServer.setAccess`, and `flow.delete` calls `dropRoom`. Same-process only: `apps/server` mounts the tRPC router and the websocket endpoint together, so both hold the one `yjsServer` singleton ([ADR-0015](docs/adr/0015-room-connection-owns-access.md)).
+A role resolved at connect time would otherwise outlive the grant it came from, so `setFlowRole(flowId, userId, role | null)` — in the same file — is the one owner of a role transition: it writes the collaborator row (`null` revokes; grants go through [Flow Invitation](#flow-invitation)'s idempotent `grantAccess` upsert), maps the [Flow Role](#flow-role) onto the room's Access vocabulary (`roleToAccess`), and pushes the change onto every live socket through `YjsServer.setAccess` ([ADR-0022](docs/adr/0022-flow-role-transition-has-one-owner.md)). Every role mutation routes through it — the collaborator procedures directly, the invitation grant via an injected `GrantRole` adapter — and `flow.delete` calls `dropRoom`. Same-process only: `apps/server` mounts the tRPC router and the websocket endpoint together, so both hold the one `yjsServer` singleton ([ADR-0015](docs/adr/0015-room-connection-owns-access.md)).
 
 ## Room Connection
 
@@ -483,6 +488,6 @@ The persistence seam under a Yjs room: `{ load(flowId), save(flowId, state) }` i
 
 ## Flow Invitation
 
-The invite → accept → revoke lifecycle for a cloud flow, in `packages/db/src/flow-invitation.ts`. `inviteByEmail` grants immediately when the address has an account and records a `flowInvite` row otherwise; `acceptInvites(email, userId)` converts pending invites on sign-up; `grantAccess` is an upsert on the `(flow_id, user_id)` unique index, so every grant path is idempotent and no path needs a check-then-insert. `listPendingInvites` / `revokeInvite` make pending invites visible in flow settings.
+The invite → accept → revoke lifecycle for a cloud flow, in `packages/db/src/flow-invitation.ts`. `inviteByEmail` grants immediately when the address has an account — through an injected **GrantRole** adapter, which the api layer satisfies with `setFlowRole` so the grant reaches live sockets too ([ADR-0022](docs/adr/0022-flow-role-transition-has-one-owner.md)) — and records a `flowInvite` row otherwise; `acceptInvites(email, userId)` converts pending invites on sign-up via `grantAccess` directly, deliberately rows-only, since a user who just created their account holds no live socket; `grantAccess` is an upsert on the `(flow_id, user_id)` unique index, so every grant path is idempotent and no path needs a check-then-insert. `listPendingInvites` / `revokeInvite` make pending invites visible in flow settings.
 
-Lives in `@microflow/db` because it is the only package both callers can reach — the flow router (`@microflow/api`) invites and the better-auth `user.create.after` hook (`@microflow/auth`) accepts, and api already depends on auth ([ADR-0016](docs/adr/0016-flow-invitation-module.md)). Email is injected as an **InviteMailer** adapter (`resendInviteMailer` in production, a recording function in tests), so the module needs neither auth nor env; a failed notification never undoes a grant.
+Lives in `@microflow/db` because it is the only package both callers can reach — the flow router (`@microflow/api`) invites and the better-auth `user.create.after` hook (`@microflow/auth`) accepts, and api already depends on auth ([ADR-0016](docs/adr/0016-flow-invitation-module.md)). Email (**InviteMailer** — `resendInviteMailer` in production, a recording function in tests) and the grant (**GrantRole**) are injected as adapters, so the module needs neither mail nor collab; a failed notification never undoes a grant.

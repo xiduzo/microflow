@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useFlowSession } from "./use-flow-session";
 import { isRemoteSyncAdapter, type RemoteSyncAdapter } from "./sync-adapter";
 import type { FlowSession } from "./flow-session";
@@ -62,9 +62,8 @@ function snapshotsEqual(a: FlowSyncSnapshot, b: FlowSyncSnapshot): boolean {
  * awareness events are the highest-frequency events in the editor. The
  * equality check keeps the previous reference when nothing observable moved.
  *
- * Prefer the narrower hooks below where they fit: `useFlowAwareness` needs no
- * subscription at all, and `useCollabPresence` is the only thing that should
- * wake for a remote cursor.
+ * Anything that renders presence belongs on a slice from `presence.ts`
+ * instead: this snapshot is for connection state.
  */
 export function useFlowSync(): FlowSyncSnapshot {
   const session = useFlowSession();
@@ -90,68 +89,4 @@ export function useFlowSync(): FlowSyncSnapshot {
   }, [session]);
 
   return snapshot;
-}
-
-/**
- * The imperative presence writers — cursor and selection.
- *
- * Deliberately *not* built on `useFlowSync`: this hook only sends, and
- * subscribing to awareness merely to publish a cursor made the canvas
- * re-render on every remote pointer move in the room. The callbacks read the
- * adapter through a ref, so they are stable for the life of the session and
- * do not invalidate their callers' memoisation either.
- */
-export function useFlowAwareness() {
-  const session = useFlowSession();
-  const sessionRef = useRef(session);
-  sessionRef.current = session;
-
-  const updateCursor = useCallback((cursor: { x: number; y: number }) => {
-    const sync = sessionRef.current.sync;
-    if (isRemoteSyncAdapter(sync)) sync.updateCursor(cursor);
-  }, []);
-
-  const updateSelectedNodes = useCallback((ids: string[]) => {
-    const sync = sessionRef.current.sync;
-    if (isRemoteSyncAdapter(sync)) sync.updateSelectedNodes(ids);
-  }, []);
-
-  const updateDraggedNodes = useCallback(
-    (positions: Record<string, { x: number; y: number }> | null) => {
-      const sync = sessionRef.current.sync;
-      if (isRemoteSyncAdapter(sync)) sync.updateDraggedNodes(positions);
-    },
-    [],
-  );
-
-  return useMemo(
-    () => ({ updateCursor, updateSelectedNodes, updateDraggedNodes }),
-    [updateCursor, updateSelectedNodes, updateDraggedNodes],
-  );
-}
-
-/**
- * Presence for rendering — cursors and the collaborator list.
- *
- * This is the hook that *should* wake on a remote cursor, and the only one.
- * Keep it to components that draw presence (`CollabCursors`, `PressensePanel`)
- * so the rest of the canvas stays still.
- */
-export function useCollabPresence(): {
-  users: AwarenessUser[];
-  otherUsers: AwarenessUser[];
-  localUser: AwarenessUser | null;
-  totalUsers: number;
-} {
-  const { users, localUser } = useFlowSync();
-  const localClientId = localUser?.clientId;
-  // Memoised on the snapshot, which only changes on a real adapter event. The
-  // unmemoised version handed `<CollabCursors>` and `<PressensePanel>` a new
-  // `otherUsers` array on every canvas render, so both re-rendered whenever
-  // anything else on the canvas did.
-  return useMemo(() => {
-    const otherUsers =
-      localClientId == null ? users : users.filter((u) => u.clientId !== localClientId);
-    return { users, otherUsers, localUser, totalUsers: users.length };
-  }, [users, localUser, localClientId]);
 }

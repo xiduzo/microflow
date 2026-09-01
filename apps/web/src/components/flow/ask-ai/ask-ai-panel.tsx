@@ -24,7 +24,7 @@ import { useAskAi, type AskAiMessage } from "@/lib/ai/use-ask-ai";
 import { useAskAiStore, WRITE_MODES } from "@/stores/ask-ai";
 import { useLlmProviderStore } from "@/stores/llm-provider";
 import { providerModel } from "@/lib/ai/models";
-import { isCliProvider } from "@/lib/ai/cli-providers";
+import { hostLimitation } from "@/components/flow/nodes/_base/browser-support";
 import { ProviderBadge } from "@/components/flow/nodes/_base/desktop-only-badge";
 import { cn } from "@/lib/utils";
 
@@ -116,7 +116,14 @@ export function AskAiPanel() {
           </SelectTrigger>
           <SelectContent>
             {providers.map((p) => (
-              <SelectItem key={p.id} value={p.id} className="text-xs" disabled={isCliProvider(p)}>
+              <SelectItem
+                key={p.id}
+                value={p.id}
+                className="text-xs"
+                disabled={
+                  hostLimitation({ kind: "provider", provider: p, surface: "ask-ai" }) !== undefined
+                }
+              >
                 {p.name}
                 <span className="text-muted-foreground ml-1">{providerModel(p)}</span>
                 <ProviderBadge provider={p} surface="ask-ai" />

@@ -17,6 +17,11 @@
 // subsequent calls without re-entering — which is also what stops a
 // deterministic fault from becoming an infinite retry loop.
 
+import type { DesiredSub } from "@/lib/bindings/DesiredSub";
+import type { Effects } from "@/lib/bindings/Effects";
+import type { FlowUpdate } from "@/lib/bindings/FlowUpdate";
+import type { MidiListener } from "@/lib/bindings/MidiListener";
+
 /**
  * The runtime surface the bridge calls, declared structurally so this module
  * needs no value import of the wasm glue (and so tests can drive a double). The
@@ -75,9 +80,11 @@ function detailOf(error: unknown): string {
 }
 
 /**
- * Owns one wasm runtime and every call into it. Construct with the runtime and
- * the fault handler; make every call through {@link call}; {@link dispose} on
- * teardown.
+ * Owns one wasm runtime and every call into it — including the call codec: the
+ * op name, the JSON encode of arguments, and the decode of replies into the
+ * ts-rs binding types all live behind the typed entry points below, so callers
+ * never touch a JSON string or cast a result. Construct with the runtime and
+ * the fault handler; {@link dispose} on teardown.
  */
 export class RuntimeBridge {
   private runtime: FlowRuntimeCalls | null;
@@ -97,6 +104,114 @@ export class RuntimeBridge {
     return this.runtime !== null;
   }
 
+  // --- Typed entry points, one per runtime op the host uses ------------------
+
+  /** Seed the runtime's pin table (the JSON comes straight from the detection
+   *  session, so it crosses as-is). */
+  setPins(pinsJson: string): void {
+    this.call("setPins", null, (rt) => {
+      rt.setPins(pinsJson);
+    });
+  }
+
+  /** Apply a flow graph — the one place the flow crosses into wasm. */
+  updateFlow(flow: FlowUpdate, nowMs: number): Effects | undefined {
+    return this.effectsTurn("updateFlow", null, (rt) =>
+      rt.updateFlow(JSON.stringify(flow), nowMs),
+    );
+  }
+
+  /** Feed raw inbound serial bytes. */
+  feedBytes(bytes: Uint8Array, nowMs: number): Effects | undefined {
+    return this.effectsTurn("feedBytes", null, (rt) => rt.feedBytes(bytes, nowMs));
+  }
+
+  /** Fire a timer wakeup the runtime armed. */
+  wake(nodeId: string, method: string, nowMs: number): Effects | undefined {
+    return this.effectsTurn("wake", nodeId, (rt) => rt.wake(nodeId, method, nowMs));
+  }
+
+  /** Deliver one host-originated input (e.g. a hotkey) to a node's port. */
+  dispatch(nodeId: string, port: string, value: unknown, nowMs: number): Effects | undefined {
+    return this.effectsTurn("dispatch", nodeId, (rt) =>
+      rt.dispatch(nodeId, port, JSON.stringify(value), nowMs),
+    );
+  }
+
+  /** Re-enter with a cloud result on a node's emit handle. */
+  injectEvent(
+    source: string,
+    handle: string,
+    value: unknown,
+    nowMs: number,
+  ): Effects | undefined {
+    return this.effectsTurn("injectEvent", source, (rt) =>
+      rt.injectEvent(source, handle, JSON.stringify(value), nowMs),
+    );
+  }
+
+  /** Route one inbound broker/MIDI message to its subscribe node. */
+  deliverMessage(
+    nodeId: string,
+    topic: string,
+    payload: Uint8Array,
+    nowMs: number,
+  ): Effects | undefined {
+    return this.effectsTurn("deliverMessage", nodeId, (rt) =>
+      rt.deliverMessage(nodeId, topic, payload, nowMs),
+    );
+  }
+
+  /** The already-reconciled desired subscription set (one winner per topic). */
+  reconcileSubscriptions(): DesiredSub[] | undefined {
+    const reply = this.call("reconcileSubscriptions", null, (rt) => rt.reconcileSubscriptions());
+    if (reply === undefined) return undefined;
+    return this.decode<DesiredSub[]>("reconcileSubscriptions", null, reply);
+  }
+
+  /** Every MIDI in-node's device interest. */
+  midiListeners(): MidiListener[] | undefined {
+    const reply = this.call("midiListeners", null, (rt) => rt.midiListeners());
+    if (reply === undefined) return undefined;
+    return this.decode<MidiListener[]>("midiListeners", null, reply);
+  }
+
+  // --- The core crossing -----------------------------------------------------
+
+  /** An effects-producing op: cross, then decode the turn's `Effects`. The wasm
+   *  shim returns `""` for a turn that produced nothing — the common case for an
+   *  inbound serial chunk whose pin values did not move — which decodes to
+   *  `undefined` without parsing six empty arrays per read. */
+  private effectsTurn(
+    op: string,
+    node: string | null,
+    fn: (runtime: FlowRuntimeCalls) => string,
+  ): Effects | undefined {
+    const reply = this.call(op, node, fn);
+    if (reply === undefined || reply === "") return undefined;
+    return this.decode<Effects>(op, node, reply);
+  }
+
+  /** Decode one reply into its ts-rs binding type. The shape is guaranteed by
+   *  the Rust side (the bindings are generated from the same structs serde
+   *  serialises), so `JSON.parse` is the whole validation. A reply the host
+   *  cannot decode still cost the turn, but the call itself returned — the
+   *  module is intact, so this is `badInput` in the taxonomy, routed like any
+   *  other fault rather than thrown at the call site. */
+  private decode<T>(op: string, node: string | null, json: string): T | undefined {
+    try {
+      return JSON.parse(json) as T;
+    } catch (error) {
+      this.onFault({
+        kind: "badInput",
+        op,
+        node,
+        message: `undecodable ${op} reply: ${detailOf(error)}`,
+      });
+      return undefined;
+    }
+  }
+
   /**
    * Invoke one runtime entry point. Returns what the call returned (the effects
    * JSON, or `undefined` for a void op such as `setPins`), or `undefined` if it
@@ -106,7 +221,7 @@ export class RuntimeBridge {
    * `node` is the node the call is on behalf of, or `null` for a whole-flow op
    * (`feedBytes`, `updateFlow`, …) that belongs to no single node.
    */
-  call(
+  private call(
     op: string,
     node: string | null,
     fn: (runtime: FlowRuntimeCalls) => string | void,

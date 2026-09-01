@@ -19,17 +19,12 @@ import init, {
 // `?url` asks Vite to emit the wasm as a hashed asset and hand us its URL.
 import wasmUrl from "./generated/microflow_runtime_wasm_bg.wasm?url";
 import type { FigmaPublish } from "@/lib/bindings/FigmaPublish";
+import { lazyWasmInit } from "@/lib/wasm-init";
 
 export { FlowRuntime };
 
 /** Lazily instantiate the wasm module exactly once; concurrent callers share it. */
-let initPromise: Promise<unknown> | null = null;
-export function ensureRuntimeReady(): Promise<unknown> {
-  if (initPromise === null) {
-    initPromise = init({ module_or_path: wasmUrl });
-  }
-  return initPromise;
-}
+export const ensureRuntimeReady = lazyWasmInit(init, wasmUrl);
 
 /** Create a fresh flow runtime for one board connection. */
 export async function createFlowRuntime(): Promise<FlowRuntime> {

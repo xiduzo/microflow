@@ -8,8 +8,8 @@
 //
 // The document is a shared, persisted structure, so this is a trust boundary:
 // a model can and will invent a field name, a handle, or an enum value. Nothing
-// reaches the doc without passing the node's own zod schema (`NODE_REGISTRY`)
-// and the generated handle sets (`COMPONENT_PORTS` / `COMPONENT_EMITS`, pinned
+// reaches the doc without passing the node's own zod schema (`resolveNodeData`
+// in `lib/node-data.ts`, over `NODE_REGISTRY`) and the generated handle sets (`COMPONENT_PORTS` / `COMPONENT_EMITS`, pinned
 // to the Rust `Component::ports()` / `emits()` by the Catalog Parity Guard,
 // ADR-0007). A rejection is returned to the model as a tool result rather than
 // thrown, so it corrects itself instead of the turn dying.
@@ -26,6 +26,7 @@ import {
   type ComponentType,
 } from "@/components/flow/nodes/_base/_base.types";
 import { useNodeDiagnosticsStore } from "@/stores/node-diagnostics";
+import { resolveNodeData } from "@/lib/node-data";
 import { uid } from "@/lib/uid";
 
 /** How a write tool's effect is delivered. */
@@ -60,34 +61,6 @@ function nextPosition(doc: FlowDocument): { x: number; y: number } {
 function typeOf(doc: FlowDocument, nodeId: string): ComponentType | undefined {
   const type = doc.getNode(nodeId)?.type;
   return type && isComponentType(type) ? type : undefined;
-}
-
-/**
- * Validate a node's `data` against the node's own schema.
- *
- * The partial the model supplies is merged onto the type's `defaults` first, so
- * it may send just the field it cares about and still produce a complete,
- * schema-valid node — the same thing the node picker does when you place one by
- * hand.
- */
-function validateData(
-  type: ComponentType,
-  patch: Record<string, unknown>,
-  base?: Record<string, unknown>,
-): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
-  const { defaults, schema } = NODE_REGISTRY[type];
-  const merged = { ...defaults, ...base, ...patch };
-  const parsed = schema.safeParse(merged);
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
-      .join("; ");
-    return { ok: false, error: `invalid data for ${type} — ${issues}` };
-  }
-  // Presentation keys (label/icon/group/…) live on `defaults` but not in the
-  // schema, so keep the merged object and let the parsed one only prove it is
-  // valid — dropping them would strip the node's own label off the canvas.
-  return { ok: true, data: { ...merged, ...(parsed.data as Record<string, unknown>) } };
 }
 
 /**
@@ -228,7 +201,7 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
     }
     const coerced = coerceData(data);
     if (!coerced.ok) return fail(coerced.error);
-    const validated = validateData(resolved, coerced.data);
+    const validated = resolveNodeData(resolved, coerced.data);
     if (!validated.ok) return fail(validated.error);
 
     const node: FlowNode = {
@@ -260,7 +233,7 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
 
     const coerced = coerceData(data);
     if (!coerced.ok) return fail(coerced.error);
-    const validated = validateData(type, coerced.data, existing.data);
+    const validated = resolveNodeData(type, coerced.data, existing.data);
     if (!validated.ok) return fail(validated.error);
 
     const changed = Object.keys(coerced.data).join(", ");

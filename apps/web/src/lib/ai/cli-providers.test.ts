@@ -1,12 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  CLI_PROVIDERS,
-  cliProvider,
-  isCliProvider,
-  providerLimitation,
-  takesSystemFlag,
-} from "./cli-providers";
+import { CLI_PROVIDERS, cliProvider, isCliProvider, takesSystemFlag } from "./cli-providers";
 import { providerFamily, providerModel } from "./models";
 
 describe("cli providers", () => {
@@ -111,26 +105,6 @@ describe("cli providers", () => {
     // `claude` has no listing subcommand; `KNOWN_MODELS.claude` is the
     // fallback, and `fetchModels` must reach it rather than return nothing.
     expect(cliProvider("claude")!.listModels).toBeUndefined();
-  });
-
-  it("says the same thing about a provider on every surface", () => {
-    const cli = { kind: "cli", baseUrl: "claude" };
-    const http = { kind: "http", baseUrl: "https://api.openai.com/v1" };
-
-    // In a browser a CLI is unusable everywhere, and that outranks any
-    // surface-specific objection — one badge, not two.
-    for (const surface of ["config", "node", "ask-ai"] as const) {
-      expect(providerLimitation(cli, surface, false)?.label).toBe("studio only");
-    }
-
-    // On desktop only Ask AI still objects: these CLIs cannot call flow tools.
-    expect(providerLimitation(cli, "config", true)).toBeUndefined();
-    expect(providerLimitation(cli, "node", true)).toBeUndefined();
-    expect(providerLimitation(cli, "ask-ai", true)?.label).toBe("no flow tools");
-
-    // An HTTP provider is never badged — its failures are reachability, which
-    // the status dot owns.
-    expect(providerLimitation(http, "ask-ai", false)).toBeUndefined();
   });
 
   it("only treats an explicit cli kind as a CLI", () => {

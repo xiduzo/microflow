@@ -55,8 +55,8 @@ export type AwarenessUser = {
 };
 
 export type SyncProviderEvents = {
-  stateChange: (state: SyncState) => void;
-  awarenessChange: (users: Map<number, AwarenessUser>) => void;
+  state: (state: SyncState) => void;
+  awareness: (users: AwarenessUser[]) => void;
   synced: () => void;
   error: (error: Error) => void;
   ack: (version: number) => void;
@@ -117,9 +117,15 @@ const DEFAULT_CURSOR_THROTTLE_MS = 50;
  * 2. **The local user record.** Identity, colour assignment, and the shape
  *    peers read.
  * 3. **A cached, app-shaped view of awareness**, so the React layer is not
- *    rebuilding a Map and cloning every user on each cursor tick.
+ *    rebuilding the user list and cloning every user on each cursor tick.
  * 4. **The `ack` message** (`MESSAGE_ACK`), which is ours, not a Yjs protocol
  *    message — see `protocol.ts` for why its number matters.
+ *
+ * This class *is* the editor's remote sync adapter: it satisfies the web
+ * app's `RemoteSyncAdapter` port structurally (`kind`, `users`, `error`,
+ * `reconnect`, the event set). An earlier `WebSocketSyncAdapter` wrapper
+ * forwarded every method one-to-one and only renamed the events; it was
+ * deleted rather than maintained.
  *
  * An earlier version of this class hand-rolled the transport too: ~250 lines
  * of reconnect, offline queuing and message dispatch that `y-websocket`
@@ -128,11 +134,15 @@ const DEFAULT_CURSOR_THROTTLE_MS = 50;
  * cannot drift.
  */
 export class SyncProvider {
+  /** Discriminant for the session layer's `SyncAdapter` union. */
+  readonly kind = "remote" as const;
+
   private readonly doc: Y.Doc;
   private readonly provider: WebsocketProvider;
   private readonly awareness: awarenessProtocol.Awareness;
   private listeners = new Map<keyof SyncProviderEvents, Set<Function>>();
   private destroyed = false;
+  private currentError: Error | null = null;
 
   /** Latest presence not yet broadcast, and the timer that will. */
   private pendingCursor: { x: number; y: number } | null = null;
@@ -143,7 +153,7 @@ export class SyncProvider {
   private readonly cursorThrottleMs: number;
 
   /** Cached view of `awareness.getStates()`, rebuilt only when it changes. */
-  private usersCache: Map<number, AwarenessUser> | null = null;
+  private usersCache: AwarenessUser[] | null = null;
 
   state: SyncState = "connecting";
   readonly flowId: string;
@@ -198,19 +208,22 @@ export class SyncProvider {
 
     this.provider.on("sync", (isSynced: boolean) => {
       if (!isSynced) return;
+      this.currentError = null;
       this.setState("synced");
       this.emit("synced");
     });
 
     this.provider.on("connection-error", () => {
-      this.emit("error", new Error("WebSocket connection failed"));
+      this.currentError = new Error("WebSocket connection failed");
+      this.emit("error", this.currentError);
     });
 
     // 4400–4499: the server says retrying will not help. `y-websocket` has
     // already stopped reconnecting by the time this fires.
     this.provider.on("closed", ({ reason }: { code: number; reason: string }) => {
+      this.currentError = new Error(reason || "Access denied");
       this.emit("accessDenied", reason || "Access denied");
-      this.emit("error", new Error(reason || "Access denied"));
+      this.emit("error", this.currentError);
     });
 
     this.awareness.on("change", this.handleAwarenessChange);
@@ -258,8 +271,22 @@ export class SyncProvider {
     this.provider.disconnect();
   }
 
+  reconnect(): void {
+    this.provider.disconnect();
+    this.provider.connect();
+  }
+
   isConnected(): boolean {
     return this.state === "synced" || this.state === "syncing";
+  }
+
+  get isSynced(): boolean {
+    return this.state === "synced";
+  }
+
+  /** The last transport error, cleared once a sync completes. */
+  get error(): Error | null {
+    return this.currentError;
   }
 
   // --------------------------------------------------------------------------
@@ -270,9 +297,10 @@ export class SyncProvider {
    * Rebuild the cached user view and notify listeners.
    *
    * A change that only touches our own client is swallowed: the local cursor
-   * is never rendered (`useCollabPresence` filters it out) and the local
-   * identity fields are fixed at construction, so emitting would re-render
-   * the whole canvas twenty times a second for a cursor nobody draws.
+   * is never rendered (the presence slices exclude the local user) and the
+   * local identity fields are fixed at construction, so emitting would
+   * re-render the whole canvas twenty times a second for a cursor nobody
+   * draws.
    */
   private handleAwarenessChange = (changes?: {
     added: number[];
@@ -286,7 +314,7 @@ export class SyncProvider {
       if (touched.length > 0 && touched.every((id) => id === this.doc.clientID)) return;
     }
 
-    this.emit("awarenessChange", this.getAwarenessUsers());
+    this.emit("awareness", this.users);
   };
 
   /**
@@ -385,32 +413,25 @@ export class SyncProvider {
   }
 
   /**
-   * The room's presence, keyed by Yjs client id.
+   * The room's presence, local user included, each stamped with its Yjs
+   * client id.
    *
    * Cached and invalidated on awareness change: at cursor rate this is one of
-   * the hottest reads in the editor, and rebuilding the map (plus cloning
-   * every user object) on each call was pure garbage.
+   * the hottest reads in the editor, and rebuilding the array (plus cloning
+   * every user object) on each call was pure garbage. Identity is therefore
+   * stable between changes, which is what the React layer's equality checks
+   * key on.
    */
-  getAwarenessUsers(): Map<number, AwarenessUser> {
+  get users(): AwarenessUser[] {
     if (this.usersCache) return this.usersCache;
 
-    const users = new Map<number, AwarenessUser>();
+    const users: AwarenessUser[] = [];
     this.awareness.getStates().forEach((state, clientId) => {
       if (state.user) {
-        users.set(clientId, { ...(state.user as AwarenessUser), clientId });
+        users.push({ ...(state.user as AwarenessUser), clientId });
       }
     });
     this.usersCache = users;
-    return users;
-  }
-
-  getOtherUsers(): AwarenessUser[] {
-    const users: AwarenessUser[] = [];
-    this.awareness.getStates().forEach((state, clientId) => {
-      if (state.user && clientId !== this.doc.clientID) {
-        users.push(state.user as AwarenessUser);
-      }
-    });
     return users;
   }
 
@@ -421,7 +442,7 @@ export class SyncProvider {
   private setState(state: SyncState): void {
     if (this.state !== state) {
       this.state = state;
-      this.emit("stateChange", state);
+      this.emit("state", state);
     }
   }
 

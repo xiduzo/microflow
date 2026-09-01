@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import type { NodeChange } from "@xyflow/react";
-import type { AwarenessUser, FlowNode } from "@microflow/collab";
-import { useFlowSession } from "./use-flow-session";
-import { isRemoteSyncAdapter } from "./sync-adapter";
-import { useFlowAwareness } from "./use-flow-sync";
+import type { FlowNode } from "@microflow/collab";
+import { remoteDragSlice, useFlowAwareness, usePresence, type DragMap } from "./presence";
 
 /**
  * Live drag positions, both directions.
@@ -15,68 +13,14 @@ import { useFlowAwareness } from "./use-flow-sync";
  *
  * Awareness is the right channel for the in-between frames: ephemeral by
  * construction, already throttled, and discarded when the user disconnects.
- * This hook publishes the local drag onto it and overlays everyone else's.
+ * This module publishes the local drag onto it and overlays everyone else's;
+ * the reading half is `remoteDragSlice` in `presence.ts`, so a remote cursor
+ * move never wakes the canvas.
  */
 
-type DragMap = Record<string, { x: number; y: number }>;
-
-/** Positions from every peer, flattened. Later peers win on a contested node,
- *  which cannot normally happen — ReactFlow only drags what it has grabbed. */
-function collectRemotePositions(users: AwarenessUser[], localClientId?: number): DragMap | null {
-  let out: DragMap | null = null;
-  for (const user of users) {
-    if (!user.draggingNodes) continue;
-    if (localClientId != null && user.clientId === localClientId) continue;
-    out ??= {};
-    Object.assign(out, user.draggingNodes);
-  }
-  return out;
-}
-
-function dragMapsEqual(a: DragMap | null, b: DragMap | null): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  const keys = Object.keys(a);
-  if (keys.length !== Object.keys(b).length) return false;
-  for (const key of keys) {
-    const left = a[key]!;
-    const right = b[key];
-    if (!right || left.x !== right.x || left.y !== right.y) return false;
-  }
-  return true;
-}
-
-/**
- * Peers' in-flight drag positions.
- *
- * Subscribes to awareness directly rather than through `useFlowSync`, and
- * publishes new state only when the drag map itself changes. Going through the
- * shared snapshot would wake this — and therefore the canvas — on every remote
- * cursor move, which is the churn `useFlowAwareness` was just separated out to
- * avoid.
- */
+/** Peers' in-flight drag positions. */
 export function useRemoteDragPositions(): DragMap | null {
-  const session = useFlowSession();
-  const [positions, setPositions] = useState<DragMap | null>(null);
-
-  useEffect(() => {
-    const sync = session.sync;
-    if (!isRemoteSyncAdapter(sync)) {
-      setPositions(null);
-      return;
-    }
-
-    const update = (users: AwarenessUser[]) =>
-      setPositions((previous) => {
-        const next = collectRemotePositions(users, sync.localUser?.clientId);
-        return dragMapsEqual(previous, next) ? previous : next;
-      });
-
-    update(sync.users);
-    return sync.on("awareness", update);
-  }, [session]);
-
-  return positions;
+  return usePresence(remoteDragSlice);
 }
 
 /**

@@ -20,6 +20,11 @@ import init, {
 // `?url` asks Vite to emit the wasm as a hashed asset and hand us its URL, so it
 // loads correctly in dev and after a production build with no extra Vite plugin.
 import wasmUrl from "./generated/microflow_firmata_wasm_bg.wasm?url";
+import type { BringUpAction } from "@/lib/bindings/BringUpAction";
+import type { BringUpEvent } from "@/lib/bindings/BringUpEvent";
+import type { FlashStep } from "@/lib/bindings/FlashStep";
+import type { PinInfo } from "@/lib/bindings/PinInfo";
+import { lazyWasmInit } from "@/lib/wasm-init";
 
 export { BringUpMachine, FirmataSession, FlashSession };
 
@@ -38,6 +43,12 @@ export type { BringUpAction } from "@/lib/bindings/BringUpAction";
 export async function createBringUp(): Promise<BringUpMachine> {
   await ensureFirmataReady();
   return new BringUpMachine();
+}
+
+/** Feed one event into the machine; returns the actions the host must perform,
+ *  in order. The JSON crossing lives here, not at the call site. */
+export function handleBringUp(machine: BringUpMachine, event: BringUpEvent): BringUpAction[] {
+  return JSON.parse(machine.handle(JSON.stringify(event))) as BringUpAction[];
 }
 
 /** Create a flashing session for a board id + raw flash image. */
@@ -64,19 +75,28 @@ export async function flashBaud(boardId: string): Promise<number | undefined> {
 /** A `FlashStep` emitted by a `FlashSession` (parsed from its JSON). */
 export type { FlashStep } from "@/lib/bindings/FlashStep";
 
-/** Lazily instantiate the wasm module exactly once; concurrent callers share it. */
-let initPromise: Promise<unknown> | null = null;
-export function ensureFirmataReady(): Promise<unknown> {
-  if (initPromise === null) {
-    initPromise = init({ module_or_path: wasmUrl });
-  }
-  return initPromise;
+/** Start a flash session's step machine. */
+export function flashStart(session: FlashSession): FlashStep {
+  return JSON.parse(session.start()) as FlashStep;
 }
+
+/** Advance a flash session with the bytes the last step read. */
+export function flashAdvance(session: FlashSession, input: Uint8Array): FlashStep {
+  return JSON.parse(session.advance(input)) as FlashStep;
+}
+
+/** Lazily instantiate the wasm module exactly once; concurrent callers share it. */
+export const ensureFirmataReady = lazyWasmInit(init, wasmUrl);
 
 /** Create a fresh protocol session for one board connection. */
 export async function createSession(): Promise<FirmataSession> {
   await ensureFirmataReady();
   return new FirmataSession();
+}
+
+/** The pin table a session has discovered so far (parsed from its JSON). */
+export function sessionPins(session: FirmataSession): PinInfo[] {
+  return JSON.parse(session.pinsJson()) as PinInfo[];
 }
 
 /** Parse an Intel HEX string into the raw flash image (gaps filled with 0xFF). */

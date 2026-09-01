@@ -1,9 +1,10 @@
 import { LevaPanel, useControls, useCreateStore } from "leva";
-import { useReactFlow, useUpdateNodeInternals } from "@xyflow/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useUpdateNodeInternals } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useFlowSession } from "@/session";
 import { useNode } from "./_base";
+import { createNodeDataCommitter } from "./node-data-commit";
 
 type UseControlParameters = Parameters<typeof useControls>;
 export type Controls = Exclude<UseControlParameters[0], string | Function>;
@@ -11,21 +12,26 @@ export type Controls = Exclude<UseControlParameters[0], string | Function>;
 /**
  * Bridges a node's Leva control panel to the Yjs-backed flow document.
  *
- * Three concerns live here:
- * 1. **Leva → Yjs commit** (the `controlsData` → `updateNodeData` effect):
- *    Deferred via `requestAnimationFrame` so that any synchronous
- *    `setNodeData()` calls from `onChange` callbacks land in Yjs first;
- *    otherwise `getNode(id)` reads stale data and the merge silently
- *    drops fields that the onChange just set.
- * 2. **History reverse-sync** (the `data` → `set` effect): when the user
- *    undoes/redoes a change, the Yjs `data` shifts but Leva's local store
- *    doesn't know; the effect compares and replays the change into Leva.
- * 3. **Settings panel portal** (`render`): renders the Leva panel into the
- *    sidebar `#settings-panels` slot only when this node is selected.
+ * This is only the Leva adapter: schema in, values out. The commit policy —
+ * write ordering, echo suppression, the readOnly guard, per-field write scope
+ * — lives in `createNodeDataCommitter` (`./node-data-commit`), where it is
+ * testable without Leva or ReactFlow.
  *
- * `setNodeData` is an escape hatch for forced updates; it bypasses Leva
- * and may cause a one-frame divergence between `useNodeData` and the
- * actual node data.
+ * Two effects wire the two directions:
+ * 1. **Leva → Yjs**: every `controlsData` change is handed to the committer,
+ *    which defers, coalesces and suppresses echoes before writing per-field
+ *    through `FlowDocument.updateNodeData` (ADR-0019).
+ * 2. **Yjs → Leva**: when the doc's `data` shifts under us (remote edit,
+ *    undo/redo), the committer diffs it against the controls and hands back
+ *    the patch to replay via `set` — recorded so the replay's own commit is
+ *    dropped rather than written back in a loop.
+ *
+ * `render` portals the Leva panel into the sidebar `#settings-panels` slot
+ * only while this node is selected.
+ *
+ * `setNodeData` is the escape hatch for values the controls cannot express
+ * (transient `onChange` controls, dialog saves); it writes immediately, ahead
+ * of any scheduled controls commit.
  */
 export const useNodeControls = <
   Data extends Record<string, any> = Record<string, any>,
@@ -36,8 +42,6 @@ export const useNodeControls = <
 ) => {
   const store = useCreateStore();
   const { selected, id, data } = useNode();
-  const isFirstRender = useRef(true);
-  const { getNode } = useReactFlow();
   const { doc, readOnly } = useFlowSession();
   const updateNodeInternals = useUpdateNodeInternals();
 
@@ -46,48 +50,43 @@ export const useNodeControls = <
     { store },
     dependencies,
   );
-  const lastControlData = useRef(controlsData);
 
-  const updateNodeData = useCallback(
-    async (data: Record<string, unknown>) => {
-      const node = getNode(id);
-      if (!node) return;
-      doc.updateNodeData(node.id, data);
-      updateNodeInternals(node.id);
-    },
-    [id, getNode, doc, updateNodeInternals],
+  const committer = useMemo(
+    () => createNodeDataCommitter({ doc, nodeId: id, readOnly }),
+    [doc, id, readOnly],
   );
 
-  // Defer the Leva → node sync so that any setNodeData() calls made from
-  // onChange callbacks (which fire synchronously before this effect) have
-  // time to commit through the Yjs → ReactFlow cycle first.  Without the
-  // deferral, getNode(id) inside updateNodeData reads stale data and the
-  // merge silently drops fields that were just set by onChange/setNodeData.
-  //
-  // Leva's controlsData identity churns on every render, so this effect runs
-  // far more often than the values actually change; `FlowDocument.updateNodeData`
-  // drops the write when the data is value-equal to what is stored, which is
-  // what keeps the render → doc-write → render cycle from sustaining itself.
-  //
-  // Skipped entirely on read-only (preview) sessions, which have no
-  // ReactFlowBridge to absorb the echo.
+  // Leva → Yjs. Leva's controlsData identity churns on every render, so this
+  // runs far more often than the values change; the committer's echo
+  // suppression is what keeps the render → doc-write → render cycle from
+  // sustaining itself.
   useEffect(() => {
-    if (readOnly) return;
-    requestAnimationFrame(() => {
-      updateNodeData(controlsData as Data);
-    });
-  }, [controlsData, readOnly, updateNodeData]);
+    committer.commit(controlsData as Record<string, unknown>);
+  }, [committer, controlsData]);
+
+  // Yjs → Leva, and a handle re-measure on any real data change (local echo
+  // or remote). Reads the controls through a ref so a replay does not retrigger
+  // this effect with its own result.
+  const controlsRef = useRef(controlsData);
+  controlsRef.current = controlsData;
+  useEffect(() => {
+    const patch = committer.reconcile(data, controlsRef.current as Record<string, unknown>);
+    if (patch) set(patch as Parameters<typeof set>[0]);
+    updateNodeInternals(id);
+  }, [committer, data, id, set, updateNodeInternals]);
 
   /**
    * Sometimes it is impossible to set the node data using the controls,
-   * use this handler to forcefully update the node
-   * ⚠️ this might cause descrepencies between the `data` from `useNodeData` and the actual data
+   * use this handler to forcefully update the node — it bypasses Leva and
+   * writes immediately, so it may cause a one-frame divergence between
+   * `useNodeData` and the actual node data.
    */
   const setNodeData = useCallback(
-    <T extends Record<string, unknown>>(node: Partial<Data>) => {
-      updateNodeData(node as T);
+    (node: Partial<Data>) => {
+      committer.forceCommit(node as Record<string, unknown>);
+      updateNodeInternals(id);
     },
-    [updateNodeData],
+    [committer, id, updateNodeInternals],
   );
 
   const render = useCallback(() => {
@@ -99,36 +98,6 @@ export const useNodeControls = <
       element,
     );
   }, [store, selected]);
-
-  /**
-   * Sync the data back to the controls when history is reverted
-   */
-  useEffect(() => {
-    if (isFirstRender.current) return;
-
-    // Only compare keys which are in the controls data
-    const keys = Object.keys(lastControlData.current as Record<string, unknown>);
-    const dataKeys = Object.keys(data);
-
-    // Check if any value has changed
-    const hasChanged = keys.some(
-      (key) =>
-        dataKeys.includes(key) &&
-        lastControlData.current[key as keyof typeof lastControlData.current] !==
-          data[key as keyof typeof data],
-    );
-    if (!hasChanged) return;
-
-    if (JSON.stringify(lastControlData.current) === JSON.stringify(data)) return;
-
-    // Only get the keys which are in the controls data
-    const newData = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
-    // Prevent other effects from running
-    lastControlData.current = newData as typeof lastControlData.current;
-    set(newData as Parameters<typeof set>[0]);
-  }, [data, set]);
 
   return { render, set, setNodeData };
 };

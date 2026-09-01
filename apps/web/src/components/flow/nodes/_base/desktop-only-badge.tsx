@@ -2,19 +2,16 @@
 // before it disappoints them.
 //
 // Two kinds, one look. `DesktopOnlyBadge` is per node *type* — a capability the
-// browser sandbox withholds, resolved from `browser-support.ts`.
-// `ProviderBadge` is per LLM *configuration* — a provider that cannot serve the
-// surface it is being offered on, resolved from `providerLimitation`. Both
-// render nothing when there is nothing to say, so callers can place them
-// unconditionally.
+// browser sandbox withholds. `ProviderBadge` is per LLM *configuration* — a
+// provider that cannot serve the surface it is being offered on. Both are
+// resolved by `hostLimitation` and render nothing when there is nothing to
+// say, so callers can place them unconditionally.
 
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { isDesktop } from "@/lib/platform";
-import { providerLimitation, type ProviderSurface } from "@/lib/ai/cli-providers";
-import { browserLimitation } from "./browser-support";
+import { hostLimitation, type ProviderSurface } from "./browser-support";
 
 /** The shared look: a small outlined chip whose tooltip carries the why. */
 export function HostBadge({ label, reason }: { label: string; reason: ReactNode }) {
@@ -36,19 +33,13 @@ export function HostBadge({ label, reason }: { label: string; reason: ReactNode 
 }
 
 export function DesktopOnlyBadge({ type }: { type: string | undefined }) {
-  const reason = browserLimitation(type);
-  if (reason === undefined) return null;
+  const limitation = hostLimitation({ kind: "node", type });
+  if (limitation === undefined) return null;
 
-  return <HostBadge label="desktop only" reason={reason} />;
+  return <HostBadge label={limitation.label} reason={limitation.reason} />;
 }
 
-/**
- * Why the chosen LLM configuration will not work on this surface.
- *
- * `isDesktop()` is read here rather than passed in so every caller — the
- * settings page, the node header, the Ask AI picker — cannot disagree about
- * which host it is running on.
- */
+/** Why the chosen LLM configuration will not work on this surface. */
 export function ProviderBadge({
   provider,
   surface,
@@ -56,8 +47,8 @@ export function ProviderBadge({
   provider: { kind?: string; baseUrl?: string } | undefined;
   surface: ProviderSurface;
 }) {
-  const limitation = provider && providerLimitation(provider, surface, isDesktop());
-  if (!limitation) return null;
+  const limitation = hostLimitation({ kind: "provider", provider, surface });
+  if (limitation === undefined) return null;
 
   return <HostBadge label={limitation.label} reason={limitation.reason} />;
 }

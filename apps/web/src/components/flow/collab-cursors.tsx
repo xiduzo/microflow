@@ -2,19 +2,20 @@ import type { AwarenessUser } from "@microflow/collab";
 import { useReactFlow } from "@xyflow/react";
 import { Heart, MousePointer2Icon } from "lucide-react";
 import { memo } from "react";
-import { useCollabPresence } from "@/session";
+import { cursorsSlice, usePresence } from "@/session";
 
 /**
  * Renders cursors of other users on the canvas.
  *
- * Subscribes to presence itself rather than taking it as a prop. Remote
- * cursors move at pointer rate, and every one of those events used to travel
- * through the canvas component — re-rendering the whole editor subtree to move
- * an arrow a few pixels. Keeping the subscription here confines that churn to
- * the layer that actually draws it.
+ * Subscribes to the cursor slice itself rather than taking presence as a
+ * prop. Remote cursors move at pointer rate, and every one of those events
+ * used to travel through the canvas component — re-rendering the whole editor
+ * subtree to move an arrow a few pixels. The slice confines that churn to the
+ * layer that draws it, and a peer changing only its selection or drag does
+ * not redraw it at all.
  */
 export const CollabCursors = memo(function CollabCursors() {
-  const { otherUsers: users } = useCollabPresence();
+  const users = usePresence(cursorsSlice);
   const { flowToScreenPosition } = useReactFlow();
 
   return (

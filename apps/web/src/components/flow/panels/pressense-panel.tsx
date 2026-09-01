@@ -1,15 +1,15 @@
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Heart } from "lucide-react";
 import { memo } from "react";
-import { useCollabPresence } from "@/session";
+import { collaboratorsSlice, usePresence } from "@/session";
 
 /**
- * The collaborator avatars. Subscribes to presence directly — see the note in
- * `CollabCursors` — so a remote cursor move does not travel through the canvas
- * to reach it.
+ * The collaborator avatars. Subscribes to the collaborator slice directly —
+ * see the note in `CollabCursors` — so a remote cursor move neither travels
+ * through the canvas to reach it nor re-renders it at all.
  */
 export const PressensePanel = memo(function PressensePanel() {
-  const { otherUsers: users } = useCollabPresence();
+  const users = usePresence(collaboratorsSlice);
 
   return (
     <div className="flex -space-x-3">

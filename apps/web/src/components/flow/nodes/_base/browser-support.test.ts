@@ -5,34 +5,36 @@ mock.module("@/lib/platform", () => ({ isDesktop }));
 const isWebSerialSupported = mock(() => true);
 mock.module("@/lib/firmata/web-serial", () => ({ isWebSerialSupported }));
 
-const { browserLimitation, isBrowserReachableBroker } = await import("./browser-support");
+const { hostLimitation, isBrowserReachableBroker } = await import("./browser-support");
 
 afterEach(() => {
   isDesktop.mockReturnValue(false);
   isWebSerialSupported.mockReturnValue(true);
 });
 
-describe("browserLimitation", () => {
+describe("hostLimitation: node", () => {
   it("flags pin-driving nodes only when the browser has no Web Serial", () => {
-    expect(browserLimitation("Led")).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: "Led" })).toBeUndefined();
     isWebSerialSupported.mockReturnValue(false);
-    expect(browserLimitation("Led")).toContain("Web Serial");
+    const limitation = hostLimitation({ kind: "node", type: "Led" });
+    expect(limitation?.label).toBe("desktop only");
+    expect(limitation?.reason).toContain("Web Serial");
     // …and leaves software-only nodes alone even then.
-    expect(browserLimitation("Counter")).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: "Counter" })).toBeUndefined();
   });
 
   it("never flags anything on desktop", () => {
     isDesktop.mockReturnValue(true);
     isWebSerialSupported.mockReturnValue(false);
-    expect(browserLimitation("Led")).toBeUndefined();
-    expect(browserLimitation("Midi")).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: "Led" })).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: "Midi" })).toBeUndefined();
   });
 
   it("leaves unaffected node types alone", () => {
-    expect(browserLimitation("Counter")).toBeUndefined();
-    expect(browserLimitation(undefined)).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: "Counter" })).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: undefined })).toBeUndefined();
     // Hotkey works in both hosts — the browser dispatches into the wasm runtime.
-    expect(browserLimitation("Hotkey")).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: "Hotkey" })).toBeUndefined();
   });
 
   it("only flags Midi when the browser has no Web MIDI", () => {
@@ -40,12 +42,64 @@ describe("browserLimitation", () => {
     const original = nav.requestMIDIAccess;
 
     nav.requestMIDIAccess = () => Promise.resolve({});
-    expect(browserLimitation("Midi")).toBeUndefined();
+    expect(hostLimitation({ kind: "node", type: "Midi" })).toBeUndefined();
 
     delete nav.requestMIDIAccess;
-    expect(browserLimitation("Midi")).toContain("Web MIDI");
+    expect(hostLimitation({ kind: "node", type: "Midi" })?.reason).toContain("Web MIDI");
 
     if (original !== undefined) nav.requestMIDIAccess = original;
+  });
+});
+
+describe("hostLimitation: broker", () => {
+  const broker = (url: string) => hostLimitation({ kind: "broker", name: "Lab", url });
+
+  it("accepts only MQTT-over-WebSocket URLs in a browser", () => {
+    expect(broker("ws://localhost:9001")).toBeUndefined();
+    expect(broker(" WSS://broker.example/mqtt ")).toBeUndefined();
+    expect(broker("mqtt://broker.example:1883")?.reason).toBe(
+      "Lab is not reachable from a browser — use a ws:// or wss:// broker, or the desktop app.",
+    );
+    expect(broker("broker.example")).toBeDefined();
+  });
+
+  it("accepts any scheme on desktop", () => {
+    isDesktop.mockReturnValue(true);
+    expect(broker("mqtt://broker.example:1883")).toBeUndefined();
+    expect(broker("ws://localhost:9001")).toBeUndefined();
+  });
+
+  it("says nothing about a blank URL — unconfigured, not unreachable", () => {
+    expect(broker("")).toBeUndefined();
+    expect(broker("   ")).toBeUndefined();
+  });
+});
+
+describe("hostLimitation: provider", () => {
+  const cli = { kind: "cli", baseUrl: "claude" };
+  const http = { kind: "http", baseUrl: "https://api.openai.com/v1" };
+  const on = (provider: { kind?: string }, surface: "config" | "node" | "ask-ai") =>
+    hostLimitation({ kind: "provider", provider, surface });
+
+  it("rules a CLI out of every surface in a browser", () => {
+    // That outranks any surface-specific objection — one badge, not two.
+    for (const surface of ["config", "node", "ask-ai"] as const) {
+      expect(on(cli, surface)?.label).toBe("studio only");
+    }
+  });
+
+  it("on desktop only Ask AI objects: these CLIs cannot call flow tools", () => {
+    isDesktop.mockReturnValue(true);
+    expect(on(cli, "config")).toBeUndefined();
+    expect(on(cli, "node")).toBeUndefined();
+    const limitation = on(cli, "ask-ai");
+    expect(limitation?.label).toBe("no flow tools");
+    expect(limitation?.reason).toContain("cannot call Microflow's");
+  });
+
+  it("never limits an HTTP provider — its failures are reachability", () => {
+    expect(on(http, "ask-ai")).toBeUndefined();
+    expect(hostLimitation({ kind: "provider", provider: undefined, surface: "ask-ai" })).toBeUndefined();
   });
 });
 
@@ -55,5 +109,17 @@ describe("isBrowserReachableBroker", () => {
     expect(isBrowserReachableBroker(" WSS://broker.example/mqtt ")).toBe(true);
     expect(isBrowserReachableBroker("mqtt://broker.example:1883")).toBe(false);
     expect(isBrowserReachableBroker("broker.example")).toBe(false);
+  });
+});
+
+describe("isBrowserReachableBroker", () => {
+  it("rejects the half-typed URLs the config field produces per keystroke", () => {
+    // mqtt.connect throws "Missing protocol" on these, so every connect site
+    // must ask first.
+    for (const url of ["", " ", "w", "wss:/", "broker.example.com", "mqtt://host"]) {
+      expect(isBrowserReachableBroker(url)).toBe(false);
+    }
+    expect(isBrowserReachableBroker(" wss://broker.example.com:8883/mqtt ")).toBe(true);
+    expect(isBrowserReachableBroker("ws://localhost:9001")).toBe(true);
   });
 });

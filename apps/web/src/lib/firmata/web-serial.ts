@@ -13,17 +13,18 @@
 // shows the browser's port picker.
 
 import type { BoardState } from "@/lib/bindings/BoardState";
-import type { PinInfo } from "@/lib/bindings/PinInfo";
 import {
   createFlashSession,
   createSession,
   detectBoardFromUsb,
+  flashAdvance,
   flashBaud,
+  flashStart,
   parseHex,
+  sessionPins,
   standardFirmataHex,
   type FirmataSession,
   type FlashSession,
-  type FlashStep,
 } from "./wasm";
 
 // --- Minimal Web Serial typings (the TS DOM lib does not ship them) ---------
@@ -324,12 +325,12 @@ export async function pumpReader(
 
 /** Number of pins the session currently knows about. */
 function pinCount(session: FirmataSession): number {
-  return (JSON.parse(session.pinsJson()) as PinInfo[]).length;
+  return sessionPins(session).length;
 }
 
 /** Build the `connected` BoardState from the session + the port's USB ids. */
 export function connectedState(port: WebSerialPort, session: FirmataSession): BoardState {
-  const pins = JSON.parse(session.pinsJson()) as PinInfo[];
+  const pins = sessionPins(session);
   return {
     state: "connected",
     port: portLabel(port.getInfo()),
@@ -489,7 +490,7 @@ async function runFlash(
   await startIo();
   console.debug(`[flash] opened @ ${baud} baud — driving bootloader`);
   try {
-    let step = JSON.parse(session.start()) as FlashStep;
+    let step = flashStart(session);
     let guard = 0;
     for (;;) {
       if (++guard > 1_000_000) throw new Error("Flash driver did not terminate");
@@ -559,7 +560,7 @@ async function runFlash(
           break;
         }
       }
-      step = JSON.parse(session.advance(input)) as FlashStep;
+      step = flashAdvance(session, input);
     }
   } finally {
     await stopIo();
