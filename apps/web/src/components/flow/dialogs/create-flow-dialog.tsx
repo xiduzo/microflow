@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Plus } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
+import { authClient } from "@/lib/auth-client";
 import { useAppStore } from "@/stores/app";
 import {
   Dialog,
@@ -45,6 +46,19 @@ export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onO
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const { data: session } = authClient.useSession();
+  const isSignedIn = !!session?.user;
+
+  // flow.create is a protected procedure — bounce signed-out visitors to
+  // sign-in instead of letting them fill in a form that 401s on submit.
+  const requestOpen = (next: boolean) => {
+    if (next && !isSignedIn) {
+      navigate({ to: "/login", search: { redirect: window.location.pathname } });
+      return;
+    }
+    setOpen(next);
+    if (!next) form.reset();
+  };
 
   const createMutation = useMutation(trpc.flow.create.mutationOptions({
     onSuccess: (result) => {
@@ -61,11 +75,7 @@ export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onO
   }));
 
   return (
-    <Dialog open={open} onOpenChange={open => {
-      setOpen(open);
-      if (open) return
-      form.reset();
-    }}>
+    <Dialog open={open && isSignedIn} onOpenChange={requestOpen}>
       {trigger && (
         <DialogTrigger render={trigger} />
       )}
