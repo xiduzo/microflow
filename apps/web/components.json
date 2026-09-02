@@ -1,12 +1,12 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-lyra",
+  "style": "base-rhea",
   "rsc": false,
   "tsx": true,
   "tailwind": {
     "config": "",
     "css": "src/index.css",
-    "baseColor": "neutral",
+    "baseColor": "mist",
     "cssVariables": true,
     "prefix": ""
   },
@@ -20,6 +20,7 @@
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
+  "rtl": false,
   "registries": {
     "@magicui": "https://magicui.design/r/{name}.json"
   }
