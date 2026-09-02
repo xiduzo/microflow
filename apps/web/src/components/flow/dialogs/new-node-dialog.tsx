@@ -8,6 +8,7 @@ import { useNewNodeStore } from "@/stores/new-node";
 import { groupIndicator } from "../nodes/_base/_base";
 import { DesktopOnlyBadge } from "../nodes/_base/desktop-only-badge";
 import { uid } from "@/lib/uid";
+import { createPointerFrame } from "@/lib/pointer-frame";
 import { track } from "@/lib/analytics";
 import { docsUrl } from "@/lib/docs";
 import {
@@ -253,6 +254,21 @@ export function NewNodeDialog() {
   );
 }
 
+/**
+ * The screen point that puts the node's centre under the cursor, before the
+ * viewport converts it to flow coordinates.
+ *
+ * The half-size offset is scaled by zoom because it is applied in *screen*
+ * space: at zoom 2 the node covers twice the pixels, so its centre is twice as
+ * far from its origin on screen.
+ */
+export function centreOnPointer(pointer: XYPosition, zoom: number): XYPosition {
+  return {
+    x: pointer.x - (NODE_SIZE.width / 2) * zoom,
+    y: pointer.y - (NODE_SIZE.height / 2) * zoom,
+  };
+}
+
 function useDraggableNewNode() {
   const { nodeToAdd, setNodeToAdd } = useNewNodeStore();
   const { screenToFlowPosition, getZoom } = useReactFlow();
@@ -314,28 +330,19 @@ function useDraggableNewNode() {
   useEffect(() => {
     if (!nodeToAdd) return;
     const id = nodeToAdd;
-    let frame: number | null = null;
-    let pointer: { x: number; y: number } | null = null;
 
     // Placement is a drag: positions are ephemeral, coalesced to one per
     // animation frame, and never written to the Y.Doc mid-move (ADR-0004).
     // Routing through `onNodesChange` with `dragging: true` is exactly the
     // path `ReactFlowBridge` classifies as ephemeral.
-    function flush() {
-      frame = null;
-      if (!pointer) return;
-      const zoom = getZoom();
-      const position = screenToFlowPosition({
-        x: pointer.x - (NODE_SIZE.width / 2) * zoom,
-        y: pointer.y - (NODE_SIZE.height / 2) * zoom,
-      });
+    const pointerFrame = createPointerFrame((point) => {
+      const position = screenToFlowPosition(centreOnPointer(point, getZoom()));
       placedPosition.current = position;
       store.getState().onNodesChange?.([{ id, type: "position", position, dragging: true }]);
-    }
+    });
 
     function handleMouseMove(event: MouseEvent) {
-      pointer = { x: event.clientX, y: event.clientY };
-      if (frame === null) frame = requestAnimationFrame(flush);
+      pointerFrame.track({ x: event.clientX, y: event.clientY });
     }
 
     // Defer registration so the click that triggered node selection doesn't
@@ -350,7 +357,7 @@ function useDraggableNewNode() {
 
     return () => {
       clearTimeout(timeoutId);
-      if (frame !== null) cancelAnimationFrame(frame);
+      pointerFrame.cancel();
       if (registered) {
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mousedown", addNode);
