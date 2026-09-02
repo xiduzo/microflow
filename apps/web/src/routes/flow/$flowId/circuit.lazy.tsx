@@ -27,8 +27,13 @@ export const Route = createLazyFileRoute("/flow/$flowId/circuit")({
 });
 
 function RouteComponent() {
-    const { data: circuitJson, isPending, error } = useCircuitStore(
-        useShallow((state) => ({ data: state.data, isPending: state.isPending, error: state.error })),
+    const { data: circuitJson, isPending, error, unsupported } = useCircuitStore(
+        useShallow((state) => ({
+            data: state.data,
+            isPending: state.isPending,
+            error: state.error,
+            unsupported: state.unsupported,
+        })),
     );
 
     if (error) return <ErrorState title="Failed to render circuit" error={error} />;
@@ -57,6 +62,11 @@ function RouteComponent() {
                         borderRadius: "2rem",
                     }}
                 />
+            )}
+            {unsupported.length > 0 && (
+                <div className="absolute top-4 right-4 z-10 max-w-3xs rounded-xl bg-background/50 backdrop-blur-sm px-3 py-2 text-xs text-muted-foreground">
+                    No schematic symbol yet for {unsupported.join(", ")}
+                </div>
             )}
             <Card className="absolute bottom-4 w-3xs left-4 rounded-xl z-10 bg-background/50 backdrop-blur-sm border-none ring-0">
                 <CardContent>

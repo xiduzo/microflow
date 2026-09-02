@@ -221,3 +221,56 @@ export const REQUIRES_HARDWARE = {
   Trigger: false,
   Vibration: true,
 } as const satisfies Record<ComponentType, boolean>;
+
+/**
+ * The **Variant** resolution: which `impls` row each entry runs as. GENERATED
+ * from `entries[].impl` in node-components.json — the same mapping the Rust
+ * `ComponentRegistry` uses to pick a factory. Most entries resolve to
+ * themselves; a Variant resolves to its parent (`Force` → `Sensor`,
+ * `Vibration` → `Led`). Surfaces so that a consumer keyed on runtime
+ * behaviour — the schematic's part map — can fall back to the parent's answer
+ * instead of hand-listing every Variant. See CONTEXT.md § Variant.
+ */
+export const COMPONENT_IMPL = {
+  Button: "Button",
+  Calculate: "Calculate",
+  Compare: "Compare",
+  Constant: "Constant",
+  Counter: "Counter",
+  Delay: "Delay",
+  Figma: "Figma",
+  Force: "Sensor",
+  Function: "Function",
+  Gate: "Gate",
+  HallEffect: "Sensor",
+  Hotkey: "Hotkey",
+  I2cDevice: "I2cDevice",
+  Interval: "Interval",
+  Ldr: "Sensor",
+  Led: "Led",
+  Llm: "Llm",
+  Matrix: "Matrix",
+  Midi: "Midi",
+  Monitor: "Monitor",
+  Motion: "Motion",
+  Mqtt: "Mqtt",
+  Music: "Music",
+  Note: "Note",
+  Oscillator: "Oscillator",
+  Piezo: "Piezo",
+  Pixel: "Pixel",
+  Pn532: "Pn532",
+  Potentiometer: "Sensor",
+  Proximity: "Proximity",
+  RangeMap: "RangeMap",
+  Relay: "Relay",
+  Rgb: "Rgb",
+  Sensor: "Sensor",
+  Servo: "Servo",
+  Smooth: "Smooth",
+  Stepper: "Stepper",
+  Switch: "Switch",
+  Tilt: "Sensor",
+  Trigger: "Trigger",
+  Vibration: "Led",
+} as const satisfies Record<ComponentType, string>;

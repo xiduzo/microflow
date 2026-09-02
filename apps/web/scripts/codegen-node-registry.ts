@@ -67,6 +67,7 @@ const emitsObjectLines = entries
 const hardwareObjectLines = entries
   .map((e) => `  ${e.name}: ${entryRequiresHardware(e)},`)
   .join("\n");
+const implObjectLines = entries.map((e) => `  ${e.name}: "${e.impl}",`).join("\n");
 const baseTypesContent = `// GENERATED — do not edit. Sources: node-components.json (entries/metadata) +
 // wire-interface.generated.json (ports/emits, from Rust). Run \`bun run codegen\`.
 
@@ -130,6 +131,19 @@ export type EmitOf<T extends ComponentType> = T extends ComponentType
 export const REQUIRES_HARDWARE = {
 ${hardwareObjectLines}
 } as const satisfies Record<ComponentType, boolean>;
+
+/**
+ * The **Variant** resolution: which \`impls\` row each entry runs as. GENERATED
+ * from \`entries[].impl\` in node-components.json — the same mapping the Rust
+ * \`ComponentRegistry\` uses to pick a factory. Most entries resolve to
+ * themselves; a Variant resolves to its parent (\`Force\` → \`Sensor\`,
+ * \`Vibration\` → \`Led\`). Surfaces so that a consumer keyed on runtime
+ * behaviour — the schematic's part map — can fall back to the parent's answer
+ * instead of hand-listing every Variant. See CONTEXT.md § Variant.
+ */
+export const COMPONENT_IMPL = {
+${implObjectLines}
+} as const satisfies Record<ComponentType, string>;
 `;
 writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
 

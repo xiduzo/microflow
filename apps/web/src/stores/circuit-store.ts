@@ -14,6 +14,13 @@ export type CircuitState = {
   error: string | null;
   data: AnyCircuitElement[];
 
+  /**
+   * Hardware nodes in the flow that the schematic has no part for, by instance
+   * name. Rendered as a note beside the drawing so a missing part reads as a
+   * known gap rather than as the node having been ignored.
+   */
+  unsupported: string[];
+
   /** Build circuit from flow nodes and board pins. Worker is created on first call. */
   buildCircuit: (nodes: Node[], pins: Pin[]) => Promise<void>;
 
@@ -45,11 +52,13 @@ export const useCircuitStore = create<CircuitState>()((set, get) => {
     isPending: false,
     error: null,
     data: [],
+    unsupported: [],
 
     buildCircuit: async (nodes, pins) => {
       set({ isPending: true, error: null });
 
-      const { code, componentCount } = buildCircuitCode(nodes, pins);
+      const { code, componentCount, unsupported } = buildCircuitCode(nodes, pins);
+      set({ unsupported });
 
       if (!componentCount) {
         set({ isPending: false, error: null, data: [] });
@@ -77,7 +86,7 @@ export const useCircuitStore = create<CircuitState>()((set, get) => {
     },
 
     reset: () => {
-      set({ isPending: false, error: null, data: [] });
+      set({ isPending: false, error: null, data: [], unsupported: [] });
     },
   };
 });

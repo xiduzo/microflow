@@ -1,34 +1,35 @@
 import type { Pin } from "@/stores/board";
 import type { Node } from "@xyflow/react";
 import type { BaseData } from "@/components/flow/nodes/_base/_base.schema";
-import { formatPinValueWithPwm, getAnalogChannelBase } from "@/lib/pin";
+import { formatPinValueWithPwm, findPin } from "@/lib/pin";
+import {
+  COMPONENT_IMPL,
+  REQUIRES_HARDWARE,
+  isComponentType,
+} from "@/components/flow/nodes/_base/_base.types";
 import type { BaseNode } from "@/components/flow/nodes/_base/_base";
 
+/** Arduino Uno analog mapping (A0 = 14). The schematic is drawn before a board
+ *  is ever connected, so an unresolvable `A<n>` still needs a pin number; the
+ *  Uno layout is the one every target in the catalog shares for A0..A5. */
+const UNO_ANALOG_BASE = 14;
+
 /**
- * Resolve a pin value (number or "A0" string) to the actual pin number
- * When no board is connected (pins array empty), uses standard Arduino Uno mapping
+ * Resolve a pin value (number or "A0" string) to the actual pin number.
+ *
+ * The lookup itself is `lib/pin.ts`'s `findPin` — the one resolver that knows
+ * how `A<n>` maps onto a board's analog channels. Only the no-board fallback
+ * lives here, because it is this module's concern: the circuit view renders
+ * with `pins: []` whenever the editor is offline, where `findPin` correctly has
+ * no answer.
  */
 function resolvePinNumber(pinValue: number | string, pins: Pin[]): number {
+  const found = findPin(pinValue, pins);
+  if (found) return found.pin;
+
   if (typeof pinValue === "number") return pinValue;
-
-  const match = pinValue.match(/^A(\d+)$/i);
-  if (match) {
-    const analogIndex = parseInt(match[1], 10);
-
-    // If no pins available, use standard Arduino Uno mapping (A0=14, A1=15, etc.)
-    if (pins.length === 0) {
-      return 14 + analogIndex;
-    }
-
-    const base = getAnalogChannelBase(pins);
-    const targetChannel = base + analogIndex;
-    const pin = pins.find((p) => p.analogChannel === targetChannel);
-    if (pin) return pin.pin;
-
-    // Fallback to standard mapping if pin not found
-    return 14 + analogIndex;
-  }
-
+  const analog = pinValue.match(/^A(\d+)$/i);
+  if (analog) return UNO_ANALOG_BASE + parseInt(analog[1], 10);
   const parsed = parseInt(pinValue, 10);
   return isNaN(parsed) ? -1 : parsed;
 }
@@ -233,23 +234,32 @@ function sanitizeName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 
-function isHardwareComponent(instanceType: string): boolean {
-  const hardwareComponents = [
-    "button",
-    "led",
-    "switch",
-    "relay",
-    "sensor",
-    "potentiometer",
-    "servo",
-    "rgb",
-    "piezo",
-    "matrix",
-    "motion",
-    "proximity",
-    "pixel",
-  ];
-  return hardwareComponents.includes(instanceType.toLowerCase());
+/**
+ * Whether this node drives a pin, and so belongs on the schematic. Answered by
+ * the **Component Catalog**'s `requiresHardware` (via the generated
+ * `REQUIRES_HARDWARE`) — the same flag the Rust registry uses to decide on
+ * `Component::initialize(board)`, so the schematic cannot disagree with the
+ * runtime about what hardware is.
+ */
+function isHardwareComponent(instance: string): boolean {
+  return isComponentType(instance) && REQUIRES_HARDWARE[instance];
+}
+
+/**
+ * The part to draw for a node, in narrowing order: its `subType` (a **Variant**
+ * with its own artwork, e.g. `ldr`), its own entry name, then the **impl** the
+ * entry resolves to (`Force` → `Sensor`, `Vibration` → `Led`). The impl step is
+ * what stops every new Variant from needing its own row here — the catalog
+ * already records which runtime behaviour it reuses.
+ */
+function partFor(data: BaseNode<BaseData>["data"]): TscircuitComponent | undefined {
+  const instance = data.instance ?? "";
+  const impl = isComponentType(instance) ? COMPONENT_IMPL[instance] : instance;
+  return (
+    componentMap[data.subType?.toLowerCase() ?? ""] ??
+    componentMap[instance.toLowerCase()] ??
+    componentMap[impl.toLowerCase()]
+  );
 }
 
 interface NodePinInfo {
@@ -284,6 +294,12 @@ function getNodePins(node: Node, pins: Pin[]): number[] {
 export interface CircuitBuildResult {
   code: string;
   componentCount: number;
+  /**
+   * Hardware nodes the catalog admits but this module has no part for, by
+   * instance name. A gap in `componentMap`, not in the flow — reported rather
+   * than dropped in silence, so a node missing from the drawing is visible.
+   */
+  unsupported: string[];
 }
 
 /**
@@ -293,25 +309,19 @@ export function buildCircuitCode(
   nodes: Node[],
   pins: Pin[],
 ): CircuitBuildResult {
-  console.log({ nodes, pins });
   const hardwareNodes = nodes.filter((node) => {
     const data = node.data as BaseData;
-    return data.instance && isHardwareComponent(data.instance);
+    return isHardwareComponent(data.instance ?? "");
   });
+  const unsupported = new Set<string>();
 
   if (hardwareNodes.length === 0) {
     return {
       code: `circuit.add(<board width="20mm" height="20mm" />)`,
       componentCount: 0,
+      unsupported: [],
     };
   }
-
-  // Sort by pin number for consistent layout
-  const sortedNodes = [...hardwareNodes].sort((a, b) => {
-    const pinA = "pin" in a.data ? Number(a.data.pin) : -1;
-    const pinB = "pin" in b.data ? Number(b.data.pin) : -1;
-    return pinA - pinB;
-  });
 
   // Build MCU pin labels from used pins
   const usedPins = new Set<number>();
@@ -321,8 +331,6 @@ export function buildCircuitCode(
       usedPins.add(p);
     });
   });
-
-  console.log({ hardwareNodes });
 
   const mcuPinLabels: Record<string, string> = {};
   const sortedUsedPins = Array.from(usedPins).sort((a, b) => a - b);
@@ -370,15 +378,16 @@ export function buildCircuitCode(
 
   hardwareNodes.forEach((node, index) => {
     const data = node.data as BaseNode<BaseData>["data"];
-    const instanceType = data.instance?.toLowerCase();
-    if (!instanceType) return;
-    const subType = data.subType?.toLowerCase();
-    const component = componentMap[subType ?? ""] ?? componentMap[instanceType];
-    if (!component) return;
+    const instance = data.instance;
+    if (!instance) return;
+    const component = partFor(data);
+    if (!component) {
+      unsupported.add(instance);
+      return;
+    }
 
-    const rawName = data.label ?? `${instanceType.toUpperCase()}${index + 1}`;
+    const rawName = data.label ?? `${instance.toUpperCase()}${index + 1}`;
     const componentName = sanitizeName(rawName + "_" + node.id);
-    console.log({ componentName, data });
 
     components.push(component.toJsx(componentName, data));
 
@@ -445,10 +454,12 @@ export function buildCircuitCode(
   </board>
 )`;
 
-  console.log(code);
-
   return {
     code,
-    componentCount: sortedNodes.length,
+    // Parts actually drawn — `components` holds the MCU chip plus one entry per
+    // node that resolved to a part, so an unsupported node is not counted as
+    // present in a drawing it never reached.
+    componentCount: components.length - 1,
+    unsupported: [...unsupported].sort(),
   };
 }
