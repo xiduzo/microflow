@@ -12,7 +12,13 @@ import { useLlmProviderStore, type LlmProviderConfig } from "@/stores/llm-provid
 import { track } from "@/lib/analytics";
 import { invokeCommand } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
-import { probeLlmProvider } from "@/session/browser-cloud-probe";
+import {
+  isProbeOk,
+  probeLlmProvider,
+  probeStatus,
+  type LlmProbeOutcome,
+} from "@/session/browser-cloud-probe";
+import { isMixedContent } from "@/lib/ai/endpoint";
 import { fetchModels, KNOWN_MODELS, providerFamily, providerModel } from "@/lib/ai/models";
 import { CLI_PROVIDERS, isCliProvider as isCli } from "@/lib/ai/cli-providers";
 import { ProviderBadge } from "@/components/flow/nodes/_base/desktop-only-badge";
@@ -90,16 +96,6 @@ const PRESETS: Array<ConsolePreset & { defaults: Omit<LlmProviderConfig, "id" | 
     defaults: { kind: "http", name: "Custom endpoint", baseUrl: "", apiKey: "", model: "" },
   },
 ];
-
-/** An `http://` endpoint on an `https://` page: blocked by the browser before
- *  any request goes out, and unfixable from our side. */
-function mixedContent(baseUrl: string): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.location.protocol === "https:" &&
-    baseUrl.trim().toLowerCase().startsWith("http://")
-  );
-}
 
 function statusTone(status: string | undefined): ConnectionStatusTone {
   if (status === "ok") return "ok";
@@ -187,25 +183,17 @@ function LlmConfigPage() {
     });
 
     // One probe, both hosts (ADR-0021) — it runs over the same `hostFetch` a
-    // generation does, so "reachable" here means the Llm node will answer.
-    // `browserBlocker` still explains the failures only a browser can have
-    // (mixed content, CORS); on desktop it returns nothing to add.
-    const ok = (await probeLlmProvider(entry)) === "ok";
-    const result = {
-      success: ok,
-      error: isCli(entry)
-        ? isDesktop()
-          ? `${entry.baseUrl} was not found on this machine — install it, or check it is on your PATH.`
-          : `${entry.baseUrl} runs as a program on your computer, which a browser tab cannot start. Use Microflow Studio, the desktop app.`
-        : browserBlocker(entry.baseUrl),
-    };
+    // generation does, so "reachable" here means the Llm node will answer. The
+    // probe reports *why* it failed; this page only renders the sentence.
+    const outcome = await probeLlmProvider(entry);
+    const ok = isProbeOk(outcome);
 
-    track("llm_provider_tested", { family: providerFamily(entry.baseUrl), ok: result.success });
-    setStatus(entry.id, result.success ? "ok" : "error");
+    track("llm_provider_tested", { family: providerFamily(entry.baseUrl), ok });
+    setStatus(entry.id, probeStatus(outcome));
     push(
-      result.success
+      ok
         ? { kind: "sys", text: isCli(entry) ? "installed" : "reachable" }
-        : { kind: "err", text: (result as { error: string }).error },
+        : { kind: "err", text: explainProbe(outcome, entry.baseUrl) },
     );
   };
 
@@ -374,7 +362,7 @@ function LlmConfigPage() {
                   label="Base URL"
                   value={provider.baseUrl}
                   placeholder="http://localhost:11434"
-                  tone={mixedContent(provider.baseUrl) ? "warning" : undefined}
+                  tone={isMixedContent(provider.baseUrl) ? "warning" : undefined}
                   hint={isDesktop() ? undefined : browserHint(provider.baseUrl)}
                   onChange={(event) => updateProvider(provider.id, { baseUrl: event.target.value })}
                   onBlur={() => trackConfigured(provider)}
@@ -451,16 +439,37 @@ function LlmConfigPage() {
 
 /** What the browser will refuse to do, said before it refuses. */
 function browserHint(baseUrl: string): string {
-  return mixedContent(baseUrl)
+  return isMixedContent(baseUrl)
     ? "This page is served over https, so the browser blocks calls to an http:// endpoint entirely (mixed content). Use https, or the desktop app — for a local Ollama, the desktop app is the only option."
     : `Called directly from this page: the endpoint must allow CORS requests from ${window.location.origin}. The desktop app has no such restriction.`;
 }
 
-function browserBlocker(baseUrl: string): string {
-  // The desktop app fetches through Tauri's HTTP plugin, so CORS never applies
-  // — saying it does sent users chasing an origin that was never the problem.
-  if (isDesktop()) return `${baseUrl} did not answer — check that it is running and the URL is right.`;
-  return `${baseUrl} is not reachable from this page — check that it allows CORS from ${window.location.origin}${
-    mixedContent(baseUrl) ? ", and note that an http:// endpoint is blocked on an https page" : ""
-  }.`;
+/**
+ * The sentence for one probe outcome. One switch over what the probe actually
+ * saw, so this page authors no predicate about *why* a probe failed — a 401 can
+ * no longer be reported as a CORS problem.
+ */
+function explainProbe(outcome: LlmProbeOutcome, baseUrl: string): string {
+  switch (outcome.kind) {
+    case "ok":
+      return "";
+    case "cliNotFound":
+      return isDesktop()
+        ? `${outcome.bin} was not found on this machine — install it, or check it is on your PATH.`
+        : `${outcome.bin} runs as a program on your computer, which a browser tab cannot start. Use Microflow Studio, the desktop app.`;
+    case "mixedContent":
+      return `${baseUrl} is an http:// endpoint and this page is served over https, so the browser blocked the request before it was sent. Use https, or the desktop app.`;
+    case "httpError":
+      // It answered, so reaching it is not the problem.
+      return outcome.status === 401 || outcome.status === 403
+        ? `${baseUrl} answered ${outcome.status} — check the API key.`
+        : `${baseUrl} answered ${outcome.status} — check the URL points at the API root.`;
+    case "unreachable":
+      // The desktop app fetches through Tauri's HTTP plugin, so CORS never
+      // applies — saying it does sent users chasing an origin that was never
+      // the problem.
+      return isDesktop()
+        ? `${baseUrl} did not answer — check that it is running and the URL is right.`
+        : `${baseUrl} is not reachable from this page — check that it is running and allows CORS from ${window.location.origin}.`;
+  }
 }

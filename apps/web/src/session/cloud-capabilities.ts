@@ -10,7 +10,7 @@ import {
   startCloudCapabilitySync,
   type CloudCapability,
 } from "./cloud-capability-sync";
-import { probeBroker, probeLlmProvider } from "./browser-cloud-probe";
+import { probeBroker, probeLlmProvider, probeStatus } from "./browser-cloud-probe";
 import type { HostSnapshot } from "./flow-update-dispatcher";
 
 // Production cloud-capability registry: each entry owns its store slice, its
@@ -76,7 +76,10 @@ const llm: CloudCapability = {
       const { providers, setStatus } = useLlmProviderStore.getState();
       for (const provider of providers) {
         setStatus(provider.id, "testing");
-        void probeLlmProvider(provider).then((status) => setStatus(provider.id, status));
+        // Only the dot is drawn here; the reason is rendered on the config page.
+        void probeLlmProvider(provider).then((outcome) =>
+          setStatus(provider.id, probeStatus(outcome)),
+        );
       }
     },
   },
