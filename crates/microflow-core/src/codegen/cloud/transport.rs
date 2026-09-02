@@ -14,32 +14,13 @@
 //! Like every emitter, the produced fragments are a pure function of their
 //! inputs: identical configuration yields byte-identical text (determinism).
 
-use crate::codegen::emit::NodeEmission;
+use crate::codegen::emit::{cpp_string_literal, NodeEmission};
 
 /// Default broker port — standard unencrypted MQTT, matching `cloud::mqtt`.
 pub const DEFAULT_PORT: u16 = 1883;
 /// Sentinel emitted in place of a missing credential so the Sketch never
 /// silently connects with an empty value. Matches `cloud::mqtt::PLACEHOLDER`.
 pub const PLACEHOLDER: &str = "REPLACE_ME";
-
-/// Escape a string for embedding inside a C++ double-quoted literal so a stray
-/// quote/backslash/newline can never break the generated Sketch.
-#[must_use]
-pub fn cpp_string(value: &str) -> String {
-    let mut out = String::with_capacity(value.len() + 2);
-    out.push('"');
-    for ch in value.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            _ => out.push(ch),
-        }
-    }
-    out.push('"');
-    out
-}
 
 /// The `WiFi` + MQTT client includes shared by every MQTT-bridging Cloud Node.
 /// De-duplicated by the assembler against the credentials preamble's `WiFi.h`.
@@ -125,8 +106,8 @@ impl Transport<'_> {
     /// reference them.
     #[must_use]
     pub fn declarations(&self, extra_decls: Vec<String>) -> Vec<String> {
-        let broker_lit = cpp_string(if self.broker.is_empty() { PLACEHOLDER } else { self.broker });
-        let client_id_lit = cpp_string(&format!("microflow-{}", self.prefix));
+        let broker_lit = cpp_string_literal(if self.broker.is_empty() { PLACEHOLDER } else { self.broker });
+        let client_id_lit = cpp_string_literal(&format!("microflow-{}", self.prefix));
 
         let mut decls = Vec::new();
         if self.credentials_missing {
@@ -151,8 +132,8 @@ impl Transport<'_> {
                 "{}.connect({}, {}, {})",
                 self.mqtt_client(),
                 self.client_id_var(),
-                cpp_string(self.broker_user),
-                cpp_string(if self.broker_pass.is_empty() { PLACEHOLDER } else { self.broker_pass })
+                cpp_string_literal(self.broker_user),
+                cpp_string_literal(if self.broker_pass.is_empty() { PLACEHOLDER } else { self.broker_pass })
             )
         };
 
@@ -307,6 +288,6 @@ mod tests {
 
     #[test]
     fn cpp_string_escapes_quotes_and_backslashes() {
-        assert_eq!(cpp_string("a\"b\\c"), "\"a\\\"b\\\\c\"");
+        assert_eq!(cpp_string_literal("a\"b\\c"), "\"a\\\"b\\\\c\"");
     }
 }

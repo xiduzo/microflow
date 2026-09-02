@@ -30,22 +30,11 @@
 //! Like every emitter this is a pure function of the [`FlowNode`]: identical
 //! input yields byte-identical output (determinism invariant).
 
-use crate::codegen::cloud::transport::{cpp_string, Subscription, Transport, DEFAULT_PORT};
-use crate::codegen::emit::{str_or_default, u16_or_default, NodeEmission, NodeToken};
+use crate::codegen::cloud::transport::{Subscription, Transport, DEFAULT_PORT};
+use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
 use crate::config::figma::FigmaConfig;
 use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
-
-/// A single config value read from `data`, first non-empty key winning.
-fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
-    for key in keys {
-        let value = str_or_default(node, key, "");
-        if !value.is_empty() {
-            return value;
-        }
-    }
-    default.to_string()
-}
 
 /// Convert `VariableID:123:456` → `123-456`, mirroring
 /// `runtime/external/figma.rs::short_var_id`.
@@ -68,14 +57,14 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let prefix = format!("figma_{token}");
 
-    let broker = first_non_empty(node, &["broker", "brokerId"], "");
+    let broker = str_first_non_empty(node, &["broker", "brokerId"], "");
     let port = u16_or_default(node, "port", DEFAULT_PORT);
     let config: FigmaConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let unique_id = config.unique_id;
     let variable_id = config.variable_id;
-    let wifi_ssid = first_non_empty(node, &["wifiSsid"], "");
-    let broker_user = first_non_empty(node, &["brokerUsername"], "");
-    let broker_pass = first_non_empty(node, &["brokerPassword"], "");
+    let wifi_ssid = str_first_non_empty(node, &["wifiSsid"], "");
+    let broker_user = str_first_non_empty(node, &["brokerUsername"], "");
+    let broker_pass = str_first_non_empty(node, &["brokerPassword"], "");
 
     let short = short_var_id(&variable_id);
     let plugin_topic = format!("microflow/{unique_id}/figma/variable/{short}");
@@ -114,9 +103,9 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     // the inbound-message callback that surfaces the latest value (mirrors the
     // live component emitting a "change" downstream when a value arrives).
     let mut extra_decls = vec![
-        format!("const char* {plugin_topic_var} = {};", cpp_string(&plugin_topic)),
-        format!("const char* {app_topic_var} = {};", cpp_string(&app_topic)),
-        format!("const char* {set_topic_var} = {};", cpp_string(&set_topic)),
+        format!("const char* {plugin_topic_var} = {};", cpp_string_literal(&plugin_topic)),
+        format!("const char* {app_topic_var} = {};", cpp_string_literal(&app_topic)),
+        format!("const char* {set_topic_var} = {};", cpp_string_literal(&set_topic)),
         format!("String {value_var};"),
     ];
     if let Some(last) = &last_var {
