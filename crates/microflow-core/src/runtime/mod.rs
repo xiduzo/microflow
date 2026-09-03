@@ -294,54 +294,15 @@ impl FlowRuntime {
         }
 
         // 4. Recompute the wiring tables + the desired board config from every
-        //    active component. The listener tables are runtime routing state; the
-        //    board-wide votes (sampling interval, I2C read-delay, continuous reads)
-        //    are gathered into a `DesiredBoard` for the central reconcile planner.
-        let mut pin_listeners: HashMap<u8, Vec<Arc<str>>> = HashMap::new();
-        let mut i2c_listeners: HashMap<u8, Vec<(u8, Arc<str>)>> = HashMap::new();
-        let mut key_listeners: HashMap<String, Vec<Arc<str>>> = HashMap::new();
-        let mut report: HashMap<u8, bool> = HashMap::new();
-        let mut desired = DesiredBoard::default();
-        for (id, component) in &self.components {
-            for wiring in component.listener_wiring() {
-                match wiring {
-                    ListenerWiring::DigitalPin { pin } => {
-                        pin_listeners.entry(pin).or_default().push(Arc::from(id.as_str()));
-                        report.insert(pin, false);
-                    }
-                    ListenerWiring::AnalogPin { pin, .. } => {
-                        pin_listeners.entry(pin).or_default().push(Arc::from(id.as_str()));
-                        report.insert(pin, true);
-                    }
-                    ListenerWiring::I2cAddress { address, register } => {
-                        i2c_listeners
-                            .entry(address)
-                            .or_default()
-                            .push((register, Arc::from(id.as_str())));
-                    }
-                    // Hotkeys are delivered by the host (keyboard) via
-                    // `dispatch_key_event`, not the board.
-                    ListenerWiring::HotKey { accelerator } => {
-                        key_listeners.entry(accelerator).or_default().push(Arc::from(id.as_str()));
-                    }
-                }
-            }
-            // Board-wide votes: the slowest sensor sets the shared pace/read-delay
-            // (reconciled to the MAX in the planner), and each streamer contributes
-            // one continuous read.
-            let bw = component.board_wiring();
-            if let Some(ms) = bw.sampling_interval_ms {
-                desired.max_interval_ms = desired.max_interval_ms.max(Some(ms));
-            }
-            if let Some(us) = bw.i2c_read_delay_us {
-                desired.max_i2c_delay_us = desired.max_i2c_delay_us.max(Some(us));
-            }
-            if let Some(r) = bw.i2c_continuous_read {
-                desired.i2c_reads.push(r);
-            }
-        }
-        desired.has_i2c_listeners = !i2c_listeners.is_empty();
-        desired.report = report;
+        //    active component, in one walk. The listener tables are runtime
+        //    routing state; the board-wide votes (sampling interval, I2C
+        //    read-delay, continuous reads) become the `DesiredBoard` the central
+        //    reconcile planner reconciles.
+        let (tables, desired) = reconcile::gather_wiring(
+            self.components
+                .iter()
+                .map(|(id, c)| (id.as_str(), c.listener_wiring(), c.board_wiring())),
+        );
 
         // 5. Plan the board reconcile as a pure value — the reporting diff (analog
         //    per channel, digital per 8-pin PORT), the bus config + sampling
@@ -357,46 +318,15 @@ impl FlowRuntime {
         //     power-on writes. (Sent every update_flow: a cheap sysex, and the
         //     runtime is rebuilt fresh on each board (re)connect, so this is also
         //     how the rate is restored after a replug.)
-        {
-            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
-            for &pin in &plan.analog_enable {
-                // A failure here (pin not flagged analog in the seeded table) means
-                // the board will never stream this pin — surface it; a silent drop
-                // here cost a full debugging session.
-                if let Err(e) = writer.enable_analog_reporting(pin) {
-                    log::warn!("enable analog reporting failed for pin {pin}: {e}");
-                }
-            }
-            for &pin in &plan.analog_disable {
-                let _ = writer.disable_analog_reporting(pin);
-            }
-            for &sel in &plan.digital_enable {
-                if let Err(e) = writer.enable_digital_reporting(sel) {
-                    log::warn!("enable digital reporting failed for selector {sel}: {e}");
-                }
-            }
-            for &sel in &plan.digital_disable {
-                let _ = writer.disable_digital_reporting(sel);
-            }
-            if let Some(delay) = plan.i2c_config_delay {
-                if let Err(e) = writer.i2c_config(delay) {
-                    log::warn!("i2c_config (read-delay {delay}us) failed: {e}");
-                }
-            }
-            if let Some(ms) = plan.sampling_interval_ms {
-                if let Err(e) = writer.sampling_interval(ms) {
-                    log::warn!("set sampling interval {ms}ms failed: {e}");
-                }
-            }
-        }
+        plan.encode_setup(&mut BufferBoardWriter::new(&mut self.client, &mut out));
 
         // Commit the new routing state (the plan already captured what it needs
         // from the previous `report_set` / `i2c_listeners` above).
         self.active_pins = desired.report.keys().copied().collect();
         self.pin_values.retain(|pin, _| desired.report.contains_key(pin));
-        self.pin_listeners = pin_listeners;
-        self.i2c_listeners = i2c_listeners;
-        self.key_listeners = key_listeners;
+        self.pin_listeners = tables.pin_listeners;
+        self.i2c_listeners = tables.i2c_listeners;
+        self.key_listeners = tables.key_listeners;
         self.report_set = desired.report;
 
         // 6. Initialize newly-built hardware (pin modes + initial output state).
@@ -422,23 +352,7 @@ impl FlowRuntime {
         //     desired set; see `reconcile::plan_board` for why the drain count per
         //     address must be exact (StandardFirmata clears the lone remaining query
         //     regardless of address, so an extra stop would drop a sibling device).
-        {
-            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
-            for &addr in &plan.i2c_stops {
-                if let Err(e) = writer.i2c_stop_reading(addr) {
-                    log::warn!("i2c_stop_reading 0x{addr:02X} failed: {e}");
-                }
-            }
-            for r in &plan.i2c_reads {
-                if let Err(e) = writer.i2c_read_continuous(
-                    i32::from(r.address),
-                    i32::from(r.register),
-                    i32::from(r.length),
-                ) {
-                    log::warn!("i2c_read_continuous 0x{:02X} failed: {e}", r.address);
-                }
-            }
-        }
+        plan.encode_arm(&mut BufferBoardWriter::new(&mut self.client, &mut out));
 
         // 7. Rebuild edges, then drain any init-time emissions.
         self.router.set_edges(edges);

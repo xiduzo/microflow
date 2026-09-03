@@ -7,6 +7,8 @@
  * so no handle ever measures the DOM.
  */
 
+import { createPointerFrame, type XY } from "@/lib/pointer-frame";
+
 /** Rendered size of a handle, in flow units (CSS px at zoom 1). */
 export const HANDLE_SIZE = 18;
 export const HANDLE_TRANSLATE_OFFSET = HANDLE_SIZE * 0.9;
@@ -25,7 +27,9 @@ export const PROXIMITY_MIN_ZOOM = 0.75;
 
 export type HandlePosition = "left" | "right" | "bottom";
 
-export type XY = { x: number; y: number };
+// One definition of a screen/flow point, shared with the pointer coalescer this
+// module drives.
+export type { XY };
 
 /** A node's box in flow coordinates. */
 export type NodeBox = XY & { width: number; height: number };
@@ -97,18 +101,8 @@ export type ProximitySubscriber = {
 type Entry = ProximitySubscriber & { last: boolean };
 
 const subscribers = new Set<Entry>();
-let pointer: XY | null = null;
-let frame: number | null = null;
 
-function handlePointerMove(event: MouseEvent): void {
-  pointer = { x: event.clientX, y: event.clientY };
-  if (frame === null) frame = requestAnimationFrame(flushProximity);
-}
-
-function flushProximity(): void {
-  frame = null;
-  if (!pointer) return;
-
+function flushProximity(pointer: XY): void {
   // ponytail: one canvas is mounted per document (ADR-0004), so any
   // subscriber's viewport converter is *the* viewport — converting once per
   // frame keeps `screenToFlowPosition`'s container measurement off the
@@ -127,6 +121,12 @@ function flushProximity(): void {
   }
 }
 
+const pointerFrame = createPointerFrame(flushProximity);
+
+function handlePointerMove(event: MouseEvent): void {
+  pointerFrame.track({ x: event.clientX, y: event.clientY });
+}
+
 /** Register a handle. Returns the unsubscribe. */
 export function subscribeToPointerProximity(subscriber: ProximitySubscriber): () => void {
   const entry: Entry = { ...subscriber, last: false };
@@ -139,9 +139,6 @@ export function subscribeToPointerProximity(subscriber: ProximitySubscriber): ()
     subscribers.delete(entry);
     if (subscribers.size > 0) return;
     window.removeEventListener("mousemove", handlePointerMove);
-    if (frame !== null) {
-      cancelAnimationFrame(frame);
-      frame = null;
-    }
+    pointerFrame.cancel();
   };
 }

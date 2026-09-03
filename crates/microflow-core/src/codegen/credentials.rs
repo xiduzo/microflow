@@ -24,6 +24,7 @@
 //! Like the rest of codegen, every function here is a pure function of its
 //! inputs: identical `(flow, credentials)` yields byte-identical text.
 
+use crate::codegen::emit::cpp_string_literal;
 use crate::codegen::placeholder::CLOUD_NODE_TYPES;
 use crate::flow::FlowUpdate;
 use serde::{Deserialize, Serialize};
@@ -198,25 +199,6 @@ pub fn supplied_or(supplied: &str, fallback: String) -> String {
     }
 }
 
-/// Escape a credential value for embedding inside a C++ double-quoted string
-/// literal so a stray quote or backslash can never break the generated Sketch.
-fn cpp_string(value: &str) -> String {
-    let mut out = String::with_capacity(value.len() + 2);
-    out.push('"');
-    for c in value.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            other => out.push(other),
-        }
-    }
-    out.push('"');
-    out
-}
-
 /// The on-boot `WiFi` connect preamble for a Cloud-capable Sketch.
 ///
 /// Returns `None` when the Sketch needs no networking — the Flow has no Cloud
@@ -250,8 +232,8 @@ pub fn wifi_preamble(
     Some(WifiPreamble {
         include: "#include <WiFi.h>".to_string(),
         declarations: vec![
-            format!("const char* wifi_ssid = {};", cpp_string(&creds.wifi_ssid)),
-            format!("const char* wifi_password = {};", cpp_string(&creds.wifi_password)),
+            format!("const char* wifi_ssid = {};", cpp_string_literal(&creds.wifi_ssid)),
+            format!("const char* wifi_password = {};", cpp_string_literal(&creds.wifi_password)),
         ],
         setup: vec![
             "// --- WiFi connect (Cloud Nodes) ---".to_string(),

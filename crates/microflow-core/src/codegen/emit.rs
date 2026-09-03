@@ -171,6 +171,25 @@ pub fn str_or_default(node: &FlowNode, key: &str, default: &str) -> String {
         .to_string()
 }
 
+/// Read a string from a Node's `data`, taking the first key whose value is
+/// non-empty and falling back to `default`.
+///
+/// The cloud emitters all read one config value from several possible keys —
+/// a node's own `data` carries the field under one name, an older flow or the
+/// credentials surface under another (`endpoint`/`baseUrl`,
+/// `broker`/`brokerId`). Empty is "not supplied", not "supplied as blank", so
+/// a blank key falls through to the next rather than winning.
+#[must_use]
+pub fn str_first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
+    for key in keys {
+        let value = str_or_default(node, key, "");
+        if !value.is_empty() {
+            return value;
+        }
+    }
+    default.to_string()
+}
+
 /// Escape `s` into a double-quoted C++ string literal. User-authored config
 /// (topics, prompts, credentials, labels) flows into the Sketch through this,
 /// so a quote, backslash, or newline in the value cannot break out of the
@@ -235,6 +254,34 @@ mod tests {
     #[test]
     fn pin_reads_numeric_value() {
         assert_eq!(pin_or_default(&node_with(json!({ "pin": 9 })), 13), 9);
+    }
+
+    #[test]
+    fn string_literal_escapes_quote_backslash_and_newlines() {
+        assert_eq!(cpp_string_literal("a\"b\\c"), "\"a\\\"b\\\\c\"");
+        assert_eq!(cpp_string_literal("a\nb\rc"), "\"a\\nb\\rc\"");
+    }
+
+    #[test]
+    fn string_literal_escapes_tabs_and_control_bytes() {
+        // The four per-emitter copies this replaced stopped at \n and \r, so a
+        // tab or a stray control byte in a topic / prompt / password reached
+        // the sketch raw. Octal is used over \x because \x greedily consumes
+        // following hex digits: "\x01" + "F" would parse as \x1F.
+        assert_eq!(cpp_string_literal("a\tb"), "\"a\\tb\"");
+        assert_eq!(cpp_string_literal("a\u{1}F"), "\"a\\001F\"");
+    }
+
+    #[test]
+    fn first_non_empty_skips_blank_keys() {
+        let node = node_with(json!({ "endpoint": "", "baseUrl": "http://host" }));
+        assert_eq!(str_first_non_empty(&node, &["endpoint", "baseUrl"], "fb"), "http://host");
+    }
+
+    #[test]
+    fn first_non_empty_falls_back_when_every_key_is_blank() {
+        let node = node_with(json!({ "endpoint": "" }));
+        assert_eq!(str_first_non_empty(&node, &["endpoint", "baseUrl"], "fb"), "fb");
     }
 
     #[test]

@@ -10,6 +10,8 @@
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/oxanium": "^5.3.0",
     "fumadocs-core": "16.6.17",
     "fumadocs-mdx": "14.2.10",
     "fumadocs-ui": "16.6.17",

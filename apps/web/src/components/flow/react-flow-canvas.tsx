@@ -28,6 +28,7 @@ import { NewNodeDialog } from "./dialogs/new-node-dialog";
 import { SettingsPanel } from "./panels/settings-panel";
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
+import { createPointerFrame } from "@/lib/pointer-frame";
 import { EDGE_TYPES } from "./edges/edges.constants";
 import { DockPanel } from "./panels/dock-panel";
 import { useTheme } from "@/providers/theme-provider";
@@ -100,30 +101,23 @@ export function ReactFlowCanvas() {
   useHelperHotkeys(nodes);
 
   const { screenToFlowPosition } = useReactFlow();
-  const pointer = useRef<{ x: number; y: number } | null>(null);
-  const pointerFrame = useRef<number | null>(null);
 
-  // The cursor is ephemeral peer state. Pointer events arrive far faster than
-  // frames, so only the latest position is kept and it is converted to flow
-  // coordinates — a container measurement — once per animation frame.
-  const handleMouseMove = useCallback(
-    (event: React.MouseEvent) => {
-      pointer.current = { x: event.clientX, y: event.clientY };
-      if (pointerFrame.current !== null) return;
-      pointerFrame.current = requestAnimationFrame(() => {
-        pointerFrame.current = null;
-        if (!pointer.current) return;
-        updateCursor(screenToFlowPosition(pointer.current));
-      });
-    },
+  // The cursor is ephemeral peer state. Only the latest position matters, and
+  // converting to flow coordinates measures the container — so both are done
+  // once per animation frame by the shared coalescer.
+  const pointerFrame = useMemo(
+    () => createPointerFrame((point) => updateCursor(screenToFlowPosition(point))),
     [updateCursor, screenToFlowPosition],
   );
 
-  useEffect(() => {
-    return () => {
-      if (pointerFrame.current !== null) cancelAnimationFrame(pointerFrame.current);
-    };
-  }, []);
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      pointerFrame.track({ x: event.clientX, y: event.clientY });
+    },
+    [pointerFrame],
+  );
+
+  useEffect(() => pointerFrame.cancel, [pointerFrame]);
 
   useEffect(() => {
     fitView({ duration: 250, padding: 0.15 });

@@ -40,7 +40,7 @@
 //! input yields byte-identical output (determinism invariant).
 
 use crate::codegen::credentials::{supplied_or, Credentials};
-use crate::codegen::emit::{str_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, NodeEmission, NodeToken};
 use crate::config::llm::LlmConfig;
 use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
@@ -59,37 +59,6 @@ fn includes() -> Vec<String> {
         "#include <HTTPClient.h>".to_string(),
         "#include <ArduinoJson.h>".to_string(),
     ]
-}
-
-/// Escape a string for embedding inside a C++ double-quoted literal. Keeps
-/// generation safe (and deterministic) for prompts/credentials that contain a
-/// quote, backslash, or newline.
-fn cpp_string(value: &str) -> String {
-    let mut out = String::with_capacity(value.len() + 2);
-    out.push('"');
-    for ch in value.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            _ => out.push(ch),
-        }
-    }
-    out.push('"');
-    out
-}
-
-/// A single config value read from `data`, with the first non-empty key
-/// winning, falling back to `default`.
-fn first_non_empty(node: &FlowNode, keys: &[&str], default: &str) -> String {
-    for key in keys {
-        let value = str_or_default(node, key, "");
-        if !value.is_empty() {
-            return value;
-        }
-    }
-    default.to_string()
 }
 
 /// Emit C++ for an Llm Cloud Node on a networked target.
@@ -113,7 +82,7 @@ pub fn emit(
 
     let endpoint = supplied_or(
         credentials.map_or("", |c| c.llm_endpoint.as_str()),
-        first_non_empty(node, &["endpoint", "baseUrl"], ""),
+        str_first_non_empty(node, &["endpoint", "baseUrl"], ""),
     );
     let config: LlmConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let model = config.model;
@@ -121,11 +90,11 @@ pub fn emit(
     let system = config.system;
     let wifi_ssid = supplied_or(
         credentials.map_or("", |c| c.wifi_ssid.as_str()),
-        first_non_empty(node, &["wifiSsid"], ""),
+        str_first_non_empty(node, &["wifiSsid"], ""),
     );
     let api_key = supplied_or(
         credentials.map_or("", |c| c.llm_api_key.as_str()),
-        first_non_empty(node, &["llmApiKey", "apiKey"], ""),
+        str_first_non_empty(node, &["llmApiKey", "apiKey"], ""),
     );
 
     // A Node is missing its essentials if it has no endpoint to call, no WiFi
@@ -134,11 +103,11 @@ pub fn emit(
     // so the Author is told rather than silently failing.
     let credentials_missing = endpoint.is_empty() || wifi_ssid.is_empty() || api_key.is_empty();
 
-    let endpoint_lit = cpp_string(if endpoint.is_empty() { PLACEHOLDER } else { &endpoint });
-    let api_key_lit = cpp_string(if api_key.is_empty() { PLACEHOLDER } else { &api_key });
-    let model_lit = cpp_string(&model);
-    let prompt_lit = cpp_string(&prompt);
-    let system_lit = cpp_string(&system);
+    let endpoint_lit = cpp_string_literal(if endpoint.is_empty() { PLACEHOLDER } else { &endpoint });
+    let api_key_lit = cpp_string_literal(if api_key.is_empty() { PLACEHOLDER } else { &api_key });
+    let model_lit = cpp_string_literal(&model);
+    let prompt_lit = cpp_string_literal(&prompt);
+    let system_lit = cpp_string_literal(&system);
 
     // Per-Node config names — token-scoped so multiple Llm Nodes coexist.
     let endpoint_var = format!("llm_{token}_endpoint");

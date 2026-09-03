@@ -17,9 +17,28 @@ import mqtt from "mqtt";
 import type { ConnectionStatus, MqttBrokerConfig } from "@/stores/mqtt-broker";
 import type { LlmProviderConfig, ProviderStatus } from "@/stores/llm-provider";
 import { isBrowserReachableBroker } from "@/components/flow/nodes/_base/browser-support";
-import { hostFetch, normalizeBaseUrl } from "@/lib/ai/endpoint";
+import { hostFetch, isMixedContent, normalizeBaseUrl } from "@/lib/ai/endpoint";
 
 const PROBE_TIMEOUT_MS = 8000;
+
+/**
+ * Why a provider probe ended as it did.
+ *
+ * The probe is the only place that sees the real failure — a thrown `fetch`, a
+ * 401, a mixed-content block — so it says which, rather than collapsing every
+ * one to `"error"` and leaving the page to guess from the URL. A bad API key
+ * and a CORS refusal need different fixes and must not share a sentence.
+ */
+export type LlmProbeOutcome =
+  | { kind: "ok" }
+  /** An `http://` endpoint on an `https://` page; the request never went out. */
+  | { kind: "mixedContent" }
+  /** `fetch` threw: CORS refusal, DNS failure, connection refused, or timeout. */
+  | { kind: "unreachable" }
+  /** The endpoint answered and rejected us — a bad key, a wrong path. */
+  | { kind: "httpError"; status: number }
+  /** A CLI provider whose binary is not on this machine. */
+  | { kind: "cliNotFound"; bin: string };
 
 /**
  * Open a throwaway MQTT-over-WSS connection and close it again. Resolves
@@ -66,7 +85,7 @@ export async function probeBroker(broker: MqttBrokerConfig): Promise<ConnectionS
 export async function probeLlmProvider(
   provider: LlmProviderConfig,
   fetchImpl?: typeof fetch,
-): Promise<ProviderStatus> {
+): Promise<LlmProbeOutcome> {
   // A local CLI has no endpoint to reach — "reachable" can only mean the
   // binary is installed, which is exactly what `llm_cli_probe` answers.
   if (provider.kind === "cli") {
@@ -75,8 +94,13 @@ export async function probeLlmProvider(
       type: "llm_cli_probe",
       bin: provider.baseUrl,
     });
-    return response.success ? "ok" : "error";
+    return response.success ? { kind: "ok" } : { kind: "cliNotFound", bin: provider.baseUrl };
   }
+
+  // Blocked by the browser before any request leaves, so there is nothing to
+  // learn from attempting it — and a `TypeError` here would be indistinguishable
+  // from a CORS refusal.
+  if (isMixedContent(provider.baseUrl)) return { kind: "mixedContent" };
 
   const url = `${normalizeBaseUrl(provider.baseUrl)}/models`;
 
@@ -88,8 +112,24 @@ export async function probeLlmProvider(
       headers,
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
-    return response.ok ? "ok" : "error";
+    // It answered. A non-2xx is a *reached* endpoint rejecting us — a bad key,
+    // a wrong path — which is a different fix from not reaching it at all.
+    return response.ok ? { kind: "ok" } : { kind: "httpError", status: response.status };
   } catch {
-    return "error";
+    // `fetch` rejects identically for a CORS refusal, DNS failure, connection
+    // refused and timeout: the browser deliberately withholds which. This is
+    // the honest limit of what the probe can know, and it is still one step
+    // better than the caller re-deriving it from the URL.
+    return { kind: "unreachable" };
   }
+}
+
+/** `true` when the probe reached a working endpoint. */
+export function isProbeOk(outcome: LlmProbeOutcome): boolean {
+  return outcome.kind === "ok";
+}
+
+/** Map a probe outcome onto the coarse status the config store renders as a dot. */
+export function probeStatus(outcome: LlmProbeOutcome): ProviderStatus {
+  return isProbeOk(outcome) ? "ok" : "error";
 }

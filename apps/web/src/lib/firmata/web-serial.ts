@@ -26,6 +26,13 @@ import {
   type FirmataSession,
   type FlashSession,
 } from "./wasm";
+import {
+  advance,
+  startHandshake,
+  BAUD_RATES,
+  RESET_PULSE_MS,
+  RESET_SETTLE_MS,
+} from "./probe-handshake";
 
 // --- Minimal Web Serial typings (the TS DOM lib does not ship them) ---------
 
@@ -62,14 +69,6 @@ function getSerial(): WebSerial | undefined {
 
 // --- Connection -------------------------------------------------------------
 
-/** Baud rates to try, matching desktop detection (`find_firmata_baud`). */
-const BAUD_RATES = [57600, 115200];
-/** Wait up to this long for the board to boot and answer the firmware query. */
-const FIRMWARE_TIMEOUT_MS = 6000;
-/** Re-send the firmware query about once a second across that window. */
-const FIRMWARE_REQUERY_MS = 1000;
-/** Capability + analog-mapping responses arrive quickly once firmware is up. */
-const CAPABILITY_TIMEOUT_MS = 2000;
 /** Wait for the board to reboot into a freshly-flashed sketch before reconnect. */
 const POST_FLASH_RESET_MS = 2500;
 
@@ -198,9 +197,9 @@ async function tryConnectAtBaud(
   // platforms honour signals; ignore failures.
   try {
     await port.setSignals({ dataTerminalReady: false, requestToSend: false });
-    await sleep(250);
+    await sleep(RESET_PULSE_MS);
     await port.setSignals({ dataTerminalReady: true, requestToSend: true });
-    await sleep(1500);
+    await sleep(RESET_SETTLE_MS);
   } catch {
     // Signals unsupported — the board may already be in a good state.
   }
@@ -246,33 +245,36 @@ async function tryConnectAtBaud(
     }
   };
 
-  // Handshake: query firmware, re-sending periodically while the board boots.
-  await write(session.encodeQueryFirmware());
-  const firmwareDeadline = Date.now() + FIRMWARE_TIMEOUT_MS;
-  let lastQuery = Date.now();
-  while (session.firmwareName() === "" && Date.now() < firmwareDeadline) {
-    await sleep(100);
-    if (Date.now() - lastQuery >= FIRMWARE_REQUERY_MS) {
-      await write(session.encodeQueryFirmware());
-      lastQuery = Date.now();
+  // Handshake: the policy (requery cadence, deadlines, what a timeout means in
+  // each phase) lives in `probe-handshake.ts`; this loop only performs actions.
+  let handshake = startHandshake(Date.now());
+  for (;;) {
+    const step = advance(handshake, Date.now(), {
+      firmwareName: session.firmwareName(),
+      pinCount: pinCount(session),
+    });
+    handshake = step.state;
+
+    switch (step.action.kind) {
+      case "sendFirmwareQuery":
+        await write(session.encodeQueryFirmware());
+        break;
+      case "sendCapabilityQueries":
+        // Sizes the pin table.
+        await write(session.encodeQueryCapabilities());
+        await write(session.encodeQueryAnalogMapping());
+        break;
+      case "poll":
+        await sleep(step.action.delayMs);
+        break;
+      case "noFirmata":
+        // No Firmata at this baud — tear down and let the caller try the next one.
+        await teardown();
+        return null;
+      case "connected":
+        return { write, session, disconnect: teardown, port };
     }
   }
-
-  if (session.firmwareName() === "") {
-    // No Firmata at this baud — tear down and let the caller try the next one.
-    await teardown();
-    return null;
-  }
-
-  // Firmware found: gather capabilities + analog mapping (sizes the pin table).
-  await write(session.encodeQueryCapabilities());
-  await write(session.encodeQueryAnalogMapping());
-  const capDeadline = Date.now() + CAPABILITY_TIMEOUT_MS;
-  while (pinCount(session) === 0 && Date.now() < capDeadline) {
-    await sleep(100);
-  }
-
-  return { write, session, disconnect: teardown, port };
 }
 
 /**

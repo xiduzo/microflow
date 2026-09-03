@@ -61,3 +61,21 @@ export function normalizeBaseUrl(baseUrl: string): string {
   return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
 }
 
+/**
+ * An `http://` endpoint on an `https://` page: the browser blocks the request
+ * before it goes out, and nothing on our side can fix it.
+ *
+ * Lives here because it is a property of how *this page* reaches an endpoint,
+ * like `hostFetch` — the probe needs it to classify a failure, and the config
+ * page needs it to warn before anyone presses Test. Always false in the desktop
+ * webview, which fetches through the Tauri plugin rather than the page.
+ */
+export function isMixedContent(baseUrl: string): boolean {
+  return (
+    !isDesktop() &&
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    baseUrl.trim().toLowerCase().startsWith("http://")
+  );
+}
+

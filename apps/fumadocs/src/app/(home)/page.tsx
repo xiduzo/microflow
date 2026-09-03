@@ -171,7 +171,7 @@ export default function HomePage() {
         <h1 className="relative max-w-3xl text-4xl font-bold tracking-tight text-fd-foreground sm:text-5xl md:text-6xl">
           Microcontrollers
           <br />
-          <span style={{ color: "oklch(0.65 0.14 56)" }}>made simple.</span>
+          <span className="text-fd-primary">made simple.</span>
         </h1>
         <p className="relative max-w-xl text-fd-muted-foreground">
           A set of tools to make it easier to start prototyping for interactivity
