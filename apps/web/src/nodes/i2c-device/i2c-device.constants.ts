@@ -5,7 +5,7 @@ export type I2cPreset = {
   readLength: number;
   output: "raw" | "unsigned_int" | "signed_int";
   // Recommended stream interval (ms). Drives the board's Firmata sampling
-  // interval — see runtime/input/i2c_device.rs. Each sensor has a natural floor
+  // interval — see microflow-core nodes/i2c_device/runtime.rs. Each sensor has a natural floor
   // (conversion/integration time + bytes-per-read over the serial link); below
   // it the read fires before data is ready and reports stale/zero values.
   // NOTE: the sampling interval is GLOBAL to the board, so with multiple I2C

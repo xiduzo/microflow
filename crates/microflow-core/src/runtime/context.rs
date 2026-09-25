@@ -353,7 +353,7 @@ mod apply_tests {
 
     /// One recorded hook invocation — enough to assert order + that nothing
     /// double-fires. The Rust side of the ADR-0008 conformance scenario; the
-    /// browser mirror lives in `apps/web/src/lib/firmata/__tests__/`.
+    /// browser mirror lives in `apps/web/src/runtime/effects-sink.test.ts`.
     #[derive(Debug, PartialEq)]
     enum Call {
         Write(usize),

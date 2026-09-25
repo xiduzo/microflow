@@ -142,7 +142,7 @@ function Settings() {
     },
     // On (default): the board streams reads on its sampling interval. Off: the
     // bus stays quiet until the `trigger` handle fires a one-shot read — see
-    // `autoread` in runtime/input/i2c_device.rs.
+    // `autoread` in microflow-core nodes/i2c_device/runtime.rs.
     autoread: {
       // Pre-`autoread` docs omit the key; coerce to the streaming default so leva
       // can infer the boolean control (a raw `undefined` makes it drop silently).
@@ -172,7 +172,7 @@ function Settings() {
         },
         // The runtime maps this to the board's Firmata sampling interval, which
         // is the rate at which it streams continuous I2C reads back (no polling);
-        // see `initialize` in runtime/input/i2c_device.rs. Global to the board.
+        // see `initialize` in microflow-core nodes/i2c_device/runtime.rs. Global to the board.
         freq: {
           value: data.freq,
           min: 20,

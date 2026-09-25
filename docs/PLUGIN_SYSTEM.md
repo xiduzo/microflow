@@ -182,7 +182,7 @@ This gives users significant flexibility with minimal security risk. The impleme
 ## Related Files
 
 - `apps/web/node-components.json` - Component Catalog; `bun run codegen` generates the node registry from it (`apps/web/src/nodes/catalog.generated.ts`, `apps/web/src/nodes/node-types.generated.ts`)
-- `apps/web/src-tauri/src/runtime/registry.rs` - Rust component registry
+- `crates/microflow-core/src/runtime/registry.rs` - Rust component registry
 - `apps/web/src/nodes/_base/_base.tsx` - Base node component
 
 ## References

@@ -516,8 +516,8 @@ Many I2C sensors power up in a dormant state — asleep, in single-shot mode, or
 - [ ] Add `register_i2c_listener()` and `clear_i2c_listeners()` methods
 - [ ] Install I2C reply callback alongside pin change callback
 - [ ] Handle `"I2cDevice"` in `register_component_pin_listener()`
-- [ ] Create `runtime/input/i2c_device.rs` with `I2cDevice` component
-- [ ] Export from `runtime/input/mod.rs`
+- [ ] Create `nodes/i2c_device/runtime.rs` with `I2cDevice` component
+- [ ] Declare in `nodes/mod.rs`
 - [ ] Register in `ComponentRegistry`
 
 ### Phase 2: Frontend (React + TypeScript)

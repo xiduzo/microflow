@@ -173,7 +173,7 @@ Lower bits encode step size (microstepping) and enable pin presence.
 ### New File
 
 ```
-apps/web/src-tauri/src/runtime/output/stepper.rs
+crates/microflow-core/src/nodes/stepper/runtime.rs
 ```
 
 ### StepperConfig
@@ -247,7 +247,7 @@ apps/web/src/nodes/stepper/
 | File | Change |
 |------|--------|
 | `apps/web/node-components.json` | Add the `Stepper` catalog entry; `bun run catalog:sync` regenerates `COMPONENT_TYPES` / `NODE_CATALOG` / `NODE_TYPES` (generated from the catalog + the Rust wire interface, not hand-edited) |
-| `runtime/output/mod.rs` | Add `mod stepper; pub use stepper::{Stepper, StepperConfig};` |
+| `nodes/mod.rs` | Add `pub mod stepper;` |
 | `runtime/registry.rs` | Register `"Stepper"` as hardware component |
 
 ### Files to Create
@@ -256,7 +256,7 @@ apps/web/src/nodes/stepper/
 |------|---------|
 | `nodes/stepper/stepper.schema.ts` | Zod schema for node data |
 | `nodes/stepper/stepper.tsx` | React component |
-| `runtime/output/stepper.rs` | Rust component |
+| `nodes/stepper/{mod,config,runtime,codegen}.rs` | Rust node (ADR-0026) |
 | `fumadocs/.../express/stepper.mdx` | Documentation page |
 
 ---
@@ -298,12 +298,12 @@ All of these use the same step/direction interface — the node works identicall
 
 ### Phase 1: Backend (Rust)
 
-- [ ] Create `runtime/output/stepper.rs` with `Stepper` component
+- [ ] Create `nodes/stepper/runtime.rs` with `Stepper` component
 - [ ] Implement AccelStepper sysex encoding (config, step, to, speed, accel, stop, zero, enable)
 - [ ] Implement custom float encoding for speed/acceleration values
 - [ ] Implement 32-bit signed long encoding for step counts/positions
 - [ ] Handle `stepper_reply` method for move complete / position report
-- [ ] Export from `runtime/output/mod.rs`
+- [ ] Declare in `nodes/mod.rs`
 - [ ] Register in `ComponentRegistry`
 
 ### Phase 2: Frontend (React + TypeScript)

@@ -29,7 +29,7 @@ Use [boa_engine](https://github.com/boa-dev/boa) — a pure-Rust ECMAScript engi
 
 ## Rust Component
 
-### New File: `apps/web/src-tauri/src/runtime/transformation/function.rs`
+### New File: `crates/microflow-core/src/nodes/function/runtime.rs`
 
 ```rust
 use boa_engine::{Context, Source, JsValue, JsError};
