@@ -519,11 +519,11 @@ Many I2C sensors power up in a dormant state — asleep, in single-shot mode, or
 
 ### Phase 2: Frontend (React + TypeScript)
 
-- [ ] Add `"I2cDevice"` to `COMPONENT_TYPES` in `_base.types.ts`
+- [ ] Add the `I2cDevice` entry to `apps/web/node-components.json`
 - [ ] Create `i2c-device.constants.ts` with device presets
 - [ ] Create `i2c-device.schema.ts` with Zod schema
 - [ ] Create `i2c-device.tsx` with React component
-- [ ] Import and add to `NODE_TYPES` in `_TYPES.ts`
+- [ ] Run `bun run catalog:sync` in `apps/web` to regenerate `COMPONENT_TYPES`, `NODE_CATALOG` and `NODE_TYPES`
 
 ### Phase 3: Testing
 

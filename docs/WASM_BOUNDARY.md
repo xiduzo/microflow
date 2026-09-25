@@ -95,9 +95,9 @@ flow is running — nothing consumes it, so the chunk costs one `session.feed` a
 - `effects-sink.ts` is exhaustive over `keyof Effects` in two directions — a field
   added to the Rust `Effects` fails to compile until it is both ordered and
   handled.
-- `__tests__/effects-sink.test.ts` asserts the apply order at runtime, the twin of
+- `runtime/effects-sink.test.ts` asserts the apply order at runtime, the twin of
   core's `context::apply_tests`.
-- `__tests__/runtime-bridge.test.ts` covers fault containment, the latch, and that
+- `runtime/runtime-bridge.test.ts` covers fault containment, the latch, and that
   a throwing runtime does not close the board connection.
 - `.github/workflows/typescript.yml` runs `bun test` and `tsc --noEmit`. The
   typecheck job builds the wasm first, because the host imports the generated glue.

@@ -2,45 +2,59 @@
 
 ## Overview
 
-This document explains the type-safe component type system that ensures consistency between the TypeScript frontend and Rust backend.
+This document explains how the TypeScript frontend knows every component type name (`"Button"`, `"Led"`, …) and its handles, and how that stays consistent with the Rust runtime.
+
+No TypeScript file lists component types by hand. `bun run codegen` generates them from the Component Catalog and the Rust wire interface, and the compiler plus the Catalog Parity Guard catch drift.
 
 ## Architecture
 
 ```
-_component-types.ts          # Source of truth for type names
+apps/web/node-components.json                 entries[] (UI names) + impls[] (runtime classes)
+Rust <Impl>::ports() / emits()  ──►  apps/web/wire-interface.generated.json
+                                     (written by the Catalog Parity Guard, BLESS_WIRE_INTERFACE=1)
         │
-        ├──► _base/_base.schema.ts    # Zod schema uses COMPONENT_TYPES
+        ▼
+apps/web/scripts/codegen-node-registry.ts     (bun run codegen)
+        │
+        ├──► nodes/component-types.generated.ts   COMPONENT_TYPES, ComponentType, ports, emits
         │         │
-        │         └──► node schemas (led.schema.ts, etc.)
+        │         └──► nodes/_base/_base.schema.ts   Zod schema uses COMPONENT_TYPES
+        │                   └──► node schemas (led.schema.ts, etc.)
         │
-        └──► _TYPES.ts          # NODE_TYPES registry uses ComponentType
-                  │
+        ├──► nodes/catalog.generated.ts           NODE_CATALOG: defaults, schema, adapter (no React)
+        │
+        └──► nodes/node-types.generated.ts        NODE_TYPES: React component per type
                   └──► ReactFlow nodeTypes prop
 ```
 
+The `nodes/` paths are under `apps/web/src/`. `bun run catalog:sync` (in `apps/web`) runs both steps: it blesses `wire-interface.generated.json` from Rust, then runs `bun run codegen`.
+
 ## Files
 
-### `_base.types.ts` - Single Source of Truth
+### `component-types.generated.ts` - Type names and wire interface
 
-Defines the canonical list of component type names:
+The canonical list of component type names, plus what the runtime declares for each:
 
 ```typescript
 export const COMPONENT_TYPES = [
   "Button",
-  "Led",
-  "Sensor",
+  "Calculate",
   // ...
 ] as const;
 
 export type ComponentType = (typeof COMPONENT_TYPES)[number];
+
+export function isComponentType(value: string): value is ComponentType { /* ... */ }
 ```
 
-### `_base/_base.schema.ts` - Zod Validation
+It also exports `COMPONENT_PORTS` / `PortOf<T>` and `COMPONENT_EMITS` / `EmitOf<T>` (the handles, generated from the Rust `ports()` / `emits()`, see [ADR-0007](adr/0007-node-wire-interface-emit-contract.md)), `REQUIRES_HARDWARE`, and `COMPONENT_IMPL` (entry name → impl name). It has no React and no schemas, so any code may import it.
 
-Creates a Zod schema from the component types:
+### `_base/_base.schema.ts` - Zod validation
+
+Creates a Zod schema from the component types, and re-exports `COMPONENT_TYPES`, `ComponentType` and `isComponentType` for node schemas:
 
 ```typescript
-import { COMPONENT_TYPES } from "./_base.types.ts";
+import { COMPONENT_TYPES } from "../component-types.generated";
 
 export const componentTypeSchema = z.enum(COMPONENT_TYPES);
 
@@ -50,33 +64,38 @@ export const baseDataSchema = z.looseObject({
 });
 ```
 
-### `_TYPES.ts` - ReactFlow Registry
+### `catalog.generated.ts` - `NODE_CATALOG`
 
-Maps component types to React components with type checking:
+Per component type: the `defaults` and `dataSchema` exported by `<node>/<node>.schema.ts`, and the `adapter` exported by `<node>/<node>.adapter.ts` when that file exists.
 
 ```typescript
-import type { ComponentType } from "./_component-types";
+export const NODE_CATALOG = {
+  Button: { defaults: ButtonDefaults as NodeDefaults, schema: ButtonSchema, adapter: undefined },
+  // ...
+} satisfies Record<ComponentType, NodeCatalogEntry>;
+```
 
+It never imports a node's React component. Non-UI code (the runtime host, Ask AI, templates, the Node Data Resolver) reads node metadata from here without loading every node's UI.
+
+### `node-types.generated.ts` - `NODE_TYPES`
+
+Maps component types to React components, for ReactFlow:
+
+```typescript
 export const NODE_TYPES = {
-  Button: Button,
-  Led: Led,
+  Button,
+  Calculate,
   // ...
 } as const satisfies NodeTypes & Record<ComponentType, unknown>;
 ```
 
-The `satisfies Record<ComponentType, unknown>` ensures that every type in `COMPONENT_TYPES` has a corresponding entry in `NODE_TYPES`.
+It imports every node's UI. The architecture guard allows runtime imports of it only from `editor/`, `flows/` and `nodes/` ([ADR-0027](adr/0027-web-app-domain-verticals.md)).
 
 ## Adding a New Node
 
-1. **Add the type name** to `_component-types.ts`:
-   ```typescript
-   export const COMPONENT_TYPES = [
-     // ...existing types
-     "MyNewNode",
-   ] as const;
-   ```
+1. **Add the entry** to `apps/web/node-components.json` (`entries[]`, and `impls[]` when the node has its own runtime class).
 
-2. **Create the node component** in `nodes/my-new-node/`:
+2. **Create the node folder** `apps/web/src/nodes/my-new-node/` (kebab-case of the entry name):
    ```typescript
    // my-new-node.schema.ts
    import { z } from "zod";
@@ -86,36 +105,33 @@ The `satisfies Record<ComponentType, unknown>` ensures that every type in `COMPO
      instance: z.literal("MyNewNode").default("MyNewNode"),
      // ...node-specific fields
    });
+
+   export const defaults = {
+     ...dataSchema.parse({}),
+     group: "shape",
+     label: "My new node",
+     // ...tags, description, icon
+   };
+   ```
+   Next to it, `my-new-node.tsx` exports the component as `MyNewNode` (the entry name). Add `my-new-node.adapter.ts`, exporting `adapter: NodeHostAdapter`, only when the node needs a host adapter.
+
+3. **Run codegen** from `apps/web`:
+   ```sh
+   bun run catalog:sync   # when the Rust ports/emits are new or changed
+   bun run codegen        # when only the catalog or the frontend changed
    ```
 
-3. **Add to NODE_TYPES** in `_TYPES.ts`:
-   ```typescript
-   import { MyNewNode } from "./my-new-node/my-new-node";
-
-   export const NODE_TYPES = {
-     // ...existing nodes
-     MyNewNode: MyNewNode,
-   } as const satisfies NodeTypes & Record<ComponentType, unknown>;
-   ```
-
-4. **Add Rust component** (if hardware-related) in `src-tauri/src/runtime/`:
-   - Create the component in the appropriate module
-   - Register it in `registry.rs`
+4. **Add the Rust component** in `crates/microflow-core` and register it in the `ComponentRegistry`. The contributor guide (`apps/fumadocs/content/docs/contributing/adding-a-node.mdx`) walks through both halves.
 
 ## Type Safety Guarantees
 
 ### Compile-Time Checks
 
-- **Missing NODE_TYPES entry:** If you add a type to `COMPONENT_TYPES` but forget to add it to `NODE_TYPES`, TypeScript will error:
-  ```
-  Type '{ Button: ...; Led: ...; }' does not satisfy 'Record<ComponentType, unknown>'
-  Property 'MyNewNode' is missing
-  ```
+- **Missing or misnamed node files:** the generated files import `./<node>/<node>` (the component, by entry name) and `./<node>/<node>.schema` (`dataSchema`, `defaults`) for every entry. A missing file or export fails `tsc` in the generated file.
 
-- **Invalid instance literal:** If a node schema uses an invalid instance value:
-  ```typescript
-  instance: z.literal("Typo"), // ✗ Type error - "Typo" not in COMPONENT_TYPES
-  ```
+- **Missing catalog or map entry:** `NODE_CATALOG` and `NODE_TYPES` are both checked against `Record<ComponentType, …>`, so every type has metadata and a component.
+
+- **Unknown handle:** `NodeHandles` and `Handle<"Button">` accept only ids in `PortOf<T>` / `EmitOf<T>`. A port renamed in Rust is a compile error in the UI after `bun run catalog:sync`.
 
 ### Runtime Validation
 
@@ -127,7 +143,7 @@ The `satisfies Record<ComponentType, unknown>` ensures that every type in `COMPO
 
 - **Type guard:** For dynamic validation:
   ```typescript
-  import { isComponentType } from "./_component-types";
+  import { isComponentType } from "./component-types.generated";
 
   if (isComponentType(userInput)) {
     // userInput is narrowed to ComponentType
@@ -136,31 +152,19 @@ The `satisfies Record<ComponentType, unknown>` ensures that every type in `COMPO
 
 ## Rust Synchronization
 
-The Rust `ComponentRegistry` in `src-tauri/src/runtime/registry.rs` must be kept in sync manually. To catch drift:
+The Catalog Parity Guard (`apps/web/src-tauri/tests/catalog_parity.rs`, [ADR-0007](adr/0007-node-wire-interface-emit-contract.md)) keeps the catalog and the Rust `ComponentRegistry` in step:
 
-1. **Integration test** (recommended):
-   ```rust
-   #[test]
-   fn all_component_types_are_registered() {
-       let registry = ComponentRegistry::new();
-       let expected = ["Button", "Led", "Sensor", /* ... */];
-       
-       for name in expected {
-           assert!(
-               registry.has(name),
-               "Component '{}' not registered in Rust",
-               name
-           );
-       }
-   }
-   ```
-
-2. **Build-time script** (optional):
-   Generate `component_types.rs` from `_component-types.ts` during build.
+- With `BLESS_WIRE_INTERFACE=1` it writes `apps/web/wire-interface.generated.json` from the ports and emits each registered Rust component declares.
+- Without it, it fails when that file is stale, so wrong handle types cannot ship.
+- It always fails when a catalog entry has no registered Rust component, or the other way round.
 
 ## Related Files
 
-- `apps/web/src/nodes/_component-types.ts` - Type definitions
+- `apps/web/node-components.json` - Component Catalog
+- `apps/web/scripts/codegen-node-registry.ts` - Codegen
+- `apps/web/src/nodes/component-types.generated.ts` - Type names, ports, emits
+- `apps/web/src/nodes/catalog.generated.ts` - `NODE_CATALOG`
+- `apps/web/src/nodes/node-types.generated.ts` - `NODE_TYPES` (ReactFlow)
 - `apps/web/src/nodes/_base/_base.schema.ts` - Zod schema
-- `apps/web/src/nodes/_TYPES.ts` - ReactFlow registry
-- `apps/web/src-tauri/src/runtime/registry.rs` - Rust component registry
+- `apps/web/src/nodes/_base/host-adapter.ts` - `NodeHostAdapter`
+- `apps/web/src-tauri/tests/catalog_parity.rs` - Catalog Parity Guard

@@ -169,13 +169,7 @@ const dynamicVars = useMemo(() => {
 
 ### Type registration
 
-In `component-types.generated.ts`, add `"Function"` to `COMPONENT_TYPES`.
-
-In `_TYPES.ts` (or wherever `NODE_TYPES` maps component names to React components), add:
-
-```typescript
-Function: Function,
-```
+Add the `Function` entry to `apps/web/node-components.json`, then run `bun run catalog:sync` in `apps/web`. Codegen adds `"Function"` to `COMPONENT_TYPES` and puts the node in `NODE_CATALOG` and `NODE_TYPES`; none of the generated files is edited by hand. The component in `function.tsx` must be exported as `Function`, the entry name.
 
 ---
 
@@ -252,13 +246,13 @@ return Math.round(scaled);
 7. Register `"Function"` in `registry.rs`
 
 ### Step 2: React node (~2-3 hours)
-1. Add `"Function"` to `COMPONENT_TYPES`
+1. Add the `Function` entry to `apps/web/node-components.json`
 2. Create `function.schema.ts`
 3. Create `function.tsx` with:
    - `trigger` handle (left, command)
    - `value` handle (right, value)
    - `DynamicHandles` component parsing `var` declarations (reuse LLM pattern)
-4. Add to `NODE_TYPES` map
+4. Run `bun run catalog:sync` in `apps/web` to regenerate `COMPONENT_TYPES`, `NODE_CATALOG` and `NODE_TYPES`
 5. Add code textarea in settings panel (via `useNodeControls` or custom panel)
 
 ### Step 3: Error feedback (~1 hour)

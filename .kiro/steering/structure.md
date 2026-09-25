@@ -4,20 +4,25 @@
 microflow-t-stack/
 ├── apps/
 │   ├── web/                    # Main React application + Tauri desktop
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── flow/       # Flow editor components
-│   │   │   │   │   ├── nodes/  # Node type implementations
-│   │   │   │   │   ├── edges/  # Edge components
-│   │   │   │   │   ├── panels/ # UI panels (dock, settings)
-│   │   │   │   │   └── dialogs/# Modal dialogs
-│   │   │   │   ├── ui/         # shadcn/ui components
-│   │   │   │   └── hardware/   # Hardware visualization
-│   │   │   ├── hooks/          # React hooks
-│   │   │   ├── stores/         # Zustand stores
-│   │   │   ├── routes/         # TanStack Router pages
-│   │   │   ├── lib/            # Utilities
-│   │   │   └── providers/      # Context providers
+│   │   ├── src/                # One folder per domain (ADR-0027)
+│   │   │   ├── routes/         # TanStack Router pages; compose the folders below
+│   │   │   ├── nodes/          # Node type implementations + generated catalog
+│   │   │   ├── editor/         # Canvas: edges, panels, sheets, new-node dialog
+│   │   │   ├── session/        # FlowSession, sync adapters, ReactFlowBridge
+│   │   │   ├── runtime/        # Browser runtime host (wasm engine)
+│   │   │   ├── board/          # Board connection (Web Serial, Firmata)
+│   │   │   ├── cloud/          # MQTT + Figma connections
+│   │   │   ├── ai/             # Ask AI + LLM providers
+│   │   │   ├── sketch/         # Arduino sketch export
+│   │   │   ├── circuit/        # Circuit view
+│   │   │   ├── flows/          # Flow library, templates, flow dialogs
+│   │   │   ├── community/      # Community flows
+│   │   │   ├── account/        # Auth, sign-in, user menu
+│   │   │   ├── devtools/       # Microflow devtools drawer
+│   │   │   ├── shell/          # App sidebar + navigation
+│   │   │   ├── platform/       # Host detection, Tauri IPC
+│   │   │   ├── ui/             # shadcn/ui components (design system)
+│   │   │   └── lib/            # App-wide infra: tRPC, analytics, ts-rs bindings
 │   │   └── src-tauri/          # Rust backend for desktop
 │   │       └── src/
 │   │           ├── flasher/    # Arduino flashing
@@ -48,8 +53,11 @@ Each flow node follows this structure:
 ```
 nodes/{node-name}/
 ├── {node-name}.tsx        # React component
-└── {node-name}.schema.ts  # Zod schema for data/value types
+├── {node-name}.schema.ts  # Zod schema for data/value types + defaults
+└── {node-name}.adapter.ts # Optional host adapter (no React)
 ```
+
+Nodes are registered by codegen, not by hand: add the entry to `apps/web/node-components.json` and run `bun run catalog:sync` in `apps/web`.
 
 Nodes extend `baseDataSchema` and use:
 - `NodeContainer` for consistent UI wrapper

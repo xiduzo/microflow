@@ -27,11 +27,17 @@ bun install
 
 ```
 apps/
-├── web/             Studio: React frontend + Tauri (Rust) runtime
+├── web/             Studio: React frontend + Tauri desktop shell
 ├── server/          Hono + tRPC API server (collaboration, persistence)
 ├── figma-plugin/    Microflow Hardware Bridge
 ├── penpot-plugin/   Penpot equivalent (work in progress)
 └── fumadocs/        These docs (Next.js + Fumadocs)
+
+crates/
+├── microflow-core/          The flow runtime (Rust) + Arduino code generation
+├── microflow-runtime-wasm/  The runtime compiled to WebAssembly for the browser
+├── microflow-firmata-wasm/  Firmata (board protocol) for the browser
+└── microflow-codegen-wasm/  Arduino code generation for the browser
 
 packages/
 ├── api/             tRPC router definitions
@@ -43,7 +49,9 @@ packages/
 └── config/          Shared TypeScript and lint config
 ```
 
-The Studio runtime that runs your flows lives in `apps/web/src-tauri/src/runtime/` (Rust). The flow editor UI lives in `apps/web/src/components/flow/` (React + React Flow).
+The runtime that runs your flows is written once, in Rust, in `crates/microflow-core`. The desktop app runs it natively (`apps/web/src-tauri`), and the web app runs the same code as WebAssembly.
+
+The Studio UI lives in `apps/web/src/` (React + React Flow), in one folder per domain: the nodes in `nodes/`, the canvas in `editor/`, the browser runtime in `runtime/` and `board/`, and so on. `ARCHITECTURE.md` in the repository root lists every folder and what belongs in it.
 
 ## Set up the database
 
@@ -97,7 +105,8 @@ Both are run automatically by Turborepo's pipeline; running them manually is fas
 
 If you have never touched the codebase before:
 
-- `apps/web/src-tauri/src/runtime/mod.rs` — the runtime entry point.
+- `ARCHITECTURE.md` — a five-minute map of the codebase.
+- `crates/microflow-core/src/runtime/` — the flow runtime.
 - `apps/web/src/nodes/` — every node has a `.tsx` (UI) + `.schema.ts` (validation).
 - `apps/web/node-components.json` — the single source of truth that lists every node.
 - `packages/collab/src/schema.ts` — the Yjs flow document model.

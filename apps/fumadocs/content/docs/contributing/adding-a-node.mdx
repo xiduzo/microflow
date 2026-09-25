@@ -14,13 +14,16 @@ node-components.json              ← single source of truth (UI ↔ runtime map
         │
         ├── frontend (React + Zod schema)        — apps/web/src/nodes/<name>/
         │     ├── <name>.tsx              UI component
-        │     └── <name>.schema.ts        Zod schema for data + value
+        │     ├── <name>.schema.ts        Zod schema for data + value, and the defaults
+        │     └── <name>.adapter.ts       optional host adapter (no React)
         │
         └── runtime (Rust)                         — apps/web/src-tauri/src/runtime/<category>/<name>.rs
               implements the Component trait
 ```
 
 The two sides never call each other directly — they communicate through the Yjs document and the runtime event channel.
+
+You never register a node in TypeScript by hand. `bun run codegen` reads `node-components.json` and writes the node type list, the node catalog and the React node map into `apps/web/src/nodes/*.generated.ts` (Step 5).
 
 For this walkthrough, we will add a hypothetical `Sparkle` node that emits a random number between two bounds whenever it receives an input.
 
@@ -79,71 +82,83 @@ And add it to the runtime's component factory in `apps/web/src-tauri/src/runtime
 
 ## Step 3 — Define the frontend schema
 
+The node's folder and files use the kebab-case of its name (`RangeMap` lives in `range-map/range-map.schema.ts`). Code generation imports them by that path.
+
 Create `apps/web/src/nodes/sparkle/sparkle.schema.ts`:
 
 ```ts
 import { z } from "zod";
 import { baseDataSchema } from "../_base/_base.schema";
 
-export const sparkleDataSchema = baseDataSchema.extend({
+export const valueSchema = z.number();
+export type Value = z.infer<typeof valueSchema>;
+
+export const dataSchema = baseDataSchema.extend({
+  instance: z.literal("Sparkle").default("Sparkle"),
   min: z.number().default(0),
   max: z.number().default(100),
 });
+export type Data = z.infer<typeof dataSchema>;
 
-export type SparkleData = z.infer<typeof sparkleDataSchema>;
-export type SparkleValue = number;
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "shape",
+  tags: ["value"],
+  label: "Sparkle",
+  description: "Emit a random number between two bounds",
+  icon: "SparklesIcon",
+};
 ```
 
 `baseDataSchema` includes the fields every node has (`label`, `instance`, etc.). You only declare the new ones.
+
+The schema file must export `dataSchema` and `defaults` under exactly those names. `defaults` is the data a new Sparkle starts with, plus what the Add Node panel shows: `group` picks the section, `icon` is the name of a [lucide](https://lucide.dev/icons) icon as `lucide-react` exports it (`SparklesIcon`), and `tags` and `description` feed the search.
 
 ## Step 4 — Build the React node
 
 Create `apps/web/src/nodes/sparkle/sparkle.tsx`:
 
 ```tsx
-import { Handle, Position } from "@xyflow/react";
-import { NodeContainer } from "../_base/_base";
-import { useNodeControls, useNodeData, useNodeValue } from "@/hooks/...";
-import type { SparkleData, SparkleValue } from "./sparkle.schema";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
+import { NodeHandles } from "../_base/node-handles";
+import { useNodeValue } from "@/nodes/live/node-data";
+import { type Data, type Value, defaults } from "./sparkle.schema";
 
-export function SparkleNode(props: BaseNode<SparkleData>) {
+export function Sparkle(props: Props) {
   return (
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position={Position.Left} id="trigger" />
-      <Handle type="source" position={Position.Right} id="value" />
+      <NodeHandles instance="Sparkle" />
     </NodeContainer>
   );
 }
 
 function Value() {
-  const value = useNodeValue<SparkleValue>(0);
+  const value = useNodeValue<Value>(0);
   return <div>{value.toFixed(1)}</div>;
 }
 
 function Settings() {
-  const data = useNodeData<SparkleData>();
-  const { render } = useNodeControls<SparkleData>({
+  const data = useNodeData<Data>();
+  const { render } = useNodeControls({
     min: { value: data.min, label: "Min" },
     max: { value: data.max, label: "Max" },
   });
   return <>{render()}</>;
 }
 
-SparkleNode.defaultProps = {
-  data: {
-    group: "shape",
-    label: "Sparkle",
-    min: 0,
-    max: 100,
-  },
-};
+type Props = BaseNode<Data>;
+Sparkle.defaultProps = { data: defaults };
 ```
+
+Export the component under the node's name (`Sparkle`, not `SparkleNode`): the generated React node map imports it by that name.
+
+`NodeHandles` draws one handle per port and emit that the Rust component declares, so the handles always match the runtime. `useNodeValue(fallback)` returns the node's live value from the runtime, or `fallback` until the first one arrives.
 
 Match an existing nearby node (e.g. `apps/web/src/nodes/calculate/`) for the exact import paths and hook signatures — they evolve.
 
-## Step 5 — Register it everywhere
+## Step 5 — Register it and run codegen
 
 Open `apps/web/node-components.json` and add two entries:
 
@@ -153,7 +168,6 @@ Open `apps/web/node-components.json` and add two entries:
     /* ... existing entries ... */
     {
       "name": "Sparkle",
-      "category": "shape",
       "impl": "Sparkle"
     }
   ],
@@ -161,27 +175,44 @@ Open `apps/web/node-components.json` and add two entries:
     /* ... existing impls ... */
     {
       "name": "Sparkle",
-      "category": "runtime::shape::sparkle::Sparkle",
+      "category": "transformation",
       "requiresHardware": false
     }
   ]
 }
 ```
 
-The build pipeline reads this file to wire everything up.
+Then, from `apps/web`, run:
 
-## Step 6 — Make the node draggable
+```sh
+bun run catalog:sync
+```
 
-Add the React component to the type registry at `apps/web/src/nodes/_TYPES.ts`:
+This does two things:
+
+1. It reads the ports and emits the Rust component declares and writes them to `apps/web/wire-interface.generated.json`.
+2. It runs `bun run codegen`, which writes three files in `apps/web/src/nodes/`:
+   - `component-types.generated.ts`: the list of node types, with their ports and emits.
+   - `catalog.generated.ts`: the schema, defaults and host adapter of every node, without React.
+   - `node-types.generated.ts`: the React component of every node, for the canvas.
+
+Do not edit the generated files by hand. When you change only the frontend or the JSON, and not the Rust ports or emits, `bun run codegen` is enough.
+
+## Step 6 — Add a host adapter (optional)
+
+Most nodes skip this step. A node needs a host adapter when the app itself must act on the node's config. For example, `Hotkey` registers its keyboard shortcut, and `Mqtt` tells the runtime which broker it uses.
+
+Create `apps/web/src/nodes/sparkle/sparkle.adapter.ts` and export an `adapter` of type `NodeHostAdapter` (see `apps/web/src/nodes/_base/host-adapter.ts` for the hooks you can implement). If Sparkle had a keyboard shortcut in its data, the adapter would be:
 
 ```ts
-import { SparkleNode } from "./sparkle/sparkle";
+import type { NodeHostAdapter } from "../_base/host-adapter";
 
-export const NODE_TYPES = {
-  // ...
-  Sparkle: SparkleNode,
+export const adapter: NodeHostAdapter = {
+  accelerator: (node) => (node.data?.accelerator ? String(node.data.accelerator) : undefined),
 };
 ```
+
+Codegen finds the file by its name, so run `bun run codegen` after you add or remove it. Keep it free of React: non-UI code loads the adapter through the catalog. `apps/web/src/nodes/hotkey/hotkey.adapter.ts` and `apps/web/src/nodes/mqtt/mqtt.adapter.ts` are working examples.
 
 ## Step 7 — Verify
 
@@ -239,6 +270,8 @@ Add `"sparkle"` to `apps/fumadocs/content/docs/microflow-studio/nodes/shape/meta
 
 - **Zod schema mismatch with Rust component.** If the frontend sends `min` and the Rust struct expects `lower`, the runtime will silently fail to construct. Match field names exactly.
 - **Forgetting `node-components.json`.** Without it the node will not appear in the Add Node panel even if everything else is correct.
+- **Names that do not match.** For every entry, codegen imports the component `Sparkle` from `sparkle/sparkle.tsx`, and `dataSchema` and `defaults` from `sparkle/sparkle.schema.ts`. A different folder, file or export name shows up as a type error in a `*.generated.ts` file. Fix the node, not the generated file.
+- **Importing from the rest of the app.** `apps/web/src` is split into one folder per domain (`board/`, `runtime/`, `ui/`, …). A node may import only the files that another folder lists as public in `apps/web/scripts/architecture/verticals.ts`. Run `bun test src/architecture.test.ts` in `apps/web` to check your imports.
 - **Hardware flag wrong.** If your node touches a pin, `requiresHardware` must be `true` so the runtime initialises the board connection for it.
 - **Assuming desktop-only capabilities.** The web app runs the same runtime in WebAssembly. If your node reaches for a native capability, say so in `browser-support.ts` (Step 8) instead of letting it fail silently in the browser.
 - **Hot reload does not always pick up schema changes.** Restart `bun run dev:web` after edits to schema files.

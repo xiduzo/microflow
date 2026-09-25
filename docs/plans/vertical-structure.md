@@ -1,6 +1,10 @@
 # Vertical codebase structure — proposal
 
-Status: proposal (2026-09-25). Nothing here is applied yet.
+Status: Applied (2026-09-25). The decision is recorded in
+[ADR-0027](../adr/0027-web-app-domain-verticals.md); the layout as built is in
+[`ARCHITECTURE.md`](../../ARCHITECTURE.md#where-does-new-code-go). See
+[Deviations during execution](#deviations-during-execution) for where it differs from
+this plan.
 
 Goal: group code by **what it does** (a domain from `CONTEXT.md`), not by **what it is**
 (`hooks/`, `stores/`, `lib/`). Code that changes together lives together, and each vertical
@@ -208,3 +212,39 @@ No behavior changes. Each phase ends green.
 Leave `lib/bindings/` where it is. `TS_RS_EXPORT_DIR` pins that path in `.cargo/config.toml`,
 `apps/web/src-tauri/.cargo/config.toml` and `Cargo.toml` files, so moving it means Rust
 config churn for no structural gain.
+
+---
+
+## Deviations during execution
+
+1. **Public surfaces are explicit entry-file lists, not `index.ts` barrels.** Each vertical
+   lists its public files in `apps/web/scripts/architecture/verticals.ts`, like a
+   `package.json` `exports` map. Barrels risk ESM import cycles and pull a whole vertical
+   into the lazy route chunks. `session/` keeps its existing `index.ts`; `ui/` and `lib/`
+   are fully public. The guard rules changed with it: (1) cross-vertical imports target only
+   the other vertical's public files; (2) no vertical imports `routes/`; (3) `lib/`, `ui/`
+   and `platform/` form an infrastructure layer that imports only itself; (4)
+   `nodes/node-types.generated.ts` may be imported at runtime only by `editor/`, `flows/`
+   and `nodes/` (type-only imports are exempt from this rule only); (5) an unknown
+   top-level folder under `src/` fails.
+2. **The LLM provider store, the Llm node's `llm-client` and `use-llm-requests` live in
+   `ai/`, not `cloud/`.** The provider transport and Ask AI share `ai/adapter.ts`
+   (ADR-0021), and this keeps `cloud → ai` one-directional.
+3. **`nodes/_base/` kept its name** (no `container/`). The generated `_base.types.ts` became
+   `nodes/component-types.generated.ts`. Codegen writes `nodes/catalog.generated.ts`
+   (React-free `NODE_CATALOG`) and `nodes/node-types.generated.ts` (`NODE_TYPES`);
+   `_REGISTRY.ts` and the hand-maintained `_TYPES.ts` are gone. Node host adapters live in
+   `nodes/<node>/<node>.adapter.ts`, detected by file presence. The Node Data Resolver is
+   `nodes/node-data-resolver.ts`, and the node value and diagnostics stores are in
+   `nodes/live/`.
+4. **`ui/` also holds** `states/`, `theme-provider.tsx`, `drag-and-drop.tsx`, `use-mobile.ts`
+   and `utils.ts` (`cn`). **`lib/` keeps** `docs.ts`, `wasm-init.ts`, `trpc.ts`,
+   `analytics.ts`, `uid.ts` and `bindings/` (ts-rs output, path pinned by `TS_RS_EXPORT_DIR`).
+5. **`stores/app.ts` was split** into `shell/sidebar.ts`, `flows/active-flow.ts` and
+   `board/arduino-onboarding.ts`, with a localStorage migration from `microflow:app`
+   (`shell/legacy-app-store.ts`: its test imports all three stores, so it can't sit in the
+   infra layer).
+6. **The PR stack has eight layers**, not the seven phases in §4: 0 hygiene · 1 untangle
+   (registry split, app-store split, codegen/view-model inversion) · 2 nodes · 3 cloud + ai ·
+   4 runtime + board · 5 route verticals · 6 guard + docs · 7 Rust per-node colocation
+   (ADR-0026). The TECH.md structure fix moved from phase 0 into the docs pass of layer 6.
