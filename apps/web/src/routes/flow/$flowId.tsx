@@ -1,5 +1,5 @@
 import { getSession, getCustomerState } from "@/lib/auth-client";
-import { useAppStore } from "@/stores/app";
+import { useActiveFlowStore } from "@/stores/active-flow";
 import { useCircuitStore } from "@/stores/circuit-store";
 import {
   FlowSessionProvider,
@@ -153,7 +153,7 @@ function FlowWithAskAi() {
 }
 
 function LocalFlowLayout() {
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
   const session = useLocalSession();
 
   useEffect(() => {
@@ -166,7 +166,7 @@ function LocalFlowLayout() {
 function CloudFlowLayout() {
   const { flowId } = Route.useParams();
   const { session: authSession } = Route.useRouteContext();
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
 
   const wsUrl = useMemo(() => {
     const serverUrl = new URL(env.VITE_SERVER_URL);

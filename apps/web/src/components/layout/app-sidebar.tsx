@@ -26,13 +26,13 @@ import { NavMicrocontroller } from "./nav-microcontroller";
 import { NavDownloadStudio } from "./nav-download-studio";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
-import { useAppStore } from "@/stores/app";
+import { useActiveFlowStore } from "@/stores/active-flow";
 import { useMemo } from "react";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session } = authClient.useSession();
   const user = session?.user ?? null;
-  const activeFlowId = useAppStore((s) => s.activeFlowId);
+  const activeFlowId = useActiveFlowStore((s) => s.activeFlowId);
 
   const { data: cloudFlows } = useQuery({
     ...trpc.flow.list.queryOptions(),

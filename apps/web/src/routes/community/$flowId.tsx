@@ -9,7 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
 import { track } from "@/lib/analytics";
 import { saveLocalFlow } from "@/session";
-import { useAppStore } from "@/stores/app";
+import { useActiveFlowStore } from "@/stores/active-flow";
 import { FlowThumbnail } from "@/components/home/flow-thumbnail";
 import {
   AuthorLink,
@@ -27,7 +27,7 @@ function CommunityFlowPage() {
   const { flowId } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
   const { data: session } = authClient.useSession();
   const isSignedIn = !!session?.user;
 

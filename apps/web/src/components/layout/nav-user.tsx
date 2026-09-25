@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
-import { useAppStore } from "@/stores/app";
+import { useActiveFlowStore } from "@/stores/active-flow";
 import { isDesktop } from "@/lib/platform";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -53,7 +53,7 @@ export function NavUser({ user }: Props) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
 
   // Fetch user profile settings if signed in
   const { data: profile } = useQuery({

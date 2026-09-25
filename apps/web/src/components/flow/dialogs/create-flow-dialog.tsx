@@ -5,7 +5,7 @@ import { Loader2, Plus } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
 import { authClient } from "@/lib/auth-client";
-import { useAppStore } from "@/stores/app";
+import { useActiveFlowStore } from "@/stores/active-flow";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +45,7 @@ export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onO
   const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
   const { data: session } = authClient.useSession();
   const isSignedIn = !!session?.user;
 

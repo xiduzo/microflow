@@ -1,14 +1,14 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useBoardState } from "@/stores/board";
-import { useAppStore } from "@/stores/app";
+import { useArduinoOnboardingStore } from "@/stores/arduino-onboarding";
 
 export function useFirstArduinoConnection() {
   const boardState = useBoardState();
-  const hasConnectedArduino = useAppStore((s) => s.hasConnectedArduino);
-  const showConfetti = useAppStore((s) => s.showConfetti);
-  const markArduinoConnected = useAppStore((s) => s.markArduinoConnected);
-  const dismissConfetti = useAppStore((s) => s.dismissConfetti);
+  const hasConnectedArduino = useArduinoOnboardingStore((s) => s.hasConnectedArduino);
+  const showConfetti = useArduinoOnboardingStore((s) => s.showConfetti);
+  const markArduinoConnected = useArduinoOnboardingStore((s) => s.markArduinoConnected);
+  const dismissConfetti = useArduinoOnboardingStore((s) => s.dismissConfetti);
 
   useEffect(() => {
     if (boardState !== "connected") return;

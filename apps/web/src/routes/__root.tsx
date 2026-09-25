@@ -29,7 +29,7 @@ import { MicroflowDevtools } from "@/components/devtools/microflow-devtools";
 import { useBackendLogs } from "@/hooks/use-backend-logs";
 import ReactConfetti from "react-confetti";
 import { useFirstArduinoConnection } from "@/hooks/use-first-arduino-connection";
-import { useAppStore } from "@/stores/app";
+import { useSidebarStore } from "@/stores/sidebar";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -59,8 +59,8 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
 function RootComponent() {
   const showConfetti = useFirstArduinoConnection();
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
+  const sidebarOpen = useSidebarStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useSidebarStore((s) => s.setSidebarOpen);
 
   return (
     <>

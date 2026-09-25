@@ -18,7 +18,7 @@ import { useNewNodeStore } from "@/stores/new-node";
 import { useAskAiStore } from "@/stores/ask-ai";
 import { useFlowHistory, useFlowSession } from "@/session";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores/app";
+import { useActiveFlowStore } from "@/stores/active-flow";
 import { useNavigate } from "@tanstack/react-router";
 import { useFlowImportExport } from "@/hooks/use-flow-import-export";
 import { applyAutoLayout } from "@/lib/auto-layout";
@@ -29,7 +29,7 @@ export function DockPanel() {
   const { doc } = useFlowSession();
   const history = useFlowHistory(doc);
   const navigate = useNavigate();
-  const { activeFlowId } = useAppStore();
+  const { activeFlowId } = useActiveFlowStore();
   const { exportFlow } = useFlowImportExport();
   const askAiOpen = useAskAiStore((s) => s.open);
   const toggleAskAi = useAskAiStore((s) => s.toggle);

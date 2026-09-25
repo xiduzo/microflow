@@ -32,7 +32,7 @@ import {
   type FlowExportData,
 } from "@/hooks/use-flow-import-export";
 import { loadLocalFlow, saveLocalFlow } from "@/session";
-import { useAppStore } from "@/stores/app";
+import { useActiveFlowStore } from "@/stores/active-flow";
 import { FLOW_COLORS } from "@/lib/flow-colors";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +55,7 @@ function HomeComponent() {
   const triggerImport = useOverviewImport();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
 
   const [scope, setScope] = useState<Scope>("all");
   const [search, setSearch] = useState("");
