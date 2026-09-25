@@ -13,7 +13,7 @@ import { ThemeProvider } from "@/ui/theme-provider";
 import { Toaster } from "@/ui/sonner";
 import { SetNameDialog } from "@/account/set-name-dialog";
 
-import "../index.css";
+import "@/index.css";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { TooltipProvider } from "@/ui/tooltip";
 import { SidebarInset, SidebarProvider } from "@/ui/sidebar";

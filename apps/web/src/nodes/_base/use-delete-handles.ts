@@ -1,7 +1,7 @@
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useCallback } from "react";
 import { useFlowSession } from "@/session";
-import { useNodeId } from "./_base";
+import { useNodeId } from "./node-context";
 
 /**
  * Forces deletion of rendered handles, plus any edges connected to them, on a node.

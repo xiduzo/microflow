@@ -45,7 +45,7 @@ Last updated: 2026-05-16
 - Never block on serial I/O from the runtime. `BoardHandle` methods enqueue and return; they do not await wire round-trips.
 - Domain language from `CONTEXT.md` is enforced. Use Component / Port / Wiring / Hardware Callback / BoardHandle — not generic substitutes ("node", "handler", "event").
 - Always use `bun` (not `npm`, `pnpm`, or `yarn`). `packageManager` is pinned.
-- Clippy pedantic must pass: `cargo clippy --all-targets -- -D warnings -W clippy::pedantic`. oxlint must pass.
+- Clippy pedantic must pass: `cargo clippy --all-targets -- -D warnings -W clippy::pedantic`. oxlint must pass, including the `microflow/*` architecture rules for `apps/web/src` (needs Node 22.18+).
 - Rust runtime errors flow through `RuntimeError` (`thiserror`). No `anyhow`, no `panic!` in component code.
 - TS imports use the `@/` alias for `apps/web/src/`. No deep relative paths (`../../...`).
 

@@ -10,7 +10,8 @@
  * (TDZ errors at startup) and drags a whole vertical into every lazy route chunk
  * (`*.lazy.tsx`). Explicit entry files keep the dependency graph and the chunks small.
  *
- * src/architecture.test.ts enforces this table. Every import counts: static, `export … from`,
+ * src/architecture.test.ts and the oxlint rule microflow/vertical-boundaries (oxlint-plugin.mjs)
+ * enforce this table. Every import counts: static, `export … from`,
  * dynamic `import()`, side-effect `import "…"`, and `mock.module("…")` in tests. Files under a
  * `generated/` folder are never checked as importers. The rules:
  *

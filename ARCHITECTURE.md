@@ -128,7 +128,10 @@ other code reads `nodes/catalog.generated.ts`.
 
 **The guard.** `bun test src/architecture.test.ts` (from `apps/web`; CI runs it with
 the rest of `bun test`) fails on an import that breaks these rules, and on a new
-top-level folder that `verticals.ts` does not list. To use another vertical's
+top-level folder that `verticals.ts` does not list. The same rules are oxlint errors
+(`microflow/vertical-boundaries`, plus `microflow/cross-vertical-alias`: cross into
+another vertical through `@/`, and `import/no-cycle`), so the editor flags them as
+you type. Lint needs Node 22.18 or later. To use another vertical's
 internal file, add it to that vertical's `public` list, and treat that as a
 decision for review. Often the better fix is to move the code to where it is used.
 

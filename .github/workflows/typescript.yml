@@ -52,11 +52,19 @@ jobs:
       - name: Test
         run: bun test
 
+      # The architecture rules (microflow/*) are an oxlint JS plugin that loads
+      # the guard's TypeScript engine via Node's type stripping (Node >= 22.18);
+      # the runner's default Node is older.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       # oxlint exits 0 on warnings and non-zero on errors, so this gates new
       # errors without first demanding a cleanup of the warnings already in the
-      # tree.
+      # tree. --tsconfig lets import/no-cycle resolve apps/web's `@/` alias.
       - name: Lint
-        run: bunx oxlint
+        run: bunx oxlint --tsconfig apps/web/tsconfig.json
 
   check-types:
     name: Check types

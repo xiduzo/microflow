@@ -3,7 +3,7 @@ import { useUpdateNodeInternals } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useFlowSession } from "@/session";
-import { useNode } from "./_base";
+import { useNode } from "./node-context";
 import { createNodeDataCommitter } from "./node-data-commit";
 
 type UseControlParameters = Parameters<typeof useControls>;

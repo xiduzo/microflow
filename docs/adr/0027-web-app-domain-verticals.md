@@ -97,12 +97,30 @@ The guard lives beside the code it checks:
 | `apps/web/src/architecture.test.ts` | Runs the engine over the real tree, and tests each rule on small in-memory fixtures. |
 | `apps/web/scripts/architecture/verticals.ts` | The `VERTICALS` table and the root files: the only file to edit when a surface changes. |
 | `apps/web/scripts/architecture/engine.ts` | The rules. Pure: an import graph in, violations out. |
-| `apps/web/scripts/architecture/import-graph.ts` | Parses `src/` into the import graph and resolves the `@/` alias. |
+| `apps/web/scripts/architecture/import-graph.ts` | Parses `src/` into the import graph. |
+| `apps/web/scripts/architecture/resolve.ts` | Resolves a specifier, including the `@/` alias. Dependency-free, so the lint plugin can load it. |
+| `apps/web/scripts/architecture/oxlint-plugin.mjs` | The same engine and table as oxlint rules, for the editor and `bunx oxlint`. |
 | `apps/web/scripts/architecture/derive-public-surface.ts` | Prints each vertical's current surface and the cross-vertical dependency counts and cycles. |
 
 Run the guard with `bun test src/architecture.test.ts` from `apps/web`. CI runs it
 as part of `bun test`. A failure names the importing file, the specifier, the
 resolved target, the rule, and the fix. No dependency was added for it.
+
+The same rules run as lint errors, so a broken boundary shows up in the editor and
+not only in the test run. `.oxlintrc.json` loads `oxlint-plugin.mjs` for
+`apps/web/src` with three rules:
+
+- `microflow/vertical-boundaries`: the five rules above, reported on the import.
+- `microflow/cross-vertical-alias`: an import into another vertical uses the `@/`
+  alias, never `../`, so every crossing is visible in the import list. It has an
+  autofix.
+- `import/no-cycle`: no module cycles. This is the ESM TDZ failure that ruled out
+  barrels.
+
+The plugin imports the TypeScript engine directly through Node's type stripping, so
+lint needs Node 22.18 or later (CI pins Node 24 in the lint job). `bunx oxlint
+--tsconfig apps/web/tsconfig.json` (CI, and `bun run check`) passes the tsconfig so
+that `no-cycle` resolves the `@/` alias.
 
 ## Rejected
 
@@ -114,10 +132,12 @@ resolved target, the rule, and the fix. No dependency was added for it.
   time. A list of entry files gives the same boundary without either problem, for
   one line in `verticals.ts` per public file.
 - **`eslint-plugin-boundaries`.** It checks this kind of rule, but it needs ESLint,
-  which the repo does not use. The linter is oxlint, and its config is broken at the
-  moment. ESLint only for this check means a second linter to configure, run in CI
-  and keep in step. The repo already enforces its invariants with guard tests (the
-  Catalog Parity Guard, the codegen parity guard), and a bun test needs nothing new.
+  which the repo does not use. The linter is oxlint. ESLint only for this check means
+  a second linter to configure, run in CI and keep in step. oxlint's JS plugins run
+  the guard's own engine instead, so the test and the lint rule cannot disagree.
+- **`no-restricted-imports` patterns generated per vertical.** They would copy the
+  table into a second format, and they cannot see relative imports that cross a
+  vertical.
 - **Keep the horizontal split and only move the node catalog out of
   `components/`.** That removes the worst upward dependency. It leaves `hooks/`,
   `stores/` and `lib/` holding pieces of every domain, and nothing stops the next
