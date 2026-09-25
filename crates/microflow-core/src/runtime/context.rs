@@ -55,8 +55,12 @@ pub struct CloudRequest {
 /// service handles, no Tokio) so a cloud node stays fully sans-IO and unit-
 /// testable by asserting the emitted request. The host maps each variant onto
 /// its platform transport (desktop `rumqttc`/`reqwest`; browser WSS/`fetch`).
+// `rename_all_fields` must sit on the serde attribute as well as the ts-rs one:
+// on an enum `rename_all` only renames the variant tags, so without it the
+// fields inside a variant reach JS as `broker_id` while the generated type
+// promises `brokerId` (see `wire_tests`).
 #[derive(Debug, Clone, Serialize, TS)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 #[ts(export, tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum CloudRequestKind {
     /// Fire-and-forget MQTT publish (the MQTT publish node and Figma's set-back).
@@ -522,5 +526,81 @@ mod apply_tests {
         effects.apply(&mut rec);
 
         assert_eq!(rec.calls, vec![Call::Event("value".to_string())]);
+    }
+}
+
+/// The `Effects` JSON is what both hosts' TypeScript reads, typed by the ts-rs
+/// bindings in `apps/web/src/lib/bindings/`. Those bindings are camelCase, so a
+/// `snake_case` key on the wire is a field the webview silently reads as
+/// `undefined` (it broke MQTT publish, the LLM node and MIDI device routing).
+#[cfg(test)]
+mod wire_tests {
+    use super::*;
+    use std::sync::Arc;
+
+    fn snake_case_keys(value: &serde_json::Value, path: &str, out: &mut Vec<String>) {
+        match value {
+            serde_json::Value::Object(map) => {
+                for (key, child) in map {
+                    let at = format!("{path}.{key}");
+                    if key.contains('_') {
+                        out.push(at.clone());
+                    }
+                    snake_case_keys(child, &at, out);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for (i, child) in items.iter().enumerate() {
+                    snake_case_keys(child, &format!("{path}[{i}]"), out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn request(kind: CloudRequestKind) -> CloudRequest {
+        CloudRequest { source: Arc::from("node-1"), kind }
+    }
+
+    #[test]
+    fn effects_reach_the_webview_in_camel_case() {
+        let effects = Effects {
+            wakeups: vec![Wakeup { id: 1, node_id: "node-1".into(), method: "tick".into(), delay_ms: 10 }],
+            cloud_requests: vec![
+                request(CloudRequestKind::MqttPublish {
+                    broker_id: "b1".into(),
+                    topic: "t".into(),
+                    payload: vec![1],
+                    retain: false,
+                }),
+                request(CloudRequestKind::LlmGenerate {
+                    provider_id: "p1".into(),
+                    model: "m".into(),
+                    system: None,
+                    prompt: "hi".into(),
+                }),
+                request(CloudRequestKind::MidiSend { device_name: "d".into(), bytes: vec![144] }),
+                request(CloudRequestKind::AudioPlay { track: 0, volume: 1.0, r#loop: false }),
+                request(CloudRequestKind::AudioStop),
+            ],
+            node_diagnostics: vec![NodeDiagnostic {
+                node: "node-1".into(),
+                level: DiagnosticLevel::Warning,
+                message: None,
+            }],
+            ..Effects::default()
+        };
+        let json = serde_json::to_value(&effects).expect("Effects serializes");
+
+        let mut snake = Vec::new();
+        snake_case_keys(&json, "effects", &mut snake);
+        assert!(snake.is_empty(), "snake_case keys on the Effects wire (the TS bindings read camelCase): {snake:?}");
+
+        let requests = json["cloudRequests"].as_array().expect("cloudRequests is an array");
+        assert_eq!(requests[0]["brokerId"], "b1");
+        assert_eq!(requests[1]["providerId"], "p1");
+        assert_eq!(requests[2]["deviceName"], "d");
+        assert_eq!(requests[3]["kind"], "audioPlay");
+        assert_eq!(requests[3]["loop"], false);
     }
 }
