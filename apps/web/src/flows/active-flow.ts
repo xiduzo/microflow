@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { splitFromLegacyApp } from "@/lib/legacy-app-store";
+import { splitFromLegacyApp } from "@/shell/legacy-app-store";
 
 type ActiveFlowState = {
   activeFlowId: string;

@@ -1,9 +1,16 @@
 import { getSession, getCustomerState } from "@/account/auth-client";
 import { useActiveFlowStore } from "@/flows/active-flow";
 import { useCircuitStore } from "@/circuit/circuit-store";
-import { FlowSessionProvider, useCloudSession, useFlowSession, useLocalSession, type FlowRole, type FlowSession } from "@/session";
+import {
+  FlowSessionProvider,
+  useCloudSession,
+  useFlowSession,
+  useFlowStructuralNodes,
+  useLocalSession,
+  type FlowRole,
+  type FlowSession,
+} from "@/session";
 import { useFlowUpdateDispatcher } from "@/runtime/use-flow-update-dispatcher";
-import { useFlowStructuralNodes } from "@/session/use-flow-nodes";
 import { usePins, type Pin } from "@/board/board-store";
 import { useComponentEvents } from "@/runtime/use-component-events";
 import { useNodeDiagnostics } from "@/runtime/use-node-diagnostics";

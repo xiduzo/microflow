@@ -42,7 +42,7 @@ export {
   type PresenceSlice,
   type DragMap,
 } from "./presence";
-export { useFlowNodes, useFlowEdges, useFlowNodesSelector } from "./use-flow-nodes";
+export { useFlowNodes, useFlowEdges, useFlowNodesSelector, useFlowStructuralNodes } from "./use-flow-nodes";
 export { useRemoteDragPositions, usePublishDrag, applyRemoteDrag } from "./use-remote-drag";
 export { useFlowMeta } from "./use-flow-meta";
 export { useFlowHistory } from "./use-flow-history";

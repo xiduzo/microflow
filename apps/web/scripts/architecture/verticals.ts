@@ -34,10 +34,22 @@ export const VERTICALS: Record<string, VerticalSpec> = {
   routes: { layer: "top", public: [] },
 
   // ── Feature verticals (domain code, named after CONTEXT.md terms) ──────────────────────
+  // The node library: base node UI, per-node folders, the generated catalog, live values.
   nodes: {
-    // TODO(phase 1): seed from derive-public-surface. Planned surface: catalog.generated.ts,
-    // node-types.generated.ts, node-data.ts, container/*.
-    public: [],
+    public: [
+      "catalog.generated.ts",
+      "component-types.generated.ts",
+      "node-types.generated.ts",
+      "node-data-resolver.ts",
+      "live/node-data.ts",
+      "live/node-diagnostics.ts",
+      "_base/_base.tsx",
+      "_base/_base.schema.ts",
+      "_base/browser-support.ts",
+      "_base/desktop-only-badge.tsx",
+      "_base/host-adapter.ts",
+      "_base/node-context.ts",
+    ],
     restricted: {
       "node-types.generated.ts": {
         allowedImporters: ["editor", "flows"],
@@ -46,35 +58,106 @@ export const VERTICALS: Record<string, VerticalSpec> = {
       },
     },
   },
-  // TODO(phase 4): seed from derive-public-surface.
-  editor: { public: [] },
+  // The canvas: ReactFlow surface, edges, panels, sheets, the new-node dialog.
+  editor: {
+    public: ["react-flow-canvas.tsx", "auto-layout.ts", "handle-proximity.ts", "signal.ts"],
+  },
+  // FlowSession, SyncAdapters, ReactFlowBridge, Presence. The barrel is the whole surface.
   session: { public: ["index.ts"] },
-  // TODO(phase 3): seed from derive-public-surface.
-  runtime: { public: [] },
-  // TODO(phase 3): seed from derive-public-surface.
-  board: { public: [] },
-  // TODO(phase 2): seed from derive-public-surface.
-  cloud: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  ai: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  sketch: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  circuit: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  flows: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  community: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  account: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  devtools: { public: [] },
-  // TODO(phase 4): seed from derive-public-surface.
-  shell: { public: [] },
+  // The Runtime Host: flow reactor, EffectsSink, FlowUpdateDispatcher, event ingest.
+  runtime: {
+    public: [
+      "dispatch-port.ts",
+      "effects-sink.ts",
+      "flow-reactor.ts",
+      "flow-update-dispatcher.ts",
+      "use-audio-requests.ts",
+      "use-component-events.ts",
+      "use-flow-update-dispatcher.ts",
+      "use-hotkey-events.ts",
+      "use-node-diagnostics.ts",
+    ],
+  },
+  // The Board: Web Serial, bring-up, Firmata wasm, pins, first-connection onboarding.
+  board: {
+    public: [
+      "arduino-onboarding.ts",
+      "board-controller.ts",
+      "board-store.ts",
+      "nav-microcontroller.tsx",
+      "pin.ts",
+      "pin-label.tsx",
+      "use-first-arduino-connection.ts",
+      "wasm.ts",
+      "web-serial.ts",
+    ],
+  },
+  // Browser CloudPerformer, MQTT + Figma connections, capability probe, connection console.
+  cloud: {
+    public: [
+      "browser-cloud-probe.ts",
+      "browser-mqtt-test-client.ts",
+      "cloud-capabilities.ts",
+      "cloud-performer.ts",
+      "connection-console/connection-console.tsx",
+      "connection-console/parse-command.ts",
+      "figma.ts",
+      "mqtt-broker.ts",
+    ],
+  },
+  // Everything LLM: provider transport (ADR-0021) and the Ask AI assistant.
+  ai: {
+    public: [
+      "ask-ai-panel.tsx",
+      "ask-ai-store.ts",
+      "cli-providers.ts",
+      "endpoint.ts",
+      "llm-client.ts",
+      "llm-provider.ts",
+      "models.ts",
+      "use-llm-requests.ts",
+    ],
+  },
+  // Arduino sketch export (/flow/$flowId/code).
+  sketch: { public: ["sketch-code-view.tsx"] },
+  // Circuit view (/flow/$flowId/circuit).
+  circuit: { public: ["circuit-store.ts"] },
+  // The flow library: list, thumbnails, create/share/delete, templates, import/export.
+  flows: {
+    public: [
+      "active-flow.ts",
+      "create-flow-dialog.tsx",
+      "delete-flow-dialog.tsx",
+      "flow-colors.ts",
+      "flow-list.tsx",
+      "flow-switcher.tsx",
+      "flow-thumbnail.tsx",
+      "share-flow-dialog.tsx",
+      "templates/index.ts",
+      "use-flow-import-export.ts",
+    ],
+  },
+  community: { public: ["community-card.tsx"] },
+  account: {
+    public: ["auth-client.ts", "nav-user.tsx", "set-name-dialog.tsx", "sign-in-form.tsx"],
+  },
+  devtools: { public: ["dev-log.ts", "microflow-devtools.tsx", "use-backend-logs.ts"] },
+  // App chrome: sidebar + navigation, and the one-off migration out of `microflow:app`.
+  shell: { public: ["app-sidebar.tsx", "contribute.ts", "legacy-app-store.ts", "sidebar.ts"] },
 
   // ── Infrastructure: imports only other infrastructure ──────────────────────────────────
-  // TODO(phase 4): seed from derive-public-surface.
-  platform: { layer: "infra", public: [] },
+  // Host detection and the desktop shell (Tauri IPC, updater, deep links).
+  platform: {
+    layer: "infra",
+    public: [
+      "ipc.ts",
+      "is-mac.ts",
+      "nav-download-studio.tsx",
+      "platform.ts",
+      "use-deep-link.ts",
+      "use-updater.ts",
+    ],
+  },
   ui: { layer: "infra", public: ["*"] },
   lib: { layer: "infra", public: ["*"] },
 };
