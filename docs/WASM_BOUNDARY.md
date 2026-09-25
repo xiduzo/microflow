@@ -14,7 +14,7 @@ same core natively, so neither host is the source of truth for behaviour.
 |---|---|---|
 | `microflow-runtime-wasm` | `FlowRuntime` — the flow engine | `runtime/flow-reactor.ts` |
 | `microflow-firmata-wasm` | `FirmataSession` (codec), `BringUpMachine`, `FlashSession` | `board/web-serial.ts`, `board-controller.ts` |
-| `microflow-codegen-wasm` | Arduino sketch generation | `lib/codegen/` |
+| `microflow-codegen-wasm` | Arduino sketch generation | `sketch/codegen/` |
 
 Each has its own memoised `ensureReady()` and is fetched through Vite's `?url`, so
 no `.wasm` is on the critical path to first render. Every exported helper awaits

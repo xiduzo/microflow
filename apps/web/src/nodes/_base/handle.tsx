@@ -9,7 +9,7 @@ import {
   useStore,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { cva } from "class-variance-authority";
 import type { ComponentType, EmitOf, PortOf } from "../component-types.generated";
 import {
@@ -20,7 +20,7 @@ import {
   isHandleNearPointer,
   subscribeToPointerProximity,
   type HandlePosition,
-} from "@/components/flow/handle-proximity";
+} from "@/editor/handle-proximity";
 
 /**
  * Hover affordance: subscribe to the shared, frame-coalesced pointer source

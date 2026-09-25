@@ -21,7 +21,7 @@
 // the settings page, the Ask AI picker — cannot disagree about which host it is
 // running on.
 
-import { isDesktop } from "@/lib/platform";
+import { isDesktop } from "@/platform/platform";
 import { REQUIRES_HARDWARE, isComponentType } from "../component-types.generated";
 import { isWebSerialSupported } from "@/board/web-serial";
 import { cliProvider, isCliProvider, takesFlowTools } from "@/ai/cli-providers";

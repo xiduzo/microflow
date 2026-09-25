@@ -4,17 +4,17 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/ui/popover";
 import { NoteSelector } from "./note-selector";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/ui/select";
+} from "@/ui/select";
 import { noteDurationToVisualDuation } from "./helpers";
 import { NOTE_DURATION } from "./piezo.constants";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 
 export function NodeEditor(props: Props) {
   const [internalNode, setInternalNode] = useState(props.note);

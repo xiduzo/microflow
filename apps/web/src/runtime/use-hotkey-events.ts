@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { isDesktop } from "@/lib/platform";
+import { isDesktop } from "@/platform/platform";
 import { emit } from "@tauri-apps/api/event";
 import { useFlowNodes, useFlowSession } from "@/session";
 import type { Hotkey } from "@tanstack/react-hotkeys";

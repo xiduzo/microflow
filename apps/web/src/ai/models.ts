@@ -126,7 +126,7 @@ async function listCliModels(id: string): Promise<string[]> {
   const cli = cliProvider(id);
   if (!cli?.listModels) return [];
 
-  const { invokeCommand } = await import("@/lib/ipc");
+  const { invokeCommand } = await import("@/platform/ipc");
   const response = await invokeCommand<
     { type: "llm_cli_models"; bin: string; args: string[] },
     Record<string, unknown>

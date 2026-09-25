@@ -1,4 +1,4 @@
-import { useListen } from "@/lib/ipc";
+import { useListen } from "@/platform/ipc";
 import type { NodeDiagnostic } from "@/runtime/effects-sink";
 import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 

@@ -5,7 +5,7 @@ import { Handle as BaseHandle } from "../_base/handle";
 const Handle = BaseHandle<"Sensor">;
 import { useNodeValue } from "@/nodes/live/node-data";
 import { type Value, type Data, dataSchema, defaults } from "./sensor.schema";
-import { Switch } from "@/components/ui/switch";
+import { Switch } from "@/ui/switch";
 import {
   BicepsFlexedIcon,
   CircleArrowOutUpLeftIcon,
@@ -15,7 +15,7 @@ import {
   SunIcon,
   SunMediumIcon,
 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "@/ui/progress";
 import { cva, type VariantProps } from "class-variance-authority";
 import { MODES, usePins } from "@/board/board-store";
 import { pinsToOptions } from "@/board/pin-label";

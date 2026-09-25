@@ -23,15 +23,15 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/ui/dialog";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@/components/ui/carousel";
-import { Button } from "@/components/ui/button";
+} from "@/ui/carousel";
+import { Button } from "@/ui/button";
 import { ArrowLeftRightIcon, ArrowRightLeftIcon } from "lucide-react";
 
 // Create a simple hash for the preset to use as a key

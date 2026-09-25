@@ -7,8 +7,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { SignInForm } from "@/components/sign-in-form";
-import { getSession } from "@/lib/auth-client";
+import { SignInForm } from "@/account/sign-in-form";
+import { getSession } from "@/account/auth-client";
 
 export const Route = createFileRoute("/login")({
   // Routes that bounce a signed-out visitor here append `?redirect=`, so the

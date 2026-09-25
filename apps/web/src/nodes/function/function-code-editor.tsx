@@ -11,9 +11,9 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { useTheme } from "@/providers/theme-provider";
+} from "@/ui/dialog";
+import { Button } from "@/ui/button";
+import { useTheme } from "@/ui/theme-provider";
 
 // Use local bundle + workers instead of CDN (required for offline Tauri)
 (window as Window & { MonacoEnvironment?: unknown }).MonacoEnvironment = {

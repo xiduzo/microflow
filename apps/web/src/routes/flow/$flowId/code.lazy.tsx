@@ -1,5 +1,5 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { SketchCodeView } from "@/components/flow/sketch-code-view";
+import { SketchCodeView } from "@/sketch/sketch-code-view";
 
 export const Route = createLazyFileRoute("/flow/$flowId/code")({
     component: RouteComponent,

@@ -1,7 +1,7 @@
 import { describe, expect, it, mock, afterEach } from "bun:test";
 
 const isDesktop = mock(() => false);
-mock.module("@/lib/platform", () => ({ isDesktop }));
+mock.module("@/platform/platform", () => ({ isDesktop }));
 const isWebSerialSupported = mock(() => true);
 mock.module("@/board/web-serial", () => ({ isWebSerialSupported }));
 

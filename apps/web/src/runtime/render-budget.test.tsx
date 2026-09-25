@@ -39,9 +39,9 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NodeContainerContext } from "@/nodes/_base/node-context";
 import { nodeDataStore, useNodeValue } from "@/nodes/live/node-data";
-import { signalStore, useEdgeSignals } from "@/stores/signal";
+import { signalStore, useEdgeSignals } from "@/editor/signal";
 import { applyComponentEvent } from "@/runtime/event-ingest";
-import { useDevLogStore } from "@/stores/dev-log";
+import { useDevLogStore } from "@/devtools/dev-log";
 
 // ---------------------------------------------------------------------------
 // Deterministic animation frames

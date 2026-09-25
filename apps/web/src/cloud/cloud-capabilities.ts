@@ -3,8 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { useMqttBrokerStore, type ConnectionStatus } from "@/cloud/mqtt-broker";
 import { useLlmProviderStore } from "@/ai/llm-provider";
 import { useFigmaStore } from "@/cloud/figma";
-import { invokeCommand, type BrokerStatusPayload } from "@/lib/ipc";
-import { isDesktop } from "@/lib/platform";
+import { invokeCommand, type BrokerStatusPayload } from "@/platform/ipc";
+import { isDesktop } from "@/platform/platform";
 import {
   assembleHostSnapshot,
   startCloudCapabilitySync,

@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import type { CloudRequest } from "@/lib/bindings/CloudRequest";
-import { useListen } from "@/lib/ipc";
-import { isDesktop } from "@/lib/platform";
+import { useListen } from "@/platform/ipc";
+import { isDesktop } from "@/platform/platform";
 import { useLlmProviderStore } from "@/ai/llm-provider";
 import type { EmitOf } from "@/nodes/component-types.generated";
 

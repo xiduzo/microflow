@@ -7,12 +7,12 @@ import { trpc } from "@/lib/trpc";
 import {
   CommunityFlowCard,
   type CommunityFlow,
-} from "@/components/community/community-card";
-import { FlowCardSkeleton } from "@/components/home/flow-list";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/states/empty-state";
-import { cn } from "@/lib/utils";
+} from "@/community/community-card";
+import { FlowCardSkeleton } from "@/flows/flow-list";
+import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { EmptyState } from "@/ui/states/empty-state";
+import { cn } from "@/ui/utils";
 
 export const Route = createFileRoute("/community/")({
   component: CommunityPage,

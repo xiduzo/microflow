@@ -1,5 +1,5 @@
-import { EmptyState } from "@/components/states/empty-state";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/ui/states/empty-state";
+import { Button } from "@/ui/button";
 import { Link, createFileRoute, useSearch } from "@tanstack/react-router";
 import { PartyPopperIcon } from "lucide-react";
 import ReactConfetti from "react-confetti";

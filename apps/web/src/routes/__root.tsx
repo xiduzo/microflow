@@ -9,27 +9,27 @@ import {
 
 import type { trpc } from "@/lib/trpc";
 
-import { ThemeProvider } from "@/providers/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
-import { SetNameDialog } from "@/components/set-name-dialog";
+import { ThemeProvider } from "@/ui/theme-provider";
+import { Toaster } from "@/ui/sonner";
+import { SetNameDialog } from "@/account/set-name-dialog";
 
 import "../index.css";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/layout/app-sidebar";
+import { TooltipProvider } from "@/ui/tooltip";
+import { SidebarInset, SidebarProvider } from "@/ui/sidebar";
+import { AppSidebar } from "@/shell/app-sidebar";
 import { useBoardEvents } from "@/board/board-store";
 import { useCloudCapabilitySync } from "@/cloud/cloud-capabilities";
-import { useUpdater } from "@/hooks/use-updater";
-import { useDeepLink } from "@/hooks/use-deep-link";
+import { useUpdater } from "@/platform/use-updater";
+import { useDeepLink } from "@/platform/use-deep-link";
 import { useFigmaUniqueId, useFigmaStore } from "@/cloud/figma";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { MicroflowDevtools } from "@/components/devtools/microflow-devtools";
-import { useBackendLogs } from "@/hooks/use-backend-logs";
+import { MicroflowDevtools } from "@/devtools/microflow-devtools";
+import { useBackendLogs } from "@/devtools/use-backend-logs";
 import ReactConfetti from "react-confetti";
 import { useFirstArduinoConnection } from "@/board/use-first-arduino-connection";
-import { useSidebarStore } from "@/stores/sidebar";
+import { useSidebarStore } from "@/shell/sidebar";
 
 export interface RouterAppContext {
   trpc: typeof trpc;

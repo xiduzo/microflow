@@ -11,30 +11,30 @@ import { compareDesc } from "date-fns";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/account/auth-client";
 import {
   FlowCard,
   FlowCardSkeleton,
   FlowSpotlight,
   type OverviewFlow,
-} from "@/components/home/flow-list";
+} from "@/flows/flow-list";
 import {
   CommunityFlowCard,
   type CommunityFlow,
-} from "@/components/community/community-card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { CreateFlowDialog } from "@/components/flow/dialogs/create-flow-dialog";
-import { EmptyState } from "@/components/states/empty-state";
+} from "@/community/community-card";
+import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { CreateFlowDialog } from "@/flows/create-flow-dialog";
+import { EmptyState } from "@/ui/states/empty-state";
 import {
   exportFlowData,
   useOverviewImport,
   type FlowExportData,
-} from "@/hooks/use-flow-import-export";
+} from "@/flows/use-flow-import-export";
 import { loadLocalFlow, saveLocalFlow } from "@/session";
-import { useActiveFlowStore } from "@/stores/active-flow";
-import { FLOW_COLORS } from "@/lib/flow-colors";
-import { cn } from "@/lib/utils";
+import { useActiveFlowStore } from "@/flows/active-flow";
+import { FLOW_COLORS } from "@/flows/flow-colors";
+import { cn } from "@/ui/utils";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,

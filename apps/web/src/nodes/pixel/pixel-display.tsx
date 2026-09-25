@@ -6,7 +6,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/tooltip";
 
 const LEDS_PER_ROW = 8;
 const totalCols = LEDS_PER_ROW + 1; // +1 for the icon column

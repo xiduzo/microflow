@@ -4,7 +4,7 @@ import { readHostSnapshot } from "@/cloud/cloud-capabilities";
 import { DebounceScheduler, FlowUpdateDispatcher } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
 import { WasmFlowUpdateSender } from "./wasm-flow-update-sender";
-import { isDesktop } from "@/lib/platform";
+import { isDesktop } from "@/platform/platform";
 import type { FlowSession } from "@/session/flow-session";
 
 const DEBOUNCE_MS = 500;

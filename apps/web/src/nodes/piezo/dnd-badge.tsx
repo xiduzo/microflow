@@ -1,5 +1,5 @@
-import { Badge } from "@/components/ui/badge";
-import { useDragAndDrop } from "@/providers/drag-and-drop";
+import { Badge } from "@/ui/badge";
+import { useDragAndDrop } from "@/ui/drag-and-drop";
 import type { PropsWithChildren } from "react";
 
 export function DndBadge(props: Props) {

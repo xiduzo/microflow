@@ -28,7 +28,7 @@ import {
 } from "./web-serial";
 import { createBringUp, handleBringUp } from "./wasm";
 import { FlowReactor, type CloudDeps } from "@/runtime/flow-reactor";
-import { isDesktop } from "@/lib/platform";
+import { isDesktop } from "@/platform/platform";
 import { BoardController, type BoardControllerDeps } from "./board-controller-core";
 
 export {

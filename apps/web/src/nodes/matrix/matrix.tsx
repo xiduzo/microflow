@@ -13,16 +13,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog";
+} from "@/ui/dialog";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselPrevious,
   CarouselNext,
-} from "@/components/ui/carousel";
+} from "@/ui/carousel";
 import { MatrixEditor } from "./matrix-editor";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 import { type Data, type Value, dataSchema, defaults } from "./matrix.schema";
 import { type BaseNode } from "../_base/_base";
 import {

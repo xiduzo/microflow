@@ -7,8 +7,8 @@ import {
   DialogTrigger,
   DialogClose,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "@/ui/dialog";
+import { Button } from "@/ui/button";
 import { MatrixDisplay } from "./matrix-display";
 import { type PropsWithChildren } from "react";
 

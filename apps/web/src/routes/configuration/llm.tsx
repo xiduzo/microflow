@@ -10,8 +10,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useLlmProviderStore, type LlmProviderConfig } from "@/ai/llm-provider";
 import { track } from "@/lib/analytics";
-import { invokeCommand } from "@/lib/ipc";
-import { isDesktop } from "@/lib/platform";
+import { invokeCommand } from "@/platform/ipc";
+import { isDesktop } from "@/platform/platform";
 import {
   isProbeOk,
   probeLlmProvider,
@@ -34,8 +34,8 @@ import {
   type ConsolePreset,
 } from "@/cloud/connection-console/connection-console";
 import { parseCommand, restAfter } from "@/cloud/connection-console/parse-command";
-import { EmptyState } from "@/components/states/empty-state";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/ui/states/empty-state";
+import { Button } from "@/ui/button";
 
 export const Route = createFileRoute("/configuration/llm")({
   component: LlmConfigPage,

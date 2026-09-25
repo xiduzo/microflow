@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { isDesktop } from "@/lib/platform";
+import { isDesktop } from "@/platform/platform";
 import { dispatchToNode } from "@/board/board-controller";
 
 /**

@@ -1,6 +1,6 @@
 # ---- Stage 1: compile the Rust -> WASM crates ----
 # microflow-core is compiled to wasm three ways (codegen / firmata / runtime) and
-# emitted into apps/web/src/lib/*/generated, which the Vite app imports. wasm-pack
+# emitted into apps/web/src/{sketch/codegen,board,runtime}/generated, which the Vite app imports. wasm-pack
 # resolves the whole Cargo workspace, so the full repo is copied in. The wasm-pack
 # invocations mirror the project's build:wasm scripts exactly — same CWD, relative
 # paths, and `--profile wasm-release` — so --out-dir resolves identically to a local
@@ -20,9 +20,9 @@ RUN rustup target add wasm32-unknown-unknown \
 # whole workspace: wasm-pack loads every member manifest during resolution
 COPY . .
 
-# emits apps/web/src/{lib/codegen,board,runtime}/generated
+# emits apps/web/src/{sketch/codegen,board,runtime}/generated
 WORKDIR /app/apps/web
-RUN wasm-pack build ../../crates/microflow-codegen-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/codegen/generated \
+RUN wasm-pack build ../../crates/microflow-codegen-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/sketch/codegen/generated \
  && wasm-pack build ../../crates/microflow-firmata-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/board/generated \
  && wasm-pack build ../../crates/microflow-runtime-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/runtime/generated
 
@@ -46,7 +46,7 @@ COPY packages ./packages
 RUN bun install --frozen-lockfile || bun install --frozen-lockfile
 
 # Reuse the WASM compiled in stage 1 — this image has no Rust toolchain
-COPY --from=wasm /app/apps/web/src/lib/codegen/generated  ./apps/web/src/lib/codegen/generated
+COPY --from=wasm /app/apps/web/src/sketch/codegen/generated  ./apps/web/src/sketch/codegen/generated
 COPY --from=wasm /app/apps/web/src/board/generated  ./apps/web/src/board/generated
 COPY --from=wasm /app/apps/web/src/runtime/generated  ./apps/web/src/runtime/generated
 

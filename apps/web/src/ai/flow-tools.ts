@@ -26,7 +26,7 @@ import {
   type ComponentType,
 } from "@/nodes/component-types.generated";
 import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
-import { applyAutoLayout } from "@/lib/auto-layout";
+import { applyAutoLayout } from "@/editor/auto-layout";
 import { resolveNodeData } from "@/nodes/node-data-resolver";
 import { uid } from "@/lib/uid";
 

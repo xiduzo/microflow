@@ -16,7 +16,7 @@ Last updated: 2026-05-16
 - **Source of truth:** code. There is no Figma library.
 - **Base:** shadcn (`base-lyra` style, `cssVariables: true`, base color `neutral`) plus Tailwind 4. Config at `apps/web/components.json`.
 - **Custom layer:** PCB token themes defined in `apps/web/src/index.css` (`:root` for light, `.dark` for dark) using `oklch()` values.
-- **Component aliases:** `@/components` (general), `@/components/ui` (shadcn primitives), `@/lib`, `@/hooks`. Icon library: `lucide`. Optional registry: `@magicui`.
+- **Component aliases:** `@/components` (general), `@/ui` (shadcn primitives), `@/lib`, `@/hooks`. Icon library: `lucide`. Optional registry: `@magicui`.
 - **Other UI libraries in use:** `@base-ui/react` (headless primitives), `leva` (live-tweak controls on flow nodes), `@monaco-editor/react` (in-flow function editor), `vaul` (drawer), `cmdk` (command palette), `sonner` (toasts), `motion` (animations), `react-confetti`, `react-colorful`.
 
 ## Tokens
@@ -58,7 +58,7 @@ Use Tailwind's default scale (`gap-1` `gap-2` …). No project-specific spacing 
 
 | Pattern | Where | Notes |
 | --- | --- | --- |
-| Form controls, buttons, dialogs | `apps/web/src/components/ui/` | shadcn primitives — extend, don't fork |
+| Form controls, buttons, dialogs | `apps/web/src/ui/` | shadcn primitives — extend, don't fork |
 | Flow node | `apps/web/src/nodes/<Component>/` | One folder per component; optional `<component>.adapter.ts` for store wiring |
 | Flow handle | `apps/web/src/components/handle.tsx` | Glows copper when selected via edge; green-on-valid / red-on-invalid during connect |
 | Flow edge | global CSS in `index.css` (`.react-flow__edges`) | Copper when selected, phosphor-green + drop-shadow + dash animation when animated |

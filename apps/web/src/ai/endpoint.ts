@@ -7,7 +7,7 @@
 // `@tanstack/ai` and the OpenAI client into the main bundle for users who never
 // touch an LLM. Keep this module free of SDK imports.
 
-import { isDesktop } from "@/lib/platform";
+import { isDesktop } from "@/platform/platform";
 
 let cachedFetch: typeof fetch | undefined;
 

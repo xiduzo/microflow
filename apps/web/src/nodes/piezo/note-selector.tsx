@@ -1,10 +1,10 @@
 import { NOTES_AND_FREQUENCIES } from "./piezo.constants";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/ui/popover";
 import {
   Command,
   CommandInput,
@@ -12,7 +12,7 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-} from "@/components/ui/command";
+} from "@/ui/command";
 import { useState } from "react";
 import { ChevronsUpDownIcon } from "lucide-react";
 

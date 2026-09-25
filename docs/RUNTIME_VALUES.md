@@ -84,7 +84,7 @@ export function useNodeValue<T>(defaultValue: T) {
 }
 ```
 
-### Signal Store (`stores/signal.ts`)
+### Signal Store (`editor/signal.ts`)
 
 Edge animations (showing data flow) are also local-only:
 
@@ -117,6 +117,6 @@ For tutorials or demos, we could record a sequence of runtime values and play th
 ## Related Files
 
 - `apps/web/src/nodes/live/node-data.ts` - Runtime value store
-- `apps/web/src/stores/signal.ts` - Edge animation store
+- `apps/web/src/editor/signal.ts` - Edge animation store
 - `packages/collab/src/schema.ts` - FlowDocument (Yjs wrapper)
 - `docs/SYNC_ARCHITECTURE.md` - Overall sync design

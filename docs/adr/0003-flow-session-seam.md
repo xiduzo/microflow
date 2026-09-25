@@ -171,7 +171,7 @@ Six sub-decisions:
   defers to a follow-up ADR.** The current store mixes editing,
   clipboard, persistence, and native-runtime push. This ADR scopes the
   editing+sync extraction. Clipboard moves to
-  `apps/web/src/stores/clipboard-store.ts` as a separate zustand
+  `apps/web/src/editor/clipboard-store.ts` as a separate zustand
   singleton that survives session swap (so users can copy-paste between
   flows). The native-runtime push (`setupDocSync` + broker/provider
   gathering) moves to a temporary
@@ -203,7 +203,7 @@ backwards-compatibility shims):
 4. **Phase 4** — Delete: `hooks/use-collab-flow.ts`,
    `hooks/use-sync-provider.ts`, `hooks/use-flow-document.ts`,
    `stores/sync-state-store.ts`. Reshape `stores/flow-store.ts` into
-   `stores/clipboard-store.ts`. Routes wire
+   `editor/clipboard-store.ts`. Routes wire
    `<FlowSessionProvider>` per layout.
 
 Each phase compiles. Final phase is the rip.

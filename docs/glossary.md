@@ -107,7 +107,7 @@ The catalog (`apps/web/node-components.json`, 37 entries) groups Nodes into beha
 - **Awareness / Presence** — Live broadcast of each **Collaborator**'s cursor and selection in a shared Flow.
 - **Collaborator** — A Flow Author with access to a Cloud Flow, visible to others via Awareness.
 - **Runtime Value** — A Node's live value (LED state, sensor reading). Local-only per user (the `node-data` store), never synced — each user sees their own hardware. `apps/web/src/nodes/live/node-data.ts`
-- **Signal** — The transient animation on an Edge when a value travels it; a local visual cue, not synced. `apps/web/src/stores/signal.ts`
+- **Signal** — The transient animation on an Edge when a value travels it; a local visual cue, not synced. `apps/web/src/editor/signal.ts`
 
 ## Architecture Seams (frontend)
 

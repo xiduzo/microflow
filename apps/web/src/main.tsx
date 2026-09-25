@@ -5,7 +5,7 @@ import ReactDOM from "react-dom/client";
 import { routeTree } from "./routeTree.gen";
 import { queryClient, trpc } from "./lib/trpc";
 import { loadAnalytics } from "./lib/analytics";
-import { LoadingState } from "./components/states/loading-state";
+import { LoadingState } from "@/ui/states/loading-state";
 
 loadAnalytics();
 

@@ -1,8 +1,8 @@
 import { type Data, type Value, dataSchema, defaults } from "./figma.schema";
 import { useFigmaVariable, useFigmaVariables, useFigmaPluginConnected } from "@/cloud/figma";
 import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { CloudOffIcon, VariableIcon } from "lucide-react";
 import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { useEffect, useMemo } from "react";

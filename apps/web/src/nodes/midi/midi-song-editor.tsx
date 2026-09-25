@@ -13,10 +13,10 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { DragAndDropProvider } from "@/providers/drag-and-drop";
+} from "@/ui/dialog";
+import { Button } from "@/ui/button";
+import { Badge } from "@/ui/badge";
+import { DragAndDropProvider } from "@/ui/drag-and-drop";
 import { uid } from "@/lib/uid";
 
 // Piezo's SongEditor, forked for MIDI's 3-slot note (per-note velocity). The

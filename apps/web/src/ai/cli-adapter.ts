@@ -121,9 +121,9 @@ class CliTextAdapter {
     const inline = system && !takesSystemFlag(this.cli);
     const prompt = inline ? `${system}\n\n${flatten(options.messages)}` : flatten(options.messages);
 
-    // Imported here rather than at module scope: `lib/ipc` pulls in the Tauri
+    // Imported here rather than at module scope: `platform/ipc` pulls in the Tauri
     // API, and this module is reachable from the web build's provider list.
-    const { invokeCommand } = await import("@/lib/ipc");
+    const { invokeCommand } = await import("@/platform/ipc");
     const response = await invokeCommand<
       { type: "llm_cli_generate"; bin: string; args: string[]; prompt: string },
       Record<string, unknown>

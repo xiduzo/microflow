@@ -15,9 +15,9 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { isDesktop } from "@/lib/platform";
+} from "@/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
+import { isDesktop } from "@/platform/platform";
 import { cva } from "class-variance-authority";
 import { useBoardError, useBoardPort, useBoardState } from "@/board/board-store";
 import { useWebSerialBoard } from "@/board/use-web-serial-board";

@@ -2,7 +2,7 @@
 // schema-valid node `data` object: the type's catalog defaults, the patch on
 // top, validated by the node's own zod schema. Ask AI writes through it
 // (`ai/flow-tools.ts`) and the built-in templates are authored with it
-// (`lib/templates`), so neither can ship data the node itself would reject.
+// (`flows/templates`), so neither can ship data the node itself would reject.
 
 import { NODE_CATALOG } from "@/nodes/catalog.generated";
 import type { ComponentType } from "@/nodes/component-types.generated";

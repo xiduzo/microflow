@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/shallow";
 import { useMemo } from "react";
-import { useListen, type BoardState, type PinInfo } from "@/lib/ipc";
+import { useListen, type BoardState, type PinInfo } from "@/platform/ipc";
 
 // `Board` is the legacy alias the rest of the app uses for the generated
 // tagged-union payload of the `board-state` Tauri event.

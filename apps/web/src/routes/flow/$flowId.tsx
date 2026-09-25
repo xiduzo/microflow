@@ -1,6 +1,6 @@
-import { getSession, getCustomerState } from "@/lib/auth-client";
-import { useActiveFlowStore } from "@/stores/active-flow";
-import { useCircuitStore } from "@/stores/circuit-store";
+import { getSession, getCustomerState } from "@/account/auth-client";
+import { useActiveFlowStore } from "@/flows/active-flow";
+import { useCircuitStore } from "@/circuit/circuit-store";
 import { FlowSessionProvider, useCloudSession, useFlowSession, useLocalSession, type FlowRole, type FlowSession } from "@/session";
 import { useFlowUpdateDispatcher } from "@/runtime/use-flow-update-dispatcher";
 import { useFlowStructuralNodes } from "@/session/use-flow-nodes";
@@ -22,9 +22,9 @@ const AskAiPanel = lazy(() =>
   import("@/ai/ask-ai-panel").then((m) => ({ default: m.AskAiPanel })),
 );
 import { env } from "@microflow/env/web";
-import { ErrorState } from "@/components/states/error-state";
-import { LoadingState } from "@/components/states/loading-state";
-import { isDesktop } from "@/lib/platform";
+import { ErrorState } from "@/ui/states/error-state";
+import { LoadingState } from "@/ui/states/loading-state";
+import { isDesktop } from "@/platform/platform";
 import { toast } from "sonner";
 import type { Node } from "@xyflow/react";
 

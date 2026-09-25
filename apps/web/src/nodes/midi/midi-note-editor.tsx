@@ -4,17 +4,17 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/ui/popover";
 import { NoteSelector } from "../piezo/note-selector";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/ui/select";
+} from "@/ui/select";
 import { noteDurationToVisualDuation } from "../piezo/helpers";
 import { NOTE_DURATION } from "../piezo/piezo.constants";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 
 // Piezo's NodeEditor, forked to carry a per-note velocity (a buzzer has none).
 // Reuses Piezo's velocity-agnostic NoteSelector / duration helpers.

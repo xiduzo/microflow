@@ -15,8 +15,8 @@ import {
   type MqttBrokerConfig,
 } from "@/cloud/mqtt-broker";
 import { track } from "@/lib/analytics";
-import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
-import { isDesktop } from "@/lib/platform";
+import { invokeCommand, useListen, type MqttMessagePayload } from "@/platform/ipc";
+import { isDesktop } from "@/platform/platform";
 import { openTestClient, type TestClient } from "@/cloud/browser-mqtt-test-client";
 import { hostLimitation, isBrowserReachableBroker } from "@/nodes/_base/browser-support";
 import {
@@ -29,8 +29,8 @@ import {
   type ConsoleLine,
 } from "@/cloud/connection-console/connection-console";
 import { parseCommand, restAfter } from "@/cloud/connection-console/parse-command";
-import { EmptyState } from "@/components/states/empty-state";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/ui/states/empty-state";
+import { Button } from "@/ui/button";
 
 export const Route = createFileRoute("/configuration/mqtt")({
   component: MqttConfigPage,

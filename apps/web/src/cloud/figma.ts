@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
-import { type MqttMessagePayload } from "@/lib/ipc";
-import { isDesktop } from "@/lib/platform";
-import { authClient } from "@/lib/auth-client";
+import { type MqttMessagePayload } from "@/platform/ipc";
+import { isDesktop } from "@/platform/platform";
+import { authClient } from "@/account/auth-client";
 
 type PickedVariable = {
   id: string;

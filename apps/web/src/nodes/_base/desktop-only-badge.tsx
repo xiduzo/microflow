@@ -9,8 +9,8 @@
 
 import type { ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { hostLimitation, type ProviderSurface } from "./browser-support";
 
 /** The shared look: a small outlined chip whose tooltip carries the why. */

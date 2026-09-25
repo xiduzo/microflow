@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { applyComponentEvent } from "./event-ingest";
 import { nodeDataStore } from "@/nodes/live/node-data";
-import { signalStore } from "@/stores/signal";
-import { useDevLogStore } from "@/stores/dev-log";
+import { signalStore } from "@/editor/signal";
+import { useDevLogStore } from "@/devtools/dev-log";
 
 // The ingest stores coalesce their writes onto an animation frame, so a burst of
 // component events costs one store publish (and one React render) per frame

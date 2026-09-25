@@ -1,4 +1,4 @@
-import { invokeCommand } from "@/lib/ipc";
+import { invokeCommand } from "@/platform/ipc";
 import type { FlowUpdate, FlowUpdateSender, SendResult } from "./flow-update-sender";
 
 /** Production `FlowUpdateSender` over the Tauri `flow_update` IPC command. */

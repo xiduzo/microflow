@@ -8,17 +8,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BotMessageSquareIcon, CheckIcon, SquareIcon, XIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
-import { EmptyState } from "@/components/states/empty-state";
+} from "@/ui/select";
+import { Textarea } from "@/ui/textarea";
+import { Spinner } from "@/ui/spinner";
+import { EmptyState } from "@/ui/states/empty-state";
 import { useFlowSession } from "@/session";
 import { useAskAi, type AskAiMessage } from "@/ai/use-ask-ai";
 import { useAskAiStore, WRITE_MODES } from "@/ai/ask-ai-store";
@@ -26,7 +26,7 @@ import { useLlmProviderStore } from "@/ai/llm-provider";
 import { providerModel } from "@/ai/models";
 import { hostLimitation } from "@/nodes/_base/browser-support";
 import { ProviderBadge } from "@/nodes/_base/desktop-only-badge";
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/utils";
 
 export function AskAiPanel() {
   const { doc, readOnly } = useFlowSession();

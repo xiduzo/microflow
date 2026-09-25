@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/lib/trpc";
-import { LoadingState } from "@/components/states/loading-state";
-import { ErrorState } from "@/components/states/error-state";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { LoadingState } from "@/ui/states/loading-state";
+import { ErrorState } from "@/ui/states/error-state";
+import { Button } from "@/ui/button";
+import { Label } from "@/ui/label";
+import { Input } from "@/ui/input";
+import { Separator } from "@/ui/separator";
+import { cn } from "@/ui/utils";
 import { toast } from "sonner";
 import {
     Table,
@@ -18,16 +18,16 @@ import {
     TableCell,
     TableBody,
     TableCaption,
-} from "@/components/ui/table";
+} from "@/ui/table";
 import {
     EllipsisVerticalIcon,
     MailIcon,
     ShieldUserIcon,
     TrashIcon,
 } from "lucide-react";
-import { ShareFlowDialog } from "@/components/flow/dialogs/share-flow-dialog";
-import { DeleteFlowDialog } from "@/components/flow/dialogs/delete-flow-dialog";
-import { Icon, type IconName } from "@/components/ui/icon";
+import { ShareFlowDialog } from "@/flows/share-flow-dialog";
+import { DeleteFlowDialog } from "@/flows/delete-flow-dialog";
+import { Icon, type IconName } from "@/ui/icon";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -38,8 +38,8 @@ import {
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { FLOW_COLORS } from "@/lib/flow-colors";
+} from "@/ui/dropdown-menu";
+import { FLOW_COLORS } from "@/flows/flow-colors";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 
 export const Route = createFileRoute("/flow/$flowId/settings")({

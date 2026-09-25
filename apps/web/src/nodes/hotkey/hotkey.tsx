@@ -22,12 +22,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
-import { Button } from "@/components/ui/button";
+} from "@/ui/dialog";
+import { Kbd, KbdGroup } from "@/ui/kbd";
+import { Button } from "@/ui/button";
 import { useHotkeyRecorder } from "@tanstack/react-hotkeys";
 import type { Hotkey as HotkeyType } from "@tanstack/react-hotkeys";
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/utils";
 
 export function Hotkey(props: Props) {
   return (

@@ -9,14 +9,14 @@ import {
   CardDescription,
   Card,
   CardContent,
-} from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+} from "@/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { cva } from "class-variance-authority";
 import { OctagonAlertIcon, TriangleAlertIcon, CableIcon } from "lucide-react";
 import { usePins } from "@/board/board-store";
 import { Pin, pinDisplayValue } from "@/board/pin-label";
-import { Icon, type IconName } from "@/components/ui/icon";
-import { Badge } from "@/components/ui/badge";
+import { Icon, type IconName } from "@/ui/icon";
+import { Badge } from "@/ui/badge";
 import { DesktopOnlyBadge } from "./desktop-only-badge";
 
 // Re-exports so existing callers (`from "../_base/_base"`) keep working transparently.

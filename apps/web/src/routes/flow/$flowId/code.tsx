@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { getSession } from "@/lib/auth-client";
+import { getSession } from "@/account/auth-client";
 
 export const Route = createFileRoute("/flow/$flowId/code")({
     beforeLoad: async ({ params }) => {

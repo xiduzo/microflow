@@ -27,7 +27,7 @@ That placeholder had three concrete problems:
 - **Tightly coupled to module-load env.** The hook imported the
   codegen'd `NODE_REGISTRY` directly. `NODE_REGISTRY` imports every
   node component, several of which transitively import
-  `@/lib/auth-client` → `@microflow/env/web` → fails at module load
+  `@/account/auth-client` → `@microflow/env/web` → fails at module load
   when `VITE_SERVER_URL` isn't set. Tests for the dispatcher couldn't
   load the file without the whole web env in scope.
 - **Two responsibilities tangled.** The hook simultaneously: (a)
