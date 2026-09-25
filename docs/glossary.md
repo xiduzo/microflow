@@ -63,7 +63,7 @@ The catalog (`apps/web/node-components.json`, 37 entries) groups Nodes into beha
 - **Dispatch** — Delivering a value to a target Component's Port (`dispatch`) or to its own reserved handle (`dispatch_internal`).
 - **Internal Event** — A self-routed emission whose `source_handle` is reserved (prefixed `_`); delivered back to the same Component rather than across an edge.
 - **Hardware Callback** — A board-reader-driven event (a pin change or an I2C reply) delivered to a Component outside the Flow graph.
-- **Capability Trait** — A narrow, per-capability service interface (LLM, MQTT, persistence, …) the runtime depends on, instead of one bundled `RuntimeContext`. Held in a **Service Registry**. [ADR-0002](adr/0002-per-capability-service-traits.md)
+- **Capability Trait** — A narrow, per-capability service interface (LLM, MQTT, persistence, …) the runtime depends on, instead of one bundled `RuntimeContext`. Held in a **Service Registry**. [ADR-0025](adr/0025-per-capability-service-traits.md)
 
 ## Hardware & Protocol
 
@@ -127,7 +127,7 @@ The ADRs under `docs/adr/` are the source of record for the runtime/sync seams a
 
 - [ADR-0001](adr/0001-component-trait-flow-separation.md) — Component trait separates Port, Internal Event, and Hardware Callback flows.
 - [ADR-0002](adr/0002-flow-router-seam.md) — Extract FlowRouter as the routing seam inside FlowExecutor.
-- [ADR-0002](adr/0002-per-capability-service-traits.md) — Per-capability service traits over a single `RuntimeContext` bundle.
+- [ADR-0025](adr/0025-per-capability-service-traits.md) — Per-capability service traits over a single `RuntimeContext` bundle.
 - [ADR-0003](adr/0003-flow-session-seam.md) — `FlowSession` seam, per-mode `SyncAdapter`, grace-period `SessionRegistry`.
 - [ADR-0004](adr/0004-react-flow-bridge.md) — `ReactFlowBridge` class extraction with named invariants.
 - [ADR-0005](adr/0005-flow-update-dispatcher.md) — `FlowUpdateDispatcher` with injected `Sender`, `Scheduler`, `NodeAdapterRegistry`.

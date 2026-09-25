@@ -41,7 +41,7 @@ users as data loss rather than as a merge:
   whole-node writes rather than by one field.
 
 This is the last item from the collaboration audit
-([`COLLAB_SCALING_AUDIT.md`](../COLLAB_SCALING_AUDIT.md) §7) that has not been
+([`COLLAB_SCALING_AUDIT.md`](../audits/COLLAB_SCALING_AUDIT.md) §7) that has not been
 addressed. Everything else in that audit is landed; this one is separated out
 because, unlike the rest, it **changes the format of every persisted
 document**.

@@ -121,7 +121,7 @@ Six sub-decisions:
   `RecordingSyncAdapter`) implement the seam. `RecordingSyncAdapter`
   can pair with any session, mirroring the
   [`BoardHandle` + `TestIoLoop`](../../apps/web/src-tauri/src/runtime/board/test_io_loop.rs)
-  pattern from [ADR-0002](0002-per-capability-service-traits.md).
+  pattern from [ADR-0025](0025-per-capability-service-traits.md).
   Inheritance can't do that.
 
 - **D2 — Type-honest split of local vs remote sync.** Today's local "sync"
@@ -162,7 +162,7 @@ Six sub-decisions:
   `RecordingSyncAdapter` records `appliedUpdates`, `awarenessUpdates`,
   `connectCalls`, `disconnectCalls`; scripts `injectRemoteUpdate`,
   `injectAwareness`, `injectState`, `injectError`. Mirrors
-  [ADR-0002 D5](0002-per-capability-service-traits.md) and the
+  [ADR-0025 D5](0025-per-capability-service-traits.md) and the
   `RecordingLlmProvider` / `RecordingMqttPublisher` discipline.
   The second adapter is what makes `RemoteSyncAdapter` a *real* seam,
   per [`LANGUAGE.md`](../../.claude/skills/improve-codebase-architecture/LANGUAGE.md).
@@ -333,7 +333,7 @@ New terms recorded in [`CONTEXT.md`](../../CONTEXT.md):
   layout. The inline `localFlowSync` constant deletes.
 - [ADR-0001](0001-component-trait-flow-separation.md) — establishes
   the seam discipline on the Rust component side.
-- [ADR-0002 — per-capability service traits](0002-per-capability-service-traits.md)
+- [ADR-0025 — per-capability service traits](0025-per-capability-service-traits.md)
   — `RecordingSyncAdapter` mirrors `RecordingLlmProvider` /
   `RecordingMqttPublisher` discipline.
 - [ADR-0002 — `FlowRouter`](0002-flow-router-seam.md) — establishes

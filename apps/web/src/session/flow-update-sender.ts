@@ -36,7 +36,7 @@ export type SendResult = { ok: true } | { ok: false; error: string };
  * import `RecordingFlowUpdateSender` without pulling Tauri / env into the
  * bundle). Mirrors the
  * [`RemoteSyncAdapter` / `RecordingSyncAdapter`](./sync-adapter.ts)
- * production-vs-recording discipline from ADR-0002.
+ * production-vs-recording discipline from ADR-0025.
  */
 export interface FlowUpdateSender {
   send(update: FlowUpdate): Promise<SendResult>;

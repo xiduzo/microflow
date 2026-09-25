@@ -99,7 +99,7 @@ of a microsecond per chunk.
 
 **D5 — Cost is not the reason to act, and is not a reason to act.** The whole wasm
 boundary measures ~1.5 µs per three-event turn against a 19 ms sampling interval
-([WASM_BOUNDARY_AUDIT.md](../WASM_BOUNDARY_AUDIT.md)). The second decode is a
+([WASM_BOUNDARY_AUDIT.md](../audits/WASM_BOUNDARY_AUDIT.md)). The second decode is a
 rounding error in both directions: it buys nothing to remove and costs nothing to
 keep. Any argument for merging has to be about correctness or clarity.
 

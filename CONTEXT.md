@@ -42,7 +42,7 @@ A Rust module path under `runtime/`. Determines `use super::<category>::{<Impl>,
 
 ## Component (Rust trait)
 
-In `crates/microflow-core/src/runtime/component.rs`. The interface every impl satisfies. Decision and migration captured in `docs/adr/0001-component-trait-flow-separation.md` (see also `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3). Three distinct flows enter the trait, each with its own method:
+In `crates/microflow-core/src/runtime/component.rs`. The interface every impl satisfies. Decision and migration captured in `docs/adr/0001-component-trait-flow-separation.md` (see also `docs/audits/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3). Three distinct flows enter the trait, each with its own method:
 
 - **Port** — edge inputs. Delivered via `dispatch(&str, ComponentValue)`. Each impl declares its accepted Port set via `fn ports() -> &'static [&'static str] where Self: Sized`.
 - **Internal Event** — self-routed methods. Delivered via `dispatch_internal(&str, ComponentValue)`.
@@ -194,7 +194,7 @@ Three shapes matter:
 
 ## Runtime Services
 
-> ⚠ **Reconciled (2026-06 · post-re-host).** ADR-0002 Phase 4 designed a
+> ⚠ **Reconciled (2026-06 · post-re-host).** ADR-0025 Phase 4 designed a
 > `RuntimeServices` bundle + `ComponentBuilder::Deps: FromServices` threaded
 > through construction. The re-host ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md))
 > **superseded that mechanism** to keep `tokio`/`reqwest`/`rumqttc` out of
@@ -295,7 +295,7 @@ A Rust trait describing one external kind's outbound operations (e.g. `MqttPubli
 
 Each Capability Trait ships with two adapters from day one — a production impl (e.g. the `MqttManager` impl of `MqttPublisher`) and a recording test impl (e.g. `RecordingMqttPublisher`) — which is what makes the trait a real seam rather than a hypothetical one (same rule as [RemoteSyncAdapter](#remotesyncadapter) + `RecordingSyncAdapter`).
 
-See [ADR-0002](docs/adr/0002-per-capability-service-traits.md).
+See [ADR-0025](docs/adr/0025-per-capability-service-traits.md).
 
 ## LLM Provider
 
@@ -321,7 +321,7 @@ async fn publish(&self, broker_id: &str, topic: &str, payload: &[u8], retain: bo
 
 Production adapter: `crate::mqtt::manager::MqttManager` (via `impl MqttPublisher for MqttManager` in `runtime/services/mqtt.rs`) — delegates to the existing broker pool, translating the legacy `String` error into the typed variant. Test adapter: `RecordingMqttPublisher` (records every `(broker_id, topic, payload, retain)` tuple and pops scripted errors from a FIFO queue).
 
-The desktop **CloudPerformer** holds the `Arc<dyn MqttPublisher>` and performs the `MqttPublish` [`CloudRequest`](#cloudrequest)s the sans-IO `Mqtt`/`Figma` nodes record ([ADR-0009](docs/adr/0009-cloud-sans-io-capability.md)). Replaces the legacy `_mqtt_publish` reserved-event pattern (component emits a JSON-encoded publish request, `lib.rs` parses it and re-routes through a dedicated handler thread) — that path was retired in [ADR-0002](docs/adr/0002-per-capability-service-traits.md) Phase 3.
+The desktop **CloudPerformer** holds the `Arc<dyn MqttPublisher>` and performs the `MqttPublish` [`CloudRequest`](#cloudrequest)s the sans-IO `Mqtt`/`Figma` nodes record ([ADR-0009](docs/adr/0009-cloud-sans-io-capability.md)). Replaces the legacy `_mqtt_publish` reserved-event pattern (component emits a JSON-encoded publish request, `lib.rs` parses it and re-routes through a dedicated handler thread) — that path was retired in [ADR-0025](docs/adr/0025-per-capability-service-traits.md) Phase 3.
 
 ## Host Adapter
 
@@ -375,7 +375,7 @@ Live editing context wrapping a **FlowDocument** plus a **SyncAdapter**. Lives i
 
 ## SyncAdapter
 
-Base interface for the session's persistence/sync seam, mirroring the **Capability Trait** discipline on the Rust side ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)). Lives in `apps/web/src/session/sync-adapter.ts`. Carries `kind: "local" | "remote"` and `destroy()`. Two-tier: extended by `RemoteSyncAdapter` for server-backed adapters. `IndexeddbSyncAdapter` and the preview `NoOpSyncAdapter` satisfy the base only — no `state`, no `users`, no `error`, because none of those are meaningful without a server. UI code narrows with the `isRemoteSyncAdapter` guard (on `kind`) to render the sync chip / collaborator panel.
+Base interface for the session's persistence/sync seam, mirroring the **Capability Trait** discipline on the Rust side ([ADR-0025](docs/adr/0025-per-capability-service-traits.md)). Lives in `apps/web/src/session/sync-adapter.ts`. Carries `kind: "local" | "remote"` and `destroy()`. Two-tier: extended by `RemoteSyncAdapter` for server-backed adapters. `IndexeddbSyncAdapter` and the preview `NoOpSyncAdapter` satisfy the base only — no `state`, no `users`, no `error`, because none of those are meaningful without a server. UI code narrows with the `isRemoteSyncAdapter` guard (on `kind`) to render the sync chip / collaborator panel.
 
 ## RemoteSyncAdapter
 
@@ -387,7 +387,7 @@ The local-persistence `SyncAdapter` (`kind: "local"`). Lives in `apps/web/src/se
 
 ## RecordingSyncAdapter
 
-The test-side `RemoteSyncAdapter`. Lives in `apps/web/src/session/recording-sync-adapter.ts`. Mirrors the `RecordingMqttPublisher` ([ADR-0002](docs/adr/0002-per-capability-service-traits.md)) discipline — the second adapter that keeps the seam real. Records `appliedUpdates: Uint8Array[]`, `awarenessUpdates` (tagged `"cursor"` / `"selection"` / `"drag"`), `connectCalls`, `disconnectCalls`, `destroyed`. Scripts `injectRemoteUpdate(update)` (simulate a collaborator's edit), `injectAwareness(users)` (simulate presence), `injectState(state)` (simulate connection drop / recover), `injectError(err)` (simulate sync error). Two `RecordingSyncAdapter`s pointed at separate `FlowDocument`s can replay each other's updates in tests — the convergence property is testable without a Yjs server.
+The test-side `RemoteSyncAdapter`. Lives in `apps/web/src/session/recording-sync-adapter.ts`. Mirrors the `RecordingMqttPublisher` ([ADR-0025](docs/adr/0025-per-capability-service-traits.md)) discipline — the second adapter that keeps the seam real. Records `appliedUpdates: Uint8Array[]`, `awarenessUpdates` (tagged `"cursor"` / `"selection"` / `"drag"`), `connectCalls`, `disconnectCalls`, `destroyed`. Scripts `injectRemoteUpdate(update)` (simulate a collaborator's edit), `injectAwareness(users)` (simulate presence), `injectState(state)` (simulate connection drop / recover), `injectError(err)` (simulate sync error). Two `RecordingSyncAdapter`s pointed at separate `FlowDocument`s can replay each other's updates in tests — the convergence property is testable without a Yjs server.
 
 ## Presence
 

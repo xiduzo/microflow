@@ -109,7 +109,7 @@ the browser does.
 
 **Supersedes (paths only)**
 
-- The file references in **ADR-0001** and **ADR-0002** (both) point at
+- The file references in **ADR-0001**, **ADR-0002** and **ADR-0025** point at
   `apps/web/src-tauri/src/runtime/…`. The *decisions* (Port/Internal/Hardware
   separation; the FlowRouter seam; per-capability service traits) still hold; the
   code lives under `crates/microflow-core/src/runtime/…` now. Each carries a
@@ -134,4 +134,4 @@ New terms recorded in `CONTEXT.md`:
 - `apps/web/src-tauri/src/runtime/host.rs` — desktop actor-thread adapter.
 - `apps/web/src/lib/firmata/flow-reactor.ts` — browser reactor adapter.
 - Commit `2f5a4ce` — "refactor(desktop): delete the duplicate runtime, re-host on microflow-core".
-- ADR-0001, ADR-0002 (router + per-capability) — superseded paths.
+- ADR-0001, ADR-0002 (router), ADR-0025 (per-capability) — superseded paths.

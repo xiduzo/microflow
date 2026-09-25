@@ -1,7 +1,8 @@
-# ADR-0002 — Per-capability service traits over a single `RuntimeContext` bundle
+# ADR-0025 — Per-capability service traits over a single `RuntimeContext` bundle
 
 - **Status:** accepted
 - **Date:** 2026-05-17
+- **Number:** filed as a second ADR-0002 on the same day as the FlowRouter ADR; renumbered to 0025 on 2026-09-25.
 - **Deciders:** sander
 
 > **⚠ Relocated (2026-06 · [ADR-0006](0006-rehost-runtime-on-core.md)):** this ADR

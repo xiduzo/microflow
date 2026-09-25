@@ -57,3 +57,6 @@ coverage
 tmp
 temp
 node-compile-cache/
+# Personal scratch notes (kept locally, not versioned)
+scratchpad/
+conversations.md

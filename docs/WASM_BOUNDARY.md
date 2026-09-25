@@ -2,7 +2,7 @@
 
 How the browser host talks to the Rust engine compiled to WebAssembly. For binary
 sizes, build settings and crossing-cost measurements, see
-[WASM_BOUNDARY_AUDIT.md](WASM_BOUNDARY_AUDIT.md).
+[WASM_BOUNDARY_AUDIT.md](audits/WASM_BOUNDARY_AUDIT.md).
 
 ## The three modules
 
