@@ -52,8 +52,8 @@
 use crate::codegen::board::{BoardCapability, BoardTarget, CoreFamily};
 use crate::codegen::emit::NodeToken;
 use crate::codegen::placeholder::CLOUD_NODE_TYPES;
-use crate::codegen::{input, output};
 use crate::flow::{FlowNode, FlowUpdate};
+use crate::nodes;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use ts_rs::TS;
@@ -173,17 +173,17 @@ fn token_collision_problems(by_id: &BTreeMap<&str, &FlowNode>) -> Vec<Validation
 /// `I2cDevice` uses the board's fixed SDA/SCL).
 fn emitted_pins(node: &FlowNode, kind: &str) -> Vec<(&'static str, u8)> {
     match kind {
-        "Led" | "Vibration" => vec![("", output::led::pin(node))],
-        "Relay" => vec![("", output::relay::pin(node))],
-        "Servo" => vec![("", output::servo::pin(node))],
-        "Button" => vec![("", input::button::pin(node))],
-        "Piezo" => vec![("", output::piezo::pin(node))],
-        "Pixel" => vec![("", output::pixel::pin(node))],
-        "Switch" => vec![("", input::switch::pin(node))],
-        "Motion" => vec![("", input::motion::pin(node))],
-        "Rgb" => output::rgb::pins(node).to_vec(),
-        "Matrix" => output::matrix::pins(node).to_vec(),
-        "Stepper" => output::stepper::pins(node),
+        "Led" | "Vibration" => vec![("", nodes::led::codegen::pin(node))],
+        "Relay" => vec![("", nodes::relay::codegen::pin(node))],
+        "Servo" => vec![("", nodes::servo::codegen::pin(node))],
+        "Button" => vec![("", nodes::button::codegen::pin(node))],
+        "Piezo" => vec![("", nodes::piezo::codegen::pin(node))],
+        "Pixel" => vec![("", nodes::pixel::codegen::pin(node))],
+        "Switch" => vec![("", nodes::switch::codegen::pin(node))],
+        "Motion" => vec![("", nodes::motion::codegen::pin(node))],
+        "Rgb" => nodes::rgb::codegen::pins(node).to_vec(),
+        "Matrix" => nodes::matrix::codegen::pins(node).to_vec(),
+        "Stepper" => nodes::stepper::codegen::pins(node),
         _ => vec![],
     }
 }
@@ -191,10 +191,10 @@ fn emitted_pins(node: &FlowNode, kind: &str) -> Vec<(&'static str, u8)> {
 /// The analog index an analog-reading Node consumes (`A0` => 0), or `None` for
 /// Nodes that do not read an analog input. Resolved by the Node's own emitter.
 fn analog_reader_index(node: &FlowNode, kind: &str) -> Option<u8> {
-    if input::sensor::ANALOG_SENSOR_TYPES.contains(&kind) {
-        Some(input::sensor::analog_index(node))
+    if nodes::sensor::codegen::ANALOG_SENSOR_TYPES.contains(&kind) {
+        Some(nodes::sensor::codegen::analog_index(node))
     } else if kind == "Proximity" {
-        Some(input::proximity::analog_index(node))
+        Some(nodes::proximity::codegen::analog_index(node))
     } else {
         None
     }
@@ -299,7 +299,7 @@ fn digital_pin_problem(
 /// board. Called only after [`digital_pin_problem`] has confirmed the pin
 /// exists, so a `None` here means "exists but not PWM".
 fn pwm_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
-    let pin = output::servo::pin(node);
+    let pin = nodes::servo::codegen::pin(node);
     if target.pwm_pins().contains(&pin) {
         return None;
     }
@@ -319,7 +319,7 @@ fn pwm_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationPr
 /// [`digital_pin_problem`] has confirmed every channel pin exists; the first
 /// non-PWM channel is reported, naming the channel.
 fn rgb_pwm_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
-    let (channel, pin) = output::rgb::pins(node)
+    let (channel, pin) = nodes::rgb::codegen::pins(node)
         .into_iter()
         .find(|(_, pin)| !target.pwm_pins().contains(pin))?;
     Some(problem(
@@ -356,7 +356,7 @@ fn led_brightness_pwm_problems(
             if !brightness_wired {
                 return None;
             }
-            let pin = output::led::pin(node);
+            let pin = nodes::led::codegen::pin(node);
             // Only meaningful for pins the board has; a missing pin is already
             // flagged by the per-Node pass.
             if !has_pin(target, pin) || target.pwm_pins().contains(&pin) {
@@ -539,14 +539,14 @@ fn tone_timer_pwm_conflict_problems(
         };
         match kind {
             "Rgb" => {
-                for (_, pin) in output::rgb::pins(node) {
+                for (_, pin) in nodes::rgb::codegen::pins(node) {
                     if TIMER2_PWM_PINS.contains(&pin) && has_pin(target, pin) {
                         pwm_users.push((node, kind, pin));
                     }
                 }
             }
             "Led" | "Vibration" => {
-                let pin = output::led::pin(node);
+                let pin = nodes::led::codegen::pin(node);
                 let brightness_wired = flow
                     .edges
                     .iter()

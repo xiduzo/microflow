@@ -1,8 +1,9 @@
 //! Interpret↔emit parity guards.
 //!
-//! The live runtime (`runtime/`) and the codegen emitters (`codegen/`) are two
-//! implementations of the same Node semantics. The config single-source work
-//! (see `crate::config`) makes them share a Node's fields + defaults, and the
+//! A Node's live runtime (`nodes/<node>/runtime.rs`) and its emitter
+//! (`nodes/<node>/codegen.rs`) are two implementations of the same Node
+//! semantics. The shared config (`nodes/<node>/config.rs`, see `crate::nodes`)
+//! makes them share a Node's fields + defaults, and the
 //! handle-aware wiring model (`codegen/wire.rs`) gives codegen the same
 //! port/emit routing the runtime router uses — but the *behavior* is still
 //! written twice.
@@ -151,8 +152,8 @@ mod tests {
     /// EXHAUSTIVE over `CalculateFunction`: the C++ token each variant's fold
     /// must contain when two inputs are wired. Add a variant → this won't
     /// compile until you name its emitted token.
-    fn calculate_token(f: crate::config::calculate::CalculateFunction) -> &'static str {
-        use crate::config::calculate::CalculateFunction::{
+    fn calculate_token(f: crate::nodes::calculate::config::CalculateFunction) -> &'static str {
+        use crate::nodes::calculate::config::CalculateFunction::{
             Add, Ceil, Divide, Floor, Max, Min, Modulo, Multiply, Pow, Round, Subtract,
         };
         match f {
@@ -172,7 +173,7 @@ mod tests {
 
     #[test]
     fn calculate_emit_covers_every_function() {
-        use crate::config::calculate::CalculateFunction as F;
+        use crate::nodes::calculate::config::CalculateFunction as F;
         // (wire-name, variant). Wire names are the serde `rename_all="lowercase"`
         // forms — feeding them re-checks the runtime↔wire mapping too.
         let all = [
@@ -189,7 +190,7 @@ mod tests {
             ("round", F::Round),
         ];
         for (wire, variant) in all {
-            let e = crate::codegen::transformation::calculate::emit(
+            let e = crate::nodes::calculate::codegen::emit(
                 &node("Calculate", json!({ "function": wire })),
                 &two_inputs("value"),
             );
@@ -207,8 +208,8 @@ mod tests {
 
     /// EXHAUSTIVE over `GateType`: the truthy-count comparison each gate emits
     /// over two wired inputs, transcribing the runtime's `passes_gate`.
-    fn gate_comparison(g: crate::config::gate::GateType) -> &'static str {
-        use crate::config::gate::GateType::{And, Nand, Nor, Or, Xnor, Xor};
+    fn gate_comparison(g: crate::nodes::gate::config::GateType) -> &'static str {
+        use crate::nodes::gate::config::GateType::{And, Nand, Nor, Or, Xnor, Xor};
         match g {
             And => "== 2",
             Nand => "!= 2",
@@ -221,7 +222,7 @@ mod tests {
 
     #[test]
     fn gate_emit_covers_every_gate() {
-        use crate::config::gate::GateType as G;
+        use crate::nodes::gate::config::GateType as G;
         let all = [
             ("and", G::And),
             ("nand", G::Nand),
@@ -231,7 +232,7 @@ mod tests {
             ("xnor", G::Xnor),
         ];
         for (wire, variant) in all {
-            let e = crate::codegen::transformation::gate::emit(
+            let e = crate::nodes::gate::codegen::emit(
                 &node("Gate", json!({ "gate": wire })),
                 &two_inputs("value"),
             );
@@ -257,7 +258,8 @@ mod tests {
     #[cfg(feature = "runtime")]
     #[test]
     fn counter_ports_classified_for_codegen() {
-        use crate::runtime::{control::counter::Counter, Component};
+        use crate::nodes::counter::runtime::Counter;
+        use crate::runtime::Component;
 
         // (port, the C++ action its binding must emit).
         let expected_action = |port: &str| match port {
@@ -267,7 +269,7 @@ mod tests {
             "set" => "counter_p_count = ",
             other => panic!(
                 "Counter port `{other}` is unclassified for codegen parity — bind it in \
-                 codegen/control/counter.rs and name its emitted action here."
+                 nodes/counter/codegen.rs and name its emitted action here."
             ),
         };
 
@@ -275,7 +277,7 @@ mod tests {
             let mut inputs = NodeInputs::default();
             let expr = if port == "set" { CppExpr::number("v") } else { CppExpr::boolean("v") };
             inputs.add(port, SourceExpr::level(expr));
-            let e = crate::codegen::control::counter::emit(&node("Counter", json!({})), &inputs);
+            let e = crate::nodes::counter::codegen::emit(&node("Counter", json!({})), &inputs);
             let body = e.loop_body.join("\n");
             let action = expected_action(port);
             assert!(
@@ -290,8 +292,8 @@ mod tests {
     /// EXHAUSTIVE over `CompareValidator`: the comparison token each variant
     /// must emit for a wired numeric input (number=5, range 1..9 fixed),
     /// transcribing the runtime's `compare` dispatch.
-    fn compare_token(v: crate::config::compare::CompareValidator) -> &'static str {
-        use crate::config::compare::CompareValidator::{Boolean, Number, OddEven, Range, Text};
+    fn compare_token(v: crate::nodes::compare::config::CompareValidator) -> &'static str {
+        use crate::nodes::compare::config::CompareValidator::{Boolean, Number, OddEven, Range, Text};
         match v {
             Boolean => "!= 0.0",
             Number => "== 5.0",
@@ -305,7 +307,7 @@ mod tests {
 
     #[test]
     fn compare_emit_covers_every_validator() {
-        use crate::config::compare::CompareValidator as V;
+        use crate::nodes::compare::config::CompareValidator as V;
         let all = [
             ("boolean", V::Boolean),
             ("number", V::Number),
@@ -314,7 +316,7 @@ mod tests {
             ("text", V::Text),
         ];
         for (wire, variant) in all {
-            let e = crate::codegen::transformation::compare::emit(
+            let e = crate::nodes::compare::codegen::emit(
                 &node(
                     "Compare",
                     json!({ "validator": wire, "number": 5.0, "range": { "min": 1.0, "max": 9.0 } }),
@@ -335,8 +337,8 @@ mod tests {
     /// EXHAUSTIVE over `SmoothType`: the arithmetic each variant must emit,
     /// transcribing the runtime's `result = (1 - a) * value + a * previous`
     /// (attenuation fixed at 0.9) and the rolling-window mean.
-    fn smooth_token(t: crate::config::smooth::SmoothType) -> &'static str {
-        use crate::config::smooth::SmoothType::{MovingAverage, Smooth};
+    fn smooth_token(t: crate::nodes::smooth::config::SmoothType) -> &'static str {
+        use crate::nodes::smooth::config::SmoothType::{MovingAverage, Smooth};
         match t {
             Smooth => "(1.0 - 0.9) * ",
             MovingAverage => "_sum / ",
@@ -345,10 +347,10 @@ mod tests {
 
     #[test]
     fn smooth_emit_covers_every_type() {
-        use crate::config::smooth::SmoothType as S;
+        use crate::nodes::smooth::config::SmoothType as S;
         let all = [("smooth", S::Smooth), ("movingAverage", S::MovingAverage)];
         for (wire, variant) in all {
-            let e = crate::codegen::transformation::smooth::emit(
+            let e = crate::nodes::smooth::codegen::emit(
                 &node("Smooth", json!({ "type": wire, "attenuation": 0.9, "windowSize": 4 })),
                 &input("value", CppExpr::number("a")),
             );
@@ -365,8 +367,8 @@ mod tests {
 
     /// EXHAUSTIVE over `Waveform`: the sampling math each variant must emit
     /// (amplitude fixed at 2.5), the port of the runtime's `calculate_waveform`.
-    fn waveform_token(w: crate::config::oscillator::Waveform) -> &'static str {
-        use crate::config::oscillator::Waveform::{
+    fn waveform_token(w: crate::nodes::oscillator::config::Waveform) -> &'static str {
+        use crate::nodes::oscillator::config::Waveform::{
             Perlin, Random, RandomWalk, Sawtooth, Sinus, Square, Triangle,
         };
         match w {
@@ -382,7 +384,7 @@ mod tests {
 
     #[test]
     fn oscillator_emit_covers_every_waveform() {
-        use crate::config::oscillator::Waveform as W;
+        use crate::nodes::oscillator::config::Waveform as W;
         let all = [
             ("sinus", W::Sinus),
             ("square", W::Square),
@@ -393,7 +395,7 @@ mod tests {
             ("perlin", W::Perlin),
         ];
         for (wire, variant) in all {
-            let e = crate::codegen::generator::oscillator::emit(
+            let e = crate::nodes::oscillator::codegen::emit(
                 &node("Oscillator", json!({ "waveform": wire, "amplitude": 2.5 })),
                 &NodeInputs::default(),
             );
@@ -416,7 +418,7 @@ mod tests {
     fn midi_emit_covers_both_directions_and_modes() {
         use crate::codegen::wire::SourceExpr;
 
-        let in_note = crate::codegen::cloud::midi::emit(
+        let in_note = crate::nodes::midi::codegen::emit(
             &node("Midi", json!({ "direction": "in", "mode": "note", "channel": 3 })),
             &NodeInputs::default(),
         );
@@ -424,7 +426,7 @@ mod tests {
         assert!(body.contains("midi_rx_channel == 3"), "in-note channel filter: {body}");
         assert!(body.contains("0x90") && body.contains("0x80"), "in-note on/off: {body}");
 
-        let in_cc = crate::codegen::cloud::midi::emit(
+        let in_cc = crate::nodes::midi::codegen::emit(
             &node("Midi", json!({ "direction": "in", "mode": "cc", "control": 7 })),
             &NodeInputs::default(),
         );
@@ -435,7 +437,7 @@ mod tests {
 
         let mut send = NodeInputs::default();
         send.add("send", SourceExpr::level(CppExpr::number("v")));
-        let out_note = crate::codegen::cloud::midi::emit(
+        let out_note = crate::nodes::midi::codegen::emit(
             &node("Midi", json!({ "direction": "out", "mode": "note", "note": 64, "velocity": 90 })),
             &send,
         );
@@ -443,7 +445,7 @@ mod tests {
         assert!(body.contains("sendNoteOn(64, 90,"), "out-note on: {body}");
         assert!(body.contains("sendNoteOff(64, 0,"), "out-note off: {body}");
 
-        let out_cc = crate::codegen::cloud::midi::emit(
+        let out_cc = crate::nodes::midi::codegen::emit(
             &node("Midi", json!({ "direction": "out", "mode": "cc", "control": 7 })),
             &send,
         );
@@ -457,8 +459,8 @@ mod tests {
 
     /// EXHAUSTIVE over `TriggerBehaviour`: the direction comparison each
     /// variant must emit, transcribing `value_changes_in_correct_direction`.
-    fn behaviour_token(b: crate::config::trigger::TriggerBehaviour) -> &'static str {
-        use crate::config::trigger::TriggerBehaviour::{Decreasing, Increasing};
+    fn behaviour_token(b: crate::nodes::trigger::config::TriggerBehaviour) -> &'static str {
+        use crate::nodes::trigger::config::TriggerBehaviour::{Decreasing, Increasing};
         match b {
             Increasing => "_diff > 0.0",
             Decreasing => "_diff <= 0.0",
@@ -467,10 +469,10 @@ mod tests {
 
     #[test]
     fn trigger_emit_covers_every_behaviour() {
-        use crate::config::trigger::TriggerBehaviour as B;
+        use crate::nodes::trigger::config::TriggerBehaviour as B;
         let all = [("increasing", B::Increasing), ("decreasing", B::Decreasing)];
         for (wire, variant) in all {
-            let e = crate::codegen::control::trigger::emit(
+            let e = crate::nodes::trigger::codegen::emit(
                 &node("Trigger", json!({ "behaviour": wire, "threshold": 7.5 })),
                 &input("value", CppExpr::number("a")),
             );
@@ -492,7 +494,7 @@ mod tests {
     /// The runtime's linear remap plus its span-dependent rounding precision.
     #[test]
     fn range_map_emits_the_runtime_remap() {
-        let e = crate::codegen::transformation::range_map::emit(
+        let e = crate::nodes::range_map::codegen::emit(
             &node(
                 "RangeMap",
                 json!({ "from": { "min": 0.0, "max": 100.0 }, "to": { "min": 0.0, "max": 255.0 } }),
@@ -508,7 +510,7 @@ mod tests {
             body.contains("round(") && body.contains("/ 1.0"),
             "output spans > 10 round to whole numbers, got: {body}"
         );
-        let e = crate::codegen::transformation::range_map::emit(
+        let e = crate::nodes::range_map::codegen::emit(
             &node("RangeMap", json!({ "to": { "min": 0.0, "max": 5.0 } })),
             &input("value", CppExpr::number("a")),
         );
@@ -522,7 +524,7 @@ mod tests {
     /// is re-emitted on fire, like the runtime's delayed `event`.
     #[test]
     fn delay_plumbs_config_into_the_deadline() {
-        let e = crate::codegen::control::delay::emit(
+        let e = crate::nodes::delay::codegen::emit(
             &node("Delay", json!({ "delay": 750 })),
             &input("trigger", CppExpr::boolean("v")),
         );
@@ -541,7 +543,7 @@ mod tests {
     /// minimum); the payload is the elapsed time since the start window.
     #[test]
     fn interval_plumbs_config_into_the_tick() {
-        let e = crate::codegen::control::interval::emit(
+        let e = crate::nodes::interval::codegen::emit(
             &node("Interval", json!({ "interval": 500 })),
             &NodeInputs::default(),
         );
@@ -551,7 +553,7 @@ mod tests {
             body.contains("(double)(millis() - interval_p_start)"),
             "payload is elapsed ms since the start window, like `now - started_at`: {body}"
         );
-        let e = crate::codegen::control::interval::emit(
+        let e = crate::nodes::interval::codegen::emit(
             &node("Interval", json!({ "interval": 1 })),
             &NodeInputs::default(),
         );
@@ -564,7 +566,7 @@ mod tests {
     /// The configured value lands verbatim in the declaration; no loop work.
     #[test]
     fn constant_emits_the_configured_value() {
-        let e = crate::codegen::control::constant::emit(&node("Constant", json!({ "value": 42.0 })));
+        let e = crate::nodes::constant::codegen::emit(&node("Constant", json!({ "value": 42.0 })));
         assert!(e.declarations.iter().any(|d| d.contains("= 42.0;")));
         assert!(e.loop_body.is_empty(), "a Constant does no per-loop work");
     }
@@ -574,7 +576,7 @@ mod tests {
     /// value — never guessed-at C++.
     #[test]
     fn function_emits_only_the_supported_subset() {
-        let e = crate::codegen::transformation::function::emit(
+        let e = crate::nodes::function::codegen::emit(
             &node("Function", json!({ "code": "return input * 2;" })),
             &input("trigger", CppExpr::number("a")),
         );
@@ -583,7 +585,7 @@ mod tests {
             body.contains("(a)") && body.contains("* 2"),
             "translated JS must read its wired input and keep the arithmetic: {body}"
         );
-        let e = crate::codegen::transformation::function::emit(
+        let e = crate::nodes::function::codegen::emit(
             &node("Function", json!({ "code": "while (input) {}" })),
             &NodeInputs::default(),
         );
@@ -600,7 +602,7 @@ mod tests {
     /// Also covers Vibration, which shares the Led implementation on both sides.
     #[test]
     fn led_value_port_applies_the_runtime_brightness_clamp() {
-        let e = crate::codegen::output::led::emit(
+        let e = crate::nodes::led::codegen::emit(
             &node("Led", json!({})),
             &input("value", CppExpr::number("a")),
         );
@@ -615,8 +617,8 @@ mod tests {
 
     /// EXHAUSTIVE over `RelayType`: the digital level "open" writes,
     /// transcribing the runtime's NO/NC inversion.
-    fn relay_open_level(t: crate::config::relay::RelayType) -> &'static str {
-        use crate::config::relay::RelayType::{NC, NO};
+    fn relay_open_level(t: crate::nodes::relay::config::RelayType) -> &'static str {
+        use crate::nodes::relay::config::RelayType::{NC, NO};
         match t {
             NO => "HIGH",
             NC => "LOW",
@@ -625,10 +627,10 @@ mod tests {
 
     #[test]
     fn relay_emit_covers_every_type() {
-        use crate::config::relay::RelayType as R;
+        use crate::nodes::relay::config::RelayType as R;
         let all = [("NO", R::NO), ("NC", R::NC)];
         for (wire, variant) in all {
-            let e = crate::codegen::output::relay::emit(
+            let e = crate::nodes::relay::codegen::emit(
                 &node("Relay", json!({ "type": wire })),
                 &input("true", CppExpr::boolean("a")),
             );
@@ -643,8 +645,8 @@ mod tests {
 
     /// EXHAUSTIVE over `ServoType`: the write each variant derives from a
     /// wired `value` — the standard clamp vs. the continuous dead-zone map.
-    fn servo_token(t: crate::config::servo::ServoType) -> &'static str {
-        use crate::config::servo::ServoType::{Continuous, Standard};
+    fn servo_token(t: crate::nodes::servo::config::ServoType) -> &'static str {
+        use crate::nodes::servo::config::ServoType::{Continuous, Standard};
         match t {
             Standard => "(int)constrain(",
             Continuous => "? 90 : ",
@@ -653,11 +655,11 @@ mod tests {
 
     #[test]
     fn servo_emit_covers_every_type() {
-        use crate::config::servo::ServoType as S;
+        use crate::nodes::servo::config::ServoType as S;
         let uno = crate::codegen::board::target_by_id("uno").expect("uno is supported");
         let all = [("standard", S::Standard), ("continuous", S::Continuous)];
         for (wire, variant) in all {
-            let e = crate::codegen::output::servo::emit(
+            let e = crate::nodes::servo::codegen::emit(
                 &node("Servo", json!({ "type": wire, "range": { "min": 10, "max": 170 } })),
                 &input("value", CppExpr::number("a")),
                 &uno,
@@ -670,7 +672,7 @@ mod tests {
             );
         }
         // The standard clamp uses the configured range bounds.
-        let e = crate::codegen::output::servo::emit(
+        let e = crate::nodes::servo::codegen::emit(
             &node("Servo", json!({ "range": { "min": 10, "max": 170 } })),
             &input("value", CppExpr::number("a")),
             &uno,
@@ -689,14 +691,14 @@ mod tests {
         let mut inputs = NodeInputs::default();
         inputs.add("red", SourceExpr::level(CppExpr::number("a")));
         inputs.add("alpha", SourceExpr::level(CppExpr::number("b")));
-        let e = crate::codegen::output::rgb::emit(&node("Rgb", json!({})), &inputs);
+        let e = crate::nodes::rgb::codegen::emit(&node("Rgb", json!({})), &inputs);
         let body = e.loop_body.join("\n");
         assert!(
             body.contains("/ 100.0, 0.0, 1.0)"),
             "alpha percent must clamp to 0..=1 intensity: {body}"
         );
         assert!(body.contains("* rgb_p_a"), "channels must scale by alpha: {body}");
-        let e = crate::codegen::output::rgb::emit(
+        let e = crate::nodes::rgb::codegen::emit(
             &node("Rgb", json!({ "isAnode": true })),
             &input("red", CppExpr::number("a")),
         );
@@ -710,7 +712,7 @@ mod tests {
     /// index clamp (`index.min(len - 1)`).
     #[test]
     fn pixel_value_selects_a_clamped_preset() {
-        let e = crate::codegen::output::pixel::emit(
+        let e = crate::nodes::pixel::codegen::emit(
             &node("Pixel", json!({ "length": 4, "presets": [["#ff0000"], ["#0000ff"]] })),
             &input("value", CppExpr::number("a")),
         );
@@ -731,7 +733,7 @@ mod tests {
     /// and index clamp.
     #[test]
     fn matrix_value_selects_a_clamped_shape() {
-        let e = crate::codegen::output::matrix::emit(
+        let e = crate::nodes::matrix::codegen::emit(
             &node("Matrix", json!({ "shapes": [["10000001"], ["11111111"]] })),
             &input("value", CppExpr::number("a")),
         );
@@ -753,8 +755,8 @@ mod tests {
     /// Firmata (driver = step/dir; two-/four-wire = motor pins 1–2 / 1–4).
     /// Whole-step only: the runtime never sets Firmata's half-step bits, so
     /// `FULL2WIRE`/`FULL4WIRE`, never the `HALF*` variants.
-    fn stepper_interface_token(i: crate::config::stepper::StepperInterface) -> &'static str {
-        use crate::config::stepper::StepperInterface::{Driver, FourWire, TwoWire};
+    fn stepper_interface_token(i: crate::nodes::stepper::config::StepperInterface) -> &'static str {
+        use crate::nodes::stepper::config::StepperInterface::{Driver, FourWire, TwoWire};
         match i {
             Driver => "(AccelStepper::DRIVER, 11, 12)",
             TwoWire => "(AccelStepper::FULL2WIRE, 21, 22)",
@@ -764,10 +766,10 @@ mod tests {
 
     #[test]
     fn stepper_emit_covers_every_interface() {
-        use crate::config::stepper::StepperInterface as I;
+        use crate::nodes::stepper::config::StepperInterface as I;
         let all = [("driver", I::Driver), ("two_wire", I::TwoWire), ("four_wire", I::FourWire)];
         for (wire, variant) in all {
-            let e = crate::codegen::output::stepper::emit(
+            let e = crate::nodes::stepper::codegen::emit(
                 &node(
                     "Stepper",
                     json!({
@@ -791,7 +793,7 @@ mod tests {
                 "Stepper `value` is a zero-skipping relative move: {body}"
             );
         }
-        let e = crate::codegen::output::stepper::emit(
+        let e = crate::nodes::stepper::codegen::emit(
             &node("Stepper", json!({})),
             &input("to", CppExpr::number("a")),
         );
@@ -804,8 +806,8 @@ mod tests {
     /// EXHAUSTIVE over `PiezoType`: buzz maps to the built-in `tone(...)`;
     /// song playback is host-only and emits an explicit note (the trigger
     /// still buzzes the base frequency).
-    fn piezo_token(t: crate::config::piezo::PiezoType) -> &'static str {
-        use crate::config::piezo::PiezoType::{Buzz, Song};
+    fn piezo_token(t: crate::nodes::piezo::config::PiezoType) -> &'static str {
+        use crate::nodes::piezo::config::PiezoType::{Buzz, Song};
         match t {
             Buzz => "tone(piezo_p_pin, 880, 250)",
             Song => "song playback",
@@ -814,10 +816,10 @@ mod tests {
 
     #[test]
     fn piezo_emit_covers_every_type() {
-        use crate::config::piezo::PiezoType as P;
+        use crate::nodes::piezo::config::PiezoType as P;
         let all = [("buzz", P::Buzz), ("song", P::Song)];
         for (wire, variant) in all {
-            let e = crate::codegen::output::piezo::emit(
+            let e = crate::nodes::piezo::codegen::emit(
                 &node("Piezo", json!({ "type": wire, "frequency": 880, "duration": 250 })),
                 &input("trigger", CppExpr::boolean("a")),
             );
@@ -837,8 +839,8 @@ mod tests {
     /// `fold_bytes`): the token the emitted fold must carry per descriptor.
     /// Raw has no on-device byte-array value model, so it folds like
     /// `UnsignedInt` — the closest single-value approximation, recorded here.
-    fn i2c_format_token(f: crate::config::i2c_device::OutputFormat) -> &'static str {
-        use crate::config::i2c_device::ByteDecode;
+    fn i2c_format_token(f: crate::nodes::i2c_device::config::OutputFormat) -> &'static str {
+        use crate::nodes::i2c_device::config::ByteDecode;
         match f.decode() {
             ByteDecode::Raw | ByteDecode::Fold { sign_extend: false } => "<< 8",
             ByteDecode::Fold { sign_extend: true } => "= -1",
@@ -847,10 +849,10 @@ mod tests {
 
     #[test]
     fn i2c_emit_covers_every_output_format() {
-        use crate::config::i2c_device::OutputFormat as F;
+        use crate::nodes::i2c_device::config::OutputFormat as F;
         let all = [("raw", F::Raw), ("unsigned_int", F::UnsignedInt), ("signed_int", F::SignedInt)];
         for (wire, variant) in all {
-            let e = crate::codegen::input::i2c_device::emit(
+            let e = crate::nodes::i2c_device::codegen::emit(
                 &node("I2cDevice", json!({ "output": wire })),
                 &NodeInputs::default(),
             );
@@ -862,7 +864,7 @@ mod tests {
             );
         }
         // The signed fold sign-extends from the MSB, like the runtime.
-        let e = crate::codegen::input::i2c_device::emit(
+        let e = crate::nodes::i2c_device::codegen::emit(
             &node("I2cDevice", json!({ "output": "signed_int" })),
             &NodeInputs::default(),
         );
@@ -873,8 +875,8 @@ mod tests {
         // The fold cap is part of the descriptor: `fold_bytes` ignores bytes
         // past `FOLD_BYTE_CAP`, so a longer read must guard the emitted fold
         // too (unguarded, the 32-bit `long` kept the LAST 4 bytes instead).
-        let cap = crate::config::i2c_device::OutputFormat::FOLD_BYTE_CAP;
-        let e = crate::codegen::input::i2c_device::emit(
+        let cap = crate::nodes::i2c_device::config::OutputFormat::FOLD_BYTE_CAP;
+        let e = crate::nodes::i2c_device::codegen::emit(
             &node("I2cDevice", json!({ "output": "unsigned_int", "readLength": cap + 2 })),
             &NodeInputs::default(),
         );
@@ -890,13 +892,13 @@ mod tests {
     /// read so "pressed = true" matches the runtime.
     #[test]
     fn button_emit_covers_the_pullup_inversion() {
-        let e = crate::codegen::input::button::emit(&node("Button", json!({ "isPullup": true })));
+        let e = crate::nodes::button::codegen::emit(&node("Button", json!({ "isPullup": true })));
         assert!(e.setup.iter().any(|s| s.contains("INPUT_PULLUP")));
         assert!(
             e.loop_body.iter().any(|l| l.contains("== LOW")),
             "pull-up reads are active-low and must invert"
         );
-        let e = crate::codegen::input::button::emit(&node("Button", json!({})));
+        let e = crate::nodes::button::codegen::emit(&node("Button", json!({})));
         assert!(
             e.loop_body.iter().any(|l| l.contains("== HIGH")),
             "plain INPUT reads HIGH on press"
@@ -905,8 +907,8 @@ mod tests {
 
     /// EXHAUSTIVE over `SwitchType`: the read comparison per contact type,
     /// transcribing the runtime's NO/NC inversion.
-    fn switch_read_token(t: crate::config::switch::SwitchType) -> &'static str {
-        use crate::config::switch::SwitchType::{NC, NO};
+    fn switch_read_token(t: crate::nodes::switch::config::SwitchType) -> &'static str {
+        use crate::nodes::switch::config::SwitchType::{NC, NO};
         match t {
             NO => "== HIGH",
             NC => "== LOW",
@@ -915,10 +917,10 @@ mod tests {
 
     #[test]
     fn switch_emit_covers_every_type() {
-        use crate::config::switch::SwitchType as S;
+        use crate::nodes::switch::config::SwitchType as S;
         let all = [("NO", S::NO), ("NC", S::NC)];
         for (wire, variant) in all {
-            let e = crate::codegen::input::switch::emit(&node("Switch", json!({ "type": wire })));
+            let e = crate::nodes::switch::codegen::emit(&node("Switch", json!({ "type": wire })));
             let body = e.loop_body.join("\n");
             let token = switch_read_token(variant);
             assert!(

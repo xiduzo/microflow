@@ -25,16 +25,12 @@ pub mod subscriptions;
 pub mod value;
 pub mod wiring;
 
-// Component node categories. `cloud` (external/) is behind the feature gate —
-// its nodes are sans-IO (they emit `CloudRequest`s the host performs), so the
-// gate keeps them out of codegen-only consumers, not out of any host: both the
-// desktop bin and the browser wasm build enable `cloud` (ADR-0009).
-pub mod control;
-pub mod generator;
-pub mod input;
-pub mod output;
-pub mod transformation;
-
+// The component nodes themselves live in `crate::nodes::<node>::runtime`
+// (ADR-0026). `cloud` holds the test support shared by the cloud nodes, behind
+// the same gate as their runtimes — they are sans-IO (they emit `CloudRequest`s
+// the host performs), so the gate keeps them out of codegen-only consumers, not
+// out of any host: both the desktop bin and the browser wasm build enable
+// `cloud` (ADR-0009).
 #[cfg(feature = "cloud")]
 pub mod cloud;
 
@@ -78,7 +74,7 @@ use std::sync::Arc;
 /// instead of as bare string literals at each emit and match site.
 ///
 /// A third hardware handle, `"stepper_reply"`, is reserved for stepper sysex
-/// replies but has **no emission path yet** (see [`output::stepper`] and
+/// replies but has **no emission path yet** (see [`crate::nodes::stepper::runtime`] and
 /// `CONTEXT.md` § Hardware Callback); it is intentionally not named as a const
 /// here until that wiring lands, so an unused const can't masquerade as a live
 /// route.
