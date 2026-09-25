@@ -1,5 +1,5 @@
 //! The `Function` node.
 
-pub mod codegen;
+pub(crate) mod codegen;
 #[cfg(feature = "js")]
-pub mod runtime;
+pub(crate) mod runtime;

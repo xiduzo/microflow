@@ -5,9 +5,9 @@ use crate::runtime::{
     RuntimeContext, RuntimeError,
 };
 
-pub use super::config::LedConfig;
+use super::config::LedConfig;
 
-pub struct Led {
+pub(crate) struct Led {
     base: ComponentBase,
     config: LedConfig,
     is_on: bool,
@@ -16,7 +16,7 @@ pub struct Led {
 
 impl Led {
     #[must_use]
-    pub fn new(id: String, config: LedConfig) -> Self {
+    pub(crate) fn new(id: String, config: LedConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

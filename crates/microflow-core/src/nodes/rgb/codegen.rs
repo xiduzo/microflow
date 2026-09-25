@@ -21,7 +21,7 @@ use crate::flow::FlowNode;
 /// The three channel pins as `(label, pin)` — the same resolution `emit`
 /// uses, exposed so validation can never drift from emission.
 #[must_use]
-pub fn pins(node: &FlowNode) -> [(&'static str, u8); 3] {
+pub(crate) fn pins(node: &FlowNode) -> [(&'static str, u8); 3] {
     let pins = serde_json::from_value::<RgbConfig>(node.data.clone())
         .unwrap_or_default()
         .pins;
@@ -37,7 +37,7 @@ fn is_anode(node: &FlowNode) -> bool {
 
 /// Emit C++ for an Rgb Node. Unwired channels keep their initial `0`.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let anode = is_anode(node);
     // Off level: common-anode is active-low, so "off" is 255.

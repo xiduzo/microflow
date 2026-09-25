@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum StepperInterface {
+pub(crate) enum StepperInterface {
     #[default]
     Driver,
     TwoWire,
@@ -17,33 +17,33 @@ pub enum StepperInterface {
 // masked only because the web defaults coincide with the Rust ones.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StepperConfig {
+pub(crate) struct StepperConfig {
     // Driver mode pins (step/dir)
     #[serde(default = "default_step_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub step_pin: u8,
+    pub(crate) step_pin: u8,
     #[serde(default = "default_dir_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub dir_pin: u8,
+    pub(crate) dir_pin: u8,
     // Four-wire mode pins (IN1–IN4)
     #[serde(default = "default_motor_pin1", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub motor_pin1: u8,
+    pub(crate) motor_pin1: u8,
     #[serde(default = "default_motor_pin2", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub motor_pin2: u8,
+    pub(crate) motor_pin2: u8,
     #[serde(default = "default_motor_pin3", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub motor_pin3: u8,
+    pub(crate) motor_pin3: u8,
     #[serde(default = "default_motor_pin4", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub motor_pin4: u8,
+    pub(crate) motor_pin4: u8,
     #[serde(default = "default_steps_per_rev")]
-    pub steps_per_rev: u16,
+    pub(crate) steps_per_rev: u16,
     #[serde(default = "default_speed")]
-    pub speed: f32,
+    pub(crate) speed: f32,
     #[serde(default = "default_acceleration")]
-    pub acceleration: f32,
+    pub(crate) acceleration: f32,
     #[serde(default)]
-    pub device_num: u8,
+    pub(crate) device_num: u8,
     #[serde(default)]
-    pub interface: StepperInterface,
+    pub(crate) interface: StepperInterface,
     #[serde(default)]
-    pub enable_pin: Option<u8>,
+    pub(crate) enable_pin: Option<u8>,
 }
 
 fn default_step_pin() -> u8 { 2 }

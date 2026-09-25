@@ -4,23 +4,23 @@ use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
 
-pub use super::config::{CalculateConfig, CalculateFunction};
+use super::config::{CalculateConfig, CalculateFunction};
 
-pub struct Calculate {
+pub(crate) struct Calculate {
     base: ComponentBase,
     config: CalculateConfig,
 }
 
 impl Calculate {
     #[must_use]
-    pub fn new(id: String, config: CalculateConfig) -> Self {
+    pub(crate) fn new(id: String, config: CalculateConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
         }
     }
 
-    pub fn check(&mut self, inputs: &[f64]) {
+    pub(crate) fn check(&mut self, inputs: &[f64]) {
         if inputs.is_empty() {
             return;
         }

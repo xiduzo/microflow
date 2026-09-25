@@ -16,14 +16,14 @@ use crate::runtime::{
     ListenerWiring, RuntimeContext, RuntimeError,
 };
 
-pub use super::config::{SwitchConfig, SwitchType};
+use super::config::{SwitchConfig, SwitchType};
 
 /// Quiet window a line must hold before a deferred level is accepted. Must
 /// exceed one 50Hz mains period (20ms) — see [`crate::nodes::button::runtime`] for the full
 /// rationale (a window at the mains period razor-edges on a floating pin).
 const DEBOUNCE_MS: f64 = 50.0;
 
-pub struct Switch {
+pub(crate) struct Switch {
     base: ComponentBase,
     config: SwitchConfig,
     is_closed: bool,
@@ -39,7 +39,7 @@ impl Switch {
     const E_FALSE: &'static str = "false";
 
     #[must_use]
-    pub fn new(id: String, config: SwitchConfig) -> Self {
+    pub(crate) fn new(id: String, config: SwitchConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,

@@ -16,16 +16,16 @@ use crate::runtime::{
 };
 use std::borrow::Cow;
 
-pub use super::config::MqttConfig;
+use super::config::MqttConfig;
 
-pub struct Mqtt {
+pub(crate) struct Mqtt {
     base: ComponentBase,
     config: MqttConfig,
 }
 
 impl Mqtt {
     #[must_use]
-    pub fn new(id: String, config: MqttConfig) -> Self {
+    pub(crate) fn new(id: String, config: MqttConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,
@@ -34,7 +34,7 @@ impl Mqtt {
 
     /// Check if this is a publish node.
     #[must_use]
-    pub fn is_publish(&self) -> bool {
+    pub(crate) fn is_publish(&self) -> bool {
         self.config.direction == "publish"
     }
 

@@ -4,9 +4,9 @@ use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
 
-pub use super::config::{CompareConfig, CompareValidator, RangeConfig};
+use super::config::{CompareConfig, CompareValidator};
 
-pub struct Compare {
+pub(crate) struct Compare {
     base: ComponentBase,
     config: CompareConfig,
 }
@@ -16,14 +16,14 @@ impl Compare {
     const E_FALSE: &'static str = "false";
 
     #[must_use]
-    pub fn new(id: String, config: CompareConfig) -> Self {
+    pub(crate) fn new(id: String, config: CompareConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,
         }
     }
 
-    pub fn check(&mut self, input: &ComponentValue) {
+    pub(crate) fn check(&mut self, input: &ComponentValue) {
         let result = self.validate(input);
         self.base.set_value(ComponentValue::Bool(result));
         self.base.emit(if result { Self::E_TRUE } else { Self::E_FALSE });

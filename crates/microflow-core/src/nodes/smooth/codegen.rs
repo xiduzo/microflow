@@ -23,7 +23,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Smooth Node's latest output.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("smooth_{}_value", node.id_token())
 }
 
@@ -34,7 +34,7 @@ pub fn value_var(node: &FlowNode) -> String {
 /// Deserializes the shared [`SmoothConfig`] from `node.data`, so the fields and
 /// defaults are exactly the ones the live runtime uses — no re-typed literals.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let var = value_var(node);
     let config: SmoothConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();

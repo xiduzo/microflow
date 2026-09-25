@@ -9,17 +9,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FigmaConfig {
+pub(crate) struct FigmaConfig {
     #[serde(default)]
-    pub broker_id: String,
+    pub(crate) broker_id: String,
     #[serde(default)]
-    pub unique_id: String,
+    pub(crate) unique_id: String,
     #[serde(default)]
-    pub variable_id: String,
+    pub(crate) variable_id: String,
     #[serde(default = "default_resolved_type")]
-    pub resolved_type: String,
+    pub(crate) resolved_type: String,
     #[serde(default = "default_debounce_time")]
-    pub debounce_time: u64,
+    pub(crate) debounce_time: u64,
 }
 
 fn default_resolved_type() -> String {

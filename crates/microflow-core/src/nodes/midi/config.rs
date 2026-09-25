@@ -11,12 +11,12 @@ use serde::{Deserialize, Serialize};
 /// One song step: note name (`Some("C4")`, sharps only) or `None` for a rest,
 /// its length in beats, and its note-on velocity (0-127). Unlike the Piezo song
 /// (a buzzer has no dynamics), each MIDI note carries its own velocity.
-pub type SongNote = (Option<String>, f64, u8);
+pub(crate) type SongNote = (Option<String>, f64, u8);
 
 /// Which way this node speaks MIDI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum MidiDirection {
+pub(crate) enum MidiDirection {
     #[default]
     In,
     Out,
@@ -26,7 +26,7 @@ pub enum MidiDirection {
 /// (out-direction only) an embedded note sequence played back on the host clock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum MidiMode {
+pub(crate) enum MidiMode {
     #[default]
     Note,
     Cc,
@@ -37,33 +37,33 @@ pub enum MidiMode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MidiConfig {
+pub(crate) struct MidiConfig {
     #[serde(default)]
-    pub direction: MidiDirection,
+    pub(crate) direction: MidiDirection,
     /// Substring filter on the host MIDI port name; "" matches every device.
     #[serde(default)]
-    pub device_name: String,
+    pub(crate) device_name: String,
     /// 1-16; 0 = omni (in-direction accepts every channel; out clamps to 1).
     #[serde(default)]
-    pub channel: u8,
+    pub(crate) channel: u8,
     #[serde(default)]
-    pub mode: MidiMode,
+    pub(crate) mode: MidiMode,
     /// CC number to listen for / send on (cc mode only).
     #[serde(default = "default_control")]
-    pub control: u8,
+    pub(crate) control: u8,
     /// Note number to play (out + note mode only).
     #[serde(default = "default_note")]
-    pub note: u8,
+    pub(crate) note: u8,
     /// Note-on velocity (out + note/song mode only).
     #[serde(default = "default_velocity")]
-    pub velocity: u8,
+    pub(crate) velocity: u8,
     /// Note sequence for song mode (out + song only); each note carries its
     /// own velocity. `velocity` above is the fallback default for new notes.
     #[serde(default)]
-    pub song: Vec<SongNote>,
+    pub(crate) song: Vec<SongNote>,
     /// Playback tempo in BPM for song mode.
     #[serde(default = "default_tempo")]
-    pub tempo: u32,
+    pub(crate) tempo: u32,
 }
 
 impl Default for MidiConfig {

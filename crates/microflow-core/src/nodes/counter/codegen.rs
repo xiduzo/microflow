@@ -18,13 +18,13 @@ use crate::flow::FlowNode;
 /// The C++ `double` variable holding this Counter Node's running count. Exposed
 /// as the Node's readable value for downstream Nodes.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("counter_{}_count", node.id_token())
 }
 
 /// Emit C++ for a Counter Node, binding every wired port.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let var = value_var(node);
 

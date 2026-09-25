@@ -5,17 +5,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ButtonConfig {
+pub(crate) struct ButtonConfig {
     #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
+    pub(crate) pin: u8,
     #[serde(default)]
-    pub is_pullup: bool,
+    pub(crate) is_pullup: bool,
     #[serde(default)]
-    pub is_pulldown: bool,
+    pub(crate) is_pulldown: bool,
     #[serde(default = "default_holdtime")]
-    pub holdtime: u64,
+    pub(crate) holdtime: u64,
     #[serde(default)]
-    pub invert: bool,
+    pub(crate) invert: bool,
 }
 
 fn default_pin() -> u8 {

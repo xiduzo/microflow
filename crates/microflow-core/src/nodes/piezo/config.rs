@@ -5,28 +5,28 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum PiezoType {
+pub(crate) enum PiezoType {
     #[default]
     Buzz,
     Song,
 }
 
-pub type Note = (Option<String>, f64);
+pub(crate) type Note = (Option<String>, f64);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PiezoConfig {
+pub(crate) struct PiezoConfig {
     #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
+    pub(crate) pin: u8,
     #[serde(default)]
-    pub r#type: PiezoType,
+    pub(crate) r#type: PiezoType,
     #[serde(default = "default_duration")]
-    pub duration: u32,
+    pub(crate) duration: u32,
     #[serde(default = "default_frequency")]
-    pub frequency: u32,
+    pub(crate) frequency: u32,
     #[serde(default)]
-    pub song: Vec<Note>,
+    pub(crate) song: Vec<Note>,
     #[serde(default = "default_tempo")]
-    pub tempo: u32,
+    pub(crate) tempo: u32,
 }
 
 fn default_pin() -> u8 { 11 }

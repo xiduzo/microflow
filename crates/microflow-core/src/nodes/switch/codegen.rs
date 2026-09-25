@@ -13,7 +13,7 @@ use crate::flow::FlowNode;
 /// The pin this Switch is emitted on — the same resolution `emit` uses,
 /// exposed so validation can never drift from emission.
 #[must_use]
-pub fn pin(node: &FlowNode) -> u8 {
+pub(crate) fn pin(node: &FlowNode) -> u8 {
     serde_json::from_value::<SwitchConfig>(node.data.clone())
         .unwrap_or_default()
         .pin
@@ -21,13 +21,13 @@ pub fn pin(node: &FlowNode) -> u8 {
 
 /// The C++ `bool` variable name holding this Switch's current on/off state.
 #[must_use]
-pub fn state_var(node: &FlowNode) -> String {
+pub(crate) fn state_var(node: &FlowNode) -> String {
     format!("switch_{}_state", node.id_token())
 }
 
 /// Emit C++ for a Switch Node.
 #[must_use]
-pub fn emit(node: &FlowNode) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode) -> NodeEmission {
     let config: SwitchConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let pin = config.pin;
     let pin_var = format!("switch_{}_pin", node.id_token());

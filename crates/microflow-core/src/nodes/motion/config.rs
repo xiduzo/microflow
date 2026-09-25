@@ -4,11 +4,11 @@ use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MotionConfig {
+pub(crate) struct MotionConfig {
     #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
+    pub(crate) pin: u8,
     #[serde(default = "default_controller")]
-    pub controller: String,
+    pub(crate) controller: String,
 }
 
 fn default_pin() -> u8 {

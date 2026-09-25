@@ -6,15 +6,15 @@ use crate::runtime::{
 };
 use serde::{Deserialize, Serialize};
 
-pub use super::config::{RgbConfig, RgbPins};
+use super::config::RgbConfig;
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RgbaColor {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: f64,
+pub(crate) struct RgbaColor {
+    pub(crate) r: u8,
+    pub(crate) g: u8,
+    pub(crate) b: u8,
+    pub(crate) a: f64,
 }
 
 impl Default for RgbaColor {
@@ -29,7 +29,7 @@ impl From<RgbaColor> for ComponentValue {
     }
 }
 
-pub struct Rgb {
+pub(crate) struct Rgb {
     base: ComponentBase,
     config: RgbConfig,
     color: RgbaColor,
@@ -37,7 +37,7 @@ pub struct Rgb {
 
 impl Rgb {
     #[must_use]
-    pub fn new(id: String, config: RgbConfig) -> Self {
+    pub(crate) fn new(id: String, config: RgbConfig) -> Self {
         Self {
             base: ComponentBase::new(id, RgbaColor::default().into()),
             config,

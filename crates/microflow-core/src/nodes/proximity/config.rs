@@ -7,13 +7,13 @@ use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProximityConfig {
+pub(crate) struct ProximityConfig {
     #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_string_or_number")]
-    pub pin: String,
+    pub(crate) pin: String,
     #[serde(default = "default_controller")]
-    pub controller: String,
+    pub(crate) controller: String,
     #[serde(default = "default_freq")]
-    pub freq: u32,
+    pub(crate) freq: u32,
 }
 
 fn default_pin() -> String {
@@ -40,7 +40,7 @@ impl ProximityConfig {
     /// Get the pin number for analog operations
     /// Handles both legacy "A0" format and new numeric format
     #[must_use]
-    pub fn analog_pin(&self) -> u8 {
+    pub(crate) fn analog_pin(&self) -> u8 {
         // If it starts with 'A' or 'a', strip it and parse (legacy format)
         if self.pin.starts_with('A') || self.pin.starts_with('a') {
             // Legacy format like "A0" - but this shouldn't happen anymore

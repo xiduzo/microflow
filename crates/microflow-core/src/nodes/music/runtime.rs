@@ -30,9 +30,9 @@ use crate::runtime::{
 };
 use std::borrow::Cow;
 
-pub use super::config::{MusicConfig, MusicTrack};
+use super::config::MusicConfig;
 
-pub struct Music {
+pub(crate) struct Music {
     base: ComponentBase,
     config: MusicConfig,
     /// The selected record. Starts at the configured one and moves with `set`
@@ -43,10 +43,10 @@ pub struct Music {
 impl Music {
     /// Emits the selected record's name, so the canvas (and any wired node) can
     /// follow a selection the runtime made.
-    pub const E_TRACK: &'static str = "track";
+    pub(crate) const E_TRACK: &'static str = "track";
 
     #[must_use]
-    pub fn new(id: String, config: MusicConfig) -> Self {
+    pub(crate) fn new(id: String, config: MusicConfig) -> Self {
         let current = config.track.min(config.tracks.len().saturating_sub(1));
         Self { base: ComponentBase::new(id, ComponentValue::Bool(false)), config, current }
     }
@@ -182,6 +182,7 @@ impl ComponentBuilder for Music {
 
 #[cfg(test)]
 mod tests {
+    use super::super::config::MusicTrack;
     use super::*;
     use crate::runtime::cloud::test_support::recorded_cloud_requests;
     use crate::runtime::{ComponentEvent, EventSink};

@@ -13,25 +13,25 @@ use serde::{Deserialize, Serialize};
 /// names unique for exactly that reason.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct MusicTrack {
-    pub name: String,
+pub(crate) struct MusicTrack {
+    pub(crate) name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct MusicConfig {
+pub(crate) struct MusicConfig {
     /// The records, in the same order as the host's sources.
     #[serde(default)]
-    pub tracks: Vec<MusicTrack>,
+    pub(crate) tracks: Vec<MusicTrack>,
     /// Which record is selected when the flow starts. `set` moves it at runtime.
     #[serde(default)]
-    pub track: usize,
+    pub(crate) track: usize,
     /// Playback volume, 0.0–1.0.
     #[serde(default = "default_volume")]
-    pub volume: f32,
+    pub(crate) volume: f32,
     /// Restart the record when it ends instead of stopping.
     #[serde(default)]
-    pub r#loop: bool,
+    pub(crate) r#loop: bool,
 }
 
 fn default_volume() -> f32 {

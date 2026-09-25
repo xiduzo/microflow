@@ -9,7 +9,7 @@ use crate::runtime::{
     RuntimeError,
 };
 
-pub use super::config::PixelConfig;
+use super::config::PixelConfig;
 
 // Firmata sysex command for pixel operations (matches ws2812.h)
 const PIXEL_COMMAND: u8 = 0x51;
@@ -26,7 +26,7 @@ const PIXEL_COLOUR_GRB: u8 = 0x0;
 const PIXEL_COLOUR_RGB: u8 = 0x1;
 const PIXEL_COLOUR_BRG: u8 = 0x2;
 
-pub struct Pixel {
+pub(crate) struct Pixel {
     base: ComponentBase,
     config: PixelConfig,
     /// Current pixel colors as packed 24-bit RGB values
@@ -37,7 +37,7 @@ impl Pixel {
     const E_EVENT: &'static str = "event";
 
     #[must_use]
-    pub fn new(id: String, config: PixelConfig) -> Self {
+    pub(crate) fn new(id: String, config: PixelConfig) -> Self {
         let len = config.length as usize;
         let initial_colors = vec!["#000000".to_string(); len];
         Self {

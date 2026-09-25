@@ -5,9 +5,9 @@ use crate::runtime::{
     RuntimeContext, RuntimeError,
 };
 
-pub use super::config::{ServoConfig, ServoRange, ServoType};
+use super::config::{ServoConfig, ServoType};
 
-pub struct Servo {
+pub(crate) struct Servo {
     base: ComponentBase,
     config: ServoConfig,
     current_position: u16,
@@ -15,7 +15,7 @@ pub struct Servo {
 
 impl Servo {
     #[must_use]
-    pub fn new(id: String, config: ServoConfig) -> Self {
+    pub(crate) fn new(id: String, config: ServoConfig) -> Self {
         let initial_pos = (config.range.min + config.range.max) / 2;
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(f64::from(initial_pos))),

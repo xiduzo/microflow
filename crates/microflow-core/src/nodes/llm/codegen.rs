@@ -73,7 +73,7 @@ fn includes() -> Vec<String> {
 /// Author for), falling back to the Node's own `data` otherwise.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn emit(
+pub(crate) fn emit(
     node: &FlowNode,
     inputs: &NodeInputs,
     credentials: Option<&Credentials>,
@@ -228,7 +228,7 @@ pub fn emit(
 /// as its value; the typed coercions turn it into whatever the consuming port
 /// needs.
 #[must_use]
-pub fn output(node: &FlowNode) -> Option<SourceExpr> {
+pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
     let token = node.id_token();
     Some(SourceExpr::level(CppExpr::text(format!("llm_{token}_value"))))
 }

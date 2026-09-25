@@ -20,7 +20,7 @@ const DEFAULT_PERIOD: f64 = 1000.0;
 
 /// The C++ `double` variable holding this Oscillator's current output sample.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("oscillator_{}_value", node.id_token())
 }
 
@@ -30,7 +30,7 @@ pub fn value_var(node: &FlowNode) -> String {
 /// wired `start` / `stop` / `reset` ports gate and re-base it exactly like
 /// the runtime's dispatch (`reset` restarts the phase only while running).
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let value = value_var(node);
     let start = format!("oscillator_{token}_start");

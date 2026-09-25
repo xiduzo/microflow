@@ -10,14 +10,13 @@ use crate::runtime::{
 use std::borrow::Cow;
 // `OscillatorConfig` + `Waveform` live in the ungated sibling `config` module
 // so the codegen emitter shares the exact same fields + defaults (single
-// source of truth — see `crate::nodes`). Re-exported so this module's impls and
-// waveform helpers are unchanged.
-pub use super::config::{OscillatorConfig, Waveform};
+// source of truth — see `crate::nodes`).
+use super::config::{OscillatorConfig, Waveform};
 
 /// ~60 FPS refresh.
 const REFRESH_MS: u64 = 1000 / 60;
 
-pub struct Oscillator {
+pub(crate) struct Oscillator {
     base: ComponentBase,
     config: OscillatorConfig,
     running: bool,
@@ -26,7 +25,7 @@ pub struct Oscillator {
 
 impl Oscillator {
     #[must_use]
-    pub fn new(id: String, config: OscillatorConfig) -> Self {
+    pub(crate) fn new(id: String, config: OscillatorConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

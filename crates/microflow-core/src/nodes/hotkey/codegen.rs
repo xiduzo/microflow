@@ -15,7 +15,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `bool` variable name holding this Hotkey's pressed state.
 #[must_use]
-pub fn state_var(node: &FlowNode) -> String {
+pub(crate) fn state_var(node: &FlowNode) -> String {
     format!("hotkey_{}_state", node.id_token())
 }
 
@@ -23,7 +23,7 @@ pub fn state_var(node: &FlowNode) -> String {
 /// artefact is the state variable, held at its initial `false` because no host
 /// keyboard exists on the board.
 #[must_use]
-pub fn emit(node: &FlowNode) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode) -> NodeEmission {
     let config: HotkeyConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let state = state_var(node);
     let accelerator = config.accelerator;

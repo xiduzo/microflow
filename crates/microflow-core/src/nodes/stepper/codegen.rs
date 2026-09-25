@@ -22,7 +22,7 @@ use crate::flow::FlowNode;
 /// four-wire = motor pins 1–4) plus the optional enable pin — the same
 /// resolution `emit` uses, exposed so validation can never drift from emission.
 #[must_use]
-pub fn pins(node: &FlowNode) -> Vec<(&'static str, u8)> {
+pub(crate) fn pins(node: &FlowNode) -> Vec<(&'static str, u8)> {
     let config: StepperConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let mut pins: Vec<(&'static str, u8)> = match config.interface {
         StepperInterface::Driver => {
@@ -46,7 +46,7 @@ pub fn pins(node: &FlowNode) -> Vec<(&'static str, u8)> {
 
 /// Emit C++ for a Stepper Node. Unwired, the motor parks at zero.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let obj = format!("stepper_{token}");
     let config: StepperConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();

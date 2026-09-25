@@ -5,7 +5,7 @@
 //! on-device: the emitter speaks serial MIDI over the board's hardware UART
 //! (MIDI.h), so it runs on every board.
 
-pub mod codegen;
-pub mod config;
+pub(crate) mod codegen;
+pub(crate) mod config;
 #[cfg(feature = "cloud")]
-pub mod runtime;
+pub(crate) mod runtime;

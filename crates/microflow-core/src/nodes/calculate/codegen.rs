@@ -22,7 +22,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Calculate Node's latest result.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("calculate_{}_value", node.id_token())
 }
 
@@ -67,7 +67,7 @@ fn nest(f: &str, inputs: &[String]) -> String {
 
 /// Emit C++ for a Calculate Node over everything wired into its `value` port.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let var = value_var(node);
     let config: CalculateConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 

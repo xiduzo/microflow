@@ -1,5 +1,5 @@
 //! The `Counter` node.
 
-pub mod codegen;
+pub(crate) mod codegen;
 #[cfg(feature = "runtime")]
-pub mod runtime;
+pub(crate) mod runtime;

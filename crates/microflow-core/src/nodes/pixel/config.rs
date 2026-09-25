@@ -4,15 +4,15 @@ use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PixelConfig {
+pub(crate) struct PixelConfig {
     #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
+    pub(crate) pin: u8,
     #[serde(default = "default_length")]
-    pub length: u16,
+    pub(crate) length: u16,
     #[serde(default = "default_color_order")]
-    pub color_order: String,
+    pub(crate) color_order: String,
     #[serde(default)]
-    pub presets: Vec<Vec<String>>,
+    pub(crate) presets: Vec<Vec<String>>,
 }
 
 fn default_pin() -> u8 {

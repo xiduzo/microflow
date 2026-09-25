@@ -5,16 +5,16 @@ use crate::runtime::{
 };
 // `ConstantConfig` lives in the ungated sibling `config` module so the codegen
 // emitter shares the exact same field + default (single source of truth — see
-// `crate::nodes`). Re-exported so this module's impls are unchanged.
-pub use super::config::ConstantConfig;
+// `crate::nodes`).
+use super::config::ConstantConfig;
 
-pub struct Constant {
+pub(crate) struct Constant {
     base: ComponentBase,
 }
 
 impl Constant {
     #[must_use]
-    pub fn new(id: String, config: ConstantConfig) -> Self {
+    pub(crate) fn new(id: String, config: ConstantConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(config.value)),
         }

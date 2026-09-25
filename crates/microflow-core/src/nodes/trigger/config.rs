@@ -3,20 +3,20 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TriggerConfig {
+pub(crate) struct TriggerConfig {
     #[serde(default)]
-    pub relative: bool,
+    pub(crate) relative: bool,
     #[serde(default = "default_behaviour")]
-    pub behaviour: TriggerBehaviour,
+    pub(crate) behaviour: TriggerBehaviour,
     #[serde(default = "default_threshold")]
-    pub threshold: f64,
+    pub(crate) threshold: f64,
     #[serde(default = "default_within")]
-    pub within: u64,
+    pub(crate) within: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum TriggerBehaviour {
+pub(crate) enum TriggerBehaviour {
     Increasing,
     #[default]
     Decreasing,

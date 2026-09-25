@@ -13,11 +13,11 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FunctionConfig {
+pub(crate) struct FunctionConfig {
     /// User-authored JS body. Receives `input`; must return a value. Wrapped as
     /// `(function(input) { <code> })(input)`.
     #[serde(default = "default_code")]
-    pub code: String,
+    pub(crate) code: String,
 }
 
 fn default_code() -> String {
@@ -30,7 +30,7 @@ impl Default for FunctionConfig {
     }
 }
 
-pub struct Function {
+pub(crate) struct Function {
     base: ComponentBase,
     config: FunctionConfig,
     variables: HashMap<String, ComponentValue>,
@@ -39,7 +39,7 @@ pub struct Function {
 
 impl Function {
     #[must_use]
-    pub fn new(id: String, config: FunctionConfig) -> Self {
+    pub(crate) fn new(id: String, config: FunctionConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

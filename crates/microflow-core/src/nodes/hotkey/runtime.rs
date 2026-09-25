@@ -9,9 +9,9 @@ use crate::runtime::{
     RuntimeError,
 };
 
-pub use super::config::HotkeyConfig;
+use super::config::HotkeyConfig;
 
-pub struct Hotkey {
+pub(crate) struct Hotkey {
     base: ComponentBase,
     config: HotkeyConfig,
 }
@@ -22,17 +22,11 @@ impl Hotkey {
     const E_FALSE: &'static str = "false";
 
     #[must_use]
-    pub fn new(id: String, config: HotkeyConfig) -> Self {
+    pub(crate) fn new(id: String, config: HotkeyConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,
         }
-    }
-
-    /// Get the configured accelerator key (lowercase)
-    #[must_use]
-    pub fn accelerator(&self) -> &str {
-        &self.config.accelerator
     }
 }
 

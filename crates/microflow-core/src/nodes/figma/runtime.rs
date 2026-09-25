@@ -15,9 +15,9 @@ use crate::runtime::{
 };
 use std::borrow::Cow;
 
-pub use super::config::FigmaConfig;
+use super::config::FigmaConfig;
 
-pub struct Figma {
+pub(crate) struct Figma {
     base: ComponentBase,
     config: FigmaConfig,
 }
@@ -26,7 +26,7 @@ impl Figma {
     const E_CHANGE: &'static str = "change";
 
     #[must_use]
-    pub fn new(id: String, config: FigmaConfig) -> Self {
+    pub(crate) fn new(id: String, config: FigmaConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,

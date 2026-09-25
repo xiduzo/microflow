@@ -28,7 +28,7 @@ use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent, ListenerWiring,
     RuntimeContext, RuntimeError,
 };
-pub use super::config::Pn532Config;
+use super::config::Pn532Config;
 
 // --- Protocol constants ----------------------------------------------------
 
@@ -85,7 +85,7 @@ enum St {
     PollRead,
 }
 
-pub struct Pn532 {
+pub(crate) struct Pn532 {
     base: ComponentBase,
     config: Pn532Config,
     state: St,
@@ -95,7 +95,7 @@ pub struct Pn532 {
 
 impl Pn532 {
     #[must_use]
-    pub fn new(id: String, config: Pn532Config) -> Self {
+    pub(crate) fn new(id: String, config: Pn532Config) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,

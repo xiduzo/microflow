@@ -30,13 +30,13 @@ const REG_DISPLAY_TEST: u8 = 0x0F;
 const MAX_RETRIES: u8 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MatrixPins {
+pub(crate) struct MatrixPins {
     #[serde(default = "default_data", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub data: u8,
+    pub(crate) data: u8,
     #[serde(default = "default_clock", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub clock: u8,
+    pub(crate) clock: u8,
     #[serde(default = "default_cs", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub cs: u8,
+    pub(crate) cs: u8,
 }
 
 fn default_data() -> u8 { 2 }
@@ -50,21 +50,21 @@ impl Default for MatrixPins {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct MatrixConfig {
+pub(crate) struct MatrixConfig {
     #[serde(default)]
-    pub pins: MatrixPins,
+    pub(crate) pins: MatrixPins,
     #[serde(default = "default_devices")]
-    pub devices: u8,
+    pub(crate) devices: u8,
     #[serde(default = "default_dims")]
-    pub dims: String,
+    pub(crate) dims: String,
     #[serde(default)]
-    pub shapes: Vec<Vec<String>>,
+    pub(crate) shapes: Vec<Vec<String>>,
 }
 
 fn default_devices() -> u8 { 1 }
 fn default_dims() -> String { "8x8".to_string() }
 
-pub struct Matrix {
+pub(crate) struct Matrix {
     base: ComponentBase,
     config: MatrixConfig,
     current_shape_index: usize,
@@ -72,7 +72,7 @@ pub struct Matrix {
 
 impl Matrix {
     #[must_use]
-    pub fn new(id: String, config: MatrixConfig) -> Self {
+    pub(crate) fn new(id: String, config: MatrixConfig) -> Self {
         log::info!(
             "Matrix::new id={id} pins=(data={}, clock={}, cs={}) devices={} shapes={}",
             config.pins.data, config.pins.clock, config.pins.cs,

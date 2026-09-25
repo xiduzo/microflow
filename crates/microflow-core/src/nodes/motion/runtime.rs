@@ -10,9 +10,9 @@ use crate::runtime::{
     ListenerWiring, RuntimeContext, RuntimeError,
 };
 
-pub use super::config::MotionConfig;
+use super::config::MotionConfig;
 
-pub struct Motion {
+pub(crate) struct Motion {
     base: ComponentBase,
     config: MotionConfig,
     motion_detected: bool,
@@ -25,7 +25,7 @@ impl Motion {
     const E_FALSE: &'static str = "false";
 
     #[must_use]
-    pub fn new(id: String, config: MotionConfig) -> Self {
+    pub(crate) fn new(id: String, config: MotionConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,

@@ -16,7 +16,7 @@ use crate::flow::FlowNode;
 /// The pin this Relay is emitted on — the same resolution `emit` uses, exposed
 /// so validation can never drift from emission.
 #[must_use]
-pub fn pin(node: &FlowNode) -> u8 {
+pub(crate) fn pin(node: &FlowNode) -> u8 {
     serde_json::from_value::<RelayConfig>(node.data.clone())
         .unwrap_or_default()
         .pin
@@ -24,7 +24,7 @@ pub fn pin(node: &FlowNode) -> u8 {
 
 /// Emit C++ for a Relay Node. An unwired relay stays initialized-closed.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let config: RelayConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let pin = config.pin;
     let token = node.id_token();

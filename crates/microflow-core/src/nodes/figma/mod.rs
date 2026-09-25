@@ -1,6 +1,6 @@
 //! The `Figma` node.
 
-pub mod codegen;
-pub mod config;
+pub(crate) mod codegen;
+pub(crate) mod config;
 #[cfg(feature = "cloud")]
-pub mod runtime;
+pub(crate) mod runtime;

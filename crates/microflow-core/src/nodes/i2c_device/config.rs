@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 /// `codegen/parity.rs` `I2cDevice` case pins the emitted C++ to the descriptor.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum OutputFormat {
+pub(crate) enum OutputFormat {
     // The `alias`es accept the human labels older flows persisted as the field
     // value (before the leva options-orientation fix), so a stale `"Raw bytes"`
     // still decodes to `Raw` instead of erroring the whole config back to default.
@@ -54,7 +54,7 @@ pub enum OutputFormat {
 /// The decode an [`OutputFormat`] applies to the raw reply bytes — the shared
 /// descriptor both consumers derive from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ByteDecode {
+pub(crate) enum ByteDecode {
     /// Every byte preserved, in order. The runtime yields an array; the sketch
     /// has no byte-array value model and folds like `Fold { sign_extend: false }`
     /// — the closest single-value approximation, recorded in `codegen/parity.rs`.
@@ -69,11 +69,11 @@ pub enum ByteDecode {
 impl OutputFormat {
     /// At most this many reply bytes fold into the value — the 32-bit
     /// accumulator width, on BOTH targets (runtime `u32`/`i32`, sketch `long`).
-    pub const FOLD_BYTE_CAP: usize = 4;
+    pub(crate) const FOLD_BYTE_CAP: usize = 4;
 
     /// The decode descriptor this format performs.
     #[must_use]
-    pub fn decode(self) -> ByteDecode {
+    pub(crate) fn decode(self) -> ByteDecode {
         match self {
             Self::Raw => ByteDecode::Raw,
             Self::UnsignedInt => ByteDecode::Fold { sign_extend: false },
@@ -86,8 +86,11 @@ impl OutputFormat {
 /// decode, and the reference the emitted C++ fold transcribes: big-endian
 /// shift-or of the first [`OutputFormat::FOLD_BYTE_CAP`] bytes, optionally
 /// sign-extended from bit 7 of the first byte. Empty input decodes to 0.
+/// Compiled with its one reader (the runtime) and its tests; the emitter
+/// transcribes the descriptor instead of calling this.
+#[cfg(any(test, feature = "runtime"))]
 #[must_use]
-pub fn fold_bytes(sign_extend: bool, data: &[u8]) -> f64 {
+pub(crate) fn fold_bytes(sign_extend: bool, data: &[u8]) -> f64 {
     let data = &data[..data.len().min(OutputFormat::FOLD_BYTE_CAP)];
     if sign_extend {
         let mut value: i32 = match data.first() {
@@ -117,24 +120,24 @@ pub fn fold_bytes(sign_extend: bool, data: &[u8]) -> f64 {
 // partial doc (or `{}`, or a pre-`autoread` flow) deserializes to exactly the
 // `Default` values, with no per-field `default = "fn"` copies to keep in sync.
 #[serde(rename_all = "camelCase", default)]
-pub struct I2cDeviceConfig {
-    pub address: u8,
-    pub register: u8,
-    pub read_length: u8,
+pub(crate) struct I2cDeviceConfig {
+    pub(crate) address: u8,
+    pub(crate) register: u8,
+    pub(crate) read_length: u8,
     /// Board sampling-interval **period in milliseconds** for this device's
     /// continuous read — NOT a frequency, despite the name older flows persist.
     /// Reconciled to the MAX across all I2C nodes via `Component::board_wiring`.
     /// The web still writes the key `freq`, so the wire name is kept via
     /// `serde(rename)` for doc compatibility.
     #[serde(rename = "freq")]
-    pub sample_interval_ms: u32,
-    pub device: String,
-    pub output: OutputFormat,
+    pub(crate) sample_interval_ms: u32,
+    pub(crate) device: String,
+    pub(crate) output: OutputFormat,
     /// Stream on the board's sampling interval (`true`, default) vs. read only
     /// when the `trigger` command handle fires (`false`). When off, no continuous
     /// read is armed — `board_wiring().i2c_continuous_read` is `None` — so the bus
     /// stays quiet until a one-shot `trigger` requests a read.
-    pub autoread: bool,
+    pub(crate) autoread: bool,
 }
 
 impl Default for I2cDeviceConfig {
@@ -156,7 +159,7 @@ impl Default for I2cDeviceConfig {
 /// options-orientation fix; normalising lets the tables below match either, and
 /// strips the `_` in `sht21_temp`/`bme280_temp` so the arms read cleanly.
 #[must_use]
-pub fn normalize_device(device: &str) -> String {
+pub(crate) fn normalize_device(device: &str) -> String {
     device.chars().filter(char::is_ascii_alphanumeric).flat_map(char::to_lowercase).collect()
 }
 
@@ -169,7 +172,7 @@ pub fn normalize_device(device: &str) -> String {
 /// sensor sits in a reset/sleep/single-shot state and every read returns a
 /// constant (0, or the reset value), which reads as a dead sensor.
 #[must_use]
-pub fn device_init_writes(device: &str) -> &'static [&'static [u8]] {
+pub(crate) fn device_init_writes(device: &str) -> &'static [&'static [u8]] {
     match normalize_device(device).as_str() {
         // TCS34725 colour sensor: ENABLE register (0x00 | command-bit 0x80) =
         // PON | AEN (0x03), which powers the ADC. Without it every colour register
@@ -235,7 +238,7 @@ pub fn device_init_writes(device: &str) -> &'static [&'static [u8]] {
 /// so this also protects a node left on `custom` but pointed at 0x40 with a stale
 /// 0xE3/0xE5. Every non-SHT device's register is returned untouched.
 #[must_use]
-pub fn effective_register(device: &str, address: u8, register: u8) -> u8 {
+pub(crate) fn effective_register(device: &str, address: u8, register: u8) -> u8 {
     let is_sht2x = normalize_device(device).starts_with("sht21") || address == 0x40;
     if is_sht2x {
         match register {
@@ -254,7 +257,7 @@ pub fn effective_register(device: &str, address: u8, register: u8) -> u8 {
 /// Firmata's 7-bit `I2C_CONFIG` sysex; the generated sketch uses a plain `delay()`),
 /// so each side owns its own value — only this classification is shared.
 #[must_use]
-pub fn is_no_hold_sht2x(device: &str) -> bool {
+pub(crate) fn is_no_hold_sht2x(device: &str) -> bool {
     normalize_device(device).starts_with("sht21")
 }
 

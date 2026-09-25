@@ -4,9 +4,9 @@ use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
 
-pub use super::config::{GateConfig, GateType};
+use super::config::{GateConfig, GateType};
 
-pub struct Gate {
+pub(crate) struct Gate {
     base: ComponentBase,
     config: GateConfig,
 }
@@ -16,7 +16,7 @@ impl Gate {
     const E_FALSE: &'static str = "false";
 
     #[must_use]
-    pub fn new(id: String, config: GateConfig) -> Self {
+    pub(crate) fn new(id: String, config: GateConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,

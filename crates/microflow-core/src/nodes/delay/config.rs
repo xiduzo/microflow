@@ -3,11 +3,11 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DelayConfig {
+pub(crate) struct DelayConfig {
     #[serde(default = "default_delay")]
-    pub delay: u64,
+    pub(crate) delay: u64,
     #[serde(default, rename = "forgetPrevious")]
-    pub forget_previous: bool,
+    pub(crate) forget_previous: bool,
 }
 
 fn default_delay() -> u64 {

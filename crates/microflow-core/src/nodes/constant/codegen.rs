@@ -12,7 +12,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Constant Node's fixed value.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("constant_{}_value", node.id_token())
 }
 
@@ -21,7 +21,7 @@ pub fn value_var(node: &FlowNode) -> String {
 /// `driver` is unused: a Constant ignores its inputs, exactly as the runtime's
 /// `dispatch` rejects every method.
 #[must_use]
-pub fn emit(node: &FlowNode) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode) -> NodeEmission {
     let var = value_var(node);
     let config: ConstantConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let value = cpp_double(config.value);

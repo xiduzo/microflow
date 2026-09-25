@@ -5,9 +5,9 @@ use crate::runtime::{
     RuntimeContext, RuntimeError,
 };
 
-pub use super::config::{RelayConfig, RelayType};
+use super::config::{RelayConfig, RelayType};
 
-pub struct Relay {
+pub(crate) struct Relay {
     base: ComponentBase,
     config: RelayConfig,
     is_open: bool,
@@ -15,7 +15,7 @@ pub struct Relay {
 
 impl Relay {
     #[must_use]
-    pub fn new(id: String, config: RelayConfig) -> Self {
+    pub(crate) fn new(id: String, config: RelayConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,

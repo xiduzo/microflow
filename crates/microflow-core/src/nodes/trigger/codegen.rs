@@ -21,21 +21,21 @@ use crate::flow::FlowNode;
 /// The C++ `bool` variable holding this Trigger Node's latest bang state —
 /// true only on the loop iteration in which the threshold was crossed.
 #[must_use]
-pub fn state_var(node: &FlowNode) -> String {
+pub(crate) fn state_var(node: &FlowNode) -> String {
     format!("trigger_{}_result", node.id_token())
 }
 
 /// The C++ `double` variable holding the value that produced the most recent
 /// bang — the on-device twin of the bang emission's payload.
 #[must_use]
-pub fn value_payload_var(node: &FlowNode) -> String {
+pub(crate) fn value_payload_var(node: &FlowNode) -> String {
     format!("trigger_{}_value", node.id_token())
 }
 
 /// Emit C++ for a Trigger Node from its `value` port. With nothing connected
 /// the result stays `false` (the runtime never bangs without a signal).
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let var = state_var(node);
     let payload = value_payload_var(node);

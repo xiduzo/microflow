@@ -5,9 +5,9 @@ use crate::runtime::{
 };
 use std::borrow::Cow;
 
-pub use super::config::{Range, RangeMapConfig};
+use super::config::RangeMapConfig;
 
-pub struct RangeMap {
+pub(crate) struct RangeMap {
     base: ComponentBase,
     config: RangeMapConfig,
 }
@@ -16,7 +16,7 @@ impl RangeMap {
     const E_TO: &'static str = "to";
 
     #[must_use]
-    pub fn new(id: String, config: RangeMapConfig) -> Self {
+    pub(crate) fn new(id: String, config: RangeMapConfig) -> Self {
         Self {
             base: ComponentBase::new(
                 id,

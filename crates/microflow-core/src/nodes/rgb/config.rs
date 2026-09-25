@@ -6,13 +6,13 @@ use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RgbPins {
+pub(crate) struct RgbPins {
     #[serde(default = "default_red", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub red: u8,
+    pub(crate) red: u8,
     #[serde(default = "default_green", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub green: u8,
+    pub(crate) green: u8,
     #[serde(default = "default_blue", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub blue: u8,
+    pub(crate) blue: u8,
 }
 
 fn default_red() -> u8 {
@@ -33,9 +33,9 @@ impl Default for RgbPins {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct RgbConfig {
+pub(crate) struct RgbConfig {
     #[serde(default)]
-    pub pins: RgbPins,
+    pub(crate) pins: RgbPins,
     #[serde(default)]
-    pub is_anode: bool,
+    pub(crate) is_anode: bool,
 }

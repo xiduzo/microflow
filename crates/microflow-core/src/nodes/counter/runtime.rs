@@ -6,9 +6,9 @@ use crate::runtime::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct CounterConfig {}
+pub(crate) struct CounterConfig {}
 
-pub struct Counter {
+pub(crate) struct Counter {
     base: ComponentBase,
     #[allow(dead_code)]
     config: CounterConfig,
@@ -16,28 +16,28 @@ pub struct Counter {
 
 impl Counter {
     #[must_use]
-    pub fn new(id: String, config: CounterConfig) -> Self {
+    pub(crate) fn new(id: String, config: CounterConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
         }
     }
 
-    pub fn increment(&mut self) {
+    pub(crate) fn increment(&mut self) {
         let current = self.base.value.as_number().unwrap_or(0.0);
         self.base.set_value(ComponentValue::Number(current + 1.0));
     }
 
-    pub fn decrement(&mut self) {
+    pub(crate) fn decrement(&mut self) {
         let current = self.base.value.as_number().unwrap_or(0.0);
         self.base.set_value(ComponentValue::Number(current - 1.0));
     }
 
-    pub fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.base.set_value(ComponentValue::Number(0.0));
     }
 
-    pub fn set(&mut self, value: f64) {
+    pub(crate) fn set(&mut self, value: f64) {
         self.base.set_value(ComponentValue::Number(value));
     }
 }

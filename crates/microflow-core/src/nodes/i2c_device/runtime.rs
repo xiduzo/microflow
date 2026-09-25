@@ -16,7 +16,7 @@ use crate::runtime::{
     HardwareComponent, I2cContinuousRead, ListenerWiring, RuntimeContext, RuntimeError,
 };
 
-pub struct I2cDevice {
+pub(crate) struct I2cDevice {
     base: ComponentBase,
     config: I2cDeviceConfig,
     initialized: bool,
@@ -27,7 +27,7 @@ pub struct I2cDevice {
 
 impl I2cDevice {
     #[must_use]
-    pub fn new(id: String, config: I2cDeviceConfig) -> Self {
+    pub(crate) fn new(id: String, config: I2cDeviceConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

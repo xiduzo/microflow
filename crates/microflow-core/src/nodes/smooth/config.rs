@@ -4,20 +4,20 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub enum SmoothType {
+pub(crate) enum SmoothType {
     #[default]
     Smooth,
     MovingAverage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SmoothConfig {
+pub(crate) struct SmoothConfig {
     #[serde(default, rename = "type")]
-    pub smooth_type: SmoothType,
+    pub(crate) smooth_type: SmoothType,
     #[serde(default = "default_attenuation")]
-    pub attenuation: f64,
+    pub(crate) attenuation: f64,
     #[serde(default = "default_window_size", rename = "windowSize")]
-    pub window_size: usize,
+    pub(crate) window_size: usize,
 }
 
 fn default_attenuation() -> f64 {

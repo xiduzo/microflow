@@ -8,17 +8,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MqttConfig {
+pub(crate) struct MqttConfig {
     #[serde(default)]
-    pub broker_id: String,
+    pub(crate) broker_id: String,
     #[serde(default)]
-    pub direction: String,
+    pub(crate) direction: String,
     #[serde(default)]
-    pub topic: String,
+    pub(crate) topic: String,
     #[serde(default = "default_qos")]
-    pub qos: String,
+    pub(crate) qos: String,
     #[serde(default)]
-    pub retain: bool,
+    pub(crate) retain: bool,
 }
 
 fn default_qos() -> String {

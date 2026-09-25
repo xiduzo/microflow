@@ -22,7 +22,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this `RangeMap` Node's mapped output.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("range_map_{}_value", node.id_token())
 }
 
@@ -32,7 +32,7 @@ pub fn value_var(node: &FlowNode) -> String {
 /// first drives the map. String sources are parsed like the runtime's
 /// `String(s) => s.parse().unwrap_or(0.0)` arm.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let var = value_var(node);
     // Mirror `Range` defaults: from 0..1023, to 0..1023.
     let config: RangeMapConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();

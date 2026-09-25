@@ -65,7 +65,7 @@ fn send_channel(config: &MidiConfig) -> u8 {
 /// out-direction sends one message per new sample on the `send` port (the
 /// on-device twin of one dispatch == one `MidiSend`).
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let config = config_of(node);
     let mut e = NodeEmission {
         includes: vec!["#include <MIDI.h>".to_string()],
@@ -168,7 +168,7 @@ fn emit_out(node: &FlowNode, config: &MidiConfig, inputs: &NodeInputs, e: &mut N
 /// What downstream Nodes read from an in-direction Midi Node, per emit handle —
 /// the codegen twin of the runtime's emits. Out-direction exposes nothing.
 #[must_use]
-pub fn output(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
+pub(crate) fn output(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
     let config = config_of(node);
     if config.direction == MidiDirection::Out {
         return None;

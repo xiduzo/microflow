@@ -51,7 +51,7 @@ fn short_var_id(variable_id: &str) -> String {
 /// Figma variables the generated sketch does not model; wiring them emits an
 /// explicit note. When unwired, the Node is subscribe-only.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let driver_source = inputs.first("set");
     let driver = driver_source.map(|s| s.value.as_string());
     let token = node.id_token();
@@ -165,7 +165,7 @@ pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 /// value parsed as a number (`toFloat`), mirroring the live component's parse
 /// of FLOAT variables — the common case for hardware-driving design tokens.
 #[must_use]
-pub fn output(node: &FlowNode) -> Option<SourceExpr> {
+pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
     let token = node.id_token();
     Some(SourceExpr::level(CppExpr::number(format!(
         "figma_{token}_value.toFloat()"

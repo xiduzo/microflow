@@ -22,9 +22,9 @@ use crate::runtime::{
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-pub use super::config::LlmConfig;
+use super::config::LlmConfig;
 
-pub struct Llm {
+pub(crate) struct Llm {
     base: ComponentBase,
     config: LlmConfig,
     /// Stored values for `{{var}}` template slots in the prompt.
@@ -36,12 +36,12 @@ impl Llm {
     /// exact handles this node declares in [`Component::emits`] — one source of
     /// truth for the LLM result contract (the `value` handle is the shared
     /// [`ComponentBase::VALUE_HANDLE`]).
-    pub const E_THINKING: &'static str = "thinking";
-    pub const E_DONE: &'static str = "done";
-    pub const E_ERROR: &'static str = "error";
+    pub(crate) const E_THINKING: &'static str = "thinking";
+    pub(crate) const E_DONE: &'static str = "done";
+    pub(crate) const E_ERROR: &'static str = "error";
 
     #[must_use]
-    pub fn new(id: String, config: LlmConfig) -> Self {
+    pub(crate) fn new(id: String, config: LlmConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::String(String::new())),
             config,

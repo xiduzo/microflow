@@ -18,22 +18,22 @@ const ANALOG_PIN_BASE: u8 = 14;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum SensorType {
+pub(crate) enum SensorType {
     #[default]
     Analog,
     Digital,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SensorConfig {
+pub(crate) struct SensorConfig {
     #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_string_or_number")]
-    pub pin: String,
+    pub(crate) pin: String,
     #[serde(default)]
-    pub r#type: SensorType,
+    pub(crate) r#type: SensorType,
     #[serde(default = "default_freq")]
-    pub freq: u32,
+    pub(crate) freq: u32,
     #[serde(default = "default_threshold")]
-    pub threshold: u16,
+    pub(crate) threshold: u16,
 }
 
 fn default_pin() -> String {
@@ -69,7 +69,7 @@ impl SensorConfig {
     /// leaves `data.pin` at its `"A0"` default until the pin is re-picked, so
     /// this path is the common one.
     #[must_use]
-    pub fn analog_pin(&self) -> u8 {
+    pub(crate) fn analog_pin(&self) -> u8 {
         if self.pin.starts_with('A') || self.pin.starts_with('a') {
             ANALOG_PIN_BASE.saturating_add(self.pin[1..].parse::<u8>().unwrap_or(0))
         } else {
@@ -78,7 +78,7 @@ impl SensorConfig {
     }
 }
 
-pub struct Sensor {
+pub(crate) struct Sensor {
     base: ComponentBase,
     config: SensorConfig,
     last_value: u16,
@@ -86,7 +86,7 @@ pub struct Sensor {
 
 impl Sensor {
     #[must_use]
-    pub fn new(id: String, config: SensorConfig) -> Self {
+    pub(crate) fn new(id: String, config: SensorConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

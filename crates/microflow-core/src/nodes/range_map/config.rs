@@ -3,11 +3,11 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Range {
+pub(crate) struct Range {
     #[serde(default)]
-    pub min: f64,
+    pub(crate) min: f64,
     #[serde(default = "default_max")]
-    pub max: f64,
+    pub(crate) max: f64,
 }
 
 fn default_max() -> f64 {
@@ -21,9 +21,9 @@ impl Default for Range {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct RangeMapConfig {
+pub(crate) struct RangeMapConfig {
     #[serde(default)]
-    pub from: Range,
+    pub(crate) from: Range,
     #[serde(default)]
-    pub to: Range,
+    pub(crate) to: Range,
 }

@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct HotkeyConfig {
+pub(crate) struct HotkeyConfig {
     #[serde(default = "default_accelerator")]
-    pub accelerator: String,
+    pub(crate) accelerator: String,
 }
 
 fn default_accelerator() -> String {

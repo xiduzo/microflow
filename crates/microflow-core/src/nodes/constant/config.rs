@@ -3,9 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConstantConfig {
+pub(crate) struct ConstantConfig {
     #[serde(default = "default_value")]
-    pub value: f64,
+    pub(crate) value: f64,
 }
 
 fn default_value() -> f64 {

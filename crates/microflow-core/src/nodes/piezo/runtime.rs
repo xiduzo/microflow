@@ -16,7 +16,7 @@ use crate::runtime::{
 };
 use std::collections::HashMap;
 
-pub use super::config::{Note, PiezoConfig, PiezoType};
+use super::config::{PiezoConfig, PiezoType};
 
 /// Get note frequencies (standard piano frequencies in Hz)
 fn note_frequencies() -> HashMap<&'static str, u16> {
@@ -62,7 +62,7 @@ struct Step {
     is_tone: bool,
 }
 
-pub struct Piezo {
+pub(crate) struct Piezo {
     base: ComponentBase,
     config: PiezoConfig,
     is_playing: bool,
@@ -75,7 +75,7 @@ pub struct Piezo {
 
 impl Piezo {
     #[must_use]
-    pub fn new(id: String, config: PiezoConfig) -> Self {
+    pub(crate) fn new(id: String, config: PiezoConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,

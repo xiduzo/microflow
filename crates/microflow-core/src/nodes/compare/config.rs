@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum CompareValidator {
+pub(crate) enum CompareValidator {
     #[default]
     Boolean,
     Number,
@@ -14,11 +14,11 @@ pub enum CompareValidator {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct RangeConfig {
+pub(crate) struct RangeConfig {
     #[serde(default)]
-    pub min: f64,
+    pub(crate) min: f64,
     #[serde(default = "default_max")]
-    pub max: f64,
+    pub(crate) max: f64,
 }
 
 fn default_max() -> f64 {
@@ -26,17 +26,17 @@ fn default_max() -> f64 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CompareConfig {
+pub(crate) struct CompareConfig {
     #[serde(default)]
-    pub validator: CompareValidator,
+    pub(crate) validator: CompareValidator,
     #[serde(default, rename = "subValidator")]
-    pub sub_validator: String,
+    pub(crate) sub_validator: String,
     #[serde(default)]
-    pub number: f64,
+    pub(crate) number: f64,
     #[serde(default)]
-    pub text: String,
+    pub(crate) text: String,
     #[serde(default)]
-    pub range: RangeConfig,
+    pub(crate) range: RangeConfig,
 }
 
 impl Default for CompareConfig {

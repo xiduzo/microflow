@@ -81,7 +81,7 @@ fn direction(node: &FlowNode) -> String {
 /// Author for), falling back to the Node's own `data` otherwise.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn emit(
+pub(crate) fn emit(
     node: &FlowNode,
     inputs: &NodeInputs,
     credentials: Option<&Credentials>,
@@ -261,7 +261,7 @@ pub fn emit(
 /// numeric payload parse — the common case for sensor data over MQTT. Publish
 /// Nodes expose no readable value.
 #[must_use]
-pub fn output(node: &FlowNode) -> Option<SourceExpr> {
+pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
     let direction = direction(node);
     if direction == "publish" {
         return None;

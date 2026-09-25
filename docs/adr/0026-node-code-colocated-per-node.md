@@ -72,9 +72,9 @@ and `js` for 1 (`Function`). Config and codegen stay ungated.
 
 ```text
 crates/microflow-core/src/nodes/
-├── mod.rs                 # `pub mod <node>;` × 35 — the node index
+├── mod.rs                 # `pub(crate) mod <node>;` × 35 — the node index
 ├── led/
-│   ├── mod.rs             # pub mod codegen; pub mod config; #[cfg(feature = "runtime")] pub mod runtime;
+│   ├── mod.rs             # pub(crate) mod codegen; pub(crate) mod config; #[cfg(feature = "runtime")] pub(crate) mod runtime;
 │   ├── config.rs          # LedConfig — ungated, shared by interpret + emit
 │   ├── runtime.rs         # Led: Component — behind `runtime`
 │   └── codegen.rs         # emit / pin — ungated
@@ -147,6 +147,38 @@ The F7 count, which does not include the `classify` arm:
 The Rust part alone drops from 9 places to 5 (10 to 6 with `classify`). Only
 one of those 5 is new code. The other four are one-line edits to central
 tables, and the compiler or the parity guard points at each of them.
+
+## Enforcement
+
+The compiler and one test keep the verticals apart.
+
+- **Visibility.** `nodes` is `pub(crate)` in `lib.rs`, and every module and
+  item under it is `pub(crate)`. No other crate can name a node's internals.
+  The desktop crate, the wasm crates, the benches and the golden tests reach
+  nodes only through `runtime` and `codegen`. Because nothing in `nodes` is
+  exported, the `dead_code` lint sees every node item that nothing uses. A
+  config that only its runtime reads (`Pn532`, `Music`: no emitter) sits behind
+  that runtime's gate.
+- **Boundary guard.** `nodes/boundaries.rs` is a unit test with no feature
+  gate, so a bare `cargo test -p microflow-core` runs it. It reads `src/` with
+  comments and literal contents blanked. It fails when:
+  1. a file in `nodes/<a>/` names another node (`crate::nodes::<b>`,
+     `super::super::<b>`), or names its own node through `crate::nodes` and
+     not through `super::`;
+  2. a file outside `nodes/` names a node and is not a central dispatch table.
+     The allowlist, `CENTRAL_DISPATCH`, holds `runtime/registry.rs`,
+     `codegen/mod.rs`, `codegen/validate.rs` and `codegen/parity.rs`. An entry
+     that no longer names a node also fails, so the list cannot go stale;
+  3. `nodes/mod.rs` and the `nodes/<node>/` directories disagree, a file other
+     than the guard sits in `nodes/` itself, or a node directory holds more
+     than `mod.rs` and its declared `config.rs` / `runtime.rs` / `codegen.rs`.
+
+  Each failure names the file, the line and the fix. Code that two nodes need
+  moves to `runtime/`, `codegen/` or `config/`.
+
+Visibility alone cannot do rule 1 or rule 2. Rust visibility follows the module
+tree, so it cannot say "visible to `runtime/registry.rs` but not to
+`nodes/button/`": both are outside `nodes/led/`. The test covers that gap.
 
 ## Alternatives rejected
 
@@ -223,6 +255,8 @@ tables, and the compiler or the parity guard points at each of them.
 - `crates/microflow-core/src/runtime/registry.rs`: `register_all`.
 - `crates/microflow-core/src/codegen/mod.rs`: `emit_node`, `output_expression`.
 - `crates/microflow-core/src/codegen/parity.rs`: `classify`.
+- `crates/microflow-core/src/nodes/boundaries.rs`: the boundary guard and
+  `CENTRAL_DISPATCH`.
 - [ADR-0006](0006-rehost-runtime-on-core.md): the feature split (`runtime` /
   ungated codegen + config) that the per-node gates keep.
 - [ADR-0012](0012-component-trait-plumbing-stays-explicit.md): why the dispatch

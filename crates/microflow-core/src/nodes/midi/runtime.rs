@@ -21,7 +21,7 @@ use crate::runtime::{
 };
 use std::borrow::Cow;
 
-pub use super::config::{MidiConfig, MidiDirection, MidiMode};
+use super::config::{MidiConfig, MidiDirection, MidiMode};
 
 /// MIDI status nibbles (high 4 bits of the status byte).
 const NOTE_OFF: u8 = 0x80;
@@ -64,7 +64,7 @@ fn note_name_to_midi(name: &str) -> Option<u8> {
     u8::try_from(midi).ok().filter(|n| *n <= 127)
 }
 
-pub struct Midi {
+pub(crate) struct Midi {
     base: ComponentBase,
     config: MidiConfig,
     /// Flattened song queue, walked one step per `_note` wakeup. Empty when idle.
@@ -77,13 +77,13 @@ pub struct Midi {
 }
 
 impl Midi {
-    pub const E_NOTE: &'static str = "note";
-    pub const E_VELOCITY: &'static str = "velocity";
-    pub const E_ON: &'static str = "on";
-    pub const E_OFF: &'static str = "off";
+    pub(crate) const E_NOTE: &'static str = "note";
+    pub(crate) const E_VELOCITY: &'static str = "velocity";
+    pub(crate) const E_ON: &'static str = "on";
+    pub(crate) const E_OFF: &'static str = "off";
 
     #[must_use]
-    pub fn new(id: String, config: MidiConfig) -> Self {
+    pub(crate) fn new(id: String, config: MidiConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
@@ -95,7 +95,7 @@ impl Midi {
     }
 
     #[must_use]
-    pub fn is_out(&self) -> bool {
+    pub(crate) fn is_out(&self) -> bool {
         self.config.direction == MidiDirection::Out
     }
 

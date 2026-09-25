@@ -40,7 +40,7 @@ use crate::flow::FlowNode;
 /// time it changes the Sketch publishes it on the monitor topic. An unwired
 /// Monitor has nothing to display, so it only maintains its connection.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let sources = inputs.on("value");
     let driver = sources.first().map(|s| s.value.as_string());
     let token = node.id_token();

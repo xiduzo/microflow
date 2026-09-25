@@ -29,21 +29,21 @@ use crate::flow::FlowNode;
 /// The C++ `double` variable holding this Delay Node's most recently emitted
 /// (delayed) value, read by downstream Nodes.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("delay_{}_value", node.id_token())
 }
 
 /// The C++ `bool` variable that is true only on the loop iteration in which
 /// the delayed `event` fires.
 #[must_use]
-pub fn fired_var(node: &FlowNode) -> String {
+pub(crate) fn fired_var(node: &FlowNode) -> String {
     format!("delay_{}_fired", node.id_token())
 }
 
 /// Emit C++ for a Delay Node from its `trigger` port. With nothing connected
 /// the Delay never arms (the runtime never fires without a signal).
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let var = value_var(node);
     let fired = fired_var(node);

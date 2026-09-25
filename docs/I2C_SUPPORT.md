@@ -420,7 +420,7 @@ When a preset is selected, address/register/readLength/output are auto-populated
 |------|--------|
 | `apps/web/node-components.json` | Add the `I2cDevice` catalog entry; `bun run catalog:sync` regenerates `COMPONENT_TYPES` / `NODE_TYPES` (both are generated from the catalog + the Rust wire interface, not hand-edited) |
 | `crates/microflow-core/src/runtime/board.rs` | Add the I2C ops (`i2c_config` / `i2c_read` / `i2c_read_continuous` / `i2c_write` / `i2c_stop_reading` / `sampling_interval`) to the `I2cBus` / `BoardWriter` trait + `BufferBoardWriter` impl — encoded as Firmata bytes via the `FirmataClient` codec (sans-IO; no reader thread) |
-| `crates/microflow-core/src/nodes/mod.rs` | Add `pub mod i2c_device;` |
+| `crates/microflow-core/src/nodes/mod.rs` | Add `pub(crate) mod i2c_device;` |
 | `crates/microflow-core/src/runtime/registry.rs` | Register `"I2cDevice"` as a hardware component |
 | `crates/microflow-core/src/runtime/wiring.rs` | `ListenerWiring::I2cAddress { address, register }` so a node registers its bus listener |
 | `crates/microflow-core/src/runtime/mod.rs` | Central I2C reply demux by register (`drain_i2c_replies`) + continuous-read arming; deliver replies via the typed `on_i2c_reply` callback |

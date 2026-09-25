@@ -21,7 +21,7 @@ use crate::runtime::{
     RuntimeError,
 };
 
-pub use super::config::{StepperConfig, StepperInterface};
+use super::config::{StepperConfig, StepperInterface};
 
 /// `AccelStepper` sysex command byte
 const ACCELSTEPPER_DATA: u8 = 0x62;
@@ -36,7 +36,7 @@ const CMD_STOP: u8 = 0x05;
 const CMD_SET_ACCEL: u8 = 0x08;
 const CMD_SET_SPEED: u8 = 0x09;
 
-pub struct Stepper {
+pub(crate) struct Stepper {
     base: ComponentBase,
     config: StepperConfig,
     current_position: i32,
@@ -44,7 +44,7 @@ pub struct Stepper {
 
 impl Stepper {
     #[must_use]
-    pub fn new(id: String, config: StepperConfig) -> Self {
+    pub(crate) fn new(id: String, config: StepperConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
@@ -157,20 +157,6 @@ impl Stepper {
         ]
     }
 
-    /// Decode a 32-bit signed integer from 5 bytes of 7-bit data.
-    #[must_use]
-    pub fn decode_signed_long(bytes: &[u8]) -> i32 {
-        if bytes.len() < 5 {
-            return 0;
-        }
-        let v = u32::from(bytes[0] & 0x7F)
-            | (u32::from(bytes[1] & 0x7F) << 7)
-            | (u32::from(bytes[2] & 0x7F) << 14)
-            | (u32::from(bytes[3] & 0x7F) << 21)
-            | (u32::from(bytes[4] & 0x0F) << 28);
-        v as i32
-    }
-
     /// Send set-speed sysex.
     fn send_speed(&self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
         let encoded = Self::encode_custom_float(self.config.speed);
@@ -195,7 +181,7 @@ impl Stepper {
     }
 
     /// Relative move by N steps.
-    pub fn step(&mut self, ctx: &mut RuntimeContext, steps: i32) -> Result<(), RuntimeError> {
+    pub(crate) fn step(&mut self, ctx: &mut RuntimeContext, steps: i32) -> Result<(), RuntimeError> {
         let encoded = Self::encode_signed_long(steps);
         self.send_sysex(ctx, vec![
             CMD_STEP,
@@ -205,7 +191,7 @@ impl Stepper {
     }
 
     /// Absolute move to position.
-    pub fn move_to(&mut self, ctx: &mut RuntimeContext, position: i32) -> Result<(), RuntimeError> {
+    pub(crate) fn move_to(&mut self, ctx: &mut RuntimeContext, position: i32) -> Result<(), RuntimeError> {
         let encoded = Self::encode_signed_long(position);
         self.send_sysex(ctx, vec![
             CMD_TO,
@@ -215,19 +201,19 @@ impl Stepper {
     }
 
     /// Stop the motor (decelerates if acceleration is set).
-    pub fn stop(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+    pub(crate) fn stop(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
         self.send_sysex(ctx, vec![CMD_STOP, self.config.device_num])
     }
 
     /// Reset position counter to zero.
-    pub fn zero(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+    pub(crate) fn zero(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
         self.current_position = 0;
         self.base.set_value(ComponentValue::Number(0.0));
         self.send_sysex(ctx, vec![CMD_ZERO, self.config.device_num])
     }
 
     /// Enable or disable the driver (if enable pin is configured).
-    pub fn enable(&mut self, ctx: &mut RuntimeContext, state: bool) -> Result<(), RuntimeError> {
+    pub(crate) fn enable(&mut self, ctx: &mut RuntimeContext, state: bool) -> Result<(), RuntimeError> {
         self.send_sysex(ctx, vec![
             CMD_ENABLE,
             self.config.device_num,

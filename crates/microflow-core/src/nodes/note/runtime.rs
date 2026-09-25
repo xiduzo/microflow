@@ -8,15 +8,15 @@ use crate::runtime::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct NoteConfig {}
+pub(crate) struct NoteConfig {}
 
-pub struct Note {
+pub(crate) struct Note {
     base: ComponentBase,
 }
 
 impl Note {
     #[must_use]
-    pub fn new(id: String, _config: NoteConfig) -> Self {
+    pub(crate) fn new(id: String, _config: NoteConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
         }

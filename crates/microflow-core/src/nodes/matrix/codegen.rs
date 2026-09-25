@@ -34,7 +34,7 @@ fn pin(node: &FlowNode, key: &str, default: u8) -> u8 {
 /// The data/clock/cs pins as `(label, pin)` — the same resolution `emit`
 /// uses, exposed so validation can never drift from emission.
 #[must_use]
-pub fn pins(node: &FlowNode) -> [(&'static str, u8); 3] {
+pub(crate) fn pins(node: &FlowNode) -> [(&'static str, u8); 3] {
     [
         ("data", pin(node, "data", DEFAULT_DATA)),
         ("clock", pin(node, "clock", DEFAULT_CLOCK)),
@@ -74,7 +74,7 @@ fn row_byte(shape: &[String], device: u8, row: usize) -> u8 {
 
 /// Emit C++ for a Matrix Node. Unwired, the display stays cleared.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let obj = format!("matrix_{token}");
     let data = pin(node, "data", DEFAULT_DATA);

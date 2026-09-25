@@ -22,7 +22,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `bool` variable holding this Compare Node's latest outcome.
 #[must_use]
-pub fn state_var(node: &FlowNode) -> String {
+pub(crate) fn state_var(node: &FlowNode) -> String {
     format!("compare_{}_result", node.id_token())
 }
 
@@ -65,7 +65,7 @@ fn compare_expr(config: &CompareConfig, source: &CppExpr) -> String {
 /// Emit C++ for a Compare Node from its `value` port. With nothing connected
 /// the result stays `false` (the runtime never checks without a signal).
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let var = state_var(node);
     let config: CompareConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
 

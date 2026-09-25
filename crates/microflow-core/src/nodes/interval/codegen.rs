@@ -26,14 +26,14 @@ const MIN_INTERVAL_MS: u64 = 16;
 /// The C++ `double` variable holding this Interval Node's latest elapsed-time
 /// output (milliseconds since its start window), updated on each fire.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("interval_{}_value", node.id_token())
 }
 
 /// The C++ `bool` variable that is true only on the loop iteration in which
 /// the Interval's `event` fires.
 #[must_use]
-pub fn fired_var(node: &FlowNode) -> String {
+pub(crate) fn fired_var(node: &FlowNode) -> String {
     format!("interval_{}_fired", node.id_token())
 }
 
@@ -41,7 +41,7 @@ pub fn fired_var(node: &FlowNode) -> String {
 /// runtime arms itself on flow start); wired `start` / `stop` ports gate and
 /// re-base it exactly like the runtime's dispatch.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let var = value_var(node);
     let fired = fired_var(node);

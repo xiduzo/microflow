@@ -7,16 +7,15 @@ use std::borrow::Cow;
 use std::time::Instant;
 // `TriggerConfig` + `TriggerBehaviour` live in the ungated sibling `config`
 // module so the codegen emitter shares the exact same fields + defaults (single
-// source of truth — see `crate::nodes`). Re-exported so this module's impls are
-// unchanged.
-pub use super::config::{TriggerBehaviour, TriggerConfig};
+// source of truth — see `crate::nodes`).
+use super::config::{TriggerBehaviour, TriggerConfig};
 
 struct ValueWithTimestamp {
     value: f64,
     timestamp: Instant,
 }
 
-pub struct Trigger {
+pub(crate) struct Trigger {
     base: ComponentBase,
     config: TriggerConfig,
     history: Vec<ValueWithTimestamp>,
@@ -26,7 +25,7 @@ impl Trigger {
     const E_BANG: &'static str = "bang";
 
     #[must_use]
-    pub fn new(id: String, config: TriggerConfig) -> Self {
+    pub(crate) fn new(id: String, config: TriggerConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,
@@ -34,7 +33,7 @@ impl Trigger {
         }
     }
 
-    pub fn signal(&mut self, value: &ComponentValue) {
+    pub(crate) fn signal(&mut self, value: &ComponentValue) {
         let value_num = value.as_number().unwrap_or(0.0);
         let now = Instant::now();
         let within_duration = std::time::Duration::from_millis(self.config.within);

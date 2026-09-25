@@ -24,7 +24,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `long` variable name holding this device's latest decoded reading.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("i2c_{}_value", node.id_token())
 }
 
@@ -36,7 +36,7 @@ pub fn value_var(node: &FlowNode) -> String {
 /// The `write` port carries raw byte payloads with no on-device value model;
 /// wiring it emits a note.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     // Deserialize the SAME config the runtime builds from (ungated in
     // `super::config`), so codegen and interpret never disagree on
     // field parsing or defaults. Malformed data falls back to defaults rather

@@ -9,9 +9,9 @@ use crate::runtime::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct MonitorConfig {}
+pub(crate) struct MonitorConfig {}
 
-pub struct Monitor {
+pub(crate) struct Monitor {
     base: ComponentBase,
     #[allow(dead_code)]
     config: MonitorConfig,
@@ -19,7 +19,7 @@ pub struct Monitor {
 
 impl Monitor {
     #[must_use]
-    pub fn new(id: String, config: MonitorConfig) -> Self {
+    pub(crate) fn new(id: String, config: MonitorConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

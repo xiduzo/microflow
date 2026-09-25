@@ -12,10 +12,10 @@ use crate::runtime::{
 };
 // `DelayConfig` lives in the ungated sibling `config` module so the codegen
 // emitter shares the exact same fields + defaults (single source of truth — see
-// `crate::nodes`). Re-exported so this module's impls are unchanged.
-pub use super::config::DelayConfig;
+// `crate::nodes`).
+use super::config::DelayConfig;
 
-pub struct Delay {
+pub(crate) struct Delay {
     base: ComponentBase,
     config: DelayConfig,
 }
@@ -24,7 +24,7 @@ impl Delay {
     const E_EVENT: &'static str = "event";
 
     #[must_use]
-    pub fn new(id: String, config: DelayConfig) -> Self {
+    pub(crate) fn new(id: String, config: DelayConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

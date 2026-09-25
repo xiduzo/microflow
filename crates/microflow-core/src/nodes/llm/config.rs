@@ -9,21 +9,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LlmConfig {
+pub(crate) struct LlmConfig {
     /// Human-facing provider kind label (`ollama`, `openrouter`, …). Surfaced in
     /// logs; not load-bearing for the runtime.
     #[serde(default = "default_provider")]
-    pub provider: String,
+    pub(crate) provider: String,
     /// Frontend provider record id; resolved against the host's registry when
     /// the request is performed.
     #[serde(default)]
-    pub provider_id: String,
+    pub(crate) provider_id: String,
     #[serde(default)]
-    pub model: String,
+    pub(crate) model: String,
     #[serde(default)]
-    pub prompt: String,
+    pub(crate) prompt: String,
     #[serde(default)]
-    pub system: String,
+    pub(crate) system: String,
 }
 
 fn default_provider() -> String {

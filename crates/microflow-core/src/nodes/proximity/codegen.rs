@@ -18,7 +18,7 @@ use crate::flow::FlowNode;
 /// The analog index (`A0` => 0) this Proximity sensor is emitted on — the same
 /// resolution `emit` uses, exposed so validation can never drift from emission.
 #[must_use]
-pub fn analog_index(node: &FlowNode) -> u8 {
+pub(crate) fn analog_index(node: &FlowNode) -> u8 {
     serde_json::from_value::<ProximityConfig>(node.data.clone())
         .unwrap_or_default()
         .analog_pin()
@@ -26,13 +26,13 @@ pub fn analog_index(node: &FlowNode) -> u8 {
 
 /// The C++ `int` variable name holding this Proximity sensor's latest reading.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("proximity_{}_value", node.id_token())
 }
 
 /// Emit C++ for a Proximity Node.
 #[must_use]
-pub fn emit(node: &FlowNode, target: &BoardTarget) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, target: &BoardTarget) -> NodeEmission {
     let index = analog_index(node);
     let pin_var = format!("proximity_{}_pin", node.id_token());
     let value = value_var(node);

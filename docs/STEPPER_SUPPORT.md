@@ -247,7 +247,7 @@ apps/web/src/nodes/stepper/
 | File | Change |
 |------|--------|
 | `apps/web/node-components.json` | Add the `Stepper` catalog entry; `bun run catalog:sync` regenerates `COMPONENT_TYPES` / `NODE_CATALOG` / `NODE_TYPES` (generated from the catalog + the Rust wire interface, not hand-edited) |
-| `nodes/mod.rs` | Add `pub mod stepper;` |
+| `nodes/mod.rs` | Add `pub(crate) mod stepper;` |
 | `runtime/registry.rs` | Register `"Stepper"` as hardware component |
 
 ### Files to Create

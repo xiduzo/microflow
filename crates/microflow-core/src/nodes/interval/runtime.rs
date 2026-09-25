@@ -13,12 +13,12 @@ use crate::runtime::{
 use std::borrow::Cow;
 // `IntervalConfig` lives in the ungated sibling `config` module so the codegen
 // emitter shares the exact same fields + defaults (single source of truth — see
-// `crate::nodes`). Re-exported so this module's impls are unchanged.
-pub use super::config::IntervalConfig;
+// `crate::nodes`).
+use super::config::IntervalConfig;
 
 const MIN_INTERVAL_MS: u64 = 16;
 
-pub struct Interval {
+pub(crate) struct Interval {
     base: ComponentBase,
     config: IntervalConfig,
     /// `now_ms` captured when the interval (re)started, so each tick can report
@@ -30,7 +30,7 @@ impl Interval {
     const E_EVENT: &'static str = "event";
 
     #[must_use]
-    pub fn new(id: String, config: IntervalConfig) -> Self {
+    pub(crate) fn new(id: String, config: IntervalConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

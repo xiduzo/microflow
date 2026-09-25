@@ -10,9 +10,9 @@ use crate::runtime::{
     HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
 };
 
-pub use super::config::ProximityConfig;
+use super::config::ProximityConfig;
 
-pub struct Proximity {
+pub(crate) struct Proximity {
     base: ComponentBase,
     config: ProximityConfig,
     last_cm: f64,
@@ -20,7 +20,7 @@ pub struct Proximity {
 
 impl Proximity {
     #[must_use]
-    pub fn new(id: String, config: ProximityConfig) -> Self {
+    pub(crate) fn new(id: String, config: ProximityConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

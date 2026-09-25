@@ -5,11 +5,10 @@ use crate::runtime::{
 };
 // `SmoothConfig` + `SmoothType` live in the ungated sibling `config` module so
 // the codegen emitter shares the exact same fields + defaults (single source of
-// truth — see `crate::nodes`). Re-exported so this module's impls/tests are
-// unchanged.
-pub use super::config::{SmoothConfig, SmoothType};
+// truth — see `crate::nodes`).
+use super::config::{SmoothConfig, SmoothType};
 
-pub struct Smooth {
+pub(crate) struct Smooth {
     base: ComponentBase,
     config: SmoothConfig,
     history: Vec<f64>,
@@ -18,7 +17,7 @@ pub struct Smooth {
 
 impl Smooth {
     #[must_use]
-    pub fn new(id: String, config: SmoothConfig) -> Self {
+    pub(crate) fn new(id: String, config: SmoothConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,

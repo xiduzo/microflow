@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum GateType {
+pub(crate) enum GateType {
     #[default]
     And,
     Nand,
@@ -15,7 +15,7 @@ pub enum GateType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct GateConfig {
+pub(crate) struct GateConfig {
     #[serde(default)]
-    pub gate: GateType,
+    pub(crate) gate: GateType,
 }

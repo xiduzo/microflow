@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum CalculateFunction {
+pub(crate) enum CalculateFunction {
     #[default]
     Add,
     Subtract,
@@ -20,7 +20,7 @@ pub enum CalculateFunction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct CalculateConfig {
+pub(crate) struct CalculateConfig {
     #[serde(default)]
-    pub function: CalculateFunction,
+    pub(crate) function: CalculateFunction,
 }

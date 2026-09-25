@@ -18,7 +18,7 @@ use crate::flow::FlowNode;
 /// The pin this Piezo is emitted on — the same resolution `emit` uses, exposed
 /// so validation can never drift from emission.
 #[must_use]
-pub fn pin(node: &FlowNode) -> u8 {
+pub(crate) fn pin(node: &FlowNode) -> u8 {
     serde_json::from_value::<PiezoConfig>(node.data.clone())
         .unwrap_or_default()
         .pin
@@ -34,7 +34,7 @@ fn is_song(node: &FlowNode) -> bool {
 
 /// Emit C++ for a Piezo Node. Unwired, it stays silent.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let token = node.id_token();
     let pin_var = format!("piezo_{token}_pin");
     let config: PiezoConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();

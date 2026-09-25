@@ -1,4 +1,4 @@
 //! The `Note` node.
 
 #[cfg(feature = "runtime")]
-pub mod runtime;
+pub(crate) mod runtime;

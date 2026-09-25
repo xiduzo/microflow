@@ -1,5 +1,7 @@
 //! The `Music` node.
 
-pub mod config;
+// No emitter, so the runtime is the config's only reader: it shares that gate.
 #[cfg(feature = "cloud")]
-pub mod runtime;
+pub(crate) mod config;
+#[cfg(feature = "cloud")]
+pub(crate) mod runtime;

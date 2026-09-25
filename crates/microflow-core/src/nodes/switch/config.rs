@@ -4,7 +4,7 @@ use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
-pub enum SwitchType {
+pub(crate) enum SwitchType {
     /// Normally Open — circuit is open when not actuated
     #[default]
     NO,
@@ -14,11 +14,11 @@ pub enum SwitchType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SwitchConfig {
+pub(crate) struct SwitchConfig {
     #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub pin: u8,
+    pub(crate) pin: u8,
     #[serde(default, rename = "type")]
-    pub switch_type: SwitchType,
+    pub(crate) switch_type: SwitchType,
 }
 
 fn default_pin() -> u8 {

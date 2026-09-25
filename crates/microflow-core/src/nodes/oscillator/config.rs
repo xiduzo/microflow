@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
-pub enum Waveform {
+pub(crate) enum Waveform {
     #[default]
     Sinus,
     Square,
@@ -18,19 +18,19 @@ pub enum Waveform {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OscillatorConfig {
+pub(crate) struct OscillatorConfig {
     #[serde(default)]
-    pub waveform: Waveform,
+    pub(crate) waveform: Waveform,
     #[serde(default = "default_period")]
-    pub period: f64,
+    pub(crate) period: f64,
     #[serde(default = "default_amplitude")]
-    pub amplitude: f64,
+    pub(crate) amplitude: f64,
     #[serde(default)]
-    pub phase: f64,
+    pub(crate) phase: f64,
     #[serde(default)]
-    pub shift: f64,
+    pub(crate) shift: f64,
     #[serde(default = "default_auto_start", rename = "autoStart")]
-    pub auto_start: bool,
+    pub(crate) auto_start: bool,
 }
 
 fn default_period() -> f64 {

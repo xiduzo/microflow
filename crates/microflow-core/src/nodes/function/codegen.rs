@@ -43,7 +43,7 @@ use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Function Node's latest result.
 #[must_use]
-pub fn value_var(node: &FlowNode) -> String {
+pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("function_{}_value", node.id_token())
 }
 
@@ -57,7 +57,7 @@ pub fn value_var(node: &FlowNode) -> String {
 /// clearly-marked `// unsupported` comment is emitted instead and no assignment
 /// is produced — the value stays at `0.0`.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let var = value_var(node);
     let token = node.id_token();
     let mut e = NodeEmission {

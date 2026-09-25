@@ -22,9 +22,9 @@ use crate::runtime::{
 /// immediately, so real press latency stays imperceptible.
 const DEBOUNCE_MS: f64 = 50.0;
 
-pub use super::config::ButtonConfig;
+use super::config::ButtonConfig;
 
-pub struct Button {
+pub(crate) struct Button {
     base: ComponentBase,
     config: ButtonConfig,
     is_pressed: bool,
@@ -42,7 +42,7 @@ impl Button {
     const E_HOLD: &'static str = "hold";
 
     #[must_use]
-    pub fn new(id: String, config: ButtonConfig) -> Self {
+    pub(crate) fn new(id: String, config: ButtonConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Bool(false)),
             config,

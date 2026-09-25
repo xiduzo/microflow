@@ -21,7 +21,7 @@ use crate::flow::FlowNode;
 /// The pin this Servo is emitted on — the same resolution `emit` uses, exposed
 /// so validation can never drift from emission.
 #[must_use]
-pub fn pin(node: &FlowNode) -> u8 {
+pub(crate) fn pin(node: &FlowNode) -> u8 {
     serde_json::from_value::<ServoConfig>(node.data.clone())
         .unwrap_or_default()
         .pin
@@ -36,7 +36,7 @@ fn rotate_expr(v: &str) -> String {
 
 /// Emit C++ for a Servo Node. An unwired Servo holds its center.
 #[must_use]
-pub fn emit(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs, target: &BoardTarget) -> NodeEmission {
     let config: ServoConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
     let pin = config.pin;
     let token = node.id_token();
