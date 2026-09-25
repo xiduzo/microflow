@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { CircuitWebWorker } from "@tscircuit/eval";
 import type { AnyCircuitElement } from "circuit-json";
 import type { Node } from "@xyflow/react";
-import type { Pin } from "@/stores/board";
+import type { Pin } from "@/board/board-store";
 import { buildCircuitCode } from "@/lib/schematic/circuit-builder";
 
 // ============================================================================

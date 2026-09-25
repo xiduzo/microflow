@@ -5,8 +5,8 @@ const Handle = BaseHandle<"Switch">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { dataSchema, defaults, type Data, type Value } from "./switch.schema";
 import { ToggleLeftIcon, ToggleRightIcon } from "lucide-react";
-import { MODES, usePins } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { MODES, usePins } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 
 export function Switch(props: Props) {
   return (

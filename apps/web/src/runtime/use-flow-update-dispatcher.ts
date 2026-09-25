@@ -5,7 +5,7 @@ import { DebounceScheduler, FlowUpdateDispatcher } from "./flow-update-dispatche
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
 import { WasmFlowUpdateSender } from "./wasm-flow-update-sender";
 import { isDesktop } from "@/lib/platform";
-import type { FlowSession } from "./flow-session";
+import type { FlowSession } from "@/session/flow-session";
 
 const DEBOUNCE_MS = 500;
 /** Never let the runtime go longer than this without the current flow, however

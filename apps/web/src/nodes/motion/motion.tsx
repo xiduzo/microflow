@@ -4,8 +4,8 @@ import { Handle as BaseHandle } from "../_base/handle";
 const Handle = BaseHandle<"Motion">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { EyeClosedIcon, EyeIcon } from "lucide-react";
-import { MODES, usePins } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { MODES, usePins } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 import { MOTION_CONTROLLERS } from "./motion.constants";
 import { dataSchema, defaults, type Data, type Value } from "./motion.schema";
 

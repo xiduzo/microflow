@@ -3,7 +3,7 @@ import { describe, expect, it, mock, afterEach } from "bun:test";
 const isDesktop = mock(() => false);
 mock.module("@/lib/platform", () => ({ isDesktop }));
 const isWebSerialSupported = mock(() => true);
-mock.module("@/lib/firmata/web-serial", () => ({ isWebSerialSupported }));
+mock.module("@/board/web-serial", () => ({ isWebSerialSupported }));
 
 const { hostLimitation, isBrowserReachableBroker } = await import("./browser-support");
 

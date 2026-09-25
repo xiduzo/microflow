@@ -1,5 +1,5 @@
 import { useNodeId } from "@/nodes/_base/node-context";
-import type { NodeDiagnostic } from "@/lib/firmata/effects-sink";
+import type { NodeDiagnostic } from "@/runtime/effects-sink";
 import { create } from "zustand";
 
 /** A node's live runtime health, fed by the runtime `node_diagnostics` effect

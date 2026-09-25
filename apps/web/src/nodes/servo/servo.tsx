@@ -6,8 +6,8 @@ import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from 
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/nodes/live/node-data";
 import { type Data, type Value, dataSchema, defaults } from "./servo.schema";
-import { pinsToOptions } from "@/components/hardware/pin";
-import { MODES, usePins } from "@/stores/board";
+import { pinsToOptions } from "@/board/pin-label";
+import { MODES, usePins } from "@/board/board-store";
 
 export function Servo(props: Props) {
   return (

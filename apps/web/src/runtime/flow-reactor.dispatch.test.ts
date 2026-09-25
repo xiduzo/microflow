@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { FlowReactor } from "./flow-reactor";
 import type { FlowRuntimeCalls } from "./runtime-bridge";
-import type { BoardConnection } from "./web-serial";
+import type { BoardConnection } from "@/board/web-serial";
 
 // Hotkeys in the browser reach the runtime through `dispatchToNode` (the twin of
 // the desktop host's `ActorMsg::Key`). Assert the crossing: the right port, the

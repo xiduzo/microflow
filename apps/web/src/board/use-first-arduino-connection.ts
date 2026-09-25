@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { useBoardState } from "@/stores/board";
-import { useArduinoOnboardingStore } from "@/stores/arduino-onboarding";
+import { useBoardState } from "@/board/board-store";
+import { useArduinoOnboardingStore } from "@/board/arduino-onboarding";
 
 export function useFirstArduinoConnection() {
   const boardState = useBoardState();

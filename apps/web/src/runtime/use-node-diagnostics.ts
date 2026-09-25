@@ -1,5 +1,5 @@
 import { useListen } from "@/lib/ipc";
-import type { NodeDiagnostic } from "@/lib/firmata/effects-sink";
+import type { NodeDiagnostic } from "@/runtime/effects-sink";
 import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 
 /**

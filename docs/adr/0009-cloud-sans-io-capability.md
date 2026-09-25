@@ -230,7 +230,7 @@ Services" sections rewritten to post-re-host reality — see CONTEXT reconciliat
 - `crates/microflow-core/src/runtime/context.rs` — `Effects` gains `cloud_requests`; `EffectsSink::perform_cloud`.
 - `crates/microflow-core/src/runtime/registry.rs` — `register_cloud::<B>` helper.
 - `crates/microflow-runtime-wasm/src/lib.rs` — gains `injectEvent`/`resolveCloud`.
-- `apps/web/src/lib/firmata/flow-reactor.ts` — browser `perform_cloud`.
+- `apps/web/src/runtime/flow-reactor.ts` — browser `perform_cloud`.
 - `apps/server` + `packages/api` `appRouter` — `cloud.*` proxy procedures.
 - [ADR-0006](0006-rehost-runtime-on-core.md) — sans-IO `Effects` seam this extends to cloud.
 - [ADR-0008](0008-effects-apply-policy.md) — the `EffectsSink` this adds `perform_cloud` to.

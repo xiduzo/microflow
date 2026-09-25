@@ -11,7 +11,7 @@
 // without it, reconcile/send log once and do nothing — mirroring how cloud
 // nodes degrade without a configured broker.
 
-import type { MidiListener } from "@/lib/runtime/wasm";
+import type { MidiListener } from "@/runtime/wasm";
 
 /** Route one raw inbound MIDI message to an in-node (`deliverMessage`). */
 export type MidiDeliver = (nodeId: string, portName: string, bytes: Uint8Array) => void;

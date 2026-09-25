@@ -4,8 +4,8 @@ import { Handle as BaseHandle } from "../_base/handle";
 const Handle = BaseHandle<"Rgb">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RgbaColorPicker } from "react-colorful";
-import { MODES, usePins } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { MODES, usePins } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 import { dataSchema, defaults, type Data, type Value } from "./rgb.schema";
 import { folder } from "leva";
 

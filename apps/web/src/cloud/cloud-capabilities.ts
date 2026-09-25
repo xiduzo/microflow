@@ -11,7 +11,7 @@ import {
   type CloudCapability,
 } from "./cloud-capability-sync";
 import { probeBroker, probeLlmProvider, probeStatus } from "./browser-cloud-probe";
-import type { HostSnapshot } from "@/session/flow-update-dispatcher";
+import type { HostSnapshot } from "@/runtime/flow-update-dispatcher";
 
 // Production cloud-capability registry: each entry owns its store slice, its
 // push to the runtime host's Service Registry, and its HostSnapshot field.

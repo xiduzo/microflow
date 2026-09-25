@@ -10,10 +10,10 @@ import {
 } from "../_base/_base";
 import { useNodeValue } from "@/nodes/live/node-data";
 import { useState } from "react";
-import { MODES } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { MODES } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 import { SongEditor } from "./song-editor";
-import { usePins } from "@/stores/board";
+import { usePins } from "@/board/board-store";
 import {
   type BuzzData,
   type Data,

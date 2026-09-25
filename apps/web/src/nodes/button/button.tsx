@@ -1,4 +1,4 @@
-import { MODES, usePins } from "@/stores/board";
+import { MODES, usePins } from "@/board/board-store";
 import { folder } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { Handle as BaseHandle } from "../_base/handle";
@@ -6,7 +6,7 @@ import { Handle as BaseHandle } from "../_base/handle";
 const Handle = BaseHandle<"Button">;
 import { useNodeValue } from "@/nodes/live/node-data";
 import { dataSchema, defaults, type Data, type Value } from "./button.schema";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { pinsToOptions } from "@/board/pin-label";
 import { PointerIcon, PointerOffIcon } from "lucide-react";
 
 export function Button(props: Props) {

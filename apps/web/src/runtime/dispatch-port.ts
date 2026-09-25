@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isDesktop } from "@/lib/platform";
-import { dispatchToNode } from "./board-controller";
+import { dispatchToNode } from "@/board/board-controller";
 
 /**
  * Deliver one host-originated value to a node's port, whichever host we are in:

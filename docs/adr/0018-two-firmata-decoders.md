@@ -15,7 +15,7 @@
 
 ## Context
 
-`apps/web/src/lib/firmata/web-serial.ts`'s `pumpReader` is the browser's one
+`apps/web/src/board/web-serial.ts`'s `pumpReader` is the browser's one
 inbound serial loop. Per chunk it calls `session.feed(value)` (the
 `microflow-firmata-wasm` `FirmataSession`) and then `hooks.onBytes(value)`, which
 the board controller wires to `reactor.feedBytes` (the `microflow-runtime-wasm`
@@ -166,11 +166,11 @@ Terms for `CONTEXT.md`:
 
 ## References
 
-- `apps/web/src/lib/firmata/web-serial.ts` — `tryConnectAtBaud` (the handshake), `pumpReader` (the fan-out).
-- `apps/web/src/lib/firmata/flow-reactor.ts` — `attach`: the pin seed; `feedBytes`: the flow's decode.
-- `apps/web/src/lib/firmata/board-controller.ts` — `probeHooks`: `onBytes` → the reactor.
+- `apps/web/src/board/web-serial.ts` — `tryConnectAtBaud` (the handshake), `pumpReader` (the fan-out).
+- `apps/web/src/runtime/flow-reactor.ts` — `attach`: the pin seed; `feedBytes`: the flow's decode.
+- `apps/web/src/board/board-controller.ts` — `probeHooks`: `onBytes` → the reactor.
 - `crates/microflow-core/src/firmata/mod.rs` — the one codec both instances wrap.
 - `crates/microflow-core/src/runtime/mod.rs` — `seed_pins`, `feed_bytes`, `detect_pin_changes`.
-- `apps/web/src/lib/firmata/__tests__/inbound-stream.test.ts` — both decoders get the same chunks.
+- `apps/web/src/board/inbound-stream.test.ts` — both decoders get the same chunks.
 - [ADR-0008](0008-effects-apply-policy.md) — the `Effects` seam a merge would have to widen.
 - [ADR-0017](0017-wasm-fault-seam.md) — `onClosed` means the reader ended; per-chunk fault containment.

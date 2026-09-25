@@ -22,7 +22,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { FlowSwitcher, LOCAL_FLOW } from "./flow-switcher";
-import { NavMicrocontroller } from "./nav-microcontroller";
+import { NavMicrocontroller } from "@/board/nav-microcontroller";
 import { NavDownloadStudio } from "./nav-download-studio";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";

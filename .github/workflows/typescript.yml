@@ -92,7 +92,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # tsc resolves `src/lib/{codegen,firmata,runtime}/generated/*.d.ts`, which
+      # tsc resolves `src/{lib/codegen,board,runtime}/generated/*.d.ts`, which
       # are gitignored wasm-pack output. Without them the typecheck fails with
       # TS2307 on all three, so the bindings must be built first.
       - name: Build wasm bindings

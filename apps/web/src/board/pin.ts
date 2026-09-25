@@ -1,4 +1,4 @@
-import { MODES, type Pin } from "@/stores/board";
+import { MODES, type Pin } from "@/board/board-store";
 
 /**
  * Get the lowest analog channel from a list of pins to use as the base (A0)

@@ -5,7 +5,7 @@
 - **Deciders:** sander
 
 > **Decision:** every browser call into the wasm `FlowRuntime` goes through
-> `RuntimeBridge` (`apps/web/src/lib/firmata/runtime-bridge.ts`). It catches,
+> `RuntimeBridge` (`apps/web/src/runtime/runtime-bridge.ts`). It catches,
 > classifies (`badInput` / `engineBroken` / `disposed`), latches closed on a
 > module trap, and returns `undefined` instead of throwing. A wasm fault reaches
 > a **runtime** surface — the node diagnostic badge or the board error state —
@@ -166,11 +166,11 @@ New terms recorded in `CONTEXT.md`:
 
 ## References
 
-- `apps/web/src/lib/firmata/runtime-bridge.ts` — the seam.
-- `apps/web/src/lib/firmata/flow-reactor.ts` — `turn` / `handleFault`: every crossing and the routing.
-- `apps/web/src/lib/firmata/web-serial.ts` — `pumpReader`: `onClosed` means the reader ended.
-- `apps/web/src/lib/firmata/board-controller.ts` — `onEngineFault`: the board error state, without a bring-up event.
-- `apps/web/src/lib/firmata/__tests__/runtime-bridge.test.ts` — containment, poisoning, and that a throwing runtime does not close the board.
+- `apps/web/src/runtime/runtime-bridge.ts` — the seam.
+- `apps/web/src/runtime/flow-reactor.ts` — `turn` / `handleFault`: every crossing and the routing.
+- `apps/web/src/board/web-serial.ts` — `pumpReader`: `onClosed` means the reader ended.
+- `apps/web/src/board/board-controller.ts` — `onEngineFault`: the board error state, without a bring-up event.
+- `apps/web/src/runtime/runtime-bridge.test.ts` — containment, poisoning, and that a throwing runtime does not close the board.
 - [ADR-0006](0006-rehost-runtime-on-core.md) — the sans-IO runtime this hosts.
 - [ADR-0008](0008-effects-apply-policy.md) — the apply policy that runs after a successful crossing.
 

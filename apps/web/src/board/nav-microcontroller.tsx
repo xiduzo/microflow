@@ -15,12 +15,12 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "../ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+} from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isDesktop } from "@/lib/platform";
 import { cva } from "class-variance-authority";
-import { useBoardError, useBoardPort, useBoardState } from "@/stores/board";
-import { useWebSerialBoard } from "@/hooks/use-web-serial-board";
+import { useBoardError, useBoardPort, useBoardState } from "@/board/board-store";
+import { useWebSerialBoard } from "@/board/use-web-serial-board";
 import { useMemo } from "react";
 import { openDocs } from "@/lib/docs";
 

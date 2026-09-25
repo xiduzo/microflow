@@ -27,7 +27,7 @@ codebase and the reason it is testable and portable.
                         │ same engine, two builds                                     │
         ┌───────────────┴───────────────┐                         ┌──────────────────┴────────────────┐
         │  Desktop host (Tauri, native) │                         │  Browser host (wasm + Web Serial)  │
-        │  apps/web/src-tauri            │                         │  apps/web/src/lib/firmata          │
+        │  apps/web/src-tauri            │                         │  apps/web/src/runtime + board      │
         │  serial · Tokio timers · cloud │                         │  setTimeout · fetch/WSS · cloud     │
         └────────────────────────────────┘                         └─────────────────────────────────────┘
 ```
@@ -42,7 +42,7 @@ The engine is compiled to WebAssembly for the browser by `crates/microflow-runti
 | `crates/microflow-core` | The sans-IO flow engine + Arduino code generation. The heart. |
 | `crates/microflow-runtime-wasm` | Thin wasm shim exposing the engine to the browser. |
 | `crates/microflow-codegen-wasm`, `…-firmata-wasm` | Wasm shims for ahead-of-time sketch codegen / Firmata. |
-| `apps/web` | The Studio: React + ReactFlow UI, the Tauri desktop shell (`src-tauri`), and the browser runtime host (`src/lib/firmata`). |
+| `apps/web` | The Studio: React + ReactFlow UI, the Tauri desktop shell (`src-tauri`), and the browser runtime host (`src/runtime`, `src/board`). |
 | `apps/server` | Collaboration / API backend. |
 | `apps/fumadocs` | User documentation site. |
 | `apps/figma-plugin`, `apps/penpot-plugin` | Design-tool integrations. |

@@ -92,7 +92,7 @@ describe("the stores split out of microflow:app", () => {
   const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
   let sidebar: typeof import("./sidebar");
   let activeFlow: typeof import("./active-flow");
-  let onboarding: typeof import("./arduino-onboarding");
+  let onboarding: typeof import("@/board/arduino-onboarding");
 
   beforeAll(async () => {
     storage.setItem(LEGACY_APP_KEY, persisted(RETURNING_USER));
@@ -102,7 +102,7 @@ describe("the stores split out of microflow:app", () => {
     // Imported only now: each store picks up `localStorage` as it is created.
     sidebar = await import("./sidebar");
     activeFlow = await import("./active-flow");
-    onboarding = await import("./arduino-onboarding");
+    onboarding = await import("@/board/arduino-onboarding");
   });
 
   afterAll(() => {

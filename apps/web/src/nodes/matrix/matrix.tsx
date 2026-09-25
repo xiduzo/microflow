@@ -30,9 +30,9 @@ import {
   type MatrixShape,
 } from "./matrix.constants";
 import { DEFAULT_MATRIX_SHAPE } from "./matrix.constants";
-import { usePins } from "@/stores/board";
-import { MODES } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { usePins } from "@/board/board-store";
+import { MODES } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 import { useNodeControls } from "../_base/_base";
 import { ArrowLeftRightIcon, ArrowRightLeftIcon } from "lucide-react";
 

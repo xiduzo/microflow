@@ -19,7 +19,7 @@ plugin uid appears in the reconciled subscription set, publish
 `microflow/{uid}/app/status = "connected"` (retained) and request its current
 variable values (`microflow/{uid}/app/variables/request`); when a uid vanishes,
 publish `"disconnected"` (retained). It lived in two languages —
-`apps/web/src/lib/firmata/flow-reactor.ts` `figmaLifecycle` and the desktop
+`apps/web/src/runtime/flow-reactor.ts` `figmaLifecycle` and the desktop
 `apps/web/src-tauri/src/runtime/commands.rs` `flow_update` tail — kept in lockstep
 only by a "mirrors the desktop tail" comment. The two had already drifted in a
 small but real way: the desktop announced the disconnect *before* the

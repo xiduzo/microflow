@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { connect, disconnect, start, supported } from "@/lib/firmata/board-controller";
+import { connect, disconnect, start, supported } from "@/board/board-controller";
 
 /**
  * Browser-only board control. The desktop auto-detects the board in Rust; in the

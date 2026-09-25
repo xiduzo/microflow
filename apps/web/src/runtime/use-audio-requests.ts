@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { CloudRequest } from "@/lib/bindings/CloudRequest";
-import { AudioPerformer, audioSourcesOf } from "@/lib/audio/audio-performer";
-import { dispatchPort } from "@/lib/firmata/dispatch-port";
+import { AudioPerformer, audioSourcesOf } from "@/runtime/audio/audio-performer";
+import { dispatchPort } from "@/runtime/dispatch-port";
 import { useListen } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { useFlowSession } from "@/session";

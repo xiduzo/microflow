@@ -8,7 +8,7 @@
 // `providers` are dropped — the browser resolves cloud config live from its
 // stores (`CloudDeps` in board-controller.ts), so only the flow crosses.
 
-import { pushFlowUpdate } from "@/lib/firmata/board-controller";
+import { pushFlowUpdate } from "@/board/board-controller";
 import type { FlowUpdate, FlowUpdateSender, SendResult } from "./flow-update-sender";
 
 export class WasmFlowUpdateSender implements FlowUpdateSender {

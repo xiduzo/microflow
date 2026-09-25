@@ -18,7 +18,7 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
-import { useBoardEvents } from "@/stores/board";
+import { useBoardEvents } from "@/board/board-store";
 import { useCloudCapabilitySync } from "@/cloud/cloud-capabilities";
 import { useUpdater } from "@/hooks/use-updater";
 import { useDeepLink } from "@/hooks/use-deep-link";
@@ -28,7 +28,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { MicroflowDevtools } from "@/components/devtools/microflow-devtools";
 import { useBackendLogs } from "@/hooks/use-backend-logs";
 import ReactConfetti from "react-confetti";
-import { useFirstArduinoConnection } from "@/hooks/use-first-arduino-connection";
+import { useFirstArduinoConnection } from "@/board/use-first-arduino-connection";
 import { useSidebarStore } from "@/stores/sidebar";
 
 export interface RouterAppContext {

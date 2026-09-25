@@ -10,7 +10,7 @@
 // remains the behavioural twin of the Rust `apply_tests`, asserting the order at
 // runtime; the types now guarantee coverage so the test can't be the only guard.
 
-import type { CloudRequest, Effects } from "@/lib/runtime/wasm";
+import type { CloudRequest, Effects } from "@/runtime/wasm";
 
 export type { CloudRequest };
 /** One scheduled wakeup, as carried in the `Effects` serde shape. */

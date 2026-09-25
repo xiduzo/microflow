@@ -1,7 +1,7 @@
-import type { Pin } from "@/stores/board";
+import type { Pin } from "@/board/board-store";
 import type { Node } from "@xyflow/react";
 import type { BaseData } from "@/nodes/_base/_base.schema";
-import { formatPinValueWithPwm, findPin } from "@/lib/pin";
+import { formatPinValueWithPwm, findPin } from "@/board/pin";
 import {
   COMPONENT_IMPL,
   REQUIRES_HARDWARE,
@@ -17,7 +17,7 @@ const UNO_ANALOG_BASE = 14;
 /**
  * Resolve a pin value (number or "A0" string) to the actual pin number.
  *
- * The lookup itself is `lib/pin.ts`'s `findPin` — the one resolver that knows
+ * The lookup itself is `board/pin.ts`'s `findPin` — the one resolver that knows
  * how `A<n>` maps onto a board's analog channels. Only the no-board fallback
  * lives here, because it is this module's concern: the circuit view renders
  * with `pins: []` whenever the editor is offline, where `findPin` correctly has

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { toast } from "sonner";
 import { useNodeHandleValue, useNodeValue } from "@/nodes/live/node-data";
-import { dispatchPort } from "@/lib/firmata/dispatch-port";
+import { dispatchPort } from "@/runtime/dispatch-port";
 import { Handle as BaseHandle } from "../_base/handle";
 import {
   NodeContainer,

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { splitFromLegacyApp } from "./legacy-app-store";
+import { splitFromLegacyApp } from "@/stores/legacy-app-store";
 
 /** The celebration of a user's first Arduino connection. */
 type ArduinoOnboardingState = {

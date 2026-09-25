@@ -1,11 +1,11 @@
-import type { Pin } from "@/stores/board";
+import type { Pin } from "@/board/board-store";
 import {
   pinDisplayValue,
   findPin,
   isPwmPin,
   pinsToOptions,
   reducePinsToOptions,
-} from "@/lib/pin";
+} from "@/board/pin";
 
 // Re-export utilities for backward compatibility
 export { pinDisplayValue, pinsToOptions, reducePinsToOptions };

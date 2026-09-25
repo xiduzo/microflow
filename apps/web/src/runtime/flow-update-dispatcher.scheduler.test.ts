@@ -8,7 +8,7 @@ import {
   type NodeAdapterRegistry,
 } from "./flow-update-dispatcher";
 import type { FlowUpdate, FlowUpdateSender, SendResult } from "./flow-update-sender";
-import type { FlowSession } from "./flow-session";
+import type { FlowSession } from "@/session/flow-session";
 
 const EMPTY_REGISTRY: NodeAdapterRegistry = {};
 

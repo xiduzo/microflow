@@ -23,7 +23,7 @@
 
 import { isDesktop } from "@/lib/platform";
 import { REQUIRES_HARDWARE, isComponentType } from "../component-types.generated";
-import { isWebSerialSupported } from "@/lib/firmata/web-serial";
+import { isWebSerialSupported } from "@/board/web-serial";
 import { cliProvider, isCliProvider, takesFlowTools } from "@/ai/cli-providers";
 
 /** A short badge label and the sentence behind it. */

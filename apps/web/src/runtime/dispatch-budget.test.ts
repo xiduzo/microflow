@@ -29,7 +29,7 @@ import {
   type NodeAdapterRegistry,
 } from "./flow-update-dispatcher";
 import { RecordingFlowUpdateSender } from "./flow-update-sender";
-import type { FlowSession } from "./flow-session";
+import type { FlowSession } from "@/session/flow-session";
 
 const EMPTY_REGISTRY: NodeAdapterRegistry = {};
 

@@ -175,7 +175,7 @@ Six sub-decisions:
   singleton that survives session swap (so users can copy-paste between
   flows). The native-runtime push (`setupDocSync` + broker/provider
   gathering) moves to a temporary
-  `apps/web/src/session/use-flow-update-dispatcher.ts` hook, mounted
+  `apps/web/src/runtime/use-flow-update-dispatcher.ts` hook, mounted
   only by the desktop layout (`isDesktop`-gated at the route — not
   inside the session). A follow-up ADR will deepen
   `FlowUpdateDispatcher` into its own module, name the dispatch

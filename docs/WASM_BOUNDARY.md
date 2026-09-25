@@ -12,8 +12,8 @@ same core natively, so neither host is the source of truth for behaviour.
 
 | Module | Surface | Host code |
 |---|---|---|
-| `microflow-runtime-wasm` | `FlowRuntime` — the flow engine | `lib/firmata/flow-reactor.ts` |
-| `microflow-firmata-wasm` | `FirmataSession` (codec), `BringUpMachine`, `FlashSession` | `lib/firmata/web-serial.ts`, `board-controller.ts` |
+| `microflow-runtime-wasm` | `FlowRuntime` — the flow engine | `runtime/flow-reactor.ts` |
+| `microflow-firmata-wasm` | `FirmataSession` (codec), `BringUpMachine`, `FlashSession` | `board/web-serial.ts`, `board-controller.ts` |
 | `microflow-codegen-wasm` | Arduino sketch generation | `lib/codegen/` |
 
 Each has its own memoised `ensureReady()` and is fetched through Vite's `?url`, so
@@ -32,7 +32,7 @@ type carries `#[derive(TS)] #[ts(export)]` in Rust and lands in
 `NodeDiagnostic`, `MidiListener`, `FigmaPublish`, `DesiredSub`, `BringUpEvent` /
 `BringUpPhase` / `BringUpAction`, `FlashStep`, `FeedResult`.
 
-`lib/runtime/wasm.ts`, `lib/firmata/wasm.ts` and `cloud/mqtt-subscriptions.ts`
+`runtime/wasm.ts`, `board/wasm.ts` and `cloud/mqtt-subscriptions.ts`
 are **re-export surfaces** — they declare no structural types of their own. Adding
 a field to a seam type in Rust regenerates the TypeScript; a rename is a `tsc`
 failure rather than a runtime `undefined`.
@@ -48,7 +48,7 @@ Two conventions apply at the seam:
 ## What happens when Rust fails
 
 Every runtime entry point returns `Result<String, JsError>` — a throw on the JS
-side. `lib/firmata/runtime-bridge.ts` is the one crossing into the flow runtime;
+side. `runtime/runtime-bridge.ts` is the one crossing into the flow runtime;
 no call site holds a runtime handle directly. `bridge.call()` returns the reply or
 `undefined` and never throws. See [ADR-0017](adr/0017-wasm-fault-seam.md).
 
@@ -77,7 +77,7 @@ which the bring-up machine handles.
 
 ## The inbound stream
 
-`pumpReader` in `lib/firmata/web-serial.ts` fans each inbound chunk, unfiltered and
+`pumpReader` in `board/web-serial.ts` fans each inbound chunk, unfiltered and
 in order, to two wasm instances: the **detection codec** (`FirmataSession`) and the
 flow runtime. Both wrap the same `microflow_core::firmata::FirmataClient` — one
 codec answering two questions at two lifetimes, not two competing parsers. The

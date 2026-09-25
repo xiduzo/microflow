@@ -6,7 +6,7 @@ import { useFlowNodes, useFlowSession } from "@/session";
 import type { Hotkey } from "@tanstack/react-hotkeys";
 import { NODE_CATALOG } from "@/nodes/catalog.generated";
 import { isComponentType } from "@/nodes/component-types.generated";
-import { dispatchToNode } from "@/lib/firmata/board-controller";
+import { dispatchToNode } from "@/board/board-controller";
 
 /**
  * Registers TanStack hotkeys for every Hotkey node in the current flow.

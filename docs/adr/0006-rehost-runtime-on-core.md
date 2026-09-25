@@ -74,7 +74,7 @@ the browser does.
     serial port and a Tokio handle for timers and cloud I/O. Only `Send` handles
     cross the spawn boundary; cloud-node results re-enter via `inject_event`
     through a `ChannelEmitter`.
-  - **Browser** (`apps/web/src/lib/firmata/flow-reactor.ts`): a `setTimeout`/Web
+  - **Browser** (`apps/web/src/runtime/flow-reactor.ts`): a `setTimeout`/Web
     Serial loop that applies the same `Effects` — bytes to the port, events to the
     Zustand stores, wakeups to `setTimeout`, cancellations to `clearTimeout`.
 
@@ -132,6 +132,6 @@ New terms recorded in `CONTEXT.md`:
 - `crates/microflow-core/src/runtime/mod.rs` — `FlowRuntime` entry points + `_`-prefix routing.
 - `crates/microflow-core/src/runtime/registry.rs` — hand-registration; build.rs codegen dropped.
 - `apps/web/src-tauri/src/runtime/host.rs` — desktop actor-thread adapter.
-- `apps/web/src/lib/firmata/flow-reactor.ts` — browser reactor adapter.
+- `apps/web/src/runtime/flow-reactor.ts` — browser reactor adapter.
 - Commit `2f5a4ce` — "refactor(desktop): delete the duplicate runtime, re-host on microflow-core".
 - ADR-0001, ADR-0002 (router), ADR-0025 (per-capability) — superseded paths.

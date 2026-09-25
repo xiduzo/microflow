@@ -7,7 +7,7 @@ import {
   type NodeDiagnostic,
   type Wakeup,
 } from "./effects-sink";
-import type { Effects } from "@/lib/runtime/wasm";
+import type { Effects } from "@/runtime/wasm";
 
 // The browser half of the ADR-0008 conformance scenario. Its Rust twin is
 // `microflow-core`'s `context::apply_tests` — both assert the same canonical

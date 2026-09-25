@@ -17,8 +17,8 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cva, type VariantProps } from "class-variance-authority";
-import { MODES, usePins } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { MODES, usePins } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 
 export function Sensor(props: Props) {
   return (

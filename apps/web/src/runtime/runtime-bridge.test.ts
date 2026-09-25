@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { FlowUpdate } from "@/lib/bindings/FlowUpdate";
 import { RuntimeBridge, type FlowRuntimeCalls, type RuntimeFault } from "./runtime-bridge";
-import { pumpReader } from "./web-serial";
-import type { FirmataSession } from "./wasm";
+import { pumpReader } from "@/board/web-serial";
+import type { FirmataSession } from "@/board/wasm";
 
 // ADR-0017: a wasm fault is never transport news. Two halves prove it, matching
 // the two places the old behaviour leaked:

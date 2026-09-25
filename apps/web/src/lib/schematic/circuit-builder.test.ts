@@ -6,7 +6,7 @@ import {
   COMPONENT_TYPES,
   REQUIRES_HARDWARE,
 } from "@/nodes/component-types.generated";
-import type { Pin } from "@/stores/board";
+import type { Pin } from "@/board/board-store";
 
 /** A node as the canvas stores it — only the fields the builder reads. */
 function node(instance: string, data: Record<string, unknown> = {}): Node {

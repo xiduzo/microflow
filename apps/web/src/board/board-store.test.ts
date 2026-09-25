@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "bun:test";
-import { MODES, useBoardStore, type Board, type Pin } from "./board";
+import { MODES, useBoardStore, type Board, type Pin } from "./board-store";
 
 const pin = (n: number, modes: MODES[]): Pin => ({
   pin: n,

@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import type { ComponentEvent } from "@/lib/bindings/ComponentEvent";
 import { useListen } from "@/lib/ipc";
 import { useFlowSession } from "@/session";
-import { applyComponentEvent } from "@/lib/event-ingest";
+import { applyComponentEvent } from "@/runtime/event-ingest";
 
 /**
  * Listens to component events from the Tauri backend and applies them through

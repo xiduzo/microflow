@@ -1,22 +1,15 @@
 import { getSession, getCustomerState } from "@/lib/auth-client";
 import { useActiveFlowStore } from "@/stores/active-flow";
 import { useCircuitStore } from "@/stores/circuit-store";
-import {
-  FlowSessionProvider,
-  useCloudSession,
-  useFlowSession,
-  useFlowUpdateDispatcher,
-  useLocalSession,
-  type FlowRole,
-  type FlowSession,
-} from "@/session";
+import { FlowSessionProvider, useCloudSession, useFlowSession, useLocalSession, type FlowRole, type FlowSession } from "@/session";
+import { useFlowUpdateDispatcher } from "@/runtime/use-flow-update-dispatcher";
 import { useFlowStructuralNodes } from "@/session/use-flow-nodes";
-import { usePins, type Pin } from "@/stores/board";
-import { useComponentEvents } from "@/hooks/use-component-events";
-import { useNodeDiagnostics } from "@/hooks/use-node-diagnostics";
-import { useAudioRequests } from "@/hooks/use-audio-requests";
+import { usePins, type Pin } from "@/board/board-store";
+import { useComponentEvents } from "@/runtime/use-component-events";
+import { useNodeDiagnostics } from "@/runtime/use-node-diagnostics";
+import { useAudioRequests } from "@/runtime/use-audio-requests";
 import { useLlmRequests } from "@/ai/use-llm-requests";
-import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
+import { useHotkeyEvents } from "@/runtime/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";

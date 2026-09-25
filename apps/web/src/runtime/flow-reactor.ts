@@ -1,7 +1,7 @@
 // The browser flow reactor: the host loop around the wasm `FlowRuntime`.
 //
 // The desktop runs the flow engine on a background thread and emits
-// `component-event`s over Tauri IPC (see hooks/use-component-events.ts). In the
+// `component-event`s over Tauri IPC (see runtime/use-component-events.ts). In the
 // browser the same engine runs in wasm (microflow-runtime-wasm) and THIS module
 // is its host: it owns the board connection + the wasm runtime, feeds inbound
 // Web Serial bytes in, writes the runtime's outbound bytes back, arms/cancels
@@ -17,8 +17,8 @@
 
 import type { FlowEdge } from "@/lib/bindings/FlowEdge";
 import type { FlowUpdate as FlowUpdateShape } from "@/lib/bindings/FlowUpdate";
-import { applyComponentEvent } from "@/lib/event-ingest";
-import { createFlowRuntime, figmaAnnounceActions, type Effects } from "@/lib/runtime/wasm";
+import { applyComponentEvent } from "@/runtime/event-ingest";
+import { createFlowRuntime, figmaAnnounceActions, type Effects } from "@/runtime/wasm";
 import {
   RuntimeBridge,
   type FlowRuntimeCalls,
@@ -26,7 +26,7 @@ import {
 } from "./runtime-bridge";
 import { CloudPerformer, type CloudDeps } from "@/cloud/cloud-performer";
 import { MidiPerformer } from "./midi/midi-performer";
-import { AudioPerformer, audioSourcesOf } from "@/lib/audio/audio-performer";
+import { AudioPerformer, audioSourcesOf } from "@/runtime/audio/audio-performer";
 import {
   applyEffects,
   type CloudRequest,
@@ -36,7 +36,7 @@ import {
   type Wakeup,
 } from "./effects-sink";
 import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
-import type { BoardConnection } from "./web-serial";
+import type { BoardConnection } from "@/board/web-serial";
 
 // Re-exported so the board controller keeps importing `CloudDeps` from here; the
 // type now lives with the performer that consumes it.

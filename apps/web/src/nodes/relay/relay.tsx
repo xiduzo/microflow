@@ -5,8 +5,8 @@ const Handle = BaseHandle<"Relay">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { ZapIcon, ZapOffIcon } from "lucide-react";
 import { type Value, type Data, dataSchema, defaults } from "./relay.schema";
-import { MODES, usePins } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { MODES, usePins } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 
 export function Relay(props: Props) {
   return (

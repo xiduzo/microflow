@@ -13,7 +13,7 @@
 // and fake resolvers — no broker, no runtime (see `cloud-performer.test.ts`).
 
 import type { EmitOf } from "@/nodes/component-types.generated";
-import type { CloudRequest } from "@/lib/firmata/effects-sink";
+import type { CloudRequest } from "@/runtime/effects-sink";
 import type { LlmProviderConn } from "@/ai/llm-client";
 import {
   BrokerConnections,

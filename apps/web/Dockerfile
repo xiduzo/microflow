@@ -20,11 +20,11 @@ RUN rustup target add wasm32-unknown-unknown \
 # whole workspace: wasm-pack loads every member manifest during resolution
 COPY . .
 
-# emits apps/web/src/lib/{codegen,firmata,runtime}/generated
+# emits apps/web/src/{lib/codegen,board,runtime}/generated
 WORKDIR /app/apps/web
 RUN wasm-pack build ../../crates/microflow-codegen-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/codegen/generated \
- && wasm-pack build ../../crates/microflow-firmata-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/firmata/generated \
- && wasm-pack build ../../crates/microflow-runtime-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/lib/runtime/generated
+ && wasm-pack build ../../crates/microflow-firmata-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/board/generated \
+ && wasm-pack build ../../crates/microflow-runtime-wasm --profile wasm-release --target web --out-dir ../../apps/web/src/runtime/generated
 
 # ---- Stage 2: install JS deps, bundle the Vite app, serve ----
 FROM oven/bun:1 AS web
@@ -47,8 +47,8 @@ RUN bun install --frozen-lockfile || bun install --frozen-lockfile
 
 # Reuse the WASM compiled in stage 1 — this image has no Rust toolchain
 COPY --from=wasm /app/apps/web/src/lib/codegen/generated  ./apps/web/src/lib/codegen/generated
-COPY --from=wasm /app/apps/web/src/lib/firmata/generated  ./apps/web/src/lib/firmata/generated
-COPY --from=wasm /app/apps/web/src/lib/runtime/generated  ./apps/web/src/lib/runtime/generated
+COPY --from=wasm /app/apps/web/src/board/generated  ./apps/web/src/board/generated
+COPY --from=wasm /app/apps/web/src/runtime/generated  ./apps/web/src/runtime/generated
 
 # wasm already built above — run only the Vite bundle. `build:app` (= vite build)
 # via `bun run` is the proven pattern that runs vite under the bun runtime.

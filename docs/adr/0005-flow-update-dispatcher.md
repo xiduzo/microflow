@@ -10,7 +10,7 @@
 into `FlowSession` and reserved the name `FlowUpdateDispatcher` for the
 desktop-only observer that pushes `FlowUpdate` payloads to the native
 runtime. The actual dispatcher remained a placeholder hook
-(`apps/web/src/session/use-flow-update-dispatcher.ts`) wrapping the
+(`apps/web/src/runtime/use-flow-update-dispatcher.ts`) wrapping the
 legacy `flow-store.setupDocSync` logic verbatim — observer + debounced
 async callback + direct calls into `useMqttBrokerStore.getState()`,
 `useFigmaStore.getState()`, dynamic `import("@/ai/llm-provider")`,
@@ -236,15 +236,15 @@ section rewritten):
 
 ## References
 
-- `apps/web/src/session/flow-update-dispatcher.ts` — class + pure
+- `apps/web/src/runtime/flow-update-dispatcher.ts` — class + pure
   helpers + `ManualDispatchScheduler`.
-- `apps/web/src/session/flow-update-sender.ts` — interface + types +
+- `apps/web/src/runtime/flow-update-sender.ts` — interface + types +
   `RecordingFlowUpdateSender`.
-- `apps/web/src/session/tauri-flow-update-sender.ts` — production
+- `apps/web/src/runtime/tauri-flow-update-sender.ts` — production
   sender (split file so tests don't pull Tauri / env).
-- `apps/web/src/session/use-flow-update-dispatcher.ts` — production
+- `apps/web/src/runtime/use-flow-update-dispatcher.ts` — production
   React adapter wiring.
-- `apps/web/src/session/flow-update-dispatcher.test.ts` —
+- `apps/web/src/runtime/flow-update-dispatcher.test.ts` —
   17 cases.
 - [ADR-0025](0025-per-capability-service-traits.md) — sender / scheduler
   patterns mirror the Rust-side capability-trait + recording-test

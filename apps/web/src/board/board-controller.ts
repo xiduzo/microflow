@@ -10,7 +10,7 @@
 import { toast } from "sonner";
 import { track as trackEvent } from "@/lib/analytics";
 import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
-import { useBoardStore } from "@/stores/board";
+import { useBoardStore } from "@/board/board-store";
 import { useFigmaStore } from "@/cloud/figma";
 import { useLlmProviderStore } from "@/ai/llm-provider";
 import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
@@ -27,7 +27,7 @@ import {
   requestBoardPort,
 } from "./web-serial";
 import { createBringUp, handleBringUp } from "./wasm";
-import { FlowReactor, type CloudDeps } from "./flow-reactor";
+import { FlowReactor, type CloudDeps } from "@/runtime/flow-reactor";
 import { isDesktop } from "@/lib/platform";
 import { BoardController, type BoardControllerDeps } from "./board-controller-core";
 

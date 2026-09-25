@@ -12,9 +12,9 @@ import { dataSchema, defaults, type Data, type Value } from "./pixel.schema";
 import { COLORS, DEFAULT_OFF_PIXEL_COLOR } from "./pixel.constants";
 import { PixelDisplay } from "./pixel-display";
 import { useState } from "react";
-import { MODES } from "@/stores/board";
-import { usePins } from "@/stores/board";
-import { pinsToOptions } from "@/components/hardware/pin";
+import { MODES } from "@/board/board-store";
+import { usePins } from "@/board/board-store";
+import { pinsToOptions } from "@/board/pin-label";
 import { button, folder } from "leva";
 import { PixelEditor } from "./pixel-editor";
 import {
