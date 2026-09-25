@@ -47,9 +47,9 @@ Create `crates/microflow-core/src/nodes/sparkle/mod.rs`:
 ```rust
 //! The `Sparkle` node.
 
-pub mod config;
+pub(crate) mod config;
 #[cfg(feature = "runtime")]
-pub mod runtime;
+pub(crate) mod runtime;
 ```
 
 This file lists the layers the node has, and puts each one behind its feature gate. `config` has no gate, because the Arduino export reads it too. `runtime` sits behind the `runtime` feature. A node that uses a network service or a host peripheral (`Mqtt`, `Llm`, `Figma`, `Midi`, `Music`) puts its runtime behind `cloud` instead.
@@ -65,9 +65,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
-pub struct SparkleConfig {
-    pub min: f64,
-    pub max: f64,
+pub(crate) struct SparkleConfig {
+    pub(crate) min: f64,
+    pub(crate) max: f64,
 }
 
 impl Default for SparkleConfig {
@@ -90,16 +90,16 @@ use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
 
-pub use super::config::SparkleConfig;
+use super::config::SparkleConfig;
 
-pub struct Sparkle {
+pub(crate) struct Sparkle {
     base: ComponentBase,
     config: SparkleConfig,
 }
 
 impl Sparkle {
     #[must_use]
-    pub fn new(id: String, config: SparkleConfig) -> Self {
+    pub(crate) fn new(id: String, config: SparkleConfig) -> Self {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
@@ -164,7 +164,7 @@ impl ComponentBuilder for Sparkle {
 
 Node registration is explicit. Make three one-line edits in `crates/microflow-core/src/`:
 
-1. In `nodes/mod.rs`, add `pub mod sparkle;`.
+1. In `nodes/mod.rs`, add `pub(crate) mod sparkle;`.
 2. In `runtime/registry.rs`, add the node to `register_all`. The string is the node's name in `node-components.json` (Step 5). A `cloud` node goes in the `#[cfg(feature = "cloud")]` block.
 
    ```rust
@@ -181,7 +181,7 @@ Node registration is explicit. Make three one-line edits in `crates/microflow-co
 
 Studio can export a flow as an Arduino sketch. A node takes part only if it has a `codegen.rs`. Without one, the sketch has a `// unsupported Node …` comment in its place. To add an emitter:
 
-1. Create `nodes/sparkle/codegen.rs` and add `pub mod codegen;` (no feature gate) to `nodes/sparkle/mod.rs`. Read the settings through `super::config::SparkleConfig`, so the sketch uses the same fields and defaults as the runtime. `nodes/smooth/codegen.rs` shows the shape: an `emit` function and a `value_var` that names the C++ variable with the node's output.
+1. Create `nodes/sparkle/codegen.rs` and add `pub(crate) mod codegen;` (no feature gate) to `nodes/sparkle/mod.rs`. Read the settings through `super::config::SparkleConfig`, so the sketch uses the same fields and defaults as the runtime. `nodes/smooth/codegen.rs` shows the shape: an `emit` function and a `value_var` that names the C++ variable with the node's output.
 2. In `codegen/mod.rs`, add an arm to `emit_node` (the node's C++) and one to `output_expression` (the C++ expression that each emit handle stands for).
 3. In `codegen/parity.rs`, replace the `Exempt` arm with a `Case`: a test that feeds inputs to the emitter and checks that the C++ does what `runtime.rs` does.
 4. If the node owns a pin, add it to the pin checks in `codegen/validate.rs`.
@@ -402,7 +402,8 @@ Add `"sparkle"` to `apps/fumadocs/content/docs/microflow-studio/nodes/shape/meta
 - **Forgetting `node-components.json`.** Without it the node will not appear in the Add Node panel even if everything else is correct, and `bun run catalog:sync` fails because `register_all` names a node that the catalog does not have.
 - **Reaching for `rand`, threads or `sleep` in a node.** `microflow-core` also builds for WebAssembly. Use `ctx.now_ms()` for time and `ctx.schedule_wakeup(…)` for timers (Step 2).
 - **Names that do not match.** For every entry, codegen imports the component `Sparkle` from `sparkle/sparkle.tsx`, and `dataSchema` and `defaults` from `sparkle/sparkle.schema.ts`. A different folder, file or export name shows up as a type error in a `*.generated.ts` file. Fix the node, not the generated file.
-- **Importing from the rest of the app.** `apps/web/src` is split into one folder per domain (`board/`, `runtime/`, `ui/`, …). A node may import only the files that another folder lists as public in `apps/web/scripts/architecture/verticals.ts`. Run `bun test src/architecture.test.ts` in `apps/web` to check your imports.
+- **Importing from the rest of the app.** `apps/web/src` is split into one folder per domain (`board/`, `runtime/`, `ui/`, …). A node may import only the files that another folder lists as public in `apps/web/scripts/architecture/verticals.ts`. Run `bun test src/architecture.test.ts` in `apps/web` to check your imports. oxlint flags a violation in the editor and in CI (`microflow/vertical-boundaries`).
+- **Reaching into another Rust node.** Everything under `crates/microflow-core/src/nodes/` is `pub(crate)`, and a node never imports another node. Shared code belongs in `runtime/`, `codegen/` or `config/`. The `nodes/boundaries.rs` guard test fails otherwise, and it also fails when a node folder holds anything besides `mod.rs`, `config.rs`, `runtime.rs` and `codegen.rs`.
 - **Hardware flag wrong.** If your node touches a pin, `requiresHardware` must be `true` so Studio shows that the node needs a board, and the browser flags it when Web Serial is missing. The runtime does not read the flag: it sets up the board for the components that implement `HardwareComponent` (Step 2).
 - **Assuming desktop-only capabilities.** The web app runs the same runtime in WebAssembly. If your node reaches for a native capability, say so in `browser-support.ts` (Step 8) instead of letting it fail silently in the browser.
 - **Hot reload does not always pick up schema changes.** Restart `bun run dev:web` after edits to schema files.
