@@ -350,7 +350,7 @@ For one-shot reads (triggered by the "trigger" handle), the component sends a st
 ### New Files
 
 ```
-apps/web/src/components/flow/nodes/i2c-device/
+apps/web/src/nodes/i2c-device/
 ├── i2c-device.schema.ts    # Zod schema
 ├── i2c-device.tsx           # React component
 └── i2c-device.constants.ts  # Device presets and I2C addresses
@@ -426,9 +426,9 @@ When a preset is selected, address/register/readLength/output are auto-populated
 
 | File | Purpose |
 |------|---------|
-| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.schema.ts` | Zod schema for node data |
-| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.tsx` | React component |
-| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.constants.ts` | Device presets (UI defaults) |
+| `apps/web/src/nodes/i2c-device/i2c-device.schema.ts` | Zod schema for node data |
+| `apps/web/src/nodes/i2c-device/i2c-device.tsx` | React component |
+| `apps/web/src/nodes/i2c-device/i2c-device.constants.ts` | Device presets (UI defaults) |
 | `crates/microflow-core/src/config/i2c_device.rs` | Shared config + preset knowledge (`I2cDeviceConfig`, `device_init_writes`, `effective_register`) — ungated, used by both runtime and codegen |
 | `crates/microflow-core/src/runtime/input/i2c_device.rs` | Rust runtime component |
 | `crates/microflow-core/src/codegen/input/i2c_device.rs` | Arduino sketch emitter |

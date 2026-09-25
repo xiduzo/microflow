@@ -12,7 +12,7 @@
 // That makes it unit-testable with a stub `MqttClientFactory`, a stubbed `fetch`,
 // and fake resolvers — no broker, no runtime (see `cloud-performer.test.ts`).
 
-import type { EmitOf } from "@/components/flow/nodes/_base/_base.types";
+import type { EmitOf } from "@/nodes/component-types.generated";
 import type { CloudRequest } from "../effects-sink";
 import type { LlmProviderConn } from "./llm-client";
 import {

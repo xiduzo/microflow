@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
 import { readHostSnapshot } from "./cloud-capabilities";
 import { DebounceScheduler, FlowUpdateDispatcher } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";

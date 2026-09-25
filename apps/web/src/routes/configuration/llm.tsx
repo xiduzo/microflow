@@ -21,7 +21,7 @@ import {
 import { isMixedContent } from "@/lib/ai/endpoint";
 import { fetchModels, KNOWN_MODELS, providerFamily, providerModel } from "@/lib/ai/models";
 import { CLI_PROVIDERS, isCliProvider as isCli } from "@/lib/ai/cli-providers";
-import { ProviderBadge } from "@/components/flow/nodes/_base/desktop-only-badge";
+import { ProviderBadge } from "@/nodes/_base/desktop-only-badge";
 import {
   ConnectionConsole,
   ConsoleChip,

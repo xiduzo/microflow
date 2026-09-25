@@ -9,7 +9,7 @@
 // The document is a shared, persisted structure, so this is a trust boundary:
 // a model can and will invent a field name, a handle, or an enum value. Nothing
 // reaches the doc without passing the node's own zod schema (`resolveNodeData`
-// in `lib/node-data.ts`, over `NODE_CATALOG`) and the generated handle sets (`COMPONENT_PORTS` / `COMPONENT_EMITS`, pinned
+// in `nodes/node-data-resolver.ts`, over `NODE_CATALOG`) and the generated handle sets (`COMPONENT_PORTS` / `COMPONENT_EMITS`, pinned
 // to the Rust `Component::ports()` / `emits()` by the Catalog Parity Guard,
 // ADR-0007). A rejection is returned to the model as a tool result rather than
 // thrown, so it corrects itself instead of the turn dying.
@@ -18,16 +18,16 @@ import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
 import type { FlowDocument, FlowEdge, FlowNode } from "@microflow/collab";
 
-import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
 import {
   COMPONENT_EMITS,
   COMPONENT_PORTS,
   isComponentType,
   type ComponentType,
-} from "@/components/flow/nodes/_base/_base.types";
-import { useNodeDiagnosticsStore } from "@/stores/node-diagnostics";
+} from "@/nodes/component-types.generated";
+import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 import { applyAutoLayout } from "@/lib/auto-layout";
-import { resolveNodeData } from "@/lib/node-data";
+import { resolveNodeData } from "@/nodes/node-data-resolver";
 import { uid } from "@/lib/uid";
 
 /** How a write tool's effect is delivered. */

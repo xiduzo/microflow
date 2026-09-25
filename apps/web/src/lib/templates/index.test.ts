@@ -4,8 +4,8 @@ import {
   COMPONENT_EMITS,
   COMPONENT_PORTS,
   isComponentType,
-} from "../../components/flow/nodes/_base/_base.types";
-import { NODE_CATALOG } from "../../components/flow/nodes/catalog.generated";
+} from "@/nodes/component-types.generated";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
 import { TEMPLATES } from ".";
 
 // Templates are plain @xyflow Node/Edge objects, so nothing type-checks their

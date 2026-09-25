@@ -35,7 +35,7 @@ import {
   type NodeDiagnostic,
   type Wakeup,
 } from "./effects-sink";
-import { useNodeDiagnosticsStore } from "@/stores/node-diagnostics";
+import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 import type { BoardConnection } from "./web-serial";
 
 // Re-exported so the board controller keeps importing `CloudDeps` from here; the

@@ -534,7 +534,7 @@ Microflow is a visual flow-based programming tool for hardware prototyping and I
 |-----------|----------|
 | UI Components | `apps/web/src/components/ui/` |
 | Flow Components | `apps/web/src/components/flow/` |
-| Node Types | `apps/web/src/components/flow/nodes/` |
+| Node Types | `apps/web/src/nodes/` |
 | Dialogs | `apps/web/src/components/flow/dialogs/` |
 | Panels | `apps/web/src/components/flow/panels/` |
 | Routes/Pages | `apps/web/src/routes/` |

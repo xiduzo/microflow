@@ -23,7 +23,7 @@ import { useAskAiStore } from "@/stores/ask-ai";
 import type { FlowEdge, FlowNode } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";
-import { NODE_TYPES } from "./nodes/node-types.generated";
+import { NODE_TYPES } from "@/nodes/node-types.generated";
 import { NewNodeDialog } from "./dialogs/new-node-dialog";
 import { SettingsPanel } from "./panels/settings-panel";
 import { useEffect, useRef, useCallback, useMemo } from "react";

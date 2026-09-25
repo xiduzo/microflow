@@ -18,7 +18,7 @@ import { track } from "@/lib/analytics";
 import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { openTestClient, type TestClient } from "@/session/browser-mqtt-test-client";
-import { hostLimitation, isBrowserReachableBroker } from "@/components/flow/nodes/_base/browser-support";
+import { hostLimitation, isBrowserReachableBroker } from "@/nodes/_base/browser-support";
 import {
   ConnectionConsole,
   ConsoleChip,

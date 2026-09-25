@@ -4,8 +4,8 @@ import { isDesktop } from "@/lib/platform";
 import { emit } from "@tauri-apps/api/event";
 import { useFlowNodes, useFlowSession } from "@/session";
 import type { Hotkey } from "@tanstack/react-hotkeys";
-import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
-import { isComponentType } from "@/components/flow/nodes/_base/_base.types";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
+import { isComponentType } from "@/nodes/component-types.generated";
 import { dispatchToNode } from "@/lib/firmata/board-controller";
 
 /**

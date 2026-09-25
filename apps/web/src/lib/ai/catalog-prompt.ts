@@ -14,13 +14,13 @@
 
 import type { FlowDocument } from "@microflow/collab";
 
-import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
 import {
   COMPONENT_EMITS,
   COMPONENT_PORTS,
   REQUIRES_HARDWARE,
   type ComponentType,
-} from "@/components/flow/nodes/_base/_base.types";
+} from "@/nodes/component-types.generated";
 
 /** Keys every node's `defaults` carries for the editor's own chrome; they are
  *  not configuration and only distract the model. */

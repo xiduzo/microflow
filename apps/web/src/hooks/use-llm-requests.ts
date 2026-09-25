@@ -5,7 +5,7 @@ import type { CloudRequest } from "@/lib/bindings/CloudRequest";
 import { useListen } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import { useLlmProviderStore } from "@/stores/llm-provider";
-import type { EmitOf } from "@/components/flow/nodes/_base/_base.types";
+import type { EmitOf } from "@/nodes/component-types.generated";
 
 /**
  * Runs the `Llm` node's generations on desktop (ADR-0021).

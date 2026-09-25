@@ -5,7 +5,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const nodesDir = join(__dirname, "../src/components/flow/nodes");
+const nodesDir = join(__dirname, "../src/nodes");
 
 function toKebabCase(str: string): string {
   return str.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
@@ -49,7 +49,7 @@ const wireOf = (e: { name: string }) => {
 const entryPorts = (e: { name: string }): readonly string[] => wireOf(e).ports;
 const entryEmits = (e: { name: string }): readonly string[] => wireOf(e).emits;
 
-// _base/_base.types.ts
+// component-types.generated.ts
 const typeNames = entries.map((e) => `  "${e.name}"`).join(",\n");
 const portsObjectLines = entries
   .map((e) => {
@@ -146,7 +146,7 @@ export const COMPONENT_IMPL = {
 ${implObjectLines}
 } as const satisfies Record<ComponentType, string>;
 `;
-writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
+writeFileSync(join(nodesDir, "component-types.generated.ts"), baseTypesContent);
 
 // catalog.generated.ts — per-type metadata for non-UI code. Imports only each
 // node's `.schema.ts` and `.adapter.ts`, never its React component, so the
@@ -156,7 +156,7 @@ const catalogLines: string[] = [
   "// `<node>.adapter.ts`, when present. Run `bun run codegen`.",
   "// React-free: imports schemas and host adapters only, never a node's UI.",
   'import type { ZodType } from "zod";',
-  'import type { ComponentType } from "./_base/_base.types";',
+  'import type { ComponentType } from "./component-types.generated";',
   'import type { NodeHostAdapter } from "./_base/host-adapter";',
   "",
 ];
@@ -210,7 +210,7 @@ writeFileSync(join(nodesDir, "catalog.generated.ts"), catalogLines.join("\n"));
 const nodeTypesLines: string[] = [
   "// GENERATED — do not edit. Source: node-components.json. Run `bun run codegen`.",
   'import type { NodeTypes } from "@xyflow/react";',
-  'import type { ComponentType } from "./_base/_base.types";',
+  'import type { ComponentType } from "./component-types.generated";',
   "",
 ];
 
@@ -229,6 +229,6 @@ nodeTypesLines.push("} as const satisfies NodeTypes & Record<ComponentType, unkn
 
 writeFileSync(join(nodesDir, "node-types.generated.ts"), nodeTypesLines.join("\n"));
 
-console.log("✓ Generated _base/_base.types.ts");
+console.log("✓ Generated component-types.generated.ts");
 console.log("✓ Generated catalog.generated.ts");
 console.log("✓ Generated node-types.generated.ts");

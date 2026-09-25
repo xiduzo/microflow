@@ -20,7 +20,7 @@ import { mergePending, runTurn } from "./turn-runner";
 import { useLlmProviderStore } from "@/stores/llm-provider";
 import { useAskAiStore } from "@/stores/ask-ai";
 import { providerModel } from "./models";
-import { hostLimitation } from "@/components/flow/nodes/_base/browser-support";
+import { hostLimitation } from "@/nodes/_base/browser-support";
 import { uid } from "@/lib/uid";
 
 /** A turn in the transcript. `tools` names what ran during an assistant turn, so

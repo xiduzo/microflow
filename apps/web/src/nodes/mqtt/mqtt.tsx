@@ -1,0 +1,102 @@
+import { dataSchema, defaults, type Data } from "./mqtt.schema";
+import { Handle as BaseHandle } from "../_base/handle";
+
+const Handle = BaseHandle<"Mqtt">;
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
+import { RadioIcon, RadioTowerIcon } from "lucide-react";
+import { IconWithValue } from "../_base/icon-with-value";
+import { useMqttBrokerStore } from "@/stores/mqtt-broker";
+import { useMemo } from "react";
+import { hostLimitation } from "../_base/browser-support";
+
+export function Mqtt(props: Props) {
+  const brokers = useMqttBrokerStore((s) => s.brokers);
+  const hasBrokers = brokers.length > 0;
+  const broker = brokers.find((b) => b.id === props.data.brokerId);
+  // A browser can only speak MQTT over a WebSocket; a `mqtt://` broker works on
+  // the desktop and silently never connects here, so say so on the node.
+  const unreachableBroker =
+    broker && hostLimitation({ kind: "broker", name: broker.name, url: broker.url })?.reason;
+  const error = !hasBrokers
+    ? "No MQTT brokers configured"
+    : !broker
+      ? "Select a broker"
+      : unreachableBroker;
+
+  return (
+    <NodeContainer {...props} error={error}>
+      <Value />
+      <Settings />
+      {props.data.direction === "publish" && (
+        <Handle type="target" position="left" id="trigger" handleType="command" />
+      )}
+      {props.data.direction === "subscribe" && (
+        <Handle type="source" position="right" id="value" handleType="value" />
+      )}
+    </NodeContainer>
+  );
+}
+
+function Value() {
+  const data = useNodeData<Data>();
+  const brokers = useMqttBrokerStore((s) => s.brokers);
+  const broker = brokers.find((b) => b.id === data.brokerId);
+
+  const displayValue = useMemo(() => {
+    if (!broker) return "No broker";
+    if (!data.topic) return broker.name;
+    return `${broker.name}: ${data.topic}`;
+  }, [broker, data.topic]);
+
+  return (
+    <IconWithValue
+      icon={data.direction === "publish" ? RadioTowerIcon : RadioIcon}
+      value={displayValue}
+    />
+  );
+}
+
+function Settings() {
+  const data = useNodeData<Data>();
+  const brokers = useMqttBrokerStore((s) => s.brokers);
+
+  const brokerOptions = useMemo(() => {
+    const options: Record<string, string> = { "Select broker...": "" };
+    for (const broker of brokers) {
+      const label = broker.name + (broker.isDefault ? " (default)" : "");
+      options[label] = broker.id;
+    }
+    return options;
+  }, [brokers]);
+
+  const { render } = useNodeControls(
+    {
+      brokerId: {
+        value: data.brokerId,
+        options: brokerOptions,
+        label: "Broker",
+      },
+      direction: {
+        value: data.direction,
+        options: ["publish", "subscribe"],
+      },
+      topic: { value: data.topic },
+      qos: {
+        value: data.qos,
+        // Leva options are { [label]: value }; value side must be the "0"|"1"|"2"
+        // the schema/runtime expect, not the human label.
+        options: { "At most once (0)": "0", "At least once (1)": "1", "Exactly once (2)": "2" },
+        label: "QoS",
+      },
+      ...(data.direction === "publish" && {
+        retain: { value: data.retain },
+      }),
+    },
+    [brokers, data.direction],
+  );
+
+  return <>{render()}</>;
+}
+
+type Props = BaseNode<Data>;
+Mqtt.defaultProps = { data: defaults };

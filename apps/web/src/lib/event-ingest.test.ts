@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { applyComponentEvent } from "./event-ingest";
-import { nodeDataStore } from "@/stores/node-data";
+import { nodeDataStore } from "@/nodes/live/node-data";
 import { signalStore } from "@/stores/signal";
 import { useDevLogStore } from "@/stores/dev-log";
 

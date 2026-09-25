@@ -1,5 +1,5 @@
 import type { ComponentValue } from "@/lib/bindings/ComponentValue";
-import { nodeDataStore } from "@/stores/node-data";
+import { nodeDataStore } from "@/nodes/live/node-data";
 import { signalStore } from "@/stores/signal";
 import { useDevLogStore } from "@/stores/dev-log";
 import { formatComponentValue } from "@/lib/format-value";

@@ -160,7 +160,7 @@ The Rust `ComponentRegistry` in `src-tauri/src/runtime/registry.rs` must be kept
 
 ## Related Files
 
-- `apps/web/src/components/flow/nodes/_component-types.ts` - Type definitions
-- `apps/web/src/components/flow/nodes/_base/_base.schema.ts` - Zod schema
-- `apps/web/src/components/flow/nodes/_TYPES.ts` - ReactFlow registry
+- `apps/web/src/nodes/_component-types.ts` - Type definitions
+- `apps/web/src/nodes/_base/_base.schema.ts` - Zod schema
+- `apps/web/src/nodes/_TYPES.ts` - ReactFlow registry
 - `apps/web/src-tauri/src/runtime/registry.rs` - Rust component registry

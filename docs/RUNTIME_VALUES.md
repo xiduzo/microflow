@@ -63,7 +63,7 @@ Runtime execution is fundamentally different - it's ephemeral, local, and real-t
 
 ## Implementation
 
-### Node Value Store (`stores/node-data.ts`)
+### Node Value Store (`nodes/live/node-data.ts`)
 
 ```typescript
 // Local-only store for runtime values: a plain Map with one listener set per
@@ -116,7 +116,7 @@ For tutorials or demos, we could record a sequence of runtime values and play th
 
 ## Related Files
 
-- `apps/web/src/stores/node-data.ts` - Runtime value store
+- `apps/web/src/nodes/live/node-data.ts` - Runtime value store
 - `apps/web/src/stores/signal.ts` - Edge animation store
 - `packages/collab/src/schema.ts` - FlowDocument (Yjs wrapper)
 - `docs/SYNC_ARCHITECTURE.md` - Overall sync design

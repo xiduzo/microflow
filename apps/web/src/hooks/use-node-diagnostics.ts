@@ -1,6 +1,6 @@
 import { useListen } from "@/lib/ipc";
 import type { NodeDiagnostic } from "@/lib/firmata/effects-sink";
-import { useNodeDiagnosticsStore } from "@/stores/node-diagnostics";
+import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 
 /**
  * Listens to node diagnostics from the Tauri backend and applies them to the

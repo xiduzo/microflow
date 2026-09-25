@@ -12,7 +12,7 @@ You should already have the dev environment running — see [Build from source](
 ```
 node-components.json              ← single source of truth (UI ↔ runtime mapping)
         │
-        ├── frontend (React + Zod schema)        — apps/web/src/components/flow/nodes/<name>/
+        ├── frontend (React + Zod schema)        — apps/web/src/nodes/<name>/
         │     ├── <name>.tsx              UI component
         │     └── <name>.schema.ts        Zod schema for data + value
         │
@@ -79,7 +79,7 @@ And add it to the runtime's component factory in `apps/web/src-tauri/src/runtime
 
 ## Step 3 — Define the frontend schema
 
-Create `apps/web/src/components/flow/nodes/sparkle/sparkle.schema.ts`:
+Create `apps/web/src/nodes/sparkle/sparkle.schema.ts`:
 
 ```ts
 import { z } from "zod";
@@ -98,7 +98,7 @@ export type SparkleValue = number;
 
 ## Step 4 — Build the React node
 
-Create `apps/web/src/components/flow/nodes/sparkle/sparkle.tsx`:
+Create `apps/web/src/nodes/sparkle/sparkle.tsx`:
 
 ```tsx
 import { Handle, Position } from "@xyflow/react";
@@ -141,7 +141,7 @@ SparkleNode.defaultProps = {
 };
 ```
 
-Match an existing nearby node (e.g. `apps/web/src/components/flow/nodes/calculate/`) for the exact import paths and hook signatures — they evolve.
+Match an existing nearby node (e.g. `apps/web/src/nodes/calculate/`) for the exact import paths and hook signatures — they evolve.
 
 ## Step 5 — Register it everywhere
 
@@ -172,7 +172,7 @@ The build pipeline reads this file to wire everything up.
 
 ## Step 6 — Make the node draggable
 
-Add the React component to the type registry at `apps/web/src/components/flow/nodes/_TYPES.ts`:
+Add the React component to the type registry at `apps/web/src/nodes/_TYPES.ts`:
 
 ```ts
 import { SparkleNode } from "./sparkle/sparkle";
@@ -202,7 +202,7 @@ not hand out: an OS-level keyboard hook, a native peripheral, a raw TCP socket, 
 request to an endpoint that does not send CORS headers.
 
 If that is your node, add a row to
-`apps/web/src/components/flow/nodes/_base/browser-support.ts`:
+`apps/web/src/nodes/_base/browser-support.ts`:
 
 ```ts
 const BROWSER_LIMITATIONS: Record<string, () => string | undefined> = {

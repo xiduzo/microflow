@@ -24,8 +24,8 @@ import { useAskAi, type AskAiMessage } from "@/lib/ai/use-ask-ai";
 import { useAskAiStore, WRITE_MODES } from "@/stores/ask-ai";
 import { useLlmProviderStore } from "@/stores/llm-provider";
 import { providerModel } from "@/lib/ai/models";
-import { hostLimitation } from "@/components/flow/nodes/_base/browser-support";
-import { ProviderBadge } from "@/components/flow/nodes/_base/desktop-only-badge";
+import { hostLimitation } from "@/nodes/_base/browser-support";
+import { ProviderBadge } from "@/nodes/_base/desktop-only-badge";
 import { cn } from "@/lib/utils";
 
 export function AskAiPanel() {

@@ -1,13 +1,13 @@
 import type { Pin } from "@/stores/board";
 import type { Node } from "@xyflow/react";
-import type { BaseData } from "@/components/flow/nodes/_base/_base.schema";
+import type { BaseData } from "@/nodes/_base/_base.schema";
 import { formatPinValueWithPwm, findPin } from "@/lib/pin";
 import {
   COMPONENT_IMPL,
   REQUIRES_HARDWARE,
   isComponentType,
-} from "@/components/flow/nodes/_base/_base.types";
-import type { BaseNode } from "@/components/flow/nodes/_base/_base";
+} from "@/nodes/component-types.generated";
+import type { BaseNode } from "@/nodes/_base/_base";
 
 /** Arduino Uno analog mapping (A0 = 14). The schematic is drawn before a board
  *  is ever connected, so an unresolvable `A<n>` still needs a pin number; the

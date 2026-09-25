@@ -339,7 +339,7 @@ self.register_hardware("Buzzer", |id, data| {
 });
 ```
 
-4. Add corresponding React node in `apps/web/src/components/flow/nodes/`
+4. Add corresponding React node in `apps/web/src/nodes/`
 
 ---
 

@@ -59,7 +59,7 @@ Use Tailwind's default scale (`gap-1` `gap-2` …). No project-specific spacing 
 | Pattern | Where | Notes |
 | --- | --- | --- |
 | Form controls, buttons, dialogs | `apps/web/src/components/ui/` | shadcn primitives — extend, don't fork |
-| Flow node | `apps/web/src/components/flow/nodes/<Component>/` | One folder per component; optional `<component>.adapter.ts` for store wiring |
+| Flow node | `apps/web/src/nodes/<Component>/` | One folder per component; optional `<component>.adapter.ts` for store wiring |
 | Flow handle | `apps/web/src/components/handle.tsx` | Glows copper when selected via edge; green-on-valid / red-on-invalid during connect |
 | Flow edge | global CSS in `index.css` (`.react-flow__edges`) | Copper when selected, phosphor-green + drop-shadow + dash animation when animated |
 | Live monitor | `leva` panels embedded in nodes | Transparent background; `index.css` overrides Leva chrome |

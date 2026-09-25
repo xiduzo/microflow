@@ -181,9 +181,9 @@ This gives users significant flexibility with minimal security risk. The impleme
 
 ## Related Files
 
-- `apps/web/src/components/flow/nodes/_TYPES.ts` - Node registry
+- `apps/web/src/nodes/_TYPES.ts` - Node registry
 - `apps/web/src-tauri/src/runtime/registry.rs` - Rust component registry
-- `apps/web/src/components/flow/nodes/_base/_base.tsx` - Base node component
+- `apps/web/src/nodes/_base/_base.tsx` - Base node component
 
 ## References
 

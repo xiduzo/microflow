@@ -214,7 +214,7 @@ struct StepperConfig {
 ### New Files
 
 ```
-apps/web/src/components/flow/nodes/stepper/
+apps/web/src/nodes/stepper/
 ├── stepper.schema.ts    # Zod schema
 └── stepper.tsx           # React component
 ```
@@ -246,7 +246,7 @@ apps/web/src/components/flow/nodes/stepper/
 
 | File | Change |
 |------|--------|
-| `_base/_base.types.ts` | Add `"Stepper"` to `COMPONENT_TYPES` |
+| `component-types.generated.ts` | Add `"Stepper"` to `COMPONENT_TYPES` |
 | `_TYPES.ts` | Import and add `Stepper` to `NODE_TYPES` |
 | `runtime/output/mod.rs` | Add `mod stepper; pub use stepper::{Stepper, StepperConfig};` |
 | `runtime/registry.rs` | Register `"Stepper"` as hardware component |

@@ -1,6 +1,6 @@
 import type { FlowNode } from "@microflow/collab";
-import type { ComponentType } from "@/components/flow/nodes/_base/_base.types";
-import { resolveNodeData } from "@/lib/node-data";
+import type { ComponentType } from "@/nodes/component-types.generated";
+import { resolveNodeData } from "@/nodes/node-data-resolver";
 import type { Template } from "./types";
 
 export type { Template } from "./types";
@@ -8,7 +8,7 @@ export type { Template } from "./types";
 /**
  * Author a template node as its type's registry defaults plus a small override
  * patch — the same defaults+schema path Ask AI writes through
- * (`lib/node-data.ts`), so a template cannot ship data the node's own schema
+ * (`nodes/node-data-resolver.ts`), so a template cannot ship data the node's own schema
  * rejects. Overrides are the fields a template deliberately sets away from the
  * defaults (a pin, a topic, a custom label); everything else tracks the
  * registry.

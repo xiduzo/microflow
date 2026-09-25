@@ -126,7 +126,7 @@ boa_engine = "0.20"
 
 ## React Node
 
-### Schema: `apps/web/src/components/flow/nodes/function/function.schema.ts`
+### Schema: `apps/web/src/nodes/function/function.schema.ts`
 
 ```typescript
 import { z } from "zod";
@@ -143,7 +143,7 @@ export const dataSchema = baseDataSchema.extend({
 export type Data = z.infer<typeof dataSchema>;
 ```
 
-### Component: `apps/web/src/components/flow/nodes/function/function.tsx`
+### Component: `apps/web/src/nodes/function/function.tsx`
 
 - Wrap in `NodeContainer`
 - Display a code icon (e.g. `BracesIcon` from lucide)
@@ -169,7 +169,7 @@ const dynamicVars = useMemo(() => {
 
 ### Type registration
 
-In `_base/_base.types.ts`, add `"Function"` to `COMPONENT_TYPES`.
+In `component-types.generated.ts`, add `"Function"` to `COMPONENT_TYPES`.
 
 In `_TYPES.ts` (or wherever `NODE_TYPES` maps component names to React components), add:
 

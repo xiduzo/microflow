@@ -5,7 +5,7 @@ import {
   COMPONENT_IMPL,
   COMPONENT_TYPES,
   REQUIRES_HARDWARE,
-} from "@/components/flow/nodes/_base/_base.types";
+} from "@/nodes/component-types.generated";
 import type { Pin } from "@/stores/board";
 
 /** A node as the canvas stores it — only the fields the builder reads. */

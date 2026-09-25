@@ -1,12 +1,12 @@
 import { useReactFlow, useStoreApi, type XYPosition } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { NODE_CATALOG } from "../nodes/catalog.generated";
-import type { NodeDefaults } from "../nodes/catalog.generated";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
+import type { NodeDefaults } from "@/nodes/catalog.generated";
 import { useFlowSession } from "@/session";
 import { useNewNodeStore } from "@/stores/new-node";
-import { groupIndicator } from "../nodes/_base/_base";
-import { DesktopOnlyBadge } from "../nodes/_base/desktop-only-badge";
+import { groupIndicator } from "@/nodes/_base/_base";
+import { DesktopOnlyBadge } from "@/nodes/_base/desktop-only-badge";
 import { uid } from "@/lib/uid";
 import { createPointerFrame } from "@/lib/pointer-frame";
 import { track } from "@/lib/analytics";

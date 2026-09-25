@@ -99,5 +99,5 @@ by ADR-0007).
   "deliberate non-change" recording why not to generate uniform-but-shallow code.
 - `crates/microflow-core/src/config/i2c_device.rs` — the ungated single source for
   the runtime-relevant datasheet ops (`device_init_writes`, `effective_register`).
-- `apps/web/src/components/flow/nodes/i2c-device/i2c-device.constants.ts` — the
+- `apps/web/src/nodes/i2c-device/i2c-device.constants.ts` — the
   hand-authored roster this ADR keeps in TS.

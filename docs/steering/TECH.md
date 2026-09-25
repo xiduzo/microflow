@@ -31,7 +31,7 @@ Last updated: 2026-05-16
 
 ## Architecture
 
-- **Component Catalog drives everything.** `apps/web/node-components.json` is the single source of truth. Codegen produces both `apps/web/src/components/flow/nodes/catalog.generated.ts` (React-free metadata) + `node-types.generated.ts` (UI) and `$OUT_DIR/register_all_body.rs` (Rust, via `apps/web/src-tauri/build.rs`).
+- **Component Catalog drives everything.** `apps/web/node-components.json` is the single source of truth. Codegen produces both `apps/web/src/nodes/catalog.generated.ts` (React-free metadata) + `node-types.generated.ts` (UI) and `$OUT_DIR/register_all_body.rs` (Rust, via `apps/web/src-tauri/build.rs`).
 - **Flow Runtime is single-owner.** `FlowRuntime` builds a `ComponentRegistry` of factory closures; `update_flow` instantiates `Box<dyn Component>` per node and rebuilds `Wiring`.
 - **Hardware IO is single-thread.** `Board IO Loop` exclusively owns the `BoardConnection` (serial port). Components hold `Arc<BoardHandle>` and enqueue `BoardCommand`s; they never touch serial directly. Reads are cached in shared `DashMap`s.
 - **Event routing is typed per kind** (per ADR-0001): Ports (flow edges into `call_method`), Internal Events (self-routed `_`-prefixed handles), Hardware Callbacks (board-reader-driven, reserved names like `_pin_change` / `_i2c_reply`).
@@ -96,7 +96,7 @@ bun run db:migrate
 ## Code Conventions
 
 - **Naming:** PascalCase for React components and Rust types; camelCase for TS functions; snake_case for Rust modules/functions; kebab-case for TS file names where existing files do so (e.g. `host-adapter.ts`).
-- **TS file structure:** apps/web feature-grouped under `src/components/<area>/`. Flow nodes under `src/components/flow/nodes/<Component>/` with a React-free `<component>.adapter.ts` sibling when one exists.
+- **TS file structure:** apps/web feature-grouped under `src/components/<area>/`. Flow nodes under `src/nodes/<Component>/` with a React-free `<component>.adapter.ts` sibling when one exists.
 - **Rust file structure:** `apps/web/src-tauri/src/runtime/` — `board/`, `executor.rs`, `wiring_registry.rs`, `registry.rs`, `component.rs`, plus category modules (`input/`, `output/`, `control/`, `transformation/`, `generator/`, `external/`) referenced by `impls[].category`.
 - **Rust tests:** integration tests in `apps/web/src-tauri/tests/*.rs` with shared mocks under `tests/common/`. Use `MockBoard` + `MockComponent` instead of touching real hardware.
 - **TS imports:** absolute via `@/`. Workspace packages via `@microflow/<name>`.

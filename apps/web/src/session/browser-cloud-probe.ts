@@ -16,7 +16,7 @@
 import mqtt from "mqtt";
 import type { ConnectionStatus, MqttBrokerConfig } from "@/stores/mqtt-broker";
 import type { LlmProviderConfig, ProviderStatus } from "@/stores/llm-provider";
-import { isBrowserReachableBroker } from "@/components/flow/nodes/_base/browser-support";
+import { isBrowserReachableBroker } from "@/nodes/_base/browser-support";
 import { hostFetch, isMixedContent, normalizeBaseUrl } from "@/lib/ai/endpoint";
 
 const PROBE_TIMEOUT_MS = 8000;
