@@ -88,7 +88,7 @@ Baseline: **WCAG 2.1 AA**, plus deliberate choices for low-vision and dyslexia-p
 
 ## Responsive Behavior
 
-- **Microflow Studio (`apps/web`, Tauri)** is desktop-primary. Target ≥ 1024px Tauri window; degrade gracefully down to ~900px wide. Touch and mobile are not targets.
+- **Microflow Studio (`apps/web`, Tauri window or browser tab)** is desktop-primary. Target ≥ 1024px wide; degrade gracefully down to ~900px wide. Touch and mobile are not targets.
 - **Docs site (`apps/fumadocs`)** is fully responsive — mobile, tablet, desktop.
 - **Marketing / landing surfaces** follow the docs site rules.
 
