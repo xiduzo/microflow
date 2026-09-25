@@ -1,4 +1,4 @@
-import type { HostSnapshot } from "./flow-update-dispatcher";
+import type { HostSnapshot } from "@/session/flow-update-dispatcher";
 
 /**
  * One cloud capability (MQTT brokers, LLM providers, Figma) as the session

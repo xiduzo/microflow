@@ -8,7 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { BotIcon, MessageSquareIcon, PlusIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useLlmProviderStore, type LlmProviderConfig } from "@/stores/llm-provider";
+import { useLlmProviderStore, type LlmProviderConfig } from "@/ai/llm-provider";
 import { track } from "@/lib/analytics";
 import { invokeCommand } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
@@ -17,10 +17,10 @@ import {
   probeLlmProvider,
   probeStatus,
   type LlmProbeOutcome,
-} from "@/session/browser-cloud-probe";
-import { isMixedContent } from "@/lib/ai/endpoint";
-import { fetchModels, KNOWN_MODELS, providerFamily, providerModel } from "@/lib/ai/models";
-import { CLI_PROVIDERS, isCliProvider as isCli } from "@/lib/ai/cli-providers";
+} from "@/cloud/browser-cloud-probe";
+import { isMixedContent } from "@/ai/endpoint";
+import { fetchModels, KNOWN_MODELS, providerFamily, providerModel } from "@/ai/models";
+import { CLI_PROVIDERS, isCliProvider as isCli } from "@/ai/cli-providers";
 import { ProviderBadge } from "@/nodes/_base/desktop-only-badge";
 import {
   ConnectionConsole,
@@ -32,8 +32,8 @@ import {
   type ConsoleCommand,
   type ConsoleLine,
   type ConsolePreset,
-} from "@/components/config/connection-console";
-import { parseCommand, restAfter } from "@/components/config/parse-command";
+} from "@/cloud/connection-console/connection-console";
+import { parseCommand, restAfter } from "@/cloud/connection-console/parse-command";
 import { EmptyState } from "@/components/states/empty-state";
 import { Button } from "@/components/ui/button";
 
@@ -204,7 +204,7 @@ function LlmConfigPage() {
       // Loaded on demand: this console is the only reason a user who never
       // places an Llm node would need the transport, and they reached it by
       // typing `ask`.
-      const { performLlmGenerate } = await import("@/lib/firmata/cloud/llm-client");
+      const { performLlmGenerate } = await import("@/ai/llm-client");
       const text = await performLlmGenerate(
         { kind: entry.kind, baseUrl: entry.baseUrl, apiKey: entry.apiKey },
         { model, system: current.system || null, prompt },

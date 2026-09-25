@@ -13,8 +13,8 @@
 // and fake resolvers — no broker, no runtime (see `cloud-performer.test.ts`).
 
 import type { EmitOf } from "@/nodes/component-types.generated";
-import type { CloudRequest } from "../effects-sink";
-import type { LlmProviderConn } from "./llm-client";
+import type { CloudRequest } from "@/lib/firmata/effects-sink";
+import type { LlmProviderConn } from "@/ai/llm-client";
 import {
   BrokerConnections,
   defaultMqttClientFactory,
@@ -183,7 +183,7 @@ export class CloudPerformer {
       // Imported on first use: the transport pulls in TanStack AI and the OpenAI
       // client, which is a lot of bundle for every user who never places an Llm
       // node. By the time we get here they have.
-      const { performLlmGenerate } = await import("./llm-client");
+      const { performLlmGenerate } = await import("@/ai/llm-client");
       const text = await performLlmGenerate(
         provider,
         { model: request.model, system: request.system, prompt: request.prompt },

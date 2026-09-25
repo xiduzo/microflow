@@ -19,7 +19,7 @@ import {
   applyRemoteDrag,
 } from "@/session";
 import { useClipboardStore } from "@/stores/clipboard-store";
-import { useAskAiStore } from "@/stores/ask-ai";
+import { useAskAiStore } from "@/ai/ask-ai-store";
 import type { FlowEdge, FlowNode } from "@microflow/collab";
 
 import "@xyflow/react/dist/style.css";

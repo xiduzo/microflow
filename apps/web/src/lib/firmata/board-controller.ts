@@ -11,9 +11,9 @@ import { toast } from "sonner";
 import { track as trackEvent } from "@/lib/analytics";
 import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 import { useBoardStore } from "@/stores/board";
-import { useFigmaStore } from "@/stores/figma";
-import { useLlmProviderStore } from "@/stores/llm-provider";
-import { useMqttBrokerStore } from "@/stores/mqtt-broker";
+import { useFigmaStore } from "@/cloud/figma";
+import { useLlmProviderStore } from "@/ai/llm-provider";
+import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
 import {
   connectedState,
   detectBoard,

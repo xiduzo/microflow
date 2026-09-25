@@ -13,7 +13,7 @@ runtime. The actual dispatcher remained a placeholder hook
 (`apps/web/src/session/use-flow-update-dispatcher.ts`) wrapping the
 legacy `flow-store.setupDocSync` logic verbatim — observer + debounced
 async callback + direct calls into `useMqttBrokerStore.getState()`,
-`useFigmaStore.getState()`, dynamic `import("@/stores/llm-provider")`,
+`useFigmaStore.getState()`, dynamic `import("@/ai/llm-provider")`,
 and `invokeCommand("flow_update", ...)`.
 
 That placeholder had three concrete problems:

@@ -10,7 +10,7 @@
 
 ADR-0009 made the `Llm` node sans-IO: it emits an `llmGenerate` `CloudRequest`
 and each host performs it. That left two implementations of the same POST — the
-browser's `fetch` in `lib/firmata/cloud/llm-client.ts` and the desktop's
+browser's `fetch` in `ai/llm-client.ts` and the desktop's
 `reqwest`-backed `HttpLlmProvider` in `runtime/services` — kept in step by
 parity tests and by writing "mirrors the desktop `HttpLlmProvider` byte-for-byte"
 at the top of the browser file.
@@ -34,16 +34,16 @@ sidestepped it, and that is the whole reason the second implementation existed.
 
 **The LLM transport is TypeScript, and the webview performs it in both hosts.**
 
-- `lib/ai/adapter.ts` turns a stored `LlmProviderConfig` into a TanStack AI
-  adapter. `lib/firmata/cloud/llm-client.ts` is the one transport, used by the
-  browser `CloudPerformer` and — via `hooks/use-llm-requests.ts` — by desktop.
+- `ai/adapter.ts` turns a stored `LlmProviderConfig` into a TanStack AI
+  adapter. `ai/llm-client.ts` is the one transport, used by the
+  browser `CloudPerformer` and — via `ai/use-llm-requests.ts` — by desktop.
 - **The desktop actor stops performing LLM I/O.** `Actor::perform_cloud`
   forwards an `LlmGenerate` request to the webview as an `llm-request` event and
   returns, exactly as it already did for `AudioPlay`/`AudioStop`. Results
   re-enter through a new `llm_result` command onto the existing
   `ActorMsg::Inject`.
 - **CORS is solved by swapping `fetch`, not by moving the code.** `hostFetch()`
-  in `lib/ai/endpoint.ts` returns the page's `fetch` in a browser and
+  in `ai/endpoint.ts` returns the page's `fetch` in a browser and
   `@tauri-apps/plugin-http`'s in the desktop webview. The latter performs the
   request in Rust — no origin, no preflight — so the desktop keeps exactly the
   reach it had.
@@ -72,7 +72,7 @@ sidestepped it, and that is the whole reason the second implementation existed.
   whatever the user configures. Before this change the same requests were made
   from Rust by `HttpLlmProvider`, unscoped. Only the caller moved.
 - **Bundle.** The SDK is behind dynamic imports (`llm-client`, the Ask AI panel),
-  and the SDK-free half of the adapter lives in `lib/ai/endpoint.ts` so the
+  and the SDK-free half of the adapter lives in `ai/endpoint.ts` so the
   config page's reachability probe does not drag it into the main chunk. Net
   effect on the main chunk: +55 kB raw, +18 kB gzip.
 
@@ -98,11 +98,11 @@ sidestepped it, and that is the whole reason the second implementation existed.
 Not a separate ADR because it introduces no new seam — it is a consumer of two
 that already exist:
 
-- Tools in `lib/ai/flow-tools.ts` act on the session's `FlowDocument`, the same
+- Tools in `ai/flow-tools.ts` act on the session's `FlowDocument`, the same
   API the canvas uses. An AI edit is therefore indistinguishable from a human
   one: it syncs to collaborators, feeds the `FlowUpdateDispatcher`, reaches a
   connected board, and lands on the undo stack. None of that needed building.
-- The model's vocabulary (`lib/ai/catalog-prompt.ts`) is generated from
+- The model's vocabulary (`ai/catalog-prompt.ts`) is generated from
   `NODE_REGISTRY` plus `COMPONENT_PORTS`/`COMPONENT_EMITS` — the sets the Catalog
   Parity Guard pins to the Rust `ports()`/`emits()` (ADR-0007). The catalogue the
   model reads cannot drift from the one the runtime enforces.

@@ -15,7 +15,7 @@ import { usePins, type Pin } from "@/stores/board";
 import { useComponentEvents } from "@/hooks/use-component-events";
 import { useNodeDiagnostics } from "@/hooks/use-node-diagnostics";
 import { useAudioRequests } from "@/hooks/use-audio-requests";
-import { useLlmRequests } from "@/hooks/use-llm-requests";
+import { useLlmRequests } from "@/ai/use-llm-requests";
 import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
@@ -23,10 +23,10 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { useAskAiStore } from "@/stores/ask-ai";
+import { useAskAiStore } from "@/ai/ask-ai-store";
 
 const AskAiPanel = lazy(() =>
-  import("@/components/flow/ask-ai/ask-ai-panel").then((m) => ({ default: m.AskAiPanel })),
+  import("@/ai/ask-ai-panel").then((m) => ({ default: m.AskAiPanel })),
 );
 import { env } from "@microflow/env/web";
 import { ErrorState } from "@/components/states/error-state";

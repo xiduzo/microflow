@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { CloudRequest } from "@/lib/bindings/CloudRequest";
 import { useListen } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
-import { useLlmProviderStore } from "@/stores/llm-provider";
+import { useLlmProviderStore } from "@/ai/llm-provider";
 import type { EmitOf } from "@/nodes/component-types.generated";
 
 /**
@@ -75,7 +75,7 @@ async function runLlmRequest(
 
   try {
     // Loaded on first use — see the note in `cloud-performer.ts`.
-    const { performLlmGenerate } = await import("@/lib/firmata/cloud/llm-client");
+    const { performLlmGenerate } = await import("@/ai/llm-client");
     const text = await performLlmGenerate(
       provider,
       { model: request.model, system: request.system, prompt: request.prompt },

@@ -15,7 +15,7 @@ import {
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type MouseEvent } from "react";
 import { useNewNodeStore } from "@/stores/new-node";
-import { useAskAiStore } from "@/stores/ask-ai";
+import { useAskAiStore } from "@/ai/ask-ai-store";
 import { useFlowHistory, useFlowSession } from "@/session";
 import { cn } from "@/lib/utils";
 import { useActiveFlowStore } from "@/stores/active-flow";

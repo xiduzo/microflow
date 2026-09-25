@@ -13,11 +13,11 @@ import {
   useMqttBrokerStore,
   type ConnectionStatus,
   type MqttBrokerConfig,
-} from "@/stores/mqtt-broker";
+} from "@/cloud/mqtt-broker";
 import { track } from "@/lib/analytics";
 import { invokeCommand, useListen, type MqttMessagePayload } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
-import { openTestClient, type TestClient } from "@/session/browser-mqtt-test-client";
+import { openTestClient, type TestClient } from "@/cloud/browser-mqtt-test-client";
 import { hostLimitation, isBrowserReachableBroker } from "@/nodes/_base/browser-support";
 import {
   ConnectionConsole,
@@ -27,8 +27,8 @@ import {
   type ConnectionStatusTone,
   type ConsoleCommand,
   type ConsoleLine,
-} from "@/components/config/connection-console";
-import { parseCommand, restAfter } from "@/components/config/parse-command";
+} from "@/cloud/connection-console/connection-console";
+import { parseCommand, restAfter } from "@/cloud/connection-console/parse-command";
 import { EmptyState } from "@/components/states/empty-state";
 import { Button } from "@/components/ui/button";
 

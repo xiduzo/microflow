@@ -24,7 +24,7 @@ import {
   type FlowRuntimeCalls,
   type RuntimeFault,
 } from "./runtime-bridge";
-import { CloudPerformer, type CloudDeps } from "./cloud/cloud-performer";
+import { CloudPerformer, type CloudDeps } from "@/cloud/cloud-performer";
 import { MidiPerformer } from "./midi/midi-performer";
 import { AudioPerformer, audioSourcesOf } from "@/lib/audio/audio-performer";
 import {

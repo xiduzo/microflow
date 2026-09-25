@@ -1,7 +1,7 @@
 // The one path from "a node type plus a patch of config fields" to a complete,
 // schema-valid node `data` object: the type's catalog defaults, the patch on
 // top, validated by the node's own zod schema. Ask AI writes through it
-// (`lib/ai/flow-tools.ts`) and the built-in templates are authored with it
+// (`ai/flow-tools.ts`) and the built-in templates are authored with it
 // (`lib/templates`), so neither can ship data the node itself would reject.
 
 import { NODE_CATALOG } from "@/nodes/catalog.generated";

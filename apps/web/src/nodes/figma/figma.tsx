@@ -1,6 +1,6 @@
 import { type Data, type Value, dataSchema, defaults } from "./figma.schema";
-import { useFigmaVariable, useFigmaVariables, useFigmaPluginConnected } from "@/stores/figma";
-import { useMqttBrokerStore } from "@/stores/mqtt-broker";
+import { useFigmaVariable, useFigmaVariables, useFigmaPluginConnected } from "@/cloud/figma";
+import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CloudOffIcon, VariableIcon } from "lucide-react";

@@ -104,7 +104,7 @@ export type NodeCatalogEntry = {
   defaults: NodeDefaults;
   /** The node's own zod schema — the authority on what its `data` may hold.
    *  Exposed here so a caller holding only a type string can validate before
-   *  writing to the document (see `lib/ai/flow-tools.ts`). */
+   *  writing to the document (see `ai/flow-tools.ts`). */
   schema: ZodType;
   adapter?: NodeHostAdapter;
 };

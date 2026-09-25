@@ -7,7 +7,7 @@ export type LlmProviderConfig = {
   /** Which transport reaches this provider. `"http"` (the default, and what
    *  every configuration saved before local CLIs existed is) means an
    *  OpenAI-compatible endpoint at `baseUrl`. `"cli"` means a local agent CLI,
-   *  named by `baseUrl` — see `lib/ai/cli-providers.ts`; desktop only. */
+   *  named by `baseUrl` — see `ai/cli-providers.ts`; desktop only. */
   kind?: "http" | "cli";
   /** The endpoint, or for a `"cli"` provider the CLI's id. */
   baseUrl: string;

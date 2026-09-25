@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { useMqttBrokerStore, type ConnectionStatus } from "@/stores/mqtt-broker";
-import { useLlmProviderStore } from "@/stores/llm-provider";
-import { useFigmaStore } from "@/stores/figma";
+import { useMqttBrokerStore, type ConnectionStatus } from "@/cloud/mqtt-broker";
+import { useLlmProviderStore } from "@/ai/llm-provider";
+import { useFigmaStore } from "@/cloud/figma";
 import { invokeCommand, type BrokerStatusPayload } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
 import {
@@ -11,7 +11,7 @@ import {
   type CloudCapability,
 } from "./cloud-capability-sync";
 import { probeBroker, probeLlmProvider, probeStatus } from "./browser-cloud-probe";
-import type { HostSnapshot } from "./flow-update-dispatcher";
+import type { HostSnapshot } from "@/session/flow-update-dispatcher";
 
 // Production cloud-capability registry: each entry owns its store slice, its
 // push to the runtime host's Service Registry, and its HostSnapshot field.

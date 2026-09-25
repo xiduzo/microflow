@@ -141,7 +141,7 @@ type GenerateSketch = {
 };
 
 // Local agent CLIs as an LLM provider (desktop only) — see
-// `lib/ai/cli-providers.ts` for why these cannot go over the HTTP transport.
+// `ai/cli-providers.ts` for why these cannot go over the HTTP transport.
 // `bin` is checked against an allowlist in Rust; `args` never reaches a shell.
 type LlmCliGenerate = {
   type: "llm_cli_generate";

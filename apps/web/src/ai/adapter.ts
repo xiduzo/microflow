@@ -1,8 +1,8 @@
 // The one place a stored `LlmProviderConfig` becomes a TanStack AI adapter.
 //
 // Both AI surfaces resolve through here — the `Llm` flow node's transport
-// (`lib/firmata/cloud/llm-client.ts`) and the Ask AI assistant
-// (`components/flow/ask-ai`) — so a provider that answers in one answers in the
+// (`ai/llm-client.ts`) and the Ask AI assistant
+// (`ai/ask-ai-panel.tsx`) — so a provider that answers in one answers in the
 // other, and neither owns a bespoke HTTP path.
 //
 // ADR-0021: the transport is TypeScript in BOTH hosts. The desktop no longer
@@ -78,7 +78,7 @@ export async function adapterFor(
       baseURL: normalizeBaseUrl(provider.baseUrl),
       fetch: fetchImpl,
       // The key is the user's own and already lives in this browser
-      // (`stores/llm-provider`), so the SDK's browser guard is telling us
+      // (`ai/llm-provider`), so the SDK's browser guard is telling us
       // something we decided in ADR-0009 D4.
       dangerouslyAllowBrowser: true,
     },

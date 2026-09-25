@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { isProbeOk, probeLlmProvider, probeStatus } from "./browser-cloud-probe";
-import type { LlmProviderConfig } from "@/stores/llm-provider";
+import type { LlmProviderConfig } from "@/ai/llm-provider";
 
 const provider: LlmProviderConfig = {
   id: "p1",

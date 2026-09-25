@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
 import { performLlmGenerate } from "./llm-client";
-import { resetHostFetch } from "@/lib/ai/endpoint";
+import { resetHostFetch } from "@/ai/endpoint";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {

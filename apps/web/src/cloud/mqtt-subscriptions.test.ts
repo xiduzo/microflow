@@ -12,7 +12,7 @@ import {
   uidBrokers,
   type ActiveSub,
   type SubKind,
-} from "../cloud/mqtt-subscriptions";
+} from "./mqtt-subscriptions";
 
 const active = (nodeId: string, kind: SubKind, brokerId: string, topic: string): ActiveSub => ({
   nodeId,

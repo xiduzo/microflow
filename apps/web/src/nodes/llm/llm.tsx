@@ -10,7 +10,7 @@ import {
   useNodeId,
   type BaseNode,
 } from "../_base/_base";
-import { useLlmProviderStore } from "@/stores/llm-provider";
+import { useLlmProviderStore } from "@/ai/llm-provider";
 import { ProviderBadge } from "../_base/desktop-only-badge";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUpdateNodeInternals } from "@xyflow/react";

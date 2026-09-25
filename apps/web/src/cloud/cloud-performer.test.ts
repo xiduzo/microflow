@@ -18,7 +18,7 @@ import {
 } from "./cloud-performer";
 import type { BrokerConn, MqttClientFactory, MqttClientLike } from "./mqtt-client";
 import type { ActiveSub } from "./mqtt-subscriptions";
-import { resetHostFetch } from "@/lib/ai/endpoint";
+import { resetHostFetch } from "@/ai/endpoint";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {

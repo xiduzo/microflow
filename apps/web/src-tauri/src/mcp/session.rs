@@ -1,7 +1,7 @@
 //! What an MCP client is allowed to do right now, and the hop that does it.
 //!
 //! The tools this server exposes are *not* Rust: they mutate the Yjs
-//! `FlowDocument` that lives in the webview (`lib/ai/flow-tools.ts`), which is
+//! `FlowDocument` that lives in the webview (`ai/flow-tools.ts`), which is
 //! also what makes an AI edit sync, undo and reach a board like a human one. So
 //! the server owns no roster of its own — it owns a **session**, which the
 //! webview opens for the length of one Ask AI turn and closes after, and every

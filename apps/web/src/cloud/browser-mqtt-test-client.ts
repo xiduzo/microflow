@@ -12,7 +12,7 @@
 // wildcards like `test/#`, whose inbound topics never equal the filter.
 
 import mqtt from "mqtt";
-import type { ConnectionStatus, MqttBrokerConfig } from "@/stores/mqtt-broker";
+import type { ConnectionStatus, MqttBrokerConfig } from "@/cloud/mqtt-broker";
 
 export type TestClient = {
   /** Resolves false when the broker refuses the subscription. */

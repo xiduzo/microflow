@@ -32,7 +32,7 @@ type carries `#[derive(TS)] #[ts(export)]` in Rust and lands in
 `NodeDiagnostic`, `MidiListener`, `FigmaPublish`, `DesiredSub`, `BringUpEvent` /
 `BringUpPhase` / `BringUpAction`, `FlashStep`, `FeedResult`.
 
-`lib/runtime/wasm.ts`, `lib/firmata/wasm.ts` and `lib/firmata/cloud/mqtt-subscriptions.ts`
+`lib/runtime/wasm.ts`, `lib/firmata/wasm.ts` and `cloud/mqtt-subscriptions.ts`
 are **re-export surfaces** — they declare no structural types of their own. Adding
 a field to a seam type in Rust regenerates the TypeScript; a rename is a `tsc`
 failure rather than a runtime `undefined`.

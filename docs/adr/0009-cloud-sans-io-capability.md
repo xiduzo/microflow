@@ -37,7 +37,7 @@
 > wasm crate 4, web 144 (+ `llm-client` transport tests) + `tsc`.
 >
 > **MQTT + Figma in the browser landed (2026-06-22).** Added `mqtt@5` and a
-> per-broker MQTT-over-WSS connection manager (`lib/firmata/cloud/mqtt-client.ts`,
+> per-broker MQTT-over-WSS connection manager (`cloud/mqtt-client.ts`,
 > the browser analog of the desktop `MqttManager`). `FlowReactor.performCloud`
 > now publishes `mqttPublish` (Mqtt node + Figma set-value); on each `applyFlow`
 > it reconciles the runtime's `subscriberWirings()` into WSS subscriptions (a

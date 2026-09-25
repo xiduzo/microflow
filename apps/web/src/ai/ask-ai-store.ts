@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { WriteMode } from "@/lib/ai/flow-tools";
+import type { WriteMode } from "@/ai/flow-tools";
 
 export type { WriteMode };
 

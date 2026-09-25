@@ -1,8 +1,8 @@
 import type { FlowDocument, FlowNode } from "@microflow/collab";
 import { projectFlowStructure } from "@microflow/collab/schema";
 import type { HostState, NodeHostAdapter } from "@/nodes/_base/host-adapter";
-import type { LlmProviderConfig } from "@/stores/llm-provider";
-import type { MqttBrokerConfig } from "@/stores/mqtt-broker";
+import type { LlmProviderConfig } from "@/ai/llm-provider";
+import type { MqttBrokerConfig } from "@/cloud/mqtt-broker";
 import type { FlowSession } from "./flow-session";
 import type {
   DispatchedBroker,

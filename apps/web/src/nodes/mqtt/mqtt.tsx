@@ -5,7 +5,7 @@ const Handle = BaseHandle<"Mqtt">;
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RadioIcon, RadioTowerIcon } from "lucide-react";
 import { IconWithValue } from "../_base/icon-with-value";
-import { useMqttBrokerStore } from "@/stores/mqtt-broker";
+import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
 import { useMemo } from "react";
 import { hostLimitation } from "../_base/browser-support";
 

@@ -13,12 +13,12 @@
 // the `CloudPerformer`.
 //
 // Per ADR-0009 D4 the call is **direct**: the user's own key, from the user's
-// own machine. `hostFetch` in `lib/ai/adapter` is what makes that work on
+// own machine. `hostFetch` in `ai/adapter` is what makes that work on
 // desktop without CORS.
 
 import { chat, EventType } from "@tanstack/ai";
 
-import { adapterFor, type LlmProviderConn } from "@/lib/ai/adapter";
+import { adapterFor, type LlmProviderConn } from "@/ai/adapter";
 
 export type { LlmProviderConn };
 

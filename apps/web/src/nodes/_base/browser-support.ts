@@ -24,7 +24,7 @@
 import { isDesktop } from "@/lib/platform";
 import { REQUIRES_HARDWARE, isComponentType } from "../component-types.generated";
 import { isWebSerialSupported } from "@/lib/firmata/web-serial";
-import { cliProvider, isCliProvider, takesFlowTools } from "@/lib/ai/cli-providers";
+import { cliProvider, isCliProvider, takesFlowTools } from "@/ai/cli-providers";
 
 /** A short badge label and the sentence behind it. */
 export type HostLimitation = { label: string; reason: string };

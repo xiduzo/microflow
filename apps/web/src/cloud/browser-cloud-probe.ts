@@ -14,10 +14,10 @@
 // connections.
 
 import mqtt from "mqtt";
-import type { ConnectionStatus, MqttBrokerConfig } from "@/stores/mqtt-broker";
-import type { LlmProviderConfig, ProviderStatus } from "@/stores/llm-provider";
+import type { ConnectionStatus, MqttBrokerConfig } from "@/cloud/mqtt-broker";
+import type { LlmProviderConfig, ProviderStatus } from "@/ai/llm-provider";
 import { isBrowserReachableBroker } from "@/nodes/_base/browser-support";
-import { hostFetch, isMixedContent, normalizeBaseUrl } from "@/lib/ai/endpoint";
+import { hostFetch, isMixedContent, normalizeBaseUrl } from "@/ai/endpoint";
 
 const PROBE_TIMEOUT_MS = 8000;
 

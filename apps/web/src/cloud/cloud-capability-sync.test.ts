@@ -4,7 +4,7 @@ import {
   startCloudCapabilitySync,
   type CloudCapability,
 } from "./cloud-capability-sync";
-import type { HostSnapshot } from "./flow-update-dispatcher";
+import type { HostSnapshot } from "@/session/flow-update-dispatcher";
 
 /** Minimal zustand-like store: a slice reference plus change notifications. */
 function makeFakeStore<T>(initial: T) {

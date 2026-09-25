@@ -2,7 +2,7 @@
 // use, and where the API root is.
 //
 // Split out of `adapter.ts` for one concrete reason — the config page's
-// reachability probe (`session/browser-cloud-probe.ts`) needs exactly these two
+// reachability probe (`cloud/browser-cloud-probe.ts`) needs exactly these two
 // and is loaded on every page. Importing them from `adapter.ts` dragged
 // `@tanstack/ai` and the OpenAI client into the main bundle for users who never
 // touch an LLM. Keep this module free of SDK imports.
