@@ -12,17 +12,15 @@ import { EventType } from "@tanstack/ai";
 import type { AnyTextAdapter } from "@tanstack/ai";
 import { FlowDocument } from "@microflow/collab";
 
-// `NODE_REGISTRY` pulls in every node component, and some of them read the web
-// env at import time. Seed it before the dynamic import below — under `bun test`
-// there is no Vite to supply it.
-process.env.VITE_SERVER_URL ??= "http://localhost:3000";
-const { MAX_ITERATIONS, NO_PROVIDER_MESSAGE, mergePending, runTurn } = await import(
-  "./turn-runner"
-);
-const { applyChanges } = await import("./flow-tools");
-type TurnUpdate = import("./turn-runner").TurnUpdate;
-type TurnOptions = import("./turn-runner").TurnOptions;
-type PendingChange = import("./flow-tools").PendingChange;
+import {
+  MAX_ITERATIONS,
+  NO_PROVIDER_MESSAGE,
+  mergePending,
+  runTurn,
+  type TurnOptions,
+  type TurnUpdate,
+} from "./turn-runner";
+import { applyChanges, type PendingChange } from "./flow-tools";
 
 type Chunk = Record<string, unknown>;
 type ChatOptions = { messages: ReadonlyArray<{ role: string; content: unknown }> };

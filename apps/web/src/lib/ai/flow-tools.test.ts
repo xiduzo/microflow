@@ -7,12 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { FlowDocument } from "@microflow/collab";
 
-// `NODE_REGISTRY` pulls in every node component, and some of them read the web
-// env at import time. Seed it before the dynamic import below — under `bun test`
-// there is no Vite to supply it.
-process.env.VITE_SERVER_URL ??= "http://localhost:3000";
-const { applyChanges, createFlowTools } = await import("./flow-tools");
-type PendingChange = import("./flow-tools").PendingChange;
+import { applyChanges, createFlowTools, type PendingChange } from "./flow-tools";
 
 type AnyTool = { name: string; execute: (input: never) => unknown };
 

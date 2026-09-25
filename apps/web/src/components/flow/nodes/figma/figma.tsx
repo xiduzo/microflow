@@ -1,4 +1,3 @@
-import type { NodeHostAdapter } from "../_base/host-adapter";
 import { type Data, type Value, dataSchema, defaults } from "./figma.schema";
 import { useFigmaVariable, useFigmaVariables, useFigmaPluginConnected } from "@/stores/figma";
 import { useMqttBrokerStore } from "@/stores/mqtt-broker";
@@ -248,9 +247,3 @@ function Value() {
 
 type Props = BaseNode<Data>;
 Figma.defaultProps = { data: defaults };
-
-export const adapter: NodeHostAdapter = {
-  prepareData: (_node, hosts) =>
-    hosts.figma.uniqueId ? { uniqueId: hosts.figma.uniqueId } : undefined,
-  brokerIds: (node) => (node.data?.brokerId ? [node.data.brokerId as string] : []),
-};

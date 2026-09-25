@@ -85,7 +85,7 @@ Each is a deliberate interface with its own decision record:
 
 The node catalog (`apps/web/node-components.json`) plus the Rust `ports()`/`emits()`
 declarations are the *only* place node identity lives. A build step generates the
-TypeScript registry and handle types from them, and a **Catalog Parity Guard**
+TypeScript node catalog and handle types from them, and a **Catalog Parity Guard**
 (`apps/web/src-tauri/tests/catalog_parity.rs`) fails the build if the generated
 mirror drifts from Rust. Handle rendering is driven from those generated types
 (see `NodeHandles`), so a renamed port is a compile error, not a runtime surprise.

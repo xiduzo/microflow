@@ -4,8 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { FlowDocument } from "@microflow/collab";
 
-process.env.VITE_SERVER_URL ??= "http://localhost:3000";
-const { currentFlowPrompt } = await import("./catalog-prompt");
+import { currentFlowPrompt } from "./catalog-prompt";
 
 describe("currentFlowPrompt", () => {
   test("says so when the canvas is empty", () => {

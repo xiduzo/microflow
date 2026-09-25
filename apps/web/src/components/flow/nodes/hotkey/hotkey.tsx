@@ -28,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import { useHotkeyRecorder } from "@tanstack/react-hotkeys";
 import type { Hotkey as HotkeyType } from "@tanstack/react-hotkeys";
 import { cn } from "@/lib/utils";
-import type { NodeHostAdapter } from "../_base/host-adapter";
 
 export function Hotkey(props: Props) {
   return (
@@ -179,7 +178,3 @@ function Settings() {
 
 type Props = BaseNode<Data>;
 Hotkey.defaultProps = { data: defaults };
-
-export const adapter: NodeHostAdapter = {
-  accelerator: (node) => (node.data?.accelerator ? String(node.data.accelerator) : undefined),
-};

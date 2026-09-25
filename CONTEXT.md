@@ -24,7 +24,7 @@ The single source of truth for every flow component the UI exposes and the runti
 
 The catalog drives the frontend; the **wire interface flows the other way**, from Rust:
 
-- `apps/web/scripts/codegen-node-registry.ts` reads `entries` (+ `impls[].usesHostAdapter`) from the catalog **and** the Port/Emit sets from `apps/web/wire-interface.generated.json`, then writes `apps/web/src/components/flow/nodes/_REGISTRY.ts` and `_base/_base.types.ts`. Run via `bun run codegen` in `apps/web`.
+- `apps/web/scripts/codegen-node-registry.ts` reads `entries` from the catalog **and** the Port/Emit sets from `apps/web/wire-interface.generated.json`, then writes three files under `apps/web/src/components/flow/nodes/`: `_base/_base.types.ts`; `catalog.generated.ts` (`NODE_CATALOG` — per-type `defaults`, `schema` and host `adapter`; React-free, for non-UI code); and `node-types.generated.ts` (`NODE_TYPES` — the React component per type, for ReactFlow). Run via `bun run codegen` in `apps/web`.
 - `apps/web/wire-interface.generated.json` is generated **from Rust** `<Impl>::ports()`/`emits()` by the **Catalog Parity Guard** (`apps/web/src-tauri/tests/catalog_parity.rs`) when run with `BLESS_WIRE_INTERFACE=1`; otherwise the same guard asserts the committed file is current, so a stale mirror fails CI rather than shipping wrong handle types. `bun run catalog:sync` (in `apps/web`) blesses + re-codegens in one step. Port/Emit thus have **one** source — the compile-checked Rust consts — and no hand-authored catalog mirror to drift.
 - `apps/web/src-tauri/build.rs` no longer generates anything (it is just `tauri_build::build()`). The old `register_all_body.rs` codegen and its port-drift assertion were dropped in the re-host ([ADR-0006](docs/adr/0006-rehost-runtime-on-core.md)); the `ComponentRegistry` now hand-registers nodes in `register_all` (`crates/microflow-core/src/runtime/registry.rs`).
 
@@ -325,13 +325,13 @@ The desktop **CloudPerformer** holds the `Arc<dyn MqttPublisher>` and performs t
 
 ## Host Adapter
 
-Frontend mirror of **Wiring**. Each node component module may export an `adapter: NodeHostAdapter` (see `apps/web/src/components/flow/nodes/_base/host-adapter.ts`) describing what the host store + global hotkey listener need from this node:
+Frontend mirror of **Wiring**. Each node folder may hold a `<node>.adapter.ts` that exports an `adapter: NodeHostAdapter` (see `apps/web/src/components/flow/nodes/_base/host-adapter.ts`) describing what the host store + global hotkey listener need from this node:
 
 - `prepareData(node, hosts)` — partial `data` patch to merge before sync (e.g. `Figma` injects `uniqueId` from `useFigmaStore`).
 - `brokerIds(node)` — broker IDs this node depends on; collected and forwarded to the runtime.
 - `accelerator(node)` — keyboard accelerator this node listens to; registered with `useHotkeys`.
 
-The catalog `impls[].usesHostAdapter` flag drives codegen: when `true`, `_REGISTRY.ts` imports the entry's `adapter` export. The frontend registry exposes `adapter` on every entry (undefined when no adapter is needed), so consumers walk it without pattern-matching `data.instance`.
+The file's presence drives codegen: when `<node>/<node>.adapter.ts` exists, `catalog.generated.ts` imports its `adapter` export. The adapter file stays React-free, so the catalog never loads a node's UI. `NODE_CATALOG` exposes `adapter` on every entry (undefined when no adapter is needed), so consumers walk it without pattern-matching `data.instance`.
 
 ## NodeHandles
 
@@ -361,7 +361,7 @@ The last hop where a node's control edits become CRDT writes — `createNodeData
 
 ## Node Data Resolver
 
-`resolveNodeData(type, patch, base?)` in `apps/web/src/lib/node-data.ts` — the one path from "a node type plus a patch of config fields" to a complete, schema-valid node `data` object: the type's `NODE_REGISTRY` defaults (codegen'd from the [Component Catalog](#component-catalog)), the optional existing node's `base`, the `patch` on top, validated by the node's own zod schema. Returns `{ ok: true, data }` or `{ ok: false, error }` with the schema issues spelled out. Presentation keys (label/icon/group) live on `defaults` but not in the schema, so the merged object is kept and the parse only proves validity — the caller may send just the field it cares about and still get the same complete node the picker places by hand. Both authoring paths share it: Ask AI's flow tools (`lib/ai/flow-tools.ts`, behind the [Turn Runner](#turn-runner)) and the built-in templates (`lib/templates`, authored as `(type, overrides)` pairs), so neither can ship data the node itself would reject.
+`resolveNodeData(type, patch, base?)` in `apps/web/src/lib/node-data.ts` — the one path from "a node type plus a patch of config fields" to a complete, schema-valid node `data` object: the type's `NODE_CATALOG` defaults (codegen'd from the [Component Catalog](#component-catalog)), the optional existing node's `base`, the `patch` on top, validated by the node's own zod schema. Returns `{ ok: true, data }` or `{ ok: false, error }` with the schema issues spelled out. Presentation keys (label/icon/group) live on `defaults` but not in the schema, so the merged object is kept and the parse only proves validity — the caller may send just the field it cares about and still get the same complete node the picker places by hand. Both authoring paths share it: Ask AI's flow tools (`lib/ai/flow-tools.ts`, behind the [Turn Runner](#turn-runner)) and the built-in templates (`lib/templates`, authored as `(type, overrides)` pairs), so neither can ship data the node itself would reject.
 
 ## FlowSession
 
@@ -411,7 +411,7 @@ Class that observes a `FlowSession`'s `FlowDocument` for any Y-update (local edi
 - **`HostSnapshotProvider: () => HostSnapshot`** — re-read on every dispatch so credential rotation (MQTT password, LLM API key) takes effect on the next call without rebuilding the dispatcher.
 - **`FlowUpdateSender`** — transport. Production: `TauriFlowUpdateSender` (wraps `invokeCommand("flow_update", ...)`). Tests: `RecordingFlowUpdateSender` (captures every dispatched payload, supports scripted errors via `scriptError(msg)`).
 - **`DispatchScheduler`** — debounce strategy. Production: `DebounceScheduler` (500ms via `@tanstack/react-pacer`). Tests: `ManualDispatchScheduler` with `.flush()` for deterministic assertions.
-- **`NodeAdapterRegistry`** — minimal `Record<instance, { adapter? }>` shape the dispatcher needs from the codegen'd `NODE_REGISTRY`. Injected (not imported) so the dispatcher module doesn't pull every node component + its env/auth deps into tests.
+- **`NodeAdapterRegistry`** — minimal `Record<instance, { adapter? }>` shape the dispatcher needs from the codegen'd `NODE_CATALOG`. Injected (not imported) so tests hand the dispatcher a stub with exactly the adapters they exercise.
 
 The pure compositional helpers, each independently testable:
 

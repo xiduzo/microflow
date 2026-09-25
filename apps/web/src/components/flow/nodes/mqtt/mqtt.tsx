@@ -1,4 +1,3 @@
-import type { NodeHostAdapter } from "../_base/host-adapter";
 import { dataSchema, defaults, type Data } from "./mqtt.schema";
 import { Handle as BaseHandle } from "../../handle";
 
@@ -101,7 +100,3 @@ function Settings() {
 
 type Props = BaseNode<Data>;
 Mqtt.defaultProps = { data: defaults };
-
-export const adapter: NodeHostAdapter = {
-  brokerIds: (node) => (node.data?.brokerId ? [node.data.brokerId as string] : []),
-};

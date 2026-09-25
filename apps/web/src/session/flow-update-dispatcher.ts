@@ -12,11 +12,11 @@ import type {
   SendResult,
 } from "./flow-update-sender";
 
-/** Minimal shape the dispatcher needs from the (codegen'd) NODE_REGISTRY:
+/** Minimal shape the dispatcher needs from the (codegen'd) NODE_CATALOG:
  * lookup by instance name → optional host adapter. Injecting it instead of
  * importing the codegen module decouples the dispatcher from the generated
- * `_REGISTRY.ts` (which transitively imports every node component + its
- * auth/env-touching deps), making the dispatcher testable in isolation. */
+ * `catalog.generated.ts`, so tests can hand it a stub with exactly the
+ * adapters they exercise. */
 export type NodeAdapterRegistry = Record<string, { adapter?: NodeHostAdapter } | undefined>;
 
 // =========================================================================
@@ -124,8 +124,8 @@ export class ManualDispatchScheduler implements DispatchScheduler {
  * Walk each node's `NodeHostAdapter` to apply `prepareData` patches and
  * collect broker IDs the runtime needs to know about.
  *
- * `registry` is the codegen'd `NODE_REGISTRY` in production; tests pass a
- * minimal stub so they don't pull the whole node tree into the test bundle.
+ * `registry` is the codegen'd `NODE_CATALOG` in production; tests pass a
+ * minimal stub with only the adapters they exercise.
  */
 export function applyHostAdapterPatches(
   rawNodes: FlowNode[],

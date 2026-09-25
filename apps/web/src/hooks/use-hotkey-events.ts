@@ -4,7 +4,7 @@ import { isDesktop } from "@/lib/platform";
 import { emit } from "@tauri-apps/api/event";
 import { useFlowNodes, useFlowSession } from "@/session";
 import type { Hotkey } from "@tanstack/react-hotkeys";
-import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
+import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
 import { isComponentType } from "@/components/flow/nodes/_base/_base.types";
 import { dispatchToNode } from "@/lib/firmata/board-controller";
 
@@ -30,7 +30,7 @@ export function useHotkeyEvents() {
     for (const node of nodes) {
       const instance = node.data?.instance;
       if (typeof instance !== "string" || !isComponentType(instance)) continue;
-      const accel = NODE_REGISTRY[instance].adapter?.accelerator?.(node);
+      const accel = NODE_CATALOG[instance].adapter?.accelerator?.(node);
       if (!accel) continue;
       const ids = out.get(accel);
       if (ids) ids.push(node.id);

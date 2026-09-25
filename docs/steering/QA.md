@@ -81,7 +81,7 @@ A Task is ready to merge when **all** of the following are true:
 - [ ] `cargo clippy --all-targets -- -D warnings -W clippy::pedantic` passes
 - [ ] `cargo test --lib --tests` passes
 - [ ] Cross-platform Tauri build passes (build.yml matrix: macOS Intel / ARM, Windows MSVC, Linux x86_64)
-- [ ] If `node-components.json` changed: `bun run codegen` was run and both `_REGISTRY.ts` and the Rust registry regenerated
+- [ ] If `node-components.json` changed: `bun run codegen` was run and both `catalog.generated.ts` / `node-types.generated.ts` and the Rust registry regenerated
 - [ ] If the Task has Gherkin scenarios: each scenario has a corresponding Rust integration test
 - [ ] If the change touches hardware code (`BoardHandle`, `Board IO Loop`, `BoardConnection`, `flasher`, or a `HardwareComponent` impl): manual smoke on a real Firmata board before merge — mocks are not a substitute when the wire matters
 - [ ] If domain terms changed or new terms were introduced: `CONTEXT.md` updated

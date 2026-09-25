@@ -1,8 +1,8 @@
 import { useReactFlow, useStoreApi, type XYPosition } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { NODE_REGISTRY } from "../nodes/_REGISTRY";
-import type { NodeDefaults } from "../nodes/_REGISTRY";
+import { NODE_CATALOG } from "../nodes/catalog.generated";
+import type { NodeDefaults } from "../nodes/catalog.generated";
 import { useFlowSession } from "@/session";
 import { useNewNodeStore } from "@/stores/new-node";
 import { groupIndicator } from "../nodes/_base/_base";
@@ -97,7 +97,7 @@ export function NewNodeDialog() {
   }
 
   const groups = useMemo(() => {
-    const byGroup = Object.entries(NODE_REGISTRY).reduce(
+    const byGroup = Object.entries(NODE_CATALOG).reduce(
       (acc, [type, { defaults }]) => {
         if (defaults.group === "internal") return acc;
         const group = defaults.group ?? "sense";

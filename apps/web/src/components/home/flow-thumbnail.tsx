@@ -7,7 +7,7 @@ import {
   type Node,
   type Edge,
 } from "@xyflow/react";
-import { NODE_TYPES } from "../flow/nodes/_REGISTRY";
+import { NODE_TYPES } from "../flow/nodes/node-types.generated";
 import { PreviewFlowSessionProvider } from "@/session";
 import type { FlowEdge, FlowNode } from "@microflow/collab";
 

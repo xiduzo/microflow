@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
+import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
 import { readHostSnapshot } from "./cloud-capabilities";
 import { DebounceScheduler, FlowUpdateDispatcher } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
@@ -28,7 +28,7 @@ export function useFlowUpdateDispatcher(session: FlowSession): void {
         // the in-browser wasm runtime via the board-controller.
         isDesktop() ? new TauriFlowUpdateSender() : new WasmFlowUpdateSender(),
         new DebounceScheduler(DEBOUNCE_MS, DEBOUNCE_MAX_WAIT_MS),
-        NODE_REGISTRY,
+        NODE_CATALOG,
       ),
   );
 

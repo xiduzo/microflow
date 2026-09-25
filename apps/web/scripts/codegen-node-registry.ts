@@ -1,6 +1,6 @@
 import manifest from "../node-components.json";
 import wireInterface from "../wire-interface.generated.json";
-import { writeFileSync } from "fs";
+import { existsSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -13,12 +13,13 @@ function toKebabCase(str: string): string {
 
 const { entries, impls } = manifest;
 
-// Map impl name -> usesHostAdapter flag, so each entry can decide whether
-// to import an `adapter` export from its own component file.
-const usesHostAdapter = new Map<string, boolean>(
-  impls.map((i) => [i.name, Boolean((i as Record<string, unknown>).usesHostAdapter)]),
-);
-const entryUsesAdapter = (e: { impl: string }) => usesHostAdapter.get(e.impl) ?? false;
+// An entry has a host adapter when its folder holds a `<node>.adapter.ts`
+// sibling (see `_base/host-adapter.ts`). Kept out of the React file so the
+// catalog can import it without pulling in the node's UI.
+const entryUsesAdapter = (e: { name: string }) => {
+  const kebab = toKebabCase(e.name);
+  return existsSync(join(nodesDir, kebab, `${kebab}.adapter.ts`));
+};
 
 // Map impl name -> requiresHardware, so the frontend can tell which nodes are
 // useless without a board (and therefore without Web Serial, in the browser).
@@ -147,10 +148,13 @@ ${implObjectLines}
 `;
 writeFileSync(join(nodesDir, "_base/_base.types.ts"), baseTypesContent);
 
-// _REGISTRY.ts
-const lines: string[] = [
-  "// GENERATED — do not edit. Source: node-components.json. Run `bun run codegen`.",
-  'import type { NodeTypes } from "@xyflow/react";',
+// catalog.generated.ts — per-type metadata for non-UI code. Imports only each
+// node's `.schema.ts` and `.adapter.ts`, never its React component, so the
+// runtime, Ask AI and templates can read it without loading every node UI.
+const catalogLines: string[] = [
+  "// GENERATED — do not edit. Sources: node-components.json (entries) + each node's",
+  "// `<node>.adapter.ts`, when present. Run `bun run codegen`.",
+  "// React-free: imports schemas and host adapters only, never a node's UI.",
   'import type { ZodType } from "zod";',
   'import type { ComponentType } from "./_base/_base.types";',
   'import type { NodeHostAdapter } from "./_base/host-adapter";',
@@ -160,15 +164,14 @@ const lines: string[] = [
 for (const e of entries) {
   const kebab = toKebabCase(e.name);
   const fp = `./${kebab}/${kebab}`;
-  lines.push(`import { ${e.name} } from "${fp}";`);
-  lines.push(`import { defaults as ${e.name}Defaults } from "${fp}.schema";`);
-  lines.push(`import { dataSchema as ${e.name}Schema } from "${fp}.schema";`);
+  catalogLines.push(`import { defaults as ${e.name}Defaults } from "${fp}.schema";`);
+  catalogLines.push(`import { dataSchema as ${e.name}Schema } from "${fp}.schema";`);
   if (entryUsesAdapter(e)) {
-    lines.push(`import { adapter as ${e.name}Adapter } from "${fp}";`);
+    catalogLines.push(`import { adapter as ${e.name}Adapter } from "${fp}.adapter";`);
   }
 }
 
-lines.push(
+catalogLines.push(
   "",
   "export type NodeDefaults = {",
   "  group?: string;",
@@ -179,8 +182,7 @@ lines.push(
   "  [key: string]: unknown;",
   "};",
   "",
-  "export type NodeRegistryEntry = {",
-  "  component: unknown;",
+  "export type NodeCatalogEntry = {",
   "  defaults: NodeDefaults;",
   "  /** The node's own zod schema — the authority on what its `data` may hold.",
   "   *  Exposed here so a caller holding only a type string can validate before",
@@ -189,30 +191,44 @@ lines.push(
   "  adapter?: NodeHostAdapter;",
   "};",
   "",
-  "export const NODE_REGISTRY = {",
+  "export const NODE_CATALOG = {",
 );
 
 for (const e of entries) {
   const adapterField = entryUsesAdapter(e) ? `${e.name}Adapter` : "undefined";
-  lines.push(
-    `  ${e.name}: { component: ${e.name}, defaults: ${e.name}Defaults as NodeDefaults, schema: ${e.name}Schema, adapter: ${adapterField} },`,
+  catalogLines.push(
+    `  ${e.name}: { defaults: ${e.name}Defaults as NodeDefaults, schema: ${e.name}Schema, adapter: ${adapterField} },`,
   );
 }
 
-lines.push(
-  "} satisfies Record<ComponentType, NodeRegistryEntry>;",
+catalogLines.push("} satisfies Record<ComponentType, NodeCatalogEntry>;", "");
+
+writeFileSync(join(nodesDir, "catalog.generated.ts"), catalogLines.join("\n"));
+
+// node-types.generated.ts — the React side: one component per entry, for
+// ReactFlow's `nodeTypes`. The only generated file that loads node UIs.
+const nodeTypesLines: string[] = [
+  "// GENERATED — do not edit. Source: node-components.json. Run `bun run codegen`.",
+  'import type { NodeTypes } from "@xyflow/react";',
+  'import type { ComponentType } from "./_base/_base.types";',
   "",
-  "// ReactFlow compatibility — derived from NODE_REGISTRY",
-  "export const NODE_TYPES = {",
-);
+];
 
 for (const e of entries) {
-  lines.push(`  ${e.name},`);
+  const kebab = toKebabCase(e.name);
+  nodeTypesLines.push(`import { ${e.name} } from "./${kebab}/${kebab}";`);
 }
 
-lines.push("} as const satisfies NodeTypes & Record<ComponentType, unknown>;", "");
+nodeTypesLines.push("", "// ReactFlow compatibility", "export const NODE_TYPES = {");
 
-writeFileSync(join(nodesDir, "_REGISTRY.ts"), lines.join("\n"));
+for (const e of entries) {
+  nodeTypesLines.push(`  ${e.name},`);
+}
+
+nodeTypesLines.push("} as const satisfies NodeTypes & Record<ComponentType, unknown>;", "");
+
+writeFileSync(join(nodesDir, "node-types.generated.ts"), nodeTypesLines.join("\n"));
 
 console.log("✓ Generated _base/_base.types.ts");
-console.log("✓ Generated _REGISTRY.ts");
+console.log("✓ Generated catalog.generated.ts");
+console.log("✓ Generated node-types.generated.ts");

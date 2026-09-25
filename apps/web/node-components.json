@@ -199,8 +199,7 @@
     {
       "name": "Figma",
       "category": "external",
-      "requiresHardware": false,
-      "usesHostAdapter": true
+      "requiresHardware": false
     },
     {
       "name": "Function",
@@ -215,8 +214,7 @@
     {
       "name": "Hotkey",
       "category": "input",
-      "requiresHardware": false,
-      "usesHostAdapter": true
+      "requiresHardware": false
     },
     {
       "name": "I2cDevice",
@@ -262,8 +260,7 @@
     {
       "name": "Mqtt",
       "category": "external",
-      "requiresHardware": false,
-      "usesHostAdapter": true
+      "requiresHardware": false
     },
     {
       "name": "Music",

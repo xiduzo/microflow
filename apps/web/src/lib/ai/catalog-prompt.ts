@@ -1,7 +1,7 @@
 // The node vocabulary Ask AI works from.
 //
 // Built at module load out of the same generated sources the editor itself uses
-// — `NODE_REGISTRY` for labels/descriptions/defaults, and `COMPONENT_PORTS` /
+// — `NODE_CATALOG` for labels/descriptions/defaults, and `COMPONENT_PORTS` /
 // `COMPONENT_EMITS` for handles, both of which the Catalog Parity Guard pins to
 // the Rust `Component::ports()` / `emits()` (ADR-0007). So the catalogue the
 // model is given cannot drift from the one the runtime enforces: add a node or
@@ -14,7 +14,7 @@
 
 import type { FlowDocument } from "@microflow/collab";
 
-import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
+import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
 import {
   COMPONENT_EMITS,
   COMPONENT_PORTS,
@@ -29,7 +29,7 @@ const PRESENTATION_KEYS = new Set(["group", "label", "description", "tags", "ico
 /** One catalogue line per node: what it is, what it accepts, what it emits, and
  *  the config keys it takes with their default values. */
 function describe(type: ComponentType): string {
-  const { defaults } = NODE_REGISTRY[type];
+  const { defaults } = NODE_CATALOG[type];
   const ports = COMPONENT_PORTS[type];
   const emits = COMPONENT_EMITS[type];
 
@@ -49,10 +49,10 @@ function describe(type: ComponentType): string {
 
 /** The catalogue, grouped the way the editor's own node picker groups it, so the
  *  model reaches for the same vocabulary a user would. */
-export const NODE_CATALOG = (() => {
+export const CATALOGUE_TEXT = (() => {
   const byGroup = new Map<string, ComponentType[]>();
-  for (const type of Object.keys(NODE_REGISTRY) as ComponentType[]) {
-    const group = (NODE_REGISTRY[type].defaults.group as string | undefined) ?? "sense";
+  for (const type of Object.keys(NODE_CATALOG) as ComponentType[]) {
+    const group = (NODE_CATALOG[type].defaults.group as string | undefined) ?? "sense";
     if (group === "internal") continue;
     byGroup.set(group, [...(byGroup.get(group) ?? []), type]);
   }
@@ -105,7 +105,7 @@ the user can see the canvas.
 
 # Node catalogue
 
-${NODE_CATALOG}`;
+${CATALOGUE_TEXT}`;
 }
 
 /**

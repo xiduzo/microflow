@@ -1,10 +1,10 @@
 // The one path from "a node type plus a patch of config fields" to a complete,
-// schema-valid node `data` object: the type's registry defaults, the patch on
+// schema-valid node `data` object: the type's catalog defaults, the patch on
 // top, validated by the node's own zod schema. Ask AI writes through it
 // (`lib/ai/flow-tools.ts`) and the built-in templates are authored with it
 // (`lib/templates`), so neither can ship data the node itself would reject.
 
-import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
+import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
 import type { ComponentType } from "@/components/flow/nodes/_base/_base.types";
 
 /**
@@ -21,7 +21,7 @@ export function resolveNodeData(
   patch: Record<string, unknown>,
   base?: Record<string, unknown>,
 ): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
-  const { defaults, schema } = NODE_REGISTRY[type];
+  const { defaults, schema } = NODE_CATALOG[type];
   const merged = { ...defaults, ...base, ...patch };
   const parsed = schema.safeParse(merged);
   if (!parsed.success) {

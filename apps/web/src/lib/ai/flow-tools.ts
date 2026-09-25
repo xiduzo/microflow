@@ -9,7 +9,7 @@
 // The document is a shared, persisted structure, so this is a trust boundary:
 // a model can and will invent a field name, a handle, or an enum value. Nothing
 // reaches the doc without passing the node's own zod schema (`resolveNodeData`
-// in `lib/node-data.ts`, over `NODE_REGISTRY`) and the generated handle sets (`COMPONENT_PORTS` / `COMPONENT_EMITS`, pinned
+// in `lib/node-data.ts`, over `NODE_CATALOG`) and the generated handle sets (`COMPONENT_PORTS` / `COMPONENT_EMITS`, pinned
 // to the Rust `Component::ports()` / `emits()` by the Catalog Parity Guard,
 // ADR-0007). A rejection is returned to the model as a tool result rather than
 // thrown, so it corrects itself instead of the turn dying.
@@ -18,7 +18,7 @@ import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
 import type { FlowDocument, FlowEdge, FlowNode } from "@microflow/collab";
 
-import { NODE_REGISTRY } from "@/components/flow/nodes/_REGISTRY";
+import { NODE_CATALOG } from "@/components/flow/nodes/catalog.generated";
 import {
   COMPONENT_EMITS,
   COMPONENT_PORTS,
@@ -199,7 +199,7 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
   }).server(({ type, data }) => {
     // Case-insensitive: the catalogue says `Led`, a model will write `led`, and
     // spending a round trip on that teaches it nothing.
-    const resolved = (Object.keys(NODE_REGISTRY) as ComponentType[]).find(
+    const resolved = (Object.keys(NODE_CATALOG) as ComponentType[]).find(
       (candidate) => candidate.toLowerCase() === String(type).toLowerCase(),
     );
     if (!resolved || !isComponentType(resolved)) {
