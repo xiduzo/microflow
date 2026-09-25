@@ -1,13 +1,13 @@
 ---
 title: What is Microflow?
-description: A working mental model of the two tools and how they relate.
+description: A working mental model of Studio, the Hardware Bridge, and how they relate.
 ---
 
-"Microflow" is not one program — it is two, designed to be used either separately or together. This page explains what each one does and why a project might use one, the other, or both.
+"Microflow" is not one program. It is Microflow Studio plus a plugin for Figma (the Hardware Bridge), designed to be used either separately or together. This page explains what each one does and why a project might use one, the other, or both. The [Penpot plugin](/docs/microflow-penpot-plugin) does for Penpot what the Hardware Bridge does for Figma.
 
 ## Microflow Studio
 
-A desktop app. The thing you open when you want to make hardware do something.
+The app you open when you want to make hardware do something. It runs in your browser at [microflow.tech](https://microflow.tech) and as a desktop app.
 
 Studio gives you a **canvas** — a blank infinite grid — and a library of building blocks called **nodes**. You drag nodes onto the canvas, connect them, and configure them. Plug in an Arduino-compatible board over USB and Microflow runs your flow on it. No code, no compilation, no Arduino IDE.
 
@@ -22,7 +22,7 @@ Six categories of node cover everything Studio can do:
 
 Most flows are a chain like: Sense → Shape → Decide → Express. The Generate and Internal categories slot in wherever they are useful.
 
-Studio runs **everywhere**: macOS, Windows, Linux. The Arduino runs StandardFirmata; Studio sends commands to it over USB. The runtime that executes your flow lives inside the desktop app itself, not on the Arduino.
+Studio runs **everywhere**: in Chrome or Edge, and as a desktop app for macOS, Windows, and Linux. The Arduino runs StandardFirmata; Studio sends commands to it over USB. The runtime that executes your flow lives inside Studio, not on the Arduino. When a project needs to run without a computer, Studio can export the flow as a standalone Arduino sketch instead — see [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge#2-the-board-is-not-autonomous).
 
 ## Microflow Hardware Bridge
 

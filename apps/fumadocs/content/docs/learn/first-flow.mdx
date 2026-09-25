@@ -8,9 +8,9 @@ This is your "hello world" with hardware. By the end, the small LED on your Ardu
 ## What you need
 
 - A computer (Windows, macOS, or Linux)
-- A supported Arduino board: Uno, Mega, Leonardo, Micro, Nano, or Yun
+- A supported Arduino board: Uno, Nano, Mega, Leonardo, or Micro
 - A USB cable that fits your board
-- Microflow Studio installed — [install it now](/docs/microflow-studio) if you have not yet
+- Microflow Studio: open [microflow.tech](https://microflow.tech) in Chrome or Edge, or [install the desktop app](/docs/microflow-studio)
 
 <Callout type="info" title="Template available">
   Studio ships this flow as the **Blink** template — open the **Templates** page and load it to skip the node-by-node setup. Building it by hand is still the best way to learn.
@@ -22,17 +22,22 @@ Connect the Arduino to your computer with the USB cable. A small power LED on th
 
 ## Step 2 — Open Microflow Studio and create a new flow
 
-Launch Microflow Studio. From the home screen, click **New flow**. You will see a blank grid — this is the **canvas**. It is where you build everything.
+Open Microflow Studio. From the home screen, click **New flow**. You will see a blank grid — this is the **canvas**. It is where you build everything.
 
 <Callout type="info" title="Video placeholder">
   10-second clip: opening Studio, creating a new flow, landing on the empty canvas.
 </Callout>
 
-## Step 3 — Wait for the board to be detected
+## Step 3 — Connect the board
 
-In the bottom panel, Studio will say something like *"Waiting for board…"* and then *"Detected: Arduino Uno on COM3"*. The first time you connect a board, it also installs a small program called **StandardFirmata** onto it. This takes 30–60 seconds.
+Look at the board status in the sidebar.
 
-When you see *"Running"*, the board is ready to talk to your flow.
+- In the **desktop app**, Studio finds the board on its own.
+- In the **browser**, click **Connect board**, pick your board in the list that appears, and click **Connect**.
+
+The status changes to *Connecting*. The first time you connect a board, it then says *Flashing firmware* while Studio installs a small program called **StandardFirmata** onto it. This takes 30–60 seconds.
+
+When the status turns green and shows the port name (for example *COM3*), the board is ready to talk to your flow.
 
 If detection fails, see [Board not detected](/docs/troubleshooting/board-not-detected).
 
@@ -70,7 +75,7 @@ That's it. The small built-in LED on your Arduino should now toggle on and off o
 
 If it does not, check:
 
-- Is the bottom panel still showing **Running**?
+- Is the board status in the sidebar still green?
 - Did you set the LED's pin to `13`?
 - Is the edge actually connected? (it should be a solid line, not faded)
 

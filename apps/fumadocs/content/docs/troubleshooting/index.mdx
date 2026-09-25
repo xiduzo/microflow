@@ -5,13 +5,13 @@ description: Things that commonly go wrong, organised by symptom.
 
 If something is not behaving the way you expect, this page is the fastest way to a fix. Each entry below is a *symptom* — pick the one that matches what you are seeing.
 
-## My board never reaches "Running"
-The connection panel shows **Waiting**, **Detecting**, or **Uploading** but never advances.
+## My board never connects
+The board status in the sidebar stays at **No microcontroller connected** or **Connecting**, or ends in **Error**.
 
 → [Board not detected](/docs/troubleshooting/board-not-detected)
 
 ## My flow runs, but a node has no effect
-Specifically: a Sense node never produces values, or an Express node does nothing physical, even though the flow is **Running**.
+Specifically: a Sense node never produces values, or an Express node does nothing physical, even though the board is connected.
 
 → [Pin conflicts](/docs/troubleshooting/pin-conflicts)
 
@@ -32,7 +32,7 @@ The MQTT pipe is healthy but values are silently going nowhere. Almost always a 
 
 ## Something else
 
-Open an issue on the [Microflow GitHub repository](https://github.com/xiduzo/microflow-t-stack/issues). Include:
+Open an issue on the [Microflow GitHub repository](https://github.com/xiduzo/microflow/issues). Include:
 
 - Operating system
 - Microflow Studio version

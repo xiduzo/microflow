@@ -1,13 +1,18 @@
 ---
 title: Microflow Studio
-description: The desktop app where you build interactive hardware projects on a visual canvas.
+description: The app where you build interactive hardware projects on a visual canvas, in the browser or on desktop.
 ---
 
-Microflow Studio is the desktop app at the heart of Microflow. You build projects by dragging [nodes](/docs/microflow-studio/nodes) onto a canvas and connecting them with [edges](/docs/microflow-studio/edges) — Microflow then runs the whole thing on your Arduino over USB.
+Microflow Studio is the app at the heart of Microflow. You build projects by dragging [nodes](/docs/microflow-studio/nodes) onto a canvas and connecting them with [edges](/docs/microflow-studio/edges) — Microflow then runs the whole thing on your Arduino over USB.
 
 No code, no compilation. Edit the canvas while it runs and the changes apply live.
 
-[Download Microflow Studio](https://github.com/xiduzo/microflow-t-stack/releases)
+## Get Studio
+
+- **In the browser:** open [microflow.tech](https://microflow.tech) in Chrome, Edge, or Opera. Nothing to install. These browsers support Web Serial, which Studio needs to reach your board.
+- **As a desktop app:** [download Microflow Studio](https://github.com/xiduzo/microflow/releases/latest) for macOS, Windows, or Linux. The desktop app finds your board on its own, and it can also run a local AI agent CLI such as Claude Code.
+
+Both run the same flows. If a node cannot work in your browser, it shows a **desktop only** badge that explains why.
 
 <Callout type="info" title="Video placeholder">
   90-second Studio tour: open app → empty canvas → add Sense + Express → connect → see live values → adjust settings → confirm running. Narrated.

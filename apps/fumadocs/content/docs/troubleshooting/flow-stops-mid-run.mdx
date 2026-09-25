@@ -3,7 +3,7 @@ title: Flow stops mid-run
 description: The flow worked, then values stopped. Causes and recovery.
 ---
 
-A flow that ran fine for a while suddenly stops responding — Monitors freeze, hardware sits still, but the connection panel still says **Running**. This is rare but worth diagnosing carefully because the cause varies.
+A flow that ran fine for a while suddenly stops responding — Monitors freeze, hardware sits still, but the board status in the sidebar is still green. This is rare but worth diagnosing carefully because the cause varies.
 
 ## Step 1 — Distinguish "frozen" from "still running but boring"
 
@@ -14,10 +14,10 @@ Before assuming the flow froze, make sure something *should* have changed.
 
 ## Step 2 — Check the connection state
 
-In the bottom panel, what does the state say?
+Look at the board status in the sidebar.
 
-- **Running** — the connection is still live.
-- **Disconnected** or back to **Waiting** — the USB connection dropped. Re-plug the board; Studio will reconnect automatically.
+- **Green, with the port name** — the connection is still live.
+- **No microcontroller connected**, **Connect board** or **Error** — the USB connection dropped. Re-plug the board and Studio reconnects on its own. If the browser does not, click **Connect board**.
 
 USB drops happen with marginal cables, USB hubs, or when something on your computer aggressively suspends devices.
 
@@ -38,9 +38,9 @@ Stepper motors with high acceleration or large step counts take real time. While
 
 If nothing else explains it:
 
-1. In the connection panel, click **Disconnect**.
-2. Click **Connect** again.
-3. The board re-detects, re-flashes if needed, and the flow resumes.
+1. Disconnect the board. In the browser, click the green board status. In the desktop app, unplug the board.
+2. Connect it again. In the browser, click **Connect board**. In the desktop app, plug the board back in.
+3. The board reconnects, re-flashes if needed, and the flow resumes.
 
 This rebuilds the entire runtime graph and clears any stale state.
 
@@ -48,11 +48,11 @@ This rebuilds the entire runtime graph and clears any stale state.
 
 If the connection won't recover:
 
-1. Quit Microflow Studio entirely.
+1. Quit the Microflow desktop app, or close the browser tab.
 2. Unplug the board, count to five, plug it back in.
 3. Re-open Studio and the flow.
 
-This is the nuclear option but always works for a wedged runtime. If you have to do this often, that is a bug — please [report it](https://github.com/xiduzo/microflow-t-stack/issues) with details.
+This is the nuclear option but always works for a wedged runtime. If you have to do this often, that is a bug — please [report it](https://github.com/xiduzo/microflow/issues) with details.
 
 ## Related
 

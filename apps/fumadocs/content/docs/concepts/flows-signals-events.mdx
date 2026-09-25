@@ -69,7 +69,7 @@ This is why building feels iterative — you can leave the Arduino running and t
 
 ## Where the runtime lives
 
-Inside Microflow Studio (a Tauri desktop app), the executor is a **Rust runtime** that translates your flow into pin operations on the connected board, manages I/O loops, and feeds events back to the UI. The Arduino itself does not know your flow exists — it just answers Firmata commands. See [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) for that side of the story.
+Inside Microflow Studio, the executor is a **Rust runtime** that translates your flow into pin operations on the connected board, manages I/O loops, and feeds events back to the UI. The desktop app runs it natively; the browser runs the same runtime compiled to WebAssembly. The Arduino itself does not know your flow exists — it just answers Firmata commands. See [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) for that side of the story.
 
 ## Related
 

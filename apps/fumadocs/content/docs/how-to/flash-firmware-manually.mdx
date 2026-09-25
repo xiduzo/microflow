@@ -1,31 +1,45 @@
 ---
 title: Flash firmware manually
-description: Re-upload StandardFirmata to a board that is misbehaving or running someone else's sketch.
+description: Upload StandardFirmata to a board yourself with the Arduino IDE, when automatic flashing is not an option.
 ---
 
-Microflow Studio uploads StandardFirmata automatically the first time you connect a board. Sometimes you need to do it again — for example after a different program (the Arduino IDE, another tool, or another user's sketch) has overwritten what was on the board.
+Microflow Studio flashes StandardFirmata automatically when you connect a supported board that does not run it yet. This guide covers the cases where you need to do it yourself.
 
-## When to re-flash
+## When you need it
 
-- Studio detects the board but never reaches **Running**.
-- The board reaches **Running** but pins do not respond to your flow.
-- You used the board with the Arduino IDE and then came back to Microflow.
-- A new firmware version of Microflow ships with an updated StandardFirmata.
+- Your board is not one that Studio flashes automatically (Uno, Nano, Mega, Leonardo, Micro).
+- Automatic flashing keeps failing, and the board status ends in **Error**.
+- The board already runs Firmata but behaves strangely. Studio does not re-flash a board that answers as Firmata, so you have to replace the firmware yourself.
+
+<Callout title="Board runs another sketch?">
+  You do not need this guide. Connect the board to Studio: it sees that Firmata is missing and flashes it for you.
+</Callout>
 
 ## Steps
 
-1. Make sure the board is plugged in and detected by your operating system. If not, see [Install board drivers](/docs/how-to/install-board-drivers).
-2. In Microflow Studio, open the connection panel at the bottom of the canvas.
-3. Click the menu next to the connection state and choose **Re-flash firmware** (label may also say *Upload firmware* depending on version).
-4. Studio reports **Uploading**. Wait 30–60 seconds — do not unplug the board.
-5. The state advances to **Running**. The board is fresh.
+1. **Install the [Arduino IDE](https://www.arduino.cc/en/software).**
+2. **Free the serial port.** Quit the Microflow desktop app, or click the green board status in the browser to disconnect. Only one program can use the port at a time.
+3. **Open the firmware sketch.** Choose one:
+   - **Microflow's StandardFirmata** — download the files in [`apps/web/src-tauri/src/flasher/hex/StandardFirmata`](https://github.com/xiduzo/microflow/tree/main/apps/web/src-tauri/src/flasher/hex/StandardFirmata) into one folder named `StandardFirmata`, and open `StandardFirmata.ino`. This version adds support for addressable LED strips (the [Pixel](/docs/microflow-studio/nodes) node).
+   - **Stock StandardFirmata** — in the Arduino IDE, choose **File → Examples → Firmata → StandardFirmata**. It has no support for addressable LED strips.
+
+   The [Stepper](/docs/microflow-studio/nodes/express/stepper#firmware-requirement) node needs ConfigurableFirmata instead of either sketch.
+4. **Select your board and port** in the board selector at the top of the Arduino IDE.
+5. **Click Upload** and wait until the IDE reports *Done uploading*. Do not unplug the board.
+6. **Close the Arduino IDE**, then open Studio and [connect the board](/docs/how-to/connect-a-microcontroller).
 
 ## Verify it worked
 
-Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas, connect any sense node to it, and watch values appear. If the Monitor stays blank, see [Pin conflicts](/docs/troubleshooting/pin-conflicts) or [Board not detected](/docs/troubleshooting/board-not-detected).
+The board status in the sidebar goes from **Connecting** straight to the port name, without **Flashing firmware**. Then drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas, connect any Sense node to it, and watch values appear. If the Monitor stays blank, see [Pin conflicts](/docs/troubleshooting/pin-conflicts) or [Board not detected](/docs/troubleshooting/board-not-detected).
 
-## If re-flashing keeps failing
+## If uploading keeps failing
 
-The most common cause is **another program holding the serial port**. The Arduino IDE's Serial Monitor is the usual suspect. Close any other program that talks to the board and try again.
+The most common cause is **another program holding the serial port**. The Arduino IDE's Serial Monitor is the usual suspect. Close every program that talks to the board and try again.
 
-If the failure persists across reboots, the board may have a bootloader issue. Use the Arduino IDE to upload the *Bare Minimum* example sketch first — if even that fails, the board needs hardware-level recovery, which is outside Microflow's scope.
+If the failure persists across reboots, the board may have a bootloader issue. Upload the *Bare Minimum* example sketch first (**File → Examples → 01.Basics → BareMinimum**). If even that fails, the board needs hardware-level recovery, which is outside Microflow's scope.
+
+## Related
+
+- [Connect a microcontroller](/docs/how-to/connect-a-microcontroller)
+- [Install board drivers](/docs/how-to/install-board-drivers)
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge)

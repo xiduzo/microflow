@@ -1,44 +1,47 @@
 ---
 title: Connect a microcontroller
-description: Plug in a board, get it detected by Microflow Studio, and confirm it is running.
+description: Plug in a board, get it connected to Microflow Studio, and confirm it is running.
 ---
 
-Most projects start the same way: plug in the board, wait for Microflow Studio to take over, confirm it is running. This guide walks through the four-state lifecycle, what each state means, and what to check if the board does not advance.
+Most projects start the same way: plug in the board, let Microflow Studio connect to it, and confirm it is running. This guide covers both the desktop app and the browser, what each board status means, and what to check if the board does not connect.
 
 <Callout type="info" title="Video placeholder">
-  30-second screencast: plug a board in, watch the bottom panel cycle Waiting → Detecting → Uploading → Running.
+  30-second screencast: plug a board in, watch the board status in the sidebar go from Connecting to Flashing firmware to the port name.
 </Callout>
 
 ## Steps
 
 1. **Plug the board into your computer** with a USB cable. The on-board power LED should light up.
-2. **Open Microflow Studio.** Open the project (or create a new flow) you want to run.
-3. **Watch the bottom panel.** Studio cycles the board through four states automatically:
-   - **Waiting** — looking for a board to be plugged in.
-   - **Detecting** — identifying which board it is.
-   - **Uploading** — sending [StandardFirmata](#what-is-standardfirmata) to the board (only on first connect, or after re-flashing).
-   - **Running** — your flow is live on the board.
-4. **Confirm Running.** Once the panel shows **Running**, the board is reading inputs and driving outputs as your flow describes.
+2. **Open Microflow Studio** and open the flow you want to run (or create a new one).
+3. **Start the connection.**
+   - **Desktop app:** nothing to do. Studio finds the board on its own.
+   - **Browser** (Chrome, Edge or Opera): click **Connect board** in the sidebar, pick your board in the browser's port list, and click **Connect**.
+4. **Watch the board status in the sidebar.** It moves through these states:
+   - **Connecting** — Studio is checking which firmware the board runs.
+   - **Flashing firmware** — Studio is putting [StandardFirmata](#what-is-standardfirmata) on the board. This happens only when the board does not run it yet.
+   - **The port name** (for example `COM3` or `/dev/cu.usbmodem1101`), in green — the board is connected and your flow is live on it.
+5. **Confirm the green status.** The board now reads inputs and drives outputs as your flow describes.
+
+If the USB connection drops, Studio reconnects when the board comes back. In the browser, click the green status to disconnect the board.
 
 ## What is StandardFirmata
 
 The Arduino has no idea what Microflow is. To bridge that gap, Microflow Studio uploads a small program called **StandardFirmata** the first time you connect a board. From then on, your computer can send instructions over USB ("set pin 9 to HIGH", "report me when pin 2 changes") and the board will follow them.
 
-You only see the **Uploading** state once per board. If the board behaves strangely later, you can [flash it manually](/docs/how-to/flash-firmware-manually).
+You only see **Flashing firmware** the first time you connect a board, or after the board ran a different sketch. If the board behaves strangely later, you can [flash it manually](/docs/how-to/flash-firmware-manually).
 
 ## Supported boards
 
-Officially supported:
+Studio flashes StandardFirmata automatically on these boards:
 
 - Arduino Uno
+- Arduino Nano (old and new bootloader)
 - Arduino Mega
 - Arduino Leonardo
 - Arduino Micro
-- Arduino Nano
-- Arduino Yun
 
-Other [Johnny-Five-supported boards](https://johnny-five.io/platform-support/) may work but are not guaranteed.
+Other boards work if you [flash StandardFirmata onto them yourself](/docs/how-to/flash-firmware-manually), but they are not tested.
 
-## If detection never completes
+## If the board never connects
 
-See [Board not detected](/docs/troubleshooting/board-not-detected). Common causes are missing USB drivers, a charge-only USB cable, another program holding the serial port (the Arduino IDE Serial Monitor is the usual culprit), or a board running its own custom sketch that needs to be wiped first.
+See [Board not detected](/docs/troubleshooting/board-not-detected). Common causes are missing USB drivers, a charge-only USB cable, another program holding the serial port (the Arduino IDE Serial Monitor is the usual culprit), or a browser without Web Serial (Firefox and Safari).

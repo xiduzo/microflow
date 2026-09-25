@@ -11,7 +11,7 @@ Each layer only knows about the one next to it. The board has no idea what your 
 
 ## The Arduino does not know about Microflow
 
-Your flow does not get compiled and uploaded to the board. Instead, Microflow uploads a small generic program once — **StandardFirmata** — and from then on, the desktop app sends short instructions to the board over USB:
+Your flow does not get compiled and uploaded to the board. Instead, Microflow uploads a small generic program once — **StandardFirmata** — and from then on, Studio sends short instructions to the board over USB:
 
 - *"Set pin 13 to OUTPUT mode."*
 - *"Write HIGH to pin 13."*
@@ -26,13 +26,13 @@ This has three big consequences:
 
 Any board running StandardFirmata is fungible. Swap an Uno for a Mega and Microflow notices the higher pin count and lets you use the new pins. Nothing about your flow changes.
 
-It also means anything that runs StandardFirmata can in principle work — [johnny-five.io's platform list](https://johnny-five.io/platform-support/) tells you what has been tested.
+It also means any board that runs StandardFirmata can in principle work. Studio flashes the firmware automatically on the Uno, Nano, Mega, Leonardo and Micro; for other boards, [flash it yourself](/docs/how-to/flash-firmware-manually).
 
 ### 2. The board is not autonomous
 
 Pull the USB cable and the board stops responding to your flow. The "logic" lives in your computer; the board is a remote-controlled bag of pins. This is the right trade-off for prototyping — you can change behaviour at the speed of dragging a node — but it is *not* the right trade-off for shipping a product into the world.
 
-If you reach the stage where you want a project to run untethered, the standard path is: keep prototyping in Microflow, then port the final logic into a regular Arduino sketch when you are ready to commit.
+If you reach the stage where you want a project to run untethered, keep prototyping in Microflow, then open **Show code** (beta) in the sidebar. Studio turns your flow into a regular Arduino sketch for an Uno, Nano or ESP32, which you download and upload with the Arduino IDE. That sketch replaces StandardFirmata, so the board runs your flow on its own, without a computer.
 
 ### 3. The latency model is "fast enough for prototyping"
 
@@ -40,10 +40,10 @@ USB round-trip times are ~1–2 ms on a modern computer. That is far faster than
 
 ## What runs *inside* Microflow Studio
 
-Studio is built with [Tauri](https://tauri.app), so the same desktop app is part React (UI) and part Rust (everything else). The Rust runtime does the heavy lifting:
+Studio is part React (the canvas) and part Rust (the runtime). The runtime is the same code in both versions of Studio: the desktop app, built with [Tauri](https://tauri.app), runs it natively, and the browser runs it compiled to WebAssembly and reaches the board through Web Serial. The runtime does the heavy lifting:
 
 - Parses your flow into a graph of components.
-- Opens the serial port and speaks Firmata to the board.
+- Speaks Firmata to the board over the serial port.
 - Routes input events from pins to whichever nodes are listening.
 - Schedules generators (Interval, Oscillator).
 - Runs the [Function](/docs/microflow-studio/nodes/shape/function) node's user-written JavaScript inside an embedded engine — no network round-trip needed.
@@ -62,15 +62,17 @@ If you change the pin number on a node, the old pin is released and the new pin 
 
 ## I2C, SPI, and other buses
 
-I2C support is *being implemented*. The [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) node ships in the canvas but is documented as work-in-progress. SPI is not currently exposed.
+I2C sensors and peripherals work through the [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) node, and the [NFC Reader](/docs/microflow-studio/nodes/sense/pn532) node reads a PN532 module over the same bus. SPI is not exposed.
 
-For now, the supported I/O surface is:
+The supported I/O surface is:
 
 - Digital pins (read and write).
 - Analog input pins.
 - PWM-capable digital pins (analog output / fading / servo).
 - Tone output (Piezo).
-- AccelStepper — step/direction or H-bridge stepper drivers.
+- I2C — continuous reads and writes to devices on the SDA/SCL pins.
+- Addressable LED strips (WS2812) — through the extension in Microflow's StandardFirmata.
+- AccelStepper — step/direction or H-bridge stepper drivers (needs ConfigurableFirmata, see [Stepper](/docs/microflow-studio/nodes/express/stepper#firmware-requirement)).
 
 ## Related
 

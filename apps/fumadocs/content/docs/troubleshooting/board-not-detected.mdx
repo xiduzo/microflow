@@ -3,7 +3,7 @@ title: Board not detected
 description: Microflow Studio cannot find your Arduino. Things to check, in order.
 ---
 
-If the connection panel sits at **Waiting**, fails at **Detecting**, or never advances past **Uploading**, work through these checks in order. The most common causes are at the top.
+If the board status in the sidebar stays at **No microcontroller connected**, ends in **Error**, or never gets past **Connecting** or **Flashing firmware**, work through these checks in order. The most common causes are at the top.
 
 ## 1. The cable
 
@@ -40,10 +40,10 @@ Only one program can hold a serial port at a time. The most common conflict is t
 
 ## 5. Firmware corruption
 
-If a different program has uploaded a custom sketch to the board, StandardFirmata is gone and Microflow's "Detecting" probes get no useful response.
+If a different program has uploaded a custom sketch to the board, StandardFirmata is gone and Studio's probe while **Connecting** gets no useful response.
 
-- Open the connection panel in Studio and choose **Re-flash firmware** to reinstall StandardFirmata.
-- See [Flash firmware manually](/docs/how-to/flash-firmware-manually) for a step-by-step.
+- On a supported board (Uno, Nano, Mega, Leonardo, Micro), Studio flashes StandardFirmata again when you connect it. Look for **Flashing firmware** in the board status.
+- On any other board, or if automatic flashing fails, see [Flash firmware manually](/docs/how-to/flash-firmware-manually).
 
 ## 6. The board itself
 
@@ -59,10 +59,9 @@ Microflow Studio can talk to your board in two ways: through **Web Serial** when
 ### What Web Serial cannot do
 
 - **Firefox and Safari** do not implement Web Serial at all. The sidebar will tell you to switch browsers or install the desktop app — there is no workaround inside those browsers.
-- **The browser never auto-detects a board.** You have to click *Connect board* and pick the port from the browser's native chooser every session. Studio cannot remember the port across reloads on most platforms.
+- **The browser does not find a new board on its own.** The first time, you have to click *Connect board* and pick the port from the browser's chooser. After that, Studio reconnects the board when the page loads or when you plug it back in, as long as it already runs StandardFirmata.
 - **The browser cannot install USB drivers.** If your OS does not see the board as a serial device (see [USB drivers](#3-usb-drivers)), no browser can fix that.
-- **The browser cannot flash a board that has no bootloader.** Web Serial can re-flash StandardFirmata on top of an existing bootloader, but a bricked board still needs the desktop app or the Arduino IDE.
-- **Permission is per-origin, per-device.** If you previously granted access on `localhost` and are now on `app.microflow.tech` (or vice versa), you will be asked to authorise the board again.
+- **Permission is per-origin, per-device.** If you previously granted access on `localhost` and are now on `microflow.tech` (or vice versa), you will be asked to authorise the board again.
 - **Only one tab can hold the port.** If you have Microflow open in two tabs, the second one will fail to connect. Close the other tab first.
 - **Chrome flags can disable it.** If Web Serial has been turned off in `chrome://flags` or by an enterprise policy, Studio will report the browser as unsupported.
 
@@ -72,24 +71,24 @@ The desktop app (Tauri) talks to the serial port through the operating system di
 
 - You are on Firefox or Safari and cannot switch browsers.
 - The board flashes fine from the Arduino IDE but not from the browser.
-- You want the board to reconnect automatically after unplugging/re-plugging or reloading.
+- You want Studio to find a board without picking a port first.
 - You need to flash a board where the bootloader is intact but Web Serial refuses the write (some CH340 clones behave this way).
 - You are on a corporate machine where Chrome policies block Web Serial.
 
 The desktop app cannot fix a bad cable, a broken bootloader, or a missing OS-level driver — for those, keep working through the checks above.
 
-Download the desktop app from the [Microflow releases page](https://github.com/xiduzo/microflow-t-stack/releases). Your flows are stored in the cloud (or locally, depending on your setup), so switching between browser and desktop does not lose any work.
+Download the desktop app from the [Microflow releases page](https://github.com/xiduzo/microflow/releases/latest). Your flows are stored in the cloud (or locally, depending on your setup), so switching between browser and desktop does not lose any work.
 
 ## 8. Unsupported board
 
-Microflow officially supports Arduino Uno, Mega, Leonardo, Micro, Nano, and Yun. Other boards may work but are not guaranteed. Boards based on ESP32, RP2040, Teensy, and similar typically need a different firmware path that Microflow does not handle today.
+Studio flashes StandardFirmata automatically on the Arduino Uno, Nano, Mega, Leonardo, and Micro. Other Arduino boards may work if you [flash the firmware yourself](/docs/how-to/flash-firmware-manually), but they are not tested. Boards based on ESP32, RP2040, Teensy, and similar cannot run a live flow. An ESP32 can run a flow that you export as an Arduino sketch (**Show code** in the sidebar).
 
 ## When to ask for help
 
-After working through the above, open an issue on the [GitHub repository](https://github.com/xiduzo/microflow-t-stack/issues) and include:
+After working through the above, open an issue on the [GitHub repository](https://github.com/xiduzo/microflow/issues) and include:
 
 - Board name and source (genuine Arduino vs. clone)
 - Operating system and version
 - Microflow Studio version
-- What appears in the connection panel
+- What the board status in the sidebar says (hover it to see the full error)
 - Whether the Arduino IDE can talk to the same board
