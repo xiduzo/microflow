@@ -74,7 +74,7 @@ and `js` for 1 (`Function`). Config and codegen stay ungated.
 crates/microflow-core/src/nodes/
 ├── mod.rs                 # `pub mod <node>;` × 35 — the node index
 ├── led/
-│   ├── mod.rs             # pub mod config; #[cfg(feature = "runtime")] pub mod runtime; pub mod codegen;
+│   ├── mod.rs             # pub mod codegen; pub mod config; #[cfg(feature = "runtime")] pub mod runtime;
 │   ├── config.rs          # LedConfig — ungated, shared by interpret + emit
 │   ├── runtime.rs         # Led: Component — behind `runtime`
 │   └── codegen.rs         # emit / pin — ungated
@@ -199,6 +199,10 @@ tables, and the compiler or the parity guard points at each of them.
   `codegen` look like the crate-level modules. The rule is: a node's own layers
   are reached through `super::`, and shared layers are always reached through
   `crate::`.
+- The `log` / `tracing` target of node code follows its module path, so it
+  changes (for example to `microflow_core::nodes::button::runtime`). The only
+  filter in the repo is crate-wide (`microflow_core=debug`), so no filter
+  breaks.
 - The interpret-to-emit parity cases still live in `codegen/parity.rs`, next to
   `classify`, because they share its fixtures (`node`, `input`, `sketch`).
   Moving each case into its own node is possible later. This ADR does not

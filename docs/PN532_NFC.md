@@ -76,7 +76,7 @@ Mifare Classic 1K looks like `D5 4B 01 01 00 04 08 04 <U0 U1 U2 U3>`; the UID is
 
 ## How the node works (runtime)
 
-`crates/microflow-core/src/runtime/input/pn532.rs` drives the handshake sans-IO,
+`crates/microflow-core/src/nodes/pn532/runtime.rs` drives the handshake sans-IO,
 on two clocks:
 
 - **`schedule_wakeup("_tick", …)` ticks** issue the next I2C operation (write a

@@ -7,7 +7,7 @@ Living glossary. Keep aligned with code. Update when terms shift.
 The single source of truth for every flow component the UI exposes and the runtime executes. Lives at `apps/web/node-components.json`. Has two arrays:
 
 - **`entries`** — UI-visible component names. Each row is one item the user can drop on the canvas. The `name` is also the value of `data.instance` in Yjs / ReactFlow. Variants (e.g. `Potentiometer`) are entries that point at another impl.
-- **`impls`** — the runtime classes the Rust runtime knows how to construct. Each row carries `category` (Rust module path) and `requiresHardware` (whether `BoardHandle::initialize` is called).
+- **`impls`** — the runtime classes the Rust runtime knows how to construct. Each row carries `category` (a grouping label, see § Category) and `requiresHardware` (whether `BoardHandle::initialize` is called).
 
 ### Fields
 
@@ -16,7 +16,7 @@ The single source of truth for every flow component the UI exposes and the runti
 | `entries[].name`           | UI + Yjs        | Instance string used as ReactFlow node type and `data.instance`.                                       |
 | `entries[].impl`           | runtime mapping | The `impls` row this entry resolves to. May be the entry's own name, or a parent impl for variants.    |
 | `impls[].name`             | Rust            | The Rust struct name (also derives `<Name>Config`).                                                    |
-| `impls[].category`         | Rust            | Module path under `runtime/`: `input`, `output`, `control`, `transformation`, `generator`, `external`. |
+| `impls[].category`         | catalog label   | `input`, `output`, `control`, `transformation`, `generator`, `external`. Not a Rust module path (see § Category). |
 | `impls[].requiresHardware` | Rust            | If true, registry calls `Component::initialize(board)` when board connected.                           |
 | `<Impl>::ports()` / `emits()` | Rust (source)   | The declared **Port** / **Emit** sets — the single source of truth. **No longer catalog fields**: generated from the Rust consts into `wire-interface.generated.json`, thence `COMPONENT_PORTS`/`COMPONENT_EMITS` + `PortOf<T>`/`EmitOf<T>`. See § Port / § Emit / § Generation. |
 
@@ -38,7 +38,7 @@ An `entries` row whose `impl` differs from its `name`. Reuses the parent impl's 
 
 ## Category
 
-A Rust module path under `runtime/`. Determines `use super::<category>::{<Impl>, <Impl>Config};` in generated registry. Distinct from TS-side `defaults.group` (which is a freeform UI grouping label).
+A grouping label on an `impls` row. No Rust path follows from it: a Node's Rust code lives in its **Node Vertical**, `crates/microflow-core/src/nodes/<node>/` — `config.rs` (ungated), `runtime.rs` (behind `runtime`, or `cloud` / `js`) and `codegen.rs` (ungated), only the layers that Node has ([ADR-0026](docs/adr/0026-node-code-colocated-per-node.md)). Distinct from TS-side `defaults.group` (which is a freeform UI grouping label).
 
 ## Component (Rust trait)
 
@@ -276,8 +276,8 @@ not just the winner — is shared. Decided in
 
 Cloud nodes are no longer special-cased. Because they are sans-IO (ADR-0009),
 the `Mqtt`/`Llm`/`Figma` nodes live in `microflow-core`
-(`runtime/cloud/{mqtt,llm,figma}.rs` behind the `cloud` feature; their POD configs
-in `config/{mqtt,llm,figma}.rs`, ungated) and register in
+(`nodes/{mqtt,llm,figma}/runtime.rs` behind the `cloud` feature; their POD configs
+in `nodes/{mqtt,llm,figma}/config.rs`, ungated) and register in
 `registry.rs::register_all` via the same typed `register::<B>(name)` every
 built-in uses — landing in `declared()`, so the **Catalog Parity Guard** reads
 them uniformly. Both the desktop bin and the browser wasm build enable `cloud`,

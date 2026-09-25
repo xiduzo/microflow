@@ -102,7 +102,8 @@ the browser does.
 - The runtime and codegen category trees diverged (`Constant`/`Interval` sit under
   `generator/` in the runtime but `control/` in codegen). Harmless, but a shared
   per-node module must not assume one taxonomy — see ADR's sibling work on a flat
-  `config` module.
+  `config` module. **Resolved by [ADR-0026](0026-node-code-colocated-per-node.md):**
+  the category trees are gone; each node's layers live in `nodes/<node>/`.
 - `tone()` pitch fidelity is intentionally coarse on the sans-IO path (no
   sub-millisecond pin toggling without a host spin-loop). Documented at the call
   site.

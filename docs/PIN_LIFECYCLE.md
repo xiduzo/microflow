@@ -250,5 +250,5 @@ Pin change callback installed (cache cleared)
 
 - `apps/web/src-tauri/src/runtime/base.rs` - BoardConnection, Component trait
 - `apps/web/src-tauri/src/runtime/mod.rs` - FlowRuntime, pin listeners
-- `apps/web/src-tauri/src/runtime/input/*.rs` - Input component implementations
+- `crates/microflow-core/src/nodes/<node>/runtime.rs` - Input component implementations
 - `apps/web/src-tauri/src/runtime/commands.rs` - flow_update command

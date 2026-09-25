@@ -39,7 +39,7 @@ The engine is compiled to WebAssembly for the browser by `crates/microflow-runti
 
 | Path | What |
 |---|---|
-| `crates/microflow-core` | The sans-IO flow engine + Arduino code generation. The heart. |
+| `crates/microflow-core` | The sans-IO flow engine (`runtime/`) + Arduino code generation (`codegen/`); each node's config, runtime and emitter sit together in `nodes/<node>/` ([ADR-0026](docs/adr/0026-node-code-colocated-per-node.md)). The heart. |
 | `crates/microflow-runtime-wasm` | Thin wasm shim exposing the engine to the browser. |
 | `crates/microflow-codegen-wasm`, `…-firmata-wasm` | Wasm shims for ahead-of-time sketch codegen / Firmata. |
 | `apps/web` | The Studio: the React + ReactFlow UI in `src/`, one folder per domain (see [Where does new code go?](#where-does-new-code-go)), including the browser runtime host (`src/runtime`, `src/board`); the Tauri desktop shell in `src-tauri`. |

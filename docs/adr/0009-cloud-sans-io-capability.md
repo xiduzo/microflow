@@ -23,8 +23,8 @@
 >
 > **Phase 3 — cloud relocated to core + LLM runs in the browser (2026-06-22).**
 > The sans-IO cloud nodes + their POD configs moved out of the desktop crate into
-> `microflow-core` (`runtime/cloud/{mqtt,llm,figma}.rs` behind the `cloud` feature;
-> `config/{mqtt,llm,figma}.rs` ungated). They register in `ComponentRegistry::
+> `microflow-core` (`nodes/{mqtt,llm,figma}/runtime.rs` behind the `cloud` feature;
+> `nodes/{mqtt,llm,figma}/config.rs` ungated — see ADR-0026). They register in `ComponentRegistry::
 > register_all` like any built-in, so **both** hosts get them from one place — the
 > host-injected `register_factory`/`register_node`/`register_cloud` machinery is
 > deleted, and the Catalog Parity Guard reads cloud from `declared()` uniformly.

@@ -121,7 +121,7 @@ It imports every node's UI. The architecture guard allows runtime imports of it 
    bun run codegen        # when only the catalog or the frontend changed
    ```
 
-4. **Add the Rust component** in `crates/microflow-core` and register it in the `ComponentRegistry`. The contributor guide (`apps/fumadocs/content/docs/contributing/adding-a-node.mdx`) walks through both halves.
+4. **Add the Rust component** in `crates/microflow-core/src/nodes/<node>/` (ADR-0026): `runtime.rs` (plus `config.rs` / `codegen.rs` if the node has them), declared in `nodes/mod.rs` and registered in `runtime/registry.rs::register_all`. The contributor guide (`apps/fumadocs/content/docs/contributing/adding-a-node.mdx`) walks through both halves.
 
 ## Type Safety Guarantees
 
