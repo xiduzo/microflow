@@ -11,12 +11,12 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/account/auth-client";
 import { trpc } from "@/lib/trpc";
-import { Button } from "@/components/ui/button";
-import { CONTRIBUTION_WAYS, wayDiscussionUrl } from "@/lib/contribute";
+import { Button } from "@/ui/button";
+import { CONTRIBUTION_WAYS, wayDiscussionUrl } from "@/shell/contribute";
 import { openDocs, openExternal } from "@/lib/docs";
-import { cn } from "@/lib/utils";
+import { cn } from "@/ui/utils";
 
 export const Route = createFileRoute("/support")({
   component: SupportPage,

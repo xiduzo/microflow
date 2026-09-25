@@ -74,7 +74,7 @@ the browser does.
     serial port and a Tokio handle for timers and cloud I/O. Only `Send` handles
     cross the spawn boundary; cloud-node results re-enter via `inject_event`
     through a `ChannelEmitter`.
-  - **Browser** (`apps/web/src/lib/firmata/flow-reactor.ts`): a `setTimeout`/Web
+  - **Browser** (`apps/web/src/runtime/flow-reactor.ts`): a `setTimeout`/Web
     Serial loop that applies the same `Effects` — bytes to the port, events to the
     Zustand stores, wakeups to `setTimeout`, cancellations to `clearTimeout`.
 
@@ -102,14 +102,15 @@ the browser does.
 - The runtime and codegen category trees diverged (`Constant`/`Interval` sit under
   `generator/` in the runtime but `control/` in codegen). Harmless, but a shared
   per-node module must not assume one taxonomy — see ADR's sibling work on a flat
-  `config` module.
+  `config` module. **Resolved by [ADR-0026](0026-node-code-colocated-per-node.md):**
+  the category trees are gone; each node's layers live in `nodes/<node>/`.
 - `tone()` pitch fidelity is intentionally coarse on the sans-IO path (no
   sub-millisecond pin toggling without a host spin-loop). Documented at the call
   site.
 
 **Supersedes (paths only)**
 
-- The file references in **ADR-0001** and **ADR-0002** (both) point at
+- The file references in **ADR-0001**, **ADR-0002** and **ADR-0025** point at
   `apps/web/src-tauri/src/runtime/…`. The *decisions* (Port/Internal/Hardware
   separation; the FlowRouter seam; per-capability service traits) still hold; the
   code lives under `crates/microflow-core/src/runtime/…` now. Each carries a
@@ -132,6 +133,6 @@ New terms recorded in `CONTEXT.md`:
 - `crates/microflow-core/src/runtime/mod.rs` — `FlowRuntime` entry points + `_`-prefix routing.
 - `crates/microflow-core/src/runtime/registry.rs` — hand-registration; build.rs codegen dropped.
 - `apps/web/src-tauri/src/runtime/host.rs` — desktop actor-thread adapter.
-- `apps/web/src/lib/firmata/flow-reactor.ts` — browser reactor adapter.
+- `apps/web/src/runtime/flow-reactor.ts` — browser reactor adapter.
 - Commit `2f5a4ce` — "refactor(desktop): delete the duplicate runtime, re-host on microflow-core".
-- ADR-0001, ADR-0002 (router + per-capability) — superseded paths.
+- ADR-0001, ADR-0002 (router), ADR-0025 (per-capability) — superseded paths.

@@ -74,6 +74,6 @@ comment to a recorded decision.
 
 - `crates/microflow-core/src/runtime/subscriptions.rs:13` — the in-code rationale this ADR formalizes.
 - `apps/web/src-tauri/src/runtime/commands.rs` — desktop diff-against-live (`rumqttc`).
-- `apps/web/src/lib/firmata/cloud/mqtt-subscriptions.ts` — browser diff-against-live (`mqtt.js`).
+- `apps/web/src/cloud/mqtt-subscriptions.ts` — browser diff-against-live (`mqtt.js`).
 - [ADR-0008](0008-effects-apply-policy.md) — the policy-in-core / primitives-per-host pattern that deliberately does **not** extend to the subscription diff.
 - [ADR-0009](0009-cloud-sans-io-capability.md) — single-sourced `reconcile_desired`.

@@ -1,10 +1,11 @@
-//! Cloud-Node C++ emitters — the networked counterpart to the hardware-IO
-//! emitters.
+//! Support shared by the Cloud-Node C++ emitters — the networked counterpart to
+//! the hardware-IO emitters. The emitters themselves live with each Node, in
+//! `crate::nodes::<node>::codegen` (ADR-0026).
 //!
 //! Cloud Nodes (`Mqtt`, `Figma`, `Llm`, `Monitor`) cross the hardware boundary:
 //! they talk to networked services and therefore only run on a `WiFi`-capable
 //! target (e.g. the ESP32). Validation (#26/#35) already refuses a Cloud Node on
-//! a non-networking board, so an emitter in this module may assume the target
+//! a non-networking board, so a Cloud-Node emitter may assume the target
 //! offers [`crate::codegen::board::BoardCapability::Networking`].
 //!
 //! `Mqtt` (Task #38), `Figma` and `Monitor` (Task #42) and `Llm` (Task #44) all
@@ -17,12 +18,4 @@
 //! the connect logic; the `WiFi` setup itself is reused from
 //! [`crate::codegen::credentials`] rather than re-emitted here.
 
-pub mod figma;
-pub mod llm;
-// `Midi` lives here as a host-peripheral node alongside the networked cloud
-// nodes, but unlike them it needs NO networking on-device — it speaks serial
-// MIDI over the board's hardware UART (MIDI.h), so it runs on every board.
-pub mod midi;
-pub mod monitor;
-pub mod mqtt;
 pub mod transport;

@@ -121,7 +121,7 @@ Six sub-decisions:
   `RecordingSyncAdapter`) implement the seam. `RecordingSyncAdapter`
   can pair with any session, mirroring the
   [`BoardHandle` + `TestIoLoop`](../../apps/web/src-tauri/src/runtime/board/test_io_loop.rs)
-  pattern from [ADR-0002](0002-per-capability-service-traits.md).
+  pattern from [ADR-0025](0025-per-capability-service-traits.md).
   Inheritance can't do that.
 
 - **D2 — Type-honest split of local vs remote sync.** Today's local "sync"
@@ -162,7 +162,7 @@ Six sub-decisions:
   `RecordingSyncAdapter` records `appliedUpdates`, `awarenessUpdates`,
   `connectCalls`, `disconnectCalls`; scripts `injectRemoteUpdate`,
   `injectAwareness`, `injectState`, `injectError`. Mirrors
-  [ADR-0002 D5](0002-per-capability-service-traits.md) and the
+  [ADR-0025 D5](0025-per-capability-service-traits.md) and the
   `RecordingLlmProvider` / `RecordingMqttPublisher` discipline.
   The second adapter is what makes `RemoteSyncAdapter` a *real* seam,
   per [`LANGUAGE.md`](../../.claude/skills/improve-codebase-architecture/LANGUAGE.md).
@@ -171,11 +171,11 @@ Six sub-decisions:
   defers to a follow-up ADR.** The current store mixes editing,
   clipboard, persistence, and native-runtime push. This ADR scopes the
   editing+sync extraction. Clipboard moves to
-  `apps/web/src/stores/clipboard-store.ts` as a separate zustand
+  `apps/web/src/editor/clipboard-store.ts` as a separate zustand
   singleton that survives session swap (so users can copy-paste between
   flows). The native-runtime push (`setupDocSync` + broker/provider
   gathering) moves to a temporary
-  `apps/web/src/session/use-flow-update-dispatcher.ts` hook, mounted
+  `apps/web/src/runtime/use-flow-update-dispatcher.ts` hook, mounted
   only by the desktop layout (`isDesktop`-gated at the route — not
   inside the session). A follow-up ADR will deepen
   `FlowUpdateDispatcher` into its own module, name the dispatch
@@ -203,7 +203,7 @@ backwards-compatibility shims):
 4. **Phase 4** — Delete: `hooks/use-collab-flow.ts`,
    `hooks/use-sync-provider.ts`, `hooks/use-flow-document.ts`,
    `stores/sync-state-store.ts`. Reshape `stores/flow-store.ts` into
-   `stores/clipboard-store.ts`. Routes wire
+   `editor/clipboard-store.ts`. Routes wire
    `<FlowSessionProvider>` per layout.
 
 Each phase compiles. Final phase is the rip.
@@ -333,7 +333,7 @@ New terms recorded in [`CONTEXT.md`](../../CONTEXT.md):
   layout. The inline `localFlowSync` constant deletes.
 - [ADR-0001](0001-component-trait-flow-separation.md) — establishes
   the seam discipline on the Rust component side.
-- [ADR-0002 — per-capability service traits](0002-per-capability-service-traits.md)
+- [ADR-0025 — per-capability service traits](0025-per-capability-service-traits.md)
   — `RecordingSyncAdapter` mirrors `RecordingLlmProvider` /
   `RecordingMqttPublisher` discipline.
 - [ADR-0002 — `FlowRouter`](0002-flow-router-seam.md) — establishes

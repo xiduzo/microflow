@@ -173,7 +173,7 @@ Lower bits encode step size (microstepping) and enable pin presence.
 ### New File
 
 ```
-apps/web/src-tauri/src/runtime/output/stepper.rs
+crates/microflow-core/src/nodes/stepper/runtime.rs
 ```
 
 ### StepperConfig
@@ -214,7 +214,7 @@ struct StepperConfig {
 ### New Files
 
 ```
-apps/web/src/components/flow/nodes/stepper/
+apps/web/src/nodes/stepper/
 ├── stepper.schema.ts    # Zod schema
 └── stepper.tsx           # React component
 ```
@@ -246,9 +246,8 @@ apps/web/src/components/flow/nodes/stepper/
 
 | File | Change |
 |------|--------|
-| `_base/_base.types.ts` | Add `"Stepper"` to `COMPONENT_TYPES` |
-| `_TYPES.ts` | Import and add `Stepper` to `NODE_TYPES` |
-| `runtime/output/mod.rs` | Add `mod stepper; pub use stepper::{Stepper, StepperConfig};` |
+| `apps/web/node-components.json` | Add the `Stepper` catalog entry; `bun run catalog:sync` regenerates `COMPONENT_TYPES` / `NODE_CATALOG` / `NODE_TYPES` (generated from the catalog + the Rust wire interface, not hand-edited) |
+| `nodes/mod.rs` | Add `pub(crate) mod stepper;` |
 | `runtime/registry.rs` | Register `"Stepper"` as hardware component |
 
 ### Files to Create
@@ -257,7 +256,7 @@ apps/web/src/components/flow/nodes/stepper/
 |------|---------|
 | `nodes/stepper/stepper.schema.ts` | Zod schema for node data |
 | `nodes/stepper/stepper.tsx` | React component |
-| `runtime/output/stepper.rs` | Rust component |
+| `nodes/stepper/{mod,config,runtime,codegen}.rs` | Rust node (ADR-0026) |
 | `fumadocs/.../express/stepper.mdx` | Documentation page |
 
 ---
@@ -299,20 +298,20 @@ All of these use the same step/direction interface — the node works identicall
 
 ### Phase 1: Backend (Rust)
 
-- [ ] Create `runtime/output/stepper.rs` with `Stepper` component
+- [ ] Create `nodes/stepper/runtime.rs` with `Stepper` component
 - [ ] Implement AccelStepper sysex encoding (config, step, to, speed, accel, stop, zero, enable)
 - [ ] Implement custom float encoding for speed/acceleration values
 - [ ] Implement 32-bit signed long encoding for step counts/positions
 - [ ] Handle `stepper_reply` method for move complete / position report
-- [ ] Export from `runtime/output/mod.rs`
+- [ ] Declare in `nodes/mod.rs`
 - [ ] Register in `ComponentRegistry`
 
 ### Phase 2: Frontend (React + TypeScript)
 
-- [ ] Add `"Stepper"` to `COMPONENT_TYPES` in `_base.types.ts`
+- [ ] Add the `Stepper` entry to `apps/web/node-components.json`
 - [ ] Create `stepper.schema.ts` with Zod schema
 - [ ] Create `stepper.tsx` with React component, handles, and settings
-- [ ] Import and add to `NODE_TYPES` in `_TYPES.ts`
+- [ ] Run `bun run catalog:sync` in `apps/web` to regenerate `COMPONENT_TYPES`, `NODE_CATALOG` and `NODE_TYPES`
 
 ### Phase 3: Documentation
 

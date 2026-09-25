@@ -23,14 +23,9 @@
 
 pub mod board;
 pub mod cloud;
-pub mod control;
 pub mod credentials;
 pub mod emit;
-pub mod generator;
-pub mod input;
-pub mod output;
 pub mod placeholder;
-pub mod transformation;
 pub mod validate;
 pub mod wire;
 
@@ -41,6 +36,7 @@ pub mod wire;
 mod parity;
 
 use crate::flow::{FlowNode, FlowUpdate};
+use crate::nodes;
 use board::BoardTarget;
 use credentials::Credentials;
 use emit::NodeEmission;
@@ -286,55 +282,55 @@ fn emit_node(
     credentials: Option<&Credentials>,
 ) -> NodeEmission {
     match node.node_type.as_deref() {
-        Some("Led") => output::led::emit(node, inputs),
-        Some("Relay") => output::relay::emit(node, inputs),
-        Some("Servo") => output::servo::emit(node, inputs, target),
-        Some("Rgb") => output::rgb::emit(node, inputs),
-        Some("Piezo") => output::piezo::emit(node, inputs),
-        Some("Pixel") => output::pixel::emit(node, inputs),
-        Some("Matrix") => output::matrix::emit(node, inputs),
-        Some("Stepper") => output::stepper::emit(node, inputs),
+        Some("Led") => nodes::led::codegen::emit(node, inputs),
+        Some("Relay") => nodes::relay::codegen::emit(node, inputs),
+        Some("Servo") => nodes::servo::codegen::emit(node, inputs, target),
+        Some("Rgb") => nodes::rgb::codegen::emit(node, inputs),
+        Some("Piezo") => nodes::piezo::codegen::emit(node, inputs),
+        Some("Pixel") => nodes::pixel::codegen::emit(node, inputs),
+        Some("Matrix") => nodes::matrix::codegen::emit(node, inputs),
+        Some("Stepper") => nodes::stepper::codegen::emit(node, inputs),
         // Vibration shares the live Led implementation (digital on/off output).
-        Some("Vibration") => output::led::emit(node, inputs),
-        Some("Button") => input::button::emit(node),
+        Some("Vibration") => nodes::led::codegen::emit(node, inputs),
+        Some("Button") => nodes::button::codegen::emit(node),
         // Force, HallEffect, Ldr, Potentiometer, and Tilt are all analog inputs
         // backed by the live Sensor implementation, so they share its emitter
-        // (the list is mirrored by `input::sensor::ANALOG_SENSOR_TYPES`, which
+        // (the list is mirrored by `nodes::sensor::codegen::ANALOG_SENSOR_TYPES`, which
         // validation consumes).
         Some("Sensor" | "Force" | "HallEffect" | "Ldr" | "Potentiometer" | "Tilt") => {
-            input::sensor::emit(node, target)
+            nodes::sensor::codegen::emit(node, target)
         }
-        Some("Switch") => input::switch::emit(node),
-        Some("Motion") => input::motion::emit(node),
-        Some("Proximity") => input::proximity::emit(node, target),
-        Some("Hotkey") => input::hotkey::emit(node),
-        Some("I2cDevice") => input::i2c_device::emit(node, inputs),
-        Some("Oscillator") => generator::oscillator::emit(node, inputs),
-        Some("Calculate") => transformation::calculate::emit(node, inputs),
-        Some("Compare") => transformation::compare::emit(node, inputs),
-        Some("Gate") => transformation::gate::emit(node, inputs),
-        Some("RangeMap") => transformation::range_map::emit(node, inputs),
-        Some("Smooth") => transformation::smooth::emit(node, inputs),
-        Some("Function") => transformation::function::emit(node, inputs),
-        Some("Delay") => control::delay::emit(node, inputs),
-        Some("Interval") => control::interval::emit(node, inputs),
-        Some("Trigger") => control::trigger::emit(node, inputs),
-        Some("Counter") => control::counter::emit(node, inputs),
-        Some("Constant") => control::constant::emit(node),
+        Some("Switch") => nodes::switch::codegen::emit(node),
+        Some("Motion") => nodes::motion::codegen::emit(node),
+        Some("Proximity") => nodes::proximity::codegen::emit(node, target),
+        Some("Hotkey") => nodes::hotkey::codegen::emit(node),
+        Some("I2cDevice") => nodes::i2c_device::codegen::emit(node, inputs),
+        Some("Oscillator") => nodes::oscillator::codegen::emit(node, inputs),
+        Some("Calculate") => nodes::calculate::codegen::emit(node, inputs),
+        Some("Compare") => nodes::compare::codegen::emit(node, inputs),
+        Some("Gate") => nodes::gate::codegen::emit(node, inputs),
+        Some("RangeMap") => nodes::range_map::codegen::emit(node, inputs),
+        Some("Smooth") => nodes::smooth::codegen::emit(node, inputs),
+        Some("Function") => nodes::function::codegen::emit(node, inputs),
+        Some("Delay") => nodes::delay::codegen::emit(node, inputs),
+        Some("Interval") => nodes::interval::codegen::emit(node, inputs),
+        Some("Trigger") => nodes::trigger::codegen::emit(node, inputs),
+        Some("Counter") => nodes::counter::codegen::emit(node, inputs),
+        Some("Constant") => nodes::constant::codegen::emit(node),
         // Cloud Nodes emit their networked code on every target — a board
         // without networking gets a validation warning (the code assumes an
         // ESP32-class core), not a blocked Sketch. Mqtt (Task #38), Figma and
         // Monitor (Task #42) bridge over the network transport; Llm (Task #44)
         // issues HTTP requests over the same shared WiFi connection.
-        Some("Mqtt") => cloud::mqtt::emit(node, inputs, credentials),
-        Some("Figma") => cloud::figma::emit(node, inputs),
-        Some("Monitor") => cloud::monitor::emit(node, inputs),
-        Some("Llm") => cloud::llm::emit(node, inputs, credentials),
+        Some("Mqtt") => nodes::mqtt::codegen::emit(node, inputs, credentials),
+        Some("Figma") => nodes::figma::codegen::emit(node, inputs),
+        Some("Monitor") => nodes::monitor::codegen::emit(node, inputs),
+        Some("Llm") => nodes::llm::codegen::emit(node, inputs, credentials),
         // Midi bridges the board's serial MIDI jack (MIDI.h); the host's Web
         // MIDI / midir I/O becomes MIDI.read()/sendNoteOn on-device. Several
         // Midi nodes share one MIDI instance + read-pump via the assembler's
         // shared-block regions.
-        Some("Midi") => cloud::midi::emit(node, inputs),
+        Some("Midi") => nodes::midi::codegen::emit(node, inputs),
         // AudioPlayer is a browser-only playback Node — it plays audio in the
         // web UI and has no Arduino hardware equivalent. We route it explicitly
         // (rather than letting it fall through) so the skip is intentional and
@@ -436,71 +432,71 @@ fn output_expression(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
     }
 
     match node.node_type.as_deref() {
-        Some("Button") => bool_state(input::button::state_var(node), handle),
-        Some("Switch") => bool_state(input::switch::state_var(node), handle),
-        Some("Motion") => bool_state(input::motion::state_var(node), handle),
-        Some("Hotkey") => bool_state(input::hotkey::state_var(node), handle),
+        Some("Button") => bool_state(nodes::button::codegen::state_var(node), handle),
+        Some("Switch") => bool_state(nodes::switch::codegen::state_var(node), handle),
+        Some("Motion") => bool_state(nodes::motion::codegen::state_var(node), handle),
+        Some("Hotkey") => bool_state(nodes::hotkey::codegen::state_var(node), handle),
         Some("Sensor" | "Force" | "HallEffect" | "Ldr" | "Potentiometer" | "Tilt")
             if handle == "value" =>
         {
-            Some(SourceExpr::level(CppExpr::number(input::sensor::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::sensor::codegen::value_var(node))))
         }
         Some("Proximity") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(input::proximity::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::proximity::codegen::value_var(node))))
         }
         Some("I2cDevice") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(input::i2c_device::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::i2c_device::codegen::value_var(node))))
         }
         Some("Oscillator") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(generator::oscillator::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::oscillator::codegen::value_var(node))))
         }
         Some("Constant") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(control::constant::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::constant::codegen::value_var(node))))
         }
         Some("Counter") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(control::counter::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::counter::codegen::value_var(node))))
         }
         Some("Calculate") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(transformation::calculate::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::calculate::codegen::value_var(node))))
         }
-        Some("Compare") => bool_state(transformation::compare::state_var(node), handle),
-        Some("Gate") => bool_state(transformation::gate::state_var(node), handle),
+        Some("Compare") => bool_state(nodes::compare::codegen::state_var(node), handle),
+        Some("Gate") => bool_state(nodes::gate::codegen::state_var(node), handle),
         // The runtime RangeMap emits the mapped number on `to`; its stored
         // `value` is a two-element Array with no C++ counterpart.
         Some("RangeMap") if handle == "to" => {
-            Some(SourceExpr::level(CppExpr::number(transformation::range_map::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::range_map::codegen::value_var(node))))
         }
         Some("Smooth") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(transformation::smooth::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::smooth::codegen::value_var(node))))
         }
         Some("Function") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(transformation::function::value_var(node))))
+            Some(SourceExpr::level(CppExpr::number(nodes::function::codegen::value_var(node))))
         }
         // Delay re-emits its stored payload on `event` when the timer fires.
         Some("Delay") if handle == "event" => Some(SourceExpr::event(
-            CppExpr::number(control::delay::value_var(node)),
-            control::delay::fired_var(node),
+            CppExpr::number(nodes::delay::codegen::value_var(node)),
+            nodes::delay::codegen::fired_var(node),
         )),
         // Interval emits elapsed milliseconds on `event` each period.
         Some("Interval") if handle == "event" => Some(SourceExpr::event(
-            CppExpr::number(control::interval::value_var(node)),
-            control::interval::fired_var(node),
+            CppExpr::number(nodes::interval::codegen::value_var(node)),
+            nodes::interval::codegen::fired_var(node),
         )),
         // Trigger emits the crossing value on `bang`; its stored `value` is
         // never written by the runtime, so only `bang` is exposed.
         Some("Trigger") if handle == "bang" => Some(SourceExpr::event(
-            CppExpr::number(control::trigger::value_payload_var(node)),
-            control::trigger::state_var(node),
+            CppExpr::number(nodes::trigger::codegen::value_payload_var(node)),
+            nodes::trigger::codegen::state_var(node),
         )),
         // A subscribe Mqtt Node surfaces its latest inbound message; a publish
         // Mqtt Node exposes none. Figma surfaces the latest inbound variable
         // value; Monitor is a display-only sink. Llm surfaces its response.
-        Some("Mqtt") if handle == "value" => cloud::mqtt::output(node),
-        Some("Figma") if handle == "value" || handle == "change" => cloud::figma::output(node),
-        Some("Llm") if handle == "value" => cloud::llm::output(node),
+        Some("Mqtt") if handle == "value" => nodes::mqtt::codegen::output(node),
+        Some("Figma") if handle == "value" || handle == "change" => nodes::figma::codegen::output(node),
+        Some("Llm") if handle == "value" => nodes::llm::codegen::output(node),
         // An in-direction Midi Node surfaces note/velocity/on/off/value; the
         // emitter maps each handle (out-direction exposes none).
-        Some("Midi") => cloud::midi::output(node, handle),
+        Some("Midi") => nodes::midi::codegen::output(node, handle),
         _ => None,
     }
 }

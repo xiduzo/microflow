@@ -1,0 +1,27 @@
+import { useEffect } from "react";
+import { toast } from "sonner";
+import { useBoardState } from "@/board/board-store";
+import { useArduinoOnboardingStore } from "@/board/arduino-onboarding";
+
+export function useFirstArduinoConnection() {
+  const boardState = useBoardState();
+  const hasConnectedArduino = useArduinoOnboardingStore((s) => s.hasConnectedArduino);
+  const showConfetti = useArduinoOnboardingStore((s) => s.showConfetti);
+  const markArduinoConnected = useArduinoOnboardingStore((s) => s.markArduinoConnected);
+  const dismissConfetti = useArduinoOnboardingStore((s) => s.dismissConfetti);
+
+  useEffect(() => {
+    if (boardState !== "connected") return;
+    if (hasConnectedArduino) return;
+
+    markArduinoConnected();
+    toast.success("Arduino connected! 🎉", {
+      description: "Your first board is ready to go. Happy prototyping!",
+    });
+
+    const timer = setTimeout(dismissConfetti, 6000);
+    return () => clearTimeout(timer);
+  }, [boardState, hasConnectedArduino, markArduinoConnected, dismissConfetti]);
+
+  return showConfetti;
+}

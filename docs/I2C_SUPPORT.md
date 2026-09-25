@@ -204,16 +204,19 @@ We go with **Option A** because:
 ### New Files
 
 ```
-crates/microflow-core/src/runtime/
-├── input/
-│   ├── mod.rs              # Add: mod i2c_device; pub use ...
-│   └── i2c_device.rs       # NEW: I2cDevice component
+crates/microflow-core/src/nodes/
+├── mod.rs                  # Add: pub mod i2c_device;
+└── i2c_device/
+    ├── mod.rs              # NEW: declares the node's layers
+    ├── config.rs           # NEW: I2cDeviceConfig (ungated)
+    ├── runtime.rs          # NEW: I2cDevice component
+    └── codegen.rs          # NEW: Arduino sketch emitter
 ```
 
 ### I2cDevice Component Design
 
 ```rust
-// runtime/input/i2c_device.rs
+// nodes/i2c_device/runtime.rs
 
 /// Configuration from the frontend node data
 struct I2cDeviceConfig {
@@ -350,7 +353,7 @@ For one-shot reads (triggered by the "trigger" handle), the component sends a st
 ### New Files
 
 ```
-apps/web/src/components/flow/nodes/i2c-device/
+apps/web/src/nodes/i2c-device/
 ├── i2c-device.schema.ts    # Zod schema
 ├── i2c-device.tsx           # React component
 └── i2c-device.constants.ts  # Device presets and I2C addresses
@@ -417,7 +420,7 @@ When a preset is selected, address/register/readLength/output are auto-populated
 |------|--------|
 | `apps/web/node-components.json` | Add the `I2cDevice` catalog entry; `bun run catalog:sync` regenerates `COMPONENT_TYPES` / `NODE_TYPES` (both are generated from the catalog + the Rust wire interface, not hand-edited) |
 | `crates/microflow-core/src/runtime/board.rs` | Add the I2C ops (`i2c_config` / `i2c_read` / `i2c_read_continuous` / `i2c_write` / `i2c_stop_reading` / `sampling_interval`) to the `I2cBus` / `BoardWriter` trait + `BufferBoardWriter` impl — encoded as Firmata bytes via the `FirmataClient` codec (sans-IO; no reader thread) |
-| `crates/microflow-core/src/runtime/input/mod.rs` | Add `mod i2c_device; pub use i2c_device::I2cDevice;` |
+| `crates/microflow-core/src/nodes/mod.rs` | Add `pub(crate) mod i2c_device;` |
 | `crates/microflow-core/src/runtime/registry.rs` | Register `"I2cDevice"` as a hardware component |
 | `crates/microflow-core/src/runtime/wiring.rs` | `ListenerWiring::I2cAddress { address, register }` so a node registers its bus listener |
 | `crates/microflow-core/src/runtime/mod.rs` | Central I2C reply demux by register (`drain_i2c_replies`) + continuous-read arming; deliver replies via the typed `on_i2c_reply` callback |
@@ -426,12 +429,12 @@ When a preset is selected, address/register/readLength/output are auto-populated
 
 | File | Purpose |
 |------|---------|
-| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.schema.ts` | Zod schema for node data |
-| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.tsx` | React component |
-| `apps/web/src/components/flow/nodes/i2c-device/i2c-device.constants.ts` | Device presets (UI defaults) |
-| `crates/microflow-core/src/config/i2c_device.rs` | Shared config + preset knowledge (`I2cDeviceConfig`, `device_init_writes`, `effective_register`) — ungated, used by both runtime and codegen |
-| `crates/microflow-core/src/runtime/input/i2c_device.rs` | Rust runtime component |
-| `crates/microflow-core/src/codegen/input/i2c_device.rs` | Arduino sketch emitter |
+| `apps/web/src/nodes/i2c-device/i2c-device.schema.ts` | Zod schema for node data |
+| `apps/web/src/nodes/i2c-device/i2c-device.tsx` | React component |
+| `apps/web/src/nodes/i2c-device/i2c-device.constants.ts` | Device presets (UI defaults) |
+| `crates/microflow-core/src/nodes/i2c_device/config.rs` | Shared config + preset knowledge (`I2cDeviceConfig`, `device_init_writes`, `effective_register`) — ungated, used by both runtime and codegen |
+| `crates/microflow-core/src/nodes/i2c_device/runtime.rs` | Rust runtime component |
+| `crates/microflow-core/src/nodes/i2c_device/codegen.rs` | Arduino sketch emitter |
 
 ---
 
@@ -513,17 +516,17 @@ Many I2C sensors power up in a dormant state — asleep, in single-shot mode, or
 - [ ] Add `register_i2c_listener()` and `clear_i2c_listeners()` methods
 - [ ] Install I2C reply callback alongside pin change callback
 - [ ] Handle `"I2cDevice"` in `register_component_pin_listener()`
-- [ ] Create `runtime/input/i2c_device.rs` with `I2cDevice` component
-- [ ] Export from `runtime/input/mod.rs`
+- [ ] Create `nodes/i2c_device/runtime.rs` with `I2cDevice` component
+- [ ] Declare in `nodes/mod.rs`
 - [ ] Register in `ComponentRegistry`
 
 ### Phase 2: Frontend (React + TypeScript)
 
-- [ ] Add `"I2cDevice"` to `COMPONENT_TYPES` in `_base.types.ts`
+- [ ] Add the `I2cDevice` entry to `apps/web/node-components.json`
 - [ ] Create `i2c-device.constants.ts` with device presets
 - [ ] Create `i2c-device.schema.ts` with Zod schema
 - [ ] Create `i2c-device.tsx` with React component
-- [ ] Import and add to `NODE_TYPES` in `_TYPES.ts`
+- [ ] Run `bun run catalog:sync` in `apps/web` to regenerate `COMPONENT_TYPES`, `NODE_CATALOG` and `NODE_TYPES`
 
 ### Phase 3: Testing
 

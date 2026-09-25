@@ -9,7 +9,7 @@
 > `runtime/context.rs`, exported from `runtime/mod.rs`. Desktop: `Actor`'s `apply`
 > now delegates to `Effects::apply(self)` with `impl EffectsSink for Actor`
 > supplying the four primitives (`host.rs`). Browser: `applyEffects` + `EffectsSink`
-> extracted to `apps/web/src/lib/firmata/effects-sink.ts`; `FlowReactor` implements
+> extracted to `apps/web/src/runtime/effects-sink.ts`; `FlowReactor` implements
 > it (its prior inline loop was already in canonical order). Conformance: the
 > cancel + re-arm + emit + bytes scenario runs as `context::apply_tests` (Rust) and
 > `effects-sink.test.ts` (`bun:test`), both asserting order + no
@@ -30,7 +30,7 @@ semantics of the four fields — is written down nowhere, and the two hosts have
 
 - Desktop (`apps/web/src-tauri/src/runtime/host.rs:451` `apply`):
   `outbound_bytes → component_events → wakeups → cancellations`.
-- Browser (`apps/web/src/lib/firmata/flow-reactor.ts:81` `apply`):
+- Browser (`apps/web/src/runtime/flow-reactor.ts:81` `apply`):
   `outbound_bytes → cancellations → wakeups → component_events`.
 
 This is benign **today** — within one turn `wakeups` carry freshly-allocated
@@ -119,6 +119,6 @@ New term recorded in `CONTEXT.md`:
 
 - `crates/microflow-core/src/runtime/context.rs:38` — `Effects`; gains `apply` + `EffectsSink`.
 - `apps/web/src-tauri/src/runtime/host.rs:451` — desktop `apply` (reimplemented over the sink).
-- `apps/web/src/lib/firmata/flow-reactor.ts:81` — browser `apply` (reordered + four-hook).
+- `apps/web/src/runtime/flow-reactor.ts:81` — browser `apply` (reordered + four-hook).
 - [ADR-0006](0006-rehost-runtime-on-core.md) — the `Effects` seam this deepens.
 - [ADR-0009](0009-cloud-sans-io-capability.md) — adds `cloud_requests`, the field this policy will absorb.

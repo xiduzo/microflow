@@ -23,8 +23,8 @@
 >
 > **Phase 3 — cloud relocated to core + LLM runs in the browser (2026-06-22).**
 > The sans-IO cloud nodes + their POD configs moved out of the desktop crate into
-> `microflow-core` (`runtime/cloud/{mqtt,llm,figma}.rs` behind the `cloud` feature;
-> `config/{mqtt,llm,figma}.rs` ungated). They register in `ComponentRegistry::
+> `microflow-core` (`nodes/{mqtt,llm,figma}/runtime.rs` behind the `cloud` feature;
+> `nodes/{mqtt,llm,figma}/config.rs` ungated — see ADR-0026). They register in `ComponentRegistry::
 > register_all` like any built-in, so **both** hosts get them from one place — the
 > host-injected `register_factory`/`register_node`/`register_cloud` machinery is
 > deleted, and the Catalog Parity Guard reads cloud from `declared()` uniformly.
@@ -37,7 +37,7 @@
 > wasm crate 4, web 144 (+ `llm-client` transport tests) + `tsc`.
 >
 > **MQTT + Figma in the browser landed (2026-06-22).** Added `mqtt@5` and a
-> per-broker MQTT-over-WSS connection manager (`lib/firmata/cloud/mqtt-client.ts`,
+> per-broker MQTT-over-WSS connection manager (`cloud/mqtt-client.ts`,
 > the browser analog of the desktop `MqttManager`). `FlowReactor.performCloud`
 > now publishes `mqttPublish` (Mqtt node + Figma set-value); on each `applyFlow`
 > it reconciles the runtime's `subscriberWirings()` into WSS subscriptions (a
@@ -205,9 +205,9 @@ existing `inject_event`.
 **Supersedes**
 
 - The cloud half of the `register_factory` closure model and the in-component
-  Tokio spawn (ADR-0002's "trait dispatch over event-emission" still holds for
+  Tokio spawn (ADR-0025's "trait dispatch over event-emission" still holds for
   *what* the capability is; this ADR changes *where the IO happens* — host, not
-  component). ADR-0002's relocation banner already notes the cloud module moved;
+  component). ADR-0025's relocation banner already notes the cloud module moved;
   this ADR moves its IO to the host sink.
 
 ## Glossary
@@ -230,8 +230,8 @@ Services" sections rewritten to post-re-host reality — see CONTEXT reconciliat
 - `crates/microflow-core/src/runtime/context.rs` — `Effects` gains `cloud_requests`; `EffectsSink::perform_cloud`.
 - `crates/microflow-core/src/runtime/registry.rs` — `register_cloud::<B>` helper.
 - `crates/microflow-runtime-wasm/src/lib.rs` — gains `injectEvent`/`resolveCloud`.
-- `apps/web/src/lib/firmata/flow-reactor.ts` — browser `perform_cloud`.
+- `apps/web/src/runtime/flow-reactor.ts` — browser `perform_cloud`.
 - `apps/server` + `packages/api` `appRouter` — `cloud.*` proxy procedures.
 - [ADR-0006](0006-rehost-runtime-on-core.md) — sans-IO `Effects` seam this extends to cloud.
 - [ADR-0008](0008-effects-apply-policy.md) — the `EffectsSink` this adds `perform_cloud` to.
-- [ADR-0002](0002-per-capability-service-traits.md) — capability traits (still hold); IO location changes.
+- [ADR-0025](0025-per-capability-service-traits.md) — capability traits (still hold); IO location changes.

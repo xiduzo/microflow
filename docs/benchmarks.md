@@ -7,7 +7,7 @@ of thing.
 |---|---|---|---|
 | Flow engine | criterion | In-process cost of one runtime turn | `crates/microflow-core/benches/runtime.rs` |
 | Collab presence | k6 | A network service under N concurrent clients | `bench/collab/` |
-| Canvas budgets | `bun test` | Renders and runtime crossings per event | `apps/web/src/**/__tests__/*-budget.test.*` |
+| Canvas budgets | `bun test` | Renders and runtime crossings per event | `apps/web/src/**/*-budget.test.*` |
 
 The third suite is the answer to "how do you test rendering without a browser".
 See [Budget tests](#budget-tests-counting-instead-of-timing) below.
@@ -140,7 +140,7 @@ Two suites, both A/B-verified against the pre-optimisation commit — a budget t
 that passes on both versions is measuring nothing, which is a mistake worth
 making once deliberately rather than shipping by accident:
 
-### `components/flow/__tests__/render-budget.test.tsx`
+### `apps/web/src/runtime/render-budget.test.tsx`
 
 Mounts real components against `happy-dom` and counts renders.
 
@@ -163,7 +163,7 @@ The file separates **improvements** (verified to fail on the old stores) from
 break them) — including that coalescing still lands the *newest* value, never a
 stale intermediate.
 
-### `session/__tests__/dispatch-budget.test.ts`
+### `apps/web/src/runtime/dispatch-budget.test.ts`
 
 `FlowUpdateDispatcher` is the canvas's only channel into the engine, so "calls
 into Rust" is literally countable here.

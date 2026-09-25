@@ -1,37 +1,37 @@
-import { getSession, getCustomerState } from "@/lib/auth-client";
-import { useAppStore } from "@/stores/app";
-import { useCircuitStore } from "@/stores/circuit-store";
+import { getSession, getCustomerState } from "@/account/auth-client";
+import { useActiveFlowStore } from "@/flows/active-flow";
+import { useCircuitStore } from "@/circuit/circuit-store";
 import {
   FlowSessionProvider,
   useCloudSession,
   useFlowSession,
-  useFlowUpdateDispatcher,
+  useFlowStructuralNodes,
   useLocalSession,
   type FlowRole,
   type FlowSession,
 } from "@/session";
-import { useFlowStructuralNodes } from "@/session/use-flow-nodes";
-import { usePins, type Pin } from "@/stores/board";
-import { useComponentEvents } from "@/hooks/use-component-events";
-import { useNodeDiagnostics } from "@/hooks/use-node-diagnostics";
-import { useAudioRequests } from "@/hooks/use-audio-requests";
-import { useLlmRequests } from "@/hooks/use-llm-requests";
-import { useHotkeyEvents } from "@/hooks/use-hotkey-events";
+import { useFlowUpdateDispatcher } from "@/runtime/use-flow-update-dispatcher";
+import { usePins, type Pin } from "@/board/board-store";
+import { useComponentEvents } from "@/runtime/use-component-events";
+import { useNodeDiagnostics } from "@/runtime/use-node-diagnostics";
+import { useAudioRequests } from "@/runtime/use-audio-requests";
+import { useLlmRequests } from "@/ai/use-llm-requests";
+import { useHotkeyEvents } from "@/runtime/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { useAskAiStore } from "@/stores/ask-ai";
+import { useAskAiStore } from "@/ai/ask-ai-store";
 
 const AskAiPanel = lazy(() =>
-  import("@/components/flow/ask-ai/ask-ai-panel").then((m) => ({ default: m.AskAiPanel })),
+  import("@/ai/ask-ai-panel").then((m) => ({ default: m.AskAiPanel })),
 );
 import { env } from "@microflow/env/web";
-import { ErrorState } from "@/components/states/error-state";
-import { LoadingState } from "@/components/states/loading-state";
-import { isDesktop } from "@/lib/platform";
+import { ErrorState } from "@/ui/states/error-state";
+import { LoadingState } from "@/ui/states/loading-state";
+import { isDesktop } from "@/platform/platform";
 import { toast } from "sonner";
 import type { Node } from "@xyflow/react";
 
@@ -153,7 +153,7 @@ function FlowWithAskAi() {
 }
 
 function LocalFlowLayout() {
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
   const session = useLocalSession();
 
   useEffect(() => {
@@ -166,7 +166,7 @@ function LocalFlowLayout() {
 function CloudFlowLayout() {
   const { flowId } = Route.useParams();
   const { session: authSession } = Route.useRouteContext();
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
 
   const wsUrl = useMemo(() => {
     const serverUrl = new URL(env.VITE_SERVER_URL);

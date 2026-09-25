@@ -22,7 +22,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 /// The CLIs that may be spawned, by bare binary name. Mirrors `CLI_PROVIDERS`
-/// in `apps/web/src/lib/ai/cli-providers.ts`; adding one means adding it in
+/// in `apps/web/src/ai/cli-providers.ts`; adding one means adding it in
 /// both places, deliberately — a new entry is a new thing this app may execute.
 const ALLOWED: &[&str] = &["claude", "codex", "copilot", "gemini", "opencode", "pi"];
 
@@ -151,7 +151,7 @@ pub async fn llm_cli_generate(
 
 /// Ask a local CLI which models it can reach, as raw output for the webview to
 /// parse (each CLI has its own format — see `listModels` in
-/// `lib/ai/cli-providers.ts`, which is where the parsing lives so it is
+/// `ai/cli-providers.ts`, which is where the parsing lives so it is
 /// testable without a subprocess).
 #[tauri::command]
 pub async fn llm_cli_models(bin: String, args: Vec<String>) -> Result<String, String> {

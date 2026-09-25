@@ -532,14 +532,14 @@ Microflow is a visual flow-based programming tool for hardware prototyping and I
 
 | Component | Location |
 |-----------|----------|
-| UI Components | `apps/web/src/components/ui/` |
-| Flow Components | `apps/web/src/components/flow/` |
-| Node Types | `apps/web/src/components/flow/nodes/` |
-| Dialogs | `apps/web/src/components/flow/dialogs/` |
-| Panels | `apps/web/src/components/flow/panels/` |
+| UI Components | `apps/web/src/ui/` |
+| Canvas (edges, panels, sheets, new-node dialog) | `apps/web/src/editor/` |
+| Node Types | `apps/web/src/nodes/` |
+| Flow dialogs (create, delete, share) | `apps/web/src/flows/` |
+| Panels | `apps/web/src/editor/panels/` |
+| App chrome (sidebar, navigation) | `apps/web/src/shell/` |
 | Routes/Pages | `apps/web/src/routes/` |
-| Stores (State) | `apps/web/src/stores/` |
-| Hooks | `apps/web/src/hooks/` |
+| Stores and hooks | In the folder of the domain they serve (`board/`, `cloud/`, `editor/`, …); see "Where does new code go?" in `ARCHITECTURE.md` |
 
 ---
 

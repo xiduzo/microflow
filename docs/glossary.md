@@ -17,7 +17,7 @@ Shared domain vocabulary for microflow. One Flow can run two ways — interprete
 - **Node** — A single building block in a Flow (e.g. Led, Button, Sensor, Calculate). Each Node has a `name` and an `impl`. Catalog: `apps/web/node-components.json`.
 - **Impl** — The implementation a Node entry binds to (the Rust `Component` and matching React node module). Multiple catalog entries may share one impl (a Node **Variant**).
 - **Edge** — A directed connection from a source Node's output **Handle** to a target Node's input Handle. Carries one value per fire.
-- **Handle** — A typed connection point on a Node. Inputs sit on the left, outputs on the right. See **Handle Vocabulary**. `apps/web/src/components/flow/handle.ts`
+- **Handle** — A typed connection point on a Node. Inputs sit on the left, outputs on the right. See **Handle Vocabulary**. `apps/web/src/nodes/_base/handle.tsx`
 - **Port** — A named input slot a **Component** declares and receives values on; the runtime delivers an edge value to a Port via **dispatch**. ("Handle" is the editor word; "Port" is the runtime word for the same input.)
 - **Connection** — A user-drawn link between two compatible Handles that creates an Edge.
 - **Canvas** — The editing surface (built on `@xyflow/react`/ReactFlow) where a **Flow Author** lays out Nodes and draws Connections.
@@ -63,7 +63,7 @@ The catalog (`apps/web/node-components.json`, 37 entries) groups Nodes into beha
 - **Dispatch** — Delivering a value to a target Component's Port (`dispatch`) or to its own reserved handle (`dispatch_internal`).
 - **Internal Event** — A self-routed emission whose `source_handle` is reserved (prefixed `_`); delivered back to the same Component rather than across an edge.
 - **Hardware Callback** — A board-reader-driven event (a pin change or an I2C reply) delivered to a Component outside the Flow graph.
-- **Capability Trait** — A narrow, per-capability service interface (LLM, MQTT, persistence, …) the runtime depends on, instead of one bundled `RuntimeContext`. Held in a **Service Registry**. [ADR-0002](adr/0002-per-capability-service-traits.md)
+- **Capability Trait** — A narrow, per-capability service interface (LLM, MQTT, persistence, …) the runtime depends on, instead of one bundled `RuntimeContext`. Held in a **Service Registry**. [ADR-0025](adr/0025-per-capability-service-traits.md)
 
 ## Hardware & Protocol
 
@@ -106,8 +106,8 @@ The catalog (`apps/web/node-components.json`, 37 entries) groups Nodes into beha
 - **FlowSession** — The frontend abstraction wrapping a FlowDocument + SyncAdapter + reactive Node/Edge state for one editing context. A **SessionRegistry** keeps a session alive across brief route changes (grace period). [ADR-0003](adr/0003-flow-session-seam.md)
 - **Awareness / Presence** — Live broadcast of each **Collaborator**'s cursor and selection in a shared Flow.
 - **Collaborator** — A Flow Author with access to a Cloud Flow, visible to others via Awareness.
-- **Runtime Value** — A Node's live value (LED state, sensor reading). Local-only per user (the `node-data` store), never synced — each user sees their own hardware. `apps/web/src/stores/node-data.ts`
-- **Signal** — The transient animation on an Edge when a value travels it; a local visual cue, not synced. `apps/web/src/stores/signal.ts`
+- **Runtime Value** — A Node's live value (LED state, sensor reading). Local-only per user (the `node-data` store), never synced — each user sees their own hardware. `apps/web/src/nodes/live/node-data.ts`
+- **Signal** — The transient animation on an Edge when a value travels it; a local visual cue, not synced. `apps/web/src/editor/signal.ts`
 
 ## Architecture Seams (frontend)
 
@@ -127,7 +127,7 @@ The ADRs under `docs/adr/` are the source of record for the runtime/sync seams a
 
 - [ADR-0001](adr/0001-component-trait-flow-separation.md) — Component trait separates Port, Internal Event, and Hardware Callback flows.
 - [ADR-0002](adr/0002-flow-router-seam.md) — Extract FlowRouter as the routing seam inside FlowExecutor.
-- [ADR-0002](adr/0002-per-capability-service-traits.md) — Per-capability service traits over a single `RuntimeContext` bundle.
+- [ADR-0025](adr/0025-per-capability-service-traits.md) — Per-capability service traits over a single `RuntimeContext` bundle.
 - [ADR-0003](adr/0003-flow-session-seam.md) — `FlowSession` seam, per-mode `SyncAdapter`, grace-period `SessionRegistry`.
 - [ADR-0004](adr/0004-react-flow-bridge.md) — `ReactFlowBridge` class extraction with named invariants.
 - [ADR-0005](adr/0005-flow-update-dispatcher.md) — `FlowUpdateDispatcher` with injected `Sender`, `Scheduler`, `NodeAdapterRegistry`.

@@ -27,7 +27,7 @@ codebase and the reason it is testable and portable.
                         │ same engine, two builds                                     │
         ┌───────────────┴───────────────┐                         ┌──────────────────┴────────────────┐
         │  Desktop host (Tauri, native) │                         │  Browser host (wasm + Web Serial)  │
-        │  apps/web/src-tauri            │                         │  apps/web/src/lib/firmata          │
+        │  apps/web/src-tauri            │                         │  apps/web/src/runtime + board      │
         │  serial · Tokio timers · cloud │                         │  setTimeout · fetch/WSS · cloud     │
         └────────────────────────────────┘                         └─────────────────────────────────────┘
 ```
@@ -39,10 +39,10 @@ The engine is compiled to WebAssembly for the browser by `crates/microflow-runti
 
 | Path | What |
 |---|---|
-| `crates/microflow-core` | The sans-IO flow engine + Arduino code generation. The heart. |
+| `crates/microflow-core` | The sans-IO flow engine (`runtime/`) + Arduino code generation (`codegen/`); each node's config, runtime and emitter sit together in `nodes/<node>/` ([ADR-0026](docs/adr/0026-node-code-colocated-per-node.md)). The heart. |
 | `crates/microflow-runtime-wasm` | Thin wasm shim exposing the engine to the browser. |
 | `crates/microflow-codegen-wasm`, `…-firmata-wasm` | Wasm shims for ahead-of-time sketch codegen / Firmata. |
-| `apps/web` | The Studio: React + ReactFlow UI, the Tauri desktop shell (`src-tauri`), and the browser runtime host (`src/lib/firmata`). |
+| `apps/web` | The Studio: the React + ReactFlow UI in `src/`, one folder per domain (see [Where does new code go?](#where-does-new-code-go)), including the browser runtime host (`src/runtime`, `src/board`); the Tauri desktop shell in `src-tauri`. |
 | `apps/server` | Collaboration / API backend. |
 | `apps/fumadocs` | User documentation site. |
 | `apps/figma-plugin`, `apps/penpot-plugin` | Design-tool integrations. |
@@ -85,16 +85,64 @@ Each is a deliberate interface with its own decision record:
 
 The node catalog (`apps/web/node-components.json`) plus the Rust `ports()`/`emits()`
 declarations are the *only* place node identity lives. A build step generates the
-TypeScript registry and handle types from them, and a **Catalog Parity Guard**
+TypeScript node catalog and handle types from them, and a **Catalog Parity Guard**
 (`apps/web/src-tauri/tests/catalog_parity.rs`) fails the build if the generated
 mirror drifts from Rust. Handle rendering is driven from those generated types
 (see `NodeHandles`), so a renamed port is a compile error, not a runtime surprise.
+
+## Where does new code go?
+
+`apps/web/src` is split by domain, not by file kind. Each top-level folder is a
+**vertical** with its own components, hooks and stores, named after a
+[`CONTEXT.md`](CONTEXT.md) term or a route. [ADR-0027]
+
+| Folder | What belongs there |
+|---|---|
+| `routes/` | TanStack file routes. Thin: they compose verticals. Nothing imports them. |
+| `nodes/` | The node library: one folder per node (`<node>.tsx`, `<node>.schema.ts`, optional `<node>.adapter.ts`), shared node chrome in `_base/`, live values and diagnostics in `live/`, and the generated catalog (`*.generated.ts`). |
+| `editor/` | The canvas: `react-flow-canvas.tsx`, edges, panels, sheets, the new-node dialog, clipboard, collab cursors, auto-layout. |
+| `session/` | FlowSession, SyncAdapters, ReactFlowBridge, Presence, SessionRegistry. |
+| `runtime/` | The browser Runtime Host: FlowReactor, RuntimeBridge, EffectsSink, event ingest, the FlowUpdateDispatcher and its senders, audio and MIDI performers. |
+| `board/` | The Board: Web Serial, board controller and bring-up, the board and pin store, Arduino onboarding. |
+| `cloud/` | MQTT and Figma connections: their stores, the browser CloudPerformer, cloud capabilities, the connection console. |
+| `ai/` | Ask AI and the LLM transport it shares with the `Llm` node: provider store, adapters, turn runner, flow tools, MCP bridge. |
+| `sketch/` | Arduino sketch export (`/flow/$flowId/code`): codegen, code view, download, board target picker. |
+| `circuit/` | The circuit view (`/flow/$flowId/circuit`). |
+| `flows/` | The flow library: list, thumbnails, create/delete/share dialogs, templates, import/export, the active flow. |
+| `community/` | Community flows. |
+| `account/` | Auth client, sign-in, display name, user menu. |
+| `devtools/` | The Microflow devtools drawer and its logs. |
+| `shell/` | App chrome: sidebar, navigation, contribute links, and the temporary `microflow:app` localStorage migration. |
+| `platform/` | Host detection and the desktop shell: `platform.ts`, Tauri `ipc.ts`, updater, deep links. |
+| `ui/` | The design system: shadcn primitives, empty/error/loading states, theme provider, `cn` (`utils.ts`). |
+| `lib/` | App-wide infrastructure with no domain: tRPC client, analytics, ids, wasm loader, ts-rs `bindings/`. |
+
+**Public surfaces.** Each vertical lists the files other verticals may import in
+`apps/web/scripts/architecture/verticals.ts`, like the `exports` map of a
+`package.json`. Every other file is internal. There are no `index.ts` barrels
+(`session/index.ts` is the one public entry that happens to be one), and `ui/` and
+`lib/` are fully public. `lib/`, `ui/` and `platform/` form an infrastructure layer
+that imports only itself. No vertical imports `routes/`. Only `editor/`, `flows/`
+and `nodes/` may load the React node map (`nodes/node-types.generated.ts`); all
+other code reads `nodes/catalog.generated.ts`.
+
+**The guard.** `bun test src/architecture.test.ts` (from `apps/web`; CI runs it with
+the rest of `bun test`) fails on an import that breaks these rules, and on a new
+top-level folder that `verticals.ts` does not list. The same rules are oxlint errors
+(`microflow/vertical-boundaries`, plus `microflow/cross-vertical-alias`: cross into
+another vertical through `@/`, and `import/no-cycle`), so the editor flags them as
+you type. Lint needs Node 22.18 or later. To use another vertical's
+internal file, add it to that vertical's `public` list, and treat that as a
+decision for review. Often the better fix is to move the code to where it is used.
+
+[ADR-0027]: docs/adr/0027-web-app-domain-verticals.md
 
 ## Testing & CI
 
 - Rust: `cargo test` across the crates (engine, wasm, desktop) — incl. the parity
   guard; clippy-clean.
-- TypeScript: `bun test` (DOM-less unit tests) + `tsc --noEmit`.
+- TypeScript: `bun test` (DOM-less unit tests, incl. the architecture guard) +
+  `tsc --noEmit`.
 - CI runs in `.github/workflows/` (`rust.yml`, `build.yml`, `release.yml`).
 - Benchmarks: `criterion` over the engine's hot paths and `k6` over the collab
   room — what each covers, and how to A/B two commits, is in

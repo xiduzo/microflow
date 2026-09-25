@@ -160,7 +160,7 @@ async fn ensure_infrastructure(
 ///
 /// The webview half of the ADR-0021 split: `Actor::perform_cloud` forwards an
 /// `llmGenerate` request as an `llm-request` event, the frontend performs it
-/// with `TanStack` AI (`lib/firmata/cloud/llm-client.ts`), and every emission it
+/// with `TanStack` AI (`ai/llm-client.ts`), and every emission it
 /// produces — the streaming `value` deltas, then `thinking`/`done` or `error` —
 /// comes back through here onto `ActorMsg::Inject`, the same path an MQTT
 /// delivery or a hotkey takes.

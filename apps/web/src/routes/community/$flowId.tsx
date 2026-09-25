@@ -6,18 +6,18 @@ import { GitForkIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/account/auth-client";
 import { track } from "@/lib/analytics";
 import { saveLocalFlow } from "@/session";
-import { useAppStore } from "@/stores/app";
-import { FlowThumbnail } from "@/components/home/flow-thumbnail";
+import { useActiveFlowStore } from "@/flows/active-flow";
+import { FlowThumbnail } from "@/flows/flow-thumbnail";
 import {
   AuthorLink,
   BookmarkButton,
   type CommunityFlow,
-} from "@/components/community/community-card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/community/community-card";
+import { Button } from "@/ui/button";
+import { Skeleton } from "@/ui/skeleton";
 
 export const Route = createFileRoute("/community/$flowId")({
   component: CommunityFlowPage,
@@ -27,7 +27,7 @@ function CommunityFlowPage() {
   const { flowId } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const setActiveFlowId = useAppStore((s) => s.setActiveFlowId);
+  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
   const { data: session } = authClient.useSession();
   const isSignedIn = !!session?.user;
 

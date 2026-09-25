@@ -15,7 +15,7 @@
 
 Adding an I2C device touches two tiers, keyed by the same device id: the TS
 `I2C_PRESETS` row (the UX defaults) and — only when the device needs a power-on
-sequence — a `crate::config::i2c_device::device_init_writes` arm (+ `effective_register`
+sequence — a `crate::nodes::i2c_device::config::device_init_writes` arm (+ `effective_register`
 / `is_no_hold_sht2x` for a hold-master sensor). A review flagged this roster
 duplication and proposed making a Rust preset table the single source, generated
 into an `I2C_PRESETS.generated.ts` through the existing `catalog:sync` path
@@ -97,7 +97,7 @@ by ADR-0007).
   this ADR declines to extend to non-authoritative preset data.
 - [ADR-0012](0012-component-trait-plumbing-stays-explicit.md) — a prior
   "deliberate non-change" recording why not to generate uniform-but-shallow code.
-- `crates/microflow-core/src/config/i2c_device.rs` — the ungated single source for
+- `crates/microflow-core/src/nodes/i2c_device/config.rs` — the ungated single source for
   the runtime-relevant datasheet ops (`device_init_writes`, `effective_register`).
-- `apps/web/src/components/flow/nodes/i2c-device/i2c-device.constants.ts` — the
+- `apps/web/src/nodes/i2c-device/i2c-device.constants.ts` — the
   hand-authored roster this ADR keeps in TS.

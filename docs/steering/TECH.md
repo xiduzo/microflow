@@ -31,7 +31,7 @@ Last updated: 2026-05-16
 
 ## Architecture
 
-- **Component Catalog drives everything.** `apps/web/node-components.json` is the single source of truth. Codegen produces both `apps/web/src/components/flow/nodes/_REGISTRY.ts` (UI) and `$OUT_DIR/register_all_body.rs` (Rust, via `apps/web/src-tauri/build.rs`).
+- **Component Catalog drives everything.** `apps/web/node-components.json` is the single source of truth. Codegen produces `apps/web/src/nodes/component-types.generated.ts`, `catalog.generated.ts` (React-free metadata) and `node-types.generated.ts` (UI). The Rust side is hand-registered in `ComponentRegistry::register_all` (`crates/microflow-core/src/runtime/registry.rs`); `apps/web/src-tauri/build.rs` generates nothing.
 - **Flow Runtime is single-owner.** `FlowRuntime` builds a `ComponentRegistry` of factory closures; `update_flow` instantiates `Box<dyn Component>` per node and rebuilds `Wiring`.
 - **Hardware IO is single-thread.** `Board IO Loop` exclusively owns the `BoardConnection` (serial port). Components hold `Arc<BoardHandle>` and enqueue `BoardCommand`s; they never touch serial directly. Reads are cached in shared `DashMap`s.
 - **Event routing is typed per kind** (per ADR-0001): Ports (flow edges into `call_method`), Internal Events (self-routed `_`-prefixed handles), Hardware Callbacks (board-reader-driven, reserved names like `_pin_change` / `_i2c_reply`).
@@ -40,12 +40,12 @@ Last updated: 2026-05-16
 
 ## Key Constraints
 
-- The Component Catalog is the single source of truth. Never hand-edit `_REGISTRY.ts` or generated Rust; edit `node-components.json` and run codegen.
+- The Component Catalog is the single source of truth. Never hand-edit `catalog.generated.ts`, `node-types.generated.ts` or generated Rust; edit `node-components.json` and run codegen.
 - The Board IO Loop has exclusive ownership of the serial port. All hardware work goes through `BoardHandle` → `BoardCommand` channel.
 - Never block on serial I/O from the runtime. `BoardHandle` methods enqueue and return; they do not await wire round-trips.
 - Domain language from `CONTEXT.md` is enforced. Use Component / Port / Wiring / Hardware Callback / BoardHandle — not generic substitutes ("node", "handler", "event").
 - Always use `bun` (not `npm`, `pnpm`, or `yarn`). `packageManager` is pinned.
-- Clippy pedantic must pass: `cargo clippy --all-targets -- -D warnings -W clippy::pedantic`. oxlint must pass.
+- Clippy pedantic must pass: `cargo clippy --all-targets -- -D warnings -W clippy::pedantic`. oxlint must pass, including the `microflow/*` architecture rules for `apps/web/src` (needs Node 22.18+).
 - Rust runtime errors flow through `RuntimeError` (`thiserror`). No `anyhow`, no `panic!` in component code.
 - TS imports use the `@/` alias for `apps/web/src/`. No deep relative paths (`../../...`).
 
@@ -96,8 +96,8 @@ bun run db:migrate
 ## Code Conventions
 
 - **Naming:** PascalCase for React components and Rust types; camelCase for TS functions; snake_case for Rust modules/functions; kebab-case for TS file names where existing files do so (e.g. `host-adapter.ts`).
-- **TS file structure:** apps/web feature-grouped under `src/components/<area>/`. Flow nodes under `src/components/flow/nodes/<Component>/` with a `host-adapter.ts` sibling when one exists.
-- **Rust file structure:** `apps/web/src-tauri/src/runtime/` — `board/`, `executor.rs`, `wiring_registry.rs`, `registry.rs`, `component.rs`, plus category modules (`input/`, `output/`, `control/`, `transformation/`, `generator/`, `external/`) referenced by `impls[].category`.
+- **TS file structure:** `apps/web/src` is split into domain verticals (`nodes/`, `editor/`, `session/`, `runtime/`, `board/`, `cloud/`, `ai/`, `sketch/`, `circuit/`, `flows/`, `community/`, `account/`, `devtools/`, `shell/`), an infrastructure layer (`platform/`, `ui/`, `lib/`) and `routes/`, which composes them ([ADR-0027](../adr/0027-web-app-domain-verticals.md); one line per vertical in [`ARCHITECTURE.md`](../../ARCHITECTURE.md#where-does-new-code-go)). Each vertical keeps its own components, hooks and stores. Another vertical imports only the public files listed for it in `apps/web/scripts/architecture/verticals.ts`; `bun test src/architecture.test.ts` (in `apps/web`) enforces it. Flow nodes live in `src/nodes/<node>/` (kebab-case) with a React-free `<node>.adapter.ts` sibling when one exists.
+- **Rust file structure:** `crates/microflow-core/src/` — shared engine in `runtime/` (`component.rs`, `router.rs`, `registry.rs`, `context.rs`, `wiring.rs`, `board.rs`, …, behind the `runtime` feature) and Arduino codegen in `codegen/` (`emit.rs`, `wire.rs`, `validate.rs`, `parity.rs`, …, ungated). Each Node's own code lives in one directory, `nodes/<node>/` — `config.rs` (ungated), `runtime.rs` (behind `runtime`, or `cloud` / `js`), `codegen.rs` (ungated) — only the layers it has ([ADR-0026](../adr/0026-node-code-colocated-per-node.md)). Adding a Node: create `nodes/<node>/`, add `pub(crate) mod <node>;` to `nodes/mod.rs`, then one line each in `runtime/registry.rs::register_all`, `codegen::emit_node` / `output_expression`, and `codegen/parity.rs::classify` (plus the `codegen/validate.rs` pin tables for a Node that owns pins). `impls[].category` is a catalog label, not a module path. `nodes` is `pub(crate)`, and the `nodes/boundaries.rs` unit test fails when a Node names another Node, a file outside the central dispatch tables names a Node, or `nodes/mod.rs` and the Node directories disagree.
 - **Rust tests:** integration tests in `apps/web/src-tauri/tests/*.rs` with shared mocks under `tests/common/`. Use `MockBoard` + `MockComponent` instead of touching real hardware.
 - **TS imports:** absolute via `@/`. Workspace packages via `@microflow/<name>`.
 - **Env:** validated by `@microflow/env` (`./server` vs `./web` exports via t3-oss).

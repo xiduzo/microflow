@@ -4,12 +4,12 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { SparklesIcon } from "lucide-react";
 
 import { saveLocalFlow } from "@/session";
-import { FlowThumbnail } from "@/components/home/flow-thumbnail";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { TEMPLATES, type Template } from "@/lib/templates";
+import { FlowThumbnail } from "@/flows/flow-thumbnail";
+import { Badge } from "@/ui/badge";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/ui/card";
+import { cn } from "@/ui/utils";
+import { Button } from "@/ui/button";
+import { TEMPLATES, type Template } from "@/flows/templates";
 import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/templates")({

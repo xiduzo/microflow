@@ -1,0 +1,67 @@
+import { NodeHandles } from "../_base/node-handles";
+import { IconWithValue } from "../_base/icon-with-value";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
+import {
+  dataSchema,
+  defaults,
+  movingAverageDefaults,
+  smoothDefaults,
+  type Data,
+  type MovingAverage,
+  type SmoothAverage,
+} from "./smooth.schema";
+import { EraserIcon, HighlighterIcon } from "lucide-react";
+
+export function Smooth(props: Props) {
+  return (
+    <NodeContainer {...props}>
+      <Value />
+      <Settings />
+      <NodeHandles
+        instance="Smooth"
+        portOverrides={{ value: { handleType: "value" } }}
+        emitOverrides={{ value: { handleType: "value" } }}
+      />
+    </NodeContainer>
+  );
+}
+
+function Value() {
+  const data = useNodeData<Data>();
+
+  return (
+    <IconWithValue
+      icon={data.type === "movingAverage" ? HighlighterIcon : EraserIcon}
+      value={data.type === "movingAverage" ? data.windowSize : data.attenuation}
+    />
+  );
+}
+
+function Settings() {
+  const data = useNodeData<Data>();
+
+  const { render } = useNodeControls({
+    type: {
+      value: data.type,
+      options: { smooth: "smooth", "moving average": "movingAverage" },
+    },
+    windowSize: {
+      value: (data as MovingAverage).windowSize ?? movingAverageDefaults.windowSize,
+      min: 1,
+      step: 1,
+      render: (get) => get("type") === "movingAverage",
+    },
+    attenuation: {
+      value: (data as SmoothAverage).attenuation ?? smoothDefaults.attenuation,
+      min: 0.0,
+      max: 1.0,
+      step: 0.001,
+      render: (get) => get("type") === "smooth",
+    },
+  });
+
+  return <>{render()}</>;
+}
+
+type Props = BaseNode<Data>;
+Smooth.defaultProps = { data: defaults };

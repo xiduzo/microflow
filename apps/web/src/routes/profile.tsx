@@ -2,22 +2,22 @@ import { useState, useEffect } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
-import { getSession } from "@/lib/auth-client";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Icon, type IconName } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
+import { getSession } from "@/account/auth-client";
+import { Label } from "@/ui/label";
+import { Input } from "@/ui/input";
+import { Button } from "@/ui/button";
+import { Icon, type IconName } from "@/ui/icon";
+import { cn } from "@/ui/utils";
 import { toast } from "sonner";
 import { COLLAB_COLORS } from "@microflow/collab/sync-provider";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@/ui/separator";
 import { ComputerIcon, MoonIcon, SunIcon } from "lucide-react";
-import { LoadingState } from "@/components/states/loading-state";
-import { ErrorState } from "@/components/states/error-state";
-import { EmptyState } from "@/components/states/empty-state";
-import { useTheme } from "@/providers/theme-provider";
+import { LoadingState } from "@/ui/states/loading-state";
+import { ErrorState } from "@/ui/states/error-state";
+import { EmptyState } from "@/ui/states/empty-state";
+import { useTheme } from "@/ui/theme-provider";
 import { useDebouncedValue } from "@tanstack/react-pacer";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { ButtonGroup } from "@/ui/button-group";
 
 const COLLAB_ICONS = [
   "Bird",

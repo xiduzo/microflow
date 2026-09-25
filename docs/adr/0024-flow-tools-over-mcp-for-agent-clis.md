@@ -56,7 +56,7 @@ Ask AI  ─spawn─▶  claude -p --mcp-config …
   sees it. No port, no bearer token in a URL, no CORS, nothing on a network
   interface.
 - **Exposure is a session, not a server.** An idle Microflow answers `tools/list`
-  with `[]` and refuses every call. `withFlowToolServer` (`lib/ai/mcp-bridge.ts`)
+  with `[]` and refuses every call. `withFlowToolServer` (`ai/mcp-bridge.ts`)
   opens a session for the duration of one turn and closes it in a `finally`, so
   there is no `open()` a caller can forget to pair.
 - **A token, because the socket is not the authorisation.** `0600` keeps other

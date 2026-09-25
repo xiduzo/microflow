@@ -4,7 +4,7 @@
 //! `Arc<dyn MqttPublisher>` and call `publish(...)` directly, replacing the
 //! historic `_mqtt_publish` event-emission pattern that hopped through
 //! `lib.rs`'s event-forwarding thread and a dedicated publish-handler
-//! thread (see ADR-0002 § D3).
+//! thread (see ADR-0025 § D3).
 //!
 //! Inbound subscription routing — collecting [`super::super::wiring::SubscriberWiring`]
 //! and applying it to the manager — stays where it lives now. This trait

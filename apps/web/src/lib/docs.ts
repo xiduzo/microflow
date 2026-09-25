@@ -1,6 +1,6 @@
 import { env } from "@microflow/env/web";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { isDesktop } from "./platform";
+import { isDesktop } from "@/platform/platform";
 
 // Public docs origin. Defaults to the production Fumadocs deployment; can be
 // overridden via VITE_DOCS_URL to point at a local dev server or preview.

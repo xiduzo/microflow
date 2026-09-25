@@ -1,0 +1,80 @@
+import { MODES, usePins } from "@/board/board-store";
+import { folder } from "leva";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
+import { Handle as BaseHandle } from "../_base/handle";
+
+const Handle = BaseHandle<"Button">;
+import { useNodeValue } from "@/nodes/live/node-data";
+import { dataSchema, defaults, type Data, type Value } from "./button.schema";
+import { pinsToOptions } from "@/board/pin-label";
+import { PointerIcon, PointerOffIcon } from "lucide-react";
+
+export function Button(props: Props) {
+  return (
+    <NodeContainer {...props}>
+      <Value />
+      <Settings />
+      <Handle type="source" position="right" id="event" handleType="event" offset={-1.5} />
+      <Handle type="source" position="right" id="true" handleType="state" offset={-0.5} />
+      <Handle type="source" position="right" id="false" handleType="state" offset={0.5} />
+      <Handle type="source" position="right" id="hold" handleType="event" offset={1.5} hint="long press" />
+    </NodeContainer>
+  );
+}
+
+function Value() {
+  const value = useNodeValue<Value>(false);
+
+  if (!value) return <PointerOffIcon className="text-muted-foreground" size={48} />;
+  return <PointerIcon className="text-green-500" size={48} />;
+}
+
+const DEFAULT = 0;
+const PULL_UP = 1;
+const PULL_DOWN = 2;
+
+function Settings() {
+  const data = useNodeData<Data>();
+
+  const requiresPullup = data.isPullup || data.isPulldown;
+  const pins = usePins(requiresPullup ? [MODES.PULLUP, MODES.INPUT] : [MODES.INPUT]);
+
+  const { render, set } = useNodeControls(
+    {
+      pin: { options: pinsToOptions(pins), value: data.pin },
+      isPullup: { value: data.isPullup!, render: () => false },
+      isPulldown: { value: data.isPulldown!, render: () => false },
+
+      advanced: folder(
+        {
+          type: {
+            value: data.isPulldown ? PULL_DOWN : data.isPullup ? PULL_UP : DEFAULT,
+            options: {
+              default: DEFAULT,
+              "pull up": PULL_UP,
+              "pull down": PULL_DOWN,
+            },
+            onChange: (value) =>
+              set({
+                isPullup: value === PULL_UP,
+                isPulldown: value === PULL_DOWN,
+              }),
+          },
+          holdtime: {
+            min: 100,
+            step: 50,
+            value: data.holdtime!,
+            label: "hold time (ms)",
+          },
+        },
+        { collapsed: true },
+      ),
+    },
+    [pins],
+  );
+
+  return <>{render()}</>;
+}
+
+type Props = BaseNode<Data>;
+Button.defaultProps = { data: defaults };

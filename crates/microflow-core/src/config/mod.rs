@@ -1,63 +1,8 @@
-//! Per-Node configuration types — the single source of truth shared by the live
-//! runtime (interpret) and the codegen emitters (compile to C++).
+//! Serde helpers shared by the Node configs.
 //!
-//! A Node's config (its fields, defaults, and config-only enums) used to live
-//! inside its `runtime/<category>/<node>.rs` file, behind the `runtime` cargo
-//! feature. Codegen — which is ungated, so the lean `microflow-codegen-wasm`
-//! build stays free of the runtime's deps — could not reach those types, so each
-//! emitter re-read `node.data` with hand-typed field names and duplicated default
-//! literals (`f64_or_default(node, "attenuation", 0.995)`). That duplication
-//! drifted: see commit `e1e1eb9` (Smooth) and the `usize`/`u16` window-size
-//! mismatch it left behind.
-//!
-//! These types now live here, **ungated**, so both sides deserialize `node.data`
-//! into the same struct. The default `0.995` exists once; the live `Smooth`
-//! Component and the `emit_smooth` template can no longer disagree about what a
-//! Node means. The runtime `<node>.rs` files re-export their config from here, so
-//! their `Component` impls and tests are unchanged.
-//!
-//! Flat namespace (one module per Node) on purpose: the runtime and codegen
-//! category trees diverge (`Constant`/`Interval` sit under `generator/` in the
-//! runtime but `control/` in codegen), so neither tree is a safe parent here.
+//! Each Node's config lives with the Node, in `crate::nodes::<node>::config`
+//! (ADR-0026). This module holds what those configs share: the pin
+//! string-or-number helpers in [`serde_utils`]. Ungated like the configs, so
+//! codegen-only consumers reach them without the `runtime` feature.
 
 pub mod serde_utils;
-
-// input
-pub mod button;
-pub mod hotkey;
-pub mod i2c_device;
-pub mod motion;
-pub mod pn532;
-pub mod proximity;
-pub mod switch;
-
-// output
-pub mod led;
-pub mod piezo;
-pub mod pixel;
-pub mod relay;
-pub mod rgb;
-pub mod servo;
-pub mod stepper;
-
-// generator / control
-pub mod constant;
-pub mod delay;
-pub mod interval;
-pub mod oscillator;
-pub mod trigger;
-
-// transformation
-pub mod calculate;
-pub mod compare;
-pub mod gate;
-pub mod range_map;
-pub mod smooth;
-
-// cloud (sans-IO nodes; POD config kept ungated like the rest so codegen can
-// reach it too — the network I/O is the host's, not the config's)
-pub mod figma;
-pub mod llm;
-pub mod midi;
-pub mod mqtt;
-pub mod music;

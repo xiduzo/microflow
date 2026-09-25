@@ -9,10 +9,10 @@ import {
   CommunityFlowCard,
   type CommunityAuthor,
   type CommunityFlow,
-} from "@/components/community/community-card";
-import { FlowCardSkeleton } from "@/components/home/flow-list";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/states/empty-state";
+} from "@/community/community-card";
+import { FlowCardSkeleton } from "@/flows/flow-list";
+import { Button } from "@/ui/button";
+import { EmptyState } from "@/ui/states/empty-state";
 
 export const Route = createFileRoute("/u/$userId")({
   component: PublicProfilePage,

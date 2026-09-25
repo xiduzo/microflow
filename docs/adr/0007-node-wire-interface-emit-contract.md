@@ -14,7 +14,7 @@ even that half's cross-language guard is dead:
 
 - **Input `ports`** flow catalog `impls[].ports[]` → Rust `Component::ports()`
   (`crates/microflow-core/src/runtime/component.rs:33`) → TS `COMPONENT_PORTS` /
-  `PortOf<T>` (`codegen-node-registry.ts:23-76` → `_base/_base.types.ts`). The
+  `PortOf<T>` (`codegen-node-registry.ts:23-76` → `component-types.generated.ts`). The
   Rust↔catalog drift assertion that `build.rs` used to generate into
   `register_all_body.rs` is **dead**: after the re-host (ADR-0006) the registry
   hand-registers nodes (`registry.rs:73-121`) and **nothing `include!`s the
@@ -187,7 +187,7 @@ New / updated terms recorded in `CONTEXT.md`:
 - `crates/microflow-core/src/codegen/parity.rs` — exhaustive-match guard idiom.
 - `apps/web/scripts/codegen-node-registry.ts` — `COMPONENT_PORTS`/`PortOf<T>`;
   gains `COMPONENT_EMITS`/`EmitOf<T>`.
-- `apps/web/src/components/flow/nodes/../../handle.tsx` — `BaseHandle<T>` to constrain.
+- `apps/web/src/nodes/../../handle.tsx` — `BaseHandle<T>` to constrain.
 - `apps/web/src-tauri/tests/catalog_parity.rs` — new live guard.
 - [ADR-0001](0001-component-trait-flow-separation.md) — Port/Internal/Hardware split
   this extends to the emit side.

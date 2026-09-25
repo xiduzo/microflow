@@ -1,4 +1,4 @@
-import { ReactFlowCanvas } from "@/components/flow/react-flow-canvas";
+import { ReactFlowCanvas } from "@/editor/react-flow-canvas";
 import { createFileRoute } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 

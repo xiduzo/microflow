@@ -36,8 +36,12 @@ pub mod config;
 pub mod firmata;
 pub mod flasher;
 pub mod flow;
+/// One directory per Node — its config, runtime and codegen layers side by
+/// side, each behind its own feature gate (ADR-0026). Crate-private: consumers
+/// reach Nodes through `runtime` and `codegen`, never directly.
+pub(crate) mod nodes;
 
-/// The live flow runtime (executor, router, component nodes). Gated behind the
+/// The live flow runtime (executor, router, registry). Gated behind the
 /// `runtime` feature so codegen-only consumers stay lean; the desktop bin and
 /// the browser `microflow-runtime-wasm` crate enable it.
 #[cfg(feature = "runtime")]

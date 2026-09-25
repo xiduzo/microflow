@@ -11,17 +11,17 @@ import {
 } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/states/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/ui/button";
+import { EmptyState } from "@/ui/states/empty-state";
+import { Skeleton } from "@/ui/skeleton";
 import { openExternal } from "@/lib/docs";
 import {
   CONTRIBUTION_WAYS,
   DISCUSSIONS_URL,
   newDiscussionUrl,
   wayDiscussionUrl,
-} from "@/lib/contribute";
-import { cn } from "@/lib/utils";
+} from "@/shell/contribute";
+import { cn } from "@/ui/utils";
 
 export const Route = createFileRoute("/discussions")({
   component: DiscussionsPage,

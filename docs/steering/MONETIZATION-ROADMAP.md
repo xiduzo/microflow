@@ -41,8 +41,8 @@ Last updated: 2026-05-16
 - `packages/api/src/routers/index.ts` — mount supporters router
 - `apps/server/src/index.ts` — `GET /api/public/supporters` Hono route delegates to shared helper
 - `apps/web/src/routes/support.tsx` — in-app Support page (TanStack Router); 3 tiers (GH external + `authClient.checkout({ slug })` for Supporter/Donation); Wall of Supporters with empty-state nudge
-- `apps/web/src/components/layout/app-sidebar.tsx` — "Support Microflow" link in General sidebar group (HeartIcon)
-- `apps/web/src/components/layout/nav-user.tsx` — `Heart` badge next to user name when `supporters.myStatus.isSupporter` is true
+- `apps/web/src/shell/app-sidebar.tsx` — "Support Microflow" link in General sidebar group (HeartIcon)
+- `apps/web/src/account/nav-user.tsx` — `Heart` badge next to user name when `supporters.myStatus.isSupporter` is true
 - `apps/fumadocs/src/app/(home)/support/page.tsx` — async Server Component; Wall of Supporters with empty-state nudge; Next ISR `revalidate: 300`
 
 

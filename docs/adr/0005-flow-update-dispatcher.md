@@ -10,10 +10,10 @@
 into `FlowSession` and reserved the name `FlowUpdateDispatcher` for the
 desktop-only observer that pushes `FlowUpdate` payloads to the native
 runtime. The actual dispatcher remained a placeholder hook
-(`apps/web/src/session/use-flow-update-dispatcher.ts`) wrapping the
+(`apps/web/src/runtime/use-flow-update-dispatcher.ts`) wrapping the
 legacy `flow-store.setupDocSync` logic verbatim — observer + debounced
 async callback + direct calls into `useMqttBrokerStore.getState()`,
-`useFigmaStore.getState()`, dynamic `import("@/stores/llm-provider")`,
+`useFigmaStore.getState()`, dynamic `import("@/ai/llm-provider")`,
 and `invokeCommand("flow_update", ...)`.
 
 That placeholder had three concrete problems:
@@ -27,7 +27,7 @@ That placeholder had three concrete problems:
 - **Tightly coupled to module-load env.** The hook imported the
   codegen'd `NODE_REGISTRY` directly. `NODE_REGISTRY` imports every
   node component, several of which transitively import
-  `@/lib/auth-client` → `@microflow/env/web` → fails at module load
+  `@/account/auth-client` → `@microflow/env/web` → fails at module load
   when `VITE_SERVER_URL` isn't set. Tests for the dispatcher couldn't
   load the file without the whole web env in scope.
 - **Two responsibilities tangled.** The hook simultaneously: (a)
@@ -88,7 +88,7 @@ Six sub-decisions:
   imports.** Matches the
   [`ReactFlowBridge`](0004-react-flow-bridge.md) pattern and the
   per-capability service-trait discipline from
-  [ADR-0002](0002-per-capability-service-traits.md). Lifecycle
+  [ADR-0025](0025-per-capability-service-traits.md). Lifecycle
   (observer + scheduler + sender) lives on the class with `destroy()`
   as the single cleanup entry point. Hook owns wiring + React-tied
   side effects; class owns the dispatch logic.
@@ -98,7 +98,7 @@ Six sub-decisions:
   call; `RecordingFlowUpdateSender` captures every dispatched
   `FlowUpdate` and accepts scripted errors via `scriptError(msg)`.
   Mirrors `RemoteSyncAdapter` / `RecordingSyncAdapter` from
-  [ADR-0002](0002-per-capability-service-traits.md). Production and
+  [ADR-0025](0025-per-capability-service-traits.md). Production and
   test paths are split across two files (`flow-update-sender.ts`,
   `tauri-flow-update-sender.ts`) so the test bundle doesn't import
   Tauri / `@microflow/env`.
@@ -117,7 +117,7 @@ Six sub-decisions:
   function returns the current `HostSnapshot` at each dispatch — same
   pattern as the Rust side's [`LlmRegistry`](../../apps/web/src-tauri/src/runtime/services/llm.rs)
   "live `Arc<dyn Trait>`, not value snapshot" decision in
-  [ADR-0002 D2](0002-per-capability-service-traits.md). The hook
+  [ADR-0025 D2](0025-per-capability-service-traits.md). The hook
   reads from `useMqttBrokerStore.getState()` /
   `useLlmProviderStore.getState()` / `useFigmaStore.getState()`
   inside the provider closure.
@@ -169,7 +169,7 @@ Six sub-decisions:
   `"snapshot provider re-read on every dispatch"` proves it: vary the
   closed-over API key between dispatches, assert each payload carries
   the latest. The Rust-side `LlmRegistry`
-  ([ADR-0002 D2](0002-per-capability-service-traits.md)) is now
+  ([ADR-0025 D2](0025-per-capability-service-traits.md)) is now
   paired with a host-side dispatcher that also doesn't snapshot.
 - **Deletion test passes.** Removing `flow-update-dispatcher.ts` +
   `flow-update-sender.ts` + `tauri-flow-update-sender.ts` re-inlines
@@ -236,17 +236,17 @@ section rewritten):
 
 ## References
 
-- `apps/web/src/session/flow-update-dispatcher.ts` — class + pure
+- `apps/web/src/runtime/flow-update-dispatcher.ts` — class + pure
   helpers + `ManualDispatchScheduler`.
-- `apps/web/src/session/flow-update-sender.ts` — interface + types +
+- `apps/web/src/runtime/flow-update-sender.ts` — interface + types +
   `RecordingFlowUpdateSender`.
-- `apps/web/src/session/tauri-flow-update-sender.ts` — production
+- `apps/web/src/runtime/tauri-flow-update-sender.ts` — production
   sender (split file so tests don't pull Tauri / env).
-- `apps/web/src/session/use-flow-update-dispatcher.ts` — production
+- `apps/web/src/runtime/use-flow-update-dispatcher.ts` — production
   React adapter wiring.
-- `apps/web/src/session/flow-update-dispatcher.test.ts` —
+- `apps/web/src/runtime/flow-update-dispatcher.test.ts` —
   17 cases.
-- [ADR-0002](0002-per-capability-service-traits.md) — sender / scheduler
+- [ADR-0025](0025-per-capability-service-traits.md) — sender / scheduler
   patterns mirror the Rust-side capability-trait + recording-test
   discipline; `HostSnapshotProvider` mirrors the live-registry
   decision in D2.

@@ -1,0 +1,387 @@
+import { useReactFlow, useStoreApi, type XYPosition } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
+import type { NodeDefaults } from "@/nodes/catalog.generated";
+import { useFlowSession } from "@/session";
+import { useNewNodeStore } from "@/editor/new-node";
+import { groupIndicator } from "@/nodes/_base/_base";
+import { DesktopOnlyBadge } from "@/nodes/_base/desktop-only-badge";
+import { uid } from "@/lib/uid";
+import { createPointerFrame } from "@/editor/pointer-frame";
+import { track } from "@/lib/analytics";
+import { docsUrl } from "@/lib/docs";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/ui/command";
+import {
+  SearchIcon,
+  BookIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  CornerDownLeftIcon,
+} from "lucide-react";
+import { Button } from "@/ui/button";
+import { Badge } from "@/ui/badge";
+import { Avatar, AvatarFallback } from "@/ui/avatar";
+import { Icon } from "@/ui/icon";
+import { EmptyState } from "@/ui/states/empty-state";
+import type { FlowNode } from "@microflow/collab";
+import { cn } from "@/ui/utils";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/ui/item";
+import { Kbd } from "@/ui/kbd";
+
+const NODE_SIZE = {
+  width: 208,
+  height: 176,
+};
+
+const GROUP_ORDER = ["sense", "generate", "shape", "decide", "express"] as const;
+
+export function NewNodeDialog() {
+  useDraggableNewNode();
+
+  const { open, setOpen, setNodeToAdd } = useNewNodeStore();
+  const { flowToScreenPosition, getZoom, getNodes } = useReactFlow();
+  const { doc } = useFlowSession();
+  const addNode = useCallback((node: FlowNode) => doc.addNode(node), [doc]);
+  const [filter, setFilter] = useState("");
+  const commandListRef = useRef<HTMLDivElement>(null);
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    function updateSize() {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    }
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  const position = useMemo(() => {
+    if (windowSize.width === 0 || windowSize.height === 0) {
+      return { x: 0, y: 0 };
+    }
+    return flowToScreenPosition({
+      x: windowSize.width / 2 - (NODE_SIZE.width / 2) * getZoom(),
+      y: windowSize.height / 2 - (NODE_SIZE.height / 2) * getZoom(),
+    });
+  }, [flowToScreenPosition, windowSize, getZoom]);
+
+  function selectNode(defaults: NodeDefaults, type: string) {
+    return function () {
+      const item: FlowNode = {
+        data: defaults,
+        id: uid(),
+        type,
+        position,
+      };
+
+      addNode(item);
+      track("node_added", {
+        type,
+        nodes: getNodes().length + 1,
+        searched: filter.trim().length > 0,
+      });
+      setNodeToAdd(item.id);
+      setFilter("");
+      setOpen(false);
+    };
+  }
+
+  const groups = useMemo(() => {
+    const byGroup = Object.entries(NODE_CATALOG).reduce(
+      (acc, [type, { defaults }]) => {
+        if (defaults.group === "internal") return acc;
+        const group = defaults.group ?? "sense";
+        const list = acc.get(group) ?? [];
+        list.push({ defaults, type });
+        acc.set(group, list);
+        return acc;
+      },
+      new Map<string, { defaults: NodeDefaults; type: string }[]>()
+    );
+    return GROUP_ORDER.map((key) => [key, byGroup.get(key) ?? []] as const).filter(
+      ([, nodes]) => nodes.length > 0
+    );
+  }, []);
+
+  const searchTerm = useMemo(() => {
+    const terms = [
+      "Sense something...",
+      "Generate, Shape, Decide...",
+      "Button, Motion, Sensor...",
+      "Constant, Oscillator, Interval...",
+      "Compare, Gate, Trigger...",
+      "Led, Monitor, MQTT...",
+    ];
+
+    return terms[Math.floor(Math.random() * terms.length)];
+  }, [open]);
+
+  useEffect(() => {
+    commandListRef.current?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, [filter]);
+
+  const nodeFilter = (value: string, search: string) => {
+    const [label, description] = value.split("|");
+
+    // Show all items when no search term
+    if (!search || search.trim() === "") return 1;
+
+    const searchLower = search.toLowerCase().trim();
+
+    // Priority 1: Label match (highest priority)
+    if (label.toLowerCase().includes(searchLower)) return 1;
+
+    // Priority 2: Description match
+    if (description.toLowerCase().includes(searchLower)) return 0.8;
+
+    // No match found
+    return 0;
+  };
+
+  return (
+    <CommandDialog
+      className="min-w-10/12 md:min-w-8/12 lg:min-w-6/12 xl:min-w-4/12"
+      open={open}
+      onOpenChange={(state) => {
+        setOpen(state);
+        if (!state) setFilter("");
+      }}
+    >
+      <Command
+        className="[&_[data-slot=command-input-wrapper]>*]:h-12 **:data-[slot=command-input]:text-base **:data-[slot=command-input]:py-2.5 [&_[data-slot=command-input-wrapper]_svg]:size-5"
+        filter={nodeFilter}
+      >
+        <CommandInput placeholder={searchTerm} onValueChange={setFilter} />
+        <CommandList ref={commandListRef} className="mb-2 min-h-[400px]">
+          <CommandEmpty className="flex items-center justify-center h-[400px]">
+            <EmptyState
+              title="Nothing found"
+              description="Try searching for a different node type or visit the documentation."
+              icon={SearchIcon}
+            >
+              <a
+                href={docsUrl("/microflow-studio/nodes")}
+                target="_blank"
+              >
+                <Button variant="link">Visit the documentation</Button>
+              </a>
+            </EmptyState>
+          </CommandEmpty>
+          {groups.map(([groupKey, nodes], index) => (
+            <section key={groupKey}>
+              <CommandGroup heading={groupKey.charAt(0).toUpperCase() + groupKey.slice(1)}>
+                {nodes.map(({ defaults, type }) => {
+                  return (
+                    <CommandItem
+                      value={`${defaults.label ?? ""}|${defaults.description ?? ""}|${defaults.group ?? ""}|${(defaults.tags ?? []).join(",")}`}
+                      keywords={[...(defaults.tags ?? [])]}
+                      key={defaults.label}
+                      onSelect={selectNode(defaults, type)}
+                      className="data-[selected=true]:bg-muted-foreground/5 items-start group"
+                    >
+                      <Item className="px-0">
+                        <ItemMedia variant="image">
+                          <Avatar size="lg" className="after:ring-0 after:border-none after:content-['']">
+                            <AvatarFallback className={cn(groupIndicator({ group: defaults.group as any }))}>
+                              <Icon
+                                icon={defaults.icon as any}
+                                className="group-data-[selected=true]:scale-110 transition-all duration-100 size-4 stroke-1 group-data-[selected=true]:stroke-2"
+                              />
+                            </AvatarFallback>
+                          </Avatar>
+                        </ItemMedia>
+                        <ItemContent>
+                          <ItemTitle>
+                            <HighlightedText text={defaults.label ?? ""} query={filter} />
+                            {defaults.beta === true && (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-500/40 text-amber-600 dark:text-amber-500"
+                              >
+                                beta
+                              </Badge>
+                            )}
+                            {/* Say it before the node is on the canvas, not after. */}
+                            <DesktopOnlyBadge type={type} />
+                          </ItemTitle>
+                          <ItemDescription>
+                            <HighlightedText text={defaults.description ?? ""} query={filter} />
+                          </ItemDescription>
+                        </ItemContent>
+                      </Item>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+              {index !== groups.length - 1 && <CommandSeparator />}
+            </section>
+          ))}
+        </CommandList>
+        <footer className="p-2 bg-muted-foreground/5 flex gap-4 justify-between items-center">
+          <section className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Kbd>
+                <ChevronUpIcon size={12} className="" />
+              </Kbd>
+              <Kbd>
+                <ChevronDownIcon size={12} className="" />
+              </Kbd>
+            </div>
+            <span className="text-xs text-muted-foreground">Navigate</span>
+          </section>
+          <section className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Select</span>
+            <Kbd>
+              <CornerDownLeftIcon size={12} className="" />
+            </Kbd>
+          </section>
+        </footer>
+      </Command>
+    </CommandDialog >
+  );
+}
+
+/**
+ * The screen point that puts the node's centre under the cursor, before the
+ * viewport converts it to flow coordinates.
+ *
+ * The half-size offset is scaled by zoom because it is applied in *screen*
+ * space: at zoom 2 the node covers twice the pixels, so its centre is twice as
+ * far from its origin on screen.
+ */
+export function centreOnPointer(pointer: XYPosition, zoom: number): XYPosition {
+  return {
+    x: pointer.x - (NODE_SIZE.width / 2) * zoom,
+    y: pointer.y - (NODE_SIZE.height / 2) * zoom,
+  };
+}
+
+function useDraggableNewNode() {
+  const { nodeToAdd, setNodeToAdd } = useNewNodeStore();
+  const { screenToFlowPosition, getZoom } = useReactFlow();
+  const store = useStoreApi();
+  const { doc } = useFlowSession();
+  const removeNode = useCallback((id: string) => doc.removeNode(id), [doc]);
+  const updateNode = useCallback(
+    (id: string, updates: Parameters<typeof doc.updateNode>[1]) => doc.updateNode(id, updates),
+    [doc],
+  );
+
+  // The placement position lives here — not in the Y.Doc — until commit.
+  const placedPosition = useRef<XYPosition | null>(null);
+
+  const addNode = useCallback(() => {
+    if (!nodeToAdd) return;
+    const position = placedPosition.current;
+    // One document write for the whole placement: the final position and the
+    // deselect land in a single transaction, so undo sees one entry.
+    updateNode(nodeToAdd, position ? { position, selected: false } : { selected: false });
+    placedPosition.current = null;
+    setNodeToAdd(null);
+  }, [nodeToAdd, updateNode, setNodeToAdd]);
+
+  const cancelNode = useCallback(() => {
+    if (!nodeToAdd) return;
+    removeNode(nodeToAdd);
+    placedPosition.current = null;
+    setNodeToAdd(null);
+  }, [nodeToAdd, removeNode, setNodeToAdd]);
+
+  // Handle Escape/Backspace to cancel node placement
+  useHotkeys(
+    [
+      {
+        hotkey: "Escape",
+        callback: cancelNode,
+        options: { enabled: !!nodeToAdd, ignoreInputs: true },
+      },
+      {
+        hotkey: "Backspace",
+        callback: cancelNode,
+        options: { enabled: !!nodeToAdd, ignoreInputs: true },
+      },
+    ],
+  );
+
+  useHotkey(
+    "Enter",
+    addNode,
+    {
+      enabled: !!nodeToAdd,
+      ignoreInputs: true,
+      preventDefault: false,
+    }
+  );
+
+  // Handle mouse interactions for dragging and placing
+  useEffect(() => {
+    if (!nodeToAdd) return;
+    const id = nodeToAdd;
+
+    // Placement is a drag: positions are ephemeral, coalesced to one per
+    // animation frame, and never written to the Y.Doc mid-move (ADR-0004).
+    // Routing through `onNodesChange` with `dragging: true` is exactly the
+    // path `ReactFlowBridge` classifies as ephemeral.
+    const pointerFrame = createPointerFrame((point) => {
+      const position = screenToFlowPosition(centreOnPointer(point, getZoom()));
+      placedPosition.current = position;
+      store.getState().onNodesChange?.([{ id, type: "position", position, dragging: true }]);
+    });
+
+    function handleMouseMove(event: MouseEvent) {
+      pointerFrame.track({ x: event.clientX, y: event.clientY });
+    }
+
+    // Defer registration so the click that triggered node selection doesn't
+    // immediately fire addNode and place the node without allowing dragging.
+    let registered = false;
+    const timeoutId = setTimeout(() => {
+      registered = true;
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mousedown", addNode);
+      document.addEventListener("click", addNode);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      pointerFrame.cancel();
+      if (registered) {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mousedown", addNode);
+        document.removeEventListener("click", addNode);
+      }
+    };
+  }, [
+    nodeToAdd,
+    getZoom,
+    store,
+    screenToFlowPosition,
+    setNodeToAdd,
+    addNode,
+  ]);
+
+  return null;
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  if (!query || !query.trim()) return <span>{text}</span>;
+
+  const queryLower = query.toLowerCase().trim();
+  const idx = text.toLowerCase().indexOf(queryLower);
+  if (idx === -1) return <span>{text}</span>;
+
+  return <span>{text.slice(0, idx)}<mark className="bg-transparent text-foreground font-semibold underline underline-offset-2 decoration-primary/60">{text.slice(idx, idx + queryLower.length)}</mark>{text.slice(idx + queryLower.length)}</span>;
+}

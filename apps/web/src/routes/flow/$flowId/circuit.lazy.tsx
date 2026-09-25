@@ -1,14 +1,14 @@
-import { useCircuitStore } from "@/stores/circuit-store";
+import { useCircuitStore } from "@/circuit/circuit-store";
 import { useShallow } from "zustand/shallow";
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { SchematicViewer } from "@tscircuit/schematic-viewer";
-import { LoadingState } from "@/components/states/loading-state";
-import { ErrorState } from "@/components/states/error-state";
+import { LoadingState } from "@/ui/states/loading-state";
+import { ErrorState } from "@/ui/states/error-state";
 import { BinaryIcon, EqualApproximatelyIcon, Loader2Icon, MinusIcon, PlusIcon } from "lucide-react";
 import { cva } from "class-variance-authority";
-import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState } from "@/components/states/empty-state";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/ui/item";
+import { Card, CardContent } from "@/ui/card";
+import { EmptyState } from "@/ui/states/empty-state";
 
 /** Schematic color overrides using theme CSS vars */
 const SCHEMATIC_COLOR_OVERRIDES = {

@@ -29,7 +29,7 @@ Use [boa_engine](https://github.com/boa-dev/boa) — a pure-Rust ECMAScript engi
 
 ## Rust Component
 
-### New File: `apps/web/src-tauri/src/runtime/transformation/function.rs`
+### New File: `crates/microflow-core/src/nodes/function/runtime.rs`
 
 ```rust
 use boa_engine::{Context, Source, JsValue, JsError};
@@ -126,7 +126,7 @@ boa_engine = "0.20"
 
 ## React Node
 
-### Schema: `apps/web/src/components/flow/nodes/function/function.schema.ts`
+### Schema: `apps/web/src/nodes/function/function.schema.ts`
 
 ```typescript
 import { z } from "zod";
@@ -143,7 +143,7 @@ export const dataSchema = baseDataSchema.extend({
 export type Data = z.infer<typeof dataSchema>;
 ```
 
-### Component: `apps/web/src/components/flow/nodes/function/function.tsx`
+### Component: `apps/web/src/nodes/function/function.tsx`
 
 - Wrap in `NodeContainer`
 - Display a code icon (e.g. `BracesIcon` from lucide)
@@ -169,13 +169,7 @@ const dynamicVars = useMemo(() => {
 
 ### Type registration
 
-In `_base/_base.types.ts`, add `"Function"` to `COMPONENT_TYPES`.
-
-In `_TYPES.ts` (or wherever `NODE_TYPES` maps component names to React components), add:
-
-```typescript
-Function: Function,
-```
+Add the `Function` entry to `apps/web/node-components.json`, then run `bun run catalog:sync` in `apps/web`. Codegen adds `"Function"` to `COMPONENT_TYPES` and puts the node in `NODE_CATALOG` and `NODE_TYPES`; none of the generated files is edited by hand. The component in `function.tsx` must be exported as `Function`, the entry name.
 
 ---
 
@@ -252,13 +246,13 @@ return Math.round(scaled);
 7. Register `"Function"` in `registry.rs`
 
 ### Step 2: React node (~2-3 hours)
-1. Add `"Function"` to `COMPONENT_TYPES`
+1. Add the `Function` entry to `apps/web/node-components.json`
 2. Create `function.schema.ts`
 3. Create `function.tsx` with:
    - `trigger` handle (left, command)
    - `value` handle (right, value)
    - `DynamicHandles` component parsing `var` declarations (reuse LLM pattern)
-4. Add to `NODE_TYPES` map
+4. Run `bun run catalog:sync` in `apps/web` to regenerate `COMPONENT_TYPES`, `NODE_CATALOG` and `NODE_TYPES`
 5. Add code textarea in settings panel (via `useNodeControls` or custom panel)
 
 ### Step 3: Error feedback (~1 hour)

@@ -6,7 +6,7 @@
 
 ## Context
 
-The collaboration scaling audit ([`COLLAB_SCALING_AUDIT.md`](../COLLAB_SCALING_AUDIT.md))
+The collaboration scaling audit ([`COLLAB_SCALING_AUDIT.md`](../audits/COLLAB_SCALING_AUDIT.md))
 fixed eleven problems in the Yjs ↔ ReactFlow ↔ Tauri path. Reviewing the result
 raised a sharper question than any individual fix: **how much of that was work
 the Yjs ecosystem already does for us?**

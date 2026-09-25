@@ -177,6 +177,6 @@ New terms recorded in `CONTEXT.md`:
   `_`-prefix routing.
 - `apps/web/src-tauri/src/runtime/wiring_registry.rs` — pin/i2c listener
   bookkeeping.
-- `docs/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3 — earlier trait-split work.
+- `docs/audits/RUNTIME_AUDIT_APRIL_2026.md` §3.5 / §3.3 — earlier trait-split work.
 - `CONTEXT.md` § Component (Rust trait), Port, Internal Event, Hardware
   Callback.

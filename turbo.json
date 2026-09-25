@@ -3,10 +3,15 @@
   "ui": "tui",
   "tasks": {
     "codegen": {
-      "inputs": ["node-components.json", "wire-interface.generated.json"],
+      "inputs": [
+        "node-components.json",
+        "wire-interface.generated.json",
+        "src/nodes/*/*.adapter.ts"
+      ],
       "outputs": [
-        "src/components/flow/nodes/_base/_base.types.ts",
-        "src/components/flow/nodes/_REGISTRY.ts"
+        "src/nodes/component-types.generated.ts",
+        "src/nodes/catalog.generated.ts",
+        "src/nodes/node-types.generated.ts"
       ]
     },
     "build": {

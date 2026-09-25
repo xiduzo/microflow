@@ -16,7 +16,7 @@ Last updated: 2026-05-16
 - **Source of truth:** code. There is no Figma library.
 - **Base:** shadcn (`base-lyra` style, `cssVariables: true`, base color `neutral`) plus Tailwind 4. Config at `apps/web/components.json`.
 - **Custom layer:** PCB token themes defined in `apps/web/src/index.css` (`:root` for light, `.dark` for dark) using `oklch()` values.
-- **Component aliases:** `@/components` (general), `@/components/ui` (shadcn primitives), `@/lib`, `@/hooks`. Icon library: `lucide`. Optional registry: `@magicui`.
+- **Component aliases** (shadcn `components.json`): shadcn adds components, primitives and hooks to `@/ui`, and `cn` lives in `@/ui/utils`; its `lib` alias is `@/lib`. Feature components live in the folder of their domain (`@/editor`, `@/nodes`, …; see `ARCHITECTURE.md`). Icon library: `lucide`. Optional registry: `@magicui`.
 - **Other UI libraries in use:** `@base-ui/react` (headless primitives), `leva` (live-tweak controls on flow nodes), `@monaco-editor/react` (in-flow function editor), `vaul` (drawer), `cmdk` (command palette), `sonner` (toasts), `motion` (animations), `react-confetti`, `react-colorful`.
 
 ## Tokens
@@ -58,9 +58,9 @@ Use Tailwind's default scale (`gap-1` `gap-2` …). No project-specific spacing 
 
 | Pattern | Where | Notes |
 | --- | --- | --- |
-| Form controls, buttons, dialogs | `apps/web/src/components/ui/` | shadcn primitives — extend, don't fork |
-| Flow node | `apps/web/src/components/flow/nodes/<Component>/` | One folder per component; optional `host-adapter.ts` for store wiring |
-| Flow handle | `apps/web/src/components/handle.tsx` | Glows copper when selected via edge; green-on-valid / red-on-invalid during connect |
+| Form controls, buttons, dialogs | `apps/web/src/ui/` | shadcn primitives — extend, don't fork |
+| Flow node | `apps/web/src/nodes/<Component>/` | One folder per component; optional `<component>.adapter.ts` for store wiring |
+| Flow handle | `apps/web/src/nodes/_base/handle.tsx` | Glows copper when selected via edge; green-on-valid / red-on-invalid during connect |
 | Flow edge | global CSS in `index.css` (`.react-flow__edges`) | Copper when selected, phosphor-green + drop-shadow + dash animation when animated |
 | Live monitor | `leva` panels embedded in nodes | Transparent background; `index.css` overrides Leva chrome |
 | In-flow code editor | `@monaco-editor/react` in the `function` node | Highlights template variables via `.template-variable-highlight` |

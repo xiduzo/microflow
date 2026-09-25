@@ -12,138 +12,259 @@ You should already have the dev environment running — see [Build from source](
 ```
 node-components.json              ← single source of truth (UI ↔ runtime mapping)
         │
-        ├── frontend (React + Zod schema)        — apps/web/src/components/flow/nodes/<name>/
+        ├── frontend (React + Zod schema)        — apps/web/src/nodes/<name>/
         │     ├── <name>.tsx              UI component
-        │     └── <name>.schema.ts        Zod schema for data + value
+        │     ├── <name>.schema.ts        Zod schema for data + value, and the defaults
+        │     └── <name>.adapter.ts       optional host adapter (no React)
         │
-        └── runtime (Rust)                         — apps/web/src-tauri/src/runtime/<category>/<name>.rs
-              implements the Component trait
+        └── runtime (Rust)                       — crates/microflow-core/src/nodes/<name>/
+              ├── mod.rs                  lists the layers below, each behind its feature gate
+              ├── config.rs               the node's settings, shared by runtime and codegen
+              ├── runtime.rs              implements the Component trait
+              └── codegen.rs              optional Arduino sketch emitter
 ```
 
 The two sides never call each other directly — they communicate through the Yjs document and the runtime event channel.
 
+You never register a node in TypeScript by hand. `bun run codegen` reads `node-components.json` and writes the node type list, the node catalog and the React node map into `apps/web/src/nodes/*.generated.ts` (Step 5).
+
 For this walkthrough, we will add a hypothetical `Sparkle` node that emits a random number between two bounds whenever it receives an input.
 
-## Step 1 — Pick a category
+## Step 1 — Pick a group
 
-Every node belongs to one of the existing categories: **sense**, **generate**, **shape**, **decide**, **express**, or **internal**. The category is also a Rust module path — `runtime::shape`, `runtime::express`, etc.
+The Add Node panel sorts nodes into groups: **sense**, **generate**, **shape**, **decide**, **express**, or **internal**. You set the group in the node's `defaults` (Step 3). The group is a label only. It does not decide where any code lives: the Rust code of every node goes in its own folder, whatever its group.
 
 `Sparkle` transforms an input into an output, so it is a **shape** node.
 
-## Step 2 — Define the runtime component (Rust)
+## Step 2 — Write the runtime node (Rust)
 
-Create `apps/web/src-tauri/src/runtime/shape/sparkle.rs`:
+The runtime lives in the `microflow-core` crate. The desktop app runs it natively, and the web app runs the same code compiled to WebAssembly. Each node has one folder, `crates/microflow-core/src/nodes/<name>/`, named in snake_case (`RangeMap` lives in `nodes/range_map/`). `nodes/smooth/` is a short working example to keep open next to this step.
+
+### The module file
+
+Create `crates/microflow-core/src/nodes/sparkle/mod.rs`:
 
 ```rust
-use crate::runtime::base::{Component, ComponentEvent, ComponentValue};
+//! The `Sparkle` node.
 
-pub struct Sparkle {
-    min: f64,
-    max: f64,
+pub(crate) mod config;
+#[cfg(feature = "runtime")]
+pub(crate) mod runtime;
+```
+
+This file lists the layers the node has, and puts each one behind its feature gate. `config` has no gate, because the Arduino export reads it too. `runtime` sits behind the `runtime` feature. A node that uses a network service or a host peripheral (`Mqtt`, `Llm`, `Figma`, `Midi`, `Music`) puts its runtime behind `cloud` instead.
+
+### The config
+
+Create `crates/microflow-core/src/nodes/sparkle/config.rs`:
+
+```rust
+//! Sparkle Node config — shared by the live runtime and the codegen emitter.
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub(crate) struct SparkleConfig {
+    pub(crate) min: f64,
+    pub(crate) max: f64,
+}
+
+impl Default for SparkleConfig {
+    fn default() -> Self {
+        Self { min: 0.0, max: 100.0 }
+    }
+}
+```
+
+The runtime deserializes the node's `data` into this struct. Keep `rename_all = "camelCase"`: the frontend sends `windowSize`, not `window_size`, and without the attribute a multi-word field never matches and silently keeps its default. `default` fills in the fields that `data` does not have, so keep these defaults equal to the Zod defaults of Step 3.
+
+### The component
+
+Create `crates/microflow-core/src/nodes/sparkle/runtime.rs`:
+
+```rust
+//! Sparkle Component — emits a random number between two bounds.
+
+use crate::runtime::{
+    Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
+};
+
+use super::config::SparkleConfig;
+
+pub(crate) struct Sparkle {
+    base: ComponentBase,
+    config: SparkleConfig,
 }
 
 impl Sparkle {
-    pub fn new(min: f64, max: f64) -> Self {
-        Self { min, max }
+    #[must_use]
+    pub(crate) fn new(id: String, config: SparkleConfig) -> Self {
+        Self {
+            base: ComponentBase::new(id, ComponentValue::Number(0.0)),
+            config,
+        }
     }
 }
 
 impl Component for Sparkle {
-    fn requires_hardware(&self) -> bool {
-        false
+    fn ports() -> &'static [&'static str] {
+        &["trigger"]
     }
 
-    fn call_method(
+    fn emits() -> &'static [&'static str] {
+        &[ComponentBase::VALUE_HANDLE]
+    }
+
+    fn base(&self) -> &ComponentBase {
+        &self.base
+    }
+    fn base_mut(&mut self) -> &mut ComponentBase {
+        &mut self.base
+    }
+    fn component_type(&self) -> &'static str {
+        "Sparkle"
+    }
+
+    fn dispatch(
         &mut self,
         method: &str,
-        _args: &[ComponentValue],
-    ) -> Result<Option<ComponentEvent>, String> {
+        _args: ComponentValue,
+        ctx: &mut RuntimeContext,
+    ) -> Result<(), RuntimeError> {
         match method {
             "trigger" => {
-                let value = self.min + rand::random::<f64>() * (self.max - self.min);
-                Ok(Some(ComponentEvent::value(ComponentValue::Number(value))))
+                // microflow-core has no `rand` (it builds for wasm32): hash the
+                // host clock instead, like `nodes/oscillator/runtime.rs` does.
+                let r = ((ctx.now_ms() * 12.9898).sin() * 43758.5453).fract().abs();
+                let SparkleConfig { min, max } = self.config;
+                self.base.set_value(ComponentValue::Number(min + r * (max - min)));
+                Ok(())
             }
-            _ => Err(format!("Unknown method: {method}")),
+            _ => Err(RuntimeError::ComponentError(format!("Unknown method: {method}"))),
         }
+    }
+}
+
+impl ComponentBuilder for Sparkle {
+    type Config = SparkleConfig;
+    fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
+        Ok(Self::new(id, config))
     }
 }
 ```
 
-Then register it in `apps/web/src-tauri/src/runtime/shape/mod.rs`:
+- `ports()` lists the input handles and `emits()` the output handles. They are the only place you declare them: Step 5 copies them to the frontend, where they become the node's handles.
+- The runtime calls `dispatch` once for each value that arrives on a port, with the port name as `method`.
+- `self.base.set_value(…)` stores the value and, when it changed, emits it on the `value` handle (`ComponentBase::VALUE_HANDLE`). To emit on another handle, call `self.base.emit_with_value(…)` and list the handle in `emits()`. `nodes/range_map/runtime.rs` does this for its `to` handle.
+- A node has no thread, clock or timer of its own. `ctx` gives it the host clock (`ctx.now_ms()`) and timers: `ctx.schedule_wakeup(…)` calls the node back through `dispatch_internal`, as `nodes/delay/runtime.rs` does.
+- A node that uses the board also implements `HardwareComponent` and returns `Some(self)` from `as_hardware_mut`. See `nodes/led/runtime.rs`.
 
-```rust
-pub mod sparkle;
-```
+### Register it
 
-And add it to the runtime's component factory in `apps/web/src-tauri/src/runtime/registry.rs` (open the file and follow the existing pattern — each `impl` from `node-components.json` maps to a constructor).
+Node registration is explicit. Make three one-line edits in `crates/microflow-core/src/`:
+
+1. In `nodes/mod.rs`, add `pub(crate) mod sparkle;`.
+2. In `runtime/registry.rs`, add the node to `register_all`. The string is the node's name in `node-components.json` (Step 5). A `cloud` node goes in the `#[cfg(feature = "cloud")]` block.
+
+   ```rust
+   self.register::<nodes::sparkle::runtime::Sparkle>("Sparkle");
+   ```
+
+3. In `codegen/parity.rs`, add the node to `classify`. Every registered node needs an arm there, or the parity test `every_registered_node_type_is_classified` fails. Sparkle has no Arduino emitter, so it gets an exemption:
+
+   ```rust
+   "Sparkle" => Exempt("no Arduino emitter yet — falls through to the placeholder comment"),
+   ```
+
+### Arduino export (optional)
+
+Studio can export a flow as an Arduino sketch. A node takes part only if it has a `codegen.rs`. Without one, the sketch has a `// unsupported Node …` comment in its place. To add an emitter:
+
+1. Create `nodes/sparkle/codegen.rs` and add `pub(crate) mod codegen;` (no feature gate) to `nodes/sparkle/mod.rs`. Read the settings through `super::config::SparkleConfig`, so the sketch uses the same fields and defaults as the runtime. `nodes/smooth/codegen.rs` shows the shape: an `emit` function and a `value_var` that names the C++ variable with the node's output.
+2. In `codegen/mod.rs`, add an arm to `emit_node` (the node's C++) and one to `output_expression` (the C++ expression that each emit handle stands for).
+3. In `codegen/parity.rs`, replace the `Exempt` arm with a `Case`: a test that feeds inputs to the emitter and checks that the C++ does what `runtime.rs` does.
+4. If the node owns a pin, add it to the pin checks in `codegen/validate.rs`.
 
 ## Step 3 — Define the frontend schema
 
-Create `apps/web/src/components/flow/nodes/sparkle/sparkle.schema.ts`:
+The node's folder and files use the kebab-case of its name (`RangeMap` lives in `range-map/range-map.schema.ts`). Code generation imports them by that path.
+
+Create `apps/web/src/nodes/sparkle/sparkle.schema.ts`:
 
 ```ts
 import { z } from "zod";
 import { baseDataSchema } from "../_base/_base.schema";
 
-export const sparkleDataSchema = baseDataSchema.extend({
+export const valueSchema = z.number();
+export type Value = z.infer<typeof valueSchema>;
+
+export const dataSchema = baseDataSchema.extend({
+  instance: z.literal("Sparkle").default("Sparkle"),
   min: z.number().default(0),
   max: z.number().default(100),
 });
+export type Data = z.infer<typeof dataSchema>;
 
-export type SparkleData = z.infer<typeof sparkleDataSchema>;
-export type SparkleValue = number;
+export const defaults = {
+  ...dataSchema.parse({}),
+  group: "shape",
+  tags: ["value"],
+  label: "Sparkle",
+  description: "Emit a random number between two bounds",
+  icon: "SparklesIcon",
+};
 ```
 
 `baseDataSchema` includes the fields every node has (`label`, `instance`, etc.). You only declare the new ones.
 
+The schema file must export `dataSchema` and `defaults` under exactly those names. `defaults` is the data a new Sparkle starts with, plus what the Add Node panel shows: `group` picks the section, `icon` is the name of a [lucide](https://lucide.dev/icons) icon as `lucide-react` exports it (`SparklesIcon`), and `tags` and `description` feed the search.
+
 ## Step 4 — Build the React node
 
-Create `apps/web/src/components/flow/nodes/sparkle/sparkle.tsx`:
+Create `apps/web/src/nodes/sparkle/sparkle.tsx`:
 
 ```tsx
-import { Handle, Position } from "@xyflow/react";
-import { NodeContainer } from "../_base/_base";
-import { useNodeControls, useNodeData, useNodeValue } from "@/hooks/...";
-import type { SparkleData, SparkleValue } from "./sparkle.schema";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
+import { NodeHandles } from "../_base/node-handles";
+import { useNodeValue } from "@/nodes/live/node-data";
+import { type Data, type Value, defaults } from "./sparkle.schema";
 
-export function SparkleNode(props: BaseNode<SparkleData>) {
+export function Sparkle(props: Props) {
   return (
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position={Position.Left} id="trigger" />
-      <Handle type="source" position={Position.Right} id="value" />
+      <NodeHandles instance="Sparkle" />
     </NodeContainer>
   );
 }
 
 function Value() {
-  const value = useNodeValue<SparkleValue>(0);
+  const value = useNodeValue<Value>(0);
   return <div>{value.toFixed(1)}</div>;
 }
 
 function Settings() {
-  const data = useNodeData<SparkleData>();
-  const { render } = useNodeControls<SparkleData>({
+  const data = useNodeData<Data>();
+  const { render } = useNodeControls({
     min: { value: data.min, label: "Min" },
     max: { value: data.max, label: "Max" },
   });
   return <>{render()}</>;
 }
 
-SparkleNode.defaultProps = {
-  data: {
-    group: "shape",
-    label: "Sparkle",
-    min: 0,
-    max: 100,
-  },
-};
+type Props = BaseNode<Data>;
+Sparkle.defaultProps = { data: defaults };
 ```
 
-Match an existing nearby node (e.g. `apps/web/src/components/flow/nodes/calculate/`) for the exact import paths and hook signatures — they evolve.
+Export the component under the node's name (`Sparkle`, not `SparkleNode`): the generated React node map imports it by that name.
 
-## Step 5 — Register it everywhere
+`NodeHandles` draws one handle per port and emit that the Rust component declares, so the handles always match the runtime. `useNodeValue(fallback)` returns the node's live value from the runtime, or `fallback` until the first one arrives.
+
+Match an existing nearby node (e.g. `apps/web/src/nodes/calculate/`) for the exact import paths and hook signatures — they evolve.
+
+## Step 5 — Register it and run codegen
 
 Open `apps/web/node-components.json` and add two entries:
 
@@ -153,7 +274,6 @@ Open `apps/web/node-components.json` and add two entries:
     /* ... existing entries ... */
     {
       "name": "Sparkle",
-      "category": "shape",
       "impl": "Sparkle"
     }
   ],
@@ -161,29 +281,70 @@ Open `apps/web/node-components.json` and add two entries:
     /* ... existing impls ... */
     {
       "name": "Sparkle",
-      "category": "runtime::shape::sparkle::Sparkle",
+      "category": "transformation",
       "requiresHardware": false
     }
   ]
 }
 ```
 
-The build pipeline reads this file to wire everything up.
+- `entries[].name` is the node's name. It must match the string in `register_all` (Step 2) and the `instance` in the schema (Step 3).
+- `entries[].impl` names the `impls` row that the entry runs as. Most nodes point at themselves. Variants share one: `Force` runs as `Sensor`.
+- `impls[].category` is a label (`input`, `output`, `control`, `generator`, `transformation`, or `external`). No file path or Rust module follows from it.
+- `requiresHardware` tells Studio that the node does nothing without a board.
 
-## Step 6 — Make the node draggable
+Then, from `apps/web`, run:
 
-Add the React component to the type registry at `apps/web/src/components/flow/nodes/_TYPES.ts`:
+```sh
+bun run catalog:sync
+```
+
+This does two things:
+
+1. It reads the ports and emits the Rust component declares and writes them to `apps/web/wire-interface.generated.json`. On the way, it checks that `register_all` and `entries[]` list the same names: a name in only one of them fails the command.
+2. It runs `bun run codegen`, which writes three files in `apps/web/src/nodes/`:
+   - `component-types.generated.ts`: the list of node types, with their ports and emits.
+   - `catalog.generated.ts`: the schema, defaults and host adapter of every node, without React.
+   - `node-types.generated.ts`: the React component of every node, for the canvas.
+
+Do not edit the generated files by hand. When you change only the frontend or the JSON, and not the Rust ports or emits, `bun run codegen` is enough.
+
+## Step 6 — Add a host adapter (optional)
+
+Most nodes skip this step. A node needs a host adapter when the app itself must act on the node's config. For example, `Hotkey` registers its keyboard shortcut, and `Mqtt` tells the runtime which broker it uses.
+
+Create `apps/web/src/nodes/sparkle/sparkle.adapter.ts` and export an `adapter` of type `NodeHostAdapter` (see `apps/web/src/nodes/_base/host-adapter.ts` for the hooks you can implement). If Sparkle had a keyboard shortcut in its data, the adapter would be:
 
 ```ts
-import { SparkleNode } from "./sparkle/sparkle";
+import type { NodeHostAdapter } from "../_base/host-adapter";
 
-export const NODE_TYPES = {
-  // ...
-  Sparkle: SparkleNode,
+export const adapter: NodeHostAdapter = {
+  accelerator: (node) => (node.data?.accelerator ? String(node.data.accelerator) : undefined),
 };
 ```
 
+Codegen finds the file by its name, so run `bun run codegen` after you add or remove it. Keep it free of React: non-UI code loads the adapter through the catalog. `apps/web/src/nodes/hotkey/hotkey.adapter.ts` and `apps/web/src/nodes/mqtt/mqtt.adapter.ts` are working examples.
+
 ## Step 7 — Verify
+
+From the repository root, run the Rust checks:
+
+```sh
+cargo test -p microflow-core --features cloud
+cargo test --manifest-path apps/web/src-tauri/Cargo.toml
+cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic
+```
+
+The first command runs the runtime tests and the parity test from Step 2. `runtime` and `cloud` are not default features of `microflow-core`: without `--features cloud`, it builds no runtime code and runs none of its tests. The second runs the catalog check from Step 5. CI runs the same Clippy command.
+
+Then, from `apps/web`, run the TypeScript checks:
+
+```sh
+bun run check-types
+bun test
+```
+
+Then start Studio:
 
 ```sh
 bun run dev:web
@@ -202,7 +363,7 @@ not hand out: an OS-level keyboard hook, a native peripheral, a raw TCP socket, 
 request to an endpoint that does not send CORS headers.
 
 If that is your node, add a row to
-`apps/web/src/components/flow/nodes/_base/browser-support.ts`:
+`apps/web/src/nodes/_base/browser-support.ts`:
 
 ```ts
 const BROWSER_LIMITATIONS: Record<string, () => string | undefined> = {
@@ -237,8 +398,12 @@ Add `"sparkle"` to `apps/fumadocs/content/docs/microflow-studio/nodes/shape/meta
 
 ## Common pitfalls
 
-- **Zod schema mismatch with Rust component.** If the frontend sends `min` and the Rust struct expects `lower`, the runtime will silently fail to construct. Match field names exactly.
-- **Forgetting `node-components.json`.** Without it the node will not appear in the Add Node panel even if everything else is correct.
-- **Hardware flag wrong.** If your node touches a pin, `requiresHardware` must be `true` so the runtime initialises the board connection for it.
+- **Zod schema mismatch with the Rust config.** If the frontend sends `min` and `SparkleConfig` calls the field `lower`, `lower` silently keeps its default (without `default`, the runtime refuses to build the node instead). Match field names exactly, and keep `rename_all = "camelCase"` on the config so multi-word fields match too.
+- **Forgetting `node-components.json`.** Without it the node will not appear in the Add Node panel even if everything else is correct, and `bun run catalog:sync` fails because `register_all` names a node that the catalog does not have.
+- **Reaching for `rand`, threads or `sleep` in a node.** `microflow-core` also builds for WebAssembly. Use `ctx.now_ms()` for time and `ctx.schedule_wakeup(…)` for timers (Step 2).
+- **Names that do not match.** For every entry, codegen imports the component `Sparkle` from `sparkle/sparkle.tsx`, and `dataSchema` and `defaults` from `sparkle/sparkle.schema.ts`. A different folder, file or export name shows up as a type error in a `*.generated.ts` file. Fix the node, not the generated file.
+- **Importing from the rest of the app.** `apps/web/src` is split into one folder per domain (`board/`, `runtime/`, `ui/`, …). A node may import only the files that another folder lists as public in `apps/web/scripts/architecture/verticals.ts`. Run `bun test src/architecture.test.ts` in `apps/web` to check your imports. oxlint flags a violation in the editor and in CI (`microflow/vertical-boundaries`).
+- **Reaching into another Rust node.** Everything under `crates/microflow-core/src/nodes/` is `pub(crate)`, and a node never imports another node. Shared code belongs in `runtime/`, `codegen/` or `config/`. The `nodes/boundaries.rs` guard test fails otherwise, and it also fails when a node folder holds anything besides `mod.rs`, `config.rs`, `runtime.rs` and `codegen.rs`.
+- **Hardware flag wrong.** If your node touches a pin, `requiresHardware` must be `true` so Studio shows that the node needs a board, and the browser flags it when Web Serial is missing. The runtime does not read the flag: it sets up the board for the components that implement `HardwareComponent` (Step 2).
 - **Assuming desktop-only capabilities.** The web app runs the same runtime in WebAssembly. If your node reaches for a native capability, say so in `browser-support.ts` (Step 8) instead of letting it fail silently in the browser.
 - **Hot reload does not always pick up schema changes.** Restart `bun run dev:web` after edits to schema files.

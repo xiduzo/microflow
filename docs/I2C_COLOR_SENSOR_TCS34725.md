@@ -87,7 +87,7 @@ It has no mechanism to send **setup writes** before the first read. For the TCS3
 
 ## Startup Writes
 
-The TCS34725's ADC is powered off until its `ENABLE` register is written, so it needs a one-time **startup sequence** before the first read. Startup sequences live in **Rust**, in the ungated `crates/microflow-core/src/config/i2c_device.rs::device_init_writes` table, keyed by the device preset id — one source shared by the live runtime (`initialize()`) and the Arduino codegen (`setup()`), so an exported sketch behaves identically. The generic `I2cDevice` node stays configuration-only; per-device init is datasheet knowledge that sits with the other Rust-side device facts (`effective_register`, `is_no_hold_sht2x`).
+The TCS34725's ADC is powered off until its `ENABLE` register is written, so it needs a one-time **startup sequence** before the first read. Startup sequences live in **Rust**, in the ungated `crates/microflow-core/src/nodes/i2c_device/config.rs::device_init_writes` table, keyed by the device preset id — one source shared by the live runtime (`initialize()`) and the Arduino codegen (`setup()`), so an exported sketch behaves identically. The generic `I2cDevice` node stays configuration-only; per-device init is datasheet knowledge that sits with the other Rust-side device facts (`effective_register`, `is_no_hold_sht2x`).
 
 The TCS34725 arm is a single `ENABLE` write — `0x80 = PON | AEN` — which powers the oscillator and the RGBC ADC:
 
@@ -187,7 +187,7 @@ After step 6, the sensor continuously converts and the data registers can be pol
 
 ### I2cDeviceConfig Extension
 
-Add an optional `init_writes` field to `I2cDeviceConfig` in `runtime/input/i2c_device.rs`:
+Add an optional `init_writes` field to `I2cDeviceConfig` in `nodes/i2c_device/config.rs`:
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -341,7 +341,7 @@ See [I2C_SUPPORT.md — Limitations & Constraints](./I2C_SUPPORT.md#limitations-
 
 Supporting the TCS34725 needed no new config fields or output formats — the generic `I2cDevice` node already reads N bytes from a register, and startup writes are a Rust table:
 
-- **Rust** (`crates/microflow-core/src/config/i2c_device.rs`) — one `device_init_writes` arm, `"tcs34725" => &[&[0x80, 0x03]]` (`ENABLE` = PON | AEN), shared by the runtime's `initialize()` and the codegen `setup()`, and unit-tested in the same file.
+- **Rust** (`crates/microflow-core/src/nodes/i2c_device/config.rs`) — one `device_init_writes` arm, `"tcs34725" => &[&[0x80, 0x03]]` (`ENABLE` = PON | AEN), shared by the runtime's `initialize()` and the codegen `setup()`, and unit-tested in the same file.
 - **TS** (`i2c-device.constants.ts`) — one `I2C_PRESETS` row (`address 0x29`, `register 0xb4`, `readLength 8`, `output "raw"`, `freq 120`).
 
 The 8 raw bytes stream out as C, R, G, B (little-endian pairs); downstream nodes split them. Verify by wiring a TCS34725 and confirming non-zero RGBC after the `ENABLE` write.

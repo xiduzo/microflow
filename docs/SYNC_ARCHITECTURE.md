@@ -53,7 +53,7 @@ All of this lives in `apps/web/src/session/` (ADR-0003) and
 
 ## Doc → runtime: one wire shape
 
-- **`FlowUpdateDispatcher`** (`session/flow-update-dispatcher.ts`, ADR-0005)
+- **`FlowUpdateDispatcher`** (`runtime/flow-update-dispatcher.ts`, ADR-0005)
   observes `doc.onAnyChange`, debounces, and builds the payload with the pure
   `buildFlowUpdate`. `runtimeRelevantKey` hashes only what the runtime
   consumes (node id/type/data, edge endpoints, brokers, providers) so a pure
@@ -65,7 +65,7 @@ All of this lives in `apps/web/src/session/` (ADR-0003) and
   single place the collab shapes are projected into it: visual-only fields
   dropped, optional edge handles defaulted to `""` (core requires them).
   Both senders forward it untouched.
-- **`FlowUpdateSender`** (`session/flow-update-sender.ts`) — the transport
+- **`FlowUpdateSender`** (`runtime/flow-update-sender.ts`) — the transport
   seam. `TauriFlowUpdateSender` invokes the desktop `flow_update` command
   (plus broker/provider infra config); `WasmFlowUpdateSender` hands
   `{nodes, edges}` to the browser `FlowReactor` (cloud config is resolved
@@ -75,7 +75,7 @@ All of this lives in `apps/web/src/session/` (ADR-0003) and
 
 Each runtime turn returns `Effects`, applied in canonical order (ADR-0008,
 `effects-sink.ts` mirroring Rust `Effects::apply`). Component events funnel
-through `applyComponentEvent` (`lib/event-ingest.ts`) on both platforms —
+through `applyComponentEvent` (`runtime/event-ingest.ts`) on both platforms —
 desktop via the `component-event` Tauri event, browser via the
 `FlowReactor` — into the `node-data`, `signal`, and `dev-log` stores that the
 canvas reads for value displays and edge-signal animations. Runtime values
