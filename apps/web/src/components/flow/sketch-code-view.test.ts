@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Edge, Node } from "@xyflow/react";
+import type { SketchInvoker } from "@/lib/codegen/sketch-protocol";
 import {
   buildGenerateSketchCommand,
   buildSketchDownloadRequest,
@@ -10,7 +11,6 @@ import {
   projectSketchResult,
   serializeFlowGraph,
   type RegeneratorTimers,
-  type SketchInvoker,
   type SketchViewState,
 } from "./sketch-code-view.model";
 

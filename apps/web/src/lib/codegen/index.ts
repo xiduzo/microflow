@@ -7,11 +7,7 @@ import type { Node, Edge } from "@xyflow/react";
 import { invokeCommand, checkCredentials as desktopCheckCredentials } from "@/lib/ipc";
 import type { Credentials, MissingCredential } from "@/lib/ipc";
 import { isDesktop } from "@/lib/platform";
-import {
-  type GenerateSketchCommand,
-  type SketchInvoker,
-  type SketchResponse,
-} from "@/components/flow/sketch-code-view.model";
+import type { GenerateSketchCommand, SketchInvoker, SketchResponse } from "./sketch-protocol";
 import { generateSketch as wasmGenerateSketch, checkCredentials as wasmCheckCredentials } from "./wasm";
 
 /**

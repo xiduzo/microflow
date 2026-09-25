@@ -1,40 +1,8 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { Credentials } from "@/lib/bindings/Credentials";
-import type { GenerationOutcome } from "@/lib/bindings/GenerationOutcome";
 import type { ValidationProblem } from "@/lib/bindings/ValidationProblem";
+import type { GenerateSketchCommand, SketchInvoker } from "@/lib/codegen/sketch-protocol";
 import { projectFlowStructure } from "@microflow/collab/schema";
-
-/**
- * The `generate_sketch` command payload: the current Flow graph plus the
- * selected board target id, wrapped for the Tauri command (see
- * `apps/web/src/lib/ipc.ts`, Task #43 and Task #45). `targetId` is omitted when
- * the Flow has no explicit selection, in which case the backend uses the
- * default board target so existing Flows still generate.
- */
-export type GenerateSketchCommand = {
-  type: "generate_sketch";
-  flow: { nodes: Node[]; edges: Edge[] };
-  targetId?: string;
-  /**
-   * Author-supplied network credentials a Cloud-capable Sketch uses to connect
-   * on boot (Task #46). Omitted for non-Cloud Flows; secrets are session-only
-   * and never persisted in the Flow.
-   */
-  credentials?: Credentials;
-};
-
-/**
- * Response shape returned by `invokeCommand` for `generate_sketch`. The data is
- * a {@link GenerationOutcome}: the generated `.ino` source (`sketch`, `null`
- * only when an error-severity problem blocked emission) plus any validation
- * `problems`. Absent on web/no-op.
- */
-export type SketchResponse =
-  | { success: true; data?: GenerationOutcome }
-  | { success: false; error: string };
-
-/** Injectable invoker so the projection is testable without Tauri. */
-export type SketchInvoker = (command: GenerateSketchCommand) => Promise<SketchResponse>;
 
 /**
  * Render the error-severity problems that blocked emission as a read-only
