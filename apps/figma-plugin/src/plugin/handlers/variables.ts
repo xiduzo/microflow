@@ -1,52 +1,50 @@
-import { messages, sendToUI } from "../../common/messages";
+import {
+  type BridgeSnapshotEntry,
+  type BridgeValue,
+  type ResolvedType,
+  RESOLVED_TYPES,
+  coerce,
+  toColor,
+} from "@microflow/design-bridge";
 
 const COLLECTION_NAME = "MHB";
 
-export async function getLocalVariables() {
+/** The MHB variables and their default-mode values. Variables the bridge cannot carry are left out. */
+export async function readSnapshot(): Promise<BridgeSnapshotEntry[]> {
   const collection = await getOrCreateCollection();
-  const variables = (
-    await Promise.all(
-      collection.variableIds.map((id) => figma.variables.getVariableByIdAsync(id)),
-    )
-  ).filter((v): v is Variable => v !== null);
-
-  sendToUI(
-    messages.getLocalVariables(
-      variables.map((v) => ({
-        id: v.id,
-        name: v.name,
-        description: v.description,
-        resolvedType: v.resolvedType,
-        valuesByMode: v.valuesByMode,
-      })),
-    ),
+  const entries = await Promise.all(
+    collection.variableIds.map(async (id): Promise<BridgeSnapshotEntry | null> => {
+      const variable = await figma.variables.getVariableByIdAsync(id);
+      if (!variable || !isBridgeType(variable.resolvedType)) return null;
+      const { resolvedType } = variable;
+      const raw = await resolve(variable.valuesByMode[collection.defaultModeId], new Set([id]));
+      const value = coerce(resolvedType, raw);
+      if (value === null) return null;
+      return { variable: { id, name: variable.name, resolvedType }, value };
+    }),
   );
+  return entries.filter((entry) => entry !== null);
 }
 
-export async function setLocalVariable(id: string, value: unknown) {
+export async function writeVariable(id: string, value: BridgeValue) {
   const variable = await figma.variables.getVariableByIdAsync(id);
-  const collection = await getOrCreateCollection();
   if (!variable) return;
+  const collection = await figma.variables.getVariableCollectionByIdAsync(
+    variable.variableCollectionId,
+  );
+  if (!collection) return;
 
-  const mapped = mapToFigmaValue(variable.resolvedType, value);
-  if (mapped === null) {
-    figma.notify(
-      `Received invalid value (${String(value)}) for variable (${variable.name})`,
-      { error: true },
-    );
-    return;
+  const figmaValue: VariableValue =
+    typeof value === "object" ? { r: value.r, g: value.g, b: value.b, a: value.a } : value;
+  try {
+    variable.setValueForMode(collection.defaultModeId, figmaValue);
+  } catch (error) {
+    console.error(`[plugin] setting ${variable.name} failed`, error);
+    figma.notify(`Could not set variable (${variable.name}) to ${JSON.stringify(value)}`, {
+      error: true,
+    });
   }
-
-  variable.setValueForMode(collection.defaultModeId, mapped);
 }
-
-export async function deleteVariable(id: string) {
-  const variable = await figma.variables.getVariableByIdAsync(id);
-  if (variable) variable.remove();
-  sendToUI(messages.deleteVariable(id));
-}
-
-// ── Collection helper ───────────────────────────────────────────────
 
 async function getOrCreateCollection() {
   const collections = await figma.variables.getLocalVariableCollectionsAsync();
@@ -56,61 +54,66 @@ async function getOrCreateCollection() {
   );
 }
 
-// ── Value mapping ───────────────────────────────────────────────────
+function isBridgeType(type: VariableResolvedDataType): type is ResolvedType {
+  return (RESOLVED_TYPES as readonly string[]).includes(type);
+}
 
-function mapToFigmaValue(
-  type: VariableResolvedDataType,
-  value: unknown,
-): VariableValue | null {
-  try {
-    switch (type) {
-      case "BOOLEAN":
-        return toBooleanOrNull(value);
-      case "FLOAT":
-        return toFloatOrNull(value);
-      case "STRING":
-        return toStringOrNull(value);
-      case "COLOR":
-        return toRgbaOrNull(value);
-    }
-  } catch {
-    return null;
+/**
+ * Follow aliases (each target in its own collection's default mode) and flatten
+ * composed colors. `seen` holds the variables already on this alias chain.
+ */
+async function resolve(value: unknown, seen: Set<string>): Promise<unknown> {
+  if (isAlias(value)) {
+    if (seen.has(value.id)) return null;
+    const target = await figma.variables.getVariableByIdAsync(value.id);
+    if (!target) return null;
+    const collection = await figma.variables.getVariableCollectionByIdAsync(
+      target.variableCollectionId,
+    );
+    if (!collection) return null;
+    return resolve(target.valuesByMode[collection.defaultModeId], new Set(seen).add(value.id));
   }
-}
 
-function toBooleanOrNull(value: unknown): boolean | null {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string")
-    return ["true", "yes", "1", "si", "on"].includes(value.toLowerCase());
-  if (typeof value === "number") return value === 1;
-  return null;
-}
-
-function toFloatOrNull(value: unknown): number | null {
-  const str = String(value).replace(",", ".");
-  const float = parseFloat(str);
-  if (isNaN(float)) {
-    const bool = toBooleanOrNull(str);
-    return bool !== null ? Number(bool) : null;
+  const composed = composedColor(value);
+  if (composed) {
+    const color = toColor(await resolve(composed.color, seen));
+    const opacity = await resolve(composed.opacity, seen);
+    if (!color || typeof opacity !== "number") return null;
+    // The opacity is a percentage, and it replaces the color's own alpha.
+    return { ...color, a: opacity / 100 };
   }
-  const int = parseInt(str);
-  if (isNaN(int)) return null;
-  return float > int ? float : int;
+
+  return value;
 }
 
-function toStringOrNull(value: unknown): string | null {
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return value.toString();
-  return null;
+function isAlias(value: unknown): value is VariableAlias {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { type?: unknown }).type === "VARIABLE_ALIAS" &&
+    typeof (value as { id?: unknown }).id === "string"
+  );
 }
 
-function toRgbaOrNull(value: unknown): RGBA | null {
-  try {
-    if (typeof value === "string") return figma.util.rgba(value);
-    if (typeof value === "object" && value !== null)
-      return figma.util.rgba(value as RGB | RGBA);
-  } catch {
-    // fall through
+/**
+ * The typings declare a composed color as `{ color, opacity }`; some editor
+ * versions return it as a `COMPOSE_COLOR` expression with the same two arguments.
+ */
+function composedColor(value: unknown): { color: unknown; opacity: unknown } | null {
+  if (typeof value !== "object" || value === null) return null;
+  if ("color" in value && "opacity" in value) return value;
+  const expression = value as {
+    type?: unknown;
+    expressionFunction?: unknown;
+    expressionArguments?: unknown;
+  };
+  if (
+    expression.type === "VARIABLE_EXPRESSION" &&
+    expression.expressionFunction === "COMPOSE_COLOR" &&
+    Array.isArray(expression.expressionArguments)
+  ) {
+    const [color, opacity] = expression.expressionArguments as unknown[];
+    return { color, opacity };
   }
   return null;
 }
