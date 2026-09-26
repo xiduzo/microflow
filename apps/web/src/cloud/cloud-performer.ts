@@ -142,17 +142,22 @@ export class CloudPerformer {
       reconciled.map((sub) => [subKey(sub.brokerId, sub.topic), sub] as const),
     );
     const { subscribe, unsubscribe } = diffSubscriptions(desired, this.liveSubs);
-
-    this.figmaLifecycle(uidBrokers(this.liveSubs.values()), uidBrokers(desired.values()));
+    const previousUids = uidBrokers(this.liveSubs.values());
 
     for (const sub of unsubscribe) this.brokers.unsubscribe(sub.brokerId, sub.topic);
     for (const sub of subscribe) this.subscribeOne(sub);
     this.liveSubs = desired;
+
+    // After subscribing, so the plugins' answers to the request are received.
+    this.figmaLifecycle(previousUids, uidBrokers(desired.values()));
   }
 
   /** Tear down: abort in-flight LLM calls, end every broker connection, and drop
    *  the live subscription set. */
   dispose(): void {
+    // Tell the plugins Studio is gone before the connections close.
+    const liveUids = uidBrokers(this.liveSubs.values());
+    if (liveUids.size > 0) this.figmaLifecycle(liveUids, new Map());
     this.disposed = true;
     for (const controller of this.llmAborts.values()) controller.abort();
     this.llmAborts.clear();

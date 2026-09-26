@@ -29,6 +29,7 @@
     "@microflow/api": "workspace:*",
     "@microflow/auth": "workspace:*",
     "@microflow/collab": "workspace:*",
+    "@microflow/design-bridge": "workspace:*",
     "@microflow/env": "workspace:*",
     "@monaco-editor/react": "^4.7.0",
     "@polar-sh/better-auth": "catalog:",

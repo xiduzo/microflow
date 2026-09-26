@@ -44,11 +44,12 @@ describe("diffSubscriptions", () => {
 });
 
 describe("uidBrokers", () => {
-  test("maps uid → broker over microflow topics, ignoring others", () => {
+  test("maps uid → broker over design-bridge topics, ignoring others", () => {
     const map = uidBrokers([
       active("n", "topicAware", "b1", "microflow/u1/figma/variable/1-2"),
       active("n", "displayEcho", "b1", "microflow/u1/figma/status"),
       active("m", "plain", "b2", "sensors/x"),
+      active("m", "plain", "b2", "microflow/kitchen/temperature"),
     ]);
     expect(map.get("u1")).toBe("b1");
     expect(map.size).toBe(1);

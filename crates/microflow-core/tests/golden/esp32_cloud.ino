@@ -16,8 +16,7 @@
 const char* wifi_ssid = "golden-net";
 const char* wifi_password = "golden-pass";
 // node figma-1 (Figma)
-#warning "Figma Node figma_figma_1: missing network credentials — using REPLACE_ME placeholder; set WiFi SSID and broker before flashing"
-const char* figma_figma_1_broker = "REPLACE_ME";
+const char* figma_figma_1_broker = "broker-surface.example.invalid";
 const uint16_t figma_figma_1_port = 1883;
 const char* figma_figma_1_client_id = "microflow-figma_figma_1";
 WiFiClient figma_figma_1_wifi_client;

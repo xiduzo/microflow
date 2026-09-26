@@ -1,7 +1,7 @@
 //! Figma emitter — the on-device counterpart of `nodes/figma/runtime.rs`.
 //!
-//! The live Figma component bridges Figma design variables into the Flow **over
-//! MQTT**: it subscribes to the plugin/app variable topics for inbound values
+//! The live Figma component bridges design-tool variables (Figma variables,
+//! Penpot tokens) into the Flow **over MQTT**: it subscribes to the plugin/app variable topics for inbound values
 //! (surfacing the latest as its value) and, when driven, publishes the new value
 //! back to Figma on a `.../set` topic. On a networked target (ESP32) there is no
 //! host, so the generated Sketch does this itself using the **same network
@@ -14,33 +14,31 @@
 //!
 //! Read leniently, accepting both the live runtime shape and the generation
 //! request shape:
-//! - `broker` / `brokerId` — broker host.
-//! - `port` — broker TCP port (default `1883`).
-//! - `uniqueId` — the microflow instance id used to build the topics.
-//! - `variableId` — the Figma `VariableID:123:456`, normalised to `123-456`.
-//! - `wifiSsid`, `brokerUsername`, `brokerPassword` — credentials. When
-//!   `wifiSsid`/`broker` are absent the Sketch emits a clearly-marked credential
-//!   placeholder and a `#warning` rather than silently failing to connect.
+//! - `source` — the design tool (`figma` / `penpot`), the plugin's topic segment.
+//! - `uniqueId` — the Bridge ID used to build the topics.
+//! - `variableId` — the tool's variable ID (Figma `VariableID:123:456` → `123-456`).
 //!
-//! Topics mirror the live component exactly:
-//! - inbound: `microflow/<uniqueId>/figma/variable/<shortVarId>` and
-//!   `microflow/<uniqueId>/app/variable/<shortVarId>`
-//! - outbound (set): `microflow/<uniqueId>/app/variable/<shortVarId>/set`
+//! Broker host/port/auth and the `WiFi` SSID come from the generate-time
+//! `credentials` surface when supplied there, falling back to the Node's own
+//! `data` (`broker`, `port`, `brokerUsername`, `brokerPassword`, `wifiSsid`).
+//! When the SSID or broker is absent the Sketch emits a clearly-marked credential
+//! placeholder and a `#warning` rather than silently failing to connect.
+//!
+//! Topics come from [`crate::design_bridge`], exactly as in the live component:
+//! - inbound: `microflow/<uniqueId>/<source>/variable/<wireId>` and
+//!   `microflow/<uniqueId>/app/variable/<wireId>`
+//! - outbound (set): `microflow/<uniqueId>/app/variable/<wireId>/set`
 //!
 //! Like every emitter this is a pure function of the [`FlowNode`]: identical
 //! input yields byte-identical output (determinism invariant).
 
 use super::config::FigmaConfig;
+use crate::design_bridge::{self as protocol, DESIGN_TOOLS, STUDIO};
 use crate::codegen::cloud::transport::{Subscription, Transport, DEFAULT_PORT};
+use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
 use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
-
-/// Convert `VariableID:123:456` → `123-456`, mirroring
-/// `nodes/figma/runtime.rs::short_var_id`.
-fn short_var_id(variable_id: &str) -> String {
-    variable_id.replace("VariableID:", "").replace(':', "-")
-}
 
 /// Emit C++ for a Figma Cloud Node on a networked target.
 ///
@@ -51,25 +49,49 @@ fn short_var_id(variable_id: &str) -> String {
 /// Figma variables the generated sketch does not model; wiring them emits an
 /// explicit note. When unwired, the Node is subscribe-only.
 #[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(
+    node: &FlowNode,
+    inputs: &NodeInputs,
+    credentials: Option<&Credentials>,
+) -> NodeEmission {
     let driver_source = inputs.first("set");
     let driver = driver_source.map(|s| s.value.as_string());
     let token = node.id_token();
     let prefix = format!("figma_{token}");
 
-    let broker = str_first_non_empty(node, &["broker", "brokerId"], "");
-    let port = u16_or_default(node, "port", DEFAULT_PORT);
+    // `brokerId` is the editor's opaque broker-store id, not a host; only an
+    // explicit `broker` in the node data is a fallback for the credentials.
+    let broker = supplied_or(
+        credentials.map_or("", |c| c.broker_host.as_str()),
+        str_first_non_empty(node, &["broker"], ""),
+    );
+    let port = credentials
+        .map(|c| c.broker_port)
+        .filter(|p| *p != 0)
+        .unwrap_or_else(|| u16_or_default(node, "port", DEFAULT_PORT));
     let config: FigmaConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
-    let unique_id = config.unique_id;
-    let variable_id = config.variable_id;
-    let wifi_ssid = str_first_non_empty(node, &["wifiSsid"], "");
-    let broker_user = str_first_non_empty(node, &["brokerUsername"], "");
-    let broker_pass = str_first_non_empty(node, &["brokerPassword"], "");
+    let wifi_ssid = supplied_or(
+        credentials.map_or("", |c| c.wifi_ssid.as_str()),
+        str_first_non_empty(node, &["wifiSsid"], ""),
+    );
+    let broker_user = supplied_or(
+        credentials.map_or("", |c| c.broker_username.as_str()),
+        str_first_non_empty(node, &["brokerUsername"], ""),
+    );
+    let broker_pass = supplied_or(
+        credentials.map_or("", |c| c.broker_password.as_str()),
+        str_first_non_empty(node, &["brokerPassword"], ""),
+    );
 
-    let short = short_var_id(&variable_id);
-    let plugin_topic = format!("microflow/{unique_id}/figma/variable/{short}");
-    let app_topic = format!("microflow/{unique_id}/app/variable/{short}");
-    let set_topic = format!("microflow/{unique_id}/app/variable/{short}/set");
+    let tool = DESIGN_TOOLS
+        .iter()
+        .find(|tool| **tool == config.source)
+        .unwrap_or(&DESIGN_TOOLS[0]);
+    let uid = &config.unique_id;
+    let wire_id = protocol::wire_id(&config.variable_id);
+    let plugin_topic = protocol::value_topic(uid, tool, &wire_id);
+    let app_topic = protocol::value_topic(uid, STUDIO, &wire_id);
+    let set_topic = protocol::set_topic(uid, &wire_id);
 
     // Missing essential connection details → loud placeholder + #warning.
     let credentials_missing = wifi_ssid.is_empty() || broker.is_empty();
@@ -162,14 +184,17 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
 }
 
 /// What downstream Nodes read from a Figma Node: the latest inbound variable
-/// value parsed as a number (`toFloat`), mirroring the live component's parse
-/// of FLOAT variables — the common case for hardware-driving design tokens.
+/// value — `true`/`false` for a BOOLEAN variable, otherwise parsed as a number
+/// (`toFloat`), the common case for hardware-driving design variables.
 #[must_use]
 pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
     let token = node.id_token();
-    Some(SourceExpr::level(CppExpr::number(format!(
-        "figma_{token}_value.toFloat()"
-    ))))
+    let config: FigmaConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    Some(SourceExpr::level(if config.resolved_type == "BOOLEAN" {
+        CppExpr::boolean(format!("(figma_{token}_value == \"true\")"))
+    } else {
+        CppExpr::number(format!("figma_{token}_value.toFloat()"))
+    }))
 }
 
 #[cfg(test)]
@@ -187,6 +212,11 @@ mod tests {
         }
     }
 
+    /// Test-local default: emit with no generate-time credentials.
+    fn emit_no_creds(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+        emit(node, inputs, None)
+    }
+
     fn joined(lines: &[String]) -> String {
         lines.join("\n")
     }
@@ -202,7 +232,7 @@ mod tests {
     /// in the `WiFi` + MQTT client libraries (the network transport).
     #[test]
     fn figma_pulls_in_wifi_and_mqtt_client_libraries() {
-        let e = emit(
+        let e = emit_no_creds(
             &figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
             &NodeInputs::default(),
         );
@@ -214,7 +244,7 @@ mod tests {
     /// Figma Node over the network transport (subscribes to its variable topics).
     #[test]
     fn connects_and_subscribes_to_figma_variable_topics() {
-        let e = emit(
+        let e = emit_no_creds(
             &figma(
                 "f-1",
                 json!({ "broker": "broker.example.com", "uniqueId": "abc", "variableId": "VariableID:123:456", "wifiSsid": "net" }),
@@ -236,7 +266,7 @@ mod tests {
     #[test]
     fn surfaces_inbound_variable_value() {
         let n = figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" }));
-        let e = emit(&n, &NodeInputs::default());
+        let e = emit_no_creds(&n, &NodeInputs::default());
         let decls = joined(&e.declarations);
         assert!(decls.contains("figma_f_1_value"), "buffers the inbound value");
         assert!(decls.contains("setCallback") || joined(&e.setup).contains("setCallback"));
@@ -250,7 +280,7 @@ mod tests {
     /// Figma on the set topic — over the same network transport.
     #[test]
     fn set_port_publishes_value_back_to_figma() {
-        let e = emit(
+        let e = emit_no_creds(
             &figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
             &set_input("sensor_s_1_value"),
         );
@@ -266,7 +296,7 @@ mod tests {
     fn unmodelled_mutation_ports_are_noted() {
         let mut inputs = NodeInputs::default();
         inputs.add("toggle", SourceExpr::level(CppExpr::boolean("btn")));
-        let e = emit(
+        let e = emit_no_creds(
             &figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })),
             &inputs,
         );
@@ -279,7 +309,7 @@ mod tests {
     /// Scenario: the loop maintains the connection (reconnect on drop).
     #[test]
     fn loop_maintains_connection_and_pumps_client() {
-        let e = emit(&figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })), &NodeInputs::default());
+        let e = emit_no_creds(&figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" })), &NodeInputs::default());
         let body = joined(&e.loop_body);
         assert!(body.contains("ensure_connected()"), "reconnects in loop");
         assert!(body.contains("figma_f_1_client.loop()"), "pumps the MQTT client");
@@ -288,7 +318,7 @@ mod tests {
     /// Scenario: Missing credentials produce a safe placeholder + a warning.
     #[test]
     fn missing_credentials_produce_safe_placeholder_and_warning() {
-        let e = emit(&figma("f-1", json!({ "uniqueId": "u", "variableId": "VariableID:1:2" })), &set_input("v"));
+        let e = emit_no_creds(&figma("f-1", json!({ "uniqueId": "u", "variableId": "VariableID:1:2" })), &set_input("v"));
         let decls = joined(&e.declarations);
         assert!(decls.contains("REPLACE_ME"), "emits a credential placeholder");
         assert!(decls.contains("#warning"), "warns the Author at compile time");
@@ -299,13 +329,54 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "wifiSsid": "net" }));
-        assert_eq!(emit(&n, &set_input("v")), emit(&n, &set_input("v")));
+        assert_eq!(emit_no_creds(&n, &set_input("v")), emit_no_creds(&n, &set_input("v")));
     }
 
     /// Topic strings are escaped so generation stays valid.
     #[test]
     fn topics_are_escaped() {
-        let e = emit(&figma("f-1", json!({ "broker": "b", "uniqueId": "a\"b", "variableId": "VariableID:1:2", "wifiSsid": "net" })), &NodeInputs::default());
+        let e = emit_no_creds(&figma("f-1", json!({ "broker": "b", "uniqueId": "a\"b", "variableId": "VariableID:1:2", "wifiSsid": "net" })), &NodeInputs::default());
         assert!(joined(&e.declarations).contains("a\\\"b"), "escapes the quote in the topic");
+    }
+
+    /// A Penpot variable subscribes to the Penpot plugin's topic segment.
+    #[test]
+    fn penpot_source_uses_the_penpot_segment() {
+        let e = emit_no_creds(
+            &figma(
+                "f-1",
+                json!({ "broker": "b", "uniqueId": "u", "source": "penpot", "variableId": "3f9a-2b1c", "wifiSsid": "net" }),
+            ),
+            &NodeInputs::default(),
+        );
+        let decls = joined(&e.declarations);
+        assert!(decls.contains("microflow/u/penpot/variable/3f9a-2b1c"), "plugin topic");
+        assert!(decls.contains("microflow/u/app/variable/3f9a-2b1c"), "app topic");
+    }
+
+    /// The broker comes from the generate-time credentials, not the editor's
+    /// opaque `brokerId`.
+    #[test]
+    fn broker_comes_from_credentials() {
+        let credentials = Credentials {
+            wifi_ssid: "net".into(),
+            broker_host: "broker.example.com".into(),
+            ..Credentials::default()
+        };
+        let node = figma("f-1", json!({ "brokerId": "store-id-123", "uniqueId": "u", "variableId": "VariableID:1:2" }));
+        let decls = joined(&emit(&node, &NodeInputs::default(), Some(&credentials)).declarations);
+        assert!(decls.contains("broker.example.com"), "uses the credentials host");
+        assert!(!decls.contains("store-id-123"), "never uses the broker-store id as a host");
+        assert!(!decls.contains("REPLACE_ME"), "no placeholder when credentials are complete");
+    }
+
+    /// A BOOLEAN variable reads as a boolean downstream.
+    #[test]
+    fn boolean_variable_outputs_a_boolean() {
+        let n = figma("f-1", json!({ "uniqueId": "u", "variableId": "VariableID:1:2", "resolvedType": "BOOLEAN" }));
+        assert_eq!(
+            output(&n).map(|s| s.value.code),
+            Some("(figma_f_1_value == \"true\")".to_string())
+        );
     }
 }

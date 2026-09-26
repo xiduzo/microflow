@@ -323,7 +323,7 @@ fn emit_node(
         // Monitor (Task #42) bridge over the network transport; Llm (Task #44)
         // issues HTTP requests over the same shared WiFi connection.
         Some("Mqtt") => nodes::mqtt::codegen::emit(node, inputs, credentials),
-        Some("Figma") => nodes::figma::codegen::emit(node, inputs),
+        Some("Figma") => nodes::figma::codegen::emit(node, inputs, credentials),
         Some("Monitor") => nodes::monitor::codegen::emit(node, inputs),
         Some("Llm") => nodes::llm::codegen::emit(node, inputs, credentials),
         // Midi bridges the board's serial MIDI jack (MIDI.h); the host's Web
