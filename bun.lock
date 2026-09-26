@@ -26,15 +26,15 @@
       "dependencies": {
         "@create-figma-plugin/ui": "^4.0.3",
         "@create-figma-plugin/utilities": "^4.0.3",
+        "@microflow/design-bridge": "workspace:*",
         "@microflow/mqtt": "workspace:*",
         "lucide-react": "^0.577.0",
         "preact": ">=10",
-        "zustand": "^5.0.9",
       },
       "devDependencies": {
         "@create-figma-plugin/build": "^4.0.3",
         "@create-figma-plugin/tsconfig": "^4.0.3",
-        "@figma/plugin-typings": "1.109.0",
+        "@figma/plugin-typings": "1.139.0",
         "@microflow/config": "workspace:*",
         "typescript": ">=5",
       },
@@ -525,7 +525,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
-    "@figma/plugin-typings": ["@figma/plugin-typings@1.109.0", "", {}, "sha512-6l628rOQGNd5ZD3Bru36/NK+PSKmHpsrWz0NMwUYZ8AIyfIl6sCJRc8+OhAy9+WkDXq/Dx3BYiBStjmCJ8O3Lw=="],
+    "@figma/plugin-typings": ["@figma/plugin-typings@1.139.0", "", {}, "sha512-O1lUNRXpBsnODokqnIJW0AawVVrx4FUkm2ShDsLGsInWrxDYX0MIoy0yVKa+MXOy7Wfs3JE+utR+YTcxp6Yihw=="],
 
     "@flatten-js/core": ["@flatten-js/core@1.6.10", "", { "dependencies": { "@flatten-js/interval-tree": "^2.0.0" } }, "sha512-4lvkbRX4f+SYergMiU681yiqgjld9nndZUMGpAI9hEJkYZmtEES8rRSl/ZQ7fjZnZ3rSK5qnQkZ50iF2LVL3QA=="],
 

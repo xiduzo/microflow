@@ -1,54 +1,43 @@
 import { showUI } from "@create-figma-plugin/utilities";
-import {
-  type Message,
-  type MessageType,
-  MSG,
-  createMessageRouter,
-  sendToUI,
-  messages,
-} from "../common/messages";
-import { getLocalValue, setLocalValue } from "./handlers/client-storage";
-import {
-  deleteVariable,
-  getLocalVariables,
-  setLocalVariable,
-} from "./handlers/variables";
+import { MSG, type PluginMessage, createMessageRouter, messages } from "@microflow/design-bridge";
+import { loadLocalValue } from "./handlers/client-storage";
+import { readSnapshot, writeVariable } from "./handlers/variables";
+
+function sendToUI(message: PluginMessage) {
+  figma.ui.postMessage(message);
+}
 
 export default function () {
   showUI({ width: 275, height: 190 });
 
-  const dispatch = createMessageRouter({
-    [MSG.UI_READY]: () => {
-      // Acknowledge that the plugin is ready — UI can now request state
-      sendToUI(messages.uiReady());
+  figma.ui.onmessage = createMessageRouter(
+    {
+      [MSG.UI_READY]: () => {
+        sendToUI(messages.uiReady());
+      },
+      [MSG.GET_LOCAL_STATE]: async ({ key, value }) => {
+        sendToUI(messages.getLocalState(key, await loadLocalValue(key, value)));
+      },
+      [MSG.SET_LOCAL_STATE]: async ({ key, value }) => {
+        await figma.clientStorage.setAsync(key, value);
+      },
+      [MSG.SHOW_TOAST]: ({ message, error }) => {
+        figma.notify(message, { error });
+      },
+      [MSG.OPEN_LINK]: (url) => {
+        figma.openExternal(url);
+      },
+      [MSG.RESIZE]: ({ width, height }) => {
+        figma.ui.resize(width, height);
+      },
+      [MSG.GET_VARIABLES]: async () => {
+        sendToUI(messages.getVariables(await readSnapshot()));
+      },
+      [MSG.SET_VARIABLE]: ({ id, value }) => writeVariable(id, value),
     },
-    [MSG.OPEN_LINK]: (url) => {
-      figma.openExternal(url);
+    (type, error) => {
+      console.error(`[plugin] ${type} failed`, error);
+      figma.notify(`Error: ${type} failed`, { error: true });
     },
-    [MSG.SHOW_TOAST]: ({ message, options }) => {
-      figma.notify(message, options);
-    },
-    [MSG.SET_LOCAL_STATE]: ({ key, value }) => {
-      void setLocalValue(key, value);
-    },
-    [MSG.GET_LOCAL_STATE]: ({ key, value }) => {
-      void getLocalValue(key, value);
-    },
-    [MSG.GET_LOCAL_VARIABLES]: () => {
-      void getLocalVariables();
-    },
-    [MSG.SET_LOCAL_VARIABLE]: ({ id, value }) => {
-      void setLocalVariable(id, value as VariableValue);
-    },
-    [MSG.DELETE_VARIABLE]: (id) => {
-      void deleteVariable(id);
-    },
-    [MSG.SET_UI_OPTIONS]: (opts) => {
-      if (opts.width && opts.height) {
-        figma.ui.resize(opts.width, opts.height);
-      }
-    },
-  });
-
-  figma.ui.onmessage = (message: Message<MessageType>) => dispatch(message);
+  );
 }

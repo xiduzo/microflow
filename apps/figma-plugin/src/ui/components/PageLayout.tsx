@@ -1,12 +1,9 @@
 /** @jsxImportSource preact */
 import { type ComponentChildren } from "preact";
 import { IconButton } from "@create-figma-plugin/ui";
-import { useNavigation } from "../hooks/use-navigation";
+import { useNavigation } from "@microflow/design-bridge/react";
 
-export function PageHeader(props: {
-  title: string;
-  end?: ComponentChildren;
-}) {
+export function PageHeader(props: { title: string; end?: ComponentChildren }) {
   const { canGoBack, goBack } = useNavigation();
 
   return (
@@ -36,9 +33,7 @@ export function PageHeader(props: {
           </svg>
         </IconButton>
       )}
-      <span style={{ flex: 1, fontWeight: 600, fontSize: "13px" }}>
-        {props.title}
-      </span>
+      <span style={{ flex: 1, fontWeight: 600, fontSize: "13px" }}>{props.title}</span>
       {props.end}
     </div>
   );
