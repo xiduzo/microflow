@@ -9,7 +9,7 @@ records in [`docs/adr/`](docs/adr/).
 A visual editor for wiring interactive prototypes to real hardware. Designers drag
 **nodes** onto a canvas, connect them, and the flow runs live — driving
 microcontrollers over Firmata (serial) and talking to cloud services (LLM, MQTT,
-Figma). It runs as a **desktop app** (Tauri) and in the **browser** (WebAssembly +
+and the Figma and Penpot plugins). It runs as a **desktop app** (Tauri) and in the **browser** (WebAssembly +
 Web Serial), and supports real-time **collaboration** (CRDT).
 
 ## The one big idea: one engine, two hosts
@@ -45,8 +45,9 @@ The engine is compiled to WebAssembly for the browser by `crates/microflow-runti
 | `apps/web` | The Studio: the React + ReactFlow UI in `src/`, one folder per domain (see [Where does new code go?](#where-does-new-code-go)), including the browser runtime host (`src/runtime`, `src/board`); the Tauri desktop shell in `src-tauri`. |
 | `apps/server` | Collaboration / API backend. |
 | `apps/fumadocs` | User documentation site. |
-| `apps/figma-plugin`, `apps/penpot-plugin` | Design-tool integrations. |
-| `packages/*` | Shared TS libs: `collab` (Yjs sync), `api` (tRPC), `auth`, `db`, `mqtt`, `env`, `config`. |
+| `apps/figma-plugin`, `apps/penpot-plugin` | The design-tool plugins. Each keeps only a sandbox adapter (reading and writing its tool's variables or tokens), host glue and its own views. |
+| `packages/design-bridge` | The design-tool bridge: the MQTT protocol (topics, wire IDs, value coercion, the Bridge ID rule) plus the plugin-side bridge engine, UI stores and sandbox messaging. Used by both plugins and by Studio's web code; mirrored in Rust by `crates/microflow-core/src/design_bridge.rs`. Both sides are checked against `fixtures/protocol.json`. [ADR-0028] |
+| `packages/*` | The other shared TS libs: `collab` (Yjs sync), `api` (tRPC), `auth`, `db`, `mqtt`, `env`, `config`. |
 
 ## Key seams (and where they're decided)
 
@@ -70,6 +71,9 @@ Each is a deliberate interface with its own decision record:
 - **ReactFlowBridge** — reconciles the CRDT document with the ReactFlow canvas.
   [ADR-0004]
 - **FlowUpdateDispatcher** — ships canvas changes to the runtime. [ADR-0005]
+- **Design-tool bridge protocol** — one MQTT protocol between Studio and the Figma
+  and Penpot plugins, defined once per language (`packages/design-bridge`,
+  `design_bridge.rs`) and checked against one shared fixture. [ADR-0028]
 
 [ADR-0001]: docs/adr/0001-component-trait-flow-separation.md
 [ADR-0002]: docs/adr/0002-flow-router-seam.md
@@ -80,6 +84,7 @@ Each is a deliberate interface with its own decision record:
 [ADR-0007]: docs/adr/0007-node-wire-interface-emit-contract.md
 [ADR-0008]: docs/adr/0008-effects-apply-policy.md
 [ADR-0009]: docs/adr/0009-cloud-sans-io-capability.md
+[ADR-0028]: docs/adr/0028-design-tool-bridge-protocol.md
 
 ## Single source of truth
 
@@ -104,7 +109,7 @@ mirror drifts from Rust. Handle rendering is driven from those generated types
 | `session/` | FlowSession, SyncAdapters, ReactFlowBridge, Presence, SessionRegistry. |
 | `runtime/` | The browser Runtime Host: FlowReactor, RuntimeBridge, EffectsSink, event ingest, the FlowUpdateDispatcher and its senders, audio and MIDI performers. |
 | `board/` | The Board: Web Serial, board controller and bring-up, the board and pin store, Arduino onboarding. |
-| `cloud/` | MQTT and Figma connections: their stores, the browser CloudPerformer, cloud capabilities, the connection console. |
+| `cloud/` | MQTT and design-tool bridge connections: their stores (including the Bridge ID), the browser CloudPerformer, cloud capabilities, the connection console. |
 | `ai/` | Ask AI and the LLM transport it shares with the `Llm` node: provider store, adapters, turn runner, flow tools, MCP bridge. |
 | `sketch/` | Arduino sketch export (`/flow/$flowId/code`): codegen, code view, download, board target picker. |
 | `circuit/` | The circuit view (`/flow/$flowId/circuit`). |
@@ -143,7 +148,9 @@ decision for review. Often the better fix is to move the code to where it is use
   guard; clippy-clean.
 - TypeScript: `bun test` (DOM-less unit tests, incl. the architecture guard) +
   `tsc --noEmit`.
-- CI runs in `.github/workflows/` (`rust.yml`, `build.yml`, `release.yml`).
+- CI runs in `.github/workflows/` (`rust.yml`, `typescript.yml`, `build.yml`,
+  `release.yml`). `typescript.yml` runs `bun test`, oxlint and `check-types`, and
+  builds the Figma and Penpot plugins.
 - Benchmarks: `criterion` over the engine's hot paths and `k6` over the collab
   room — what each covers, and how to A/B two commits, is in
   [`docs/benchmarks.md`](docs/benchmarks.md).

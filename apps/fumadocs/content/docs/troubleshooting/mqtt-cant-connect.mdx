@@ -1,64 +1,96 @@
 ---
 title: MQTT can't connect
-description: Studio or the Hardware Bridge sits at "Reconnecting" and never lights up green.
+description: Studio or a Figma or Penpot plugin does not connect to the broker, or values do not arrive.
 ---
 
-If the MQTT connection between Microflow Studio and the Hardware Bridge is not coming up — values aren't arriving, the Bridge plugin says *Reconnecting* — work through these checks.
+Work through these checks if Studio and a design-tool plugin do not find each other. Typical signs:
 
-## 1. Are both pointed at the same broker?
+- The plugin's **MQTT** dot stays red or amber.
+- The plugin's **Microflow studio** dot stays grey or red.
+- The Design variable node shows "Figma plugin is not connected", "Penpot plugin is not connected" or "No Figma or Penpot plugin is connected".
 
-The single most common cause: Studio is on the default public broker and the Bridge is on a custom broker (or vice versa).
+## 1. Are both on the same broker?
 
-- In **Microflow Studio**, open *Configuration → MQTT*. Note the broker URL.
-- In the **Hardware Bridge** plugin (gear icon), note its broker URL.
+The most common cause: Studio and the plugin use different brokers.
 
-They must match exactly, including the protocol (`mqtt://` vs `mqtts://`) and the port.
+- In **Microflow Studio**, open *Configuration → MQTT* and note the URL of the broker that your Design variable node uses.
+- In the **plugin**, click the gear icon and note the **Broker URL**.
 
-## 2. Are credentials matched?
+The simplest setup uses the exact same URL in both. The plugins and Studio in the browser need a `ws://` or `wss://` URL.
 
-If the broker requires authentication, both Studio and the Bridge need the same username and password. A small typo is enough to fail silently — most brokers do not surface "wrong password" as a user-visible error.
+## 2. Do the Bridge IDs match?
 
-## 3. Is the broker reachable?
+Studio and the plugin only find each other when they use the same Bridge ID.
 
-For the **default public broker**: it is occasionally unstable or rate-limited. If you suspect this, try connecting to it from another tool:
+- In Studio, the Design variable node settings show the **bridge ID**.
+- In the plugin, the MQTT settings show the **Bridge ID**.
+
+Copy the ID from Studio with **copy bridge ID**, paste it into the plugin, and click **Save MQTT settings**. See [The Bridge ID](/docs/microflow-hardware-bridge/mqtt#the-bridge-id).
+
+## 3. Are the credentials the same?
+
+If the broker requires authentication, Studio and the plugin need a valid username and password. A small typo is enough to fail. Most brokers do not report "wrong password" in a way you can see.
+
+## 4. Is the broker reachable?
+
+For the **default public broker** (`test.mosquitto.org`): it is sometimes slow or down. Test it from another tool:
 
 ```sh
-mosquitto_sub -h <default-broker-host> -t test
+mosquitto_sub -h test.mosquitto.org -t test
 ```
 
-If that hangs or errors, the broker is the problem. Wait, or [run your own](/docs/how-to/run-your-own-mqtt-broker).
+If that hangs or fails, the broker is the problem. Wait, or [run your own](/docs/how-to/run-your-own-mqtt-broker).
 
 For a **self-hosted broker**:
 
-- Is the broker process actually running? `ps aux | grep mosquitto` (Linux/macOS).
+- Is the broker process running? `ps aux | grep mosquitto` (Linux/macOS).
 - Is the host reachable? `ping <broker-host>` from each machine.
-- Is the port open? `nc -zv <broker-host> 1883`. A firewall rule on the broker's machine commonly blocks port 1883.
+- Is the port open? `nc -zv <broker-host> <port>`. A firewall on the broker's machine often blocks it.
+- Does the broker have a WebSocket listener? The plugins cannot use plain MQTT on port `1883`.
 
-## 4. Is your network blocking outgoing MQTT?
+## 5. Is your network blocking the connection?
 
-Many corporate or institutional networks block outbound connections on ports other than 80/443. Both `1883` (MQTT) and `8883` (MQTT over TLS) are commonly blocked.
+Many company and school networks block ports other than 80 and 443. The public broker uses `8081` for secure WebSockets.
 
-- Try the connection from your phone's hotspot. If it works there but not on Wi-Fi, the network is blocking it.
-- Workarounds: use a broker that supports MQTT over WebSocket (port 80/443), or run a local broker on the same machine.
+- Try the connection from your phone's hotspot. If it works there but not on your Wi-Fi, the network blocks it.
+- Workarounds: use a broker with a WebSocket listener on port 443, or run a broker on your own computer.
 
-## 5. Is one side stuck on stale state?
+## 6. Is one side stuck?
 
 Restart in this order:
 
-1. Quit and reopen the **Hardware Bridge** plugin in Figma.
-2. In Studio, open *Configuration → MQTT*, click **Reconnect**.
-3. If still failing, quit Studio entirely and re-open.
+1. Close and reopen the plugin in Figma or Penpot.
+2. Reload Studio in the browser, or quit and reopen the desktop app.
 
-## 6. Topic names
+The plugin's **Microflow studio** dot can stay green after Studio has crashed, because the broker keeps Studio's last status. Restarting Studio fixes it.
 
-If the connection itself is fine but values do not arrive, the topic names probably do not match. Microflow's Bridge listens on the `figma/` prefix.
+## 7. Values do not arrive
 
-- Studio's MQTT (Express) node should publish on `figma/<variable-name>`.
-- The Figma variable must have *exactly the same name* as the suffix.
-- Topic names are case-sensitive: `figma/Light` and `figma/light` are different topics.
+Both dots are green, but a value does not change.
+
+- The plugin must be open in the editor. Plugins do not run in a Figma prototype or in Penpot's view mode.
+- In Figma, the variable must be in the **MHB** collection. The plugin reads the collection's default mode.
+- In Penpot, the token must be in the **MHB** token set, and the set must be active.
+- The Design variable node must have the variable selected, and show no error.
+- The value must fit the variable's type. A value that does not fit is dropped: text cannot set a Number variable, for example.
+
+To see the messages themselves, watch the bridge's topics. In Studio, open *Configuration → MQTT*, select the broker, and type this in the console, with your own Bridge ID:
+
+```
+subscribe microflow/your_bridge_id/#
+```
+
+Or run it from a terminal:
+
+```sh
+mosquitto_sub -h test.mosquitto.org -t 'microflow/your_bridge_id/#' -v
+```
+
+You should see the plugin's variable list on `…/figma/variables` or `…/penpot/variables`, and a message for each value change. If nothing shows up, the plugin is on another broker or Bridge ID.
 
 ## Related
 
+- [MQTT settings for the Figma plugin](/docs/microflow-hardware-bridge/mqtt)
+- [MQTT settings for the Penpot plugin](/docs/microflow-penpot-plugin/mqtt)
 - [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)
-- [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma)
-- [Hardware Bridge MQTT settings](/docs/microflow-hardware-bridge/mqtt)
+- [Send a sensor reading to Figma or Penpot](/docs/how-to/send-a-sensor-to-figma)

@@ -3,16 +3,16 @@ title: Run your own MQTT broker
 description: Replace the public broker with your own — useful for privacy, reliability, or air-gapped networks.
 ---
 
-Microflow ships pointed at a free public MQTT broker so the Hardware Bridge works straight out of the box. That is fine for prototyping but not what you want when:
+The Figma and Penpot plugins start on a free public MQTT broker, `test.mosquitto.org`, so you can try the bridge without any setup. That is fine for prototyping, but not what you want when:
 
 - You are presenting a finished project and need reliability.
 - Your network blocks outbound connections to public servers.
 - You do not want your sensor data passing through a third party.
-- You want to run multiple Hardware Bridge instances on a private network.
+- You do not want anyone who guesses your Bridge ID to read or change your design values.
 
 ## Pick a broker
 
-Anything that speaks MQTT 3.1.1 or 5.0 works. The most common picks:
+Any broker that speaks MQTT 3.1.1 or 5.0 and offers a WebSocket listener works. The most common picks:
 
 - **[Mosquitto](https://mosquitto.org/)** — small, free, available on every OS. The standard default.
 - **[HiveMQ Community Edition](https://www.hivemq.com/developers/community-edition/)** — Java-based, more features, free for self-hosting.
@@ -44,19 +44,33 @@ mosquitto_pub -h localhost -t test -m hello
 
 If `hello` appears in the first terminal, the broker is up.
 
+## Add a WebSocket listener
+
+The Figma and Penpot plugins, and Studio in the browser, connect over WebSockets. Plain MQTT on port `1883` is not enough for them. Add a WebSocket listener to your `mosquitto.conf`:
+
+```
+listener 1883
+listener 9001
+protocol websockets
+allow_anonymous true
+```
+
+Restart Mosquitto. The broker now accepts plain MQTT on `1883` and WebSockets on `9001`. `allow_anonymous true` keeps it open without a password; see [Auth](#optional-add-authentication) below to close it.
+
 ## Point Microflow at your broker
 
 In **Microflow Studio**:
 
-1. Open *Configuration → MQTT*.
-2. Set the broker URL: `mqtt://your-host:1883` (use the LAN IP if you are running it on a different machine).
-3. Set username and password if you configured auth (see [Auth](#optional-add-authentication) below).
+1. Open *Configuration → MQTT* and add a broker.
+2. Set the URL. In the browser, use the WebSocket listener: `ws://your-host:9001`. The desktop app can also use `mqtt://your-host:1883`. Use the LAN IP if the broker runs on another machine.
+3. Set username and password if you configured auth.
+4. Select this broker in your MQTT and Design variable nodes.
 
-In the **Hardware Bridge** plugin:
+In the **Figma or Penpot plugin**:
 
-1. Open the plugin in Figma.
-2. Open settings (gear icon).
-3. Set the same broker URL, username, and password.
+1. Click the gear icon to open the MQTT settings.
+2. Set **Broker URL** to the broker's WebSocket URL. The plugins only accept `ws://` and `wss://`. For a broker on another computer, use `wss://` (see [TLS](#optional-tls) below).
+3. Set the same username and password as in Studio, and click **Save MQTT settings**.
 
 ## Optional: add authentication
 
@@ -74,12 +88,18 @@ allow_anonymous false
 password_file /etc/mosquitto/passwd
 ```
 
-Restart Mosquitto. Then set the same username/password in both Studio and the Bridge.
+If your config has `allow_anonymous true`, remove that line. Restart Mosquitto. Then set the same username and password in Studio and in the plugin.
 
 ## Optional: TLS
 
-For traffic going over the open internet (a hosted broker, for example), enable TLS. The [Mosquitto TLS guide](https://mosquitto.org/man/mosquitto-tls-7.html) walks through it. Once configured, use `mqtts://` instead of `mqtt://` and port `8883` instead of `1883` in your Microflow settings.
+For traffic between computers, and always for the plugins when the broker is not on your own computer, enable TLS. The [Mosquitto TLS guide](https://mosquitto.org/man/mosquitto-tls-7.html) walks through it. Give the WebSocket listener a certificate too (`certfile` and `keyfile`). Then use `wss://your-host:<port>` in the plugins and in Studio in the browser. The desktop app can also use `mqtts://your-host:8883`.
 
 ## Verify it end-to-end
 
-In the Studio MQTT settings panel, the connection status should be **Connected**. Publish a test message from a flow (use the [MQTT Express node](/docs/microflow-studio/nodes/express/figma) on a topic like `test/value`), and subscribe to that topic with `mosquitto_sub` from the broker host.
+In Studio, open *Configuration → MQTT* and select your broker. Its status dot turns green when Studio is connected. Type `subscribe test/#` in the console at the bottom of the page. Then publish from the broker host:
+
+```sh
+mosquitto_pub -h localhost -t test/hello -m world
+```
+
+The message appears in Studio's console. To check a plugin, save its settings and look at its **MQTT** dot: it turns green when the plugin is connected.

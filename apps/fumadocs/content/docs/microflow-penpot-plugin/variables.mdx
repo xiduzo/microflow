@@ -1,70 +1,112 @@
 ---
-title: Variables (design tokens) in Penpot
-description: Connect Penpot design tokens to Microflow Studio flow values.
+title: Tokens
+description: Link Penpot design tokens to a Microflow Studio flow, and read and change them in both directions.
 ---
 
-Where Figma has *variables*, Penpot has *design tokens*. The Microflow plugin treats them the same: a Penpot token can be driven by a Microflow Studio flow value, and any layer or property bound to that token updates live.
+The plugin links the design tokens in one token set, **MHB**, to Microflow Studio. Studio calls them variables, like Figma does. In Studio, a [Design variable](/docs/microflow-studio/nodes/express/figma) node can read and change each token. Values go both ways:
 
-## What works today
+- **Hardware → Penpot.** A value arrives at one of the node's inputs. The plugin writes it into the token, and Penpot updates every shape that uses the token.
+- **Penpot → hardware.** You change the token in Penpot. The node sends the new value out of its `change` output.
 
-- **Hardware → Penpot** (publishing updates) — Microflow Studio publishes a value, the plugin writes it into a design token.
-- **Number, boolean, and string token types** — the plugin matches the value type to the token's expected type.
-
-## What is *not* yet supported
-
-<Callout type="warn" title="Work in progress">
-The Penpot plugin is experimental. The following features are not yet available:
-
-- **Numerical values as variables for text** — text layers cannot currently be bound to numeric tokens through the plugin.
-- **Updating tokens from a running prototype** — Penpot prototype interactions cannot trigger MQTT publishes back to hardware. (The Figma Bridge supports this; the Penpot side does not yet.)
-
-Track progress on the [GitHub repository](https://github.com/xiduzo/microflow).
+<Callout title="Same broker, same Bridge ID">
+Studio and the plugin find each other only when they use the same MQTT broker and the same Bridge ID. See [MQTT settings](/docs/microflow-penpot-plugin/mqtt).
 </Callout>
 
-## Setup
+---
 
-### 1. Create a design token in Penpot
+## Set up the tokens
 
-In Penpot, open the design tokens panel and create a new token. Pick the type matching what you want to drive:
+When you run the plugin, it uses the token set called **MHB** (short for Microflow Hardware Bridge). It creates the set, active, if the file has none. **Only tokens in the MHB set are linked.**
 
-| Studio sense node | Token type |
+1. Run the **Microflow hardware bridge** plugin in your Penpot file.
+2. Open the tokens panel and find the **MHB** set. Keep it active: Penpot does not resolve the tokens of an inactive set.
+3. Create tokens in the set, and apply them to shapes so you can see them change.
+4. In the plugin, click the list icon on the home screen. The **Variables** page lists every linked token.
+
+## Supported token types
+
+| Penpot token type | Studio type |
 | --- | --- |
-| Button, Switch, Motion (digital) | Boolean *or* Number |
-| Potentiometer, LDR, Sensor (analog) | Number |
-| Function node returning text | String |
+| `color` | `COLOR` |
+| `number`, `dimension`, `opacity`, `rotation`, `sizing`, `spacing`, `borderWidth`, `borderRadius`, `fontSizes`, `letterSpacing` | `FLOAT` |
+| `fontWeights`, `fontFamilies`, `textCase`, `textDecoration` | `STRING` |
+| `shadow`, `typography` | not linked |
 
-Name it clearly — e.g. `light_level` — and bind it to a layer property so you can see the change.
+Penpot has no boolean tokens. Use a `number` token with `0` and `1` instead.
 
-### 2. Open the plugin's Variables page
+## How the plugin reads and writes a token
 
-Run the Microflow plugin in Penpot. Navigate to the **Variables** tab. The plugin lists tokens detected in the file along with their MQTT subscription state.
+- It reads the token's resolved value. A token that refers to another token sends the value it resolves to.
+- A color token with its own value keeps its alpha. The plugin writes colors back as `#rrggbb`, or `#rrggbbaa` when the color is not fully opaque.
+- The plugin writes numbers without a unit. A `dimension` token with the value `12px` becomes `12` after Studio changes it.
+- When Studio writes a value into a token that refers to another token, the plain value replaces the reference.
 
-### 3. Publish from Microflow Studio
+Studio links to a token by its ID, not by its name. You can rename a token, and it stays linked. If you delete a token and create a new one with the same name, pick the new one again in Studio.
 
-In your Studio flow, add an [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node and connect a sense node's output to it. Set the **topic** to `figma/<token-name>`.
+---
 
-<Callout type="info" title="The topic prefix is `figma/` even for Penpot">
-The Penpot plugin uses the same MQTT topic format as the Figma Bridge so flows can drive either tool. Use `figma/<token-name>` regardless of which design tool is on the other end.
-</Callout>
+## Link a token to a node
 
-### 4. Watch the token update
+1. Run the plugin in your Penpot file. Check that its **MQTT** dot is green.
+2. In Studio, add a **Design variable** node to your flow.
+3. In the node settings, select the **Broker** that the plugin uses.
+4. Check that the plugin uses the node's Bridge ID. See [MQTT settings](/docs/microflow-penpot-plugin/mqtt#the-bridge-id).
+5. Open the node's **variable** list and pick your token. When a Figma and a Penpot plugin are both connected, the names end in "(Figma)" or "(Penpot)".
 
-Trigger the sense node (twist a knob, press a button). The token's value updates and any layer bound to it redraws.
+The node's inputs change to match the type of the token.
 
-## Type conversions
+## Hardware → Penpot
 
-If your hardware emits an analog range and the token expects a 0–1 fraction, insert a [Map](/docs/microflow-studio/nodes/shape/map) node in Studio:
+Connect a value to one of the node's inputs. The plugin writes the new value into the token.
 
-- **From min** = `0`, **From max** = `1023` (raw analog range)
-- **To min** = `0`, **To max** = `1` (token range)
+| Studio type | Inputs | What they do |
+| --- | --- | --- |
+| `FLOAT` | `set`, `increment`, `decrement`, `reset` | `set` uses the incoming number. `increment` and `decrement` add or subtract the incoming number (`true` counts as 1). `reset` sets 0. |
+| `STRING` | `set` | Set the token to the incoming text. |
+| `COLOR` | `red`, `green`, `blue`, `opacity` | Change one channel. Red, green and blue take 0–255. Opacity takes 0–100. |
 
-For string tokens, use a [Function](/docs/microflow-studio/nodes/shape/function) node to format.
+**Example:** Potentiometer → Map (0–1023 to 0–100) → the `set` input of a `sizing` token. Studio ships this flow as the **Sensor to Figma or Penpot** template.
 
-## Verifying
+A value that does not fit the token is dropped. The plugin shows a message when it ignores a value.
 
-Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) on the MQTT node's input in Studio. Values should be flowing. If they are flowing and the token is *not* updating, the plugin probably has not picked up the new token name — refresh the plugin's Variables page.
+## Penpot → hardware
+
+Change the token in Penpot. The plugin checks for changes four times a second, and again each time Penpot saves the file. It sends the new value, and the node sends it out of its `change` output. Changes made by other people in the same file reach Studio the same way, as long as your plugin is running.
+
+**Example:** a `number` token from 0 to 100 → Map (0–100 to 0–255) → LED on pin 9. Studio ships this flow as the **Figma or Penpot to LED** template.
+
+The `change` output fires for every new value: a change made in Penpot, and a change made through the node's own inputs.
+
+---
+
+## Advanced: MQTT topics
+
+Other MQTT clients can use the same tokens, for example a script, a Raspberry Pi or your own firmware. The plugin's **Variables** page has two copy buttons for each token: the topic that carries its value, and the topic that changes it.
+
+The Penpot plugin uses the same protocol as the Figma plugin, with `penpot` as its tool name:
+
+| Topic | Sender | Payload | Retained |
+| --- | --- | --- | --- |
+| `microflow/{bridgeId}/penpot/status` | plugin (last will) | `connected` / `disconnected` | yes |
+| `microflow/{bridgeId}/penpot/variables` | plugin | `{[id]: {id, name, resolvedType}}` | yes |
+| `microflow/{bridgeId}/penpot/variable/{wireId}` | plugin | JSON value | no |
+| `microflow/{bridgeId}/app/variable/{wireId}/set` | Studio | JSON value | no |
+
+For a Penpot token, `{wireId}` is the token's ID, a uuid, as it is. For the full topic table, the request/answer topics and the payload rules, see [MQTT topics](/docs/microflow-hardware-bridge/variables/manipulating#advanced-mqtt-topics) in the Figma docs. They apply to both plugins.
+
+---
+
+## Limitations
+
+- **Workspace only.** Penpot does not run plugins in view mode. The bridge links hardware to the tokens of a file that is open in the workspace.
+- **Keep the plugin open.** When you close the plugin, the link stops. Studio then shows "Penpot plugin is not connected" on the node.
+- **No boolean tokens.** Use a `number` token with `0` and `1`.
+- **Keep the MHB set active.** The tokens of an inactive set do not resolve, so the plugin cannot read them.
+- **Shared brokers.** On a public broker, the Bridge ID is the only thing that keeps your values apart from other people's. Use your [own broker](/docs/how-to/run-your-own-mqtt-broker) for anything private.
 
 ## Related
 
-- [Variables in the Figma Bridge](/docs/microflow-hardware-bridge/variables) — feature-complete equivalent.
-- [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma) — same flow shape, applies here.
+- Node reference: [Design variable](/docs/microflow-studio/nodes/express/figma)
+- How-to: [Send a sensor reading to Figma or Penpot](/docs/how-to/send-a-sensor-to-figma)
+- How-to: [Control hardware from Figma or Penpot](/docs/how-to/control-hardware-from-figma)
+- Troubleshooting: [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)
