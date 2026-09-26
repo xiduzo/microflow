@@ -247,6 +247,31 @@ diffs that set against its own live subscriptions and owns its broker I/O. The
 same `reconcile_desired` feeds the desktop `flow_update`, so both hosts pick the
 identical owner per topic instead of mirroring the policy in two languages.
 
+## Design-Tool Bridge
+
+The link between a design file and a flow, over MQTT. A **design tool** is Figma
+or Penpot; each has a plugin (`apps/figma-plugin`, `apps/penpot-plugin`) that runs
+only while the file is open in the editor, never in a prototype. On the flow side
+it is the **design variable** node (persisted type `Figma`, with a `source` field
+naming the tool). Plugins, runtime and codegen speak one protocol, defined in
+`packages/design-bridge` (TypeScript) and `crates/microflow-core/src/design_bridge.rs`
+(Rust) and checked against `packages/design-bridge/fixtures/protocol.json`
+([ADR-0028](docs/adr/0028-design-tool-bridge-protocol.md)).
+
+- **Bridge variable** — one value a plugin exposes: a Figma variable in the `MHB`
+  collection, or a Penpot token in the `MHB` token set. It has the tool's own
+  stable `id`, a `name` and a `resolvedType` (`BOOLEAN`, `FLOAT`, `STRING`,
+  `COLOR`); colors are `{r, g, b, a}` with channels 0–1. Penpot has no boolean
+  tokens.
+- **Wire ID** — a bridge variable's `id` made topic-safe (`VariableID:1:2` →
+  `1-2`; Penpot uuids unchanged).
+- **Bridge ID** — the `{uid}` topic segment that pairs Studio with the plugins.
+  Studio shows it on the design variable node (derived from the account name, a
+  random per-device ID when there is none, or the user's own); the plugin's
+  "Bridge ID" field must hold the same value.
+- **Tool segment** — the sender in `microflow/{uid}/{client}/…`: `figma`,
+  `penpot`, or `app` for Studio.
+
 ## Figma Announce Policy
 
 The Figma-side counterpart of **`reconcile_desired`**: the plugin-handshake
@@ -259,8 +284,12 @@ must publish `"connected"` (retained) **and** request its current variable value
 flags are *policy*, not I/O — so they live once. `figma_announce_actions(prev,
 next)` takes two `uid → broker_id` maps (each host extracts the uids from its own
 reconciled subscriptions — trivial parsing that stays per-host, like the
-subscription set-diff, [ADR-0010](docs/adr/0010-subscription-diff-stays-per-host.md))
-and returns `Vec<FigmaPublish> { broker_id, topic, payload, retain }`. Each host
+subscription set-diff, [ADR-0010](docs/adr/0010-subscription-diff-stays-per-host.md);
+only **Design-Tool Bridge** topics count, via core's `bridge_uid` and the TS
+`bridgeUid`, so a generic Mqtt node's `microflow/…` topic never announces)
+and returns `Vec<FigmaPublish> { broker_id, topic, payload, retain }`. The browser
+subscribes before it announces, and announces `disconnected` when its cloud host
+is disposed ([ADR-0028](docs/adr/0028-design-tool-bridge-protocol.md)). Each host
 just performs the publishes: the desktop **CloudPerformer** calls the core fn
 directly; the browser `FlowReactor`/**CloudPerformer** calls it through the wasm
 `figmaAnnounceActions(prevJson, nextJson)` binding. Replaces the duplicated

@@ -1,0 +1,29 @@
+{
+  "name": "@microflow/design-bridge",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./react": {
+      "default": "./src/react.ts"
+    },
+    "./fixtures/protocol.json": "./fixtures/protocol.json"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@microflow/mqtt": "workspace:*",
+    "zustand": "^5.0.9"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@microflow/config": "workspace:*",
+    "@types/react": "^19.1.0",
+    "typescript": "catalog:"
+  }
+}
