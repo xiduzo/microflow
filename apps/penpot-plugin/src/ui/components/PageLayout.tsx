@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { useNavigation } from "@microflow/design-bridge/react";
 import { ArrowLeft } from "lucide-react";
-import { useNavigation } from "../hooks/use-navigation";
+import type { ReactNode } from "react";
 
 export function PageHeader(props: { title: string; end?: ReactNode }) {
   const { canGoBack, goBack } = useNavigation();
@@ -26,9 +26,25 @@ export function PageHeader(props: { title: string; end?: ReactNode }) {
 }
 
 export function PageContent(props: { children: ReactNode }) {
+  return <div className="flex flex-col gap-2 overflow-y-auto p-3">{props.children}</div>;
+}
+
+export function IconButton(props: {
+  onClick: () => void;
+  children: ReactNode;
+  title: string;
+  disabled?: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-2 overflow-y-auto p-3">
+    <button
+      type="button"
+      onClick={props.onClick}
+      title={props.title}
+      aria-label={props.title}
+      disabled={props.disabled}
+      className="flex h-7 w-7 items-center justify-center rounded text-gray-600 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-300 dark:hover:bg-gray-700"
+    >
       {props.children}
-    </div>
+    </button>
   );
 }
