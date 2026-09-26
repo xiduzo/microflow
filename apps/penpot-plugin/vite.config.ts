@@ -1,128 +1,69 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { build, defineConfig, type Plugin } from "vite";
+import { type Plugin, build, defineConfig } from "vite";
 
-/**
- * Custom plugin that builds the plugin sandbox entry as a separate IIFE bundle
- * and copies manifest.json to the dist directory.
- *
- * Penpot plugins require two outputs:
- * 1. plugin.js — IIFE bundle for the sandbox (no DOM)
- * 2. ui/ — Standard React app for the iframe UI
- *
- * The main Vite config handles the UI build. This plugin runs a secondary
- * build for the sandbox entry after the UI build completes.
- */
-// Read the host from public/manifest.json so plugin.js gets the correct base URL
-function getManifestHost(): string {
-  const manifest = JSON.parse(
-    readFileSync(resolve(__dirname, "public/manifest.json"), "utf-8"),
-  );
-  return manifest.host;
-}
+const OUT_DIR = resolve(__dirname, "dist");
 
-function penpotPluginBuild(): Plugin {
-  return {
-    name: "penpot-plugin-build",
-    apply: "build",
-    async closeBundle() {
-      // Build the plugin sandbox entry as IIFE
-      await build({
-        configFile: false,
-        define: {
-          __PLUGIN_HOST__: JSON.stringify(getManifestHost()),
-        },
-        build: {
-          lib: {
-            entry: resolve(__dirname, "src/plugin/plugin.ts"),
-            name: "PenpotPlugin",
-            formats: ["iife"],
-            fileName: () => "plugin.js",
-          },
-          outDir: resolve(__dirname, "dist"),
-          emptyOutDir: false,
-          rollupOptions: {
-            output: {
-              entryFileNames: "plugin.js",
-            },
-          },
-        },
-      });
-
-      // Copy manifest.json to dist/ (served from public/ as single source of truth)
-      mkdirSync(resolve(__dirname, "dist"), { recursive: true });
-      copyFileSync(
-        resolve(__dirname, "public/manifest.json"),
-        resolve(__dirname, "dist/manifest.json"),
-      );
+/** Penpot runs `plugin.js` in its sandbox as one classic script, so it is built apart from the UI. */
+async function buildSandbox(write: boolean): Promise<string> {
+  const result = await build({
+    configFile: false,
+    logLevel: "warn",
+    build: {
+      lib: {
+        entry: resolve(__dirname, "src/plugin/plugin.ts"),
+        name: "MicroflowPenpotPlugin",
+        formats: ["iife"],
+        fileName: () => "plugin.js",
+      },
+      outDir: OUT_DIR,
+      emptyOutDir: false,
+      write,
     },
-  };
+  });
+  const [output] = Array.isArray(result) ? result : [result];
+  if (!output || !("output" in output)) throw new Error("Unexpected sandbox build result");
+  return output.output[0].code;
 }
 
-/**
- * Dev plugin that builds plugin.js once on server start and serves it.
- * Also watches for changes to plugin source files and rebuilds.
- */
-function penpotPluginDev(): Plugin {
-  const pluginOutDir = resolve(__dirname, "dist");
-  const pluginJsPath = resolve(pluginOutDir, "plugin.js");
-
-  async function buildPlugin() {
-    await build({
-      configFile: false,
-      define: {
-        __PLUGIN_HOST__: JSON.stringify("http://localhost:5173"),
-      },
-      build: {
-        lib: {
-          entry: resolve(__dirname, "src/plugin/plugin.ts"),
-          name: "PenpotPlugin",
-          formats: ["iife"],
-          fileName: () => "plugin.js",
-        },
-        outDir: pluginOutDir,
-        emptyOutDir: false,
-        rollupOptions: {
-          output: {
-            entryFileNames: "plugin.js",
-          },
-        },
-      },
-      logLevel: "warn",
-    });
-  }
-
+function penpotSandbox(): Plugin {
   return {
-    name: "penpot-plugin-dev",
-    apply: "serve",
-    async buildStart() {
-      await buildPlugin();
+    name: "penpot-sandbox",
+    async closeBundle() {
+      await buildSandbox(true);
     },
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url === "/plugin.js" && existsSync(pluginJsPath)) {
-          res.setHeader("Content-Type", "application/javascript");
+      server.middlewares.use("/plugin.js", (_req, res, next) => {
+        buildSandbox(false).then((code) => {
+          res.setHeader("Content-Type", "text/javascript");
           res.setHeader("Access-Control-Allow-Origin", "*");
-          res.end(readFileSync(pluginJsPath, "utf-8"));
-          return;
-        }
-        next();
+          res.end(code);
+        }, next);
       });
     },
   };
 }
 
+/**
+ * The manifest is a version 2 manifest: Penpot resolves `plugin.js`, `icon.png`
+ * and `ui/index.html` against the manifest's own URL, so `dist/` can be served
+ * from any path. The same layout is served in development.
+ */
 export default defineConfig({
-  root: resolve(__dirname, "src/ui"),
+  root: resolve(__dirname, "src"),
+  base: "./",
   publicDir: resolve(__dirname, "public"),
-  plugins: [tailwindcss(), react(), penpotPluginBuild(), penpotPluginDev()],
+  plugins: [tailwindcss(), react(), penpotSandbox()],
   server: {
     cors: true,
   },
   build: {
-    outDir: resolve(__dirname, "dist/ui"),
+    outDir: OUT_DIR,
     emptyOutDir: true,
+    assetsDir: "ui/assets",
+    rollupOptions: {
+      input: resolve(__dirname, "src/ui/index.html"),
+    },
   },
 });

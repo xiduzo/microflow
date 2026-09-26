@@ -68,6 +68,7 @@
       "name": "penpot-plugin",
       "version": "0.1.0",
       "dependencies": {
+        "@microflow/design-bridge": "workspace:*",
         "@microflow/mqtt": "workspace:*",
         "lucide-react": "^0.577.0",
         "react": "^19.1.0",
@@ -76,7 +77,7 @@
       },
       "devDependencies": {
         "@microflow/config": "workspace:*",
-        "@penpot/plugin-types": "^1.4.2",
+        "@penpot/plugin-types": "1.5.0",
         "@tailwindcss/vite": "^4.2.2",
         "@types/react": "^19.1.0",
         "@types/react-dom": "^19.1.0",
@@ -763,7 +764,7 @@
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.55.0", "", { "os": "win32", "cpu": "x64" }, "sha512-ZFALNow2/og75gvYzNP7qe+rREQ5xunktwA+lgykoozHZ6hw9bqg4fn5j2UvG4gIn1FXqrZHkOAXuPf5+GOYTQ=="],
 
-    "@penpot/plugin-types": ["@penpot/plugin-types@1.4.2", "", {}, "sha512-O8wU6RSYE8bIVU7g8cSTYi32ppxs3R13dq7X3Nn9tmDaJjBOKOBpVLuoRPIp3fJC65fv8/7om0sdrtFoL5v19g=="],
+    "@penpot/plugin-types": ["@penpot/plugin-types@1.5.0", "", {}, "sha512-hFk4Rx66rLaSUWoN6bhxXkDI2ymwKg9xokdslvZvXM5MSmEmfhsJKUMwtuzgYWljbbfaQhK+DjK8g8yVbbavtA=="],
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
 

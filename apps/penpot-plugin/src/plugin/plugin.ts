@@ -1,87 +1,56 @@
-/**
- * Penpot plugin sandbox entry point.
- *
- * Executed by Penpot when the plugin loads. Has access to the global `penpot`
- * object but no DOM. Communicates with the UI iframe via message passing.
- *
- * Mirrors the Figma plugin's main.ts, adapted for the Penpot plugin API.
- */
-import {
-  type Message,
-  type MessageType,
-  MSG,
-  createMessageRouter,
-  sendToUI,
-  messages,
-} from "../common/messages";
-import { getDesignTokens, setDesignToken } from "./handlers/design-tokens";
-import { getLocalState, setLocalState } from "./handlers/storage";
+import { type PluginMessage, MSG, createMessageRouter, messages } from "@microflow/design-bridge";
+import { bridgeSet, snapshot, tokenValue } from "./tokens";
 
-// ── Open the UI panel ───────────────────────────────────────────────
+function sendToUI(message: PluginMessage) {
+  penpot.ui.sendMessage(message);
+}
 
-// __PLUGIN_HOST__ is replaced at build time by Vite's define config
-const url = `${__PLUGIN_HOST__}/ui/index.html`;
+function sendTheme(theme: string) {
+  sendToUI(messages.theme(theme === "dark" ? "dark" : "light"));
+}
 
-penpot.ui.open("Microflow hardware bridge", url, {
-  width: 275,
-  height: 190,
-});
+function sendSnapshot() {
+  sendToUI(messages.getVariables(snapshot()));
+}
 
-// ── Message router ──────────────────────────────────────────────────
+function reportError(text: string, error?: unknown) {
+  if (error !== undefined) console.error(`[microflow] ${text}`, error);
+  sendToUI(messages.showToast(text, { error: true }));
+}
+
+penpot.ui.open("Microflow hardware bridge", "ui/index.html", { width: 300, height: 260 });
 
 const dispatch = createMessageRouter({
   [MSG.UI_READY]: () => {
-    // Acknowledge that the plugin is ready — UI can now request state
     sendToUI(messages.uiReady());
-
-    // Send current theme so the UI can set initial dark/light mode
     sendTheme(penpot.theme);
   },
 
-  [MSG.SHOW_TOAST]: ({ message }) => {
-    // Relay toast back to UI (Penpot doesn't have a native notify API like Figma)
-    sendToUI(messages.showToast(message));
+  [MSG.GET_VARIABLES]: sendSnapshot,
+
+  [MSG.SET_VARIABLE]: ({ id, value }) => {
+    const token = bridgeSet()?.getTokenById(id);
+    if (!token) return reportError("That token no longer exists");
+    const stored = tokenValue(token, value);
+    if (stored === null) return reportError(`${token.name} cannot hold that value`);
+    try {
+      token.value = stored;
+    } catch (error) {
+      reportError(`Could not update ${token.name}`, error);
+    }
   },
 
-  [MSG.OPEN_LINK]: (url) => {
-    // Penpot has no openExternal API — relay back to UI so it can window.open()
-    sendToUI(messages.openLink(url));
-  },
-
-  [MSG.GET_LOCAL_STATE]: ({ key, value }) => {
-    void getLocalState(key, value);
-  },
-
-  [MSG.SET_LOCAL_STATE]: ({ key, value }) => {
-    void setLocalState(key, value);
-  },
-
-  [MSG.GET_DESIGN_TOKENS]: () => {
-    void getDesignTokens();
-  },
-
-  [MSG.SET_DESIGN_TOKEN]: ({ path, value }) => {
-    void setDesignToken(path, value);
-  },
+  [MSG.RESIZE]: ({ width, height }) => penpot.ui.resize(width, height),
 });
 
-// ── Theme forwarding ────────────────────────────────────────────────
+penpot.ui.onMessage<unknown>(dispatch);
 
-/**
- * Sends the current Penpot theme to the UI.
- * Uses a simple message shape since THEME_CHANGE is not part of the
- * typed MSG constants — the UI listens for this separately.
- */
-function sendTheme(theme: string) {
-  penpot.ui.sendMessage({ type: "THEME_CHANGE", payload: theme });
-}
+penpot.on("themechange", sendTheme);
 
-// ── Listen for messages from the UI ─────────────────────────────────
-
-penpot.ui.onMessage<Message<MessageType>>((message) => dispatch(message));
-
-// ── Forward theme changes to the UI ─────────────────────────────────
-
-penpot.on("themechange", (theme) => {
-  sendTheme(theme);
+penpot.on("contentsave", () => {
+  try {
+    sendSnapshot();
+  } catch (error) {
+    console.error("[microflow] could not read the tokens", error);
+  }
 });
