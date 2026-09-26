@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { track as trackEvent } from "@/lib/analytics";
 import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 import { useBoardStore } from "@/board/board-store";
-import { useFigmaStore } from "@/cloud/figma";
+import { useDesignBridgeStore } from "@/cloud/design-bridge";
 import { useLlmProviderStore } from "@/ai/llm-provider";
 import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
 import {
@@ -55,10 +55,10 @@ const cloudDeps: CloudDeps = {
       ? { id: broker.id, url: broker.url, username: broker.username, password: broker.password }
       : undefined;
   },
-  // Feed inbound Figma display topics (variables list / plugin status) into the
-  // figma store — the browser counterpart of the desktop "mqtt-message" event.
+  // Feed inbound design-tool display topics (variable lists / plugin status) into
+  // the design-bridge store — the browser counterpart of the desktop "mqtt-message" event.
   onMqttMessage: (topic, payload) => {
-    useFigmaStore.getState().ingestMqttMessage(topic, new TextDecoder().decode(payload));
+    useDesignBridgeStore.getState().ingestMqttMessage(topic, new TextDecoder().decode(payload));
   },
 };
 

@@ -11,7 +11,8 @@ use crate::mqtt::broker::BrokerConfig;
 use microflow_core::flow::FlowUpdate;
 use crate::SubKind;
 use microflow_core::runtime::{
-    figma_announce_actions, reconcile_desired, ComponentValue, DesiredSub, SubscriberWiring,
+    bridge_uid, figma_announce_actions, reconcile_desired, ComponentValue, DesiredSub,
+    SubscriberWiring,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -36,15 +37,8 @@ pub struct FrontendBrokerConfig {
     pub password: Option<String>,
 }
 
-/// Extract the Figma `unique_id` from a `microflow/{uid}/...` topic.
-fn microflow_uid(topic: &str) -> Option<&str> {
-    let mut parts = topic.split('/');
-    if parts.next()? != "microflow" { return None; }
-    parts.next().filter(|s| !s.is_empty())
-}
-
 /// Map the live/desired subscription set to `uid -> broker_id` over its
-/// `microflow/{uid}` topics. Generic over the map value so it serves both the
+/// design-bridge topics ([`bridge_uid`]). Generic over the map value so it serves both the
 /// `FigmaSubscription` (live) and core [`DesiredSub`] (desired) maps. The uid
 /// *extraction* stays host-side (trivial parsing of this host's own subscription
 /// set, like the desired→live set-diff); the connect/disconnect *protocol* it
@@ -53,7 +47,7 @@ fn microflow_uid(topic: &str) -> Option<&str> {
 fn uid_brokers<V>(set: &HashMap<(String, String), V>) -> BTreeMap<String, String> {
     let mut out: BTreeMap<String, String> = BTreeMap::new();
     for (broker_id, topic) in set.keys() {
-        if let Some(uid) = microflow_uid(topic) {
+        if let Some(uid) = bridge_uid(topic) {
             out.entry(uid.to_string()).or_insert_with(|| broker_id.clone());
         }
     }

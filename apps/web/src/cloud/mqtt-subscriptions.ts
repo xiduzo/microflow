@@ -8,6 +8,7 @@
 // desired set against THIS host's live subscriptions, and deriving the Figma uid
 // lifecycle keys. No mqtt.js, no runtime: unit-testable.
 
+import { bridgeUid } from "@microflow/design-bridge";
 import type { DesiredSub as ActiveSub } from "@/lib/bindings/DesiredSub";
 
 /** The wiring kinds core reports (`SubKind` serialized by the wasm shim). */
@@ -48,21 +49,16 @@ export function diffSubscriptions(
 }
 
 /**
- * uid → brokerId over `microflow/{uid}/...` topics — the Figma lifecycle key set
+ * uid → brokerId over design-bridge topics — the Figma lifecycle key set
  * (announce `connected` / request variables when a uid appears, `disconnected`
- * when it goes). First broker seen per uid wins (matches the desktop).
+ * when it goes). Other `microflow/…` topics (e.g. a generic Mqtt node's) do not
+ * count. First broker seen per uid wins (matches the desktop).
  */
 export function uidBrokers(subs: Iterable<ActiveSub>): Map<string, string> {
   const out = new Map<string, string>();
   for (const sub of subs) {
-    const uid = microflowUid(sub.topic);
+    const uid = bridgeUid(sub.topic);
     if (uid !== undefined && !out.has(uid)) out.set(uid, sub.brokerId);
   }
   return out;
-}
-
-function microflowUid(topic: string): string | undefined {
-  const parts = topic.split("/");
-  if (parts[0] !== "microflow") return undefined;
-  return parts[1] !== undefined && parts[1].length > 0 ? parts[1] : undefined;
 }

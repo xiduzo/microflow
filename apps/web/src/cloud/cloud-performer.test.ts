@@ -235,4 +235,20 @@ describe("CloudPerformer (ADR-0009 cloud seam)", () => {
       retain: false,
     });
   });
+
+  test("(d) dispose announces Studio as disconnected for live bridge uids", () => {
+    const { performer, factory } = setup();
+    performer.reconcile([
+      { brokerId: "b1", topic: "microflow/uid-1/figma/variables", nodeId: "fig", kind: "displayEcho" },
+    ]);
+    const client = factory.clients.get("b1");
+
+    performer.dispose();
+
+    expect(client?.publishes.at(-1)).toEqual({
+      topic: "microflow/uid-1/app/status",
+      message: "disconnected",
+      retain: true,
+    });
+  });
 });

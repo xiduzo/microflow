@@ -14,6 +14,7 @@
 //! those are irreducibly per-platform (`rumqttc` vs `mqtt.js`) and operate on
 //! host-local state, so they are not policy this module centralizes.
 
+use crate::design_bridge as protocol;
 use crate::runtime::wiring::SubscriberWiring;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
@@ -159,7 +160,7 @@ pub fn figma_announce_actions(
     prev: &BTreeMap<String, String>,
     next: &BTreeMap<String, String>,
 ) -> Vec<FigmaPublish> {
-    let status_topic = |uid: &str| format!("microflow/{uid}/app/status");
+    let status_topic = |uid: &str| protocol::status_topic(uid, protocol::STUDIO);
     let mut out = Vec::new();
     // Vanished uids → disconnected (retained).
     for (uid, broker) in prev {
@@ -185,12 +186,21 @@ pub fn figma_announce_actions(
         });
         out.push(FigmaPublish {
             broker_id: broker.clone(),
-            topic: format!("microflow/{uid}/app/variables/request"),
+            topic: protocol::request_topic(uid),
             payload: String::new(),
             retain: false,
         });
     }
     out
+}
+
+/// The design-bridge uid a topic belongs to, or `None` for any other topic.
+/// Both hosts key the [`figma_announce_actions`] lifecycle on it, so a generic
+/// Mqtt node's `microflow/…` topic never triggers a handshake. The browser
+/// applies the same rule through `@microflow/design-bridge`'s `bridgeUid`.
+#[must_use]
+pub fn bridge_uid(topic: &str) -> Option<&str> {
+    protocol::bridge_uid(topic)
 }
 
 #[cfg(test)]
