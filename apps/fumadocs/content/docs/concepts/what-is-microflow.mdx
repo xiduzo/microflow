@@ -1,9 +1,9 @@
 ---
 title: What is Microflow?
-description: A working mental model of Studio, the Hardware Bridge, and how they relate.
+description: A working mental model of Studio, the Figma and Penpot plugins, and how they relate.
 ---
 
-"Microflow" is not one program. It is Microflow Studio plus a plugin for Figma (the Hardware Bridge), designed to be used either separately or together. This page explains what each one does and why a project might use one, the other, or both. The [Penpot plugin](/docs/microflow-penpot-plugin) does for Penpot what the Hardware Bridge does for Figma.
+"Microflow" is not one program. It is Microflow Studio plus two design-tool plugins: the Hardware Bridge for Figma, and the [Microflow plugin for Penpot](/docs/microflow-penpot-plugin). This page explains what each one does and why a project might use Studio alone or together with a plugin.
 
 ## Microflow Studio
 
@@ -24,43 +24,45 @@ Most flows are a chain like: Sense → Shape → Decide → Express. The Generat
 
 Studio runs **everywhere**: in Chrome or Edge, and as a desktop app for macOS, Windows, and Linux. The Arduino runs StandardFirmata; Studio sends commands to it over USB. The runtime that executes your flow lives inside Studio, not on the Arduino. When a project needs to run without a computer, Studio can export the flow as a standalone Arduino sketch instead — see [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge#2-the-board-is-not-autonomous).
 
-## Microflow Hardware Bridge
+## The design-tool plugins
 
-A Figma plugin. It turns a Figma file into the screen of a real device.
+The [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) is a Figma plugin. The [Microflow plugin for Penpot](/docs/microflow-penpot-plugin) does the same job in Penpot. Both speak the same protocol.
 
-The Bridge does only one thing: it connects Figma variables to the outside world. When something in your flow changes a value, the Bridge can write that value into a Figma variable. When something in Figma changes a variable, the Bridge can publish that value out to anything subscribed.
+A plugin does one thing: it links the values in a design file to the outside world. In Figma these are the variables in the **MHB** collection; in Penpot, the tokens in the **MHB** token set. When your flow changes a value, the plugin writes it into the variable. When you change the variable in the design file, the plugin sends the new value out.
 
-This is what unlocks the workflow product designers care about:
+In Studio, the [Design variable](/docs/microflow-studio/nodes/express/figma) node is the other end of the link:
 
-> "Make my Figma prototype react to a real button press" — Studio reads the button, publishes via MQTT, the Bridge sets a variable, Figma redraws.
+> "Make my design react to a real button press" — Studio reads the button, the Design variable node sends the value, the plugin sets a variable, and the design file redraws.
 
-> "Make a real LED light up when the user taps a Figma button" — the Figma prototype changes a variable, the Bridge publishes via MQTT, Studio's MQTT (Sense) node receives it and drives the LED.
+> "Make a real LED follow a value in my design" — you change a variable in the file, the plugin sends it, and the Design variable node passes it on to the LED.
 
-The Bridge does not know anything about hardware. It just speaks MQTT. Microflow Studio is what bridges the gap between MQTT and your Arduino — but anything else that publishes to MQTT (a Raspberry Pi, an ESP32, a custom script) could also drive the same Figma file.
+The plugins run only while the file is open in the editor. Neither Figma nor Penpot runs plugins in a prototype, so the link is to the design file, not to a running prototype.
+
+A plugin does not know anything about hardware. It just speaks MQTT. Microflow Studio is what connects MQTT to your Arduino, but anything else that speaks MQTT (a Raspberry Pi, an ESP32, a custom script) can also read and change the same variables.
 
 ## How they fit together
 
-<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="Pipeline: Arduino + components ↔ USB/Firmata ↔ Microflow Studio ↔ MQTT ↔ Hardware Bridge Figma plugin ↔ variables ↔ Figma file MHB collection." />
+<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="Pipeline: Arduino + components ↔ USB/Firmata ↔ Microflow Studio ↔ MQTT ↔ Hardware Bridge Figma plugin ↔ variables ↔ Figma file MHB collection. The Penpot plugin takes the place of the Figma plugin in the same way." />
 
-The pipe between Studio and the Bridge is **MQTT**, an off-the-shelf messaging protocol. By default, both Studio and the Bridge connect to a free public MQTT broker — but you can [run your own](/docs/how-to/run-your-own-mqtt-broker) in seconds.
+The pipe between Studio and a plugin is **MQTT**, an off-the-shelf messaging protocol. Both connect to the same MQTT broker and use the same **Bridge ID**. The plugins start on a free public broker, and you add the same broker in Studio. You can also [run your own](/docs/how-to/run-your-own-mqtt-broker).
 
 Importantly:
 
-- **Studio works on its own.** You do not need the Bridge or Figma.
-- **The Bridge works on its own.** Anything that speaks MQTT can drive the Figma side.
-- **They are both free, open-source, and locally running** — your data does not have to leave your network.
+- **Studio works on its own.** You do not need a plugin, Figma or Penpot.
+- **A plugin works without Studio.** Anything that speaks MQTT can read and change the variables.
+- **They are free and open source.** With your own broker, the values they send do not have to leave your network.
 
 ## When to use which
 
 | Project | Tool(s) |
 | --- | --- |
 | Make a thing that responds to physical inputs | Studio |
-| Prototype a smart device with no real hardware yet | Figma + Bridge |
-| Demo a connected product behaviour to a stakeholder | Studio + Bridge + Figma |
+| Make a design react to a real sensor or button | Studio + a plugin + Figma or Penpot |
+| Drive real hardware from values in a design file | Studio + a plugin + Figma or Penpot |
+| Try a design's behaviour before the hardware exists | Studio (Generate nodes) + a plugin + Figma or Penpot |
 | Run a workshop teaching electronics without code | Studio |
-| Plug your Figma prototype into a real button on a model you 3D-printed | Studio + Bridge + Figma |
 
-When you are unsure: start with Studio. The Bridge is an optional layer you can add at any point.
+When you are unsure: start with Studio. A plugin is an optional layer you can add at any point.
 
 ## Where to go next
 

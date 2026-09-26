@@ -30,7 +30,7 @@ const features = [
     icon: PenTool,
     title: "Design",
     description:
-      "Bridge your designs with real hardware. Sync variables between your design prototypes and physical components. Fully supports Figma, penpot coming soon!",
+      "Bridge your designs with real hardware. Link the variables in a Figma or Penpot file to your physical components, in both directions.",
   },
 ];
 

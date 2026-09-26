@@ -1,75 +1,99 @@
 ---
-title: Link a sensor to Figma
-description: Send a real-world value from your hardware into a Figma prototype using the Hardware Bridge.
+title: Link a sensor to Figma or Penpot
+description: Send a live reading from your hardware into a variable in a Figma or Penpot file.
 ---
 
-The Microflow ecosystem has a second tool for designers: the **Hardware Bridge**, a Figma plugin that lets a Figma file react to physical inputs. In this lesson you will send the live reading from a potentiometer into a Figma variable and watch a design respond.
+Microflow has plugins for designers: the **Hardware Bridge** for Figma, and the **Microflow plugin for Penpot**. They let a design file react to your hardware. In this lesson you send the reading of a potentiometer into a Figma variable and watch a rectangle change size.
+
+The steps use Figma. Penpot works the same way; the callouts tell you what is different.
 
 ## What you need
 
-- The flow from [Fade an LED with a potentiometer](/docs/learn/fade-with-potentiometer)
+- The potentiometer on `A0` from [Fade an LED with a potentiometer](/docs/learn/fade-with-potentiometer)
 - A Figma account
 - The [Microflow Hardware Bridge](https://www.figma.com/community/plugin/1373258770799080545) plugin installed in Figma
 
+<Callout type="info" title="Using Penpot?">
+  You need the [Microflow plugin for Penpot](/docs/microflow-penpot-plugin) instead. It is not in Penpot's plugin directory yet, so install it from a local development server. See [Install](/docs/microflow-penpot-plugin#install).
+</Callout>
+
 <Callout type="info" title="Template available">
-  Studio ships the flow half of this lesson as the **Sensor to Figma** template (potentiometer → MQTT on `figma/pot_value`) — open the **Templates** page and load it, then follow the Figma-side steps below.
+  Studio ships the flow half of this lesson as the **Sensor to Figma or Penpot** template: Potentiometer → Map (0–1023 to 0–100) → Design variable. Open the **Templates** page and load it. Then do Step 1, skip Step 2, and continue from Step 3.
 </Callout>
 
 <Callout type="info" title="Video placeholder">
-  60-second Figma-side screencast: open plugin → MHB collection appears → create variable → bind to rectangle width → watch it move as a knob turns on a real desk.
+  60-second screencast: add a broker, copy the Bridge ID from the Design variable node into the plugin, create a Number variable in the MHB collection, bind it to a rectangle's width, pick it in Studio, and watch the rectangle resize as a knob turns on a real desk.
 </Callout>
 
-## Step 1 — Open the Hardware Bridge plugin
+## Step 1 — Add a broker in Studio
 
-In Figma, run **Plugins → Microflow Hardware Bridge**. The first time you run it the plugin automatically creates a variable collection called **MHB** (short for Microflow Hardware Bridge) in your file.
+Studio and the plugin talk through an MQTT broker, a server that passes messages between them. For this lesson, use the free public broker that the plugin uses by default.
 
-<Callout type="info" title="Only MHB variables are exposed to hardware">
-The Bridge listens **only** to variables inside the `MHB` collection. Variables in any other collection are ignored. This is by design — it keeps your design system variables out of the live data path.
+1. In Studio, open **Configuration → MQTT**.
+2. Click **Add broker**.
+3. Name it `Mosquitto` and set the URL to `wss://test.mosquitto.org:8081/mqtt`.
+
+## Step 2 — Build the flow
+
+In a new flow, add:
+
+1. A [**Potentiometer**](/docs/microflow-studio/nodes/sense/potentiometer) node on pin `A0`.
+2. A [**Map**](/docs/microflow-studio/nodes/shape/map) node. Set **From** to `0`–`1023` and **To** to `0`–`100`.
+3. A [**Design variable**](/docs/microflow-studio/nodes/express/figma) node.
+4. Connect Potentiometer → Map, and Map → the `set` input of the Design variable node.
+
+## Step 3 — Pair Studio with the plugin
+
+1. In the Design variable node settings, set **Broker** to `Mosquitto`. The node shows its **Bridge ID**.
+2. Click **copy bridge ID**.
+3. In Figma, run the **Microflow Hardware Bridge** plugin. It creates a variable collection called **MHB** in your file.
+4. In the plugin, click the gear icon. Paste the Bridge ID into **Bridge ID**, keep the default **Broker URL**, and click **Save MQTT settings**.
+
+On the plugin's home screen, the **MQTT** dot and the **Microflow studio** dot turn green.
+
+<Callout type="info" title="Only MHB variables are linked">
+The plugin links only the variables in the `MHB` collection. Variables in other collections stay out of the bridge, so your design system is never changed by accident.
 </Callout>
 
-Leave the MQTT defaults — the Bridge ships connected to a free public MQTT server out of the box. The plugin should report **Connected**.
+## Step 4 — Create a variable in the MHB collection
 
-## Step 2 — Create a variable in the MHB collection
-
-1. Open Figma's **Local variables** panel.
+1. Open Figma's local variables.
 2. Select the **MHB** collection.
-3. Create a new variable inside it. Call it `pot_value`. Type: **Number**.
-4. Set the default to `0`.
+3. Create a **Number** variable called `pot_value`, with the value `0`.
 
-Bind that variable to *something visible* — for example, the width of a rectangle, or the opacity of a layer. Bind it the same way you bind any Figma variable.
+Draw a rectangle and bind its width to `pot_value`, the same way you bind any Figma variable.
 
-## Step 3 — Send from Studio
+<Callout type="info" title="Using Penpot?">
+  Open the tokens panel and select the **MHB** token set. Create a `sizing` token called `pot_value`, and apply it to the width of a rectangle.
+</Callout>
 
-Back in Microflow Studio, in your potentiometer flow:
+## Step 5 — Pick the variable in Studio
 
-1. Add an [**MQTT (Express)**](/docs/microflow-studio/nodes/express/figma) node.
-2. Connect the Potentiometer's output to the MQTT node's input.
-3. In the MQTT node, set the **topic** to `figma/pot_value`. The prefix `figma/` is what the Bridge listens to; the suffix must exactly match the variable name in the MHB collection (case-sensitive).
+In the Design variable node settings, open **variable** and pick `pot_value`. The node now shows the variable's name and value.
 
-That is it on the Studio side.
+## Step 6 — Watch the design react
 
-## Step 4 — Watch Figma react
-
-Twist the knob. The Figma variable `pot_value` should update live, and any layer bound to it changes in real time.
+Twist the knob. The rectangle's width changes between 0 and 100 as you turn.
 
 If nothing happens:
 
-- Verify the Bridge plugin says **Connected**, not **Reconnecting**.
-- Check that both Studio and the Bridge are pointed at the same MQTT broker (the [default server](/docs/microflow-hardware-bridge/mqtt) unless you changed it).
-- Open a [Monitor](/docs/microflow-studio/nodes/internal/monitor) on the MQTT node's input to confirm values are flowing.
+- Check that both dots in the plugin are green. If **Microflow studio** stays grey or red, the Bridge IDs or the brokers do not match.
+- Check that `pot_value` is in the **MHB** collection.
+- Put a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the Map node's output to check that values are flowing.
+- See [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect) for more checks.
 
 ## What just happened?
 
-Microflow Studio is publishing the potentiometer's reading to an MQTT topic. The Hardware Bridge plugin is subscribed to that topic and writes the value into the Figma variable. Figma redraws whenever a variable changes.
+Studio reads the potentiometer and scales the reading to 0–100. The Design variable node sends each value to the broker, on topics that include your Bridge ID. The plugin receives the value and writes it into `pot_value`. Figma redraws everything bound to that variable.
 
-Three pieces, one signal:
+<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="The signal flow: Arduino with a potentiometer → Microflow Studio, where a Design variable node sends the value → MQTT broker → Hardware Bridge Figma plugin → the pot_value variable in the MHB collection." />
 
-<img src="/diagrams/studio-mqtt-bridge-figma.svg" alt="The signal flow: Arduino potentiometer → Studio (with MQTT Express node) publishes on topic figma/pot_value → MQTT broker → Hardware Bridge Figma plugin → Figma variable in the MHB collection." />
+It also works the other way: change `pot_value` in Figma, and the node sends the new value out of its `change` output. See [Control hardware from Figma or Penpot](/docs/how-to/control-hardware-from-figma).
 
-You have now used five of the six node categories — Sense, Generate, Shape, Express, and Internal. The remaining category, **Decide**, is introduced in the [next lesson](/docs/learn/react-on-threshold), plus:
+You have now used five of the six node categories — Sense, Generate, Shape, Express, and Internal. The remaining category, **Decide**, is introduced in the [next lesson](/docs/learn/react-on-threshold). You have also used:
 
-- The Microflow Hardware Bridge
-- MQTT — the thing that connects them
+- the Microflow Hardware Bridge (or the Penpot plugin),
+- MQTT, which connects Studio and the plugin.
 
 ## Where to go next
 

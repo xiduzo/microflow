@@ -1,36 +1,37 @@
 ---
-title: MQTT (Sense)
-description: Subscribe to an MQTT topic and feed incoming messages into your flow.
+title: MQTT
+description: Publish values from your flow to an MQTT topic, or feed incoming MQTT messages into your flow.
 ---
 
-The MQTT (Sense) node subscribes to a topic on an MQTT broker — a message-passing server — and emits each message it receives as a value into your flow. It is the subscribe counterpart to the [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node, which publishes.
+The MQTT node connects your flow to an MQTT broker — a message-passing server. Its **direction** setting decides what it does:
 
-<Callout title="Going Figma → hardware? You probably want this node">
-When the [Hardware Bridge](/docs/microflow-hardware-bridge) writes a Figma variable change back out to MQTT, this is the node that picks it up in Studio. See [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma).
+- **subscribe** — the node listens to a topic and sends each message it receives out of its output.
+- **publish** — the node sends each value that arrives at its input to a topic.
+
+<Callout title="Linking to Figma or Penpot? Use the Design variable node">
+To read or change a variable in a Figma or Penpot file, use the [Design variable](/docs/microflow-studio/nodes/express/figma) node. It works with the Figma and Penpot plugins, and you do not need to know their topics.
 </Callout>
 
-By default, the node connects to a free public server run by [Mosquitto](https://mosquitto.org/). You can change the connection settings in **Settings → MQTT settings**.
+Before you use the node, add a broker under **Configuration → MQTT** in Studio. A broker has a name, a URL, and an optional username and password. In the browser, Studio can only reach a broker over `ws://` or `wss://`. The desktop app also accepts other schemes, such as `mqtt://`.
 
-<Callout type="warn" title="Public server means public data">
-The default server is open to everyone. Do not send passwords, personal information, or anything sensitive through it. It is fine for testing and prototyping.
+<Callout type="warn" title="Public brokers mean public data">
+Anyone can read and send messages on a public broker such as `test.mosquitto.org`. Do not send passwords, personal information, or anything sensitive through it. It is fine for testing and prototyping.
 </Callout>
 
-## Connection settings
+## Settings
 
 | Setting | What it does |
 | --- | --- |
-| **Identifier** | A unique name that keeps your messages separate from others using the same server |
-| **Host** | The address of the MQTT server |
-| **Port** | The connection port number — check your server's documentation |
-| **Username** | Only needed if your server requires one |
-| **Password** | Only needed if your server requires one |
-
-If you are using the Hardware Bridge, make sure both Microflow Studio and the Figma plugin are configured with the same settings.
+| **Broker** | Which of your brokers to use |
+| **direction** | `subscribe` to receive messages, `publish` to send them |
+| **topic** | The topic to subscribe or publish to |
+| **QoS** | The delivery guarantee: at most once (0), at least once (1), or exactly once (2) |
+| **retain** | Publish only. Asks the broker to keep the last message for new subscribers |
 
 ## Related
 
-- How-to: [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma) — main use of the Sense MQTT node.
 - How-to: [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)
+- Reference: [Design variable](/docs/microflow-studio/nodes/express/figma) — the node for Figma and Penpot variables.
 - Troubleshooting: [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)
 
 ## Resources

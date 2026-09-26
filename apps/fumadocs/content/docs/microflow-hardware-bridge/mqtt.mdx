@@ -1,42 +1,64 @@
 ---
-title: MQTT
-description: MQTT is the messaging system used to pass data between Microflow Studio and the Figma plugin.
+title: MQTT settings
+description: Connect the Figma plugin to an MQTT broker and pair it with Studio through the Bridge ID.
 ---
 
-The Microflow Hardware Bridge uses **MQTT** (Message Queuing Telemetry Transport) to send and receive data between your hardware and your Figma designs.
+The plugin and Microflow Studio send messages to each other through an **MQTT broker**, a server that passes messages between programs. They must use the same broker and the same **Bridge ID**.
 
-MQTT is a lightweight messaging protocol designed for devices that need to send small bits of data quickly. It works like a publish/subscribe system: one side publishes a message on a topic, and any other side that is subscribed to that topic receives it instantly.
+Click the gear icon on the plugin's home screen to open the MQTT settings. Click **Save MQTT settings** to connect. The plugin does not connect until you have saved a Bridge ID.
 
-You do not need to understand the details of MQTT to use Microflow — it works in the background. But knowing it exists helps if you ever need to troubleshoot or set up your own server.
+## Settings
+
+| Setting | What it does |
+| --- | --- |
+| **Bridge ID** | Pairs the plugin with Studio. It must be the same as the Bridge ID that Studio shows. Use 5 to 64 characters: letters, digits, `-` and `_`. The dice button makes a random one. |
+| **Broker URL** | The broker to connect to, as `[protocol://]host[:port][/path]`. The default is `wss://test.mosquitto.org:8081/mqtt`. |
+| **Username** | Only if your broker needs one. |
+| **Password** | Only if your broker needs one. |
 
 ---
 
-## Default server
+## The Bridge ID
 
-By default, both Microflow Studio and the Figma plugin connect to a free public MQTT server run by [Mosquitto](https://mosquitto.org/). This is the easiest way to get started and requires no setup.
+The Bridge ID is part of every message the plugin and Studio send. Studio and the plugin find each other only when their Bridge IDs are the same.
 
-<Callout type="warn" title="The default server is public">
-Messages sent through the public Mosquitto server can be seen by anyone. Do not send passwords, personal information, or any sensitive data through it. It is fine for learning and prototyping, but not for anything private.
+To find Studio's Bridge ID, add a [Design variable](/docs/microflow-studio/nodes/express/figma) node to a flow:
+
+- While Studio knows no variables yet, the node shows its Bridge ID.
+- The node settings have a **bridge ID** field and a **copy bridge ID** button.
+
+Studio makes its Bridge ID from your account name, with unsupported characters replaced by `_`. For example, "Sander Boer" becomes `Sander_Boer`. When you are not signed in, or your name gives fewer than 5 characters, Studio uses a random ID for your device, such as `calm_lynx_4821`. You can type your own ID in the **bridge ID** field. Clear the field to go back to the default.
+
+If you make a new ID with the dice button in the plugin, type the same ID into Studio's **bridge ID** field.
+
+## The broker URL
+
+- The plugin connects over WebSockets: `wss://` (encrypted) or `ws://`. It cannot use `mqtt://` or `mqtts://`.
+- Use `wss://` for a broker on another computer. The plugin runs inside Figma's HTTPS page, and browsers block unencrypted `ws://` connections from such pages.
+- If you leave out the protocol, the plugin uses `wss://`. If you leave out the port, it uses `8883` for `wss://` and `1883` for `ws://`. If you leave out the path, it uses `/mqtt`.
+
+Studio must connect to the same broker. Add it in Studio under **Configuration → MQTT**. The simplest setup uses the same URL in both tools. Studio in the browser also needs a `ws://` or `wss://` URL.
+
+## The default broker
+
+The default broker is the free public test server at `test.mosquitto.org`. It needs no account, so it is the fastest way to try the bridge.
+
+<Callout type="warn" title="The default broker is public">
+Anyone can read and send messages on a public broker. Anyone who knows or guesses your Bridge ID can read your variables and change them. Use the public broker for learning and prototyping. For anything private, [run your own broker](/docs/how-to/run-your-own-mqtt-broker).
 </Callout>
 
----
+## Running your own broker
 
-## Running your own MQTT server
+Any MQTT broker with a WebSocket listener works. Follow [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker), then enter its URL in both the plugin and Studio.
 
-For private projects or production use, you can run your own MQTT server. This gives you full control over who can see your data.
+For a broker that other computers reach over a network, set up TLS so the plugin can use `wss://`. Tools like [Caddy](https://hub.docker.com/_/caddy) or [Nginx](https://hub.docker.com/_/nginx) can add TLS in front of a local broker.
 
-A few things to know:
+## Where the settings are stored
 
-- Figma requires a **secure WebSocket connection** (`wss://`) to talk to an MQTT server — a plain connection (`ws://`) will not work
-- This means your server needs a valid **SSL certificate** (like the kind used by websites with HTTPS)
-- Tools like [Caddy](https://hub.docker.com/_/caddy) or [Nginx](https://hub.docker.com/_/nginx) can handle the secure tunnel for a local server
-
-Setting up your own server is an advanced task. If you are just getting started, the default public server is perfectly fine.
-
----
+The plugin keeps its settings, including the password, in Figma's client storage on your computer. They are stored in plain text.
 
 ## Resources
 
 - [mqtt.org](https://mqtt.org/)
-- [Mosquitto — the default public broker](https://mosquitto.org/)
-- [List of free public MQTT brokers](https://iot4beginners.com/top-15-open-source-public-free-brokers-of-mqtt/)
+- [Mosquitto and its public test server](https://test.mosquitto.org/)
+- [Troubleshooting: MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)

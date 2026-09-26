@@ -20,15 +20,15 @@ It worked at first, then values stopped flowing or hardware froze.
 
 → [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run)
 
-## The Hardware Bridge says "Reconnecting"
-Or values from Studio do not appear in Figma.
+## The Figma or Penpot plugin does not connect
+The plugin's **MQTT** or **Microflow studio** dot is not green, or the Design variable node says a plugin is not connected.
 
 → [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)
 
-## The Bridge says "Connected" but my Figma variable never changes
-The MQTT pipe is healthy but values are silently going nowhere. Almost always a topic-name or collection mismatch.
+## The plugin is connected, but a variable never changes
+Both dots are green, but values do not arrive. Usually the variable is outside the MHB collection or token set, or the value does not fit the variable's type.
 
-→ [MQTT can't connect — topic mismatch](/docs/troubleshooting/mqtt-cant-connect)
+→ [MQTT can't connect — values do not arrive](/docs/troubleshooting/mqtt-cant-connect#7-values-do-not-arrive)
 
 ## Something else
 
