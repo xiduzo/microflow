@@ -1,6 +1,7 @@
 import mqtt, { type IClientPublishOptions, type OnMessageCallback } from "mqtt";
 import type { MqttConfig, Client, ConnectionStatus } from "./types";
 import { parseMqttUrl } from "./url-parser";
+import { topicMatches } from "./topic";
 
 type Subscription = {
   callback: OnMessageCallback;
@@ -163,21 +164,11 @@ export class MqttClientManager {
   }
 
   /**
-   * Escape regex special characters for topic matching
-   */
-  private escapeRegExp(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-
-  /**
    * Handle incoming MQTT messages
    */
   private handleMessage = (topic: string, payload: Buffer, packet: any) => {
     Array.from(this.subscriptions.keys()).forEach((subscription) => {
-      const regexp = this.escapeRegExp(subscription)
-        .replace(/\\\+/g, "\\S+")
-        .replace(/\\#/, "\\S+");
-      if (!topic.match(regexp)) return;
+      if (!topicMatches(subscription, topic)) return;
 
       try {
         const { callback } = this.subscriptions.get(subscription)!;
